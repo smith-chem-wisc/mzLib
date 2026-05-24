@@ -1,0 +1,124 @@
+id	proforma_string	source	section	compliance_level	feature	canonical_form	valid	notes
+v1-rule1-01	SEQUENCE	v1-paper	Rule 1	base	plain-sequence		true	
+v1-rule1-02	SEQJBZNCE	v1-paper	Rule 1	base	ambiguity-aa-codes		true	J/B/Z ambiguity amino-acid codes
+v1-rule2-01	SEQVK[Unimod:Label:13C(3)][Acetyl]ENCE	v1-paper	Rule 2	level2	multiple-mods-one-residue		true	v1 syntax: Unimod: prefix (v2 uses UNIMOD:)
+v1-rule3-01	SEQVEN[mass:+14.02]CE	v1-paper	Rule 3	base	mass-shift		true	v1 mass:+x (v2 drops the mass: prefix)
+v1-rule4-01	SEQVEN[mod:Methyl|mass:+14.02]CE	v1-paper	Rule 4	level2	name-plus-mass		true	v1 mod:/mass: prefixes; joint interp+mass
+v1-rule5a-01	PRT[Phospho]EFRM	v1-paper	Rule 5a	base	mod-name-unimod		true	
+v1-rule5a-02	PRT[Phosphothreonine(UniProt)]EFRM	v1-paper	Rule 5a	base	mod-name-uniprot		true	source in parentheses (v1 style)
+v1-rule5a-03	PRT[O-phospho-L-threonine(RESID)]EFRM	v1-paper	Rule 5a	top-down	mod-name-resid		true	
+v1-rule5a-04	PRT[O-phospho-L-threonine(PSI-MOD)]EFRM	v1-paper	Rule 5a	base	mod-name-psimod		true	
+v1-rule5b-01	PRT[Unimod:21]EFRM	v1-paper	Rule 5b	base	accession-unimod		true	v1 Unimod: (v2 UNIMOD:)
+v1-rule5b-02	PRT[UniProt:PTM-0254]EFRM	v1-paper	Rule 5b	base	accession-uniprot		true	
+v1-rule5b-03	PRT[RESID:AA0038]EFRM	v1-paper	Rule 5b	top-down	accession-resid		true	
+v1-rule5b-04	PRT[PSI-MOD:MOD:00047]EFRM	v1-paper	Rule 5b	base	accession-psimod		true	v1 PSI-MOD: (v2 MOD:)
+v1-rule5c-01	SEQ[mass:+15.995]VENCE	v1-paper	Rule 5c	base	mass-signed-decimal		true	
+v1-rule5c-02	SEQ[mass:+16]VENCE	v1-paper	Rule 5c	base	mass-signed-int		true	
+v1-rule5c-03	SEQ[mass:16]VENCE	v1-paper	Rule 5c	base	mass-unsigned		true	unsigned mass (v1); v2 requires sign for delta
+v1-rule5d-01	SEQVEN[Methyl|formula:H(2) C]CE	v1-paper	Rule 5d	top-down	name-plus-formula		true	v1 formula: prefix
+v1-rule5e-01	SEQ[info:unstructured text]VENCE	v1-paper	Rule 5e	base	info-tag		true	v1 info: (v2 INFO: also accepted)
+v1-rule6-01	[RESID]+S[AA0037]EQVE[AA0234]NCE	v1-paper	Rule 6	top-down	global-default-source-resid		true	v1 prefix declares default mod source
+v1-rule6-02	[mass]+S[80]EQVE[14]NCE	v1-paper	Rule 6	base	global-default-source-mass		true	v1 default-source notation
+v1-rule6-03	[formula]+S[H P O(3)]EQVE[H(2) C]NCE	v1-paper	Rule 6	top-down	global-default-source-formula		true	v1 default-source notation
+v1-rule7-01	[mass:-17.027]-QVENCE-[Amidation]	v1-paper	Rule 7	base	terminal-mods		true	N-term mass loss + C-term Amidation
+v1-bp-i	[Acetyl]-S[Phospho|mass:79.966331]GRGK[Acetyl|Unimod:1|mass:42.010565]QGGKARAKAKTRSSRAGLQFPVGRVHRLLRKGNYAERVGAGAPVYLAAVLEYLTAEILELAGNAARDNKKTRIIPRHLQLAIRNDEELNKLLGKVTIAQGGVLPNIQAVLLPKKT[Unimod:21]ESHHKAKGK	v1-paper	Best Practices i	level2	histone-name-plus-mass		true	best-practices example i
+v1-bp-ii	[Unimod]+[1]-S[21]GRGK[1]QGGKARAKAKTRSSRAGLQFPVGRVHRLLRKGNYAERVGAGAPVYLAAVLEYLTAEILELAGNAARDNKKTRIIPRHLQLAIRNDEELNKLLGKVTIAQGGVLPNIQAVLLPKKT[21]ESHHKAKGK	v1-paper	Best Practices ii	base	histone-global-unimod		true	best-practices example ii; default-source Unimod
+v1-bp-iii	[myristoleylation|Myristoleyl(PSI-MOD)|info:Acylation]-MTLFQLLREHWVHILVPAGFVFGCYLDRKDDEK[di-Methylation|Dimethyl(PSI-MOD)]LTAFRNK[p-adenosine|N6-(phospho-5'-adenosine)-L-lysine(RESID)|RESID:AA0227|PSI-MOD:00232|N6AMPLys(PSI-MOD)]SMLFQRELRPNEEVTWK	v1-paper	Best Practices iii	top-down	histone-multi-source		true	best-practices example iii; multiple synonyms per mod
+v1-bp-iv	MTLFQLDEKLTA[mass:-37.995001|info:unknown modification]FRNKSMLFQRELRPNEEVTWK	v1-paper	Best Practices iv	base	unknown-mass-mod		true	best-practices example iv
+v2-4.2.1-01	EM[Oxidation]EVEES[Phospho]PEK	v2-spec	4.2.1	base	mod-name		true	
+v2-4.2.1-02	EM[L-methionine sulfoxide]EVEES[O-phospho-L-serine]PEK	v2-spec	4.2.1	base	mod-name-with-spaces		true	
+v2-4.2.1-03	EM[R: L-methionine sulfone]EVEES[O-phospho-L-serine]PEK	v2-spec	4.2.1	top-down	resid-prefix-name		true	R: RESID prefix on a name
+v2-4.2.1-04	EMEVTK[X:DSS#XL1]SESPEK	v2-spec	4.2.1	cross-linking	xlmod-prefix-crosslink		true	X: XLMOD prefix with #XL1 label
+v2-4.2.1-05	NEEYN[GNO:G59626AS]K	v2-spec	4.2.1	glycans	gno-accession		true	
+v2-4.2.1-06	EM[U:Oxidation]EVEES[U:Phospho]PEK	v2-spec	4.2.1	level2	unimod-prefix-name		true	U: UNIMOD prefix
+v2-4.2.1-07	EM[M:L-methionine sulfoxide]EVEES[M:O-phospho-L-serine]PEK	v2-spec	4.2.1	level2	psimod-prefix-name		true	M: MOD prefix
+v2-4.2.1-08	EM[Oxidation]EVE[Cation:Mg[II]]ES[Phospho]PEK	v2-spec	4.2.1	base	nested-brackets-cation		true	nested [II] inside the tag
+v2-4.2.2-01	EM[MOD:00719]EVEES[MOD:00046]PEK	v2-spec	4.2.2	base	psimod-accession		true	
+v2-4.2.2-02	EM[UNIMOD:35]EVEES[UNIMOD:56]PEK	v2-spec	4.2.2	base	unimod-accession		true	
+v2-4.2.2-03	EM[RESID:AA0581]EVEES[RESID:AA0037]PEK	v2-spec	4.2.2	top-down	resid-accession		true	
+v2-4.2.3.1-01	EMEVTK[XLMOD:02001#XL1]SESPEK[#XL1]	v2-spec	4.2.3.1	cross-linking	xl-two-positions		true	
+v2-4.2.3.1-02	EMK[XLMOD:02000#XL1]EVTKSE[XLMOD:02010#XL2]SK[#XL1]PEK[#XL2]AR	v2-spec	4.2.3.1	cross-linking	xl-two-crosslinks		true	
+v2-4.2.3.1-03	EMEVTK[XLMOD:02001#XL1]SESPEK	v2-spec	4.2.3.1	cross-linking	xl-dangling-label		true	labeled but unpaired (dead-end/hydrolyzed)
+v2-4.2.3.1-04	EMEVTK[XLMOD:02001]SESPEK	v2-spec	4.2.3.1	cross-linking	xl-no-label		true	crosslinker mass as ordinary mod
+v2-4.2.3.2-01	SEK[XLMOD:02001#XL1]UENCE//EMEVTK[XLMOD:02001#XL1]SESPEK	v2-spec	4.2.3.2	cross-linking	interchain-xl		true	// separates two chains
+v2-4.2.3.2-02	SEK[XLMOD:02001#XL1]UENCE//EMEVTK[#XL1]SESPEK	v2-spec	4.2.3.2	cross-linking	interchain-xl-ref		true	second site references #XL1
+v2-4.2.3.3-01	EVTSEKC[MOD:00034#XL1]LEMSC[#XL1]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-psimod		true	
+v2-4.2.3.3-02	EVTSEKC[L-cystine (cross-link)#XL1]LEMSC[#XL1]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-name		true	
+v2-4.2.3.3-03	FVNQHLC[MOD:00034#XL1]GSHLVEALYLVC[MOD:00034#XL2]GERGFFYTPKA//GIVEQC[MOD:00034#XL3]C[#XL1]TSIC[#XL3]SLYQLENYC[#XL2]N	v2-spec	4.2.3.3	cross-linking	insulin-disulfides		true	three disulfides across two chains
+v2-4.2.3.3-04	EVTSEKC[XLMOD:02009#XL1]LEMSC[#XL1]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-xlmod		true	
+v2-4.2.3.3-05	EVTSEKC[X:Disulfide#XL1]LEMSC[#XL1]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-xlmod-name		true	X: prefix + name
+v2-4.2.3.3-06	EVTSEKC[half cystine]LEMSC[half cystine]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-unlinked-names		true	two independent mods (no link label)
+v2-4.2.3.3-07	EVTSEKC[MOD:00798]LEMSC[MOD:00798]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-unlinked-accession		true	
+v2-4.2.3.3-08	EVTSEKC[UNIMOD:374#XL1]LEMSC[#XL1]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-unimod		true	
+v2-4.2.3.3-09	EVTSEKC[Dehydro#XL1]LEMSC[#XL1]EFD	v2-spec	4.2.3.3	cross-linking	disulfide-dehydro		true	
+v2-4.2.4-01	ETFGD[MOD:00093#BRANCH]//R[#BRANCH]ATER	v2-spec	4.2.4	cross-linking	branch		true	#BRANCH peptide branch
+v2-4.2.4-02	AVTKYTSSK[MOD:00134#BRANCH]//AGKQLEDGRTLSDYNIQKESTLHLVLRLRG-[#BRANCH]	v2-spec	4.2.4	cross-linking	branch-cterm		true	branch to C-terminus of second chain
+v2-4.2.5-01	NEEYN[GNO:G59626AS]K	v2-spec	4.2.5	glycans	gno-accession		true	
+v2-4.2.5-02	YPVLN[GNO:G62765YT]VTMPN[GNO:G02815KT]NSNGKFDK	v2-spec	4.2.5	glycans	gno-two-glycans		true	
+v2-4.2.6-01	EM[+15.9949]EVEES[+79.9663]PEK	v2-spec	4.2.6	base	delta-mass		true	v2 delta mass (signed, no prefix)
+v2-4.2.6-02	EM[+15.995]EVEES[-18.01]PEK	v2-spec	4.2.6	base	delta-mass-neg		true	
+v2-4.2.6-03	EM[U:+15.9949]EVEES[U:+79.9663]PEK	v2-spec	4.2.6	level2	delta-mass-unimod-source		true	U: source on a delta mass
+v2-4.2.6-04	EM[U:+15.995]EVEES[U:+79.966]PEK	v2-spec	4.2.6	level2	delta-mass-unimod-source		true	
+v2-4.2.6-05	EM[U:+15.995]EVEES[Obs:+79.978]PEK	v2-spec	4.2.6	level2	delta-mass-observed		true	Obs: observed-mass source
+v2-4.2.7-01	RTAAX[+367.0537]WT	v2-spec	4.2.7	level2	mass-on-X		true	delta mass on ambiguous residue X
+v2-4.2.8-01	SEQUEN[Formula:C12H20O2]CE	v2-spec	4.2.8	top-down	formula		true	
+v2-4.2.8-02	SEQUEN[Formula:[13C2]CH6N]CE	v2-spec	4.2.8	top-down	formula-isotope		true	isotope-labeled atoms in brackets
+v2-4.2.8-03	SEQUEN[Formula:[13C2][12C-2]H2N]CE	v2-spec	4.2.8	top-down	formula-isotope-neg		true	negative cardinality on isotope
+v2-4.2.9-01	SEQUEN[Glycan:HexNAc1Hex2]CE	v2-spec	4.2.9	glycans	glycan-composition		true	
+v2-4.3.1-01	[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK	v2-spec	4.3.1	base	nterm-label		true	N-terminal mod
+v2-4.3.1-02	[iTRAQ4plex]-EM[U:Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]	v2-spec	4.3.1	level2	both-termini		true	N-term + C-term mods
+v2-4.3.2-01	{Glycan:Hex}EM[U:Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]	v2-spec	4.3.2	glycans	labile-glycan		true	{} labile/unlocalized mod
+v2-4.3.2-02	{Glycan:Hex}[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]	v2-spec	4.3.2	glycans	labile-plus-nterm		true	
+v2-4.3.2-03	{Glycan:Hex}[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]	v2-spec	4.3.2	glycans	labile-plus-both-termini		true	
+v2-4.3.2-04	{Glycan:Hex}{Glycan:NeuAc}EMEVNESPEK	v2-spec	4.3.2	glycans	two-labile		true	
+v2-4.4.1-01	[Phospho]?EM[Oxidation]EVTSESPEK	v2-spec	4.4.1	base	unknown-position		true	? = unknown localization
+v2-4.4.1-02	[Phospho][Phospho]?[Acetyl]-EM[Oxidation]EVTSESPEK	v2-spec	4.4.1	base	unknown-pos-plus-nterm		true	
+v2-4.4.1-03	[Phospho]^2?[Acetyl]-EM[Oxidation]EVTSESPEK	v2-spec	4.4.1	base	unknown-pos-multiplier		true	^2 = two occurrences
+v2-4.4.2-01	EM[Oxidation]EVT[#g1]S[#g1]ES[Phospho#g1]PEK	v2-spec	4.4.2	base	possible-positions-group		true	#g1 localization group
+v2-4.4.3-01	PRT(ESFRMS)[+19.0523]ISK	v2-spec	4.4.3	base	range		true	(..) range, mod applies to whole range
+v2-4.4.3-02	PRT(EC[Carbamidomethyl]FRMS)[+19.0523]ISK	v2-spec	4.4.3	base	range-with-inner-mod		true	
+v2-4.4.4-01	EM[Oxidation]EVT[#g1(0.01)]S[#g1(0.09)]ES[Phospho#g1(0.90)]PEK	v2-spec	4.4.4	base	scored-positions		true	localization scores in group
+v2-4.4.4-02	[Phospho#s1]?EM[Oxidation]EVT[#s1(0.01)]S[#s1(0.09)]ES[#s1(0.90)]PEK	v2-spec	4.4.4	base	scored-unknown-pos		true	
+v2-4.4.5-01	PRT(ESFRMS)[+19.0523#g1(0.01)]ISK[#g1(0.99)]	v2-spec	4.4.5	base	scored-range-and-residue		true	
+v2-4.4.5-02	PR[#g1(0.91)]T(EC[Carbamidomethyl]FRMS)[+19.05233#g1(0.09)]ISK	v2-spec	4.4.5	base	scored-residue-and-range		true	
+v2-4.5-01	MPGLVDSNPAPPESQEKKPLK(PCCACPETKKARDACIIEKGEEHCGHLIEAHKECMRALGFKI)[Oxidation][Oxidation][half cystine][half cystine]	v2-spec	4.5	base	multiple-mods-on-range		true	four mods on one range
+v2-4.6.1-01	<13C>ATPEILTVNSIGQLK	v2-spec	4.6.1	mass-spectrum	global-isotope-13C		true	<> global isotope label
+v2-4.6.1-02	<15N>ATPEILTVNSIGQLK	v2-spec	4.6.1	mass-spectrum	global-isotope-15N		true	
+v2-4.6.1-03	<D>ATPEILTVNSIGQLK	v2-spec	4.6.1	mass-spectrum	global-isotope-D		true	D = 2H
+v2-4.6.1-04	<13C><15N>ATPEILTVNSIGQLK	v2-spec	4.6.1	mass-spectrum	global-isotope-two		true	
+v2-4.6.2-01	<[S-carboxamidomethyl-L-cysteine]@C>ATPEILTCNSIGCLK	v2-spec	4.6.2	mass-spectrum	global-mod-on-residue		true	<mod@residues> fixed mod
+v2-4.6.2-02	<[MOD:01090]@C>ATPEILTCNSIGCLK	v2-spec	4.6.2	mass-spectrum	global-mod-accession		true	
+v2-4.6.2-03	<[Oxidation]@C,M>MTPEILTCNSIGCLK	v2-spec	4.6.2	mass-spectrum	global-mod-two-residues		true	@C,M multiple targets
+v2-4.6.2-04	<[MOD:01090]@C>[Phospho]?EM[Oxidation]EVTSECSPEK	v2-spec	4.6.2	mass-spectrum	global-mod-plus-unknown-pos		true	
+v2-4.6.2-05	<[MOD:01090]@C>[Acetyl]-EM[Oxidation]EVTSECSPEK	v2-spec	4.6.2	mass-spectrum	global-mod-plus-nterm		true	
+v2-4.7-01	(?DQ)NGTWEM[Oxidation]ESNENFEGYM[Oxidation]K	v2-spec	4.7	level2	sequence-ambiguity-range		true	(?..) ambiguous sequence stretch
+v2-4.7-02	(?N)NGTWEM[Oxidation]ESNENFEGYM[Oxidation]K	v2-spec	4.7	level2	sequence-ambiguity-residue		true	
+v2-4.8-01	ELV[INFO:AnyString]IS	v2-spec	4.8	base	info-tag-upper		true	
+v2-4.8-02	ELV[info:AnyString]IS	v2-spec	4.8	base	info-tag-lower		true	case-insensitive INFO key
+v2-4.8-03	ELVIS[Phospho|INFO:newly discovered]K	v2-spec	4.8	base	mod-plus-info		true	
+v2-4.8-04	ELVIS[Phospho|INFO:newly discovered|INFO:really awesome]K	v2-spec	4.8	base	mod-plus-two-info		true	
+v2-4.8-05	ELVIS[Phospho|INFO:newly discovered|INFO:Created on 2021-06]K	v2-spec	4.8	base	info-with-date		true	
+v2-4.8-06	ELVIS[Phospho|INFO:newly discovered|INFO:Created by software Tool1]K	v2-spec	4.8	base	info-with-software		true	
+v2-4.9-01	ELVIS[U:Phospho|+79.966331]K	v2-spec	4.9	level2	name-plus-mass		true	joint interpretation + mass
+v2-4.9-02	ELVIS[U:Phospho|Obs:+79.978]K	v2-spec	4.9	level2	name-plus-observed-mass		true	
+v2-4.9-03	ELVIS[Phospho|O-phospho-L-serine]K	v2-spec	4.9	base	two-synonyms		true	
+v2-4.9-04	ELVIS[UNIMOD:21|MOD:00046]K	v2-spec	4.9	base	two-accessions		true	
+v2-4.9-05	ELVIS[UNIMOD:21|Phospho]K	v2-spec	4.9	base	accession-plus-name		true	
+v2-4.9-06	ELVIS[Phospho|O-phospho-L-serine|Obs:+79.966]K	v2-spec	4.9	base	two-synonyms-plus-mass		true	
+v2-4.9-07	ELVIS[Obs:+79.966|Phospho|Sulfo]K	v2-spec	4.9	base	mass-plus-two-names		true	
+v2-7.1-01	EMEVEESPEK/2	v2-spec	7.1	mass-spectrum	charge		true	/z charge state
+v2-7.1-02	EM[U:Oxidation]EVEES[U:Phospho]PEK/3	v2-spec	7.1	mass-spectrum	charge-with-mods		true	
+v2-7.1-03	[U:iTRAQ4plex]-EM[U:Oxidation]EVNES[U:Phospho]PEK[U:iTRAQ4plex]-[U:Methyl]/3	v2-spec	7.1	mass-spectrum	charge-full		true	
+v2-7.1-04	EMEVEESPEK/2[+2Na+,+H+]	v2-spec	7.1	mass-spectrum	charge-adducts		true	ion adduct descriptor
+v2-7.1-05	EMEVEESPEK/1[+2Na+,-H+]	v2-spec	7.1	mass-spectrum	charge-adducts-mixed		true	
+v2-7.1-06	EMEVEESPEK/-2[2I-]	v2-spec	7.1	mass-spectrum	charge-negative		true	negative charge
+v2-7.1-07	EMEVEESPEK/-1[+e-]	v2-spec	7.1	mass-spectrum	charge-electron		true	electron adduct
+v2-7.2-01	EMEVEESPEK/2+ELVISLIVER/3	v2-spec	7.2	mass-spectrum	chimeric		true	+ joins chimeric proteoforms
+v2-bad-01	[Acetyl]-[Phospho]^2?EM[Oxidation]EVTSESPEK	v2-spec	counter-example	base	invalid-nterm-order	[Acetyl]-[Phospho]^2?EM[Oxidation]EVTSESPEK	false	N-term mod must be last before sequence
+v2-bad-02	EM[Oxidation]EVT[#g1]S[Phospho#g1]ES[Phospho#g1]PEK	v2-spec	counter-example	base	invalid-group-multi-preferred	EM[Oxidation]EVT[#g1]S[Phospho#g1]ES[Phospho#g1]PEK	false	only one preferred location per group
+v2-bad-03	P(RT(ESFRMS)[+19.0523]IS)[+19.0523]K	v2-spec	counter-example	base	invalid-overlapping-ranges	P(RT(ESFRMS)[+19.0523]IS)[+19.0523]K	false	overlapping/nested ranges disallowed
+v2-bad-04	EM[M:00719]EVEES[M:00046]PEK	v2-spec	counter-example	base	invalid-psimod-short	EM[M:00719]EVEES[M:00046]PEK	false	must use full MOD: prefix
+v2-bad-05	EM[U:35]EVEES[U:56]PEK	v2-spec	counter-example	base	invalid-unimod-short	EM[U:35]EVEES[U:56]PEK	false	must use UNIMOD: accession
+v2-bad-06	EM[R:AA0581]EVEES[R:AA0037]PEK	v2-spec	counter-example	top-down	invalid-resid-short	EM[R:AA0581]EVEES[R:AA0037]PEK	false	must use RESID: accession
+v2-bad-07	ELVIS[Phospho|INFO:newly]discovered]K	v2-spec	counter-example	base	invalid-unpaired-bracket	ELVIS[Phospho|INFO:newly]discovered]K	false	unpaired closing bracket
+v2-bad-08	MPGLVDSNPAPPESQEKKPLK(PCCACPETKKARDACIIEKGEEHCGHLIEAHKECMRALGFKI)[Oxidation]^2[half cystine][half cystine]	v2-spec	counter-example	base	invalid-multiplier-in-range	MPGLVDSNPAPPESQEKKPLK(PCCACPETKKARDACIIEKGEEHCGHLIEAHKECMRALGFKI)[Oxidation]^2[half cystine][half cystine]	false	^ multiplier disallowed on a range
