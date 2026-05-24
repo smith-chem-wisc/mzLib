@@ -30,6 +30,17 @@ namespace Test.FileReadingTests.ProForma
                 _databaseReference: new Dictionary<string, IList<string>> { [dbKey] = new List<string> { accession } });
         }
 
+        // Terminal mods use the any-residue motif "X" and a terminal LocationRestriction, mirroring how
+        // mzLib's Unimod loader stores N-/C-terminal entries.
+        private static Modification MakeTerminalMod(string name, string locationRestriction, double mass,
+            string? dbKey = null, string? accession = null)
+        {
+            ModificationMotif.TryGetMotif("X", out var motif);
+            var dr = dbKey == null ? null : new Dictionary<string, IList<string>> { [dbKey] = new List<string> { accession! } };
+            return new Modification(_originalId: name, _modificationType: dbKey ?? "testMods", _target: motif,
+                _locationRestriction: locationRestriction, _monoisotopicMass: mass, _databaseReference: dr);
+        }
+
         [Test]
         public void Layer2_RoundTrips_PerResidueNameMods()
         {
@@ -94,6 +105,42 @@ namespace Test.FileReadingTests.ProForma
 
             var rebuilt = ProFormaConverter.ToProFormaTerm(term.Sequence, dict);
             Assert.That(ProFormaWriter.Write(rebuilt), Is.EqualTo("EM[MOD:00719]EVEESPEK"));
+        }
+
+        [Test]
+        public void Layer2_RoundTrips_TerminalNameMods()
+        {
+            var nAcetyl = MakeTerminalMod("Acetyl", "N-terminal.", 42.01057);
+            var cAmidation = MakeTerminalMod("Amidation", "C-terminal.", -0.98402);
+            var ox = MakeMod("Oxidation", 'M', 15.99491);
+            var allModsKnown = new Dictionary<string, Modification>
+            {
+                [nAcetyl.IdWithMotif] = nAcetyl, [cAmidation.IdWithMotif] = cAmidation, [ox.IdWithMotif] = ox
+            };
+
+            // base PEMTIDEK -> N=1, M index 2 (key 4), C=10
+            var term = ProFormaReader.Read("[Acetyl]-PEM[Oxidation]TIDEK-[Amidation]");
+            var dict = ProFormaConverter.ToModificationDictionary(term, allModsKnown);
+            Assert.That(dict[1], Is.SameAs(nAcetyl));
+            Assert.That(dict[4], Is.SameAs(ox));
+            Assert.That(dict[10], Is.SameAs(cAmidation));
+
+            var rebuilt = ProFormaConverter.ToProFormaTerm(term.Sequence, dict);
+            Assert.That(ProFormaWriter.Write(rebuilt), Is.EqualTo("[Acetyl]-PEM[Oxidation]TIDEK-[Amidation]"));
+        }
+
+        [Test]
+        public void Layer2_RoundTrips_TerminalAccession()
+        {
+            var nMod = MakeTerminalMod("iTRAQ4plex", "N-terminal.", 144.10253, "Unimod", "214");
+            var allModsKnown = new Dictionary<string, Modification> { [nMod.IdWithMotif] = nMod };
+
+            var term = ProFormaReader.Read("[UNIMOD:214]-PEPTIDEK");
+            var dict = ProFormaConverter.ToModificationDictionary(term, allModsKnown);
+            Assert.That(dict[1], Is.SameAs(nMod));
+
+            var rebuilt = ProFormaConverter.ToProFormaTerm(term.Sequence, dict);
+            Assert.That(ProFormaWriter.Write(rebuilt), Is.EqualTo("[UNIMOD:214]-PEPTIDEK"));
         }
 
         [Test]

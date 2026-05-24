@@ -20,6 +20,8 @@ namespace Readers.ProForma
     /// </summary>
     public static class ProFormaConverter
     {
+        private enum Terminus { None, N, C }
+
         /// <summary>mzLib <see cref="Modification.DatabaseReference"/> key -&gt; ProForma accession prefix.</summary>
         private static readonly Dictionary<string, string> DbKeyToProFormaPrefix = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -56,19 +58,19 @@ namespace Readers.ProForma
             var result = new Dictionary<int, Modification>();
 
             if (term.NTerminalDescriptors is { Count: > 0 })
-                result[1] = Resolve(term.NTerminalDescriptors, residue: null, allModsKnown, byAccession, term);
+                result[1] = Resolve(term.NTerminalDescriptors, residue: null, Terminus.N, allModsKnown, byAccession, term);
 
             if (term.Tags != null)
             {
                 foreach (var tag in term.Tags)
                 {
                     int residueIndex = tag.ZeroBasedStartIndex;
-                    result[residueIndex + 2] = Resolve(tag.Descriptors, sequence[residueIndex], allModsKnown, byAccession, term);
+                    result[residueIndex + 2] = Resolve(tag.Descriptors, sequence[residueIndex], Terminus.None, allModsKnown, byAccession, term);
                 }
             }
 
             if (term.CTerminalDescriptors is { Count: > 0 })
-                result[sequence.Length + 2] = Resolve(term.CTerminalDescriptors, residue: null, allModsKnown, byAccession, term);
+                result[sequence.Length + 2] = Resolve(term.CTerminalDescriptors, residue: null, Terminus.C, allModsKnown, byAccession, term);
 
             return result;
         }
@@ -147,10 +149,11 @@ namespace Readers.ProForma
 
         /// <summary>
         /// Resolves the first descriptor that maps to a known modification. Identifier descriptors are
-        /// matched by accession (motif-aware); Name descriptors by mzLib's <c>"{name} on {residue}"</c>
-        /// IdWithMotif convention, with a bare-name fallback for terminal/motif-free ids.
+        /// matched by accession; Name descriptors by mzLib's <c>"{name} on {residue}"</c> IdWithMotif
+        /// convention. Interior residues match on target motif; termini match on
+        /// <see cref="Modification.LocationRestriction"/>.
         /// </summary>
-        private static Modification Resolve(IList<Tdp.ProFormaDescriptor> descriptors, char? residue,
+        private static Modification Resolve(IList<Tdp.ProFormaDescriptor> descriptors, char? residue, Terminus terminus,
             Dictionary<string, Modification> allModsKnown, Dictionary<string, List<Modification>> byAccession,
             Tdp.ProFormaTerm term)
         {
@@ -158,34 +161,63 @@ namespace Readers.ProForma
             {
                 if (d.Key == Tdp.ProFormaKey.Identifier
                     && byAccession.TryGetValue(d.Value, out var candidates)
-                    && SelectByMotif(candidates, residue) is { } byAcc)
+                    && SelectCandidate(candidates, residue, terminus) is { } byAcc)
                     return byAcc;
 
-                if (d.Key == Tdp.ProFormaKey.Name && residue.HasValue
-                    && allModsKnown.TryGetValue($"{d.Value} on {residue}", out var byMotif))
-                    return byMotif;
-
-                if (d.Key == Tdp.ProFormaKey.Name && allModsKnown.TryGetValue(d.Value, out var byName))
+                if (d.Key == Tdp.ProFormaKey.Name
+                    && ResolveName(d.Value, residue, terminus, allModsKnown) is { } byName)
                     return byName;
             }
 
             throw new MzLibException(
                 $"No known modification resolves descriptor(s) [{string.Join("|", descriptors.Select(d => $"{d.Key}:{d.Value}"))}] " +
-                $"on residue '{residue?.ToString() ?? "terminus"}' in ProForma term '{term.Sequence}'.");
+                $"at {Where(residue, terminus)} in ProForma term '{term.Sequence}'.");
+        }
+
+        /// <summary>Chooses an accession candidate matching the residue motif (interior) or terminus restriction.</summary>
+        private static Modification? SelectCandidate(List<Modification> candidates, char? residue, Terminus terminus)
+        {
+            if (terminus != Terminus.None)
+                return candidates.FirstOrDefault(m => IsTerminusCompatible(m, terminus));
+            if (residue.HasValue)
+                return candidates.FirstOrDefault(m => MotifMatches(m, residue.Value));
+            return candidates.Count == 1 ? candidates[0] : null;
         }
 
         /// <summary>
-        /// Chooses the modification whose target motif matches the residue. For a terminus (no residue)
-        /// the single candidate is returned; an ambiguous terminus match returns null.
+        /// Resolves a Name descriptor. Interior residues use the <c>"{name} on {residue}"</c> key; termini
+        /// try <c>"{name} on X"</c> first (the usual terminal motif) then any same-named terminus-compatible mod.
         /// </summary>
-        private static Modification? SelectByMotif(List<Modification> candidates, char? residue)
+        private static Modification? ResolveName(string name, char? residue, Terminus terminus,
+            Dictionary<string, Modification> allModsKnown)
         {
-            if (!residue.HasValue)
-                return candidates.Count == 1 ? candidates[0] : null;
-
-            return candidates.FirstOrDefault(m => m.Target != null
-                && m.Target.ToString().Equals(residue.Value.ToString(), StringComparison.Ordinal));
+            if (terminus != Terminus.None)
+            {
+                if (allModsKnown.TryGetValue($"{name} on X", out var onX) && IsTerminusCompatible(onX, terminus))
+                    return onX;
+                return allModsKnown.Values.FirstOrDefault(m => m.OriginalId == name && IsTerminusCompatible(m, terminus));
+            }
+            if (residue.HasValue && allModsKnown.TryGetValue($"{name} on {residue}", out var byMotif))
+                return byMotif;
+            return allModsKnown.TryGetValue(name, out var bare) ? bare : null;
         }
+
+        private static bool MotifMatches(Modification mod, char residue)
+            => mod.Target != null && mod.Target.ToString().Equals(residue.ToString(), StringComparison.Ordinal);
+
+        private static bool IsTerminusCompatible(Modification mod, Terminus terminus) => terminus switch
+        {
+            Terminus.N => mod.LocationRestriction is "N-terminal." or "Peptide N-terminal.",
+            Terminus.C => mod.LocationRestriction is "C-terminal." or "Peptide C-terminal.",
+            _ => false,
+        };
+
+        private static string Where(char? residue, Terminus terminus) => terminus switch
+        {
+            Terminus.N => "the N-terminus",
+            Terminus.C => "the C-terminus",
+            _ => $"residue '{residue}'",
+        };
 
         /// <summary>
         /// Throws if the term uses any feature outside the Layer-2 supported subset (per-residue and
