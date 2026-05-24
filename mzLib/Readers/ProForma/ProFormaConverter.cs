@@ -20,6 +20,22 @@ namespace Readers.ProForma
     /// </summary>
     public static class ProFormaConverter
     {
+        /// <summary>mzLib <see cref="Modification.DatabaseReference"/> key -&gt; ProForma accession prefix.</summary>
+        private static readonly Dictionary<string, string> DbKeyToProFormaPrefix = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["Unimod"] = "UNIMOD",
+            ["PSI-MOD"] = "MOD",
+            ["RESID"] = "RESID",
+        };
+
+        /// <summary>ProForma accession prefix -&gt; SDK evidence type (for the inverse direction).</summary>
+        private static readonly Dictionary<string, Tdp.ProFormaEvidenceType> PrefixToEvidence = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["UNIMOD"] = Tdp.ProFormaEvidenceType.Unimod,
+            ["MOD"] = Tdp.ProFormaEvidenceType.PsiMod,
+            ["RESID"] = Tdp.ProFormaEvidenceType.Resid,
+        };
+
         /// <summary>
         /// Converts a term into the (one-is-N-terminus) modification dictionary mzLib uses.
         /// The base sequence is available from <see cref="Tdp.ProFormaTerm.Sequence"/>.
@@ -36,29 +52,31 @@ namespace Readers.ProForma
             EnsureLayer2Supported(term);
 
             string sequence = term.Sequence;
+            var byAccession = BuildAccessionIndex(allModsKnown.Values);
             var result = new Dictionary<int, Modification>();
 
             if (term.NTerminalDescriptors is { Count: > 0 })
-                result[1] = Resolve(term.NTerminalDescriptors, residue: null, allModsKnown, term);
+                result[1] = Resolve(term.NTerminalDescriptors, residue: null, allModsKnown, byAccession, term);
 
             if (term.Tags != null)
             {
                 foreach (var tag in term.Tags)
                 {
                     int residueIndex = tag.ZeroBasedStartIndex;
-                    result[residueIndex + 2] = Resolve(tag.Descriptors, sequence[residueIndex], allModsKnown, term);
+                    result[residueIndex + 2] = Resolve(tag.Descriptors, sequence[residueIndex], allModsKnown, byAccession, term);
                 }
             }
 
             if (term.CTerminalDescriptors is { Count: > 0 })
-                result[sequence.Length + 2] = Resolve(term.CTerminalDescriptors, residue: null, allModsKnown, term);
+                result[sequence.Length + 2] = Resolve(term.CTerminalDescriptors, residue: null, allModsKnown, byAccession, term);
 
             return result;
         }
 
         /// <summary>
         /// Builds a term from a base sequence and mzLib modification dictionary (the inverse of
-        /// <see cref="ToModificationDictionary"/>). Each modification is emitted as a Name descriptor.
+        /// <see cref="ToModificationDictionary"/>). Each modification is emitted as an accession
+        /// (Identifier) descriptor when it carries a recognized ontology reference, else as a Name.
         /// </summary>
         /// <param name="baseSequence">The unmodified residue sequence.</param>
         /// <param name="allModsOneIsNterminus">Modifications keyed by one-based position (1 = N-terminus).</param>
@@ -85,24 +103,68 @@ namespace Readers.ProForma
                 labileDescriptors: null, unlocalizedTags: null, tagGroups: null, globalModifications: null);
         }
 
-        /// <summary>Emits a Name descriptor (e.g. <c>[Oxidation]</c>) for a modification.</summary>
+        /// <summary>
+        /// Emits an accession (Identifier) descriptor like <c>[UNIMOD:35]</c> when the modification
+        /// carries a recognized ontology reference, otherwise a Name descriptor like <c>[Oxidation]</c>.
+        /// </summary>
         private static Tdp.ProFormaDescriptor BuildDescriptor(Modification mod)
-            => new(Tdp.ProFormaKey.Name, mod.OriginalId);
+        {
+            if (mod.DatabaseReference != null)
+            {
+                foreach (var (dbKey, ids) in mod.DatabaseReference)
+                {
+                    if (DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix) && ids is { Count: > 0 })
+                        return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], $"{prefix}:{ids[0]}");
+                }
+            }
+            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, mod.OriginalId);
+        }
 
         /// <summary>
-        /// Resolves the first descriptor that maps to a known modification. Name descriptors are
-        /// matched to <c>"{name} on {residue}"</c> (mzLib's IdWithMotif convention).
+        /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).
+        /// One accession can map to several modifications differing by motif, so values are lists.
+        /// </summary>
+        private static Dictionary<string, List<Modification>> BuildAccessionIndex(IEnumerable<Modification> mods)
+        {
+            var index = new Dictionary<string, List<Modification>>(StringComparer.OrdinalIgnoreCase);
+            foreach (var mod in mods)
+            {
+                if (mod.DatabaseReference == null) continue;
+                foreach (var (dbKey, ids) in mod.DatabaseReference)
+                {
+                    if (!DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix)) continue;
+                    foreach (var id in ids)
+                    {
+                        string key = $"{prefix}:{id}".ToUpperInvariant();
+                        if (!index.TryGetValue(key, out var list))
+                            index[key] = list = new List<Modification>();
+                        list.Add(mod);
+                    }
+                }
+            }
+            return index;
+        }
+
+        /// <summary>
+        /// Resolves the first descriptor that maps to a known modification. Identifier descriptors are
+        /// matched by accession (motif-aware); Name descriptors by mzLib's <c>"{name} on {residue}"</c>
+        /// IdWithMotif convention, with a bare-name fallback for terminal/motif-free ids.
         /// </summary>
         private static Modification Resolve(IList<Tdp.ProFormaDescriptor> descriptors, char? residue,
-            Dictionary<string, Modification> allModsKnown, Tdp.ProFormaTerm term)
+            Dictionary<string, Modification> allModsKnown, Dictionary<string, List<Modification>> byAccession,
+            Tdp.ProFormaTerm term)
         {
             foreach (var d in descriptors)
             {
+                if (d.Key == Tdp.ProFormaKey.Identifier
+                    && byAccession.TryGetValue(d.Value, out var candidates)
+                    && SelectByMotif(candidates, residue) is { } byAcc)
+                    return byAcc;
+
                 if (d.Key == Tdp.ProFormaKey.Name && residue.HasValue
                     && allModsKnown.TryGetValue($"{d.Value} on {residue}", out var byMotif))
                     return byMotif;
 
-                // bare-name fallback (terminal mods or motif-free ids)
                 if (d.Key == Tdp.ProFormaKey.Name && allModsKnown.TryGetValue(d.Value, out var byName))
                     return byName;
             }
@@ -110,6 +172,19 @@ namespace Readers.ProForma
             throw new MzLibException(
                 $"No known modification resolves descriptor(s) [{string.Join("|", descriptors.Select(d => $"{d.Key}:{d.Value}"))}] " +
                 $"on residue '{residue?.ToString() ?? "terminus"}' in ProForma term '{term.Sequence}'.");
+        }
+
+        /// <summary>
+        /// Chooses the modification whose target motif matches the residue. For a terminus (no residue)
+        /// the single candidate is returned; an ambiguous terminus match returns null.
+        /// </summary>
+        private static Modification? SelectByMotif(List<Modification> candidates, char? residue)
+        {
+            if (!residue.HasValue)
+                return candidates.Count == 1 ? candidates[0] : null;
+
+            return candidates.FirstOrDefault(m => m.Target != null
+                && m.Target.ToString().Equals(residue.Value.ToString(), StringComparison.Ordinal));
         }
 
         /// <summary>
