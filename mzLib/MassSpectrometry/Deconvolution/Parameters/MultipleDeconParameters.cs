@@ -4,6 +4,7 @@ using System.Linq;
 using Chemistry;
 
 namespace MassSpectrometry;
+
 public class MultipleDeconParameters : DeconvolutionParameters
 {
     public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.Multiple;
@@ -18,6 +19,33 @@ public class MultipleDeconParameters : DeconvolutionParameters
             throw new ArgumentException(
                 "At least one sub-deconvolution parameter set is required.", nameof(deconParameters));
     }
+
+    #region IEquatable<MultipleDeconParameters>
+
+    protected override bool EqualProperties(DeconvolutionParameters other)
+    {
+        var o = (MultipleDeconParameters)other;
+        return Parameters.SequenceEqual(o.Parameters);
+    }
+
+    protected override void AddHashCodes(HashCode hash)
+    {
+        foreach (var p in Parameters)
+            hash.Add(p);
+    }
+
+    public override MultipleDeconParameters Clone()
+    {
+        return new MultipleDeconParameters(
+            Parameters.Select(p => (DeconvolutionParameters)p.Clone()),
+            MinAssumedChargeState, MaxAssumedChargeState,
+            Polarity, AverageResidueModel, ExpectedIsotopeSpacing)
+        {
+            UseGenericScore = UseGenericScore
+        };
+    }
+
+    #endregion
 
     private volatile DeconvolutionParameters? _decoyParams = null;
     private volatile bool _decoyComputed;
