@@ -209,6 +209,116 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         [Test]
+        public static void FromMassFeatures_GappedChargeSet_DoesNotFabricateIntermediateCharges()
+        {
+            // Charges {10, 12, 15} are non-contiguous (intermediate charges fell below the
+            // deconvolution score cutoff). Writing them as a single Min=10/Max=15 row would
+            // let the reader re-expand to 10..15 and invent charges 11/13/14. The
+            // contiguous-run split must round-trip exactly the observed set.
+            var feature = BuildMassFeature(id: 1, traces: new[]
+            {
+                BuildTrace(charge: 10, consensusMass: 5000.0, envelopes: new[] { (rt: 20.0, intensity: 8.0e7) }),
+                BuildTrace(charge: 12, consensusMass: 5000.0, envelopes: new[] { (rt: 20.1, intensity: 6.0e7) }),
+                BuildTrace(charge: 15, consensusMass: 5000.0, envelopes: new[] { (rt: 20.2, intensity: 4.0e7) }),
+            });
+
+            string outputPath = Path.Combine(directoryPath, "gapped_ms1.feature");
+            Ms1FeatureFile.FromMassFeatures(new[] { feature }).WriteResults(outputPath);
+
+            var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
+            Assert.That(roundTripped.Results.Count, Is.EqualTo(3),
+                "a gapped {10,12,15} charge set should write as three contiguous-run rows");
+
+            var charges = roundTripped.GetMs1Features()
+                .Select(f => f.Charge).Distinct().OrderBy(z => z).ToArray();
+            Assert.That(charges, Is.EqualTo(new[] { 10, 12, 15 }),
+                "read-back must yield exactly the observed charges, with no fabricated 11/13/14");
+        }
+
+        [Test]
+        public static void ToMs1Features_ContiguousChargeSet_YieldsSingleRow()
+        {
+            // A contiguous set must behave identically to ToMs1Feature: one row, Min..Max.
+            var feature = BuildMassFeature(id: 1, traces: new[]
+            {
+                BuildTrace(charge: 5, consensusMass: 1500.0, envelopes: new[] { (rt: 12.0, intensity: 1.0e7) }),
+                BuildTrace(charge: 6, consensusMass: 1500.0, envelopes: new[] { (rt: 12.1, intensity: 1.0e7) }),
+                BuildTrace(charge: 7, consensusMass: 1500.0, envelopes: new[] { (rt: 12.2, intensity: 1.0e7) }),
+            });
+
+            var rows = feature.ToMs1Features();
+            Assert.That(rows.Count, Is.EqualTo(1), "contiguous 5-7 should be a single row");
+            Assert.That(rows[0].ChargeStateMin, Is.EqualTo(5));
+            Assert.That(rows[0].ChargeStateMax, Is.EqualTo(7));
+        }
+
+        [Test]
+        public static void FromMassFeatures_EmptyFeatures_WritesHeaderOnlyFile()
+        {
+            // Zero features (an MS1-sparse file, or everything filtered out) must produce a
+            // valid header-only file, not crash trying to lazy-load from the empty FilePath.
+            string outputPath = Path.Combine(directoryPath, "empty_ms1.feature");
+            Assert.DoesNotThrow(() =>
+                Ms1FeatureFile.FromMassFeatures(System.Array.Empty<MassFeature>()).WriteResults(outputPath));
+
+            var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
+            Assert.That(roundTripped.Results.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public static void GetSingleChargeFeatures_UsesApexIntensity_NotSummedColumn()
+        {
+            // The writer stores SummedIntensity in the Intensity column, but the reader's
+            // per-charge expansion intentionally uses Apex_intensity. Pin that contract so a
+            // future change to GetSingleChargeFeatures is a conscious decision.
+            var feature = BuildMassFeature(id: 1, traces: new[]
+            {
+                BuildTrace(charge: 5, consensusMass: 3000.0, envelopes: new[]
+                {
+                    (rt: 10.0, intensity: 6.0e7),
+                    (rt: 11.0, intensity: 1.0e8), // apex of the dominant trace
+                }),
+                BuildTrace(charge: 6, consensusMass: 3000.0, envelopes: new[]
+                {
+                    (rt: 10.0, intensity: 5.0e7),
+                }),
+            });
+            // SummedIntensity = 1.6e8 + 5.0e7 = 2.1e8; apex intensity = 1.0e8.
+
+            string outputPath = Path.Combine(directoryPath, "intensity_ms1.feature");
+            Ms1FeatureFile.FromMassFeatures(new[] { feature }).WriteResults(outputPath);
+            var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
+
+            // The Intensity column preserves the summed value (fidelity)...
+            Assert.That(roundTripped.Results.Single().Intensity, Is.EqualTo(2.1e8).Within(1e-3),
+                "Intensity column should carry the feature's summed intensity");
+            // ...but every per-charge feature the algorithm consumes uses the apex intensity.
+            foreach (var f in roundTripped.GetMs1Features())
+                Assert.That(f.Intensity, Is.EqualTo(1.0e8).Within(1e-3),
+                    "per-charge feature Intensity must be the apex intensity, not the summed column");
+        }
+
+        [Test]
+        public static void FromMassFeatures_RoundTrip_SoftwareDetectedAsTopFd()
+        {
+            // Software isn't persisted as a column; it's re-derived from the Apex_intensity
+            // column, which the writer always emits. The in-memory default now matches the
+            // reloaded detection (TopFD) instead of contradicting it.
+            var feature = BuildMassFeature(id: 1, traces: new[]
+            {
+                BuildTrace(charge: 5, consensusMass: 2500.0, envelopes: new[] { (rt: 10.0, intensity: 1.0e8) }),
+            });
+
+            var written = Ms1FeatureFile.FromMassFeatures(new[] { feature });
+            Assert.That(written.Software, Is.EqualTo(Software.TopFD), "default in-memory label");
+
+            string outputPath = Path.Combine(directoryPath, "software_ms1.feature");
+            written.WriteResults(outputPath);
+            var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
+            Assert.That(roundTripped.Software, Is.EqualTo(Software.TopFD), "reloaded label");
+        }
+
+        [Test]
         public static void ToMs1Feature_NotFinalised_Throws()
         {
             // A MassFeature whose Finalise() was never called has an empty Charges set;

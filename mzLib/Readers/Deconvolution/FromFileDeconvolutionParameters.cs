@@ -99,8 +99,16 @@ namespace Readers
             var materialised = features.ToList();
             if (materialised.Count == 0) return materialised;
 
-            double maxRt = materialised.Max(f => f.RetentionTimeEnd);
-            if (maxRt <= 500.0) return materialised;
+            // Ignore non-finite RetentionTimeEnd values when sniffing units: a single
+            // NaN/Infinity would otherwise make Max(...) non-finite and (NaN <= 500) false,
+            // spuriously flipping a minutes file into a /60 conversion. If no finite value
+            // exists at all, we can't tell the units apart, so leave them unchanged.
+            double maxRt = materialised
+                .Select(f => f.RetentionTimeEnd)
+                .Where(double.IsFinite)
+                .DefaultIfEmpty(double.NaN)
+                .Max();
+            if (double.IsNaN(maxRt) || maxRt <= 500.0) return materialised;
 
             // Looks like seconds (no realistic LC run exceeds 8 h = 500 min). Convert to
             // minutes, and record + announce it -- a unit guess on scientific data should be

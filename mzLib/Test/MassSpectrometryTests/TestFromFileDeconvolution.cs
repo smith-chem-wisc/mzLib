@@ -388,6 +388,40 @@ namespace Test.MassSpectrometryTests
             }
         }
 
+        [Test]
+        public void FromFileDeconvolutionParameters_NonFiniteRetentionTimeEnd_DoesNotFlipUnits()
+        {
+            // A single NaN RetentionTimeEnd must not poison the seconds-vs-minutes sniff.
+            // Before the guard, Max(RetentionTimeEnd) returned NaN, (NaN <= 500) was false,
+            // and a clearly-in-minutes file was wrongly flagged as seconds and divided by 60.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                // Row 1 is unambiguously in MINUTES (end 40.0). Row 2 carries a NaN Time_end,
+                // as could arise from an upstream divide-by-zero in a producer.
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t39.0\t40.0\t39.5\t10\t12\t0\t0",
+                    "0\t2\t12000.0\t1.0e8\t41.0\tNaN\t41.5\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.IsFalse(parameters.RetentionTimeNormalizedFromSeconds,
+                    "a NaN RetentionTimeEnd must not flip an in-minutes file to seconds");
+                Assert.IsTrue(parameters.Features.Any(f => System.Math.Abs(f.RetentionTimeEnd - 40.0) < 1e-6),
+                    "the in-minutes feature row must be preserved at 40.0 min, not divided by 60");
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
+        }
+
         // -------- contract / error-path tests for FromFileDeconvolutionParameters
 
         [Test]

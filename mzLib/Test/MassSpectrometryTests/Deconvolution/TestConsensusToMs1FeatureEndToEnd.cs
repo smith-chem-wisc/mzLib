@@ -13,8 +13,8 @@ namespace Test.MassSpectrometryTests.Deconvolution
     /// <summary>
     /// End-to-end driver: run the full consensus pipeline (Classic decon per
     /// scan -&gt; trace grouping -&gt; off-by-one correction -&gt; cross-charge feature
-    /// stitching) against a local raw/mzML and write the result as a FLASHDeconv-
-    /// style <c>_ms1.feature</c> file via <see cref="Ms1FeatureFile.FromMassFeatures"/>.
+    /// stitching) against a local raw/mzML and write the result as a TopFD-style
+    /// <c>_ms1.feature</c> file via <see cref="Ms1FeatureFile.FromMassFeatures"/>.
     ///
     /// Lives as an <c>[Explicit]</c> test because each case consumes a hundreds-of-MB
     /// local raw/mzML at a hard-coded path that's not part of the repo or CI.
@@ -119,7 +119,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
             int multi = features.Count(f => f.ChargeCount >= 2);
             TestContext.Out.WriteLine($"[{spec.Label}] MassFeatures: {features.Count} (multi-charge: {multi})  (elapsed {sw.Elapsed})");
 
-            // 6. Write FLASHDeconv-style _ms1.feature via the new factory.
+            // 6. Write TopFD-style _ms1.feature via the new factory.
             Ms1FeatureFile.FromMassFeatures(features).WriteResults(spec.OutputPath);
 
             sw.Stop();

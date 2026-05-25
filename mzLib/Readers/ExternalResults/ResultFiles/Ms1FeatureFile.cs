@@ -15,6 +15,13 @@ namespace Readers
 
         public sealed override Software Software { get; set; }
 
+        // Records supplied by the in-memory factory (FromMassFeatures). When set,
+        // WriteResults writes these directly instead of going through the base Results
+        // getter, whose lazy-load would try to read from the empty FilePath of a
+        // factory-built file (crashing for a zero-feature input). Null for files read
+        // from disk, which load on demand as usual.
+        private List<Ms1Feature> _factoryRecords;
+
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() => Results.SelectMany(r => r.GetSingleChargeFeatures());
 
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
@@ -41,9 +48,13 @@ namespace Readers
         public override void LoadResults()
         {
             using var csv = new CsvReader(new StreamReader(FilePath), Ms1Feature.CsvConfiguration);
-            Results = csv.GetRecords<Ms1Feature>().ToList();
+            var loaded = csv.GetRecords<Ms1Feature>().ToList();
+            Results = loaded;
 
-            Software = Results.All(p => p.IntensityApex == null) ? Software.FLASHDeconv : Software.TopFD;
+            // Use the just-loaded list, NOT the Results getter: for a header-only (zero-row)
+            // file the getter sees an empty _results and re-invokes LoadResults, recursing
+            // until the stack overflows.
+            Software = loaded.All(p => p.IntensityApex == null) ? Software.FLASHDeconv : Software.TopFD;
         }
 
         /// <summary>
@@ -55,9 +66,10 @@ namespace Readers
         ///
         /// The output round-trips through <see cref="LoadResults"/>: every
         /// downstream-consumed field (Mass, Intensity, RetentionTime begin/
-        /// end/apex, charge bounds, apex intensity) survives. The schema is
-        /// FLASHDeconv-style (newer-TopFD column aliases are aliases, not
-        /// the canonical write target).
+        /// end/apex, charge bounds, apex intensity) survives. Software is not
+        /// stored as a column; it is re-derived on read from the presence of
+        /// an Apex_intensity column, which the writer always emits -- so a
+        /// reloaded factory file is detected as <see cref="Software.TopFD"/>.
         /// </summary>
         /// <param name="features">Finalised cross-charge features to emit.
         /// Caller must have invoked <see cref="MassFeature.Finalise"/> on
@@ -68,15 +80,16 @@ namespace Readers
         /// <param name="fractionId">Fraction identifier written into both the
         /// Minimum_fraction_id and Maximum_fraction_id columns of every row.
         /// Default 0 fits a single fraction.</param>
-        /// <param name="software">Software label for the produced file.
-        /// Defaults to <see cref="Software.FLASHDeconv"/> because that's
-        /// the canonical write schema; pass <see cref="Software.Unspecified"/>
-        /// to leave it blank.</param>
+        /// <param name="software">In-memory software label for the produced file.
+        /// Defaults to <see cref="Software.TopFD"/> to match how the file is
+        /// re-detected on reload (the writer emits an Apex_intensity column); the
+        /// label is not persisted as a column. Pass <see cref="Software.Unspecified"/>
+        /// to leave the in-memory label blank.</param>
         public static Ms1FeatureFile FromMassFeatures(
             IEnumerable<MassFeature> features,
             int sampleId = 0,
             int fractionId = 0,
-            Software software = Software.FLASHDeconv)
+            Software software = Software.TopFD)
         {
             // Build the record list up front and assign via the setter.
             // Going through file.Results.Add(...) instead would invoke
@@ -87,10 +100,17 @@ namespace Readers
             int sequentialId = 0;
             foreach (var f in features)
             {
-                records.Add(f.ToMs1Feature(sequentialId++, sampleId, fractionId));
+                // ToMs1Features splits a gapped charge set into contiguous-run rows so the
+                // reader can't fabricate the missing charges; number each emitted row.
+                foreach (var rec in f.ToMs1Features(sampleId, fractionId))
+                {
+                    rec.Id = sequentialId++;
+                    records.Add(rec);
+                }
             }
             var file = new Ms1FeatureFile { Software = software };
             file.Results = records;
+            file._factoryRecords = records;
             return file;
         }
 
@@ -106,7 +126,9 @@ namespace Readers
             using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), Ms1Feature.CsvConfiguration);
 
             csv.WriteHeader<Ms1Feature>();
-            foreach (var result in Results)
+            // Factory-built files write their records directly (may be empty -> header
+            // only); disk-backed files fall through to the lazy-loading Results getter.
+            foreach (var result in _factoryRecords ?? Results)
             {
                 csv.NextRecord();
                 csv.WriteRecord(result);
