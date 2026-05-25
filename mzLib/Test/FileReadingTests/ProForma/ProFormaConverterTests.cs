@@ -159,5 +159,82 @@ namespace Test.FileReadingTests.ProForma
             Assert.Throws<MzLibException>(
                 () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
         }
+
+        [Test]
+        public void Layer2_Throws_OnLabileModifications()
+        {
+            // {Glycan:Hex} is a labile modification — out of scope at Layer 2 (must fail loud, not drop silently).
+            var term = ProFormaReader.Read("{Glycan:Hex}{Glycan:NeuAc}EMEVNESPEK");
+            var ex = Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
+            Assert.That(ex.Message, Does.Contain("labile"));
+        }
+
+        [Test]
+        public void Layer2_Throws_OnUnlocalizedModifications()
+        {
+            // [Phospho]? is an unlocalized (unknown-position) mod — out of scope at Layer 2.
+            var term = ProFormaReader.Read("[Phospho]?EM[Oxidation]EVTSESPEK");
+            var ex = Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
+            Assert.That(ex.Message, Does.Contain("unlocalized"));
+        }
+
+        [Test]
+        public void Layer2_Throws_OnGlobalModifications()
+        {
+            // <13C> is a global isotope label — out of scope at Layer 2.
+            var term = ProFormaReader.Read("<13C>ATPEILTVNSIGQLK");
+            var ex = Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
+            Assert.That(ex.Message, Does.Contain("global"));
+        }
+
+        [Test]
+        public void Layer2_Throws_OnPositionRange()
+        {
+            // (ESFRMS)[+19.0523] applies one mod across a residue range — out of scope at Layer 2.
+            var term = ProFormaReader.Read("PRT(ESFRMS)[+19.0523]ISK");
+            var ex = Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
+            Assert.That(ex.Message, Does.Contain("range"));
+        }
+
+        [Test]
+        public void Layer2_Throws_OnSequenceAmbiguity()
+        {
+            // (?N) marks an ambiguous sequence stretch — out of scope at Layer 2.
+            var term = ProFormaReader.Read("(?N)NGTWEM[Oxidation]ESNENFEGYM[Oxidation]K");
+            var ex = Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
+            Assert.That(ex.Message, Does.Contain("ambiguity"));
+        }
+
+        [Test]
+        public void Layer2_Throws_WhenTerminalModNotInDatabase()
+        {
+            // An N- or C-terminal descriptor that resolves to nothing must throw, not drop the mod silently.
+            var nTerm = ProFormaReader.Read("[Acetyl]-PEPTIDEK");
+            Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(nTerm, new Dictionary<string, Modification>()));
+
+            var cTerm = ProFormaReader.Read("PEPTIDEK-[Amidation]");
+            Assert.Throws<MzLibException>(
+                () => ProFormaConverter.ToModificationDictionary(cTerm, new Dictionary<string, Modification>()));
+        }
+
+        [Test]
+        public void Layer2_ResolvesTerminalNameMod_WhenMotifIsResidueNotX()
+        {
+            // Terminal mod stored with a residue motif ("Acetyl on K", N-terminal) rather than the wildcard "X":
+            // the "{name} on X" lookup misses and resolution falls back to a same-named, terminus-compatible mod.
+            ModificationMotif.TryGetMotif("K", out var motifK);
+            var nAcetyl = new Modification(_originalId: "Acetyl", _modificationType: "testMods", _target: motifK,
+                _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
+            var allModsKnown = new Dictionary<string, Modification> { [nAcetyl.IdWithMotif] = nAcetyl };
+
+            var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown);
+            Assert.That(dict[1], Is.SameAs(nAcetyl));
+        }
     }
 }
