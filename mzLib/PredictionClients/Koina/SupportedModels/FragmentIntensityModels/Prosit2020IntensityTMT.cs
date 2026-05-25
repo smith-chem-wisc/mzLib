@@ -104,7 +104,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
                 }
             }
 
-            return apiSequence;
+            return sanitized;
         }
 
         private static bool HasAllowedNTerminalLabel(string apiSequence)

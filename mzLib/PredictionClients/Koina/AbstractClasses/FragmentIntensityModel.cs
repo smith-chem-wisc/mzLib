@@ -468,23 +468,15 @@ namespace PredictionClients.Koina.AbstractClasses
                                 continue;
                             }
                             var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
-                            ParsedFragmentAnnotation parsed;
-                            try
-                            {
-                                parsed = ParseFragmentAnnotation(fragmentIon);
-                            }
-                            catch
+                            int plusIndex = fragmentIon.IndexOf('+');
+                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
+                            var baseFragmentId = fragmentIon.Substring(0, plusIndex);
+                            if (!tpLookup.TryGetValue(baseFragmentId, out var tp))
                             {
                                 continue;
                             }
                             fragmentIons.Add(fragmentIon);
-                            if (!tpLookup.TryGetValue(parsed.BaseFragmentIdentifier, out var tp))
-                            {
-                                continue;
-                            }
-                            fragmentMZs.Add(parsed.NeutralLossMass.HasValue
-                                ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(parsed.Charge)
-                                : tp.ToMz(parsed.Charge));
+                            fragmentMZs.Add(tp.ToMz(fragmentCharge));
                             predictedIntensities.Add(intensity);
                         }
                         predictions.Add(new PeptideFragmentIntensityPrediction(
