@@ -63,6 +63,52 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(tracer, Is.InstanceOf<IMassFeatureTracer>());
         }
 
+        // ── MetaFlashDecon native tracer (neutral-mass tracing) ──────────────
+
+        [Test]
+        public void NativeTracer_CollapsesChargesIntoOneNeutralMassFeature()
+        {
+            // Same neutral mass at two charges, two scans: FLASHDeconv collapses charges per
+            // scan, traces over neutral mass, then re-attaches charges -> one feature, ChargeCount 2.
+            var (scans, perScan) = BuildSample();
+            var features = new MetaFlashDeconMassFeatureTracer(
+                    massTolerancePpm: 10, minTraceLengthRt: 0.1, minSampleRate: 0.05, maxOutlierScans: 1)
+                .TraceFeatures(scans, perScan);
+
+            Assert.That(features, Has.Count.EqualTo(1));
+            Assert.That(features[0].ChargeCount, Is.EqualTo(2));
+            Assert.That(features[0].ConsensusMass, Is.EqualTo(5000.0).Within(1e-6));
+        }
+
+        [Test]
+        public void NativeTracer_TooShortTrace_IsFilteredOut()
+        {
+            // RT span is 0.2 (10.0 -> 10.2); a 1.0 minimum rejects it (FLASHDeconv length filter).
+            var (scans, perScan) = BuildSample();
+            var features = new MetaFlashDeconMassFeatureTracer(minTraceLengthRt: 1.0)
+                .TraceFeatures(scans, perScan);
+            Assert.That(features, Is.Empty);
+        }
+
+        [Test]
+        public void NativeTracer_SeparatesDistinctMasses()
+        {
+            var (scans, perScan) = BuildTwoMassSample();
+            var features = new MetaFlashDeconMassFeatureTracer(minTraceLengthRt: 0.1, maxOutlierScans: 1)
+                .TraceFeatures(scans, perScan);
+
+            Assert.That(features, Has.Count.EqualTo(2));
+            Assert.That(features.Select(f => f.ConsensusMass).OrderBy(m => m).ToArray(),
+                Is.EqualTo(new[] { 5000.0, 8000.0 }).Within(1e-6));
+        }
+
+        [Test]
+        public void NativeTracer_IsAnIMassFeatureTracer()
+        {
+            IMassFeatureTracer tracer = new MetaFlashDeconMassFeatureTracer();
+            Assert.That(tracer, Is.InstanceOf<IMassFeatureTracer>());
+        }
+
         // Same neutral mass (5000 Da) at charges 5 and 6, present in two consecutive MS1 scans.
         private static (IReadOnlyList<MsDataScan>, IReadOnlyList<IReadOnlyList<IsotopicEnvelope>>) BuildSample()
         {
@@ -71,6 +117,18 @@ namespace Test.MassSpectrometryTests.Deconvolution
             {
                 new[] { Env(5000.0, 1e7, 5), Env(5000.0, 1e7, 6) },
                 new[] { Env(5000.0, 1e7, 5), Env(5000.0, 1e7, 6) },
+            };
+            return (scans, perScan);
+        }
+
+        // Two well-separated neutral masses (5000 @ z5, 8000 @ z6) in two consecutive scans.
+        private static (IReadOnlyList<MsDataScan>, IReadOnlyList<IReadOnlyList<IsotopicEnvelope>>) BuildTwoMassSample()
+        {
+            var scans = new[] { Scan(1, 10.0), Scan(2, 10.2) };
+            var perScan = new List<IReadOnlyList<IsotopicEnvelope>>
+            {
+                new[] { Env(5000.0, 1e7, 5), Env(8000.0, 1e7, 6) },
+                new[] { Env(5000.0, 1e7, 5), Env(8000.0, 1e7, 6) },
             };
             return (scans, perScan);
         }
