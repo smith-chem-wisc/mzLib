@@ -1,4 +1,4 @@
-﻿using Omics.Fragmentation;
+using Omics.Fragmentation;
 using System.Text;
 using System.Text.RegularExpressions;
 
@@ -64,6 +64,18 @@ public class CrosslinkLibrarySpectrum : LibrarySpectrum
             AlphaPeptideSequence = null;
             BetaPeptideSequence = null;
         }
+    }
+
+    public override bool Equals(object? obj)
+    {
+        if (obj is not CrosslinkLibrarySpectrum other) return false;
+        return base.Equals((LibrarySpectrum)other)
+            && Equals(BetaPeptideSpectrum, other.BetaPeptideSpectrum);
+    }
+
+    public override int GetHashCode()
+    {
+        return HashCode.Combine(base.GetHashCode(), BetaPeptideSpectrum);
     }
 
     public override string ToString()

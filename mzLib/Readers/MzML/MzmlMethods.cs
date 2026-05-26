@@ -789,27 +789,18 @@ namespace Readers
                     unitAccession = "MS:1000040",
                     unitName = "m/z"
                 };
-                if (myMsDataFile.GetOneBasedScan(i).NoiseData == null)
+                // Compute the binary-array-list size: m/z + intensity (always),
+                // + noise/baseline/SNR (3) when NoiseData is set,
+                // + charge array (1) when ChargeArray is set.
+                int extraArrays = 0;
+                if (myMsDataFile.GetOneBasedScan(i).NoiseData != null) extraArrays += 3;
+                if (myMsDataFile.GetOneBasedScan(i).ChargeArray != null) extraArrays += 1;
+                int arrayCount = 2 + extraArrays;
+                mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType
                 {
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType
-                    {
-                        // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
-                        // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
-                        count = 2.ToString(),
-                        binaryDataArray = new Generated.BinaryDataArrayType[2]
-                    };
-                }
-
-                if (myMsDataFile.GetOneBasedScan(i).NoiseData != null)
-                {
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType
-                    {
-                        // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
-                        // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
-                        count = 5.ToString(),
-                        binaryDataArray = new Generated.BinaryDataArrayType[5]
-                    };
-                }
+                    count = arrayCount.ToString(CultureInfo.InvariantCulture),
+                    binaryDataArray = new Generated.BinaryDataArrayType[arrayCount]
+                };
 
                 // M/Z Data
                 mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType
@@ -984,6 +975,50 @@ namespace Readers
                     {
                         name = "kelleherCustomType",
                         value = "noise intensity",
+                    };
+                }
+
+                // Charge array (PSI-MS MS:1000516). One integer per peak, parallel to the m/z and
+                // intensity arrays, encoded as 32-bit float (charges fit in well under 2^23) and
+                // base64'd uncompressed. Conformant mzML readers that don't understand the
+                // accession ignore this array silently.
+                int[] chargeArray = myMsDataFile.GetOneBasedScan(i).ChargeArray;
+                if (chargeArray != null)
+                {
+                    int chargeArrayIndex = 2 + (myMsDataFile.GetOneBasedScan(i).NoiseData != null ? 3 : 0);
+                    byte[] encoded = new byte[chargeArray.Length * 4];
+                    for (int k = 0; k < chargeArray.Length; k++)
+                    {
+                        byte[] floatBytes = BitConverter.GetBytes((float)chargeArray[k]);
+                        Buffer.BlockCopy(floatBytes, 0, encoded, k * 4, 4);
+                    }
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex] = new Generated.BinaryDataArrayType
+                    {
+                        binary = encoded
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].arrayLength = chargeArray.Length.ToString(CultureInfo.InvariantCulture);
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].encodedLength = (4 * Math.Ceiling(((double)encoded.Length / 3))).ToString(CultureInfo.InvariantCulture);
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam = new Generated.CVParamType[3];
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam[0] = new Generated.CVParamType
+                    {
+                        accession = "MS:1000516",
+                        name = "charge array",
+                        cvRef = "MS",
+                        value = ""
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam[1] = new Generated.CVParamType
+                    {
+                        accession = "MS:1000521",
+                        name = "32-bit float",
+                        cvRef = "MS",
+                        value = ""
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam[2] = new Generated.CVParamType
+                    {
+                        accession = "MS:1000576",
+                        name = "no compression",
+                        cvRef = "MS",
+                        value = ""
                     };
                 }
             }

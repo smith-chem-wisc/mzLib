@@ -1,4 +1,6 @@
 ﻿#nullable enable
+using System;
+
 namespace MassSpectrometry
 {
     /// <summary>
@@ -102,5 +104,71 @@ namespace MassSpectrometry
             MinMassRange = minMassRange;
             MaxMassRange = maxMassRange;
         }
+
+        #region IEquatable<DeconvolutionParameters>
+
+        protected override bool EqualProperties(DeconvolutionParameters other)
+        {
+            var o = (FLASHDeconvolutionParameters)other;
+            return PrecursorHarmonicCount == o.PrecursorHarmonicCount
+                && MaxIsotopicPeakCount == o.MaxIsotopicPeakCount
+                && MinIsotopicPeakCount == o.MinIsotopicPeakCount
+                && DeconvolutionTolerancePpm.Equals(o.DeconvolutionTolerancePpm)
+                && MinCosineScore.Equals(o.MinCosineScore)
+                && IsotopeIntensityRatioThreshold.Equals(o.IsotopeIntensityRatioThreshold)
+                && MinMassRange.Equals(o.MinMassRange)
+                && MaxMassRange.Equals(o.MaxMassRange);
+        }
+
+        protected override void AddHashCodes(HashCode hash)
+        {
+            hash.Add(PrecursorHarmonicCount);
+            hash.Add(MaxIsotopicPeakCount);
+            hash.Add(MinIsotopicPeakCount);
+            hash.Add(DeconvolutionTolerancePpm);
+            hash.Add(MinCosineScore);
+            hash.Add(IsotopeIntensityRatioThreshold);
+            hash.Add(MinMassRange);
+            hash.Add(MaxMassRange);
+        }
+
+        public override FLASHDeconvolutionParameters Clone()
+        {
+            return new FLASHDeconvolutionParameters(
+                MinAssumedChargeState, MaxAssumedChargeState,
+                DeconvolutionTolerancePpm, MinIsotopicPeakCount, MaxIsotopicPeakCount,
+                PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,
+                MinMassRange, MaxMassRange, Polarity, AverageResidueModel)
+            {
+                ExpectedIsotopeSpacing = ExpectedIsotopeSpacing,
+                UseGenericScore = UseGenericScore
+            };
+        }
+
+        // Thread-safe lazy caching of decoy parameters (mirrors ClassicDeconvolutionParameters).
+        private volatile DeconvolutionParameters? _decoyParams = null;
+        private readonly object _decoyParamsLock = new();
+        public override DeconvolutionParameters ToDecoyParameters()
+        {
+            if (_decoyParams is not null)
+                return _decoyParams;
+
+            lock (_decoyParamsLock)
+            {
+                return _decoyParams ??= new FLASHDeconvolutionParameters(
+                    MinAssumedChargeState, MaxAssumedChargeState,
+                    DeconvolutionTolerancePpm, MinIsotopicPeakCount, MaxIsotopicPeakCount,
+                    PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,
+                    MinMassRange, MaxMassRange, Polarity,
+                    averageResidueModel: new DecoyAveragine(AverageResidueModel,
+                        DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing))
+                {
+                    ExpectedIsotopeSpacing = DecoyAveragine.DefaultDecoyIsotopeSpacing,
+                    UseGenericScore = UseGenericScore
+                };
+            }
+        }
+
+        #endregion
     }
 }

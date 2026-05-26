@@ -85,7 +85,7 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Value, Is.GreaterThan(0));
@@ -97,7 +97,7 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("", new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Null);
             Assert.That(failureReason, Is.Not.Null);
@@ -110,7 +110,7 @@ namespace Test.RetentionTimePrediction
             var longSequence = new string('A', 51);
             var peptide = new PeptideWithSetModifications(longSequence, new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Null);
             Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooLong));
@@ -121,7 +121,7 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("PEPTUDE", new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Null);
             Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.InvalidAminoAcid));
@@ -134,7 +134,7 @@ namespace Test.RetentionTimePrediction
             var maxLengthSequence = new string('A', 50);
             var peptide = new PeptideWithSetModifications(maxLengthSequence, new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -153,7 +153,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTM[Oxidation on M]IDE", mods);
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -168,7 +168,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTC[Carbamidomethyl on C]IDE", mods);
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -183,7 +183,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTIDES[Phosphorylation on S]", mods);
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -198,7 +198,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTIDEK[Acetylation on K]", mods);
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -214,7 +214,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTM[Oxidation on M]IDEC[Carbamidomethyl on C]", mods);
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -236,7 +236,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTN[HexNAc on N]IDE", mods);
             
-            var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -253,7 +253,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTN[HexNAc on N]IDE", mods);
             
-            var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -270,7 +270,7 @@ namespace Test.RetentionTimePrediction
             };
             var peptide = new PeptideWithSetModifications("PEPTN[HexNAc on N]IDE", mods);
             
-            var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Null);
             Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.IncompatibleModifications));
@@ -288,7 +288,7 @@ namespace Test.RetentionTimePrediction
             var peptide = new PeptideWithSetModifications("PEPTN[HexNAc on N]IDE", mods);
             
             Assert.Throws<IncompatibleModificationException>(() =>
-                predictor.PredictRetentionTime(peptide, out _));
+                predictor.PredictRetentionTimeEquivalent(peptide, out _));
         }
 
         #endregion
@@ -420,8 +420,8 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
             
-            var result1 = _predictor.PredictRetentionTime(peptide, out _);
-            var result2 = _predictor.PredictRetentionTime(peptide, out _);
+            var result1 = _predictor.PredictRetentionTimeEquivalent(peptide, out _);
+            var result2 = _predictor.PredictRetentionTimeEquivalent(peptide, out _);
             
             Assert.That(result1, Is.EqualTo(result2));
         }
@@ -432,8 +432,8 @@ namespace Test.RetentionTimePrediction
             var peptide1 = new PeptideWithSetModifications("PEPTIDE", new Dictionary<string, Modification>());
             var peptide2 = new PeptideWithSetModifications("PRETEIN", new Dictionary<string, Modification>());
             
-            var result1 = _predictor.PredictRetentionTime(peptide1, out var failureReason1);
-            var result2 = _predictor.PredictRetentionTime(peptide2, out var failureReason2);
+            var result1 = _predictor.PredictRetentionTimeEquivalent(peptide1, out var failureReason1);
+            var result2 = _predictor.PredictRetentionTimeEquivalent(peptide2, out var failureReason2);
 
             Assert.That(result1, Is.Not.Null);
             Assert.That(failureReason1, Is.Null);
@@ -450,8 +450,8 @@ namespace Test.RetentionTimePrediction
             // Less hydrophobic peptide (contains more polar residues)
             var hydrophilic = new PeptideWithSetModifications("STTTSSS", new Dictionary<string, Modification>());
             
-            var resultHydrophobic = _predictor.PredictRetentionTime(hydrophobic, out _);
-            var resultHydrophilic = _predictor.PredictRetentionTime(hydrophilic, out _);
+            var resultHydrophobic = _predictor.PredictRetentionTimeEquivalent(hydrophobic, out _);
+            var resultHydrophilic = _predictor.PredictRetentionTimeEquivalent(hydrophilic, out _);
             
             Assert.That(resultHydrophobic, Is.Not.Null);
             Assert.That(resultHydrophilic, Is.Not.Null);
@@ -467,7 +467,7 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("AAAAAAAAAA", new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -478,7 +478,7 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("ACDEFGHIKLMNPQRSTVWY", new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Not.Null);
             Assert.That(failureReason, Is.Null);
@@ -489,7 +489,7 @@ namespace Test.RetentionTimePrediction
         {
             var peptide = new PeptideWithSetModifications("PEP", new Dictionary<string, Modification>());
             
-            var result = _predictor.PredictRetentionTime(peptide, out var failureReason);
+            var result = _predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
             
             Assert.That(result, Is.Null);
             Assert.That(failureReason, Is.Not.Null);
@@ -517,7 +517,7 @@ namespace Test.RetentionTimePrediction
             
             predictor.Dispose();
             
-            Assert.That(predictor.PredictRetentionTime(peptide, out var failureReason), Is.Null);
+            Assert.That(predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason), Is.Null);
 
             var method = predictor.GetType().GetMethod("PredictCore" , System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
 
@@ -555,7 +555,7 @@ namespace Test.RetentionTimePrediction
             var results = new ConcurrentBag<double?>();
             var tasks = Enumerable.Range(0, 10).Select(_ => Task.Run(() =>
             {
-                var result = predictor.PredictRetentionTime(peptide, out var _);
+                var result = predictor.PredictRetentionTimeEquivalent(peptide, out var _);
                 results.Add(result);
             })).ToArray();
 
@@ -581,7 +581,7 @@ namespace Test.RetentionTimePrediction
             var tasks = Enumerable.Range(0, 30).Select(i => Task.Run(() =>
             {
                 var peptide = peptides[i % 3];
-                var result = predictor.PredictRetentionTime(peptide, out _);
+                var result = predictor.PredictRetentionTimeEquivalent(peptide, out _);
                 results.Add((peptide.BaseSequence, result));
             })).ToArray();
 

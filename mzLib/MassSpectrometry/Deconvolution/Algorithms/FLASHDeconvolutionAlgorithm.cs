@@ -56,7 +56,7 @@ namespace MassSpectrometry
         // ENTRY POINT
         // ══════════════════════════════════════════════════════════════════════
 
-        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
+        protected internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
             var p = DeconvolutionParameters as FLASHDeconvolutionParameters
                 ?? throw new MzLibException("Deconvolution params and algorithm do not match");

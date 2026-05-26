@@ -32,5 +32,12 @@ namespace MassSpectrometry
         /// Fraction identifier for fractionated workflows. Returns 0 if not applicable.
         /// </summary>
         int Fraction { get; }
+
+        /// <summary>
+        /// File name without extension, derived from <see cref="FullFilePathWithExtension"/>.
+        /// Used for display labels in quantification output columns.
+        /// </summary>
+        string FilenameWithoutExtension =>
+            System.IO.Path.GetFileNameWithoutExtension(FullFilePathWithExtension);
     }
 }

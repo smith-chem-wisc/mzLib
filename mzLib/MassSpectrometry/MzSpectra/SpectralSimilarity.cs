@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -218,6 +218,63 @@ namespace MassSpectrometry.MzSpectra
 
         #region similarityMethods
 
+        public enum SimilarityMeasures
+        {
+            CosineSimilarity,
+            SpectralContrastAngle,
+            EuclideanDistance,
+            BrayCurtis,
+            PearsonsCorrelation,
+            DotProduct,
+            SpectralEntropy,
+            KullbackLeiblerDivergence_P_Q,
+            SearleSimilarity
+        }
+
+        public double? GetSimilarityMeasure(SimilarityMeasures measure)
+        {
+            return measure switch
+            {
+                SimilarityMeasures.CosineSimilarity => CosineSimilarity(),
+                SimilarityMeasures.SpectralContrastAngle => SpectralContrastAngle(),
+                SimilarityMeasures.EuclideanDistance => EuclideanDistance(),
+                SimilarityMeasures.BrayCurtis => BrayCurtis(),
+                SimilarityMeasures.PearsonsCorrelation => PearsonsCorrelation(),
+                SimilarityMeasures.DotProduct => DotProduct(),
+                SimilarityMeasures.SpectralEntropy => SpectralEntropy(),
+                SimilarityMeasures.KullbackLeiblerDivergence_P_Q => KullbackLeiblerDivergence_P_Q(),
+                SimilarityMeasures.SearleSimilarity => SearleSimilarity(),
+                _ => null,
+            };
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetAllSimilarityMeasures()
+        {
+            foreach (SimilarityMeasures measure in Enum.GetValues(typeof(SimilarityMeasures)))
+            {
+                yield return (measure, GetSimilarityMeasure(measure));
+            }
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetAllSimilarityMeasuresExcept(params SimilarityMeasures[] measuresToExclude)
+        {
+            foreach (SimilarityMeasures measure in Enum.GetValues(typeof(SimilarityMeasures)))
+            {
+                if (!measuresToExclude.Contains(measure))
+                {
+                    yield return (measure, GetSimilarityMeasure(measure));
+                }
+            }
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetSelectedSimilarityMeasures(params SimilarityMeasures[] measuresToInclude)
+        {
+            foreach (SimilarityMeasures measure in measuresToInclude)
+            {
+                yield return (measure, GetSimilarityMeasure(measure));
+            }
+        }
+
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthogonal
         public double? CosineSimilarity()
         {
@@ -431,7 +488,10 @@ namespace MassSpectrometry.MzSpectra
             if (a.Length != b.Length || a.Length == 0)
                 return 0.0;
 
-            double dot = 0.0, normA = 0.0, normB = 0.0;
+            double dot = 0.0;
+            double normA = 0.0;
+            double normB = 0.0;
+
             for (int i = 0; i < a.Length; i++)
             {
                 dot += a[i] * b[i];
@@ -439,9 +499,12 @@ namespace MassSpectrometry.MzSpectra
                 normB += b[i] * b[i];
             }
 
-            double denom = Math.Sqrt(normA) * Math.Sqrt(normB);
-            return denom == 0.0 ? 0.0 : dot / denom;
+            if (normA <= 0.0 || normB <= 0.0)
+                return 0.0;
+
+            return dot / (Math.Sqrt(normA) * Math.Sqrt(normB));
         }
+
         #endregion similarityMethods
 
         //use Math.Max() in the denominator for consistency

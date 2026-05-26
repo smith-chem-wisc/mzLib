@@ -403,11 +403,11 @@ namespace UsefulProteomicsDatabases
                     continue;
                 }
 
-                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.DatasetEntryTag));
-                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.CreatedEntryTag));
-                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.ModifiedEntryTag));
-                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.VersionEntryTag));
-                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.XmlnsEntryTag));
+                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Dataset));
+                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Created));
+                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Modified));
+                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Version));
+                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Xmlns));
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
                 HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
@@ -452,11 +452,12 @@ namespace UsefulProteomicsDatabases
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
                     spliceSites: splices.ToList(),
-                    dataset: datasets.FirstOrDefault(),
-                    created: createds.FirstOrDefault(),
-                    modified: modifieds.FirstOrDefault(),
-                    version: versions.FirstOrDefault(),
-                    xmlns: xmlnses.FirstOrDefault()
+                    uniProtEntryAttributes: new UniProtEntryAttributes(
+                        datasets.FirstOrDefault(),
+                        createds.FirstOrDefault(),
+                        modifieds.FirstOrDefault(),
+                        versions.FirstOrDefault(),
+                        xmlnses.FirstOrDefault())
                     );
             }
         }

@@ -1116,7 +1116,7 @@ namespace Proteomics.ProteolyticDigestion
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true, 
-                dataset: this.Protein.DatasetEntryTag, created: this.Protein.CreatedEntryTag, modified: this.Protein.ModifiedEntryTag, version: this.Protein.VersionEntryTag, xmlns: this.Protein.XmlnsEntryTag);
+                uniProtEntryAttributes: this.Protein.UniProtEntryAttributes);
             DigestionParams d = _digestionParams;
 
             PeptideWithSetModifications decoyPeptide;
@@ -1294,7 +1294,7 @@ namespace Proteomics.ProteolyticDigestion
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true, 
-                dataset: this.Protein.DatasetEntryTag, created: this.Protein.CreatedEntryTag, modified: this.Protein.ModifiedEntryTag, version: this.Protein.VersionEntryTag, xmlns: this.Protein.XmlnsEntryTag);
+                uniProtEntryAttributes: this.Protein.UniProtEntryAttributes);
             DigestionParams d = _digestionParams;
             PeptideWithSetModifications decoyPeptide;
             //Make the "peptideDescription" store the corresponding target's sequence
@@ -1386,7 +1386,7 @@ namespace Proteomics.ProteolyticDigestion
             proteinSequence = aStringBuilder.ToString();
 
             Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true, 
-                dataset: this.Protein.DatasetEntryTag, created: this.Protein.CreatedEntryTag, modified: this.Protein.ModifiedEntryTag, version: this.Protein.VersionEntryTag, xmlns: this.Protein.XmlnsEntryTag);
+                uniProtEntryAttributes: this.Protein.UniProtEntryAttributes);
 
             DigestionParams d = _digestionParams;
 
