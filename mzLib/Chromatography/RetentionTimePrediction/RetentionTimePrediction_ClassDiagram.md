@@ -17,7 +17,8 @@ classDiagram
         <<interface>>
         +PredictorName string
         +SeparationType SeparationType
-        +PredictRetentionTime(peptide) double?
+        +PredictRetentionTimeEquivalent(peptide) double?
+        +PredictRetentionTimeEquivalents(peptides, maxThreads) IReadOnlyList
         +GetFormattedSequence(peptide) string?
     }
 
@@ -26,7 +27,8 @@ classDiagram
         +SequenceHandlingMode SequenceConversionHandlingMode
         #MinSequenceLength int
         #MaxSequenceLength int
-        +PredictRetentionTime(peptide) double?
+        +PredictRetentionTimeEquivalent(peptide) double?
+        +PredictRetentionTimeEquivalents(peptides, maxThreads) IReadOnlyList
         #PredictCore(peptide, sequence)* double?
         +GetFormattedSequence(peptide)* string?
         #ValidateBasicConstraints(peptide) bool
@@ -161,7 +163,7 @@ flowchart TD
 
 ### Template Method
 ```
-RetentionTimePredictor.PredictRetentionTime():
+RetentionTimePredictor.PredictRetentionTimeEquivalent():
   1. ValidateBasicConstraints()
   2. GetFormattedSequence()      [abstract]
   3. PredictCore()                [abstract]
