@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Chemistry;
 
 namespace MassSpectrometry.Deconvolution.Consensus
 {
@@ -42,8 +43,9 @@ namespace MassSpectrometry.Deconvolution.Consensus
         /// <summary>
         /// Average mass spacing between adjacent C12/C13 isotope peaks. An off-by-one
         /// anchor error shifts the reported monoisotope by an integer multiple of this.
+        /// Aliases the shared <see cref="Constants.C13MinusC12"/> rather than redefining it.
         /// </summary>
-        public const double IsotopeSpacingDa = 1.00335;
+        public const double IsotopeSpacingDa = Constants.C13MinusC12;
 
         /// <summary>
         /// Half-window, in units of estimated mass-scatter sigma, for matching an envelope
