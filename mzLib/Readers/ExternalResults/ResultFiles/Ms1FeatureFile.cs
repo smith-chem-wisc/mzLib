@@ -15,13 +15,6 @@ namespace Readers
 
         public sealed override Software Software { get; set; }
 
-        // Records supplied by the in-memory factory (FromMassFeatures). When set,
-        // WriteResults writes these directly instead of going through the base Results
-        // getter, whose lazy-load would try to read from the empty FilePath of a
-        // factory-built file (crashing for a zero-feature input). Null for files read
-        // from disk, which load on demand as usual.
-        private List<Ms1Feature> _factoryRecords;
-
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() => Results.SelectMany(r => r.GetSingleChargeFeatures());
 
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
@@ -91,11 +84,10 @@ namespace Readers
             int fractionId = 0,
             Software software = Software.TopFD)
         {
-            // Build the record list up front and assign via the setter.
-            // Going through file.Results.Add(...) instead would invoke
-            // ResultFile<T>.Results' lazy-load getter (which calls
-            // LoadResults whenever _results is empty); the in-memory-
-            // constructed file has no FilePath, so LoadResults would throw.
+            // Build the record list up front and assign via the setter. The base
+            // Results getter only lazy-loads when File.Exists(FilePath), so a
+            // factory-built file (empty FilePath) returns these set records directly
+            // -- single source of truth, no separate in-memory store needed.
             var records = new List<Ms1Feature>();
             int sequentialId = 0;
             foreach (var f in features)
@@ -110,7 +102,6 @@ namespace Readers
             }
             var file = new Ms1FeatureFile { Software = software };
             file.Results = records;
-            file._factoryRecords = records;
             return file;
         }
 
@@ -126,9 +117,9 @@ namespace Readers
             using var csv = new CsvWriter(new StreamWriter(File.Create(outputPath)), Ms1Feature.CsvConfiguration);
 
             csv.WriteHeader<Ms1Feature>();
-            // Factory-built files write their records directly (may be empty -> header
-            // only); disk-backed files fall through to the lazy-loading Results getter.
-            foreach (var result in _factoryRecords ?? Results)
+            // Results returns the in-memory factory records as-is (may be empty -> header
+            // only), or lazy-loads from disk for a file-backed instance.
+            foreach (var result in Results)
             {
                 csv.NextRecord();
                 csv.WriteRecord(result);
