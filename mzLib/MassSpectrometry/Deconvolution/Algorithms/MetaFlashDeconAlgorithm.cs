@@ -196,11 +196,14 @@ namespace MassSpectrometry
                 // recruitedPeaks: (mz, intensity, absCharge, isotopeIndex n from monoisotopic)
                 var recruitedPeaks = new List<(double mz, double intensity, int z, int n)>();
 
-                // Per-charge noise and signal accumulators (representative charge only).
-                // noisePower: summed squared intensity of peaks in the isotope window
-                //             but OUTSIDE the ±ppm tolerance band.
-                // sumSignalSq: summed squared intensity of recruited signal peaks.
-                double repChargeNoisePower = 0.0;
+                // Representative-charge signal/noise PEAKS for the faithful noise-power model.
+                // Instead of summing squared noise intensity inline, we now collect the actual
+                // noisy peaks (raw peaks in each isotope window but OUTSIDE the +/-ppm band) and the
+                // signal peaks, then feed both to ComputeNoisePeakPower (the OpenMS
+                // getNoisePeakPower_ edge-grouping model, PeakGroup.cpp:180-401). repChargeSumSignalSq
+                // is still the summed squared signal intensity (per_charge_sum_signal_squared_).
+                var repNoisyPeaks = new List<(double mz, double intensity)>();
+                var repSignalPeaks = new List<(double mz, double intensity)>();
                 double repChargeSumSignalSq = 0.0;
 
                 for (int z = candidate.MinAbsCharge; z <= candidate.MaxAbsCharge; z++)
@@ -222,7 +225,7 @@ namespace MassSpectrometry
                         {
                             if (isRepZ)
                                 CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                    signalIndices, ref repChargeNoisePower);
+                                    signalIndices, repNoisyPeaks);
                             break;
                         }
 
@@ -242,8 +245,9 @@ namespace MassSpectrometry
                         if (isRepZ)
                         {
                             repChargeSumSignalSq += obsIntensity * obsIntensity;
+                            repSignalPeaks.Add((obsMz, obsIntensity));
                             CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                signalIndices, ref repChargeNoisePower);
+                                signalIndices, repNoisyPeaks);
                         }
                     }
 
@@ -262,7 +266,7 @@ namespace MassSpectrometry
                         {
                             if (isRepZ)
                                 CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                    signalIndices, ref repChargeNoisePower);
+                                    signalIndices, repNoisyPeaks);
                             break;
                         }
 
@@ -282,8 +286,9 @@ namespace MassSpectrometry
                         if (isRepZ)
                         {
                             repChargeSumSignalSq += obsIntensity * obsIntensity;
+                            repSignalPeaks.Add((obsMz, obsIntensity));
                             CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                signalIndices, ref repChargeNoisePower);
+                                signalIndices, repNoisyPeaks);
                         }
                     }
                 }
@@ -356,6 +361,14 @@ namespace MassSpectrometry
                     ? totalPpmError / uniquePeaks.Count
                     : 0.0;
 
+                // Faithful noise power for the representative charge: the OpenMS getNoisePeakPower_
+                // edge-grouping model (PeakGroup.cpp:180-401) over the representative charge's
+                // noisy + signal peaks. Replaces the prior "sum of squared out-of-band intensity",
+                // which underestimated structured noise (and made the SNR pass everything). Used
+                // here only to feed the existing Qscore -- no new drop gate in this step.
+                double repChargeNoisePower = ComputeNoisePeakPower(
+                    repNoisyPeaks, repSignalPeaks, repAbsCharge, Constants.C13MinusC12);
+
                 var envelope = new IsotopicEnvelope(
                     id: 0,
                     peaks: outputPeaks,
@@ -375,34 +388,179 @@ namespace MassSpectrometry
             return results;
         }
 
-        // ── Noise collection helper ───────────────────────────────────────────
-
+        // -- Noise collection helper --
         /// <summary>
-        /// Adds to <paramref name="noisePower"/> the summed squared intensity of
-        /// all raw spectrum peaks within [windowLo, windowHi] that are NOT in
-        /// <paramref name="signalIndices"/> (i.e. peaks in the isotope window but
-        /// outside the ±ppm tolerance band around the expected isotope position).
+        /// Appends to <paramref name="noisyPeaks"/> every raw spectrum peak within
+        /// [windowLo, windowHi] that is NOT in <paramref name="signalIndices"/> (i.e. peaks in
+        /// the isotope window but outside the +/-ppm band around the expected isotope position).
+        /// These noisy peaks feed <see cref="ComputeNoisePeakPower"/>.
         /// </summary>
         private static void CollectNoisePeaks(
             MzSpectrum spectrum,
             double windowLo,
             double windowHi,
             IReadOnlyCollection<int> signalIndices,
-            ref double noisePower)
+            List<(double mz, double intensity)> noisyPeaks)
         {
-            // Binary-search to the first index at or above windowLo.
-            // MzSpectrum.XArray is sorted ascending.
             int lo = spectrum.GetClosestPeakIndex(windowLo);
-            // Walk forward through all peaks in the window.
             for (int i = lo; i < spectrum.Size; i++)
             {
                 double mz = spectrum.XArray[i];
                 if (mz > windowHi) break;
                 if (mz < windowLo) continue;
                 if (signalIndices.Contains(i)) continue; // signal peak, skip
-                double intensity = spectrum.YArray[i];
-                noisePower += intensity * intensity;
+                noisyPeaks.Add((mz, spectrum.YArray[i]));
             }
+        }
+
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::getNoisePeakPower_</c> (PeakGroup.cpp:180-401).
+        /// Estimates the noise power for one charge state by detecting STRUCTURED noise: chains of
+        /// peaks (signal + noisy) separated by a CONSISTENT, non-isotopic m/z spacing - the
+        /// signature of a co-eluting contaminant ladder rather than the target envelope. Each such
+        /// path's noisy intensity is summed and squared; leftover unpaired noisy peaks contribute
+        /// their individual power. This is far larger and more realistic than "sum of squared
+        /// out-of-band intensity", which is why the prior estimate was near-zero on dense spectra.
+        /// <para>
+        /// Mirrors the C++ exactly: 50-peak intensity cap, 29 distance bins (24 + 5), the
+        /// 0.9-1.1 isotope-distance exclusion, the 0.75 both-signal exclusion, the >=2-edge path
+        /// requirement, and the used/skipped power accounting.
+        /// </para>
+        /// </summary>
+        /// <param name="noisyPeaks">Noisy peaks (out-of-band window peaks) for this charge.</param>
+        /// <param name="signalPeaks">Recruited signal peaks for this charge.</param>
+        /// <param name="absCharge">Absolute charge z (the OpenMS <c>z</c>).</param>
+        /// <param name="isoDaDistance">Isotope spacing in Da (C13 - C12 for targets).</param>
+        internal static double ComputeNoisePeakPower(
+            List<(double mz, double intensity)> noisyPeaks,
+            List<(double mz, double intensity)> signalPeaks,
+            int absCharge,
+            double isoDaDistance)
+        {
+            const int maxNoisyPeaks = 50; // too many noise peaks slow the process
+            const int maxBinNumber = 29;  // 24 bins + 5 extra
+            if (absCharge <= 0) return 0.0;
+
+            double threshold = 0.0;
+            int total = noisyPeaks.Count + signalPeaks.Count;
+            if (total > maxNoisyPeaks)
+            {
+                var intens = new List<double>(total);
+                foreach (var pk in noisyPeaks) intens.Add(pk.intensity);
+                foreach (var pk in signalPeaks) intens.Add(pk.intensity);
+                intens.Sort();
+                threshold = intens[intens.Count - maxNoisyPeaks];
+            }
+
+            var allPeaks = new List<(double mz, double intensity, bool isSignal)>(total);
+            var signalMzs = new HashSet<double>();
+            foreach (var pk in noisyPeaks)
+                if (pk.intensity >= threshold) allPeaks.Add((pk.mz, pk.intensity, false));
+            foreach (var pk in signalPeaks)
+                if (pk.intensity >= threshold) { allPeaks.Add((pk.mz, pk.intensity, true)); signalMzs.Add(pk.mz); }
+
+            allPeaks.Sort((a, b) => a.mz.CompareTo(b.mz));
+            int nAll = allPeaks.Count;
+            if (nAll == 0) return 0.0;
+
+            var isSignal = new bool[nAll];
+            for (int i = 0; i < nAll; i++)
+                isSignal[i] = signalMzs.Contains(allPeaks[i].mz);
+
+            var perBinEdges = new int[maxBinNumber][];
+            var perBinStartIndex = new int[maxBinNumber];
+            for (int k = 0; k < maxBinNumber; k++)
+            {
+                perBinEdges[k] = new int[nAll];           // 0 = no edge (matches OpenMS sentinel)
+                perBinStartIndex[k] = -2;                 // -2 empty, -1 used, >=0 path start
+            }
+
+            for (int i = 0; i < nAll; i++)
+            {
+                bool p1Signal = isSignal[i];
+                for (int j = i + 1; j < nAll; j++)
+                {
+                    double normalizedDist = (allPeaks[j].mz - allPeaks[i].mz) * absCharge / isoDaDistance;
+                    if (normalizedDist > 0.9 && normalizedDist < 1.1) continue; // ~ isotope distance: skip
+                    int bin = (int)Math.Round(normalizedDist * (maxBinNumber - 5));
+                    if (bin == 0) continue;
+                    if (bin >= maxBinNumber) break;
+                    if (p1Signal && isSignal[j] && normalizedDist >= 0.75) continue; // two signals ~1 iso apart
+                    perBinEdges[bin][i] = j;
+                    perBinStartIndex[bin] = -1;
+                }
+            }
+
+            var maxIntensitySumToBin = new SortedDictionary<double, int>();
+            for (int k = 0; k < maxBinNumber; k++)
+            {
+                if (perBinStartIndex[k] == -2) continue;
+                var edges = perBinEdges[k];
+                double maxSumIntensity = 0.0;
+                for (int i = 0; i < edges.Length; i++)
+                {
+                    if (edges[i] == 0) continue;
+                    double intensity = isSignal[i] ? 0.0 : allPeaks[i].intensity;
+                    double sumIntensity = intensity;
+                    int j = edges[i];
+                    int cntr = 0;
+                    while (j < edges.Length)
+                    {
+                        cntr++;
+                        j = edges[j];
+                        if (j <= 0) break;
+                        sumIntensity += intensity;
+                        if (!isSignal[j]) intensity = allPeaks[j].intensity;
+                    }
+                    if (cntr > 2 && maxSumIntensity < sumIntensity)
+                    {
+                        maxSumIntensity = sumIntensity;
+                        perBinStartIndex[k] = i;
+                    }
+                }
+                maxIntensitySumToBin[maxSumIntensity] = k; // later duplicate sums overwrite, as in OpenMS
+            }
+
+            double chargeNoisePwr = 0.0;
+            var used = new bool[nAll];
+
+            foreach (var kv in maxIntensitySumToBin.Reverse())
+            {
+                int bin = kv.Value;
+                int index = perBinStartIndex[bin];
+                if (index < 0) continue;
+
+                var edges = perBinEdges[bin];
+                double intensity = isSignal[index] ? 0.0 : allPeaks[index].intensity;
+                double sumIntensity = 0.0, sumSquaredIntensity = 0.0;
+                int skippedPeakCntr = 0;
+
+                if (!used[index]) sumIntensity += intensity;
+                else { sumSquaredIntensity += intensity * intensity; skippedPeakCntr++; }
+                used[index] = true;
+
+                int j = edges[index];
+                while (j < edges.Length)
+                {
+                    j = edges[j];
+                    if (j <= 0) break;
+                    if (!used[j]) sumIntensity += intensity;
+                    else { sumSquaredIntensity += intensity * intensity; skippedPeakCntr++; }
+                    used[j] = true;
+                    if (!isSignal[j]) intensity = allPeaks[j].intensity;
+                }
+
+                chargeNoisePwr += skippedPeakCntr < 2
+                    ? sumIntensity * sumIntensity
+                    : sumSquaredIntensity;
+            }
+
+            for (int i = 0; i < nAll; i++)
+            {
+                if (used[i] || isSignal[i]) continue;
+                chargeNoisePwr += allPeaks[i].intensity * allPeaks[i].intensity;
+            }
+            return chargeNoisePwr;
         }
 
         // ══════════════════════════════════════════════════════════════════════
