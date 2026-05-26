@@ -192,9 +192,13 @@ namespace Test.Deconvolution
 
             foreach (var env in results)
             {
-                Assert.That(env.Score, Is.GreaterThanOrEqualTo(p.MinCosineScore)
-                                         .And.LessThanOrEqualTo(1.0 + 1e-9),
-                    $"Score {env.Score:F4} out of range in {fileName}");
+                // env.Score is the logistic-regression Qscore in (0, 1] after Steps 3-5,
+                // NOT the raw Averagine cosine: the cosine >= MinCosineScore filter is
+                // applied inside the algorithm before scoring, then Score is replaced by
+                // the Qscore. Matches the convention asserted in
+                // TestMetaFlashDeconStep3to5.Deconvolute_AllEnvelopes_HaveQscoreInValidRange.
+                Assert.That(env.Score, Is.GreaterThan(0.0).And.LessThanOrEqualTo(1.0 + 1e-9),
+                    $"Qscore {env.Score:F4} out of range in {fileName}");
                 Assert.That(env.MonoisotopicMass, Is.GreaterThanOrEqualTo(p.MinMassRange)
                                                     .And.LessThanOrEqualTo(p.MaxMassRange),
                     $"Mass {env.MonoisotopicMass:F1} out of range in {fileName}");
