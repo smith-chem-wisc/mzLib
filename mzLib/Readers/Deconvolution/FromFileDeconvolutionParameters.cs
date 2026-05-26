@@ -37,6 +37,9 @@ namespace Readers
         private readonly List<ISingleChargeMs1Feature> _featuresMzAscending;
         private readonly double[] _mzKeys;
 
+        protected string OriginalFilePath { get; set; }
+
+
         /// <summary>
         /// The pre-loaded per-charge features the algorithm filters against, sorted
         /// by ascending <see cref="ISingleChargeMs1Feature.Mz"/>.
@@ -61,6 +64,8 @@ namespace Readers
                     $"File at '{filePath}' is not a recognized MS1 feature file. " +
                     $"Detected type: {resultFile.GetType().Name}. " +
                     "Expected an Ms1Feature (.ms1.feature) or Dinosaur (.feature.tsv) file.");
+
+            OriginalFilePath = filePath;
 
             resultFile.LoadResults();
             (_featuresMzAscending, _mzKeys) = SortAndIndex(featureFile.GetMs1Features());
@@ -100,6 +105,35 @@ namespace Readers
             int idx = Array.BinarySearch(_mzKeys, minMz);
             return idx < 0 ? ~idx : idx;
         }
+
+        #region IEquatable<FromFileDeconvolutionParameters>
+
+        protected override bool EqualProperties(DeconvolutionParameters other)
+        {
+            var o = (FromFileDeconvolutionParameters)other;
+            if (Features.Count != o.Features.Count) return false;
+            if (OriginalFilePath != o.OriginalFilePath) return false;
+            return true;
+        }
+
+        protected override void AddHashCodes(HashCode hash)
+        {
+            hash.Add(Features.Count);
+            hash.Add(OriginalFilePath);
+        }
+
+        public override FromFileDeconvolutionParameters Clone()
+        {
+            return new FromFileDeconvolutionParameters(
+                _featuresMzAscending.ToList(),
+                MinAssumedChargeState, MaxAssumedChargeState, Polarity)
+            {
+                UseGenericScore = UseGenericScore,
+                OriginalFilePath = OriginalFilePath
+            };
+        }
+
+        #endregion
 
         /// <summary>
         /// Polymorphic factory hook: returns a <see cref="FromFileDeconvolutionAlgorithm"/>
