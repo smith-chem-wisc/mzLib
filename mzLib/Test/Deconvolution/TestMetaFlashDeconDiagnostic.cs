@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
@@ -16,10 +16,10 @@ namespace Test
     /// Delete or [Ignore] once Steps 3–5 produce correct masses.
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvDiagnostic
+    public sealed class TestMetaFlashDeconDiagnostic
     {
-        private static FLASHDeconvolutionParameters DefaultParams() =>
-            new FLASHDeconvolutionParameters(
+        private static MetaFlashDeconParameters DefaultParams() =>
+            new MetaFlashDeconParameters(
                 minCharge: 1, maxCharge: 60,
                 deconvolutionTolerancePpm: 10.0,
                 minIsotopicPeakCount: 3,
@@ -289,7 +289,7 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         private static MzSpectrum BuildSpectrumFromFormulaMono(
-            double formulaMono, int[] charges, FLASHDeconvolutionParameters p,
+            double formulaMono, int[] charges, MetaFlashDeconParameters p,
             double baseIntensity = 100_000.0)
         {
             // Build Averagine intensity profile from the apex lookup
@@ -317,16 +317,16 @@ namespace Test
                                   pairs.Select(x => x.Second).ToArray(), false);
         }
 
-        private static List<FLASHDeconvolutionAlgorithm.CandidateMass> RunStep2(
-            MzSpectrum spectrum, FLASHDeconvolutionParameters p)
+        private static List<MetaFlashDeconAlgorithm.CandidateMass> RunStep2(
+            MzSpectrum spectrum, MetaFlashDeconParameters p)
         {
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(spectrum, spectrum.Range, p.Polarity);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(spectrum, spectrum.Range, p.Polarity);
             int minAbs = Math.Abs(p.MinAssumedChargeState);
             int cr = Math.Abs(p.MaxAssumedChargeState) - minAbs + 1;
-            var up = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, cr);
-            var hp = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, cr);
+            var up = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, cr);
+            var hp = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, cr);
             double bmf = 1.0 / (p.DeconvolutionTolerancePpm * 1e-6);
-            return FLASHDeconvolutionAlgorithm.FindCandidateMasses(logPeaks, up, hp, bmf, p);
+            return MetaFlashDeconAlgorithm.FindCandidateMasses(logPeaks, up, hp, bmf, p);
         }
     }
 }

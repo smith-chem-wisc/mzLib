@@ -1,4 +1,4 @@
-﻿// FLASHDeconvolutionAlgorithm.cs
+// MetaFlashDeconAlgorithm.cs
 //
 // Status: STEPS 1–5 COMPLETE — full spectral deconvolution implemented
 //
@@ -23,7 +23,7 @@ using MzLibUtil;                           // PpmTolerance
 
 namespace MassSpectrometry
 {
-    internal class FLASHDeconvolutionAlgorithm : DeconvolutionAlgorithm
+    internal class MetaFlashDeconAlgorithm : DeconvolutionAlgorithm
     {
         // ── Algorithm constants ───────────────────────────────────────────────
 
@@ -47,7 +47,7 @@ namespace MassSpectrometry
             => 1.0 / (tolerancePpm * 1e-6);
 
         // ── Constructor ───────────────────────────────────────────────────────
-        internal FLASHDeconvolutionAlgorithm(DeconvolutionParameters deconParameters)
+        internal MetaFlashDeconAlgorithm(DeconvolutionParameters deconParameters)
             : base(deconParameters)
         {
         }
@@ -58,7 +58,7 @@ namespace MassSpectrometry
 
         protected internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
-            var p = DeconvolutionParameters as FLASHDeconvolutionParameters
+            var p = DeconvolutionParameters as MetaFlashDeconParameters
                 ?? throw new MzLibException("Deconvolution params and algorithm do not match");
 
             range ??= spectrum.Range;
@@ -91,9 +91,9 @@ namespace MassSpectrometry
 
             // Deduplicate on envelope identity; propagate the full EnvelopeScoringData
             // through so the scorer receives all per-charge fields for the winner.
-            var dedupedData = FLASHDeconvDeduplicator.Deduplicate(scoringData, p.DeconvolutionTolerancePpm);
+            var dedupedData = MetaFlashDeconDeduplicator.Deduplicate(scoringData, p.DeconvolutionTolerancePpm);
 
-            return FLASHDeconvScorer.AssignQscores(dedupedData);
+            return MetaFlashDeconScorer.AssignQscores(dedupedData);
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -106,7 +106,7 @@ namespace MassSpectrometry
         /// For each candidate mass, recruits isotope peaks from the raw spectrum
         /// for each charge state in the candidate's range, scores the resulting
         /// isotope intensity distribution against Averagine, and returns accepted
-        /// envelopes as <see cref="FLASHDeconvScorer.EnvelopeScoringData"/>.
+        /// envelopes as <see cref="MetaFlashDeconScorer.EnvelopeScoringData"/>.
         ///
         /// During recruitment the following are accumulated simultaneously:
         /// <list type="bullet">
@@ -116,12 +116,12 @@ namespace MassSpectrometry
         ///     isotope position but outside the ±ppm tolerance band — for the representative charge.</item>
         /// </list>
         /// </summary>
-        private IEnumerable<FLASHDeconvScorer.EnvelopeScoringData> ScoreAndBuildEnvelopes(
+        private IEnumerable<MetaFlashDeconScorer.EnvelopeScoringData> ScoreAndBuildEnvelopes(
             MzSpectrum spectrum,
             List<CandidateMass> candidates,
-            FLASHDeconvolutionParameters p)
+            MetaFlashDeconParameters p)
         {
-            var results = new List<FLASHDeconvScorer.EnvelopeScoringData>();
+            var results = new List<MetaFlashDeconScorer.EnvelopeScoringData>();
             var tolerance = new PpmTolerance(p.DeconvolutionTolerancePpm);
             int polSign = Math.Sign((int)p.Polarity); // +1 positive, -1 negative
 
@@ -328,7 +328,7 @@ namespace MassSpectrometry
                     intensity: totalIntensity,
                     score: bestCosine);   // Score = global cosine; replaced by Qscore after scoring
 
-                results.Add(new FLASHDeconvScorer.EnvelopeScoringData(
+                results.Add(new MetaFlashDeconScorer.EnvelopeScoringData(
                     envelope: envelope,
                     avgPpmError: avgPpmError,
                     repChargeIsotopeCosine: repChargeCosine,
@@ -387,7 +387,7 @@ namespace MassSpectrometry
             double[] universalPattern,
             double[][] harmonicPatterns,
             double binMulFactor,
-            FLASHDeconvolutionParameters deconParams)
+            MetaFlashDeconParameters deconParams)
         {
             if (logPeaks.Count == 0) return new List<CandidateMass>();
 

@@ -1,6 +1,6 @@
-﻿// FLASHDeconvTsvWriter.cs
+// MetaFlashDeconTsvWriter.cs
 //
-// Writes a per-envelope TSV companion file for FLASHDeconvolutionAlgorithm output,
+// Writes a per-envelope TSV companion file for MetaFlashDeconAlgorithm output,
 // analogous to the OpenMS FLASHDeconv _ms1.tsv format.
 //
 // ── What OpenMS actually does for q-values ────────────────────────────────────
@@ -71,14 +71,14 @@
 //   {
 //       // Run Steps 1-5, capture cosine before Qscore replacement:
 //       var raw = ScoreAndBuildEnvelopes(...);      // Score = cosine
-//       var deduped = FLASHDeconvDeduplicator.Deduplicate(raw, ppm);
-//       double median = FLASHDeconvScorer.ComputeMedianIntensity(scan.MassSpectrum);
-//       var scored = FLASHDeconvScorer.AssignQscores(deduped, median, ppm); // Score = Qscore
+//       var deduped = MetaFlashDeconDeduplicator.Deduplicate(raw, ppm);
+//       double median = MetaFlashDeconScorer.ComputeMedianIntensity(scan.MassSpectrum);
+//       var scored = MetaFlashDeconScorer.AssignQscores(deduped, median, ppm); // Score = Qscore
 //       // pair each scored envelope with its original cosine:
 //       foreach (var (env, cos) in scored.Zip(deduped.Select(e => e.Score)))
 //           rawResults.Add((scan, env, cos));
 //   }
-//   FLASHDeconvTsvWriter.WriteMs1Tsv(rawResults, outputPath);
+//   MetaFlashDeconTsvWriter.WriteMs1Tsv(rawResults, outputPath);
 //
 // Alternatively, simpler: store the cosine inside the envelope before calling
 // AssignQscores (e.g. as a separate list), then zip.
@@ -93,11 +93,11 @@ using MassSpectrometry;
 namespace Test.Deconvolution
 {
     /// <summary>
-    /// Writes a per-envelope TSV companion file for FLASHDeconvolution output.
+    /// Writes a per-envelope TSV companion file for MetaFlashDecon output.
     /// Produces Qscore and a simplified q-value analogous to the OpenMS
     /// FLASHDeconv _ms1.tsv format. See file header for full methodology notes.
     /// </summary>
-    public static class FLASHDeconvTsvWriter
+    public static class MetaFlashDeconTsvWriter
     {
         // ── Column headers ────────────────────────────────────────────────────
         private static readonly string[] Columns =

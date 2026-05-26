@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using Chemistry;
@@ -22,7 +22,7 @@ namespace Test.Deconvolution
     /// Tolerance: 3 Da (the paper states all tools find signals within 3 Da).
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvRealData
+    public sealed class TestMetaFlashDeconRealData
     {
         private static readonly string TestDataDir = FindTestDataDir();
 
@@ -49,8 +49,8 @@ namespace Test.Deconvolution
                 "Searched upward from: " + TestContext.CurrentContext.TestDirectory);
         }
 
-        private static FLASHDeconvolutionParameters Params(int maxZ = 60) =>
-            new FLASHDeconvolutionParameters(
+        private static MetaFlashDeconParameters Params(int maxZ = 60) =>
+            new MetaFlashDeconParameters(
                 minCharge: 1, maxCharge: maxZ,
                 deconvolutionTolerancePpm: 10.0,
                 minIsotopicPeakCount: 3,

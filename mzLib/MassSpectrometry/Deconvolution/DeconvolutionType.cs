@@ -1,11 +1,11 @@
-﻿namespace MassSpectrometry
+namespace MassSpectrometry
 {
     public enum DeconvolutionType
     {
         ClassicDeconvolution,
         ExampleNewDeconvolutionTemplate,
         IsoDecDeconvolution,
-        FLASHDeconvolution,
+        MetaFlashDecon,
         FromFile,
         Multiple
     }

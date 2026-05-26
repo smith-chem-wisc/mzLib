@@ -1,6 +1,6 @@
-﻿// TestFLASHDeconvMzmlToMsAlign.cs
+// TestMetaFlashDeconMzmlToMsAlign.cs
 //
-// PURPOSE: Integration test that loads a real mzML file from disk, runs FLASHDeconvolution
+// PURPOSE: Integration test that loads a real mzML file from disk, runs MetaFlashDecon
 // on every MS1 scan, and writes:
 //   1. A _ms1.msalign file (masses, intensities, charges per scan)
 //   2. A _ms1.tsv file    (per-envelope: Qscore, SimpleQvalue, ppm error, etc.)
@@ -35,7 +35,7 @@ using Readers;
 namespace Test.Deconvolution
 {
     [TestFixture]
-    public class TestFLASHDeconvMzmlToMsAlign
+    public class TestMetaFlashDeconMzmlToMsAlign
     {
         // ── Configure your input file here ──────────────────────────────────────
         private const string MzmlPath =
@@ -73,7 +73,7 @@ namespace Test.Deconvolution
             // Deconvolute() runs the full pipeline internally:
             //   Steps 1-5 → deduplication → Qscoring
             // Returned envelopes have Score = Qscore in [0,1].
-            var deconParams = new FLASHDeconvolutionParameters();
+            var deconParams = new MetaFlashDeconParameters();
             Console.WriteLine("Deconvoluting ...");
 
             var msalignResults = new List<(MsDataScan Scan, List<IsotopicEnvelope> Envelopes)>();
@@ -84,7 +84,7 @@ namespace Test.Deconvolution
 
             foreach (MsDataScan scan in ms1Scans)
             {
-                // Score on returned envelopes = Qscore (set internally by FLASHDeconvScorer)
+                // Score on returned envelopes = Qscore (set internally by MetaFlashDeconScorer)
                 List<IsotopicEnvelope> envelopes = Deconvoluter
                     .Deconvolute(scan, deconParams)
                     .ToList();

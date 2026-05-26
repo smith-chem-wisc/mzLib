@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
 using MassSpectrometry;
@@ -17,7 +17,7 @@ namespace Test
     /// once the algorithm is implemented.
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvolutionInfrastructure
+    public sealed class TestMetaFlashDeconInfrastructure
     {
         // ── shared spectrum fixtures ──────────────────────────────────────────
 
@@ -37,24 +37,24 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void FLASHDeconvParameters_DefaultConstructor_DeconvolutionTypeIsCorrect()
+        public void MetaFlashDeconParameters_DefaultConstructor_DeconvolutionTypeIsCorrect()
         {
-            var p = new FLASHDeconvolutionParameters();
-            Assert.That(p.DeconvolutionType, Is.EqualTo(DeconvolutionType.FLASHDeconvolution));
+            var p = new MetaFlashDeconParameters();
+            Assert.That(p.DeconvolutionType, Is.EqualTo(DeconvolutionType.MetaFlashDecon));
         }
 
         [Test]
-        public void FLASHDeconvParameters_DefaultConstructor_ChargeRangeIsCorrect()
+        public void MetaFlashDeconParameters_DefaultConstructor_ChargeRangeIsCorrect()
         {
-            var p = new FLASHDeconvolutionParameters();
+            var p = new MetaFlashDeconParameters();
             Assert.That(p.MinAssumedChargeState, Is.EqualTo(1));
             Assert.That(p.MaxAssumedChargeState, Is.EqualTo(60));
         }
 
         [Test]
-        public void FLASHDeconvParameters_DefaultConstructor_AllDefaultValuesAreCorrect()
+        public void MetaFlashDeconParameters_DefaultConstructor_AllDefaultValuesAreCorrect()
         {
-            var p = new FLASHDeconvolutionParameters();
+            var p = new MetaFlashDeconParameters();
 
             Assert.That(p.MinIsotopicPeakCount, Is.EqualTo(3));
             Assert.That(p.MaxIsotopicPeakCount, Is.EqualTo(50));
@@ -67,24 +67,24 @@ namespace Test
         }
 
         [Test]
-        public void FLASHDeconvParameters_DefaultConstructor_PolarityIsPositive()
+        public void MetaFlashDeconParameters_DefaultConstructor_PolarityIsPositive()
         {
-            var p = new FLASHDeconvolutionParameters();
+            var p = new MetaFlashDeconParameters();
             Assert.That(p.Polarity, Is.EqualTo(Polarity.Positive));
         }
 
         [Test]
-        public void FLASHDeconvParameters_DefaultConstructor_AverageResidueModelIsAveragine()
+        public void MetaFlashDeconParameters_DefaultConstructor_AverageResidueModelIsAveragine()
         {
-            var p = new FLASHDeconvolutionParameters();
+            var p = new MetaFlashDeconParameters();
             Assert.That(p.AverageResidueModel, Is.Not.Null);
             Assert.That(p.AverageResidueModel, Is.InstanceOf<Averagine>());
         }
 
         [Test]
-        public void FLASHDeconvParameters_CustomConstructor_SetsAllValues()
+        public void MetaFlashDeconParameters_CustomConstructor_SetsAllValues()
         {
-            var p = new FLASHDeconvolutionParameters(
+            var p = new MetaFlashDeconParameters(
                 minCharge: 2,
                 maxCharge: 30,
                 deconvolutionTolerancePpm: 5.0,
@@ -111,21 +111,21 @@ namespace Test
         }
 
         [Test]
-        public void FLASHDeconvParameters_InheritsFromDeconvolutionParameters()
+        public void MetaFlashDeconParameters_InheritsFromDeconvolutionParameters()
         {
-            var p = new FLASHDeconvolutionParameters();
+            var p = new MetaFlashDeconParameters();
             Assert.That(p, Is.InstanceOf<DeconvolutionParameters>());
         }
 
         // ══════════════════════════════════════════════════════════════════════
-        // 2. Factory dispatch — Deconvoluter routes to FLASHDeconvAlgorithm
+        // 2. Factory dispatch — Deconvoluter routes to MetaFlashDeconAlgorithm
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
         public void Deconvoluter_WithFLASHParams_DoesNotThrow()
         {
             var spectrum = SmallPositiveSpectrum();
-            var p = new FLASHDeconvolutionParameters();
+            var p = new MetaFlashDeconParameters();
 
             IEnumerable<IsotopicEnvelope> result = null;
             Assert.DoesNotThrow(() =>
@@ -138,7 +138,7 @@ namespace Test
         public void Deconvoluter_WithFLASHParams_ReturnsIEnumerableOfIsotopicEnvelope()
         {
             var spectrum = SmallPositiveSpectrum();
-            var result = Deconvoluter.Deconvolute(spectrum, new FLASHDeconvolutionParameters());
+            var result = Deconvoluter.Deconvolute(spectrum, new MetaFlashDeconParameters());
 
             Assert.That(result, Is.InstanceOf<IEnumerable<IsotopicEnvelope>>());
         }
@@ -155,7 +155,7 @@ namespace Test
 
             IEnumerable<IsotopicEnvelope> result = null;
             Assert.DoesNotThrow(() =>
-                result = Deconvoluter.Deconvolute(scan, new FLASHDeconvolutionParameters()).ToList());
+                result = Deconvoluter.Deconvolute(scan, new MetaFlashDeconParameters()).ToList());
 
             Assert.That(result, Is.Not.Null);
         }
@@ -165,40 +165,40 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void FLASHDeconv_EmptySpectrum_ReturnsEmptyNotNull()
+        public void MetaFlashDecon_EmptySpectrum_ReturnsEmptyNotNull()
         {
             var result = Deconvoluter.Deconvolute(
                 EmptySpectrum(),
-                new FLASHDeconvolutionParameters()).ToList();
+                new MetaFlashDeconParameters()).ToList();
 
             Assert.That(result, Is.Not.Null);
             Assert.That(result.Count, Is.EqualTo(0));
         }
 
         [Test]
-        public void FLASHDeconv_NullRange_DefaultsToSpectrumRangeWithoutThrowing()
+        public void MetaFlashDecon_NullRange_DefaultsToSpectrumRangeWithoutThrowing()
         {
             var spectrum = SmallPositiveSpectrum();
 
             IEnumerable<IsotopicEnvelope> result = null;
             Assert.DoesNotThrow(() =>
-                result = Deconvoluter.Deconvolute(spectrum, new FLASHDeconvolutionParameters(), null).ToList());
+                result = Deconvoluter.Deconvolute(spectrum, new MetaFlashDeconParameters(), null).ToList());
 
             Assert.That(result, Is.Not.Null);
         }
 
         [Test]
-        public void FLASHDeconv_NegativePolarity_DoesNotThrow()
+        public void MetaFlashDecon_NegativePolarity_DoesNotThrow()
         {
             var spectrum = SmallPositiveSpectrum();
-            var p = new FLASHDeconvolutionParameters(polarity: Polarity.Negative);
+            var p = new MetaFlashDeconParameters(polarity: Polarity.Negative);
 
             Assert.DoesNotThrow(() =>
                 _ = Deconvoluter.Deconvolute(spectrum, p).ToList());
         }
 
         [Test]
-        public void FLASHDeconv_SinglePeakSpectrum_DoesNotThrow()
+        public void MetaFlashDecon_SinglePeakSpectrum_DoesNotThrow()
         {
             var spectrum = new MzSpectrum(
                 new double[] { 500.0 },
@@ -206,17 +206,17 @@ namespace Test
                 shouldCopy: false);
 
             Assert.DoesNotThrow(() =>
-                _ = Deconvoluter.Deconvolute(spectrum, new FLASHDeconvolutionParameters()).ToList());
+                _ = Deconvoluter.Deconvolute(spectrum, new MetaFlashDeconParameters()).ToList());
         }
 
         [Test]
-        public void FLASHDeconv_RangeNarrowerThanSpectrum_DoesNotThrow()
+        public void MetaFlashDecon_RangeNarrowerThanSpectrum_DoesNotThrow()
         {
             var spectrum = SmallPositiveSpectrum();
             var narrowRange = new MzRange(499.0, 501.5);
 
             Assert.DoesNotThrow(() =>
-                _ = Deconvoluter.Deconvolute(spectrum, new FLASHDeconvolutionParameters(), narrowRange).ToList());
+                _ = Deconvoluter.Deconvolute(spectrum, new MetaFlashDeconParameters(), narrowRange).ToList());
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -229,11 +229,11 @@ namespace Test
         /// will need to be updated once the real algorithm is implemented.
         /// </summary>
         [Test]
-        public void FLASHDeconv_Skeleton_ReturnsEmptyOnRealSpectrum()
+        public void MetaFlashDecon_Skeleton_ReturnsEmptyOnRealSpectrum()
         {
             var result = Deconvoluter.Deconvolute(
                 SmallPositiveSpectrum(),
-                new FLASHDeconvolutionParameters()).ToList();
+                new MetaFlashDeconParameters()).ToList();
 
             // Skeleton behaviour: always empty.
             // TODO: Replace Is.Empty with real quality assertions after implementation.
@@ -247,10 +247,10 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void DeconvolutionType_FLASHDeconvolution_ExistsInEnum()
+        public void DeconvolutionType_MetaFlashDecon_ExistsInEnum()
         {
             var names = System.Enum.GetNames(typeof(DeconvolutionType));
-            Assert.That(names, Contains.Item("FLASHDeconvolution"));
+            Assert.That(names, Contains.Item("MetaFlashDecon"));
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -259,7 +259,7 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         [Test]
-        public void FLASHDeconv_NeutralMassSpectrum_ShortCircuitsToNeutralMassPath()
+        public void MetaFlashDecon_NeutralMassSpectrum_ShortCircuitsToNeutralMassPath()
         {
             // Arrange: build a NeutralMassSpectrum (pre-deconvoluted)
             var masses = new double[] { 5000.0, 10000.0 };
@@ -269,7 +269,7 @@ namespace Test
 
             // Act: Deconvoluter should short-circuit to DeconvoluteNeutralMassSpectrum,
             // returning one IsotopicEnvelope per peak regardless of which parameters are used.
-            var result = Deconvoluter.Deconvolute(neutral, new FLASHDeconvolutionParameters()).ToList();
+            var result = Deconvoluter.Deconvolute(neutral, new MetaFlashDeconParameters()).ToList();
 
             // Assert: both peaks are returned as-is (neutral mass path)
             Assert.That(result.Count, Is.EqualTo(2));

@@ -1,4 +1,4 @@
-﻿#nullable enable
+#nullable enable
 using System;
 
 namespace MassSpectrometry
@@ -9,11 +9,11 @@ namespace MassSpectrometry
     /// isotopic envelopes across charge states without brute-force charge enumeration.
     /// See: Kim et al. (2020) DOI: 10.1021/acs.jproteome.9b00738
     /// </summary>
-    public class FLASHDeconvolutionParameters : DeconvolutionParameters
+    public class MetaFlashDeconParameters : DeconvolutionParameters
     {
         /// <inheritdoc />
         public override DeconvolutionType DeconvolutionType { get; protected set; }
-            = DeconvolutionType.FLASHDeconvolution;
+            = DeconvolutionType.MetaFlashDecon;
 
         /// <summary>
         /// Number of harmonic charge relationships considered when scoring an isotopic envelope.
@@ -66,7 +66,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Constructs FLASHDeconv parameters with sensible defaults suitable for
         /// top-down proteomics. All parameters have defaults so that
-        /// <c>new FLASHDeconvolutionParameters()</c> is a valid zero-argument call.
+        /// <c>new MetaFlashDeconParameters()</c> is a valid zero-argument call.
         /// </summary>
         /// <param name="minCharge">Minimum assumed charge state (inclusive).</param>
         /// <param name="maxCharge">Maximum assumed charge state (inclusive).</param>
@@ -80,7 +80,7 @@ namespace MassSpectrometry
         /// <param name="maxMassRange">Maximum neutral mass (Da) to report.</param>
         /// <param name="polarity">Ionisation polarity.</param>
         /// <param name="averageResidueModel">Averagine model used for theoretical isotope distributions. Defaults to <see cref="Averagine"/>.</param>
-        public FLASHDeconvolutionParameters(
+        public MetaFlashDeconParameters(
             int minCharge = 1,
             int maxCharge = 60,
             double deconvolutionTolerancePpm = 10.0,
@@ -109,7 +109,7 @@ namespace MassSpectrometry
 
         protected override bool EqualProperties(DeconvolutionParameters other)
         {
-            var o = (FLASHDeconvolutionParameters)other;
+            var o = (MetaFlashDeconParameters)other;
             return PrecursorHarmonicCount == o.PrecursorHarmonicCount
                 && MaxIsotopicPeakCount == o.MaxIsotopicPeakCount
                 && MinIsotopicPeakCount == o.MinIsotopicPeakCount
@@ -132,9 +132,9 @@ namespace MassSpectrometry
             hash.Add(MaxMassRange);
         }
 
-        public override FLASHDeconvolutionParameters Clone()
+        public override MetaFlashDeconParameters Clone()
         {
-            return new FLASHDeconvolutionParameters(
+            return new MetaFlashDeconParameters(
                 MinAssumedChargeState, MaxAssumedChargeState,
                 DeconvolutionTolerancePpm, MinIsotopicPeakCount, MaxIsotopicPeakCount,
                 PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,
@@ -155,7 +155,7 @@ namespace MassSpectrometry
 
             lock (_decoyParamsLock)
             {
-                return _decoyParams ??= new FLASHDeconvolutionParameters(
+                return _decoyParams ??= new MetaFlashDeconParameters(
                     MinAssumedChargeState, MaxAssumedChargeState,
                     DeconvolutionTolerancePpm, MinIsotopicPeakCount, MaxIsotopicPeakCount,
                     PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,

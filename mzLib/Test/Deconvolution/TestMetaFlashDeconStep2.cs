@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
@@ -20,11 +20,11 @@ namespace Test
     ///      from known protein masses.
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvolutionStep2
+    public sealed class TestMetaFlashDeconStep2
     {
         // ── shared parameters ────────────────────────────────────────────────
-        private static FLASHDeconvolutionParameters DefaultParams() =>
-            new FLASHDeconvolutionParameters(
+        private static MetaFlashDeconParameters DefaultParams() =>
+            new MetaFlashDeconParameters(
                 minCharge: 1, maxCharge: 60,
                 deconvolutionTolerancePpm: 10.0,
                 minIsotopicPeakCount: 3,
@@ -40,7 +40,7 @@ namespace Test
         {
             double minValue = 5.0;
             double binMulFactor = 100_000.0;
-            Assert.That(FLASHDeconvolutionAlgorithm.BinNumber(minValue, minValue, binMulFactor),
+            Assert.That(MetaFlashDeconAlgorithm.BinNumber(minValue, minValue, binMulFactor),
                 Is.EqualTo(0));
         }
 
@@ -51,8 +51,8 @@ namespace Test
             double binMulFactor = 100_000.0;
             double value = Math.Log(12000.0);
 
-            int bin = FLASHDeconvolutionAlgorithm.BinNumber(value, minValue, binMulFactor);
-            double recovered = FLASHDeconvolutionAlgorithm.BinValue(bin, minValue, binMulFactor);
+            int bin = MetaFlashDeconAlgorithm.BinNumber(value, minValue, binMulFactor);
+            double recovered = MetaFlashDeconAlgorithm.BinValue(bin, minValue, binMulFactor);
 
             // Round-trip tolerance: ≤ 0.5 / binMulFactor in log space
             Assert.That(Math.Abs(recovered - value), Is.LessThan(0.5 / binMulFactor + 1e-12));
@@ -62,7 +62,7 @@ namespace Test
         public void BinNumber_BelowMinValue_ReturnsZero()
         {
             // Values below the minimum should clamp to bin 0, not go negative
-            Assert.That(FLASHDeconvolutionAlgorithm.BinNumber(4.0, 5.0, 100_000.0),
+            Assert.That(MetaFlashDeconAlgorithm.BinNumber(4.0, 5.0, 100_000.0),
                 Is.EqualTo(0));
         }
 
@@ -72,8 +72,8 @@ namespace Test
             double minValue = Math.Log(100.0);
             double binMulFactor = 100_000.0;
 
-            int bin1 = FLASHDeconvolutionAlgorithm.BinNumber(Math.Log(1_000.0), minValue, binMulFactor);
-            int bin2 = FLASHDeconvolutionAlgorithm.BinNumber(Math.Log(10_000.0), minValue, binMulFactor);
+            int bin1 = MetaFlashDeconAlgorithm.BinNumber(Math.Log(1_000.0), minValue, binMulFactor);
+            int bin2 = MetaFlashDeconAlgorithm.BinNumber(Math.Log(10_000.0), minValue, binMulFactor);
 
             Assert.That(bin2, Is.GreaterThan(bin1));
         }
@@ -119,15 +119,15 @@ namespace Test
             var spectrum = MakeProteinSpectrum(trueMass, charges);
             var deconParams = DefaultParams();
 
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                       spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
             double binMulFactor = 1.0 / (tolerancePpm * 1e-6);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, binMulFactor, deconParams);
 
             // At least one candidate should be within 20 ppm of true mass
@@ -144,14 +144,14 @@ namespace Test
         {
             var spectrum = new MzSpectrum(Array.Empty<double>(), Array.Empty<double>(), false);
             var deconParams = DefaultParams();
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                   spectrum, new MzRange(0, 2000), Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, 100_000.0, deconParams);
 
             Assert.That(candidates, Is.Empty);
@@ -163,14 +163,14 @@ namespace Test
             // A single peak cannot satisfy MinSupportPeakCount = 3
             var spectrum = new MzSpectrum(new[] { 500.0 }, new[] { 1000.0 }, false);
             var deconParams = DefaultParams();
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                   spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, 100_000.0, deconParams);
 
             Assert.That(candidates, Is.Empty,
@@ -184,14 +184,14 @@ namespace Test
             double mass = 5_000.0;
             var spectrum = MakeProteinSpectrum(mass, new[] { 5, 6 });
             var deconParams = DefaultParams();
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                 spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, 100_000.0, deconParams);
 
             Assert.That(candidates, Is.Empty,
@@ -205,15 +205,15 @@ namespace Test
             double mass = 5_000.0;
             var spectrum = MakeProteinSpectrum(mass, new[] { 5, 6, 7 });
             var deconParams = DefaultParams();
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                  spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
             double binMul = 1.0 / (10.0 * 1e-6);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, binMul, deconParams);
 
             double maxDa = mass * 20e-6;
@@ -230,14 +230,14 @@ namespace Test
             double mass = 12_223.0;
             var spectrum = MakeProteinSpectrum(mass, new[] { 8, 9, 10, 11, 12 });
             var deconParams = DefaultParams(); // MinMassRange=50, MaxMassRange=100,000
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                  spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, 100_000.0, deconParams);
 
             foreach (var c in candidates)
@@ -275,14 +275,14 @@ namespace Test
                 shouldCopy: false);
 
             var deconParams = DefaultParams();
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                   spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, 100_000.0, deconParams);
 
             for (int i = 1; i < candidates.Count; i++)
@@ -299,14 +299,14 @@ namespace Test
             int[] charges = { 9, 10, 11, 12 };
             var spectrum = MakeProteinSpectrum(mass, charges);
             var deconParams = DefaultParams();
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                                   spectrum, spectrum.Range, Polarity.Positive);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
 
-            var candidates = FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            var candidates = MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, 100_000.0, deconParams);
 
             double maxDa = mass * 30e-6;
@@ -353,7 +353,7 @@ namespace Test
         public void Deconvoluter_WithFLASHParams_NegativePolarity_DoesNotThrow()
         {
             var spectrum = MakeProteinSpectrum(5_000.0, new[] { 5, 6, 7, 8 });
-            var deconParams = new FLASHDeconvolutionParameters(polarity: Polarity.Negative);
+            var deconParams = new MetaFlashDeconParameters(polarity: Polarity.Negative);
 
             Assert.DoesNotThrow(() =>
                 _ = Deconvoluter.Deconvolute(spectrum, deconParams).ToList());

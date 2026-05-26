@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
@@ -10,11 +10,11 @@ namespace Test
 {
     /// <summary>
     /// Additional critical edge-case tests for Step 2 (FindCandidateMasses).
-    /// These complement TestFLASHDeconvolutionStep2 by targeting specific
+    /// These complement TestMetaFlashDeconStep2 by targeting specific
     /// failure modes not covered by the basic tests.
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvolutionStep2EdgeCases
+    public sealed class TestMetaFlashDeconStep2EdgeCases
     {
         // ── shared helpers ───────────────────────────────────────────────────
 
@@ -31,26 +31,26 @@ namespace Test
                 shouldCopy: false);
         }
 
-        private static List<FLASHDeconvolutionAlgorithm.CandidateMass> RunStep2(
-            MzSpectrum spectrum, FLASHDeconvolutionParameters deconParams)
+        private static List<MetaFlashDeconAlgorithm.CandidateMass> RunStep2(
+            MzSpectrum spectrum, MetaFlashDeconParameters deconParams)
         {
-            var logPeaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                 spectrum, spectrum.Range, deconParams.Polarity);
             int minAbs = Math.Abs(deconParams.MinAssumedChargeState);
             int chargeRange = Math.Abs(deconParams.MaxAssumedChargeState) - minAbs + 1;
-            var universal = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
-            var harmonic = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
+            var universal = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbs, chargeRange);
+            var harmonic = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minAbs, chargeRange);
             double binMul = 1.0 / (deconParams.DeconvolutionTolerancePpm * 1e-6);
-            return FLASHDeconvolutionAlgorithm.FindCandidateMasses(
+            return MetaFlashDeconAlgorithm.FindCandidateMasses(
                 logPeaks, universal, harmonic, binMul, deconParams);
         }
 
-        private static FLASHDeconvolutionParameters Params(
+        private static MetaFlashDeconParameters Params(
             double tolerancePpm = 10.0,
             double minMass = 50.0, double maxMass = 100_000.0,
             int minCharge = 1, int maxCharge = 60,
             Polarity polarity = Polarity.Positive)
-            => new FLASHDeconvolutionParameters(
+            => new MetaFlashDeconParameters(
                 minCharge: minCharge, maxCharge: maxCharge,
                 deconvolutionTolerancePpm: tolerancePpm,
                 minMassRange: minMass, maxMassRange: maxMass,
@@ -151,7 +151,7 @@ namespace Test
             var spectrum = MakeSpectrum(mass, new[] { 1, 2, 3 });
             var deconParams = Params(minMass: 50.0, maxMass: 100_000.0);
 
-            List<FLASHDeconvolutionAlgorithm.CandidateMass> candidates = null;
+            List<MetaFlashDeconAlgorithm.CandidateMass> candidates = null;
             Assert.DoesNotThrow(() => candidates = RunStep2(spectrum, deconParams));
 
             // Any candidate produced must still be within the declared range
@@ -168,7 +168,7 @@ namespace Test
             var spectrum = MakeSpectrum(mass, new[] { 50, 51, 52, 53, 54 });
             var deconParams = Params(maxMass: 100_000.0);
 
-            List<FLASHDeconvolutionAlgorithm.CandidateMass> candidates = null;
+            List<MetaFlashDeconAlgorithm.CandidateMass> candidates = null;
             Assert.DoesNotThrow(() => candidates = RunStep2(spectrum, deconParams));
 
             foreach (var c in candidates)
@@ -269,8 +269,8 @@ namespace Test
             double minValue = 0.0; // log(1)
             double logMass = Math.Log(mass);
 
-            int bin = FLASHDeconvolutionAlgorithm.BinNumber(logMass, minValue, binMulFactor);
-            double recovered = FLASHDeconvolutionAlgorithm.BinValue(bin, minValue, binMulFactor);
+            int bin = MetaFlashDeconAlgorithm.BinNumber(logMass, minValue, binMulFactor);
+            double recovered = MetaFlashDeconAlgorithm.BinValue(bin, minValue, binMulFactor);
             double recoveredMass = Math.Exp(recovered);
 
             // Each bin spans exactly 1/binMulFactor in log space = tolerancePpm in ppm.

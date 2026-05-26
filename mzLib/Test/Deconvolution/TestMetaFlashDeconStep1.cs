@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
@@ -21,7 +21,7 @@ namespace Test
     /// all subsequent steps depend. If these fail, nothing above them is valid.
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvolutionStep1
+    public sealed class TestMetaFlashDeconStep1
     {
         // ══════════════════════════════════════════════════════════════════════
         // 1. GetLogMz — the fundamental transformation
@@ -36,7 +36,7 @@ namespace Test
             double mz = 500.0;
             double expected = Math.Log(mz - Constants.ProtonMass);
 
-            double result = FLASHDeconvolutionAlgorithm.GetLogMz(mz, Polarity.Positive);
+            double result = MetaFlashDeconAlgorithm.GetLogMz(mz, Polarity.Positive);
 
             Assert.That(result, Is.EqualTo(expected).Within(1e-12));
         }
@@ -49,7 +49,7 @@ namespace Test
             double mz = 500.0;
             double expected = Math.Log(mz + Constants.ProtonMass);
 
-            double result = FLASHDeconvolutionAlgorithm.GetLogMz(mz, Polarity.Negative);
+            double result = MetaFlashDeconAlgorithm.GetLogMz(mz, Polarity.Negative);
 
             Assert.That(result, Is.EqualTo(expected).Within(1e-12));
         }
@@ -60,7 +60,7 @@ namespace Test
             // An m/z smaller than the proton mass is unphysical in positive mode
             double unphysicalMz = Constants.ProtonMass * 0.5;
 
-            double result = FLASHDeconvolutionAlgorithm.GetLogMz(unphysicalMz, Polarity.Positive);
+            double result = MetaFlashDeconAlgorithm.GetLogMz(unphysicalMz, Polarity.Positive);
 
             Assert.That(result, Is.EqualTo(double.NegativeInfinity));
         }
@@ -80,8 +80,8 @@ namespace Test
             double mz1 = mass.ToMz(z1);
             double mz2 = mass.ToMz(z2);
 
-            double logMz1 = FLASHDeconvolutionAlgorithm.GetLogMz(mz1, Polarity.Positive);
-            double logMz2 = FLASHDeconvolutionAlgorithm.GetLogMz(mz2, Polarity.Positive);
+            double logMz1 = MetaFlashDeconAlgorithm.GetLogMz(mz1, Polarity.Positive);
+            double logMz2 = MetaFlashDeconAlgorithm.GetLogMz(mz2, Polarity.Positive);
 
             double expected = Math.Log(z2) - Math.Log(z1);
             double actual = logMz1 - logMz2;  // higher charge → smaller logMz
@@ -105,7 +105,7 @@ namespace Test
                 shouldCopy: false);
             var range = spectrum.Range;
 
-            var peaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(spectrum, range, Polarity.Positive);
+            var peaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(spectrum, range, Polarity.Positive);
 
             Assert.That(peaks.Count, Is.EqualTo(3));
             for (int i = 1; i < peaks.Count; i++)
@@ -120,7 +120,7 @@ namespace Test
                 new[] { 0.0, 2000.0, 0.0 },
                 shouldCopy: false);
 
-            var peaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var peaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                 spectrum, spectrum.Range, Polarity.Positive);
 
             Assert.That(peaks.Count, Is.EqualTo(1));
@@ -136,7 +136,7 @@ namespace Test
                 shouldCopy: false);
             var range = new MzRange(400.0, 600.0); // only 500 is inside
 
-            var peaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var peaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                 spectrum, range, Polarity.Positive);
 
             Assert.That(peaks.Count, Is.EqualTo(1));
@@ -149,7 +149,7 @@ namespace Test
             var spectrum = new MzSpectrum(
                 Array.Empty<double>(), Array.Empty<double>(), shouldCopy: false);
 
-            var peaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var peaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                 spectrum, new MzRange(0, 2000), Polarity.Positive);
 
             Assert.That(peaks, Is.Empty);
@@ -163,12 +163,12 @@ namespace Test
             var intensities = new[] { 500.0, 1000.0, 250.0 };
             var spectrum = new MzSpectrum(mzs, intensities, shouldCopy: false);
 
-            var peaks = FLASHDeconvolutionAlgorithm.BuildLogMzPeaks(
+            var peaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(
                 spectrum, spectrum.Range, Polarity.Positive);
 
             foreach (var peak in peaks)
             {
-                double expected = FLASHDeconvolutionAlgorithm.GetLogMz(peak.Mz, Polarity.Positive);
+                double expected = MetaFlashDeconAlgorithm.GetLogMz(peak.Mz, Polarity.Positive);
                 Assert.That(peak.LogMz, Is.EqualTo(expected).Within(1e-12));
             }
         }
@@ -180,7 +180,7 @@ namespace Test
         [Test]
         public void BuildUniversalPattern_Length_EqualsChargeRange()
         {
-            var p = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minAbsCharge: 1, chargeRange: 60);
+            var p = MetaFlashDeconAlgorithm.BuildUniversalPattern(minAbsCharge: 1, chargeRange: 60);
             Assert.That(p.Length, Is.EqualTo(60));
         }
 
@@ -190,7 +190,7 @@ namespace Test
             // U[j] = −log(minCharge + j)
             int minCharge = 2;
             int chargeRange = 10;
-            var pattern = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minCharge, chargeRange);
+            var pattern = MetaFlashDeconAlgorithm.BuildUniversalPattern(minCharge, chargeRange);
 
             for (int j = 0; j < chargeRange; j++)
             {
@@ -204,7 +204,7 @@ namespace Test
         public void BuildUniversalPattern_IsStrictlyDecreasing()
         {
             // −log(c) decreases as c increases, so the pattern should be strictly decreasing
-            var pattern = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(1, 50);
+            var pattern = MetaFlashDeconAlgorithm.BuildUniversalPattern(1, 50);
             for (int i = 1; i < pattern.Length; i++)
                 Assert.That(pattern[i], Is.LessThan(pattern[i - 1]),
                     $"pattern[{i}] should be less than pattern[{i - 1}]");
@@ -218,7 +218,7 @@ namespace Test
         public void BuildUniversalPattern_ConsecutiveSpacing_EqualsLogRatioOfCharges()
         {
             int minCharge = 1;
-            var pattern = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minCharge, 20);
+            var pattern = MetaFlashDeconAlgorithm.BuildUniversalPattern(minCharge, 20);
 
             for (int j = 1; j < pattern.Length; j++)
             {
@@ -236,14 +236,14 @@ namespace Test
         public void BuildUniversalPattern_InvalidChargeRange_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => FLASHDeconvolutionAlgorithm.BuildUniversalPattern(1, 0));
+                () => MetaFlashDeconAlgorithm.BuildUniversalPattern(1, 0));
         }
 
         [Test]
         public void BuildUniversalPattern_InvalidMinCharge_Throws()
         {
             Assert.Throws<ArgumentOutOfRangeException>(
-                () => FLASHDeconvolutionAlgorithm.BuildUniversalPattern(0, 10));
+                () => MetaFlashDeconAlgorithm.BuildUniversalPattern(0, 10));
         }
 
         // ══════════════════════════════════════════════════════════════════════
@@ -254,7 +254,7 @@ namespace Test
         public void BuildHarmonicPatterns_Shape_IsCorrect()
         {
             int chargeRange = 30;
-            var hp = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(1, chargeRange);
+            var hp = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(1, chargeRange);
 
             // Should have one row per harmonic denominator {2, 3, 5}
             Assert.That(hp.Length, Is.EqualTo(3));
@@ -271,8 +271,8 @@ namespace Test
             // between consecutive true-charge peaks.
             int minCharge = 1;
             int chargeRange = 20;
-            var up = FLASHDeconvolutionAlgorithm.BuildUniversalPattern(minCharge, chargeRange);
-            var hp = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(minCharge, chargeRange);
+            var up = MetaFlashDeconAlgorithm.BuildUniversalPattern(minCharge, chargeRange);
+            var hp = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(minCharge, chargeRange);
 
             // Start from j=1 because j=0 has no previous entry
             for (int k = 0; k < hp.Length; k++)
@@ -294,7 +294,7 @@ namespace Test
         [Test]
         public void BuildHarmonicPatterns_AllValuesAreFinite()
         {
-            var hp = FLASHDeconvolutionAlgorithm.BuildHarmonicPatterns(1, 60);
+            var hp = MetaFlashDeconAlgorithm.BuildHarmonicPatterns(1, 60);
             foreach (var row in hp)
                 foreach (var v in row)
                     Assert.That(double.IsFinite(v), Is.True,
@@ -385,7 +385,7 @@ namespace Test
         public void CosineOfAlignedVectors_PlainArraysPassWithoutCast()
         {
             // Verifies that double[] implicitly converts to ReadOnlySpan<double>
-            // — this is the primary calling pattern in FLASHDeconvolutionAlgorithm
+            // — this is the primary calling pattern in MetaFlashDeconAlgorithm
             double[] observed = { 1.0, 2.0, 3.0 };
             double[] theoretical = { 1.0, 2.0, 3.0 };
 
@@ -413,13 +413,13 @@ namespace Test
 
             // Compute the expected log(mass) from the first charge
             double mz0 = cytoMass.ToMz(charges[0]);
-            double logMz0 = FLASHDeconvolutionAlgorithm.GetLogMz(mz0, Polarity.Positive);
+            double logMz0 = MetaFlashDeconAlgorithm.GetLogMz(mz0, Polarity.Positive);
             double expectedLogMass = logMz0 + Math.Log(charges[0]); // = log(mass)
 
             foreach (int z in charges)
             {
                 double mz = cytoMass.ToMz(z);
-                double logMz = FLASHDeconvolutionAlgorithm.GetLogMz(mz, Polarity.Positive);
+                double logMz = MetaFlashDeconAlgorithm.GetLogMz(mz, Polarity.Positive);
                 double logMass = logMz + Math.Log(z); // recover log(mass)
 
                 Assert.That(logMass, Is.EqualTo(expectedLogMass).Within(tolerance),

@@ -1,7 +1,7 @@
-﻿// FLASHDeconvScorer.cs
+// MetaFlashDeconScorer.cs
 //
 // Computes a Qscore for IsotopicEnvelope objects produced by
-// FLASHDeconvolutionAlgorithm. The model ports the logistic regression in
+// MetaFlashDeconAlgorithm. The model ports the logistic regression in
 // OpenMS PeakGroupScoring.cpp (Kyowon Jeong, BSD-3-Clause).
 //
 // ── OpenMS feature vector (toFeatureVector_) ─────────────────────────────────
@@ -20,12 +20,12 @@
 // noisePwr is the summed squared intensity of raw spectrum peaks that fall
 // within the isotope m/z window for charge z but outside the ±ppm tolerance
 // band around each expected isotope position. It is collected during Step 3
-// isotope recruitment in FLASHDeconvolutionAlgorithm.
+// isotope recruitment in MetaFlashDeconAlgorithm.
 //
 // ── Data flow ─────────────────────────────────────────────────────────────────
 //   ScoreAndBuildEnvelopesWithPpmError  →  EnvelopeScoringData
-//   → FLASHDeconvDeduplicator.Deduplicate (propagates best cosine + ppm error)
-//   → FLASHDeconvScorer.AssignQscores(data, model)
+//   → MetaFlashDeconDeduplicator.Deduplicate (propagates best cosine + ppm error)
+//   → MetaFlashDeconScorer.AssignQscores(data, model)
 //
 // ── PPM error ─────────────────────────────────────────────────────────────────
 // f[4] is computed during Step 3 while the isotope index n is still known:
@@ -46,10 +46,10 @@ namespace MassSpectrometry
 {
     /// <summary>
     /// Logistic-regression Qscore for <see cref="IsotopicEnvelope"/> objects
-    /// produced by <see cref="FLASHDeconvolutionAlgorithm"/>.
+    /// produced by <see cref="MetaFlashDeconAlgorithm"/>.
     /// Ported from OpenMS <c>PeakGroupScoring.cpp</c> (Kyowon Jeong, BSD-3-Clause).
     /// </summary>
-    internal static class FLASHDeconvScorer
+    internal static class MetaFlashDeconScorer
     {
         // ── Logistic regression weights ───────────────────────────────────────
         // From OpenMS PeakGroupScoring.cpp weight_ vector (stored negated).
@@ -73,7 +73,7 @@ namespace MassSpectrometry
         /// <summary>
         /// All per-envelope data collected during Step 3 isotope recruitment
         /// that the scorer needs. Produced by
-        /// <see cref="FLASHDeconvolutionAlgorithm"/> and consumed here.
+        /// <see cref="MetaFlashDeconAlgorithm"/> and consumed here.
         /// </summary>
         internal readonly struct EnvelopeScoringData
         {
@@ -132,7 +132,7 @@ namespace MassSpectrometry
         /// </summary>
         /// <param name="scoringData">
         /// Sequence of <see cref="EnvelopeScoringData"/> produced by
-        /// <see cref="FLASHDeconvolutionAlgorithm.ScoreAndBuildEnvelopes"/>,
+        /// <see cref="MetaFlashDeconAlgorithm.ScoreAndBuildEnvelopes"/>,
         /// after deduplication.
         /// </param>
         internal static IEnumerable<IsotopicEnvelope> AssignQscores(

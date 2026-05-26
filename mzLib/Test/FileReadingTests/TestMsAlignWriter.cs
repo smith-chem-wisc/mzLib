@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -333,7 +333,7 @@ namespace Test.FileReadingTests
         /// <summary>
         /// After writing and re-reading an msAlign file, passing the resulting
         /// <see cref="MsDataScan"/> through <see cref="Deconvoluter"/> with
-        /// <see cref="FLASHDeconvolutionParameters"/> must hit the
+        /// <see cref="MetaFlashDeconParameters"/> must hit the
         /// NeutralMassSpectrum short-circuit and return one envelope per peak —
         /// no re-deconvolution occurs.
         /// </summary>
@@ -362,7 +362,7 @@ namespace Test.FileReadingTests
 
             // Deconvolute — NeutralMassSpectrum short-circuits, ignoring algorithm
             var result = Deconvoluter
-                .Deconvolute(readScan, new FLASHDeconvolutionParameters())
+                .Deconvolute(readScan, new MetaFlashDeconParameters())
                 .ToList();
 
             // Expect exactly as many envelopes as peaks written

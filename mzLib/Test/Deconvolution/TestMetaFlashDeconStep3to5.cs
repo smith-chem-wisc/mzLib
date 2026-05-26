@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
@@ -15,12 +15,12 @@ namespace Test
     /// updated to reflect that the algorithm now produces output.
     /// </summary>
     [TestFixture]
-    public sealed class TestFLASHDeconvolutionStep3to5
+    public sealed class TestMetaFlashDeconStep3to5
     {
         // ── helpers ──────────────────────────────────────────────────────────
 
-        private static FLASHDeconvolutionParameters DefaultParams() =>
-            new FLASHDeconvolutionParameters(
+        private static MetaFlashDeconParameters DefaultParams() =>
+            new MetaFlashDeconParameters(
                 minCharge: 1, maxCharge: 60,
                 deconvolutionTolerancePpm: 10.0,
                 minIsotopicPeakCount: 3,
@@ -37,7 +37,7 @@ namespace Test
         /// </summary>
         private static (MzSpectrum spectrum, double actualMonoMass) MakeSyntheticIsotopeSpectrum(
             double targetMass, int[] charges,
-            FLASHDeconvolutionParameters p,
+            MetaFlashDeconParameters p,
             double baseIntensity = 100_000.0)
         {
             var mzList = new List<double>();
@@ -80,7 +80,7 @@ namespace Test
         }
 
         /// <summary>Convenience overload that discards actualMonoMass — for tests that only need the spectrum.</summary>
-        private static MzSpectrum Spectrum(double targetMass, int[] charges, FLASHDeconvolutionParameters p,
+        private static MzSpectrum Spectrum(double targetMass, int[] charges, MetaFlashDeconParameters p,
             double baseIntensity = 100_000.0)
             => MakeSyntheticIsotopeSpectrum(targetMass, charges, p, baseIntensity).spectrum;
 
@@ -125,7 +125,7 @@ namespace Test
         public void Deconvolute_AllEnvelopes_HaveQscoreInValidRange()
         {
             // After Steps 3–5, env.Score is a Qscore in [0, 1] produced by
-            // FLASHDeconvScorer.AssignQscores — it is NOT the raw Averagine cosine.
+            // MetaFlashDeconScorer.AssignQscores — it is NOT the raw Averagine cosine.
             // The raw cosine filter (>= MinCosineScore) is applied inside the algorithm
             // before scoring; by the time envelopes reach the caller their Score has been
             // replaced with the logistic-regression Qscore. Any Qscore > 0 is valid.
@@ -219,7 +219,7 @@ namespace Test
         public void Deconvolute_NegativePolarity_AllChargesNegative()
         {
 
-            var deconParams = new FLASHDeconvolutionParameters(
+            var deconParams = new MetaFlashDeconParameters(
                 polarity: Polarity.Negative,
                 minCosineScore: 0.4);
             var spectrum = Spectrum(12_223.2, new[] { 9, 10, 11, 12, 13 }, deconParams);
@@ -241,8 +241,8 @@ namespace Test
         public void Deconvolute_HighMinCosineScore_ReducesOrEliminatesOutput()
         {
 
-            var paramsLow = new FLASHDeconvolutionParameters(minCosineScore: 0.1);
-            var paramsHigh = new FLASHDeconvolutionParameters(minCosineScore: 0.99);
+            var paramsLow = new MetaFlashDeconParameters(minCosineScore: 0.1);
+            var paramsHigh = new MetaFlashDeconParameters(minCosineScore: 0.99);
 
             var spectrum = Spectrum(12_223.2, new[] { 9, 10, 11, 12, 13 }, paramsLow);
 

@@ -1,6 +1,6 @@
-﻿// FLASHDeconvDeduplicator.cs
+// MetaFlashDeconDeduplicator.cs
 //
-// Deduplicates IsotopicEnvelope results from FLASHDeconvolutionAlgorithm
+// Deduplicates IsotopicEnvelope results from MetaFlashDeconAlgorithm
 // within a single spectrum.
 //
 // MOTIVATION
@@ -53,7 +53,7 @@
 // Deduplicate(IEnumerable<EnvelopeScoringData>, tolerancePpm)
 //   Primary path. Operates on the full scoring data produced during Step 3 so
 //   that per-charge cosine, noise power, and ppm error for the cluster winner
-//   are correctly propagated to FLASHDeconvScorer.AssignQscores.
+//   are correctly propagated to MetaFlashDeconScorer.AssignQscores.
 //
 // Deduplicate(IEnumerable<IsotopicEnvelope>, tolerancePpm)
 //   Legacy / fallback path for callers that do not have EnvelopeScoringData.
@@ -66,29 +66,29 @@ namespace MassSpectrometry
 {
     /// <summary>
     /// Collapses duplicate <see cref="IsotopicEnvelope"/> objects produced by
-    /// <see cref="FLASHDeconvolutionAlgorithm"/> for the same physical species.
+    /// <see cref="MetaFlashDeconAlgorithm"/> for the same physical species.
     /// </summary>
-    internal static class FLASHDeconvDeduplicator
+    internal static class MetaFlashDeconDeduplicator
     {
         // ── Primary overload: full EnvelopeScoringData ────────────────────────
 
         /// <summary>
-        /// Deduplicates a collection of <see cref="FLASHDeconvScorer.EnvelopeScoringData"/>
+        /// Deduplicates a collection of <see cref="MetaFlashDeconScorer.EnvelopeScoringData"/>
         /// from a single spectrum. Within each ppm-tolerance cluster the entry with
         /// the highest global cosine score is kept; ties are broken by TotalIntensity.
         /// The winning entry's full scoring data is preserved so that
-        /// <see cref="FLASHDeconvScorer.AssignQscores"/> receives accurate per-charge
+        /// <see cref="MetaFlashDeconScorer.AssignQscores"/> receives accurate per-charge
         /// cosine and noise values.
         /// </summary>
         /// <param name="scoringData">
-        /// Scoring data from Steps 1–5 of <see cref="FLASHDeconvolutionAlgorithm"/>.
+        /// Scoring data from Steps 1–5 of <see cref="MetaFlashDeconAlgorithm"/>.
         /// </param>
         /// <param name="tolerancePpm">
         /// Maximum ppm difference between two envelopes to be considered the same
         /// species. Recommended: the same ppm tolerance used for peak matching (10 ppm).
         /// </param>
-        internal static IEnumerable<FLASHDeconvScorer.EnvelopeScoringData> Deduplicate(
-            IEnumerable<FLASHDeconvScorer.EnvelopeScoringData> scoringData,
+        internal static IEnumerable<MetaFlashDeconScorer.EnvelopeScoringData> Deduplicate(
+            IEnumerable<MetaFlashDeconScorer.EnvelopeScoringData> scoringData,
             double tolerancePpm = 10.0)
         {
             var sorted = scoringData
@@ -98,7 +98,7 @@ namespace MassSpectrometry
             if (sorted.Count == 0)
                 yield break;
 
-            FLASHDeconvScorer.EnvelopeScoringData best = sorted[0];
+            MetaFlashDeconScorer.EnvelopeScoringData best = sorted[0];
             double clusterAnchorMass = sorted[0].Envelope.MonoisotopicMass;
 
             for (int i = 1; i < sorted.Count; i++)
@@ -130,7 +130,7 @@ namespace MassSpectrometry
         /// Within each ppm-tolerance cluster the envelope with the highest cosine
         /// score is kept; ties are broken by TotalIntensity.
         /// <para>
-        /// Use this overload only when <see cref="FLASHDeconvScorer.EnvelopeScoringData"/>
+        /// Use this overload only when <see cref="MetaFlashDeconScorer.EnvelopeScoringData"/>
         /// is not available (e.g. when rescoring envelopes read from a file).
         /// </para>
         /// </summary>
