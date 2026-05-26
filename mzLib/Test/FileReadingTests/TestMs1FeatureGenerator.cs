@@ -1,5 +1,6 @@
 using System.IO;
 using System.Linq;
+using MassSpectrometry;
 using MassSpectrometry.Deconvolution.Consensus;
 using NUnit.Framework;
 using Readers;
@@ -78,6 +79,51 @@ namespace Test.FileReadingTests
             {
                 if (File.Exists(path)) File.Delete(path);
             }
+        }
+
+        [Test]
+        public void DeconvolveScans_ParallelMatchesSequential_OrderPreserved()
+        {
+            // Use one real spectrum replicated 8x: DeconvolveScans parallelises ACROSS the list,
+            // and each call is the SAME deterministic single-threaded Deconvolute, so all 8
+            // results must be bit-identical whether run on 1 thread or many. This proves both
+            // order preservation (results written by index) and thread-safety of the decon path.
+            string mzml = FindDataFile("sliced_ethcd.mzML");
+            Assume.That(mzml, Is.Not.Null, "sliced_ethcd.mzML not found under any DataFiles dir");
+
+            var anyScan = MsDataFileReader.GetDataFile(mzml).LoadAllStaticData()
+                .GetAllScansList().FirstOrDefault(s => s.MassSpectrum != null && s.MassSpectrum.Size > 0);
+            Assume.That(anyScan, Is.Not.Null, "no non-empty scan in test file");
+
+            var scans = Enumerable.Repeat(anyScan, 8).ToList();
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 15);
+
+            var sequential = Ms1FeatureGenerator.DeconvolveScans(scans, p, maxThreads: 1);
+            var parallel = Ms1FeatureGenerator.DeconvolveScans(scans, p, maxThreads: -1);
+
+            Assert.That(sequential.Count, Is.EqualTo(8));
+            Assert.That(parallel.Count, Is.EqualTo(8));
+            var expected = sequential[0].Select(e => (e.MonoisotopicMass, e.Charge, e.TotalIntensity)).ToArray();
+            for (int i = 0; i < 8; i++)
+            {
+                var seq = sequential[i].Select(e => (e.MonoisotopicMass, e.Charge, e.TotalIntensity)).ToArray();
+                var par = parallel[i].Select(e => (e.MonoisotopicMass, e.Charge, e.TotalIntensity)).ToArray();
+                Assert.That(seq, Is.EqualTo(expected), $"sequential[{i}] is nondeterministic");
+                Assert.That(par, Is.EqualTo(expected), $"parallel[{i}] differs from sequential (thread-safety/order bug)");
+            }
+        }
+
+        // Walk up from the test directory to locate DataFiles/<name> (handles bin output vs source layout).
+        private static string FindDataFile(string name)
+        {
+            var dir = new DirectoryInfo(TestContext.CurrentContext.TestDirectory);
+            while (dir != null)
+            {
+                string candidate = Path.Combine(dir.FullName, "DataFiles", name);
+                if (File.Exists(candidate)) return candidate;
+                dir = dir.Parent;
+            }
+            return null;
         }
 
         private static MassFeature SyntheticFeature(double mass, int charge, double[] rtMinutes, double intensity)

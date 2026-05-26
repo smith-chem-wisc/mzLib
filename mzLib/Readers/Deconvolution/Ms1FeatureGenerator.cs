@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using MassSpectrometry;
 using MassSpectrometry.Deconvolution.Consensus;
 using MassSpectrometry.Deconvolution.FeatureTracing;
@@ -45,7 +46,8 @@ namespace Readers
         public static List<MassFeature> GenerateFeatures(
             string spectraFilePath,
             DeconvolutionParameters deconParameters,
-            IMassFeatureTracer tracer)
+            IMassFeatureTracer tracer,
+            int maxThreads = -1)
         {
             var dataFile = MsDataFileReader.GetDataFile(spectraFilePath).LoadAllStaticData();
             var ms1Scans = dataFile.GetAllScansList()
@@ -53,12 +55,31 @@ namespace Readers
                 .OrderBy(s => s.OneBasedScanNumber)
                 .ToList();
 
-            var perScanEnvelopes = ms1Scans
-                .Select(s => (IReadOnlyList<IsotopicEnvelope>)
-                    Deconvoluter.Deconvolute(s.MassSpectrum, deconParameters).ToList())
-                .ToList();
-
+            var perScanEnvelopes = DeconvolveScans(ms1Scans, deconParameters, maxThreads);
             return tracer.TraceFeatures(ms1Scans, perScanEnvelopes);
+        }
+
+        /// <summary>
+        /// Deconvolve every scan in parallel, preserving 1:1 index alignment with
+        /// <paramref name="ms1Scans"/> (results are written into a pre-sized array, so worker
+        /// completion order is irrelevant). Per-scan deconvolution is the dominant cost and is
+        /// embarrassingly parallel: <see cref="Deconvoluter"/> builds a fresh algorithm per call
+        /// and only reads the shared, immutable <paramref name="deconParameters"/>, so concurrent
+        /// calls are safe.
+        /// </summary>
+        /// <param name="maxThreads">Maximum degree of parallelism; &lt;= 0 uses all cores.</param>
+        public static IReadOnlyList<IReadOnlyList<IsotopicEnvelope>> DeconvolveScans(
+            IReadOnlyList<MsDataScan> ms1Scans,
+            DeconvolutionParameters deconParameters,
+            int maxThreads = -1)
+        {
+            var perScanEnvelopes = new IReadOnlyList<IsotopicEnvelope>[ms1Scans.Count];
+            var options = new ParallelOptions { MaxDegreeOfParallelism = maxThreads <= 0 ? -1 : maxThreads };
+            Parallel.For(0, ms1Scans.Count, options, i =>
+            {
+                perScanEnvelopes[i] = Deconvoluter.Deconvolute(ms1Scans[i].MassSpectrum, deconParameters).ToList();
+            });
+            return perScanEnvelopes;
         }
 
         /// <summary>
@@ -84,9 +105,10 @@ namespace Readers
             DeconvolutionParameters deconParameters,
             IMassFeatureTracer tracer,
             string outputMs1FeaturePath,
-            double secondsPerRtUnit = DefaultSecondsPerRtUnit)
+            double secondsPerRtUnit = DefaultSecondsPerRtUnit,
+            int maxThreads = -1)
         {
-            var features = GenerateFeatures(spectraFilePath, deconParameters, tracer);
+            var features = GenerateFeatures(spectraFilePath, deconParameters, tracer, maxThreads);
             WriteFeatures(features, outputMs1FeaturePath, secondsPerRtUnit);
             return features;
         }
