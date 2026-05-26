@@ -218,7 +218,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             // Well under the boundary (13 AA).
             var validInput = new List<FragmentIntensityPredictionInput>
             {
-                new("ACDEFGHIKLMNO", 2, 35, null, null)
+                new("ACDEFGHIKLMNP", 2, 35, null, null)
             };
             var predictions = model.Predict(validInput);
             Assert.That(predictions.Count, Is.EqualTo(1));

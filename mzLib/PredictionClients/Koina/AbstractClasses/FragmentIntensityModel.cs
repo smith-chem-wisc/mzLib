@@ -471,6 +471,9 @@ namespace PredictionClients.Koina.AbstractClasses
                             int plusIndex = fragmentIon.IndexOf('+');
                             int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
                             var baseFragmentId = fragmentIon.Substring(0, plusIndex);
+                            var dashIndex = baseFragmentId.IndexOf('-');
+                            if (dashIndex > 0)
+                                baseFragmentId = baseFragmentId.Substring(0, dashIndex);
                             if (!tpLookup.TryGetValue(baseFragmentId, out var tp))
                             {
                                 continue;
@@ -527,7 +530,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check that input has defined all required additional parameters for the model.
-            if (AllowedCollisionEnergies != null && !AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy == null)
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy == null)
             {
                 string exceptionMessage = "Input is missing required parameter CollisionEnergy for this model.";
                 switch (ParameterHandlingMode)
@@ -542,7 +545,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            if (AllowedInstrumentTypes != null && !AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType == null)
+            if (AllowedInstrumentTypes != null && input.InstrumentType == null)
             {
                 string exceptionMessage = "Input is missing required parameter InstrumentType for this model.";
                 switch (ParameterHandlingMode)
@@ -557,7 +560,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            if (AllowedFragmentationTypes != null && !AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType == null)
+            if (AllowedFragmentationTypes != null && input.FragmentationType == null)
             {
                 string exceptionMessage = "Input is missing required parameter FragmentationType for this model.";
                 switch (ParameterHandlingMode)

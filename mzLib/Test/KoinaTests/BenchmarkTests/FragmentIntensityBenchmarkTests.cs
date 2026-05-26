@@ -274,7 +274,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkProsit2025IntensityLac()
         {
             var peptides = GenerateUniquePeptides(500000, 20);
-            var modelInputs = peptides.Select(p => new FragmentIntensityPredictionInput(p, 2, 35, "QE", "HCD")).ToList();
+            var modelInputs = peptides.Select(p => new FragmentIntensityPredictionInput(p, 2, 35, "lumos", "HCD")).ToList();
             var model = new Prosit2025IntensityLac();
             var watch = System.Diagnostics.Stopwatch.StartNew();
             Assert.DoesNotThrow(() => model.Predict(modelInputs));
