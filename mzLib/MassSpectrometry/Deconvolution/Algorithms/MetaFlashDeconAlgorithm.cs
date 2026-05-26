@@ -9,10 +9,24 @@
 // Step 4 — cosine scoring against Averagine; isotope offset optimisation
 // Step 5 — IsotopicEnvelope output, deduplication, Qscoring
 //
-// Reference:
-//   Jeong et al. (2020) Cell Systems 10(2):213-218.e6
-//   DOI: 10.1016/j.cels.2020.01.003
-//   OpenMS source: src/openms/source/ANALYSIS/TOPDOWN/SpectralDeconvolution.cpp
+// Reference (paper):
+//   Jeong et al. (2020) Cell Systems 10(2):213-218.e6  DOI: 10.1016/j.cels.2020.01.003
+//
+// Reference (implementation — for faithful reproduction + later fidelity evaluation):
+//   OpenMS FLASHDeconv per-spectrum source @ E:\GitClones\OpenMS:
+//     src/openms/source/ANALYSIS/TOPDOWN/FLASHDeconvAlgorithm.cpp  (main pipeline)
+//     src/openms/source/ANALYSIS/TOPDOWN/PeakGroup.cpp             (scoring / SNR)
+//     src/openms/source/ANALYSIS/TOPDOWN/Qscore.cpp                (logistic Qscore)
+//     src/topp/FLASHDeconv.cpp                                     (TOPP defaults)
+//   Faithful mapping doc (mzLib step -> OpenMS file:line crosswalk, with the cosine /
+//   tol_div_factor / overlap-dedup tolerances we reproduce):
+//     E:\CodeReview\MetaFlashDecon\deliverables\reference_flashdecon_faithful_mapping.md
+//
+// Faithful tolerances (scoped to MetaFlashDecon only; see MetaFlashDeconParameters):
+//   - MinCosineScore        = 0.85       (OpenMS min_isotope_cosine MS1; FLASHDeconv.cpp:193)
+//   - TolDivFactor          = 2.5        (OpenMS tol_div_factor; FLASHDeconvAlgorithm.cpp:22)
+//   - OverlapDedupTolFactor = 1.5        (OpenMS final dedup = 1.5 x ppm; :1223)
+//   Candidate voting bins at ppm/2.5; survivors de-duplicated at 1.5 x ppm.
 
 using System;
 using System.Collections.Generic;
@@ -43,8 +57,23 @@ namespace MassSpectrometry
         /// </summary>
         private const float MaxChargeIntensityRatio = 10.0f;
 
+        // Candidate-mass voting uses bins FINER than the requested tolerance, exactly as
+        // OpenMS does: it divides the ppm tolerance by tol_div_factor (=2.5) before computing
+        // the bin multiplication factor (FLASHDeconvAlgorithm.cpp:22; updateMembers_:171:
+        //   j *= 1e-6; j /= tol_div_factor; bin_mul_factors_.push_back(1.0 / j);).
+        // The wider input tolerance is re-applied only at the final overlap dedup
+        // (removeOverlappingPeakGroups_, FLASHDeconvAlgorithm.cpp:1223).
+        // The single-arg overload (tolDivFactor implicitly 1.0) is retained for callers
+        // and tests that compute the bin factor directly at the raw ppm tolerance.
         private static double ComputeBinMulFactor(double tolerancePpm)
-            => 1.0 / (tolerancePpm * 1e-6);
+            => ComputeBinMulFactor(tolerancePpm, 1.0);
+
+        private static double ComputeBinMulFactor(double tolerancePpm, double tolDivFactor)
+        {
+            double effectiveTol = tolerancePpm * 1e-6;
+            if (tolDivFactor > 0.0) effectiveTol /= tolDivFactor;
+            return 1.0 / effectiveTol;
+        }
 
         // ── Constructor ───────────────────────────────────────────────────────
         internal MetaFlashDeconAlgorithm(DeconvolutionParameters deconParameters)
@@ -74,7 +103,9 @@ namespace MassSpectrometry
 
             double[] universalPattern = BuildUniversalPattern(minAbsCharge, chargeRange);
             double[][] harmonicPatterns = BuildHarmonicPatterns(minAbsCharge, chargeRange);
-            double binMulFactor = ComputeBinMulFactor(p.DeconvolutionTolerancePpm);
+            // Faithful FLASHDeconv: bin the log-m/z axis at ppm / tol_div_factor (finer than
+            // the requested tolerance) for the candidate voting (FLASHDeconvAlgorithm.cpp:22, :171).
+            double binMulFactor = ComputeBinMulFactor(p.DeconvolutionTolerancePpm, p.TolDivFactor);
 
             // ── Step 2 ────────────────────────────────────────────────────────
             var candidates = FindCandidateMasses(
@@ -91,7 +122,12 @@ namespace MassSpectrometry
 
             // Deduplicate on envelope identity; propagate the full EnvelopeScoringData
             // through so the scorer receives all per-charge fields for the winner.
-            var dedupedData = MetaFlashDeconDeduplicator.Deduplicate(scoringData, p.DeconvolutionTolerancePpm);
+            // Faithful FLASHDeconv re-applies the WIDE tolerance only here: the final
+            // overlap-dedup window is OverlapDedupTolFactor × the input ppm
+            // (= 1.5 × ppm, FLASHDeconvAlgorithm.cpp:1223), in contrast to the finer
+            // ppm / tol_div_factor used for candidate voting above.
+            double dedupTolPpm = p.DeconvolutionTolerancePpm * p.OverlapDedupTolFactor;
+            var dedupedData = MetaFlashDeconDeduplicator.Deduplicate(scoringData, dedupTolPpm);
 
             return MetaFlashDeconScorer.AssignQscores(dedupedData);
         }
@@ -534,27 +570,43 @@ namespace MassSpectrometry
                 }
             }
 
-            // Conflict resolution: assign each mz-peak to the highest-intensity mass bin
+            // Conflict resolution — faithful to OpenMS FLASHDeconv filterMassBins_
+            // (FLASHDeconvAlgorithm.cpp:543, select_top_N = 3): each m/z peak matches one
+            // candidate mass per charge, so it is allowed to "claim" only its TOP-3
+            // most-intense occupied mass bins (top-N=3 "to consider frequent coelution"),
+            // not just its single best. This bounds how many masses one peak can seed.
+            const int SelectTopN = 3;
             var finalMassBins = new bool[massBinCount];
+            Span<long> topBins = stackalloc long[SelectTopN];
+            Span<float> topInts = stackalloc float[SelectTopN];
             for (int i = 0; i < logPeaks.Count; i++)
             {
                 double logMz = logPeaks[i].LogMz;
-                long bestBin = -1;
-                float bestInt = -1f;
+                for (int t = 0; t < SelectTopN; t++) { topBins[t] = -1; topInts[t] = -1f; }
 
                 for (int j = 0; j < chargeRange; j++)
                 {
                     int massBin = BinNumber(logMz - universalPattern[j], massBinMinValue, binMulFactor);
                     if (massBin < 0 || massBin >= massBinCount) continue;
                     if (!massBinOccupied[massBin]) continue;
-                    if (massBinIntensity[massBin] > bestInt)
+
+                    float mbi = massBinIntensity[massBin];
+                    if (mbi <= topInts[SelectTopN - 1]) continue;
+
+                    // Insert into the descending-by-intensity top-N (rolling shift).
+                    int pos = SelectTopN - 1;
+                    while (pos > 0 && topInts[pos - 1] < mbi)
                     {
-                        bestInt = massBinIntensity[massBin];
-                        bestBin = massBin;
+                        topInts[pos] = topInts[pos - 1];
+                        topBins[pos] = topBins[pos - 1];
+                        pos--;
                     }
+                    topInts[pos] = mbi;
+                    topBins[pos] = massBin;
                 }
 
-                if (bestBin >= 0) finalMassBins[bestBin] = true;
+                for (int t = 0; t < SelectTopN; t++)
+                    if (topBins[t] >= 0) finalMassBins[topBins[t]] = true;
             }
 
             var candidates = new List<CandidateMass>();

@@ -60,7 +60,7 @@ namespace Test
             Assert.That(p.MaxIsotopicPeakCount, Is.EqualTo(50));
             Assert.That(p.PrecursorHarmonicCount, Is.EqualTo(2));
             Assert.That(p.DeconvolutionTolerancePpm, Is.EqualTo(10.0).Within(1e-10));
-            Assert.That(p.MinCosineScore, Is.EqualTo(0.6).Within(1e-10));
+            Assert.That(p.MinCosineScore, Is.EqualTo(0.85).Within(1e-10)); // FLASHDeconv min_isotope_cosine default
             Assert.That(p.IsotopeIntensityRatioThreshold, Is.EqualTo(0.2).Within(1e-10));
             Assert.That(p.MinMassRange, Is.EqualTo(50.0).Within(1e-10));
             Assert.That(p.MaxMassRange, Is.EqualTo(100000.0).Within(1e-10));

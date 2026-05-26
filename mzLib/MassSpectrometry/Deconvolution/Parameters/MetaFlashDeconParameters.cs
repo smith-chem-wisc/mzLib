@@ -63,6 +63,33 @@ namespace MassSpectrometry
         /// </summary>
         public double MinMassRange { get; set; }
 
+        // ── Faithful OpenMS FLASHDeconv tolerance mechanism ───────────────────
+        // OpenMS does NOT bin the log-m/z axis at the requested ppm tolerance. It bins
+        // FINER — at ppm / TolDivFactor — during candidate-mass voting (for sensitivity),
+        // then re-applies the (wider) input tolerance only at the final overlap dedup.
+        // This narrow-then-wide trick is load-bearing for reproducing FLASHDeconv's
+        // candidate set. These properties are consumed ONLY by MetaFlashDeconAlgorithm;
+        // they do not affect any other deconvolution algorithm. Defaults are the literal
+        // OpenMS values. See FLASHDeconvAlgorithm.cpp:22 and :1223, and the citations in
+        // MetaFlashDeconAlgorithm.cs.
+
+        /// <summary>
+        /// Bin-width divisor used during candidate-mass voting: the log-m/z axis is binned
+        /// at <c>DeconvolutionTolerancePpm / TolDivFactor</c> (finer than the requested
+        /// tolerance). OpenMS: <c>tol_div_factor = 2.5</c> (FLASHDeconvAlgorithm.cpp:22,
+        /// applied in updateMembers_:171).
+        /// </summary>
+        public double TolDivFactor { get; set; }
+
+        /// <summary>
+        /// Tolerance multiplier for the final overlap-dedup window. OpenMS calls
+        /// <c>removeOverlappingPeakGroups_</c> with a window of
+        /// <c>(ppm / TolDivFactor) × TolDivFactor × 1.5</c> = 1.5 × the input ppm
+        /// (FLASHDeconvAlgorithm.cpp:1223). Setting <see cref="OverlapDedupTolFactor"/>
+        /// to 1.5 reproduces that.
+        /// </summary>
+        public double OverlapDedupTolFactor { get; set; }
+
         /// <summary>
         /// Constructs FLASHDeconv parameters with sensible defaults suitable for
         /// top-down proteomics. All parameters have defaults so that
@@ -80,6 +107,8 @@ namespace MassSpectrometry
         /// <param name="maxMassRange">Maximum neutral mass (Da) to report.</param>
         /// <param name="polarity">Ionisation polarity.</param>
         /// <param name="averageResidueModel">Averagine model used for theoretical isotope distributions. Defaults to <see cref="Averagine"/>.</param>
+        /// <param name="tolDivFactor">Bin-width divisor for candidate voting (OpenMS <c>tol_div_factor</c>, default 2.5).</param>
+        /// <param name="overlapDedupTolFactor">Overlap-dedup window multiplier (OpenMS final dedup = 1.5 × input ppm, default 1.5).</param>
         public MetaFlashDeconParameters(
             int minCharge = 1,
             int maxCharge = 60,
@@ -87,12 +116,14 @@ namespace MassSpectrometry
             int minIsotopicPeakCount = 3,
             int maxIsotopicPeakCount = 50,
             int precursorHarmonicCount = 2,
-            double minCosineScore = 0.6,
+            double minCosineScore = 0.85, // FLASHDeconv min_isotope_cosine default (MS1); FLASHDeconvAlgorithm.cpp / FLASHDeconv.cpp:193
             double isotopeIntensityRatioThreshold = 0.2,
             double minMassRange = 50.0,
             double maxMassRange = 100000.0,
             Polarity polarity = Polarity.Positive,
-            AverageResidue? averageResidueModel = null)
+            AverageResidue? averageResidueModel = null,
+            double tolDivFactor = 2.5,          // OpenMS tol_div_factor, FLASHDeconvAlgorithm.cpp:22
+            double overlapDedupTolFactor = 1.5) // OpenMS final dedup = 1.5 × input ppm, FLASHDeconvAlgorithm.cpp:1223
             : base(minCharge, maxCharge, polarity, averageResidueModel)
         {
             DeconvolutionTolerancePpm = deconvolutionTolerancePpm;
@@ -103,6 +134,8 @@ namespace MassSpectrometry
             IsotopeIntensityRatioThreshold = isotopeIntensityRatioThreshold;
             MinMassRange = minMassRange;
             MaxMassRange = maxMassRange;
+            TolDivFactor = tolDivFactor;
+            OverlapDedupTolFactor = overlapDedupTolFactor;
         }
 
         #region IEquatable<DeconvolutionParameters>
@@ -117,7 +150,9 @@ namespace MassSpectrometry
                 && MinCosineScore.Equals(o.MinCosineScore)
                 && IsotopeIntensityRatioThreshold.Equals(o.IsotopeIntensityRatioThreshold)
                 && MinMassRange.Equals(o.MinMassRange)
-                && MaxMassRange.Equals(o.MaxMassRange);
+                && MaxMassRange.Equals(o.MaxMassRange)
+                && TolDivFactor.Equals(o.TolDivFactor)
+                && OverlapDedupTolFactor.Equals(o.OverlapDedupTolFactor);
         }
 
         protected override void AddHashCodes(HashCode hash)
@@ -130,6 +165,8 @@ namespace MassSpectrometry
             hash.Add(IsotopeIntensityRatioThreshold);
             hash.Add(MinMassRange);
             hash.Add(MaxMassRange);
+            hash.Add(TolDivFactor);
+            hash.Add(OverlapDedupTolFactor);
         }
 
         public override MetaFlashDeconParameters Clone()
@@ -138,7 +175,8 @@ namespace MassSpectrometry
                 MinAssumedChargeState, MaxAssumedChargeState,
                 DeconvolutionTolerancePpm, MinIsotopicPeakCount, MaxIsotopicPeakCount,
                 PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,
-                MinMassRange, MaxMassRange, Polarity, AverageResidueModel)
+                MinMassRange, MaxMassRange, Polarity, AverageResidueModel,
+                TolDivFactor, OverlapDedupTolFactor)
             {
                 ExpectedIsotopeSpacing = ExpectedIsotopeSpacing,
                 UseGenericScore = UseGenericScore
@@ -161,7 +199,9 @@ namespace MassSpectrometry
                     PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,
                     MinMassRange, MaxMassRange, Polarity,
                     averageResidueModel: new DecoyAveragine(AverageResidueModel,
-                        DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing))
+                        DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing),
+                    tolDivFactor: TolDivFactor,
+                    overlapDedupTolFactor: OverlapDedupTolFactor)
                 {
                     ExpectedIsotopeSpacing = DecoyAveragine.DefaultDecoyIsotopeSpacing,
                     UseGenericScore = UseGenericScore
