@@ -13,7 +13,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// - Supports peptides with length 1-30 amino acids
     /// - Handles precursor charges 1-6
     /// - Predicts up to 174 fragment ions per peptide
-    /// - Specialized for citrullination (UNIMOD:36)
+    /// - Specialized for citrullination (represented as UNIMOD:7 Deamidation)
     /// - Requires fragmentation type input
     /// 
     /// API Documentation: https://koina.wilhelmlab.org/docs#post-/Prosit_2024_intensity_cit/infer
@@ -59,7 +59,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         {
             var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
-            var batchedEnergies = validInputs.Select(p => p.CollisionEnergy).Chunk(MaxBatchSize).ToArray();
+            var batchedEnergies = validInputs.Select(p => (float)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
             var batchedFragTypes = validInputs.Select(p => p.FragmentationType ?? "HCD").Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);

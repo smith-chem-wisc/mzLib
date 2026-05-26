@@ -527,7 +527,7 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             // Check that input has defined all required additional parameters for the model.
-            if (AllowedCollisionEnergies != null && input.CollisionEnergy == null)
+            if (AllowedCollisionEnergies != null && !AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy == null)
             {
                 string exceptionMessage = "Input is missing required parameter CollisionEnergy for this model.";
                 switch (ParameterHandlingMode)
@@ -542,7 +542,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            if (AllowedInstrumentTypes != null && input.InstrumentType == null)
+            if (AllowedInstrumentTypes != null && !AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType == null)
             {
                 string exceptionMessage = "Input is missing required parameter InstrumentType for this model.";
                 switch (ParameterHandlingMode)
@@ -557,7 +557,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            if (AllowedFragmentationTypes != null && input.FragmentationType == null)
+            if (AllowedFragmentationTypes != null && !AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType == null)
             {
                 string exceptionMessage = "Input is missing required parameter FragmentationType for this model.";
                 switch (ParameterHandlingMode)

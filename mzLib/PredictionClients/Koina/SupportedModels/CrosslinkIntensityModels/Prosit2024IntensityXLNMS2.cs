@@ -48,7 +48,7 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
             var batchedAlpha = validInputs.Select(p => p.ValidatedAlphaSequence!).Chunk(MaxBatchSize).ToArray();
             var batchedBeta = validInputs.Select(p => p.ValidatedBetaSequence!).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
-            var batchedEnergies = validInputs.Select(p => p.CollisionEnergy).Chunk(MaxBatchSize).ToArray();
+            var batchedEnergies = validInputs.Select(p => (float)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedAlpha.Length);
             for (int i = 0; i < batchedAlpha.Length; i++)

@@ -52,7 +52,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkProsit2023IntensityXLCMS2()
         {
             var alphaPeptides = GenerateUniquePeptides(500, 15).Select(p => AnnotateCrosslink(p, "1896")).ToList();
-            var betaPeptides = alphaPeptides.Select(p => new string(p.Reverse().ToArray())).ToList();
+            var betaPeptides = GenerateUniquePeptides(500, 15).Select(p => AnnotateCrosslink(p, "1896")).ToList();
             var modelInputs = alphaPeptides.Zip(betaPeptides, (alpha, beta) => new CrosslinkIntensityPredictionInput(alpha, beta, 2, 35)).ToList();
             var model = new Prosit2023IntensityXLCMS2();
             var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -81,7 +81,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkProsit2023IntensityXLCMS3()
         {
             var alphaPeptides = GenerateUniquePeptides(500, 15).Select(p => AnnotateCrosslink(p, "1881")).ToList();
-            var betaPeptides = alphaPeptides.Select(p => new string(p.Reverse().ToArray())).ToList();
+            var betaPeptides = GenerateUniquePeptides(500, 15).Select(p => AnnotateCrosslink(p, "1881")).ToList();
             var modelInputs = alphaPeptides.Zip(betaPeptides, (alpha, beta) => new CrosslinkIntensityPredictionInput(alpha, beta, 2, 35)).ToList();
             var model = new Prosit2023IntensityXLCMS3();
             var watch = System.Diagnostics.Stopwatch.StartNew();
@@ -109,7 +109,7 @@ namespace Test.KoinaTests.BenchmarkTests
         public static void BenchmarkProsit2024IntensityXLNMS2()
         {
             var alphaPeptides = GenerateUniquePeptides(500, 15).Select(p => AnnotateCrosslink(p, "1898")).ToList();
-            var betaPeptides = alphaPeptides.Select(p => new string(p.Reverse().ToArray())).ToList();
+            var betaPeptides = GenerateUniquePeptides(500, 15).Select(p => AnnotateCrosslink(p, "1898")).ToList();
             var modelInputs = alphaPeptides.Zip(betaPeptides, (alpha, beta) => new CrosslinkIntensityPredictionInput(alpha, beta, 2, 35)).ToList();
             var model = new Prosit2024IntensityXLNMS2();
             var watch = System.Diagnostics.Stopwatch.StartNew();

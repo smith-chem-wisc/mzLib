@@ -59,8 +59,11 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         protected override bool ValidateModelSpecificInputs(FragmentIntensityPredictionInput input, out WarningException? warning)
         {
+            // Normalize instrument type to upper case for case-insensitive comparison.
+            input = input with { InstrumentType = input.InstrumentType?.ToUpperInvariant() };
+
             // Base validation guarantees PrecursorCharge is in AllowedPrecursorCharges,
-            // InstrumentType is non-null, and InstrumentType is in AllowedInstrumentTypes (exact case).
+            // InstrumentType is non-null, and InstrumentType is in AllowedInstrumentTypes.
             if (!base.ValidateModelSpecificInputs(input, out warning))
                 return false;
 
@@ -99,8 +102,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         {
             var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
-            var batchedEnergies = validInputs.Select(p => p.CollisionEnergy).Chunk(MaxBatchSize).ToArray();
-            var batchedInstTypes = validInputs.Select(p => p.InstrumentType!).Chunk(MaxBatchSize).ToArray();
+            var batchedEnergies = validInputs.Select(p => (float)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
+            var batchedInstTypes = validInputs.Select(p => p.InstrumentType!.ToUpperInvariant()).Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)

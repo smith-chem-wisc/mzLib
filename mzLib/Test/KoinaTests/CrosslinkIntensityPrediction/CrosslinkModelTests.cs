@@ -183,7 +183,7 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
             Assert.That(model.MaxBatchSize, Is.EqualTo(1000));
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
             Assert.That(model.NumberOfPredictedFragmentIons, Is.EqualTo(174));
-            Assert.That(model.AllowedCollisionEnergies.Count, Is.EqualTo(0), "CMS3 uses fixed NCE");
+            Assert.That(model.AllowedCollisionEnergies, Is.Null, "CMS3 uses fixed NCE");
         }
 
         // ═══════════════════════════════════════════════════════════════════════════
@@ -267,7 +267,7 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
             Assert.That(model.ModelName, Is.EqualTo("Prosit_2024_intensity_XL_NMS2"));
             Assert.That(model.MaxBatchSize, Is.EqualTo(1000));
             Assert.That(model.MaxPeptideLength, Is.EqualTo(30));
-            Assert.That(model.NumberOfPredictedFragmentIons, Is.EqualTo(174));
+            Assert.That(model.NumberOfPredictedFragmentIons, Is.EqualTo(348));
             Assert.That(model.AllowedPrecursorCharges, Is.EquivalentTo(new[] { 1, 2, 3, 4, 5, 6 }));
             Assert.That(model.AllowedCollisionEnergies.Count, Is.EqualTo(0), "NMS2 accepts any FP32 collision energy value");
         }

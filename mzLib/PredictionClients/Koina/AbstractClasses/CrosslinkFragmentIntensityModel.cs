@@ -226,15 +226,11 @@ namespace PredictionClients.Koina.AbstractClasses
             warning = null;
 
             var rawBase = BaseStripper.Replace(sequence, string.Empty);
-            if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
-            {
-                HandleFailure(ModHandlingMode, "Invalid base sequence.");
-                return null;
-            }
-
             if (!IsValidBaseSequence(rawBase, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
             {
-                HandleFailure(ModHandlingMode, "Invalid base sequence.");
+                const string message = "Invalid base sequence.";
+                HandleFailure(ModHandlingMode, message);
+                warning = new WarningException(message);
                 return null;
             }
 

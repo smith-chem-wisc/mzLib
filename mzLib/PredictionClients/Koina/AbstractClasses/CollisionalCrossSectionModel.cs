@@ -145,6 +145,22 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             warning = null;
 
+            // Always reject non-physical charges (< 1) regardless of AllowedPrecursorCharges.
+            if (input.PrecursorCharge < 1)
+            {
+                string message = $"Precursor charge {input.PrecursorCharge} is not a valid physical charge. Charge must be positive.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(message);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(message);
+                        return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                }
+            }
+
             // AllowedPrecursorCharges is non-nullable in this class (inherited from KoinaModelBase?),
             // so null semantics don't apply here. Empty = bypass (no charge constraint).
             // TODO: Migrate AllowedPrecursorCharges to nullable to support the null/empty convention.
