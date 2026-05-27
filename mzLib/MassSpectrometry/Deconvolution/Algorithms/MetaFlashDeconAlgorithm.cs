@@ -122,8 +122,10 @@ namespace MassSpectrometry
 
             var afterChargeError = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, p.Polarity);
 
-            // Final overlap-dedup window = OverlapDedupTolFactor × input ppm (FLASHDeconvAlgorithm.cpp:1223).
-            double overlapWindow = p.DeconvolutionTolerancePpm * p.OverlapDedupTolFactor * 1e-6;
+            // Final overlap-dedup window = tol × tol_div_factor × 1.5 (FLASHDeconvAlgorithm.cpp:1223):
+            // OpenMS passes the RAW tol (=ppm) × tol_div_factor(2.5) × OverlapDedupTolFactor(1.5)
+            // = 37.5 ppm at 10 ppm. (Was ppm×1.5 = 15 ppm — 2.5× too narrow, the over-production source.)
+            double overlapWindow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
             var finalGroups = MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterChargeError, overlapWindow);
 
             int polSign = Math.Sign((int)p.Polarity);
