@@ -305,6 +305,46 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 Assert.That(b[i], Is.EqualTo(cppB[i]).Within(1e-7), $"b[{i}]");
         }
 
+        [Test]
+        public void PerChargeCos_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "percc_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run percc_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int minC = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int maxC = int.Parse(h[1], CultureInfo.InvariantCulture);
+            int curSize = int.Parse(h[2], CultureInfo.InvariantCulture);
+            double[] b = ParseRow(lines[1]);
+
+            var pg = new MetaFlashDeconPeakGroup
+            {
+                MinAbsCharge = minC, MaxAbsCharge = maxC, MinNegativeIsotopeIndex = -1,
+                // PerIsotopeInt.Length + MinNegativeIsotopeIndex must equal curSize
+                PerIsotopeInt = new double[curSize - (-1)],
+            };
+            for (int i = 2; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                int z = int.Parse(t[0], CultureInfo.InvariantCulture);
+                int iso = int.Parse(t[1], CultureInfo.InvariantCulture);
+                double inten = double.Parse(t[2], CultureInfo.InvariantCulture);
+                pg.SignalPeaks.Add(new MetaFlashDeconAlgorithm.LogMzPeak(0.0, inten, 0.0, z, iso));
+            }
+
+            pg.UpdatePerChargeCos(b);
+
+            foreach (var l in File.ReadAllLines(Path.Combine(DiffDir, "percc_cpp_result.txt")))
+            {
+                if (string.IsNullOrWhiteSpace(l)) continue;
+                var t = l.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                int z = int.Parse(t[0], CultureInfo.InvariantCulture);
+                double cpp = double.Parse(t[1], CultureInfo.InvariantCulture);
+                Assert.That(pg.PerChargeCos[z], Is.EqualTo(cpp).Within(1e-4), $"perChargeCos z{z}");
+            }
+        }
+
         private static void AssertClose(double cs, string cppStr, string what)
         {
             double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);

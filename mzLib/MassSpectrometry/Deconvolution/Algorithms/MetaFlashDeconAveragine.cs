@@ -12,11 +12,63 @@
 // is itself differential-tested (trim_cpp) with a fixed raw distribution.
 
 using System;
+using System.Collections.Concurrent;
 
 namespace MassSpectrometry
 {
-    internal static class MetaFlashDeconAveragine
+    internal sealed class MetaFlashDeconAveragine
     {
+        // ── Model: OpenMS-style trimmed/normalised isotope distributions over the mass range ──
+        // Wraps an existing AverageResidue (our raw isotope generator) and applies TrimAndNormalize
+        // per averagine index, lazily + thread-safely (per-scan deconvolution runs in parallel).
+        private readonly AverageResidue _source;
+        private readonly double _isoDa;
+        private readonly ConcurrentDictionary<int, Entry> _cache = new();
+
+        private readonly record struct Entry(double[] B, int Apex, int LeftFromApex, int RightFromApex);
+
+        internal MetaFlashDeconAveragine(AverageResidue source, double isoDa)
+        {
+            _source = source;
+            _isoDa = isoDa;
+        }
+
+        private Entry GetEntry(double mass)
+        {
+            int idx = _source.GetMostIntenseMassIndex(mass);
+            return _cache.GetOrAdd(idx, i =>
+            {
+                double[] masses = _source.GetAllTheoreticalMasses(i);
+                double[] intens = _source.GetAllTheoreticalIntensities(i);
+                // arrays are intensity-descending: [0] is the most-abundant peak.
+                double monoMass = masses[0] - _source.GetDiffToMonoisotopic(i);
+
+                int maxIso = 0;
+                for (int k = 0; k < masses.Length; k++)
+                {
+                    int iso = (int)Math.Round((masses[k] - monoMass) / _isoDa, MidpointRounding.AwayFromZero);
+                    if (iso > maxIso) maxIso = iso;
+                }
+                var raw = new double[maxIso + 1];
+                for (int k = 0; k < masses.Length; k++)
+                {
+                    int iso = (int)Math.Round((masses[k] - monoMass) / _isoDa, MidpointRounding.AwayFromZero);
+                    if (iso >= 0 && iso <= maxIso) raw[iso] += intens[k];
+                }
+                double[] b = TrimAndNormalize(raw, out int apex, out int left, out int right);
+                return new Entry(b, apex, left, right);
+            });
+        }
+
+        /// <summary>Trimmed + L2-normalised isotope distribution (OpenMS <c>avg.get(mass)</c>).</summary>
+        internal double[] Get(double mass) => GetEntry(mass).B;
+        /// <summary>OpenMS <c>avg.getApexIndex(mass)</c>.</summary>
+        internal int GetApexIndex(double mass) => GetEntry(mass).Apex;
+        /// <summary>OpenMS <c>avg.getLeftCountFromApex(mass)</c>.</summary>
+        internal int GetLeftCountFromApex(double mass) => GetEntry(mass).LeftFromApex;
+        /// <summary>OpenMS <c>avg.getLastIndex(mass)</c> = apex + right-count-from-apex.</summary>
+        internal int GetLastIndex(double mass) { var e = GetEntry(mass); return e.Apex + e.RightFromApex; }
+
         /// <summary>
         /// Faithful port of the per-mass loop body in OpenMS
         /// <c>PrecalculatedAveragine::PrecalculatedAveragine</c> (FLASHDeconvHelperStructs.cpp:36-106).

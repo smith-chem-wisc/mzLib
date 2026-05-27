@@ -312,6 +312,42 @@ namespace MassSpectrometry
             MonoisotopicMass = nominator / Intensity;
         }
 
+        // ── Per-charge cosine (OpenMS updatePerChargeCos_, PeakGroup.cpp:79-115) ──
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updatePerChargeCos_</c>. For each charge, build the
+        /// observed per-isotope intensity vector (indexed by isotopeIndex) from that charge's signal
+        /// peaks and score it against the trimmed/normalised averagine <c>b</c> via
+        /// <see cref="GetCosine"/> (offset 0, minIsoSize 0). Requires
+        /// <see cref="UpdateMonoMassAndIsotopeIntensities"/> first (sets <see cref="PerIsotopeInt"/>).
+        /// </summary>
+        internal void UpdatePerChargeCos(MetaFlashDeconAveragine avg)
+            => UpdatePerChargeCos(avg.Get(MonoisotopicMass));
+
+        /// <summary>Overload taking the averagine distribution <c>b</c> directly (for differential testing).</summary>
+        internal void UpdatePerChargeCos(double[] b)
+        {
+            int isoSize = b.Length;
+            // OpenMS: current_per_isotope_intensities size = getIsotopeIntensities().size() + min_negative_isotope_index_
+            int curSize = PerIsotopeInt.Length + MinNegativeIsotopeIndex;
+            if (curSize < 0) curSize = 0;
+            PerChargeCos = new double[1 + MaxAbsCharge];
+
+            for (int z = MinAbsCharge; z <= MaxAbsCharge; z++)
+            {
+                var cur = new double[curSize];
+                int minIso = curSize, maxIso = -1;
+                foreach (var p in SignalPeaks)
+                {
+                    if (p.AbsCharge != z) continue;
+                    if (p.IsotopeIndex >= curSize || p.IsotopeIndex < 0) continue;
+                    cur[p.IsotopeIndex] += p.Intensity;
+                    if (p.IsotopeIndex < minIso) minIso = p.IsotopeIndex;
+                    if (p.IsotopeIndex > maxIso) maxIso = p.IsotopeIndex;
+                }
+                PerChargeCos[z] = GetCosine(cur, minIso, maxIso + 1, b, isoSize, 0, 0);
+            }
+        }
+
         /// <summary>
         /// Faithful port of OpenMS <c>FLASHDeconvAlgorithm::getCosine</c>
         /// (FLASHDeconvAlgorithm.cpp:1315-1386). Cosine of an observed per-isotope intensity vector
