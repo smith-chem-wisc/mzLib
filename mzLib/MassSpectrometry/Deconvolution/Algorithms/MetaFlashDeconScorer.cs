@@ -288,6 +288,37 @@ namespace MassSpectrometry
             return 1.0 / (1.0 + Math.Exp(linearScore));
         }
 
+        // ── Faithful all-charge SNR (for the SNR drop gate) ───────────────────
+
+        /// <summary>
+        /// Faithful overall SNR from OpenMS <c>PeakGroup::updateSNR_</c>
+        /// (PeakGroup.cpp:893-919) — the <c>snr_</c> value consumed by the
+        /// <c>getSNR() &gt;= snr_threshold</c> drop gate (FLASHDeconvAlgorithm.cpp:1163).
+        /// Aggregates signal / noise / sum-signal-squared across ALL charge states:
+        /// <code>
+        ///   nom   = cos² · Σ_z (per-charge summed signal intensity)²
+        ///   denom = 1 + Σ_z noisePwr(z) + (1 − cos²) · Σ_z Σ(signal intensity²)
+        ///   snr   = denom &lt;= 0 ? 0 : nom / denom
+        /// </code>
+        /// Matches the C++ exactly: literal <c>1</c> in the denominator (not an epsilon),
+        /// no signal multiplier, and 0 when the denominator is non-positive.
+        /// </summary>
+        /// <param name="globalCosine">Global isotope cosine (OpenMS <c>isotope_cosine_score_</c>).</param>
+        /// <param name="sumChargeSignalPower">Σ_z (per-charge summed signal intensity)² (<c>per_charge_int_[z]²</c>).</param>
+        /// <param name="sumChargeNoisePower">Σ_z per-charge noise power (<c>per_charge_noise_pwr_[z]</c>).</param>
+        /// <param name="sumChargeSignalSquared">Σ_z per-charge summed squared signal (<c>per_charge_sum_signal_squared_[z]</c>).</param>
+        internal static double ComputeGlobalSnr(
+            double globalCosine,
+            double sumChargeSignalPower,
+            double sumChargeNoisePower,
+            double sumChargeSignalSquared)
+        {
+            double cos2 = globalCosine * globalCosine;
+            double nom = cos2 * sumChargeSignalPower;
+            double denom = 1.0 + sumChargeNoisePower + (1.0 - cos2) * sumChargeSignalSquared;
+            return denom <= 0.0 ? 0.0 : nom / denom;
+        }
+
         // ── Post-hoc ppm error reconstruction (fallback) ─────────────────────
 
         /// <summary>

@@ -196,21 +196,29 @@ namespace MassSpectrometry
                 // recruitedPeaks: (mz, intensity, absCharge, isotopeIndex n from monoisotopic)
                 var recruitedPeaks = new List<(double mz, double intensity, int z, int n)>();
 
-                // Representative-charge signal/noise PEAKS for the faithful noise-power model.
-                // Instead of summing squared noise intensity inline, we now collect the actual
-                // noisy peaks (raw peaks in each isotope window but OUTSIDE the +/-ppm band) and the
-                // signal peaks, then feed both to ComputeNoisePeakPower (the OpenMS
-                // getNoisePeakPower_ edge-grouping model, PeakGroup.cpp:180-401). repChargeSumSignalSq
-                // is still the summed squared signal intensity (per_charge_sum_signal_squared_).
-                var repNoisyPeaks = new List<(double mz, double intensity)>();
-                var repSignalPeaks = new List<(double mz, double intensity)>();
-                double repChargeSumSignalSq = 0.0;
+                // Faithful global SNR (OpenMS PeakGroup::updateSNR_, PeakGroup.cpp:893-919)
+                // aggregates signal / noise / sum-signal-squared across ALL charges; the resulting
+                // overall SNR feeds the SNR >= snr_threshold drop gate (getSNR(),
+                // FLASHDeconvAlgorithm.cpp:1163). We collect each charge's noisy + signal peaks
+                // during recruitment and defer the (relatively expensive) per-charge
+                // ComputeNoisePeakPower / getNoisePeakPower_ until AFTER the cosine gate, so noise
+                // power is computed only for candidates that survive cosine.
+                var perChargeAccum =
+                    new List<(List<(double mz, double intensity)> noisy,
+                              List<(double mz, double intensity)> signal,
+                              double sumSignal, double sumSignalSq, int z, bool isRep)>();
 
                 for (int z = candidate.MinAbsCharge; z <= candidate.MaxAbsCharge; z++)
                 {
                     double isoDelta = Constants.C13MinusC12 / z;
                     double baseMz = candidate.Mass.ToMz(polSign * z);
                     bool isRepZ = (z == repAbsCharge);
+
+                    // Per-charge signal/noise accumulators for the global SNR (reset each charge).
+                    var zNoisyPeaks = new List<(double mz, double intensity)>();
+                    var zSignalPeaks = new List<(double mz, double intensity)>();
+                    double zSumSignal = 0.0;     // Σ signal intensity at z  (-> per_charge_int_[z])
+                    double zSumSignalSq = 0.0;   // Σ signal intensity² at z (-> per_charge_sum_signal_squared_[z])
 
                     // Search forward (n=0 is monoisotopic, n>0 are heavier isotopes)
                     for (int n = 0; n < nIso; n++)
@@ -223,9 +231,8 @@ namespace MassSpectrometry
                         var signalIndices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
                         if (signalIndices.Count == 0)
                         {
-                            if (isRepZ)
-                                CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                    signalIndices, repNoisyPeaks);
+                            CollectNoisePeaks(spectrum, windowLo, windowHi,
+                                signalIndices, zNoisyPeaks);
                             break;
                         }
 
@@ -242,13 +249,11 @@ namespace MassSpectrometry
 
                         recruitedPeaks.Add((obsMz, obsIntensity, z, n));
 
-                        if (isRepZ)
-                        {
-                            repChargeSumSignalSq += obsIntensity * obsIntensity;
-                            repSignalPeaks.Add((obsMz, obsIntensity));
-                            CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                signalIndices, repNoisyPeaks);
-                        }
+                        zSumSignal += obsIntensity;
+                        zSumSignalSq += obsIntensity * obsIntensity;
+                        zSignalPeaks.Add((obsMz, obsIntensity));
+                        CollectNoisePeaks(spectrum, windowLo, windowHi,
+                            signalIndices, zNoisyPeaks);
                     }
 
                     // Search backward (lighter than monoisotopic, n=−1,−2,…)
@@ -264,9 +269,8 @@ namespace MassSpectrometry
                         var signalIndices = spectrum.GetPeakIndicesWithinTolerance(targetMz, tolerance);
                         if (signalIndices.Count == 0)
                         {
-                            if (isRepZ)
-                                CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                    signalIndices, repNoisyPeaks);
+                            CollectNoisePeaks(spectrum, windowLo, windowHi,
+                                signalIndices, zNoisyPeaks);
                             break;
                         }
 
@@ -283,14 +287,15 @@ namespace MassSpectrometry
 
                         recruitedPeaks.Add((obsMz, obsIntensity, z, -n));
 
-                        if (isRepZ)
-                        {
-                            repChargeSumSignalSq += obsIntensity * obsIntensity;
-                            repSignalPeaks.Add((obsMz, obsIntensity));
-                            CollectNoisePeaks(spectrum, windowLo, windowHi,
-                                signalIndices, repNoisyPeaks);
-                        }
+                        zSumSignal += obsIntensity;
+                        zSumSignalSq += obsIntensity * obsIntensity;
+                        zSignalPeaks.Add((obsMz, obsIntensity));
+                        CollectNoisePeaks(spectrum, windowLo, windowHi,
+                            signalIndices, zNoisyPeaks);
                     }
+
+                    // Record this charge's signal/noise for the deferred global-SNR aggregation.
+                    perChargeAccum.Add((zNoisyPeaks, zSignalPeaks, zSumSignal, zSumSignalSq, z, isRepZ));
                 }
 
                 if (recruitedPeaks.Count < p.MinIsotopicPeakCount)
@@ -330,8 +335,39 @@ namespace MassSpectrometry
                 }
                 double repChargeCosine = SpectralSimilarity.CosineOfAlignedVectors(repObsSlice, avgIntens);
 
-                // ── Step 4c: apply filters ─────────────────────────────────────
+                // ── Step 4c: cosine gate ───────────────────────────────────────
                 if (bestCosine < p.MinCosineScore) continue;
+
+                // ── Step 4d: faithful all-charge SNR gate ──────────────────────
+                // The candidate passed cosine, so now compute each charge's structured-noise
+                // power (ComputeNoisePeakPower / getNoisePeakPower_) and aggregate the OpenMS
+                // overall SNR across all charges (updateSNR_, PeakGroup.cpp:893-919):
+                //   snr = cos² · Σ_z(sigInt_z)²  /  (1 + Σ_z noisePwr_z + (1-cos²)·Σ_z sumSigSq_z)
+                // The representative charge's noise / sum-signal-squared are captured here for the
+                // Qscore (f[2]/f[3]) -- identical values to before, so Qscores are unchanged. Drop
+                // the group when SNR < snr_threshold (getSNR() gate, FLASHDeconvAlgorithm.cpp:1163);
+                // this is what discriminates harmonics / noise now that noise power is realistic.
+                double globalSignalPower = 0.0;   // Σ_z (per-charge summed signal intensity)²
+                double globalNoisePower = 0.0;    // Σ_z noisePwr(z)
+                double globalSumSignalSq = 0.0;   // Σ_z Σ(signal intensity²)
+                double repChargeNoisePower = 0.0; // representative charge only (Qscore)
+                double repChargeSumSignalSq = 0.0;
+                foreach (var pc in perChargeAccum)
+                {
+                    double zNoisePwr = ComputeNoisePeakPower(
+                        pc.noisy, pc.signal, pc.z, Constants.C13MinusC12);
+                    globalSignalPower += pc.sumSignal * pc.sumSignal;
+                    globalNoisePower += zNoisePwr;
+                    globalSumSignalSq += pc.sumSignalSq;
+                    if (pc.isRep)
+                    {
+                        repChargeNoisePower = zNoisePwr;
+                        repChargeSumSignalSq = pc.sumSignalSq;
+                    }
+                }
+                double globalSnr = MetaFlashDeconScorer.ComputeGlobalSnr(
+                    bestCosine, globalSignalPower, globalNoisePower, globalSumSignalSq);
+                if (globalSnr < p.SnrThreshold) continue;
 
                 // Deduplicate: same raw spectrum peak recruited from multiple charges.
                 var uniquePeaks = recruitedPeaks
@@ -360,14 +396,6 @@ namespace MassSpectrometry
                 double avgPpmError = uniquePeaks.Count > 0
                     ? totalPpmError / uniquePeaks.Count
                     : 0.0;
-
-                // Faithful noise power for the representative charge: the OpenMS getNoisePeakPower_
-                // edge-grouping model (PeakGroup.cpp:180-401) over the representative charge's
-                // noisy + signal peaks. Replaces the prior "sum of squared out-of-band intensity",
-                // which underestimated structured noise (and made the SNR pass everything). Used
-                // here only to feed the existing Qscore -- no new drop gate in this step.
-                double repChargeNoisePower = ComputeNoisePeakPower(
-                    repNoisyPeaks, repSignalPeaks, repAbsCharge, Constants.C13MinusC12);
 
                 var envelope = new IsotopicEnvelope(
                     id: 0,
@@ -440,14 +468,21 @@ namespace MassSpectrometry
             const int maxNoisyPeaks = 50; // too many noise peaks slow the process
             const int maxBinNumber = 29;  // 24 bins + 5 extra
             if (absCharge <= 0) return 0.0;
+            // OpenMS derives the charge z from the signal peaks; with no signal peaks z stays 0 and
+            // getNoisePeakPower_ returns 0 (PeakGroup.cpp:226-229) regardless of noisy peaks.
+            if (signalPeaks.Count == 0) return 0.0;
 
             double threshold = 0.0;
             int total = noisyPeaks.Count + signalPeaks.Count;
             if (total > maxNoisyPeaks)
             {
-                var intens = new List<double>(total);
+                // Faithful to OpenMS getNoisePeakPower_ (PeakGroup.cpp:195-202), INCLUDING the quirk:
+                // the intensities vector is pre-sized with `total` ZEROS, then ONLY the noisy-peak
+                // intensities are appended (signal intensities are NOT included). threshold is then
+                // the element at index [size - 50]. (Differential-tested vs the C++ extract.)
+                var intens = new List<double>(total + noisyPeaks.Count);
+                for (int i = 0; i < total; i++) intens.Add(0.0);
                 foreach (var pk in noisyPeaks) intens.Add(pk.intensity);
-                foreach (var pk in signalPeaks) intens.Add(pk.intensity);
                 intens.Sort();
                 threshold = intens[intens.Count - maxNoisyPeaks];
             }
@@ -482,7 +517,8 @@ namespace MassSpectrometry
                 {
                     double normalizedDist = (allPeaks[j].mz - allPeaks[i].mz) * absCharge / isoDaDistance;
                     if (normalizedDist > 0.9 && normalizedDist < 1.1) continue; // ~ isotope distance: skip
-                    int bin = (int)Math.Round(normalizedDist * (maxBinNumber - 5));
+                    // C++ round() is half-away-from-zero; C# Math.Round defaults to banker's rounding.
+                    int bin = (int)Math.Round(normalizedDist * (maxBinNumber - 5), MidpointRounding.AwayFromZero);
                     if (bin == 0) continue;
                     if (bin >= maxBinNumber) break;
                     if (p1Signal && isSignal[j] && normalizedDist >= 0.75) continue; // two signals ~1 iso apart

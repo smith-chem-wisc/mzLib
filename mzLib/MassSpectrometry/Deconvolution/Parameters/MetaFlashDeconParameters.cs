@@ -91,6 +91,15 @@ namespace MassSpectrometry
         public double OverlapDedupTolFactor { get; set; }
 
         /// <summary>
+        /// Minimum overall signal-to-noise ratio required to report an envelope. The SNR is the
+        /// faithful OpenMS all-charge value (<c>getSNR()</c>, aggregated by
+        /// <c>updateSNR_</c>); envelopes below this are dropped as harmonics / noise. OpenMS:
+        /// <c>snr_threshold = 0.5</c> (FLASHDeconvAlgorithm.cpp:1163). Consumed only by
+        /// <see cref="MetaFlashDeconAlgorithm"/>.
+        /// </summary>
+        public double SnrThreshold { get; set; }
+
+        /// <summary>
         /// Constructs FLASHDeconv parameters with sensible defaults suitable for
         /// top-down proteomics. All parameters have defaults so that
         /// <c>new MetaFlashDeconParameters()</c> is a valid zero-argument call.
@@ -109,6 +118,7 @@ namespace MassSpectrometry
         /// <param name="averageResidueModel">Averagine model used for theoretical isotope distributions. Defaults to <see cref="Averagine"/>.</param>
         /// <param name="tolDivFactor">Bin-width divisor for candidate voting (OpenMS <c>tol_div_factor</c>, default 2.5).</param>
         /// <param name="overlapDedupTolFactor">Overlap-dedup window multiplier (OpenMS final dedup = 1.5 × input ppm, default 1.5).</param>
+        /// <param name="snrThreshold">Minimum all-charge SNR to report an envelope (OpenMS <c>snr_threshold</c>, default 0.5).</param>
         public MetaFlashDeconParameters(
             int minCharge = 1,
             int maxCharge = 60,
@@ -123,7 +133,8 @@ namespace MassSpectrometry
             Polarity polarity = Polarity.Positive,
             AverageResidue? averageResidueModel = null,
             double tolDivFactor = 2.5,          // OpenMS tol_div_factor, FLASHDeconvAlgorithm.cpp:22
-            double overlapDedupTolFactor = 1.5) // OpenMS final dedup = 1.5 × input ppm, FLASHDeconvAlgorithm.cpp:1223
+            double overlapDedupTolFactor = 1.5, // OpenMS final dedup = 1.5 × input ppm, FLASHDeconvAlgorithm.cpp:1223
+            double snrThreshold = 0.5)          // OpenMS snr_threshold, FLASHDeconvAlgorithm.cpp:1163
             : base(minCharge, maxCharge, polarity, averageResidueModel)
         {
             DeconvolutionTolerancePpm = deconvolutionTolerancePpm;
@@ -136,6 +147,7 @@ namespace MassSpectrometry
             MaxMassRange = maxMassRange;
             TolDivFactor = tolDivFactor;
             OverlapDedupTolFactor = overlapDedupTolFactor;
+            SnrThreshold = snrThreshold;
         }
 
         #region IEquatable<DeconvolutionParameters>
@@ -152,7 +164,8 @@ namespace MassSpectrometry
                 && MinMassRange.Equals(o.MinMassRange)
                 && MaxMassRange.Equals(o.MaxMassRange)
                 && TolDivFactor.Equals(o.TolDivFactor)
-                && OverlapDedupTolFactor.Equals(o.OverlapDedupTolFactor);
+                && OverlapDedupTolFactor.Equals(o.OverlapDedupTolFactor)
+                && SnrThreshold.Equals(o.SnrThreshold);
         }
 
         protected override void AddHashCodes(HashCode hash)
@@ -167,6 +180,7 @@ namespace MassSpectrometry
             hash.Add(MaxMassRange);
             hash.Add(TolDivFactor);
             hash.Add(OverlapDedupTolFactor);
+            hash.Add(SnrThreshold);
         }
 
         public override MetaFlashDeconParameters Clone()
@@ -176,7 +190,7 @@ namespace MassSpectrometry
                 DeconvolutionTolerancePpm, MinIsotopicPeakCount, MaxIsotopicPeakCount,
                 PrecursorHarmonicCount, MinCosineScore, IsotopeIntensityRatioThreshold,
                 MinMassRange, MaxMassRange, Polarity, AverageResidueModel,
-                TolDivFactor, OverlapDedupTolFactor)
+                TolDivFactor, OverlapDedupTolFactor, SnrThreshold)
             {
                 ExpectedIsotopeSpacing = ExpectedIsotopeSpacing,
                 UseGenericScore = UseGenericScore
@@ -201,7 +215,8 @@ namespace MassSpectrometry
                     averageResidueModel: new DecoyAveragine(AverageResidueModel,
                         DecoyAveragine.DefaultDecoyIsotopeSpacing, ExpectedIsotopeSpacing),
                     tolDivFactor: TolDivFactor,
-                    overlapDedupTolFactor: OverlapDedupTolFactor)
+                    overlapDedupTolFactor: OverlapDedupTolFactor,
+                    snrThreshold: SnrThreshold)
                 {
                     ExpectedIsotopeSpacing = DecoyAveragine.DefaultDecoyIsotopeSpacing,
                     UseGenericScore = UseGenericScore
