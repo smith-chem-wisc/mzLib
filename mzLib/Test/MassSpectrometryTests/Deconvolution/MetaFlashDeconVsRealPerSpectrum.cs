@@ -33,6 +33,34 @@ namespace Test.MassSpectrometryTests.Deconvolution
         private const int SampleEvery = 80; // ~40 scans across the run
 
         [Test]
+        public void DenseScan_ScoringStageCounts()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var densest = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1)
+                .OrderByDescending(s => s.MassSpectrum.Size).First();
+
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, IsoDa);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(densest.MassSpectrum, densest.MassSpectrum.Range, Polarity.Positive);
+            double binMul = p.TolDivFactor / (p.DeconvolutionTolerancePpm * 1e-6);
+            int[] harmonicCharges = { 2, 3, 5, 7, 11 };
+
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, 60, harmonicCharges, binMul, p, avg);
+            var algo = new MetaFlashDeconAlgorithm(p);
+            var scored = algo.ScoreCandidatesViaPeakGroups(densest.MassSpectrum, candidates, p, avg);
+            var afterCE = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, Polarity.Positive);
+            double overlapWindow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
+            var final = MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterCE, overlapWindow);
+
+            // distinct masses among the final (to detect un-merged near-duplicates)
+            var distinct = final.Select(g => Math.Round(g.MonoisotopicMass, 1)).Distinct().Count();
+            TestContext.Progress.WriteLine(
+                $"densest scan {densest.OneBasedScanNumber} ({densest.MassSpectrum.Size} peaks): " +
+                $"candidates={candidates.Count} -> afterScoringGates={scored.Count} -> afterChargeError={afterCE.Count} -> afterOverlap={final.Count} (distinct masses={distinct})");
+        }
+
+        [Test]
         public void ComparePerSpectrumToRealFlashDeconv()
         {
             Assume.That(File.Exists(Mzml), $"missing {Mzml}");

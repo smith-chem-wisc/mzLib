@@ -146,7 +146,7 @@ namespace MassSpectrometry
         // ══════════════════════════════════════════════════════════════════════
         // PLAN B — per-candidate PeakGroup scoring (OpenMS scoreAndFilterPeakGroups_ loop)
         // ══════════════════════════════════════════════════════════════════════
-        private List<MetaFlashDeconPeakGroup> ScoreCandidatesViaPeakGroups(
+        internal List<MetaFlashDeconPeakGroup> ScoreCandidatesViaPeakGroups(
             MzSpectrum spectrum, List<CandidateMass> candidates, MetaFlashDeconParameters p, MetaFlashDeconAveragine avg)
         {
             var scored = new List<MetaFlashDeconPeakGroup>();
