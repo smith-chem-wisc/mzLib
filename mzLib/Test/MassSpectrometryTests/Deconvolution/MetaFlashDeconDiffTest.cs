@@ -7,6 +7,7 @@ using System.Linq;
 using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using Readers;
 
 namespace Test.MassSpectrometryTests.Deconvolution
 {
@@ -498,6 +499,53 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 Assert.That(csLines.Count, Is.EqualTo(cppLines.Count), $"candidate count C# {csLines.Count} != OpenMS {cppLines.Count}");
                 for (int i = 0; i < cppLines.Count; i++)
                     Assert.That(csLines[i], Is.EqualTo(cppLines[i]), $"candidate {i} differs");
+            }
+        }
+
+        [Test]
+        [Explicit("Dense REAL scan candidate-gen vs OpenMS; needs E:\\Projects\\JurkatTopDown + cand_cpp.exe run on cand_dense_input.txt.")]
+        public void CandidateGen_DenseRealScan_MatchesOpenMS()
+        {
+            const string mzml = @"E:\Projects\JurkatTopDown\02-18-20_jurkat_td_rep2_fract10.mzML";
+            Assume.That(File.Exists(mzml), $"missing {mzml}");
+            const int apex = 5, left = 5, right = 12; const double avgDelta = 5.0;
+            const int maxCharge = 60; const double ppm = 10.0, tolDiv = 2.5;
+            double isoDa = Constants.C13MinusC12;
+            double binMul = tolDiv / (ppm * 1e-6);
+            double tol = ppm * 1e-6;
+            int[] harmonicCharges = { 2, 3, 5, 7, 11 };
+
+            var dataFile = MsDataFileReader.GetDataFile(mzml).LoadAllStaticData();
+            var densest = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1)
+                .OrderByDescending(s => s.MassSpectrum.Size).First();
+            TestContext.Progress.WriteLine($"densest MS1 scan {densest.OneBasedScanNumber}: {densest.MassSpectrum.Size} peaks, RT {densest.RetentionTime:F2}");
+
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: maxCharge);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(densest.MassSpectrum, densest.MassSpectrum.Range, Polarity.Positive);
+
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"{maxCharge} {harmonicCharges.Length} {isoDa.ToString("R", CultureInfo.InvariantCulture)} {tol.ToString("R", CultureInfo.InvariantCulture)} {p.MinMassRange.ToString("R", CultureInfo.InvariantCulture)} {p.MaxMassRange.ToString("R", CultureInfo.InvariantCulture)} {apex} {left} {right} {avgDelta.ToString("R", CultureInfo.InvariantCulture)} {binMul.ToString("R", CultureInfo.InvariantCulture)}\n");
+            sb.Append(string.Join(" ", harmonicCharges) + "\n");
+            foreach (var pk in logPeaks)
+                sb.Append($"{pk.Mz.ToString("R", CultureInfo.InvariantCulture)} {pk.LogMz.ToString("R", CultureInfo.InvariantCulture)} {pk.Intensity.ToString("R", CultureInfo.InvariantCulture)}\n");
+            File.WriteAllText(Path.Combine(DiffDir, "cand_dense_input.txt"), sb.ToString());
+
+            var avg = new MetaFlashDeconAveragine(apex, left, right, avgDelta);
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, maxCharge, harmonicCharges, binMul, p, avg);
+            var csLines = candidates
+                .Select(c => $"{c.Mass.ToString("F4", CultureInfo.InvariantCulture)} {c.MinAbsCharge} {c.MaxAbsCharge}")
+                .OrderBy(s => s).ToList();
+            TestContext.Progress.WriteLine($"CS dense candidates={candidates.Count}");
+            File.WriteAllText(Path.Combine(DiffDir, "cand_dense_cs_result.txt"), string.Join("\n", csLines) + "\n");
+
+            string cppPath = Path.Combine(DiffDir, "cand_dense_cpp_result.txt");
+            if (File.Exists(cppPath))
+            {
+                var cppLines = File.ReadAllLines(cppPath).Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).OrderBy(s => s).ToList();
+                TestContext.Progress.WriteLine($"CPP dense candidates={cppLines.Count}");
+                Assert.That(csLines.Count, Is.EqualTo(cppLines.Count), $"dense candidate count C# {csLines.Count} != OpenMS {cppLines.Count}");
+                for (int i = 0; i < cppLines.Count; i++)
+                    Assert.That(csLines[i], Is.EqualTo(cppLines[i]), $"dense candidate {i} differs");
             }
         }
 
