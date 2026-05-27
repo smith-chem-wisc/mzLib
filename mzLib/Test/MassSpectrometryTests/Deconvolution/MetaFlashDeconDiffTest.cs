@@ -284,6 +284,27 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+        [Test]
+        public void TrimAndNormalize_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "trim_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run trim_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+            double[] raw = ParseRow(lines[1]);
+
+            double[] b = MetaFlashDeconAveragine.TrimAndNormalize(raw, out int apex, out int left, out int right);
+
+            var cpp = File.ReadAllLines(Path.Combine(DiffDir, "trim_cpp_result.txt"));
+            var hdr = cpp[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            Assert.That(apex, Is.EqualTo(int.Parse(hdr[0], CultureInfo.InvariantCulture)), "apexIndex");
+            Assert.That(left, Is.EqualTo(int.Parse(hdr[1], CultureInfo.InvariantCulture)), "leftCountFromApex");
+            Assert.That(right, Is.EqualTo(int.Parse(hdr[2], CultureInfo.InvariantCulture)), "rightCountFromApex");
+            Assert.That(b.Length, Is.EqualTo(int.Parse(hdr[3], CultureInfo.InvariantCulture)), "b length");
+            double[] cppB = ParseRow(cpp[1]);
+            for (int i = 0; i < b.Length; i++)
+                Assert.That(b[i], Is.EqualTo(cppB[i]).Within(1e-7), $"b[{i}]");
+        }
+
         private static void AssertClose(double cs, string cppStr, string what)
         {
             double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);
