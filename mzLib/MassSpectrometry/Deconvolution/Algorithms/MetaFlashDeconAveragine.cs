@@ -33,6 +33,13 @@ namespace MassSpectrometry
             _isoDa = isoDa;
         }
 
+        // Shared instances so the per-mass trim cache persists across the (per-scan, parallel)
+        // deconvolution calls — a fresh algorithm is created per spectrum, but the averagine model is
+        // immutable and reusable.
+        private static readonly ConcurrentDictionary<(AverageResidue, double), MetaFlashDeconAveragine> _instances = new();
+        internal static MetaFlashDeconAveragine For(AverageResidue source, double isoDa)
+            => _instances.GetOrAdd((source, isoDa), k => new MetaFlashDeconAveragine(k.Item1, k.Item2));
+
         private Entry GetEntry(double mass)
         {
             int idx = _source.GetMostIntenseMassIndex(mass);

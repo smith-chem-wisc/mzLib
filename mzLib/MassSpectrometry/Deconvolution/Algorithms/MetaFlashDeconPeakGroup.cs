@@ -606,5 +606,40 @@ namespace MassSpectrometry
             }
             return filtered;
         }
+
+        // ── Overlap dedup (OpenMS removeOverlappingPeakGroups_, FLASHDeconvAlgorithm.cpp:1466-1515) ──
+        /// <summary>
+        /// Faithful port of OpenMS <c>removeOverlappingPeakGroups_</c>: over groups sorted by mono
+        /// mass, keep only the highest-SNR group within each <c>mass·windowTol</c> window. (Targeted
+        /// handling omitted — MetaFlashDecon has no targeted masses.)
+        /// </summary>
+        internal static List<MetaFlashDeconPeakGroup> RemoveOverlappingPeakGroups(
+            List<MetaFlashDeconPeakGroup> groups, double windowTol)
+        {
+            if (groups.Count == 0) return groups;
+            groups.Sort((a, b) => a.MonoisotopicMass.CompareTo(b.MonoisotopicMass));
+
+            var filtered = new List<MetaFlashDeconPeakGroup>(groups.Count);
+            double startMass = groups[0].MonoisotopicMass;
+            double localMaxSnr = 0;
+            int localMaxIndex = 0;
+            for (int i = 0; i < groups.Count; i++)
+            {
+                double mass = groups[i].MonoisotopicMass;
+                if (mass - startMass > mass * windowTol)
+                {
+                    filtered.Add(groups[localMaxIndex]);
+                    startMass = mass;
+                    localMaxSnr = 0;
+                }
+                if (localMaxSnr < groups[i].Snr)
+                {
+                    localMaxSnr = groups[i].Snr;
+                    localMaxIndex = i;
+                }
+            }
+            if (localMaxSnr > 0) filtered.Add(groups[localMaxIndex]);
+            return filtered;
+        }
     }
 }

@@ -112,24 +112,88 @@ namespace MassSpectrometry
                 logPeaks, universalPattern, harmonicPatterns, binMulFactor, p);
             if (candidates.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            // ── Steps 3–5: recruit → score → dedup → Qscore ──────────────────
-            // ScoreAndBuildEnvelopes collects:
-            //   • exact ppm error (isotope index n known during recruitment)
-            //   • per-charge cosine for the representative charge (f[1])
-            //   • per-charge noise power for the representative charge (f[2]/f[3])
-            //   • per-charge summed signal squared for the SNR denominator
-            var scoringData = ScoreAndBuildEnvelopes(spectrum, candidates, p).ToList();
+            // ── Steps 3–5 (Plan B): faithful OpenMS PeakGroup pipeline ───────
+            // Per candidate, the 10-iteration recruit -> updateQscore offset-refinement loop
+            // (MetaFlashDeconPeakGroup) + gates, then removeChargeError -> removeOverlapping, exactly
+            // as OpenMS scoreAndFilterPeakGroups_. Each surviving group -> one IsotopicEnvelope whose
+            // Score is the OpenMS Qscore. Every per-group function is differential-tested vs the C++.
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, Constants.C13MinusC12);
+            var scored = ScoreCandidatesViaPeakGroups(spectrum, candidates, p, avg);
 
-            // Deduplicate on envelope identity; propagate the full EnvelopeScoringData
-            // through so the scorer receives all per-charge fields for the winner.
-            // Faithful FLASHDeconv re-applies the WIDE tolerance only here: the final
-            // overlap-dedup window is OverlapDedupTolFactor × the input ppm
-            // (= 1.5 × ppm, FLASHDeconvAlgorithm.cpp:1223), in contrast to the finer
-            // ppm / tol_div_factor used for candidate voting above.
-            double dedupTolPpm = p.DeconvolutionTolerancePpm * p.OverlapDedupTolFactor;
-            var dedupedData = MetaFlashDeconDeduplicator.Deduplicate(scoringData, dedupTolPpm);
+            var afterChargeError = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, p.Polarity);
 
-            return MetaFlashDeconScorer.AssignQscores(dedupedData);
+            // Final overlap-dedup window = OverlapDedupTolFactor × input ppm (FLASHDeconvAlgorithm.cpp:1223).
+            double overlapWindow = p.DeconvolutionTolerancePpm * p.OverlapDedupTolFactor * 1e-6;
+            var finalGroups = MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterChargeError, overlapWindow);
+
+            int polSign = Math.Sign((int)p.Polarity);
+            var envelopes = new List<IsotopicEnvelope>(finalGroups.Count);
+            foreach (var pg in finalGroups)
+            {
+                envelopes.Add(new IsotopicEnvelope(
+                    id: 0,
+                    peaks: pg.SignalPeaks.Select(sp => (sp.Mz, sp.Intensity)).ToList(),
+                    monoisotopicmass: pg.MonoisotopicMass,
+                    chargestate: polSign * pg.RepAbsCharge,
+                    intensity: pg.Intensity,
+                    score: pg.QscoreValue));   // Score = OpenMS Qscore
+            }
+            return envelopes;
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // PLAN B — per-candidate PeakGroup scoring (OpenMS scoreAndFilterPeakGroups_ loop)
+        // ══════════════════════════════════════════════════════════════════════
+        private List<MetaFlashDeconPeakGroup> ScoreCandidatesViaPeakGroups(
+            MzSpectrum spectrum, List<CandidateMass> candidates, MetaFlashDeconParameters p, MetaFlashDeconAveragine avg)
+        {
+            var scored = new List<MetaFlashDeconPeakGroup>();
+            double isoDa = Constants.C13MinusC12;
+            double tolFraction = p.DeconvolutionTolerancePpm * 1e-6;
+            const int lowCharge = 10;          // OpenMS low_charge_
+            const int minSupportPeakCount = 2; // OpenMS min_support_peak_count_
+
+            foreach (var candidate in candidates)
+            {
+                int avgIdx = p.AverageResidueModel.GetMostIntenseMassIndex(candidate.Mass);
+                double seedMono = candidate.Mass - p.AverageResidueModel.GetDiffToMonoisotopic(avgIdx);
+
+                var pg = new MetaFlashDeconPeakGroup
+                {
+                    MinAbsCharge = candidate.MinAbsCharge,
+                    MaxAbsCharge = candidate.MaxAbsCharge,
+                    IsoDaDistance = isoDa,
+                    MinNegativeIsotopeIndex = -1,
+                    Polarity = p.Polarity,
+                    MonoisotopicMass = seedMono,
+                };
+
+                double prevMono = seedMono;
+                int offset = 0;
+                for (int k = 0; k < 10; k++)
+                {
+                    double recruitMono = pg.MonoisotopicMass + offset * isoDa;
+                    if (recruitMono <= 0) break;
+                    int apex = avg.GetApexIndex(recruitMono);
+                    int leftCount = avg.GetLeftCountFromApex(recruitMono);
+                    int minIso = Math.Max(pg.MinNegativeIsotopeIndex, apex - leftCount + pg.MinNegativeIsotopeIndex);
+                    int maxIso = avg.GetLastIndex(recruitMono);
+                    var noisy = pg.RecruitAllPeaksInSpectrum(spectrum, tolFraction, recruitMono, minIso, maxIso, p.Polarity);
+                    offset = pg.UpdateQscore(noisy, avg, p.MinCosineScore);
+                    if (offset == 0) break;
+                }
+
+                // post-gates (OpenMS scoreAndFilterPeakGroups_)
+                if (pg.SignalPeaks.Count == 0) continue;
+                if (pg.MonoisotopicMass < p.MinMassRange || pg.MonoisotopicMass > p.MaxMassRange) continue;
+                if (Math.Abs(prevMono - pg.MonoisotopicMass) > 3) continue;              // moved >3 Da -> different envelope
+                if (pg.MinAbsCharge > lowCharge && (pg.MaxAbsCharge - pg.MinAbsCharge) < minSupportPeakCount) continue;
+                if (pg.QscoreValue <= 0) continue;                                       // Qscore gate
+                if (pg.Snr < p.SnrThreshold) continue;                                   // SNR >= snr_threshold (0.5)
+
+                scored.Add(pg);
+            }
+            return scored;
         }
 
         // ══════════════════════════════════════════════════════════════════════
