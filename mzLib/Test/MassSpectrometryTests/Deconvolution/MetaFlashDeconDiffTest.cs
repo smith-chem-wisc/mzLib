@@ -32,6 +32,76 @@ namespace Test.MassSpectrometryTests.Deconvolution
         [Test] public void GetCosine2_MatchesOpenMS() => RunCosineCase(2);
         [Test] public void GetCosine3_MatchesOpenMS() => RunCosineCase(3);
 
+        [Test]
+        public void Recruit_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "recruit_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run recruit_cpp.exe first)");
+
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            double monoMass = double.Parse(h[0], CultureInfo.InvariantCulture);
+            double isoDa = double.Parse(h[1], CultureInfo.InvariantCulture);
+            int minCharge = int.Parse(h[2], CultureInfo.InvariantCulture);
+            int maxCharge = int.Parse(h[3], CultureInfo.InvariantCulture);
+            int minNegIso = int.Parse(h[4], CultureInfo.InvariantCulture);
+            double tol = double.Parse(h[5], CultureInfo.InvariantCulture);
+            int minIsotope = int.Parse(h[6], CultureInfo.InvariantCulture);
+            int maxIsotope = int.Parse(h[7], CultureInfo.InvariantCulture);
+
+            var mz = new List<double>();
+            var inten = new List<double>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                mz.Add(double.Parse(t[0], CultureInfo.InvariantCulture));
+                inten.Add(double.Parse(t[1], CultureInfo.InvariantCulture));
+            }
+            var spectrum = new MzSpectrum(mz.ToArray(), inten.ToArray(), false);
+
+            var pg = new MetaFlashDeconPeakGroup
+            {
+                MinAbsCharge = minCharge,
+                MaxAbsCharge = maxCharge,
+                IsoDaDistance = isoDa,
+                MinNegativeIsotopeIndex = minNegIso,
+                IsPositive = true,
+            };
+            var noisy = pg.RecruitAllPeaksInSpectrum(spectrum, tol, monoMass, minIsotope, maxIsotope, Polarity.Positive);
+
+            var recs = new List<(char kind, int charge, int iso, double mz, double intensity)>();
+            foreach (var p in pg.SignalPeaks)      recs.Add(('S', p.AbsCharge, p.IsotopeIndex, p.Mz, p.Intensity));
+            foreach (var p in pg.NegativeIsoPeaks) recs.Add(('G', p.AbsCharge, p.IsotopeIndex, p.Mz, p.Intensity));
+            foreach (var p in noisy)               recs.Add(('N', p.AbsCharge, p.IsotopeIndex, p.Mz, p.Intensity));
+            recs.Sort((a, b) =>
+            {
+                int k = a.kind.CompareTo(b.kind); if (k != 0) return k;
+                if (a.charge != b.charge) return a.charge.CompareTo(b.charge);
+                if (a.iso != b.iso) return a.iso.CompareTo(b.iso);
+                return a.mz.CompareTo(b.mz);
+            });
+            var csLines = new List<string>();
+            foreach (var r in recs)
+                csLines.Add($"{r.kind} {r.charge} {r.iso} {r.mz.ToString("F6", CultureInfo.InvariantCulture)} {r.intensity.ToString("F6", CultureInfo.InvariantCulture)}");
+
+            string csText = string.Join("\n", csLines);
+            File.WriteAllText(Path.Combine(DiffDir, "recruit_cs_result.txt"), csText + "\n");
+            TestContext.Progress.WriteLine($"CS recruit: {recs.Count} peaks");
+
+            string cppResultPath = Path.Combine(DiffDir, "recruit_cpp_result.txt");
+            if (File.Exists(cppResultPath))
+            {
+                var cppLines = new List<string>();
+                foreach (var l in File.ReadAllLines(cppResultPath))
+                    if (!string.IsNullOrWhiteSpace(l)) cppLines.Add(l.Trim());
+                Assert.That(csLines.Count, Is.EqualTo(cppLines.Count),
+                    $"peak count C# {csLines.Count} != OpenMS {cppLines.Count}");
+                for (int i = 0; i < cppLines.Count; i++)
+                    Assert.That(csLines[i], Is.EqualTo(cppLines[i]), $"recruited peak {i} differs");
+            }
+        }
+
         private static void RunCosineCase(int idx)
         {
             string inputPath = Path.Combine(DiffDir, $"cosine_input_{idx}.txt");

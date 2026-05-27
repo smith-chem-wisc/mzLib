@@ -17,11 +17,87 @@
 
 using System;
 using System.Collections.Generic;
+using Chemistry; // Constants.ProtonMass
 
 namespace MassSpectrometry
 {
+    using LogMzPeak = MetaFlashDeconAlgorithm.LogMzPeak;
+
     internal sealed partial class MetaFlashDeconPeakGroup
     {
+        // ── PeakGroup state (mirrors OpenMS PeakGroup members) ────────────────
+        internal int MinAbsCharge;
+        internal int MaxAbsCharge;
+        internal bool IsPositive = true;
+        internal double IsoDaDistance = Constants.C13MinusC12;     // OpenMS iso_da_distance_ (ISOTOPE_MASSDIFF_55K_U)
+        internal int MinNegativeIsotopeIndex = -1;                 // OpenMS min_negative_isotope_index_ default
+        internal double MonoisotopicMass;
+
+        /// <summary>Signal peaks with isotopeIndex &gt;= 0 (OpenMS <c>logMzpeaks_</c>).</summary>
+        internal readonly List<LogMzPeak> SignalPeaks = new();
+        /// <summary>Signal peaks with isotopeIndex &lt; 0 (OpenMS <c>negative_iso_peaks_</c>).</summary>
+        internal readonly List<LogMzPeak> NegativeIsoPeaks = new();
+
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::recruitAllPeaksInSpectrum</c>
+        /// (PeakGroup.cpp:532-618). For each charge in [MinAbsCharge, MaxAbsCharge] (scanned high→low),
+        /// classify every spectrum peak in the isotope m/z range: on the isotope grid (within ±tol)
+        /// → signal (isotopeIndex &gt;= 0 to <see cref="SignalPeaks"/>, &lt; 0 to
+        /// <see cref="NegativeIsoPeaks"/>), off-grid but in range (isotopeIndex &gt;= 0) → noise
+        /// (returned). Each peak is tagged with <c>abs_charge</c> and <c>isotopeIndex</c>; the same
+        /// raw peak can be claimed by several charges (signal for one, noise for another).
+        /// <para>
+        /// <paramref name="minIsotope"/>/<paramref name="maxIsotope"/> are the averagine-derived scan
+        /// bounds (OpenMS <c>avg.getApexIndex/getLeftCountFromApex/getLastIndex</c>); passed in so the
+        /// recruitment logic is differential-tested independently of the averagine. OpenMS's
+        /// <c>findNearest</c> scan-start is a perf optimisation only — the iso-index break/continue
+        /// makes scanning from index 0 yield an identical set.
+        /// </para>
+        /// </summary>
+        internal List<LogMzPeak> RecruitAllPeaksInSpectrum(
+            MzSpectrum spectrum, double tol, double monoMass, int minIsotope, int maxIsotope, Polarity polarity)
+        {
+            var noisyPeaks = new List<LogMzPeak>();
+            if (monoMass < 0) return noisyPeaks;
+
+            MonoisotopicMass = monoMass;
+            SignalPeaks.Clear();
+            NegativeIsoPeaks.Clear();
+
+            int polSign = Math.Sign((int)polarity);
+            double chargeMass = polSign * Constants.ProtonMass; // OpenMS getChargeMass(is_positive_)
+
+            for (int c = MaxAbsCharge; c >= MinAbsCharge; c--)
+            {
+                if (c <= 0) break;
+                double cmz = monoMass / c + chargeMass;
+                double isoDelta = IsoDaDistance / c;
+
+                for (int index = 0; index < spectrum.Size; index++)
+                {
+                    double pint = spectrum.YArray[index];
+                    if (pint <= 0) continue;
+                    double pmz = spectrum.XArray[index];
+                    // C++ round() is half-away-from-zero (banker's in C# by default).
+                    int isoIndex = (int)Math.Round((pmz - cmz) / isoDelta, MidpointRounding.AwayFromZero);
+                    if (isoIndex > maxIsotope) break;
+                    if (isoIndex < minIsotope) continue;
+
+                    if (Math.Abs(pmz - cmz - isoIndex * isoDelta) <= pmz * tol)
+                    {
+                        var p = new LogMzPeak(pmz, pint, MetaFlashDeconAlgorithm.GetLogMz(pmz, polarity), c, isoIndex);
+                        if (isoIndex < 0) NegativeIsoPeaks.Add(p);
+                        else SignalPeaks.Add(p);
+                    }
+                    else if (isoIndex >= 0)
+                    {
+                        noisyPeaks.Add(new LogMzPeak(pmz, pint, MetaFlashDeconAlgorithm.GetLogMz(pmz, polarity), c, isoIndex));
+                    }
+                }
+            }
+            return noisyPeaks;
+        }
+
         /// <summary>
         /// Faithful port of OpenMS <c>FLASHDeconvAlgorithm::getCosine</c>
         /// (FLASHDeconvAlgorithm.cpp:1315-1386). Cosine of an observed per-isotope intensity vector
