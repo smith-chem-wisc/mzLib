@@ -138,6 +138,13 @@ namespace MassSpectrometry
         internal double[] PerChargeSnr;   // per_charge_snr_ (output)
         internal double Snr;              // snr_ (overall, output)
         internal double IsotopeCosineScore; // isotope_cosine_score_ (global cosine)
+        internal double QscoreValue;      // qscore_
+        internal int RepAbsCharge;        // max_snr_abs_charge_ (representative charge)
+        internal Polarity Polarity = Polarity.Positive;
+
+        /// <summary>Per-charge isotope cosine accessor mirroring OpenMS <c>getChargeIsotopeCosine</c>.</summary>
+        internal double GetChargeIsotopeCosine(int absCharge)
+            => (PerChargeCos == null || absCharge < 0 || absCharge >= PerChargeCos.Length) ? 0.0 : PerChargeCos[absCharge];
 
         /// <summary>
         /// Faithful port of OpenMS <c>PeakGroup::updateSNR_</c> (PeakGroup.cpp:893-919). Per charge:
@@ -482,6 +489,122 @@ namespace MassSpectrometry
             double f1 = Math.Log(1.0 + snr / (1.0 + snr), 2.0);
             double score = 4.5425 + (-2.2833) * f0 + (-3.2881) * f1;
             return 1.0 / (1.0 + Math.Exp(score));
+        }
+
+        // ── Orchestrator (OpenMS PeakGroup::updateQscore, PeakGroup.cpp:117-178) ──
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updateQscore</c>: runs the per-charge chain in order
+        /// with the gates (charge-fit ≥0.7, isotope cosine ≥<paramref name="minCos"/>, charge-range
+        /// ≥ maxCharge/20), then sets <see cref="QscoreValue"/> (current OpenMS Qscore over the global
+        /// cosine + SNR) and <see cref="RepAbsCharge"/> (max-per-charge-SNR charge). Returns the
+        /// isotope-index <c>offset</c> for the caller's recruit→score refinement loop (0 = converged).
+        /// Requires the signal/negative peaks to be already recruited (<paramref name="noisyPeaks"/>
+        /// is the matching noise list from recruitment).
+        /// </summary>
+        internal int UpdateQscore(List<LogMzPeak> noisyPeaks, MetaFlashDeconAveragine avg, double minCos)
+        {
+            QscoreValue = 0;
+            UpdatePerChargeInformation(noisyPeaks);
+            UpdateChargeRange(noisyPeaks);
+            if (SignalPeaks.Count == 0) return 0;
+
+            UpdateChargeFitScoreAndChargeIntensities();
+            if (ChargeScore < 0.7f) return 0;
+
+            UpdateMonoMassAndIsotopeIntensities(Polarity);
+            if (PerIsotopeInt == null || PerIsotopeInt.Length == 0 || MaxAbsCharge < MinAbsCharge) return 0;
+
+            int isoIntShift = -MinNegativeIsotopeIndex; // = 1
+            double[] b = avg.Get(MonoisotopicMass);
+            int apex = avg.GetApexIndex(MonoisotopicMass);
+            IsotopeCosineScore = GetIsotopeCosineAndDetermineIsotopeIndex(
+                PerIsotopeInt, b, apex, isoIntShift, -1, 2, out int hOffset);
+
+            if (IsotopeCosineScore < minCos) return 0;
+            if (MaxAbsCharge - MinAbsCharge < MaxAbsCharge / 20) return 0;
+
+            UpdatePerChargeCos(avg);
+            UpdateSNR();
+
+            RepAbsCharge = 0;
+            for (int c = MinAbsCharge; c <= MaxAbsCharge; c++)
+            {
+                if (GetChargeSnr(c) <= 0 || GetChargeIsotopeCosine(c) <= 0) continue;
+                double q = ComputeQscore(IsotopeCosineScore, Snr);
+                if (QscoreValue < q) QscoreValue = q;
+                if (GetChargeSnr(c) > GetChargeSnr(RepAbsCharge)) RepAbsCharge = c;
+            }
+            return hOffset;
+        }
+
+        /// <summary>Group total signal intensity (OpenMS <c>getIntensity()</c>).</summary>
+        internal double GetIntensity() => Intensity;
+
+        internal bool IsTargeted; // we have no targeted masses -> always false
+
+        // ── Charge-error removal (OpenMS removeChargeErrorPeakGroups_, FLASHDeconvAlgorithm.cpp:1388-1464) ──
+        /// <summary>
+        /// Faithful port of OpenMS <c>FLASHDeconvAlgorithm::removeChargeErrorPeakGroups_</c>. For each
+        /// raw signal peak shared by ≥2 groups, a group <c>i</c> is "overlapped" at that peak if some
+        /// other group <c>j</c> interprets the peak as a DIFFERENT charge AND is not ≥2× worse by
+        /// per-charge SNR (<c>getChargeSNR(repz_i) &gt; getChargeSNR(repz_j)·2</c> ⇒ i wins, skip).
+        /// A group whose overlapped intensity reaches ≥50% of its total intensity is dropped as a
+        /// charge-error ghost. The charge each shared peak implies is <c>round(mass / (pmz − chargeMass))</c>.
+        /// This is the lever for the multi-charge over-generation; it relies on the (now validated)
+        /// per-charge SNR — using the Qscore here (the prior attempt) wrongly dropped true masses.
+        /// </summary>
+        internal static List<MetaFlashDeconPeakGroup> RemoveChargeErrorPeakGroups(
+            List<MetaFlashDeconPeakGroup> groups, Polarity polarity)
+        {
+            double chargeMass = Math.Sign((int)polarity) * Constants.ProtonMass;
+
+            var peakToPgs = new Dictionary<double, HashSet<int>>();
+            var mzToIntensity = new Dictionary<double, double>();
+            for (int i = 0; i < groups.Count; i++)
+            {
+                foreach (var p in groups[i].SignalPeaks)
+                {
+                    if (!peakToPgs.TryGetValue(p.Mz, out var set)) { set = new HashSet<int>(); peakToPgs[p.Mz] = set; }
+                    set.Add(i);
+                    mzToIntensity[p.Mz] = p.Intensity;
+                }
+            }
+
+            var overlapIntensity = new double[groups.Count];
+            foreach (var kv in peakToPgs)
+            {
+                var pgIs = kv.Value;
+                if (pgIs.Count == 1) continue;
+                double pmz = kv.Key;
+                double pint = mzToIntensity[pmz];
+
+                foreach (int i in pgIs)
+                {
+                    bool isOverlap = false;
+                    double mass1 = groups[i].MonoisotopicMass;
+                    int repz1 = (int)Math.Round(mass1 / (pmz - chargeMass), MidpointRounding.AwayFromZero);
+                    foreach (int j in pgIs)
+                    {
+                        if (i == j) continue;
+                        double mass2 = groups[j].MonoisotopicMass;
+                        int repz2 = (int)Math.Round(mass2 / (pmz - chargeMass), MidpointRounding.AwayFromZero);
+                        if (repz1 == repz2) continue;
+                        if (groups[i].GetChargeSnr(repz1) > groups[j].GetChargeSnr(repz2) * 2.0) continue; // i clearly better -> j is the ghost
+                        isOverlap = true;
+                        break;
+                    }
+                    if (isOverlap) overlapIntensity[i] += pint;
+                }
+            }
+
+            var filtered = new List<MetaFlashDeconPeakGroup>(groups.Count);
+            for (int i = 0; i < groups.Count; i++)
+            {
+                if (!groups[i].IsTargeted && overlapIntensity[i] >= groups[i].GetIntensity() * 0.5) continue;
+                if (groups[i].RepAbsCharge < groups[i].MinAbsCharge || groups[i].RepAbsCharge > groups[i].MaxAbsCharge) continue;
+                filtered.Add(groups[i]);
+            }
+            return filtered;
         }
     }
 }

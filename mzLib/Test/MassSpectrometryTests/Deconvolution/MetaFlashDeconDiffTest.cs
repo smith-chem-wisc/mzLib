@@ -388,6 +388,61 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+        [Test]
+        public void RemoveChargeError_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "rmce_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run rmce_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+
+            var groups = new List<MetaFlashDeconPeakGroup>();
+            int li = 1; // skip "numGroups polarity"
+            while (li < lines.Length)
+            {
+                if (string.IsNullOrWhiteSpace(lines[li])) { li++; continue; }
+                var g = lines[li].Split(' ', StringSplitOptions.RemoveEmptyEntries); // G mono intensity rep min max snrLen
+                var pg = new MetaFlashDeconPeakGroup
+                {
+                    MonoisotopicMass = double.Parse(g[1], CultureInfo.InvariantCulture),
+                    Intensity = double.Parse(g[2], CultureInfo.InvariantCulture),
+                    RepAbsCharge = int.Parse(g[3], CultureInfo.InvariantCulture),
+                    MinAbsCharge = int.Parse(g[4], CultureInfo.InvariantCulture),
+                    MaxAbsCharge = int.Parse(g[5], CultureInfo.InvariantCulture),
+                };
+                li++;
+                var snrTok = lines[li].Split(' ', StringSplitOptions.RemoveEmptyEntries); // SNR v0 v1 ...
+                pg.PerChargeSnr = new double[snrTok.Length - 1];
+                for (int k = 1; k < snrTok.Length; k++) pg.PerChargeSnr[k - 1] = double.Parse(snrTok[k], CultureInfo.InvariantCulture);
+                li++;
+                while (lines[li].StartsWith("P "))
+                {
+                    var pk = lines[li].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    pg.SignalPeaks.Add(new MetaFlashDeconAlgorithm.LogMzPeak(
+                        double.Parse(pk[1], CultureInfo.InvariantCulture), double.Parse(pk[2], CultureInfo.InvariantCulture), 0.0, pg.RepAbsCharge, 0));
+                    li++;
+                }
+                // li now at "END"
+                li++;
+                groups.Add(pg);
+            }
+
+            var original = new List<MetaFlashDeconPeakGroup>(groups);
+            var filtered = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(groups, Polarity.Positive);
+            var survivors = new List<int>();
+            foreach (var f in filtered) survivors.Add(original.IndexOf(f));
+            survivors.Sort();
+
+            var cpp = File.ReadAllLines(Path.Combine(DiffDir, "rmce_cpp_result.txt"));
+            int cppCount = int.Parse(cpp[0].Trim(), CultureInfo.InvariantCulture);
+            var cppSurv = new List<int>();
+            for (int i = 1; i <= cppCount; i++) cppSurv.Add(int.Parse(cpp[i].Trim(), CultureInfo.InvariantCulture));
+            cppSurv.Sort();
+
+            Assert.That(survivors.Count, Is.EqualTo(cppCount), "survivor count");
+            Assert.That(survivors, Is.EqualTo(cppSurv), "survivor indices");
+            TestContext.Progress.WriteLine($"CS rmce survivors = [{string.Join(",", survivors)}]");
+        }
+
         private static void AssertClose(double cs, string cppStr, string what)
         {
             double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);
