@@ -128,6 +128,94 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+        [Test]
+        public void PerChargeInfo_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "percharge_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run perchargesnr_cpp.exe first)");
+
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int minC = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int maxC = int.Parse(h[1], CultureInfo.InvariantCulture);
+            double isoDa = double.Parse(h[2], CultureInfo.InvariantCulture);
+
+            var pg = new MetaFlashDeconPeakGroup { MinAbsCharge = minC, MaxAbsCharge = maxC, IsoDaDistance = isoDa };
+            var noisy = new List<MetaFlashDeconAlgorithm.LogMzPeak>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                double mz = double.Parse(t[1], CultureInfo.InvariantCulture);
+                double inten = double.Parse(t[2], CultureInfo.InvariantCulture);
+                int z = int.Parse(t[3], CultureInfo.InvariantCulture);
+                var p = new MetaFlashDeconAlgorithm.LogMzPeak(mz, inten, 0.0, z, 0);
+                if (t[0] == "S") pg.SignalPeaks.Add(p); else noisy.Add(p);
+            }
+
+            pg.UpdatePerChargeInformation(noisy);
+
+            foreach (var l in File.ReadAllLines(Path.Combine(DiffDir, "percharge_cpp_result.txt")))
+            {
+                if (string.IsNullOrWhiteSpace(l)) continue;
+                var t = l.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                int z = int.Parse(t[0], CultureInfo.InvariantCulture);
+                AssertClose(pg.PerChargeInt[z], t[1], $"int z{z}");
+                AssertClose(pg.PerChargeSumSignalSq[z], t[2], $"sumSq z{z}");
+                AssertClose(pg.PerChargeNoisePwr[z], t[3], $"noise z{z}");
+            }
+        }
+
+        [Test]
+        public void Snr_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "snr_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run perchargesnr_cpp.exe first)");
+
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int minC = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int maxC = int.Parse(h[1], CultureInfo.InvariantCulture);
+            double globalCos = double.Parse(h[2], CultureInfo.InvariantCulture);
+
+            int sz = 1 + maxC;
+            var pg = new MetaFlashDeconPeakGroup
+            {
+                MinAbsCharge = minC, MaxAbsCharge = maxC, IsotopeCosineScore = globalCos,
+                PerChargeInt = new double[sz], PerChargeSumSignalSq = new double[sz],
+                PerChargeNoisePwr = new double[sz], PerChargeCos = new double[sz],
+            };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                int z = int.Parse(t[0], CultureInfo.InvariantCulture);
+                pg.PerChargeInt[z] = double.Parse(t[1], CultureInfo.InvariantCulture);
+                pg.PerChargeSumSignalSq[z] = double.Parse(t[2], CultureInfo.InvariantCulture);
+                pg.PerChargeNoisePwr[z] = double.Parse(t[3], CultureInfo.InvariantCulture);
+                pg.PerChargeCos[z] = double.Parse(t[4], CultureInfo.InvariantCulture);
+            }
+
+            pg.UpdateSNR();
+            TestContext.Progress.WriteLine($"CS snr = {pg.Snr:F8}");
+
+            foreach (var l in File.ReadAllLines(Path.Combine(DiffDir, "snr_cpp_result.txt")))
+            {
+                if (string.IsNullOrWhiteSpace(l)) continue;
+                var t = l.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (t[0] == "snr") AssertClose(pg.Snr, t[1], "overall snr");
+                else AssertClose(pg.GetChargeSnr(int.Parse(t[0], CultureInfo.InvariantCulture)), t[1], $"snr z{t[0]}");
+            }
+        }
+
+        private static void AssertClose(double cs, string cppStr, string what)
+        {
+            double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);
+            // OpenMS computes noise/SNR in float; C# in double -> compare with a magnitude-relative tol.
+            double tol = Math.Abs(cpp) * 1e-4 + 1e-2;
+            Assert.That(cs, Is.EqualTo(cpp).Within(tol), $"{what}: C# {cs} != OpenMS {cpp}");
+        }
+
         private static double[] ParseRow(string line)
         {
             var t = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);

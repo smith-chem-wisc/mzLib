@@ -98,6 +98,85 @@ namespace MassSpectrometry
             return noisyPeaks;
         }
 
+        // ── Per-charge information (OpenMS updatePerChargeInformation_, PeakGroup.cpp:403-445) ──
+        internal double[] PerChargeInt;          // per_charge_int_       (Σ signal intensity per charge)
+        internal double[] PerChargeSumSignalSq;  // per_charge_sum_signal_squared_
+        internal double[] PerChargeNoisePwr;     // per_charge_noise_pwr_ (getNoisePeakPower_ per charge)
+
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updatePerChargeInformation_</c>
+        /// (PeakGroup.cpp:403-445). Per charge: summed signal intensity and summed squared signal
+        /// intensity from <see cref="SignalPeaks"/> (isotopeIndex&gt;=0 only), and the structured
+        /// noise power from <see cref="MetaFlashDeconAlgorithm.ComputeNoisePeakPower"/> over that
+        /// charge's noisy + signal peaks. Vectors are sized <c>1 + MaxAbsCharge</c>.
+        /// </summary>
+        internal void UpdatePerChargeInformation(List<LogMzPeak> noisyPeaks)
+        {
+            int sz = 1 + MaxAbsCharge;
+            PerChargeNoisePwr = new double[sz];
+            PerChargeSumSignalSq = new double[sz];
+            PerChargeInt = new double[sz];
+
+            foreach (var p in SignalPeaks)
+            {
+                PerChargeInt[p.AbsCharge] += p.Intensity;
+                PerChargeSumSignalSq[p.AbsCharge] += p.Intensity * p.Intensity;
+            }
+
+            for (int z = MinAbsCharge; z <= MaxAbsCharge; z++)
+            {
+                var chargeNoisy = new List<(double mz, double intensity)>();
+                var chargeSignal = new List<(double mz, double intensity)>();
+                foreach (var p in noisyPeaks) if (p.AbsCharge == z) chargeNoisy.Add((p.Mz, p.Intensity));
+                foreach (var p in SignalPeaks) if (p.AbsCharge == z) chargeSignal.Add((p.Mz, p.Intensity));
+                PerChargeNoisePwr[z] = MetaFlashDeconAlgorithm.ComputeNoisePeakPower(chargeNoisy, chargeSignal, z, IsoDaDistance);
+            }
+        }
+
+        // ── SNR (OpenMS updateSNR_, PeakGroup.cpp:893-919) ────────────────────
+        internal double[] PerChargeCos;   // per_charge_cos_ (set by per-charge cosine step)
+        internal double[] PerChargeSnr;   // per_charge_snr_ (output)
+        internal double Snr;              // snr_ (overall, output)
+        internal double IsotopeCosineScore; // isotope_cosine_score_ (global cosine)
+
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updateSNR_</c> (PeakGroup.cpp:893-919). Per charge:
+        /// <c>snr_c = cos_c² · int_c² / (1 + noise_c + (1 − cos_c²)·sumSigSq_c)</c>; overall:
+        /// <c>snr = globalCos² · Σint_c² / (1 + Σnoise_c + (1 − globalCos²)·ΣsumSigSq_c)</c>.
+        /// Consumes <see cref="PerChargeCos"/>, <see cref="PerChargeInt"/>,
+        /// <see cref="PerChargeNoisePwr"/>, <see cref="PerChargeSumSignalSq"/> and
+        /// <see cref="IsotopeCosineScore"/>; writes <see cref="PerChargeSnr"/> and <see cref="Snr"/>.
+        /// </summary>
+        internal void UpdateSNR()
+        {
+            double cosSquared = IsotopeCosineScore * IsotopeCosineScore;
+            double signal = 0, noise = 0, sumSignalSquared = 0;
+            PerChargeSnr = new double[1 + MaxAbsCharge];
+
+            int upper = Math.Min(PerChargeSumSignalSq.Length, 1 + MaxAbsCharge);
+            for (int c = MinAbsCharge; c < upper; c++)
+            {
+                if (PerChargeCos != null && PerChargeCos.Length > c)
+                {
+                    double pcc2 = PerChargeCos[c] * PerChargeCos[c];
+                    double nom = pcc2 * PerChargeInt[c] * PerChargeInt[c];
+                    double denom = 1 + PerChargeNoisePwr[c] + (1 - pcc2) * PerChargeSumSignalSq[c];
+                    PerChargeSnr[c] = denom <= 0 ? 0.0 : nom / denom;
+                }
+                sumSignalSquared += PerChargeSumSignalSq[c];
+                signal += PerChargeInt[c] * PerChargeInt[c];
+                noise += PerChargeNoisePwr[c];
+            }
+
+            double tNom = cosSquared * signal;
+            double tDenom = 1 + noise + (1 - cosSquared) * sumSignalSquared;
+            Snr = tDenom <= 0 ? 0.0 : tNom / tDenom;
+        }
+
+        /// <summary>Per-charge SNR accessor mirroring OpenMS <c>getChargeSNR</c> (0 if out of range).</summary>
+        internal double GetChargeSnr(int absCharge)
+            => (PerChargeSnr == null || absCharge < 0 || absCharge >= PerChargeSnr.Length) ? 0.0 : PerChargeSnr[absCharge];
+
         /// <summary>
         /// Faithful port of OpenMS <c>FLASHDeconvAlgorithm::getCosine</c>
         /// (FLASHDeconvAlgorithm.cpp:1315-1386). Cosine of an observed per-isotope intensity vector
