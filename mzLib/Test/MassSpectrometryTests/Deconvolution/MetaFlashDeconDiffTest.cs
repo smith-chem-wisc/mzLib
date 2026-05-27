@@ -345,6 +345,28 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+        [Test]
+        public void IsotopeCosineOffset_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "isocos_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run isocos_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int apexIndex = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int isoIntShift = int.Parse(h[1], CultureInfo.InvariantCulture);
+            int windowWidth = int.Parse(h[2], CultureInfo.InvariantCulture);
+            int minIsoSize = int.Parse(h[3], CultureInfo.InvariantCulture);
+            double[] per = ParseRow(lines[1]);
+            double[] b = ParseRow(lines[2]);
+
+            double cos = MetaFlashDeconPeakGroup.GetIsotopeCosineAndDetermineIsotopeIndex(
+                per, b, apexIndex, isoIntShift, windowWidth, minIsoSize, out int offset);
+
+            var cpp = File.ReadAllText(Path.Combine(DiffDir, "isocos_cpp_result.txt")).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            Assert.That(cos, Is.EqualTo(double.Parse(cpp[0], CultureInfo.InvariantCulture)).Within(1e-4), "isoCos");
+            Assert.That(offset, Is.EqualTo(int.Parse(cpp[1], CultureInfo.InvariantCulture)), "offset");
+        }
+
         private static void AssertClose(double cs, string cppStr, string what)
         {
             double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);

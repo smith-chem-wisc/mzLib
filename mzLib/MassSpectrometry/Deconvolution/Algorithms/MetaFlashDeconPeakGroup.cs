@@ -421,5 +421,50 @@ namespace MassSpectrometry
             if (aNorm <= 0) return 0.0;
             return n / Math.Sqrt(aNorm);
         }
+
+        /// <summary>
+        /// Faithful port of OpenMS <c>FLASHDeconvAlgorithm::getIsotopeCosineAndDetermineIsotopeIndex</c>
+        /// (FLASHDeconvAlgorithm.cpp:1226-1313), target path only (the isotope-dummy second-best
+        /// branch is omitted — MetaFlashDecon scores targets). Searches isotope offsets in
+        /// [-left, right] (where right = apexIndex/4 + 1, shifted by <paramref name="isoIntShift"/>),
+        /// returns the best cosine of <paramref name="perIsotopeIntensities"/> vs the normalised
+        /// averagine <paramref name="b"/>, and outputs the isotope-index correction
+        /// <paramref name="offset"/> (already de-shifted by <paramref name="isoIntShift"/>).
+        /// </summary>
+        internal static double GetIsotopeCosineAndDetermineIsotopeIndex(
+            double[] perIsotopeIntensities, double[] b, int apexIndex,
+            int isoIntShift, int windowWidth, int minIsoSize, out int offset)
+        {
+            offset = 0;
+            if (perIsotopeIntensities.Length < minIsoSize + isoIntShift) return 0.0;
+
+            int isoSize = b.Length;
+            int right = apexIndex / 4 + 1;
+            int left = right;
+            if (windowWidth >= 0) { right = Math.Min(right, windowWidth); left = Math.Min(left, windowWidth); }
+
+            double maxCos = -1000.0;
+            int maxIsotopeIndex = perIsotopeIntensities.Length; // exclusive
+            int minIsotopeIndex = -1;                            // inclusive
+
+            left -= isoIntShift;
+            right += isoIntShift;
+
+            for (int i = 0; i < maxIsotopeIndex; i++)
+            {
+                if (perIsotopeIntensities[i] <= 0) continue;
+                if (minIsotopeIndex < 0) minIsotopeIndex = i;
+            }
+            if (maxIsotopeIndex - minIsotopeIndex < minIsoSize) return 0.0;
+
+            for (int tmpOffset = -left; tmpOffset <= right; tmpOffset++)
+            {
+                double tmpCos = GetCosine(perIsotopeIntensities, minIsotopeIndex, maxIsotopeIndex, b, isoSize, tmpOffset, minIsoSize);
+                if (maxCos < tmpCos) { maxCos = tmpCos; offset = tmpOffset; }
+            }
+
+            offset -= isoIntShift;
+            return maxCos;
+        }
     }
 }
