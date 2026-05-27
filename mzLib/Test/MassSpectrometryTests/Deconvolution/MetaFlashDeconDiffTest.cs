@@ -28,6 +28,44 @@ namespace Test.MassSpectrometryTests.Deconvolution
         [Test]
         public void NoisePeakPower_Big_MatchesOpenMS()  => RunCase("noise_input_big.txt", "noise_cpp_result_big.txt", "noise_cs_result_big.txt");
 
+        [Test] public void GetCosine1_MatchesOpenMS() => RunCosineCase(1);
+        [Test] public void GetCosine2_MatchesOpenMS() => RunCosineCase(2);
+        [Test] public void GetCosine3_MatchesOpenMS() => RunCosineCase(3);
+
+        private static void RunCosineCase(int idx)
+        {
+            string inputPath = Path.Combine(DiffDir, $"cosine_input_{idx}.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run cosine_cpp.exe first)");
+
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int aStart = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int aEnd = int.Parse(h[1], CultureInfo.InvariantCulture);
+            int offset = int.Parse(h[2], CultureInfo.InvariantCulture);
+            int minIso = int.Parse(h[3], CultureInfo.InvariantCulture);
+            int bSize = int.Parse(h[4], CultureInfo.InvariantCulture);
+            double[] a = ParseRow(lines[1]);
+            double[] b = ParseRow(lines[2]);
+
+            double cs = MetaFlashDeconPeakGroup.GetCosine(a, aStart, aEnd, b, bSize, offset, minIso);
+            TestContext.Progress.WriteLine($"CS  getCosine[{idx}] = {cs:F8}");
+
+            string cppResultPath = Path.Combine(DiffDir, $"cosine_cpp_result_{idx}.txt");
+            if (File.Exists(cppResultPath))
+            {
+                double cpp = double.Parse(File.ReadAllText(cppResultPath).Trim(), CultureInfo.InvariantCulture);
+                Assert.That(cs, Is.EqualTo(cpp).Within(1e-5), $"C# ({cs}) != OpenMS ({cpp}) for getCosine[{idx}]");
+            }
+        }
+
+        private static double[] ParseRow(string line)
+        {
+            var t = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var v = new double[t.Length];
+            for (int i = 0; i < t.Length; i++) v[i] = double.Parse(t[i], CultureInfo.InvariantCulture);
+            return v;
+        }
+
         private static void RunCase(string inputName, string cppResultName, string csResultName)
         {
             string inputPath = Path.Combine(DiffDir, inputName);
