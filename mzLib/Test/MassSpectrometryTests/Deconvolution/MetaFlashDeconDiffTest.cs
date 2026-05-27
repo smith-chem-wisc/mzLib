@@ -208,6 +208,82 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+        [Test]
+        public void ChargeRange_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "chargerange_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run chain_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int minC = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int maxC = int.Parse(h[1], CultureInfo.InvariantCulture);
+            int sz = 1 + maxC;
+            var pg = new MetaFlashDeconPeakGroup
+            { MinAbsCharge = minC, MaxAbsCharge = maxC, PerChargeInt = new double[sz], PerChargeNoisePwr = new double[sz] };
+            var noisy = new List<MetaFlashDeconAlgorithm.LogMzPeak>();
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (t[0] == "I") { int z = int.Parse(t[1], CultureInfo.InvariantCulture); pg.PerChargeInt[z] = double.Parse(t[2], CultureInfo.InvariantCulture); pg.PerChargeNoisePwr[z] = double.Parse(t[3], CultureInfo.InvariantCulture); }
+                else { var p = new MetaFlashDeconAlgorithm.LogMzPeak(double.Parse(t[1], CultureInfo.InvariantCulture), double.Parse(t[2], CultureInfo.InvariantCulture), 0.0, int.Parse(t[3], CultureInfo.InvariantCulture), 0); if (t[0] == "S") pg.SignalPeaks.Add(p); else noisy.Add(p); }
+            }
+            pg.UpdateChargeRange(noisy);
+            var cpp = File.ReadAllText(Path.Combine(DiffDir, "chargerange_cpp_result.txt")).Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            Assert.That(pg.MinAbsCharge, Is.EqualTo(int.Parse(cpp[0], CultureInfo.InvariantCulture)), "newMin");
+            Assert.That(pg.MaxAbsCharge, Is.EqualTo(int.Parse(cpp[1], CultureInfo.InvariantCulture)), "newMax");
+            Assert.That(pg.SignalPeaks.Count, Is.EqualTo(int.Parse(cpp[2], CultureInfo.InvariantCulture)), "filtered signal");
+            Assert.That(noisy.Count, Is.EqualTo(int.Parse(cpp[3], CultureInfo.InvariantCulture)), "filtered noisy");
+        }
+
+        [Test]
+        public void ChargeFit_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "chargefit_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run chain_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int minC = int.Parse(h[0], CultureInfo.InvariantCulture);
+            int maxC = int.Parse(h[1], CultureInfo.InvariantCulture);
+            var pg = new MetaFlashDeconPeakGroup { MinAbsCharge = minC, MaxAbsCharge = maxC, PerChargeInt = new double[1 + maxC] };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                pg.PerChargeInt[int.Parse(t[0], CultureInfo.InvariantCulture)] = double.Parse(t[1], CultureInfo.InvariantCulture);
+            }
+            pg.UpdateChargeFitScoreAndChargeIntensities();
+            AssertClose(pg.ChargeScore, File.ReadAllText(Path.Combine(DiffDir, "chargefit_cpp_result.txt")).Trim(), "chargeScore");
+        }
+
+        [Test]
+        public void MonoMass_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "monomass_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run chain_cpp.exe first)");
+            var lines = File.ReadAllLines(inputPath);
+            var h = lines[0].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            int minNegIso = int.Parse(h[0], CultureInfo.InvariantCulture);
+            double isoDa = double.Parse(h[1], CultureInfo.InvariantCulture);
+            var pg = new MetaFlashDeconPeakGroup { MinNegativeIsotopeIndex = minNegIso, IsoDaDistance = isoDa, IsPositive = true };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(lines[i])) continue;
+                var t = lines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                var p = new MetaFlashDeconAlgorithm.LogMzPeak(double.Parse(t[1], CultureInfo.InvariantCulture), double.Parse(t[2], CultureInfo.InvariantCulture), 0.0, int.Parse(t[3], CultureInfo.InvariantCulture), int.Parse(t[4], CultureInfo.InvariantCulture));
+                if (t[0] == "S") pg.SignalPeaks.Add(p); else pg.NegativeIsoPeaks.Add(p);
+            }
+            pg.UpdateMonoMassAndIsotopeIntensities(Polarity.Positive);
+            foreach (var l in File.ReadAllLines(Path.Combine(DiffDir, "monomass_cpp_result.txt")))
+            {
+                if (string.IsNullOrWhiteSpace(l)) continue;
+                var t = l.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (t[0] == "mono") AssertClose(pg.MonoisotopicMass, t[1], "monoMass");
+                else if (t[0] == "intensity") AssertClose(pg.Intensity, t[1], "intensity");
+                else AssertClose(pg.PerIsotopeInt[int.Parse(t[1], CultureInfo.InvariantCulture)], t[2], $"perIso[{t[1]}]");
+            }
+        }
+
         private static void AssertClose(double cs, string cppStr, string what)
         {
             double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);

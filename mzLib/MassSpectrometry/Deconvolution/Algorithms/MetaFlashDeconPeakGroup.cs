@@ -177,6 +177,141 @@ namespace MassSpectrometry
         internal double GetChargeSnr(int absCharge)
             => (PerChargeSnr == null || absCharge < 0 || absCharge >= PerChargeSnr.Length) ? 0.0 : PerChargeSnr[absCharge];
 
+        // ── Charge-range refinement (OpenMS updateChargeRange_, PeakGroup.cpp:447-530) ──
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updateChargeRange_</c>. Finds the max-SNR-proxy
+        /// charge, then expands the [min,max] range outward while a charge's signal power exceeds a
+        /// threshold (<c>min(maxSig/10, 1)</c>), and re-filters <see cref="SignalPeaks"/> and
+        /// <paramref name="noisyPeaks"/> to the refined range. Consumes the per-charge arrays from
+        /// <see cref="UpdatePerChargeInformation"/> (must be called first).
+        /// </summary>
+        internal void UpdateChargeRange(List<LogMzPeak> noisyPeaks)
+        {
+            int maxSigCharge = 0;
+            double maxSig = 0;
+            for (int z = MinAbsCharge; z <= MaxAbsCharge; z++)
+            {
+                double tmpSnr = PerChargeInt[z] * PerChargeInt[z] / (1 + PerChargeNoisePwr[z]);
+                if (maxSig < tmpSnr) { maxSig = tmpSnr; maxSigCharge = z; }
+            }
+
+            int newMax = maxSigCharge, newMin = maxSigCharge;
+            double threshold = Math.Min(maxSig / 10, 1.0);
+            for (int z = maxSigCharge; z <= MaxAbsCharge; z++)
+            {
+                double psp = PerChargeInt[z] * PerChargeInt[z];
+                if (psp / (1 + PerChargeNoisePwr[z]) < threshold) break;
+                newMax = z;
+            }
+            for (int z = maxSigCharge; z >= MinAbsCharge; z--)
+            {
+                double psp = PerChargeInt[z] * PerChargeInt[z];
+                if (psp / (1 + PerChargeNoisePwr[z]) < threshold) break;
+                newMin = z;
+            }
+
+            if (MaxAbsCharge != newMax || MinAbsCharge != newMin)
+            {
+                SignalPeaks.RemoveAll(p => p.AbsCharge < newMin || p.AbsCharge > newMax);
+                noisyPeaks.RemoveAll(p => p.AbsCharge < newMin || p.AbsCharge > newMax);
+                MaxAbsCharge = newMax;
+                MinAbsCharge = newMin;
+            }
+            if (MinAbsCharge > MaxAbsCharge)
+            {
+                SignalPeaks.Clear();
+                NegativeIsoPeaks.Clear();
+            }
+        }
+
+        // ── Charge fit score (OpenMS updateChargeFitScoreAndChargeIntensities_, PeakGroup.cpp:620-686) ──
+        internal double ChargeScore;
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updateChargeFitScoreAndChargeIntensities_</c>.
+        /// Measures how unimodal the per-charge intensity profile is: 1 minus the summed positive
+        /// "uphill" intensity jumps away from the max charge, over the total (min-subtracted)
+        /// intensity. OpenMS gates groups with score &lt; 0.7.
+        /// </summary>
+        internal void UpdateChargeFitScoreAndChargeIntensities()
+        {
+            if (MaxAbsCharge == MinAbsCharge) { ChargeScore = 1; return; }
+
+            double maxPerChargeIntensity = 0, summedIntensity = 0;
+            int maxIndex = -1, firstIndex = -1, lastIndex = -1;
+            double minIntensity = -1;
+            for (int c = MinAbsCharge; c <= MaxAbsCharge; c++)
+                if (minIntensity < 0 || minIntensity > PerChargeInt[c]) minIntensity = PerChargeInt[c];
+
+            for (int c = MinAbsCharge; c <= MaxAbsCharge; c++)
+            {
+                summedIntensity += PerChargeInt[c] - minIntensity;
+                if (PerChargeInt[c] > 0)
+                {
+                    if (firstIndex < 0) firstIndex = c;
+                    lastIndex = c;
+                }
+                if (maxPerChargeIntensity > PerChargeInt[c]) continue;
+                maxPerChargeIntensity = PerChargeInt[c];
+                maxIndex = c;
+            }
+            if (maxIndex < 0) { ChargeScore = 0; return; }
+
+            firstIndex = firstIndex < 0 ? 0 : firstIndex;
+            double p = 0;
+            for (int c = maxIndex; c < lastIndex; c++)
+            {
+                double diff = PerChargeInt[c + 1] - PerChargeInt[c];
+                if (diff <= 0) continue;
+                p += diff;
+            }
+            for (int c = maxIndex; c > firstIndex; c--)
+            {
+                double diff = PerChargeInt[c - 1] - PerChargeInt[c];
+                if (diff <= 0) continue;
+                p += diff;
+            }
+            ChargeScore = Math.Max(0.0, 1.0 - p / summedIntensity);
+        }
+
+        // ── Mono mass + per-isotope intensities (OpenMS updateMonoMassAndIsotopeIntensities, PeakGroup.cpp:688-726) ──
+        internal double[] PerIsotopeInt;  // per_isotope_int_ (indexed by isotopeIndex - MinNegativeIsotopeIndex)
+        internal double Intensity;        // intensity_ (Σ signal intensity, iso>=0)
+        /// <summary>
+        /// Faithful port of OpenMS <c>PeakGroup::updateMonoMassAndIsotopeIntensities</c>. Builds the
+        /// per-isotope intensity vector and the intensity-weighted monoisotopic mass
+        /// (<c>Σ pi·(unchargedMass − iso·isoDa) / Σ pi</c> over signal peaks, iso&gt;=0). Negative-iso
+        /// peaks contribute only to <see cref="PerIsotopeInt"/>.
+        /// </summary>
+        internal void UpdateMonoMassAndIsotopeIntensities(Polarity polarity)
+        {
+            if (SignalPeaks.Count == 0) return;
+
+            int maxIsotopeIndex = 0;
+            foreach (var p in SignalPeaks) maxIsotopeIndex = Math.Max(maxIsotopeIndex, p.IsotopeIndex);
+
+            PerIsotopeInt = new double[maxIsotopeIndex + 1 - MinNegativeIsotopeIndex];
+            Intensity = 0.0;
+            double nominator = 0.0;
+            double chargeMass = Math.Sign((int)polarity) * Constants.ProtonMass;
+
+            foreach (var p in SignalPeaks)
+            {
+                double pi = p.Intensity;
+                if (p.IsotopeIndex < 0) continue;
+                PerIsotopeInt[p.IsotopeIndex - MinNegativeIsotopeIndex] += pi;
+                double unchargedMass = (p.Mz - chargeMass) * p.AbsCharge; // OpenMS LogMzPeak::getUnchargedMass
+                nominator += pi * (unchargedMass - p.IsotopeIndex * IsoDaDistance);
+                Intensity += pi;
+            }
+            foreach (var p in NegativeIsoPeaks)
+            {
+                if (p.IsotopeIndex - MinNegativeIsotopeIndex < 0) continue;
+                PerIsotopeInt[p.IsotopeIndex - MinNegativeIsotopeIndex] += p.Intensity;
+            }
+
+            MonoisotopicMass = nominator / Intensity;
+        }
+
         /// <summary>
         /// Faithful port of OpenMS <c>FLASHDeconvAlgorithm::getCosine</c>
         /// (FLASHDeconvAlgorithm.cpp:1315-1386). Cosine of an observed per-isotope intensity vector
