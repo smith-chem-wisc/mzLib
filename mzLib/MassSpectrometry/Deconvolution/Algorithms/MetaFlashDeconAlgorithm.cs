@@ -97,19 +97,20 @@ namespace MassSpectrometry
             var logPeaks = BuildLogMzPeaks(spectrum, range, p.Polarity);
             if (logPeaks.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            int minAbsCharge = Math.Abs(p.MinAssumedChargeState);
             int maxAbsCharge = Math.Abs(p.MaxAssumedChargeState);
-            int chargeRange = maxAbsCharge - minAbsCharge + 1;
-
-            double[] universalPattern = BuildUniversalPattern(minAbsCharge, chargeRange);
-            double[][] harmonicPatterns = BuildHarmonicPatterns(minAbsCharge, chargeRange);
-            // Faithful FLASHDeconv: bin the log-m/z axis at ppm / tol_div_factor (finer than
-            // the requested tolerance) for the candidate voting (FLASHDeconvAlgorithm.cpp:22, :171).
+            // Faithful FLASHDeconv: bin the log-m/z axis at ppm / tol_div_factor (finer than the
+            // requested tolerance) for candidate voting (FLASHDeconvAlgorithm.cpp:22, :171).
             double binMulFactor = ComputeBinMulFactor(p.DeconvolutionTolerancePpm, p.TolDivFactor);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, Constants.C13MinusC12);
 
-            // ── Step 2 ────────────────────────────────────────────────────────
-            var candidates = FindCandidateMasses(
-                logPeaks, universalPattern, harmonicPatterns, binMulFactor, p);
+            // ── Step 2 (Plan B): faithful OpenMS candidate generation ─────────
+            // updateMzBins_ + updateCandidateMassBins_ (continuous-charge support + the low-charge
+            // isotope-presence path + two-level harmonic rejection) + filterMassBins_ (top-3 per m/z
+            // peak + charge range). Charges 1..max, harmonic set {2,3,5,7,11}. Replaces the old
+            // continuous-charge-only FindCandidateMasses (which missed small charge-1/2 species).
+            int[] harmonicCharges = { 2, 3, 5, 7, 11 };
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(
+                logPeaks, maxAbsCharge, harmonicCharges, binMulFactor, p, avg);
             if (candidates.Count == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
             // ── Steps 3–5 (Plan B): faithful OpenMS PeakGroup pipeline ───────
@@ -117,7 +118,6 @@ namespace MassSpectrometry
             // (MetaFlashDeconPeakGroup) + gates, then removeChargeError -> removeOverlapping, exactly
             // as OpenMS scoreAndFilterPeakGroups_. Each surviving group -> one IsotopicEnvelope whose
             // Score is the OpenMS Qscore. Every per-group function is differential-tested vs the C++.
-            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, Constants.C13MinusC12);
             var scored = ScoreCandidatesViaPeakGroups(spectrum, candidates, p, avg);
 
             var afterChargeError = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, p.Polarity);
@@ -184,7 +184,7 @@ namespace MassSpectrometry
                 }
 
                 // post-gates (OpenMS scoreAndFilterPeakGroups_)
-                if (pg.SignalPeaks.Count == 0) continue;
+                if (pg.SignalPeaks.Count < p.MinIsotopicPeakCount) continue; // >=MinIsotopicPeakCount signal peaks
                 if (pg.MonoisotopicMass < p.MinMassRange || pg.MonoisotopicMass > p.MaxMassRange) continue;
                 if (Math.Abs(prevMono - pg.MonoisotopicMass) > 3) continue;              // moved >3 Da -> different envelope
                 if (pg.MinAbsCharge > lowCharge && (pg.MaxAbsCharge - pg.MinAbsCharge) < minSupportPeakCount) continue;

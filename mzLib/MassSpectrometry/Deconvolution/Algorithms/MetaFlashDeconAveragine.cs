@@ -25,7 +25,7 @@ namespace MassSpectrometry
         private readonly double _isoDa;
         private readonly ConcurrentDictionary<int, Entry> _cache = new();
 
-        private readonly record struct Entry(double[] B, int Apex, int LeftFromApex, int RightFromApex);
+        private readonly record struct Entry(double[] B, int Apex, int LeftFromApex, int RightFromApex, double AverageMassDelta);
 
         internal MetaFlashDeconAveragine(AverageResidue source, double isoDa)
         {
@@ -63,7 +63,11 @@ namespace MassSpectrometry
                     if (iso >= 0 && iso <= maxIso) raw[iso] += intens[k];
                 }
                 double[] b = TrimAndNormalize(raw, out int apex, out int left, out int right);
-                return new Entry(b, apex, left, right);
+                // average_mono_mass_difference_: intensity-weighted mean isotope offset (Da from mono).
+                double sw = 0, swi = 0;
+                for (int k = 0; k < b.Length; k++) { sw += b[k]; swi += b[k] * k; }
+                double avgDelta = sw > 0 ? swi / sw * _isoDa : 0;
+                return new Entry(b, apex, left, right, avgDelta);
             });
         }
 
@@ -73,8 +77,12 @@ namespace MassSpectrometry
         internal int GetApexIndex(double mass) => GetEntry(mass).Apex;
         /// <summary>OpenMS <c>avg.getLeftCountFromApex(mass)</c>.</summary>
         internal int GetLeftCountFromApex(double mass) => GetEntry(mass).LeftFromApex;
+        /// <summary>OpenMS <c>avg.getRightCountFromApex(mass)</c>.</summary>
+        internal int GetRightCountFromApex(double mass) => GetEntry(mass).RightFromApex;
         /// <summary>OpenMS <c>avg.getLastIndex(mass)</c> = apex + right-count-from-apex.</summary>
         internal int GetLastIndex(double mass) { var e = GetEntry(mass); return e.Apex + e.RightFromApex; }
+        /// <summary>OpenMS <c>avg.getAverageMassDelta(mass)</c> (intensity-weighted mean isotope offset, Da).</summary>
+        internal double GetAverageMassDelta(double mass) => GetEntry(mass).AverageMassDelta;
 
         /// <summary>
         /// Faithful port of the per-mass loop body in OpenMS

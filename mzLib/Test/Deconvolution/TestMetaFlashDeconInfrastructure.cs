@@ -225,21 +225,21 @@ namespace Test
         // ══════════════════════════════════════════════════════════════════════
 
         /// <summary>
-        /// The skeleton returns empty. This test documents that behaviour and
-        /// will need to be updated once the real algorithm is implemented.
+        /// The algorithm is now implemented (Plan B faithful pipeline): the synthetic charge-2
+        /// isotope envelope (500/500.5/501) is deconvolved into at least one scored envelope, and
+        /// every returned envelope carries a valid Qscore in (0,1].
+        /// (Was a skeleton "returns empty" placeholder — updated post-implementation.)
         /// </summary>
         [Test]
-        public void MetaFlashDecon_Skeleton_ReturnsEmptyOnRealSpectrum()
+        public void MetaFlashDecon_ReturnsScoredEnvelopesOnRealSpectrum()
         {
             var result = Deconvoluter.Deconvolute(
                 SmallPositiveSpectrum(),
                 new MetaFlashDeconParameters()).ToList();
 
-            // Skeleton behaviour: always empty.
-            // TODO: Replace Is.Empty with real quality assertions after implementation.
-            Assert.That(result, Is.Empty,
-                "FLASHDeconv skeleton should return empty. " +
-                "Update this assertion when the algorithm is implemented.");
+            Assert.That(result, Is.Not.Empty, "implemented algorithm should deconvolve the synthetic envelope");
+            Assert.That(result, Has.All.Matches<IsotopicEnvelope>(e => e.Score > 0 && e.Score <= 1.0),
+                "every envelope Score is a Qscore in (0,1]");
         }
 
         // ══════════════════════════════════════════════════════════════════════
