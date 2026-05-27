@@ -118,22 +118,189 @@ namespace MassSpectrometry
 
             var chargeRanges = FilterMassBins(mzSetBins, mzBins, massBins, massIntensities, binOffsets, chargeRange, massBinNumber);
 
-            // extract candidates
-            for (int b = 0; b < massBinNumber; b++)
+            // getCandidatePeakGroups_ : per surviving mass bin, build the group (local-max guard +
+            // harmonic-intensity tracking), apply the group-harmonic gate + >=2-isotope filter, and
+            // emit the refined-monoisotopic-mass candidate. (Precision filters.)
+            return GetCandidatePeakGroups(logPeaks, massBins, chargeRanges, binOffsets, harmonicCharges,
+                mzBinMin, massBinMin, binMulFactor, isoDa, p.DeconvolutionTolerancePpm * 1e-6,
+                chargeRange, minMass, maxMass, avg);
+        }
+
+        // OpenMS getCandidatePeakGroups_ (FLASHDeconvAlgorithm.cpp:648-959): build + filter candidate
+        // groups. Returns refined-mono-mass candidates (CandidateMass.Mass = MONOISOTOPIC mass).
+        private static List<CandidateMass> GetCandidatePeakGroups(
+            List<LogMzPeak> logPeaks, bool[] massBins, int[][] chargeRanges, int[] binOffsets, int[] harmonicCharges,
+            double mzBinMin, double massBinMin, double binMulFactor, double isoDa, double tol,
+            int chargeRange, double minMass, double maxMass, MetaFlashDeconAveragine avg)
+        {
+            var result = new List<CandidateMass>();
+            int n = logPeaks.Count;
+            int hSize = harmonicCharges.Length;
+            const double maxMassDaltonTol = 0.16;
+
+            // per-peak m/z bin number (peaks are logMz-ascending)
+            var peakBin = new int[n];
+            for (int i = 0; i < n; i++) peakBin[i] = GetBinNumber(logPeaks[i].LogMz, mzBinMin, binMulFactor);
+
+            var currentPeakIndex = new int[chargeRange]; // cpi per charge (monotone as mass bins increase)
+            var totalHarmonic = new double[hSize];
+            var hPrevIso = new int[hSize];
+            var hMaxIsoIntensity = new float[hSize];
+
+            for (int massBinIndex = 0; massBinIndex < massBins.Length; massBinIndex++)
             {
-                if (!massBins[b]) continue;
-                int minIdx = chargeRanges[0][b], maxIdx = chargeRanges[1][b];
-                if (minIdx == int.MaxValue || maxIdx == int.MinValue) continue;
-                double logMass = GetBinValue(b, massBinMin, binMulFactor);
-                double mass = Math.Exp(logMass);
-                if (mass < minMass || mass > maxMass) continue;
+                if (!massBins[massBinIndex]) continue;
+                int crLo = chargeRanges[0][massBinIndex], crHi = chargeRanges[1][massBinIndex];
+                if (crLo == int.MaxValue || crHi == int.MinValue) continue;
+
+                double mass0 = Math.Exp(GetBinValue(massBinIndex, massBinMin, binMulFactor));
+                int rightIndex = avg.GetRightCountFromApex(mass0);
+                int leftIndex = avg.GetLeftCountFromApex(mass0);
+
+                var peaks = new List<(double mz, double intensity, int charge, int iso)>();
+                double totalSignal = 0;
+                Array.Clear(totalHarmonic, 0, hSize);
+
+                for (int j = crLo; j <= crHi; j++)
+                {
+                    int absCharge = j + 1;
+                    int binOffset = binOffsets[j];
+                    if (massBinIndex < binOffset) continue;
+                    int bIndex = massBinIndex - binOffset;
+
+                    int maxPeakIndex = -1;
+                    double maxIntensity = -1;
+                    ref int cpi = ref currentPeakIndex[j];
+                    while (cpi < n - 1)
+                    {
+                        if (peakBin[cpi] == bIndex)
+                        {
+                            double inten = logPeaks[cpi].Intensity;
+                            if (inten > maxIntensity) { maxIntensity = inten; maxPeakIndex = cpi; }
+                        }
+                        else if (peakBin[cpi] > bIndex) break;
+                        cpi++;
+                    }
+                    if (maxPeakIndex < 0) continue;
+
+                    // local-max guard
+                    if (maxPeakIndex > 0 && peakBin[maxPeakIndex - 1] == bIndex - 1 && logPeaks[maxPeakIndex - 1].Intensity > maxIntensity) continue;
+                    if (maxPeakIndex < n - 1 && peakBin[maxPeakIndex + 1] == bIndex + 1 && logPeaks[maxPeakIndex + 1].Intensity > maxIntensity) continue;
+
+                    double mz = logPeaks[maxPeakIndex].Mz;
+                    double isoDelta = isoDa / absCharge;
+                    double mzDelta = Math.Min(maxMassDaltonTol / absCharge, 2.0 * tol * mz);
+                    double maxMz = mz;
+                    float maxPeakIntensity = (float)logPeaks[maxPeakIndex].Intensity;
+                    float maxIsoIntensity = 0;
+                    int prevIso = -1000;
+                    Array.Clear(hPrevIso, 0, hSize);
+                    Array.Clear(hMaxIsoIntensity, 0, hSize);
+
+                    // forward
+                    for (int pi = maxPeakIndex; pi < n; pi++)
+                    {
+                        double obsMz = logPeaks[pi].Mz; float inten = (float)logPeaks[pi].Intensity;
+                        double mzDiff = obsMz - mz; int ti = (int)Math.Round(mzDiff / isoDelta, MidpointRounding.AwayFromZero);
+                        if (obsMz - maxMz > rightIndex * isoDelta + mzDelta) break;
+                        if (Math.Abs(mzDiff - ti * isoDelta) < mzDelta)
+                        {
+                            peaks.Add((obsMz, inten, absCharge, ti));
+                            if (maxPeakIntensity < inten) maxPeakIntensity = inten;
+                            if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
+                            maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
+                            prevIso = ti;
+                        }
+                        else
+                        {
+                            for (int l = 0; l < hSize; l++)
+                            {
+                                int hc = harmonicCharges[l]; if (hc * absCharge > chargeRange) break;
+                                double hIsoDelta = isoDelta / hc; int thi = (int)Math.Round(mzDiff / hIsoDelta, MidpointRounding.AwayFromZero);
+                                if ((double)thi / hc < ti + maxMassDaltonTol) continue;
+                                if ((double)thi / hc >= ti + 1 - maxMassDaltonTol) break;
+                                if (Math.Abs(mzDiff - thi * hIsoDelta) < mzDelta)
+                                {
+                                    if (hPrevIso[l] != thi / hc) { totalHarmonic[l] += Math.Min(maxPeakIntensity, hMaxIsoIntensity[l]); hMaxIsoIntensity[l] = 0; }
+                                    hMaxIsoIntensity[l] = Math.Max(hMaxIsoIntensity[l], inten); hPrevIso[l] = thi / hc;
+                                }
+                            }
+                        }
+                    }
+                    totalSignal += maxIsoIntensity;
+                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += Math.Min(maxPeakIntensity, hMaxIsoIntensity[l]);
+
+                    // backward
+                    maxIsoIntensity = 0; prevIso = -1000; Array.Clear(hPrevIso, 0, hSize); Array.Clear(hMaxIsoIntensity, 0, hSize);
+                    for (int pi = maxPeakIndex - 1; pi >= 0; pi--)
+                    {
+                        double obsMz = logPeaks[pi].Mz; float inten = (float)logPeaks[pi].Intensity;
+                        double mzDiff = obsMz - mz; int ti = (int)Math.Round(mzDiff / isoDelta, MidpointRounding.AwayFromZero);
+                        if (maxMz - obsMz > leftIndex * isoDelta + mzDelta) break;
+                        if (Math.Abs(mzDiff - ti * isoDelta) < mzDelta)
+                        {
+                            peaks.Add((obsMz, inten, absCharge, ti));
+                            if (maxPeakIntensity < inten) maxPeakIntensity = inten;
+                            if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
+                            maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
+                            prevIso = ti;
+                        }
+                        else
+                        {
+                            for (int l = 0; l < hSize; l++)
+                            {
+                                int hc = harmonicCharges[l]; if (hc * absCharge > chargeRange) break;
+                                double hIsoDelta = isoDelta / hc; int thi = (int)Math.Round(mzDiff / hIsoDelta, MidpointRounding.AwayFromZero);
+                                if ((double)thi / hc > ti - maxMassDaltonTol) continue;
+                                if ((double)thi / hc <= ti - 1 + maxMassDaltonTol) break;
+                                if (Math.Abs(mzDiff - thi * hIsoDelta) < mzDelta)
+                                {
+                                    if (hPrevIso[l] != thi / hc) { totalHarmonic[l] += hMaxIsoIntensity[l]; hMaxIsoIntensity[l] = 0; }
+                                    hMaxIsoIntensity[l] = Math.Max(hMaxIsoIntensity[l], inten); hPrevIso[l] = thi / hc;
+                                }
+                            }
+                        }
+                    }
+                    totalSignal += maxIsoIntensity;
+                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += hMaxIsoIntensity[l];
+                }
+
+                // group-harmonic gate
+                if (peaks.Count == 0) continue;
+                double maxHarm = 0; for (int l = 0; l < hSize; l++) if (totalHarmonic[l] > maxHarm) maxHarm = totalHarmonic[l];
+                if (!(totalSignal > maxHarm)) continue;
+
+                // re-anchor isotopes to the most intense peak; >=2-isotope; refined mono mass
+                double tMass = 0, mi = -1;
+                foreach (var pk in peaks) { double um = (pk.mz - Constants.ProtonMass) * pk.charge; if (pk.intensity > mi) { mi = pk.intensity; tMass = um; } }
+                double isoTol = tol * tMass;
+                int apexIndex = avg.GetApexIndex(tMass);
+                int minOff = 10000, maxOff = -1;
+                double nominator = 0, intensity = 0;
+                foreach (var pk in peaks)
+                {
+                    double um = (pk.mz - Constants.ProtonMass) * pk.charge;
+                    int iso = (int)Math.Round((um - tMass) / isoDa, MidpointRounding.AwayFromZero);
+                    if (Math.Abs(tMass - um + isoDa * iso) > isoTol) continue;
+                    iso += apexIndex;
+                    if (iso < minOff) minOff = iso;
+                    if (iso > maxOff) maxOff = iso;
+                    // OpenMS updateMonoMassAndIsotopeIntensities uses the FINAL (apex-anchored) isotope
+                    // index here (PeakGroup.cpp:713): mono = Σ pi·(unchargedMass − finalIso·isoDa)/Σpi.
+                    nominator += pk.intensity * (um - iso * isoDa);
+                    intensity += pk.intensity;
+                }
+                if (minOff == maxOff || intensity <= 0) continue;
+                double monoMass = nominator / intensity;
+                if (monoMass < minMass || monoMass > maxMass) continue;
+
                 result.Add(new CandidateMass
                 {
-                    Mass = mass,
-                    LogMass = logMass,
-                    MinAbsCharge = minIdx + 1,
-                    MaxAbsCharge = maxIdx + 1,
-                    SupportIntensity = massIntensities[b],
+                    Mass = monoMass,
+                    LogMass = Math.Log(monoMass),
+                    MinAbsCharge = crLo + 1,
+                    MaxAbsCharge = crHi + 1,
+                    SupportIntensity = (float)intensity,
                 });
             }
             return result;

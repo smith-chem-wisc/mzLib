@@ -155,8 +155,7 @@ namespace MassSpectrometry
 
             foreach (var candidate in candidates)
             {
-                int avgIdx = p.AverageResidueModel.GetMostIntenseMassIndex(candidate.Mass);
-                double seedMono = candidate.Mass - p.AverageResidueModel.GetDiffToMonoisotopic(avgIdx);
+                double seedMono = candidate.Mass; // getCandidatePeakGroups_ already returns the monoisotopic mass
 
                 var pg = new MetaFlashDeconPeakGroup
                 {
