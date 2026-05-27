@@ -13,6 +13,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using Chemistry; // Constants.C13MinusC12
 
 namespace MassSpectrometry
 {
@@ -33,6 +34,19 @@ namespace MassSpectrometry
             _isoDa = isoDa;
         }
 
+        // Test seam: a constant averagine (mass-independent apex/left/right/avgDelta), so the
+        // candidate-generation logic can be differential-tested vs the C++ on IDENTICAL averagine
+        // inputs (isolating logic bugs from the isotope-generator boundary). b is unused by candidate
+        // generation, so it is empty here.
+        private readonly bool _isConstant;
+        private readonly Entry _constantEntry;
+        internal MetaFlashDeconAveragine(int apex, int left, int right, double avgDelta)
+            : this(null, Constants.C13MinusC12)
+        {
+            _isConstant = true;
+            _constantEntry = new Entry(Array.Empty<double>(), apex, left, right, avgDelta);
+        }
+
         // Shared instances so the per-mass trim cache persists across the (per-scan, parallel)
         // deconvolution calls — a fresh algorithm is created per spectrum, but the averagine model is
         // immutable and reusable.
@@ -42,6 +56,7 @@ namespace MassSpectrometry
 
         private Entry GetEntry(double mass)
         {
+            if (_isConstant) return _constantEntry;
             int idx = _source.GetMostIntenseMassIndex(mass);
             return _cache.GetOrAdd(idx, i =>
             {

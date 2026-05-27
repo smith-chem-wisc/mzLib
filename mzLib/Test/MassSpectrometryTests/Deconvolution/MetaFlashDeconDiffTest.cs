@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
+using System.Linq;
+using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
 
@@ -441,6 +443,62 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(survivors.Count, Is.EqualTo(cppCount), "survivor count");
             Assert.That(survivors, Is.EqualTo(cppSurv), "survivor indices");
             TestContext.Progress.WriteLine($"CS rmce survivors = [{string.Join(",", survivors)}]");
+        }
+
+        [Test]
+        public void CandidateGen_MatchesOpenMS()
+        {
+            // constant averagine (shared with the C++ extract) isolates candidate-gen LOGIC from the
+            // isotope-generator boundary.
+            const int apex = 5, left = 5, right = 12; const double avgDelta = 5.0;
+            const int maxCharge = 20; const double ppm = 10.0, tolDiv = 2.5;
+            double isoDa = Constants.C13MinusC12;
+            double binMul = tolDiv / (ppm * 1e-6);
+            double tol = ppm * 1e-6;
+            int[] harmonicCharges = { 2, 3, 5, 7, 11 };
+
+            // synthetic multi-charge envelope: mono 8000 Da at charges 8,9,10, isotopes 0..6
+            var mzList = new List<double>(); var inList = new List<double>();
+            foreach (int z in new[] { 8, 9, 10 })
+                for (int iso = 0; iso <= 6; iso++)
+                {
+                    double mz = (8000.0 + iso * isoDa) / z + Constants.ProtonMass;
+                    double inten = 1000.0 * Math.Exp(-((iso - 2.0) * (iso - 2.0)) / 3.0);
+                    mzList.Add(mz); inList.Add(inten);
+                }
+            var order = Enumerable.Range(0, mzList.Count).OrderBy(i => mzList[i]).ToArray();
+            var mzArr = order.Select(i => mzList[i]).ToArray();
+            var inArr = order.Select(i => inList[i]).ToArray();
+            var spectrum = new MzSpectrum(mzArr, inArr, false);
+
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: maxCharge);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(spectrum, spectrum.Range, Polarity.Positive);
+
+            // write the exact input the C++ extract reads
+            var sb = new System.Text.StringBuilder();
+            sb.Append($"{maxCharge} {harmonicCharges.Length} {isoDa.ToString("R", CultureInfo.InvariantCulture)} {tol.ToString("R", CultureInfo.InvariantCulture)} {p.MinMassRange.ToString("R", CultureInfo.InvariantCulture)} {p.MaxMassRange.ToString("R", CultureInfo.InvariantCulture)} {apex} {left} {right} {avgDelta.ToString("R", CultureInfo.InvariantCulture)} {binMul.ToString("R", CultureInfo.InvariantCulture)}\n");
+            sb.Append(string.Join(" ", harmonicCharges) + "\n");
+            foreach (var pk in logPeaks)
+                sb.Append($"{pk.Mz.ToString("R", CultureInfo.InvariantCulture)} {pk.LogMz.ToString("R", CultureInfo.InvariantCulture)} {pk.Intensity.ToString("R", CultureInfo.InvariantCulture)}\n");
+            File.WriteAllText(Path.Combine(DiffDir, "cand_input.txt"), sb.ToString());
+
+            var avg = new MetaFlashDeconAveragine(apex, left, right, avgDelta);
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, maxCharge, harmonicCharges, binMul, p, avg);
+
+            var csLines = candidates
+                .Select(c => $"{c.Mass.ToString("F4", CultureInfo.InvariantCulture)} {c.MinAbsCharge} {c.MaxAbsCharge}")
+                .OrderBy(s => s).ToList();
+            TestContext.Progress.WriteLine($"CS candidates={candidates.Count}");
+            File.WriteAllText(Path.Combine(DiffDir, "cand_cs_result.txt"), string.Join("\n", csLines) + "\n");
+
+            string cppPath = Path.Combine(DiffDir, "cand_cpp_result.txt");
+            if (File.Exists(cppPath))
+            {
+                var cppLines = File.ReadAllLines(cppPath).Where(l => !string.IsNullOrWhiteSpace(l)).Select(l => l.Trim()).OrderBy(s => s).ToList();
+                Assert.That(csLines.Count, Is.EqualTo(cppLines.Count), $"candidate count C# {csLines.Count} != OpenMS {cppLines.Count}");
+                for (int i = 0; i < cppLines.Count; i++)
+                    Assert.That(csLines[i], Is.EqualTo(cppLines[i]), $"candidate {i} differs");
+            }
         }
 
         private static void AssertClose(double cs, string cppStr, string what)
