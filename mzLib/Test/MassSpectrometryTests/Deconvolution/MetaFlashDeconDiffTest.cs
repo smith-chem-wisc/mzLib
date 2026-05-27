@@ -367,6 +367,27 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(offset, Is.EqualTo(int.Parse(cpp[1], CultureInfo.InvariantCulture)), "offset");
         }
 
+        [Test]
+        public void Qscore_MatchesOpenMS()
+        {
+            string inputPath = Path.Combine(DiffDir, "qscore_input.txt");
+            Assume.That(File.Exists(inputPath), $"missing {inputPath} (run qscore_cpp.exe first)");
+            var inLines = File.ReadAllLines(inputPath);
+            var cppLines = File.ReadAllLines(Path.Combine(DiffDir, "qscore_cpp_result.txt"));
+            int n = 0;
+            for (int i = 0; i < inLines.Length; i++)
+            {
+                if (string.IsNullOrWhiteSpace(inLines[i])) continue;
+                var t = inLines[i].Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                double cos = double.Parse(t[0], CultureInfo.InvariantCulture);
+                double snr = double.Parse(t[1], CultureInfo.InvariantCulture);
+                double cs = MetaFlashDeconPeakGroup.ComputeQscore(cos, snr);
+                double cpp = double.Parse(cppLines[n].Trim(), CultureInfo.InvariantCulture);
+                Assert.That(cs, Is.EqualTo(cpp).Within(1e-5), $"qscore(cos={cos},snr={snr})");
+                n++;
+            }
+        }
+
         private static void AssertClose(double cs, string cppStr, string what)
         {
             double cpp = double.Parse(cppStr, CultureInfo.InvariantCulture);

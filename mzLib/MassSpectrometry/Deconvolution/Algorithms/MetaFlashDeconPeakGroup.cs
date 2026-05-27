@@ -466,5 +466,22 @@ namespace MassSpectrometry
             offset -= isoIntShift;
             return maxCos;
         }
+
+        // ── Qscore (current OpenMS Qscore.cpp:16-61) ──────────────────────────
+        /// <summary>
+        /// Faithful port of the CURRENT OpenMS <c>Qscore::getQscore</c> (Qscore.cpp). Logistic over
+        /// two live features (PPM-error and charge-score weights are 0): weights
+        /// <c>{-2.2833, -3.2881, 0, 0, 4.5425(intercept)}</c>, features
+        /// <c>f0 = log2(cosine + 1)</c>, <c>f1 = log2(1 + snr/(1+snr))</c>, then
+        /// <c>q = 1/(1 + exp(intercept + w0·f0 + w1·f1))</c>. Uses the GLOBAL isotope cosine and
+        /// GLOBAL SNR (so it is the same for every charge in OpenMS's updateQscore loop).
+        /// </summary>
+        internal static double ComputeQscore(double isotopeCosine, double snr)
+        {
+            double f0 = Math.Log(isotopeCosine + 1.0, 2.0);
+            double f1 = Math.Log(1.0 + snr / (1.0 + snr), 2.0);
+            double score = 4.5425 + (-2.2833) * f0 + (-3.2881) * f1;
+            return 1.0 / (1.0 + Math.Exp(score));
+        }
     }
 }
