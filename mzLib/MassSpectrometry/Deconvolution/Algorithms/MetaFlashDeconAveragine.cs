@@ -77,33 +77,11 @@ namespace MassSpectrometry
                     int iso = (int)Math.Round((masses[k] - monoMass) / _isoDa, MidpointRounding.AwayFromZero);
                     if (iso >= 0 && iso <= maxIso) raw[iso] += intens[k];
                 }
-                // Also track intensity-weighted ACTUAL mass per iso bin (not k * isoDa), so avgDelta
-                // can be computed faithfully against the OpenMS formula. OpenMS uses iso.averageMass()
-                // on the trimmed+normalized iso vector where iso[k].mz is the ACTUAL isotope mass.
-                var rawMass = new double[maxIso + 1];
-                for (int k = 0; k < masses.Length; k++)
-                {
-                    int iso = (int)Math.Round((masses[k] - monoMass) / _isoDa, MidpointRounding.AwayFromZero);
-                    if (iso >= 0 && iso <= maxIso) rawMass[iso] += intens[k] * masses[k];
-                }
                 double[] b = TrimAndNormalize(raw, out int apex, out int left, out int right);
-                // OpenMS PrecalculatedAveragine `average_mono_mass_difference_` (cpp:107):
-                //     iso.averageMass() - iso[0].getMZ()
-                // = weighted mean of actual isotope masses across SURVIVING (non-trimmed) iso bins,
-                //   minus the monoisotopic mass. The sqrt(totalPwr) normalisation cancels:
-                //   sum(b[k] * actual_mass[k]) / sum(b[k]) = sum(rawMass[k]) / sum(rawInt[k]).
-                // Computing as `(weighted mean K) * isoDa` (which we did before) is off by ~0.001 Da
-                // at low mass because the actual C-13 shift is ~1.00335 vs isoDa_55K = 1.002371.
-                double sumI = 0, sumWM = 0;
-                for (int k = 0; k < b.Length; k++)
-                {
-                    if (b[k] > 0)
-                    {
-                        sumI += raw[k];          // raw retains the per-iso-bin intensity sum AFTER trim zeros
-                        sumWM += rawMass[k];
-                    }
-                }
-                double avgDelta = sumI > 0 ? sumWM / sumI - monoMass : 0;
+                // average_mono_mass_difference_: intensity-weighted mean isotope offset (Da from mono).
+                double sw = 0, swi = 0;
+                for (int k = 0; k < b.Length; k++) { sw += b[k]; swi += b[k] * k; }
+                double avgDelta = sw > 0 ? swi / sw * _isoDa : 0;
                 return new Entry(b, apex, left, right, avgDelta);
             });
         }
