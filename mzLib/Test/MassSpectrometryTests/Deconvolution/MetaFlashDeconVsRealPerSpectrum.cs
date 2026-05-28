@@ -265,7 +265,17 @@ namespace Test.MassSpectrometryTests.Deconvolution
                         if (Math.Abs(scored[i].MonoisotopicMass - 27889.7) < 0.5) { t27 = i; break; }
                     if (t27 >= 0)
                     {
-                        TestContext.Progress.WriteLine($"OUR 27889.7 z32 signal peaks (anchor m/z = {(27889.74+32*Chemistry.Constants.ProtonMass)/32:F4}):");
+                        double monoExact = scored[t27].MonoisotopicMass;
+                        double cmzExact = monoExact / 32 + Chemistry.Constants.ProtonMass;
+                        double isoDeltaExact = MetaFlashDeconAlgorithm.IsoDaDistance55K / 32;
+                        TestContext.Progress.WriteLine($"OUR 27889.7 exact: mono={monoExact:F8} cmz_z32={cmzExact:F8} iso_delta_z32={isoDeltaExact:F10}");
+                        // For peak 873.348 (iso 25): compute exact signal check
+                        double pmzCheck = 873.3480;
+                        int isoCheck = (int)Math.Round((pmzCheck - cmzExact) / isoDeltaExact, MidpointRounding.AwayFromZero);
+                        double errCheck = Math.Abs(pmzCheck - cmzExact - isoCheck * isoDeltaExact);
+                        double tolCheck = pmzCheck * 4e-6;
+                        TestContext.Progress.WriteLine($"  Signal-check at pmz=873.348: iso={isoCheck} error={errCheck:F6} threshold={tolCheck:F6} signal={errCheck <= tolCheck}");
+                        TestContext.Progress.WriteLine($"OUR 27889.7 z32 signal peaks:");
                         foreach (var pk in scored[t27].SignalPeaks.Where(p => p.AbsCharge == 32).OrderBy(p => p.Mz))
                             TestContext.Progress.WriteLine($"  z32 mz={pk.Mz:F4} int={pk.Intensity:E2} iso={pk.IsotopeIndex}");
                     }
