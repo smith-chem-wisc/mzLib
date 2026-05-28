@@ -205,11 +205,18 @@ namespace MassSpectrometry
                         if (obsMz - maxMz > rightIndex * isoDelta + mzDelta) break;
                         if (Math.Abs(mzDiff - ti * isoDelta) < mzDelta)
                         {
-                            peaks.Add((obsMz, inten, absCharge, ti));
-                            if (maxPeakIntensity < inten) maxPeakIntensity = inten;
-                            if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
-                            maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
-                            prevIso = ti;
+                            // OpenMS only counts a signal peak if its mass bin is valid
+                            // (FLASHDeconvAlgorithm.cpp:782-783: bin < mass_bin_size && not previously
+                            // deconved). Omitting this inflated total_signal -> harmonic gate too lenient.
+                            int sbin = peakBin[pi] + binOffset;
+                            if (sbin >= 0 && sbin < massBins.Length)
+                            {
+                                peaks.Add((obsMz, inten, absCharge, ti));
+                                if (maxPeakIntensity < inten) maxPeakIntensity = inten;
+                                if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
+                                maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
+                                prevIso = ti;
+                            }
                         }
                         else
                         {
@@ -228,7 +235,9 @@ namespace MassSpectrometry
                         }
                     }
                     totalSignal += maxIsoIntensity;
-                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += Math.Min(maxPeakIntensity, hMaxIsoIntensity[l]);
+                    // OpenMS forward-final harmonic add is RAW h_max (FLASHDeconvAlgorithm.cpp:842),
+                    // NOT min(max_peak, h_max). (The in-loop add uses min; the final uses raw.)
+                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += hMaxIsoIntensity[l];
 
                     // backward
                     maxIsoIntensity = 0; prevIso = -1000; Array.Clear(hPrevIso, 0, hSize); Array.Clear(hMaxIsoIntensity, 0, hSize);
@@ -239,11 +248,15 @@ namespace MassSpectrometry
                         if (maxMz - obsMz > leftIndex * isoDelta + mzDelta) break;
                         if (Math.Abs(mzDiff - ti * isoDelta) < mzDelta)
                         {
-                            peaks.Add((obsMz, inten, absCharge, ti));
-                            if (maxPeakIntensity < inten) maxPeakIntensity = inten;
-                            if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
-                            maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
-                            prevIso = ti;
+                            int sbin = peakBin[pi] + binOffset; // OpenMS bin<mass_bin_size (cpp:863-864)
+                            if (sbin >= 0 && sbin < massBins.Length)
+                            {
+                                peaks.Add((obsMz, inten, absCharge, ti));
+                                if (maxPeakIntensity < inten) maxPeakIntensity = inten;
+                                if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
+                                maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
+                                prevIso = ti;
+                            }
                         }
                         else
                         {
@@ -262,7 +275,9 @@ namespace MassSpectrometry
                         }
                     }
                     totalSignal += maxIsoIntensity;
-                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += hMaxIsoIntensity[l];
+                    // OpenMS backward-final harmonic add is min(max_peak, h_max) (FLASHDeconvAlgorithm.cpp:925),
+                    // NOT raw. (The backward in-loop add uses raw; the final uses min — mirror of forward.)
+                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += Math.Min(maxPeakIntensity, hMaxIsoIntensity[l]);
                 }
 
                 // group-harmonic gate
@@ -298,7 +313,13 @@ namespace MassSpectrometry
                 {
                     Mass = monoMass,
                     LogMass = Math.Log(monoMass),
-                    MinAbsCharge = crLo + 1,
+                    // OpenMS getCandidatePeakGroups_ (FLASHDeconvAlgorithm.cpp:678) constructs the
+                    // candidate PeakGroup as PeakGroup(1, per_mass_abs_charge_ranges(1,bin)+1, ...):
+                    // the MIN abs charge is hardcoded to 1 (NOT crLo+1). The recruit then scans 1..max
+                    // and updateChargeRange_ narrows to the real signal range. Using crLo+1 collapsed
+                    // candidates to narrow/single-charge -> scoring recruited too few charges, formed
+                    // wrong envelopes, dropped the true masses and produced halos.
+                    MinAbsCharge = 1,
                     MaxAbsCharge = crHi + 1,
                     SupportIntensity = (float)intensity,
                 });
