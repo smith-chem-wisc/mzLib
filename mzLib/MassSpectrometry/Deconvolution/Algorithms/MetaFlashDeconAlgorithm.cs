@@ -189,7 +189,10 @@ namespace MassSpectrometry
                 }
 
                 // post-gates (OpenMS scoreAndFilterPeakGroups_)
-                if (pg.SignalPeaks.Count < p.MinIsotopicPeakCount) continue; // >=MinIsotopicPeakCount signal peaks
+                // OpenMS scoreAndFilterPeakGroups_ (cpp:1126) only drops if peak_group.empty();
+                // it does NOT enforce a >=MinIsotopicPeakCount gate here. Our prior >=3 gate dropped
+                // low-mass / few-isotope candidates (e.g. 1549.2 z1) that OpenMS retains.
+                if (pg.SignalPeaks.Count == 0) continue;
                 if (pg.MonoisotopicMass < p.MinMassRange || pg.MonoisotopicMass > p.MaxMassRange) continue;
                 if (Math.Abs(prevMono - pg.MonoisotopicMass) > 3) continue;              // moved >3 Da -> different envelope
                 if (pg.MinAbsCharge > lowCharge && (pg.MaxAbsCharge - pg.MinAbsCharge) < minSupportPeakCount) continue;
