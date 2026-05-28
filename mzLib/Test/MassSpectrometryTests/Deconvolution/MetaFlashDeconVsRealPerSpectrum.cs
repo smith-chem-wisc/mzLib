@@ -32,6 +32,45 @@ namespace Test.MassSpectrometryTests.Deconvolution
         private const double IsoDa = 1.0033548;
         private const int SampleEvery = 80; // ~40 scans across the run
 
+        // Differential test of OUR MetaFlashDeconAveragine vs OpenMS PrecalculatedAveragine
+        // (linked extract: difftest\avg_snip\build\Release\avg_snip.exe -> avg_cpp_out.txt).
+        // Compares apex / leftCountFromApex / rightCountFromApex / averageMassDelta / the
+        // normalised b vector, per mass, to confirm/refute the averagine boundary.
+        [Test]
+        public void Averagine_VsOpenMS()
+        {
+            string cppOut = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\avg_cpp_out.txt";
+            Assume.That(File.Exists(cppOut), $"missing {cppOut} (run avg_snip.exe)");
+
+            var avg = MetaFlashDeconAveragine.For(new Averagine(), IsoDa);
+            foreach (var raw in File.ReadLines(cppOut))
+            {
+                var t = raw.Split('\t');
+                double m = double.Parse(t[1], CultureInfo.InvariantCulture);
+                int cApex = int.Parse(t[3]), cLeft = int.Parse(t[5]), cRight = int.Parse(t[7]);
+                double cAvgDelta = double.Parse(t[9], CultureInfo.InvariantCulture);
+                int bIdx = Array.IndexOf(t, "b");
+                var cB = t.Skip(bIdx + 1).Select(x => double.Parse(x, CultureInfo.InvariantCulture)).ToArray();
+
+                int oApex = avg.GetApexIndex(m), oLeft = avg.GetLeftCountFromApex(m), oRight = avg.GetRightCountFromApex(m);
+                double oAvgDelta = avg.GetAverageMassDelta(m);
+                var oB = avg.Get(m);
+
+                // cosine + max abs diff of the b vectors (aligned at index 0 = monoisotopic)
+                int n = Math.Max(cB.Length, oB.Length);
+                double dot = 0, na = 0, nb = 0, maxd = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    double a = k < oB.Length ? oB[k] : 0, b = k < cB.Length ? cB[k] : 0;
+                    dot += a * b; na += a * a; nb += b * b; maxd = Math.Max(maxd, Math.Abs(a - b));
+                }
+                double cos = (na > 0 && nb > 0) ? dot / Math.Sqrt(na * nb) : 0;
+                TestContext.Progress.WriteLine(
+                    $"m={m,8:F1}  apex {oApex}/{cApex}  left {oLeft}/{cLeft}  right {oRight}/{cRight}  " +
+                    $"avgDelta {oAvgDelta:F3}/{cAvgDelta:F3}  n {oB.Length}/{cB.Length}  Bcos={cos:F4} maxBdiff={maxd:F4}  (ours/openms)");
+            }
+        }
+
         [Test]
         public void DenseScan_ScoringStageCounts()
         {
