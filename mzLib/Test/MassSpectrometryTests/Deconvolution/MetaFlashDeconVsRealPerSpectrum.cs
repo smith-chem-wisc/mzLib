@@ -109,6 +109,12 @@ namespace Test.MassSpectrometryTests.Deconvolution
             TestContext.Progress.WriteLine("--- ALL our final masses (sorted) ---");
             foreach (var g in final.OrderBy(g => g.MonoisotopicMass))
                 TestContext.Progress.WriteLine($"  {g.MonoisotopicMass,9:F1} z{g.MinAbsCharge}-{g.MaxAbsCharge} rep{g.RepAbsCharge} snr={g.Snr:F2} cos={g.IsotopeCosineScore:F3} q={g.QscoreValue:F3}");
+            TestContext.Progress.WriteLine($"--- ALL our SCORED (post-gates, pre-CE/overlap, n={scored.Count}) ---");
+            foreach (var g in scored.OrderBy(g => g.MonoisotopicMass))
+                TestContext.Progress.WriteLine($"  {g.MonoisotopicMass,9:F1} z{g.MinAbsCharge}-{g.MaxAbsCharge} rep{g.RepAbsCharge} snr={g.Snr:F2} cos={g.IsotopeCosineScore:F3} q={g.QscoreValue:F3}");
+            TestContext.Progress.WriteLine($"--- ALL our afterCE (n={afterCE.Count}) ---");
+            foreach (var g in afterCE.OrderBy(g => g.MonoisotopicMass))
+                TestContext.Progress.WriteLine($"  {g.MonoisotopicMass,9:F1} z{g.MinAbsCharge}-{g.MaxAbsCharge} rep{g.RepAbsCharge} snr={g.Snr:F2}");
         }
 
         // Differential test of OUR MetaFlashDeconAveragine vs OpenMS PrecalculatedAveragine
@@ -252,6 +258,36 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 var ratios = Enumerable.Range(0, scored.Count).Select(i => scored[i].GetIntensity() > 0 ? ovl[i] / scored[i].GetIntensity() : 0).OrderBy(r => r).ToList();
                 TestContext.Progress.WriteLine($"CE-instrument: scored={scored.Count} distinctPeaks={p2g.Count} sharedPeaks={sharedPeaks} groupsSharingAnyPeak={groupsSharing} wouldDrop(>=0.5)={wouldDrop}");
                 TestContext.Progress.WriteLine($"  overlap-ratio pct: p10={ratios[ratios.Count/10]:F2} p50={ratios[ratios.Count/2]:F2} p90={ratios[ratios.Count*9/10]:F2} max={ratios.Last():F2}");
+                // Trace contributions to 6970.7's overlap (the first dup index)
+                int tgt = -1;
+                for (int i = 0; i < scored.Count; i++)
+                    if (Math.Abs(scored[i].MonoisotopicMass - 6970.7) < 0.5) { tgt = i; break; }
+                if (tgt >= 0)
+                {
+                    TestContext.Progress.WriteLine($"  TRACE contributions to 6970.7 (idx={tgt}, mass={scored[tgt].MonoisotopicMass:F4}):");
+                    foreach (var kv in p2g)
+                    {
+                        if (!kv.Value.Contains(tgt) || kv.Value.Count == 1) continue;
+                        double pmz2 = kv.Key, pint2 = mzi[pmz2];
+                        int rz1 = (int)Math.Round(scored[tgt].MonoisotopicMass / (pmz2 - cm), MidpointRounding.AwayFromZero);
+                        foreach (int j in kv.Value)
+                        {
+                            if (j == tgt) continue;
+                            int rz2 = (int)Math.Round(scored[j].MonoisotopicMass / (pmz2 - cm), MidpointRounding.AwayFromZero);
+                            string match = rz1 == rz2 ? "rzMATCH" : "rzDIFF";
+                            string snrCmp = rz1 == rz2 ? "" : ($"snr_i({rz1})={scored[tgt].GetChargeSnr(rz1):F2} snr_j({rz2})={scored[j].GetChargeSnr(rz2):F2} i>2j? {(scored[tgt].GetChargeSnr(rz1) > 2 * scored[j].GetChargeSnr(rz2))}");
+                            if (match == "rzDIFF") TestContext.Progress.WriteLine($"    pmz={pmz2:F4} pint={pint2:E2} vs j={j}(mass={scored[j].MonoisotopicMass:F2}) {match} {snrCmp}");
+                        }
+                    }
+                }
+                TestContext.Progress.WriteLine("  PER-GROUP (mono z rep ovl intensity ratio dropped):");
+                for (int i = 0; i < scored.Count; i++)
+                {
+                    double inten = scored[i].GetIntensity();
+                    double ratio = inten > 0 ? ovl[i] / inten : 0;
+                    string mark = ratio >= 0.5 ? "DROP" : "keep";
+                    TestContext.Progress.WriteLine($"    {scored[i].MonoisotopicMass,9:F1} z{scored[i].MinAbsCharge}-{scored[i].MaxAbsCharge} rep{scored[i].RepAbsCharge} ovl={ovl[i]:E2} int={inten:E2} ratio={ratio:F3} {mark}");
+                }
             }
             var afterCE = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, Polarity.Positive);
             double overlapWindow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
