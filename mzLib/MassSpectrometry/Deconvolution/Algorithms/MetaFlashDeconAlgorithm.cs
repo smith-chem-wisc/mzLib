@@ -173,8 +173,24 @@ namespace MassSpectrometry
                     MonoisotopicMass = seedMono,
                 };
 
-                double prevMono = seedMono;
+                // PRE-LOOP offset seeding (OpenMS scoreAndFilterPeakGroups_, cpp:1090-1101): align
+                // the candidate's per-isotope intensity vector against the averagine to find the best
+                // initial isotope-index offset, so the 10-iter recruit→updateQscore loop doesn't start
+                // anchored to the wrong isotope. Also applies OpenMS's pre-filter `cos < min(.5, min_iso_cos) - .1`.
                 int offset = 0;
+                if (candidate.PerIsotopeIntensities != null && candidate.PerIsotopeIntensities.Length > 0)
+                {
+                    double[] bAvg = avg.Get(seedMono);
+                    int apexA = avg.GetApexIndex(seedMono);
+                    int isoIntShift = -pg.MinNegativeIsotopeIndex; // = 1 (matches OpenMS -peak_group.getMinNegativeIsotopeIndex())
+                    // OpenMS min_iso_size_ = 2 (FLASHDeconvAlgorithm.h:140) — applied to both the
+                    // input length check and the iso-range check inside getIsotopeCosine.
+                    double preCos = MetaFlashDeconPeakGroup.GetIsotopeCosineAndDetermineIsotopeIndex(
+                        candidate.PerIsotopeIntensities, bAvg, apexA, isoIntShift, -1, 2, out offset);
+                    if (preCos < Math.Min(0.5, p.MinCosineScore) - 0.1) continue; // OpenMS cpp:1098
+                    pg.IsotopeCosineScore = preCos;
+                }
+                double prevMono = seedMono + offset * isoDa; // OpenMS cpp:1093 prev_mono_mass = monoMass + offset * iso_da_distance_
                 for (int k = 0; k < 10; k++)
                 {
                     double recruitMono = pg.MonoisotopicMass + offset * isoDa;
@@ -682,6 +698,15 @@ namespace MassSpectrometry
             public int MinAbsCharge { get; init; }
             public int MaxAbsCharge { get; init; }
             public float SupportIntensity { get; init; }
+            /// <summary>
+            /// Per-isotope intensity vector from candidate-gen, indexed by `isotopeIndex -
+            /// MinNegativeIsotopeIndex` (same shape as <see cref="MetaFlashDeconPeakGroup.PerIsotopeInt"/>,
+            /// i.e. index 0 = first allowed negative isotope, isoIntShift = 1). Used by the pre-loop
+            /// `GetIsotopeCosineAndDetermineIsotopeIndex` call in scoreAndFilterPeakGroups_
+            /// (FLASHDeconvAlgorithm.cpp:1091-1093) to seed the initial isotope-index offset before
+            /// the 10-iter recruit→updateQscore loop.
+            /// </summary>
+            public double[] PerIsotopeIntensities { get; init; }
         }
 
         internal static List<CandidateMass> FindCandidateMasses(

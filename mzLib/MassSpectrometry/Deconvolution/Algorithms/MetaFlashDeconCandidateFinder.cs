@@ -316,6 +316,23 @@ namespace MassSpectrometry
                 double monoMass = nominator / intensity;
                 if (monoMass < minMass || monoMass > maxMass) continue;
 
+                // Per-isotope intensity vector for the pre-loop GetIsotopeCosineAndDetermineIsotopeIndex
+                // seed in ScoreCandidatesViaPeakGroups (OpenMS scoreAndFilterPeakGroups_, cpp:1091-1093).
+                // Shape matches MetaFlashDeconPeakGroup.UpdateMonoMassAndIsotopeIntensities:
+                // indexed by `anchored_iso - MinNegativeIsotopeIndex` (= anchored_iso + 1 with
+                // MinNegativeIsotopeIndex = -1). All anchored isos here are >= 0, so slot 0 = 0.
+                const int minNegativeIsotopeIndex = -1; // matches MetaFlashDeconPeakGroup default
+                var perIso = new double[maxOff + 1 - minNegativeIsotopeIndex];
+                foreach (var pk in peaks)
+                {
+                    double um = (pk.mz - Constants.ProtonMass) * pk.charge;
+                    int iso = (int)Math.Round((um - tMass) / isoDa, MidpointRounding.AwayFromZero);
+                    if (Math.Abs(tMass - um + isoDa * iso) > isoTol) continue;
+                    iso += apexIndex;
+                    int idx = iso - minNegativeIsotopeIndex;
+                    if (idx >= 0 && idx < perIso.Length) perIso[idx] += pk.intensity;
+                }
+
                 result.Add(new CandidateMass
                 {
                     Mass = monoMass,
@@ -329,6 +346,7 @@ namespace MassSpectrometry
                     MinAbsCharge = 1,
                     MaxAbsCharge = crHi + 1,
                     SupportIntensity = (float)intensity,
+                    PerIsotopeIntensities = perIso,
                 });
             }
             return result;
