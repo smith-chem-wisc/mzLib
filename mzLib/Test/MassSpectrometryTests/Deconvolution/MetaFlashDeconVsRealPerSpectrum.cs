@@ -258,6 +258,39 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 var ratios = Enumerable.Range(0, scored.Count).Select(i => scored[i].GetIntensity() > 0 ? ovl[i] / scored[i].GetIntensity() : 0).OrderBy(r => r).ToList();
                 TestContext.Progress.WriteLine($"CE-instrument: scored={scored.Count} distinctPeaks={p2g.Count} sharedPeaks={sharedPeaks} groupsSharingAnyPeak={groupsSharing} wouldDrop(>=0.5)={wouldDrop}");
                 TestContext.Progress.WriteLine($"  overlap-ratio pct: p10={ratios[ratios.Count/10]:F2} p50={ratios[ratios.Count/2]:F2} p90={ratios[ratios.Count*9/10]:F2} max={ratios.Last():F2}");
+                // Dump 27889.7's z32 signal peaks (to compare against OpenMS - does it include 872.84?)
+                {
+                    int t27 = -1;
+                    for (int i = 0; i < scored.Count; i++)
+                        if (Math.Abs(scored[i].MonoisotopicMass - 27889.7) < 0.5) { t27 = i; break; }
+                    if (t27 >= 0)
+                    {
+                        TestContext.Progress.WriteLine($"OUR 27889.7 z32 signal peaks (anchor m/z = {(27889.74+32*Chemistry.Constants.ProtonMass)/32:F4}):");
+                        foreach (var pk in scored[t27].SignalPeaks.Where(p => p.AbsCharge == 32).OrderBy(p => p.Mz))
+                            TestContext.Progress.WriteLine($"  z32 mz={pk.Mz:F4} int={pk.Intensity:E2} iso={pk.IsotopeIndex}");
+                    }
+                }
+                // Per-charge SNRs for 27889.7 (compare against OpenMS SCORED dump)
+                {
+                    int t27 = -1;
+                    for (int i = 0; i < scored.Count; i++)
+                        if (Math.Abs(scored[i].MonoisotopicMass - 27889.7) < 0.5) { t27 = i; break; }
+                    if (t27 >= 0)
+                    {
+                        var sb = new System.Text.StringBuilder($"OUR 27889.7 per-charge SNRs: ");
+                        for (int z = scored[t27].MinAbsCharge; z <= scored[t27].MaxAbsCharge; z++)
+                            sb.Append($"z{z}:{scored[t27].GetChargeSnr(z):F4} ");
+                        TestContext.Progress.WriteLine(sb.ToString());
+                        sb.Clear(); sb.Append($"OUR 6970.7 per-charge SNRs: ");
+                        int t697 = -1;
+                        for (int i = 0; i < scored.Count; i++)
+                            if (Math.Abs(scored[i].MonoisotopicMass - 6970.7) < 0.5) { t697 = i; break; }
+                        if (t697 >= 0)
+                            for (int z = scored[t697].MinAbsCharge; z <= scored[t697].MaxAbsCharge; z++)
+                                sb.Append($"z{z}:{scored[t697].GetChargeSnr(z):F4} ");
+                        TestContext.Progress.WriteLine(sb.ToString());
+                    }
+                }
                 // Trace contributions to 6970.7's overlap (the first dup index)
                 int tgt = -1;
                 for (int i = 0; i < scored.Count; i++)
