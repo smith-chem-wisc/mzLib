@@ -121,8 +121,15 @@ namespace MassSpectrometry
             // getCandidatePeakGroups_ : per surviving mass bin, build the group (local-max guard +
             // harmonic-intensity tracking), apply the group-harmonic gate + >=2-isotope filter, and
             // emit the refined-monoisotopic-mass candidate. (Precision filters.)
+            // OpenMS narrows the tolerance for getCandidatePeakGroups_:
+            // FLASHDeconvAlgorithm::updateMembers_ (cpp:170-175) does `tolerance_[i] = (ppm*1e-6)/tol_div_factor`,
+            // i.e. tol = 10ppm/2.5 = 4e-6, giving mz_delta = 2*4e-6*mz (~0.005) instead of 0.012.
+            // Passing the un-narrowed 10e-6 here let borderline peaks (~7 mDa off iso) fall in the
+            // signal branch when OpenMS classifies them as harmonic -> inflated total_signal ->
+            // harmonic gate too lenient -> 12478 candidates emitted vs OpenMS's 5840.
             return GetCandidatePeakGroups(logPeaks, massBins, chargeRanges, binOffsets, harmonicCharges,
-                mzBinMin, massBinMin, binMulFactor, isoDa, p.DeconvolutionTolerancePpm * 1e-6,
+                mzBinMin, massBinMin, binMulFactor, isoDa,
+                p.DeconvolutionTolerancePpm * 1e-6 / p.TolDivFactor,
                 chargeRange, minMass, maxMass, avg);
         }
 
