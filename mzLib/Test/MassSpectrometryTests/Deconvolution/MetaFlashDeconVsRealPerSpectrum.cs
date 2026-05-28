@@ -32,6 +32,44 @@ namespace Test.MassSpectrometryTests.Deconvolution
         private const double IsoDa = 1.0033548;
         private const int SampleEvery = 80; // ~40 scans across the run
 
+        // For each of OpenMS's 17 ground-truth masses (fd_cpp_z1_60.txt from flashdeconv_snip),
+        // report our nearest CANDIDATE (does candidate gen form it?) and our nearest FINAL group
+        // (does scoring keep it?). Pinpoints candidate-gen vs scoring as the bug.
+        [Test]
+        public void DenseScan_OursVsOpenMSTruth()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            string fdOut = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\fd_cpp_z1_60.txt";
+            Assume.That(File.Exists(fdOut), $"missing {fdOut}");
+            var omsMasses = File.ReadLines(fdOut).Where(l => !l.StartsWith("#") && l.Trim().Length > 0)
+                .Select(l => { var t = l.Split('\t'); return (m: double.Parse(t[0], CultureInfo.InvariantCulture),
+                    z1: int.Parse(t[1]), z2: int.Parse(t[2])); }).OrderBy(x => x.m).ToList();
+
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var densest = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1)
+                .OrderByDescending(s => s.MassSpectrum.Size).First();
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, IsoDa);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(densest.MassSpectrum, densest.MassSpectrum.Range, Polarity.Positive);
+            double binMul = p.TolDivFactor / (p.DeconvolutionTolerancePpm * 1e-6);
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, 60, new[] { 2, 3, 5, 7, 11 }, binMul, p, avg);
+            var algo = new MetaFlashDeconAlgorithm(p);
+            var scored = algo.ScoreCandidatesViaPeakGroups(densest.MassSpectrum, candidates, p, avg);
+            var afterCE = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, Polarity.Positive);
+            double overlapWindow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
+            var final = MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterCE, overlapWindow);
+
+            TestContext.Progress.WriteLine($"OpenMS truth={omsMasses.Count}  ourCandidates={candidates.Count}  ourFinal={final.Count}");
+            foreach (var t in omsMasses)
+            {
+                var cand = candidates.Where(c => Math.Abs(c.Mass - t.m) <= 2.5).OrderBy(c => Math.Abs(c.Mass - t.m)).FirstOrDefault();
+                var fin = final.Where(g => Math.Abs(g.MonoisotopicMass - t.m) <= 2.5).OrderBy(g => Math.Abs(g.MonoisotopicMass - t.m)).FirstOrDefault();
+                string candStr = cand != null ? $"{cand.Mass:F1} z{cand.MinAbsCharge}-{cand.MaxAbsCharge}" : "NONE";
+                string finStr = fin != null ? $"{fin.MonoisotopicMass:F1} z{fin.MinAbsCharge}-{fin.MaxAbsCharge} cos{fin.IsotopeCosineScore:F3}" : "NONE";
+                TestContext.Progress.WriteLine($"  OMS {t.m,9:F1} z{t.z1}-{t.z2} | ourCand {candStr,-22} | ourFinal {finStr}");
+            }
+        }
+
         // Differential test of OUR MetaFlashDeconAveragine vs OpenMS PrecalculatedAveragine
         // (linked extract: difftest\avg_snip\build\Release\avg_snip.exe -> avg_cpp_out.txt).
         // Compares apex / leftCountFromApex / rightCountFromApex / averageMassDelta / the
