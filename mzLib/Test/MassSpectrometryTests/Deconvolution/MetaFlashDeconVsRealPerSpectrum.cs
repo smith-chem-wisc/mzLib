@@ -36,6 +36,25 @@ namespace Test.MassSpectrometryTests.Deconvolution
         // (linked extract: difftest\avg_snip\build\Release\avg_snip.exe -> avg_cpp_out.txt).
         // Compares apex / leftCountFromApex / rightCountFromApex / averageMassDelta / the
         // normalised b vector, per mass, to confirm/refute the averagine boundary.
+        // Writes the densest MS1 scan's centroid peaks ("mz intensity" per line) for the
+        // flashdeconv_snip OpenMS extract to consume.
+        [Test]
+        public void DumpDensestScanPeaks()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var densest = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1)
+                .OrderByDescending(s => s.MassSpectrum.Size).First();
+            var sb = new System.Text.StringBuilder();
+            var x = densest.MassSpectrum.XArray; var y = densest.MassSpectrum.YArray;
+            for (int i = 0; i < x.Length; i++)
+                sb.Append(x[i].ToString("R", CultureInfo.InvariantCulture)).Append(' ')
+                  .Append(y[i].ToString("R", CultureInfo.InvariantCulture)).Append('\n');
+            string outp = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\scan2301_peaks.txt";
+            File.WriteAllText(outp, sb.ToString());
+            TestContext.Progress.WriteLine($"wrote {densest.MassSpectrum.Size} peaks of scan {densest.OneBasedScanNumber} -> {outp}");
+        }
+
         [Test]
         public void Averagine_VsOpenMS()
         {
