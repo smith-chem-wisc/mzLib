@@ -151,7 +151,11 @@ namespace MassSpectrometry
         {
             var scored = new List<MetaFlashDeconPeakGroup>();
             double isoDa = Constants.C13MinusC12;
-            double tolFraction = p.DeconvolutionTolerancePpm * 1e-6;
+            // OpenMS scoreAndFilterPeakGroups_ uses tolerance_[ms_level-1] which updateMembers_
+            // already narrowed by tol_div_factor (cpp:170-175: j *= 1e-6; j /= tol_div_factor).
+            // Passing the un-narrowed (ppm*1e-6 = 1e-5) here let recruitAllPeaksInSpectrum gather
+            // 2.5x too many borderline-isotope peaks -> mis-scored envelopes survived the gates.
+            double tolFraction = p.DeconvolutionTolerancePpm * 1e-6 / p.TolDivFactor;
             const int lowCharge = 10;          // OpenMS low_charge_
             const int minSupportPeakCount = 2; // OpenMS min_support_peak_count_
 
