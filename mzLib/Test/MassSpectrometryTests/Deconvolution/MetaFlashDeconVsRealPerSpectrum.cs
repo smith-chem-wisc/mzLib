@@ -61,6 +61,103 @@ namespace Test.MassSpectrometryTests.Deconvolution
         }
 
         [Test]
+        public void DenseScan_ClassifyExtrasVsReal()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            Assume.That(File.Exists(Msalign), $"missing {Msalign}");
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var densest = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1)
+                .OrderByDescending(s => s.MassSpectrum.Size).First();
+            int scanNo = densest.OneBasedScanNumber;
+            var real = ParseMsalign(Msalign, out _);
+            var realMasses = real.TryGetValue(scanNo, out var rm) ? rm.OrderBy(m => m).ToList() : new List<double>();
+
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, IsoDa);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(densest.MassSpectrum, densest.MassSpectrum.Range, Polarity.Positive);
+            double binMul = p.TolDivFactor / (p.DeconvolutionTolerancePpm * 1e-6);
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, 60, new[] { 2, 3, 5, 7, 11 }, binMul, p, avg);
+            var candWidth = candidates.GroupBy(c => Math.Min(c.MaxAbsCharge - c.MinAbsCharge, 5))
+                .OrderBy(g => g.Key).Select(g => $"span{g.Key}={g.Count()}");
+            TestContext.Progress.WriteLine($"candidate charge-span histogram (n={candidates.Count}): " + string.Join(" ", candWidth));
+            var algo = new MetaFlashDeconAlgorithm(p);
+            var scored = algo.ScoreCandidatesViaPeakGroups(densest.MassSpectrum, candidates, p, avg);
+            // ── instrument removeChargeError peak-sharing on the scored (pre-CE) groups ──
+            {
+                double cm = Chemistry.Constants.ProtonMass;
+                var p2g = new Dictionary<double, HashSet<int>>();
+                var mzi = new Dictionary<double, double>();
+                for (int i = 0; i < scored.Count; i++)
+                    foreach (var pk in scored[i].SignalPeaks)
+                    { if (!p2g.TryGetValue(pk.Mz, out var s)) { s = new HashSet<int>(); p2g[pk.Mz] = s; } s.Add(i); mzi[pk.Mz] = pk.Intensity; }
+                int sharedPeaks = p2g.Count(kv => kv.Value.Count > 1);
+                var ovl = new double[scored.Count];
+                foreach (var kv in p2g)
+                {
+                    if (kv.Value.Count == 1) continue;
+                    double pmz = kv.Key, pint = mzi[pmz];
+                    foreach (int i in kv.Value)
+                    {
+                        bool isOv = false; int rz1 = (int)Math.Round(scored[i].MonoisotopicMass / (pmz - cm), MidpointRounding.AwayFromZero);
+                        foreach (int j in kv.Value)
+                        {
+                            if (i == j) continue;
+                            int rz2 = (int)Math.Round(scored[j].MonoisotopicMass / (pmz - cm), MidpointRounding.AwayFromZero);
+                            if (rz1 == rz2) continue;
+                            if (scored[i].GetChargeSnr(rz1) > scored[j].GetChargeSnr(rz2) * 2.0) continue;
+                            isOv = true; break;
+                        }
+                        if (isOv) ovl[i] += pint;
+                    }
+                }
+                int groupsSharing = Enumerable.Range(0, scored.Count).Count(i => scored[i].SignalPeaks.Any(pk => p2g[pk.Mz].Count > 1));
+                int wouldDrop = Enumerable.Range(0, scored.Count).Count(i => ovl[i] >= scored[i].GetIntensity() * 0.5);
+                var ratios = Enumerable.Range(0, scored.Count).Select(i => scored[i].GetIntensity() > 0 ? ovl[i] / scored[i].GetIntensity() : 0).OrderBy(r => r).ToList();
+                TestContext.Progress.WriteLine($"CE-instrument: scored={scored.Count} distinctPeaks={p2g.Count} sharedPeaks={sharedPeaks} groupsSharingAnyPeak={groupsSharing} wouldDrop(>=0.5)={wouldDrop}");
+                TestContext.Progress.WriteLine($"  overlap-ratio pct: p10={ratios[ratios.Count/10]:F2} p50={ratios[ratios.Count/2]:F2} p90={ratios[ratios.Count*9/10]:F2} max={ratios.Last():F2}");
+            }
+            var afterCE = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, Polarity.Positive);
+            double overlapWindow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
+            var final = MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterCE, overlapWindow).OrderBy(g => g.MonoisotopicMass).ToList();
+
+            // classify each surviving group vs the real masses for this scan
+            string Classify(double m)
+            {
+                foreach (var r in realMasses) if (Math.Abs(m - r) <= r * 15e-6) return "matched";
+                foreach (var r in realMasses) for (int k = 1; k <= 3; k++)
+                    if (Math.Abs(m - (r + k * IsoDa)) <= r * 15e-6 || Math.Abs(m - (r - k * IsoDa)) <= r * 15e-6) return "iso-off";
+                foreach (var r in realMasses) for (int k = 2; k <= 6; k++)
+                    if (Math.Abs(m - r * k) <= m * 15e-6 || Math.Abs(m - r / k) <= m * 15e-6) return "harmonic";
+                return "spurious";
+            }
+            var groups = final.GroupBy(g => Classify(g.MonoisotopicMass)).ToDictionary(g => g.Key, g => g.ToList());
+
+            void Stat(string name, Func<MetaFlashDeconPeakGroup, double> sel)
+            {
+                foreach (var cls in new[] { "matched", "iso-off", "harmonic", "spurious" })
+                {
+                    if (!groups.TryGetValue(cls, out var gs) || gs.Count == 0) continue;
+                    var vals = gs.Select(sel).OrderBy(v => v).ToList();
+                    TestContext.Progress.WriteLine($"  {name,-10} {cls,-9} n={vals.Count,3}  min={vals.First():F3} med={vals[vals.Count/2]:F3} max={vals.Last():F3}");
+                }
+            }
+            TestContext.Progress.WriteLine($"scan {scanNo}: real masses={realMasses.Count}, our survivors={final.Count}");
+            TestContext.Progress.WriteLine("  class counts: " + string.Join("  ", groups.OrderByDescending(g=>g.Value.Count).Select(g => $"{g.Key}={g.Value.Count}")));
+            Stat("cosine", g => g.IsotopeCosineScore);
+            Stat("snr", g => g.Snr);
+            Stat("qscore", g => g.QscoreValue);
+            Stat("chargefit", g => g.ChargeScore);
+            Stat("chargeN", g => g.MaxAbsCharge - g.MinAbsCharge + 1);
+            Stat("mass", g => g.MonoisotopicMass);
+
+            TestContext.Progress.WriteLine("REAL masses (" + realMasses.Count + "): " +
+                string.Join(" ", realMasses.Select(m => m.ToString("F1"))));
+            TestContext.Progress.WriteLine("OUR masses (mono@repZ, snr) sorted:");
+            foreach (var g in final)
+                TestContext.Progress.WriteLine($"  {g.MonoisotopicMass,10:F1} z{g.MinAbsCharge}-{g.MaxAbsCharge} rep{g.RepAbsCharge} snr={g.Snr:F2} cos={g.IsotopeCosineScore:F3} int={g.GetIntensity():E2}");
+        }
+
+        [Test]
         public void ComparePerSpectrumToRealFlashDeconv()
         {
             Assume.That(File.Exists(Mzml), $"missing {Mzml}");
