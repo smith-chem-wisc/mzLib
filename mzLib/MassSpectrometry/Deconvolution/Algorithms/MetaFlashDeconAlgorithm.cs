@@ -201,6 +201,9 @@ namespace MassSpectrometry
                     pg.IsotopeCosineScore = preCos;
                 }
                 double prevMono = seedMono + offset * isoDa; // OpenMS cpp:1093 prev_mono_mass = monoMass + offset * iso_da_distance_
+                double iterTraceMono0 = pg.MonoisotopicMass;
+                string iterTracePath = Environment.GetEnvironmentVariable("FD_ITERTRACE_CS");
+                bool iterTraceOn = iterTracePath != null && iterTraceMono0 > 27880 && iterTraceMono0 < 27900;
                 for (int k = 0; k < 10; k++)
                 {
                     double recruitMono = pg.MonoisotopicMass + offset * isoDa;
@@ -211,6 +214,8 @@ namespace MassSpectrometry
                     int maxIso = avg.GetLastIndex(recruitMono);
                     var noisy = pg.RecruitAllPeaksInSpectrum(spectrum, tolFraction, recruitMono, minIso, maxIso, p.Polarity);
                     offset = pg.UpdateQscore(noisy, avg, p.MinCosineScore);
+                    if (iterTraceOn)
+                        System.IO.File.AppendAllText(iterTracePath, $"ITER\t{k}\trecruit={recruitMono:F10}\toffset_ret={offset}\tmono_after={pg.MonoisotopicMass:F10}\n");
                     if (offset == 0) break;
                 }
 
