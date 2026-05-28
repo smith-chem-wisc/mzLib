@@ -116,6 +116,21 @@ namespace MassSpectrometry
                 binOffsets, harmonicBinOffsets, harmonicCharges, chargeRange, lowCharge, minSupportPeakCount,
                 isoDa, mzBinMin, binMulFactor, massBinNumber);
 
+            // FD_MITRACE_CS: dump mass_intensities for the 27909 region
+            string mitPath = Environment.GetEnvironmentVariable("FD_MITRACE_CS");
+            if (mitPath != null)
+            {
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < massIntensities.Length; i++)
+                {
+                    if (massIntensities[i] == 0.0f) continue;
+                    double binMass = Math.Exp(GetBinValue(i, massBinMin, binMulFactor));
+                    if (binMass > 27908.5 && binMass < 27910.5)
+                        sb.Append($"MI\t{i}\t{binMass:F10}\t{massIntensities[i]:R}\tmass_bins_set={(massBins[i]?1:0)}\n");
+                }
+                System.IO.File.AppendAllText(mitPath, sb.ToString());
+            }
+
             var chargeRanges = FilterMassBins(mzSetBins, mzBins, massBins, massIntensities, binOffsets, chargeRange, massBinNumber);
 
             // getCandidatePeakGroups_ : per surviving mass bin, build the group (local-max guard +
