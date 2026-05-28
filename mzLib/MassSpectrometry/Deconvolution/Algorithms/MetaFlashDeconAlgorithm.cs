@@ -31,7 +31,13 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Chemistry;                           // Constants.ProtonMass, C13MinusC12, ToMz/ToMass
+using Chemistry;                           // Constants.ProtonMass, ToMz/ToMass
+
+// OpenMS uses Constants::ISOTOPE_MASSDIFF_55K_U = 1.002371 (the average isotope mass difference
+// for a 55 kDa peptide, used to bin/anchor isotopes in top-down deconvolution; see
+// Constants.h and PeakGroup.h iso_da_distance_). NOT mzLib's Chemistry.Constants.C13MinusC12
+// (= 1.0033548, the pure 13C-12C mass diff). Matching this avoids a ~0.001 Da/isotope drift
+// that flips borderline isotope assignments in dense spectra.
 using MassSpectrometry.MzSpectra;          // SpectralSimilarity.CosineOfAlignedVectors
 using MzLibUtil;                           // PpmTolerance
 
@@ -42,6 +48,10 @@ namespace MassSpectrometry
         // ── Algorithm constants ───────────────────────────────────────────────
 
         /// <summary>Harmonic denominators from the paper (½, ⅓, ⅖).</summary>
+        // OpenMS Constants::ISOTOPE_MASSDIFF_55K_U (= 1.002371) — average isotope mass difference
+        // for a 55 kDa peptide, used as iso_da_distance_ throughout FLASHDeconv (PeakGroup.h:315,
+        // FLASHDeconvAlgorithm.cpp:78 sets iso_da_distance_ from this constant).
+        internal const double IsoDaDistance55K = 1.002371;
         private static readonly int[] HarmonicDenominators = { 2, 3, 5 };
 
         /// <summary>
@@ -101,7 +111,7 @@ namespace MassSpectrometry
             // Faithful FLASHDeconv: bin the log-m/z axis at ppm / tol_div_factor (finer than the
             // requested tolerance) for candidate voting (FLASHDeconvAlgorithm.cpp:22, :171).
             double binMulFactor = ComputeBinMulFactor(p.DeconvolutionTolerancePpm, p.TolDivFactor);
-            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, Constants.C13MinusC12);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, IsoDaDistance55K);
 
             // ── Step 2 (Plan B): faithful OpenMS candidate generation ─────────
             // updateMzBins_ + updateCandidateMassBins_ (continuous-charge support + the low-charge
@@ -150,7 +160,7 @@ namespace MassSpectrometry
             MzSpectrum spectrum, List<CandidateMass> candidates, MetaFlashDeconParameters p, MetaFlashDeconAveragine avg)
         {
             var scored = new List<MetaFlashDeconPeakGroup>();
-            double isoDa = Constants.C13MinusC12;
+            double isoDa = IsoDaDistance55K;
             // OpenMS scoreAndFilterPeakGroups_ uses tolerance_[ms_level-1] which updateMembers_
             // already narrowed by tol_div_factor (cpp:170-175: j *= 1e-6; j /= tol_div_factor).
             // Passing the un-narrowed (ppm*1e-6 = 1e-5) here let recruitAllPeaksInSpectrum gather
@@ -298,7 +308,7 @@ namespace MassSpectrometry
 
                 for (int z = candidate.MinAbsCharge; z <= candidate.MaxAbsCharge; z++)
                 {
-                    double isoDelta = Constants.C13MinusC12 / z;
+                    double isoDelta = IsoDaDistance55K / z;
                     double baseMz = candidate.Mass.ToMz(polSign * z);
                     bool isRepZ = (z == repAbsCharge);
 
@@ -443,7 +453,7 @@ namespace MassSpectrometry
                 foreach (var pc in perChargeAccum)
                 {
                     double zNoisePwr = ComputeNoisePeakPower(
-                        pc.noisy, pc.signal, pc.z, Constants.C13MinusC12);
+                        pc.noisy, pc.signal, pc.z, IsoDaDistance55K);
                     globalSignalPower += pc.sumSignal * pc.sumSignal;
                     globalNoisePower += zNoisePwr;
                     globalSumSignalSq += pc.sumSignalSq;
@@ -466,7 +476,7 @@ namespace MassSpectrometry
                 if (uniquePeaks.Count < p.MinIsotopicPeakCount) continue;
 
                 // monoMass = candidate.Mass − apexDaFromMono + bestOffset × C13MinusC12
-                double monoMass = candidate.Mass - apexDaFromMono + bestOffset * Constants.C13MinusC12;
+                double monoMass = candidate.Mass - apexDaFromMono + bestOffset * IsoDaDistance55K;
                 if (monoMass < p.MinMassRange || monoMass > p.MaxMassRange) continue;
 
                 int signedCharge = polSign * repAbsCharge;
@@ -477,7 +487,7 @@ namespace MassSpectrometry
                 double totalPpmError = 0.0;
                 foreach (var (obsMz, _, z, n) in uniquePeaks)
                 {
-                    double isoDelta = Constants.C13MinusC12 / z;
+                    double isoDelta = IsoDaDistance55K / z;
                     double theorMz = candidate.Mass.ToMz(polSign * z) + n * isoDelta;
                     totalPpmError += Math.Abs(obsMz - theorMz) / theorMz * 1e6;
                 }

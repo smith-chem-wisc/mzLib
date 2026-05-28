@@ -12,7 +12,7 @@
 
 using System;
 using System.Collections.Generic;
-using Chemistry; // Constants.C13MinusC12
+using Chemistry; // MetaFlashDeconAlgorithm.IsoDaDistance55K
 
 namespace MassSpectrometry
 {
@@ -66,7 +66,7 @@ namespace MassSpectrometry
             int chargeRange = filter.Length;                 // OpenMS current_max_charge_
             int lowCharge = 10;                               // OpenMS low_charge_
             int minSupportPeakCount = 2;                      // OpenMS min_support_peak_count_
-            double isoDa = Constants.C13MinusC12;
+            double isoDa = MetaFlashDeconAlgorithm.IsoDaDistance55K;
             int hChargeSize = harmonicCharges.Length;
 
             double minMass = p.MinMassRange, maxMass = p.MaxMassRange;

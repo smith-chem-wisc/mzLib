@@ -29,7 +29,7 @@ namespace MassSpectrometry
         internal int MinAbsCharge;
         internal int MaxAbsCharge;
         internal bool IsPositive = true;
-        internal double IsoDaDistance = Constants.C13MinusC12;     // OpenMS iso_da_distance_ (ISOTOPE_MASSDIFF_55K_U)
+        internal double IsoDaDistance = MetaFlashDeconAlgorithm.IsoDaDistance55K; // OpenMS iso_da_distance_ = ISOTOPE_MASSDIFF_55K_U = 1.002371
         internal int MinNegativeIsotopeIndex = -1;                 // OpenMS min_negative_isotope_index_ default
         internal double MonoisotopicMass;
 

@@ -32,6 +32,44 @@ namespace Test.MassSpectrometryTests.Deconvolution
         private const double IsoDa = 1.0033548;
         private const int SampleEvery = 80; // ~40 scans across the run
 
+        // Diff OUR candidate set vs OpenMS's (CAND lines in fd_trace_z1_60.txt) to localize the
+        // candidate over-count (target: match OpenMS's 5840 before touching scoring).
+        [Test]
+        public void Candidates_VsOpenMS()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            string trace = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\fd_trace_z1_60.txt";
+            Assume.That(File.Exists(trace), $"missing {trace}");
+            var oms = File.ReadLines(trace).Where(l => l.StartsWith("CAND"))
+                .Select(l => { var t = l.Split('\t'); return (m: double.Parse(t[1], CultureInfo.InvariantCulture), z1: int.Parse(t[2]), z2: int.Parse(t[3])); }).ToList();
+
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var densest = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).OrderByDescending(s => s.MassSpectrum.Size).First();
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, IsoDa);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(densest.MassSpectrum, densest.MassSpectrum.Range, Polarity.Positive);
+            double binMul = p.TolDivFactor / (p.DeconvolutionTolerancePpm * 1e-6);
+            var ours = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, 60, new[] { 2, 3, 5, 7, 11 }, binMul, p, avg);
+
+            var omsMono = oms.Select(o => o.m).OrderBy(x => x).ToList();
+            var ourMono = ours.Select(c => c.Mass).OrderBy(x => x).ToList();
+            int OmsDistinct = oms.Select(o => Math.Round(o.m, 1)).Distinct().Count();
+            int OurDistinct = ours.Select(c => Math.Round(c.Mass, 1)).Distinct().Count();
+            // how many of ours land within 10ppm of an OpenMS candidate (two-pointer over sorted)
+            int matched = 0, jp = 0;
+            foreach (double m in ourMono)
+            {
+                double tolDa = m * 10e-6;
+                while (jp < omsMono.Count && omsMono[jp] < m - tolDa) jp++;
+                if (jp < omsMono.Count && Math.Abs(omsMono[jp] - m) <= tolDa) matched++;
+            }
+            TestContext.Progress.WriteLine($"OpenMS cand={oms.Count} (distinct0.1={OmsDistinct})  ours={ours.Count} (distinct0.1={OurDistinct})  ours-within-10ppm-of-OMS={matched}  ours-extra={ours.Count - matched}");
+            // mass histogram of ALL ours vs OpenMS (2 kDa buckets)
+            string Hist(IEnumerable<double> ms) => string.Join(" ", ms.GroupBy(m => (int)(m / 2000)).OrderBy(g => g.Key).Select(g => $"{g.Key * 2}k={g.Count()}"));
+            TestContext.Progress.WriteLine("OpenMS by-2kDa: " + Hist(omsMono));
+            TestContext.Progress.WriteLine("OURS   by-2kDa: " + Hist(ourMono));
+        }
+
         // For each of OpenMS's 17 ground-truth masses (fd_cpp_z1_60.txt from flashdeconv_snip),
         // report our nearest CANDIDATE (does candidate gen form it?) and our nearest FINAL group
         // (does scoring keep it?). Pinpoints candidate-gen vs scoring as the bug.
@@ -68,6 +106,9 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 string finStr = fin != null ? $"{fin.MonoisotopicMass:F1} z{fin.MinAbsCharge}-{fin.MaxAbsCharge} cos{fin.IsotopeCosineScore:F3}" : "NONE";
                 TestContext.Progress.WriteLine($"  OMS {t.m,9:F1} z{t.z1}-{t.z2} | ourCand {candStr,-22} | ourFinal {finStr}");
             }
+            TestContext.Progress.WriteLine("--- ALL our final masses (sorted) ---");
+            foreach (var g in final.OrderBy(g => g.MonoisotopicMass))
+                TestContext.Progress.WriteLine($"  {g.MonoisotopicMass,9:F1} z{g.MinAbsCharge}-{g.MaxAbsCharge} rep{g.RepAbsCharge} snr={g.Snr:F2} cos={g.IsotopeCosineScore:F3} q={g.QscoreValue:F3}");
         }
 
         // Differential test of OUR MetaFlashDeconAveragine vs OpenMS PrecalculatedAveragine
