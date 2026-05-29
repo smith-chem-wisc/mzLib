@@ -21,7 +21,11 @@ namespace MassSpectrometry
 
     internal static class MetaFlashDeconCandidateFinder
     {
-        // OpenMS getBinNumber_ : round-half-up ((value-min)*mul + 0.5), 0 if value<min.
+        // OpenMS getBinNumber_ (FLASHDeconvAlgorithm.cpp:265-271): (Size)((value-min)*mul + .5), 0 if value<min.
+        // ⚠ The `(int)(... + 0.5)` is truncation-toward-zero of x+0.5 (= floor for the always-positive
+        // argument here) — this is OpenMS's exact rounding. Do NOT replace with Math.Round(...), which is
+        // banker's (round-half-to-even) in C# and would assign different bins at the .5 boundary,
+        // de-aligning every mass/mz bin from OpenMS.
         internal static int GetBinNumber(double value, double minValue, double binMulFactor)
             => value < minValue ? 0 : (int)((value - minValue) * binMulFactor + 0.5);
 
@@ -74,6 +78,16 @@ namespace MassSpectrometry
 
             double mzBinMin = logPeaks[0].LogMz;
             double mzBinMax = logPeaks[^1].LogMz;
+            // mass-bin axis origin (OpenMS mass_bin_min_value_, FLASHDeconvAlgorithm.cpp:1074).
+            // ⚠ KNOWN, DELIBERATE residual: avg.GetAverageMassDelta(minMass=50) differs from OpenMS by
+            // ~0.4 mDa because mzLib's Averagine snaps mass 50 to its coarse C2H4N1O1 entry while OpenMS
+            // builds C2N1O1 via estimateFromPeptideMonoWeight — the un-snippable isotope-generator
+            // boundary (CoarseIsotopePatternGenerator). This leaves an ACCIDENTAL but uniform +2 mass-bin
+            // index shift vs OpenMS. It does NOT affect results (truth recovery / per-spectrum match are
+            // exact regardless of the axis origin). Do NOT "fix" avgDelta in isolation: a partial
+            // correction makes the shift a NON-integer ~1.5 bins, which re-rounds per-charge binOffsets
+            // non-uniformly and REGRESSED truth recovery (15/17 -> 13/17). Only an exact-OpenMS avgDelta
+            // (i.e. matching the generator) would be safe — see STATUS 2026-05-29.
             double massBinMin = Math.Log(Math.Max(1.0, minMass - avg.GetAverageMassDelta(minMass)));
             double massBinMax = Math.Min(
                 logPeaks[^1].LogMz - filter[tmpPeakCntr],
@@ -83,7 +97,9 @@ namespace MassSpectrometry
             int mzBinNumber = GetBinNumber(mzBinMax, mzBinMin, binMulFactor) + 1;
             if (massBinNumber <= 0 || mzBinNumber <= 0) return result;
 
-            // bin offsets (mz-bin -> mass-bin); C++ round() = away-from-zero
+            // bin offsets (mz-bin -> mass-bin). ⚠ MidpointRounding.AwayFromZero is REQUIRED: it matches
+            // C++ std::round() (FLASHDeconvAlgorithm.cpp:1083). C#'s default Math.Round is banker's
+            // rounding, which would shift some per-charge offsets by 1 and de-align candidates from OpenMS.
             var binOffsets = new int[chargeRange];
             for (int i = 0; i < chargeRange; i++)
                 binOffsets[i] = (int)Math.Round((mzBinMin - filter[i] - massBinMin) * binMulFactor, MidpointRounding.AwayFromZero);
@@ -313,12 +329,17 @@ namespace MassSpectrometry
                 double isoTol = tol * tMass;
                 int apexIndex = avg.GetApexIndex(tMass);
                 int minOff = 10000, maxOff = -1;
-                // OpenMS builds new_peaks (filter-passing, apex-anchored) then computes the candidate mono
-                // via pg.updateMonoMassAndIsotopeIntensities() (FLASHDeconvAlgorithm.cpp:1015-1024) — the
-                // SAME mono as scoring (PeakGroup.cpp:706-736): the peaks are SORTED by logMz (then float
-                // intensity), the denominator is summed in FLOAT with float `pi`, and iso<0 peaks are excluded
-                // from the mono (min_off/max_off still span ALL filter-passing peaks). Float summation is
-                // order-dependent, so the sort + float types must both match for the ~150-peak protein mono.
+                // ⚠ CRITICAL — TYPES AND ORDER ARE LOAD-BEARING. OpenMS builds new_peaks (filter-passing,
+                // apex-anchored) then computes the candidate mono via pg.updateMonoMassAndIsotopeIntensities()
+                // (FLASHDeconvAlgorithm.cpp:1015-1024) — the SAME mono as scoring (PeakGroup.cpp:706-736):
+                //   (1) peaks SORTED by logMz (≈mz), then float intensity  ← do not remove the sort
+                //   (2) denominator `intensityF` summed in FLOAT with `float pi`  ← do NOT widen to double
+                //   (3) iso<0 peaks excluded from the mono (min_off/max_off still span ALL passing peaks)
+                // Float addition is order-dependent and lossy (~1e7 total, float ULP ≈ 1 over ~150 peaks of a
+                // large protein), so a double sum or unsorted order shifts the intensity-weighted mono by a few
+                // mDa — enough to flip one borderline z32 isotope peak, which cascades through removeChargeError
+                // and dropped two true masses (27889 → 6970.7/6971.7). Matching float+sort is what gives 17/17
+                // on scan 2301 and 97.6% whole-run (commit 6d93cbf3). Keep this identical to PeakGroup.
                 var monoPeaks = new List<(double um, int iso, double mz, float pi)>(peaks.Count);
                 foreach (var pk in peaks)
                 {

@@ -293,9 +293,20 @@ namespace MassSpectrometry
         {
             if (SignalPeaks.Count == 0) return;
 
-            // OpenMS sorts logMzpeaks_ by logMz (then float intensity) before summing the mono
-            // (PeakGroup.cpp:706, LogMzPeak::operator<). Float intensity summation is order-dependent,
-            // so the sum order must match for the mono to match.
+            // ⚠ CRITICAL — TYPES AND SORT ORDER ARE LOAD-BEARING (mirror of the candidate-gen mono in
+            // MetaFlashDeconCandidateFinder; both MUST stay identical). OpenMS
+            // PeakGroup::updateMonoMassAndIsotopeIntensities (PeakGroup.cpp:706-736):
+            //   (1) sorts logMzpeaks_ by logMz then FLOAT intensity (LogMzPeak::operator<)  ← keep the sort
+            //   (2) `float pi = p.intensity`  ← do NOT widen to double
+            //   (3) denominator `intensity_` is a FLOAT accumulated in float; mono = nominator(double)/intensity_(float)
+            //       ← Intensity MUST be summed in float; do NOT change `intensityF` to double
+            //   (4) iso<0 peaks excluded from the mono nominator (still counted into per-isotope via the
+            //       negative-iso loop below)
+            // Float addition is lossy and order-dependent (~1e7 total over ~150 peaks of a large protein,
+            // float ULP ≈ 1), so a double sum or unsorted order drifts the weighted-mean mono by a few mDa,
+            // flipping one borderline z32 isotope peak whose shared intensity then tips 6970.7/6971.7 over
+            // the removeChargeError 0.5 overlap threshold. Float+sort is what gives 17/17 on scan 2301 and
+            // 97.6% whole-run fidelity (commit 6d93cbf3). DO NOT "simplify" the types or drop the sort.
             SignalPeaks.Sort((a, b) => a.LogMz != b.LogMz
                 ? a.LogMz.CompareTo(b.LogMz)
                 : ((float)a.Intensity).CompareTo((float)b.Intensity));
@@ -304,11 +315,6 @@ namespace MassSpectrometry
             foreach (var p in SignalPeaks) maxIsotopeIndex = Math.Max(maxIsotopeIndex, p.IsotopeIndex);
 
             PerIsotopeInt = new double[maxIsotopeIndex + 1 - MinNegativeIsotopeIndex];
-            // OpenMS PeakGroup::updateMonoMassAndIsotopeIntensities (PeakGroup.cpp:713-736): the peak
-            // intensity `pi` is FLOAT (LogMzPeak::intensity) and the denominator `intensity_` is a FLOAT
-            // accumulated in float; mono = nominator(double) / intensity_(float). Summing ~150 peak
-            // intensities in float vs double shifts the weighted-mean mono by ~mDa, which flips borderline
-            // signal-peak inclusion downstream (e.g. the 27889 z32 iso-25 peak) — match their types exactly.
             float intensityF = 0f;
             double nominator = 0.0;
             double chargeMass = Math.Sign((int)polarity) * Constants.ProtonMass;
@@ -602,6 +608,11 @@ namespace MassSpectrometry
                         double mass2 = groups[j].MonoisotopicMass;
                         int repz2 = (int)Math.Round(mass2 / (pmz - chargeMass), MidpointRounding.AwayFromZero);
                         if (repz1 == repz2) continue;
+                        // ⚠ The `> 2.0×` factor and per-charge SNR (NOT group SNR / cosine / Qscore) are
+                        // exact OpenMS (FLASHDeconvAlgorithm.cpp:1618). i is the ghost unless its per-charge
+                        // SNR at the shared peak's charge is MORE THAN 2× the competitor's. This comparison
+                        // is what (correctly) keeps the true low-charge masses against a co-eluting protein —
+                        // do not substitute a different score or factor.
                         if (groups[i].GetChargeSnr(repz1) > groups[j].GetChargeSnr(repz2) * 2.0) continue; // i clearly better -> j is the ghost
                         isOverlap = true;
                         break;
@@ -613,6 +624,11 @@ namespace MassSpectrometry
             var filtered = new List<MetaFlashDeconPeakGroup>(groups.Count);
             for (int i = 0; i < groups.Count; i++)
             {
+                // ⚠ 0.5 = OpenMS drop threshold (cpp:1637): drop a group whose peaks shared with
+                // higher-per-charge-SNR groups carry >= 50% of its total intensity. This is borderline for
+                // real co-eluting masses (6970.7/6971.7 sit at ~0.45-0.52), so the mono precision that
+                // governs which peaks are shared (see UpdateMonoMassAndIsotopeIntensities) decides their
+                // fate. Do not change 0.5 or the >= .
                 if (!groups[i].IsTargeted && overlapIntensity[i] >= groups[i].GetIntensity() * 0.5) continue;
                 if (groups[i].RepAbsCharge < groups[i].MinAbsCharge || groups[i].RepAbsCharge > groups[i].MaxAbsCharge) continue;
                 filtered.Add(groups[i]);

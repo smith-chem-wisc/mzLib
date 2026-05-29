@@ -34,10 +34,11 @@ namespace MassSpectrometry
             _isoDa = isoDa;
         }
 
-        // Test seam: a constant averagine (mass-independent apex/left/right/avgDelta), so the
+        // TEST SEAM ONLY — a constant averagine (mass-independent apex/left/right/avgDelta), so the
         // candidate-generation logic can be differential-tested vs the C++ on IDENTICAL averagine
         // inputs (isolating logic bugs from the isotope-generator boundary). b is unused by candidate
-        // generation, so it is empty here.
+        // generation, so it is empty here. ⚠ Never use this ctor in production — it returns the same
+        // envelope shape for every mass and would destroy scoring; it exists purely for the diff tests.
         private readonly bool _isConstant;
         private readonly Entry _constantEntry;
         internal MetaFlashDeconAveragine(int apex, int left, int right, double avgDelta)
@@ -153,6 +154,9 @@ namespace MassSpectrometry
             int newLen = iso.Length;
             while (newLen > 0 && iso[newLen - 1] <= 1e-10) newLen--;
 
+            // ⚠ L2 normalisation (divide by sqrt of summed power), NOT L1. OpenMS getCosine divides only
+            // by |a| and assumes the averagine target `b` is already unit-L2; an L1 (sum) norm here would
+            // silently bias every isotope-cosine. This whole function is differential-tested (trim_cpp).
             double norm = Math.Sqrt(totalPwr);
             var b = new double[newLen];
             for (int k = 0; k < newLen; k++) b[k] = iso[k] / norm;

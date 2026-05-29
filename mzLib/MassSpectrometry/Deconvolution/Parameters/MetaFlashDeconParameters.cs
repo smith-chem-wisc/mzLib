@@ -8,6 +8,12 @@ namespace MassSpectrometry
     /// FLASHDeconv uses a harmonic charge-mass transformation to rapidly identify
     /// isotopic envelopes across charge states without brute-force charge enumeration.
     /// See: Kim et al. (2020) DOI: 10.1021/acs.jproteome.9b00738
+    ///
+    /// ⚠ The defaults below (minCosineScore 0.85, snrThreshold 0.5, tolDivFactor 2.5,
+    /// overlapDedupTolFactor 1.5, charge 1–60, tol 10 ppm, mass 50–100000) are the LITERAL OpenMS
+    /// FLASHDeconv values, each cited to its source line. They were tuned by differential-testing the
+    /// whole pipeline against the real OpenMS library to exact per-scan agreement — they are NOT
+    /// free knobs. Changing a default re-opens the fidelity gap; treat them as load-bearing constants.
     /// </summary>
     public class MetaFlashDeconParameters : DeconvolutionParameters
     {

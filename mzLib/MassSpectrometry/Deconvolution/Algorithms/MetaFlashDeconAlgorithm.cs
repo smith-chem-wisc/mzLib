@@ -47,11 +47,18 @@ namespace MassSpectrometry
     {
         // ── Algorithm constants ───────────────────────────────────────────────
 
-        /// <summary>Harmonic denominators from the paper (½, ⅓, ⅖).</summary>
-        // OpenMS Constants::ISOTOPE_MASSDIFF_55K_U (= 1.002371) — average isotope mass difference
-        // for a 55 kDa peptide, used as iso_da_distance_ throughout FLASHDeconv (PeakGroup.h:315,
-        // FLASHDeconvAlgorithm.cpp:78 sets iso_da_distance_ from this constant).
+        // ⚠ CRITICAL CONSTANT — DO NOT change this value or replace it with Chemistry.Constants.C13MinusC12
+        // (1.0033548). OpenMS uses Constants::ISOTOPE_MASSDIFF_55K_U (= 1.002371) — the AVERAGE isotope
+        // mass difference for a ~55 kDa peptide — as iso_da_distance_ EVERYWHERE in FLASHDeconv
+        // (PeakGroup.h:315, FLASHDeconvAlgorithm.cpp:78), NOT the C13−C12 monoisotopic spacing. Using
+        // 1.0033548 introduces a ~0.001 Da/isotope drift that flips borderline isotope assignments in
+        // dense/high-charge regions and pushes monoisotopic masses off by fractions of a Da — it broke
+        // candidate counts and dropped true masses on the densest real scan until this was corrected
+        // (commit 3badfcb1: candidates/gates went exact 5840=5840, 32=32). Every iso-offset math in this
+        // file, the candidate finder, and the peak group MUST use this single value.
         internal const double IsoDaDistance55K = 1.002371;
+
+        /// <summary>Harmonic denominators (used by the legacy scoring path; candidate gen uses {2,3,5,7,11}).</summary>
         private static readonly int[] HarmonicDenominators = { 2, 3, 5 };
 
         /// <summary>
@@ -161,10 +168,12 @@ namespace MassSpectrometry
         {
             var scored = new List<MetaFlashDeconPeakGroup>();
             double isoDa = IsoDaDistance55K;
-            // OpenMS scoreAndFilterPeakGroups_ uses tolerance_[ms_level-1] which updateMembers_
-            // already narrowed by tol_div_factor (cpp:170-175: j *= 1e-6; j /= tol_div_factor).
-            // Passing the un-narrowed (ppm*1e-6 = 1e-5) here let recruitAllPeaksInSpectrum gather
-            // 2.5x too many borderline-isotope peaks -> mis-scored envelopes survived the gates.
+            // ⚠ CRITICAL: tolerance MUST be narrowed by tol_div_factor here. OpenMS
+            // scoreAndFilterPeakGroups_ uses tolerance_[ms_level-1], which updateMembers_ already
+            // narrowed (cpp:170-175: j *= 1e-6; j /= tol_div_factor) -> 10 ppm / 2.5 = 4e-6, NOT 1e-5.
+            // Do NOT pass the raw `ppm * 1e-6`: the un-narrowed tol made recruitAllPeaksInSpectrum gather
+            // ~2.5x too many borderline-isotope peaks, so mis-scored envelopes survived the gates. This
+            // single narrowing was the largest fidelity lever on the densest scan (229 -> 16 final masses).
             double tolFraction = p.DeconvolutionTolerancePpm * 1e-6 / p.TolDivFactor;
             const int lowCharge = 10;          // OpenMS low_charge_
             const int minSupportPeakCount = 2; // OpenMS min_support_peak_count_
@@ -204,6 +213,9 @@ namespace MassSpectrometry
                 double iterTraceMono0 = pg.MonoisotopicMass;
                 string iterTracePath = Environment.GetEnvironmentVariable("FD_ITERTRACE_CS");
                 bool iterTraceOn = iterTracePath != null && iterTraceMono0 > 27880 && iterTraceMono0 < 27900;
+                // OpenMS scoreAndFilterPeakGroups_ runs the recruit→updateQscore offset loop up to 10
+                // iterations and breaks as soon as the returned offset is 0 (cpp:1103-1124). Keep BOTH
+                // the cap of 10 and the `offset == 0` early break — they define the converged mono.
                 for (int k = 0; k < 10; k++)
                 {
                     double recruitMono = pg.MonoisotopicMass + offset * isoDa;
@@ -220,9 +232,11 @@ namespace MassSpectrometry
                 }
 
                 // post-gates (OpenMS scoreAndFilterPeakGroups_)
-                // OpenMS scoreAndFilterPeakGroups_ (cpp:1126) only drops if peak_group.empty();
-                // it does NOT enforce a >=MinIsotopicPeakCount gate here. Our prior >=3 gate dropped
-                // low-mass / few-isotope candidates (e.g. 1549.2 z1) that OpenMS retains.
+                // ⚠ CRITICAL: this is an EMPTY-ONLY gate. Do NOT change it to
+                // `pg.SignalPeaks.Count < p.MinIsotopicPeakCount` (3). OpenMS scoreAndFilterPeakGroups_
+                // (cpp:1126) only drops `peak_group.empty()`; a >=3 gate here dropped low-mass /
+                // few-isotope truths OpenMS keeps (e.g. 1549.2 z1) — see commit 8af4e4d4. (The faithful
+                // floor is 2: a candidate requires min_off != max_off, i.e. >=2 isotopes.)
                 if (pg.SignalPeaks.Count == 0) continue;
                 if (pg.MonoisotopicMass < p.MinMassRange || pg.MonoisotopicMass > p.MaxMassRange) continue;
                 if (Math.Abs(prevMono - pg.MonoisotopicMass) > 3) continue;              // moved >3 Da -> different envelope
@@ -620,7 +634,10 @@ namespace MassSpectrometry
                 {
                     double normalizedDist = (allPeaks[j].mz - allPeaks[i].mz) * absCharge / isoDaDistance;
                     if (normalizedDist > 0.9 && normalizedDist < 1.1) continue; // ~ isotope distance: skip
-                    // C++ round() is half-away-from-zero; C# Math.Round defaults to banker's rounding.
+                    // ⚠ MidpointRounding.AwayFromZero REQUIRED: C++ round() is half-away-from-zero; C#'s
+                    // default Math.Round is banker's (half-to-even). Dropping this flag was one of the two
+                    // real bugs the differential harness caught in the original noise-power port (commit
+                    // 786b56d0) — it mis-bins noise peaks and shifts the SNR. Keep the explicit flag.
                     int bin = (int)Math.Round(normalizedDist * (maxBinNumber - 5), MidpointRounding.AwayFromZero);
                     if (bin == 0) continue;
                     if (bin >= maxBinNumber) break;
@@ -1013,6 +1030,12 @@ namespace MassSpectrometry
         // LogMzPeak STRUCT
         // ══════════════════════════════════════════════════════════════════════
 
+        // Mirror of OpenMS FLASHDeconvHelperStructs::LogMzPeak (double mz, FLOAT intensity, double logMz).
+        // ⚠ Intensity is stored as double for interop, but the values are float-origin (mzML 32-bit
+        // intensities widened to double), and OpenMS treats intensity as float throughout. The
+        // intensity-weighted mono computations therefore cast to (float) and sum the denominator in float
+        // ON PURPOSE — see MetaFlashDeconPeakGroup.UpdateMonoMassAndIsotopeIntensities. Do not assume the
+        // extra double precision here is meaningful; matching OpenMS's float arithmetic is what's correct.
         internal readonly struct LogMzPeak
         {
             public readonly double Mz;
