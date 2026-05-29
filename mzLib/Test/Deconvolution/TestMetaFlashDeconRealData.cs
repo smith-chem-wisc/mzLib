@@ -202,7 +202,12 @@ namespace Test.Deconvolution
                 Assert.That(env.MonoisotopicMass, Is.GreaterThanOrEqualTo(p.MinMassRange)
                                                     .And.LessThanOrEqualTo(p.MaxMassRange),
                     $"Mass {env.MonoisotopicMass:F1} out of range in {fileName}");
-                Assert.That(env.Peaks.Count, Is.GreaterThanOrEqualTo(p.MinIsotopicPeakCount),
+                // OpenMS scoreAndFilterPeakGroups_ (FLASHDeconvAlgorithm.cpp:1126) drops only EMPTY peak
+                // groups; a candidate requires min_off != max_off (>= 2 distinct isotopes). So the faithful
+                // floor on an emitted envelope is 2 peaks, not MinIsotopicPeakCount (3) — that param is no
+                // longer a post-gate guarantee (commit 8af4e4d4). Real spectra can yield a valid 2-peak
+                // envelope that passes the cosine/Qscore/SNR gates.
+                Assert.That(env.Peaks.Count, Is.GreaterThanOrEqualTo(2),
                     $"Peak count {env.Peaks.Count} below minimum in {fileName}");
                 Assert.That(env.Charge, Is.GreaterThan(0),
                     $"Charge {env.Charge} not positive in positive-mode {fileName}");

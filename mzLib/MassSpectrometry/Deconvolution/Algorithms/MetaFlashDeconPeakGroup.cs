@@ -293,30 +293,43 @@ namespace MassSpectrometry
         {
             if (SignalPeaks.Count == 0) return;
 
+            // OpenMS sorts logMzpeaks_ by logMz (then float intensity) before summing the mono
+            // (PeakGroup.cpp:706, LogMzPeak::operator<). Float intensity summation is order-dependent,
+            // so the sum order must match for the mono to match.
+            SignalPeaks.Sort((a, b) => a.LogMz != b.LogMz
+                ? a.LogMz.CompareTo(b.LogMz)
+                : ((float)a.Intensity).CompareTo((float)b.Intensity));
+
             int maxIsotopeIndex = 0;
             foreach (var p in SignalPeaks) maxIsotopeIndex = Math.Max(maxIsotopeIndex, p.IsotopeIndex);
 
             PerIsotopeInt = new double[maxIsotopeIndex + 1 - MinNegativeIsotopeIndex];
-            Intensity = 0.0;
+            // OpenMS PeakGroup::updateMonoMassAndIsotopeIntensities (PeakGroup.cpp:713-736): the peak
+            // intensity `pi` is FLOAT (LogMzPeak::intensity) and the denominator `intensity_` is a FLOAT
+            // accumulated in float; mono = nominator(double) / intensity_(float). Summing ~150 peak
+            // intensities in float vs double shifts the weighted-mean mono by ~mDa, which flips borderline
+            // signal-peak inclusion downstream (e.g. the 27889 z32 iso-25 peak) — match their types exactly.
+            float intensityF = 0f;
             double nominator = 0.0;
             double chargeMass = Math.Sign((int)polarity) * Constants.ProtonMass;
 
             foreach (var p in SignalPeaks)
             {
-                double pi = p.Intensity;
+                float pi = (float)p.Intensity;
                 if (p.IsotopeIndex < 0) continue;
                 PerIsotopeInt[p.IsotopeIndex - MinNegativeIsotopeIndex] += pi;
                 double unchargedMass = (p.Mz - chargeMass) * p.AbsCharge; // OpenMS LogMzPeak::getUnchargedMass
                 nominator += pi * (unchargedMass - p.IsotopeIndex * IsoDaDistance);
-                Intensity += pi;
+                intensityF += pi;
             }
             foreach (var p in NegativeIsoPeaks)
             {
                 if (p.IsotopeIndex - MinNegativeIsotopeIndex < 0) continue;
-                PerIsotopeInt[p.IsotopeIndex - MinNegativeIsotopeIndex] += p.Intensity;
+                PerIsotopeInt[p.IsotopeIndex - MinNegativeIsotopeIndex] += (float)p.Intensity;
             }
 
-            MonoisotopicMass = nominator / Intensity;
+            Intensity = intensityF;
+            MonoisotopicMass = nominator / intensityF;
         }
 
         // ── Per-charge cosine (OpenMS updatePerChargeCos_, PeakGroup.cpp:79-115) ──

@@ -313,7 +313,13 @@ namespace MassSpectrometry
                 double isoTol = tol * tMass;
                 int apexIndex = avg.GetApexIndex(tMass);
                 int minOff = 10000, maxOff = -1;
-                double nominator = 0, intensity = 0;
+                // OpenMS builds new_peaks (filter-passing, apex-anchored) then computes the candidate mono
+                // via pg.updateMonoMassAndIsotopeIntensities() (FLASHDeconvAlgorithm.cpp:1015-1024) — the
+                // SAME mono as scoring (PeakGroup.cpp:706-736): the peaks are SORTED by logMz (then float
+                // intensity), the denominator is summed in FLOAT with float `pi`, and iso<0 peaks are excluded
+                // from the mono (min_off/max_off still span ALL filter-passing peaks). Float summation is
+                // order-dependent, so the sort + float types must both match for the ~150-peak protein mono.
+                var monoPeaks = new List<(double um, int iso, double mz, float pi)>(peaks.Count);
                 foreach (var pk in peaks)
                 {
                     double um = (pk.mz - Constants.ProtonMass) * pk.charge;
@@ -322,13 +328,19 @@ namespace MassSpectrometry
                     iso += apexIndex;
                     if (iso < minOff) minOff = iso;
                     if (iso > maxOff) maxOff = iso;
-                    // OpenMS updateMonoMassAndIsotopeIntensities uses the FINAL (apex-anchored) isotope
-                    // index here (PeakGroup.cpp:713): mono = Σ pi·(unchargedMass − finalIso·isoDa)/Σpi.
-                    nominator += pk.intensity * (um - iso * isoDa);
-                    intensity += pk.intensity;
+                    monoPeaks.Add((um, iso, pk.mz, (float)pk.intensity));
                 }
-                if (minOff == maxOff || intensity <= 0) continue;
-                double monoMass = nominator / intensity;
+                if (minOff == maxOff) continue;
+                monoPeaks.Sort((a, b) => a.mz != b.mz ? a.mz.CompareTo(b.mz) : a.pi.CompareTo(b.pi));
+                double nominator = 0; float intensityF = 0f;
+                foreach (var mp in monoPeaks)
+                {
+                    if (mp.iso < 0) continue; // OpenMS updateMonoMass excludes iso<0 from the mono (PeakGroup.cpp:719)
+                    nominator += mp.pi * (mp.um - mp.iso * isoDa);
+                    intensityF += mp.pi;
+                }
+                if (intensityF <= 0) continue;
+                double monoMass = nominator / intensityF;
                 if (monoMass < minMass || monoMass > maxMass) continue;
 
                 // Per-isotope intensity vector for the pre-loop GetIsotopeCosineAndDetermineIsotopeIndex
@@ -360,7 +372,7 @@ namespace MassSpectrometry
                     // wrong envelopes, dropped the true masses and produced halos.
                     MinAbsCharge = 1,
                     MaxAbsCharge = crHi + 1,
-                    SupportIntensity = (float)intensity,
+                    SupportIntensity = intensityF,
                     PerIsotopeIntensities = perIso,
                 });
             }
