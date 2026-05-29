@@ -140,6 +140,95 @@ namespace Test.MassSpectrometryTests.Deconvolution
             TestContext.Progress.WriteLine($"wrote {densest.MassSpectrum.Size} peaks of scan {densest.OneBasedScanNumber} -> {outp}");
         }
 
+        // Scans to fidelity-check vs the REAL OpenMS (flashdeconv_snip, our exact z1-60 params):
+        // sparse / medium / dense, picked from the per-spectrum report.
+        private static readonly int[] SnipScans = { 1332, 2625, 3551 };
+        private static string SnipDir => @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip";
+
+        [Test]
+        public void DumpScansForSnip()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            foreach (int scanNum in SnipScans)
+            {
+                var scan = dataFile.GetAllScansList().First(s => s.OneBasedScanNumber == scanNum);
+                var sb = new System.Text.StringBuilder();
+                var x = scan.MassSpectrum.XArray; var y = scan.MassSpectrum.YArray;
+                for (int i = 0; i < x.Length; i++)
+                    sb.Append(x[i].ToString("R", CultureInfo.InvariantCulture)).Append(' ')
+                      .Append(y[i].ToString("R", CultureInfo.InvariantCulture)).Append('\n');
+                File.WriteAllText($@"{SnipDir}\scan{scanNum}_peaks.txt", sb.ToString());
+                TestContext.Progress.WriteLine($"wrote {scan.MassSpectrum.Size} peaks of scan {scanNum}");
+            }
+            TestContext.Progress.WriteLine("Now run: flashdeconv_snip scan{N}_peaks.txt fd_{N}.txt 1 60  for each, then CompareScansVsSnip.");
+        }
+
+        [Test]
+        public void CompareScansVsSnip()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            foreach (int scanNum in SnipScans)
+            {
+                string fd = $@"{SnipDir}\fd_{scanNum}.txt";
+                if (!File.Exists(fd)) { TestContext.Progress.WriteLine($"scan {scanNum}: missing {fd} (run flashdeconv_snip)"); continue; }
+                var oms = File.ReadLines(fd).Where(l => l.Trim().Length > 0 && !l.StartsWith("#"))
+                    .Select(l => double.Parse(l.Split('\t')[0], CultureInfo.InvariantCulture)).OrderBy(m => m).ToList();
+                var scan = dataFile.GetAllScansList().First(s => s.OneBasedScanNumber == scanNum);
+                var ours = Deconvoluter.Deconvolute(scan.MassSpectrum, p).Select(e => e.MonoisotopicMass).OrderBy(m => m).ToList();
+
+                var omsUsed = new bool[oms.Count];
+                int matched = 0;
+                foreach (double m in ours)
+                {
+                    double tol = m * 10e-6; int best = -1; double bestErr = double.MaxValue;
+                    for (int i = 0; i < oms.Count; i++)
+                    { if (omsUsed[i]) continue; double d = Math.Abs(oms[i] - m); if (d <= tol && d < bestErr) { bestErr = d; best = i; } }
+                    if (best >= 0) { omsUsed[best] = true; matched++; }
+                }
+                int extra = ours.Count - matched, missed = omsUsed.Count(u => !u);
+                TestContext.Progress.WriteLine($"scan {scanNum}: openms={oms.Count} ours={ours.Count} | matched={matched} extra={extra} missed={missed}");
+            }
+        }
+
+        [Test]
+        public void DiagnoseScan1332Misses()
+        {
+            int scanNum = 1332;
+            string fd = $@"{SnipDir}\fd_{scanNum}.txt";
+            Assume.That(File.Exists(Mzml) && File.Exists(fd), $"need {Mzml} + {fd}");
+            var oms = File.ReadLines(fd).Where(l => l.Trim().Length > 0 && !l.StartsWith("#"))
+                .Select(l => { var t = l.Split('\t'); return (m: double.Parse(t[0], CultureInfo.InvariantCulture),
+                    z1: t.Length > 1 ? int.Parse(t[1]) : 0, z2: t.Length > 2 ? int.Parse(t[2]) : 0); }).OrderBy(x => x.m).ToList();
+
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var scan = dataFile.GetAllScansList().First(s => s.OneBasedScanNumber == scanNum);
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, MetaFlashDeconAlgorithm.IsoDaDistance55K);
+            var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(scan.MassSpectrum, scan.MassSpectrum.Range, Polarity.Positive);
+            double binMul = p.TolDivFactor / (p.DeconvolutionTolerancePpm * 1e-6);
+            var candidates = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, 60, new[] { 2, 3, 5, 7, 11 }, binMul, p, avg);
+            var algo = new MetaFlashDeconAlgorithm(p);
+            var scored = algo.ScoreCandidatesViaPeakGroups(scan.MassSpectrum, candidates, p, avg);
+            var afterCE = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, Polarity.Positive);
+            double ow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
+            var final = MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterCE, ow);
+
+            TestContext.Progress.WriteLine($"scan {scanNum}: openms={oms.Count} cands={candidates.Count} scored={scored.Count} afterCE={afterCE.Count} final={final.Count}");
+            string N(IEnumerable<double> ms, double m) { var h = ms.Where(x => Math.Abs(x - m) <= 2.5).OrderBy(x => Math.Abs(x - m)).Select(x => (double?)x).FirstOrDefault(); return h.HasValue ? h.Value.ToString("F1") : "—"; }
+            foreach (var t in oms)
+            {
+                string c = N(candidates.Select(x => x.Mass), t.m);
+                string s = N(scored.Select(x => x.MonoisotopicMass), t.m);
+                string ce = N(afterCE.Select(x => x.MonoisotopicMass), t.m);
+                string f = N(final.Select(x => x.MonoisotopicMass), t.m);
+                bool found = final.Any(x => Math.Abs(x.MonoisotopicMass - t.m) <= t.m * 10e-6);
+                TestContext.Progress.WriteLine($"  {(found ? " " : "X")} OMS {t.m,9:F1} z{t.z1}-{t.z2} | cand {c,-9} scored {s,-9} afterCE {ce,-9} final {f}");
+            }
+        }
+
         [Test]
         public void Averagine_VsOpenMS()
         {

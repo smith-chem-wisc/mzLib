@@ -197,6 +197,10 @@ namespace MassSpectrometry
                     MonoisotopicMass = seedMono,
                 };
 
+                // FD_GATETRACE_CS: which gate (if any) drops each candidate, for a seed-mass window.
+                string gtPath = Environment.GetEnvironmentVariable("FD_GATETRACE_CS");
+                bool gtOn = gtPath != null && seedMono > 5000 && seedMono < 25000;
+
                 // PRE-LOOP offset seeding (OpenMS scoreAndFilterPeakGroups_, cpp:1090-1101): align
                 // the candidate's per-isotope intensity vector against the averagine to find the best
                 // initial isotope-index offset, so the 10-iter recruit→updateQscore loop doesn't start
@@ -211,7 +215,11 @@ namespace MassSpectrometry
                     // input length check and the iso-range check inside getIsotopeCosine.
                     double preCos = MetaFlashDeconPeakGroup.GetIsotopeCosineAndDetermineIsotopeIndex(
                         candidate.PerIsotopeIntensities, bAvg, apexA, isoIntShift, -1, 2, out offset);
-                    if (preCos < Math.Min(0.5, p.MinCosineScore) - 0.1) continue; // OpenMS cpp:1098
+                    if (preCos < Math.Min(0.5, p.MinCosineScore) - 0.1)
+                    {
+                        if (gtOn) System.IO.File.AppendAllText(gtPath, $"GATE\tseed={seedMono:F3}\tz{candidate.MinAbsCharge}-{candidate.MaxAbsCharge}\tdrop=precos\tcos={preCos:F4}\n");
+                        continue; // OpenMS cpp:1098
+                    }
                     pg.IsotopeCosineScore = preCos;
                 }
                 double prevMono = seedMono + offset * isoDa; // OpenMS cpp:1093 prev_mono_mass = monoMass + offset * iso_da_distance_
@@ -236,18 +244,31 @@ namespace MassSpectrometry
                     if (offset == 0) break;
                 }
 
+                // FD_PGDUMP_CS: full per-charge recruited-peak dump for a tight seed window.
+                if (gtOn && Environment.GetEnvironmentVariable("FD_PGDUMP_CS") is string pgd && seedMono > 8160 && seedMono < 8170)
+                {
+                    var sbp = new System.Text.StringBuilder();
+                    sbp.Append($"PG\tseed={seedMono:F4}\tmono={pg.MonoisotopicMass:F4}\tz{pg.MinAbsCharge}-{pg.MaxAbsCharge}\trep{pg.RepAbsCharge}\tcos={pg.IsotopeCosineScore:F4}\tsnr={pg.Snr:F4}\tq={pg.QscoreValue:F4}\n");
+                    foreach (var z in pg.SignalPeaks.GroupBy(sp => sp.AbsCharge).OrderBy(g => g.Key))
+                        sbp.Append($"  z{z.Key}: {z.Count()} peaks, iso[{z.Min(x => x.IsotopeIndex)}..{z.Max(x => x.IsotopeIndex)}], sumInt={z.Sum(x => x.Intensity):E2}\n");
+                    System.IO.File.AppendAllText(pgd, sbp.ToString());
+                }
+
                 // post-gates (OpenMS scoreAndFilterPeakGroups_)
                 // ⚠ CRITICAL: this is an EMPTY-ONLY gate. Do NOT change it to
                 // `pg.SignalPeaks.Count < p.MinIsotopicPeakCount` (3). OpenMS scoreAndFilterPeakGroups_
                 // (cpp:1126) only drops `peak_group.empty()`; a >=3 gate here dropped low-mass /
                 // few-isotope truths OpenMS keeps (e.g. 1549.2 z1) — see commit 8af4e4d4. (The faithful
                 // floor is 2: a candidate requires min_off != max_off, i.e. >=2 isotopes.)
-                if (pg.SignalPeaks.Count == 0) continue;
-                if (pg.MonoisotopicMass < p.MinMassRange || pg.MonoisotopicMass > p.MaxMassRange) continue;
-                if (Math.Abs(prevMono - pg.MonoisotopicMass) > 3) continue;              // moved >3 Da -> different envelope
-                if (pg.MinAbsCharge > lowCharge && (pg.MaxAbsCharge - pg.MinAbsCharge) < minSupportPeakCount) continue;
-                if (pg.QscoreValue <= 0) continue;                                       // Qscore gate
-                if (pg.Snr < p.SnrThreshold) continue;                                   // SNR >= snr_threshold (0.5)
+                string drop = null;
+                if (pg.SignalPeaks.Count == 0) drop = "empty";
+                else if (pg.MonoisotopicMass < p.MinMassRange || pg.MonoisotopicMass > p.MaxMassRange) drop = "massrange";
+                else if (Math.Abs(prevMono - pg.MonoisotopicMass) > 3) drop = "dmono>3";          // moved >3 Da -> different envelope
+                else if (pg.MinAbsCharge > lowCharge && (pg.MaxAbsCharge - pg.MinAbsCharge) < minSupportPeakCount) drop = "chargesupport";
+                else if (pg.QscoreValue <= 0) drop = "qscore";
+                else if (pg.Snr < p.SnrThreshold) drop = "snr";                                   // SNR >= snr_threshold (0.5)
+                if (gtOn) System.IO.File.AppendAllText(gtPath, $"GATE\tseed={seedMono:F3}\tmono={pg.MonoisotopicMass:F3}\tz{pg.MinAbsCharge}-{pg.MaxAbsCharge}\tcos={pg.IsotopeCosineScore:F4}\tsnr={pg.Snr:F3}\tq={pg.QscoreValue:F4}\tdrop={drop ?? "KEPT"}\n");
+                if (drop != null) continue;
 
                 scored.Add(pg);
             }
