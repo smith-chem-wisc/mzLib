@@ -553,6 +553,70 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Assert.That(maxCosDiff, Is.LessThan(0.02), "isotope-cosine diverges beyond averagine-boundary tolerance");
         }
 
+        // ── MassTraceDetection ("piece C") differential test vs real OpenMS ──
+        // Runs our decon on a contiguous block, then DetectTracesDiagnostic returns the per-scan collapsed
+        // input peaks + our raw traces. Serialises the input for masstrace_snip (which runs the REAL
+        // OpenMS MassTraceDetection on identical peaks) and our traces, then MassTrace_VsOpenMS compares
+        // trace-for-trace — isolating port correctness from per-spectrum input differences.
+        private const string MtdPeaks = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\mtd_peaks.txt";
+        private const string MtdOurs  = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\mtd_ours.txt";
+        private const string MtdCpp   = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\mtd_cpp_out.txt";
+
+        [Test]
+        public void MassTrace_DumpForOpenMS()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var ms1 = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).OrderBy(s => s.OneBasedScanNumber).ToList();
+            var slice = ms1.Skip(Math.Max(0, ms1.Count / 2 - 75)).Take(150).ToList();
+
+            var perScan = new List<IReadOnlyList<IsotopicEnvelope>>();
+            foreach (var s in slice) perScan.Add(Deconvoluter.Deconvolute(s.MassSpectrum, p).ToList());
+
+            var tracer = new MassSpectrometry.Deconvolution.FeatureTracing.MetaFlashDeconMassFeatureTracer();
+            var (input, traces) = tracer.DetectTracesDiagnostic(slice, perScan);
+
+            var sb = new System.Text.StringBuilder();
+            foreach (var (scanIdx, rtSec, peaks) in input)
+            {
+                sb.Append($"SPEC\t{scanIdx}\t{rtSec.ToString("R", CultureInfo.InvariantCulture)}\t{peaks.Count}\n");
+                foreach (var (mass, intensity) in peaks)
+                    sb.Append(mass.ToString("R", CultureInfo.InvariantCulture)).Append('\t').Append(intensity.ToString("R", CultureInfo.InvariantCulture)).Append('\n');
+            }
+            File.WriteAllText(MtdPeaks, sb.ToString());
+
+            var sbo = new System.Text.StringBuilder();
+            foreach (var (size, rtMin, rtMax, centroid) in traces)
+                sbo.Append($"TRACE\t{size}\t{rtMin.ToString("R", CultureInfo.InvariantCulture)}\t{rtMax.ToString("R", CultureInfo.InvariantCulture)}\t{centroid.ToString("R", CultureInfo.InvariantCulture)}\n");
+            File.WriteAllText(MtdOurs, sbo.ToString());
+            TestContext.Progress.WriteLine($"ours traces={traces.Count}, scans={input.Count} -> {MtdPeaks}. Run masstrace_snip, then MassTrace_VsOpenMS.");
+        }
+
+        [Test]
+        public void MassTrace_VsOpenMS()
+        {
+            Assume.That(File.Exists(MtdOurs), $"missing {MtdOurs} (run MassTrace_DumpForOpenMS)");
+            Assume.That(File.Exists(MtdCpp), $"missing {MtdCpp} (run masstrace_snip)");
+            (int size, double rtMin, double rtMax, double centroid) Parse(string l)
+            { var t = l.Split('\t'); return (int.Parse(t[1]), double.Parse(t[2], CultureInfo.InvariantCulture), double.Parse(t[3], CultureInfo.InvariantCulture), double.Parse(t[4], CultureInfo.InvariantCulture)); }
+            var ours = File.ReadLines(MtdOurs).Where(l => l.StartsWith("TRACE")).Select(Parse).OrderBy(x => x.centroid).ToList();
+            var cpp = File.ReadLines(MtdCpp).Where(l => l.StartsWith("TRACE")).Select(Parse).OrderBy(x => x.centroid).ToList();
+
+            // a trace matches if centroid within 10 ppm, RT ranges overlap, and size is identical
+            bool Match((int size, double rtMin, double rtMax, double centroid) a, (int size, double rtMin, double rtMax, double centroid) b)
+                => Math.Abs(a.centroid - b.centroid) <= b.centroid * 10e-6
+                   && a.rtMin <= b.rtMax && b.rtMin <= a.rtMax && a.size == b.size;
+            int MatchCount(List<(int,double,double,double)> A, List<(int,double,double,double)> B)
+            { int n = 0; foreach (var a in A) if (B.Any(b => Match(a, b))) n++; return n; }
+
+            int oursMatched = MatchCount(ours, cpp);
+            int cppMatched = MatchCount(cpp, ours);
+            TestContext.Progress.WriteLine($"ours traces={ours.Count}  openms traces={cpp.Count}");
+            TestContext.Progress.WriteLine($"ours matching an OpenMS trace (centroid 10ppm + RT overlap + same size): {oursMatched}/{ours.Count}");
+            TestContext.Progress.WriteLine($"OpenMS traces matched by ours: {cppMatched}/{cpp.Count}");
+        }
+
         // exactOnly: match within ppm; else allow ±1 isotope (Da) offset within ppm of the shifted mass.
         private static int FindMatch(List<double> real, double mass, double ppm, bool[] used, bool exactOnly)
         {

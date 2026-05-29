@@ -36,14 +36,19 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
     /// </summary>
     public sealed class MetaFlashDeconMassFeatureTracer : IMassFeatureTracer
     {
-        /// <summary>Mass tolerance (ppm) for collapsing charges per scan and for trace extension.</summary>
+        /// <summary>Mass tolerance (ppm) for collapsing charges into one neutral-mass peak per scan.</summary>
         public const double DefaultMassTolerancePpm = 10.0;
-        /// <summary>Minimum trace RT span to keep, in RetentionTime units (minutes); FLASHDeconv 10 s = 10/60.</summary>
+        /// <summary>OpenMS MassTraceDetection mass_error_ppm (NOT overridden by MassFeatureTrace, so the
+        /// default 20). The trace-extension window is ±3·(centroid/1e6·mass_error_ppm) = ±60 ppm.</summary>
+        public const double DefaultMassErrorPpm = 20.0;
+        /// <summary>Minimum trace RT span to keep, in RetentionTime units (minutes); OpenMS min_trace_length
+        /// = 10 s (MassFeatureTrace.cpp:19) = 10/60 min.</summary>
         public const double DefaultMinTraceLengthRt = 10.0 / 60.0;
-        /// <summary>Minimum fraction of spanned scans that must carry a peak (FLASHDeconv min_sample_rate).</summary>
-        public const double DefaultMinSampleRate = 0.05;
-        /// <summary>Consecutive empty scans that terminate a trace direction (FLASHDeconv trace_termination_outliers).</summary>
-        public const int DefaultMaxOutlierScans = 20;
+        /// <summary>OpenMS MassFeatureTrace min_sample_rate (MassFeatureTrace.cpp:18) = 0.1.</summary>
+        public const double DefaultMinSampleRate = 0.1;
+        /// <summary>OpenMS MassTraceDetection trace_termination_outliers (NOT overridden, default 5):
+        /// a direction stops after this many CONSECUTIVE non-empty scans with no acceptable peak.</summary>
+        public const int DefaultMaxOutlierScans = 5;
 
         /// <summary>OpenMS MassFeatureTrace min_isotope_cosine for MS1 (MassFeatureTrace.cpp:32). Traces
         /// whose summed isotope pattern has cosine &lt; this vs the averagine are dropped.</summary>
@@ -54,6 +59,7 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
         private const int IsotopeVectorSize = 400;
 
         private readonly double _massTolerancePpm;
+        private readonly double _massErrorPpm = DefaultMassErrorPpm;
         private readonly double _minTraceLengthRt;
         private readonly double _minSampleRate;
         private readonly int _maxOutlierScans;
@@ -91,11 +97,7 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
                     $"perScanEnvelopes ({perScanEnvelopes.Count}) must align 1:1 with ms1Scans ({ms1Scans.Count}).",
                     nameof(perScanEnvelopes));
 
-            // Step 1 — collapse each scan to neutral-mass peaks (charges summed).
-            var peaksByScan = new List<MassPeak>[ms1Scans.Count];
-            for (int s = 0; s < ms1Scans.Count; s++)
-                peaksByScan[s] = CollapseToNeutralMassPeaks(
-                    s, ms1Scans[s].OneBasedScanNumber, ms1Scans[s].RetentionTime, perScanEnvelopes[s]);
+            var peaksByScan = CollapseAllScans(ms1Scans, perScanEnvelopes);
 
             // Step 2 — neutral-mass trace detection.
             var traces = DetectTraces(peaksByScan);
@@ -110,6 +112,44 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
                 if (feature != null) { features.Add(feature); nextId++; }
             }
             return features;
+        }
+
+        private List<MassPeak>[] CollapseAllScans(
+            IReadOnlyList<MsDataScan> ms1Scans, IReadOnlyList<IReadOnlyList<IsotopicEnvelope>> perScanEnvelopes)
+        {
+            var peaksByScan = new List<MassPeak>[ms1Scans.Count];
+            for (int s = 0; s < ms1Scans.Count; s++)
+                peaksByScan[s] = CollapseToNeutralMassPeaks(
+                    s, ms1Scans[s].OneBasedScanNumber, ms1Scans[s].RetentionTime, perScanEnvelopes[s]);
+            return peaksByScan;
+        }
+
+        // Test hook for the MassTraceDetection differential snip: returns the per-scan collapsed input
+        // peaks (mass, intensity, RT in seconds) AND the raw detected traces (pre-cosine-filter) summarised
+        // as (size, rtMin/rtMax in seconds, intensity-weighted centroid mass) — so masstrace_snip can be
+        // fed identical input and compared trace-for-trace.
+        internal (List<(int scanIndex, double rtSeconds, List<(double mass, double intensity)> peaks)> input,
+                  List<(int size, double rtMinSec, double rtMaxSec, double centroid)> traces)
+            DetectTracesDiagnostic(IReadOnlyList<MsDataScan> ms1Scans, IReadOnlyList<IReadOnlyList<IsotopicEnvelope>> perScanEnvelopes)
+        {
+            var peaksByScan = CollapseAllScans(ms1Scans, perScanEnvelopes);
+            var rawTraces = DetectTraces(peaksByScan);
+
+            var input = new List<(int, double, List<(double, double)>)>();
+            for (int s = 0; s < peaksByScan.Length; s++)
+            {
+                var pks = peaksByScan[s].Select(p => (p.Mass, p.Intensity)).ToList();
+                double rtSec = peaksByScan[s].Count > 0 ? peaksByScan[s][0].Rt * 60.0 : ms1Scans[s].RetentionTime * 60.0;
+                input.Add((s, rtSec, pks));
+            }
+            var traceSummaries = new List<(int, double, double, double)>();
+            foreach (var t in rawTraces)
+            {
+                double ti = t.Sum(p => p.Intensity);
+                double centroid = ti > 0 ? t.Sum(p => p.Mass * p.Intensity) / ti : t[0].Mass;
+                traceSummaries.Add((t.Count, t.Min(p => p.Rt) * 60.0, t.Max(p => p.Rt) * 60.0, centroid));
+            }
+            return (input, traceSummaries);
         }
 
         // ── Step 1: per-scan neutral-mass collapse ────────────────────────────
@@ -151,77 +191,135 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
             return peaks;
         }
 
-        // ── Step 2: Kenar-style neutral-mass trace detection ──────────────────
+        // ── Step 2: neutral-mass trace detection — faithful port of OpenMS MassTraceDetection::run_ ──
+        // (MassTraceDetection.cpp:449-663, the algorithm MassFeatureTrace runs via mtdet.run). Each
+        // collapsed neutral-mass peak is an MSExperiment Peak1D(mono, intensity); we trace over neutral
+        // mass exactly as the real tool. ⚠ Faithful details (copy, do not "improve"):
+        //   - apices sorted by intensity ASCENDING then iterated in reverse (stable), so the most intense
+        //     unused peak seeds first.
+        //   - tolerance window is ±3·ftl_sd where ftl_sd = centroid/1e6·mass_error_ppm; with the OpenMS
+        //     default mass_error_ppm=20 that is ±60 ppm. ftl_sd is fixed (reestimate_mt_sd=false).
+        //   - centroid is the ITERATIVE weighted mean (UpdateIterativeWeightedMean), apex counted twice
+        //     at init exactly as OpenMS — the multiplicative form is not algebraically identical to a
+        //     naive Σwv/Σw in floating point, so it is replicated verbatim.
+        //   - a candidate is the single findNearest peak, accepted only if inside the window AND not yet
+        //     visited; outlier (consecutive-missed > trace_termination_outliers=5) terminates a direction;
+        //     empty scans advance the index but do NOT increment the missed counter.
+        //   - peaks are marked visited ONLY after the trace passes isTraceValid_ (min_trace_length +
+        //     min_sample_rate over total_scans − missed_down − missed_up); failed traces leave their peaks
+        //     available to other seeds.
         private List<List<MassPeak>> DetectTraces(List<MassPeak>[] peaksByScan)
         {
             int nScans = peaksByScan.Length;
+            var visited = new bool[nScans][];
+            for (int s = 0; s < nScans; s++) visited[s] = new bool[peaksByScan[s].Count];
 
-            // Apex-sorted seeding: most intense unvisited peak first.
-            var allPeaks = peaksByScan.SelectMany(p => p).OrderByDescending(p => p.Intensity).ToList();
+            // apices: every peak, stable-sorted by (float) intensity ascending; iterate descending.
+            var apices = new List<(int scan, int idx)>();
+            for (int s = 0; s < nScans; s++)
+                for (int i = 0; i < peaksByScan[s].Count; i++) apices.Add((s, i));
+            apices = apices.OrderBy(a => (float)peaksByScan[a.scan][a.idx].Intensity).ToList(); // OrderBy is stable
 
             var traces = new List<List<MassPeak>>();
-            foreach (var seed in allPeaks)
+            for (int ai = apices.Count - 1; ai >= 0; ai--)
             {
-                if (seed.Visited) continue;
-                seed.Visited = true;
+                var (apexScan, apexIdx) = apices[ai];
+                if (visited[apexScan][apexIdx]) continue;
+                var apex = peaksByScan[apexScan][apexIdx];
 
-                var members = new List<MassPeak> { seed };
-                double wMass = seed.Mass * seed.Intensity;
-                double wInt = seed.Intensity;
+                var members = new List<MassPeak> { apex };
+                var gathered = new List<(int s, int i)> { (apexScan, apexIdx) };
 
-                // Extend forward then backward from the seed scan, tracking the
-                // intensity-weighted-mean centroid mass; terminate a direction after
-                // _maxOutlierScans consecutive scans with no acceptable peak.
-                Extend(peaksByScan, seed.ScanIndex, +1, nScans, members, ref wMass, ref wInt);
-                Extend(peaksByScan, seed.ScanIndex, -1, nScans, members, ref wMass, ref wInt);
+                double centroid = apex.Mass;
+                double counter = (float)apex.Intensity * apex.Mass;
+                double denom = (float)apex.Intensity;
+                UpdateIterativeWeightedMean(apex.Mass, (float)apex.Intensity, ref centroid, ref counter, ref denom);
 
-                members.Sort((a, b) => a.ScanIndex.CompareTo(b.ScanIndex));
-                if (PassesLengthFilter(members)) traces.Add(members);
+                double ftlSd = centroid / 1e6 * _massErrorPpm; // fixed (reestimate_mt_sd = false)
+                int downIdx = apexScan, upIdx = apexScan;
+                bool downActive = true, upActive = true;
+                int missedDown = 0, missedUp = 0, scanDown = 0, scanUp = 0;
+
+                while ((downIdx > 0 && downActive) || (upIdx < nScans - 1 && upActive))
+                {
+                    if (downIdx > 0 && downActive)
+                    {
+                        var spec = peaksByScan[downIdx - 1];
+                        if (spec.Count > 0)
+                        {
+                            int ci = FindNearest(spec, centroid);
+                            double cmz = spec[ci].Mass;
+                            if (cmz <= centroid + 3 * ftlSd && cmz >= centroid - 3 * ftlSd && !visited[downIdx - 1][ci])
+                            {
+                                members.Insert(0, spec[ci]); // push_front (RT-ascending)
+                                UpdateIterativeWeightedMean(cmz, (float)spec[ci].Intensity, ref centroid, ref counter, ref denom);
+                                gathered.Add((downIdx - 1, ci));
+                                missedDown = 0;
+                            }
+                            else missedDown++;
+                        }
+                        downIdx--; scanDown++;
+                        if (missedDown > _maxOutlierScans) downActive = false;
+                    }
+                    if (upIdx < nScans - 1 && upActive)
+                    {
+                        var spec = peaksByScan[upIdx + 1];
+                        if (spec.Count > 0)
+                        {
+                            int ci = FindNearest(spec, centroid);
+                            double cmz = spec[ci].Mass;
+                            if (cmz <= centroid + 3 * ftlSd && cmz >= centroid - 3 * ftlSd && !visited[upIdx + 1][ci])
+                            {
+                                members.Add(spec[ci]); // push_back
+                                UpdateIterativeWeightedMean(cmz, (float)spec[ci].Intensity, ref centroid, ref counter, ref denom);
+                                gathered.Add((upIdx + 1, ci));
+                                missedUp = 0;
+                            }
+                            else missedUp++;
+                        }
+                        upIdx++; scanUp++;
+                        if (missedUp > _maxOutlierScans) upActive = false;
+                    }
+                }
+
+                // isTraceValid_ (MassTraceDetection.cpp:423-447)
+                int totalScans = scanDown + scanUp + 1;
+                double rtRange = Math.Abs(members[^1].Rt - members[0].Rt);
+                if (rtRange < _minTraceLengthRt) continue;
+                int adjusted = totalScans - missedDown - missedUp;
+                double quality = (double)members.Count / adjusted;
+                if (quality < _minSampleRate) continue;
+
+                foreach (var (s, i) in gathered) visited[s][i] = true;
+                traces.Add(members);
             }
             return traces;
         }
 
-        private void Extend(List<MassPeak>[] peaksByScan, int seedScan, int step, int nScans,
-            List<MassPeak> members, ref double wMass, ref double wInt)
+        // OpenMS MassTraceDetection::updateIterativeWeightedMean_ (MassTraceDetection.cpp:58-73) — the
+        // exact multiplicative iterative form (NOT a naive Σwv/Σw; replicated for FP fidelity).
+        private static void UpdateIterativeWeightedMean(double addedValue, double addedIntensity,
+            ref double centroid, ref double prevCounter, ref double prevDenom)
         {
-            int outliers = 0;
-            for (int s = seedScan + step; s >= 0 && s < nScans; s += step)
-            {
-                double centroid = wInt > 0 ? wMass / wInt : members[0].Mass;
-                double tolDa = centroid * _massTolerancePpm * 1e-6;
-
-                MassPeak best = null;
-                double bestDelta = double.MaxValue;
-                foreach (var p in peaksByScan[s])
-                {
-                    if (p.Visited) continue;
-                    double delta = Math.Abs(p.Mass - centroid);
-                    if (delta <= tolDa && delta < bestDelta) { best = p; bestDelta = delta; }
-                }
-
-                if (best != null)
-                {
-                    best.Visited = true;
-                    members.Add(best);
-                    wMass += best.Mass * best.Intensity;
-                    wInt += best.Intensity;
-                    outliers = 0;
-                }
-                else if (++outliers > _maxOutlierScans)
-                {
-                    break;
-                }
-            }
+            double counterTmp = 1.0 + addedIntensity * addedValue / prevCounter;
+            double denomTmp = 1.0 + addedIntensity / prevDenom;
+            centroid *= counterTmp / denomTmp;
+            prevCounter *= counterTmp;
+            prevDenom *= denomTmp;
         }
 
-        private bool PassesLengthFilter(List<MassPeak> members)
+        // OpenMS MSSpectrum::findNearest: index of the peak whose mass is closest to target (mass-sorted).
+        private static int FindNearest(List<MassPeak> spec, double target)
         {
-            double rtSpan = members[^1].Rt - members[0].Rt;
-            if (rtSpan < _minTraceLengthRt) return false;
-
-            int scansSpanned = members[^1].ScanIndex - members[0].ScanIndex + 1;
-            double sampleRate = (double)members.Count / scansSpanned;
-            return sampleRate >= _minSampleRate;
+            int lo = 0, hi = spec.Count - 1;
+            while (lo < hi)
+            {
+                int mid = (lo + hi) / 2;
+                if (spec[mid].Mass < target) lo = mid + 1; else hi = mid;
+            }
+            int best = lo;
+            if (lo > 0 && Math.Abs(spec[lo - 1].Mass - target) <= Math.Abs(spec[lo].Mass - target)) best = lo - 1;
+            return best;
         }
 
         // ── Step 3: trace → MassFeature (decomposed into per-charge traces) ───
