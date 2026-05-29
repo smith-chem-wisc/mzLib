@@ -30,7 +30,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
         private const double MatchPpm = 15.0;
         private const double IsoDa = 1.0033548;
-        private const int SampleEvery = 80; // ~40 scans across the run
+        private const int SampleEvery = 20; // ~160 scans spread evenly across the whole run (every-scan ≈3200 is impractical)
 
         // Diff OUR candidate set vs OpenMS's (CAND lines in fd_trace_z1_60.txt) to localize the
         // candidate over-count (target: match OpenMS's 5840 before touching scoring).
