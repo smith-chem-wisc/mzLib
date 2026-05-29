@@ -149,13 +149,18 @@ namespace MassSpectrometry
             var envelopes = new List<IsotopicEnvelope>(finalGroups.Count);
             foreach (var pg in finalGroups)
             {
-                envelopes.Add(new IsotopicEnvelope(
+                var env = new IsotopicEnvelope(
                     id: 0,
                     peaks: pg.SignalPeaks.Select(sp => (sp.Mz, sp.Intensity)).ToList(),
                     monoisotopicmass: pg.MonoisotopicMass,
                     chargestate: polSign * pg.RepAbsCharge,
                     intensity: pg.Intensity,
-                    score: pg.QscoreValue));   // Score = OpenMS Qscore
+                    score: pg.QscoreValue);   // Score = OpenMS Qscore
+                // Carry the per-isotope vector (OpenMS PeakGroup::getIsotopeIntensities, min-negative
+                // isotope-index based) so feature tracing can run the OpenMS MassFeatureTrace
+                // isotope-cosine filter. PerIsotopeInt was set by UpdateMonoMassAndIsotopeIntensities.
+                env.SetPerIsotopeIntensities(pg.PerIsotopeInt);
+                envelopes.Add(env);
             }
             return envelopes;
         }

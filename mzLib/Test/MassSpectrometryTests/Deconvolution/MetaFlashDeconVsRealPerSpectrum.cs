@@ -435,6 +435,124 @@ namespace Test.MassSpectrometryTests.Deconvolution
             Log($"wrote {ReportPath}");
         }
 
+        // ── Feature-tracer "piece A" differential test (vs real OpenMS MassFeatureTrace math) ──
+        // Runs our decon on a contiguous block of real MS1 scans, clusters the surviving peak groups
+        // into neutral-mass traces, and for each trace computes the per-isotope-accumulation +
+        // averagine-cosine + isotope-offset EXACTLY as OpenMS MassFeatureTrace::findFeatures does
+        // (cpp:84-149). Writes the trace inputs (mft_traces.txt) for massfeature_snip and our results
+        // (mft_ours.txt). Run massfeature_snip on mft_traces.txt, then FeatureCosine_VsOpenMS compares.
+        private const string MftTraces = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\mft_traces.txt";
+        private const string MftOurs   = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\mft_ours.txt";
+        private const string MftCpp    = @"E:\CodeReview\MetaFlashDecon\difftest\avg_snip\mft_cpp_out.txt";
+
+        [Test]
+        public void FeatureCosine_DumpForOpenMS()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            double isoDa = MetaFlashDeconAlgorithm.IsoDaDistance55K; // 1.002371 — same as OpenMS pg.getIsotopeDaDistance()
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var avg = MetaFlashDeconAveragine.For(p.AverageResidueModel, isoDa);
+            double binMul = p.TolDivFactor / (p.DeconvolutionTolerancePpm * 1e-6);
+            int[] harm = { 2, 3, 5, 7, 11 };
+            var algo = new MetaFlashDeconAlgorithm(p);
+
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var ms1 = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).OrderBy(s => s.OneBasedScanNumber).ToList();
+            // contiguous busy block (mid-run), ~150 scans -> real co-eluting traces
+            var slice = ms1.Skip(Math.Max(0, ms1.Count / 2 - 75)).Take(150).ToList();
+
+            // per-scan surviving peak groups (carry PerIsotopeInt)
+            var all = new List<MetaFlashDeconPeakGroup>();
+            foreach (var s in slice)
+            {
+                var logPeaks = MetaFlashDeconAlgorithm.BuildLogMzPeaks(s.MassSpectrum, s.MassSpectrum.Range, Polarity.Positive);
+                var cands = MetaFlashDeconCandidateFinder.FindCandidates(logPeaks, 60, harm, binMul, p, avg);
+                var scored = algo.ScoreCandidatesViaPeakGroups(s.MassSpectrum, cands, p, avg);
+                var afterCE = MetaFlashDeconPeakGroup.RemoveChargeErrorPeakGroups(scored, Polarity.Positive);
+                double ow = p.DeconvolutionTolerancePpm * 1e-6 * p.TolDivFactor * p.OverlapDedupTolFactor;
+                all.AddRange(MetaFlashDeconPeakGroup.RemoveOverlappingPeakGroups(afterCE, ow));
+            }
+
+            // cluster across scans by mono mass within 15 ppm -> traces (member sets for the A math)
+            var traces = new List<List<MetaFlashDeconPeakGroup>>();
+            List<MetaFlashDeconPeakGroup> cur = null; double curMass = 0;
+            foreach (var g in all.OrderBy(g => g.MonoisotopicMass))
+            {
+                if (cur != null && Math.Abs(g.MonoisotopicMass - curMass) <= curMass * 15e-6) cur.Add(g);
+                else { cur = new List<MetaFlashDeconPeakGroup>(); traces.Add(cur); cur.Add(g); }
+                curMass = cur.Average(x => x.MonoisotopicMass);
+            }
+            var keep = traces.Where(t => t.Count >= 3).Take(400).ToList();
+
+            var sbIn = new System.Text.StringBuilder();
+            var sbOurs = new System.Text.StringBuilder();
+            int id = 0;
+            foreach (var t in keep)
+            {
+                double totInt = t.Sum(g => g.GetIntensity());
+                double centroid = totInt > 0 ? t.Sum(g => g.MonoisotopicMass * g.GetIntensity()) / totInt : t[0].MonoisotopicMass;
+
+                sbIn.Append($"TRACE\t{id}\t{centroid.ToString("R", CultureInfo.InvariantCulture)}\t{isoDa.ToString("R", CultureInfo.InvariantCulture)}\t{t.Count}\n");
+                foreach (var g in t)
+                {
+                    var iso = g.PerIsotopeInt; // double[], min-negative(-1)-based — same as OpenMS getIsotopeIntensities
+                    sbIn.Append($"PG\t{g.MonoisotopicMass.ToString("R", CultureInfo.InvariantCulture)}\t{iso.Length}");
+                    foreach (var v in iso) sbIn.Append('\t').Append(((float)v).ToString("R", CultureInfo.InvariantCulture)); // float — OpenMS per_isotope is float
+                    sbIn.Append('\n');
+                }
+
+                // OUR side: replicate MassFeatureTrace.cpp:84-138 accumulation in FLOAT (matches std::vector<float>)
+                const int maxIso = 400; // >= snip's avg.getMaxIsotopeIndex(); cosine ignores trailing zeros
+                var perIso = new float[maxIso];
+                foreach (var g in t)
+                {
+                    var iso = g.PerIsotopeInt;
+                    int isoOff = (int)(0.5 + (g.MonoisotopicMass - centroid) / isoDa); // C# (int) truncates toward 0 == C++ int()
+                    for (int i = 0; i < perIso.Length - isoOff; i++)
+                    {
+                        if (i + isoOff < 0 || i >= iso.Length) continue;
+                        perIso[i + isoOff] += (float)iso[i];
+                    }
+                }
+                var perIsoD = new double[maxIso];
+                for (int i = 0; i < maxIso; i++) perIsoD[i] = perIso[i];
+                double cos = MetaFlashDeconPeakGroup.GetIsotopeCosineAndDetermineIsotopeIndex(
+                    perIsoD, avg.Get(centroid), avg.GetApexIndex(centroid), 0, 0, 2, out int off);
+                double corrected = centroid + off * isoDa;
+                sbOurs.Append($"FEAT\t{id}\t{cos.ToString("R", CultureInfo.InvariantCulture)}\t{off}\t{corrected.ToString("R", CultureInfo.InvariantCulture)}\n");
+                id++;
+            }
+            File.WriteAllText(MftTraces, sbIn.ToString());
+            File.WriteAllText(MftOurs, sbOurs.ToString());
+            TestContext.Progress.WriteLine($"wrote {keep.Count} traces -> {MftTraces} + {MftOurs}. Now run massfeature_snip, then FeatureCosine_VsOpenMS.");
+        }
+
+        [Test]
+        public void FeatureCosine_VsOpenMS()
+        {
+            Assume.That(File.Exists(MftOurs), $"missing {MftOurs} (run FeatureCosine_DumpForOpenMS)");
+            Assume.That(File.Exists(MftCpp), $"missing {MftCpp} (run massfeature_snip)");
+            (int id, double cos, int off, double mass) Parse(string l)
+            { var t = l.Split('\t'); return (int.Parse(t[1]), double.Parse(t[2], CultureInfo.InvariantCulture), int.Parse(t[3]), double.Parse(t[4], CultureInfo.InvariantCulture)); }
+            var ours = File.ReadLines(MftOurs).Where(l => l.StartsWith("FEAT")).Select(Parse).ToDictionary(x => x.id);
+            var cpp = File.ReadLines(MftCpp).Where(l => l.StartsWith("FEAT")).Select(Parse).ToDictionary(x => x.id);
+
+            double maxCosDiff = 0, maxMassDiff = 0; int offMismatch = 0, crossFilter = 0, n = 0;
+            foreach (var kv in cpp)
+            {
+                if (!ours.TryGetValue(kv.Key, out var o)) continue;
+                n++;
+                double cosDiff = Math.Abs(o.cos - kv.Value.cos);
+                maxCosDiff = Math.Max(maxCosDiff, cosDiff);
+                maxMassDiff = Math.Max(maxMassDiff, Math.Abs(o.mass - kv.Value.mass));
+                if (o.off != kv.Value.off) offMismatch++;
+                if ((o.cos >= 0.75) != (kv.Value.cos >= 0.75)) crossFilter++; // would the 0.75 gate flip?
+            }
+            TestContext.Progress.WriteLine($"compared n={n}  maxCosDiff={maxCosDiff:E3}  maxMassDiff={maxMassDiff:E3}  offsetMismatch={offMismatch}  cross-0.75-filter={crossFilter}");
+            Assert.That(offMismatch, Is.EqualTo(0), "isotope offset diverges -> accumulation/indexing bug");
+            Assert.That(maxCosDiff, Is.LessThan(0.02), "isotope-cosine diverges beyond averagine-boundary tolerance");
+        }
+
         // exactOnly: match within ppm; else allow ±1 isotope (Da) offset within ppm of the shifted mass.
         private static int FindMatch(List<double> real, double mass, double ppm, bool[] used, bool exactOnly)
         {

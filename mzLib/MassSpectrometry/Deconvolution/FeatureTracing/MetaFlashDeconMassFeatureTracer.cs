@@ -45,10 +45,21 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
         /// <summary>Consecutive empty scans that terminate a trace direction (FLASHDeconv trace_termination_outliers).</summary>
         public const int DefaultMaxOutlierScans = 20;
 
+        /// <summary>OpenMS MassFeatureTrace min_isotope_cosine for MS1 (MassFeatureTrace.cpp:32). Traces
+        /// whose summed isotope pattern has cosine &lt; this vs the averagine are dropped.</summary>
+        public const double DefaultMinIsotopeCosine = 0.75;
+        // Per-isotope accumulation vector size. >= OpenMS avg.getMaxIsotopeIndex() (=299 at max_mass
+        // 100k); the cosine ignores trailing zeros, so any size >= the highest occupied isotope is exact
+        // (verified vs massfeature_snip: cos within 2e-3, offset/filter identical).
+        private const int IsotopeVectorSize = 400;
+
         private readonly double _massTolerancePpm;
         private readonly double _minTraceLengthRt;
         private readonly double _minSampleRate;
         private readonly int _maxOutlierScans;
+        private readonly double _minIsotopeCosine = DefaultMinIsotopeCosine;
+        private readonly double _isoDaDistance;
+        private readonly MetaFlashDeconAveragine _averagine;
 
         /// <param name="massTolerancePpm">Mass tolerance (ppm) for charge collapse and trace extension.</param>
         /// <param name="minTraceLengthRt">Minimum trace RT span (RetentionTime units, i.e. minutes for mzML).</param>
@@ -64,6 +75,10 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
             _minTraceLengthRt = minTraceLengthRt;
             _minSampleRate = minSampleRate;
             _maxOutlierScans = maxOutlierScans;
+            // Averagine for the OpenMS MassFeatureTrace feature-level isotope-cosine filter. Same model +
+            // iso_da_distance the decon uses (FLASHDeconvAlgorithm passes avg_ to MassFeatureTrace).
+            _isoDaDistance = MetaFlashDeconAlgorithm.IsoDaDistance55K;
+            _averagine = MetaFlashDeconAveragine.For(new Averagine(), _isoDaDistance);
         }
 
         /// <inheritdoc />
@@ -85,11 +100,15 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
             // Step 2 — neutral-mass trace detection.
             var traces = DetectTraces(peaksByScan);
 
-            // Step 3 — assemble surviving traces into MassFeatures.
+            // Step 3 — assemble surviving traces into MassFeatures (dropping those that fail the
+            // OpenMS MassFeatureTrace feature-level isotope-cosine filter).
             var features = new List<MassFeature>(traces.Count);
             int nextId = 1;
             foreach (var trace in traces)
-                features.Add(BuildFeature(trace, nextId++));
+            {
+                var feature = BuildFeature(trace, nextId);
+                if (feature != null) { features.Add(feature); nextId++; }
+            }
             return features;
         }
 
@@ -206,8 +225,56 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
         }
 
         // ── Step 3: trace → MassFeature (decomposed into per-charge traces) ───
-        private static MassFeature BuildFeature(List<MassPeak> tracePeaks, int id)
+        // Returns null if the trace fails the OpenMS MassFeatureTrace feature-level isotope-cosine
+        // filter (MassFeatureTrace.cpp:109-143): accumulate each member peak-group's per-isotope
+        // intensities into a trace-level pattern (shifted by iso_off relative to the trace centroid),
+        // then drop the trace if its averagine cosine < min_isotope_cosine (0.75). This is the dominant
+        // over-production reducer that our independent tracer was missing (deferred "Phase 3b").
+        // Differential-tested vs the real OpenMS static getIsotopeCosineAndDetermineIsotopeIndex
+        // (massfeature_snip): offset & filter decisions identical, cosine within 2e-3 (averagine boundary).
+        private MassFeature BuildFeature(List<MassPeak> tracePeaks, int id)
         {
+            // ── Feature-level isotope-cosine filter (OpenMS MassFeatureTrace.cpp:84-143) ──
+            // Trace centroid = intensity-weighted mean neutral mass (mt.getCentroidMZ()).
+            double totalForCentroid = tracePeaks.Sum(p => p.Intensity);
+            double centroid = totalForCentroid > 0
+                ? tracePeaks.Sum(p => p.Mass * p.Intensity) / totalForCentroid
+                : tracePeaks[0].Mass;
+
+            // per_isotope_intensity accumulated in FLOAT (OpenMS std::vector<float>). Each member peak
+            // group contributes its per-isotope vector shifted by iso_off = (int)(0.5 + dMass/isoDa)
+            // (C# (int) truncates toward zero == C++ int()).
+            var perIso = new float[IsotopeVectorSize];
+            bool anyIsotopeData = false;
+            foreach (var pk in tracePeaks)
+                foreach (var env in pk.Envelopes)
+                {
+                    var iso = env.PerIsotopeIntensities; // double[], min-negative-isotope based (== OpenMS getIsotopeIntensities)
+                    if (iso == null) continue;
+                    anyIsotopeData = true;
+                    int isoOff = (int)(0.5 + (env.MonoisotopicMass - centroid) / _isoDaDistance);
+                    for (int i = 0; i < perIso.Length - isoOff; i++)
+                    {
+                        if (i + isoOff < 0 || i >= iso.Count) continue;
+                        perIso[i + isoOff] += (float)iso[i];
+                    }
+                }
+
+            // Real MetaFlashDecon envelopes always carry per-isotope intensities (set in Deconvolute), so
+            // the filter always applies in production — matching OpenMS, which computes this cosine for
+            // every trace. Only skip it when NO envelope supplies per-isotope data (synthetic envelopes or
+            // a non-MetaFlashDecon source), where the cosine is unevaluable rather than genuinely zero.
+            if (anyIsotopeData)
+            {
+            var perIsoD = new double[IsotopeVectorSize];
+            for (int i = 0; i < IsotopeVectorSize; i++) perIsoD[i] = perIso[i];
+            // window_width = 0 (so the trace offset is always 0) + iso_int_shift = 0 + min_iso_size = 2,
+            // exactly the args OpenMS MassFeatureTrace passes (MassFeatureTrace.cpp:138).
+            double isotopeCosine = MetaFlashDeconPeakGroup.GetIsotopeCosineAndDetermineIsotopeIndex(
+                perIsoD, _averagine.Get(centroid), _averagine.GetApexIndex(centroid), 0, 0, 2, out _);
+            if (isotopeCosine < _minIsotopeCosine) return null;
+            }
+
             // Group the trace's constituent envelopes by charge; each charge becomes one
             // CorrectedTrace so MassFeature.Finalise() / ToMs1Feature() work unchanged.
             var byCharge = new Dictionary<int, List<CorrectedEnvelope>>();
