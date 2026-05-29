@@ -153,8 +153,15 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
         }
 
         // ── Step 1: per-scan neutral-mass collapse ────────────────────────────
-        // Envelopes of the same proteoform at different charges share a neutral mass; group
-        // them (within ppm), sum intensities, and keep the constituent per-charge envelopes.
+        // Builds the per-RT neutral-mass peak list — OpenMS MassFeatureTrace's
+        // storeInformationFromDeconvolvedSpectrum keys one Peak1D(monoMass, intensity) per PeakGroup
+        // (MassFeatureTrace.cpp:171-187), i.e. NO ppm merging. A MetaFlashDecon decon emits exactly one
+        // envelope per neutral mass per scan (charges already aggregated in the peak group, RepAbsCharge
+        // labelled), and RemoveOverlappingPeakGroups keeps survivors apart — so this is effectively 1:1
+        // and FAITHFUL to OpenMS on the real path (VERIFIED: 0/912 envelopes merged over 60 real scans,
+        // Collapse_MergeStats). The within-ppm merge below is dormant for MetaFlashDecon input; it only
+        // fires for non-faithful sources that hand the IMassFeatureTracer multiple same-mass per-charge
+        // envelopes (e.g. the synthetic NativeTracer_ tests). Do not rely on it for production fidelity.
         private List<MassPeak> CollapseToNeutralMassPeaks(
             int scanIndex, int scanNumber, double rt, IReadOnlyList<IsotopicEnvelope> envelopes)
         {

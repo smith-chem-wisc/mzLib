@@ -617,6 +617,23 @@ namespace Test.MassSpectrometryTests.Deconvolution
             TestContext.Progress.WriteLine($"OpenMS traces matched by ours: {cppMatched}/{cpp.Count}");
         }
 
+        [Test]
+        public void Collapse_MergeStats()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var ms1 = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).OrderBy(s => s.OneBasedScanNumber).ToList();
+            var slice = ms1.Skip(Math.Max(0, ms1.Count / 2 - 30)).Take(60).ToList();
+            var perScan = new List<IReadOnlyList<IsotopicEnvelope>>();
+            foreach (var s in slice) perScan.Add(Deconvoluter.Deconvolute(s.MassSpectrum, p).ToList());
+            var tracer = new MassSpectrometry.Deconvolution.FeatureTracing.MetaFlashDeconMassFeatureTracer();
+            var (input, _) = tracer.DetectTracesDiagnostic(slice, perScan);
+            int env = perScan.Sum(e => e.Count);
+            int peaks = input.Sum(i => i.peaks.Count);
+            TestContext.Progress.WriteLine($"COLLAPSE: scans={slice.Count} envelopes={env} collapsedPeaks={peaks} mergedAway={env - peaks} ({(env>0?(double)(env-peaks)/env:0):P2})");
+        }
+
         // exactOnly: match within ppm; else allow ±1 isotope (Da) offset within ppm of the shifted mass.
         private static int FindMatch(List<double> real, double mass, double ppm, bool[] used, bool exactOnly)
         {
