@@ -37,6 +37,38 @@ namespace Test.MassSpectrometryTests.Deconvolution
         [Test] public void Gated()   => RunPass(0.5, writeFeatureFile: true);
         [Test] public void Ungated() => RunPass(0.0, writeFeatureFile: false);
 
+        // Recall hunt (2026-05-30): faithful z1-100 default params, with the tracer's per-trace dump enabled
+        // so we can split the missed FLASHDeconv features into "trace dropped by 0.85 cosine" vs "no trace".
+        private const string TraceDumpPath = @"E:\CodeReview\MetaFlashDecon\deliverables\tracedump_z1_100.txt";
+        [Test]
+        public void DefaultParamsWithTraceDump()
+        {
+            Assume.That(File.Exists(Mzml), $"missing mzML: {Mzml}");
+            Directory.CreateDirectory(OutDir);
+            var sw = Stopwatch.StartNew();
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var ms1 = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1)
+                .OrderBy(s => s.OneBasedScanNumber).ToList();
+            var p = new MetaFlashDeconParameters(); // FLASHDeconv-faithful defaults: z1-100, cos 0.85
+            var perScan = Ms1FeatureGenerator.DeconvolveScans(ms1, p);
+            long totalEnv = perScan.Sum(e => (long)e.Count);
+            Log($"[tracedump] deconvolved {ms1.Count} scans, envelopes={totalEnv} in {sw.Elapsed}");
+
+            MetaFlashDeconMassFeatureTracer.TraceDump = new System.Collections.Generic.List<string>();
+            var features = new MetaFlashDeconMassFeatureTracer().TraceFeatures(ms1, perScan);
+            File.WriteAllText(TraceDumpPath,
+                "centroid\trtMinSec\trtMaxSec\tsize\tintensity\tcosine\tkept\n" +
+                string.Join("\n", MetaFlashDeconMassFeatureTracer.TraceDump));
+            int kept = MetaFlashDeconMassFeatureTracer.TraceDump.Count(l => l.EndsWith("\t1"));
+            int dropped = MetaFlashDeconMassFeatureTracer.TraceDump.Count - kept;
+            MetaFlashDeconMassFeatureTracer.TraceDump = null;
+            Log($"[tracedump] traces={MetaFlashDeconMassFeatureTracer.TraceDump?.Count ?? (kept + dropped)} " +
+                $"kept(cosine>=0.85)={kept} dropped-by-cosine={dropped}  features={features.Count}  " +
+                $"wrote {TraceDumpPath}  (total {sw.Elapsed})");
+            string outPath = Path.Combine(OutDir, "rep2_fract10_native_z1_100_ms1.feature");
+            Ms1FeatureGenerator.WriteFeatures(features, outPath);
+        }
+
         private static void RunPass(double snrThreshold, bool writeFeatureFile)
         {
             Assume.That(File.Exists(Mzml), $"missing mzML: {Mzml}");

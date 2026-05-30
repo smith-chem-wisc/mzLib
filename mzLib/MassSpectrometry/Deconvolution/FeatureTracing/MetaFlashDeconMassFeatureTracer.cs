@@ -48,10 +48,16 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
         /// <summary>min_sample_rate. The FLASHDeconv TOPP tool overrides the MassFeatureTrace class default
         /// to 0.05 (FLASHDeconv.cpp:210).</summary>
         public const double DefaultMinSampleRate = 0.05;
-        /// <summary>OpenMS MassTraceDetection trace_termination_outliers (TOPP removes it from the override
-        /// set, FLASHDeconv.cpp:205, so the class default 5 applies): a direction stops after this many
-        /// CONSECUTIVE non-empty scans with no acceptable peak.</summary>
-        public const int DefaultMaxOutlierScans = 5;
+        /// <summary>OpenMS MassTraceDetection trace_termination_outliers: a trace direction stops after this
+        /// many CONSECUTIVE non-empty scans with no acceptable peak. ⚠ FLASHDeconv HARD-SETS this to 20 at
+        /// runtime (FLASHDeconv.cpp:570) — it is NOT the MassTraceDetection class default 5. (Lines 204-205
+        /// only REMOVE it from the user-facing FeatureTracing param subsection; the operative value is the
+        /// later setValue(...,20).) This large tolerance is what lets a faithful trace bridge long sparse
+        /// gaps (e.g. an MS1 mass present at the feature apex and again ~36 s later in the elution tail, with
+        /// ~18 intervening MS1 scans that deconvolve other masses) and still reach the 10 s min length. With
+        /// the wrong value 5 such features collapse to <10 s and are dropped — the dominant recall loss
+        /// (verified 2026-05-30 on the 22550.5 feature, RT 2529-2575 s). DO NOT change to 5.</summary>
+        public const int DefaultMaxOutlierScans = 20;
 
         /// <summary>Feature-level isotope-cosine threshold. The FLASHDeconv TOPP tool sets the MassFeatureTrace
         /// value to -1 (FLASHDeconv.cpp:198), resolved to the MS1 min_isotope_cosine = 0.85
@@ -71,6 +77,13 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
         private readonly double _minIsotopeCosine = DefaultMinIsotopeCosine;
         private readonly double _isoDaDistance;
         private readonly MetaFlashDeconAveragine _averagine;
+
+        // DIAGNOSTIC ONLY (recall hunt 2026-05-30): when non-null, BuildFeature appends one line per
+        // detected trace — "centroid<TAB>rtMinSec<TAB>rtMaxSec<TAB>size<TAB>totalIntensity<TAB>cosine<TAB>kept" —
+        // so we can cross-reference the FLASHDeconv features we miss against (a) traces dropped by the 0.85
+        // cosine filter vs (b) traces never formed. Off in production (null); not thread-touched (the tracer
+        // build loop is sequential). Remove with the recall investigation.
+        internal static System.Collections.Generic.List<string> TraceDump;
 
         /// <param name="massTolerancePpm">Mass tolerance (ppm) for charge collapse and trace extension.</param>
         /// <param name="minTraceLengthRt">Minimum trace RT span (RetentionTime units, i.e. minutes for mzML).</param>
@@ -374,6 +387,8 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
             // the filter always applies in production — matching OpenMS, which computes this cosine for
             // every trace. Only skip it when NO envelope supplies per-isotope data (synthetic envelopes or
             // a non-MetaFlashDecon source), where the cosine is unevaluable rather than genuinely zero.
+            double dumpCosine = -1.0;
+            bool keptByCosine = true;
             if (anyIsotopeData)
             {
             var perIsoD = new double[IsotopeVectorSize];
@@ -382,8 +397,19 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
             // exactly the args OpenMS MassFeatureTrace passes (MassFeatureTrace.cpp:138).
             double isotopeCosine = MetaFlashDeconPeakGroup.GetIsotopeCosineAndDetermineIsotopeIndex(
                 perIsoD, _averagine.Get(centroid), _averagine.GetApexIndex(centroid), 0, 0, 2, out _);
-            if (isotopeCosine < _minIsotopeCosine) return null;
+            dumpCosine = isotopeCosine;
+            keptByCosine = isotopeCosine >= _minIsotopeCosine;
             }
+            if (TraceDump != null)
+            {
+                double rtMin = double.MaxValue, rtMax = double.MinValue;
+                foreach (var p in tracePeaks) { if (p.Rt < rtMin) rtMin = p.Rt; if (p.Rt > rtMax) rtMax = p.Rt; }
+                TraceDump.Add(string.Format(System.Globalization.CultureInfo.InvariantCulture,
+                    "{0:F4}\t{1:F2}\t{2:F2}\t{3}\t{4:F1}\t{5:F4}\t{6}",
+                    centroid, rtMin * 60.0, rtMax * 60.0, tracePeaks.Count, totalForCentroid, dumpCosine,
+                    keptByCosine ? 1 : 0));
+            }
+            if (!keptByCosine) return null;
 
             // Group the trace's constituent envelopes by charge; each charge becomes one
             // CorrectedTrace so MassFeature.Finalise() / ToMs1Feature() work unchanged.

@@ -32,6 +32,35 @@ namespace Test.MassSpectrometryTests.Deconvolution
         private const double IsoDa = 1.0033548;
         private const int SampleEvery = 20; // ~160 scans spread evenly across the whole run (every-scan ≈3200 is impractical)
 
+        // Recall hunt (2026-05-30): the tracer forms NO trace near strong FD masses (e.g. 22550.5 @ RT2532).
+        // Deconvolve the exact apex scans at z1-100 defaults and dump our masses in the window, to decide
+        // per-spectrum-miss vs tracer-miss for the never-formed features.
+        [Test]
+        public void DumpScanMassWindow()
+        {
+            Assume.That(File.Exists(Mzml), $"missing {Mzml}");
+            var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
+            var ms1 = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).ToDictionary(s => s.OneBasedScanNumber);
+            var p = new MetaFlashDeconParameters(); // z1-100 faithful defaults
+            // FD feature 22550.5 spans RT 2529.22-2574.73s (45.5s). Check OUR per-spectrum support for
+            // 22549-22551.5 across every MS1 scan in that span — is the trailing edge a per-spectrum miss?
+            double lo = 22545.0, hi = 22553.0;
+            var span = ms1.Values.Where(s => s.RetentionTime * 60 >= 2527 && s.RetentionTime * 60 <= 2577)
+                .OrderBy(s => s.OneBasedScanNumber).ToList();
+            TestContext.Progress.WriteLine($"MS1 scans in RT[2527,2577]s: {span.Count}");
+            int have = 0;
+            foreach (var sc in span)
+            {
+                var hits = Deconvoluter.Deconvolute(sc.MassSpectrum, p)
+                    .Where(e => e.MonoisotopicMass >= lo && e.MonoisotopicMass <= hi)
+                    .OrderBy(e => e.MonoisotopicMass).ToList();
+                if (hits.Count > 0) have++;
+                TestContext.Progress.WriteLine($"  scan {sc.OneBasedScanNumber} RT={sc.RetentionTime*60:F1}s : " +
+                    (hits.Count > 0 ? string.Join(" ", hits.Select(h => $"{h.MonoisotopicMass:F2}(z{h.Charge},{h.TotalIntensity/1e6:F0}M)")) : "(none)"));
+            }
+            TestContext.Progress.WriteLine($"=> we have 22550.5 on {have}/{span.Count} MS1 scans across the FD feature span");
+        }
+
         // Diff OUR candidate set vs OpenMS's (CAND lines in fd_trace_z1_60.txt) to localize the
         // candidate over-count (target: match OpenMS's 5840 before touching scoring).
         [Test]
@@ -473,7 +502,7 @@ namespace Test.MassSpectrometryTests.Deconvolution
             var dataFile = MsDataFileReader.GetDataFile(Mzml).LoadAllStaticData();
             var ms1 = dataFile.GetAllScansList().Where(s => s.MsnOrder == 1).ToDictionary(s => s.OneBasedScanNumber);
 
-            var p = new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60);
+            var p = new MetaFlashDeconParameters(); // FLASHDeconv-faithful defaults (z1-100); production msalign is z1-100
 
             var log = new List<string>();
             void Log(string s) { TestContext.Progress.WriteLine(s); log.Add(s); }
