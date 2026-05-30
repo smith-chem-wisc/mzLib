@@ -209,12 +209,16 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         [Test]
-        public static void FromMassFeatures_GappedChargeSet_DoesNotFabricateIntermediateCharges()
+        public static void FromMassFeatures_GappedChargeSet_WritesSingleRowAggregatedChargeRange()
         {
             // Charges {10, 12, 15} are non-contiguous (intermediate charges fell below the
-            // deconvolution score cutoff). Writing them as a single Min=10/Max=15 row would
-            // let the reader re-expand to 10..15 and invent charges 11/13/14. The
-            // contiguous-run split must round-trip exactly the observed set.
+            // deconvolution score cutoff). FromMassFeatures writes ONE row per feature with the
+            // aggregated Min=10/Max=15 charge range — faithful to the real OpenMS FLASHDeconv
+            // _ms1.feature (one row per mass feature; verified the ground-truth file has zero
+            // charge-only splits, only RT splits). Re-expanding Min..Max on reload may surface an
+            // unobserved intermediate charge, but that matches FLASHDeconv and the charge set is
+            // metadata, not used for mass/RT pairing. The earlier contiguous-run split was unfaithful
+            // and inflated intensity (full feature.SummedIntensity written on EVERY split row).
             var feature = BuildMassFeature(id: 1, traces: new[]
             {
                 BuildTrace(charge: 10, consensusMass: 5000.0, envelopes: new[] { (rt: 20.0, intensity: 8.0e7) }),
@@ -226,13 +230,13 @@ namespace Test.FileReadingTests.ExternalFileReading
             Ms1FeatureFile.FromMassFeatures(new[] { feature }).WriteResults(outputPath);
 
             var roundTripped = FileReader.ReadFile<Ms1FeatureFile>(outputPath);
-            Assert.That(roundTripped.Results.Count, Is.EqualTo(3),
-                "a gapped {10,12,15} charge set should write as three contiguous-run rows");
-
-            var charges = roundTripped.GetMs1Features()
-                .Select(f => f.Charge).Distinct().OrderBy(z => z).ToArray();
-            Assert.That(charges, Is.EqualTo(new[] { 10, 12, 15 }),
-                "read-back must yield exactly the observed charges, with no fabricated 11/13/14");
+            Assert.That(roundTripped.Results.Count, Is.EqualTo(1),
+                "a gapped {10,12,15} charge set must write as a single feature row (FLASHDeconv-faithful)");
+            var row = roundTripped.Results[0];
+            Assert.That(row.ChargeStateMin, Is.EqualTo(10));
+            Assert.That(row.ChargeStateMax, Is.EqualTo(15));
+            // Intensity is the feature total (8+6+4=18e7), NOT 3x inflated by per-run duplication.
+            Assert.That(row.Intensity, Is.EqualTo(1.8e8).Within(1.0));
         }
 
         [Test]

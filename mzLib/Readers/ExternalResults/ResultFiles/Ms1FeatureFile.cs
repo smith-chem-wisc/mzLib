@@ -92,13 +92,15 @@ namespace Readers
             int sequentialId = 0;
             foreach (var f in features)
             {
-                // ToMs1Features splits a gapped charge set into contiguous-run rows so the
-                // reader can't fabricate the missing charges; number each emitted row.
-                foreach (var rec in f.ToMs1Features(sampleId, fractionId))
-                {
-                    rec.Id = sequentialId++;
-                    records.Add(rec);
-                }
+                // ONE row per feature with the aggregated Min/Max charge — faithful to the real
+                // OpenMS FLASHDeconv _ms1.feature (FLASHDeconvFeatureFile writes a single row per
+                // mass feature; VERIFIED 2026-05-30: in the ground-truth file every multi-row mass
+                // differs in RETENTION TIME, never just charge — 0 charge-only splits). The older
+                // ToMs1Features charge-gap splitting was unfaithful AND inflated intensity (it wrote
+                // the full feature.SummedIntensity on every split row). Re-expanding Min..Max on
+                // reload may fabricate an unobserved intermediate charge, but that matches FLASHDeconv
+                // and the charge set is metadata, not used for mass/RT pairing.
+                records.Add(f.ToMs1Feature(sequentialId++, sampleId, fractionId));
             }
             var file = new Ms1FeatureFile { Software = software };
             file.Results = records;
