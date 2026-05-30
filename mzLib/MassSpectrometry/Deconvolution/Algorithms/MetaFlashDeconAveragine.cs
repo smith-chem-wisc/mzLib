@@ -101,6 +101,27 @@ namespace MassSpectrometry
         internal double GetAverageMassDelta(double mass) => GetEntry(mass).AverageMassDelta;
 
         /// <summary>
+        /// OpenMS <c>PrecalculatedAveragine::getAverageMassDelta</c> at the FLASHDeconv minimum mass (50 Da),
+        /// from its <c>CoarseIsotopePatternGenerator</c> (FLASHDeconvHelperStructs.cpp:107). ⚠ This is the ONE
+        /// averagine value mzLib cannot reproduce locally: mzLib's <c>IsotopicDistribution</c> + its isotope
+        /// abundances give ~0.0251-0.0255 for the mass-50 averagine, vs OpenMS's coarse generator 0.02514582
+        /// — the un-snippable isotope-generator boundary. Verified against the OpenMS-linked
+        /// <c>avg_snip</c> / <c>FD_SCALARTRACE</c> (full-precision double). Used ONLY to set
+        /// <c>mass_bin_min</c>; an exact match removes the ~2-bin axis shift that mis-assigns sparse-scan
+        /// candidate charge ranges. See STATUS 2026-05-29.
+        /// </summary>
+        internal const double OpenMsAvgDeltaAtMass50 = 0.025145816488311823;
+
+        /// <summary>
+        /// avgDelta for the bin-axis origin (<c>mass_bin_min = log(min_mass - this)</c>). Returns the
+        /// exact-OpenMS value at the FLASHDeconv default min_mass (50); falls back to the model elsewhere.
+        /// (min_mass is 50 in every standard top-down run; a non-50 min_mass would need a faithful port of
+        /// CoarseIsotopePatternGenerator to be axis-exact.)
+        /// </summary>
+        internal double GetMassBinMinAvgDelta(double minMass)
+            => Math.Abs(minMass - 50.0) < 1e-6 ? OpenMsAvgDeltaAtMass50 : GetAverageMassDelta(minMass);
+
+        /// <summary>
         /// Faithful port of the per-mass loop body in OpenMS
         /// <c>PrecalculatedAveragine::PrecalculatedAveragine</c> (FLASHDeconvHelperStructs.cpp:36-106).
         /// Given the raw isotope-indexed intensities (isotope 0 = monoisotopic), greedily trim the

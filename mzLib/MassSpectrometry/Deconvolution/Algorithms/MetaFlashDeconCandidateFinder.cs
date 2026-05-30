@@ -78,17 +78,15 @@ namespace MassSpectrometry
 
             double mzBinMin = logPeaks[0].LogMz;
             double mzBinMax = logPeaks[^1].LogMz;
-            // mass-bin axis origin (OpenMS mass_bin_min_value_, FLASHDeconvAlgorithm.cpp:1074).
-            // ⚠ KNOWN, DELIBERATE residual: avg.GetAverageMassDelta(minMass=50) differs from OpenMS by
-            // ~0.4 mDa because mzLib's Averagine snaps mass 50 to its coarse C2H4N1O1 entry while OpenMS
-            // builds C2N1O1 via estimateFromPeptideMonoWeight — the un-snippable isotope-generator
-            // boundary (CoarseIsotopePatternGenerator). This leaves an ACCIDENTAL but uniform +2 mass-bin
-            // index shift vs OpenMS. It does NOT affect results (truth recovery / per-spectrum match are
-            // exact regardless of the axis origin). Do NOT "fix" avgDelta in isolation: a partial
-            // correction makes the shift a NON-integer ~1.5 bins, which re-rounds per-charge binOffsets
-            // non-uniformly and REGRESSED truth recovery (15/17 -> 13/17). Only an exact-OpenMS avgDelta
-            // (i.e. matching the generator) would be safe — see STATUS 2026-05-29.
-            double massBinMin = Math.Log(Math.Max(1.0, minMass - avg.GetAverageMassDelta(minMass)));
+            // mass-bin axis origin (OpenMS mass_bin_min_value_ = log(min_mass - avg.getAverageMassDelta(min_mass)),
+            // FLASHDeconvAlgorithm.cpp:1074). ⚠ Uses the EXACT-OpenMS avgDelta (GetMassBinMinAvgDelta), NOT
+            // mzLib's Averagine value: mzLib snaps mass 50 to its coarse C2H4N1O1 entry / its own isotope
+            // abundances, giving avgDelta ~0.0251-0.0255 vs OpenMS's CoarseIsotopePatternGenerator 0.02514582
+            // — the one un-snippable averagine boundary. That ~mDa error shifts this axis ~2 bins, which on
+            // SPARSE scans lands candidates in the wrong filterMassBins charge-range slot (spurious extra
+            // charge -> cos<0.85 -> dropped), silently cutting per-spectrum (and thus feature) yield.
+            // Exact axis: scan 1332 15/20 -> 20/20, scan 2301 preserved 17/17. avgDelta is used ONLY here.
+            double massBinMin = Math.Log(Math.Max(1.0, minMass - avg.GetMassBinMinAvgDelta(minMass)));
             double massBinMax = Math.Min(
                 logPeaks[^1].LogMz - filter[tmpPeakCntr],
                 Math.Log(maxMass + avg.GetRightCountFromApex(maxMass) + 1.0));
