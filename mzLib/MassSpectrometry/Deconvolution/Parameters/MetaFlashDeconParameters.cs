@@ -126,8 +126,8 @@ namespace MassSpectrometry
         /// <param name="overlapDedupTolFactor">Overlap-dedup window multiplier (OpenMS final dedup = 1.5 × input ppm, default 1.5).</param>
         /// <param name="snrThreshold">Minimum all-charge SNR to report an envelope (OpenMS <c>snr_threshold</c>, default 0.5).</param>
         public MetaFlashDeconParameters(
-            int minCharge = 1,
-            int maxCharge = 60,
+            int minCharge = 1,             // FLASHDeconv TOPP default (FLASHDeconv.cpp:179)
+            int maxCharge = 100,           // FLASHDeconv TOPP default (FLASHDeconv.cpp:180) — was wrongly 60
             double deconvolutionTolerancePpm = 10.0,
             int minIsotopicPeakCount = 3,
             int maxIsotopicPeakCount = 50,

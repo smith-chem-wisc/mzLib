@@ -47,8 +47,8 @@ namespace Test
         public void MetaFlashDeconParameters_DefaultConstructor_ChargeRangeIsCorrect()
         {
             var p = new MetaFlashDeconParameters();
-            Assert.That(p.MinAssumedChargeState, Is.EqualTo(1));
-            Assert.That(p.MaxAssumedChargeState, Is.EqualTo(60));
+            Assert.That(p.MinAssumedChargeState, Is.EqualTo(1));   // FLASHDeconv TOPP default (FLASHDeconv.cpp:179)
+            Assert.That(p.MaxAssumedChargeState, Is.EqualTo(100)); // FLASHDeconv TOPP default (FLASHDeconv.cpp:180)
         }
 
         [Test]

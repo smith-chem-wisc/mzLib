@@ -38,21 +38,26 @@ namespace MassSpectrometry.Deconvolution.FeatureTracing
     {
         /// <summary>Mass tolerance (ppm) for collapsing charges into one neutral-mass peak per scan.</summary>
         public const double DefaultMassTolerancePpm = 10.0;
-        /// <summary>OpenMS MassTraceDetection mass_error_ppm (NOT overridden by MassFeatureTrace, so the
-        /// default 20). The trace-extension window is ±3·(centroid/1e6·mass_error_ppm) = ±60 ppm.</summary>
-        public const double DefaultMassErrorPpm = 20.0;
+        /// <summary>mass_error_ppm for trace extension. The FLASHDeconv TOPP tool sets the MassFeatureTrace
+        /// value to -1 (FLASHDeconv.cpp:209), which it resolves to the MS1 tol = 10 ppm (FLASHDeconv.cpp:563-565)
+        /// — NOT the MassTraceDetection class default 20. The trace-extension window is ±3·(centroid/1e6·this).</summary>
+        public const double DefaultMassErrorPpm = 10.0;
         /// <summary>Minimum trace RT span to keep, in RetentionTime units (minutes); OpenMS min_trace_length
         /// = 10 s (MassFeatureTrace.cpp:19) = 10/60 min.</summary>
         public const double DefaultMinTraceLengthRt = 10.0 / 60.0;
-        /// <summary>OpenMS MassFeatureTrace min_sample_rate (MassFeatureTrace.cpp:18) = 0.1.</summary>
-        public const double DefaultMinSampleRate = 0.1;
-        /// <summary>OpenMS MassTraceDetection trace_termination_outliers (NOT overridden, default 5):
-        /// a direction stops after this many CONSECUTIVE non-empty scans with no acceptable peak.</summary>
+        /// <summary>min_sample_rate. The FLASHDeconv TOPP tool overrides the MassFeatureTrace class default
+        /// to 0.05 (FLASHDeconv.cpp:210).</summary>
+        public const double DefaultMinSampleRate = 0.05;
+        /// <summary>OpenMS MassTraceDetection trace_termination_outliers (TOPP removes it from the override
+        /// set, FLASHDeconv.cpp:205, so the class default 5 applies): a direction stops after this many
+        /// CONSECUTIVE non-empty scans with no acceptable peak.</summary>
         public const int DefaultMaxOutlierScans = 5;
 
-        /// <summary>OpenMS MassFeatureTrace min_isotope_cosine for MS1 (MassFeatureTrace.cpp:32). Traces
-        /// whose summed isotope pattern has cosine &lt; this vs the averagine are dropped.</summary>
-        public const double DefaultMinIsotopeCosine = 0.75;
+        /// <summary>Feature-level isotope-cosine threshold. The FLASHDeconv TOPP tool sets the MassFeatureTrace
+        /// value to -1 (FLASHDeconv.cpp:198), resolved to the MS1 min_isotope_cosine = 0.85
+        /// (FLASHDeconv.cpp:573-575) — NOT the MassFeatureTrace class default 0.75. Traces whose summed
+        /// isotope pattern has cosine &lt; this vs the averagine are dropped.</summary>
+        public const double DefaultMinIsotopeCosine = 0.85;
         // Per-isotope accumulation vector size. >= OpenMS avg.getMaxIsotopeIndex() (=299 at max_mass
         // 100k); the cosine ignores trailing zeros, so any size >= the highest occupied isotope is exact
         // (verified vs massfeature_snip: cos within 2e-3, offset/filter identical).
