@@ -364,6 +364,10 @@ namespace MassSpectrometry
                 double monoMass = nominator / intensityF;
                 if (monoMass < minMass || monoMass > maxMass) continue;
 
+                // FD_CGTRACE_CS: dump candidate-gen mono for a target bin-mass window (vs OpenMS CG_MONO).
+                if (Environment.GetEnvironmentVariable("FD_CGTRACE_CS") is string cgcs && mass0 > 8160 && mass0 < 8175)
+                    System.IO.File.AppendAllText(cgcs, $"CG_MONO\tbinmass={mass0:R}\tt_mass={tMass:R}\tmono={monoMass:R}\tz1-{crHi + 1}\tmin_off={minOff}\tmax_off={maxOff}\tnpeaks={monoPeaks.Count}\n");
+
                 // Per-isotope intensity vector for the pre-loop GetIsotopeCosineAndDetermineIsotopeIndex
                 // seed in ScoreCandidatesViaPeakGroups (OpenMS scoreAndFilterPeakGroups_, cpp:1091-1093).
                 // Shape matches MetaFlashDeconPeakGroup.UpdateMonoMassAndIsotopeIntensities:
