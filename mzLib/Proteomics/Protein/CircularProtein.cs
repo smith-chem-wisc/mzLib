@@ -247,47 +247,70 @@ namespace Proteomics
                 // across all matching (key, mod) pairs, mirroring the combinatorial
                 // enumeration that linear peptide digestion performs.
                 // MaxMods == 0 means no modified forms are produced.
-                if (variableModifications != null)
                 {
-                    // Build the list of all (key, mod) pairs that fit this ring.
+                    // Build the list of all (key, mod) pairs that fit this ring, from BOTH
+                    // the caller-supplied variable modifications AND the protein's
+                    // database/XML-annotated localized modifications. The linear digestion
+                    // path applies OneBasedPossibleLocalizedModifications as variable mods,
+                    // so the intact-ring forms must include them too — otherwise the ring
+                    // loses annotated PTM isoforms that the ring-opening linear products carry.
+                    //
                     // Key convention: side-chain at 1-based position pos → key = pos + 1.
-                    // Circular peptides have no termini, so N-term (key=1) and
-                    // C-term (key=n+2) restrictions are excluded.
+                    // Circular peptides have no termini, so only "Anywhere." mods apply.
                     var applicableSites = new List<(int Key, Modification Mod)>();
-                    foreach (var mod in variableModifications)
-                    {
-                        if (mod.LocationRestriction != "Anywhere.") continue;
+                    var seenSites = new HashSet<(int Pos, string Id)>();
 
-                        for (int pos = 1; pos <= n; pos++)
-                        {
-                            if (ModificationLocalization.ModFits(
-                                    mod,
-                                    BaseSequence,
-                                    digestionProductOneBasedIndex: pos,
-                                    digestionProductLength: n,
-                                    bioPolymerOneBasedIndex: pos))
-                            {
-                                applicableSites.Add((pos + 1, mod));
-                            }
-                        }
+                    void AddSiteIfApplicable(int pos, Modification mod)
+                    {
+                        if (mod.LocationRestriction != "Anywhere.") return;
+                        if (pos < 1 || pos > n) return;
+                        if (!ModificationLocalization.ModFits(
+                                mod,
+                                BaseSequence,
+                                digestionProductOneBasedIndex: pos,
+                                digestionProductLength: n,
+                                bioPolymerOneBasedIndex: pos))
+                            return;
+                        if (seenSites.Add((pos, mod.IdWithMotif)))
+                            applicableSites.Add((pos + 1, mod));
                     }
 
-                    // Enumerate all subsets of applicableSites of size 1..MaxMods.
-                    // Each subset where all keys are distinct produces one modified peptide.
-                    // (Two mods at the same site are excluded — one mod per residue.)
+                    if (variableModifications != null)
+                        foreach (var mod in variableModifications)
+                            for (int pos = 1; pos <= n; pos++)
+                                AddSiteIfApplicable(pos, mod);
+
+                    foreach (var kv in OneBasedPossibleLocalizedModifications)
+                        foreach (var mod in kv.Value)
+                            AddSiteIfApplicable(kv.Key, mod);
+
+                    // Enumerate subsets of applicableSites of size 1..MaxMods (one mod per
+                    // residue), bounded by MaxModificationIsoforms to match the linear
+                    // pathway's cap and avoid a combinatorial explosion of ring forms.
                     int maxMods = ((DigestionParams)digestionParams).MaxMods;
+                    int maxIsoforms = ((DigestionParams)digestionParams).MaxModificationIsoforms;
+                    int isoformCount = 0;
                     foreach (var subset in GetModSubsets(applicableSites, maxMods))
                     {
+                        if (isoformCount >= maxIsoforms)
+                            break;
+
                         // Merge fixed mods into the variable-mod subset so that every
                         // variable-modified form also carries fixed modifications.
-                        // Variable mods at the same key override the fixed mod at that
-                        // position, consistent with how the linear pathway handles conflicts.
+                        // Variable mods at the same key override the fixed mod there.
                         var merged = new Dictionary<int, Modification>(fixedModsDict);
                         foreach (var kvp in subset)
-                        {
                             merged[kvp.Key] = kvp.Value;
-                        }
 
+                        // Recompute the fixed-mod count from what survives the merge: a
+                        // variable mod overriding a fixed mod at the same key removes one
+                        // fixed mod, so the precomputed count would overstate it.
+                        int actualFixedMods = 0;
+                        foreach (var fk in fixedModsDict.Keys)
+                            if (!subset.ContainsKey(fk))
+                                actualFixedMods++;
+
+                        isoformCount++;
                         yield return new CircularPeptideWithSetModifications(
                             protein: this,
                             digestionParams: digestionParams,
@@ -297,7 +320,7 @@ namespace Proteomics
                             peptideDescription: null,
                             missedCleavages: numCleavageSites,
                             allModsOneIsNterminus: merged,
-                            numFixedMods: numFixed,
+                            numFixedMods: actualFixedMods,
                             baseSequence: BaseSequence);
                     }
                 }
@@ -333,7 +356,30 @@ namespace Proteomics
             var validStartPositions = new HashSet<int>(
                 cleavagePositions.Select(p => p == n ? 1 : p + 1));
 
-            var proxyProtein = new Protein(this, BaseSequence + BaseSequence[..^1]);
+            // Replicate database/XML-localized modifications onto the second copy of the
+            // doubled proxy. The Protein(Protein, string) clone keeps localized-mod keys
+            // only in 1..N, but wrap-around fragments span proxy positions N+1..2N-1
+            // (ring positions 1..N-1); without the replicated keys those wrapped residues
+            // would silently lose their annotated modifications, producing wrong masses
+            // and fragment ions for exactly the peptides that distinguish circular topology.
+            var proxyMods = new Dictionary<int, List<Modification>>();
+            foreach (var kv in OneBasedPossibleLocalizedModifications)
+            {
+                proxyMods[kv.Key] = kv.Value;                 // first copy:  positions 1..N
+                if (kv.Key <= n - 1)
+                    proxyMods[kv.Key + n] = kv.Value;         // second copy: positions N+1..2N-1
+            }
+
+            var proxyProtein = new Protein(
+                sequence: BaseSequence + BaseSequence[..^1],
+                accession: Accession,
+                oneBasedModifications: proxyMods,
+                name: Name,
+                fullName: FullName,
+                organism: Organism,
+                isDecoy: IsDecoy,
+                isContaminant: IsContaminant,
+                databaseFilePath: DatabaseFilePath);
             var proxyPeptides = proxyProtein.Digest(digestionParams,
                 allKnownFixedModifications, variableModifications,
                 silacLabels, turnoverLabels, topDownTruncationSearch);
