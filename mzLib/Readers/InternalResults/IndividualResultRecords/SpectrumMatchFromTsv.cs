@@ -172,8 +172,8 @@ namespace Readers
             GeneName = GetOptionalValue(SpectrumMatchFromTsvHeader.GeneName, parsedHeader, spl);
             OrganismName = GetOptionalValue(SpectrumMatchFromTsvHeader.OrganismName, parsedHeader, spl);
             IntersectingSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IntersectingSequenceVariations, parsedHeader, spl);
-            IdentifiedSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations, parsedHeader, spl);
-            SpliceSites = GetOptionalValue(SpectrumMatchFromTsvHeader.SpliceSites, parsedHeader, spl);
+            IdentifiedSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations, parsedHeader, spl, "");
+            SpliceSites = GetOptionalValue(SpectrumMatchFromTsvHeader.SpliceSites, parsedHeader, spl, "");
             Description = GetOptionalValue(SpectrumMatchFromTsvHeader.Description, parsedHeader, spl);
             StartAndEndResiduesInParentSequence = GetOptionalValue(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, parsedHeader, spl);
             PreviousResidue = GetOptionalValue(SpectrumMatchFromTsvHeader.PreviousResidue, parsedHeader, spl);
@@ -222,8 +222,28 @@ namespace Readers
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
                 Accession = psm.Accession.Split("|")[index];
-                Name = psm.Name.Split("|")[index];
-                GeneName = psm.GeneName.Split("|")[index];
+
+                if (psm.Name is null)
+                    Name = string.Empty;
+                else
+                {
+                    var nameSplits = psm.Name.Split("|");
+                    if (nameSplits.Length == 1)
+                        Name = nameSplits[0];
+                    else
+                        Name = nameSplits[index];
+                }
+
+                if (psm.GeneName is null)
+                    GeneName = string.Empty;
+                else
+                {
+                    var geneSplits = psm.GeneName.Split("|");
+                    if (geneSplits.Length == 1)
+                        GeneName = geneSplits[0];
+                    else
+                        GeneName = geneSplits[index];
+                }
 
                 if (psm.MonoisotopicMassString.Split("|").Count() == 1)
                 {
@@ -295,7 +315,12 @@ namespace Readers
             {
                 return defaultValue;
             }
-            return splitLine[parsedHeader[header]].Trim();
+            var value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value)) // if the cell is empty or only whitespace, treat it as missing and return defaultValue
+            {
+                return defaultValue;
+            }
+            return value;
         }
 
         protected TNumber? GetOptionalValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine, TNumber? defaultValue = null)

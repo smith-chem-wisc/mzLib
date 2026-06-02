@@ -1,6 +1,6 @@
-﻿namespace Omics.Fragmentation;
+namespace Omics.Fragmentation;
 
-public interface IFragmentationParams
+public interface IFragmentationParams : IEquatable<IFragmentationParams>
 {
     /// <summary>
     /// Whether to generate M ions (the intact molecule with a charge state of 1)

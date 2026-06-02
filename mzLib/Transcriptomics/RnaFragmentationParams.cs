@@ -1,13 +1,33 @@
-﻿using Chemistry;
+using Chemistry;
 using Omics.Fragmentation;
+using System;
 
 namespace Transcriptomics;
 
-public class RnaFragmentationParams : IFragmentationParams
+public class RnaFragmentationParams : IFragmentationParams, IEquatable<RnaFragmentationParams>
 {
     public bool GenerateMIon { get; set; } = true;
     public List<MIonLoss> MIonLosses { get; set; } = new();
     public bool ModificationsCanSuppressBaseLossIons { get; set; } = false;
+
+    #region Equality
+
+    public override bool Equals(object? obj)
+        => obj is RnaFragmentationParams rna && Equals(rna);
+
+    bool IEquatable<IFragmentationParams>.Equals(IFragmentationParams? other)
+        => other is RnaFragmentationParams rna && Equals(rna);
+    public bool Equals(RnaFragmentationParams? other)
+    {
+        if (other is null) return false;
+        return GenerateMIon == other.GenerateMIon
+               && MIonListComparer.Instance.Equals(MIonLosses, other.MIonLosses)
+               && ModificationsCanSuppressBaseLossIons == other.ModificationsCanSuppressBaseLossIons;
+    }
+
+    public override int GetHashCode() => HashCode.Combine(GenerateMIon, MIonListComparer.Instance.GetHashCode(MIonLosses), ModificationsCanSuppressBaseLossIons);
+
+    #endregion
 
     static RnaFragmentationParams()
     {

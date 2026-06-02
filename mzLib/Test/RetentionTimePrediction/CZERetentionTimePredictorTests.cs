@@ -37,7 +37,7 @@ public class CZERetentionTimePredictorTests
         var predictor = new CZERetentionTimePredictor();
         var peptide = new StubRetentionPredictable { MonoisotopicMass = 0 };
 
-        var predicted = predictor.PredictRetentionTime(peptide, out var failureReason);
+        var predicted = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
 
         Assert.That(predicted, Is.Null);
         Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.InvalidMass));

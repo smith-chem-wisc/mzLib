@@ -17,6 +17,8 @@ namespace PredictionClients.Koina.AbstractClasses
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
+    /// <param name="ValidatedFullSequence">Validated and cleaned peptide sequence that was actually used for prediction (Unimod format). This may also differ from the original FullSequence if modifications were removed or if the sequence was deemed invalid for the model. This is the sequence that reflects the actual input to the model.</param>
+    /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
     /// <param name="FragmentIntensities">Predicted relative intensities (0-1 scale, -1 indicates impossible ions)</param>
@@ -98,6 +100,12 @@ namespace PredictionClients.Koina.AbstractClasses
 
         public abstract IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public abstract FragmentIonMappingMode FragmentIonMappingMode { get; init; }
+        /// <summary>
+        /// Reusable static instance — no M ions, no M-ion losses. This is a safeguard when creating PeptideWithSetModifications objects,
+        /// such as in ResponseToPredictions() with MapToInputFullSequence mapping mode selected, since Koina does not return M-ions and 
+        /// any potential issues with generated M-ions would be inherited here.
+        /// </summary>
+        private static readonly FragmentationParams _noMIonParams = new() { GenerateMIon = false };
         #endregion
 
         #region Inputs and Outputs for internal processing 
@@ -312,7 +320,7 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = batchPeptides[i].SequenceWarning });
+                        { Warning = peptide.SequenceWarning });
                     }
                 }
                 else // FragmentIonMappingMode == FragmentIonMappingMode.MapToInputFullSequence
@@ -322,8 +330,8 @@ namespace PredictionClients.Koina.AbstractClasses
                         var peptide = batchPeptides[i];
                         var pwsm = new PeptideWithSetModifications(peptide.FullSequence);
                         List<Product> theoreticalProducts = new();
-                        pwsm.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts);
-                        Dictionary<string, Product> tpLookup = theoreticalProducts.ToDictionary(tp => tp.Annotation);
+                        pwsm.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts, fragmentationParams: _noMIonParams);
+                        Dictionary<string, Product> tpLookup = theoreticalProducts.DistinctBy(tp => tp.Annotation).ToDictionary(tp => tp.Annotation);
 
                         var fragmentIons = new List<string>();
                         var fragmentMZs = new List<double>();
@@ -351,7 +359,7 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = batchPeptides[i].SequenceWarning });
+                        { Warning = peptide.SequenceWarning });
                     }
                 }
             }
@@ -496,9 +504,9 @@ namespace PredictionClients.Koina.AbstractClasses
                 List<MatchedFragmentIon> fragmentIons = new();
 
                 List<Product> theoreticalProducts = new();
-                peptide.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts); // Generate theoretical fragments to get the m/z values for the input sequence
+                peptide.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts, fragmentationParams: _noMIonParams); // Generate theoretical fragments to get the m/z values for the input sequence
                 Dictionary<string, double> predictionAnnotationIntensityLookup = new();
-                Dictionary<string, Product> tpLookup = theoreticalProducts.ToDictionary(tp => tp.Annotation);
+                Dictionary<string, Product> tpLookup = theoreticalProducts.DistinctBy(tp => tp.Annotation).ToDictionary(tp => tp.Annotation);
 
                 for (int i = 0; i < prediction.FragmentAnnotations.Count; i++)
                 {
