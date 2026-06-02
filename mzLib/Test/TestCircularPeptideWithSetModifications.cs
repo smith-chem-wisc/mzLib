@@ -1099,5 +1099,104 @@ namespace Test
                 Is.EqualTo(oxMass).Within(1e-4),
                 "Mass difference for [1,3]=ACM = oxMass");
         }
+
+        // ── Constructor guards: terminal mods are invalid on a circular peptide ──
+
+        private static DigestionParams SimpleDigestionParams() =>
+            new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1);
+
+        private static Modification BuildAnyAnywhereMod()
+        {
+            ModificationMotif.TryGetMotif("M", out ModificationMotif motif);
+            return new Modification(
+                _originalId: "TestMod",
+                _modificationType: "Test",
+                _target: motif,
+                _locationRestriction: "Anywhere.",
+                _monoisotopicMass: 10.0);
+        }
+
+        /// <summary>
+        /// A circular peptide has no free N-terminus, so a modification at the
+        /// N-terminal key (1) must be rejected by the constructor.
+        /// </summary>
+        [Test]
+        public static void Constructor_NTerminalMod_ThrowsArgumentException()
+        {
+            var protein = new CircularProtein("ACDEFGHIM", "test_acc"); // N = 9
+            var mod = BuildAnyAnywhereMod();
+
+            Assert.Throws<ArgumentException>(() => new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: SimpleDigestionParams(),
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 9,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification> { { 1, mod } },
+                numFixedMods: 0,
+                baseSequence: "ACDEFGHIM"));
+        }
+
+        /// <summary>
+        /// A circular peptide has no free C-terminus, so a modification at the
+        /// C-terminal key (peptideLength + 2 = 11) must be rejected by the constructor.
+        /// </summary>
+        [Test]
+        public static void Constructor_CTerminalMod_ThrowsArgumentException()
+        {
+            var protein = new CircularProtein("ACDEFGHIM", "test_acc"); // N = 9
+            var mod = BuildAnyAnywhereMod();
+
+            Assert.Throws<ArgumentException>(() => new CircularPeptideWithSetModifications(
+                protein: protein,
+                digestionParams: SimpleDigestionParams(),
+                oneBasedStartResidueInProtein: 1,
+                oneBasedEndResidueInProtein: 9,
+                cleavageSpecificity: CleavageSpecificity.Full,
+                peptideDescription: null,
+                missedCleavages: 0,
+                allModsOneIsNterminus: new Dictionary<int, Modification> { { 11, mod } },
+                numFixedMods: 0,
+                baseSequence: "ACDEFGHIM"));
+        }
+
+        /// <summary>
+        /// FragmentInternally caches the ring-mass and doubled-prefix arrays after the
+        /// first call (the peptide is immutable). A second call must hit the cache and
+        /// return identical fragments.
+        /// </summary>
+        [Test]
+        public static void FragmentInternally_CalledTwice_ReturnsIdenticalProducts()
+        {
+            var peptide = GetFullRingPeptide("ACDEFGHIM");
+            var first = new List<Product>();
+            var second = new List<Product>();
+
+            peptide.FragmentInternally(DissociationType.HCD, 3, first);
+            peptide.FragmentInternally(DissociationType.HCD, 3, second);
+
+            Assert.That(first, Is.Not.Empty, "First fragmentation should produce internal fragments.");
+            Assert.That(second.Count, Is.EqualTo(first.Count),
+                "Repeated fragmentation must produce the same number of fragments.");
+            Assert.That(second.Select(p => p.NeutralMass).ToList(),
+                Is.EqualTo(first.Select(p => p.NeutralMass).ToList()),
+                "Cached fragmentation must yield identical neutral masses.");
+        }
+
+        /// <summary>
+        /// FragmentInternally enforces its documented contract: a minimum fragment
+        /// length below 1 is invalid.
+        /// </summary>
+        [Test]
+        public static void FragmentInternally_MinLengthBelowOne_Throws()
+        {
+            var peptide = GetFullRingPeptide("ACDEFGHIM");
+            var products = new List<Product>();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                peptide.FragmentInternally(DissociationType.HCD, 0, products));
+        }
     }
 }
