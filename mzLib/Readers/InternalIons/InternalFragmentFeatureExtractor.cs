@@ -180,7 +180,9 @@ namespace Readers.InternalIons
                 return null;
 
             double observedMass = ion.Mz.ToMass(ion.Charge);
-            double theoreticalMass = product.NeutralMass;
+            // ParseInternalFragmentFromProduct tolerates a null product (regex fallback), so match
+            // that contract here and degrade to NaN rather than dereferencing a null product.
+            double theoreticalMass = product?.NeutralMass ?? double.NaN;
             double localRank = CalculateLocalIntensityRank(scan, ion.Mz, ion.Intensity);
 
             char nTermFlank = startResidue > 1 ? baseSequence[startResidue - 2] : '-';

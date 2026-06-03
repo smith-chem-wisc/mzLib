@@ -34,9 +34,14 @@ namespace Readers.InternalIons
 
             for (int idx = 1; idx < lines.Length; idx++)
             {
+                if (string.IsNullOrWhiteSpace(lines[idx])) continue;
                 var vals = lines[idx].Split(Delimiter);
-                if (vals.Length == 0) continue;
-                try { results.Add(Parse(vals, columnMap)); } catch { }
+                try { results.Add(Parse(vals, columnMap)); }
+                catch (Exception ex)
+                {
+                    throw new FormatException(
+                        $"Failed to parse internal-fragment TSV row {idx} in '{path}': {ex.Message}", ex);
+                }
             }
             return results;
         }

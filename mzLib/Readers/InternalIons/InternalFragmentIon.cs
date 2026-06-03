@@ -53,8 +53,9 @@ namespace Readers.InternalIons
 
         public string FullModifiedSequence { get; set; } = string.Empty;
         public string ModificationsInInternalFragment { get; set; } = string.Empty;
-        public bool HasModifiedResidue => CommonBiologicalModCount > 0 || CommonArtifactModCount > 0 ||
-                                          MetalModCount > 0 || LessCommonModCount > 0;
+        // Reflects any modification in the fragment span, including categories not counted above
+        // (e.g. Common Fixed / UniProt), so it stays consistent with ModificationsInInternalFragment.
+        public bool HasModifiedResidue => !string.IsNullOrWhiteSpace(ModificationsInInternalFragment);
 
         public bool PassesMassAccuracyFilter
         {
