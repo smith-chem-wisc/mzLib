@@ -79,7 +79,11 @@ namespace PredictionClients.MixedModels
             {
                 ComponentName = componentName,
                 ContributionType = contributionType,
-                Spectra = spectra.ToDictionary(s => s.Name),
+                // Duplicate Sequence/Charge names are expected (see class remarks); collapse
+                // them last-wins rather than letting ToDictionary throw and fail the component.
+                Spectra = spectra
+                    .GroupBy(s => s.Name)
+                    .ToDictionary(g => g.Key, g => g.Last()),
                 Warning = warning,
                 Succeeded = true,
             };

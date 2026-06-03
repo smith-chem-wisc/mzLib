@@ -10,8 +10,9 @@ namespace PredictionClients.MixedModels.Components
     /// Wraps any Koina FragmentIntensityModel (Prosit2020IntensityHCD, etc.)
     /// and contributes its predictions as PrimaryFragmentIntensities.
     ///
-    /// The component owns the model's lifetime — it disposes the model after RunAsync()
-    /// completes (which mirrors how the model already disposes itself after RunInferenceAsync).
+    /// The component does NOT own the model's lifetime: RunAsync runs the model via
+    /// Predict + GenerateLibrarySpectraFromPredictions and leaves it intact. FragmentIntensityModel
+    /// is not IDisposable, so there is nothing to dispose; the caller owns the model.
     /// </summary>
     public class PrimaryIntensityComponent : IMixedModelComponent
     {

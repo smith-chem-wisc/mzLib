@@ -325,8 +325,10 @@ namespace PredictionClients.LocalModels
                 int n = bare.Length;
 
                 var candidates = new List<(int i, int j, double neutralMass)>();
-                for (int i = 0; i < n; i++)
-                    for (int j = i + MinFragmentLength - 1; j < Math.Min(i + MaxFragmentLength, n); j++)
+                // Internal fragments require a cleavage at BOTH ends, so exclude spans that touch
+                // either terminus: start at residue index >= 1 and end at index <= n - 2.
+                for (int i = 1; i < n; i++)
+                    for (int j = i + MinFragmentLength - 1; j < Math.Min(i + MaxFragmentLength, n - 1); j++)
                         candidates.Add((i, j, InternalNeutralMass(bare, i, j)));
 
                 if (candidates.Count == 0)
