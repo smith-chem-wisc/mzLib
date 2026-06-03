@@ -254,9 +254,7 @@ namespace Test.InternalIons
                 ("CommonBiologicalModCount", Pearson(_passing.Select(r => (double)I(r, "CommonBiologicalModCount")).ToList(), target)),
                 ("CommonArtifactModCount", Pearson(_passing.Select(r => (double)I(r, "CommonArtifactModCount")).ToList(), target)),
                 ("MetalModCount", Pearson(_passing.Select(r => (double)I(r, "MetalModCount")).ToList(), target)),
-                ("LessCommonModCount", Pearson(_passing.Select(r => (double)I(r, "LessCommonModCount")).ToList(), target)),
-                ("HasPhosphorylation", Pearson(_passing.Select(r => B(r, "HasPhosphorylation") ? 1.0 : 0.0).ToList(), target)),
-                ("HasMetalOnTerminalAcidic", Pearson(_passing.Select(r => B(r, "HasMetalOnTerminalAcidic") ? 1.0 : 0.0).ToList(), target))
+                ("LessCommonModCount", Pearson(_passing.Select(r => (double)I(r, "LessCommonModCount")).ToList(), target))
             };
 
             W("Correlations with TicNormalizedIntensity (ranked by |r|):");
@@ -315,9 +313,7 @@ namespace Test.InternalIons
                 ("CommonBiologicalModCount", r => I(r, "CommonBiologicalModCount")),
                 ("CommonArtifactModCount", r => I(r, "CommonArtifactModCount")),
                 ("MetalModCount", r => I(r, "MetalModCount")),
-                ("LessCommonModCount", r => I(r, "LessCommonModCount")),
-                ("HasPhosphorylation", r => B(r, "HasPhosphorylation") ? 1.0 : 0.0),
-                ("HasMetalOnTerminalAcidic", r => B(r, "HasMetalOnTerminalAcidic") ? 1.0 : 0.0)
+                ("LessCommonModCount", r => I(r, "LessCommonModCount"))
             };
 
             W("+---------------------------+--------+--------+-------+----------+----------+");
@@ -449,42 +445,6 @@ namespace Test.InternalIons
             PrintModCountFeature("CommonArtifactModCount", target);
             PrintModCountFeature("MetalModCount", target);
             PrintModCountFeature("LessCommonModCount", target);
-
-            // HasPhosphorylation
-            W("--- HasPhosphorylation ---");
-            var phosphoTrue = _passing.Where(r => B(r, "HasPhosphorylation")).ToList();
-            var phosphoFalse = _passing.Where(r => !B(r, "HasPhosphorylation")).ToList();
-
-            W($"  Count TRUE:  {phosphoTrue.Count:N0} ({100.0 * phosphoTrue.Count / _passing.Count:F2}%)");
-            W($"  Count FALSE: {phosphoFalse.Count:N0}");
-
-            double meanTicPhosphoTrue = phosphoTrue.Count > 0 ? phosphoTrue.Average(r => D(r, "TicNormalizedIntensity")) : 0;
-            double meanTicPhosphoFalse = phosphoFalse.Count > 0 ? phosphoFalse.Average(r => D(r, "TicNormalizedIntensity")) : 0;
-            double phosphoRatio = meanTicPhosphoFalse > 0 ? meanTicPhosphoTrue / meanTicPhosphoFalse : 0;
-
-            W($"  Mean TicNI TRUE:  {meanTicPhosphoTrue:E4}");
-            W($"  Mean TicNI FALSE: {meanTicPhosphoFalse:E4}");
-            W($"  Ratio (TRUE/FALSE): {phosphoRatio:F2}");
-            W("  Expected: ratio < 1.0 (phospho neutral loss competes with backbone)");
-            W();
-
-            // HasMetalOnTerminalAcidic
-            W("--- HasMetalOnTerminalAcidic ---");
-            var metalTermTrue = _passing.Where(r => B(r, "HasMetalOnTerminalAcidic")).ToList();
-            var metalTermFalse = _passing.Where(r => !B(r, "HasMetalOnTerminalAcidic")).ToList();
-
-            W($"  Count TRUE:  {metalTermTrue.Count:N0} ({100.0 * metalTermTrue.Count / _passing.Count:F2}%)");
-            W($"  Count FALSE: {metalTermFalse.Count:N0}");
-
-            double meanTicMetalTrue = metalTermTrue.Count > 0 ? metalTermTrue.Average(r => D(r, "TicNormalizedIntensity")) : 0;
-            double meanTicMetalFalse = metalTermFalse.Count > 0 ? metalTermFalse.Average(r => D(r, "TicNormalizedIntensity")) : 0;
-            double metalRatio = meanTicMetalFalse > 0 ? meanTicMetalTrue / meanTicMetalFalse : 0;
-
-            W($"  Mean TicNI TRUE:  {meanTicMetalTrue:E4}");
-            W($"  Mean TicNI FALSE: {meanTicMetalFalse:E4}");
-            W($"  Ratio (TRUE/FALSE): {metalRatio:F2}");
-            W("  (No strong prior expectation - report direction only)");
-            W();
 
             // === MODIFICATION INTERACTION WITH WEAK-BOND FEATURES ===
             W("--- Modification Interaction with Weak-Bond Features ---");

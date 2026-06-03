@@ -106,8 +106,6 @@ namespace Readers.InternalIons
         public int CommonArtifactModCount { get; set; }
         public int MetalModCount { get; set; }
         public int LessCommonModCount { get; set; }
-        public bool HasPhosphorylation { get; set; }
-        public bool HasMetalOnTerminalAcidic { get; set; }
 
         public static string[] GetHeaderNames() => new[]
         {
@@ -127,7 +125,7 @@ namespace Readers.InternalIons
             nameof(BasicResiduesInBIonSpan), nameof(BasicResiduesInYIonSpan),
             nameof(IsProlineAtInternalNTerminus), nameof(IsTerminalRescue), nameof(NTerminalFlankingHydrophobicity),
             nameof(CommonBiologicalModCount), nameof(CommonArtifactModCount), nameof(MetalModCount),
-            nameof(LessCommonModCount), nameof(HasPhosphorylation), nameof(HasMetalOnTerminalAcidic)
+            nameof(LessCommonModCount)
         };
 
         public string[] GetValues() => new[]
@@ -164,8 +162,7 @@ namespace Readers.InternalIons
             IsProlineAtInternalNTerminus.ToString(), IsTerminalRescue.ToString(),
             NTerminalFlankingHydrophobicity.ToString("G17", CultureInfo.InvariantCulture),
             CommonBiologicalModCount.ToString(), CommonArtifactModCount.ToString(),
-            MetalModCount.ToString(), LessCommonModCount.ToString(),
-            HasPhosphorylation.ToString(), HasMetalOnTerminalAcidic.ToString()
+            MetalModCount.ToString(), LessCommonModCount.ToString()
         };
     }
 }

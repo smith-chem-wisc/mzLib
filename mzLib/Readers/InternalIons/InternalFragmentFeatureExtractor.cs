@@ -92,8 +92,6 @@ namespace Readers.InternalIons
                 ion.CommonArtifactModCount = 0;
                 ion.MetalModCount = 0;
                 ion.LessCommonModCount = 0;
-                ion.HasPhosphorylation = false;
-                ion.HasMetalOnTerminalAcidic = false;
                 return;
             }
 
@@ -116,24 +114,6 @@ namespace Readers.InternalIons
                 var cat = GetModCategory(m);
                 return cat.Equals("Less Common", StringComparison.OrdinalIgnoreCase)
                     || cat.Equals("Speculative", StringComparison.OrdinalIgnoreCase);
-            });
-
-            ion.HasPhosphorylation = modList.Any(m =>
-            {
-                int idx = m.IndexOf(':');
-                string name = idx > 0 ? m.Substring(idx + 1).Trim() : m.Trim();
-                return name.StartsWith("Phosphorylation", StringComparison.OrdinalIgnoreCase);
-            });
-
-            ion.HasMetalOnTerminalAcidic = modList.Any(m =>
-            {
-                if (!GetModCategory(m).Equals("Metal", StringComparison.OrdinalIgnoreCase))
-                    return false;
-                bool onD = m.EndsWith("on D", StringComparison.OrdinalIgnoreCase);
-                bool onE = m.EndsWith("on E", StringComparison.OrdinalIgnoreCase);
-                if (!onD && !onE) return false;
-                char target = onD ? 'D' : 'E';
-                return ion.InternalNTerminalAA == target || ion.InternalCTerminalAA == target;
             });
         }
 
