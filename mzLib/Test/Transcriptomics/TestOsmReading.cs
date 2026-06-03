@@ -12,6 +12,7 @@ using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics;
 
+[TestFixture]
 public class TestOsmReading
 {
     public static string OsmFilePath => Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "OsmFileForTesting.osmtsv");
@@ -414,5 +415,61 @@ public class TestOsmReading
             "Custom 5'-Terminus formula not parsed correctly.");
         Assert.That(osm.ThreePrimeTerminus.ThisChemicalFormula.Formula, Is.EqualTo(dummyThreePrime.Formula),
             "Custom 3'-Terminus formula not parsed correctly.");
+    }
+
+    [Test]
+    public static void FilteringParams_MatchedIonWithEnvelope_SpectrumMatchReaderOSM()
+    {
+        List<string> errors = new();
+        SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+        {
+            FragmentIonsHavePlaceholderForEnvelope = true
+        };
+
+        List<OsmFromTsv> results = SpectrumMatchTsvReader.ReadOsmTsv(OsmFilePath, out errors, parsingParams);
+        Assert.That(errors.Count, Is.EqualTo(0));
+        foreach (var ion in results.SelectMany(p => p.MatchedIons))
+            Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+    }
+
+    [Test]
+    public static void FilteringParams_MatchedIonWithEnvelope_SpectrumMatchReaderGeneric()
+    {
+        List<string> errors = new();
+        SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+        {
+            FragmentIonsHavePlaceholderForEnvelope = true
+        };
+
+        List<OsmFromTsv> results = SpectrumMatchTsvReader.ReadTsv<OsmFromTsv>(OsmFilePath, out errors, parsingParams);
+        Assert.That(errors.Count, Is.EqualTo(0));
+        foreach (var ion in results.SelectMany(p => p.MatchedIons))
+            Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+    }
+
+    [Test]
+    public static void FilteringParams_MatchedIonWithEnvelope_OsmFromTsvFile()
+    {
+        SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+        {
+            FragmentIonsHavePlaceholderForEnvelope = true
+        };
+
+        List<OsmFromTsv> results = new OsmFromTsvFile(OsmFilePath, parsingParams).Results;
+        foreach (var ion in results.SelectMany(p => p.MatchedIons))
+            Assert.That(ion is MatchedFragmentIonWithEnvelope, $"Expected MatchedFragmentIonWithEnvelope but got {ion.GetType().Name}");
+    }
+
+    [Test]
+    public static void FilteringParams_DoNotParseFragmentIons()
+    {
+        SpectrumMatchParsingParameters parsingParams = new SpectrumMatchParsingParameters
+        {
+            ParseMatchedFragmentIons = false
+        };
+
+        List<OsmFromTsv> results = new OsmFromTsvFile(OsmFilePath, parsingParams).Results;
+        foreach (var psm in results)
+            Assert.That(psm.MatchedIons, Is.Null.Or.Empty, $"Expected no matched ions but got {psm.MatchedIons?.Count ?? 0}");
     }
 }

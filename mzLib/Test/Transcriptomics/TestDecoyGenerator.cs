@@ -4,14 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NUnit.Framework.Interfaces;
 using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Chemistry;
+using Omics.Modifications.IO;
 
 namespace Test.Transcriptomics
 {
@@ -46,6 +44,28 @@ namespace Test.Transcriptomics
             Assert.That(decoys.All(p => Equals(p.FivePrimeTerminus, example.FivePrimeTerminus)));
             Assert.That(decoys.All(p => Equals(p.ThreePrimeTerminus, example.ThreePrimeTerminus)));
             Assert.That(decoys.All(p => p.OneBasedPossibleLocalizedModifications.Count == example.OneBasedPossibleLocalizedModifications.Count));
+        }
+
+        [Test]
+        public static void TestReverseDecoy_EntrapmentIsPreserved()
+        {
+            var entrapmentRna = new RNA("GUUCUG", "Random_RNA1", isEntrapment: true);
+            var targetRna = new RNA("GUGCUA", "RNA2");
+
+            var oligos = new List<RNA> { entrapmentRna, targetRna };
+            var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
+
+            Assert.That(decoys.Count, Is.EqualTo(2));
+
+            var entrapmentDecoy = decoys.First(d => d.BaseSequence == "GUCUUG");
+            Assert.That(entrapmentDecoy.IsEntrapment, Is.True);
+            Assert.That(entrapmentDecoy.IsDecoy, Is.True);
+            Assert.That(entrapmentDecoy.Accession.StartsWith("DECOY_"), Is.True);
+            Assert.That(entrapmentDecoy.Accession.Contains("Random_"), Is.True);
+
+            var targetDecoy = decoys.First(d => d.BaseSequence == "AUCGUG");
+            Assert.That(targetDecoy.IsEntrapment, Is.False);
+            Assert.That(targetDecoy.IsDecoy, Is.True);
         }
 
         [Test]
@@ -232,7 +252,7 @@ namespace Test.Transcriptomics
         [Test]
         public void TestCreateNew()
         {
-            var mods = PtmListLoader.ReadModsFromString(
+            var mods = ModificationLoader.ReadModsFromString(
                 "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
                 out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
@@ -282,7 +302,7 @@ namespace Test.Transcriptomics
         [Test]
         public void TestCreateNew_FromDecoy()
         {
-            var mods = PtmListLoader.ReadModsFromString(
+            var mods = ModificationLoader.ReadModsFromString(
                 "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
                 out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);

@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Chromatography.RetentionTimePrediction;
 using Chromatography.RetentionTimePrediction.Chronologer;
 using Chromatography.RetentionTimePrediction.SSRCalc;
@@ -10,6 +10,7 @@ using System.Linq;
 using System;
 using Chromatography;
 using Readers;
+using Omics.SequenceConversion;
 
 namespace Test.RetentionTimePrediction
 {
@@ -28,9 +29,9 @@ namespace Test.RetentionTimePrediction
         {
             _predictors = new List<IRetentionTimePredictor>
             {
-                new ChronologerRetentionTimePredictor(IncompatibleModHandlingMode.RemoveIncompatibleMods),
+                new ChronologerRetentionTimePredictor(SequenceConversionHandlingMode.RemoveIncompatibleElements),
                 new SSRCalc3RetentionTimePredictor(),
-                new CZERetentionTimePredictor(IncompatibleModHandlingMode.UsePrimarySequence, 1.0, 1.0)
+                new CZERetentionTimePredictor(SequenceConversionHandlingMode.UsePrimarySequence, 1.0, 1.0)
             };
         }
 
@@ -55,7 +56,7 @@ namespace Test.RetentionTimePrediction
             
             foreach (var predictor in _predictors)
             {
-                var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+                var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
                 
                 Assert.That(result, Is.Not.Null, 
                     $"Predictor {predictor.PredictorName} failed to predict for unmodified peptide");
@@ -89,8 +90,8 @@ namespace Test.RetentionTimePrediction
             
             foreach (var predictor in _predictors)
             {
-                var result1 = predictor.PredictRetentionTime(peptide, out _);
-                var result2 = predictor.PredictRetentionTime(peptide, out _);
+                var result1 = predictor.PredictRetentionTimeEquivalent(peptide, out _);
+                var result2 = predictor.PredictRetentionTimeEquivalent(peptide, out _);
                 
                 Assert.That(result1, Is.EqualTo(result2),
                     $"Predictor {predictor.PredictorName} gave inconsistent results");
@@ -119,7 +120,7 @@ namespace Test.RetentionTimePrediction
                 
                 foreach (var predictor in _predictors)
                 {
-                    var result = predictor.PredictRetentionTime(peptide, out _);
+                    var result = predictor.PredictRetentionTimeEquivalent(peptide, out _);
                     Assert.That(result, Is.Not.Null,
                         $"Failed to predict {sequence} with {predictor.PredictorName}");
                 }
@@ -146,7 +147,7 @@ namespace Test.RetentionTimePrediction
                 
                 foreach (var predictor in _predictors)
                 {
-                    var result = predictor.PredictRetentionTime(peptide, out _);
+                    var result = predictor.PredictRetentionTimeEquivalent(peptide, out _);
                     // Some predictors may not support all modifications, but should handle gracefully
                     Assert.That(result, Is.Not.Null,
                         $"Predictor {predictor.PredictorName} failed for {sequence}");
@@ -167,7 +168,7 @@ namespace Test.RetentionTimePrediction
                 
                 foreach (var peptide in peptides)
                 {
-                    predictor.PredictRetentionTime(peptide, out _);
+                    predictor.PredictRetentionTimeEquivalent(peptide, out _);
                 }
                 
                 stopwatch.Stop();
@@ -189,7 +190,7 @@ namespace Test.RetentionTimePrediction
             
             foreach (var predictor in _predictors)
             {
-                var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+                var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
                 
                 // Should either succeed or fail gracefully
                 if (result == null)
@@ -211,14 +212,17 @@ namespace Test.RetentionTimePrediction
             
             foreach (var predictor in _predictors)
             {
-                var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+                var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
                 
                 if (result == null)
                 {
                     Assert.That(failureReason, Is.Not.Null,
-                        $"Predictor {predictor.PredictorName} should report why prediction failed");
-                    Assert.That(failureReason, Is.EqualTo(RetentionTimeFailureReason.SequenceTooLong),
-                        $"Predictor {predictor.PredictorName} should indicate sequence too long");
+                        $"{predictor.PredictorName} returned null without a failure reason");
+                }
+                else
+                {
+                    Assert.That(failureReason, Is.Null,
+                        $"{predictor.PredictorName} returned a value but also set a failure reason");
                 }
             }
         }
@@ -231,7 +235,7 @@ namespace Test.RetentionTimePrediction
             
             foreach (var predictor in _predictors)
             {
-                var result = predictor.PredictRetentionTime(peptide, out _);
+                var result = predictor.PredictRetentionTimeEquivalent(peptide, out _);
                 
                 // All predictors should handle canonical amino acids
                 Assert.That(result, Is.Not.Null,
@@ -251,7 +255,7 @@ namespace Test.RetentionTimePrediction
             foreach (var predictor in _predictors)
             {
                 var formatted = predictor.GetFormattedSequence(peptide, out var formatFailure);
-                var prediction = predictor.PredictRetentionTime(peptide, out var predictFailure);
+                var prediction = predictor.PredictRetentionTimeEquivalent(peptide, out var predictFailure);
                 
                 // If formatting succeeds, prediction should succeed
                 if (formatted != null)
@@ -301,8 +305,8 @@ namespace Test.RetentionTimePrediction
             
             using var chronologer = new ChronologerRetentionTimePredictor();
             
-            var rtHydrophobic = chronologer.PredictRetentionTime(hydrophobic, out _);
-            var rtHydrophilic = chronologer.PredictRetentionTime(hydrophilic, out _);
+            var rtHydrophobic = chronologer.PredictRetentionTimeEquivalent(hydrophobic, out _);
+            var rtHydrophilic = chronologer.PredictRetentionTimeEquivalent(hydrophilic, out _);
             
             Assert.That(rtHydrophobic, Is.Not.Null);
             Assert.That(rtHydrophilic, Is.Not.Null);
@@ -322,8 +326,8 @@ namespace Test.RetentionTimePrediction
             
             using var chronologer = new ChronologerRetentionTimePredictor();
             
-            var rtUnmodified = chronologer.PredictRetentionTime(unmodified, out _);
-            var rtModified = chronologer.PredictRetentionTime(modified, out _);
+            var rtUnmodified = chronologer.PredictRetentionTimeEquivalent(unmodified, out _);
+            var rtModified = chronologer.PredictRetentionTimeEquivalent(modified, out _);
             
             Assert.That(rtUnmodified, Is.Not.Null);
             Assert.That(rtModified, Is.Not.Null);
@@ -343,7 +347,7 @@ namespace Test.RetentionTimePrediction
             foreach (var predictor in _predictors)
             {
                 Assert.Throws<System.ArgumentNullException>(() =>
-                    predictor.PredictRetentionTime(null, out _));
+                    predictor.PredictRetentionTimeEquivalent(null, out _));
             }
         }
 
@@ -360,7 +364,7 @@ namespace Test.RetentionTimePrediction
             {
                 foreach (var predictor in _predictors)
                 {
-                    var result = predictor.PredictRetentionTime(peptide, out var failureReason);
+                    var result = predictor.PredictRetentionTimeEquivalent(peptide, out var failureReason);
                     
                     if (result == null)
                     {

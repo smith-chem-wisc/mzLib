@@ -11,6 +11,7 @@ namespace Test.Omics;
 public class MockSpectralMatch : BaseSpectralMatch
 {
     private readonly List<IBioPolymerWithSetMods> _identified;
+
     public MockSpectralMatch(
         string filePath,
         string fullSequence,

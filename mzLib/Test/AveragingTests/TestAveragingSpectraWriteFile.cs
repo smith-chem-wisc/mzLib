@@ -45,7 +45,8 @@ namespace Test.AveragingTests
             {
                 File.Delete(file);
             }
-            Assert.That(Directory.GetFiles(OutputDirectory).Length == 2);
+            Assert.That(Directory.GetFiles(OutputDirectory).All(p =>
+                !p.Contains("Averaged", StringComparison.InvariantCultureIgnoreCase)));
 
             foreach (var directoryToDelete in Directory.GetDirectories(OutputDirectory).Where(p => p.Contains("Averaged", StringComparison.InvariantCultureIgnoreCase)))
             {

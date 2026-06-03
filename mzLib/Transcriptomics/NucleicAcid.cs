@@ -71,18 +71,21 @@ namespace Transcriptomics
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string? name = null, string? organism = null,
             string? databaseFilePath = null,
-            bool isContaminant = false, bool isDecoy = false, List<Tuple<string, string>>? geneNames = null,
+            bool isContaminant = false, bool isDecoy = false,
+            List<Tuple<string, string>>? geneNames = null,
             Dictionary<string, string>? additionalDatabaseFields = null,
             List<TruncationProduct>? truncationProducts = null,
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
-            string? sampleNameForVariants = null, string? fullName = null)
+            string? sampleNameForVariants = null, string? fullName = null,
+            bool isEntrapment = false)
             : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
         {
             Name = name ?? "";
             DatabaseFilePath = databaseFilePath ?? "";
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
+            IsEntrapment = isEntrapment;
             Organism = organism ?? "";
             Accession = accession;
             AdditionalDatabaseFields = additionalDatabaseFields;
@@ -152,6 +155,7 @@ namespace Transcriptomics
         public string DatabaseFilePath { get; }
         public bool IsDecoy { get; }
         public bool IsContaminant { get; }
+        public bool IsEntrapment { get; }
         public string Accession { get; }
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; protected set; }

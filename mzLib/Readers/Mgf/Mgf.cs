@@ -1,6 +1,7 @@
 ﻿using MassSpectrometry;
 using MzLibUtil;
 using System.Globalization;
+using System.Reflection.Metadata.Ecma335;
 using System.Text.RegularExpressions;
 
 // old namespace to ensure backwards compatibility
@@ -49,7 +50,8 @@ namespace Readers
 
                             var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
 
-                            scans.Add(scan);
+                            if (scan is not null)
+                                scans.Add(scan);
                         }
                     }
                 }
@@ -136,7 +138,7 @@ namespace Readers
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
-        private static MsDataScan GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
+        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
@@ -196,6 +198,8 @@ namespace Readers
 
             double[] mzArray = mzs.ToArray();
             double[] intensityArray = intensities.ToArray();
+            if (mzArray.IsNullOrEmpty() || intensityArray.IsNullOrEmpty())
+                return null;
 
             Array.Sort(mzArray, intensityArray);
 

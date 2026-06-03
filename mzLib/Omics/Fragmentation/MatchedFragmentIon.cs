@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using System.Text;
+using MassSpectrometry;
 
 namespace Omics.Fragmentation
 {
@@ -22,6 +23,9 @@ namespace Omics.Fragmentation
         }
 
         public bool IsInternalFragment => NeutralTheoreticalProduct.IsInternalFragment;
+
+        public bool IsDiagnosticIon => NeutralTheoreticalProduct.ProductType == ProductType.D;
+
         public virtual double MassErrorDa => Mz.ToMass(Charge) - NeutralTheoreticalProduct.NeutralMass;
         public virtual double MassErrorPpm => MassErrorDa / NeutralTheoreticalProduct.NeutralMass * 1e6;
         public virtual string Annotation
@@ -103,5 +107,14 @@ namespace Omics.Fragmentation
         public override string Annotation => _annotation ??= base.Annotation;
         public override double MassErrorDa => _massErrorDa ??= base.MassErrorDa;
         public override double MassErrorPpm => _massErrorPpm ??= base.MassErrorPpm;
+    }
+
+    /// <summary>
+    /// A matched fragment ion that also includes an optional isotopic envelope. Used in MetaDraw to annotate all peaks in the spectrum that match to a theoretical fragment ion, not just the monoisotopic peak. 
+    /// </summary>
+    public class MatchedFragmentIonWithEnvelope(Product neutralTheoreticalProduct, double experMz, double experIntensity, int charge, IsotopicEnvelope? envelope = null)
+        : MatchedFragmentIonWithCache(neutralTheoreticalProduct, experMz, experIntensity, charge)
+    {
+        public IsotopicEnvelope? Envelope { get; set; } = envelope;
     }
 }
