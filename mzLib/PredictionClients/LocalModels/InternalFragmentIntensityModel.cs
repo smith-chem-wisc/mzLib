@@ -97,7 +97,8 @@ namespace PredictionClients.LocalModels
         }
 
         /// <summary>Charges 1–6 accepted.</summary>
-        public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+        private static readonly HashSet<int> _allowedPrecursorCharges = new() { 1, 2, 3, 4, 5, 6 };
+        public override HashSet<int> AllowedPrecursorCharges => _allowedPrecursorCharges;
 
         #endregion
 
@@ -393,6 +394,8 @@ namespace PredictionClients.LocalModels
         public void GenerateInternalLibrarySpectraFromPredictions(out WarningException? warning)
         {
             warning = null;
+            // Idempotent: start from a fresh list so repeated calls don't accumulate spectra.
+            PredictedSpectra = new List<LibrarySpectrum>();
             if (Predictions.Count == 0) return;
 
             var regex = new Regex(

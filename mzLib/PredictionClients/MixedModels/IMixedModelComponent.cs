@@ -1,6 +1,4 @@
-﻿using System.ComponentModel;
-
-namespace PredictionClients.MixedModels
+﻿namespace PredictionClients.MixedModels
 {
     /// <summary>
     /// The single contract that every contributor to a CombinedLibraryModel must satisfy.
