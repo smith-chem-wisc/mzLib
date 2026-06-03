@@ -7,6 +7,10 @@ using System.Linq;
 
 namespace Test.InternalIons
 {
+    // TODO(remove): exploratory analysis harness, not a validating test — its [Test] methods
+    // emit a formatted report with no assertions, and it reads/writes a developer-local F:\ tree
+    // (with a stale input filename, so it self-ignores even there). Should be removed before merge.
+    // Kept for now.
     [TestFixture]
     public class InternalFragmentStep11AnalysisTests
     {
