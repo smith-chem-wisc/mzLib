@@ -38,6 +38,9 @@ namespace Test.InternalIons
     ///   BIonIntensityAtNTerm, NTerminalFlankingHydrophobicity, BYProductScore,
     ///   LocalIntensityRank, CollisionEnergy, InternalSequence, FragStart, FragEnd, etc.
     /// </summary>
+    // TODO(remove): exploratory troubleshooting fixture tied to a developer-local data tree
+    // (BaseDir on F:\). Not a real regression test — should be removed before merge once the
+    // cross-NCE analysis is no longer needed. Kept for now.
     [TestFixture]
     public class MixedModelEvaluationTests
     {
@@ -94,6 +97,15 @@ namespace Test.InternalIons
         public void Setup()
         {
             _datasets = new Dictionary<int, NceDataset>();
+
+            // Guard before allocating the writer: BaseDir is a developer-local data tree, so on CI
+            // (or any other machine) skip cleanly instead of throwing in OneTimeSetUp.
+            if (!Directory.Exists(BaseDir))
+            {
+                Assert.Ignore($"Evaluation data directory not found: {BaseDir}");
+                return;
+            }
+
             _out = new StreamWriter(OutputPath, false) { AutoFlush = false };
 
             W("╔══════════════════════════════════════════════════════════════════╗");

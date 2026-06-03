@@ -292,7 +292,7 @@ namespace Test.FileReadingTests.SpectralLibraryTests
         [Test]
         public static void SpectralLibaryWithInternalIonsReaderTest()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\librarySpectrumInternalIons.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\librarySpectrumInternalIons.msp");
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
@@ -332,7 +332,7 @@ namespace Test.FileReadingTests.SpectralLibraryTests
         [Test]
         public static void SpectralLibaryWithInternalIonsWriteReadTest()
         {
-            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"SpectralLibrary\SpectralLibraryData\librarySpectrumInternalIons.msp");
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\librarySpectrumInternalIons.msp");
             var testLibraryWithoutDecoy = new SpectralLibrary(new List<string> { path });
             var librarySpectra = testLibraryWithoutDecoy.GetAllLibrarySpectra().ToList();
 
