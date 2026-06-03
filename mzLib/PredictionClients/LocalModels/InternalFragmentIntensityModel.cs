@@ -2,8 +2,12 @@
 using Microsoft.ML.OnnxRuntime;
 using Microsoft.ML.OnnxRuntime.Tensors;
 using Omics.Fragmentation;
+using Omics.SequenceConversion;
+using Omics.SpectralLibrary;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.Util;
+using Readers.SpectralLibrary;
 using System.ComponentModel;
 using System.Text.RegularExpressions;
 
@@ -37,14 +41,31 @@ namespace PredictionClients.LocalModels
     /// Output: float32 [N]      — predicted TicNI
     /// Fragment lengths: 3–9 residues
     /// </summary>
-    public class InternalFragmentIntensityModel : FragmentIntensityModel
+    public class InternalFragmentIntensityModel : FragmentIntensityModel, IDisposable
     {
         #region Model Metadata
+
+        // Modifications are stripped before feature computation, so the model needs no
+        // UNIMOD-aware sequence conversion; an empty allow-list yields a pass-through converter.
+        private static readonly ISequenceConverter Converter =
+            CreateUnimodConverter(UnimodSequenceFormatSchema.Instance, new HashSet<int>());
 
         public override string ModelName => "InternalFragmentScorer_v3_AllProteases";
         public override int MaxBatchSize => 50_000;
         public override int MaxPeptideLength => 100;
         public override int MinPeptideLength => 5;
+
+        // Local ONNX inference does not batch HTTP requests, throttle, or convert modifications,
+        // so these Koina-oriented members carry inert defaults.
+        public override int MaxNumberOfBatchesPerRequest { get; init; } = 1;
+        public override int ThrottlingDelayInMilliseconds { get; init; } = 0;
+        public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 0;
+        public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
+            = SequenceConversionHandlingMode.ReturnNull;
+        public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
+            = IncompatibleParameterHandlingMode.ReturnNull;
+        public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
+            = FragmentIonMappingMode.MapToInputFullSequence;
 
         /// <summary>Default ONNX model filename.</summary>
         public const string DefaultModelFileName = "InternalFragmentScorer_v3_AllProteases.onnx";
@@ -78,9 +99,6 @@ namespace PredictionClients.LocalModels
         /// <summary>Charges 1–6 accepted.</summary>
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
 
-        /// <summary>Modifications are stripped before feature computation.</summary>
-        public override Dictionary<string, string> ValidModificationUnimodMapping => new();
-
         #endregion
 
         #region Fragment Enumeration Parameters
@@ -100,12 +118,11 @@ namespace PredictionClients.LocalModels
 
         #region Input/Output Data
 
-        public override List<string> PeptideSequences { get; } = new();
-        public override List<int> PrecursorCharges { get; } = new();
-        public override List<double?> RetentionTimes { get; } = new();
-        public override string? SpectralLibrarySavePath { get; }
-        public override List<PeptideFragmentIntensityPrediction> Predictions { get; protected set; } = new();
-        public override List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
+        public List<string> PeptideSequences { get; } = new();
+        public List<int> PrecursorCharges { get; } = new();
+        public List<double?> RetentionTimes { get; } = new();
+        public string? SpectralLibrarySavePath { get; }
+        public List<LibrarySpectrum> PredictedSpectra { get; protected set; } = new();
 
         #endregion
 
@@ -113,6 +130,21 @@ namespace PredictionClients.LocalModels
 
         private readonly string _onnxModelPath;
         private static readonly Regex _modRegex = new(@"\[[^\]]+\]", RegexOptions.Compiled);
+        private bool _disposed;
+
+        #endregion
+
+        #region IDisposable
+
+        /// <summary>
+        /// Marks the model as consumed. Inference is single-shot: a disposed instance throws
+        /// on a subsequent <see cref="RunInferenceAsync"/> call.
+        /// </summary>
+        public void Dispose()
+        {
+            _disposed = true;
+            GC.SuppressFinalize(this);
+        }
 
         #endregion
 
@@ -205,6 +237,7 @@ namespace PredictionClients.LocalModels
             string? spectralLibrarySavePath = null,
             double minIntensityFilter = 0.002,
             int maxInternalIonsPerPeptide = 20)
+            : base(Converter)
         {
             if (peptideSequences.Count != precursorCharges.Count
                 || precursorCharges.Count != retentionTimes.Count)
@@ -253,7 +286,7 @@ namespace PredictionClients.LocalModels
         /// <summary>
         /// Runs ONNX inference locally (CPU), then generates PredictedSpectra.
         /// </summary>
-        public override async Task<WarningException?> RunInferenceAsync()
+        public async Task<WarningException?> RunInferenceAsync()
         {
             if (_disposed)
                 throw new ObjectDisposedException(nameof(InternalFragmentIntensityModel),
@@ -267,11 +300,14 @@ namespace PredictionClients.LocalModels
 
             await Task.Run(RunOnnxInference);
 
-            WarningException? warning;
+            GenerateInternalLibrarySpectraFromPredictions(out var warning);
+
             if (SpectralLibrarySavePath is not null)
-                SavePredictedSpectralLibrary(SpectralLibrarySavePath, out warning);
-            else
-                GenerateLibrarySpectraFromPredictions(out warning);
+            {
+                var spectralLibrary = new SpectralLibrary();
+                spectralLibrary.Results = PredictedSpectra;
+                spectralLibrary.WriteResults(SpectralLibrarySavePath);
+            }
 
             Dispose();
             return warning;
@@ -296,7 +332,7 @@ namespace PredictionClients.LocalModels
                 if (candidates.Count == 0)
                 {
                     Predictions.Add(new PeptideFragmentIntensityPrediction(
-                        fullSeq, charge, new(), new(), new()));
+                        fullSeq, fullSeq, charge, new(), new(), new()));
                     continue;
                 }
 
@@ -328,23 +364,31 @@ namespace PredictionClients.LocalModels
                 }
 
                 Predictions.Add(new PeptideFragmentIntensityPrediction(
-                    fullSeq, charge, annotations, mzs, intensities));
+                    fullSeq, fullSeq, charge, annotations, mzs, intensities));
             }
         }
 
-        protected override List<Dictionary<string, object>> ToBatchedRequests() => new();
-        protected override void ResponseToPredictions(string[] response) { }
+        // Local ONNX inference bypasses the Koina HTTP request/response path entirely;
+        // RunOnnxInference populates Predictions directly, so no batched requests are emitted.
+        protected override List<Dictionary<string, object>> ToBatchedRequests(
+            List<FragmentIntensityPredictionInput> validInputs) => new();
 
         #endregion
 
         #region Spectral Library Generation
 
         /// <summary>
-        /// Overrides the base to parse internal fragment annotations (bIb[start-end]+1),
-        /// construct Products with SecondaryProductType set (IsInternalFragment = true),
-        /// apply the top-N filter, and normalise intensities to max = 1.0 per peptide.
+        /// Builds internal-ion library spectra from the ONNX predictions: parses internal fragment
+        /// annotations (bIb[start-end]+1), constructs Products with SecondaryProductType set
+        /// (IsInternalFragment = true), applies the top-N filter, and normalises intensities to
+        /// max = 1.0 per peptide.
         /// </summary>
-        protected override void GenerateLibrarySpectraFromPredictions(out WarningException? warning)
+        /// <remarks>
+        /// This is intentionally separate from the base <see cref="FragmentIntensityModel"/>'s
+        /// GenerateLibrarySpectraFromPredictions, which parses standard b/y annotations against
+        /// theoretical products and cannot represent double-backbone internal fragments.
+        /// </remarks>
+        public void GenerateInternalLibrarySpectraFromPredictions(out WarningException? warning)
         {
             warning = null;
             if (Predictions.Count == 0) return;
@@ -435,7 +479,7 @@ namespace PredictionClients.LocalModels
         public static string BareSequence(string fullSeq)
             => _modRegex.Replace(fullSeq, string.Empty);
 
-        protected override bool IsValidSequence(string sequence)
+        private bool IsValidSequence(string sequence)
         {
             var bare = BareSequence(sequence);
             return bare.Length >= MinPeptideLength

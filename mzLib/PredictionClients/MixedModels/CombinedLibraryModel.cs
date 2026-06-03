@@ -108,15 +108,27 @@ namespace PredictionClients.MixedModels
         /// <param name="spectralLibrarySavePath">
         /// If set, writes the merged MSP library to this path after inference.
         /// </param>
+        /// <param name="collisionEnergy">
+        /// Optional collision energy passed to the primary Koina model for every peptide.
+        /// </param>
         public static CombinedLibraryModel WithPrimaryAndInternalFragments(
             FragmentIntensityModel primaryModel,
             InternalFragmentIntensityModel internalModel,
+            int? collisionEnergy = null,
             string? spectralLibrarySavePath = null)
         {
+            // The two models operate on the same peptide set; derive the primary model's Koina
+            // inputs and aligned retention times from the internal model's validated inputs.
+            var primaryInputs = internalModel.PeptideSequences
+                .Select((seq, i) => new FragmentIntensityPredictionInput(
+                    seq, internalModel.PrecursorCharges[i], collisionEnergy, null, null))
+                .ToList();
+            var alignedRetentionTimes = internalModel.RetentionTimes.ToArray();
+
             return new CombinedLibraryModel(
                 new List<IMixedModelComponent>
                 {
-                    new PrimaryIntensityComponent(primaryModel),
+                    new PrimaryIntensityComponent(primaryModel, primaryInputs, alignedRetentionTimes),
                     new InternalIntensityComponent(internalModel),
                 },
                 spectralLibrarySavePath);

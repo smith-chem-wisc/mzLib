@@ -271,15 +271,14 @@ namespace Test.MixedModelTests
             // Just verify the factory constructs without throwing (no inference run)
             var peptides = new List<string> { "PEPTIDEK" };
             var charges = new List<int> { 2 };
-            var energies = new List<int> { 35 };
             var rts = new List<double?> { null };
 
-            var primary = new Prosit2020IntensityHCD(peptides, charges, energies, rts, out _);
+            var primary = new Prosit2020IntensityHCD();
             var internal_ = new InternalFragmentIntensityModel(
                 peptides, charges, rts, out _, onnxModelPath: OnnxModelPath);
 
             Assert.DoesNotThrow(() =>
-                CombinedLibraryModel.WithPrimaryAndInternalFragments(primary, internal_));
+                CombinedLibraryModel.WithPrimaryAndInternalFragments(primary, internal_, collisionEnergy: 35));
         }
 
         // ════════════════════════════════════════════════════════════════════════
@@ -293,14 +292,13 @@ namespace Test.MixedModelTests
                 $"ONNX model not found at: {OnnxModelPath}");
             var peptides = new List<string> { "PEPTIDEK", "ELVISLIVESK" };
             var charges = new List<int> { 2, 2 };
-            var energies = new List<int> { 35, 35 };
             var rts = new List<double?> { 100.0, 200.0 };
 
-            var primary = new Prosit2020IntensityHCD(peptides, charges, energies, rts, out _);
+            var primary = new Prosit2020IntensityHCD();
             var internal_ = new InternalFragmentIntensityModel(
                 peptides, charges, rts, out _, onnxModelPath: OnnxModelPath);
 
-            var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(primary, internal_);
+            var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(primary, internal_, collisionEnergy: 35);
             var warning = await combined.RunAsync();
             _ = (warning?.Message);
             // Add: verify no component failures occurred
@@ -327,13 +325,13 @@ namespace Test.MixedModelTests
         {
             var peptides = new List<string> { "PEPTIDEK" };
             var charges = new List<int> { 2 };
-            var energies = new List<int> { 35 };
             var rts = new List<double?> { null };
 
             var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(
-                new Prosit2020IntensityHCD(peptides, charges, energies, rts, out _),
+                new Prosit2020IntensityHCD(),
                 new InternalFragmentIntensityModel(peptides, charges, rts, out _,
-                    onnxModelPath: OnnxModelPath));
+                    onnxModelPath: OnnxModelPath),
+                collisionEnergy: 35);
 
             await combined.RunAsync();
 
@@ -350,13 +348,13 @@ namespace Test.MixedModelTests
         {
             var peptides = new List<string> { "PEPTIDEK" };
             var charges = new List<int> { 2 };
-            var energies = new List<int> { 35 };
             var rts = new List<double?> { 42.5 };
 
             var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(
-                new Prosit2020IntensityHCD(peptides, charges, energies, rts, out _),
+                new Prosit2020IntensityHCD(),
                 new InternalFragmentIntensityModel(peptides, charges, rts, out _,
-                    onnxModelPath: OnnxModelPath));
+                    onnxModelPath: OnnxModelPath),
+                collisionEnergy: 35);
 
             await combined.RunAsync();
 
@@ -377,13 +375,13 @@ namespace Test.MixedModelTests
             {
                 var peptides = new List<string> { "PEPTIDEK", "SAMPLER" };
                 var charges = new List<int> { 2, 2 };
-                var energies = new List<int> { 35, 35 };
-                var rts = new List<double?> { 100.0, 200.0 };
+                    var rts = new List<double?> { 100.0, 200.0 };
 
                 var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(
-                    new Prosit2020IntensityHCD(peptides, charges, energies, rts, out _),
+                    new Prosit2020IntensityHCD(),
                     new InternalFragmentIntensityModel(peptides, charges, rts, out _,
                         onnxModelPath: OnnxModelPath),
+                    collisionEnergy: 35,
                     spectralLibrarySavePath: outPath);
 
                 await combined.RunAsync();

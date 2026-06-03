@@ -16,37 +16,57 @@ namespace PredictionClients.MixedModels.Components
     public class PrimaryIntensityComponent : IMixedModelComponent
     {
         private readonly FragmentIntensityModel _model;
+        private readonly List<FragmentIntensityPredictionInput> _modelInputs;
+        private readonly double?[] _alignedRetentionTimes;
 
         public string ComponentName { get; }
         public ContributionType ContributionType => ContributionType.PrimaryFragmentIntensities;
 
         /// <param name="model">
         /// A fully constructed, not-yet-run FragmentIntensityModel (e.g. Prosit2020IntensityHCD).
-        /// The component takes ownership and will call RunInferenceAsync() exactly once.
+        /// </param>
+        /// <param name="modelInputs">
+        /// The peptides/charges/energies to predict, in the new Koina input format.
+        /// </param>
+        /// <param name="alignedRetentionTimes">
+        /// Retention times aligned one-to-one with <paramref name="modelInputs"/>, stamped onto
+        /// the generated library spectra.
         /// </param>
         /// <param name="componentName">
         /// Human-readable name for warnings and logs. Defaults to model.ModelName.
         /// </param>
         public PrimaryIntensityComponent(
             FragmentIntensityModel model,
+            List<FragmentIntensityPredictionInput> modelInputs,
+            double?[] alignedRetentionTimes,
             string? componentName = null)
         {
             _model = model;
+            _modelInputs = modelInputs;
+            _alignedRetentionTimes = alignedRetentionTimes;
             ComponentName = componentName ?? model.ModelName;
         }
 
         /// <summary>
-        /// Runs the underlying Koina model and wraps its PredictedSpectra as a MixedModelResult.
+        /// Runs the underlying Koina model (Predict + library generation) and wraps the
+        /// resulting spectra as a MixedModelResult.
         /// </summary>
         public async Task<MixedModelResult> RunAsync()
         {
             try
             {
-                var warning = await _model.RunInferenceAsync();
+                var (spectra, warning) = await Task.Run(() =>
+                {
+                    _model.Predict(_modelInputs);
+                    var generated = _model.GenerateLibrarySpectraFromPredictions(
+                        _alignedRetentionTimes, out var w);
+                    return (generated, w);
+                });
+
                 return MixedModelResult.FromSpectra(
                     ComponentName,
                     ContributionType,
-                    _model.PredictedSpectra,
+                    spectra,
                     warning);
             }
             catch (Exception ex)
