@@ -22,8 +22,8 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
         {
             var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp");
             var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\koinaTestOutput.msp");
-            SpectralLibrary testLibraryWithoutDecoy = null;
-            SpectralLibrary spectralLibraryTest = null;
+            Readers.SpectralLibrary.SpectralLibrary testLibraryWithoutDecoy = null;
+            Readers.SpectralLibrary.SpectralLibrary spectralLibraryTest = null;
             try
             {
                 testLibraryWithoutDecoy = new Readers.SpectralLibrary.SpectralLibrary(new List<string> { experPath });
