@@ -67,7 +67,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
         public Prosit2020IntensityHCD(
-            SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.RemoveIncompatibleElements, 
+            SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull, 
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
             FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToValidatedFullSequence,
             int maxNumberOfBatchesPerRequest = 250, 

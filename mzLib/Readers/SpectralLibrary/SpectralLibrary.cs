@@ -1,4 +1,4 @@
-﻿using Chemistry;
+using Chemistry;
 using MzLibUtil;
 using Omics.Fragmentation;
 using System.Globalization;
@@ -15,7 +15,7 @@ namespace Readers.SpectralLibrary
 		public override SupportedFileType FileType => FilePath.ParseFileType();
 		public override Software Software { get; set; }
 		public SpectralLibrary() : base() { }
-		public SpectralLibrary(string filePath) : base(filePath, Software.MetaMorpheus) { }
+		public SpectralLibrary(string filePath) : this([filePath], Software.MetaMorpheus) { }
 
 		public override void LoadResults()
 		{
@@ -119,7 +119,8 @@ namespace Readers.SpectralLibrary
 		///   One or more absolute or relative paths to spectral library files.
 		///   May be a mix of .msl and text-based (.msp, pdeep, ms2pip) files.
 		/// </param>
-		public SpectralLibrary(List<string> pathsToLibraries)
+		public SpectralLibrary(List<string> pathsToLibraries, Software software = Software.Unspecified)
+			: base(pathsToLibraries.Count > 0 ? pathsToLibraries[0] : string.Empty, software)
 		{
 			LibraryPaths = pathsToLibraries;
 			SequenceToFileAndLocation = new Dictionary<string, (string, long)>();
