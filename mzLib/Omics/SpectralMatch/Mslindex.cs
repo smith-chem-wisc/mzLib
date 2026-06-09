@@ -340,8 +340,18 @@ public sealed class MslIndex : IDisposable
 	/// Dictionary from "modifiedSequence/charge" key to the matching index entry,
 	/// enabling O(1) DDA-style lookups via <see cref="TryGetBySequenceCharge"/>.
 	/// Keys are case-sensitive; values reference entries in <see cref="_byMz"/>.
+	/// <para>
+	/// May be null when the index was built with the sequence index DEFERRED (index-only mass/RT
+	/// window workflows that never do sequence lookups): populating it requires the modified
+	/// sequence of every entry, which in index-only mode forces a full fragment read of the whole
+	/// library. When deferred it is built lazily on the first <see cref="TryGetBySequenceCharge"/>
+	/// call via <see cref="EnsureSeqChargeIndex"/>.
+	/// </para>
 	/// </summary>
-	private readonly Dictionary<string, MslPrecursorIndexEntry> _bySeqCharge;
+	private Dictionary<string, MslPrecursorIndexEntry>? _bySeqCharge;
+
+	/// <summary>Guards the lazy build of <see cref="_bySeqCharge"/> when it was deferred.</summary>
+	private readonly object _seqChargeLock = new();
 
 	/// <summary>
 	/// Dictionary from elution-group ID to the set of index entries sharing that ID.
@@ -433,7 +443,8 @@ public sealed class MslIndex : IDisposable
 	public MslIndex(
 		MslPrecursorIndexEntry[] entries,
 		Func<int, MslLibraryEntry?> entryLoader,
-		int maxBufferSize = 10_000)
+		int maxBufferSize = 10_000,
+		bool deferSeqChargeIndex = false)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
 		if (entryLoader is null) throw new ArgumentNullException(nameof(entryLoader));
@@ -448,19 +459,21 @@ public sealed class MslIndex : IDisposable
 		entries.CopyTo(_byMz, 0);
 		Array.Sort(_byMz);
 
-		// Build the sequence/charge dictionary and elution-group map in one O(N) pass
-		_bySeqCharge = new Dictionary<string, MslPrecursorIndexEntry>(_byMz.Length);
+		// The elution-group map is always built (it needs only the compact struct, no loader).
+		// The sequence/charge dictionary needs each entry's modified sequence, which is NOT in the
+		// compact struct — obtaining it calls the loader, and in index-only mode that loads every
+		// entry's fragments from disk. When deferred, skip it here and build it lazily on first use
+		// (see EnsureSeqChargeIndex), so a pure mass/RT window workflow does no fragment I/O at all.
 		_byElutionGroup = new Dictionary<int, List<MslPrecursorIndexEntry>>();
+		_bySeqCharge = deferSeqChargeIndex ? null : new Dictionary<string, MslPrecursorIndexEntry>(_byMz.Length);
 
 		for (int i = 0; i < _byMz.Length; i++)
 		{
-			// To populate the sequence/charge dictionary we need the modified sequence,
-			// which is not stored in the compact struct. We obtain it via the loader.
-			var entry = entryLoader(_byMz[i].PrecursorIdx);
-			if (entry is not null)
+			if (_bySeqCharge is not null)
 			{
-				string key = BuildSeqChargeKey(entry.FullSequence, _byMz[i].Charge);
-				_bySeqCharge.TryAdd(key, _byMz[i]);
+				var entry = entryLoader(_byMz[i].PrecursorIdx);
+				if (entry is not null)
+					_bySeqCharge.TryAdd(BuildSeqChargeKey(entry.FullSequence, _byMz[i].Charge), _byMz[i]);
 			}
 
 			// Elution-group map: all charge states of the same peptide share one list
@@ -471,6 +484,27 @@ public sealed class MslIndex : IDisposable
 				_byElutionGroup[egId] = list;
 			}
 			list.Add(_byMz[i]);
+		}
+	}
+
+	/// <summary>
+	/// Lazily builds the sequence/charge dictionary if it was deferred at construction. Thread-safe;
+	/// the (potentially expensive, fragment-loading) build runs at most once. No-op when already built.
+	/// </summary>
+	private void EnsureSeqChargeIndex()
+	{
+		if (_bySeqCharge is not null) return;
+		lock (_seqChargeLock)
+		{
+			if (_bySeqCharge is not null) return;
+			var dict = new Dictionary<string, MslPrecursorIndexEntry>(_byMz.Length);
+			for (int i = 0; i < _byMz.Length; i++)
+			{
+				var entry = _entryLoader(_byMz[i].PrecursorIdx);
+				if (entry is not null)
+					dict.TryAdd(BuildSeqChargeKey(entry.FullSequence, _byMz[i].Charge), _byMz[i]);
+			}
+			_bySeqCharge = dict;
 		}
 	}
 
@@ -501,7 +535,8 @@ public sealed class MslIndex : IDisposable
 	/// </exception>
 	public static MslIndex Build(
 		IReadOnlyList<MslLibraryEntry> entries,
-		Func<int, MslLibraryEntry?> loader)
+		Func<int, MslLibraryEntry?> loader,
+		bool deferSeqChargeIndex = false)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
 		if (loader is null) throw new ArgumentNullException(nameof(loader));
@@ -521,7 +556,7 @@ public sealed class MslIndex : IDisposable
 				flags: (byte)((int)e.MoleculeType & 0x03));
 		}
 
-		return new MslIndex(raw, loader);
+		return new MslIndex(raw, loader, deferSeqChargeIndex: deferSeqChargeIndex);
 	}
 
 	// ── Query: m/z range (zero-allocation) ───────────────────────────────────
@@ -727,7 +762,8 @@ public sealed class MslIndex : IDisposable
 		out MslPrecursorIndexEntry entry)
 	{
 		ThrowIfDisposed();
-		return _bySeqCharge.TryGetValue(
+		EnsureSeqChargeIndex(); // builds the dictionary on first use if it was deferred
+		return _bySeqCharge!.TryGetValue(
 			BuildSeqChargeKey(modifiedSequence, (short)charge),
 			out entry);
 	}

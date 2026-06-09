@@ -254,7 +254,10 @@ public sealed class MslLibrary : IDisposable
 			return skeleton;
 		};
 
-		index = MslIndex.Build(rawLib.Entries, loader);
+		// Defer the sequence/charge dictionary: building it here would call the loader for EVERY entry,
+		// which in index-only mode reads every fragment block from disk — defeating index-only. It is
+		// built lazily if TryGetBySequenceCharge is ever called.
+		index = MslIndex.Build(rawLib.Entries, loader, deferSeqChargeIndex: true);
 		proteoformIndex = BuildProteoformIndexIfNeeded(rawLib.Entries, loader);
 
 		return new MslLibrary(index, rawLib.Header, isIndexOnly: true,
