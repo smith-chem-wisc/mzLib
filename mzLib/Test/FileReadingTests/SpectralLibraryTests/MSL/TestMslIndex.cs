@@ -1064,4 +1064,65 @@ public class TestMslIndex
 		}
 		return raw;
 	}
+
+	// ═══════════════════════════════════════════════════════════════════════
+	// Deferred sequence/charge index — LoadIndexOnly does no fragment I/O up front;
+	// the seq/charge dictionary is built lazily on the first TryGetBySequenceCharge.
+	// ═══════════════════════════════════════════════════════════════════════
+
+	/// <summary>
+	/// A deferred (LoadIndexOnly-style) index must return exactly the same TryGetBySequenceCharge
+	/// results as an eagerly-built one — the lazy EnsureSeqChargeIndex reproduces the dictionary.
+	/// </summary>
+	[Test]
+	public void DeferredSeqChargeIndex_TryGetBySequenceCharge_MatchesEagerIndex()
+	{
+		var specs = new (string seq, int charge, float mz, float irt, float im)[]
+		{
+			("PEPTIDEK", 2, 400.0f, 10f, 0f),
+			("PEPTIDEK", 3, 300.0f, 10f, 0f),
+			("ANOTHERR", 2, 500.0f, 20f, 0f),
+		};
+		var eagerEntries = BuildEntries(specs);
+		var deferredEntries = BuildEntries(specs);
+		using var eager = MslIndex.Build(eagerEntries, i => i < eagerEntries.Count ? eagerEntries[i] : null, deferSeqChargeIndex: false);
+		using var deferred = MslIndex.Build(deferredEntries, i => i < deferredEntries.Count ? deferredEntries[i] : null, deferSeqChargeIndex: true);
+
+		foreach (var (seq, charge, _, _, _) in specs)
+		{
+			bool eagerFound = eager.TryGetBySequenceCharge(seq, charge, out var eagerEntry);
+			bool deferredFound = deferred.TryGetBySequenceCharge(seq, charge, out var deferredEntry);
+			Assert.That(deferredFound, Is.EqualTo(eagerFound));
+			Assert.That(deferredEntry.Charge, Is.EqualTo(eagerEntry.Charge));
+			Assert.That(deferredEntry.PrecursorIdx, Is.EqualTo(eagerEntry.PrecursorIdx));
+			Assert.That(deferredEntry.PrecursorMz, Is.EqualTo(eagerEntry.PrecursorMz));
+		}
+	}
+
+	/// <summary>A deferred index still reports a miss for an absent sequence/charge after the lazy build.</summary>
+	[Test]
+	public void DeferredSeqChargeIndex_ReturnsFalse_ForAbsentEntry()
+	{
+		var entries = BuildEntries(("PEPTIDEK", 2, 400.0f, 10f, 0f));
+		using var deferred = MslIndex.Build(entries, i => i < entries.Count ? entries[i] : null, deferSeqChargeIndex: true);
+		Assert.That(deferred.TryGetBySequenceCharge("MISSING", 2, out _), Is.False);   // wrong sequence
+		Assert.That(deferred.TryGetBySequenceCharge("PEPTIDEK", 5, out _), Is.False);   // wrong charge
+		Assert.That(deferred.TryGetBySequenceCharge("PEPTIDEK", 2, out _), Is.True);    // present
+	}
+
+	/// <summary>
+	/// Repeated lookups on a deferred index are consistent — the seq/charge dictionary is built once
+	/// on the first call and reused, so a second lookup returns the same entry.
+	/// </summary>
+	[Test]
+	public void DeferredSeqChargeIndex_RepeatedLookups_AreConsistent()
+	{
+		var entries = BuildEntries(("PEPTIDEK", 2, 400.0f, 10f, 0f), ("ANOTHERR", 3, 500.0f, 20f, 0f));
+		using var deferred = MslIndex.Build(entries, i => i < entries.Count ? entries[i] : null, deferSeqChargeIndex: true);
+		bool first = deferred.TryGetBySequenceCharge("ANOTHERR", 3, out var firstEntry);
+		bool second = deferred.TryGetBySequenceCharge("ANOTHERR", 3, out var secondEntry);
+		Assert.That(first, Is.True);
+		Assert.That(second, Is.True);
+		Assert.That(secondEntry.PrecursorIdx, Is.EqualTo(firstEntry.PrecursorIdx));
+	}
 }
