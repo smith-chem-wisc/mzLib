@@ -75,6 +75,13 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
         // Predict retention time - keep both prediction AND disposal inside lock
         lock (_modelLock)
         {
+            // Deterministically dispose every tensor created during inference — including the ~30
+            // intermediates allocated inside the model's forward() (residual clones, conv/norm/relu
+            // outputs). Without an explicit scope those are reclaimed by the GC finalizer thread, which
+            // calls into libtorch's native allocator concurrently with the main thread's allocations and
+            // corrupts the native heap (STATUS_HEAP_CORRUPTION, 0xC0000374) once enough predictions have
+            // accumulated. The race only surfaces in high-volume runs (e.g. spectral-library builds).
+            using var scope = NewDisposeScope();
             using Tensor prediction = _model.Predict(sequenceTensor);
             return prediction[0].ToDouble();
         }
