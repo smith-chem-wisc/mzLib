@@ -337,6 +337,21 @@ public sealed class MslIndex : IDisposable
 	private readonly MslPrecursorIndexEntry[] _byMz;
 
 	/// <summary>
+	/// Index of the first entry in <see cref="_byMz"/> with a non-NaN <see cref="MslPrecursorIndexEntry.PrecursorMz"/>.
+	/// <para>
+	/// .NET's <see cref="float.CompareTo(float)"/> orders NaN BEFORE every other value, so
+	/// <see cref="Array.Sort{T}(T[])"/> places all NaN-m/z entries in a contiguous prefix
+	/// [0, <c>_firstFiniteMz</c>). An NaN-m/z precursor cannot match any finite m/z window, and
+	/// leaving it at index 0 would break the monotonicity that the m/z binary search relies on
+	/// (a NaN at the front makes the upward scan stop immediately, silently returning an empty
+	/// result for the WHOLE library). All m/z-window queries therefore start their lower-bound
+	/// search at this index, skipping the NaN prefix. Such entries can still arise legitimately,
+	/// e.g. peptides containing the ambiguous residue 'X' whose mass is undefined.
+	/// </para>
+	/// </summary>
+	private readonly int _firstFiniteMz;
+
+	/// <summary>
 	/// Dictionary from "modifiedSequence/charge" key to the matching index entry,
 	/// enabling O(1) DDA-style lookups via <see cref="TryGetBySequenceCharge"/>.
 	/// Keys are case-sensitive; values reference entries in <see cref="_byMz"/>.
@@ -458,6 +473,13 @@ public sealed class MslIndex : IDisposable
 		_byMz = new MslPrecursorIndexEntry[entries.Length];
 		entries.CopyTo(_byMz, 0);
 		Array.Sort(_byMz);
+
+		// NaN m/z sorts to the front (float.CompareTo orders NaN first). Record where the finite
+		// block begins so m/z-window searches skip the NaN prefix and stay on a monotonic range.
+		int firstFinite = 0;
+		while (firstFinite < _byMz.Length && float.IsNaN(_byMz[firstFinite].PrecursorMz))
+			firstFinite++;
+		_firstFiniteMz = firstFinite;
 
 		// The elution-group map is always built (it needs only the compact struct, no loader).
 		// The sequence/charge dictionary needs each entry's modified sequence, which is NOT in the
@@ -994,7 +1016,10 @@ public sealed class MslIndex : IDisposable
 	/// </returns>
 	private int BinarySearchLowerBound(float mzLow)
 	{
-		int lo = 0;
+		// Start above the NaN prefix: the [_firstFiniteMz, Length) range is monotonic in PrecursorMz,
+		// which the binary search requires. NaN entries (sorted to the front) can never match an m/z
+		// window and must not be scanned.
+		int lo = _firstFiniteMz;
 		int hi = _byMz.Length;
 
 		while (lo < hi)

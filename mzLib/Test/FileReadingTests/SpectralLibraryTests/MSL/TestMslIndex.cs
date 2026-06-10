@@ -977,6 +977,59 @@ public class TestMslIndex
 	/// An ordered list of <see cref="MslLibraryEntry"/> instances ready for
 	/// <see cref="MslIndex.Build"/>.
 	/// </returns>
+	// ═══════════════════════════════════════════════════════════════════════
+	// NaN-m/z robustness (regression)
+	// ═══════════════════════════════════════════════════════════════════════
+
+	/// <summary>
+	/// Regression: a single entry with NaN PrecursorMz must NOT hide the rest of the library.
+	/// <para>
+	/// .NET's <see cref="float.CompareTo(float)"/> orders NaN before every finite value, so
+	/// <see cref="Array.Sort{T}(T[])"/> places NaN-m/z entries at index 0. Before the fix the
+	/// m/z scan stopped at that leading NaN (NaN &lt;= mzHigh is false), returning an EMPTY result
+	/// for the entire index. The index must instead skip the NaN prefix and return all finite
+	/// entries within the window. NaN-m/z precursors (e.g. peptides with the ambiguous residue 'X')
+	/// can never match a finite m/z window and are simply excluded from m/z-range results.
+	/// </para>
+	/// </summary>
+	[Test]
+	public void QueryMzRange_LeadingNaNMz_DoesNotHideFiniteEntries()
+	{
+		// Arrange: finite entries plus one NaN-m/z entry (sorts to index 0).
+		var entries = BuildEntries(
+			("FINITE_A", 2, 400.0f, 10.0f, 0f),
+			("NAN_X", 2, float.NaN, 10.0f, 0f),
+			("FINITE_B", 2, 600.0f, 10.0f, 0f),
+			("FINITE_C", 3, 800.0f, 10.0f, 0f));
+		using var index = MslIndex.Build(entries, i => i < entries.Count ? entries[i] : null);
+
+		// Act: full-range query (the merged-library "read everything" call).
+		var all = index.QueryMzRange(float.MinValue, float.MaxValue);
+		// And a normal finite window covering the three finite entries.
+		var window = index.QueryMzRange(300f, 1000f);
+
+		// Assert: the three finite entries are returned; the NaN entry is excluded, not poisoning.
+		Assert.That(all.Length, Is.EqualTo(3));
+		Assert.That(window.Length, Is.EqualTo(3));
+		Assert.That(all.ToArray().All(e => !float.IsNaN(e.PrecursorMz)), Is.True);
+	}
+
+	/// <summary>
+	/// Regression companion: an index whose entries are ALL NaN-m/z returns an empty m/z range
+	/// (rather than throwing or scanning the NaN block). GetStatistics still reports the full count.
+	/// </summary>
+	[Test]
+	public void QueryMzRange_AllNaNMz_ReturnsEmpty()
+	{
+		var entries = BuildEntries(
+			("X1", 2, float.NaN, 10.0f, 0f),
+			("X2", 2, float.NaN, 12.0f, 0f));
+		using var index = MslIndex.Build(entries, i => i < entries.Count ? entries[i] : null);
+
+		Assert.That(index.QueryMzRange(float.MinValue, float.MaxValue).Length, Is.EqualTo(0));
+		Assert.That(index.GetStatistics().TotalPrecursors, Is.EqualTo(2));
+	}
+
 	private static List<MslLibraryEntry> BuildEntries(
 		params (string seq, int charge, float mz, float irt, float im)[] specs)
 	{
