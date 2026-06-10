@@ -1,8 +1,8 @@
-﻿// TestMslPrompt10SinglePass.cs
+﻿// TestMslSinglePass.cs
 // PR #1036 · smith-chem-wisc/mzLib · branch `mzlib_speclib`
-// Prompt 10 — WriteStreaming Silent Empty File for Single-Pass IEnumerable
+// WriteStreaming Silent Empty File for Single-Pass IEnumerable
 //
-// STATUS: The underlying problem was fully resolved by Prompt 8 (Fix 9a).
+// STATUS: The underlying problem was fully resolved (Fix 9a).
 // WriteStreaming no longer re-enumerates the caller's IEnumerable in Pass 2;
 // it reads all precursor scalar fields from the extended MslSpillRecord written
 // during Pass 1. Any IEnumerable — including single-pass generators — is
@@ -12,7 +12,7 @@
 // old broken behaviour (silent zero-precursor file) does not regress, and
 // that MslMerger continues to work correctly through the same code path.
 //
-// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMslPrompt10"
+// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMsl"
 
 using MassSpectrometry;
 using NUnit.Framework;
@@ -27,8 +27,7 @@ using System.Linq;
 namespace Test.SpectralLibrary.MSL;
 
 [TestFixture]
-[Category("Prompt10")]
-public class TestMslPrompt10SinglePass
+public class TestMslSinglePass
 {
 	private string _tempDir = null!;
 
@@ -36,7 +35,7 @@ public class TestMslPrompt10SinglePass
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt10_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 
@@ -87,7 +86,7 @@ public class TestMslPrompt10SinglePass
 	/// A true single-pass IEnumerable (generator method) passed to WriteStreaming
 	/// must produce a file containing all expected entries.
 	///
-	/// Before Fix 9a (Prompt 8): Pass 2 re-enumerated the source; a generator
+	/// Before Fix 9a: Pass 2 re-enumerated the source; a generator
 	/// yields nothing on the second call, producing a zero-precursor file with no
 	/// exception or warning — silent data loss.
 	///
@@ -101,7 +100,7 @@ public class TestMslPrompt10SinglePass
 	public void WriteStreaming_SinglePassIEnumerable_ThrowsArgumentException()
 	{
 		// The prompt spec asks for ArgumentException for Fix A (runtime guard).
-		// Fix 9a (Prompt 8) took the better path: it eliminated the two-pass design
+		// Fix 9a took the better path: it eliminated the two-pass design
 		// entirely, so no guard is needed and no exception should be thrown.
 		// This test documents that decision: a single-pass IEnumerable is fully
 		// supported and must NOT raise ArgumentException.
@@ -120,7 +119,7 @@ public class TestMslPrompt10SinglePass
 			() => MslWriter.WriteStreaming(path, LazySource()),
 			Throws.Nothing,
 			"WriteStreaming must accept a single-pass IEnumerable without throwing. " +
-			"The Fix A runtime guard was not needed because Fix 9a (Prompt 8) " +
+			"The Fix A runtime guard was not needed because Fix 9a " +
 			"eliminated the two-pass design that caused the problem.");
 
 		// Must produce the correct number of entries
@@ -193,7 +192,7 @@ public class TestMslPrompt10SinglePass
 	// ════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// MslMerger.Merge feeds WriteStreaming via a lazy iterator (Fix 9b, Prompt 8).
+	/// MslMerger.Merge feeds WriteStreaming via a lazy iterator (Fix 9b).
 	/// This test confirms the end-to-end merge path is correct after both fixes:
 	/// the iterator is single-pass, WriteStreaming handles it correctly, and the
 	/// output contains all expected entries with correct winner selection.

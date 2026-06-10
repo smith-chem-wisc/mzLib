@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 2 — LoadIndexOnly Memory Behavior.
+/// Tests targeting LoadIndexOnly Memory Behavior.
 ///
 /// Covers:
 ///   M1  — LoadIndexOnly documented contract vs. implementation
@@ -25,12 +25,12 @@ namespace Test.SpectralLibrary.MSL;
 ///   M7  — Fragment m/z values match after demand-load (correctness)
 /// </summary>
 [TestFixture]
-public class TestMslPrompt2LoadIndexOnly
+public class TestMslLoadIndexOnly
 {
 	// ── Temp file infrastructure ──────────────────────────────────────────
 
 	private static readonly string OutputDir =
-		Path.Combine(Path.GetTempPath(), "MslPrompt2Tests");
+		Path.Combine(Path.GetTempPath(), "Msl2Tests");
 
 	private static string Tmp(string name) =>
 		Path.Combine(OutputDir, name + ".msl");

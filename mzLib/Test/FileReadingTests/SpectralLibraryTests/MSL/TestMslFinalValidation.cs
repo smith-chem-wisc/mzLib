@@ -1,5 +1,5 @@
 ﻿// Test/MslSpectralLibrary/TestMslFinalValidation.cs
-// Prompt 8 — Final integration validation tests.
+// Final integration validation tests.
 // All acceptance criteria from Prompts 1–6 that are testable in code are asserted here.
 // Run via: dotnet test (from the Test project root)
 
@@ -108,7 +108,7 @@ public sealed class TestMslFinalValidation
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// Prompt 1 — struct sizes, product types, internal ions, oligo, neutral loss
+	// struct sizes, product types, internal ions, oligo, neutral loss
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -116,7 +116,7 @@ public sealed class TestMslFinalValidation
 	/// format specification. A wrong size means a Pack attribute was changed or a field
 	/// was added/removed, which would silently corrupt all files written by the library.
 	///
-	/// Expected sizes (from Prompt 1 spec):
+	/// Expected sizes (from the format spec):
 	///   MslFileHeader          = 64 bytes
 	///   MslPrecursorRecord     = 56 bytes
 	///   MslFragmentRecord      = 20 bytes
@@ -389,7 +389,7 @@ public sealed class TestMslFinalValidation
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// Prompt 2/3 — CRC-32, empty library, index-only handle disposal
+	// CRC-32, empty library, index-only handle disposal
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -456,7 +456,7 @@ public sealed class TestMslFinalValidation
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// Prompt 6 — SpectralLibrary routing, internal-ion MSP parser
+	// SpectralLibrary routing, internal-ion MSP parser
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -487,7 +487,7 @@ public sealed class TestMslFinalValidation
 	/// Calls <see cref="SpectralLibrary.ReadFragmentIon"/> with a bIb[3-6] annotation
 	/// string and verifies that the returned <see cref="MatchedFragmentIon"/> has
 	/// <see cref="ProductType.b"/> and <c>FragmentNumber == 3</c>. This tests the
-	/// internal-ion MSP parser added in Prompt 6.
+	/// internal-ion MSP parser added.
 	/// </summary>
 	[Test]
 	public void Check_InternalIonMspParser_ParsesBIb()
@@ -509,7 +509,7 @@ public sealed class TestMslFinalValidation
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// Prompt 4/5 — RT calibration, query window, elution groups
+	// RT calibration, query window, elution groups
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -616,7 +616,7 @@ public sealed class TestMslFinalValidation
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// Prompt 1/2/3 — bit-exact and float-precision round-trip
+	// bit-exact and float-precision round-trip
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -808,7 +808,7 @@ public sealed class TestMslFinalValidation
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
-	/// Returns the 10-entry canonical standard library defined in the Prompt 7 handoff
+	/// Returns the 10-entry canonical standard library defined in the canonical handoff
 	/// (Section 3, TestMslFixtures.StandardEntries). Reproduced inline here because the
 	/// test fixtures file was not available at the time this validation suite was written.
 	///

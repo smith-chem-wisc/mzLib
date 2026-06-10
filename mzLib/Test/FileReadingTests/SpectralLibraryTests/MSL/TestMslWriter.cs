@@ -17,7 +17,7 @@ namespace Test.MslSpectralLibrary;
 /// NUnit 4 test class for <see cref="MslWriter"/>.
 ///
 /// All tests that inspect file content read raw bytes and parse manually; no
-/// <c>MslReader</c> is used (Prompt 3 deliverable). Each test that needs a file calls
+/// <c>MslReader</c> is used. Each test that needs a file calls
 /// <see cref="BuildTestEntries"/> or one of its siblings, writes to a per-test temp path,
 /// and deletes the file in a teardown to keep the working directory clean.
 ///

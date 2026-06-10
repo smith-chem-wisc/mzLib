@@ -12,7 +12,7 @@ using System.Linq;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 6 — The Koina Prediction Pipeline.
+/// Tests targeting The Koina Prediction Pipeline.
 ///
 /// These tests are network-free and exercise MslLibrary.PredictFragments using
 /// synthetic delegate functions that simulate Koina responses, so they run in CI
@@ -28,7 +28,7 @@ namespace Test.SpectralLibrary.MSL;
 ///   K7 — Sequence format: mzLib modifications are handled before reaching model
 /// </summary>
 [TestFixture]
-public class TestMslPrompt6KoinaPipeline
+public class TestMslKoinaPipeline
 {
 	private string _tempDir = null!;
 
@@ -36,7 +36,7 @@ public class TestMslPrompt6KoinaPipeline
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt6_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 

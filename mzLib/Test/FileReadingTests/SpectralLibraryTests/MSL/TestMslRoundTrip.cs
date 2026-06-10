@@ -11,7 +11,7 @@ using System.Runtime.InteropServices;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 1 — Binary Format Correctness / Round-Trip Audit.
+/// Tests targeting Binary Format Correctness / Round-Trip Audit.
 ///
 /// Covers:
 ///   B1 — NeutralLossCode.H3PO4AndH2O (formerly PlusH2O): naming and correct mass
@@ -23,12 +23,12 @@ namespace Test.SpectralLibrary.MSL;
 ///   Precision — float vs double fields that lose precision on round-trip
 /// </summary>
 [TestFixture]
-public class TestMslPrompt1RoundTrip
+public class TestMslRoundTrip
 {
 	// ── Temp file infrastructure ──────────────────────────────────────────
 
 	private static readonly string OutputDir =
-		Path.Combine(Path.GetTempPath(), "MslPrompt1Tests");
+		Path.Combine(Path.GetTempPath(), "Msl1Tests");
 
 	private static string Tmp(string name) =>
 		Path.Combine(OutputDir, name + ".msl");

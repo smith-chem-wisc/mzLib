@@ -25,12 +25,12 @@ namespace Test.MslSpectralLibrary;
 ///   • Sequence/Name round-trip for .msl-sourced spectra
 /// </summary>
 [TestFixture]
-public sealed class TestMslPrompt13GetAllLibrarySpectraFix
+public sealed class TestMslGetAllLibrarySpectra
 {
     // ── Fixture paths ─────────────────────────────────────────────────────────
 
     private static readonly string OutputDir =
-        Path.Combine(Path.GetTempPath(), "MslPrompt13Tests");
+        Path.Combine(Path.GetTempPath(), "Msl13Tests");
 
     [OneTimeSetUp]
     public void OneTimeSetUp() => Directory.CreateDirectory(OutputDir);

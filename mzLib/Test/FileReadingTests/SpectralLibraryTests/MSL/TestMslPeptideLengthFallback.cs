@@ -45,7 +45,7 @@ namespace Test.MslSpectralLibrary;
 ///  10.  MSP-parsed ResiduePosition survives conversion to MslFragmentIon (round-trip guard).
 /// </summary>
 [TestFixture]
-public sealed class TestMslPrompt16PeptideLengthFallback
+public sealed class TestMslPeptideLengthFallback
 {
     // Split arrays matching ReadLibrarySpectrum's internal constants exactly
     private static readonly char[] FragSplit = { '\t', '"', ')', '/' };

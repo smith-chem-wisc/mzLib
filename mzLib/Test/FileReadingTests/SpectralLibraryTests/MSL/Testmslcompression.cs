@@ -13,7 +13,7 @@ namespace Test.MslSpectralLibrary;
 
 /// <summary>
 /// NUnit 4 test suite for the optional zstd block compression introduced in
-/// .msl format version 3 (Prompt 13).
+/// .msl format version 3.
 ///
 /// When <c>compressionLevel &gt; 0</c> is passed to <see cref="MslWriter.Write"/>, the fragment
 /// section (plus extended annotation table if present) is compressed as a single zstd frame.

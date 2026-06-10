@@ -1,6 +1,6 @@
-﻿// TestMslPrompt8Streaming.cs
+﻿// TestMslStreaming.cs
 // PR #1036 · smith-chem-wisc/mzLib · branch `mzlib_speclib`
-// Prompt 8 — WriteStreaming Two-Pass Memory Problem
+// WriteStreaming Two-Pass Memory Problem
 //
 // Tests for:
 //   Fix9a — MslSpillRecord extended to carry all precursor scalar fields;
@@ -9,7 +9,7 @@
 //            eliminating the List<MslLibraryEntry> output accumulator.
 //
 // All tests are self-contained (no file fixtures, no network calls).
-// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMslPrompt8"
+// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMsl"
 
 using MassSpectrometry;
 using NUnit.Framework;
@@ -25,8 +25,7 @@ using System.Runtime.InteropServices;
 namespace Test.SpectralLibrary;
 
 [TestFixture]
-[Category("Prompt8")]
-public static class TestMslPrompt8Streaming
+public static class TestMslStreaming
 {
 	// ────────────────────────────────────────────────────────────────────────
 	// Helpers
@@ -172,7 +171,7 @@ public static class TestMslPrompt8Streaming
 	/// any IEnumerable is sufficient.
 	///
 	/// This test supersedes WriteStreaming_SinglePassIEnumerable_ProducesZeroPrecursorFile
-	/// (Prompt 5 / G1), which documented the old broken behaviour.
+	/// (G1), which documented the old broken behaviour.
 	/// </summary>
 	[Test]
 	public static void WriteStreaming_SinglePassIEnumerable_ProducesAllEntries()

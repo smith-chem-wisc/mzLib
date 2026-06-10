@@ -12,7 +12,7 @@ using SpectralLibraryClass = Readers.SpectralLibrary.SpectralLibrary;
 namespace Test.MslSpectralLibrary;
 
 /// <summary>
-/// NUnit 4 integration tests for Prompt 6: file-type routing, internal ion MSP parsing,
+/// NUnit 4 integration tests for file-type routing, internal ion MSP parsing,
 /// MSP → MSL round-trip, <see cref="ToLibrarySpectrum"/> terminus coverage,
 /// <see cref="FromLibrarySpectrum"/> completeness, and <see cref="SpectralLibrary"/>
 /// MSL routing.

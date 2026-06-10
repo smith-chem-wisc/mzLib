@@ -11,7 +11,7 @@ using System.Linq;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 4 — Neutral Loss Encoding:
+/// Tests targeting Neutral Loss Encoding:
 /// Writer/Reader Consistency and Custom Loss Handling.
 ///
 /// Covers:
@@ -25,7 +25,7 @@ namespace Test.SpectralLibrary.MSL;
 ///   NL7 — 3-bit field is nearly full: adding a 7th named loss would exhaust headroom
 /// </summary>
 [TestFixture]
-public class TestMslPrompt4NeutralLoss
+public class TestMslNeutralLoss
 {
 	private string _tempDir = null!;
 
@@ -33,7 +33,7 @@ public class TestMslPrompt4NeutralLoss
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt4_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 
@@ -90,7 +90,7 @@ public class TestMslPrompt4NeutralLoss
 	/// <summary>
 	/// Each of the five named neutral losses must survive write → read and
 	/// recover to within 1e-6 Da. Belt-and-suspenders complement to the
-	/// all-codes parameterized test in TestMslPrompt1RoundTrip.
+	/// all-codes parameterized test in TestMslRoundTrip.
 	/// </summary>
 	[TestCase(0.0, "None", TestName = "NamedLoss_None")]
 	[TestCase(-18.010565, "H2O", TestName = "NamedLoss_H2O")]

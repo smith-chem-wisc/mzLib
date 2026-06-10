@@ -13,7 +13,7 @@ namespace Test.MslSpectralLibrary;
 
 /// <summary>
 /// NUnit 4 test suite for the custom neutral-loss extension table introduced in
-/// .msl format version 2 (Prompt 11).
+/// .msl format version 2.
 ///
 /// The extended annotation table stores arbitrary neutral-loss masses as a flat
 /// <c>double[]</c> array at a new optional file section, referenced from fragment
