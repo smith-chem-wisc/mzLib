@@ -385,6 +385,10 @@ public sealed class TestMslIntegration
 
 		// FragmentNumber carries the start residue for internal ions
 		Assert.That(ion.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(3));
+		// Secondary annotation must survive too: the 'b' after the 'I' is the secondary product
+		// type, and the end residue (6) is stored as the secondary fragment number.
+		Assert.That(ion.NeutralTheoreticalProduct.SecondaryProductType, Is.EqualTo(ProductType.b));
+		Assert.That(ion.NeutralTheoreticalProduct.SecondaryFragmentNumber, Is.EqualTo(6));
 	}
 
 	/// <summary>
