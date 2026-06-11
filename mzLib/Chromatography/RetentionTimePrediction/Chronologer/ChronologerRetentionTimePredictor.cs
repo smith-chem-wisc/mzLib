@@ -75,7 +75,9 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
         // Predict retention time - keep both prediction AND disposal inside lock
         lock (_modelLock)
         {
-            using Tensor prediction = _model.Predict(sequenceTensor);
+            using var scope = NewDisposeScope();   // dispose forward()'s intermediates deterministically
+            using Tensor input = sequenceTensor.to(_model.Device);   // no-op when on CPU
+            using Tensor prediction = _model.Predict(input).cpu();
             return prediction[0].ToDouble();
         }
     }
@@ -135,14 +137,19 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
             using var noGrad = no_grad();
             for (int off = 0; off < valid.Count; off += chunkSize)
             {
+                // Deterministically dispose every tensor created during this chunk — including the ~30
+                // intermediates allocated inside the model's forward() (residual clones, conv/norm outputs).
+                // Without a dispose scope those rely on the GC finalizer thread, which races the main thread's
+                // libtorch allocator and corrupts the native heap (0xC0000374) once enough inference has run.
+                using var scope = NewDisposeScope();
                 int m = Math.Min(chunkSize, valid.Count - off);
                 var flat = new long[(long)m * encodedLength];
                 for (int j = 0; j < m; j++)
                     Array.Copy(encoded[valid[off + j]], 0, flat, (long)j * encodedLength, encodedLength);
 
-                using Tensor input = tensor(flat, dtype: ScalarType.Int64).reshape(m, encodedLength);
-                using Tensor prediction = _model.Predict(input);           // [m, 1]
-                double[] preds = prediction.reshape(m).to(ScalarType.Float64).data<double>().ToArray();
+                using Tensor input = tensor(flat, dtype: ScalarType.Int64).reshape(m, encodedLength).to(_model.Device);
+                using Tensor prediction = _model.Predict(input);           // [m, 1] on model device
+                double[] preds = prediction.reshape(m).to(ScalarType.Float64).cpu().data<double>().ToArray();
                 for (int j = 0; j < m; j++)
                 {
                     int i = valid[off + j];
