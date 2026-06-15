@@ -15,13 +15,6 @@ internal sealed class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>,
     private bool _disposed;
 
     /// <summary>
-    /// Device the model parameters live on. Defaults to CPU. Opt in to CUDA by setting the environment
-    /// variable MZLIB_CHRONOLOGER_CUDA=1 (falls back to CPU if no CUDA device is available). Inference is
-    /// numerically equivalent on either device (eval mode, BatchNorm running stats).
-    /// </summary>
-    public torch.Device Device { get; }
-
-    /// <summary>
     /// Initializes a new instance of the Chronologer model class with pre-trained weights.
     /// Eval mode is set to true and training mode is set to false by default.
     /// Please use .Predict() for inference, not .forward() directly.
@@ -63,16 +56,6 @@ internal sealed class Chronologer : torch.nn.Module<torch.Tensor, torch.Tensor>,
         {
             eval(); // Evaluation mode doesn't update weights
             train(false);
-        }
-
-        // Optional CUDA acceleration (opt-in via env). The Chronologer CNN is tiny but is called for
-        // millions of peptides when building spectral libraries; moving it to the GPU turns iRT from the
-        // build bottleneck into a non-issue. Default stays CPU so existing consumers are unaffected.
-        Device = torch.CPU;
-        if (Environment.GetEnvironmentVariable("MZLIB_CHRONOLOGER_CUDA") == "1" && torch.cuda.is_available())
-        {
-            Device = torch.CUDA;
-            this.to(Device);
         }
     }
 

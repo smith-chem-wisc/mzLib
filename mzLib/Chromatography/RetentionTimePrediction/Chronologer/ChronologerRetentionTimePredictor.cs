@@ -76,8 +76,7 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
         lock (_modelLock)
         {
             using var scope = NewDisposeScope();   // dispose forward()'s intermediates deterministically
-            using Tensor input = sequenceTensor.to(_model.Device);   // no-op when on CPU
-            using Tensor prediction = _model.Predict(input).cpu();
+            using Tensor prediction = _model.Predict(sequenceTensor).cpu();
             return prediction[0].ToDouble();
         }
     }
@@ -148,8 +147,8 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
                 for (int j = 0; j < m; j++)
                     Array.Copy(encoded[valid[off + j]], 0, flat, (long)j * encodedLength, encodedLength);
 
-                using Tensor input = tensor(flat, dtype: ScalarType.Int64).reshape(m, encodedLength).to(_model.Device);
-                using Tensor prediction = _model.Predict(input);           // [m, 1] on model device
+                using Tensor input = tensor(flat, dtype: ScalarType.Int64).reshape(m, encodedLength);
+                using Tensor prediction = _model.Predict(input);           // [m, 1]
                 double[] preds = prediction.reshape(m).to(ScalarType.Float64).cpu().data<double>().ToArray();
                 for (int j = 0; j < m; j++)
                 {
