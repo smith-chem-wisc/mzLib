@@ -11,7 +11,7 @@ using System.Linq;
 namespace Test.MslSpectralLibrary;
 
 /// <summary>
-/// NUnit 4 tests for Prompt 16: <see cref="MslProteoformIndex"/> construction,
+/// NUnit 4 tests for <see cref="MslProteoformIndex"/> construction,
 /// neutral-mass computation, mass-window queries, RT calibration, and
 /// <see cref="MslLibrary"/> integration.
 ///

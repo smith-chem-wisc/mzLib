@@ -11,7 +11,7 @@ using System.Linq;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 7 — MslMerger: Memory Claims vs Reality.
+/// Tests targeting MslMerger: Memory Claims vs Reality.
 ///
 /// Covers:
 ///   M1 — outputEntries List accumulates all output entries before WriteStreaming;
@@ -23,7 +23,7 @@ namespace Test.SpectralLibrary.MSL;
 ///          duplicatesSkipped invariant, NaN tiebreak, mzWindow flush boundary
 /// </summary>
 [TestFixture]
-public class TestMslPrompt7Merger
+public class TestMslMergerCoverage
 {
 	private string _tempDir = null!;
 
@@ -31,7 +31,7 @@ public class TestMslPrompt7Merger
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt7_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 
@@ -371,7 +371,7 @@ public class TestMslPrompt7Merger
 	/// within a flush window is now deterministic and stable across .NET versions,
 	/// platforms, and insertion orders.
 	///
-	/// This test supersedes the original "OrderUnspecified" version (Prompt 7 / M3),
+	/// This test supersedes the original "OrderUnspecified" version (M3),
 	/// which correctly documented the non-determinism but accepted it as unavoidable.
 	/// It is no longer unavoidable.
 	/// </summary>

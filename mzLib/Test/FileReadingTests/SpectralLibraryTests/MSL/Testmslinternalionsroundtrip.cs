@@ -11,12 +11,12 @@ using System.Linq;
 namespace Test.MslSpectralLibrary;
 
 /// <summary>
-/// NUnit 4 tests for Prompt 12: verifies that <see cref="MslLibraryEntry.ToLibrarySpectrum"/>
+/// NUnit 4 tests for verifies that <see cref="MslLibraryEntry.ToLibrarySpectrum"/>
 /// and <see cref="MslLibraryEntry.FromLibrarySpectrum"/> correctly propagate
 /// <see cref="Product.SecondaryProductType"/> and <see cref="Product.SecondaryFragmentNumber"/>
 /// for internal fragment ions.
 ///
-/// Prior to Prompt 12 both conversion methods silently dropped these fields, causing internal-ion
+/// Previously, both conversion methods silently dropped these fields, causing internal-ion
 /// boundary information (e.g. bIy[3-6]) to be lost on every <c>LibrarySpectrum</c> round-trip.
 /// These tests confirm the fix is in place and regression-safe.
 ///

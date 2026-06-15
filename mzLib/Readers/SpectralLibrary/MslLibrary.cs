@@ -65,7 +65,7 @@ public sealed class MslLibrary : IDisposable
 	private readonly MslProteoformIndex? _proteoformIndex;
 
 	/// <summary>
-	/// The Prompt 3 data container that owns the open <see cref="System.IO.FileStream"/> and
+	/// The data container that owns the open <see cref="System.IO.FileStream"/> and
 	/// the <see cref="MslLibraryData.LoadFragmentsOnDemand"/> implementation in index-only mode.
 	/// Null in full-load mode and after <see cref="Dispose"/> has been called.
 	/// </summary>
@@ -853,7 +853,7 @@ public sealed class MslLibrary : IDisposable
 	/// <b>Important:</b> in index-only mode, applying calibration internally rebuilds the
 	/// sequence/charge dictionary, which would trigger on-demand fragment reads for every
 	/// entry. It is therefore strongly recommended to call this method only on full-load
-	/// libraries. See §9.3 of the Prompt 4 handoff for the full rationale.
+	/// libraries.
 	/// </para>
 	/// </summary>
 	/// <param name="slope">

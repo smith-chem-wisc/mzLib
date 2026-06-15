@@ -27,7 +27,7 @@ namespace Test.MslSpectralLibrary;
 ///
 /// All test files are written to a dedicated temp directory using <see cref="MslWriter.Write"/>
 /// on the same synthetic fixtures used in <c>TestMslWriter</c>. The writer is treated as a
-/// black box; its correctness is assumed from the Prompt 2 test suite.
+/// black box; its correctness is assumed from the binary-format test suite.
 /// </summary>
 [TestFixture]
 public sealed class TestMslReader

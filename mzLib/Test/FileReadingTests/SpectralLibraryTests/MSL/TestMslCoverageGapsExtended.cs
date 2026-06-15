@@ -11,7 +11,7 @@ using System.Linq;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 5 — Test Coverage Assessment.
+/// Tests targeting Test Coverage Assessment.
 ///
 /// These tests address the genuine coverage gaps that remain after the
 /// existing 472-test suite. They do NOT duplicate tests already present.
@@ -30,7 +30,7 @@ namespace Test.SpectralLibrary.MSL;
 ///         handle (file deletable after close)
 /// </summary>
 [TestFixture]
-public class TestMslPrompt5CoverageGaps
+public class TestMslCoverageGapsExtended
 {
 	private string _tempDir = null!;
 
@@ -38,7 +38,7 @@ public class TestMslPrompt5CoverageGaps
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt5_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 
@@ -90,7 +90,7 @@ public class TestMslPrompt5CoverageGaps
 	/// After the write completes, no spill (temp) files should remain in the
 	/// output directory. This verifies the cleanup path that replaced the
 	/// original single-pass IEnumerable concern (now covered by
-	/// TestMslPrompt10SinglePass).
+	/// TestMslSinglePass).
 	/// </summary>
 	[Test]
 	public void WriteStreaming_SpillFileCleanup_NoTempFilesRemainAfterWrite()

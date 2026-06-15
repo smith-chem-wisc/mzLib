@@ -67,7 +67,7 @@ public static class MslFormat
 	//   5. Update test_msl_reader.py _MslBuilder.FORMAT_VERSION to match.
 	//   6. Update MslStructs.cs MslFileHeader.FormatVersion field doc.
 	//   7. Update the FormatVersion_PythonReaderMaxVersion_MustMatchCurrentVersion
-	//      canary test expected value in TestMslPrompt11VersionManagement.cs.
+	//      canary test expected value in TestMslVersionManagement.cs.
 	// ─────────────────────────────────────────────────────────────────────
 
 	/// <summary>

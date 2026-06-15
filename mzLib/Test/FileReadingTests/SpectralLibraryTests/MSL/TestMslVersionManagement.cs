@@ -1,8 +1,8 @@
-﻿// TestMslPrompt11VersionManagement.cs
+﻿// TestMslVersionManagement.cs
 // PR #1036 · smith-chem-wisc/mzLib · branch `mzlib_speclib`
-// Prompt 11 — Version Management: C# side tests
+// Version Management: C# side tests
 //
-// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMslPrompt11"
+// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMsl"
 //        dotnet test mzLib.sln --filter "FullyQualifiedName~FormatVersion"
 
 using MassSpectrometry;
@@ -19,8 +19,7 @@ using System.Runtime.InteropServices;
 namespace Test.SpectralLibrary.MSL;
 
 [TestFixture]
-[Category("Prompt11")]
-public class TestMslPrompt11VersionManagement
+public class TestMslVersionManagement
 {
 	private string _tempDir = null!;
 
@@ -28,7 +27,7 @@ public class TestMslPrompt11VersionManagement
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt11_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 

@@ -86,7 +86,8 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
     /// Batched override: formats/encodes the peptides in parallel (CPU) and runs the Chronologer model in
     /// large batched forward passes instead of one locked batch-1 call per peptide. The model is in eval
     /// mode (BatchNorm uses running statistics), so each peptide's prediction is independent of the batch —
-    /// results are identical to <see cref="PredictCore"/>, just far faster for many peptides.
+    /// results match <see cref="PredictCore"/> to float32 precision (libtorch selects different conv/matmul
+    /// kernels at batch size m vs 1, so the two paths are not bit-identical), just far faster for many peptides.
     /// </summary>
     public override IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)>
         PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)

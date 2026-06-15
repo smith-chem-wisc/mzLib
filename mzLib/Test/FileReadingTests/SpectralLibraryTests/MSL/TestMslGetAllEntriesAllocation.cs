@@ -37,12 +37,12 @@ namespace Test.MslSpectralLibrary;
 ///   11. GetAllEntries does not trigger significant Gen-0 GC pressure (regression guard).
 /// </summary>
 [TestFixture]
-public sealed class TestMslPrompt15GetAllEntriesAllocation
+public sealed class TestMslGetAllEntriesAllocation
 {
     // ── Fixture paths ─────────────────────────────────────────────────────────
 
     private static readonly string OutputDir =
-        Path.Combine(Path.GetTempPath(), "MslPrompt15Tests");
+        Path.Combine(Path.GetTempPath(), "Msl15Tests");
 
     [OneTimeSetUp]
     public void OneTimeSetUp() => Directory.CreateDirectory(OutputDir);

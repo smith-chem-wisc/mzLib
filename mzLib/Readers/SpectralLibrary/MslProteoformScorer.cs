@@ -264,6 +264,11 @@ public static class MslProteoformScorer
 				libFrag.ResiduePosition,
 				libFrag.NeutralLoss);
 
+			// By design, MatchedFragments reports the LIBRARY reference peak (m/z + intensity), not the
+			// matched experimental peak: this is a library-vs-experiment scorer, so the returned ions
+			// identify WHICH library fragments were matched. The experimental intensities are used only
+			// for the spectral-angle score above (matchedExpIntensities). Consumers needing the observed
+			// peak should read it from the source spectrum via the fragment's annotation.
 			matchedIons.Add(new MatchedFragmentIon(
 				product,
 				libFrag.Mz,

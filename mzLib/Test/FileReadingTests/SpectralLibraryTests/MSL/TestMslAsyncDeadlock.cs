@@ -1,13 +1,13 @@
-﻿// TestMslPrompt9AsyncDeadlock.cs
+﻿// TestMslAsyncDeadlock.cs
 // PR #1036 · smith-chem-wisc/mzLib · branch `mzlib_speclib`
-// Prompt 9 — Sync-Over-Async Deadlock in FragmentIntensityModel.Predict
+// Sync-Over-Async Deadlock in FragmentIntensityModel.Predict
 //
 // Tests for Fix 10 (Option A stopgap): Task.Run() wrapper in Predict().
 //
 // All tests are network-free. The deadlock tests use a custom
 // SingleThreadedSynchronizationContext that simulates the WinForms/WPF environment.
 //
-// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMslPrompt9"
+// Build: dotnet test mzLib.sln --filter "FullyQualifiedName~TestMsl"
 
 using MassSpectrometry;
 using NUnit.Framework;
@@ -24,8 +24,7 @@ using System.Threading.Tasks;
 namespace Test.SpectralLibrary.MSL;
 
 [TestFixture]
-[Category("Prompt9")]
-public class TestMslPrompt9AsyncDeadlock
+public class TestMslAsyncDeadlock
 {
 	// ────────────────────────────────────────────────────────────────────────
 	// SingleThreadedSynchronizationContext
@@ -285,16 +284,16 @@ public class TestMslPrompt9AsyncDeadlock
 
 // ════════════════════════════════════════════════════════════════════════════
 // Updated K6 test — replaces the Assert.Pass documentation marker in
-// TestMslPrompt6KoinaPipeline.cs with a test that documents the fix.
+// TestMslKoinaPipeline.cs with a test that documents the fix.
 //
-// APPLY TO: TestMslPrompt6KoinaPipeline.cs
+// APPLY TO: TestMslKoinaPipeline.cs
 // Replace the body of FragmentIntensityModel_Predict_UsesSyncOverAsync_DeadlockRiskDocumented
 // ════════════════════════════════════════════════════════════════════════════
 
 /*
     /// <summary>
     /// Documents the resolution of the sync-over-async deadlock risk in
-    /// FragmentIntensityModel.Predict() (Prompt 9 / Fix 10).
+    /// FragmentIntensityModel.Predict() (Fix 10).
     ///
     /// The original pattern:
     ///   AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult()
@@ -304,7 +303,7 @@ public class TestMslPrompt9AsyncDeadlock
     /// Task.Run() schedules the async work on a ThreadPool thread (no SynchronizationContext),
     /// preventing the deadlock that would occur in WinForms/WPF/ASP.NET non-Core environments.
     ///
-    /// The deadlock itself is tested in TestMslPrompt9AsyncDeadlock.cs via a custom
+    /// The deadlock itself is tested in TestMslAsyncDeadlock.cs via a custom
     /// SingleThreadedSynchronizationContext.
     ///
     /// The correct long-term fix (Option B — async surface on PredictFragments) is
@@ -314,12 +313,12 @@ public class TestMslPrompt9AsyncDeadlock
     public void FragmentIntensityModel_Predict_UsesSyncOverAsync_DeadlockRiskDocumented()
     {
         Assert.Pass(
-            "Sync-over-async deadlock risk FIXED (Prompt 9 / Fix 10): " +
+            "Sync-over-async deadlock risk FIXED (Fix 10): " +
             "FragmentIntensityModel.Predict() now wraps AsyncThrottledPredictor in " +
             "Task.Run() to escape any ambient SynchronizationContext. " +
             "Safe in all environments (console, WinForms, WPF, ASP.NET). " +
             "Deadlock verified absent via SingleThreadedSynchronizationContext in " +
-            "TestMslPrompt9AsyncDeadlock.FragmentIntensityModel_Predict_DoesNotDeadlock_OnSingleThreadedContext. " +
+            "TestMslAsyncDeadlock.FragmentIntensityModel_Predict_DoesNotDeadlock_OnSingleThreadedContext. " +
             "Long-term fix (Option B: async PredictFragments surface) tracked separately.");
     }
 */

@@ -10,8 +10,7 @@ using System.IO;
 namespace Test.SpectralLibrary.MSL;
 
 [TestFixture]
-[Category("Prompt12")]
-public class TestMslPrompt12FlushOrder
+public class TestMslFlushOrder
 {
 	private string _tempDir = null!;
 
@@ -19,7 +18,7 @@ public class TestMslPrompt12FlushOrder
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt12_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 

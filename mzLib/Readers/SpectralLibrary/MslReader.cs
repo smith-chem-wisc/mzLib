@@ -464,7 +464,7 @@ public static class MslReader
 
 		// ── Check 2: leading magic ────────────────────────────────────────────
 		// MagicMatches() operates on raw bytes; it is endian-safe and handles the
-		// LE struct byte-swap applied by the writer (see Prompt 2 Handoff §5.1).
+		// LE struct byte-swap applied by the writer.
 		if (!MslFormat.MagicMatches(fileBytes.AsSpan(0, 4)))
 			throw new FormatException(
 				$"Magic mismatch in '{filePath}': not an MSL file " +
@@ -805,7 +805,7 @@ public static class MslReader
 	/// Custom neutral-loss decoding: when <c>neutral_loss_code == Custom</c>, the
 	/// <c>ResiduePosition</c> field is repurposed as a 1-based index into
 	/// <paramref name="customLossMasses"/>. <c>ResiduePosition</c> is set to 0 for such
-	/// fragments (documented trade-off; see Prompt 11 design rationale).
+	/// fragments (documented trade-off).
 	/// </summary>
 	/// <param name="r">Raw fragment record, passed by read-only reference to avoid a copy.</param>
 	/// <param name="customLossMasses">

@@ -130,7 +130,9 @@ namespace Test.RetentionTimePrediction
                     var singleResult = predictor.PredictRetentionTimeEquivalent(peptide, out var singleReason);
                     var batchResult = batchResults[peptide.BaseSequence];
 
-                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleResult),
+                    // Batched and single-peptide inference run through different libtorch conv/matmul
+                    // kernels (batch size m vs 1), so results match to float32 precision, not bit-exactly.
+                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleResult).Within(1e-4),
                         $"{predictor.PredictorName} batch result differed from single for {peptide.BaseSequence}");
                     Assert.That(batchResult.FailureReason, Is.EqualTo(singleReason),
                         $"{predictor.PredictorName} batch failure reason differed from single for {peptide.BaseSequence}");
@@ -321,7 +323,9 @@ namespace Test.RetentionTimePrediction
 
                     Assert.That(batchResult.Peptide.BaseSequence, Is.EqualTo(peptides[idx].BaseSequence),
                         $"{predictor.PredictorName} peptide mismatch at index {idx}");
-                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleValue),
+                    // Batched and single-peptide inference run through different libtorch conv/matmul
+                    // kernels (batch size m vs 1), so results match to float32 precision, not bit-exactly.
+                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleValue).Within(1e-4),
                         $"{predictor.PredictorName} value mismatch at index {idx} for {peptides[idx].BaseSequence}");
                     Assert.That(batchResult.FailureReason, Is.EqualTo(singleReason),
                         $"{predictor.PredictorName} failure reason mismatch at index {idx}");

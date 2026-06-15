@@ -11,7 +11,7 @@ using System.Linq;
 namespace Test.SpectralLibrary.MSL;
 
 /// <summary>
-/// Tests targeting the findings from Prompt 3 — SpectralAngle vs. Cosine Similarity.
+/// Tests targeting SpectralAngle vs. Cosine Similarity.
 /// Written for the corrective Fix 6B: ComputeSpectralAngle now returns the true
 /// arccos-scaled SA = 1 − (2/π) × arccos(cosine).
 ///
@@ -19,7 +19,7 @@ namespace Test.SpectralLibrary.MSL;
 /// vectors are unaffected because cosine == SA == 1.0 for those cases.
 /// </summary>
 [TestFixture]
-public class TestMslPrompt3SpectralAngle
+public class TestMslSpectralAngle
 {
 	private const double Proton = 1.007276;
 
@@ -29,7 +29,7 @@ public class TestMslPrompt3SpectralAngle
 	public void OneTimeSetUp()
 	{
 		_tempDir = Path.Combine(Path.GetTempPath(),
-			$"TestMslPrompt3_{Guid.NewGuid():N}");
+			$"TestMsl_{Guid.NewGuid():N}");
 		Directory.CreateDirectory(_tempDir);
 	}
 

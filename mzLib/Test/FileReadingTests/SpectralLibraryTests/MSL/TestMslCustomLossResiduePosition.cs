@@ -10,7 +10,7 @@ namespace Test.MslSpectralLibrary;
 
 /// <summary>
 /// NUnit 4 tests documenting and verifying the custom-neutral-loss ResiduePosition
-/// limitation described in the Prompt 14 code review.
+/// limitation described in the code review.
 ///
 /// These tests:
 ///   1. Document the known limitation precisely (ResiduePosition = 0 after round-trip
@@ -23,12 +23,12 @@ namespace Test.MslSpectralLibrary;
 ///   7. Confirm writing with ResiduePosition=0 is a clean no-op.
 /// </summary>
 [TestFixture]
-public sealed class TestMslPrompt14CustomLossResiduePosition
+public sealed class TestMslCustomLossResiduePosition
 {
     // ── Fixture paths ─────────────────────────────────────────────────────────
 
     private static readonly string OutputDir =
-        Path.Combine(Path.GetTempPath(), "MslPrompt14Tests");
+        Path.Combine(Path.GetTempPath(), "Msl14Tests");
 
     [OneTimeSetUp]
     public void OneTimeSetUp() => Directory.CreateDirectory(OutputDir);
@@ -90,7 +90,7 @@ public sealed class TestMslPrompt14CustomLossResiduePosition
     ///
     /// This test is intentionally named "Documents" rather than asserting correct behaviour
     /// to signal to future maintainers that this is a known limitation, not an accident.
-    /// See MslFragmentIon.ResiduePosition XML doc and the Prompt 14 review for the
+    /// See MslFragmentIon.ResiduePosition XML doc and the code review for the
     /// format-v4 upgrade path.
     /// </summary>
     [Test]
@@ -110,7 +110,7 @@ public sealed class TestMslPrompt14CustomLossResiduePosition
             $"field is repurposed as ExtAnnotationIdx for custom-loss fragments. The " +
             $"original value ({originalResidPos}) is irrecoverably lost in the binary " +
             $"record. ResiduePosition is always 0 after round-trip for custom-loss " +
-            $"fragments. See MslFragmentIon.ResiduePosition XML doc and Prompt 14 " +
+            $"fragments. See MslFragmentIon.ResiduePosition XML doc and the " +
             $"review for the format-v4 upgrade path.");
     }
 

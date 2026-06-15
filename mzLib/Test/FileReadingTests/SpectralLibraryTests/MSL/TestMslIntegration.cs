@@ -12,7 +12,7 @@ using SpectralLibraryClass = Readers.SpectralLibrary.SpectralLibrary;
 namespace Test.MslSpectralLibrary;
 
 /// <summary>
-/// NUnit 4 integration tests for Prompt 6: file-type routing, internal ion MSP parsing,
+/// NUnit 4 integration tests for file-type routing, internal ion MSP parsing,
 /// MSP → MSL round-trip, <see cref="ToLibrarySpectrum"/> terminus coverage,
 /// <see cref="FromLibrarySpectrum"/> completeness, and <see cref="SpectralLibrary"/>
 /// MSL routing.
@@ -385,6 +385,10 @@ public sealed class TestMslIntegration
 
 		// FragmentNumber carries the start residue for internal ions
 		Assert.That(ion.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(3));
+		// Secondary annotation must survive too: the 'b' after the 'I' is the secondary product
+		// type, and the end residue (6) is stored as the secondary fragment number.
+		Assert.That(ion.NeutralTheoreticalProduct.SecondaryProductType, Is.EqualTo(ProductType.b));
+		Assert.That(ion.NeutralTheoreticalProduct.SecondaryFragmentNumber, Is.EqualTo(6));
 	}
 
 	/// <summary>
