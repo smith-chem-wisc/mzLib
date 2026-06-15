@@ -62,6 +62,28 @@ public class ConversionResult
 /// types (nullable ProductType? for internal ions, double for neutral-loss mass) rather
 /// than the compact binary encodings.
 /// </summary>
+/// <remarks>
+/// <para><b>Why this exists separately from <see cref="MatchedFragmentIon"/>.</b> The two types model
+/// the same concept — one fragment ion — at different layers, so the resemblance is by design rather
+/// than duplication. <see cref="MslFragmentIon"/> is the spectral library's <i>persistence / working
+/// model</i>: a flat, mutable record that mirrors the on-disk binary layout (float32 m/z and intensity),
+/// carries storage-only data such as <see cref="ExcludeFromQuant"/>, and deliberately keeps the
+/// fragment's identity as plain fields instead of holding a <see cref="Product"/> — so no neutral mass
+/// or terminus has to be computed when reading millions of fragments. <see cref="MatchedFragmentIon"/>
+/// is the search / scoring <i>domain model</i>: immutable, double precision, wraps a theoretical
+/// <see cref="Product"/> with a computed neutral mass, and exposes behavior (mass error, value equality)
+/// that only makes sense once a fragment has been matched to a spectrum.</para>
+///
+/// <para><b>How they relate.</b> The two are bridged only by explicit conversion
+/// (<see cref="MslLibraryEntry.ToLibrarySpectrum"/> and <see cref="MslLibraryEntry.FromLibrarySpectrum"/>);
+/// no code treats them polymorphically. That is why this is a standalone class rather than a subclass of,
+/// or an interface over, <see cref="MatchedFragmentIon"/> — an "is-a" relationship would force an eager
+/// <see cref="Product"/> (with a meaningless zero neutral mass) and inherit mass-based behavior that does
+/// not apply to a library fragment. The mapping between the two is exercised by a round-trip test
+/// (<c>MslFragmentIonInteropTests</c>) so the field correspondence cannot silently drift. Note that
+/// <see cref="ExcludeFromQuant"/> has no counterpart in <see cref="MatchedFragmentIon"/> and therefore
+/// survives only the binary .msl round-trip, not the conversion to/from the domain type.</para>
+/// </remarks>
 public class MslFragmentIon
 {
 	// ── Core ion identity ───────────────────────────────────────────────
@@ -172,6 +194,15 @@ public class MslFragmentIon
 	/// Examples: "b5", "y3-H2O", "bIy[3-6]" (internal b/y spanning residues 3–6).
 	/// The format follows mzLib conventions: type + number (+ neutral loss if present).
 	/// </summary>
+	/// <remarks>
+	/// The terminal/internal-ion portion matches <see cref="Product.Annotation"/>, but this library
+	/// rendering intentionally diverges in two places: the neutral loss is shown signed and at higher
+	/// precision (F4 rather than Product's unsigned F2), and the charge is appended as a superscript
+	/// (e.g. <c>^2+</c>), which <see cref="Product.Annotation"/> omits. The domain type
+	/// <see cref="MatchedFragmentIon.Annotation"/> renders both differently again. These formats are kept
+	/// separate deliberately — unifying them would change displayed/serialized output — so do not assume
+	/// the two annotation strings are byte-identical for the same ion.
+	/// </remarks>
 	public string Annotation
 	{
 		get
