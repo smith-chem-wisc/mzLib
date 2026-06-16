@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
@@ -373,6 +375,28 @@ namespace Test.KoinaTests.RetentionTimePrediction
             Assert.That(model.Predictions.Count, Is.EqualTo(numberOfSequences));
             Assert.That(model.ValidInputsMask, Is.All.True);
             Console.WriteLine($"Time taken to predict {numberOfSequences:N0} peptides: {watch.Elapsed.Minutes}min {watch.Elapsed.Seconds}s {watch.Elapsed.Milliseconds}ms");
+        }
+        [Test]
+        [Explicit("Manual test - requires local data files")]
+        public static void TestPredictRetentionTimesFromTextFile()
+        {
+            string inputPath = @"C:\Users\trish\Downloads\falses.txt";
+            string outputPath = @"C:\Users\trish\Downloads\predicted_irts_falses.txt";
+
+            if (!File.Exists(inputPath))
+            {
+                Assert.Ignore($"Input file not found: {inputPath}");
+                return;
+            }
+
+            var peptides = File.ReadAllLines(inputPath).ToList();
+            var model = new Prosit2019iRT();
+            var inputs = peptides.Select(p => new RetentionTimePredictionInput(p)).ToList();
+            model.Predict(inputs);
+
+            File.WriteAllLines(outputPath, model.Predictions.Select(p => $"{p.FullSequence}\t{p.PredictedRetentionTime}"));
+
+
         }
     }
 }

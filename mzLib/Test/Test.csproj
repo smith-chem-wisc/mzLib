@@ -697,6 +697,9 @@
     <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\librarySpectrumInternalIons.msp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
