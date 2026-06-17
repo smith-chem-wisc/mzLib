@@ -326,11 +326,11 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 #region Throttled API Requests and Response Processing
                 var responses = new List<string>();
-                using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes); // Set a reasonable timeout for each batch chunk
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes)); // Bound the whole session
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => HTTP.InferenceRequest(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
                     if (i < batchChunks.Count - 1) // No need to throttle after the last batch
                     {
@@ -468,18 +468,26 @@ namespace PredictionClients.Koina.AbstractClasses
                                 continue;
                             }
                             var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
-                            int plusIndex = fragmentIon.IndexOf('+');
-                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex));
-                            var baseFragmentId = fragmentIon.Substring(0, plusIndex);
-                            var dashIndex = baseFragmentId.IndexOf('-');
-                            if (dashIndex > 0)
-                                baseFragmentId = baseFragmentId.Substring(0, dashIndex);
-                            if (!tpLookup.TryGetValue(baseFragmentId, out var tp))
+                            // Use the model's annotation parser (handles non-'+' charge delimiters and
+                            // neutral losses) and recompute m/z like GenerateLibrarySpectraFromPredictions.
+                            ParsedFragmentAnnotation parsed;
+                            try
+                            {
+                                parsed = ParseFragmentAnnotation(fragmentIon);
+                            }
+                            catch
                             {
                                 continue;
                             }
+                            if (!tpLookup.TryGetValue(parsed.BaseFragmentIdentifier, out var tp))
+                            {
+                                continue;
+                            }
+                            double mz = parsed.NeutralLossMass.HasValue
+                                ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(parsed.Charge)
+                                : tp.ToMz(parsed.Charge);
                             fragmentIons.Add(fragmentIon);
-                            fragmentMZs.Add(tp.ToMz(fragmentCharge));
+                            fragmentMZs.Add(mz);
                             predictedIntensities.Add(intensity);
                         }
                         predictions.Add(new PeptideFragmentIntensityPrediction(

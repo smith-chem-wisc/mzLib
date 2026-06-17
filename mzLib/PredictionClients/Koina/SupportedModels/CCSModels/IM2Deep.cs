@@ -20,7 +20,7 @@ namespace PredictionClients.Koina.SupportedModels.CCSModels
         public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 2000;
         public override int MaxPeptideLength => 50;
         public override int MinPeptideLength => 1;
-        public override HashSet<int> AllowedPrecursorCharges => new();
+        public override HashSet<int>? AllowedPrecursorCharges => new();
         public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }

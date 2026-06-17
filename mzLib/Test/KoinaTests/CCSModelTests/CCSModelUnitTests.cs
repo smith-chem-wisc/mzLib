@@ -91,7 +91,7 @@ namespace Test.KoinaTests.CCSModelTests
             public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 0;
             public override int MaxPeptideLength => 50;
             public override int MinPeptideLength => 1;
-            public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+            public override HashSet<int>? AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
             public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
             public TestableCCSModel() : base(Converter) { }

@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
@@ -34,7 +35,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
         public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
-        public override HashSet<string>? AllowedInstrumentTypes => new() { "eclipse", "astral", "lumos" };
+        // Koina's Prosit_Preprocess_instrument_types matches these byte-for-byte (uppercase) and
+        // silently defaults anything else to LUMOS, so the client must send them uppercased.
+        public override HashSet<string>? AllowedInstrumentTypes => new() { "ECLIPSE", "ASTRAL", "LUMOS" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
@@ -56,13 +59,20 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }
 
+        protected override bool ValidateModelSpecificInputs(FragmentIntensityPredictionInput input, out WarningException? warning)
+        {
+            // Accept instrument types case-insensitively; the request is sent uppercased.
+            input = input with { InstrumentType = input.InstrumentType?.ToUpperInvariant() };
+            return base.ValidateModelSpecificInputs(input, out warning);
+        }
+
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)
         {
             var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
             var batchedEnergies = validInputs.Select(p => (float)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
             var batchedFragTypes = validInputs.Select(p => p.FragmentationType ?? "HCD").Chunk(MaxBatchSize).ToArray();
-            var batchedInstTypes = validInputs.Select(p => p.InstrumentType ?? "lumos").Chunk(MaxBatchSize).ToArray();
+            var batchedInstTypes = validInputs.Select(p => (p.InstrumentType ?? "LUMOS").ToUpperInvariant()).Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)

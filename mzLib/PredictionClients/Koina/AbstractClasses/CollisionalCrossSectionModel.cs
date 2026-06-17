@@ -47,7 +47,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
-        public virtual HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
+        public virtual HashSet<int>? AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
         public override abstract SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public virtual IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
@@ -94,12 +94,12 @@ namespace PredictionClients.Koina.AbstractClasses
                 sessionTimeoutInMinutes = Math.Max(sessionTimeoutInMinutes, 1);
 
                 var responses = new List<string>();
-                using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes);
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
 
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => HTTP.InferenceRequest(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
 
                     if (i < batchChunks.Count - 1)
@@ -161,10 +161,8 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
 
-            // AllowedPrecursorCharges is non-nullable in this class (inherited from KoinaModelBase?),
-            // so null semantics don't apply here. Empty = bypass (no charge constraint).
-            // TODO: Migrate AllowedPrecursorCharges to nullable to support the null/empty convention.
-            if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
+            // null = not applicable (skip), empty = any charge, populated = restrict to listed.
+            if (AllowedPrecursorCharges != null && !AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
             {
                 string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
                 switch (ParameterHandlingMode)

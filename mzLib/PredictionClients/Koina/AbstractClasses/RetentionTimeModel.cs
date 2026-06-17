@@ -154,12 +154,12 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 #region Throttled API Requests and Response Processing
                 var responses = new List<string>();
-                using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes);
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
 
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => HTTP.InferenceRequest(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
 
                     if (i < batchChunks.Count - 1) // No need to throttle after the last batch
