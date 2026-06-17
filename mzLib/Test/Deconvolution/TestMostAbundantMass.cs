@@ -8,7 +8,7 @@ namespace Test
 {
     /// <summary>
     /// Unit tests for the "most abundant mass" precursor-selection support (Strategy B):
-    /// the averagine offset helpers <see cref="AverageResidue.GetMostAbundantOffset"/> /
+    /// the averagine apex offset (diff-to-monoisotopic of the nearest mass bin) and
     /// <see cref="AverageResidue.GetAverageOffset"/>, and the proton-corrected
     /// <see cref="IsotopicEnvelope.MostAbundantObservedMass"/> /
     /// <see cref="IsotopicEnvelope.AverageObservedMass"/> / <see cref="IsotopicEnvelope.Resolution"/>.
@@ -18,6 +18,10 @@ namespace Test
     public sealed class TestMostAbundantMass
     {
         private static readonly AverageResidue Model = new Averagine();
+
+        // Most-abundant offset for a monoisotopic mass = the averagine diff-to-monoisotopic of the
+        // nearest mass bin (the mass-keyed composition consumers use in place of a dedicated method).
+        private static double MostAbundantOffset(double monoMass) => Model.GetDiffToMonoisotopic(Model.GetMostIntenseMassIndex(monoMass));
 
         /// <summary>
         /// Builds a perfect synthetic envelope: peaks at exact theoretical m/z with
@@ -53,7 +57,7 @@ namespace Test
             double prev = double.NegativeInfinity;
             foreach (double m in masses)
             {
-                double offset = Model.GetMostAbundantOffset(m);
+                double offset = MostAbundantOffset(m);
                 Assert.That(offset, Is.GreaterThanOrEqualTo(-1e-6)); // ~0 at tiny mass (mono IS most abundant)
                 Assert.That(offset, Is.GreaterThanOrEqualTo(prev - 1e-6), $"offset decreased at mass {m}");
                 prev = offset;
@@ -64,7 +68,7 @@ namespace Test
         public void MostAbundantOffset_IsNearZeroForSmallMass()
         {
             // A small peptide's monoisotopic peak is (nearly) the most abundant.
-            Assert.That(Model.GetMostAbundantOffset(500), Is.LessThan(0.5));
+            Assert.That(MostAbundantOffset(500), Is.LessThan(0.5));
         }
 
         [Test]
@@ -72,7 +76,7 @@ namespace Test
         {
             // ~1 13C neutron (~1.00235 Da) per ~1.6 kDa. Assert the offset at 16 kDa is in a
             // physically plausible band (≈ 9–11 Da) rather than an exact value.
-            double offset = Model.GetMostAbundantOffset(16000);
+            double offset = MostAbundantOffset(16000);
             Assert.That(offset, Is.GreaterThan(8.0).And.LessThan(12.0));
         }
 
@@ -85,7 +89,7 @@ namespace Test
             foreach (double m in masses)
             {
                 Assert.That(Model.GetAverageOffset(m),
-                    Is.GreaterThanOrEqualTo(Model.GetMostAbundantOffset(m) - 1e-6), $"at mass {m}");
+                    Is.GreaterThanOrEqualTo(MostAbundantOffset(m) - 1e-6), $"at mass {m}");
             }
         }
 
@@ -115,7 +119,7 @@ namespace Test
             const int charge = 12;
             var env = BuildPerfectEnvelope(mono, charge);
 
-            double predicted = mono + Model.GetMostAbundantOffset(mono);
+            double predicted = mono + MostAbundantOffset(mono);
             Assert.That(env.MostAbundantObservedMass, Is.EqualTo(predicted).Within(0.15));
         }
 

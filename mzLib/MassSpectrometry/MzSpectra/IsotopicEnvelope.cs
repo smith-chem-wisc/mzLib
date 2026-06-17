@@ -23,15 +23,19 @@ namespace MassSpectrometry
         public double MonoisotopicMass { get; private set; }
 
         /// <summary>
-        /// Mass of most abundant observed isotopic peak, not accounting for addition or subtraction or protons due to ESI charge state induction
+        /// Most abundant observed isotopic peak as m/z × |charge|, i.e. <b>not</b> proton-corrected to a
+        /// neutral mass (it does not subtract the charge-carrier protons added during ESI). This is a
+        /// charge-scaled m/z, not a neutral mass; for the proton-corrected neutral mass use
+        /// <see cref="MostAbundantObservedMass"/>. Retained for existing deconvolution-quality tests.
         /// </summary>
         internal double MostAbundantObservedIsotopicMass { get; private set; }
 
         /// <summary>
-        /// Neutral mass of the most abundant observed isotopic peak (proton-corrected, i.e. the most
-        /// intense peak's m/z converted to neutral mass via the envelope charge). This is the
-        /// experimentally most detectable peak in each charge envelope and is used as the precursor
-        /// mass for candidate selection when running in most-abundant precursor-mass mode.
+        /// Neutral mass of the most abundant observed isotopic peak — the most intense peak's m/z
+        /// converted to a neutral mass via the envelope charge (i.e. proton-corrected). Unlike
+        /// <see cref="MostAbundantObservedIsotopicMass"/> (which is m/z × |charge| and omits the proton
+        /// correction), this is a true neutral mass and so is directly comparable to theoretical
+        /// proteoform masses; it is the precursor mass used for candidate selection in most-abundant mode.
         /// </summary>
         public double MostAbundantObservedMass { get; private set; }
 
