@@ -159,7 +159,7 @@ namespace Test.RetentionTimePrediction
                 foreach (var peptide in peptides)
                 {
                     Assert.That(results1[peptide.BaseSequence].PredictedValue,
-                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue),
+                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue).Within(1e-4),
                         $"{predictor.PredictorName} gave inconsistent batch results for {peptide.BaseSequence}");
                 }
             }
@@ -287,9 +287,13 @@ namespace Test.RetentionTimePrediction
                 var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
                 Assert.That(results.Count, Is.EqualTo(5));
-                var distinctValues = results.Select(r => r.PredictedValue).Distinct().Count();
-                Assert.That(distinctValues, Is.EqualTo(1),
-                    $"{predictor.PredictorName} should return same value for duplicate peptides");
+                Assert.That(results.All(r => r.PredictedValue.HasValue), Is.True);
+                // Batched libtorch inference is float32-precise, not bit-exact across identical
+                // rows (kernel threading differs by hardware), so compare within tolerance rather
+                // than Distinct() — consistent with the rest of this fixture's Chronologer checks.
+                var values = results.Select(r => r.PredictedValue!.Value).ToList();
+                Assert.That(values.Max() - values.Min(), Is.LessThanOrEqualTo(1e-4),
+                    $"{predictor.PredictorName} should return the same value (within float tolerance) for duplicate peptides");
             }
         }
 
