@@ -57,11 +57,6 @@ public abstract class RetentionTimePredictor : IRetentionTimePredictor
         }
     }
 
-    /// <inheritdoc cref="PredictRetentionTimeEquivalent"/>
-    [Obsolete("Use PredictRetentionTimeEquivalent instead.")]
-    public double? PredictRetentionTime(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)
-        => PredictRetentionTimeEquivalent(peptide, out failureReason);
-
     /// <summary>
     /// Core prediction logic - called when peptide passes all validation
     /// </summary>

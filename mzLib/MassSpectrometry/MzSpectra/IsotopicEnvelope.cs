@@ -19,7 +19,22 @@ namespace MassSpectrometry
         public readonly double TotalIntensity;
         public readonly int PrecursorId;
 
+        /// <summary>
+        /// Algorithm-specific score. Set at construction time and is the value used by each
+        /// deconvolution algorithm internally (e.g. Classic uses an empirical heuristic, IsoDec
+        /// passes its DLL-computed cosine score). Different algorithms place values on
+        /// different scales — do not compare directly across algorithms.
+        /// </summary>
         public double Score { get; private set; }
+
+        /// <summary>
+        /// Optional, post-construction generic deconvolution score in [0, 1] computed by
+        /// <see cref="DeconvolutionScorer.ScoreEnvelope"/>. Null until <see cref="SetGenericScore"/>
+        /// is called. Designed to be comparable across deconvolution algorithms because it is
+        /// recomputed from the envelope's peak list and an Averagine model — independent of
+        /// which algorithm produced the envelope.
+        /// </summary>
+        public double? GenericScore { get; private set; }
 
         /// <summary>
         /// Used for an isotopic envelope that mzLib deconvoluted (e.g., from a mass spectrum)
@@ -66,6 +81,37 @@ namespace MassSpectrometry
             Score = score;
             MostAbundantObservedIsotopicMass = peaks.MaxBy(p => p.intensity).mz * Math.Abs(chargestate);
         }
+
+        /// <summary>
+        /// Sets the optional generic deconvolution score for this envelope. The generic score is
+        /// produced by <see cref="DeconvolutionScorer"/> and is comparable across deconvolution
+        /// algorithms. Calling this method does not change <see cref="Score"/>.
+        /// </summary>
+        /// <param name="genericScore">Generic deconvolution score, expected in [0, 1].</param>
+        public void SetGenericScore(double genericScore)
+        {
+            GenericScore = genericScore;
+        }
+
+        /// <summary>
+        /// True if a generic deconvolution score has been computed and stored on this envelope.
+        /// Equivalent to <c>GenericScore.HasValue</c>; provided for readability at call sites.
+        /// </summary>
+        public bool HasGenericScore => GenericScore.HasValue;
+
+        /// <summary>
+        /// Returns <see cref="GenericScore"/> if set, otherwise <see cref="Score"/>. Callers that
+        /// want a single number per envelope and don't care which scoring system produced it should
+        /// prefer <see cref="GenericScore"/> directly, since it is the only score that is comparable
+        /// across deconvolution algorithms.
+        /// </summary>
+        /// <remarks>
+        /// This fallback exists for callers that have not yet wired up generic scoring — it lets
+        /// them write threshold or ranking code that works whether or not the score has been computed.
+        /// New code should not rely on this fallback; it should compute the generic score explicitly
+        /// (e.g. via <see cref="IsotopicEnvelopeExtensions.GetOrComputeGenericScore(IsotopicEnvelope, AverageResidue)"/>).
+        /// </remarks>
+        public double GenericOrFallbackScore => GenericScore ?? Score;
 
         public override string ToString()
         {
