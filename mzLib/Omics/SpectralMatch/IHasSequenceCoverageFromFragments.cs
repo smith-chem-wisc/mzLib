@@ -47,7 +47,7 @@ public static class HasSequenceCoverageFromFragmentsExtensions
         if (string.IsNullOrEmpty(obj.BaseSequence) || !obj.MatchedFragmentIons.Any()) 
             return new List<int>();
 
-        //Pull C terminal and N terminal Fragments and amino acid numbers
+        //Pull C terminal and N terminal MatchedFragmentIons and amino acid numbers
         var nTermFragmentAAPositions = obj.MatchedFragmentIons.Where(p =>
                 p.NeutralTheoreticalProduct.Terminus is FragmentationTerminus.N or FragmentationTerminus.FivePrime)
             .Select(j => j.NeutralTheoreticalProduct.AminoAcidPosition).Distinct().ToList();
