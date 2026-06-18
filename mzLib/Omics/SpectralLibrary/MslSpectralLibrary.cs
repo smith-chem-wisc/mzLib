@@ -63,10 +63,8 @@ public static class MslFormat
 	//   1. Increment CurrentVersion and add a history entry above.
 	//   2. Add a corresponding bullet to the CurrentVersion XML doc <list>.
 	//   3. Update MinSupportedVersion if old versions are being dropped.
-	//   4. Update msl_reader.py MAX_SUPPORTED_VERSION to match CurrentVersion.
-	//   5. Update test_msl_reader.py _MslBuilder.FORMAT_VERSION to match.
-	//   6. Update MslStructs.cs MslFileHeader.FormatVersion field doc.
-	//   7. Update the FormatVersion_PythonReaderMaxVersion_MustMatchCurrentVersion
+	//   4. Update MslStructs.cs MslFileHeader.FormatVersion field doc.
+	//   5. Update the FormatVersion_MustMatchExpectedConstant
 	//      canary test expected value in TestMslVersionManagement.cs.
 	// ─────────────────────────────────────────────────────────────────────
 
