@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Modifications;
 using Omics.SequenceConversion;
+using PredictionClients.Koina.Client;
 
 namespace PredictionClients.Koina.AbstractClasses;
 
@@ -114,6 +115,14 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             { "inputs", inputs }
         };
     }
+
+    /// <summary>
+    /// Sends a single batch request to the Koina API and returns the raw JSON response.
+    /// Seam for testing: overriding this lets the batched prediction pipeline run against a
+    /// canned transport instead of the network.
+    /// </summary>
+    protected virtual Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken cancellationToken)
+        => HTTP.InferenceRequest(modelName, request, cancellationToken);
     #endregion
 
     #region Validation and Modification Handling

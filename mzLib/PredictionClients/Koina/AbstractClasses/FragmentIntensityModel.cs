@@ -330,7 +330,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => HTTP.InferenceRequest(ModelName, request, cts.Token)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
                     if (i < batchChunks.Count - 1) // No need to throttle after the last batch
                     {
