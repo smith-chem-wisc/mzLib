@@ -36,15 +36,31 @@ namespace MassSpectrometry
         /// <see cref="MostAbundantObservedIsotopicMass"/> (which is m/z × |charge| and omits the proton
         /// correction), this is a true neutral mass and so is directly comparable to theoretical
         /// proteoform masses; it is the precursor mass used for candidate selection in most-abundant mode.
+        /// Computed from <see cref="Peaks"/> and <see cref="Charge"/> (both readonly).
         /// </summary>
-        public double MostAbundantObservedMass { get; private set; }
+        public double MostAbundantObservedMass =>
+            Peaks is { Count: > 0 } ? Peaks.MaxBy(p => p.intensity).mz.ToMass(Charge) : 0;
 
         /// <summary>
         /// Intensity-weighted centroid neutral mass of the observed peaks (proton-corrected). Used as
         /// the precursor mass for candidate selection when the envelope is isotopically
-        /// <see cref="EnvelopeResolution.Unresolved"/>.
+        /// <see cref="EnvelopeResolution.Unresolved"/>. Computed from <see cref="Peaks"/> and
+        /// <see cref="Charge"/> (both readonly).
         /// </summary>
-        public double AverageObservedMass { get; private set; }
+        public double AverageObservedMass
+        {
+            get
+            {
+                if (Peaks is not { Count: > 0 })
+                    return 0;
+
+                double totalIntensity = Peaks.Sum(p => p.intensity);
+                double centroidMz = totalIntensity > 0
+                    ? Peaks.Sum(p => p.mz * p.intensity) / totalIntensity
+                    : Peaks.MaxBy(p => p.intensity).mz;
+                return centroidMz.ToMass(Charge);
+            }
+        }
 
         /// <summary>
         /// Whether deconvolution individually resolved the isotopic peaks of this envelope. Defaults
@@ -85,7 +101,6 @@ namespace MassSpectrometry
             Charge = bestChargeState;
             TotalIntensity = bestTotalIntensity;
             Score = ScoreIsotopeEnvelope(bestStDev);
-            ComputeObservedMasses();
         }
 
         /// <summary>
@@ -99,7 +114,6 @@ namespace MassSpectrometry
             TotalIntensity = intensity;
             Score = double.MaxValue;
             Peaks = [(monoisotopicMass.ToMz(charge), intensity)];
-            ComputeObservedMasses();
         }
 
         /// <summary>
@@ -120,26 +134,6 @@ namespace MassSpectrometry
             TotalIntensity = intensity;
             Score = score;
             MostAbundantObservedIsotopicMass = peaks.MaxBy(p => p.intensity).mz * Math.Abs(chargestate);
-            ComputeObservedMasses();
-        }
-
-        /// <summary>
-        /// Computes the proton-corrected neutral most-abundant and average (centroid) observed masses
-        /// from <see cref="Peaks"/> and <see cref="Charge"/>. Called from every constructor after the
-        /// peak list and charge are set.
-        /// </summary>
-        private void ComputeObservedMasses()
-        {
-            if (Peaks == null || Peaks.Count == 0)
-                return;
-
-            MostAbundantObservedMass = Peaks.MaxBy(p => p.intensity).mz.ToMass(Charge);
-
-            double totalIntensity = Peaks.Sum(p => p.intensity);
-            double centroidMz = totalIntensity > 0
-                ? Peaks.Sum(p => p.mz * p.intensity) / totalIntensity
-                : Peaks.MaxBy(p => p.intensity).mz;
-            AverageObservedMass = centroidMz.ToMass(Charge);
         }
 
         /// <summary>
