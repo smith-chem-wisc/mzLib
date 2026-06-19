@@ -27,7 +27,8 @@ namespace Test.FileReadingTests.ProForma
             for (int i = 1; i < lines.Count; i++)
                 if (lines[i].Length > 0) lines[i] += "\t" + SampleProForma;
 
-            string tmp = Path.Combine(TestContext.CurrentContext.TestDirectory, "proforma_roundtrip.psmtsv");
+            string tmp = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"proforma_roundtrip_{TestContext.CurrentContext.Test.ID}.psmtsv");
             File.WriteAllLines(tmp, lines);
             try
             {

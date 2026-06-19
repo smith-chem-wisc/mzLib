@@ -156,8 +156,9 @@ namespace Test.FileReadingTests.ProForma
         {
             // #XL1 produces a tag group, which is out of scope at Layer 2.
             var term = ProFormaReader.Read("EMEVTK[XLMOD:02001#XL1]SESPEK[#XL1]");
-            Assert.Throws<MzLibException>(
+            var ex = Assert.Throws<MzLibException>(
                 () => ProFormaConverter.ToModificationDictionary(term, new Dictionary<string, Modification>()));
+            Assert.That(ex.Message, Does.Contain("tag group"));
         }
 
         [Test]

@@ -40,7 +40,9 @@ namespace Test.FileReadingTests.ProForma
         public void Corpus_Has_All_V2_Spec_Examples()
         {
             var v2Good = ProFormaTestCorpus.Load().Where(r => r.Source == "v2-spec" && r.Valid).ToList();
-            Assert.That(v2Good.Count, Is.GreaterThan(70));
+            // Exact count (sections 4.2.1-7.2 of manuscript-examples.tsv), matching the precise-count
+            // style of the sibling corpus tests so a deleted/mistyped valid row is caught.
+            Assert.That(v2Good, Has.Count.EqualTo(89), "v2-spec valid example count mismatch vs manuscript-examples.tsv");
         }
 
         [Test]
