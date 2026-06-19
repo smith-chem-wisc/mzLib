@@ -82,9 +82,93 @@ public class ChronologerRetentionTimePredictor : RetentionTimePredictor
             // corrupts the native heap (STATUS_HEAP_CORRUPTION, 0xC0000374) once enough predictions have
             // accumulated. The race only surfaces in high-volume runs (e.g. spectral-library builds).
             using var scope = NewDisposeScope();
-            using Tensor prediction = _model.Predict(sequenceTensor);
+            using Tensor prediction = _model.Predict(sequenceTensor).cpu();
             return prediction[0].ToDouble();
         }
+    }
+
+    /// <summary>
+    /// Batched override: formats/encodes the peptides in parallel (CPU) and runs the Chronologer model in
+    /// large batched forward passes instead of one locked batch-1 call per peptide. The model is in eval
+    /// mode (BatchNorm uses running statistics), so each peptide's prediction is independent of the batch —
+    /// results match <see cref="PredictCore"/> to float32 precision (libtorch selects different conv/matmul
+    /// kernels at batch size m vs 1, so the two paths are not bit-identical), just far faster for many peptides.
+    /// </summary>
+    public override IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)>
+        PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1)
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(ChronologerRetentionTimePredictor));
+
+        var list = peptides as IReadOnlyList<IRetentionPredictable> ?? peptides.ToList();
+        int n = list.Count;
+        int encodedLength = ChronologerSequenceFormatSchema.EncodedLength;
+        var results = new (double?, IRetentionPredictable, RetentionTimeFailureReason?)[n];
+        var encoded = new long[n][];                          // null when the peptide could not be encoded
+        var reasons = new RetentionTimeFailureReason?[n];
+
+        // Phase 1 — format + integer-encode each peptide in parallel (pure CPU, no model access).
+        System.Threading.Tasks.Parallel.For(0, n,
+            new System.Threading.Tasks.ParallelOptions { MaxDegreeOfParallelism = Math.Max(1, maxThreads) }, i =>
+        {
+            var pep = list[i];
+            if (!ValidateBasicConstraints(pep, out RetentionTimeFailureReason? basicReason))
+            {
+                reasons[i] = basicReason;
+                return;
+            }
+            string? formatted = GetFormattedSequence(pep, out RetentionTimeFailureReason? fmtReason);
+            if (formatted == null)
+            {
+                reasons[i] = fmtReason ?? RetentionTimeFailureReason.PredictionError;
+                return;
+            }
+            var ids = new long[encodedLength]; // zero-padded
+            for (int k = 0; k < formatted.Length; k++)
+            {
+                if (!CodeToInt.TryGetValue(formatted[k], out int v)) { ids = null!; break; }
+                ids[k] = v;
+            }
+            if (ids == null) { reasons[i] = RetentionTimeFailureReason.PredictionError; return; }
+            encoded[i] = ids;
+        });
+
+        var valid = new List<int>(n);
+        for (int i = 0; i < n; i++) if (encoded[i] != null) valid.Add(i);
+
+        // Phase 2 — batched model inference. One forward pass per chunk (model lock held once per chunk).
+        const int chunkSize = 2048;
+        lock (_modelLock)
+        {
+            using var noGrad = no_grad();
+            for (int off = 0; off < valid.Count; off += chunkSize)
+            {
+                // Deterministically dispose every tensor created during this chunk — including the ~30
+                // intermediates allocated inside the model's forward() (residual clones, conv/norm outputs).
+                // Without a dispose scope those rely on the GC finalizer thread, which races the main thread's
+                // libtorch allocator and corrupts the native heap (0xC0000374) once enough inference has run.
+                using var scope = NewDisposeScope();
+                int m = Math.Min(chunkSize, valid.Count - off);
+                var flat = new long[(long)m * encodedLength];
+                for (int j = 0; j < m; j++)
+                    Array.Copy(encoded[valid[off + j]], 0, flat, (long)j * encodedLength, encodedLength);
+
+                using Tensor input = tensor(flat, dtype: ScalarType.Int64).reshape(m, encodedLength);
+                using Tensor prediction = _model.Predict(input);           // [m, 1]
+                double[] preds = prediction.reshape(m).to(ScalarType.Float64).cpu().data<double>().ToArray();
+                for (int j = 0; j < m; j++)
+                {
+                    int i = valid[off + j];
+                    results[i] = (preds[j], list[i], null);
+                }
+            }
+        }
+
+        for (int i = 0; i < n; i++)
+            if (encoded[i] == null)
+                results[i] = ((double?)null, list[i], reasons[i]);
+
+        return results;
     }
 
     public override string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason)

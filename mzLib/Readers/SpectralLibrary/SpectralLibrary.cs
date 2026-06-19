@@ -1,21 +1,16 @@
 using Chemistry;
 using MzLibUtil;
 using Omics.Fragmentation;
-using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Easy.Common.Extensions;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
-using ThermoFisher.CommonCore.Data.Business;
 
 namespace Readers.SpectralLibrary
 {
-    public class SpectralLibrary : ResultFile<LibrarySpectrum>, IResultFile
+    public class SpectralLibrary : ResultFile<LibrarySpectrum>, IResultFile, IDisposable
     {
         public override SupportedFileType FileType => FilePath.ParseFileType();
         public override Software Software { get; set; }
@@ -26,6 +21,7 @@ namespace Readers.SpectralLibrary
         {
             Results = GetAllLibrarySpectra().ToList();
         }
+        public void Dispose() => CloseConnections();
 
         //This is from WriteSpectrumLibrary in MetaMorpheusTask
         public override void WriteResults(string outputPath)
@@ -39,13 +35,67 @@ namespace Readers.SpectralLibrary
             }
         }
 
+        /// <summary>Ordered list of all library file paths supplied by the caller at construction time.</summary>
         private List<string> LibraryPaths;
+
+        /// <summary>
+        /// Maps the "Sequence/ChargeState" lookup key to the file path and byte offset of the corresponding
+        /// spectrum record inside an MSP/pDeep/ms2pip text library file.
+        /// Not used for .msl files — those are looked up directly via <see cref="_mslLibraries"/>.
+        /// </summary>
         private Dictionary<string, (string filePath, long byteOffset)> SequenceToFileAndLocation;
+
+        /// <summary>
+        /// FIFO queue of lookup keys currently held in <see cref="LibrarySpectrumBuffer"/>, used to
+        /// evict the oldest entry when the buffer exceeds <see cref="MaxElementsInBuffer"/>.
+        /// </summary>
         private Queue<string> LibrarySpectrumBufferList;
+
+        /// <summary>
+        /// LRU cache of recently accessed <see cref="LibrarySpectrum"/> objects, keyed by
+        /// "Sequence/ChargeState".  Avoids repeated disk seeks for frequently queried entries.
+        /// </summary>
         public Dictionary<string, LibrarySpectrum> LibrarySpectrumBuffer;
+
+        /// <summary>Maximum number of spectra held in <see cref="LibrarySpectrumBuffer"/> at once.</summary>
         private int MaxElementsInBuffer = 10000;
+
+        /// <summary>
+        /// One open <see cref="StreamReader"/> per text library file path, used for random-access
+        /// reads via byte-offset seeks.  Not used for .msl files.
+        /// </summary>
         private Dictionary<string, StreamReader> StreamReaders;
+
+        /// <summary>
+        /// One loaded <see cref="MslLibrary"/> per .msl file path.
+        /// Populated in the constructor for every path whose extension is <c>.msl</c>.
+        /// Disposed in <see cref="CloseConnections"/>.
+        /// </summary>
+        private Dictionary<string, MslLibrary> _mslLibraries;
+
+        /// <summary>
+        /// Regex for standard terminal fragment ion annotations, e.g. "b5", "y12^2", "y8-17.0265".
+        /// Group 1 = ion type letters (e.g. "b", "y", "zDot").
+        /// Group 2 = fragment series number (digits).
+        /// Group 3 = charge (digits after "^") or neutral-loss sign + digits, or empty.
+        /// Does NOT match internal ion annotations — those are handled by <see cref="InternalIonRegex"/>.
+        /// </summary>
         private static Regex IonParserRegex = new Regex(@"^(\D{1,})(\d{1,})(?:[\^]|$)(-?\d{1,}|$)");
+
+        /// <summary>
+        /// Regex for internal fragment ion annotations produced by
+        /// <see cref="Omics.SpectralMatch.MslSpectralLibrary.MslFragmentIon.Annotation"/>.
+        /// Format: <c>{PrimaryType}I{SecondaryType}[{start}-{end}]</c> with an optional
+        /// <c>^{charge}</c> suffix, e.g. <c>bIb[3-6]</c> or <c>aIb[2-5]^2</c>.
+        /// Groups:
+        ///   1 = primary product type string (e.g. "b", "a")
+        ///   2 = secondary product type string (e.g. "b", "y")
+        ///   3 = start residue number
+        ///   4 = end residue number
+        ///   5 = charge (optional; absent means charge 1)
+        /// </summary>
+        private static Regex InternalIonRegex =
+            new Regex(@"^([a-zA-Z]+)I([a-zA-Z]+)\[(\d+)-(\d+)\](?:\^(\d+))?");
 
         private static Dictionary<string, string> PrositToMetaMorpheusModDictionary = new Dictionary<string, string>
         {
@@ -59,30 +109,81 @@ namespace Readers.SpectralLibrary
             {"CAM", "[Common Fixed:Carbamidomethyl on C]" }
         };
 
-        public SpectralLibrary(List<string> pathsToLibraries, Software software = Software.Unspecified) 
-            : base(pathsToLibraries.Any() ? pathsToLibraries[0] : string.Empty, software)
+        /// <summary>
+        /// Opens all libraries in <paramref name="pathsToLibraries"/>.
+        /// .msl files are opened via <see cref="MslFileTypeHandler.Open"/> and stored in
+        /// <see cref="_mslLibraries"/>; all other formats are indexed into
+        /// <see cref="SequenceToFileAndLocation"/> via <see cref="IndexSpectralLibrary"/>.
+        /// </summary>
+        /// <param name="pathsToLibraries">
+        ///   One or more absolute or relative paths to spectral library files.
+        ///   May be a mix of .msl and text-based (.msp, pdeep, ms2pip) files.
+        /// </param>
+        public SpectralLibrary(List<string> pathsToLibraries, Software software = Software.Unspecified)
+            : base(pathsToLibraries.Count > 0 ? pathsToLibraries[0] : string.Empty, software)
         {
             LibraryPaths = pathsToLibraries;
             SequenceToFileAndLocation = new Dictionary<string, (string, long)>();
             LibrarySpectrumBufferList = new Queue<string>();
             LibrarySpectrumBuffer = new Dictionary<string, LibrarySpectrum>();
             StreamReaders = new Dictionary<string, StreamReader>();
+            _mslLibraries = new Dictionary<string, MslLibrary>();
 
             foreach (var path in LibraryPaths)
             {
-                IndexSpectralLibrary(path);
+                if (MslFileTypeHandler.IsMslFile(path))
+                {
+                    // .msl files are binary; open via the MSL reader rather than a StreamReader
+                    _mslLibraries[path] = MslFileTypeHandler.Open(path);
+                }
+                else
+                {
+                    // Text-based formats: build the byte-offset index as before
+                    IndexSpectralLibrary(path);
+                }
             }
         }
 
+        /// <summary>
+        /// Returns true when any loaded library contains a spectrum for the given
+        /// <paramref name="sequence"/> and <paramref name="charge"/>.
+        /// Checks .msl libraries first, then the text-library index.
+        /// </summary>
+        /// <param name="sequence">Modified sequence in mzLib bracket notation.</param>
+        /// <param name="charge">Precursor charge state.</param>
+        /// <returns>True if the spectrum is present in any loaded library; false otherwise.</returns>
         public bool ContainsSpectrum(string sequence, int charge)
         {
-            string lookupString = sequence + "/" + charge;
+            // Check MSL libraries first
+            foreach (var mslLib in _mslLibraries.Values)
+            {
+                if (mslLib.TryGetLibrarySpectrum(sequence, charge, out _))
+                    return true;
+            }
 
+            string lookupString = sequence + "/" + charge;
             return SequenceToFileAndLocation.ContainsKey(lookupString);
         }
 
+        /// <summary>
+        /// Retrieves the <see cref="LibrarySpectrum"/> for the given <paramref name="sequence"/>
+        /// and <paramref name="charge"/>, searching .msl libraries first then text libraries.
+        /// </summary>
+        /// <param name="sequence">Modified sequence in mzLib bracket notation.</param>
+        /// <param name="charge">Precursor charge state.</param>
+        /// <param name="librarySpectrum">
+        ///   Set to the matching spectrum on success; null on failure.
+        /// </param>
+        /// <returns>True if the spectrum was found; false otherwise.</returns>
         public bool TryGetSpectrum(string sequence, int charge, out LibrarySpectrum librarySpectrum)
         {
+            // Check MSL libraries first — they maintain their own index and need no buffer
+            foreach (var mslLib in _mslLibraries.Values)
+            {
+                if (mslLib.TryGetLibrarySpectrum(sequence, charge, out librarySpectrum))
+                    return true;
+            }
+
             string lookupString = sequence + "/" + charge;
             librarySpectrum = null;
 
@@ -139,19 +240,62 @@ namespace Readers.SpectralLibrary
             return false;
         }
 
+        /// <summary>
+        /// Enumerates every <see cref="LibrarySpectrum"/> across all loaded libraries —
+        /// both binary <c>.msl</c> files and text-based MSP/pDeep/ms2pip files.
+        ///
+        /// <para>
+        /// Spectra from <c>.msl</c> libraries are yielded first (in ascending precursor m/z
+        /// order, as returned by <see cref="MslLibrary.GetAllEntries"/>), followed by spectra
+        /// from text-based libraries in the order they appear in the indexed file.
+        /// </para>
+        ///
+        /// <para>
+        /// This method is the source for <see cref="LoadResults"/>. Prior to this fix,
+        /// <c>.msl</c> inputs were silently excluded because only
+        /// <c>SequenceToFileAndLocation</c> (the MSP/TSV byte-offset index) was iterated.
+        /// </para>
+        /// </summary>
+        /// <returns>
+        ///   All library spectra from every loaded source, including decoys.
+        /// </returns>
         public IEnumerable<LibrarySpectrum> GetAllLibrarySpectra()
         {
+            // Yield spectra from every .msl library.
+            // GetAllEntries(includeDecoys: true) returns all entries in ascending m/z order.
+            // ToLibrarySpectrum() converts each MslLibraryEntry to the shared LibrarySpectrum type.
+            foreach (var mslLib in _mslLibraries.Values)
+            {
+                foreach (var entry in mslLib.GetAllEntries(includeDecoys: true))
+                {
+                    yield return entry.ToLibrarySpectrum();
+                }
+            }
+
+            // Yield spectra from text-based libraries (MSP, pDeep, ms2pip).
             foreach (var item in SequenceToFileAndLocation)
             {
                 yield return ReadSpectrumFromLibraryFile(item.Value.filePath, item.Value.byteOffset);
             }
         }
 
+        /// <summary>
+        /// Closes all open <see cref="StreamReader"/> handles for text libraries and disposes
+        /// all <see cref="MslLibrary"/> instances (which releases any open file handles held
+        /// in index-only mode).  Safe to call multiple times.
+        /// </summary>
         public void CloseConnections()
         {
+            // Close text-library stream readers
             foreach (var item in StreamReaders)
             {
                 item.Value.Close();
+            }
+
+            // Dispose MSL libraries — releases the FileStream in index-only mode
+            foreach (var mslLib in _mslLibraries.Values)
+            {
+                mslLib.Dispose();
             }
         }
 
@@ -176,7 +320,7 @@ namespace Readers.SpectralLibrary
             if (path.Contains("pdeep"))
             {
                 return ReadLibrarySpectrum_pDeep(reader);
-            } 
+            }
             else if (path.Contains("ms2pip"))
             {
                 return ReadLibrarySpectrum_ms2pip(reader);
@@ -700,53 +844,138 @@ namespace Readers.SpectralLibrary
         }
 
         /// <summary>
-        /// Creates a matched fragment ion from a line in a spectral library. Does not work with P-Deep libraries.
+        /// Parses a single peak line from an MSP-format spectral library into a
+        /// <see cref="MatchedFragmentIon"/>.  Handles both standard terminal ions
+        /// (e.g. <c>b5</c>, <c>y12^2</c>, <c>y8-17.0265</c>) and internal fragment ions
+        /// (e.g. <c>bIb[3-6]</c>, <c>aIb[2-5]^2</c>) written by
+        /// <see cref="Omics.SpectralMatch.MslSpectralLibrary.MslFragmentIon.Annotation"/>.
+        /// Does not work with P-Deep libraries.
         /// </summary>
+        /// <param name="fragmentIonLine">
+        ///   A single tab-delimited peak line containing m/z, intensity, and annotation fields.
+        /// </param>
+        /// <param name="fragmentSplit">
+        ///   Characters used to split the peak line into fields (typically tab, quote, paren, slash).
+        /// </param>
+        /// <param name="neutralLossSplit">
+        ///   Characters used to split the annotation field when extracting a neutral-loss mass
+        ///   (typically just the hyphen <c>-</c>).
+        /// </param>
+        /// <param name="peptideSequence">
+        ///   The unmodified amino-acid sequence of the parent peptide, used to compute
+        ///   <c>ResiduePosition</c> for terminus-specific ions.  May be null or empty, in which
+        ///   case a default peptide length of 25 is assumed.
+        /// </param>
+        /// <returns>A fully populated <see cref="MatchedFragmentIon"/>.</returns>
         public static MatchedFragmentIon ReadFragmentIon(string fragmentIonLine, char[] fragmentSplit,
             char[] neutralLossSplit, string peptideSequence)
         {
+            // Split the line into columns: [0] = m/z, [1] = intensity, [2] = annotation
             string[] split = fragmentIonLine.Split(fragmentSplit, StringSplitOptions.RemoveEmptyEntries);
 
-            // read fragment m/z
+            // Column 0: observed fragment m/z
             var experMz = double.Parse(split[0], CultureInfo.InvariantCulture);
 
-            // read fragment intensity
+            // Column 1: relative or absolute fragment intensity
             var experIntensity = double.Parse(split[1], CultureInfo.InvariantCulture);
 
-            // read fragment type, number
-            Match regexMatchResult = IonParserRegex.Match(split[2]);
+            // Column 2: annotation string — try internal ion regex first, then terminal regex
+            string annotation = split[2];
 
+            // ── Internal ion path ─────────────────────────────────────────────────────
+            // Internal ions are annotated as {PrimaryType}I{SecondaryType}[{start}-{end}]
+            // e.g. "bIb[3-6]" or "aIb[2-5]^2". The standard IonParserRegex cannot match
+            // the "I" separator or the bracket-enclosed residue range.
+            Match internalMatch = InternalIonRegex.Match(annotation);
+            if (internalMatch.Success)
+            {
+                // Group 1: primary product type string, e.g. "b" or "a"
+                string primaryTypeStr = internalMatch.Groups[1].Value;
+
+                // Group 2: secondary product type string (C-terminal boundary), e.g. "b" or "y"
+                string secondaryTypeStr = internalMatch.Groups[2].Value;
+
+                // Group 3: start residue number (N-terminal boundary of the internal span)
+                int startResidue = int.Parse(internalMatch.Groups[3].Value);
+
+                // Group 4: end residue number (C-terminal boundary of the internal span)
+                int endResidue = int.Parse(internalMatch.Groups[4].Value);
+
+                // Group 5: optional charge; default to 1 when absent
+                int internalCharge = internalMatch.Groups[5].Success
+                    ? int.Parse(internalMatch.Groups[5].Value)
+                    : 1;
+
+                // Parse product types — throws ArgumentException for unknown type names
+                ProductType primaryType = (ProductType)Enum.Parse(typeof(ProductType), primaryTypeStr, true);
+                ProductType secondaryType = (ProductType)Enum.Parse(typeof(ProductType), secondaryTypeStr, true);
+
+                // Internal ions have no peptide terminus association.
+                // fragmentNumber holds the N-terminal boundary (startResidue) and
+                // secondaryFragmentNumber holds the C-terminal boundary (endResidue),
+                // consistent with how MslFragmentIon and FromLibrarySpectrum represent
+                // internal ions in the MSL binary format.
+                var internalProduct = new Product(
+                    primaryType,
+                    FragmentationTerminus.None,
+                    experMz.ToMass(internalCharge),
+                    fragmentNumber: startResidue,
+                    residuePosition: startResidue,
+                    neutralLoss: 0,
+                    secondaryProductType: secondaryType,
+                    secondaryFragmentNumber: endResidue);
+
+                return new MatchedFragmentIon(internalProduct, experMz, experIntensity, internalCharge);
+            }
+
+            // ── Terminal ion path (unchanged from original) ───────────────────────────
+            Match regexMatchResult = IonParserRegex.Match(annotation);
+
+            // Group 1: ion type letters (e.g. "b", "y", "zDot")
             string fragmentType = regexMatchResult.Groups[1].Value;
-            int fragmentNumber = int.Parse(regexMatchResult.Groups[2].Value);
-            int fragmentCharge = 1;
 
+            // Group 2: fragment series number
+            int fragmentNumber = int.Parse(regexMatchResult.Groups[2].Value);
+
+            // Group 3: charge digit(s) after "^", or empty
+            int fragmentCharge = 1;
             if (regexMatchResult.Groups.Count > 3 && !string.IsNullOrWhiteSpace(regexMatchResult.Groups[3].Value))
             {
                 fragmentCharge = int.Parse(regexMatchResult.Groups[3].Value);
             }
 
+            // Neutral-loss mass: extracted from a trailing "-{mass}" in the annotation
             double neutralLoss = 0;
-            if (split[2].Contains("-") && fragmentCharge > 0)
+            if (annotation.Contains("-") && fragmentCharge > 0)
             {
-                String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
+                string[] neutralLossInformation = annotation.Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
                 neutralLoss = double.Parse(neutralLossInformation[1]);
             }
             if (fragmentCharge < 0)
             {
-                String[] neutralLossInformation = split[2].Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
+                string[] neutralLossInformation = annotation.Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
                 if (neutralLossInformation.Length > 2)
                     neutralLoss = double.Parse(neutralLossInformation[2]);
             }
 
             ProductType peakProductType = (ProductType)Enum.Parse(typeof(ProductType), fragmentType, true);
-            // Default product for productTypes not contained in the ProductTypeToFragmentationTerminus dictionary (e.g., "M" type ions)
+
+            // Default product for ProductTypes not in ProductTypeToFragmentationTerminus (e.g. "M" ions)
             Product product = new Product(peakProductType, (FragmentationTerminus)Enum.Parse(typeof(FragmentationTerminus),
                 "None", true), experMz, fragmentNumber, 0, 0);
 
             if (TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(peakProductType,
                     out var terminus))
             {
-                int peptideLength = peptideSequence.IsNotNullOrEmptyOrWhiteSpace() ? peptideSequence.Length : 25; // Arbitrary default peptide length
+                int peptideLength = CountResidues(peptideSequence);
+                if (peptideLength == 0)
+                {
+                    peptideLength = 25; // Documented fallback — sequence not available at parse time
+                    System.Diagnostics.Debug.WriteLine(
+                        $"[SpectralLibrary] ReadFragmentIon: peptideSequence is null or empty for " +
+                        $"fragment '{annotation}'. Falling back to peptideLength=25. " +
+                        $"C-terminal ResiduePosition values may be inaccurate.");
+                }
                 product = new Product(peakProductType, terminus, experMz.ToMass(fragmentCharge), fragmentNumber,
                     residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber,
                     neutralLoss);
@@ -754,7 +983,30 @@ namespace Readers.SpectralLibrary
 
             return new MatchedFragmentIon(product, experMz, experIntensity, fragmentCharge);
         }
+        /// <summary>
+        /// Counts the number of amino-acid residues in a modified sequence string, ignoring
+        /// bracket-delimited modification annotations (e.g. "[Common Variable:Oxidation on M]").
+        /// Calling <c>.Length</c> on a modified sequence overcounts by the total character length
+        /// of all modification strings, which inflates C-terminal ResiduePosition values.
+        /// Returns 0 for null or empty input.
+        /// </summary>
+        private static int CountResidues(string modifiedSequence)
+        {
+            if (string.IsNullOrEmpty(modifiedSequence))
+                return 0;
 
+            int count = 0;
+            int depth = 0;
+
+            foreach (char c in modifiedSequence)
+            {
+                if (c == '[') depth++;
+                else if (c == ']') { if (depth > 0) depth--; }
+                else if (depth == 0) count++;
+            }
+
+            return count;
+        }
         private void IndexSpectralLibrary(string path)
         {
             var reader = new StreamReader(path);
@@ -782,7 +1034,7 @@ namespace Readers.SpectralLibrary
                     {
                         libraryItem = ReadLibrarySpectrum_pDeep(reader, onlyReadHeader: true);
                     }
-                    else if (path.Contains("ms2pip")) 
+                    else if (path.Contains("ms2pip"))
                     {
                         libraryItem = ReadLibrarySpectrum_ms2pip(reader, onlyReadHeader: true);
                     }
