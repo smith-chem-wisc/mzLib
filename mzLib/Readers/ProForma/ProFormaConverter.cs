@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using MzLibUtil;
 using Omics.Modifications;
 using Tdp = TopDownProteomics.ProForma;
@@ -39,6 +40,19 @@ namespace Readers.ProForma
         };
 
         /// <summary>
+        /// Deterministic preference order for emitting an accession when a modification carries
+        /// several recognized ontology references, so <see cref="BuildDescriptor"/> output is stable.
+        /// </summary>
+        private static readonly string[] PrefixPreference = { "UNIMOD", "MOD", "RESID" };
+
+        /// <summary>
+        /// Caches the accession index per <paramref name="allModsKnown"/> instance so the full
+        /// O(mods × references) build runs once per mod set rather than once per converted term.
+        /// </summary>
+        private static readonly ConditionalWeakTable<Dictionary<string, Modification>, Dictionary<string, List<Modification>>>
+            AccessionIndexCache = new();
+
+        /// <summary>
         /// Converts a term into the (one-is-N-terminus) modification dictionary mzLib uses.
         /// The base sequence is available from <see cref="Tdp.ProFormaTerm.Sequence"/>.
         /// </summary>
@@ -51,10 +65,13 @@ namespace Readers.ProForma
         public static Dictionary<int, Modification> ToModificationDictionary(Tdp.ProFormaTerm term,
             Dictionary<string, Modification> allModsKnown)
         {
+            if (term == null) throw new ArgumentNullException(nameof(term));
+            if (allModsKnown == null) throw new ArgumentNullException(nameof(allModsKnown));
+
             EnsureLayer2Supported(term);
 
             string sequence = term.Sequence;
-            var byAccession = BuildAccessionIndex(allModsKnown.Values);
+            var byAccession = AccessionIndexCache.GetValue(allModsKnown, static mods => BuildAccessionIndex(mods.Values));
             var result = new Dictionary<int, Modification>();
 
             if (term.NTerminalDescriptors is { Count: > 0 })
@@ -65,7 +82,17 @@ namespace Readers.ProForma
                 foreach (var tag in term.Tags)
                 {
                     int residueIndex = tag.ZeroBasedStartIndex;
-                    result[residueIndex + 2] = Resolve(tag.Descriptors, sequence[residueIndex], Terminus.None, allModsKnown, byAccession, term);
+                    if (residueIndex < 0 || residueIndex >= sequence.Length)
+                        throw new MzLibException(
+                            $"ProForma tag index {residueIndex} is outside sequence bounds [0,{sequence.Length}) in term '{term.Sequence}'.");
+
+                    int key = residueIndex + 2;
+                    if (result.ContainsKey(key))
+                        throw new MzLibException(
+                            $"Multiple modifications target residue index {residueIndex} ('{sequence[residueIndex]}') in ProForma term " +
+                            $"'{term.Sequence}'; mzLib stores a single modification per position.");
+
+                    result[key] = Resolve(tag.Descriptors, sequence[residueIndex], Terminus.None, allModsKnown, byAccession, term);
                 }
             }
 
@@ -85,6 +112,9 @@ namespace Readers.ProForma
         public static Tdp.ProFormaTerm ToProFormaTerm(string baseSequence,
             IDictionary<int, Modification> allModsOneIsNterminus)
         {
+            if (baseSequence == null) throw new ArgumentNullException(nameof(baseSequence));
+            if (allModsOneIsNterminus == null) throw new ArgumentNullException(nameof(allModsOneIsNterminus));
+
             List<Tdp.ProFormaDescriptor>? nTerm = null;
             List<Tdp.ProFormaDescriptor>? cTerm = null;
             var tags = new List<Tdp.ProFormaTag>();
@@ -113,10 +143,17 @@ namespace Readers.ProForma
         {
             if (mod.DatabaseReference != null)
             {
-                foreach (var (dbKey, ids) in mod.DatabaseReference)
+                // Prefer ontologies in a fixed order (UNIMOD > MOD > RESID) so the emitted accession
+                // is stable when a modification carries more than one recognized reference.
+                foreach (var prefix in PrefixPreference)
                 {
-                    if (DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix) && ids is { Count: > 0 })
-                        return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], $"{prefix}:{ids[0]}");
+                    foreach (var (dbKey, ids) in mod.DatabaseReference)
+                    {
+                        if (DbKeyToProFormaPrefix.TryGetValue(dbKey, out var p)
+                            && string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase)
+                            && ids is { Count: > 0 })
+                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], $"{prefix}:{ids[0]}");
+                    }
                 }
             }
             return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, mod.OriginalId);
@@ -197,13 +234,33 @@ namespace Readers.ProForma
                     return onX;
                 return allModsKnown.Values.FirstOrDefault(m => m.OriginalId == name && IsTerminusCompatible(m, terminus));
             }
-            if (residue.HasValue && allModsKnown.TryGetValue($"{name} on {residue}", out var byMotif))
-                return byMotif;
+            if (residue.HasValue)
+            {
+                // Fast path: single-character motif keyed directly as "{name} on {residue}".
+                if (allModsKnown.TryGetValue($"{name} on {residue}", out var byMotif))
+                    return byMotif;
+                // Context-bearing motifs (e.g. the N-glyc sequon "Nxs") never key as "{name} on N",
+                // so match on the motif's modified residue instead of the whole motif string.
+                return allModsKnown.Values.FirstOrDefault(m => m.OriginalId == name && MotifTargetResidue(m) == residue);
+            }
             return allModsKnown.TryGetValue(name, out var bare) ? bare : null;
         }
 
         private static bool MotifMatches(Modification mod, char residue)
-            => mod.Target != null && mod.Target.ToString().Equals(residue.ToString(), StringComparison.Ordinal);
+            => MotifTargetResidue(mod) == residue;
+
+        /// <summary>
+        /// Returns the modified (upper-case) residue within a modification's motif — e.g. <c>'N'</c> for
+        /// the N-glycosylation sequon motif <c>"Nxs"</c>, where surrounding context is lower-case.
+        /// </summary>
+        private static char? MotifTargetResidue(Modification mod)
+        {
+            string? motif = mod.Target?.ToString();
+            if (string.IsNullOrEmpty(motif)) return null;
+            foreach (char c in motif)
+                if (char.IsUpper(c)) return c;
+            return motif[0];
+        }
 
         private static bool IsTerminusCompatible(Modification mod, Terminus terminus) => terminus switch
         {
