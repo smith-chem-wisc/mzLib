@@ -15,6 +15,7 @@
 		<PackageReference Include="System.Data.SQLite" Version="1.0.118" />
 		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
 		<PackageReference Include="TopDownProteomics" Version="0.0.297" />
+		<PackageReference Include="ZstdSharp.Port" Version="0.8.7" />
 	</ItemGroup>
 
 	<ItemGroup>
