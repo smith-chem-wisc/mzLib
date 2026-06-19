@@ -160,7 +160,9 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             Assert.That(spectra.Count, Is.EqualTo(1));
             Assert.That(spectra[0].MatchedFragmentIons.Count, Is.EqualTo(2));
             Assert.That(spectra[0].ChargeState, Is.EqualTo(2));
-            Assert.That(warning, Is.Null);
+            // No output filepath was provided, so the spectra-not-saved warning is expected.
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning!.Message, Does.Contain("No file path"));
         }
 
         [Test]
