@@ -284,7 +284,6 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
             public override IReadOnlySet<int> AllowedUnimodIds => Ids;
             public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
             public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
-            public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
             public override int NumberOfPredictedFragmentIons => 348;
 
             public TestablePairedModel(
@@ -294,7 +293,6 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
             {
                 ModHandlingMode = modMode;
                 ParameterHandlingMode = paramMode;
-                FragmentIonMappingMode = FragmentIonMappingMode.MapToValidatedFullSequence;
             }
 
             protected override List<Dictionary<string, object>> ToBatchedRequests(List<CrosslinkIntensityPredictionInput> validInputs)

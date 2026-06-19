@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 
 namespace Test.KoinaTests
@@ -121,6 +122,61 @@ namespace Test.KoinaTests
         }
 
         [Test]
+        public void Tmt_TryCleanSequence_AcceptsSupportedNTerminalLabel()
+        {
+            // Positive branch: a supported N-terminal TMT label must survive cleaning (offline).
+            // This guards the success path that previously returned the wrong out value.
+            var model = new TmtProbe();
+            var result = model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", out var api, out var warning);
+
+            Assert.That(result, Is.Not.Null, "A supported N-terminal TMT label must survive cleaning.");
+            Assert.That(warning, Is.Null);
+            Assert.That(api, Does.StartWith("[UNIMOD:737]-"), "TMT6plex on N-terminus should serialize to UNIMOD:737.");
+        }
+
+        [Test]
+        public void Tmt_ToBatchedRequests_SendsFragmentationType([Values("HCD", "CID")] string fragType)
+        {
+            // Both supported fragmentation types must flow through to the Koina request offline.
+            var model = new TmtProbe();
+            var inputs = new List<FragmentIntensityPredictionInput>
+            {
+                new("PEPTIDEK", 2, 30, null, fragType) { ValidatedFullSequence = "PEPTIDEK" }
+            };
+
+            var batches = model.Build(inputs);
+
+            Assert.That(batches, Has.Count.GreaterThanOrEqualTo(1));
+            var fragData = DataForInput(batches[0], "fragmentation_types");
+            Assert.That(fragData, Is.Not.Null, "TMT request must include a fragmentation_types input.");
+            Assert.That(fragData!.Cast<string>(), Does.Contain(fragType));
+        }
+
+        [Test]
+        public void XlNms2_TryCleanSequence_AcceptsModelSpecificCrosslinkerUnimod()
+        {
+            // XLNMS2 accepts only {4, 35, 1898}; the 1898 crosslinker must pass its real validation.
+            var model = new XlNms2Probe();
+            var result = model.Clean("PEPTIDEK[UNIMOD:1898]", out _, out var warning);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(warning, Is.Null);
+        }
+
+        [Test]
+        public void XlNms2_TryCleanSequence_RejectsForeignCrosslinkerUnimod()
+        {
+            // 1896 is the CMS2 crosslinker, not accepted by XLNMS2 ({4, 35, 1898}).
+            // The shared smoke test bypasses this by pre-seeding Validated* fields, so assert it here.
+            var model = new XlNms2Probe();
+            var result = model.Clean("PEPTIDEK[UNIMOD:1896]", out _, out var warning);
+
+            Assert.That(result, Is.Null);
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning!.Message, Does.Contain("1896"));
+        }
+
+        [Test]
         public void UniSpec_ValidateModelSpecificInputs_RejectsChargeOutsideInstrumentRange()
         {
             // VELOS supports charges 2-4; charge 5 must be rejected client-side (no network).
@@ -151,6 +207,32 @@ namespace Test.KoinaTests
         }
 
         private sealed class TmtProbe : Prosit2020IntensityTMT
+        {
+            public string? Clean(string sequence, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, out api, out warning);
+
+            public List<Dictionary<string, object>> Build(List<FragmentIntensityPredictionInput> inputs)
+                => ToBatchedRequests(inputs);
+        }
+
+        /// <summary>
+        /// Reads the flat data array for a named input field out of a built batch request.
+        /// BuildBatchedRequest stores each input as an anonymous { name, shape, datatype, data }
+        /// object, so this reflects over those properties to find the requested field.
+        /// </summary>
+        private static Array? DataForInput(Dictionary<string, object> batch, string inputName)
+        {
+            foreach (var input in (IEnumerable<object>)batch["inputs"])
+            {
+                var t = input.GetType();
+                var name = (string)t.GetProperty("name")!.GetValue(input)!;
+                if (name == inputName)
+                    return (Array)t.GetProperty("data")!.GetValue(input)!;
+            }
+            return null;
+        }
+
+        private sealed class XlNms2Probe : Prosit2024IntensityXLNMS2
         {
             public string? Clean(string sequence, out string? api, out WarningException? warning)
                 => TryCleanSequence(sequence, out api, out warning);

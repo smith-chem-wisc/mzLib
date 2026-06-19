@@ -84,7 +84,6 @@ namespace PredictionClients.Koina.AbstractClasses
         public override abstract IReadOnlySet<int> AllowedUnimodIds { get; }
         public override abstract SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public abstract IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
-        public abstract FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
         protected static readonly UnimodSequenceFormatSchema CrosslinkSchema = UnimodSequenceFormatSchema.Instance;
 
@@ -378,6 +377,14 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 var response = deserializedResponses[batchIndex];
                 var (outputAnnotations, outputMZs, outputIntensities) = ExtractOutputs(response);
+
+                // The annotation, m/z, and intensity arrays are indexed in lockstep below, so they
+                // must be the same length. Guard explicitly rather than risk an IndexOutOfRange or
+                // a silent annotation/m-z/intensity misalignment if Koina returns ragged arrays.
+                if (outputMZs.Count != outputAnnotations.Count || outputIntensities.Count != outputAnnotations.Count)
+                {
+                    throw new Exception($"Koina response output arrays have mismatched lengths: annotations={outputAnnotations.Count}, mz={outputMZs.Count}, intensities={outputIntensities.Count}. Expected all three to be equal.");
+                }
 
                 var batchInputs = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 if (outputAnnotations.Count % batchInputs.Count != 0)

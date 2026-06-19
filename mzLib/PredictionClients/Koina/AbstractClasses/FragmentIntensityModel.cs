@@ -407,6 +407,13 @@ namespace PredictionClients.Koina.AbstractClasses
                 var response = deserializedResponses[batchIndex];
 
                 var (outputAnnotations, outputMZs, outputIntensities) = ExtractOutputs(response);
+                // The annotation, m/z, and intensity arrays are indexed in lockstep below, so they
+                // must be the same length. Guard explicitly rather than risk an IndexOutOfRange or
+                // a silent annotation/m-z/intensity misalignment if Koina returns ragged arrays.
+                if (outputMZs.Count != outputAnnotations.Count || outputIntensities.Count != outputAnnotations.Count)
+                {
+                    throw new Exception($"Koina response output arrays have mismatched lengths: annotations={outputAnnotations.Count}, mz={outputMZs.Count}, intensities={outputIntensities.Count}. Expected all three to be equal.");
+                }
                 var batchPeptides = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 // Assuming outputData is structured such that each peptide's data is sequential
                 if (outputAnnotations.Count % batchPeptides.Count != 0)
@@ -734,7 +741,12 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 var spectrum = new LibrarySpectrum
                 (
-                    sequence: prediction.FullSequence,
+                    // Label the spectrum with the sequence the masses were actually built from
+                    // (peptide), so the library identity stays consistent with its peaks. Under
+                    // MapToValidatedFullSequence this is the cleaned sequence, which can differ
+                    // chemically from the requested prediction.FullSequence when mod handling
+                    // rewrote an incompatible modification.
+                    sequence: peptide.FullSequence,
                     precursorMz: peptide.ToMz(prediction.PrecursorCharge),
                     chargeState: prediction.PrecursorCharge,
                     peaks: fragmentIons,

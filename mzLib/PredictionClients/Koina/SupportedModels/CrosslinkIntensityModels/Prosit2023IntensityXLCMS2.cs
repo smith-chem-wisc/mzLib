@@ -26,19 +26,16 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
         public override IReadOnlySet<int> AllowedUnimodIds => Cms2UnimodIds;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
-        public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
         public Prosit2023IntensityXLCMS2(
             SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull,
             IncompatibleParameterHandlingMode parameterHandlingMode = IncompatibleParameterHandlingMode.ReturnNull,
-            FragmentIonMappingMode fragmentIonMappingMode = FragmentIonMappingMode.MapToValidatedFullSequence,
             int maxNumberOfBatchesPerRequest = 250,
             int throttlingDelayInMilliseconds = 100)
             : base(Cms2Converter)
         {
             ModHandlingMode = modHandlingMode;
             ParameterHandlingMode = parameterHandlingMode;
-            FragmentIonMappingMode = fragmentIonMappingMode;
             MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
             ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
         }

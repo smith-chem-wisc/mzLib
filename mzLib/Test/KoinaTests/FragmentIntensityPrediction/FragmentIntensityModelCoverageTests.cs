@@ -224,6 +224,31 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 () => model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0, 2.0 }, out _));
         }
 
+        [Test]
+        public void GenerateLibrarySpectra_MapToValidatedFullSequence_LabelsSpectrumWithMassSourceSequence()
+        {
+            // When mod handling rewrites an incompatible modification, the validated (cleaned) sequence
+            // differs chemically from the requested FullSequence. Under MapToValidatedFullSequence the
+            // precursor m/z and peaks are built from the validated sequence, so the library label must
+            // follow it too (peptide.FullSequence), not the original FullSequence — otherwise the
+            // library identity desynchronizes from its spectral content.
+            var model = new CoverageModel(FragmentIonMappingMode.MapToValidatedFullSequence);
+            var prediction = new PeptideFragmentIntensityPrediction(
+                FullSequence: "PEPM[Common Variable:Oxidation on M]TIDEK", // requested (modified)
+                ValidatedFullSequence: "PEPMTIDEK",                        // cleaned: incompatible mod stripped
+                PrecursorCharge: 2,
+                FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
+                FragmentMZs: new List<double> { 227.0, 375.0 },
+                FragmentIntensities: new List<double> { 0.9, 0.4 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);
+
+            Assert.That(spectra.Count, Is.EqualTo(1));
+            Assert.That(spectra[0].Sequence, Is.EqualTo("PEPMTIDEK"),
+                "Spectrum label must match the sequence the masses were built from (validated), not the requested FullSequence.");
+        }
+
         private sealed class CoverageModel : FragmentIntensityModel
         {
             private static readonly ISequenceConverter Conv = CreateUnimodConverter(
