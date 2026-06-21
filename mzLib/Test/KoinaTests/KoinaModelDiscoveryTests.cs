@@ -1,9 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Http;
 using System.Reflection;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using PredictionClients.Koina.AbstractClasses;
+using PredictionClients.Koina.Client;
 
 namespace Test.KoinaTests;
 
@@ -13,6 +16,11 @@ namespace Test.KoinaTests;
 /// well-formed required metadata. Catches "forgot to declare ModelName" or
 /// "MaxBatchSize defaulted to 0" mistakes for any future concrete model without
 /// requiring per-model boilerplate.
+///
+/// The offline cases validate that metadata is well-formed. One additional case
+/// (<see cref="EveryConcreteModel_ModelNameResolvesToRegisteredKoinaEndpoint"/>) goes a step
+/// further and verifies, over the network, that each ModelName actually exists on the Koina
+/// server — it is tagged [Category("Koina")] so it only runs when network tests are enabled.
 /// </summary>
 [TestFixture]
 [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -99,5 +107,44 @@ public class KoinaModelDiscoveryTests
         int maxLen = (int)modelType.GetProperty(nameof(KoinaModelBase<int, int>.MaxPeptideLength))!.GetValue(model)!;
         Assert.That(minLen, Is.GreaterThanOrEqualTo(1), $"{modelType.Name}.MinPeptideLength must be >= 1.");
         Assert.That(maxLen, Is.GreaterThanOrEqualTo(minLen), $"{modelType.Name}.MaxPeptideLength must be >= MinPeptideLength.");
+    }
+
+    /// <summary>
+    /// Live (NETWORK) check: every model's ModelName must name a real endpoint on the Koina server.
+    /// A model sends its ModelName verbatim as the request URL path, so a single typo (for example an
+    /// extra underscore) silently turns every prediction for that model into a 404 at runtime. This
+    /// case catches that against the real registry instead of trusting the spelling in the code.
+    ///
+    /// Tagged [Category("Koina")] so it only runs when network tests are enabled; it will report a
+    /// false failure if the Koina server itself is unreachable. [TestCaseSource] runs it once per
+    /// discovered model, so a wrong name fails as its own clearly-labelled case.
+    /// </summary>
+    [Test]
+    [Category("Koina")]
+    [TestCaseSource(nameof(ConcreteKoinaModelTypes))]
+    public static async Task EveryConcreteModel_ModelNameResolvesToRegisteredKoinaEndpoint(Type modelType)
+    {
+        // ConcreteKoinaModelTypes() (above) discovered this Type by reflection — we only have a Type,
+        // not a statically-typed reference. Build an instance with its default ctor, then read the
+        // ModelName property off that instance reflectively. The "!" marks the values as known non-null.
+        var model = InstantiateWithDefaults(modelType);
+        string modelName = (string)modelType.GetProperty(nameof(KoinaModelBase<int, int>.ModelName))!.GetValue(model)!;
+
+        // A short-lived client just for this probe — NOT the shared production HTTP.Client. "using"
+        // disposes it when the method returns; 30s is plenty for a tiny metadata GET.
+        using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+
+        // HTTP.ModelsURL is "https://koina.wilhelmlab.org:443/v2/models/", so this requests
+        // ".../v2/models/{modelName}", the model's metadata entry. The server answers 200 for a
+        // registered model and a 4xx (e.g. 400) for a name it does not recognize.
+        using var response = await client.GetAsync($"{HTTP.ModelsURL}{modelName}");
+
+        // A success status means the name is registered. On failure the message names the offending
+        // class, its ModelName, and the HTTP status so the fix is obvious — compare against the docs
+        // and keep ModelName, the doc-URL comment, and the PR table in agreement.
+        Assert.That(response.IsSuccessStatusCode, Is.True,
+            $"{modelType.Name}.ModelName '{modelName}' did not resolve at Koina " +
+            $"({(int)response.StatusCode} {response.ReasonPhrase}). Verify the exact identifier against " +
+            "https://koina.wilhelmlab.org/docs.");
     }
 }

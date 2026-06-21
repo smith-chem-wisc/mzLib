@@ -136,9 +136,20 @@ namespace PredictionClients.Koina.AbstractClasses
             return Predictions;
         }
 
+        private readonly object _predictLock = new();
+
         public List<PeptideCCSPrediction> Predict(List<CCSPredictionInput> modelInputs)
         {
-            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
+            // Offload to Task.Run so the awaited continuations inside AsyncThrottledPredictor run on
+            // the ThreadPool (no SynchronizationContext) rather than trying to resume on a blocked
+            // caller thread. Calling .GetAwaiter().GetResult() directly would deadlock under a
+            // single-threaded SynchronizationContext (WinForms/WPF/ASP.NET non-Core). The lock
+            // serializes concurrent callers against the shared instance state. See
+            // FragmentIntensityModel.Predict for the full rationale (stopgap Option A).
+            lock (_predictLock)
+            {
+                return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+            }
         }
 
         protected virtual bool ValidateModelSpecificInputs(CCSPredictionInput input, out WarningException? warning)
