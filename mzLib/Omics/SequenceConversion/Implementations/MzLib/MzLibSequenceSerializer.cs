@@ -126,6 +126,11 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
             return false;
         }
 
+        if (modificationType.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
         token = $"{modificationType}:{idWithMotif}";
         return true;
     }

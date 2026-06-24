@@ -194,7 +194,7 @@ public readonly record struct CanonicalModification(
         return new CanonicalModification(
             positionType,
             residueIndex,
-            modification.Target.ToString().FirstOrDefault(), // Assuming single-character target, adjust if necessary
+            modification.Target?.ToString().FirstOrDefault() ?? TargetResidue,
             $"{modification.ModificationType}:{modification.IdWithMotif}", // Keep original representation from source
             modification.MonoisotopicMass,
             modification.ChemicalFormula,

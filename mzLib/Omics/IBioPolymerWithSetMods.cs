@@ -1,10 +1,11 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.RegularExpressions;
 using Chemistry;
 using MassSpectrometry;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 
 namespace Omics
 {
@@ -98,68 +99,24 @@ namespace Omics
         public static Dictionary<int, Modification> GetModificationDictionaryFromFullSequence(string fullSequence,
             Dictionary<string, Modification> allModsKnown)
         {
-            var allModsOneIsNterminus = new Dictionary<int, Modification>();
-            var baseSequence = GetBaseSequenceFromFullSequence(fullSequence);
-            int currentModStart = 0;
-            int currentModificationLocation = 1;
-            bool currentlyReadingMod = false;
-            int bracketCount = 0;
+            ArgumentNullException.ThrowIfNull(allModsKnown);
 
-            for (int r = 0; r < fullSequence.Length; r++)
+            if (string.IsNullOrEmpty(fullSequence))
             {
-                char c = fullSequence[r];
-                if (c == '[')
-                {
-                    currentlyReadingMod = true;
-                    if (bracketCount == 0)
-                    {
-                        currentModStart = r + 1;
-                    }
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    string modId = null;
-                    bracketCount--;
-                    if (bracketCount == 0)
-                    {
-                        try
-                        {
-                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot") if present
-                            string modString = fullSequence.Substring(currentModStart, r - currentModStart);
-                            int splitIndex = modString.IndexOf(':');
-                            modId = splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString;
-                        }
-                        catch (Exception e)
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Error while trying to parse string into peptide: " + e.Message, e);
-
-                        }
-                        if (!allModsKnown.TryGetValue(modId, out var mod))
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Could not find modification while reading string: " + fullSequence);
-                        }
-                        // Set the C-terminus modification index to its OneIsNTerminus Index.
-                        // Checks if the location restriction for the mod contains C-terminal' (for protein and peptide BioPolymer objects)
-                        // or '3'-terminal' (for nucleic acid BioPolymer objects) and if we are at the last residue of the full sequence.
-                        if ((mod.LocationRestriction.Contains("C-terminal.") || mod.LocationRestriction.Contains("3'-terminal.") && r == fullSequence.Length - 1))
-                        {
-                            currentModificationLocation = baseSequence.Length + 2;
-                        }
-                        allModsOneIsNterminus.Add(currentModificationLocation, mod);
-                        currentlyReadingMod = false;
-                    }
-                }
-                else if (!currentlyReadingMod && c!='-')
-                {
-                    currentModificationLocation++;
-                }
-                //else do nothing
+                return new Dictionary<int, Modification>();
             }
 
-            return allModsOneIsNterminus;
+            try
+            {
+                var canonical = SequenceConversionService.Default.ParseAutoDetect(fullSequence);
+                return MzLibSequenceSerializer.Instance.ToOneIsNterminusModificationDictionary(canonical!.Value, allModsKnown);
+            }
+            catch (SequenceConversionException e)
+            {
+                throw new MzLibUtil.MzLibException(
+                    "Could not find modification while reading string: " + fullSequence,
+                    e);
+            }
         }
 
         /// <summary>

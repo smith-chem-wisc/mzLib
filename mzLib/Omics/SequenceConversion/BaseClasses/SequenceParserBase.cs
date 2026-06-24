@@ -15,6 +15,11 @@ public abstract class SequenceParserBase : ISequenceParser
     /// <inheritdoc />
     public abstract SequenceFormatSchema Schema { get; }
 
+    /// <summary>
+    /// Determines whether a C-terminal separator that is not followed by a modification bracket should be treated as an error.
+    /// </summary>
+    protected virtual bool ThrowOnDanglingCTermSeparator => true;
+
     /// <inheritdoc />
     public abstract bool CanParse(string input);
 
@@ -146,9 +151,15 @@ public abstract class SequenceParserBase : ISequenceParser
                 }
                 else
                 {
-                    // Separator found but no bracket follows - treat as error
-                    return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
-                        $"C-terminal separator '{Schema.CTermSeparator}' at position {i} not followed by modification bracket.");
+                    if (ThrowOnDanglingCTermSeparator)
+                    {
+                        // Separator found but no bracket follows - treat as error
+                        return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
+                            $"C-terminal separator '{Schema.CTermSeparator}' at position {i} not followed by modification bracket.");
+                    }
+
+                    // Legacy-compatible behavior: tolerate separator noise when not part of a terminal modification token.
+                    i += Schema.CTermSeparator.Length;
                 }
             }
             else if (c == Schema.ModCloseBracket)

@@ -1,4 +1,5 @@
 using System.Text;
+using Omics.Modifications;
 
 namespace Omics.SequenceConversion;
 
@@ -61,6 +62,146 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
             return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
                 $"Unexpected error serializing sequence: {ex.Message}");
         }
+    }
+
+    /// <inheritdoc />
+    public virtual Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+        CanonicalSequence sequence,
+        Dictionary<string, Modification>? knownMods = null,
+        ConversionWarnings? warnings = null,
+        SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+    {
+        warnings ??= new ConversionWarnings();
+
+        if (string.IsNullOrEmpty(sequence.BaseSequence))
+        {
+            HandleDictionaryError(
+                warnings,
+                mode,
+                ConversionFailureReason.InvalidSequence,
+                "Sequence has no base sequence.");
+            return new Dictionary<int, Modification>();
+        }
+
+        try
+        {
+            sequence = ResolveModificationsForProjection(sequence, knownMods);
+            var allModsOneIsNterminus = new Dictionary<int, Modification>();
+
+            foreach (var canonicalModification in sequence.Modifications)
+            {
+                var index = ResolveOneIsNterminusIndex(canonicalModification, sequence.BaseSequence.Length);
+                var resolved = canonicalModification.MzLibModification;
+                if (resolved == null)
+                {
+                    if (mode == SequenceConversionHandlingMode.ThrowException)
+                    {
+                        throw new SequenceConversionException(
+                            $"Unable to resolve projected modification {canonicalModification}",
+                            ConversionFailureReason.IncompatibleModifications,
+                            new[] { canonicalModification.ToString() });
+                    }
+
+                    warnings.AddWarning($"Unable to resolve projected modification {canonicalModification}; skipping.");
+                    warnings.AddIncompatibleItem(canonicalModification.ToString());
+                    continue;
+                }
+
+                if (allModsOneIsNterminus.ContainsKey(index))
+                {
+                    if (mode == SequenceConversionHandlingMode.ThrowException)
+                    {
+                        throw new SequenceConversionException(
+                            $"Multiple modifications map to OneIsNterminus index {index}.",
+                            ConversionFailureReason.InvalidSequence,
+                            new[] { canonicalModification.ToString() });
+                    }
+
+                    warnings.AddWarning($"Multiple modifications map to OneIsNterminus index {index}; keeping the first entry.");
+                    continue;
+                }
+
+                allModsOneIsNterminus.Add(index, resolved);
+            }
+
+            return allModsOneIsNterminus;
+        }
+        catch (SequenceConversionException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            HandleDictionaryError(
+                warnings,
+                mode,
+                ConversionFailureReason.UnknownFormat,
+                $"Unexpected error projecting sequence modifications: {ex.Message}");
+            return new Dictionary<int, Modification>();
+        }
+    }
+
+    private CanonicalSequence ResolveModificationsForProjection(
+        CanonicalSequence sequence,
+        Dictionary<string, Modification>? knownMods)
+    {
+        if (!sequence.HasModifications || (_lookup == null && knownMods == null))
+        {
+            return sequence;
+        }
+
+        var modifications = sequence.Modifications;
+        var updated = new CanonicalModification[modifications.Length];
+        var changed = false;
+        var fallbackLookup = knownMods != null ? new KnownModsLookup(knownMods) : null;
+
+        for (int i = 0; i < modifications.Length; i++)
+        {
+            var mod = modifications[i];
+            var enriched = mod;
+
+            if (mod.MzLibModification == null)
+            {
+                if (fallbackLookup != null)
+                {
+                    var resolved = fallbackLookup.TryResolve(mod);
+                    if (resolved.HasValue)
+                    {
+                        enriched = resolved.Value with
+                        {
+                            PositionType = mod.PositionType,
+                            ResidueIndex = mod.ResidueIndex,
+                            TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue,
+                            OriginalRepresentation = mod.OriginalRepresentation
+                        };
+                    }
+                }
+
+                if (enriched.MzLibModification == null && _lookup != null)
+                {
+                    var resolved = _lookup.TryResolve(mod);
+                    if (resolved.HasValue)
+                    {
+                        enriched = resolved.Value with
+                        {
+                            PositionType = mod.PositionType,
+                            ResidueIndex = mod.ResidueIndex,
+                            TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue,
+                            OriginalRepresentation = mod.OriginalRepresentation
+                        };
+                    }
+                }
+            }
+
+            if (!enriched.Equals(mod))
+            {
+                changed = true;
+            }
+
+            updated[i] = enriched;
+        }
+
+        return changed ? sequence.WithModifications(updated) : sequence;
     }
 
     /// <summary>
@@ -213,5 +354,50 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         string message)
     {
         return SequenceConversionHelpers.HandleSerializerError(warnings, mode, reason, message);
+    }
+
+    private static int ResolveOneIsNterminusIndex(CanonicalModification canonicalModification, int baseSequenceLength)
+    {
+        switch (canonicalModification.PositionType)
+        {
+            case ModificationPositionType.NTerminus:
+                return 1;
+
+            case ModificationPositionType.CTerminus:
+                return baseSequenceLength + 2;
+
+            case ModificationPositionType.Residue:
+                if (!canonicalModification.ResidueIndex.HasValue ||
+                    canonicalModification.ResidueIndex.Value < 0 ||
+                    canonicalModification.ResidueIndex.Value >= baseSequenceLength)
+                {
+                    throw new SequenceConversionException(
+                        $"Residue index {canonicalModification.ResidueIndex?.ToString() ?? "null"} is invalid for base sequence length {baseSequenceLength}.",
+                        ConversionFailureReason.InvalidSequence,
+                        new[] { canonicalModification.ToString() });
+                }
+
+                return canonicalModification.ResidueIndex.Value + 2;
+
+            default:
+                throw new SequenceConversionException(
+                    $"Unsupported modification position type: {canonicalModification.PositionType}",
+                    ConversionFailureReason.InvalidSequence,
+                    new[] { canonicalModification.ToString() });
+        }
+    }
+
+    private static void HandleDictionaryError(
+        ConversionWarnings warnings,
+        SequenceConversionHandlingMode mode,
+        ConversionFailureReason reason,
+        string message)
+    {
+        warnings.SetFailure(reason, message);
+
+        if (mode == SequenceConversionHandlingMode.ThrowException)
+        {
+            throw warnings.ToException(message);
+        }
     }
 }

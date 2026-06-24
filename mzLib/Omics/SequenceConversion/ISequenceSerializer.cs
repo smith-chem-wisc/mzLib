@@ -1,3 +1,5 @@
+using Omics.Modifications;
+
 namespace Omics.SequenceConversion;
 
 /// <summary>
@@ -53,6 +55,22 @@ public interface ISequenceSerializer
     /// <exception cref="SequenceConversionException">Thrown when serialization fails and mode is ThrowException.</exception>
     string? Serialize(
         CanonicalSequence sequence,
+        ConversionWarnings? warnings = null,
+        SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException);
+
+    /// <summary>
+    /// Projects a canonical sequence into a OneIsNterminus modification dictionary.
+    /// Indexing convention: 1 = N-terminus, 2 = first residue, Length + 2 = C-terminus.
+    /// </summary>
+    /// <param name="sequence">The canonical sequence to project.</param>
+    /// <param name="knownMods">Optional override dictionary used for final resolution.
+    /// If null, serializer lookup and canonical metadata are used.</param>
+    /// <param name="warnings">Optional warnings collection.</param>
+    /// <param name="mode">Specifies how to handle incompatible/ambiguous modifications.</param>
+    /// <returns>A modification dictionary keyed by OneIsNterminus positions.</returns>
+    Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+        CanonicalSequence sequence,
+        Dictionary<string, Modification>? knownMods = null,
         ConversionWarnings? warnings = null,
         SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException);
 }

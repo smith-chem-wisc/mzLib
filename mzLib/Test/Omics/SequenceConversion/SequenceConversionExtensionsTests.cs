@@ -238,16 +238,16 @@ namespace Test.Omics.SequenceConversion;
             Assert.That(variantMods.Single().ModificationType, Is.EqualTo("Resolved"));
         }
 
-        [Test]
-        public void ConvertModifications_WithSetModsThrowModeThrowsWhenLookupFails()
-        {
-            var mods = new Dictionary<int, Modification> { { 2, CreateModification("Fail", "P") } };
+    [Test]
+    public void ConvertModifications_WithSetModsThrowModeThrowsWhenLookupFails()
+    {
+        var mods = new Dictionary<int, Modification> { { 2, CreateModification("Fail", "P") } };
             var peptide = new MockBioPolymerWithSetMods("PEPTIDE", "PEPTIDE", mods: mods);
             var lookup = new RecordingLookup(false);
             var serializer = new LookupBackedSerializer(lookup, SequenceConversionHandlingMode.ThrowException);
 
-            Assert.That(() => peptide.ConvertModifications(serializer), Throws.TypeOf<SequenceConversionException>());
-        }
+        Assert.That(() => peptide.ConvertModifications(serializer), Throws.TypeOf<SequenceConversionException>());
+    }
 
     private static Modification CreateModification(string id, string residue, string location = "Anywhere.")
     {
@@ -303,6 +303,46 @@ namespace Test.Omics.SequenceConversion;
         public bool CanSerialize(CanonicalSequence sequence) => true;
         public bool ShouldResolveMod(CanonicalModification mod) => false;
         public string? Serialize(CanonicalSequence sequence, ConversionWarnings? warnings = null, SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => sequence.BaseSequence;
+        public Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+            CanonicalSequence sequence,
+            Dictionary<string, Modification>? knownMods = null,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+        {
+            if (mode == SequenceConversionHandlingMode.UsePrimarySequence)
+            {
+                return new Dictionary<int, Modification>();
+            }
+
+            var projected = new Dictionary<int, Modification>();
+            foreach (var modification in sequence.Modifications)
+            {
+                var resolved = ModificationLookup?.TryResolve(modification);
+                if (!resolved.HasValue || resolved.Value.MzLibModification == null)
+                {
+                    if (mode == SequenceConversionHandlingMode.ThrowException)
+                    {
+                        throw new SequenceConversionException(
+                            $"Unable to resolve modification {modification}",
+                            ConversionFailureReason.IncompatibleModifications,
+                            new[] { modification.ToString() });
+                    }
+
+                    continue;
+                }
+
+                var index = modification.PositionType switch
+                {
+                    ModificationPositionType.NTerminus => 1,
+                    ModificationPositionType.CTerminus => sequence.BaseSequence.Length + 2,
+                    _ => modification.ResidueIndex.GetValueOrDefault() + 2
+                };
+
+                projected[index] = resolved.Value.MzLibModification;
+            }
+
+            return projected;
+        }
     }
 
     private sealed class RecordingSequenceSerializer : ISequenceSerializer
@@ -329,6 +369,79 @@ namespace Test.Omics.SequenceConversion;
             RecordedWarnings.Add(warnings);
             RecordedModes.Add(mode);
             return $"{FormatName}:{sequence.BaseSequence}:{mode}";
+        }
+
+        public Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+            CanonicalSequence sequence,
+            Dictionary<string, Modification>? knownMods = null,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => new();
+    }
+
+    private sealed class StubProjectionParser : ISequenceParser
+    {
+        private readonly Func<string, bool> _canParse;
+        private readonly CanonicalSequence _result;
+
+        public StubProjectionParser(string formatName, Func<string, bool> canParse, CanonicalSequence result)
+        {
+            FormatName = formatName;
+            Schema = MzLibSequenceFormatSchema.Instance;
+            _canParse = canParse;
+            _result = result;
+        }
+
+        public string FormatName { get; }
+
+        public SequenceFormatSchema Schema { get; }
+
+        public bool CanParse(string input) => _canParse(input);
+
+        public CanonicalSequence? Parse(
+            string input,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => _result;
+    }
+
+    private sealed class StubProjectionSerializer : ISequenceSerializer
+    {
+        public StubProjectionSerializer(string formatName)
+        {
+            FormatName = formatName;
+        }
+
+        public string FormatName { get; }
+
+        public SequenceFormatSchema Schema => MzLibSequenceFormatSchema.Instance;
+
+        public IModificationLookup? ModificationLookup => null;
+
+        public SequenceConversionHandlingMode HandlingMode => SequenceConversionHandlingMode.ThrowException;
+
+        public bool CanSerialize(CanonicalSequence sequence) => true;
+
+        public bool ShouldResolveMod(CanonicalModification mod) => false;
+
+        public string? Serialize(
+            CanonicalSequence sequence,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException) => sequence.BaseSequence;
+
+        public Dictionary<int, Modification> ToOneIsNterminusModificationDictionary(
+            CanonicalSequence sequence,
+            Dictionary<string, Modification>? knownMods = null,
+            ConversionWarnings? warnings = null,
+            SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+        {
+            if (knownMods == null)
+            {
+                return new Dictionary<int, Modification>();
+            }
+
+            return new Dictionary<int, Modification>
+            {
+                { 42, knownMods["Carbamidomethyl on C"] }
+            };
         }
     }
 
