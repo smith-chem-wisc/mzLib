@@ -460,22 +460,29 @@ namespace MassSpectrometry.MzSpectra
             }
             return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
         }
-
         /// <summary>
-        /// Computes the cosine similarity between two pre-aligned intensity vectors of equal length.
-        /// Both vectors must be in the same positional order (index i of <paramref name="a"/> corresponds
-        /// to index i of <paramref name="b"/>). No peak matching is performed.
+        /// Computes the cosine similarity between two pre-aligned intensity vectors
+        /// of the same length. No peak-matching by m/z is performed — index <c>i</c>
+        /// in <paramref name="a"/> directly corresponds to index <c>i</c> in
+        /// <paramref name="b"/>. This is the lightweight counterpart of
+        /// <see cref="CosineSimilarity"/> for cases where the two vectors are already
+        /// index-aligned (e.g. comparing an observed per-isotope intensity array
+        /// against a theoretical Averagine distribution of the same length).
         ///
-        /// Used by deconvolution scoring to compare an observed isotope intensity distribution
-        /// against a theoretical Averagine distribution after the two vectors have already been
-        /// aligned to the same isotope index grid.
+        /// <para>
+        /// Returns 0.0 when either input is empty, lengths differ, or the denominator
+        /// is zero (one or both vectors are all-zeros).
+        /// </para>
+        ///
+        /// <para>
+        /// Uses <see cref="ReadOnlySpan{T}"/> so that callers can pass a plain
+        /// <c>double[]</c>, a stack-allocated span, or an array slice without
+        /// any additional allocation.
+        /// </para>
         /// </summary>
         /// <param name="a">First intensity vector (e.g. observed isotope intensities).</param>
         /// <param name="b">Second intensity vector (e.g. theoretical Averagine intensities).</param>
-        /// <returns>
-        /// Cosine similarity in [0, 1] for non-negative input vectors.
-        /// Returns 0 if either vector is all-zero or if the lengths differ.
-        /// </returns>
+        /// <returns>Cosine similarity in [0, 1]. Higher is more similar.</returns>
         public static double CosineOfAlignedVectors(ReadOnlySpan<double> a, ReadOnlySpan<double> b)
         {
             if (a.Length != b.Length || a.Length == 0)

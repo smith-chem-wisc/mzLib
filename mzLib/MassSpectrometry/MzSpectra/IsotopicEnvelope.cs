@@ -94,6 +94,21 @@ namespace MassSpectrometry
         }
 
         /// <summary>
+        /// Optional per-isotope intensity vector (indexed from the algorithm's most-negative isotope
+        /// index), set by deconvolution algorithms that compute one (MetaFlashDecon mirrors OpenMS
+        /// <c>PeakGroup::getIsotopeIntensities()</c>). Null otherwise. Consumed by feature tracing
+        /// (OpenMS <c>MassFeatureTrace</c>) to accumulate a trace-level isotope pattern for the
+        /// feature-level isotope-cosine filter. Not part of equality.
+        /// </summary>
+        public IReadOnlyList<double> PerIsotopeIntensities { get; private set; }
+
+        /// <summary>Sets <see cref="PerIsotopeIntensities"/> (most-negative-isotope-index based).</summary>
+        public void SetPerIsotopeIntensities(IReadOnlyList<double> perIsotopeIntensities)
+        {
+            PerIsotopeIntensities = perIsotopeIntensities;
+        }
+
+        /// <summary>
         /// True if a generic deconvolution score has been computed and stored on this envelope.
         /// Equivalent to <c>GenericScore.HasValue</c>; provided for readability at call sites.
         /// </summary>

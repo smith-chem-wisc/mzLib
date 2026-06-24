@@ -1,4 +1,4 @@
-﻿using System.Diagnostics.CodeAnalysis;
+using System.Diagnostics.CodeAnalysis;
 using MassSpectrometry;
 using NUnit.Framework;
 using UsefulProteomicsDatabases;
@@ -47,13 +47,15 @@ namespace Development.Deconvolution
             List<DeconvolutionParameters> topDownDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 60, 4, 3),
-                new IsoDecDeconvolutionParameters()
+                new IsoDecDeconvolutionParameters(),
+                new MetaFlashDeconParameters(minCharge: 1, maxCharge: 60)
             ];
 
             List<DeconvolutionParameters> bottomUpDeconvolutionParametersToTest =
             [
                 new ClassicDeconvolutionParameters(1, 12, 4, 3),
-                new IsoDecDeconvolutionParameters()
+                new IsoDecDeconvolutionParameters(),
+                new MetaFlashDeconParameters(minCharge: 1, maxCharge: 12)
             ];
 
 

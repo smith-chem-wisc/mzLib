@@ -50,7 +50,7 @@ namespace MassSpectrometry
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
 
-            // FromFile decon has no spectrum to anchor RT against — the caller must
+            // FromFile decon has no spectrum to anchor RT against â€” the caller must
             // supply an MzRtRange explicitly. We surface that as an ArgumentException
             // rather than letting it surface deeper inside the algorithm.
             if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
@@ -126,7 +126,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Factory method to create the correct deconvolution algorithm from the parameters.
         /// First gives the parameters object a chance to construct its own algorithm via
-        /// <see cref="DeconvolutionParameters.CreateAlgorithm"/> — this is how algorithms
+        /// <see cref="DeconvolutionParameters.CreateAlgorithm"/> â€” this is how algorithms
         /// living outside <c>MassSpectrometry</c> (e.g. <c>FromFileDeconvolutionAlgorithm</c>
         /// in <c>Readers</c>) plug themselves in. Falls back to the enum-based switch for
         /// in-project algorithms.
@@ -141,6 +141,7 @@ namespace MassSpectrometry
                 DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
                 DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
                 DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
+                DeconvolutionType.MetaFlashDecon => new MetaFlashDeconAlgorithm(parameters),
                 DeconvolutionType.FromFile => throw new MzLibException(
                     "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
                     "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),

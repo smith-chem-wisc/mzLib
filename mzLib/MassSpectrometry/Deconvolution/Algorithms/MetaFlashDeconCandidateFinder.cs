@@ -1,0 +1,612 @@
+// MetaFlashDeconCandidateFinder.cs
+//
+// Plan B candidate generation: faithful port of OpenMS FLASHDeconvAlgorithm's candidate-mass binning
+// — updateMzBins_ (:273), updateCandidateMassBins_ (:292-524, continuous-charge support +
+// intensity-ratio + the LOW-CHARGE isotope-presence path + two-level harmonic rejection),
+// filterMassBins_ (:529-633, top-3 per m/z peak + per-mass charge range). Replaces the old
+// FindCandidateMasses, which used continuous-charge support only (so it missed small charge-1/2
+// species — the per-spectrum-vs-real low-mass gap) and lacked faithful harmonic rejection.
+//
+// Output = candidate (neutral mass, min/max abs charge); the Plan B PeakGroup pipeline then recruits
+// + scores. Differential-tested vs an MSVC extract (cand_cpp) in MetaFlashDeconDiffTest.
+
+using System;
+using System.Collections.Generic;
+using Chemistry; // MetaFlashDeconAlgorithm.IsoDaDistance55K
+
+namespace MassSpectrometry
+{
+    using LogMzPeak = MetaFlashDeconAlgorithm.LogMzPeak;
+    using CandidateMass = MetaFlashDeconAlgorithm.CandidateMass;
+
+    internal static class MetaFlashDeconCandidateFinder
+    {
+        // OpenMS getBinNumber_ (FLASHDeconvAlgorithm.cpp:265-271): (Size)((value-min)*mul + .5), 0 if value<min.
+        // ⚠ The `(int)(... + 0.5)` is truncation-toward-zero of x+0.5 (= floor for the always-positive
+        // argument here) — this is OpenMS's exact rounding. Do NOT replace with Math.Round(...), which is
+        // banker's (round-half-to-even) in C# and would assign different bins at the .5 boundary,
+        // de-aligning every mass/mz bin from OpenMS.
+        internal static int GetBinNumber(double value, double minValue, double binMulFactor)
+            => value < minValue ? 0 : (int)((value - minValue) * binMulFactor + 0.5);
+
+        // OpenMS getBinValue_
+        internal static double GetBinValue(int bin, double minValue, double binMulFactor)
+            => minValue + bin / binMulFactor;
+
+        // OpenMS setFilters_ (FLASHDeconvAlgorithm.cpp:197-222): universal filter -log(i+1) + the
+        // harmonic matrix; charges are 1..maxCharge (abs charge = i+1).
+        internal static void SetFilters(int maxCharge, int[] harmonicCharges, out double[] filter, out double[][] harmonicFilter)
+        {
+            filter = new double[maxCharge];
+            for (int i = 0; i < maxCharge; i++) filter[i] = -Math.Log(i + 1);
+            harmonicFilter = new double[harmonicCharges.Length][];
+            for (int k = 0; k < harmonicCharges.Length; k++)
+            {
+                int hc = harmonicCharges[k];
+                int nn = hc / 2;
+                harmonicFilter[k] = new double[maxCharge];
+                for (int i = 0; i < maxCharge; i++)
+                {
+                    double a = i > 0 ? Math.Exp(-filter[i - 1]) : 0;
+                    double b = Math.Exp(-filter[i]);
+                    harmonicFilter[k][i] = -Math.Log(b - (b - a) * nn / hc);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Faithful candidate generation (OpenMS charges 1..<paramref name="maxCharge"/>). Builds the
+        /// universal/harmonic filters internally (setFilters_), votes the candidate mass bins, and
+        /// returns candidate neutral masses + abs-charge ranges.
+        /// </summary>
+        internal static List<CandidateMass> FindCandidates(
+            List<LogMzPeak> logPeaks, int maxCharge, int[] harmonicCharges,
+            double binMulFactor, MetaFlashDeconParameters p, MetaFlashDeconAveragine avg)
+        {
+            var result = new List<CandidateMass>();
+            if (logPeaks.Count == 0) return result;
+
+            SetFilters(maxCharge, harmonicCharges, out double[] filter, out double[][] harmonicFilter);
+            int chargeRange = filter.Length;                 // OpenMS current_max_charge_
+            int lowCharge = 10;                               // OpenMS low_charge_
+            int minSupportPeakCount = 2;                      // OpenMS min_support_peak_count_
+            double isoDa = MetaFlashDeconAlgorithm.IsoDaDistance55K;
+            int hChargeSize = harmonicCharges.Length;
+
+            double minMass = p.MinMassRange, maxMass = p.MaxMassRange;
+            int tmpPeakCntr = Math.Max(0, chargeRange - minSupportPeakCount);
+
+            double mzBinMin = logPeaks[0].LogMz;
+            double mzBinMax = logPeaks[^1].LogMz;
+            // mass-bin axis origin (OpenMS mass_bin_min_value_ = log(min_mass - avg.getAverageMassDelta(min_mass)),
+            // FLASHDeconvAlgorithm.cpp:1074). ⚠ Uses the EXACT-OpenMS avgDelta (GetMassBinMinAvgDelta), NOT
+            // mzLib's Averagine value: mzLib snaps mass 50 to its coarse C2H4N1O1 entry / its own isotope
+            // abundances, giving avgDelta ~0.0251-0.0255 vs OpenMS's CoarseIsotopePatternGenerator 0.02514582
+            // — the one un-snippable averagine boundary. That ~mDa error shifts this axis ~2 bins, which on
+            // SPARSE scans lands candidates in the wrong filterMassBins charge-range slot (spurious extra
+            // charge -> cos<0.85 -> dropped), silently cutting per-spectrum (and thus feature) yield.
+            // Exact axis: scan 1332 15/20 -> 20/20, scan 2301 preserved 17/17. avgDelta is used ONLY here.
+            double massBinMin = Math.Log(Math.Max(1.0, minMass - avg.GetMassBinMinAvgDelta(minMass)));
+            double massBinMax = Math.Min(
+                logPeaks[^1].LogMz - filter[tmpPeakCntr],
+                Math.Log(maxMass + avg.GetRightCountFromApex(maxMass) + 1.0));
+
+            int massBinNumber = GetBinNumber(massBinMax, massBinMin, binMulFactor) + 1;
+            int mzBinNumber = GetBinNumber(mzBinMax, mzBinMin, binMulFactor) + 1;
+            if (massBinNumber <= 0 || mzBinNumber <= 0) return result;
+
+            // bin offsets (mz-bin -> mass-bin). ⚠ MidpointRounding.AwayFromZero is REQUIRED: it matches
+            // C++ std::round() (FLASHDeconvAlgorithm.cpp:1083). C#'s default Math.Round is banker's
+            // rounding, which would shift some per-charge offsets by 1 and de-align candidates from OpenMS.
+            var binOffsets = new int[chargeRange];
+            for (int i = 0; i < chargeRange; i++)
+                binOffsets[i] = (int)Math.Round((mzBinMin - filter[i] - massBinMin) * binMulFactor, MidpointRounding.AwayFromZero);
+            var harmonicBinOffsets = new int[hChargeSize][];
+            for (int k = 0; k < hChargeSize; k++)
+            {
+                harmonicBinOffsets[k] = new int[chargeRange];
+                for (int i = 0; i < chargeRange; i++)
+                    harmonicBinOffsets[k][i] = (int)Math.Round((mzBinMin - harmonicFilter[k][i] - massBinMin) * binMulFactor, MidpointRounding.AwayFromZero);
+            }
+
+            // updateMzBins_
+            var mzBins = new bool[mzBinNumber];
+            var mzIntensities = new float[mzBinNumber];
+            var mzSetBins = new List<int>();
+            foreach (var pk in logPeaks)
+            {
+                int bi = GetBinNumber(pk.LogMz, mzBinMin, binMulFactor);
+                if (bi >= mzBinNumber) continue;
+                if (!mzBins[bi]) mzSetBins.Add(bi);
+                mzBins[bi] = true;
+                mzIntensities[bi] += (float)pk.Intensity;
+            }
+            mzSetBins.Sort();
+
+            var massBins = new bool[massBinNumber];
+            var massIntensities = new float[massBinNumber];
+
+            UpdateCandidateMassBins(mzSetBins, mzBins, mzIntensities, massBins, massIntensities,
+                binOffsets, harmonicBinOffsets, harmonicCharges, chargeRange, lowCharge, minSupportPeakCount,
+                isoDa, mzBinMin, binMulFactor, massBinNumber);
+
+            // FD_MITRACE_CS: dump mass_intensities for the 27909 region
+            string mitPath = Environment.GetEnvironmentVariable("FD_MITRACE_CS");
+            if (mitPath != null)
+            {
+                var sb = new System.Text.StringBuilder();
+                for (int i = 0; i < massIntensities.Length; i++)
+                {
+                    if (massIntensities[i] == 0.0f) continue;
+                    double binMass = Math.Exp(GetBinValue(i, massBinMin, binMulFactor));
+                    if (binMass > 27908.5 && binMass < 27910.5)
+                        sb.Append($"MI\t{i}\t{binMass:F10}\t{massIntensities[i]:R}\tmass_bins_set={(massBins[i]?1:0)}\n");
+                }
+                System.IO.File.AppendAllText(mitPath, sb.ToString());
+            }
+
+            var chargeRanges = FilterMassBins(mzSetBins, mzBins, massBins, massIntensities, binOffsets, chargeRange, massBinNumber);
+
+            // getCandidatePeakGroups_ : per surviving mass bin, build the group (local-max guard +
+            // harmonic-intensity tracking), apply the group-harmonic gate + >=2-isotope filter, and
+            // emit the refined-monoisotopic-mass candidate. (Precision filters.)
+            // OpenMS narrows the tolerance for getCandidatePeakGroups_:
+            // FLASHDeconvAlgorithm::updateMembers_ (cpp:170-175) does `tolerance_[i] = (ppm*1e-6)/tol_div_factor`,
+            // i.e. tol = 10ppm/2.5 = 4e-6, giving mz_delta = 2*4e-6*mz (~0.005) instead of 0.012.
+            // Passing the un-narrowed 10e-6 here let borderline peaks (~7 mDa off iso) fall in the
+            // signal branch when OpenMS classifies them as harmonic -> inflated total_signal ->
+            // harmonic gate too lenient -> 12478 candidates emitted vs OpenMS's 5840.
+            return GetCandidatePeakGroups(logPeaks, massBins, chargeRanges, binOffsets, harmonicCharges,
+                mzBinMin, massBinMin, binMulFactor, isoDa,
+                p.DeconvolutionTolerancePpm * 1e-6 / p.TolDivFactor,
+                chargeRange, minMass, maxMass, avg);
+        }
+
+        // OpenMS getCandidatePeakGroups_ (FLASHDeconvAlgorithm.cpp:648-959): build + filter candidate
+        // groups. Returns refined-mono-mass candidates (CandidateMass.Mass = MONOISOTOPIC mass).
+        private static List<CandidateMass> GetCandidatePeakGroups(
+            List<LogMzPeak> logPeaks, bool[] massBins, int[][] chargeRanges, int[] binOffsets, int[] harmonicCharges,
+            double mzBinMin, double massBinMin, double binMulFactor, double isoDa, double tol,
+            int chargeRange, double minMass, double maxMass, MetaFlashDeconAveragine avg)
+        {
+            var result = new List<CandidateMass>();
+            int n = logPeaks.Count;
+            int hSize = harmonicCharges.Length;
+            const double maxMassDaltonTol = 0.16;
+
+            // per-peak m/z bin number (peaks are logMz-ascending)
+            var peakBin = new int[n];
+            for (int i = 0; i < n; i++) peakBin[i] = GetBinNumber(logPeaks[i].LogMz, mzBinMin, binMulFactor);
+
+            var currentPeakIndex = new int[chargeRange]; // cpi per charge (monotone as mass bins increase)
+            var totalHarmonic = new double[hSize];
+            var hPrevIso = new int[hSize];
+            var hMaxIsoIntensity = new float[hSize];
+
+            for (int massBinIndex = 0; massBinIndex < massBins.Length; massBinIndex++)
+            {
+                if (!massBins[massBinIndex]) continue;
+                int crLo = chargeRanges[0][massBinIndex], crHi = chargeRanges[1][massBinIndex];
+                if (crLo == int.MaxValue || crHi == int.MinValue) continue;
+
+                double mass0 = Math.Exp(GetBinValue(massBinIndex, massBinMin, binMulFactor));
+                int rightIndex = avg.GetRightCountFromApex(mass0);
+                int leftIndex = avg.GetLeftCountFromApex(mass0);
+
+                var peaks = new List<(double mz, double intensity, int charge, int iso)>();
+                double totalSignal = 0;
+                Array.Clear(totalHarmonic, 0, hSize);
+
+                for (int j = crLo; j <= crHi; j++)
+                {
+                    int absCharge = j + 1;
+                    int binOffset = binOffsets[j];
+                    if (massBinIndex < binOffset) continue;
+                    int bIndex = massBinIndex - binOffset;
+
+                    int maxPeakIndex = -1;
+                    double maxIntensity = -1;
+                    ref int cpi = ref currentPeakIndex[j];
+                    while (cpi < n - 1)
+                    {
+                        if (peakBin[cpi] == bIndex)
+                        {
+                            double inten = logPeaks[cpi].Intensity;
+                            if (inten > maxIntensity) { maxIntensity = inten; maxPeakIndex = cpi; }
+                        }
+                        else if (peakBin[cpi] > bIndex) break;
+                        cpi++;
+                    }
+                    if (maxPeakIndex < 0) continue;
+
+                    // local-max guard
+                    if (maxPeakIndex > 0 && peakBin[maxPeakIndex - 1] == bIndex - 1 && logPeaks[maxPeakIndex - 1].Intensity > maxIntensity) continue;
+                    if (maxPeakIndex < n - 1 && peakBin[maxPeakIndex + 1] == bIndex + 1 && logPeaks[maxPeakIndex + 1].Intensity > maxIntensity) continue;
+
+                    double mz = logPeaks[maxPeakIndex].Mz;
+                    double isoDelta = isoDa / absCharge;
+                    double mzDelta = Math.Min(maxMassDaltonTol / absCharge, 2.0 * tol * mz);
+                    double maxMz = mz;
+                    float maxPeakIntensity = (float)logPeaks[maxPeakIndex].Intensity;
+                    float maxIsoIntensity = 0;
+                    int prevIso = -1000;
+                    Array.Clear(hPrevIso, 0, hSize);
+                    Array.Clear(hMaxIsoIntensity, 0, hSize);
+
+                    // forward
+                    for (int pi = maxPeakIndex; pi < n; pi++)
+                    {
+                        double obsMz = logPeaks[pi].Mz; float inten = (float)logPeaks[pi].Intensity;
+                        double mzDiff = obsMz - mz; int ti = (int)Math.Round(mzDiff / isoDelta, MidpointRounding.AwayFromZero);
+                        if (obsMz - maxMz > rightIndex * isoDelta + mzDelta) break;
+                        if (Math.Abs(mzDiff - ti * isoDelta) < mzDelta)
+                        {
+                            // OpenMS only counts a signal peak if its mass bin is valid
+                            // (FLASHDeconvAlgorithm.cpp:782-783: bin < mass_bin_size && not previously
+                            // deconved). Omitting this inflated total_signal -> harmonic gate too lenient.
+                            int sbin = peakBin[pi] + binOffset;
+                            if (sbin >= 0 && sbin < massBins.Length)
+                            {
+                                peaks.Add((obsMz, inten, absCharge, ti));
+                                if (maxPeakIntensity < inten) maxPeakIntensity = inten;
+                                if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
+                                maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
+                                prevIso = ti;
+                            }
+                        }
+                        else
+                        {
+                            for (int l = 0; l < hSize; l++)
+                            {
+                                int hc = harmonicCharges[l]; if (hc * absCharge > chargeRange) break;
+                                double hIsoDelta = isoDelta / hc; int thi = (int)Math.Round(mzDiff / hIsoDelta, MidpointRounding.AwayFromZero);
+                                if ((double)thi / hc < ti + maxMassDaltonTol) continue;
+                                if ((double)thi / hc >= ti + 1 - maxMassDaltonTol) break;
+                                if (Math.Abs(mzDiff - thi * hIsoDelta) < mzDelta)
+                                {
+                                    if (hPrevIso[l] != thi / hc) { totalHarmonic[l] += Math.Min(maxPeakIntensity, hMaxIsoIntensity[l]); hMaxIsoIntensity[l] = 0; }
+                                    hMaxIsoIntensity[l] = Math.Max(hMaxIsoIntensity[l], inten); hPrevIso[l] = thi / hc;
+                                }
+                            }
+                        }
+                    }
+                    totalSignal += maxIsoIntensity;
+                    // OpenMS forward-final harmonic add is RAW h_max (FLASHDeconvAlgorithm.cpp:842),
+                    // NOT min(max_peak, h_max). (The in-loop add uses min; the final uses raw.)
+                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += hMaxIsoIntensity[l];
+
+                    // backward
+                    maxIsoIntensity = 0; prevIso = -1000; Array.Clear(hPrevIso, 0, hSize); Array.Clear(hMaxIsoIntensity, 0, hSize);
+                    for (int pi = maxPeakIndex - 1; pi >= 0; pi--)
+                    {
+                        double obsMz = logPeaks[pi].Mz; float inten = (float)logPeaks[pi].Intensity;
+                        double mzDiff = obsMz - mz; int ti = (int)Math.Round(mzDiff / isoDelta, MidpointRounding.AwayFromZero);
+                        if (maxMz - obsMz > leftIndex * isoDelta + mzDelta) break;
+                        if (Math.Abs(mzDiff - ti * isoDelta) < mzDelta)
+                        {
+                            int sbin = peakBin[pi] + binOffset; // OpenMS bin<mass_bin_size (cpp:863-864)
+                            if (sbin >= 0 && sbin < massBins.Length)
+                            {
+                                peaks.Add((obsMz, inten, absCharge, ti));
+                                if (maxPeakIntensity < inten) maxPeakIntensity = inten;
+                                if (prevIso != ti) { totalSignal += maxIsoIntensity; maxIsoIntensity = 0; }
+                                maxIsoIntensity = Math.Max(maxIsoIntensity, inten);
+                                prevIso = ti;
+                            }
+                        }
+                        else
+                        {
+                            for (int l = 0; l < hSize; l++)
+                            {
+                                int hc = harmonicCharges[l]; if (hc * absCharge > chargeRange) break;
+                                double hIsoDelta = isoDelta / hc; int thi = (int)Math.Round(mzDiff / hIsoDelta, MidpointRounding.AwayFromZero);
+                                if ((double)thi / hc > ti - maxMassDaltonTol) continue;
+                                if ((double)thi / hc <= ti - 1 + maxMassDaltonTol) break;
+                                if (Math.Abs(mzDiff - thi * hIsoDelta) < mzDelta)
+                                {
+                                    if (hPrevIso[l] != thi / hc) { totalHarmonic[l] += hMaxIsoIntensity[l]; hMaxIsoIntensity[l] = 0; }
+                                    hMaxIsoIntensity[l] = Math.Max(hMaxIsoIntensity[l], inten); hPrevIso[l] = thi / hc;
+                                }
+                            }
+                        }
+                    }
+                    totalSignal += maxIsoIntensity;
+                    // OpenMS backward-final harmonic add is min(max_peak, h_max) (FLASHDeconvAlgorithm.cpp:925),
+                    // NOT raw. (The backward in-loop add uses raw; the final uses min — mirror of forward.)
+                    for (int l = 0; l < hSize; l++) totalHarmonic[l] += Math.Min(maxPeakIntensity, hMaxIsoIntensity[l]);
+                }
+
+                // group-harmonic gate
+                if (peaks.Count == 0) continue;
+                double maxHarm = 0; for (int l = 0; l < hSize; l++) if (totalHarmonic[l] > maxHarm) maxHarm = totalHarmonic[l];
+                if (!(totalSignal > maxHarm)) continue;
+
+                // re-anchor isotopes to the most intense peak; >=2-isotope; refined mono mass
+                double tMass = 0, mi = -1;
+                foreach (var pk in peaks) { double um = (pk.mz - Constants.ProtonMass) * pk.charge; if (pk.intensity > mi) { mi = pk.intensity; tMass = um; } }
+                double isoTol = tol * tMass;
+                int apexIndex = avg.GetApexIndex(tMass);
+                int minOff = 10000, maxOff = -1;
+                // ⚠ CRITICAL — TYPES AND ORDER ARE LOAD-BEARING. OpenMS builds new_peaks (filter-passing,
+                // apex-anchored) then computes the candidate mono via pg.updateMonoMassAndIsotopeIntensities()
+                // (FLASHDeconvAlgorithm.cpp:1015-1024) — the SAME mono as scoring (PeakGroup.cpp:706-736):
+                //   (1) peaks SORTED by logMz (≈mz), then float intensity  ← do not remove the sort
+                //   (2) denominator `intensityF` summed in FLOAT with `float pi`  ← do NOT widen to double
+                //   (3) iso<0 peaks excluded from the mono (min_off/max_off still span ALL passing peaks)
+                // Float addition is order-dependent and lossy (~1e7 total, float ULP ≈ 1 over ~150 peaks of a
+                // large protein), so a double sum or unsorted order shifts the intensity-weighted mono by a few
+                // mDa — enough to flip one borderline z32 isotope peak, which cascades through removeChargeError
+                // and dropped two true masses (27889 → 6970.7/6971.7). Matching float+sort is what gives 17/17
+                // on scan 2301 and 97.6% whole-run (commit 6d93cbf3). Keep this identical to PeakGroup.
+                var monoPeaks = new List<(double um, int iso, double mz, float pi)>(peaks.Count);
+                foreach (var pk in peaks)
+                {
+                    double um = (pk.mz - Constants.ProtonMass) * pk.charge;
+                    int iso = (int)Math.Round((um - tMass) / isoDa, MidpointRounding.AwayFromZero);
+                    if (Math.Abs(tMass - um + isoDa * iso) > isoTol) continue;
+                    iso += apexIndex;
+                    if (iso < minOff) minOff = iso;
+                    if (iso > maxOff) maxOff = iso;
+                    monoPeaks.Add((um, iso, pk.mz, (float)pk.intensity));
+                }
+                if (minOff == maxOff) continue;
+                monoPeaks.Sort((a, b) => a.mz != b.mz ? a.mz.CompareTo(b.mz) : a.pi.CompareTo(b.pi));
+                double nominator = 0; float intensityF = 0f;
+                foreach (var mp in monoPeaks)
+                {
+                    if (mp.iso < 0) continue; // OpenMS updateMonoMass excludes iso<0 from the mono (PeakGroup.cpp:719)
+                    nominator += mp.pi * (mp.um - mp.iso * isoDa);
+                    intensityF += mp.pi;
+                }
+                if (intensityF <= 0) continue;
+                double monoMass = nominator / intensityF;
+                if (monoMass < minMass || monoMass > maxMass) continue;
+
+                // FD_CGTRACE_CS: dump candidate-gen mono for a target bin-mass window (vs OpenMS CG_MONO).
+                if (Environment.GetEnvironmentVariable("FD_CGTRACE_CS") is string cgcs && mass0 > 8160 && mass0 < 8175)
+                    System.IO.File.AppendAllText(cgcs, $"CG_MONO\tbinmass={mass0:R}\tt_mass={tMass:R}\tmono={monoMass:R}\tz1-{crHi + 1}\tmin_off={minOff}\tmax_off={maxOff}\tnpeaks={monoPeaks.Count}\n");
+
+                // Per-isotope intensity vector for the pre-loop GetIsotopeCosineAndDetermineIsotopeIndex
+                // seed in ScoreCandidatesViaPeakGroups (OpenMS scoreAndFilterPeakGroups_, cpp:1091-1093).
+                // Shape matches MetaFlashDeconPeakGroup.UpdateMonoMassAndIsotopeIntensities:
+                // indexed by `anchored_iso - MinNegativeIsotopeIndex` (= anchored_iso + 1 with
+                // MinNegativeIsotopeIndex = -1). All anchored isos here are >= 0, so slot 0 = 0.
+                const int minNegativeIsotopeIndex = -1; // matches MetaFlashDeconPeakGroup default
+                var perIso = new double[maxOff + 1 - minNegativeIsotopeIndex];
+                foreach (var pk in peaks)
+                {
+                    double um = (pk.mz - Constants.ProtonMass) * pk.charge;
+                    int iso = (int)Math.Round((um - tMass) / isoDa, MidpointRounding.AwayFromZero);
+                    if (Math.Abs(tMass - um + isoDa * iso) > isoTol) continue;
+                    iso += apexIndex;
+                    int idx = iso - minNegativeIsotopeIndex;
+                    if (idx >= 0 && idx < perIso.Length) perIso[idx] += pk.intensity;
+                }
+
+                result.Add(new CandidateMass
+                {
+                    Mass = monoMass,
+                    LogMass = Math.Log(monoMass),
+                    // OpenMS getCandidatePeakGroups_ (FLASHDeconvAlgorithm.cpp:678) constructs the
+                    // candidate PeakGroup as PeakGroup(1, per_mass_abs_charge_ranges(1,bin)+1, ...):
+                    // the MIN abs charge is hardcoded to 1 (NOT crLo+1). The recruit then scans 1..max
+                    // and updateChargeRange_ narrows to the real signal range. Using crLo+1 collapsed
+                    // candidates to narrow/single-charge -> scoring recruited too few charges, formed
+                    // wrong envelopes, dropped the true masses and produced halos.
+                    MinAbsCharge = 1,
+                    MaxAbsCharge = crHi + 1,
+                    SupportIntensity = intensityF,
+                    PerIsotopeIntensities = perIso,
+                });
+            }
+            return result;
+        }
+
+        // OpenMS updateCandidateMassBins_ (FLASHDeconvAlgorithm.cpp:292-524) — verbatim logic.
+        private static void UpdateCandidateMassBins(
+            List<int> mzSetBins, bool[] mzBins, float[] mzIntensities, bool[] massBins, float[] massIntensities,
+            int[] binOffsets, int[][] harmonicBinOffsets, int[] harmonicCharges, int chargeRange, int lowCharge,
+            int minSupportPeakCount, double isoDa, double mzBinMin, double binMulFactor, int binEnd)
+        {
+            int n = massBins.Length;
+            var supportPeakCount = new ushort[n];
+            var prevCharges = new ushort[n];
+            for (int i = 0; i < n; i++) prevCharges[i] = (ushort)(chargeRange + 2);
+            var prevIntensities = new float[n];
+            for (int i = 0; i < n; i++) prevIntensities[i] = 1.0f;
+            int hChargeSize = harmonicCharges.Length;
+            var subMaxHIntensity = new float[hChargeSize];
+            int mzSize = mzBins.Length;
+
+            // iterate set mz bins from high to low (reverse) so charges count small->large
+            for (int idx = mzSetBins.Count - 1; idx >= 0; idx--)
+            {
+                int mzBinIndex = mzSetBins[idx];
+                float intensity = mzIntensities[mzBinIndex];
+                double logMz = GetBinValue(mzBinIndex, mzBinMin, binMulFactor);
+                double mz = Math.Exp(logMz);
+
+                for (int j = 0; j < chargeRange; j++)
+                {
+                    long massBinIndex = (long)mzBinIndex + binOffsets[j];
+                    if (massBinIndex < 0) continue;
+                    if (massBinIndex >= binEnd) break;
+
+                    ref ushort spc = ref supportPeakCount[massBinIndex];
+                    int absCharge = j + 1;
+                    ref float prevIntensity = ref prevIntensities[massBinIndex];
+                    ref ushort prevCharge = ref prevCharges[massBinIndex];
+                    bool chargeNotContinuous = prevCharge - j != -1 && prevCharge <= chargeRange;
+
+                    float factor = absCharge <= lowCharge ? 10.0f : (5.0f + 5.0f * lowCharge / (float)absCharge);
+                    float hfactor = factor / 2.0f;
+                    float intensityRatio = intensity / prevIntensity;
+                    intensityRatio = intensityRatio < 1 ? 1.0f / intensityRatio : intensityRatio;
+                    float supportPeakIntensity = 0;
+                    bool passFirstCheck = false;
+
+                    if (chargeNotContinuous || intensityRatio > factor)
+                    {
+                        spc = 0;
+                    }
+                    else
+                    {
+                        passFirstCheck = true;
+                        if (spc == 0 && absCharge > lowCharge) supportPeakIntensity = prevIntensity;
+                    }
+
+                    float maxHIntensity = 0;
+                    if (!passFirstCheck && absCharge <= lowCharge)
+                    {
+                        Array.Clear(subMaxHIntensity, 0, hChargeSize);
+                        for (int d = 1; d >= -1; d -= 2)
+                        {
+                            bool isoExist = false;
+                            double diff = d * isoDa / absCharge / mz;
+                            int nextIsoBin = 0;
+                            for (int t = -1; t < 2; t++)
+                            {
+                                int nib = GetBinNumber(logMz + diff, mzBinMin, binMulFactor) + t;
+                                if (nib != mzBinIndex && nib > 0 && nib < mzSize && mzBins[nib])
+                                {
+                                    isoExist = true;
+                                    passFirstCheck = true;
+                                    if (nextIsoBin == 0 || mzIntensities[nextIsoBin] < mzIntensities[nib]) nextIsoBin = nib;
+                                }
+                            }
+                            if (isoExist)
+                            {
+                                double hThreshold = intensity + mzIntensities[nextIsoBin];
+                                for (int k = 0; k < hChargeSize; k++)
+                                {
+                                    int hc = harmonicCharges[k];
+                                    int harmonicCntr = 0;
+                                    if (hc * absCharge > chargeRange) break;
+                                    double hdiff = diff / hc;
+                                    for (int t = -1; t < 2; t++)
+                                    {
+                                        int nhib = GetBinNumber(logMz + hdiff, mzBinMin, binMulFactor) + t;
+                                        if (nhib != mzBinIndex && nhib >= 0 && nhib < mzSize && mzBins[nhib]
+                                            && mzIntensities[nhib] > hThreshold / 2 && mzIntensities[nhib] < hThreshold * 2)
+                                        {
+                                            harmonicCntr++;
+                                            subMaxHIntensity[k] = Math.Max(subMaxHIntensity[k], mzIntensities[nhib]);
+                                        }
+                                    }
+                                    if (harmonicCntr > 0) passFirstCheck = false;
+                                }
+                                if (passFirstCheck) supportPeakIntensity += mzIntensities[nextIsoBin];
+                            }
+                        }
+                        maxHIntensity = Max(subMaxHIntensity, hChargeSize);
+                        passFirstCheck &= maxHIntensity <= 0;
+                    }
+
+                    if (passFirstCheck)
+                    {
+                        if (prevCharge - j == -1) // high-charge continuous path: harmonic artifact check
+                        {
+                            float maxIntensity = intensity, minIntensity = prevIntensity;
+                            if (prevIntensity <= 1.0) { maxIntensity = intensity; minIntensity = intensity; }
+                            else if (minIntensity > maxIntensity) { (minIntensity, maxIntensity) = (maxIntensity, minIntensity); }
+
+                            float highThreshold = maxIntensity * hfactor;
+                            float lowThreshold = minIntensity / hfactor;
+                            bool isHarmonic = false;
+                            for (int k = 0; k < hChargeSize; k++)
+                            {
+                                for (int t = -1; t < 2; t++)
+                                {
+                                    long hmz = massBinIndex - harmonicBinOffsets[k][j] + t;
+                                    if (hmz > 0 && hmz != mzBinIndex && hmz < mzSize && mzBins[hmz])
+                                    {
+                                        float hi = mzIntensities[hmz];
+                                        if (hi > lowThreshold && hi < highThreshold) { maxHIntensity = Math.Max(maxHIntensity, hi); isHarmonic = true; }
+                                    }
+                                }
+                            }
+                            if (!isHarmonic)
+                            {
+                                massIntensities[massBinIndex] += intensity + supportPeakIntensity;
+                                spc++;
+                                if (spc >= minSupportPeakCount || spc >= absCharge / 2) massBins[massBinIndex] = true;
+                            }
+                            else
+                            {
+                                massIntensities[massBinIndex] -= maxHIntensity;
+                                if (spc > 0) spc--;
+                            }
+                        }
+                        else if (absCharge <= lowCharge) // low charge: include if isotope present
+                        {
+                            massIntensities[massBinIndex] += intensity + supportPeakIntensity;
+                            spc++;
+                            massBins[massBinIndex] = true;
+                        }
+                    }
+                    prevIntensity = intensity;
+                    prevCharge = (ushort)j;
+                }
+            }
+        }
+
+        // OpenMS filterMassBins_ (FLASHDeconvAlgorithm.cpp:529-633) — top-3 per m/z peak + charge ranges.
+        private static int[][] FilterMassBins(
+            List<int> mzSetBins, bool[] mzBins, bool[] massBins, float[] massIntensities,
+            int[] binOffsets, int chargeRange, int binSize)
+        {
+            var ranges = new int[2][];
+            ranges[0] = new int[binSize]; ranges[1] = new int[binSize];
+            for (int i = 0; i < binSize; i++) { ranges[0][i] = int.MaxValue; ranges[1][i] = int.MinValue; }
+
+            // to_skip = !massBins (mass bins NOT set by candidate stage are skipped); then reset massBins.
+            var toSkip = new bool[binSize];
+            for (int i = 0; i < binSize; i++) { toSkip[i] = !massBins[i]; massBins[i] = false; }
+
+            const int selectTopN = 3;
+            var maxIndices = new long[selectTopN];
+            var maxChargeRanges = new int[selectTopN];
+
+            foreach (int mzBinIndex in mzSetBins)
+            {
+                for (int t = 0; t < selectTopN; t++) { maxIndices[t] = -1; maxChargeRanges[t] = -1; }
+                float maxIntensity = -1e11f;
+                for (int j = 0; j < chargeRange; j++)
+                {
+                    long massBinIndex = (long)mzBinIndex + binOffsets[j];
+                    if (massBinIndex < 0) continue;
+                    if (massBinIndex >= binSize) break;
+                    if (toSkip[massBinIndex]) continue;
+                    float tval = massIntensities[massBinIndex];
+                    if (tval <= 0) continue;
+                    if (maxIntensity < tval)
+                    {
+                        maxIntensity = tval;
+                        for (int i = selectTopN - 1; i > 0; i--) { maxIndices[i] = maxIndices[i - 1]; maxChargeRanges[i] = maxChargeRanges[i - 1]; }
+                        maxIndices[0] = massBinIndex;
+                        maxChargeRanges[0] = j;
+                    }
+                }
+                for (int i = 0; i < selectTopN; i++)
+                {
+                    long mi = maxIndices[i];
+                    int cr = maxChargeRanges[i];
+                    if (mi >= 0 && mi < binSize)
+                    {
+                        ranges[0][mi] = Math.Min(ranges[0][mi], cr);
+                        ranges[1][mi] = Math.Max(ranges[1][mi], cr);
+                        massBins[mi] = true;
+                    }
+                }
+            }
+            return ranges;
+        }
+
+        private static float Max(float[] a, int len)
+        {
+            float m = a[0];
+            for (int i = 1; i < len; i++) if (a[i] > m) m = a[i];
+            return m;
+        }
+    }
+}
