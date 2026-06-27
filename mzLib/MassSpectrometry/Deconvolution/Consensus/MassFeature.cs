@@ -4,6 +4,39 @@ using System.Linq;
 namespace MassSpectrometry.Deconvolution.Consensus
 {
     /// <summary>
+    /// CONSENSUS PIPELINE OVERVIEW (the type hierarchy, narrowest to widest).
+    ///
+    /// The consensus mass-tracing pipeline turns raw per-scan deconvolution
+    /// output into cross-charge features through four nested levels. Each level
+    /// groups the one below it:
+    ///
+    ///   IsotopicEnvelope      one deconvolved species (mass, intensity, charge)
+    ///     |                   reported in a SINGLE MS1 scan. Raw input; not a
+    ///     |                   type in this namespace.
+    ///     |   grouped by <see cref="MassTraceBuilder"/> (charge-locked,
+    ///     |   anchor-mass + scan-adjacency)
+    ///     v
+    ///   <see cref="MassTrace"/>        the same species followed across adjacent
+    ///     |                   scans at ONE charge state. Its envelopes are the
+    ///     |                   raw per-scan tuples above.
+    ///     |   corrected by <see cref="TraceCorrector"/> (off-by-one rescue +
+    ///     |   resolution-aware splitting)
+    ///     v
+    ///   <see cref="CorrectedTrace"/>   a MassTrace after correction, holding
+    ///     |                   <see cref="CorrectedEnvelope"/> entries (original
+    ///     |                   + corrected mass per envelope) and a per-trace
+    ///     |                   <see cref="CorrectedTrace.ConsensusMass"/>. Still
+    ///     |                   one charge state.
+    ///     |   stitched by <see cref="MassFeatureBuilder"/> (cross-charge,
+    ///     |   ppm mass agreement + RT overlap)
+    ///     v
+    ///   MassFeature           THIS type: one species across ALL of its charge
+    ///                         states. The widest grouping, and the unit the
+    ///                         writer turns into an Ms1Feature row.
+    ///
+    /// So: envelopes nest inside traces, traces (after correction) nest inside
+    /// features. Charge is fixed within a trace and varies across a feature.
+    ///
     /// A cross-charge-state consensus feature: a group of
     /// <see cref="CorrectedTrace"/> entries (each at one charge state) whose
     /// consensus masses agree within a ppm tolerance and whose RT windows
