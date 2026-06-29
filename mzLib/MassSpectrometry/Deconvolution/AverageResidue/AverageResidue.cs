@@ -18,12 +18,39 @@ public abstract class AverageResidue : IEquatable<AverageResidue>
 
     // Terminology for the offsets composed from this model:
     //  • most-abundant offset = GetDiffToMonoisotopic(GetMostIntenseMassIndex(mono)) — the gap from the
-    //    monoisotopic mass to the single tallest (most abundant) isotopologue. This is what the resolved
-    //    most-abundant search uses; it is composed from the abstract methods above, so no dedicated
-    //    method is needed here.
-    //  • average / centroid offset = the gap from the monoisotopic mass to the intensity-weighted mean
-    //    of the whole envelope, for isotopically unresolved (high-mass) species. That helper
-    //    (GetAverageOffset) is introduced separately with the unresolved-envelope work, not here.
+    //    monoisotopic mass to the single tallest (most abundant) isotopologue. Used by the resolved
+    //    most-abundant search; composed from the abstract methods above, so no dedicated method is needed.
+    //  • average / centroid offset = GetAverageOffset(mono) below — the gap from the monoisotopic mass to
+    //    the intensity-weighted mean of the whole envelope. Used for isotopically unresolved (high-mass)
+    //    species, where the observed precursor is a centroid rather than a resolved most-abundant peak.
+
+    /// <summary>
+    /// The number of daltons to add to a monoisotopic mass to reach the intensity-weighted average
+    /// (centroid) mass of the isotopic envelope, according to this average-residue model. Used for
+    /// isotopically unresolved (high-mass) species, where the observed precursor is a centroid rather
+    /// than a resolved most-abundant peak.
+    /// </summary>
+    /// <param name="monoisotopicMass">A monoisotopic mass, in daltons.</param>
+    public double GetAverageOffset(double monoisotopicMass)
+    {
+        int index = GetMostIntenseMassIndex(monoisotopicMass);
+        double[] masses = GetAllTheoreticalMasses(index);
+        double[] intensities = GetAllTheoreticalIntensities(index);
+
+        double totalIntensity = 0;
+        double weightedMassSum = 0;
+        for (int i = 0; i < masses.Length; i++)
+        {
+            totalIntensity += intensities[i];
+            weightedMassSum += masses[i] * intensities[i];
+        }
+        double averageMass = totalIntensity > 0 ? weightedMassSum / totalIntensity : masses[0];
+
+        // masses/intensities are sorted by intensity (most intense first); the model's monoisotopic
+        // mass is the most-intense mass minus its diff-to-monoisotopic.
+        double monoisotopicModelMass = masses[0] - GetDiffToMonoisotopic(index);
+        return averageMass - monoisotopicModelMass;
+    }
 
     #region IEquatable<AverageResidue>
 
