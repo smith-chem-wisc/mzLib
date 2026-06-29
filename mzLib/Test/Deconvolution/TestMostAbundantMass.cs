@@ -7,12 +7,16 @@ using NUnit.Framework;
 namespace Test
 {
     /// <summary>
-    /// Unit tests for the "most abundant mass" precursor-selection support (Strategy B):
-    /// the averagine apex offset (diff-to-monoisotopic of the nearest mass bin) and
-    /// <see cref="AverageResidue.GetAverageOffset"/>, and the proton-corrected
-    /// <see cref="IsotopicEnvelope.MostAbundantObservedMass"/> /
-    /// <see cref="IsotopicEnvelope.AverageObservedMass"/> / <see cref="IsotopicEnvelope.Resolution"/>.
-    /// All tests build synthetic envelopes from the Averagine model — no deconvolution is run.
+    /// Unit tests for the resolved "most abundant mass" precursor-selection support (Strategy B).
+    ///
+    /// Terminology pinned by these tests:
+    ///  • most-abundant mass = the neutral mass of the single most intense (tallest) isotopic peak,
+    ///    proton-corrected (<see cref="IsotopicEnvelope.MostAbundantObservedMass"/>);
+    ///  • most-abundant offset = GetDiffToMonoisotopic(GetMostIntenseMassIndex(mono)) on the averagine
+    ///    model — the gap from the monoisotopic mass to that tallest isotopologue.
+    /// The intensity-weighted average (centroid) mass and the isotopically-unresolved path are a
+    /// separate change and are tested with that work, not here. All tests build synthetic envelopes
+    /// from the Averagine model — no deconvolution is run.
     /// </summary>
     [TestFixture]
     public sealed class TestMostAbundantMass
@@ -53,7 +57,7 @@ namespace Test
             return new IsotopicEnvelope(0, peaks, monoMass, charge, peaks.Sum(p => p.intensity), 0.999);
         }
 
-        // ── AverageResidue offsets ──────────────────────────────────────────────
+        // ── AverageResidue most-abundant offset ─────────────────────────────────
 
         [Test]
         public void MostAbundantOffset_IsNonNegativeAndNonDecreasingWithMass()
@@ -85,24 +89,7 @@ namespace Test
             Assert.That(offset, Is.GreaterThan(8.0).And.LessThan(12.0));
         }
 
-        [Test]
-        public void AverageOffset_IsAtLeastMostAbundantOffset()
-        {
-            // The intensity-weighted mean of a protein isotope envelope sits at or above the
-            // most-abundant isotopologue.
-            double[] masses = { 2000, 10000, 30000 };
-            foreach (double m in masses)
-            {
-                double avgOffset = Model.GetAverageOffset(m);
-                double mostAbundant = MostAbundantOffset(m);
-                Assert.That(avgOffset, Is.GreaterThanOrEqualTo(mostAbundant - 1e-6), $"at mass {m}");
-                // centroid sits just above the most-abundant peak (≲1 Da here); a sort-order/sign
-                // regression would inflate the offset by ~the most-abundant offset itself (many Da).
-                Assert.That(avgOffset, Is.LessThanOrEqualTo(mostAbundant + 2.0), $"inflated average offset at mass {m}");
-            }
-        }
-
-        // ── IsotopicEnvelope observed masses ────────────────────────────────────
+        // ── IsotopicEnvelope most-abundant observed mass ────────────────────────
 
         [Test]
         public void MostAbundantObservedMass_IsProtonCorrectedNeutralMass()
@@ -133,52 +120,9 @@ namespace Test
         }
 
         [Test]
-        public void AverageObservedMass_MatchesMonoPlusAveragineOffset()
+        public void DeconvolutionConstructor_ComputesMostAbundantObservedMass()
         {
-            // Symmetric to MostAbundantObservedMass_MatchesMonoPlusAveragineOffset: the observed centroid
-            // neutral mass of a perfect envelope ≈ candidate monoisotopic + averagine average offset.
-            const double mono = 12000;
-            const int charge = 12;
-            var env = BuildPerfectEnvelope(mono, charge);
-
-            double predicted = mono + Model.GetAverageOffset(mono);
-            Assert.That(env.AverageObservedMass, Is.EqualTo(predicted).Within(0.15));
-        }
-
-        [Test]
-        public void AverageObservedMass_IsBetweenMonoAndAboveMostAbundant()
-        {
-            const double mono = 12000;
-            const int charge = 12;
-            var env = BuildPerfectEnvelope(mono, charge);
-
-            Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(mono));
-            // centroid sits at/above the most-abundant peak for these right-skewed envelopes
-            Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(env.MostAbundantObservedMass - 1e-6));
-            // ...and the "between" claim needs an upper bound: the centroid cannot exceed the heaviest
-            // peak in the envelope (a charge/weighting regression would inflate it past the envelope span).
-            double heaviestNeutralMass = env.Peaks.Max(p => p.mz).ToMass(charge);
-            Assert.That(env.AverageObservedMass, Is.LessThanOrEqualTo(heaviestNeutralMass + 1e-6));
-        }
-
-        [Test]
-        public void AverageObservedMass_ZeroTotalIntensity_FallsBackToMostIntensePeakMass()
-        {
-            // Degenerate envelope (all intensities zero): AverageObservedMass must take the
-            // totalIntensity == 0 fallback (most-intense peak's m/z) and return a real mass, not NaN
-            // from a divide-by-zero. Exercises the fallback branch in the centroid computation.
-            const int charge = 1;
-            var peaks = new List<(double mz, double intensity)> { (1000.0, 0.0), (1000.5, 0.0) };
-            var env = new IsotopicEnvelope(0, peaks, 999.0, charge, 0.0, 0.5);
-
-            Assert.That(double.IsNaN(env.AverageObservedMass), Is.False);
-            Assert.That(env.AverageObservedMass, Is.EqualTo(env.MostAbundantObservedMass).Within(1e-6));
-        }
-
-        [Test]
-        public void DeconvolutionConstructor_ComputesObservedMasses()
-        {
-            // The 5-arg mzLib-deconvolution constructor must compute the same observed masses as the 6-arg path.
+            // The 5-arg mzLib-deconvolution constructor must compute the most-abundant observed mass.
             const double mono = 12000;
             const int charge = 12;
             var peaks = BuildPerfectPeaks(mono, charge);
@@ -186,43 +130,20 @@ namespace Test
 
             double mostIntenseMz = peaks.MaxBy(p => p.intensity).mz;
             Assert.That(env.MostAbundantObservedMass, Is.EqualTo(mostIntenseMz.ToMass(charge)).Within(1e-6));
-            Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(mono));
-            Assert.That(env.AverageObservedMass, Is.EqualTo(mono + Model.GetAverageOffset(mono)).Within(0.15));
         }
 
         [Test]
-        public void SinglePeakEnvelope_AllMassesEqualMonoisotopic()
+        public void FileReadEnvelope_HasNoMostAbundantPeak_ReturnsSentinel()
         {
-            // The file-read constructor produces a one-peak envelope at the monoisotopic mass.
+            // The file-read constructor carries a neutral mass but no observed isotopic envelope, so the
+            // most-abundant observed mass is undefined: both the m/z×|charge| form and the proton-corrected
+            // form report the -1 sentinel rather than a synthetic value.
             const double mono = 8000;
             const int charge = 8;
             var env = new IsotopicEnvelope(mono, 1e6, charge);
 
-            Assert.That(env.MostAbundantObservedMass, Is.EqualTo(mono).Within(1e-6));
-            Assert.That(env.AverageObservedMass, Is.EqualTo(mono).Within(1e-6));
-        }
-
-        // ── Resolution state ────────────────────────────────────────────────────
-
-        [Test]
-        public void Resolution_DefaultsToResolved_AndCanBeSet()
-        {
-            var env = BuildPerfectEnvelope(10000, 10);
-            Assert.That(env.Resolution, Is.EqualTo(EnvelopeResolution.Resolved));
-
-            env.SetResolution(EnvelopeResolution.Unresolved);
-            Assert.That(env.Resolution, Is.EqualTo(EnvelopeResolution.Unresolved));
-        }
-
-        [Test]
-        public void Resolution_ParticipatesInEquality()
-        {
-            var a = BuildPerfectEnvelope(10000, 10);
-            var b = BuildPerfectEnvelope(10000, 10);
-            Assert.That(a, Is.EqualTo(b));
-
-            b.SetResolution(EnvelopeResolution.Unresolved);
-            Assert.That(a, Is.Not.EqualTo(b));
+            Assert.That(env.MostAbundantObservedIsotopicMass, Is.EqualTo(-1));
+            Assert.That(env.MostAbundantObservedMass, Is.EqualTo(-1));
         }
     }
 }
