@@ -94,7 +94,7 @@ namespace Test
 
             Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(mono));
             // at/above the most-abundant peak for these right-skewed envelopes...
-            Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(env.MostAbundantObservedMass - 1e-6));
+            Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(env.MostAbundantObservedNeutralMass - 1e-6));
             // ...and never above the heaviest peak (a charge/weighting regression would inflate it).
             double heaviestNeutralMass = env.Peaks.Max(p => p.mz).ToMass(charge);
             Assert.That(env.AverageObservedMass, Is.LessThanOrEqualTo(heaviestNeutralMass + 1e-6));
@@ -110,7 +110,7 @@ namespace Test
             var env = new IsotopicEnvelope(0, peaks, 999.0, charge, 0.0, 0.5);
 
             Assert.That(double.IsNaN(env.AverageObservedMass), Is.False);
-            Assert.That(env.AverageObservedMass, Is.EqualTo(env.MostAbundantObservedMass).Within(1e-6));
+            Assert.That(env.AverageObservedMass, Is.EqualTo(env.MostAbundantObservedNeutralMass).Within(1e-6));
         }
 
         [Test]

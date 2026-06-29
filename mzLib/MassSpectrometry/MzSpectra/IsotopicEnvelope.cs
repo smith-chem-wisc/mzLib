@@ -9,7 +9,7 @@ namespace MassSpectrometry
     /// <summary>
     /// Whether the isotopic peaks of an envelope were individually resolved by deconvolution.
     /// A <b>resolved</b> envelope has a well-defined most-abundant isotopic peak, so candidate
-    /// selection uses <see cref="IsotopicEnvelope.MostAbundantObservedMass"/>. An <b>unresolved</b>
+    /// selection uses <see cref="IsotopicEnvelope.MostAbundantObservedNeutralMass"/>. An <b>unresolved</b>
     /// envelope (typically high-mass, &gt;~35 kDa) has no individually resolved peaks, so its
     /// intensity-weighted <see cref="IsotopicEnvelope.AverageObservedMass"/> (centroid) is used instead.
     /// </summary>
@@ -66,7 +66,7 @@ namespace MassSpectrometry
         /// The <b>average (centroid) mass</b>: the intensity-weighted mean neutral mass over all observed
         /// peaks of the envelope (proton-corrected). This is the mass-spectrometry "average mass" — the
         /// abundance-weighted counterpart to the monoisotopic mass — and is distinct from the
-        /// <see cref="MostAbundantObservedMass"/> (the single tallest peak). It is the precursor mass used
+        /// <see cref="MostAbundantObservedNeutralMass"/> (the single tallest peak). It is the precursor mass used
         /// for candidate selection when the envelope is isotopically <see cref="EnvelopeResolution.Unresolved"/>
         /// (high-mass species with no individually resolved most-abundant peak). Shares the same -1
         /// "no observed envelope" sentinel as <see cref="MostAbundantObservedIsotopicMass"/>.
