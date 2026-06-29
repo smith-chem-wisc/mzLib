@@ -11,7 +11,7 @@ namespace Test
     ///
     /// Terminology pinned by these tests:
     ///  • most-abundant mass = the neutral mass of the single most intense (tallest) isotopic peak,
-    ///    proton-corrected (<see cref="IsotopicEnvelope.MostAbundantObservedMass"/>);
+    ///    proton-corrected (<see cref="IsotopicEnvelope.MostAbundantObservedNeutralMass"/>);
     ///  • most-abundant offset = GetDiffToMonoisotopic(GetMostIntenseMassIndex(mono)) on the averagine
     ///    model — the gap from the monoisotopic mass to that tallest isotopologue.
     /// The intensity-weighted average (centroid) mass and the isotopically-unresolved path are a
@@ -92,22 +92,22 @@ namespace Test
         // ── IsotopicEnvelope most-abundant observed mass ────────────────────────
 
         [Test]
-        public void MostAbundantObservedMass_IsProtonCorrectedNeutralMass()
+        public void MostAbundantObservedNeutralMass_IsProtonCorrectedNeutralMass()
         {
             const int charge = 10;
             var env = BuildPerfectEnvelope(15000, charge);
 
             // The proton-corrected neutral mass equals the most intense peak's m/z .ToMass(charge)...
             double mostIntenseMz = env.Peaks.MaxBy(p => p.intensity).mz;
-            Assert.That(env.MostAbundantObservedMass, Is.EqualTo(mostIntenseMz.ToMass(charge)).Within(1e-6));
+            Assert.That(env.MostAbundantObservedNeutralMass, Is.EqualTo(mostIntenseMz.ToMass(charge)).Within(1e-6));
 
             // ...and it differs from the un-proton-corrected mz*|z| field by exactly z proton masses.
-            Assert.That(env.MostAbundantObservedIsotopicMass - env.MostAbundantObservedMass,
+            Assert.That(env.MostAbundantObservedIsotopicMass - env.MostAbundantObservedNeutralMass,
                 Is.EqualTo(charge * Constants.ProtonMass).Within(1e-6));
         }
 
         [Test]
-        public void MostAbundantObservedMass_MatchesMonoPlusAveragineOffset()
+        public void MostAbundantObservedNeutralMass_MatchesMonoPlusAveragineOffset()
         {
             // Ties the two features together: the observed most-abundant neutral mass of a perfect
             // envelope ≈ candidate monoisotopic + averagine most-abundant offset.
@@ -116,11 +116,11 @@ namespace Test
             var env = BuildPerfectEnvelope(mono, charge);
 
             double predicted = mono + MostAbundantOffset(mono);
-            Assert.That(env.MostAbundantObservedMass, Is.EqualTo(predicted).Within(0.15));
+            Assert.That(env.MostAbundantObservedNeutralMass, Is.EqualTo(predicted).Within(0.15));
         }
 
         [Test]
-        public void DeconvolutionConstructor_ComputesMostAbundantObservedMass()
+        public void DeconvolutionConstructor_ComputesMostAbundantObservedNeutralMass()
         {
             // The 5-arg mzLib-deconvolution constructor must compute the most-abundant observed mass.
             const double mono = 12000;
@@ -129,7 +129,7 @@ namespace Test
             var env = new IsotopicEnvelope(peaks, mono, charge, peaks.Sum(p => p.intensity), 0.5);
 
             double mostIntenseMz = peaks.MaxBy(p => p.intensity).mz;
-            Assert.That(env.MostAbundantObservedMass, Is.EqualTo(mostIntenseMz.ToMass(charge)).Within(1e-6));
+            Assert.That(env.MostAbundantObservedNeutralMass, Is.EqualTo(mostIntenseMz.ToMass(charge)).Within(1e-6));
         }
 
         [Test]
@@ -143,7 +143,7 @@ namespace Test
             var env = new IsotopicEnvelope(mono, 1e6, charge);
 
             Assert.That(env.MostAbundantObservedIsotopicMass, Is.EqualTo(-1));
-            Assert.That(env.MostAbundantObservedMass, Is.EqualTo(-1));
+            Assert.That(env.MostAbundantObservedNeutralMass, Is.EqualTo(-1));
         }
     }
 }
