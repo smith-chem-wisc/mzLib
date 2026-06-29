@@ -6,15 +6,95 @@ using Chemistry;
 
 namespace MassSpectrometry
 {
+    /// <summary>
+    /// Whether the isotopic peaks of an envelope were individually resolved by deconvolution.
+    /// A <b>resolved</b> envelope has a well-defined most-abundant isotopic peak, so candidate
+    /// selection uses <see cref="IsotopicEnvelope.MostAbundantObservedNeutralMass"/>. An <b>unresolved</b>
+    /// envelope (typically high-mass, &gt;~35 kDa) has no individually resolved peaks, so its
+    /// intensity-weighted <see cref="IsotopicEnvelope.AverageObservedMass"/> (centroid) is used instead.
+    /// </summary>
+    public enum EnvelopeResolution
+    {
+        Resolved,
+        Unresolved
+    }
+
     public class IsotopicEnvelope : IHasMass, IEquatable<IsotopicEnvelope>
     {
         public readonly List<(double mz, double intensity)> Peaks;
         public double MonoisotopicMass { get; private set; }
 
         /// <summary>
-        /// Mass of most abundant observed isotopic peak, not accounting for addition or subtraction or protons due to ESI charge state induction
+        /// Most abundant observed isotopic peak as m/z × |charge|, i.e. <b>not</b> proton-corrected to a
+        /// neutral mass (it does not subtract the charge-carrier protons added during ESI). This is a
+        /// charge-scaled m/z, not a neutral mass; for the proton-corrected neutral mass use
+        /// <see cref="MostAbundantObservedNeutralMass"/>. Retained for existing deconvolution-quality tests.
+        ///
+        /// <b>Sentinel:</b> this value is only meaningful for an envelope that carries observed isotopic
+        /// peaks. Constructors that have no observed envelope (e.g. a neutral mass read from a
+        /// pre-deconvoluted file) set it to <c>-1</c> to mark "no most-abundant peak available", rather
+        /// than a misleading zero or a synthetic value.
         /// </summary>
-        internal double MostAbundantObservedIsotopicMass { get; private set; }
+        public double MostAbundantObservedIsotopicMass { get; private set; }
+
+        /// <summary>
+        /// The <b>most-abundant observed neutral mass</b>: the neutral mass of the single most intense
+        /// (tallest) observed isotopic peak of this charge-state envelope — the highest-signal, directly
+        /// measured point of the envelope. The most intense peak's m/z is converted to a neutral mass via
+        /// the envelope charge (i.e. proton-corrected, <c>mz.ToMass(Charge)</c>), so it is directly
+        /// comparable to a theoretical proteoform neutral mass. It is the precursor mass used for candidate
+        /// selection in most-abundant mode. Computed from <see cref="Peaks"/> and <see cref="Charge"/>
+        /// (both readonly).
+        ///
+        /// Terminology (the three masses are distinct):
+        ///  • <b>most-abundant (observed neutral) mass</b> — this property; the tallest single isotopic
+        ///    peak, proton-corrected to a neutral mass.
+        ///  • <b>monoisotopic mass</b> (<see cref="MonoisotopicMass"/>) — the all-light-isotope mass; for
+        ///    large proteoforms this isotopologue is rare and often undetectable.
+        ///  • <b>average / centroid mass</b> — the intensity-weighted mean over the whole envelope, used
+        ///    for isotopically unresolved (high-mass) species. That property is added separately, with the
+        ///    unresolved-envelope work, and is not part of this resolved most-abundant feature.
+        /// This is the neutral-mass form of <see cref="MostAbundantObservedIsotopicMass"/> (which is the
+        /// SAME tallest peak expressed as m/z × |charge|, NOT proton-corrected): the two differ by exactly
+        /// <c>|charge| × ProtonMass</c>. Deriving it from that single source means the two values can never
+        /// disagree, and it carries the same <c>-1</c> "no observed peak" sentinel.
+        /// </summary>
+        public double MostAbundantObservedNeutralMass =>
+            MostAbundantObservedIsotopicMass < 0 ? -1 : MostAbundantObservedIsotopicMass - Charge * Constants.ProtonMass;
+
+        /// <summary>
+        /// The <b>average (centroid) mass</b>: the intensity-weighted mean neutral mass over all observed
+        /// peaks of the envelope (proton-corrected). This is the mass-spectrometry "average mass" — the
+        /// abundance-weighted counterpart to the monoisotopic mass — and is distinct from the
+        /// <see cref="MostAbundantObservedNeutralMass"/> (the single tallest peak). It is the precursor mass used
+        /// for candidate selection when the envelope is isotopically <see cref="EnvelopeResolution.Unresolved"/>
+        /// (high-mass species with no individually resolved most-abundant peak). Shares the same -1
+        /// "no observed envelope" sentinel as <see cref="MostAbundantObservedIsotopicMass"/>.
+        /// </summary>
+        public double AverageObservedMass
+        {
+            get
+            {
+                if (MostAbundantObservedIsotopicMass < 0 || Peaks is not { Count: > 0 })
+                    return -1;
+
+                double totalIntensity = Peaks.Sum(p => p.intensity);
+                double centroidMz = totalIntensity > 0
+                    ? Peaks.Sum(p => p.mz * p.intensity) / totalIntensity
+                    : Peaks.MaxBy(p => p.intensity).mz;
+                return centroidMz.ToMass(Charge);
+            }
+        }
+
+        /// <summary>
+        /// Whether deconvolution individually resolved the isotopic peaks of this envelope. Defaults to
+        /// <see cref="EnvelopeResolution.Resolved"/>; deconvolution algorithms that detect unresolved
+        /// (high-mass) envelopes set this to <see cref="EnvelopeResolution.Unresolved"/> via
+        /// <see cref="SetResolution"/>, which switches candidate selection from the most-abundant peak to
+        /// the average (centroid) mass.
+        /// </summary>
+        public EnvelopeResolution Resolution { get; private set; } = EnvelopeResolution.Resolved;
+
         public readonly int Charge;
         public readonly double TotalIntensity;
         public readonly int PrecursorId;
@@ -60,6 +140,9 @@ namespace MassSpectrometry
             TotalIntensity = intensity;
             Score = double.MaxValue;
             Peaks = [(monoisotopicMass.ToMz(charge), intensity)];
+            // A neutral mass read from a pre-deconvoluted file has no observed isotopic envelope, so
+            // there is no most-abundant observed peak to report — use the -1 sentinel.
+            MostAbundantObservedIsotopicMass = -1;
         }
 
         /// <summary>
@@ -80,6 +163,17 @@ namespace MassSpectrometry
             TotalIntensity = intensity;
             Score = score;
             MostAbundantObservedIsotopicMass = peaks.MaxBy(p => p.intensity).mz * Math.Abs(chargestate);
+        }
+
+        /// <summary>
+        /// Sets the resolution state of this envelope. Deconvolution algorithms call this when they
+        /// determine an envelope's isotopic peaks were not individually resolved (e.g. high-mass
+        /// species), switching candidate selection to the average (centroid) mass. Defaults to
+        /// <see cref="EnvelopeResolution.Resolved"/>.
+        /// </summary>
+        public void SetResolution(EnvelopeResolution resolution)
+        {
+            Resolution = resolution;
         }
 
         /// <summary>
@@ -140,6 +234,7 @@ namespace MassSpectrometry
             if (other is null) return false;
             if (ReferenceEquals(this, other)) return true;
             if (Charge != other.Charge || Peaks.Count != other.Peaks.Count) return false;
+            if (Resolution != other.Resolution) return false;
             if (Math.Abs(TotalIntensity - other.TotalIntensity) >= 0.001) return false;
             if (Math.Abs(MonoisotopicMass - other.MonoisotopicMass) >= 0.001) return false;
             if (Math.Abs(MostAbundantObservedIsotopicMass - other.MostAbundantObservedIsotopicMass) >= 0.001) return false;
@@ -176,6 +271,7 @@ namespace MassSpectrometry
                 hash = hash * 23 + TotalIntensity.GetHashCode();
                 hash = hash * 23 + MonoisotopicMass.GetHashCode();
                 hash = hash * 23 + MostAbundantObservedIsotopicMass.GetHashCode();
+                hash = hash * 23 + Resolution.GetHashCode();
                 return hash;
             }
         }
