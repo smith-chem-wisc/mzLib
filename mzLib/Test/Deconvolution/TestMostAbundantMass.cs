@@ -155,6 +155,24 @@ namespace Test
             Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(mono));
             // centroid sits at/above the most-abundant peak for these right-skewed envelopes
             Assert.That(env.AverageObservedMass, Is.GreaterThanOrEqualTo(env.MostAbundantObservedMass - 1e-6));
+            // ...and the "between" claim needs an upper bound: the centroid cannot exceed the heaviest
+            // peak in the envelope (a charge/weighting regression would inflate it past the envelope span).
+            double heaviestNeutralMass = env.Peaks.Max(p => p.mz).ToMass(charge);
+            Assert.That(env.AverageObservedMass, Is.LessThanOrEqualTo(heaviestNeutralMass + 1e-6));
+        }
+
+        [Test]
+        public void AverageObservedMass_ZeroTotalIntensity_FallsBackToMostIntensePeakMass()
+        {
+            // Degenerate envelope (all intensities zero): AverageObservedMass must take the
+            // totalIntensity == 0 fallback (most-intense peak's m/z) and return a real mass, not NaN
+            // from a divide-by-zero. Exercises the fallback branch in the centroid computation.
+            const int charge = 1;
+            var peaks = new List<(double mz, double intensity)> { (1000.0, 0.0), (1000.5, 0.0) };
+            var env = new IsotopicEnvelope(0, peaks, 999.0, charge, 0.0, 0.5);
+
+            Assert.That(double.IsNaN(env.AverageObservedMass), Is.False);
+            Assert.That(env.AverageObservedMass, Is.EqualTo(env.MostAbundantObservedMass).Within(1e-6));
         }
 
         [Test]
