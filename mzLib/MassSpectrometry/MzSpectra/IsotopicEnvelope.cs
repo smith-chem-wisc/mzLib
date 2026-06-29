@@ -15,7 +15,7 @@ namespace MassSpectrometry
         /// Most abundant observed isotopic peak as m/z × |charge|, i.e. <b>not</b> proton-corrected to a
         /// neutral mass (it does not subtract the charge-carrier protons added during ESI). This is a
         /// charge-scaled m/z, not a neutral mass; for the proton-corrected neutral mass use
-        /// <see cref="MostAbundantObservedMass"/>. Retained for existing deconvolution-quality tests.
+        /// <see cref="MostAbundantObservedNeutralMass"/>. Retained for existing deconvolution-quality tests.
         ///
         /// <b>Sentinel:</b> this value is only meaningful for an envelope that carries observed isotopic
         /// peaks. Constructors that have no observed envelope (e.g. a neutral mass read from a
@@ -25,26 +25,28 @@ namespace MassSpectrometry
         public double MostAbundantObservedIsotopicMass { get; private set; }
 
         /// <summary>
-        /// The <b>most-abundant mass</b>: the neutral mass of the single most intense (tallest) observed
-        /// isotopic peak of this charge-state envelope — the highest-signal, directly measured point of
-        /// the envelope. The most intense peak's m/z is converted to a neutral mass via the envelope
-        /// charge (i.e. proton-corrected, <c>mz.ToMass(Charge)</c>), so it is directly comparable to a
-        /// theoretical proteoform neutral mass. It is the precursor mass used for candidate selection in
-        /// most-abundant mode. Computed from <see cref="Peaks"/> and <see cref="Charge"/> (both readonly).
+        /// The <b>most-abundant observed neutral mass</b>: the neutral mass of the single most intense
+        /// (tallest) observed isotopic peak of this charge-state envelope — the highest-signal, directly
+        /// measured point of the envelope. The most intense peak's m/z is converted to a neutral mass via
+        /// the envelope charge (i.e. proton-corrected, <c>mz.ToMass(Charge)</c>), so it is directly
+        /// comparable to a theoretical proteoform neutral mass. It is the precursor mass used for candidate
+        /// selection in most-abundant mode. Computed from <see cref="Peaks"/> and <see cref="Charge"/>
+        /// (both readonly).
         ///
         /// Terminology (the three masses are distinct):
-        ///  • <b>most-abundant mass</b> — this property; the tallest single isotopic peak, proton-corrected.
+        ///  • <b>most-abundant (observed neutral) mass</b> — this property; the tallest single isotopic
+        ///    peak, proton-corrected to a neutral mass.
         ///  • <b>monoisotopic mass</b> (<see cref="MonoisotopicMass"/>) — the all-light-isotope mass; for
         ///    large proteoforms this isotopologue is rare and often undetectable.
         ///  • <b>average / centroid mass</b> — the intensity-weighted mean over the whole envelope, used
         ///    for isotopically unresolved (high-mass) species. That property is added separately, with the
         ///    unresolved-envelope work, and is not part of this resolved most-abundant feature.
-        /// It is simply the proton-corrected form of <see cref="MostAbundantObservedIsotopicMass"/>
-        /// (which is the SAME tallest peak expressed as m/z × |charge|, NOT proton-corrected): the two
-        /// differ by exactly <c>|charge| × ProtonMass</c>. Deriving it from that single source means the
-        /// two values can never disagree, and it carries the same <c>-1</c> "no observed peak" sentinel.
+        /// This is the neutral-mass form of <see cref="MostAbundantObservedIsotopicMass"/> (which is the
+        /// SAME tallest peak expressed as m/z × |charge|, NOT proton-corrected): the two differ by exactly
+        /// <c>|charge| × ProtonMass</c>. Deriving it from that single source means the two values can never
+        /// disagree, and it carries the same <c>-1</c> "no observed peak" sentinel.
         /// </summary>
-        public double MostAbundantObservedMass =>
+        public double MostAbundantObservedNeutralMass =>
             MostAbundantObservedIsotopicMass < 0 ? -1 : MostAbundantObservedIsotopicMass - Charge * Constants.ProtonMass;
 
         public readonly int Charge;
