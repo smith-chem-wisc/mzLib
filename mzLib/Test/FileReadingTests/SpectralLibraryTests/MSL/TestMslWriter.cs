@@ -1287,4 +1287,162 @@ public sealed class TestMslWriter
 		Assert.That(storedMz, Is.EqualTo((float)TargetMz).Within(1e-3f),
 			"Fragment m/z must be preserved to within float32 precision through the conversion path.");
 	}
+
+	// ────────────────────────────────────────────────────────────────────────
+	// Group: Fragment-count limit (PR #1079 — reject >short.MaxValue on write)
+	// ────────────────────────────────────────────────────────────────────────
+	//
+	// MslPrecursorRecord.FragmentCount is a signed 16-bit field, so an entry may
+	// hold at most short.MaxValue (32,767) fragment ions. Before this guard, a
+	// larger count was silently narrowed by an unchecked (short) cast: it wrapped
+	// to a negative value on write and only surfaced as an OverflowException
+	// (negative array length) later, on read. The guard moves that failure to
+	// write time, at the cause, on BOTH the in-memory (Write) and streaming
+	// (WriteStreaming) paths. These tests pin:
+	//   • the over-limit case throws ArgumentException naming the entry + limit, and
+	//   • the exact 32,767 boundary still writes unchanged (locks '>' vs '>=').
+
+	/// <summary>The per-entry fragment-ion limit imposed by the 16-bit on-disk field.</summary>
+	private const int MaxFragmentsPerEntry = short.MaxValue; // 32,767
+
+	/// <summary>
+	/// Builds a single entry holding exactly <paramref name="fragmentCount"/> fragment ions,
+	/// used to exercise the write-time fragment-count guard at and beyond the int16 limit.
+	/// Fragment scalar fields (FragmentNumber, ResiduePosition) are kept within int16 range so
+	/// the only field able to overflow is FragmentCount itself — isolating the behaviour under test.
+	/// </summary>
+	/// <param name="fragmentCount">Number of fragment ions to attach to the entry.</param>
+	/// <param name="fullSequence">FullSequence used to identify the entry in the thrown message.</param>
+	/// <returns>A list containing exactly one entry with the requested fragment count.</returns>
+	private static List<MslLibraryEntry> BuildSingleEntryWithFragmentCount(int fragmentCount, string fullSequence)
+	{
+		var fragments = new List<MslFragmentIon>(fragmentCount);
+		for (int f = 0; f < fragmentCount; f++)
+		{
+			fragments.Add(new MslFragmentIon
+			{
+				Mz                      = 100f + f * 0.01f,
+				Intensity               = 1000f + (f % 500),
+				ProductType             = ProductType.y,
+				SecondaryProductType    = null,
+				FragmentNumber          = (f % 1000) + 1,   // stays within int16 range
+				SecondaryFragmentNumber = 0,
+				ResiduePosition         = (f % 250) + 1,
+				Charge                  = 1,
+				NeutralLoss             = 0.0,
+				ExcludeFromQuant        = false
+			});
+		}
+
+		return new List<MslLibraryEntry>
+		{
+			new MslLibraryEntry
+			{
+				FullSequence     = fullSequence,
+				BaseSequence     = "PEPTIDE",
+				PrecursorMz      = 449.7,
+				ChargeState      = 2,
+				Source           = MslFormat.SourceType.Predicted,
+				MoleculeType     = MslFormat.MoleculeType.Peptide,
+				DissociationType = DissociationType.HCD,
+				MatchedFragmentIons = fragments
+			}
+		};
+	}
+
+	/// <summary>
+	/// In-memory path: an entry with exactly short.MaxValue (32,767) fragments must still write,
+	/// and the on-disk FragmentCount field must store 32,767 exactly (not a wrapped value). This
+	/// locks the guard's comparison as '&gt;' rather than '&gt;=' — i.e. the largest legal entry is
+	/// accepted, not rejected.
+	/// </summary>
+	[Test]
+	public void Write_AtMaxFragments_WritesAndStoresExactCount()
+	{
+		var entries = BuildSingleEntryWithFragmentCount(MaxFragmentsPerEntry, "MAXFRAGS_PEPTIDE");
+		string path = TempPath(nameof(Write_AtMaxFragments_WritesAndStoresExactCount));
+
+		Assert.That(() => MslWriter.Write(path, entries), Throws.Nothing,
+			"An entry with exactly 32,767 fragments is at the limit and must write successfully.");
+
+		byte[] data = ReadAllBytes(path);
+		long precursorSectionOffset = ReadInt64LE(data, HdrOffPrecursorSectionOffset);
+
+		// MslPrecursorRecord.FragmentCount is at offset 14 from the start of the record (int16)
+		const int FragCountOffsetInRecord = 14;
+		short storedFragCount = (short)(
+			data[(int)precursorSectionOffset + FragCountOffsetInRecord]
+			| (data[(int)precursorSectionOffset + FragCountOffsetInRecord + 1] << 8));
+
+		Assert.That(storedFragCount, Is.EqualTo((short)MaxFragmentsPerEntry),
+			"At the 32,767 boundary the on-disk FragmentCount must equal 32,767 (no overflow wrap).");
+	}
+
+	/// <summary>
+	/// In-memory path: an entry one past the limit (32,768 fragments) must be rejected on write with
+	/// an ArgumentException whose message names the offending entry and states the 32,767 limit, rather
+	/// than silently wrapping to a negative count that only fails later on read.
+	/// </summary>
+	[Test]
+	public void Write_ExceedingMaxFragments_ThrowsArgumentExceptionNamingEntryAndLimit()
+	{
+		const string Seq = "OVERLIMIT_PEPTIDE";
+		var entries = BuildSingleEntryWithFragmentCount(MaxFragmentsPerEntry + 1, Seq);
+		string path = TempPath(nameof(Write_ExceedingMaxFragments_ThrowsArgumentExceptionNamingEntryAndLimit));
+
+		var ex = Assert.Throws<ArgumentException>(() => MslWriter.Write(path, entries),
+			"An entry with 32,768 fragments exceeds the int16 field and must throw on the in-memory write path.");
+
+		Assert.That(ex.Message, Does.Contain("32767"),
+			"The exception message must state the per-entry limit (32,767).");
+		Assert.That(ex.Message, Does.Contain(Seq),
+			"The exception message must name the offending entry by its FullSequence.");
+	}
+
+	/// <summary>
+	/// Streaming path: the same guard must reject a 32,768-fragment entry, with the message naming the
+	/// entry and the 32,767 limit. The scope requires the guard on BOTH write paths; without this test a
+	/// regression that restored the unchecked (short) cast on only the streaming path would pass undetected.
+	/// </summary>
+	[Test]
+	public void WriteStreaming_ExceedingMaxFragments_ThrowsArgumentExceptionNamingEntryAndLimit()
+	{
+		const string Seq = "OVERLIMIT_STREAMING_PEPTIDE";
+		var entries = BuildSingleEntryWithFragmentCount(MaxFragmentsPerEntry + 1, Seq);
+		string path = TempPath(nameof(WriteStreaming_ExceedingMaxFragments_ThrowsArgumentExceptionNamingEntryAndLimit));
+
+		var ex = Assert.Throws<ArgumentException>(() => MslWriter.WriteStreaming(path, entries),
+			"An entry with 32,768 fragments must throw on the streaming write path, not just the in-memory path.");
+
+		Assert.That(ex.Message, Does.Contain("32767"),
+			"The streaming-path exception message must state the per-entry limit (32,767).");
+		Assert.That(ex.Message, Does.Contain(Seq),
+			"The streaming-path exception message must name the offending entry by its FullSequence.");
+	}
+
+	/// <summary>
+	/// Streaming path: an entry with exactly 32,767 fragments must still write, and the streaming path
+	/// must store the same FragmentCount (32,767) as the in-memory path — confirming the two paths agree
+	/// at the boundary and neither wraps the count.
+	/// </summary>
+	[Test]
+	public void WriteStreaming_AtMaxFragments_WritesAndStoresExactCount()
+	{
+		var entries = BuildSingleEntryWithFragmentCount(MaxFragmentsPerEntry, "MAXFRAGS_STREAMING_PEPTIDE");
+		string path = TempPath(nameof(WriteStreaming_AtMaxFragments_WritesAndStoresExactCount));
+
+		Assert.That(() => MslWriter.WriteStreaming(path, entries), Throws.Nothing,
+			"An entry with exactly 32,767 fragments is at the limit and must stream successfully.");
+
+		byte[] data = ReadAllBytes(path);
+		long precursorSectionOffset = ReadInt64LE(data, HdrOffPrecursorSectionOffset);
+
+		const int FragCountOffsetInRecord = 14;
+		short storedFragCount = (short)(
+			data[(int)precursorSectionOffset + FragCountOffsetInRecord]
+			| (data[(int)precursorSectionOffset + FragCountOffsetInRecord + 1] << 8));
+
+		Assert.That(storedFragCount, Is.EqualTo((short)MaxFragmentsPerEntry),
+			"At the 32,767 boundary the streaming path must store FragmentCount = 32,767 (no overflow wrap).");
+	}
 }
