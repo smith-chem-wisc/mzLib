@@ -755,9 +755,18 @@ namespace PredictionClients.Koina.AbstractClasses
                         ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(charge)
                         : tp.ToMz(charge);
 
+                    // For neutral-loss fragments, attach a loss-bearing product so the peak's
+                    // annotation and theoretical mass match the loss-shifted m/z rather than the
+                    // base ion's; otherwise a y3-H2O peak would be stored as a second "y3".
+                    Product theoreticalProduct = parsed.NeutralLossMass.HasValue
+                        ? new Product(tp.ProductType, tp.Terminus, tp.NeutralMass - parsed.NeutralLossMass.Value,
+                            tp.FragmentNumber, tp.ResiduePosition, parsed.NeutralLossMass.Value,
+                            tp.SecondaryProductType, tp.SecondaryFragmentNumber)
+                        : tp;
+
                     var fragmentIon = new MatchedFragmentIon
                     (
-                        neutralTheoreticalProduct: tp,
+                        neutralTheoreticalProduct: theoreticalProduct,
                         experMz: experMz,
                         experIntensity: predictionAnnotationIntensityLookup[pa],
                         charge: charge

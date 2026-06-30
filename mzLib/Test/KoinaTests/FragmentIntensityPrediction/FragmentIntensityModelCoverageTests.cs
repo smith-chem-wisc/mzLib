@@ -251,6 +251,37 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 "Spectrum label must match the sequence the masses were built from (validated), not the requested FullSequence.");
         }
 
+        [Test]
+        public void GenerateLibrarySpectra_NeutralLossFragment_CarriesLossOnProduct()
+        {
+            // A y3 and its water-loss y3-H2O must become two distinct peaks. The loss peak's
+            // theoretical product has to carry the loss so its annotation shows it and its mass
+            // lines up with the loss-shifted m/z; reusing the base y3 product left the loss peak
+            // labeled "y3" with a mass error of a whole water.
+            var model = new CoverageModel();
+            var prediction = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEK", "PEPTIDEK", 2,
+                FragmentAnnotations: new List<string> { "y3+1", "y3-H2O+1" },
+                FragmentMZs: new List<double> { 0.0, 0.0 },   // recomputed from theoretical products
+                FragmentIntensities: new List<double> { 0.7, 0.5 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);
+
+            var peaks = spectra[0].MatchedFragmentIons;
+            Assert.That(peaks.Count, Is.EqualTo(2));
+
+            var waterMass = ChemicalFormula.ParseFormula("H2O").MonoisotopicMass;
+            var lossPeak = peaks.Single(p => p.NeutralTheoreticalProduct.NeutralLoss != 0);
+            var basePeak = peaks.Single(p => p.NeutralTheoreticalProduct.NeutralLoss == 0);
+
+            Assert.That(lossPeak.NeutralTheoreticalProduct.NeutralLoss, Is.EqualTo(waterMass).Within(0.001));
+            Assert.That(lossPeak.Annotation, Is.Not.EqualTo(basePeak.Annotation));
+            // Product mass and m/z agree (no whole-water mass error), and the loss is the water shift.
+            Assert.That(Math.Abs(lossPeak.MassErrorDa), Is.LessThan(0.001));
+            Assert.That(basePeak.Mz - lossPeak.Mz, Is.EqualTo(waterMass).Within(0.001));
+        }
+
         private sealed class CoverageModel : FragmentIntensityModel
         {
             private static readonly ISequenceConverter Conv = CreateUnimodConverter(
