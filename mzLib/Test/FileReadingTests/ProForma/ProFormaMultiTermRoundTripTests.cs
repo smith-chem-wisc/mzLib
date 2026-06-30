@@ -63,14 +63,32 @@ namespace Test.FileReadingTests.ProForma
             Assert.That(mt.Peptidoforms, Has.Count.EqualTo(2));
             Assert.That(mt.Peptidoforms[0].Charge, Is.EqualTo(2));
             Assert.That(mt.Peptidoforms[1].Charge, Is.EqualTo(3));
+            // Verify the split by content, not just cardinality: a mis-split would pass the counts above.
+            Assert.That(mt.Peptidoforms[0].Chains[0].Sequence, Is.EqualTo("EMEVEESPEK"));
+            Assert.That(mt.Peptidoforms[1].Chains[0].Sequence, Is.EqualTo("ELVISLIVER"));
         }
 
         [Test]
         public void MultiChain_SplitsOnDoubleSlash()
         {
-            var mt = ProFormaMultiTermReader.Read("SEK[XLMOD:02001#XL1]UENCE//EMEVTK[XLMOD:02001#XL1]SESPEK");
+            const string input = "SEK[XLMOD:02001#XL1]UENCE//EMEVTK[XLMOD:02001#XL1]SESPEK";
+            var mt = ProFormaMultiTermReader.Read(input);
             Assert.That(mt.Peptidoforms, Has.Count.EqualTo(1));
             Assert.That(mt.Peptidoforms[0].Chains, Has.Count.EqualTo(2));
+            Assert.That(mt.Peptidoforms[0].Chains[0].Sequence, Is.EqualTo("SEKUENCE"));
+            Assert.That(mt.Peptidoforms[0].Chains[1].Sequence, Is.EqualTo("EMEVTKSESPEK"));
+            // Exact input preservation: a writer that dropped a crosslink label or swapped the two
+            // chains around // would still be idempotent, so assert the first write equals the input.
+            Assert.That(ProFormaMultiTermWriter.Write(mt), Is.EqualTo(input));
+        }
+
+        [Test]
+        public void Branch_RoundTrip_PreservesInput()
+        {
+            const string input = "ETFGD[MOD:00093#BRANCH]//R[#BRANCH]ATER";
+            var mt = ProFormaMultiTermReader.Read(input);
+            Assert.That(mt.Peptidoforms[0].Chains, Has.Count.EqualTo(2));
+            Assert.That(ProFormaMultiTermWriter.Write(mt), Is.EqualTo(input));
         }
     }
 }
