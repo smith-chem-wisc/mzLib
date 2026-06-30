@@ -17,6 +17,7 @@ namespace Readers
         protected static readonly Regex IonParser = new Regex(@"([a-zA-Z]+)(\d+)");
 
         public string FullSequence { get; protected set; }
+        public string ProForma { get; protected set; }
         public int Ms2ScanNumber { get; protected set; }
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
@@ -164,6 +165,7 @@ namespace Readers
             DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
             Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
             EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
+            ProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl); // optional: absent in pre-ProForma files
             MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
             MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
             MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
@@ -204,6 +206,7 @@ namespace Readers
             if (!psm.FullSequence.Contains("|"))
             {
                 FullSequence = fullSequence;
+                ProForma = psm.ProForma;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
@@ -218,6 +221,8 @@ namespace Readers
             else
             {
                 FullSequence = fullSequence;
+                // ProForma uses '|' as an internal descriptor separator, so it cannot be split per candidate; carry the parent value.
+                ProForma = psm.ProForma;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];

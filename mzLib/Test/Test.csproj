@@ -18,7 +18,7 @@
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
-    <PackageReference Include="TopDownProteomics" Version="0.0.297" />
+    <PackageReference Include="TopDownProteomics" Version="0.0.299" />
 	<AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
   </ItemGroup>
 
@@ -838,6 +838,9 @@
 	  <None Update="DataFiles\TestCompensationVoltageReading.raw">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+    <None Update="FileReadingTests\ProForma\manuscript-examples.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
