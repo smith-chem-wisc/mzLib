@@ -237,5 +237,18 @@ namespace Test.FileReadingTests.ProForma
             var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown);
             Assert.That(dict[1], Is.SameAs(nAcetyl));
         }
+
+        [Test]
+        public void Layer2_ResolvesTerminalMod_WhenRestrictionIsAnywhere()
+        {
+            // ToProFormaTerm writes any position-1 mod as an N-terminal descriptor regardless of its
+            // LocationRestriction, so resolution must accept an "Anywhere." mod at the terminus to keep
+            // write and read symmetric — this would previously throw on read.
+            var nAcetyl = MakeTerminalMod("Acetyl", "Anywhere.", 42.01057);
+            var allModsKnown = new Dictionary<string, Modification> { [nAcetyl.IdWithMotif] = nAcetyl };
+
+            var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown);
+            Assert.That(dict[1], Is.SameAs(nAcetyl));
+        }
     }
 }
