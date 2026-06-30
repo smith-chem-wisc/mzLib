@@ -89,7 +89,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
                     throw new Exception($"Cannot parse charge from Altimeter fragment annotation '{annotation}'. Charge value: '{chargeStr}'.");
                 }
 
-                if (TryExtractNeutralLoss(fragmentIdentifier, out var baseId, out var nlFormula, out var nlMass))
+                if (TryExtractNeutralLoss(fragmentIdentifier, out var nlFormula, out var nlMass))
                 {
                     return new ParsedFragmentAnnotation(fragmentIdentifier, charge, nlFormula, nlMass);
                 }
@@ -105,7 +105,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             }
 
             // No charge delimiter — default to charge 1, but check for neutral loss (e.g., "IY-NH3")
-            if (TryExtractNeutralLoss(annotation, out var baseIdNoCharge, out var nlFormulaNoCharge, out var nlMassNoCharge))
+            if (TryExtractNeutralLoss(annotation, out var nlFormulaNoCharge, out var nlMassNoCharge))
             {
                 return new ParsedFragmentAnnotation(annotation, 1, nlFormulaNoCharge, nlMassNoCharge);
             }
@@ -113,9 +113,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             return new ParsedFragmentAnnotation(annotation, 1);
         }
 
-        private static bool TryExtractNeutralLoss(string fragmentIdentifier, out string baseId, out string? nlFormula, out double? nlMass)
+        private static bool TryExtractNeutralLoss(string fragmentIdentifier, out string? nlFormula, out double? nlMass)
         {
-            baseId = fragmentIdentifier;
             nlFormula = null;
             nlMass = null;
 
@@ -125,7 +124,6 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
                 return false;
             }
 
-            baseId = fragmentIdentifier.Substring(0, dashIndex);
             var formula = fragmentIdentifier.Substring(dashIndex + 1);
             try
             {
@@ -135,8 +133,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             }
             catch
             {
-                // Formula not parseable — reset to defaults
-                baseId = fragmentIdentifier;
+                // Formula not parseable — not a neutral loss
                 return false;
             }
         }
