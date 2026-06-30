@@ -44,22 +44,12 @@ namespace Test.FileReadingTests.ProForma
             "v2-7.2-01",                                         // chimeric +
         };
 
-        /// <summary>
-        /// Examples the SDK parses but cannot write back. Each is pinned by a KnownGap_* test so a
-        /// future TopDownProteomics release that fixes it trips an alert. See known-limitations.md.
-        /// </summary>
-        private static readonly HashSet<string> KnownSdkWriterGaps = new()
-        {
-            "v2-4.5-01", // spec 4.5: multiple modifications on one range — parses, writer throws
-        };
-
         private static IEnumerable<TestCaseData> RoundTripExamples()
         {
             foreach (var r in ProFormaTestCorpus.Load()
                          .Where(r => r.Valid
                                      && !KnownUnsupportedV1.Contains(r.Id)
-                                     && !RequiresMultiTermFacade.Contains(r.Id)
-                                     && !KnownSdkWriterGaps.Contains(r.Id)))
+                                     && !RequiresMultiTermFacade.Contains(r.Id)))
                 yield return new TestCaseData(r.ProformaString).SetName($"{r.ComplianceLevel}_{r.Id}");
         }
 
@@ -99,21 +89,6 @@ namespace Test.FileReadingTests.ProForma
             foreach (var r in rows)
                 Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(r.ProformaString),
                     $"{r.Id} now parses via single-term Read — build the multi-term facade and move it out.");
-        }
-
-        /// <summary>
-        /// Pins gap #1: a range bearing multiple modifications (spec 4.5) parses, but
-        /// TopDownProteomics' ProFormaWriter throws when serializing it. If a future SDK release
-        /// fixes this, this test fails — remove v2-4.5-01 from <see cref="KnownSdkWriterGaps"/>.
-        /// </summary>
-        [Test]
-        public void KnownGap_MultiModRange_ParsesButSdkWriterThrows()
-        {
-            var row = ProFormaTestCorpus.Load().Single(r => r.Id == "v2-4.5-01");
-            var term = ProFormaReader.Read(row.ProformaString);
-            Assert.That(term, Is.Not.Null, "SDK should still parse a multi-mod range");
-            Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaWriter.Write(term),
-                "SDK ProFormaWriter now serializes a multi-mod range — remove v2-4.5-01 from KnownSdkWriterGaps.");
         }
     }
 }
