@@ -24,6 +24,11 @@ namespace Readers.ProForma
 
         public ProFormaPeptidoform(IReadOnlyList<Tdp.ProFormaTerm> chains, int? charge, string ionAdducts)
         {
+            // Ion adducts only exist inside the charge's brackets (/z[adducts]); without a charge they
+            // have nowhere to serialize and would be silently dropped, so reject the invalid state.
+            if (!string.IsNullOrEmpty(ionAdducts) && !charge.HasValue)
+                throw new System.ArgumentException("IonAdducts require a non-null Charge.", nameof(ionAdducts));
+
             Chains = chains;
             Charge = charge;
             IonAdducts = ionAdducts;

@@ -241,13 +241,17 @@ namespace Readers.ProForma
                     return byMotif;
                 // Context-bearing motifs (e.g. the N-glyc sequon "Nxs") never key as "{name} on N",
                 // so match on the motif's modified residue instead of the whole motif string.
-                return allModsKnown.Values.FirstOrDefault(m => m.OriginalId == name && MotifTargetResidue(m) == residue);
+                return allModsKnown.Values.FirstOrDefault(m => m.OriginalId == name && MotifMatches(m, residue.Value));
             }
             return allModsKnown.TryGetValue(name, out var bare) ? bare : null;
         }
 
         private static bool MotifMatches(Modification mod, char residue)
-            => MotifTargetResidue(mod) == residue;
+        {
+            char? target = MotifTargetResidue(mod);
+            // 'X' is the wildcard motif (any amino acid), so it matches every concrete residue.
+            return target == residue || target == 'X';
+        }
 
         /// <summary>
         /// Returns the modified (upper-case) residue within a modification's motif — e.g. <c>'N'</c> for
@@ -264,8 +268,10 @@ namespace Readers.ProForma
 
         private static bool IsTerminusCompatible(Modification mod, Terminus terminus) => terminus switch
         {
-            Terminus.N => mod.LocationRestriction is "N-terminal." or "Peptide N-terminal.",
-            Terminus.C => mod.LocationRestriction is "C-terminal." or "Peptide C-terminal.",
+            // "Anywhere." is accepted at a terminus so write/read stay symmetric: ToProFormaTerm emits
+            // any position-1 / length+2 mod as a terminal descriptor regardless of its restriction.
+            Terminus.N => mod.LocationRestriction is "N-terminal." or "Peptide N-terminal." or "Anywhere.",
+            Terminus.C => mod.LocationRestriction is "C-terminal." or "Peptide C-terminal." or "Anywhere.",
             _ => false,
         };
 
