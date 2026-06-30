@@ -20,8 +20,8 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
         [Test]
         public static void TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
         {
-            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp");
-            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\koinaTestOutput.msp");
+            var experPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SpectralLibraryTests", "SpectralLibraryData", "myPrositLib.msp");
+            var predPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SpectralLibraryTests", "SpectralLibraryData", "koinaTestOutput.msp");
             Readers.SpectralLibrary.SpectralLibrary testLibraryWithoutDecoy = null;
             Readers.SpectralLibrary.SpectralLibrary spectralLibraryTest = null;
             try
@@ -242,7 +242,7 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
 
         /// <summary>
         /// Test boundary conditions for collision energy values.
-        /// This model allows any collision energy value.
+        /// This model allows any collision energy value (AllowedCollisionEnergies is empty).
         /// </summary>
         [Test]
         public static void TestKoinaProsit2020IntensityHCDModelCollisionEnergyBoundaries()
@@ -251,9 +251,9 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             var charge = 2;
             var model = new Prosit2020IntensityHCD();
             var throwModel = new Prosit2020IntensityHCD(parameterHandlingMode: IncompatibleParameterHandlingMode.ThrowException);
-            // Test valid collision energy values, including edge cases
-            var validCollisionEnergies = new int[] { 0, 10, 35, 100 };
-            foreach (var energy in validCollisionEnergies)
+            // Test various collision energy values - all should be accepted
+            var testCollisionEnergies = new int[] { -10, -1, 0, 10, 35, 100, 101, 200 };
+            foreach (var energy in testCollisionEnergies)
             {
                 var modelInputs = new List<FragmentIntensityPredictionInput>
                 {
@@ -269,32 +269,9 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 Assert.That(predictions.Count, Is.EqualTo(1),
                     $"Collision energy {energy} should return a prediction entry");
                 Assert.That(predictions[0].Warning, Is.Null,
-                    $"Collision energy {energy} should not produce a warning");
+                    $"Collision energy {energy} should not produce a warning (model accepts any CE)");
                 Assert.DoesNotThrow(() => throwModel.Predict(modelInputs),
-                    $"Collision energy {energy} should not throw an exception in strict mode");
-            }
-
-            // Test invalid collision energy values
-            var invalidCollisionEnergies = new int[] { -10, -1, 101, 200 };
-            foreach (var energy in invalidCollisionEnergies)
-            {
-                var modelInputs = new List<FragmentIntensityPredictionInput>
-                {
-                    new FragmentIntensityPredictionInput(
-                        FullSequence: peptide,
-                        PrecursorCharge: charge,
-                        CollisionEnergy: energy,
-                        InstrumentType: null,
-                        FragmentationType: null
-                    )
-                };
-                var predictions = model.Predict(modelInputs);
-                Assert.That(predictions.Count, Is.EqualTo(1),
-                    $"Collision energy {energy} should return a prediction entry");
-                Assert.That(predictions[0].Warning, Is.Not.Null,
-                    $"Collision energy {energy} should produce a warning because not within implemented model limits");
-                Assert.Throws<ArgumentException>(() => throwModel.Predict(modelInputs),
-                    $"Collision energy {energy} should throw an exception because not within implemented model limits");
+                    $"Collision energy {energy} should not throw an exception (model accepts any CE)");
             }
         }
 
