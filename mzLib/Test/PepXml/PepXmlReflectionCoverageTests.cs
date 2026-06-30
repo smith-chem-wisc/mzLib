@@ -60,7 +60,9 @@ namespace Test.PepXml
 
         /// <summary>
         /// Every generated enum should expose its declared members and survive a
-        /// value -> name -> value parse, which is the path the XmlSerializer uses.
+        /// value -> name -> value parse through its CLR member names (Enum.GetName/Parse).
+        /// Note this exercises the CLR member identifiers, not the [XmlEnum] attribute values
+        /// the XmlSerializer maps to on the wire.
         /// </summary>
         [Test]
         public void EveryGeneratedEnum_RoundTripsThroughItsNames()
@@ -126,10 +128,15 @@ namespace Test.PepXml
             Assert.That(run.sample_enzyme.name, Is.EqualTo("trypsin"));
             Assert.That(run.search_summary, Has.Length.EqualTo(1));
             Assert.That(run.search_summary[0].search_engine, Is.EqualTo(engineType.Comet));
+            Assert.That(run.sample_enzyme.specificity[0].sense,
+                Is.EqualTo(msms_pipeline_analysisMsms_run_summarySample_enzymeSpecificitySense.C));
+            Assert.That(run.search_summary[0].search_database.type,
+                Is.EqualTo(msms_pipeline_analysisMsms_run_summarySearch_summarySearch_databaseType.AA));
 
             var query = run.spectrum_query[0];
             Assert.That(query.spectrum, Is.EqualTo("scan=1"));
             Assert.That(query.assumed_charge, Is.EqualTo("2"));
+            Assert.That(query.precursor_neutral_mass, Is.EqualTo(927.46f).Within(0.01f));
 
             var hit = query.search_result[0].search_hit[0];
             Assert.That(hit.peptide, Is.EqualTo("PEPTIDEK"));
@@ -138,6 +145,7 @@ namespace Test.PepXml
             Assert.That(hit.modification_info, Is.Not.Null);
             Assert.That(hit.modification_info.mod_aminoacid_mass, Has.Length.EqualTo(1));
             Assert.That(hit.modification_info.mod_aminoacid_mass[0].position, Is.EqualTo("3"));
+            Assert.That(hit.modification_info.mod_aminoacid_mass[0].mass, Is.EqualTo(181.014).Within(0.001));
         }
 
         private static msms_pipeline_analysis BuildRepresentativeAnalysis()
@@ -250,7 +258,12 @@ namespace Test.PepXml
             if (type == typeof(DateTime))
                 return new DateTime(2020, 1, 1);
             if (type.IsEnum)
-                return Enum.GetValues(type).GetValue(0);
+            {
+                // Prefer a non-default member so the set/get assertion distinguishes a working
+                // setter from a no-op (the default enum value is the member at index 0).
+                Array enumValues = Enum.GetValues(type);
+                return enumValues.GetValue(enumValues.Length > 1 ? 1 : 0);
+            }
             if (type == typeof(int) || type == typeof(long) || type == typeof(short) || type == typeof(byte) ||
                 type == typeof(uint) || type == typeof(ulong) || type == typeof(ushort) || type == typeof(sbyte))
                 return Convert.ChangeType(1, type);
