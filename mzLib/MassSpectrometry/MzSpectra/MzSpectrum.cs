@@ -42,6 +42,24 @@ namespace MassSpectrometry
         public double[] XArray { get; private set; }
         public double[] YArray { get; private set; }
 
+        /// <summary>
+        /// Optional per-peak charge state, parallel to <see cref="XArray"/> and
+        /// <see cref="YArray"/>. Length equals <see cref="Size"/> when set; null means
+        /// "no per-peak charge data". Encoded in mzML as a third &lt;binaryDataArray&gt;
+        /// with cvParam MS:1000516 ("charge array").
+        ///
+        /// <para><b>Invariant:</b> ChargeArray[i] describes the peak at XArray[i] / YArray[i].
+        /// Any operation on this spectrum that reorders or trims the peak arrays MUST apply
+        /// the same permutation/mask to ChargeArray, otherwise charges silently misalign.
+        /// All MzSpectrum methods in this class that mutate XArray/YArray do so; external
+        /// callers must do likewise if they touch the arrays directly.</para>
+        ///
+        /// <para>Lives on MzSpectrum (not on MsDataScan) so it travels with the peak data
+        /// it indexes — every MzSpectrum mutator can keep all three arrays in sync without
+        /// the caller having to remember a parallel field on the parent scan.</para>
+        /// </summary>
+        public int[] ChargeArray { get; private set; }
+
         public bool XcorrProcessed { get; private set; }
 
         static MzSpectrum()
@@ -96,18 +114,49 @@ namespace MassSpectrometry
         }
 
         public MzSpectrum(double[] mz, double[] intensities, bool shouldCopy)
+            : this(mz, intensities, null, shouldCopy)
         {
+        }
+
+        /// <summary>
+        /// Construct an MzSpectrum with an optional per-peak charge array. When
+        /// <paramref name="chargeArray"/> is non-null its length must equal
+        /// <paramref name="mz"/>.Length, otherwise an <see cref="ArgumentException"/> is thrown
+        /// — preserving an ambiguous chargeArray would silently misalign charges with peaks
+        /// (lengths can match while values point at the wrong peaks). Pass null for the
+        /// usual "no per-peak charge data" case.
+        /// </summary>
+        public MzSpectrum(double[] mz, double[] intensities, int[] chargeArray, bool shouldCopy)
+        {
+            if (mz == null) throw new ArgumentNullException(nameof(mz));
+            if (intensities == null) throw new ArgumentNullException(nameof(intensities));
+            if (intensities.Length != mz.Length)
+                throw new ArgumentException(
+                    $"intensities length ({intensities.Length}) must equal mz length ({mz.Length}).",
+                    nameof(intensities));
+            if (chargeArray != null && chargeArray.Length != mz.Length)
+                throw new ArgumentException(
+                    $"chargeArray length ({chargeArray.Length}) must equal mz length "
+                    + $"({mz.Length}). Pass null when no per-peak charge data is available.",
+                    nameof(chargeArray));
+
             if (shouldCopy)
             {
                 XArray = new double[mz.Length];
                 YArray = new double[intensities.Length];
                 Array.Copy(mz, XArray, mz.Length);
                 Array.Copy(intensities, YArray, intensities.Length);
+                if (chargeArray != null)
+                {
+                    ChargeArray = new int[chargeArray.Length];
+                    Array.Copy(chargeArray, ChargeArray, chargeArray.Length);
+                }
             }
             else
             {
                 XArray = mz;
                 YArray = intensities;
+                ChargeArray = chargeArray;
             }
             peakList = new MzPeak[Size];
         }
@@ -511,6 +560,17 @@ namespace MassSpectrometry
             double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
         {
             //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
+
+            // ChargeArray invariant: this method reorders, filters, and rebuilds XArray/YArray
+            // multiple times below. Without explicit handling, the per-peak ChargeArray (if
+            // present) would be left out of sync — pointing at peaks that no longer exist
+            // (length-mismatched) AND at the wrong peaks within the surviving range. After
+            // an XCorr pass it is no longer meaningful to retain a per-peak charge: peaks
+            // are bucketed into nominal-mass bins (any number of source peaks may collapse
+            // into one output peak; bins with no source peaks become zero-intensity slots
+            // that have no charge to report). Drop ChargeArray rather than ship a broken one.
+            // Callers needing per-peak charges must access them BEFORE invoking this method.
+            ChargeArray = null;
 
             Array.Sort(XArray, YArray);
             int numberOfNominalMasses = (int)Math.Round((scanRangeMaxMz - scanRangeMinMz) / discreteMassBin, 0) + 1;

@@ -1999,6 +1999,663 @@ namespace Test.FileReadingTests.SpectraFileReading
             }
         }
 
+        // =====================================================================
+        // Reader-side charge<->peak alignment tests. The mzML reader paths
+        // reorder/trim mzs and intensities in three places (zero-intensity
+        // removal, WindowModeHelper filtering, the final Array.Sort by m/z).
+        // All three must apply the same permutation/mask to chargeArray BEFORE
+        // the MzSpectrum is constructed; once the spectrum is built, MzSpectrum
+        // owns ChargeArray and its own mutators keep it in sync.
+        // =====================================================================
+
+        [Test]
+        public static void ChargeArrayUnsortedMzInputAlignsAfterReaderSort()
+        {
+            // The reader's final Array.Sort(masses, intensities) used to permute m/z and
+            // intensities but leave the charge array in source order — charges silently
+            // pointed at the wrong peaks.
+            //
+            // Source pairs are (mz=300, charge=2), (mz=200, charge=3), (mz=100, charge=1).
+            // MzSpectrum's 3-arg ctor with shouldCopy:false stores XArray verbatim and
+            // MzmlMethods writes that order via Get64BitXarray (no sort on write). After
+            // the reader sorts by m/z, the surviving (mz, charge) pairings should still be
+            // (100, 1), (200, 3), (300, 2).
+            var sourceMz = new[] { 300.0, 200.0, 100.0 };
+            var sourceIntensity = new[] { 600.0, 400.0, 200.0 };
+            var sourceCharges = new[] { 2, 3, 1 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, sourceCharges, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                1200, null, null, "scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_unsorted_mz_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 100.0, 200.0, 300.0 }, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 200.0, 400.0, 600.0 }, readBack.MassSpectrum.YArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 1, 3, 2 }, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArraySurvivesZeroIntensityFilter()
+        {
+            // The reader trims peaks with intensity < 0.01 by sorting on intensity, slicing
+            // off the low-intensity prefix, and re-sorting by m/z. Without the fix, the
+            // chargeArray was unaffected by either sort or by the SubArray slice — it
+            // pointed at the wrong peaks (and was now too long for the trimmed spectrum).
+            //
+            // Source: (100, 0.005, 9), (200, 1000, 2), (300, 2000, 3). The 0.005 peak is
+            // trimmed; expected survivors are (200, 1000, 2) and (300, 2000, 3).
+            var sourceMz = new[] { 100.0, 200.0, 300.0 };
+            var sourceIntensity = new[] { 0.005, 1000.0, 2000.0 };
+            var sourceCharges = new[] { 9, 2, 3 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, sourceCharges, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                3000.005, null, null, "scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_zero_intensity_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.AreEqual(2, readBack.MassSpectrum.Size,
+                    "Reader should have trimmed the sub-0.01 intensity peak");
+                Assert.AreEqual(readBack.MassSpectrum.Size, readBack.ChargeArray.Length,
+                    "ChargeArray length must match surviving peak count");
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 200.0, 300.0 }, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 2, 3 }, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArraySurvivesFilteringParamsPruning()
+        {
+            // The reader optionally runs WindowModeHelper.Run when FilteringParams selects
+            // MS-level trimming. WindowModeHelper sorts by intensity, builds m/z windows,
+            // keeps only the top-N most-intense peaks per window, and finally re-sorts by
+            // m/z. None of those steps used to touch the chargeArray.
+            //
+            // Source: 6 peaks where the 3 weakest will be culled by
+            // NumberOfPeaksToKeepPerWindow = 3 across a single window.
+            var sourceMz = new[] { 100.0, 200.0, 300.0, 400.0, 500.0, 600.0 };
+            var sourceIntensity = new[] { 10.0, 80.0, 30.0, 70.0, 20.0, 90.0 };
+            var sourceCharges = new[] { 1, 2, 3, 4, 5, 6 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, sourceCharges, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                300, null, null, "scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_filterparams_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                var filterParams = new FilteringParams(
+                    numberOfPeaksToKeepPerWindow: 3,
+                    minimumAllowedIntensityRatioToBasePeak: null,
+                    windowWidthThomsons: null,
+                    numberOfWindows: 1,
+                    normalizePeaksAcrossAllWindows: false,
+                    applyTrimmingToMs1: true,
+                    applyTrimmingToMsMs: true);
+
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData(filterParams);
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.AreEqual(readBack.MassSpectrum.Size, readBack.ChargeArray.Length,
+                    "ChargeArray length must match surviving peak count after FilteringParams");
+
+                // The survivors should be the 3 most-intense peaks: (600, 90, 6),
+                // (200, 80, 2), (400, 70, 4). After the reader's final m/z sort:
+                // (200, 80, 2), (400, 70, 4), (600, 90, 6).
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 200.0, 400.0, 600.0 }, readBack.MassSpectrum.XArray);
+                NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                    new[] { 2, 4, 6 }, readBack.ChargeArray);
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        // =====================================================================
+        // Architectural tests: charge data lives on MzSpectrum (where the peaks
+        // it indexes live), with MsDataScan.ChargeArray as a delegating
+        // property. These pin the new contract.
+        // =====================================================================
+
+        [Test]
+        public static void MzSpectrumChargeArrayLengthMismatchThrows()
+        {
+            // The 4-arg ctor enforces that chargeArray.Length matches mz.Length. This is the
+            // structural defense against the entire bug class trishorts identified — without
+            // it, callers can construct a length-mismatched spectrum that silently misaligns
+            // charges with peaks, and the bug only surfaces downstream.
+            var mz = new[] { 100.0, 200.0, 300.0 };
+            var intensities = new[] { 1.0, 2.0, 3.0 };
+            var wrongLength = new[] { 1, 2 };  // 2 charges for 3 peaks — ambiguous, must reject
+
+            var ex = Assert.Throws<ArgumentException>(() =>
+                new MzSpectrum(mz, intensities, wrongLength, shouldCopy: false));
+            NUnit.Framework.Legacy.StringAssert.Contains("chargeArray length", ex.Message,
+                "Exception message should name the offending parameter");
+        }
+
+        [Test]
+        public static void MsDataScanChargeArrayDelegatesToMassSpectrum()
+        {
+            // MsDataScan.ChargeArray is a thin delegating property: it returns
+            // MassSpectrum.ChargeArray. Verify the delegation works for both the populated
+            // and the null cases — and that mutating the underlying spectrum's reference
+            // (impossible via public API, but a sanity check on the indirection) is reflected.
+            var charges = new[] { 2, 3, 1 };
+            var spectrum = new MzSpectrum(new[] { 100.0, 200.0, 300.0 },
+                                          new[] { 1.0, 2.0, 3.0 },
+                                          charges, shouldCopy: false);
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "filter", MZAnalyzerType.Orbitrap, 6, null, null, "scan=1");
+
+            Assert.AreSame(spectrum.ChargeArray, scan.ChargeArray,
+                "MsDataScan.ChargeArray must return the same array reference as MassSpectrum.ChargeArray");
+
+            var spectrumNoCharges = new MzSpectrum(new[] { 100.0 }, new[] { 1.0 }, false);
+            var scanNoCharges = new MsDataScan(spectrumNoCharges, 1, 1, true, Polarity.Positive,
+                1.0, new MzRange(50, 1000), "filter", MZAnalyzerType.Orbitrap, 1, null, null, "scan=1");
+            Assert.IsNull(scanNoCharges.ChargeArray,
+                "MsDataScan.ChargeArray must be null when MassSpectrum has no charges");
+        }
+
+        [Test]
+        public static void MsDataScanCtorChargeArrayConflictThrows()
+        {
+            // Backward-compat: the legacy chargeArray ctor parameter on MsDataScan still
+            // works. But if the caller passes charges via BOTH the MzSpectrum AND the
+            // MsDataScan ctor, and they DIFFER, that's a programming error — surface it
+            // immediately rather than silently picking one.
+            var mz = new[] { 100.0, 200.0, 300.0 };
+            var intensities = new[] { 1.0, 2.0, 3.0 };
+            var spectrumCharges = new[] { 2, 3, 1 };
+            var conflictingCharges = new[] { 1, 1, 1 };
+            var spectrum = new MzSpectrum(mz, intensities, spectrumCharges, shouldCopy: false);
+
+            var ex = Assert.Throws<ArgumentException>(() =>
+                new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                    new MzRange(50, 1000), "f", MZAnalyzerType.Orbitrap, 6, null, null, "scan=1",
+                    chargeArray: conflictingCharges));
+            NUnit.Framework.Legacy.StringAssert.Contains("conflicts", ex.Message,
+                "Exception message should explain the conflict");
+        }
+
+        [Test]
+        public static void MsDataScanCtorWrapsChargesIntoBareMassSpectrumForBackwardCompat()
+        {
+            // Backward-compat path: caller passes a charge-less MzSpectrum + a chargeArray
+            // through the MsDataScan ctor (the way pre-Option-C callers wrote code). The
+            // ctor wraps the spectrum into a new charge-carrying MzSpectrum so the
+            // delegating ChargeArray property still works.
+            var charges = new[] { 2, 3, 1 };
+            var bareSpectrum = new MzSpectrum(new[] { 100.0, 200.0, 300.0 },
+                                              new[] { 1.0, 2.0, 3.0 }, false);
+            var scan = new MsDataScan(bareSpectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "filter", MZAnalyzerType.Orbitrap, 6, null, null, "scan=1",
+                chargeArray: charges);
+
+            Assert.IsNotNull(scan.MassSpectrum.ChargeArray,
+                "MsDataScan ctor should have wrapped the bare spectrum into a charge-carrying one");
+            NUnit.Framework.Legacy.CollectionAssert.AreEqual(charges, scan.ChargeArray);
+        }
+
+        [Test]
+        public static void MzSpectrumXCorrPreprocessingDropsChargeArray()
+        {
+            // XCorrPrePreprocessing rebuilds XArray and YArray as nominal-mass bins (any
+            // number of source peaks may collapse into one output peak; bins with no source
+            // peaks are zero-intensity slots). A per-peak charge is no longer meaningful in
+            // that representation. The defensible behavior is to DROP ChargeArray rather
+            // than ship a broken one — pin that behavior here so a future change can't
+            // quietly start emitting an invalid charge array post-XCorr.
+            var spectrum = new MzSpectrum(
+                new[] { 100.0, 200.0, 300.0, 400.0 },
+                new[] { 10.0, 20.0, 30.0, 40.0 },
+                new[] { 1, 2, 3, 4 },
+                shouldCopy: false);
+            Assert.IsNotNull(spectrum.ChargeArray, "Setup: ChargeArray should be set before XCorr");
+
+            spectrum.XCorrPrePreprocessing(50, 500, precursorMz: 250);
+
+            Assert.IsNull(spectrum.ChargeArray,
+                "XCorrPrePreprocessing must drop ChargeArray — peaks have been re-binned into "
+                + "nominal-mass bins for which a per-peak charge is undefined.");
+        }
+
+        // =====================================================================
+        // Coverage-completion tests — exercise defensive branches and the
+        // dynamic-reader path that the happy-path tests above don't reach.
+        // =====================================================================
+
+        [Test]
+        public static void ChargeArrayThroughDynamicReaderPath()
+        {
+            // The dynamic reader (InitiateDynamicConnection + GetOneBasedScanFromDynamicConnection)
+            // has its own copy of the zero-intensity-removal + WindowModeHelper + final-sort
+            // logic. Mirror ChargeArraySurvivesZeroIntensityFilter through that path to confirm
+            // both reader paths apply the permutation/mask consistently.
+            var sourceMz = new[] { 100.0, 200.0, 300.0 };
+            var sourceIntensity = new[] { 0.005, 1000.0, 2000.0 };
+            var sourceCharges = new[] { 9, 2, 3 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, sourceCharges, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                3000.005, null, null, "controllerType=0 controllerNumber=1 scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_dynamic_roundtrip.mzML");
+            // Indexed mzML — the dynamic reader needs the index trailer to seek to scan offsets.
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, true);
+
+            try
+            {
+                var reader = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reader.InitiateDynamicConnection();
+                try
+                {
+                    var dynamicScan = reader.GetOneBasedScanFromDynamicConnection(1);
+
+                    Assert.AreEqual(2, dynamicScan.MassSpectrum.Size,
+                        "Dynamic reader should have trimmed the sub-0.01 intensity peak");
+                    Assert.IsNotNull(dynamicScan.ChargeArray,
+                        "Dynamic reader dropped ChargeArray on a charge-array-aligned input");
+                    Assert.AreEqual(dynamicScan.MassSpectrum.Size, dynamicScan.ChargeArray.Length,
+                        "ChargeArray length must match surviving peak count via dynamic reader");
+                    NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                        new[] { 200.0, 300.0 }, dynamicScan.MassSpectrum.XArray);
+                    NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                        new[] { 2, 3 }, dynamicScan.ChargeArray);
+                }
+                finally
+                {
+                    reader.CloseDynamicConnection();
+                }
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArrayDroppedWhenLengthMismatchedOnDisk()
+        {
+            // Defensive branch: if the on-disk chargeArray binary decodes to a length that
+            // doesn't match the peak count (malformed mzML from a buggy upstream writer),
+            // the reader must DROP chargeArray rather than ship a misaligned one.
+            //
+            // Construction: write a normal scan, then surgically append one extra 32-bit
+            // float to the chargeArray's base64-encoded binary. The reader's length-match
+            // check inside the (existing) read loop should kick in and set chargeArray=null.
+            var sourceMz = new[] { 100.0, 200.0, 300.0 };
+            var sourceIntensity = new[] { 1000.0, 2000.0, 3000.0 };
+            var sourceCharges = new[] { 1, 2, 3 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, sourceCharges, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                6000, null, null, "scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_lenmismatch_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                // Find the <binaryDataArray> carrying MS:1000516, decode the base64, append a
+                // 4-byte float (one extra "phantom" charge), re-encode, and write back.
+                string xml = File.ReadAllText(outPath);
+                var bdaPattern = new System.Text.RegularExpressions.Regex(
+                    "(?s)<binaryDataArray\\b[^>]*>(?:(?!</binaryDataArray>).)*?accession=\"MS:1000516\""
+                    + "(?:(?!</binaryDataArray>).)*?<binary>([^<]+)</binary>(?:(?!</binaryDataArray>).)*?</binaryDataArray>");
+                var match = bdaPattern.Match(xml);
+                Assert.IsTrue(match.Success, "Setup: expected MS:1000516 binaryDataArray in test mzML");
+
+                string originalBase64 = match.Groups[1].Value.Trim();
+                byte[] originalBytes = Convert.FromBase64String(originalBase64);
+                // 32-bit float per PSI-MS convention for the charge array. Append one extra
+                // float so the decoded length is N+1 while mzs/intensities are N.
+                byte[] extendedBytes = new byte[originalBytes.Length + 4];
+                Buffer.BlockCopy(originalBytes, 0, extendedBytes, 0, originalBytes.Length);
+                BitConverter.GetBytes((float)99).CopyTo(extendedBytes, originalBytes.Length);
+                string newBase64 = Convert.ToBase64String(extendedBytes);
+                string mutated = xml.Replace(originalBase64, newBase64);
+                Assert.AreNotEqual(xml, mutated, "Setup: base64 substitution failed to alter the file");
+                File.WriteAllText(outPath, mutated);
+
+                // Read it back — the reader should detect the length mismatch and drop charges.
+                var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reread.LoadAllStaticData();
+                var readBack = reread.GetOneBasedScan(1);
+
+                Assert.AreEqual(3, readBack.MassSpectrum.Size,
+                    "Peak count should be unaffected by the chargeArray length mismatch");
+                Assert.IsNull(readBack.ChargeArray,
+                    "Reader must DROP a length-mismatched chargeArray rather than ship a misaligned one. "
+                    + $"Got ChargeArray = [{(readBack.ChargeArray == null ? "null" : string.Join(",", readBack.ChargeArray))}]");
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void WindowModeHelperLengthMismatchedChargeArrayDropped()
+        {
+            // Direct unit test of WindowModeHelper.Run's defensive branch: when the caller
+            // passes a chargeArray whose length doesn't match mArray, set it to null and
+            // proceed with the original (no-charge) behavior. This is the structural
+            // safeguard that keeps a malformed input from corrupting downstream alignment.
+            double[] intensities = { 100, 200, 300 };
+            double[] mzs = { 50, 60, 70 };
+            int[] mismatched = { 1, 2 };  // length 2 vs 3 peaks — must be rejected
+
+            var filterParams = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 5,
+                minimumAllowedIntensityRatioToBasePeak: null,
+                windowWidthThomsons: null,
+                numberOfWindows: 1,
+                normalizePeaksAcrossAllWindows: false);
+
+            WindowModeHelper.Run(ref intensities, ref mzs, ref mismatched, filterParams, 0, 100);
+
+            Assert.IsNull(mismatched,
+                "Mismatched chargeArray must be set to null by WindowModeHelper.Run — "
+                + "preserving a misaligned array would compound the corruption.");
+            Assert.AreEqual(3, mzs.Length, "mz array should have all peaks (no rejection from window)");
+        }
+
+        [Test]
+        public static void WindowModeHelperEmptyWindowPreservesChargeAlignment()
+        {
+            // Coverage for the empty-window branch in the charge-aware path: when one of the
+            // m/z windows contains no peaks, the per-window selection still has to produce
+            // an empty contribution to the reduced charge list (mirroring the reduced m/z
+            // list) — otherwise the charge list desyncs from the m/z list across windows.
+            //
+            // Setup: 2 windows over [0..1000], both peaks land in window 1 (50..500); window 2
+            // (500..1000) is empty. Charge alignment must hold regardless of the empty window.
+            double[] intensities = { 100, 200 };
+            double[] mzs = { 60, 80 };
+            int[] charges = { 5, 7 };
+
+            var filterParams = new FilteringParams(
+                numberOfPeaksToKeepPerWindow: 5,
+                minimumAllowedIntensityRatioToBasePeak: null,
+                windowWidthThomsons: null,
+                numberOfWindows: 2,
+                normalizePeaksAcrossAllWindows: false);
+
+            WindowModeHelper.Run(ref intensities, ref mzs, ref charges, filterParams, 0, 1000);
+
+            Assert.AreEqual(2, mzs.Length, "Both peaks should survive (window 1 keeps them all)");
+            Assert.AreEqual(2, charges.Length, "ChargeArray length must match mz length after windowing");
+            // After WindowModeHelper's final m/z-sort, peaks land in m/z order; assert pairing.
+            int idx60 = Array.IndexOf(mzs, 60.0);
+            int idx80 = Array.IndexOf(mzs, 80.0);
+            Assert.AreNotEqual(-1, idx60, "mz=60 should still be present");
+            Assert.AreNotEqual(-1, idx80, "mz=80 should still be present");
+            Assert.AreEqual(5, charges[idx60], "charge=5 should still pair with mz=60");
+            Assert.AreEqual(7, charges[idx80], "charge=7 should still pair with mz=80");
+        }
+
+        [Test]
+        public static void MzSpectrumNullMzThrows()
+        {
+            // Defensive guard: a null mz array would crash downstream on any indexing
+            // attempt. Throw at the boundary with a named parameter so callers can fix
+            // the bug at its source rather than seeing a NullReferenceException buried
+            // inside a sort or filter pass.
+            var ex = Assert.Throws<ArgumentNullException>(() =>
+                new MzSpectrum(null, new[] { 1.0 }, null, shouldCopy: false));
+            Assert.AreEqual("mz", ex.ParamName);
+        }
+
+        [Test]
+        public static void MzSpectrumNullIntensitiesThrows()
+        {
+            // Symmetric to the null-mz guard above.
+            var ex = Assert.Throws<ArgumentNullException>(() =>
+                new MzSpectrum(new[] { 1.0 }, null, null, shouldCopy: false));
+            Assert.AreEqual("intensities", ex.ParamName);
+        }
+
+        [Test]
+        public static void MzSpectrumShouldCopyTrueClonesChargeArray()
+        {
+            // When shouldCopy=true, the constructor must produce an INDEPENDENT chargeArray —
+            // not alias the caller's array. Otherwise two spectra built from the same input
+            // would silently share state, and mutations on one would leak into the other.
+            var mz = new[] { 100.0, 200.0, 300.0 };
+            var intensities = new[] { 1.0, 2.0, 3.0 };
+            var charges = new[] { 1, 2, 3 };
+
+            var spectrum = new MzSpectrum(mz, intensities, charges, shouldCopy: true);
+
+            // Mutate the source; the spectrum must be unaffected.
+            charges[0] = 999;
+            Assert.AreEqual(1, spectrum.ChargeArray[0],
+                "shouldCopy=true must clone the chargeArray, not alias it");
+            Assert.AreEqual(3, spectrum.ChargeArray.Length);
+            Assert.AreNotSame(charges, spectrum.ChargeArray,
+                "ChargeArray reference must differ from the input when shouldCopy=true");
+        }
+
+        [Test]
+        public static void MsDataScanCtorMatchingChargeArraysAccepted()
+        {
+            // When the MzSpectrum already carries a ChargeArray AND the caller passes the
+            // same values to the MsDataScan ctor, the duplicate is harmless and accepted.
+            // The throw branch (covered by MsDataScanCtorChargeArrayConflictThrows) is only
+            // for the DIFFERENT-values case. This test pins the SequenceEqual==true branch.
+            var charges = new[] { 2, 3, 1 };
+            var spectrum = new MzSpectrum(new[] { 100.0, 200.0, 300.0 },
+                                          new[] { 1.0, 2.0, 3.0 },
+                                          charges, shouldCopy: false);
+
+            // Different reference, same values — SequenceEqual must return true.
+            var dupCharges = new[] { 2, 3, 1 };
+            Assert.AreNotSame(charges, dupCharges, "Test setup: references must differ");
+
+            Assert.DoesNotThrow(() => new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "filter", MZAnalyzerType.Orbitrap, 6, null, null, "scan=1",
+                chargeArray: dupCharges));
+        }
+
+        [Test]
+        public static void MzmlReaderToleratesInvalidSourceFileLocation()
+        {
+            // sourceFile/@location is xsd:anyURI per the mzML schema, but vendor converters
+            // (Waters, Bruker, etc.) sometimes write non-URI values — a company name, a bare
+            // Windows path, or an empty string. The reader's defensive URI parse must fall
+            // back gracefully — older code threw UriFormatException and aborted the whole
+            // load.
+            var sourceMz = new[] { 100.0, 200.0, 300.0 };
+            var sourceIntensity = new[] { 1.0, 2.0, 3.0 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, null, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                6000, null, null, "scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "invalid_uri_sourcefile.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                // Replace the legitimate file:/// location with a non-URI string.
+                string xml = File.ReadAllText(outPath);
+                string mutated = System.Text.RegularExpressions.Regex.Replace(
+                    xml, "location=\"[^\"]*\"", "location=\"Company\"");
+                Assert.AreNotEqual(xml, mutated, "Setup: location attribute substitution failed");
+                File.WriteAllText(outPath, mutated);
+
+                // The reader must NOT throw — defensive URI parse falls back to the file path.
+                Assert.DoesNotThrow(() =>
+                {
+                    var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                    reread.LoadAllStaticData();
+                    Assert.NotNull(reread.GetOneBasedScan(1));
+                });
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void MzmlReaderToleratesEmptySourceFileLocation()
+        {
+            // Companion to MzmlReaderToleratesInvalidSourceFileLocation: the @location can also
+            // be present-but-empty (some converters emit location=""). The defensive parse
+            // covers this via the IsNullOrWhiteSpace short-circuit before TryCreate is called.
+            var spectrum = new MzSpectrum(new[] { 100.0 }, new[] { 1.0 }, null, shouldCopy: false);
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "filter", MZAnalyzerType.Orbitrap, 1, null, null, "scan=1");
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "empty_location_sourcefile.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);
+
+            try
+            {
+                string xml = File.ReadAllText(outPath);
+                string mutated = System.Text.RegularExpressions.Regex.Replace(
+                    xml, "location=\"[^\"]*\"", "location=\"\"");
+                Assert.AreNotEqual(xml, mutated, "Setup: location attribute substitution failed");
+                File.WriteAllText(outPath, mutated);
+
+                Assert.DoesNotThrow(() =>
+                {
+                    var reread = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                    reread.LoadAllStaticData();
+                    Assert.NotNull(reread.GetOneBasedScan(1));
+                });
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
+        [Test]
+        public static void ChargeArrayThroughDynamicReaderWithFilterParams()
+        {
+            // GetOneBasedScanFromDynamicConnection accepts a FilteringParams overload. When
+            // non-null and its trimming flags match the scan's MS order, the dynamic reader
+            // runs WindowModeHelper.Run(ref ..., ref chargeArray, ...) — the charge-aware
+            // overload. Mirrors ChargeArraySurvivesFilteringParamsPruning (static path) for
+            // the dynamic connection.
+            var sourceMz = new[] { 100.0, 200.0, 300.0, 400.0, 500.0, 600.0 };
+            var sourceIntensity = new[] { 10.0, 80.0, 30.0, 70.0, 20.0, 90.0 };
+            var sourceCharges = new[] { 1, 2, 3, 4, 5, 6 };
+            var spectrum = new MzSpectrum(sourceMz, sourceIntensity, sourceCharges, shouldCopy: false);
+
+            var scan = new MsDataScan(spectrum, 1, 1, true, Polarity.Positive, 1.0,
+                new MzRange(50, 1000), "FTMS + p NSI Full ms", MZAnalyzerType.Orbitrap,
+                300, null, null, "controllerType=0 controllerNumber=1 scan=1");
+
+            var sourceFile = new SourceFile("scan number only nativeID format", "mzML format",
+                null, "SHA-1", new Uri("file:///test"), "test", "test.mzML");
+            var dataFile = new GenericMsDataFile(new[] { scan }, sourceFile);
+            string outPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "charge_dynamic_filter_roundtrip.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, true); // indexed for dynamic reader
+
+            try
+            {
+                var filterParams = new FilteringParams(
+                    numberOfPeaksToKeepPerWindow: 3,
+                    minimumAllowedIntensityRatioToBasePeak: null,
+                    windowWidthThomsons: null,
+                    numberOfWindows: 1,
+                    normalizePeaksAcrossAllWindows: false,
+                    applyTrimmingToMs1: true,
+                    applyTrimmingToMsMs: true);
+
+                var reader = (Mzml)MsDataFileReader.GetDataFile(outPath);
+                reader.InitiateDynamicConnection();
+                try
+                {
+                    var dynamicScan = reader.GetOneBasedScanFromDynamicConnection(1, filterParams);
+
+                    Assert.AreEqual(3, dynamicScan.MassSpectrum.Size,
+                        "Dynamic+filterParams path should trim to NumberOfPeaksToKeepPerWindow");
+                    Assert.AreEqual(dynamicScan.MassSpectrum.Size, dynamicScan.ChargeArray.Length,
+                        "ChargeArray length must match surviving peak count via dynamic+filterParams reader");
+                    // After WindowModeHelper, the 3 most-intense peaks survive: (600,90,6),
+                    // (200,80,2), (400,70,4). After final m/z sort: 200, 400, 600 → 2, 4, 6.
+                    NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                        new[] { 200.0, 400.0, 600.0 }, dynamicScan.MassSpectrum.XArray);
+                    NUnit.Framework.Legacy.CollectionAssert.AreEqual(
+                        new[] { 2, 4, 6 }, dynamicScan.ChargeArray);
+                }
+                finally
+                {
+                    reader.CloseDynamicConnection();
+                }
+            }
+            finally
+            {
+                if (File.Exists(outPath)) File.Delete(outPath);
+            }
+        }
+
         private MzSpectrum CreateSpectrum(ChemicalFormula f, double lowerBound, double upperBound, int minCharge)
         {
             IsotopicDistribution isodist = IsotopicDistribution.GetDistribution(f, 0.1);
