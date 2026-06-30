@@ -364,7 +364,7 @@ public static class MslWriter
 						ModifiedSeqStringIdx = modSeqIdx,
 						StrippedSeqStringIdx = stripSeqIdx,
 						ProteinIdx = proteinSlotIndex.TryGetValue(acc, out int pIdx) ? pIdx : -1,
-						FragmentCount = (short)frags.Count,
+						FragmentCount = ToFragmentCount(frags.Count, entry.FullSequence),
 						FragmentBlockOffset = fragOffset,
 
 						// Entry scalar fields — copied directly from the entry object.
@@ -813,6 +813,28 @@ public static class MslWriter
 	/// Returns a list of human-readable error strings. An empty list means all entries
 	/// are safe to pass to <see cref="Write"/>.
 	/// </summary>
+	/// <summary>
+	/// Maximum number of fragment ions a single entry may hold, bounded by the on-disk
+	/// <see cref="MslPrecursorRecord.FragmentCount"/> field (a signed 16-bit int).
+	/// </summary>
+	internal const int MaxFragmentsPerEntry = short.MaxValue;   // 32,767
+
+	/// <summary>
+	/// Safely narrows a fragment count to the on-disk int16 field, throwing a clear, actionable
+	/// error instead of silently wrapping to a negative value. A wrapped (negative) count produced
+	/// a file that threw an OverflowException only later, on read; this fails fast on write.
+	/// </summary>
+	private static short ToFragmentCount(int count, string fullSequence)
+	{
+		if (count > MaxFragmentsPerEntry)
+			throw new ArgumentException(
+				$"Entry '{fullSequence}' has {count} fragment ions, which exceeds the .msl " +
+				$"per-entry limit of {MaxFragmentsPerEntry} (FragmentCount is a 16-bit field in " +
+				$"MslPrecursorRecord). Reduce the fragment count for this entry, or widen the " +
+				$"format's FragmentCount field (a versioned format change).");
+		return (short)count;
+	}
+
 	public static List<string> ValidateEntries(IReadOnlyList<MslLibraryEntry> entries)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
@@ -967,7 +989,7 @@ public static class MslWriter
 				Irt = (float)entry.RetentionTime,
 				IonMobility = (float)entry.IonMobility,
 				Charge = (short)entry.ChargeState,
-				FragmentCount = (short)entry.MatchedFragmentIons.Count,
+				FragmentCount = ToFragmentCount(entry.MatchedFragmentIons.Count, entry.FullSequence),
 				ElutionGroupId = entry.ElutionGroupId,
 				ProteinIdx = pl.ProteinIdx,
 				ModifiedSeqStringIdx = pl.ModifiedSeqStringIdx,
