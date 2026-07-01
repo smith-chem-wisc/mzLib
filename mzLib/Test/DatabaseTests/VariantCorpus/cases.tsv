@@ -1,0 +1,6 @@
+id	layer	tests	base	mods	variants	protease	max_isoforms	max_mods	opts	expected_count	verdict	reason
+F00	L0a	baseline-identity	PEPTIDE	-	-	top-down	1024	2	-	1	applied	No variant, no mod -> one consensus proteoform. Caps non-binding. The floor.
+F01	L0b	mod-only-variable	PEPTIDE	Phosphorylation@4	-	top-down	1024	2	-	2	applied	Variable PTM -> unmodified AND modified (0..MaxMods). 1 mod avail, cap 2 -> 2 forms.
+F02	L0a	sub-only	PEPTIDE	-	OP=T VAR=V POS=4 SRC=uniprot	top-down	1024	2	-	2	applied	Substitution -> consensus + variant sequence (installment 2).
+F03	L0-int	sub-x-mod-legal-consensus-only	PEPTIDE	Phosphorylation@4	OP=T VAR=V POS=4 SRC=uniprot	top-down	1024	2	-	3	pruned:illegal-mod	T->V drops the phospho at the edited position; no phosphorylated variant produced. 3 forms NOT 4 (installment 2; invariants 1,2).
+F04	L0a	sub-out-of-range	PEPTIDE	-	OP=- VAR=A POS=9 SRC=uniprot	top-down	1024	2	-	1	pruned:out-of-range	Position 9 > length 7 -> variant pruned; only consensus (reader ~line 776; outOfRangeVariant.xml).

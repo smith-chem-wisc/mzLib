@@ -1,0 +1,3 @@
+PEPTIDE
+PEPT[Biological:Phosphorylation on T]IDE
+PEPVIDE

@@ -52,6 +52,12 @@
     <None Update="DatabaseTests\outOfRangeVariant.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\VariantCorpus\cases.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\VariantCorpus\expected\**\*.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
