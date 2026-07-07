@@ -73,7 +73,7 @@ namespace Readers
                     "Expected an Ms1Feature (.ms1.feature) or Dinosaur (.feature.tsv) file.");
 
             resultFile.LoadResults();
-            return BuildFeatureCache(featureFile.GetMs1Features());
+            return BuildFeatureCache(NormaliseRetentionTimes(featureFile.GetMs1Features()));
         }
 
         private static FeatureCache BuildFeatureCache(IEnumerable<ISingleChargeMs1Feature> features)
@@ -108,6 +108,13 @@ namespace Readers
         }
 
         /// <summary>
+        /// True if the feature file's retention times were detected as seconds at load
+        /// (max RetentionTimeEnd &gt; 500) and divided by 60 to minutes. Lets callers
+        /// surface that a unit conversion happened instead of it being silent.
+        /// </summary>
+        public bool RetentionTimeNormalizedFromSeconds { get; private set; }
+
+        /// <summary>
         /// Constructs from a feature-file path. Reader is auto-detected from the
         /// extension. The file's per-charge expansion is materialized lazily on
         /// first use; this object is intended to be reused across many MS2 scans
@@ -119,6 +126,55 @@ namespace Readers
         {
             if (filePath is null) throw new ArgumentNullException(nameof(filePath));
             FilePath = filePath;
+        }
+
+        /// <summary>
+        /// Detects RT-in-seconds inputs (FlashDeconv / TopFD canonical convention) and
+        /// converts them to minutes so the algorithm's RT comparisons against
+        /// <see cref="MsDataScan.RetentionTime"/> (always minutes in mzML / Thermo's API)
+        /// line up. Heuristic: if the largest <c>RetentionTimeEnd</c> in the file
+        /// exceeds 500, it can't be minutes -- no realistic LC run is over 8 hours
+        /// long -- so the file is in seconds and every RT value is divided by 60.
+        /// Files already in minutes pass through unchanged.
+        ///
+        /// Without this normalisation, FlashDeconv / TopFD files that emit RT in
+        /// seconds (e.g. <c>Time_begin = 2787</c> for a 46-minute LC run) silently
+        /// produce zero matching features at search time, because the algorithm
+        /// compares 2787 (seconds-as-loaded) against ~46 (the scan's RT in minutes)
+        /// and never sees overlap on any scan.
+        /// </summary>
+        private IEnumerable<ISingleChargeMs1Feature> NormaliseRetentionTimes(
+            IEnumerable<ISingleChargeMs1Feature> features)
+        {
+            var materialised = features.ToList();
+            if (materialised.Count == 0) return materialised;
+
+            // Ignore non-finite RetentionTimeEnd values when sniffing units: a single
+            // NaN/Infinity would otherwise make Max(...) non-finite and (NaN <= 500) false,
+            // spuriously flipping a minutes file into a /60 conversion. If no finite value
+            // exists at all, we can't tell the units apart, so leave them unchanged.
+            double maxRt = materialised
+                .Select(f => f.RetentionTimeEnd)
+                .Where(double.IsFinite)
+                .DefaultIfEmpty(double.NaN)
+                .Max();
+            if (double.IsNaN(maxRt) || maxRt <= 500.0) return materialised;
+
+            // Looks like seconds (no realistic LC run exceeds 8 h = 500 min). Convert to
+            // minutes, and record + announce it -- a unit guess on scientific data should be
+            // visible to the caller (via the property below) and the console, not silent.
+            RetentionTimeNormalizedFromSeconds = true;
+            Console.Error.WriteLine(
+                "[FromFileDeconvolution] Feature-file retention times look like seconds " +
+                $"(max RetentionTimeEnd {maxRt:F0} > 500 min); normalising to minutes (/60).");
+
+            return materialised.Select(f => (ISingleChargeMs1Feature)new SingleChargeMs1Feature(
+                f.Mz,
+                f.Charge,
+                f.RetentionTimeStart / 60.0,
+                f.RetentionTimeEnd / 60.0,
+                f.Intensity,
+                f.NumberOfIsotopes));
         }
 
         /// <summary>
