@@ -6,6 +6,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 using Readers;
 using Test.FileReadingTests;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -439,8 +440,18 @@ namespace Test.MassSpectrometryTests
             // message rather than silently producing an empty feature set.
             var psmTsv = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
-            Assert.Throws<MzLibUtil.MzLibException>(
-                () => new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60));
+            try
+            {
+                var x = new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60).Features;
+            }
+            catch (MzLibUtil.MzLibException ex)
+            {
+                StringAssert.Contains("MS1 feature file", ex.Message,
+                    "exception message should mention the missing MS1 Feature File interface; was: " + ex.Message);
+                return;
+            }
+
+            NUnit.Framework.Assert.Fail();
         }
 
         [Test]
