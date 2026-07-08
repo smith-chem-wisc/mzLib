@@ -1,7 +1,6 @@
 #nullable enable
 using MassSpectrometry;
 using MzLibUtil;
-using Nett;
 
 namespace Readers
 {
@@ -39,10 +38,8 @@ namespace Readers
             public double[] MzKeys { get; } = mzKeys;
         }
 
-        [TomlIgnore]
         private readonly object _featureCacheLock = new();
 
-        [TomlIgnore]
         private volatile FeatureCache? _featureCache;
 
         private FeatureCache GetOrLoadFeatureCache()
@@ -90,7 +87,6 @@ namespace Readers
         /// The pre-loaded per-charge features the algorithm filters against, sorted
         /// by ascending <see cref="ISingleChargeMs1Feature.Mz"/>.
         /// </summary>
-        [TomlIgnore]
         public IReadOnlyList<ISingleChargeMs1Feature> Features => GetOrLoadFeatureCache().FeaturesMzAscending;
 
         private string? _filePath;

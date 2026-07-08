@@ -31,7 +31,6 @@
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
     <dependency id="TorchSharp" version="0.105.1" />
     <dependency id="libtorch-cpu" version="2.5.1" />
-    <dependency id="Nett" version="0.15.0" />
   </group>
   <group targetFramework="net8.0-windows7.0">
     <!--net8.0 target with OxyPlot-->
@@ -53,7 +52,6 @@
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
     <dependency id="TorchSharp" version="0.105.1" />
     <dependency id="libtorch-cpu" version="2.5.1" />
-    <dependency id="Nett" version="0.15.0" />
   </group>
 </dependencies>
   </metadata>
