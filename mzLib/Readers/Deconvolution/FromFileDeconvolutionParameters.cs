@@ -201,17 +201,18 @@ namespace Readers
 
         #region IEquatable<FromFileDeconvolutionParameters>
 
+        // Equality and hashing are intentionally I/O-free and never throw: both must
+        // be safe to call before the lazy feature cache has been populated, so a
+        // params object with a missing/invalid FilePath still slots cleanly into a
+        // HashSet/Dictionary without triggering LoadFeaturesFromFile.
         protected override bool EqualProperties(DeconvolutionParameters other)
         {
             var o = (FromFileDeconvolutionParameters)other;
-            if (Features.Count != o.Features.Count) return false;
-            if (FilePath != o.FilePath) return false;
-            return true;
+            return string.Equals(FilePath, o.FilePath, StringComparison.Ordinal);
         }
 
         protected override void AddHashCodes(HashCode hash)
         {
-            hash.Add(Features.Count);
             hash.Add(FilePath);
         }
 
