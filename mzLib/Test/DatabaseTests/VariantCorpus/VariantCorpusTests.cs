@@ -75,6 +75,68 @@ namespace Test.DatabaseTests.VariantCorpus
                 $"{row.Id} ({row.Tests}): form set mismatch.\n  expected: {string.Join(" | ", expected)}\n  got:      {string.Join(" | ", produced)}");
         }
 
+        /// <summary>
+        /// Round-trip variant: same oracle, but the CONSENSUS protein is serialized through the REAL
+        /// ProteinDbWriter and re-read before digestion. This exercises encode+decode (invariant 6 / #1083)
+        /// WITHOUT the writer ever sitting upstream of the ground truth — the input XML is still the
+        /// hand-authored, bible-grounded one; the writer only has to preserve what we already loaded.
+        /// A writer that drops a variant or a variant-adjacent mod fails here while Corpus_Node stays green.
+        /// </summary>
+        [TestCaseSource(nameof(Cases))]
+        public void Corpus_Node_RoundTrip(Row row)
+        {
+            List<string> expected = File.ReadAllLines(Path.Combine(CorpusDir, "expected", row.Id + ".txt"))
+                .Where(l => l.Trim().Length > 0).ToList();
+
+            List<string> produced = RunNodeRoundTrip(row);
+
+            Assert.That(produced.Count, Is.EqualTo(row.ExpectedCount),
+                $"{row.Id} ({row.Tests}) [round-trip]: expected {row.ExpectedCount} forms, got {produced.Count}.\n  got: {string.Join(" | ", produced)}");
+
+            Assert.That(produced.OrderBy(x => x, StringComparer.Ordinal),
+                Is.EqualTo(expected.OrderBy(x => x, StringComparer.Ordinal)),
+                $"{row.Id} ({row.Tests}) [round-trip]: form set mismatch after write/read cycle.\n  expected: {string.Join(" | ", expected)}\n  got:      {string.Join(" | ", produced)}");
+        }
+
+        private static List<string> RunNodeRoundTrip(Row row)
+        {
+            List<Modification> knownMods = BuildMods(row);
+            string xml = BuildXml(row);
+            string tmp1 = Path.Combine(Path.GetTempPath(), $"corpus_{row.Id}_{Guid.NewGuid():N}.xml");
+            string tmp2 = Path.Combine(Path.GetTempPath(), $"corpus_{row.Id}_rt_{Guid.NewGuid():N}.xml");
+            try
+            {
+                // First load: the hand-authored (bible-grounded) XML -> consensus + expanded variants.
+                File.WriteAllText(tmp1, xml);
+                List<Protein> loaded = ProteinDbLoader.LoadProteinXML(tmp1,
+                    generateTargets: true, decoyType: DecoyType.None,
+                    allKnownModifications: knownMods, isContaminant: false,
+                    modTypesToExclude: new List<string>(), out _);
+
+                // Write ONLY the consensus protein(s): they retain SequenceVariations, so re-expansion
+                // happens on reload exactly as it did on the first load. Writing the applied isoforms
+                // instead would double-count and pin the expansion to write time.
+                List<Protein> consensus = loaded.Where(p => !p.IsDecoy && !p.AppliedSequenceVariations.Any()).ToList();
+                ProteinDbWriter.WriteXmlDatabase(
+                    new Dictionary<string, HashSet<Tuple<int, Modification>>>(), consensus, tmp2);
+
+                List<Protein> reread = ProteinDbLoader.LoadProteinXML(tmp2,
+                    generateTargets: true, decoyType: DecoyType.None,
+                    allKnownModifications: knownMods, isContaminant: false,
+                    modTypesToExclude: new List<string>(), out _);
+
+                var dp = new DigestionParams(protease: row.Protease, maxMissedCleavages: 0, minPeptideLength: 1,
+                    maxModificationIsoforms: row.MaxIsoforms, maxModsForPeptides: row.MaxMods,
+                    initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+
+                return reread
+                    .SelectMany(p => p.Digest(dp, new List<Modification>(), new List<Modification>()))
+                    .Select(pw => pw.FullSequence)
+                    .ToList();
+            }
+            finally { File.Delete(tmp1); File.Delete(tmp2); }
+        }
+
         private static List<string> RunNode(Row row)
         {
             List<Modification> knownMods = BuildMods(row);
