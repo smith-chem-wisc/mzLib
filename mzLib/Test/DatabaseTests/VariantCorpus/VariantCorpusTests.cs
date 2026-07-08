@@ -11,88 +11,121 @@ using UsefulProteomicsDatabases;
 namespace Test.DatabaseTests.VariantCorpus
 {
     /// <summary>
-    /// Data-driven sequence-variant corpus. Each row of cases.tsv is a node in the possibility tree:
-    /// build a UniProt-style XML from the row, LoadProteinXML (which expands variants), digest each expanded
-    /// protein, and compare the produced FullSequence set to the node's expected/&lt;id&gt;.txt.
-    /// The expected files are the ORACLE (hand-derived from the domain "bible", never from the code).
-    /// See DatabaseTests/VariantCorpus/README.md for the schema, notation, and the determinism contract.
+    /// Data-driven sequence-variant corpus. Each <see cref="CorpusCase"/> is a node in the possibility tree:
+    /// a tiny protein spec (base sequence + mods + variants) paired with the proteoforms it MUST digest to,
+    /// hand-derived from the domain "bible" (DatabaseTests/VariantCorpus/README.md) — never captured from the
+    /// code. The cases live inline as records (not an external table) so the columns are compiler-checked and
+    /// the input sits next to its expected answer, matching the house style in Transcriptomics/TestDigestion.cs.
+    ///
+    /// Two families run over the same oracle:
+    ///   Corpus_Node           — build XML -> LoadProteinXML (variants expand at load) -> digest -> compare.
+    ///   Corpus_Node_RoundTrip — same, but the consensus protein is serialized through the real ProteinDbWriter
+    ///                           and re-read first, so encode+decode is exercised too (invariant 6 / #1083).
     /// L0 only (substitutions + PTMs, top-down, caps non-binding); indels/processing/digestion are later layers.
     /// </summary>
     [TestFixture]
     internal class VariantCorpusTests
     {
+        /// <summary>
+        /// One corpus node. <see cref="ExpectedForms"/> is the oracle (the exact proteoforms, in canonical
+        /// least-modified-first order, in mzLib full-sequence notation). <see cref="ExpectedCount"/> is kept
+        /// alongside as an independent over/under-generation guard (mirrors RnaDigestionTestCase, which keeps
+        /// both DigestionProductCount and Sequences). Verdict/Reason document WHY, tied to a bible installment.
+        /// </summary>
+        internal record CorpusCase(
+            string Id, string Layer, string Tests,
+            string Base, string Mods, string Variants, string Protease,
+            int MaxIsoforms, int MaxMods,
+            int ExpectedCount, string Verdict, string Reason,
+            string[] ExpectedForms,
+            string Opts = "-");
+
         // Canonical test-mod registry (see README "Canonical test mods"). name -> (ModificationType, monoisotopicMass).
         private static readonly Dictionary<string, (string Type, double Mass)> ModRegistry = new()
         {
             ["Phosphorylation"] = ("Biological", 79.966331),
         };
 
-        private static string CorpusDir => Path.Combine(TestContext.CurrentContext.TestDirectory,
-            "DatabaseTests", "VariantCorpus");
+        /// <summary>
+        /// The corpus. L0 foundation: substitutions + PTMs only (encoding-unambiguous). Grow in layers per the
+        /// README; simple nodes must keep passing as complexity is added.
+        /// </summary>
+        internal static IEnumerable<CorpusCase> GetCases()
+        {
+            // F00 — the floor: no variant, no mod -> one consensus proteoform. Caps non-binding.
+            yield return new CorpusCase(
+                Id: "F00", Layer: "L0a", Tests: "baseline-identity",
+                Base: "PEPTIDE", Mods: "-", Variants: "-", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 1, Verdict: "applied",
+                Reason: "No variant, no mod -> one consensus proteoform. Caps non-binding. The floor.",
+                ExpectedForms: new[] { "PEPTIDE" });
 
-        internal record Row(string Id, string Layer, string Tests, string Base, string Mods, string Variants,
-            string Protease, int MaxIsoforms, int MaxMods, string Opts, int ExpectedCount, string Verdict, string Reason);
+            // F01 — variable PTM -> unmodified AND modified (0..MaxMods). 1 mod avail, cap 2 -> 2 forms.
+            yield return new CorpusCase(
+                Id: "F01", Layer: "L0b", Tests: "mod-only-variable",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "-", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Variable PTM -> unmodified AND modified (0..MaxMods). 1 mod avail, cap 2 -> 2 forms.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE" });
+
+            // F02 — substitution -> consensus + variant sequence (installment 2).
+            yield return new CorpusCase(
+                Id: "F02", Layer: "L0a", Tests: "sub-only",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=T VAR=V POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Substitution -> consensus + variant sequence (installment 2).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPVIDE" });
+
+            // F03 — sub x mod interaction: T->V drops the phospho at the edited position; no phosphorylated
+            // variant produced. 3 forms NOT 4 (installment 2; invariants 1,2).
+            yield return new CorpusCase(
+                Id: "F03", Layer: "L0-int", Tests: "sub-x-mod-legal-consensus-only",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=V POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "pruned:illegal-mod",
+                Reason: "T->V drops the phospho at the edited position; no phosphorylated variant produced. 3 forms NOT 4 (installment 2; invariants 1,2).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPVIDE" });
+
+            // F04 — boundary: position 9 > length 7 -> variant pruned; only consensus (reader ~line 776;
+            // outOfRangeVariant.xml).
+            yield return new CorpusCase(
+                Id: "F04", Layer: "L0a", Tests: "sub-out-of-range",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=- VAR=A POS=9 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 1, Verdict: "pruned:out-of-range",
+                Reason: "Position 9 > length 7 -> variant pruned; only consensus (reader ~line 776; outOfRangeVariant.xml).",
+                ExpectedForms: new[] { "PEPTIDE" });
+        }
 
         private static IEnumerable<TestCaseData> Cases()
         {
-            foreach (var r in LoadRows())
-                yield return new TestCaseData(r).SetName($"Corpus_{r.Id}_{r.Tests}");
-        }
-
-        private static List<Row> LoadRows()
-        {
-            string[] lines = File.ReadAllLines(Path.Combine(CorpusDir, "cases.tsv"));
-
-            // Bind columns by HEADER NAME, not position: cases.tsv is a growing spec table (the opts tail
-            // and later columns are added over time), so magic indices would silently break on any reorder
-            // or insertion. The header maps name -> index once; each row reads its fields by name below.
-            var col = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            var header = lines[0].Split('\t');
-            for (int i = 0; i < header.Length; i++) col[header[i].Trim()] = i;
-
-            string[] required = { "id", "layer", "tests", "base", "mods", "variants", "protease",
-                "max_isoforms", "max_mods", "opts", "expected_count", "verdict", "reason" };
-            var missing = required.Where(r => !col.ContainsKey(r)).ToList();
-            if (missing.Count > 0)
-                throw new InvalidDataException($"cases.tsv is missing column(s): {string.Join(", ", missing)}");
-
-            var rows = new List<Row>();
-            foreach (var line in lines.Skip(1))
-            {
-                if (line.Trim().Length == 0) continue;
-                var c = line.Split('\t');
-                string S(string name) => c[col[name]];
-                int I(string name) => int.Parse(S(name));
-                rows.Add(new Row(
-                    Id: S("id"), Layer: S("layer"), Tests: S("tests"), Base: S("base"),
-                    Mods: S("mods"), Variants: S("variants"), Protease: S("protease"),
-                    MaxIsoforms: I("max_isoforms"), MaxMods: I("max_mods"), Opts: S("opts"),
-                    ExpectedCount: I("expected_count"), Verdict: S("verdict"), Reason: S("reason")));
-            }
-            return rows;
+            foreach (var c in GetCases())
+                yield return new TestCaseData(c).SetName($"Corpus_{c.Id}_{c.Tests}");
         }
 
         [TestCaseSource(nameof(Cases))]
-        public void Corpus_Node(Row row)
+        public void Corpus_Node(CorpusCase c)
         {
-            List<string> expected = File.ReadAllLines(Path.Combine(CorpusDir, "expected", row.Id + ".txt"))
-                .Where(l => l.Trim().Length > 0).ToList();
+            AssertCaseSelfConsistent(c);
 
-            List<string> produced = RunNode(row);
-            List<string> producedAgain = RunNode(row);
+            List<string> produced = RunNode(c);
+            List<string> producedAgain = RunNode(c);
 
             // Determinism (invariant 11): identical output, same order, across runs.
             Assert.That(producedAgain, Is.EqualTo(produced),
-                $"{row.Id}: nondeterministic output across two runs.");
+                $"{c.Id}: nondeterministic output across two runs.");
 
             // Count (fast over/under-generation check).
-            Assert.That(produced.Count, Is.EqualTo(row.ExpectedCount),
-                $"{row.Id} ({row.Tests}): expected {row.ExpectedCount} forms, got {produced.Count}.\n  got: {string.Join(" | ", produced)}");
+            Assert.That(produced.Count, Is.EqualTo(c.ExpectedCount),
+                $"{c.Id} ({c.Tests}): expected {c.ExpectedCount} forms, got {produced.Count}.\n  got: {string.Join(" | ", produced)}");
 
             // Membership (order-independent for now; canonical-order assertion is a later tightening).
             Assert.That(produced.OrderBy(x => x, StringComparer.Ordinal),
-                Is.EqualTo(expected.OrderBy(x => x, StringComparer.Ordinal)),
-                $"{row.Id} ({row.Tests}): form set mismatch.\n  expected: {string.Join(" | ", expected)}\n  got:      {string.Join(" | ", produced)}");
+                Is.EqualTo(c.ExpectedForms.OrderBy(x => x, StringComparer.Ordinal)),
+                $"{c.Id} ({c.Tests}): form set mismatch.\n  expected: {string.Join(" | ", c.ExpectedForms)}\n  got:      {string.Join(" | ", produced)}");
         }
 
         /// <summary>
@@ -103,27 +136,32 @@ namespace Test.DatabaseTests.VariantCorpus
         /// A writer that drops a variant or a variant-adjacent mod fails here while Corpus_Node stays green.
         /// </summary>
         [TestCaseSource(nameof(Cases))]
-        public void Corpus_Node_RoundTrip(Row row)
+        public void Corpus_Node_RoundTrip(CorpusCase c)
         {
-            List<string> expected = File.ReadAllLines(Path.Combine(CorpusDir, "expected", row.Id + ".txt"))
-                .Where(l => l.Trim().Length > 0).ToList();
+            AssertCaseSelfConsistent(c);
 
-            List<string> produced = RunNodeRoundTrip(row);
+            List<string> produced = RunNodeRoundTrip(c);
 
-            Assert.That(produced.Count, Is.EqualTo(row.ExpectedCount),
-                $"{row.Id} ({row.Tests}) [round-trip]: expected {row.ExpectedCount} forms, got {produced.Count}.\n  got: {string.Join(" | ", produced)}");
+            Assert.That(produced.Count, Is.EqualTo(c.ExpectedCount),
+                $"{c.Id} ({c.Tests}) [round-trip]: expected {c.ExpectedCount} forms, got {produced.Count}.\n  got: {string.Join(" | ", produced)}");
 
             Assert.That(produced.OrderBy(x => x, StringComparer.Ordinal),
-                Is.EqualTo(expected.OrderBy(x => x, StringComparer.Ordinal)),
-                $"{row.Id} ({row.Tests}) [round-trip]: form set mismatch after write/read cycle.\n  expected: {string.Join(" | ", expected)}\n  got:      {string.Join(" | ", produced)}");
+                Is.EqualTo(c.ExpectedForms.OrderBy(x => x, StringComparer.Ordinal)),
+                $"{c.Id} ({c.Tests}) [round-trip]: form set mismatch after write/read cycle.\n  expected: {string.Join(" | ", c.ExpectedForms)}\n  got:      {string.Join(" | ", produced)}");
         }
 
-        private static List<string> RunNodeRoundTrip(Row row)
+        // The case's own two statements of size must agree — catches a typo where ExpectedForms and
+        // ExpectedCount drift (mirrors the redundancy the TSV used to enforce across cases.tsv + expected/).
+        private static void AssertCaseSelfConsistent(CorpusCase c) =>
+            Assert.That(c.ExpectedForms.Length, Is.EqualTo(c.ExpectedCount),
+                $"{c.Id}: case defines ExpectedCount={c.ExpectedCount} but lists {c.ExpectedForms.Length} ExpectedForms.");
+
+        private static List<string> RunNodeRoundTrip(CorpusCase c)
         {
-            List<Modification> knownMods = BuildMods(row);
-            string xml = BuildXml(row);
-            string tmp1 = Path.Combine(Path.GetTempPath(), $"corpus_{row.Id}_{Guid.NewGuid():N}.xml");
-            string tmp2 = Path.Combine(Path.GetTempPath(), $"corpus_{row.Id}_rt_{Guid.NewGuid():N}.xml");
+            List<Modification> knownMods = BuildMods(c);
+            string xml = BuildXml(c);
+            string tmp1 = Path.Combine(Path.GetTempPath(), $"corpus_{c.Id}_{Guid.NewGuid():N}.xml");
+            string tmp2 = Path.Combine(Path.GetTempPath(), $"corpus_{c.Id}_rt_{Guid.NewGuid():N}.xml");
             try
             {
                 // First load: the hand-authored (bible-grounded) XML -> consensus + expanded variants.
@@ -145,23 +183,16 @@ namespace Test.DatabaseTests.VariantCorpus
                     allKnownModifications: knownMods, isContaminant: false,
                     modTypesToExclude: new List<string>(), out _);
 
-                var dp = new DigestionParams(protease: row.Protease, maxMissedCleavages: 0, minPeptideLength: 1,
-                    maxModificationIsoforms: row.MaxIsoforms, maxModsForPeptides: row.MaxMods,
-                    initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-                return reread
-                    .SelectMany(p => p.Digest(dp, new List<Modification>(), new List<Modification>()))
-                    .Select(pw => pw.FullSequence)
-                    .ToList();
+                return Digest(reread, c);
             }
             finally { File.Delete(tmp1); File.Delete(tmp2); }
         }
 
-        private static List<string> RunNode(Row row)
+        private static List<string> RunNode(CorpusCase c)
         {
-            List<Modification> knownMods = BuildMods(row);
-            string xml = BuildXml(row);
-            string tmp = Path.Combine(Path.GetTempPath(), $"corpus_{row.Id}_{Guid.NewGuid():N}.xml");
+            List<Modification> knownMods = BuildMods(c);
+            string xml = BuildXml(c);
+            string tmp = Path.Combine(Path.GetTempPath(), $"corpus_{c.Id}_{Guid.NewGuid():N}.xml");
             try
             {
                 File.WriteAllText(tmp, xml);
@@ -169,29 +200,33 @@ namespace Test.DatabaseTests.VariantCorpus
                     generateTargets: true, decoyType: DecoyType.None,
                     allKnownModifications: knownMods, isContaminant: false,
                     modTypesToExclude: new List<string>(), out _);
-
-                var dp = new DigestionParams(protease: row.Protease, maxMissedCleavages: 0, minPeptideLength: 1,
-                    maxModificationIsoforms: row.MaxIsoforms, maxModsForPeptides: row.MaxMods,
-                    initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-
-                return proteins
-                    .SelectMany(p => p.Digest(dp, new List<Modification>(), new List<Modification>()))
-                    .Select(pw => pw.FullSequence)
-                    .ToList();
+                return Digest(proteins, c);
             }
             finally { File.Delete(tmp); }
         }
 
-        // --- helpers: parse the row's mods/variants DSL and emit the matching mzLib XML ------------------
+        private static List<string> Digest(List<Protein> proteins, CorpusCase c)
+        {
+            var dp = new DigestionParams(protease: c.Protease, maxMissedCleavages: 0, minPeptideLength: 1,
+                maxModificationIsoforms: c.MaxIsoforms, maxModsForPeptides: c.MaxMods,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
-        private static List<Modification> BuildMods(Row row)
+            return proteins
+                .SelectMany(p => p.Digest(dp, new List<Modification>(), new List<Modification>()))
+                .Select(pw => pw.FullSequence)
+                .ToList();
+        }
+
+        // --- helpers: parse the case's mods/variants DSL and emit the matching mzLib XML ------------------
+
+        private static List<Modification> BuildMods(CorpusCase c)
         {
             var mods = new List<Modification>();
-            if (row.Mods == "-") return mods;
-            foreach (var token in row.Mods.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            if (c.Mods == "-") return mods;
+            foreach (var token in c.Mods.Split(';', StringSplitOptions.RemoveEmptyEntries))
             {
                 var (name, pos) = ParseNameAtPos(token.Trim());
-                char motifChar = row.Base[pos - 1];
+                char motifChar = c.Base[pos - 1];
                 ModificationMotif.TryGetMotif(motifChar.ToString(), out ModificationMotif motif);
                 var (type, mass) = ModRegistry[name];
                 mods.Add(new Modification(_originalId: name, _modificationType: type, _target: motif,
@@ -200,16 +235,16 @@ namespace Test.DatabaseTests.VariantCorpus
             return mods;
         }
 
-        private static string BuildXml(Row row)
+        private static string BuildXml(CorpusCase c)
         {
             var features = new System.Text.StringBuilder();
 
-            if (row.Mods != "-")
+            if (c.Mods != "-")
             {
-                foreach (var token in row.Mods.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                foreach (var token in c.Mods.Split(';', StringSplitOptions.RemoveEmptyEntries))
                 {
                     var (name, pos) = ParseNameAtPos(token.Trim());
-                    char motifChar = row.Base[pos - 1];
+                    char motifChar = c.Base[pos - 1];
                     // The reader binds a "modified residue" feature by description == Modification.IdWithMotif.
                     string idWithMotif = $"{name} on {motifChar}";
                     features.Append(
@@ -219,9 +254,9 @@ namespace Test.DatabaseTests.VariantCorpus
                 }
             }
 
-            if (row.Variants != "-")
+            if (c.Variants != "-")
             {
-                foreach (var v in row.Variants.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                foreach (var v in c.Variants.Split(';', StringSplitOptions.RemoveEmptyEntries))
                 {
                     var kv = ParseKeyVals(v.Trim());
                     string op = kv.TryGetValue("OP", out var o) && o != "-" ? o : "X";
@@ -239,11 +274,11 @@ namespace Test.DatabaseTests.VariantCorpus
                 "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
                 "<mzLibProteinDb>\n" +
                 "  <entry>\n" +
-                $"    <accession>P_{row.Id}</accession>\n" +
-                $"    <name>TEST_{row.Id}</name>\n" +
+                $"    <accession>P_{c.Id}</accession>\n" +
+                $"    <name>TEST_{c.Id}</name>\n" +
                 "    <protein><recommendedName><fullName>Test protein</fullName></recommendedName></protein>\n" +
                 features +
-                $"    <sequence length=\"{row.Base.Length}\">{row.Base}</sequence>\n" +
+                $"    <sequence length=\"{c.Base.Length}\">{c.Base}</sequence>\n" +
                 "  </entry>\n" +
                 "</mzLibProteinDb>\n";
         }
