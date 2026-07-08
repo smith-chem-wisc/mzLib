@@ -41,13 +41,33 @@ namespace Test.DatabaseTests.VariantCorpus
 
         private static List<Row> LoadRows()
         {
+            string[] lines = File.ReadAllLines(Path.Combine(CorpusDir, "cases.tsv"));
+
+            // Bind columns by HEADER NAME, not position: cases.tsv is a growing spec table (the opts tail
+            // and later columns are added over time), so magic indices would silently break on any reorder
+            // or insertion. The header maps name -> index once; each row reads its fields by name below.
+            var col = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            var header = lines[0].Split('\t');
+            for (int i = 0; i < header.Length; i++) col[header[i].Trim()] = i;
+
+            string[] required = { "id", "layer", "tests", "base", "mods", "variants", "protease",
+                "max_isoforms", "max_mods", "opts", "expected_count", "verdict", "reason" };
+            var missing = required.Where(r => !col.ContainsKey(r)).ToList();
+            if (missing.Count > 0)
+                throw new InvalidDataException($"cases.tsv is missing column(s): {string.Join(", ", missing)}");
+
             var rows = new List<Row>();
-            foreach (var line in File.ReadAllLines(Path.Combine(CorpusDir, "cases.tsv")).Skip(1))
+            foreach (var line in lines.Skip(1))
             {
                 if (line.Trim().Length == 0) continue;
                 var c = line.Split('\t');
-                rows.Add(new Row(c[0], c[1], c[2], c[3], c[4], c[5], c[6],
-                    int.Parse(c[7]), int.Parse(c[8]), c[9], int.Parse(c[10]), c[11], c[12]));
+                string S(string name) => c[col[name]];
+                int I(string name) => int.Parse(S(name));
+                rows.Add(new Row(
+                    Id: S("id"), Layer: S("layer"), Tests: S("tests"), Base: S("base"),
+                    Mods: S("mods"), Variants: S("variants"), Protease: S("protease"),
+                    MaxIsoforms: I("max_isoforms"), MaxMods: I("max_mods"), Opts: S("opts"),
+                    ExpectedCount: I("expected_count"), Verdict: S("verdict"), Reason: S("reason")));
             }
             return rows;
         }
