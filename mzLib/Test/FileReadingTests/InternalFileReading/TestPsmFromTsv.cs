@@ -414,6 +414,80 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         [Test]
+        public static void MostAbundantMassDiffPpm_OptionalColumn_ReadsAndDisambiguates()
+        {
+            string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+
+            // A file WITHOUT the optional column: the property reads back null. The reader only
+            // looks for the column when it is present, so monoisotopic-mode output is unaffected.
+            List<PsmFromTsv> withoutColumn = SpectrumMatchTsvReader.ReadPsmTsv(baseFile, out _);
+            NUnit.Framework.Assert.That(withoutColumn.First().MostAbundantMassDiffPpm, Is.Null);
+
+            // Build a synthetic copy that DOES carry "Most Abundant Mass Diff (ppm)" as the last column.
+            // Each row's cell mirrors the "|"-cardinality of that row's monoisotopic-mass cell, so an
+            // ambiguous match disambiguates to the correct segment exactly as MassDiffPpm does.
+            string[] lines = File.ReadAllLines(baseFile);
+            string[] headerCells = lines[0].Split('\t');
+            int monoIdx = Array.IndexOf(headerCells, SpectrumMatchFromTsvHeader.PeptideMonoMass);
+            var outLines = new List<string>
+            {
+                lines[0] + "\t" + SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm
+            };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] cells = lines[i].Split('\t');
+                if (cells.Length <= monoIdx) // blank or ragged line: leave it for the reader to skip
+                {
+                    outLines.Add(lines[i]);
+                    continue;
+                }
+                int segments = cells[monoIdx].Split('|').Length;
+                string cell = string.Join("|", Enumerable.Range(0, segments).Select(k => $"{10 + k}.5"));
+                outLines.Add(lines[i] + "\t" + cell);
+            }
+            string syntheticFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "MostAbundantMassDiffPpm_synthetic.psmtsv");
+            File.WriteAllLines(syntheticFile, outLines);
+
+            try
+            {
+                List<PsmFromTsv> withColumn = SpectrumMatchTsvReader.ReadPsmTsv(syntheticFile, out _);
+
+                // Main-constructor read of the present optional column (single-segment, unambiguous row).
+                PsmFromTsv single = withColumn.First(p => !p.FullSequence.Contains('|'));
+                NUnit.Framework.Assert.That(single.MostAbundantMassDiffPpm, Is.EqualTo("10.5"));
+
+                // Non-ambiguous disambiguation copies the value straight through.
+                PsmFromTsv clone = new(single, single.FullSequence, 0);
+                NUnit.Framework.Assert.That(clone.MostAbundantMassDiffPpm, Is.EqualTo(single.MostAbundantMassDiffPpm));
+
+                // Ambiguous row with a single monoisotopic-mass segment -> the "count == 1" branch
+                // resolves the optional column to segment [0].
+                PsmFromTsv singleMonoAmbiguous = withColumn.First(p =>
+                    p.FullSequence.Contains('|') && p.MonoisotopicMassString != null
+                    && !p.MonoisotopicMassString.Contains('|') && p.MostAbundantMassDiffPpm != null);
+                PsmFromTsv disambSingle = new(singleMonoAmbiguous, singleMonoAmbiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambSingle.MostAbundantMassDiffPpm,
+                    Is.EqualTo(singleMonoAmbiguous.MostAbundantMassDiffPpm.Split('|')[0]));
+
+                // Ambiguous row with multiple monoisotopic-mass segments -> the "else" branch resolves
+                // the optional column to the chosen index (0 here) segment.
+                PsmFromTsv multiMonoAmbiguous = withColumn.First(p =>
+                    p.FullSequence.Contains('|') && p.MonoisotopicMassString != null
+                    && p.MonoisotopicMassString.Contains('|')
+                    && p.MostAbundantMassDiffPpm != null && p.MostAbundantMassDiffPpm.Contains('|'));
+                PsmFromTsv disambMulti = new(multiMonoAmbiguous, multiMonoAmbiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambMulti.MostAbundantMassDiffPpm,
+                    Is.EqualTo(multiMonoAmbiguous.MostAbundantMassDiffPpm.Split('|')[0]));
+            }
+            finally
+            {
+                File.Delete(syntheticFile);
+            }
+        }
+
+        [Test]
         public static void TestParseModification()
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");

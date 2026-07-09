@@ -4,12 +4,13 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Omics.Modifications;
 using Omics.SequenceConversion;
+using PredictionClients.Koina.Client;
 
 namespace PredictionClients.Koina.AbstractClasses;
 
 public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
-    private static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
+    protected static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
 
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
@@ -61,7 +62,9 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     public abstract int MinPeptideLength { get; }
 
     /// <summary>
-    /// Unimod Ids that are allowed to b passed to the model. 
+    /// Unimod modification IDs accepted by the model when converting sequences.
+    /// Used by the modification converter layer (not parameter validation).
+    /// empty = no modifications are accepted.
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
@@ -88,6 +91,38 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// The total number of sequences across all batches should equal PeptideSequences.Count.
     /// </remarks>
     protected abstract List<Dictionary<string, object>> ToBatchedRequests(List<TModelInput> validInputs);
+
+    /// <summary>
+    /// Creates a single batch request dictionary for the Koina API.
+    /// Models call this inside their <see cref="ToBatchedRequests"/> loop to build each batch.
+    /// </summary>
+    protected static Dictionary<string, object> BuildBatchedRequest(int batchIndex, params InputField[] fields)
+    {
+        var inputs = new List<object>(fields.Length);
+        foreach (var f in fields)
+        {
+            inputs.Add(new
+            {
+                name = f.Name,
+                shape = new[] { f.Data.Length, 1 },
+                datatype = f.Datatype,
+                data = f.Data
+            });
+        }
+        return new Dictionary<string, object>
+        {
+            { "id", $"Batch{batchIndex}" },
+            { "inputs", inputs }
+        };
+    }
+
+    /// <summary>
+    /// Sends a single batch request to the Koina API and returns the raw JSON response.
+    /// Seam for testing: overriding this lets the batched prediction pipeline run against a
+    /// canned transport instead of the network.
+    /// </summary>
+    protected virtual Task<string> SendInferenceRequestAsync(string modelName, Dictionary<string, object> request, CancellationToken cancellationToken)
+        => HTTP.InferenceRequest(modelName, request, cancellationToken);
     #endregion
 
     #region Validation and Modification Handling
@@ -176,6 +211,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
     }
 
+    /// <summary>
+    /// Creates a sequence converter that accepts all UNIMOD modifications.
+    /// Used by models like ms2pip and AlphaPeptDeep that accept any modification.
+    /// </summary>
+    protected static ISequenceConverter CreateUnimodConverterAcceptAll(UnimodSequenceFormatSchema schema)
+    {
+        var allMods = Mods.UnimodModifications.ToList();
+        var lookup = new UnimodModificationLookup(allMods);
+        var serializer = new UnimodSequenceSerializer(schema, lookup);
+        return new SequenceConverter(MzLibSequenceParser.Instance, serializer);
+    }
+
     private static IModificationLookup CreateLookup(IReadOnlySet<int> allowedUnimodIds)
     {
         if (allowedUnimodIds.Count == 0)
@@ -225,14 +272,14 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return false;
     }
 
-    private static bool IsValidBaseSequence(string baseSequence, string allowedPattern, int minLength, int maxLength)
+    protected static bool IsValidBaseSequence(string baseSequence, string allowedPattern, int minLength, int maxLength)
     {
         return Regex.IsMatch(baseSequence, allowedPattern)
                && baseSequence.Length <= maxLength
                && baseSequence.Length >= minLength;
     }
 
-    private static void HandleFailure(SequenceConversionHandlingMode mode, string message)
+    protected static void HandleFailure(SequenceConversionHandlingMode mode, string message)
     {
         if (mode == SequenceConversionHandlingMode.ThrowException)
         {
@@ -267,3 +314,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
     }
 }
+
+/// <summary>
+/// Describes a single input field for a Koina API batch request.
+/// </summary>
+/// <param name="Name">Input field name as expected by the Koina model (e.g., "peptide_sequences")</param>
+/// <param name="Datatype">Koina data type (e.g., "BYTES", "INT32", "FP32")</param>
+/// <param name="Data">The data array for this batch. Must be a single batch chunk (already sliced to MaxBatchSize).</param>
+public sealed record InputField(string Name, string Datatype, Array Data);
