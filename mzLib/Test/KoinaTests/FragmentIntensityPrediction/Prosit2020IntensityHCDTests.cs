@@ -13,9 +13,10 @@ using Readers.SpectralLibrary;
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class Prosit2020IntensityHCDTests
+    public class Prosit2020IntensityHCDTests : KoinaLiveTestFixture
     {
         [Test]
         public static void TestKoinaProsit2020IntensityHCDModelWritesReadableSpectralLibrary()
