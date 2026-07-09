@@ -9,9 +9,10 @@ using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 namespace Test.KoinaTests.RetentionTimePrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class Prosit2019iRTTests
+    public class Prosit2019iRTTests : KoinaLiveTestFixture
     {
         /// <summary>
         /// Tests that the model correctly processes valid peptide sequences without throwing exceptions.
