@@ -287,9 +287,19 @@ namespace Test.RetentionTimePrediction
                 var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
                 Assert.That(results.Count, Is.EqualTo(5));
-                var distinctValues = results.Select(r => r.PredictedValue).Distinct().Count();
-                Assert.That(distinctValues, Is.EqualTo(1),
-                    $"{predictor.PredictorName} should return same value for duplicate peptides");
+
+                // Duplicate peptides must predict the same value, compared within a tolerance rather than
+                // bit-exactly. The Chronologer batch path runs the duplicates as identical rows in a single
+                // libtorch forward pass, whose CPU conv/matmul kernels are not guaranteed bit-reproducible
+                // across thread counts / CI runners, so identical rows can differ in the last float32 bits.
+                // The rest of this suite already pins batch agreement to .Within(1e-4); use the same here.
+                var values = results.Select(r => r.PredictedValue).ToList();
+                Assert.That(values, Is.All.Not.Null,
+                    $"{predictor.PredictorName} should predict a value for every duplicate peptide");
+                double reference = values[0]!.Value;
+                foreach (var v in values)
+                    Assert.That(v!.Value, Is.EqualTo(reference).Within(1e-4),
+                        $"{predictor.PredictorName} should return the same value for duplicate peptides");
             }
         }
 

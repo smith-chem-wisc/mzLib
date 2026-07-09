@@ -253,8 +253,14 @@ namespace Test.MassSpectrometryTests
             Assert.IsTrue(parameters.Features.Count >= 25,
                 $"fixture {Path.GetFileName(relativeFixturePath)} unexpectedly small: {parameters.Features.Count} per-charge entries");
 
-            var precursorMs1 = MakeMs1(1, rt: 2390.0);
-            var ms2 = MakeMs2(2, rt: 2390.0, isolationMz: 1084.6, isolationWidth: 2.0);
+            // MS2 RT is in minutes -- MsDataScan.RetentionTime convention is always minutes
+            // (mzML / Thermo's API). Both fixtures' feature row 1 has Time_apex ~ 2390 in
+            // seconds, which FromFileDeconvolutionParameters auto-converts to ~39.85 minutes
+            // at load (the max-RT-magnitude heuristic detects seconds-as-loaded). Without
+            // that normalisation the algorithm would compare 2390s vs 39min and never see
+            // overlap; this MS2 rt at 39.85 deliberately lands inside the normalised window.
+            var precursorMs1 = MakeMs1(1, rt: 39.85);
+            var ms2 = MakeMs2(2, rt: 39.85, isolationMz: 1084.6, isolationWidth: 2.0);
 
             var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
 
@@ -284,6 +290,136 @@ namespace Test.MassSpectrometryTests
 
             var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
             Assert.AreEqual(0, envelopes.Count);
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_FileWithRtInSeconds_NormalisesToMinutes()
+        {
+            // FlashDeconv / TopFD canonical _ms1.feature output uses RT in SECONDS
+            // (e.g., Time_begin = 2787 for a 46 minute LC run). MsDataScan.RetentionTime
+            // is always MINUTES (mzML / Thermo convention). The FromFile algorithm compares
+            // feature RT vs scan RT directly, so feature RT must be normalised to minutes
+            // at load time or no scan ever overlaps a feature's window.
+            //
+            // Heuristic: if max RetentionTimeEnd > 500 in the loaded file, treat it as
+            // seconds and divide all RT fields by 60. 500 min = 8 hours, longer than any
+            // realistic LC gradient -- safe upper bound.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                // Append the canonical _ms1.feature extension so SupportedFileType.GetResultFileType
+                // recognises it. Path.GetTempFileName returns a .tmp path; rename.
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                // Single feature row with RT in SECONDS. Time_begin / Time_end / Time_apex
+                // around 2400 s = 40 min.
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t2390.0\t2410.0\t2400.0\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.AreEqual(3, parameters.Features.Count,
+                    "10..12 charges of one feature row should expand to 3 SingleChargeMs1Feature entries");
+                Assert.IsTrue(parameters.RetentionTimeNormalizedFromSeconds,
+                    "a seconds-RT file should be flagged as normalised");
+
+                // Confirm every per-charge feature's RT is in MINUTES (after the load-time
+                // seconds->minutes conversion). 2390.0 / 60 = 39.833...; 2410.0 / 60 = 40.166...
+                foreach (var f in parameters.Features)
+                {
+                    Assert.IsTrue(f.RetentionTimeStart > 39.5 && f.RetentionTimeStart < 40.0,
+                        $"RetentionTimeStart {f.RetentionTimeStart} not in expected minutes range (~39.83)");
+                    Assert.IsTrue(f.RetentionTimeEnd > 40.0 && f.RetentionTimeEnd < 40.5,
+                        $"RetentionTimeEnd {f.RetentionTimeEnd} not in expected minutes range (~40.17)");
+                }
+
+                // Sanity: pairing an MS2 in MINUTES against this feature now finds it,
+                // confirming the FromFile algorithm sees aligned units after normalisation.
+                var precursorMs1 = MakeMs1(1, rt: 40.0);
+                var ms2 = MakeMs2(2, rt: 40.0,
+                    isolationMz: parameters.Features.First().Mz,
+                    isolationWidth: 5.0);
+                var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
+                Assert.IsTrue(envelopes.Count >= 1,
+                    "expected at least one envelope after RT normalisation; got 0 (regression in seconds->minutes conversion)");
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_FileWithRtInMinutes_LeavesUnchanged()
+        {
+            // Sister test: a file already in MINUTES (max RT < 500) must NOT be
+            // double-converted. Same shape as the seconds test but Time_begin/end are
+            // 39.0 / 40.0 minutes.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t39.0\t40.0\t39.5\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.IsFalse(parameters.RetentionTimeNormalizedFromSeconds,
+                    "an in-minutes file must not be flagged as normalised");
+                foreach (var f in parameters.Features)
+                {
+                    Assert.AreEqual(39.0, f.RetentionTimeStart, 1e-6,
+                        "in-minutes file must not be double-converted to 39/60 = 0.65");
+                    Assert.AreEqual(40.0, f.RetentionTimeEnd, 1e-6);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_NonFiniteRetentionTimeEnd_DoesNotFlipUnits()
+        {
+            // A single NaN RetentionTimeEnd must not poison the seconds-vs-minutes sniff.
+            // Before the guard, Max(RetentionTimeEnd) returned NaN, (NaN <= 500) was false,
+            // and a clearly-in-minutes file was wrongly flagged as seconds and divided by 60.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                // Row 1 is unambiguously in MINUTES (end 40.0). Row 2 carries a NaN Time_end,
+                // as could arise from an upstream divide-by-zero in a producer.
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t39.0\t40.0\t39.5\t10\t12\t0\t0",
+                    "0\t2\t12000.0\t1.0e8\t41.0\tNaN\t41.5\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.IsFalse(parameters.RetentionTimeNormalizedFromSeconds,
+                    "a NaN RetentionTimeEnd must not flip an in-minutes file to seconds");
+                Assert.IsTrue(parameters.Features.Any(f => System.Math.Abs(f.RetentionTimeEnd - 40.0) < 1e-6),
+                    "the in-minutes feature row must be preserved at 40.0 min, not divided by 60");
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
         }
 
         // -------- contract / error-path tests for FromFileDeconvolutionParameters
