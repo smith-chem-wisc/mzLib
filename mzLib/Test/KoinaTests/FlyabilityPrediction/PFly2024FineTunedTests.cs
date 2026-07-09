@@ -8,9 +8,10 @@ using PredictionClients.Koina.SupportedModels.FlyabilityModels;
 namespace Test.KoinaTests.FlyabilityPrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class PFly2024FineTunedTests
+    public class PFly2024FineTunedTests : KoinaLiveTestFixture
     {
         /// <summary>
         /// Tests that the model correctly processes valid peptide sequences without throwing exceptions.

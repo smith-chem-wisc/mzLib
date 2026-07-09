@@ -37,6 +37,10 @@
         public const string MonoisotopicMass = "Monoisotopic Mass";
         public const string MassDiffDa = "Mass Diff (Da)";
         public const string MassDiffPpm = "Mass Diff (ppm)";
+        // Optional most-abundant-mode analogue of MassDiffPpm: the observed most-abundant isotopic peak
+        // vs the candidate's theoretical averagine-apex mass. Written only when a run used most-abundant
+        // precursor selection; the reader maps it by name and ignores it when absent.
+        public const string MostAbundantMassDiffPpm = "Most Abundant Mass Diff (ppm)";
         public const string Accession = "Accession";
 
         public const string Name = "Name";
