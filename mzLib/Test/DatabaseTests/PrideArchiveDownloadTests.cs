@@ -30,9 +30,37 @@ public class PrideArchiveDownloadTests
 
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested(); // honor cancellation like a real handler
             RequestedUris.Add(request.RequestUri.ToString());
             return Task.FromResult(_responder(request));
         }
+    }
+
+    /// <summary>A read-only stream that yields a few bytes and then throws, to simulate a mid-transfer failure.</summary>
+    private sealed class ThrowingStream : Stream
+    {
+        private int _bytesBeforeThrow;
+        public ThrowingStream(int bytesBeforeThrow) => _bytesBeforeThrow = bytesBeforeThrow;
+
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            if (_bytesBeforeThrow <= 0)
+                throw new IOException("simulated mid-stream failure");
+            int n = Math.Min(count, _bytesBeforeThrow);
+            for (int i = 0; i < n; i++) buffer[offset + i] = 0x41;
+            _bytesBeforeThrow -= n;
+            return n;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
     }
 
     private static HttpResponseMessage Bytes(byte[] body, HttpStatusCode status = HttpStatusCode.OK) =>
@@ -272,6 +300,9 @@ public class PrideArchiveDownloadTests
         Assert.That(Path.GetFileName(paths[0]), Is.EqualTo("keep.raw"));
         Assert.That(File.Exists(Path.Combine(_tempDir, "keep.raw")), Is.True);
         Assert.That(File.Exists(Path.Combine(_tempDir, "drop.mzid")), Is.False);
+        // the bytes written must be the payload served for the keep.raw download URL, not some other response
+        string keepUrl = "https://ftp.pride.ebi.ac.uk/pride/data/x/keep.raw";
+        Assert.That(File.ReadAllText(paths[0]), Is.EqualTo("bytes-of-" + keepUrl));
         // one manifest request + one download (the SEARCH file was filtered out before any download)
         Assert.That(handler.RequestedUris.Count(u => u.Contains("ftp.pride.ebi.ac.uk")), Is.EqualTo(1));
     }
@@ -281,6 +312,168 @@ public class PrideArchiveDownloadTests
     {
         using var client = new PrideArchiveClient(new HttpClient(new StubHandler(_ => Json("[]"))));
         Assert.That(async () => await client.DownloadProjectFilesAsync("PXD012345", " "), Throws.ArgumentException);
+    }
+
+    // ---- URL resolution: host restriction and shadowing (regressions) ------
+
+    [Test]
+    public void TryGetHttpsDownloadUrl_FtpOnNonPrideHost_ReturnsFalse()
+    {
+        // REGRESSION: failed before the fix — any ftp:// host was upgraded to https://, producing a broken URL.
+        var file = MakeFile("run1.raw", "RAW", (PrideArchiveExtensions.FtpLocationAccession, "ftp://ftp.example.org/x/run1.raw"));
+
+        Assert.That(file.TryGetHttpsDownloadUrl(out string url), Is.False);
+        Assert.That(url, Is.Null);
+        Assert.That(() => file.GetHttpsDownloadUrl(), Throws.InstanceOf<NotSupportedException>());
+    }
+
+    [Test]
+    public void TryGetHttpsDownloadUrl_MalformedFtpAccessionEntry_DoesNotShadowValidFtp()
+    {
+        // REGRESSION: failed before the fix — an FTP-accession entry with a null value shadowed the valid ftp:// URL.
+        var file = new PrideArchiveFile
+        {
+            FileName = "run1.raw",
+            FileSizeBytes = 10,
+            FileCategory = new CvParam("PRIDE", "PRIDE:0000404", "category", "RAW"),
+            PublicFileLocations = new List<CvParam>
+            {
+                new("PRIDE", PrideArchiveExtensions.FtpLocationAccession, "location", null),           // malformed: no value
+                new("PRIDE", PrideArchiveExtensions.FtpLocationAccession, "location", "ftp://ftp.pride.ebi.ac.uk/pride/data/x/run1.raw"),
+            }
+        };
+
+        Assert.That(file.TryGetHttpsDownloadUrl(out string url), Is.True);
+        Assert.That(url, Is.EqualTo("https://ftp.pride.ebi.ac.uk/pride/data/x/run1.raw"));
+    }
+
+    // ---- WhereExtension edge cases (regressions) ---------------------------
+
+    [Test]
+    public void WhereExtension_OnlyBlankExtensions_Throws()
+    {
+        // REGRESSION: failed before the fix — all-blank extensions silently matched zero files instead of throwing.
+        var files = new[] { MakeFile("a.raw") };
+        Assert.That(() => files.WhereExtension(" ", "").ToArray(), Throws.ArgumentException);
+    }
+
+    [Test]
+    public void WhereExtension_MixOfBlankAndReal_FiltersOnRealOnly()
+    {
+        var files = new[] { MakeFile("a.raw"), MakeFile("b.mzML") };
+        Assert.That(files.WhereExtension("", ".raw").Select(f => f.FileName), Is.EqualTo(new[] { "a.raw" }));
+    }
+
+    [Test]
+    public void WhereExtension_ExtensionlessAndDoubleExtension_Handled()
+    {
+        var files = new[] { MakeFile("README"), MakeFile("a.mzML.gz"), MakeFile("b.gz") };
+
+        // an extensionless name is never a match; a double-extension name matches only its trailing extension
+        Assert.That(files.WhereExtension(".gz").Select(f => f.FileName), Is.EqualTo(new[] { "a.mzML.gz", "b.gz" }));
+        Assert.That(files.WhereExtension(".mzML").Select(f => f.FileName), Is.Empty);
+    }
+
+    [Test]
+    public void WhereCategory_NullCategory_Skipped()
+    {
+        var withNullCategory = new PrideArchiveFile { FileName = "x.raw", FileCategory = null };
+        var files = new[] { withNullCategory, MakeFile("y.raw", "RAW") };
+
+        // a file whose category is null (possible from the wire) is skipped, not an NRE
+        Assert.That(() => files.WhereCategory("RAW").ToArray(), Throws.Nothing);
+        Assert.That(files.WhereCategory("RAW").Select(f => f.FileName), Is.EqualTo(new[] { "y.raw" }));
+    }
+
+    // ---- DownloadFileAsync: path traversal, cancellation, mid-stream fault --
+
+    [TestCase("../evil.raw")]
+    [TestCase("sub/dir/file.raw")]
+    public void DownloadFileAsync_FileNameNotBareLeaf_Throws_WritesNothingOutside(string fileName)
+    {
+        // REGRESSION: failed before the fix — a path-bearing FileName escaped destinationDirectory via Path.Combine.
+        var handler = new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("x")));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+        var file = MakeFile(fileName, "RAW", Ftp("pride/data/x/leaf.raw"));
+
+        Assert.That(async () => await client.DownloadFileAsync(file, _tempDir), Throws.ArgumentException);
+        Assert.That(handler.RequestedUris, Is.Empty);                        // rejected before any network call
+        Assert.That(File.Exists(Path.Combine(_tempDir, "evil.raw")), Is.False);
+    }
+
+    [Test]
+    public void DownloadFileAsync_PreCancelledToken_Throws_LeavesNoFile()
+    {
+        var handler = new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("data")));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.That(async () => await client.DownloadFileAsync(file, _tempDir, cancellationToken: cts.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
+    }
+
+    [Test]
+    public void DownloadFileAsync_MidStreamFailure_LeavesNoPartial()
+    {
+        // the ".partial"-then-move design must clean up the sibling when the transfer faults mid-stream
+        var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4))
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        Assert.That(async () => await client.DownloadFileAsync(file, _tempDir), Throws.InstanceOf<IOException>());
+        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw.partial")), Is.False);
+        Assert.That(File.Exists(Path.Combine(_tempDir, "run1.raw")), Is.False);
+    }
+
+    // ---- DownloadProjectFilesAsync: null filter and empty selection --------
+
+    [Test]
+    public async Task DownloadProjectFilesAsync_NullFilter_DownloadsAllFiles()
+    {
+        string manifest = "[" + string.Join(",", new[]
+        {
+            FileJson("one.raw", "RAW", "PRIDE:0000404"),
+            FileJson("two.mzid", "SEARCH", "PRIDE:0000408"),
+        }) + "]";
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files")) return Json(manifest);
+            return Bytes(Encoding.UTF8.GetBytes("bytes-of-" + uri));
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var paths = await client.DownloadProjectFilesAsync("PXD012345", _tempDir); // no filter => download everything
+
+        Assert.That(paths.Count, Is.EqualTo(2));
+        Assert.That(File.Exists(Path.Combine(_tempDir, "one.raw")), Is.True);
+        Assert.That(File.Exists(Path.Combine(_tempDir, "two.mzid")), Is.True);
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("ftp.pride.ebi.ac.uk")), Is.EqualTo(2));
+    }
+
+    [Test]
+    public async Task DownloadProjectFilesAsync_FilterMatchesNothing_ReturnsEmpty_NoDownloads()
+    {
+        string manifest = "[" + FileJson("one.raw", "RAW", "PRIDE:0000404") + "]";
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("/files")) return Json(manifest);
+            return Bytes(Encoding.UTF8.GetBytes("bytes-of-" + uri));
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var paths = await client.DownloadProjectFilesAsync("PXD012345", _tempDir, _ => false); // matches nothing
+
+        Assert.That(paths, Is.Empty);
+        Assert.That(handler.RequestedUris.Count(u => u.Contains("ftp.pride.ebi.ac.uk")), Is.EqualTo(0)); // manifest only
     }
 
     /// <summary>A single PRIDE file object in the real v3 wire shape (FTP + Aspera locations).</summary>

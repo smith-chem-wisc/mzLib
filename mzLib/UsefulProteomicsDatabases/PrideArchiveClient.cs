@@ -141,7 +141,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="cancellationToken">Cancels the download.</param>
         /// <returns>The full path of the written (or already-present) file.</returns>
         /// <exception cref="ArgumentNullException">The file is null.</exception>
-        /// <exception cref="ArgumentException">The destination directory is blank, or the file has no name.</exception>
+        /// <exception cref="ArgumentException">The destination directory is blank, the file has no name, or the file name is not a bare file name (contains a path separator, a "..", or a root).</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only).</exception>
         /// <exception cref="HttpRequestException">The download returned a non-success status code.</exception>
         public async Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
@@ -154,10 +154,19 @@ namespace UsefulProteomicsDatabases
             if (string.IsNullOrWhiteSpace(file.FileName))
                 throw new ArgumentException("The PRIDE file has no file name to save under.", nameof(file));
 
+            // The file name comes verbatim from the PRIDE response; treat it as untrusted. Only a bare
+            // leaf name is allowed, so a value carrying a directory separator, a ".." segment, or a rooted
+            // path cannot escape destinationDirectory when combined below (Path.Combine does not sanitize).
+            string safeFileName = Path.GetFileName(file.FileName);
+            if (safeFileName != file.FileName)
+                throw new ArgumentException(
+                    $"The PRIDE file name '{file.FileName}' is not a bare file name; refusing to write outside the destination directory.",
+                    nameof(file));
+
             string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
 
             Directory.CreateDirectory(destinationDirectory);
-            string destinationPath = Path.Combine(destinationDirectory, file.FileName);
+            string destinationPath = Path.Combine(destinationDirectory, safeFileName);
 
             if (!overwrite && File.Exists(destinationPath))
                 return destinationPath; // already downloaded; leave it untouched
