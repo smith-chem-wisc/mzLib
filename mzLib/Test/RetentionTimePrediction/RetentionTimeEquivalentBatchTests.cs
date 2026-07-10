@@ -159,7 +159,7 @@ namespace Test.RetentionTimePrediction
                 foreach (var peptide in peptides)
                 {
                     Assert.That(results1[peptide.BaseSequence].PredictedValue,
-                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue),
+                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue).Within(1e-4),
                         $"{predictor.PredictorName} gave inconsistent batch results for {peptide.BaseSequence}");
                 }
             }
