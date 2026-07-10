@@ -585,7 +585,11 @@ namespace UsefulProteomicsDatabases
                 }
                 ProteolysisProducts.Add(new TruncationProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
             }
-            else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "")
+            // A sequence-variant feature encodes a real change when at least one of <original>/<variation>
+            // is non-empty: substitution (both), insertion (empty original), or DELETION (empty variation —
+            // how UniProt natively encodes a deletion, e.g. <original>P</original><variation/>). Requiring a
+            // non-empty <variation> silently dropped every UniProt-native deletion.
+            else if (FeatureType == "sequence variant" && !(string.IsNullOrEmpty(OriginalValue) && string.IsNullOrEmpty(VariationValue)))
             {
                 bool appliesToThisSequence = true;
                 if (!string.IsNullOrEmpty(LocationSequenceId))

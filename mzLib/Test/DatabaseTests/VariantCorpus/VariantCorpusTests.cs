@@ -21,7 +21,8 @@ namespace Test.DatabaseTests.VariantCorpus
     ///   Corpus_Node           — build XML -> LoadProteinXML (variants expand at load) -> digest -> compare.
     ///   Corpus_Node_RoundTrip — same, but the consensus protein is serialized through the real ProteinDbWriter
     ///                           and re-read first, so encode+decode is exercised too (invariant 6 / #1083).
-    /// L0 only (substitutions + PTMs, top-down, caps non-binding); indels/processing/digestion are later layers.
+    /// L0 (substitutions + PTMs) + L1 (deletions: single/multi-base, before/on/after a PTM, out-of-range, and the
+    /// VCF depth cutoff = minAlleleDepth); processing/digestion/insertions are later layers.
     /// </summary>
     [TestFixture]
     internal class VariantCorpusTests
@@ -38,6 +39,7 @@ namespace Test.DatabaseTests.VariantCorpus
             int MaxIsoforms, int MaxMods,
             int ExpectedCount, string Verdict, string Reason,
             string[] ExpectedForms,
+            int MinAlleleDepth = 1, int MaxHeterozygous = 4,
             string Opts = "-");
 
         // Canonical test-mod registry (see README "Canonical test mods"). name -> (ModificationType, monoisotopicMass).
@@ -98,6 +100,146 @@ namespace Test.DatabaseTests.VariantCorpus
                 ExpectedCount: 1, Verdict: "pruned:out-of-range",
                 Reason: "Position 9 > length 7 -> variant pruned; only consensus (reader ~line 776; outOfRangeVariant.xml).",
                 ExpectedForms: new[] { "PEPTIDE" });
+
+            // ---- L1: deletions (installments 3, 10, 12) ---------------------------------------------------
+            // UniProt-native deletions are encoded as an EMPTY <variation> (VAR omitted here). Until the reader
+            // gap at ProteinXmlEntry.cs:588 is fixed these D0x nodes are RED (the deletion is silently dropped,
+            // so only the consensus forms are produced); the oracle below is the biologically-correct answer per
+            // the bible, so the fix turns them green. D05/D06 (out-of-range) and D07/D08 (VCF depth) are green
+            // regardless of that fix.
+
+            // D00 — single-base deletion, unmodified. Delete P3 -> PETIDE.
+            yield return new CorpusCase(
+                Id: "D00", Layer: "L1a", Tests: "del-single-unmod",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=P POS=3 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Single-base deletion of P3 -> consensus + PETIDE. UniProt-native (empty <variation>); RED until ProteinXmlEntry.cs:588 fix.",
+                ExpectedForms: new[] { "PEPTIDE", "PETIDE" });
+
+            // D01 — multi-base deletion, unmodified. Delete E2-P3 -> PTIDE.
+            yield return new CorpusCase(
+                Id: "D01", Layer: "L1a", Tests: "del-multi-unmod",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=EP BEGIN=2 END=3 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Multi-base deletion of E2-P3 -> consensus + PTIDE (begin/end range). RED until reader fix.",
+                ExpectedForms: new[] { "PEPTIDE", "PTIDE" });
+
+            // D02 — deletion BEFORE the PTM residue. Phospho@T4; delete P3 -> T slides 4->3, phospho follows
+            // (installment 3). 4 forms.
+            yield return new CorpusCase(
+                Id: "D02", Layer: "L1-int", Tests: "del-before-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=P POS=3 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Deletion upstream of the mod re-anchors the phospho with its residue (T 4->3). Consensus{0,1 phospho} + variant{0,1 phospho} = 4. Installment 3; AdjustModificationIndices k>end shift.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PETIDE", "PET[Biological:Phosphorylation on T]IDE" });
+
+            // D03 — deletion ON the PTM residue. Phospho@T4; delete T4 -> anchor gone, no phospho on the variant
+            // (installment 3; D7 positional drop). 3 forms NOT 4.
+            yield return new CorpusCase(
+                Id: "D03", Layer: "L1-int", Tests: "del-on-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "pruned:illegal-mod",
+                Reason: "Deleting the modified residue drops the phospho on the variant (anchor gone), kept on consensus. 3 forms NOT 4. Installment 3; AdjustModificationIndices begin<=k<=end -> dropped (D7).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPIDE" });
+
+            // D04 — deletion AFTER the PTM residue. Phospho@T4; delete I5 -> T4 unmoved, phospho stays. 4 forms.
+            yield return new CorpusCase(
+                Id: "D04", Layer: "L1-int", Tests: "del-after-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=I POS=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Deletion downstream of the mod leaves the phospho anchored at T4. Consensus{0,1} + variant PEPTDE{0,1} = 4. AdjustModificationIndices k<begin -> unaffected.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTDE", "PEPT[Biological:Phosphorylation on T]DE" });
+
+            // D05 — deletion OUT OF BOUNDS (single). Position 9 > length 7 -> pruned; consensus only. Green regardless.
+            yield return new CorpusCase(
+                Id: "D05", Layer: "L1a", Tests: "del-out-of-range",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=A POS=9 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 1, Verdict: "pruned:out-of-range",
+                Reason: "Deletion position 9 > length 7 -> PruneOutOfRangeSequenceVariants removes it; consensus only.",
+                ExpectedForms: new[] { "PEPTIDE" });
+
+            // D06 — deletion straddling the C-terminus. begin 6 within, end 9 beyond -> pruned (end > len); consensus only.
+            yield return new CorpusCase(
+                Id: "D06", Layer: "L1a", Tests: "del-straddle-end",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=DE BEGIN=6 END=9 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 1, Verdict: "pruned:out-of-range",
+                Reason: "Deletion end 9 > length 7 (begin 6 in range) -> pruned by begin>len||end>len; consensus only.",
+                ExpectedForms: new[] { "PEPTIDE" });
+
+            // D07 — VCF deletion PASSING the depth cutoff. Heterozygous 0/1, alt AD=6 >= minAlleleDepth 5 ->
+            // keep consensus AND apply the deletion (installment 12; ApplyVariants het path). 2 forms.
+            yield return new CorpusCase(
+                Id: "D07", Layer: "L1-vcf", Tests: "del-depth-pass",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=EP VAR=E BEGIN=2 END=3 SRC=vcf GT=0/1 AD=8,6 DP=14", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "VCF-anchored deletion of P3; het alt AD=6 >= minAlleleDepth=5 -> consensus + PETIDE. Depth filter = minAlleleDepth (VCF AD).",
+                ExpectedForms: new[] { "PEPTIDE", "PETIDE" },
+                MinAlleleDepth: 5);
+
+            // D08 — same VCF deletion FAILING the depth cutoff. alt AD=6 < minAlleleDepth 7 -> allele filtered;
+            // consensus only. The depth cutoff, encoded from the sequencing data (AD), drops the deletion.
+            yield return new CorpusCase(
+                Id: "D08", Layer: "L1-vcf", Tests: "del-depth-fail",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=EP VAR=E BEGIN=2 END=3 SRC=vcf GT=0/1 AD=8,6 DP=14", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 1, Verdict: "filtered:below-depth-cutoff",
+                Reason: "Same VCF deletion; alt AD=6 < minAlleleDepth=7 -> isDeepAlternateAllele false, deletion not applied; consensus only.",
+                ExpectedForms: new[] { "PEPTIDE" },
+                MinAlleleDepth: 7);
+
+            // ---- L1 multi: two SEPARATE deletions in one protein (combinatorial path; invariants 3-4) -------
+            // Two genotype-less deletions expand to consensus + each single + the pair (least-modified-first,
+            // applied descending-position). Kept to PAIRS so base+2+1 = 4 stays under the default cap (no
+            // throttle/determinism-under-cap yet — that's a later layer). Each combo re-anchors mods independently.
+
+            // MD00 — two single-base deletions, unmodified. Delete P3 and D6 -> {consensus, PETIDE, PEPTIE, PETIE}.
+            yield return new CorpusCase(
+                Id: "MD00", Layer: "L1-multi", Tests: "del-x2-unmod",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=P POS=3 SRC=uniprot; OP=D POS=6 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Two independent single-base deletions -> consensus + each single + the pair. base+2+1=4 (under cap).",
+                ExpectedForms: new[] { "PEPTIDE", "PETIDE", "PEPTIE", "PETIE" });
+
+            // MD01 — two deletions FLANKING a PTM. Phospho@T4; delete P3 (before) and I5 (after). Phospho
+            // re-anchors to T per combo (4->3 whenever P3 is deleted). 4 isoforms x variable phospho = 8 forms.
+            yield return new CorpusCase(
+                Id: "MD01", Layer: "L1-multi", Tests: "del-x2-flanking-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=P POS=3 SRC=uniprot; OP=I POS=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 8, Verdict: "applied",
+                Reason: "Deletions before (P3) and after (I5) the mod; phospho survives all 4 combos, re-anchored to T (pos 4 or 3). 4 isoforms x {0,1 phospho} = 8.",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "PETIDE", "PET[Biological:Phosphorylation on T]IDE",
+                    "PEPTDE", "PEPT[Biological:Phosphorylation on T]DE",
+                    "PETDE", "PET[Biological:Phosphorylation on T]DE"
+                });
+
+            // MD02 — two deletions where ONE removes the PTM residue. Phospho@T4; delete E2 (before) and T4 (on).
+            // Phospho survives combos WITHOUT the T4 deletion (consensus, delE2), dropped in combos WITH it
+            // (delT4, delE2+delT4). 2+2+1+1 = 6 forms.
+            yield return new CorpusCase(
+                Id: "MD02", Layer: "L1-multi", Tests: "del-x2-one-on-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E POS=2 SRC=uniprot; OP=T POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 6, Verdict: "applied",
+                Reason: "Phospho kept where T4 survives (consensus{0,1}, delE2{0,1}), dropped where T4 is deleted (delT4, delE2+delT4). 2+2+1+1 = 6.",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "PPTIDE", "PPT[Biological:Phosphorylation on T]IDE",
+                    "PEPIDE", "PPIDE"
+                });
         }
 
         private static IEnumerable<TestCaseData> Cases()
@@ -169,7 +311,8 @@ namespace Test.DatabaseTests.VariantCorpus
                 List<Protein> loaded = ProteinDbLoader.LoadProteinXML(tmp1,
                     generateTargets: true, decoyType: DecoyType.None,
                     allKnownModifications: knownMods, isContaminant: false,
-                    modTypesToExclude: new List<string>(), out _);
+                    modTypesToExclude: new List<string>(), out _,
+                    maxHeterozygousVariants: c.MaxHeterozygous, minAlleleDepth: c.MinAlleleDepth);
 
                 // Write ONLY the consensus protein(s): they retain SequenceVariations, so re-expansion
                 // happens on reload exactly as it did on the first load. Writing the applied isoforms
@@ -181,7 +324,8 @@ namespace Test.DatabaseTests.VariantCorpus
                 List<Protein> reread = ProteinDbLoader.LoadProteinXML(tmp2,
                     generateTargets: true, decoyType: DecoyType.None,
                     allKnownModifications: knownMods, isContaminant: false,
-                    modTypesToExclude: new List<string>(), out _);
+                    modTypesToExclude: new List<string>(), out _,
+                    maxHeterozygousVariants: c.MaxHeterozygous, minAlleleDepth: c.MinAlleleDepth);
 
                 return Digest(reread, c);
             }
@@ -199,7 +343,8 @@ namespace Test.DatabaseTests.VariantCorpus
                 List<Protein> proteins = ProteinDbLoader.LoadProteinXML(tmp,
                     generateTargets: true, decoyType: DecoyType.None,
                     allKnownModifications: knownMods, isContaminant: false,
-                    modTypesToExclude: new List<string>(), out _);
+                    modTypesToExclude: new List<string>(), out _,
+                    maxHeterozygousVariants: c.MaxHeterozygous, minAlleleDepth: c.MinAlleleDepth);
                 return Digest(proteins, c);
             }
             finally { File.Delete(tmp); }
@@ -259,13 +404,42 @@ namespace Test.DatabaseTests.VariantCorpus
                 foreach (var v in c.Variants.Split(';', StringSplitOptions.RemoveEmptyEntries))
                 {
                     var kv = ParseKeyVals(v.Trim());
+                    // OP = original residue(s); OP=- -> placeholder "X". VAR = variation residue(s);
+                    // VAR omitted or VAR=- -> EMPTY variation = a UniProt-native deletion (installment 10).
                     string op = kv.TryGetValue("OP", out var o) && o != "-" ? o : "X";
-                    string variation = kv["VAR"];
-                    string pos = kv["POS"];
+                    string variation = kv.TryGetValue("VAR", out var vv) && vv != "-" ? vv : "";
+                    // Location is either a single POS or a BEGIN/END range (multi-residue indel).
+                    bool hasRange = kv.ContainsKey("BEGIN") && kv.ContainsKey("END");
+                    int begin = hasRange ? int.Parse(kv["BEGIN"]) : int.Parse(kv["POS"]);
+                    int end = hasRange ? int.Parse(kv["END"]) : begin;
+
+                    // SRC=vcf -> the description IS a VCF record (so VariantCallFormat parses genotype + AD,
+                    // routing through the minAlleleDepth-aware ApplyVariants path). Otherwise a prose label
+                    // (UniProt-native: no genotype, goes through the combinatorial path).
+                    string description;
+                    if (kv.TryGetValue("SRC", out var src) && src == "vcf")
+                    {
+                        string gt = kv["GT"], ad = kv["AD"], dp = kv.TryGetValue("DP", out var d) ? d : "0";
+                        // Tabs as literal "\t" (VariantCallFormat normalizes them); ANN carries the 16
+                        // pipe-delimited fields SnpEffAnnotation indexes, with Allele == ALT so AlleleIndex resolves.
+                        description =
+                            $"1\\t{begin}\\t.\\t{op}\\t{variation}\\t.\\tPASS\\t" +
+                            $"ANN={variation}|inframe_deletion|MODERATE|TEST|TESTID|transcript|tx1|protein_coding|1/1|c.1del|p.1del||1/7|1/7||\\t" +
+                            $"GT:AD:DP\\t{gt}:{ad}:{dp}";
+                    }
+                    else
+                    {
+                        description = variation == "" ? $"deletion {op}{begin}" : $"{op}{begin}{variation} variant";
+                    }
+
+                    string location = hasRange
+                        ? $"      <location><begin position=\"{begin}\" /><end position=\"{end}\" /></location>\n"
+                        : $"      <location><position position=\"{begin}\" /></location>\n";
+
                     features.Append(
-                        $"    <feature type=\"sequence variant\" description=\"{op}{pos}{variation} variant\">\n" +
+                        $"    <feature type=\"sequence variant\" description=\"{description}\">\n" +
                         $"      <original>{op}</original>\n      <variation>{variation}</variation>\n" +
-                        $"      <location><position position=\"{pos}\" /></location>\n" +
+                        location +
                         $"    </feature>\n");
                 }
             }
