@@ -1,5 +1,7 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -119,6 +121,104 @@ namespace UsefulProteomicsDatabases
             }
 
             return files;
+        }
+
+        /// <summary>
+        /// Downloads a single PRIDE file's bytes to <paramref name="destinationDirectory"/>, saved under the
+        /// file's own <see cref="PrideArchiveFile.FileName"/>. The download runs over HTTPS through this
+        /// client's reused <see cref="HttpClient"/>: PRIDE exposes files as FTP/Aspera locations, but its FTP
+        /// host also serves the identical path over HTTPS, so an FTP location is scheme-upgraded to HTTPS (see
+        /// <see cref="PrideArchiveExtensions.GetHttpsDownloadUrl"/>). The bytes are streamed to a sibling
+        /// ".partial" file and moved into place only on success, so an interrupted transfer never leaves a
+        /// truncated file at the destination path.
+        /// </summary>
+        /// <param name="file">The file to download. Must not be null and must have a file name.</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="overwrite">
+        /// When true (the default) an existing destination file is replaced. When false, an existing
+        /// destination file is left untouched and no request is made (a cheap resume for large projects).
+        /// </param>
+        /// <param name="cancellationToken">Cancels the download.</param>
+        /// <returns>The full path of the written (or already-present) file.</returns>
+        /// <exception cref="ArgumentNullException">The file is null.</exception>
+        /// <exception cref="ArgumentException">The destination directory is blank, or the file has no name.</exception>
+        /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only).</exception>
+        /// <exception cref="HttpRequestException">The download returned a non-success status code.</exception>
+        public async Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
+            bool overwrite = true, CancellationToken cancellationToken = default)
+        {
+            if (file == null)
+                throw new ArgumentNullException(nameof(file));
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
+            if (string.IsNullOrWhiteSpace(file.FileName))
+                throw new ArgumentException("The PRIDE file has no file name to save under.", nameof(file));
+
+            string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
+
+            Directory.CreateDirectory(destinationDirectory);
+            string destinationPath = Path.Combine(destinationDirectory, file.FileName);
+
+            if (!overwrite && File.Exists(destinationPath))
+                return destinationPath; // already downloaded; leave it untouched
+
+            using HttpResponseMessage response =
+                await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"PRIDE download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{url}'.");
+
+            string partialPath = destinationPath + ".partial";
+            try
+            {
+                using (var fileStream = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
+                {
+                    await httpStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                }
+                File.Move(partialPath, destinationPath, overwrite: true);
+            }
+            finally
+            {
+                if (File.Exists(partialPath))
+                    File.Delete(partialPath);
+            }
+
+            return destinationPath;
+        }
+
+        /// <summary>
+        /// Downloads a project's files to <paramref name="destinationDirectory"/>, optionally filtered. This is
+        /// the convenience over <see cref="GetProjectFilesAsync"/> + <see cref="DownloadFileAsync"/>: it fetches
+        /// the manifest, applies <paramref name="filter"/>, and downloads each selected file in turn.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
+        /// <param name="filter">
+        /// An optional predicate selecting which files to download (e.g. by category or extension — see
+        /// <see cref="PrideArchiveExtensions"/>). When null, every file in the manifest is downloaded.
+        /// </param>
+        /// <param name="overwrite">Passed through to <see cref="DownloadFileAsync"/>; default true.</param>
+        /// <param name="cancellationToken">Cancels between and during file downloads.</param>
+        /// <returns>The full paths of the downloaded files, in manifest order. Empty if none matched.</returns>
+        /// <exception cref="ArgumentException">The accession or destination directory is blank.</exception>
+        /// <exception cref="HttpRequestException">The manifest request or a download returned a non-success status.</exception>
+        public async Task<IReadOnlyList<string>> DownloadProjectFilesAsync(string accession, string destinationDirectory,
+            Func<PrideArchiveFile, bool> filter = null, bool overwrite = true, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(destinationDirectory))
+                throw new ArgumentException("A destination directory is required.", nameof(destinationDirectory));
+
+            List<PrideArchiveFile> files = await GetProjectFilesAsync(accession, cancellationToken: cancellationToken).ConfigureAwait(false);
+            IEnumerable<PrideArchiveFile> selected = filter == null ? files : files.Where(filter);
+
+            var downloadedPaths = new List<string>();
+            foreach (PrideArchiveFile file in selected)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                downloadedPaths.Add(await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false));
+            }
+            return downloadedPaths;
         }
 
         /// <summary>Reads the PRIDE "total_records" response header, if present and numeric.</summary>
