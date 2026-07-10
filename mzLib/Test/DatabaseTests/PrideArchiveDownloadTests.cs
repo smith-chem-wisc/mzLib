@@ -187,6 +187,7 @@ public class PrideArchiveDownloadTests
     {
         IEnumerable<PrideArchiveFile> nil = null;
         Assert.That(() => nil.WhereCategory("RAW").ToArray(), Throws.ArgumentNullException);
+        Assert.That(() => nil.WhereExtension("raw").ToArray(), Throws.ArgumentNullException);
         Assert.That(() => nil.TotalSizeBytes(), Throws.ArgumentNullException);
         Assert.That(() => new[] { MakeFile("a.raw") }.WhereCategory(" ").ToArray(), Throws.ArgumentException);
         Assert.That(() => new[] { MakeFile("a.raw") }.WhereExtension().ToArray(), Throws.ArgumentException);
@@ -338,6 +339,7 @@ public class PrideArchiveDownloadTests
             FileCategory = new CvParam("PRIDE", "PRIDE:0000404", "category", "RAW"),
             PublicFileLocations = new List<CvParam>
             {
+                null,                                                                                 // a null location entry must be skipped, not throw
                 new("PRIDE", PrideArchiveExtensions.FtpLocationAccession, "location", null),           // malformed: no value
                 new("PRIDE", PrideArchiveExtensions.FtpLocationAccession, "location", "ftp://ftp.pride.ebi.ac.uk/pride/data/x/run1.raw"),
             }
@@ -367,9 +369,9 @@ public class PrideArchiveDownloadTests
     [Test]
     public void WhereExtension_ExtensionlessAndDoubleExtension_Handled()
     {
-        var files = new[] { MakeFile("README"), MakeFile("a.mzML.gz"), MakeFile("b.gz") };
+        var files = new PrideArchiveFile[] { null, MakeFile("README"), MakeFile("a.mzML.gz"), MakeFile("b.gz") };
 
-        // an extensionless name is never a match; a double-extension name matches only its trailing extension
+        // a null file is skipped; an extensionless name is never a match; a double-extension name matches only its trailing extension
         Assert.That(files.WhereExtension(".gz").Select(f => f.FileName), Is.EqualTo(new[] { "a.mzML.gz", "b.gz" }));
         Assert.That(files.WhereExtension(".mzML").Select(f => f.FileName), Is.Empty);
     }
@@ -378,9 +380,9 @@ public class PrideArchiveDownloadTests
     public void WhereCategory_NullCategory_Skipped()
     {
         var withNullCategory = new PrideArchiveFile { FileName = "x.raw", FileCategory = null };
-        var files = new[] { withNullCategory, MakeFile("y.raw", "RAW") };
+        var files = new PrideArchiveFile[] { null, withNullCategory, MakeFile("y.raw", "RAW") };
 
-        // a file whose category is null (possible from the wire) is skipped, not an NRE
+        // a null file, or one whose category is null (possible from the wire), is skipped, not an NRE
         Assert.That(() => files.WhereCategory("RAW").ToArray(), Throws.Nothing);
         Assert.That(files.WhereCategory("RAW").Select(f => f.FileName), Is.EqualTo(new[] { "y.raw" }));
     }
