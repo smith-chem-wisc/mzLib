@@ -349,10 +349,28 @@ namespace Test
         }
 
         [Test]
-        public void FromFile_Equal_DifferentFeatureCount_AreNotEqual()
+        public void FromFile_Equal_DifferentFeatureCount_AreEqualWhenNoFilePath()
         {
+            // Two instances built with the in-memory feature ctor (no FilePath) must
+            // be equal under the new config-only equality contract: FilePath is the
+            // sole FromFile-specific identity, and feature count is now load-derived
+            // state, not configuration. Feature count no longer participates in
+            // equality (it would force eager I/O on every hash/equals call).
             var a = new FromFileDeconvolutionParameters(new[] { Feature(), Feature(601.0, 3) }, 1, 60);
             var b = new FromFileDeconvolutionParameters(new[] { Feature() }, 1, 60);
+            Assert.That(a, Is.EqualTo(b));
+        }
+
+        [Test]
+        public void FromFile_Equal_DifferentFilePaths_AreNotEqual()
+        {
+            // The new config-only identity is FilePath. Two in-memory instances with
+            // no FilePath are equal; assigning different FilePaths must distinguish
+            // them. Build in-memory, set FilePath post-construction, then compare.
+            var a = new FromFileDeconvolutionParameters(new[] { Feature() }, 1, 60);
+            var b = new FromFileDeconvolutionParameters(new[] { Feature() }, 1, 60);
+            a.FilePath = "featureA.ms1.feature";
+            b.FilePath = "featureB.ms1.feature";
             Assert.That(a, Is.Not.EqualTo(b));
         }
 

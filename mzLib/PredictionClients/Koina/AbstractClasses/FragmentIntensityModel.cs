@@ -13,6 +13,34 @@ using PredictionClients.Koina.Util;
 namespace PredictionClients.Koina.AbstractClasses
 {
     /// <summary>
+    /// Represents parsed fragment annotation data extracted from model output strings.
+    /// </summary>
+    /// <param name="FragmentIdentifier">Full fragment identifier including neutral loss suffix (e.g., "b5", "y3-H2O")</param>
+    /// <param name="Charge">Fragment charge state</param>
+    /// <param name="NeutralLossFormula">Neutral loss chemical formula if present (e.g., "H2O", "NH3"); null if no neutral loss</param>
+    /// <param name="NeutralLossMass">Monoisotopic mass of the neutral loss; null if no neutral loss</param>
+    public record ParsedFragmentAnnotation(string FragmentIdentifier, int Charge, string? NeutralLossFormula = null, double? NeutralLossMass = null)
+    {
+        /// <summary>
+        /// The base fragment identifier with the neutral loss suffix stripped (e.g., "y3" for "y3-H2O").
+        /// If there is no neutral loss, this is identical to <see cref="FragmentIdentifier"/>.
+        /// </summary>
+        public string BaseFragmentIdentifier
+        {
+            get
+            {
+                if (NeutralLossFormula != null)
+                {
+                    var dashIndex = FragmentIdentifier.IndexOf('-');
+                    if (dashIndex > 0)
+                        return FragmentIdentifier.Substring(0, dashIndex);
+                }
+                return FragmentIdentifier;
+            }
+        }
+    }
+
+    /// <summary>
     /// Represents the prediction results for a single peptide, containing fragment annotations,
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
@@ -70,6 +98,11 @@ namespace PredictionClients.Koina.AbstractClasses
     /// 
     /// In most cases, users will only need to implement a constructor to properly set up the model parameters
     /// and a ToBatchedRequests method to batch requests according to the specific model's input format.
+    ///
+    /// Thread safety: instances are NOT thread-safe. Predict and related methods
+    /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
+    /// these methods concurrently on the same instance, nor read Predictions while a call is in flight.
+    /// Use one instance per concurrent caller (or serialize externally) when sharing across pipelines.
     /// </summary>
     public abstract class FragmentIntensityModel : KoinaModelBase<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>, IPredictor<FragmentIntensityPredictionInput, PeptideFragmentIntensityPrediction>
     {
@@ -80,11 +113,34 @@ namespace PredictionClients.Koina.AbstractClasses
 
 
         #region Additional Model-Type Constraints
-        /// <summary>Set of precursor charge states supported by the model (e.g., {2, 3, 4})</summary>
+        /// <summary>
+        /// Set of precursor charge states supported by the model (e.g., {2, 3, 4}).
+        /// null = charge is not applicable to this model (skip validation).
+        /// empty = charge IS required but any value is accepted.
+        /// populated = only listed charge values are accepted.
+        /// </summary>
         public abstract HashSet<int> AllowedPrecursorCharges { get; }
-        public virtual HashSet<int> AllowedCollisionEnergies => new HashSet<int>(); 
-        public virtual HashSet<string> AllowedInstrumentTypes => new HashSet<string>();
-        public virtual HashSet<string> AllowedFragmentationTypes => new HashSet<string>();
+        /// <summary>
+        /// Set of collision energies (NCE) accepted by the model.
+        /// null = collision energy is not applicable (skip validation).
+        /// empty = collision energy IS required but any FP32 value is accepted.
+        /// populated = only listed values are accepted (e.g., 20-40 for Altimeter).
+        /// </summary>
+        public virtual HashSet<int>? AllowedCollisionEnergies => null;
+        /// <summary>
+        /// Set of instrument types accepted by the model.
+        /// null = instrument type is not applicable (skip validation).
+        /// empty = instrument type IS required but any value is accepted.
+        /// populated = only listed values are accepted.
+        /// </summary>
+        public virtual HashSet<string>? AllowedInstrumentTypes => null;
+        /// <summary>
+        /// Set of fragmentation types accepted by the model.
+        /// null = fragmentation type is not applicable (skip validation).
+        /// empty = fragmentation type IS required but any value is accepted.
+        /// populated = only listed values are accepted (e.g., {"HCD", "CID"} for Prosit).
+        /// </summary>
+        public virtual HashSet<string>? AllowedFragmentationTypes => null;
         /// <summary>
         /// Maps mzLib modification format to monoisotopic mass differences for mass-only conversions. 
         /// The monoisotopic masses should be obtained from the UNIMOD database for accuracy (https://www.unimod.org/).
@@ -95,6 +151,9 @@ namespace PredictionClients.Koina.AbstractClasses
         #endregion
 
         #region Validation Patterns and Filters
+        /// <summary>Total number of fragment ions predicted per peptide by this model. -1 if not known or dynamic.</summary>
+        public virtual int NumberOfPredictedFragmentIons => -1;
+
         /// <summary>Minimum intensity threshold for including predicted fragments in spectral library generation</summary>
         public virtual double MinIntensityFilter { get; protected set; } = 1e-6;
 
@@ -146,6 +205,77 @@ namespace PredictionClients.Koina.AbstractClasses
 
 
         #region Querying Methods for the Koina API
+
+        /// <summary>
+        /// Extracts annotation, m/z, and intensity outputs from a Koina API response by matching output names.
+        /// Models may return outputs in different orders; this method resolves them by name.
+        /// </summary>
+        protected virtual (List<object> annotations, List<object> mz, List<object> intensities) ExtractOutputs(ResponseJSONStruct response)
+        {
+            List<object>? annotations = null;
+            List<object>? mz = null;
+            List<object>? intensities = null;
+
+            foreach (var output in response.Outputs)
+            {
+                if (output.Name == "annotation" || output.Name == "annotations")
+                    annotations = output.Data ?? throw new Exception($"Output '{output.Name}' has null data.");
+                else if (output.Name == "mz")
+                    mz = output.Data ?? throw new Exception($"Output '{output.Name}' has null data.");
+                else if (output.Name == "intensities")
+                    intensities = output.Data ?? throw new Exception($"Output '{output.Name}' has null data.");
+            }
+
+            if (annotations == null || mz == null || intensities == null)
+            {
+                throw new Exception($"API response is missing expected outputs. Found: {string.Join(", ", response.Outputs.Select(o => o.Name))}. Expected: annotations, mz, intensities.");
+            }
+
+            return (annotations, mz, intensities);
+        }
+
+        /// <summary>
+        /// Parses a fragment annotation string from model output into its identifier and charge components.
+        /// Default implementation expects the format "type+charge" (e.g., "b5+1", "y10+2").
+        /// Override in derived classes for models that use different annotation formats.
+        /// </summary>
+        /// <param name="annotation">Raw annotation string from model output</param>
+        /// <returns>Parsed fragment identifier and charge</returns>
+        /// <exception cref="Exception">Thrown when the annotation cannot be parsed</exception>
+        protected virtual ParsedFragmentAnnotation ParseFragmentAnnotation(string annotation)
+        {
+            var plusIndex = annotation.LastIndexOf('+');
+            if (plusIndex <= 0)
+            {
+                throw new Exception($"Cannot parse fragment annotation '{annotation}'. Expected format: 'type+charge' (e.g., 'b5+1', 'y10+2').");
+            }
+            var fragmentIdentifier = annotation.Substring(0, plusIndex);
+            var chargeStr = annotation.Substring(plusIndex + 1);
+            if (!int.TryParse(chargeStr, out int charge))
+            {
+                throw new Exception($"Cannot parse charge from fragment annotation '{annotation}'. Charge value: '{chargeStr}'.");
+            }
+
+            // Check for neutral loss suffix (e.g., "y3-H2O+1" -> base "y3", NL "H2O")
+            var dashIndex = fragmentIdentifier.IndexOf('-');
+            if (dashIndex > 0)
+            {
+                var baseId = fragmentIdentifier.Substring(0, dashIndex);
+                var nlFormula = fragmentIdentifier.Substring(dashIndex + 1);
+                try
+                {
+                    var nlMass = ChemicalFormula.ParseFormula(nlFormula).MonoisotopicMass;
+                    return new ParsedFragmentAnnotation(fragmentIdentifier, charge, nlFormula, nlMass);
+                }
+                catch
+                {
+                    // If the formula cannot be parsed (e.g., numeric mass like "18.01", or unknown notation),
+                    // fall through to return the annotation without neutral loss information.
+                }
+            }
+
+            return new ParsedFragmentAnnotation(fragmentIdentifier, charge);
+        }
 
         /// <summary>
         /// Executes fragment intensity prediction by sending batched requests to the Koina API.
@@ -202,11 +332,11 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 #region Throttled API Requests and Response Processing
                 var responses = new List<string>();
-                using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes); // Set a reasonable timeout for each batch chunk
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes)); // Bound the whole session
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
                     if (i < batchChunks.Count - 1) // No need to throttle after the last batch
                     {
@@ -303,20 +433,20 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 var response = deserializedResponses[batchIndex];
 
-                /// Each response is excpected to have an outputs list with
-                /// 1) Fragment Annotations
-                /// 2) Fragment MZs
-                /// 3) Fragment Intensities
-                if (response == null || response.Outputs.Count != 3)
+                var (outputAnnotations, outputMZs, outputIntensities) = ExtractOutputs(response);
+                // The annotation, m/z, and intensity arrays are indexed in lockstep below, so they
+                // must be the same length. Guard explicitly rather than risk an IndexOutOfRange or
+                // a silent annotation/m-z/intensity misalignment if Koina returns ragged arrays.
+                if (outputMZs.Count != outputAnnotations.Count || outputIntensities.Count != outputAnnotations.Count)
                 {
-                    throw new Exception($"API response is not in the expected format. Expected 3 outputs, got {response?.Outputs.Count}.");
+                    throw new Exception($"Koina response output arrays have mismatched lengths: annotations={outputAnnotations.Count}, mz={outputMZs.Count}, intensities={outputIntensities.Count}. Expected all three to be equal.");
                 }
-
-                var outputAnnotations = response.Outputs[0].Data;
-                var outputMZs = response.Outputs[1].Data;
-                var outputIntensities = response.Outputs[2].Data;
                 var batchPeptides = requestInputs.Skip(batchIndex * MaxBatchSize).Take(MaxBatchSize).ToList();
                 // Assuming outputData is structured such that each peptide's data is sequential
+                if (outputAnnotations.Count % batchPeptides.Count != 0)
+                {
+                    throw new Exception($"Fragment annotation count ({outputAnnotations.Count}) is not evenly divisible by peptide count ({batchPeptides.Count}).");
+                }
                 var fragmentCount = outputAnnotations.Count / batchPeptides.Count;
                 if (FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence)
                 {
@@ -342,7 +472,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         predictions.Add(new PeptideFragmentIntensityPrediction(
                             peptide.FullSequence,
                             peptide.ValidatedFullSequence!,
-                            ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
+                            peptide.PrecursorCharge,
                             fragmentIons,
                             fragmentMZs,
                             predictedIntensities
@@ -372,21 +502,32 @@ namespace PredictionClients.Koina.AbstractClasses
                                 continue;
                             }
                             var fragmentIon = outputAnnotations[i * fragmentCount + j].ToString()!;
-                            int plusIndex = fragmentIon.IndexOf('+');
-                            if (plusIndex == -1)
+                            // Use the model's annotation parser (handles non-'+' charge delimiters and
+                            // neutral losses) and recompute m/z like GenerateLibrarySpectraFromPredictions.
+                            ParsedFragmentAnnotation parsed;
+                            try
                             {
-                                // Skip annotations without a '+' charge delimiter (e.g., precursor ions, internal fragments)
+                                parsed = ParseFragmentAnnotation(fragmentIon);
+                            }
+                            catch
+                            {
                                 continue;
                             }
-                            int fragmentCharge = int.Parse(fragmentIon.Substring(plusIndex + 1));
+                            if (!tpLookup.TryGetValue(parsed.BaseFragmentIdentifier, out var tp))
+                            {
+                                continue;
+                            }
+                            double mz = parsed.NeutralLossMass.HasValue
+                                ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(parsed.Charge)
+                                : tp.ToMz(parsed.Charge);
                             fragmentIons.Add(fragmentIon);
-                            fragmentMZs.Add(tpLookup[fragmentIon.Substring(0, plusIndex)].ToMz(fragmentCharge));
+                            fragmentMZs.Add(mz);
                             predictedIntensities.Add(intensity);
                         }
                         predictions.Add(new PeptideFragmentIntensityPrediction(
                             peptide.FullSequence,
                             peptide.ValidatedFullSequence!,
-                            ModelInputs[batchIndex * MaxBatchSize + i].PrecursorCharge,
+                            peptide.PrecursorCharge,
                             fragmentIons,
                             fragmentMZs,
                             predictedIntensities
@@ -410,28 +551,30 @@ namespace PredictionClients.Koina.AbstractClasses
         {
             warning = null;
 
-            // Check precursor charge constraints. Checked first and prioritized since every model will require it. 
-            if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
+            // Check precursor charge constraints.
+            if (AllowedPrecursorCharges != null)
             {
-                string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
-                switch (ParameterHandlingMode)
+                if (!AllowedPrecursorCharges.IsNullOrEmpty() && !AllowedPrecursorCharges.Contains(input.PrecursorCharge))
                 {
-                    case IncompatibleParameterHandlingMode.ThrowException:
-                        throw new ArgumentException(exceptionMessage);
+                    string exceptionMessage = $"Precursor charge {input.PrecursorCharge} is not supported by this model. Allowed precursor charges: {string.Join(", ", AllowedPrecursorCharges)}.";
+                    switch (ParameterHandlingMode)
+                    {
+                        case IncompatibleParameterHandlingMode.ThrowException:
+                            throw new ArgumentException(exceptionMessage);
 
-                    case IncompatibleParameterHandlingMode.ReturnNull:
-                        warning = new WarningException(exceptionMessage);
-                        return false;
+                        case IncompatibleParameterHandlingMode.ReturnNull:
+                            warning = new WarningException(exceptionMessage);
+                            return false;
+                        default:
+                            throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                    }
                 }
             }
 
-            // Check that input has defined ALL required additional parameters (beyond sequence and charge) for the model. The specific required parameters may differ between models,
-            // but this method checks all common parameters and can be overridden by derived classes to implement additional checks as needed.
-            if ((!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy == null) ||
-                (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType == null) ||
-                (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType == null))
+            // Check that input has defined all required additional parameters for the model.
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy == null)
             {
-                string exceptionMessage = $"Input is missing required parameters for this model. Required parameters: {(AllowedCollisionEnergies.IsNullOrEmpty() ? "" : "CollisionEnergy; ")}{(AllowedInstrumentTypes.IsNullOrEmpty() ? "" : "InstrumentType; ")}{(AllowedFragmentationTypes.IsNullOrEmpty() ? "" : "FragmentationType; ")}";
+                string exceptionMessage = "Input is missing required parameter CollisionEnergy for this model.";
                 switch (ParameterHandlingMode)
                 {
                     case IncompatibleParameterHandlingMode.ThrowException:
@@ -439,11 +582,43 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                }
+            }
+
+            if (AllowedInstrumentTypes != null && input.InstrumentType == null)
+            {
+                string exceptionMessage = "Input is missing required parameter InstrumentType for this model.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
+                }
+            }
+
+            if (AllowedFragmentationTypes != null && input.FragmentationType == null)
+            {
+                string exceptionMessage = "Input is missing required parameter FragmentationType for this model.";
+                switch (ParameterHandlingMode)
+                {
+                    case IncompatibleParameterHandlingMode.ThrowException:
+                        throw new ArgumentException(exceptionMessage);
+                    case IncompatibleParameterHandlingMode.ReturnNull:
+                        warning = new WarningException(exceptionMessage);
+                        return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
             // Check collision energy constraints
-            if (!AllowedCollisionEnergies.IsNullOrEmpty() && input.CollisionEnergy != null && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
+            if (AllowedCollisionEnergies != null && input.CollisionEnergy != null && !AllowedCollisionEnergies.IsNullOrEmpty() && !AllowedCollisionEnergies.Contains(input.CollisionEnergy.Value))
             {
                 string exceptionMessage = $"Collision energy {input.CollisionEnergy} is not supported by this model. Allowed collision energies: {string.Join(", ", AllowedCollisionEnergies)}.";
                 switch (ParameterHandlingMode)
@@ -453,11 +628,13 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
             // Check instrument type constraints
-            if (!AllowedInstrumentTypes.IsNullOrEmpty() && input.InstrumentType != null && !AllowedInstrumentTypes.Contains(input.InstrumentType))
+            if (AllowedInstrumentTypes != null && input.InstrumentType != null && !AllowedInstrumentTypes.IsNullOrEmpty() && !AllowedInstrumentTypes.Contains(input.InstrumentType))
             {
                 string exceptionMessage = $"Instrument type '{input.InstrumentType}' is not supported by this model. Allowed instrument types: {string.Join(", ", AllowedInstrumentTypes)}.";
                 switch (ParameterHandlingMode)
@@ -467,11 +644,13 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
 
             // Check fragmentation type constraints
-            if (!AllowedFragmentationTypes.IsNullOrEmpty() && input.FragmentationType != null && !AllowedFragmentationTypes.Contains(input.FragmentationType))
+            if (AllowedFragmentationTypes != null && input.FragmentationType != null && !AllowedFragmentationTypes.IsNullOrEmpty() && !AllowedFragmentationTypes.Contains(input.FragmentationType))
             {
                 string exceptionMessage = $"Fragmentation type '{input.FragmentationType}' is not supported by this model. Allowed fragmentation types: {string.Join(", ", AllowedFragmentationTypes)}.";
                 switch (ParameterHandlingMode)
@@ -481,8 +660,11 @@ namespace PredictionClients.Koina.AbstractClasses
                     case IncompatibleParameterHandlingMode.ReturnNull:
                         warning = new WarningException(exceptionMessage);
                         return false;
+                    default:
+                        throw new ArgumentException($"Unhandled ParameterHandlingMode: {ParameterHandlingMode}");
                 }
             }
+
             return true;
         }
 
@@ -544,10 +726,9 @@ namespace PredictionClients.Koina.AbstractClasses
                 {
                     if (prediction.FragmentIntensities[i] == -1 || 
                         prediction.FragmentIntensities[i] < minIntensityFilter ||
-                        prediction.FragmentAnnotations[i] == null ||
-                        !prediction.FragmentAnnotations[i].Contains("+"))
+                        prediction.FragmentAnnotations[i] == null)
                     {
-                        // Skip impossible ions, peaks with near zero intensity, or misannotated fragments to be safe.
+                        // Skip impossible ions (intensity == -1) and peaks with near zero intensity.
                         // The model uses -1 to indicate impossible ions.
                         continue;
                     }
@@ -556,15 +737,37 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 foreach (var pa in predictionAnnotationIntensityLookup.Keys)
                 {
-                    var productTypeAndCharge = pa.Split("+");
+                    ParsedFragmentAnnotation parsed;
+                    try
+                    {
+                        parsed = ParseFragmentAnnotation(pa);
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+                    if (!tpLookup.TryGetValue(parsed.BaseFragmentIdentifier, out var tp))
+                    {
+                        continue;
+                    }
+                    var charge = parsed.Charge;
+                    double experMz = parsed.NeutralLossMass.HasValue
+                        ? (tp.NeutralMass - parsed.NeutralLossMass.Value).ToMz(charge)
+                        : tp.ToMz(charge);
 
-                    var tp = tpLookup[productTypeAndCharge[0]]; // Get theoretical product ("b5") from annotation like "b5+1"
-                    var charge = int.Parse(productTypeAndCharge[1]); // Get charge ("1") from annotation like "b5+1"
-                    // Create a new MatchedFragmentIon for each output
+                    // For neutral-loss fragments, attach a loss-bearing product so the peak's
+                    // annotation and theoretical mass match the loss-shifted m/z rather than the
+                    // base ion's; otherwise a y3-H2O peak would be stored as a second "y3".
+                    Product theoreticalProduct = parsed.NeutralLossMass.HasValue
+                        ? new Product(tp.ProductType, tp.Terminus, tp.NeutralMass - parsed.NeutralLossMass.Value,
+                            tp.FragmentNumber, tp.ResiduePosition, parsed.NeutralLossMass.Value,
+                            tp.SecondaryProductType, tp.SecondaryFragmentNumber)
+                        : tp;
+
                     var fragmentIon = new MatchedFragmentIon
                     (
-                        neutralTheoreticalProduct: tp,
-                        experMz: tp.ToMz(charge),
+                        neutralTheoreticalProduct: theoreticalProduct,
+                        experMz: experMz,
                         experIntensity: predictionAnnotationIntensityLookup[pa],
                         charge: charge
                     );
@@ -574,7 +777,12 @@ namespace PredictionClients.Koina.AbstractClasses
 
                 var spectrum = new LibrarySpectrum
                 (
-                    sequence: prediction.FullSequence,
+                    // Label the spectrum with the sequence the masses were actually built from
+                    // (peptide), so the library identity stays consistent with its peaks. Under
+                    // MapToValidatedFullSequence this is the cleaned sequence, which can differ
+                    // chemically from the requested prediction.FullSequence when mod handling
+                    // rewrote an incompatible modification.
+                    sequence: peptide.FullSequence,
                     precursorMz: peptide.ToMz(prediction.PrecursorCharge),
                     chargeState: prediction.PrecursorCharge,
                     peaks: fragmentIons,
