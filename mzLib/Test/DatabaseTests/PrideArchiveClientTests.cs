@@ -202,11 +202,12 @@ public class PrideArchiveClientTests
         Assert.That(async () => await client.GetProjectFilesAsync("   "), Throws.ArgumentException);
     }
 
-    [Test]
-    public void GetProjectFilesAsync_NonPositivePageSize_ThrowsArgumentOutOfRange()
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void GetProjectFilesAsync_NonPositivePageSize_ThrowsArgumentOutOfRange(int pageSize)
     {
         using var client = new PrideArchiveClient(new HttpClient(new StubHandler(_ => JsonResponse("[]"))));
-        Assert.That(async () => await client.GetProjectFilesAsync("PXD012345", 0), Throws.InstanceOf<ArgumentOutOfRangeException>());
+        Assert.That(async () => await client.GetProjectFilesAsync("PXD012345", pageSize), Throws.InstanceOf<ArgumentOutOfRangeException>());
     }
 
     [Test]
@@ -230,6 +231,47 @@ public class PrideArchiveClientTests
     {
         var client = new PrideArchiveClient();
         Assert.That(() => client.Dispose(), Throws.Nothing);
+    }
+
+    [Test]
+    public void Dispose_CalledTwice_DoesNotThrow()
+    {
+        var client = new PrideArchiveClient(new HttpClient(new StubHandler(_ => JsonResponse("[]"))));
+        client.Dispose();
+        Assert.That(() => client.Dispose(), Throws.Nothing); // idempotent
+    }
+
+    [Test]
+    public void Dispose_InjectedHttpClient_IsNotDisposed_AndRemainsUsable()
+    {
+        var handler = new StubHandler(_ => JsonResponse("[]"));
+        var httpClient = new HttpClient(handler) { BaseAddress = new Uri(PrideArchiveClient.DefaultBaseAddress) };
+        var client = new PrideArchiveClient(httpClient); // caller retains ownership of httpClient
+
+        client.Dispose();
+
+        // the injected HttpClient must survive the client's Dispose (a disposed client would throw here)
+        Assert.That(async () => await httpClient.GetAsync("projects/x/files"), Throws.Nothing);
+        httpClient.Dispose();
+    }
+
+    [Test]
+    public void Constructor_InjectedHttpClientWithoutBaseAddress_SetsPrideDefault()
+    {
+        var httpClient = new HttpClient(new StubHandler(_ => JsonResponse("[]"))); // no BaseAddress
+        using var client = new PrideArchiveClient(httpClient);
+        Assert.That(httpClient.BaseAddress, Is.EqualTo(new Uri(PrideArchiveClient.DefaultBaseAddress)));
+    }
+
+    [TestCase(0)]
+    [TestCase(1)]
+    public void GetProjectFilesAsync_ServerIgnoresPaging_LowMaxPages_Throws(int maxPages)
+    {
+        // every page is full and carries no total_records header, so only the MaxPages cap can stop it
+        var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b"))));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxPages = maxPages };
+        Assert.That(async () => await client.GetProjectFilesAsync("PXD012345", pageSize: 2),
+            Throws.InstanceOf<HttpRequestException>());
     }
 }
 

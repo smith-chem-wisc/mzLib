@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 
@@ -16,7 +17,7 @@ namespace UsefulProteomicsDatabases
     /// per unit of work and dispose it. A constructor overload accepts an <see cref="HttpClient"/> to
     /// support testing and custom configuration.
     /// </remarks>
-    public class PrideArchiveClient : IDisposable
+    public sealed class PrideArchiveClient : IDisposable
     {
         /// <summary>The base address of the PRIDE Archive REST API (v3).</summary>
         public const string DefaultBaseAddress = "https://www.ebi.ac.uk/pride/ws/archive/v3/";
@@ -65,6 +66,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
         /// <param name="pageSize">Files requested per page (default 100). The full manifest is returned regardless.</param>
+        /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
         /// <returns>
         /// The project's files. Empty if the project has no files or the accession is unknown (PRIDE
         /// returns an empty result for an unknown accession). Never null.
@@ -72,7 +74,9 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
         /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
-        public async Task<List<PrideArchiveFile>> GetProjectFilesAsync(string accession, int pageSize = 100)
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<List<PrideArchiveFile>> GetProjectFilesAsync(string accession, int pageSize = 100,
+            CancellationToken cancellationToken = default)
         {
             if (string.IsNullOrWhiteSpace(accession))
                 throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
@@ -84,14 +88,15 @@ namespace UsefulProteomicsDatabases
 
             while (true)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string requestUri = $"projects/{Uri.EscapeDataString(accession)}/files?pageSize={pageSize}&page={page}";
-                using HttpResponseMessage response = await _httpClient.GetAsync(requestUri).ConfigureAwait(false);
+                using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
                     throw new HttpRequestException(
                         $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
 
-                string content = await response.Content.ReadAsStringAsync().ConfigureAwait(false);
+                string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 List<PrideArchiveFile> pageFiles =
                     JsonConvert.DeserializeObject<List<PrideArchiveFile>>(content, JsonSettings) ?? new List<PrideArchiveFile>();
 
@@ -131,6 +136,7 @@ namespace UsefulProteomicsDatabases
             return false;
         }
 
+        /// <inheritdoc/>
         public void Dispose()
         {
             if (_disposed)
