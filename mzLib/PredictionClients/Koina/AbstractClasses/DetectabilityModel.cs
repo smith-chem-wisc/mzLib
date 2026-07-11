@@ -6,7 +6,7 @@ using MzLibUtil;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Interfaces;
 
-namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
+namespace PredictionClients.Koina.AbstractClasses
 {
     /// <summary>
     /// Represents the prediction results for a single peptide, containing detectability probability scores
@@ -63,6 +63,11 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
     /// - In silico peptide screening prior to synthesis
     /// 
     /// API Documentation: https://koina.wilhelmlab.org/docs#post-/pfly_2024_fine_tuned/infer
+    ///
+    /// Thread safety: instances are NOT thread-safe. Predict and related methods
+    /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
+    /// these methods concurrently on the same instance, nor read Predictions while a call is in flight.
+    /// Use one instance per concurrent caller (or serialize externally) when sharing across pipelines.
     /// </remarks>
     public abstract class DetectabilityModel : KoinaModelBase<DetectabilityPredictionInput, PeptideDetectabilityPrediction>, IPredictor<DetectabilityPredictionInput, PeptideDetectabilityPrediction>
     {
@@ -162,12 +167,12 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
 
                 #region Throttled API Requests and Response Processing
                 var responses = new List<string>();
-                using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes);
+                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
 
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
 
                     if (i < batchChunks.Count - 1) // No need to throttle after the last batch
@@ -209,9 +214,20 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
             return Predictions;
         }
 
+        private readonly object _predictLock = new();
+
         public List<PeptideDetectabilityPrediction> Predict(List<DetectabilityPredictionInput> modelInputs)
         {
-            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
+            // Offload to Task.Run so the awaited continuations inside AsyncThrottledPredictor run on
+            // the ThreadPool (no SynchronizationContext) rather than trying to resume on a blocked
+            // caller thread. Calling .GetAwaiter().GetResult() directly would deadlock under a
+            // single-threaded SynchronizationContext (WinForms/WPF/ASP.NET non-Core). The lock
+            // serializes concurrent callers against the shared instance state. See
+            // FragmentIntensityModel.Predict for the full rationale (stopgap Option A).
+            lock (_predictLock)
+            {
+                return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+            }
         }
 
         /// <summary>
@@ -269,7 +285,7 @@ namespace PredictionClients.Koina.SupportedModels.FlyabilityModels
                 var peptideFlyabilityClassProbs = detectabilityPredictions[i].Select(p => (double)p).ToList();
                 predictions.Add(new PeptideDetectabilityPrediction(
                     requestInputs[i].FullSequence,
-                    ValidatedFullSequence: ModelInputs[i].ValidatedFullSequence ?? null,
+                    ValidatedFullSequence: requestInputs[i].ValidatedFullSequence,
                     (
                         NotDetectable: peptideFlyabilityClassProbs[0],
                         LowDetectability: peptideFlyabilityClassProbs[1],
