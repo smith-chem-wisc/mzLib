@@ -164,13 +164,16 @@ namespace Test.DatabaseTests.VariantCorpus
                 Reason: "Deletion position 9 > length 7 -> PruneOutOfRangeSequenceVariants removes it; consensus only.",
                 ExpectedForms: new[] { "PEPTIDE" });
 
-            // D06 — deletion straddling the C-terminus. begin 6 within, end 9 beyond -> pruned (end > len); consensus only.
+            // D06 — deletion straddling the C-terminus. Original "E" = residue 7 (the last real residue) and end 8
+            // is one past length 7, so the SOLE reason for pruning is end > len (the original matches residues in
+            // range; it is not malformed on any other axis). This isolates PruneOutOfRangeSequenceVariants' end-
+            // beyond-length branch cleanly. Consensus only.
             yield return new CorpusCase(
                 Id: "D06", Layer: "L1a", Tests: "del-straddle-end",
-                Base: "PEPTIDE", Mods: "-", Variants: "OP=DE BEGIN=6 END=9 SRC=uniprot", Protease: "top-down",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=E BEGIN=7 END=8 SRC=uniprot", Protease: "top-down",
                 MaxIsoforms: 1024, MaxMods: 2,
                 ExpectedCount: 1, Verdict: "pruned:out-of-range",
-                Reason: "Deletion end 9 > length 7 (begin 6 in range) -> pruned by begin>len||end>len; consensus only.",
+                Reason: "Deletion end 8 > length 7 (begin 7 = last residue E; original matches residues[begin,end] in range) -> pruned by end>len alone; consensus only.",
                 ExpectedForms: new[] { "PEPTIDE" });
 
             // D07 — VCF deletion PASSING the depth cutoff. Heterozygous 0/1, alt AD=6 >= minAlleleDepth 5 ->
@@ -327,9 +330,33 @@ namespace Test.DatabaseTests.VariantCorpus
                     modTypesToExclude: new List<string>(), out _,
                     maxHeterozygousVariants: c.MaxHeterozygous, minAlleleDepth: c.MinAlleleDepth);
 
+                // Writer fidelity on the variant metadata itself, independent of the digested forms. When a node's
+                // oracle is consensus-only because the variant is read-but-not-applied (e.g. D08, depth-filtered),
+                // the digested output equals the base sequence whether or not the writer preserved the
+                // SequenceVariation, so the form-set assertion in Corpus_Node_RoundTrip cannot catch a writer that
+                // dropped it. Assert the re-read consensus carries exactly the variations the loader produced.
+                // (Out-of-range nodes like D05/D06 are pruned from the consensus at load, so both sides are
+                // legitimately empty — there is nothing there for the writer to drop.)
+                AssertConsensusVariationsRoundTrip(c, loaded, reread);
+
                 return Digest(reread, c);
             }
             finally { File.Delete(tmp1); File.Delete(tmp2); }
+        }
+
+        // Compares the SequenceVariations carried by the consensus protein(s) before write vs after re-read, so a
+        // ProteinDbWriter that silently drops or mangles a read-but-unapplied variant fails the round-trip even
+        // when the digested proteoform set is identical (invariant 6 / #1083).
+        private static void AssertConsensusVariationsRoundTrip(CorpusCase c, List<Protein> loaded, List<Protein> reread)
+        {
+            static List<(int Begin, int End, string Original, string Variant)> ConsensusVariations(List<Protein> proteins) => proteins
+                .Where(p => !p.IsDecoy && !p.AppliedSequenceVariations.Any())
+                .SelectMany(p => p.SequenceVariations)
+                .Select(v => (v.OneBasedBeginPosition, v.OneBasedEndPosition, v.OriginalSequence, v.VariantSequence))
+                .OrderBy(v => v.Item1).ThenBy(v => v.Item2).ToList();
+
+            Assert.That(ConsensusVariations(reread), Is.EqualTo(ConsensusVariations(loaded)),
+                $"{c.Id} ({c.Tests}) [round-trip]: writer did not preserve the consensus SequenceVariations across the write/read cycle.");
         }
 
         private static List<string> RunNode(CorpusCase c)
