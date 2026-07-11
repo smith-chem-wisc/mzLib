@@ -16,6 +16,15 @@ public abstract class AverageResidue : IEquatable<AverageResidue>
     public abstract double[] GetAllTheoreticalIntensities(int index);
     public abstract double GetDiffToMonoisotopic(int index);
 
+    // Terminology for the offsets composed from this model:
+    //  • most-abundant offset = GetDiffToMonoisotopic(GetMostIntenseMassIndex(mono)) — the gap from the
+    //    monoisotopic mass to the single tallest (most abundant) isotopologue. This is what the resolved
+    //    most-abundant search uses; it is composed from the abstract methods above, so no dedicated
+    //    method is needed here.
+    //  • average / centroid offset = the gap from the monoisotopic mass to the intensity-weighted mean
+    //    of the whole envelope, for isotopically unresolved (high-mass) species. That helper
+    //    (GetAverageOffset) is introduced separately with the unresolved-envelope work, not here.
+
     #region IEquatable<AverageResidue>
 
     public bool Equals(AverageResidue? other)
