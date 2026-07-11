@@ -25,13 +25,33 @@ jobs:
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
-      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category!=Koina" --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
+      # Exclude live external-service tests (Koina, etc.) from the required run; they run in the
+      # separate, non-blocking external-service job below. ExternalService supersedes the old Koina filter.
+      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService" --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+  # Runs mzLib's live external-service tests (Koina). Intentionally NOT a required status check, so a
+  # third-party outage never blocks a PR; the tests self-classify (outage -> Skipped, real break -> Fail).
+  # Do NOT add this job to branch-protection required checks.
+  external-service-tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 8.0.x
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    - name: Build (Test)
+      run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    - name: Test (external services)
+      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category=ExternalService" ./Test/Test.csproj
   integration:
     runs-on: windows-latest
     timeout-minutes: 45
@@ -81,7 +101,11 @@ jobs:
     - name: Build MetaMorpheus
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
     - name: Test
-      run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal
+      # Exclude live external-service tests from the MetaMorpheus integration run: they gate on third-party
+      # services (UniProt, etc.), are not relevant to mzLib<->MetaMorpheus compatibility, and MetaMorpheus
+      # exercises them in its own non-blocking job. This is what keeps a UniProt outage from reddening
+      # every mzLib PR (this integration job clones MetaMorpheus master and runs its suite).
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService"
     - name: Upload artifact (installer)
       uses: actions/upload-artifact@v4
       with:

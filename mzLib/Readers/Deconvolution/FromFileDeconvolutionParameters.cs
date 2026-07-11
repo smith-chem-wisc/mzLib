@@ -1,7 +1,4 @@
 #nullable enable
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
 
@@ -33,18 +30,78 @@ namespace Readers
     {
         public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FromFile;
 
-        // Sorted by Mz; FeaturesMzAscending and _mzKeys are kept in lockstep.
-        private readonly List<ISingleChargeMs1Feature> _featuresMzAscending;
-        private readonly double[] _mzKeys;
+        #region Lazy Loading Feature Files
 
-        protected string OriginalFilePath { get; set; }
+        private sealed class FeatureCache(List<ISingleChargeMs1Feature> featuresMzAscending, double[] mzKeys)
+        {
+            public List<ISingleChargeMs1Feature> FeaturesMzAscending { get; } = featuresMzAscending;
+            public double[] MzKeys { get; } = mzKeys;
+        }
 
+        private readonly object _featureCacheLock = new();
+
+        private volatile FeatureCache? _featureCache;
+
+        private FeatureCache GetOrLoadFeatureCache()
+        {
+            if (_featureCache is not null)
+                return _featureCache;
+
+            lock (_featureCacheLock)
+            {
+                if (_featureCache is not null)
+                    return _featureCache;
+
+                return _featureCache = LoadFeaturesFromFile();
+            }
+        }
+
+        private FeatureCache LoadFeaturesFromFile()
+        {
+            if (string.IsNullOrWhiteSpace(FilePath))
+                throw new InvalidOperationException(
+                    "FromFileDeconvolutionParameters requires FilePath to be set before features can be loaded.");
+
+            var resultFile = FileReader.ReadResultFile(FilePath);
+            if (resultFile is not IMs1FeatureFile featureFile)
+                throw new MzLibException(
+                    $"File at '{FilePath}' is not a recognized MS1 feature file. " +
+                    $"Detected type: {resultFile.GetType().Name}. " +
+                    "Expected an Ms1Feature (.ms1.feature) or Dinosaur (.feature.tsv) file.");
+
+            resultFile.LoadResults();
+            return BuildFeatureCache(NormaliseRetentionTimes(featureFile.GetMs1Features()));
+        }
+
+        private static FeatureCache BuildFeatureCache(IEnumerable<ISingleChargeMs1Feature> features)
+        {
+            var sorted = features.OrderBy(f => f.Mz).ToList();
+            var keys = new double[sorted.Count];
+            for (int i = 0; i < sorted.Count; i++) keys[i] = sorted[i].Mz;
+            return new FeatureCache(sorted, keys);
+        }
+
+        #endregion
 
         /// <summary>
         /// The pre-loaded per-charge features the algorithm filters against, sorted
         /// by ascending <see cref="ISingleChargeMs1Feature.Mz"/>.
         /// </summary>
-        public IReadOnlyList<ISingleChargeMs1Feature> Features => _featuresMzAscending;
+        public IReadOnlyList<ISingleChargeMs1Feature> Features => GetOrLoadFeatureCache().FeaturesMzAscending;
+
+        private string? _filePath;
+        public string? FilePath
+        {
+            get => _filePath;
+            set
+            {
+                if (string.Equals(_filePath, value, StringComparison.Ordinal))
+                    return;
+
+                _filePath = value;
+                _featureCache = null;
+            }
+        }
 
         /// <summary>
         /// True if the feature file's retention times were detected as seconds at load
@@ -55,27 +112,16 @@ namespace Readers
 
         /// <summary>
         /// Constructs from a feature-file path. Reader is auto-detected from the
-        /// extension. The file's per-charge expansion is materialized in-memory
-        /// once; this object is intended to be reused across many MS2 scans rather
-        /// than reconstructed per call.
+        /// extension. The file's per-charge expansion is materialized lazily on
+        /// first use; this object is intended to be reused across many MS2 scans
+        /// rather than reconstructed per call.
         /// </summary>
         public FromFileDeconvolutionParameters(string filePath, int minCharge, int maxCharge,
             Polarity polarity = Polarity.Positive)
             : base(minCharge, maxCharge, polarity)
         {
             if (filePath is null) throw new ArgumentNullException(nameof(filePath));
-
-            var resultFile = FileReader.ReadResultFile(filePath);
-            if (resultFile is not IMs1FeatureFile featureFile)
-                throw new MzLibException(
-                    $"File at '{filePath}' is not a recognized MS1 feature file. " +
-                    $"Detected type: {resultFile.GetType().Name}. " +
-                    "Expected an Ms1Feature (.ms1.feature) or Dinosaur (.feature.tsv) file.");
-
-            OriginalFilePath = filePath;
-
-            resultFile.LoadResults();
-            (_featuresMzAscending, _mzKeys) = SortAndIndex(NormaliseRetentionTimes(featureFile.GetMs1Features()));
+            FilePath = filePath;
         }
 
         /// <summary>
@@ -138,16 +184,7 @@ namespace Readers
             : base(minCharge, maxCharge, polarity)
         {
             if (features is null) throw new ArgumentNullException(nameof(features));
-            (_featuresMzAscending, _mzKeys) = SortAndIndex(features);
-        }
-
-        private static (List<ISingleChargeMs1Feature> sorted, double[] keys)
-            SortAndIndex(IEnumerable<ISingleChargeMs1Feature> features)
-        {
-            var sorted = features.OrderBy(f => f.Mz).ToList();
-            var keys = new double[sorted.Count];
-            for (int i = 0; i < sorted.Count; i++) keys[i] = sorted[i].Mz;
-            return (sorted, keys);
+            _featureCache = BuildFeatureCache(features);
         }
 
         /// <summary>
@@ -158,38 +195,40 @@ namespace Readers
         /// </summary>
         internal int FindFirstIndexAtOrAbove(double minMz)
         {
-            int idx = Array.BinarySearch(_mzKeys, minMz);
+            int idx = Array.BinarySearch(GetOrLoadFeatureCache().MzKeys, minMz);
             return idx < 0 ? ~idx : idx;
         }
 
         #region IEquatable<FromFileDeconvolutionParameters>
 
+        // Equality and hashing are intentionally I/O-free and never throw: both must
+        // be safe to call before the lazy feature cache has been populated, so a
+        // params object with a missing/invalid FilePath still slots cleanly into a
+        // HashSet/Dictionary without triggering LoadFeaturesFromFile.
         protected override bool EqualProperties(DeconvolutionParameters other)
         {
             var o = (FromFileDeconvolutionParameters)other;
-            if (Features.Count != o.Features.Count) return false;
-            if (OriginalFilePath != o.OriginalFilePath) return false;
-            return true;
+            return string.Equals(FilePath, o.FilePath, StringComparison.Ordinal);
         }
 
         protected override void AddHashCodes(HashCode hash)
         {
-            hash.Add(Features.Count);
-            hash.Add(OriginalFilePath);
-        }
-
-        public override FromFileDeconvolutionParameters Clone()
-        {
-            return new FromFileDeconvolutionParameters(
-                _featuresMzAscending.ToList(),
-                MinAssumedChargeState, MaxAssumedChargeState, Polarity)
-            {
-                UseGenericScore = UseGenericScore,
-                OriginalFilePath = OriginalFilePath
-            };
+            hash.Add(FilePath);
         }
 
         #endregion
+
+        public override FromFileDeconvolutionParameters Clone()
+        {
+            var clone = !string.IsNullOrWhiteSpace(FilePath) 
+                ? new FromFileDeconvolutionParameters(FilePath!, MinAssumedChargeState, MaxAssumedChargeState, Polarity) 
+                : new FromFileDeconvolutionParameters(Features.ToList(), MinAssumedChargeState, MaxAssumedChargeState, Polarity);
+
+            clone.UseGenericScore = UseGenericScore;
+            clone.ExpectedIsotopeSpacing = ExpectedIsotopeSpacing;
+            clone.AverageResidueModel = AverageResidueModel;
+            return clone;
+        }
 
         /// <summary>
         /// Polymorphic factory hook: returns a <see cref="FromFileDeconvolutionAlgorithm"/>

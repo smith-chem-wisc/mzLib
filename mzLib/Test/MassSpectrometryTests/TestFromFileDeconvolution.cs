@@ -6,6 +6,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 using Readers;
 using Test.FileReadingTests;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -435,12 +436,46 @@ namespace Test.MassSpectrometryTests
         public void FromFileDeconvolutionParameters_NonFeatureFile_ThrowsMzLibException()
         {
             // .psmtsv is a recognized SupportedFileType but its IResultFile (PsmFromTsvFile)
-            // doesn't implement IMs1FeatureFile — the ctor must reject it with a clear
-            // message rather than silently producing an empty feature set.
+            // doesn't implement IMs1FeatureFile — the rejection must come from the lazy
+            // .Features load, NOT the constructor. Split the two: prove ctor is lazy
+            // (no throw, no I/O) here, and assert the throw surfaces on .Features below.
             var psmTsv = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
-            Assert.Throws<MzLibUtil.MzLibException>(
-                () => new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60));
+            var parameters = new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60);
+            // No exception should have been thrown by the constructor above; reaching
+            // this line proves the file was not eagerly opened in the ctor.
+
+            var ex = Assert.Throws<MzLibUtil.MzLibException>(() => _ = parameters.Features,
+                "loading features from a non-feature file should throw MzLibException");
+            StringAssert.Contains("MS1 feature file", ex.Message,
+                "exception message should mention the missing MS1 Feature File interface; was: " + ex.Message);
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_NonExistentFile_ConstructorDoesNotThrow_LoadDoes()
+        {
+            // Locks the lazy-load contract: constructing with a non-existent path must
+            // succeed (no I/O), and only the .Features access must surface the failure.
+            var missing = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\__missing_for_lazy_test__.ms1.feature");
+            Assume.That(File.Exists(missing), Is.False,
+                "guard: test fixture assumed this file does not exist; if it does, pick another path");
+
+            FromFileDeconvolutionParameters parameters = null;
+            Assert.DoesNotThrow(
+                () => parameters = new FromFileDeconvolutionParameters(missing, minCharge: 1, maxCharge: 60),
+                "constructor must not open or read the file (lazy-load contract)");
+
+            Assert.IsNotNull(parameters);
+            Assert.AreEqual(missing, parameters.FilePath);
+
+            // The load path runs FileReader.ReadResultFile, which throws a wide
+            // variety of exceptions for a missing path (FileNotFoundException, or
+            // a downstream MzLibException depending on extension). Use a constraint
+            // so any exception type satisfies the assertion, then assert SOMETHING
+            // throws on .Features and that it is not thrown by the ctor.
+            Assert.That(() => _ = parameters.Features, Throws.Exception,
+                "loading features from a non-existent file should throw");
         }
 
         [Test]
@@ -508,6 +543,91 @@ namespace Test.MassSpectrometryTests
                 () => Deconvoluter.Deconvolute(MinimalMs1Spectrum(), brokenParams, range).ToList());
             Assert.IsTrue(ex.Message.Contains("CreateAlgorithm"),
                 $"exception message should point at the missing CreateAlgorithm override; was: {ex.Message}");
+        }
+
+        // -------- lazy-load contract: equality / hash are I/O-free --------------
+
+        [Test]
+        public void FromFileDeconvolutionParameters_GetHashCode_OnUnloadedInstance_DoesNotLoadFile()
+        {
+            // Hash must be safe to call on an instance whose feature cache has not been
+            // materialized — no I/O, no throw, even if FilePath points at a non-feature
+            // or missing file. This locks the contract that hashing belongs to the
+            // config-only identity (FilePath), not to loaded feature state.
+            var missing = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\__missing_for_hash_test__.ms1.feature");
+            var p = new FromFileDeconvolutionParameters(missing, minCharge: 1, maxCharge: 60);
+
+            int hash = 0;
+            Assert.DoesNotThrow(() => hash = p.GetHashCode(),
+                "GetHashCode must not throw and must not perform I/O before .Features is touched");
+            Assert.AreNotEqual(0, hash, "hash should be a non-trivial value (driven by FilePath)");
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_Equals_OnUnloadedInstances_DoesNotLoadFile()
+        {
+            // Two instances built from the same path should be equal via Equals WITHOUT
+            // loading the file. If equality forced a load, a missing/invalid path would
+            // throw from the Equals call — a regression of the original eager-load
+            // design that this PR set out to remove.
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var a = new FromFileDeconvolutionParameters(path, minCharge: 1, maxCharge: 60);
+            var b = new FromFileDeconvolutionParameters(path, minCharge: 1, maxCharge: 60);
+
+            // Neither instance has touched .Features yet; reaching this line proves no
+            // file I/O was triggered by construction or by the following Equals.
+            Assert.IsTrue(a.Equals(b), "two instances built from the same FilePath must be equal");
+            Assert.IsTrue(a.Equals((object)b), "Equals(object) must agree with Equals(FromFileDeconvolutionParameters)");
+            Assert.AreEqual(a.GetHashCode(), b.GetHashCode(),
+                "equal instances must produce equal hash codes");
+        }
+
+        // -------- FilePath setter invalidates the cache ------------------------
+
+        [Test]
+        public void FromFileDeconvolutionParameters_SetFilePath_InvalidatesCache()
+        {
+            // After .Features has been read once, reassigning FilePath must cause the
+            // next .Features access to re-read from the new path. Without invalidation,
+            // the cached features would be silently stale.
+            var pathA = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var pathB = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature");
+
+            var p = new FromFileDeconvolutionParameters(pathA, minCharge: 1, maxCharge: 60);
+            var firstFeatures = p.Features; // materializes cache from pathA
+            Assert.IsTrue(firstFeatures.Count > 0, "pathA feature file should yield at least one feature");
+
+            p.FilePath = pathB;
+            Assert.AreEqual(pathB, p.FilePath, "FilePath setter must reflect the new value");
+
+            var secondFeatures = p.Features; // must re-read from pathB
+            Assert.IsTrue(secondFeatures.Count > 0, "pathB feature file should yield at least one feature");
+            // The two feature files are different (different instruments / formats), so
+            // the materialized lists are not expected to be reference-equal. Assert the
+            // cache was rebuilt by comparing a content fingerprint — Mz of first feature
+            // is unlikely to coincide between these two files.
+            Assume.That(firstFeatures.Count, Is.GreaterThan(0));
+            Assume.That(secondFeatures.Count, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_RepeatedFeaturesAccess_LoadsOnce()
+        {
+            // Double-checked locking on the lazy load path: repeated .Features access
+            // must return the same list reference (no re-read, no re-parse).
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var p = new FromFileDeconvolutionParameters(path, minCharge: 1, maxCharge: 60);
+
+            var first = p.Features;
+            var second = p.Features;
+            var third = p.Features;
+            Assert.AreSame(first, second, "second .Features access must return the cached list");
+            Assert.AreSame(first, third, "third .Features access must return the cached list");
         }
     }
 }

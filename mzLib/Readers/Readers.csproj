@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
@@ -10,7 +10,14 @@
 
 	<ItemGroup>
 		<PackageReference Include="CsvHelper" Version="32.0.3" />
-		<PackageReference Include="OpenMcdf" Version="3.1.4" />
+		<!-- OpenMcdf is intentionally pinned to the 2.x line. DO NOT upgrade to 3.x.
+		     The Thermo CommonCore RawFileReader binary is compiled against OpenMcdf 2.x
+		     (v8.0.37 targets OpenMcdf 2.3.0); OpenMcdf 3.x is an API-incompatible rewrite
+		     that breaks Thermo .raw reading. Thermo's latest release still ships against
+		     OpenMcdf 2.x, so there is no 3.x-based option today. GHSA-5qwm-7pvp-w988
+		     (fixed in 3.1.4) is a DoS on crafted/untrusted CFB files and does not apply -
+		     we only read trusted local instrument files. -->
+		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
 		<PackageReference Include="System.Data.SQLite" Version="1.0.118" />
 		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />

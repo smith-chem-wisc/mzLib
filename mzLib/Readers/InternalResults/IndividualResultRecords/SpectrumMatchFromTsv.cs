@@ -46,6 +46,12 @@ namespace Readers
         public string MonoisotopicMassString { get; protected set; }
         public string MassDiffDa { get; protected set; }
         public string MassDiffPpm { get; protected set; }
+        /// <summary>
+        /// Optional most-abundant-mode precursor mass error (ppm), the analogue of <see cref="MassDiffPpm"/>.
+        /// Null when the source file did not contain the "Most Abundant Mass Diff (ppm)" column (the usual
+        /// monoisotopic-mode case). Read as a string because ambiguous matches carry a "|"-separated list.
+        /// </summary>
+        public string MostAbundantMassDiffPpm { get; protected set; }
         public string Name { get; protected set; }
         public string GeneName { get; protected set; }
         public string OrganismName { get; protected set; }
@@ -169,6 +175,7 @@ namespace Readers
             MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
             MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
             MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
+            MostAbundantMassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm, parsedHeader, spl);
             Accession = GetOptionalValue(SpectrumMatchFromTsvHeader.Accession, parsedHeader, spl);
             Name = GetOptionalValue(SpectrumMatchFromTsvHeader.Name, parsedHeader, spl);
             GeneName = GetOptionalValue(SpectrumMatchFromTsvHeader.GeneName, parsedHeader, spl);
@@ -216,6 +223,7 @@ namespace Readers
                 MonoisotopicMassString = psm.MonoisotopicMassString;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
+                MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm;
             }
             // potentially ambiguous fields
             else
@@ -255,12 +263,14 @@ namespace Readers
                     MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
+                    MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm?.Split("|")[0];
                 }
                 else
                 {
                     MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
+                    MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm?.Split("|")[index];
                 }
             }
 
