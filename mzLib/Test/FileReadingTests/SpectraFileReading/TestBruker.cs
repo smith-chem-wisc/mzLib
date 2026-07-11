@@ -157,5 +157,26 @@ namespace Test.FileReadingTests.SpectraFileReading
             var scan = MsDataFileReader.GetDataFile(_centroidPath).LoadAllStaticData(filteringParams).Scans[0];
             Assert.That(scan.MassSpectrum.XArray.Length == 1);
         }
+
+        // Loading with a FilteringParams that has ApplyTrimmingToMsMs = true exercises the window-trimming
+        // branches of GetSpectraData for both centroid (line) and profile spectra. Profile data previously
+        // threw IndexOutOfRangeException here (it indexed profileMzs[^0], i.e. one past the end); centroid
+        // was unaffected. All three fixtures must load without throwing. This mirrors how MetaMorpheus's
+        // MyFileManager loads files (it always supplies a FilteringParams unless DissociationType is LowCID).
+        [Test]
+        [TestCase("centroid_1x_MS1_4x_autoMS2.d")]
+        [TestCase("profile_1x_MS1_4x_autoMS2.d")]
+        [TestCase("profile_and_centroid_1x_MS1_4x_autoMS2.d")]
+        public void TestLoadAllStaticDataWithMsMsTrimming(string fileName)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+            // 7th argument (applyTrimmingToMsMs) = true; the others mirror a typical MetaMorpheus setup.
+            var filteringParams = new FilteringParams(200, 0.01, null, 1, false, false, true);
+
+            MsDataFile brukerData = null;
+            Assert.DoesNotThrow(() =>
+                brukerData = MsDataFileReader.GetDataFile(path).LoadAllStaticData(filteringParams, 1));
+            Assert.That(brukerData.NumSpectra, Is.EqualTo(5));
+        }
     }
 }

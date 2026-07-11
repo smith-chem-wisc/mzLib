@@ -312,12 +312,12 @@ namespace Readers
 				double[] profileMzs = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.ProfileMzId);
 				double[] profileInts = GetBafDoubleArray(_handle!.Value, (ulong)spectraInfo.ProfileIntensityId);
 				if (filteringParams != null
-				    && profileMzs.Length > 0
+				    && profileMzs.Length > 1
 				    && filteringParams.ApplyTrimmingToMsMs)
 				{
 					WindowModeHelper.Run(ref profileInts,
-						ref profileMzs, filteringParams, 
-						profileMzs[0], profileMzs[^0]);
+						ref profileMzs, filteringParams,
+						profileMzs[0], profileMzs[^1]);
 				}
 
 				spectrum = new MzSpectrum(profileMzs, profileInts, true);
