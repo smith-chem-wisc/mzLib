@@ -158,18 +158,22 @@ namespace UsefulProteomicsDatabases
             // leaf name is allowed, so a value carrying a directory separator, a ".." segment, or a rooted
             // path cannot escape destinationDirectory when combined below (Path.Combine does not sanitize).
             string safeFileName = Path.GetFileName(file.FileName);
-            if (safeFileName != file.FileName)
+            if (safeFileName != file.FileName || safeFileName == "." || safeFileName == "..")
                 throw new ArgumentException(
                     $"The PRIDE file name '{file.FileName}' is not a bare file name; refusing to write outside the destination directory.",
                     nameof(file));
 
+            string destinationPath = Path.Combine(destinationDirectory, safeFileName);
+
+            // Cheap resume: an already-present destination is left untouched. This runs before URL
+            // resolution and directory creation so skipping a downloaded file never fails on a file
+            // that has no HTTPS location (e.g. Aspera-only) or does needless filesystem work.
+            if (!overwrite && File.Exists(destinationPath))
+                return destinationPath;
+
             string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
 
             Directory.CreateDirectory(destinationDirectory);
-            string destinationPath = Path.Combine(destinationDirectory, safeFileName);
-
-            if (!overwrite && File.Exists(destinationPath))
-                return destinationPath; // already downloaded; leave it untouched
 
             using HttpResponseMessage response =
                 await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);

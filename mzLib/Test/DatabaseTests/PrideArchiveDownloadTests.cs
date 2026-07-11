@@ -121,6 +121,8 @@ public class PrideArchiveDownloadTests
             Ftp("pride/data/x/run1.raw"),
             ("PRIDE:0000000", "https://example.org/direct/run1.raw"));
 
+        Assert.That(file.TryGetHttpsDownloadUrl(out string url), Is.True);
+        Assert.That(url, Is.EqualTo("https://example.org/direct/run1.raw"));
         Assert.That(file.GetHttpsDownloadUrl(), Is.EqualTo("https://example.org/direct/run1.raw"));
     }
 
@@ -225,6 +227,24 @@ public class PrideArchiveDownloadTests
 
         Assert.That(handler.RequestedUris, Is.Empty);              // no network call
         Assert.That(File.ReadAllText(path), Is.EqualTo("old"));    // untouched
+    }
+
+    [Test]
+    public async Task DownloadFileAsync_NotOverwrite_ExistingFile_NoHttpsLocation_SkipsWithoutThrowing()
+    {
+        // resume must skip an already-present file before resolving its URL, so an Aspera-only entry
+        // (no HTTPS location) that is already on disk returns untouched instead of throwing NotSupportedException.
+        Directory.CreateDirectory(_tempDir);
+        string existing = Path.Combine(_tempDir, "run1.raw");
+        File.WriteAllText(existing, "old");
+        var handler = new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("new")));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+        var file = MakeFile("run1.raw", "RAW", Aspera("pride/data/x/run1.raw")); // no HTTPS-reachable location
+
+        string path = await client.DownloadFileAsync(file, _tempDir, overwrite: false);
+
+        Assert.That(handler.RequestedUris, Is.Empty);            // skipped before any URL resolution or network call
+        Assert.That(File.ReadAllText(path), Is.EqualTo("old"));  // left untouched
     }
 
     [Test]
@@ -391,6 +411,8 @@ public class PrideArchiveDownloadTests
 
     [TestCase("../evil.raw")]
     [TestCase("sub/dir/file.raw")]
+    [TestCase(".")]   // bare "." survives Path.GetFileName unchanged but is a non-leaf the contract rejects
+    [TestCase("..")]  // bare ".." likewise resolves to the parent directory; must be rejected
     public void DownloadFileAsync_FileNameNotBareLeaf_Throws_WritesNothingOutside(string fileName)
     {
         // REGRESSION: failed before the fix — a path-bearing FileName escaped destinationDirectory via Path.Combine.
@@ -400,7 +422,10 @@ public class PrideArchiveDownloadTests
 
         Assert.That(async () => await client.DownloadFileAsync(file, _tempDir), Throws.ArgumentException);
         Assert.That(handler.RequestedUris, Is.Empty);                        // rejected before any network call
-        Assert.That(File.Exists(Path.Combine(_tempDir, "evil.raw")), Is.False);
+        // the location an un-prevented Path.Combine would have written to (parent for "../evil.raw",
+        // a nested subdir for "sub/dir/file.raw") — derived from the input so each case checks its own escape target
+        string wouldBeTarget = Path.GetFullPath(Path.Combine(_tempDir, fileName));
+        Assert.That(File.Exists(wouldBeTarget), Is.False);
     }
 
     [Test]
