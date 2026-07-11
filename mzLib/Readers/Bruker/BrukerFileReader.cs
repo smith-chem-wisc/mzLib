@@ -460,39 +460,39 @@ namespace Readers
 		}
 
 		#region Bruker Dll Functions 
-		[DllImport("Bruker/baf2sql_c.dll", CharSet = CharSet.Unicode,
+		[DllImport("baf2sql_c.dll", CharSet = CharSet.Unicode,
             CallingConvention = CallingConvention.Cdecl)]
 		private static extern UInt32 baf2sql_get_sqlite_cache_filename
 			  (byte[] sql_filename_buf_utf8, UInt32 sql_filename_buflen, byte[] baf_filename_utf8);
 
-		[DllImport("Bruker/baf2sql_c.dll", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c.dll", CallingConvention = CallingConvention.Cdecl)]
 		private static extern UInt64 baf2sql_array_open_storage
 			   (int ignore_calibrator_ami, byte[] filename_utf8);
 
-		[DllImport("Bruker/baf2sql_c.dll", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c.dll", CallingConvention = CallingConvention.Cdecl)]
 		// bruker doesn't actually provide a way to determine if the sqlite database is closed correctly. 
 		private static extern void baf2sql_array_close_storage(UInt64 handle);
 
-		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		private static extern void baf2sql_array_get_num_elements
 			(UInt64 handle, UInt64 id, ref UInt64 num_elements);
 
-		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		private static extern int baf2sql_array_read_double
 			   (UInt64 handle, UInt64 id, double[] buf);
 
-		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		private static extern int baf2sql_array_read_float
 			   (UInt64 handle, UInt64 id, float[] buf);
 
-		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		private static extern int baf2sql_array_read_uint32
 			   (UInt64 handle, UInt64 id, UInt32[] buf);
 
-		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		private static extern UInt32 baf2sql_get_last_error_string(StringBuilder buf, UInt32 len);
 
-		[DllImport("Bruker/baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
+		[DllImport("baf2sql_c", CallingConvention = CallingConvention.Cdecl)]
 		private static extern void baf2sql_set_num_threads(UInt32 n);
 
 		/* ----------------------------------------------------------------------------------------------- */

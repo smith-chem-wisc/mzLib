@@ -46,19 +46,23 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<None Update="Bruker\baf2sql_c.dll">
+		<!-- Bruker baf2sql native library + its VC++ 2012 runtime dependencies.
+		     These live in the project root (not a subfolder) so they copy to the output root
+		     and can be resolved by the bare-name DllImport ("baf2sql_c") in BrukerFileReader.
+		     baf2sql_c.dll depends on msvcp110/msvcr110/vcomp110, so all four must sit together. -->
+		<None Update="baf2sql_c.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\baf2sql_c.lib">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\msvcp110.dll">
+		<None Update="msvcp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\msvcr110.dll">
+		<None Update="msvcr110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\vcomp110.dll">
+		<None Update="vcomp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">
