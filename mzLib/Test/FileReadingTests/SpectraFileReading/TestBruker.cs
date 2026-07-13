@@ -1,8 +1,8 @@
-﻿using System.Diagnostics;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
+using System;
+using System.Data.SQLite;
 using MassSpectrometry;
-using NUnit;
 using NUnit.Framework;
 using Readers;
 
@@ -301,6 +301,96 @@ namespace Test.FileReadingTests.SpectraFileReading
             {
                 Assert.That(brukerData.Scans[i].RetentionTime, Is.EqualTo(expectedSeconds[i] / 60.0).Within(1e-4));
             }
+        }
+
+        // Copies a .d fixture to a fresh temp directory and runs the supplied SQL against the copy's
+        // analysis.sqlite cache. Lets a test stand up a Bruker file whose precursor-variable tables differ
+        // from the three committed fixtures (all of which record charge state 0 and carry both tables),
+        // without checking in another multi-megabyte .d folder.
+        private static string CopyFixtureAndEditSqlite(string fixtureName, string sql)
+        {
+            string source = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fixtureName);
+            string destination = Path.Combine(Path.GetTempPath(), "mzLibBrukerTest_" + Guid.NewGuid().ToString("N"), fixtureName);
+
+            foreach (string directory in Directory.GetDirectories(source, "*", SearchOption.AllDirectories))
+                Directory.CreateDirectory(directory.Replace(source, destination));
+            Directory.CreateDirectory(destination);
+            foreach (string file in Directory.GetFiles(source, "*", SearchOption.AllDirectories))
+                File.Copy(file, file.Replace(source, destination), true);
+
+            using var connection = new SQLiteConnection("DataSource=" + Path.Combine(destination, "analysis.sqlite"));
+            connection.Open();
+            using var command = new SQLiteCommand(sql, connection);
+            command.ExecuteNonQuery();
+            return destination;
+        }
+
+        // The reader treats the (Per)SpectrumVariables tables as optional: older/unusual acquisitions may not
+        // have them, and the reader is written to degrade gracefully (no isolation width) rather than throw.
+        // Nothing exercised that fallback -- all three fixtures carry both tables -- so a typo in a table name,
+        // or an exception escaping the SQLite handling, would have shipped as a hard crash on those files.
+        // Dropping each table in turn from a temp copy proves the file still loads, with the peak data and
+        // precursor m/z intact and IsolationWidth simply absent.
+        [Test]
+        [TestCase("SupportedVariables")]      // variable-id lookup fails -> no precursor variables at all
+        [TestCase("PerSpectrumVariables")]    // ids resolve, but the per-spectrum values are unavailable
+        public void TestPrecursorVariableTablesAreOptional(string tableToDrop)
+        {
+            string path = CopyFixtureAndEditSqlite("centroid_1x_MS1_4x_autoMS2.d", "DROP TABLE " + tableToDrop);
+
+            MsDataFile brukerData = null;
+            Assert.DoesNotThrow(() => brukerData = MsDataFileReader.GetDataFile(path).LoadAllStaticData(),
+                $"reader threw when {tableToDrop} was absent instead of falling back");
+
+            // The file still reads: same scan count, same spectra, same precursor selection as the intact fixture.
+            Assert.That(brukerData.NumSpectra, Is.EqualTo(5));
+            Assert.That(brukerData.Scans[1].MsnOrder, Is.EqualTo(2));
+            Assert.That(brukerData.Scans[1].SelectedIonMZ, Is.EqualTo(721.86865).Within(0.001));
+            Assert.That(brukerData.Scans[1].MassSpectrum.XArray, Is.Not.Empty);
+            // Only the precursor variables are lost, and they are lost as null rather than as a bogus zero.
+            Assert.That(brukerData.Scans[1].IsolationWidth, Is.Null);
+            Assert.That(brukerData.Scans[1].IsolationRange, Is.Null);
+            Assert.That(brukerData.Scans[1].SelectedIonChargeStateGuess, Is.Null);
+
+            // The dynamic path resolves the variables separately, so it needs its own fallback.
+            var dynamicReader = MsDataFileReader.GetDataFile(path);
+            dynamicReader.InitiateDynamicConnection();
+            MsDataScan scan = null;
+            Assert.DoesNotThrow(() => scan = dynamicReader.GetOneBasedScanFromDynamicConnection(2),
+                $"dynamic connection threw when {tableToDrop} was absent");
+            Assert.That(scan.SelectedIonMZ, Is.EqualTo(721.86865).Within(0.001));
+            Assert.That(scan.IsolationWidth, Is.Null);
+            dynamicReader.CloseDynamicConnection();
+        }
+
+        // A precursor charge read from the file is handed to search engines as the charge to deconvolute at,
+        // so getting it wrong silently mis-assigns every precursor mass in the run. Every committed fixture
+        // records MSMS_PreCursorChargeState = 0, so the branch that surfaces a real charge never ran in any
+        // test; only the "0 -> null" sentinel path did. Writing a real charge into a temp copy covers both:
+        // the charge is surfaced as-is on the scan it belongs to, and a 0 on another scan stays null rather
+        // than being reported as a charge of 0 (which would be an invalid charge state downstream).
+        [Test]
+        public void TestPrecursorChargeStateIsReadFromPerSpectrumVariables()
+        {
+            // Scan 2 gets a real charge of 3; scans 3-5 keep Bruker's 0 = "could not determine".
+            string path = CopyFixtureAndEditSqlite("centroid_1x_MS1_4x_autoMS2.d",
+                @"UPDATE PerSpectrumVariables SET Value = 3
+          WHERE Spectrum = 2
+            AND Variable = (SELECT Variable FROM SupportedVariables
+                            WHERE PermanentName = 'MSMS_PreCursorChargeState')");
+
+            MsDataFile brukerData = MsDataFileReader.GetDataFile(path).LoadAllStaticData();
+
+            Assert.That(brukerData.Scans[1].SelectedIonChargeStateGuess, Is.EqualTo(3));
+            Assert.That(brukerData.Scans[2].SelectedIonChargeStateGuess, Is.Null,
+                "a recorded charge of 0 means 'undetermined' and must not be surfaced as a charge of 0");
+
+            // The dynamic path builds the scan through a different query and must agree.
+            var dynamicReader = MsDataFileReader.GetDataFile(path);
+            dynamicReader.InitiateDynamicConnection();
+            Assert.That(dynamicReader.GetOneBasedScanFromDynamicConnection(2).SelectedIonChargeStateGuess,
+                Is.EqualTo(3));
+            dynamicReader.CloseDynamicConnection();
         }
     }
 }
