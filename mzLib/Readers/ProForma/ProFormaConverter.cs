@@ -139,7 +139,7 @@ namespace Readers.ProForma
         /// Emits an accession (Identifier) descriptor like <c>[UNIMOD:35]</c> when the modification
         /// carries a recognized ontology reference, otherwise a Name descriptor like <c>[Oxidation]</c>.
         /// </summary>
-        private static Tdp.ProFormaDescriptor BuildDescriptor(Modification mod)
+        internal static Tdp.ProFormaDescriptor BuildDescriptor(Modification mod)
         {
             if (mod.DatabaseReference != null)
             {
