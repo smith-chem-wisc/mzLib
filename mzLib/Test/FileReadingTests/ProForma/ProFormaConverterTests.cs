@@ -1,8 +1,10 @@
+using System;
 using System.Collections.Generic;
 using MzLibUtil;
 using NUnit.Framework;
 using Omics.Modifications;
 using Readers.ProForma;
+using Tdp = TopDownProteomics.ProForma;
 
 namespace Test.FileReadingTests.ProForma
 {
@@ -39,6 +41,105 @@ namespace Test.FileReadingTests.ProForma
             var dr = dbKey == null ? null : new Dictionary<string, IList<string>> { [dbKey] = new List<string> { accession! } };
             return new Modification(_originalId: name, _modificationType: dbKey ?? "testMods", _target: motif,
                 _locationRestriction: locationRestriction, _monoisotopicMass: mass, _databaseReference: dr);
+        }
+
+        [Test]
+        public void Layer2_NullArguments_Throw()
+        {
+            var allModsKnown = new Dictionary<string, Modification>();
+            var term = ProFormaReader.Read("PEPTIDE");
+
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(null!, allModsKnown),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(term, null!),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(() => ProFormaConverter.ToProFormaTerm(null!, new Dictionary<int, Modification>()),
+                Throws.TypeOf<ArgumentNullException>());
+            Assert.That(() => ProFormaConverter.ToProFormaTerm("PEPTIDE", null!),
+                Throws.TypeOf<ArgumentNullException>());
+        }
+
+        [Test]
+        public void Layer2_ResolvesAgainstTheWildcardMotif()
+        {
+            // Motif "X" means any residue, so it must match a concrete interior residue.
+            ModificationMotif.TryGetMotif("X", out var anyResidue);
+            var anywhere = new Modification(_originalId: "Label", _modificationType: "testMods", _target: anyResidue,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 8.01);
+            var allModsKnown = new Dictionary<string, Modification> { [anywhere.IdWithMotif] = anywhere };
+
+            var term = ProFormaReader.Read("EM[Label]EK");
+            var dict = ProFormaConverter.ToModificationDictionary(term, allModsKnown);
+
+            Assert.That(dict[3], Is.SameAs(anywhere));
+        }
+
+        [Test]
+        public void Layer2_TagIndexOutsideSequence_Throws()
+        {
+            // A malformed term whose tag points past the end of its own sequence must be rejected,
+            // not silently written to a key that means something else in AllModsOneIsNterminus.
+            var ox = MakeMod("Oxidation", 'M', 15.99491);
+            var allModsKnown = new Dictionary<string, Modification> { [ox.IdWithMotif] = ox };
+
+            var descriptors = new[] { new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, "Oxidation") };
+            var term = new Tdp.ProFormaTerm("PEP", new List<Tdp.ProFormaTag> { new(7, descriptors) },
+                null, null, null, null, null, null);
+
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(term, allModsKnown),
+                Throws.TypeOf<MzLibException>().With.Message.Contains("outside sequence bounds"));
+        }
+
+        [Test]
+        public void Layer2_TwoTagsOnOneResidue_Throws()
+        {
+            // ProForma allows several modifications on one residue; mzLib stores one per position.
+            // Fail loud rather than let the second silently overwrite the first.
+            var ox = MakeMod("Oxidation", 'M', 15.99491);
+            var allModsKnown = new Dictionary<string, Modification> { [ox.IdWithMotif] = ox };
+
+            var descriptors = new[] { new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, "Oxidation") };
+            var term = new Tdp.ProFormaTerm("EMEK",
+                new List<Tdp.ProFormaTag> { new(1, descriptors), new(1, descriptors) },
+                null, null, null, null, null, null);
+
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(term, allModsKnown),
+                Throws.TypeOf<MzLibException>().With.Message.Contains("Multiple modifications target residue index 1"));
+        }
+
+        [Test]
+        public void Layer2_ResolvesNameAgainstAContextBearingMotif()
+        {
+            // The N-glycosylation sequon motif is "Nxs": the modified residue is the upper-case one and
+            // the surrounding context is lower-case, so the mod never keys as "Glycan on N". Resolution
+            // must match on the motif's modified residue, not on the whole motif string.
+            ModificationMotif.TryGetMotif("Nxs", out var sequon);
+            var glyco = new Modification(_originalId: "Glycan", _modificationType: "testMods", _target: sequon,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 1234.43);
+            var allModsKnown = new Dictionary<string, Modification> { [glyco.IdWithMotif] = glyco };
+
+            var term = ProFormaReader.Read("EN[Glycan]ASK");
+            var dict = ProFormaConverter.ToModificationDictionary(term, allModsKnown);
+
+            Assert.That(dict.Keys, Is.EquivalentTo(new[] { 3 }));
+            Assert.That(dict[3], Is.SameAs(glyco));
+        }
+
+        [Test]
+        public void Layer2_ResolvesTerminalNameWhoseMotifIsNotX()
+        {
+            // Terminal mods usually key as "{name} on X". When a terminal mod is stored against a
+            // concrete residue motif instead, fall back to matching the name plus terminus compatibility.
+            var acetylOnK = MakeMod("Acetyl", 'K', 42.01057);
+            var terminal = new Modification(_originalId: "Acetyl", _modificationType: "testMods",
+                _target: acetylOnK.Target, _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
+            var allModsKnown = new Dictionary<string, Modification> { [terminal.IdWithMotif] = terminal };
+
+            var term = ProFormaReader.Read("[Acetyl]-KEEP");
+            var dict = ProFormaConverter.ToModificationDictionary(term, allModsKnown);
+
+            Assert.That(dict.Keys, Is.EquivalentTo(new[] { 1 }), "N-terminal mods live at key 1");
+            Assert.That(dict[1], Is.SameAs(terminal));
         }
 
         [Test]
