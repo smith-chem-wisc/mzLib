@@ -24,6 +24,12 @@ namespace Readers
         public double? PrecursorIntensity { get; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
+        /// <summary>
+        /// The observed neutral mass of the most abundant (tallest) isotopologue of the precursor envelope,
+        /// the companion observation to the monoisotopic <see cref="PrecursorMass"/>. Null when the source
+        /// file did not contain the "Precursor Most Abundant Mass" column (the usual monoisotopic-mode case).
+        /// </summary>
+        public double? PrecursorMostAbundantMass { get; protected set; }
         public double RetentionTime { get; protected set; }
         public double? CollisionEnergy { get; protected set; }
         public double Score { get; protected set; }
@@ -150,6 +156,7 @@ namespace Readers
             PrecursorIntensity = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorIntensity, parsedHeader, spl, null);
             PrecursorMz = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMz, parsedHeader, spl);
             PrecursorMass = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMass, parsedHeader, spl);
+            PrecursorMostAbundantMass = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass, parsedHeader, spl, null);
             BaseSeq = RemoveParentheses(GetRequiredValue(SpectrumMatchFromTsvHeader.BaseSequence, parsedHeader, spl));
             FullSequence = GetRequiredValue(SpectrumMatchFromTsvHeader.FullSequence, parsedHeader, spl);
             MonoisotopicMassString = GetRequiredValue(SpectrumMatchFromTsvHeader.MonoisotopicMass, parsedHeader, spl);
@@ -275,6 +282,8 @@ namespace Readers
             PrecursorScanNum = psm.PrecursorScanNum;
             PrecursorCharge = psm.PrecursorCharge;
             PrecursorIntensity = psm.PrecursorIntensity;
+            // An observation of the precursor envelope, so it is the same for every hypothesis of this match.
+            PrecursorMostAbundantMass = psm.PrecursorMostAbundantMass;
             Score = psm.Score;
             MatchedIons = psm.MatchedIons.ToList();
             ChildScanMatchedIons = psm.ChildScanMatchedIons;

@@ -414,6 +414,57 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         [Test]
+        public static void PrecursorMostAbundantMass_OptionalColumn_ReadsAndSurvivesDisambiguation()
+        {
+            string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+
+            // A file WITHOUT the optional column: the property reads back null, so monoisotopic-mode
+            // output is unaffected and old files still read.
+            List<PsmFromTsv> withoutColumn = SpectrumMatchTsvReader.ReadPsmTsv(baseFile, out _);
+            NUnit.Framework.Assert.That(withoutColumn.First().PrecursorMostAbundantMass, Is.Null);
+
+            // Build a synthetic copy carrying "Precursor Most Abundant Mass" as the last column. Unlike the
+            // mass-error column this is an observation of the precursor envelope, not a per-hypothesis value:
+            // one number per row, never "|"-separated, even for an ambiguous match.
+            string[] lines = File.ReadAllLines(baseFile);
+            var outLines = new List<string>
+            {
+                lines[0] + "\t" + SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass
+            };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                outLines.Add(string.IsNullOrWhiteSpace(lines[i]) ? lines[i] : lines[i] + "\t" + "1234.5678");
+            }
+            string syntheticFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "PrecursorMostAbundantMass_synthetic.psmtsv");
+            File.WriteAllLines(syntheticFile, outLines);
+
+            try
+            {
+                List<PsmFromTsv> withColumn = SpectrumMatchTsvReader.ReadPsmTsv(syntheticFile, out _);
+
+                PsmFromTsv psm = withColumn.First();
+                NUnit.Framework.Assert.That(psm.PrecursorMostAbundantMass, Is.EqualTo(1234.5678).Within(1e-6));
+
+                // The monoisotopic precursor mass is untouched by the new column.
+                NUnit.Framework.Assert.That(psm.PrecursorMass,
+                    Is.EqualTo(withoutColumn.First().PrecursorMass).Within(1e-6));
+
+                // Disambiguating an ambiguous match carries the observation through unchanged - the envelope
+                // apex is a property of the scan, so every hypothesis of the match shares it.
+                PsmFromTsv ambiguous = withColumn.First(p => p.FullSequence.Contains('|'));
+                PsmFromTsv disambiguated = new(ambiguous, ambiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambiguated.PrecursorMostAbundantMass,
+                    Is.EqualTo(ambiguous.PrecursorMostAbundantMass));
+            }
+            finally
+            {
+                File.Delete(syntheticFile);
+            }
+        }
+
+        [Test]
         public static void MostAbundantMassDiffPpm_OptionalColumn_ReadsAndDisambiguates()
         {
             string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
