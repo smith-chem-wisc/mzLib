@@ -428,13 +428,22 @@ namespace Test.FileReadingTests.InternalFileReading
             // mass-error column this is an observation of the precursor envelope, not a per-hypothesis value:
             // one number per row, never "|"-separated, even for an ambiguous match.
             string[] lines = File.ReadAllLines(baseFile);
+            int headerWidth = lines[0].Split('\t').Length;
             var outLines = new List<string>
             {
                 lines[0] + "\t" + SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass
             };
             for (int i = 1; i < lines.Length; i++)
             {
-                outLines.Add(string.IsNullOrWhiteSpace(lines[i]) ? lines[i] : lines[i] + "\t" + "1234.5678");
+                // Only append to rows that are exactly header-width, so the value always lands at the
+                // registered column index. A ragged/short row would otherwise place it at that row's own
+                // column count and the reader would map the wrong cell (mirrors the sibling test's guard).
+                if (lines[i].Split('\t').Length != headerWidth)
+                {
+                    outLines.Add(lines[i]);
+                    continue;
+                }
+                outLines.Add(lines[i] + "\t" + "1234.5678");
             }
             string syntheticFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 "PrecursorMostAbundantMass_synthetic.psmtsv");
@@ -452,8 +461,11 @@ namespace Test.FileReadingTests.InternalFileReading
                     Is.EqualTo(withoutColumn.First().PrecursorMass).Within(1e-6));
 
                 // Disambiguating an ambiguous match carries the observation through unchanged - the envelope
-                // apex is a property of the scan, so every hypothesis of the match shares it.
+                // apex is a property of the scan, so every hypothesis of the match shares it. Anchor the
+                // ambiguous row's value to the concrete expectation first, so a null on either side fails
+                // rather than letting the comparison degenerate to null == null.
                 PsmFromTsv ambiguous = withColumn.First(p => p.FullSequence.Contains('|'));
+                NUnit.Framework.Assert.That(ambiguous.PrecursorMostAbundantMass, Is.EqualTo(1234.5678).Within(1e-6));
                 PsmFromTsv disambiguated = new(ambiguous, ambiguous.FullSequence.Split('|')[0], 0);
                 NUnit.Framework.Assert.That(disambiguated.PrecursorMostAbundantMass,
                     Is.EqualTo(ambiguous.PrecursorMostAbundantMass));
