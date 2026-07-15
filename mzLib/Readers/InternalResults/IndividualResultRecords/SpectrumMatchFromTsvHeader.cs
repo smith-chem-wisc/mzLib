@@ -29,6 +29,7 @@
         // Sequence information
         public const string BaseSequence = "Base Sequence";
         public const string FullSequence = "Full Sequence";
+        public const string ProForma = "ProForma";
         public const string EssentialSequence = "Essential Sequence";
         public const string UniqueSequence = "Unique Sequence"; //Used for crosslinked peptides
         public const string AmbiguityLevel = "Ambiguity Level";

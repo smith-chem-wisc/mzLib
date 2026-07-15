@@ -13,7 +13,7 @@
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
-    <PackageReference Include="TopDownProteomics" Version="0.0.297" />
+    <PackageReference Include="TopDownProteomics" Version="0.0.299" />
   </ItemGroup>
 
   <ItemGroup>
