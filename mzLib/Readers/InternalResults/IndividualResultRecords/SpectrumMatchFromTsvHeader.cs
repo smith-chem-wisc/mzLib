@@ -15,6 +15,11 @@
         public const string PrecursorIntensity = "Precursor Intensity";
         public const string PrecursorMz = "Precursor MZ";
         public const string PrecursorMass = "Precursor Mass";
+        // Optional companion to PrecursorMass: the observed neutral mass of the most abundant (tallest)
+        // isotopologue of the precursor envelope, as opposed to its monoisotopic peak. Written only when a
+        // run used most-abundant precursor selection; the reader maps it by name and ignores it when absent.
+        // Pairs with MostAbundantMassDiffPpm, which reports the error against that same peak.
+        public const string PrecursorMostAbundantMass = "Precursor Most Abundant Mass";
         public const string OneOverK0 = "1/K0";
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
