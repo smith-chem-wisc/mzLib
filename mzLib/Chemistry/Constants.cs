@@ -57,5 +57,7 @@ namespace Chemistry
         internal const int CarbonAtomicNumber = 6;
 
         internal const int HydrogenAtomicNumber = 1;
+
+        public static readonly ChemicalFormula WaterChemicalFormula = ChemicalFormula.ParseFormula("H2O");
     }
 }
