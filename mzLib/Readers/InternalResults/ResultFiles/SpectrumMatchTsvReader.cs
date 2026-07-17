@@ -140,12 +140,14 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorIntensity, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorIntensity));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMz, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMz));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMass));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.OneOverK0, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.OneOverK0));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Score, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Score));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.DeltaScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.DeltaScore));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Notch, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Notch));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.BaseSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.BaseSequence));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.EssentialSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.EssentialSequence));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.ProForma, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ProForma)); // -1 when absent (pre-ProForma files)
             parsedHeader.Add(SpectrumMatchFromTsvHeader.AmbiguityLevel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.AmbiguityLevel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MissedCleavages, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MissedCleavages));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MassDiffDa, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MassDiffDa));

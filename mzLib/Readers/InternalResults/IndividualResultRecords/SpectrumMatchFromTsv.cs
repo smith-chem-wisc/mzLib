@@ -17,6 +17,7 @@ namespace Readers
         protected static readonly Regex IonParser = new Regex(@"([a-zA-Z]+)(\d+)");
 
         public string FullSequence { get; protected set; }
+        public string ProForma { get; protected set; }
         public int Ms2ScanNumber { get; protected set; }
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
@@ -24,6 +25,12 @@ namespace Readers
         public double? PrecursorIntensity { get; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
+        /// <summary>
+        /// The observed neutral mass of the most abundant (tallest) isotopologue of the precursor envelope,
+        /// the companion observation to the monoisotopic <see cref="PrecursorMass"/>. Null when the source
+        /// file did not contain the "Precursor Most Abundant Mass" column (the usual monoisotopic-mode case).
+        /// </summary>
+        public double? PrecursorMostAbundantMass { get; protected set; }
         public double RetentionTime { get; protected set; }
         public double? CollisionEnergy { get; protected set; }
         public double Score { get; protected set; }
@@ -150,6 +157,7 @@ namespace Readers
             PrecursorIntensity = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorIntensity, parsedHeader, spl, null);
             PrecursorMz = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMz, parsedHeader, spl);
             PrecursorMass = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMass, parsedHeader, spl);
+            PrecursorMostAbundantMass = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass, parsedHeader, spl, null);
             BaseSeq = RemoveParentheses(GetRequiredValue(SpectrumMatchFromTsvHeader.BaseSequence, parsedHeader, spl));
             FullSequence = GetRequiredValue(SpectrumMatchFromTsvHeader.FullSequence, parsedHeader, spl);
             MonoisotopicMassString = GetRequiredValue(SpectrumMatchFromTsvHeader.MonoisotopicMass, parsedHeader, spl);
@@ -170,6 +178,7 @@ namespace Readers
             DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
             Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
             EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
+            ProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl); // optional: absent in pre-ProForma files
             MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
             MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
             MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
@@ -211,6 +220,7 @@ namespace Readers
             if (!psm.FullSequence.Contains("|"))
             {
                 FullSequence = fullSequence;
+                ProForma = psm.ProForma;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
@@ -226,6 +236,8 @@ namespace Readers
             else
             {
                 FullSequence = fullSequence;
+                // ProForma uses '|' as an internal descriptor separator, so it cannot be split per candidate; carry the parent value.
+                ProForma = psm.ProForma;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
@@ -275,6 +287,8 @@ namespace Readers
             PrecursorScanNum = psm.PrecursorScanNum;
             PrecursorCharge = psm.PrecursorCharge;
             PrecursorIntensity = psm.PrecursorIntensity;
+            // An observation of the precursor envelope, so it is the same for every hypothesis of this match.
+            PrecursorMostAbundantMass = psm.PrecursorMostAbundantMass;
             Score = psm.Score;
             MatchedIons = psm.MatchedIons.ToList();
             ChildScanMatchedIons = psm.ChildScanMatchedIons;
