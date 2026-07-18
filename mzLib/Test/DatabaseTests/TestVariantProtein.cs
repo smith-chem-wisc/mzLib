@@ -219,6 +219,50 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
+        /// Proteoform-level oracle for a real UniProt-native C-terminal deletion. P40467 (ASG1_YEAST) carries a
+        /// deletion of YPSE at 961-964 (the last four residues) encoded as an empty &lt;variation/&gt; — exactly the
+        /// form the reader fix in #1095 admits. SeqVarXmlTest only checks that the deletion is READ with the right
+        /// coordinates (OriginalSequence == residues[begin,end]); this pins that it is APPLIED correctly, i.e. the
+        /// variant proteoform actually ends ...YLPLN with YPSE removed (length - 4), not ...YLPLNYPSE. A bug that
+        /// read the native deletion yet failed to apply it would pass SeqVarXmlTest and fail here.
+        /// </summary>
+        [Test]
+        public static void SeqVar_NativeCTerminalDeletion_YPSE_AppliesAndShortensProtein()
+        {
+            var loaded = ProteinDbLoader.LoadProteinXML(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "seqvartests.xml"),
+                true, DecoyType.None, null, false, null, out _);
+
+            Protein consensus = loaded.First(p => p.Accession == "P40467" && !p.AppliedSequenceVariations.Any());
+            Assert.That(consensus.BaseSequence, Does.EndWith("YLPLNYPSE"), "fixture sanity: P40467 consensus should end in the YPSE C-terminus");
+
+            // Take the native deletion (empty VariantSequence) exactly as read from the fixture, then apply ONLY it
+            // so the resulting proteoform is cleanly "consensus minus YPSE" rather than a combinatorial mix.
+            SequenceVariation ypse = consensus.SequenceVariations.Single(v =>
+                v.OriginalSequence == "YPSE" && v.VariantSequence == ""
+                && v.OneBasedBeginPosition == 961 && v.OneBasedEndPosition == 964);
+
+            Protein applied = new Protein(consensus.BaseSequence, consensus.Accession,
+                    sequenceVariations: new List<SequenceVariation> { ypse })
+                .GetVariantBioPolymers()
+                .Single(p => p.AppliedSequenceVariations.Any());
+
+            // The deletion is applied: the last four residues are gone and the C-terminus is now ...YLPLN.
+            Assert.That(applied.BaseSequence.Length, Is.EqualTo(consensus.BaseSequence.Length - 4), "applied deletion should shorten the protein by 4 residues");
+            Assert.That(applied.BaseSequence, Does.EndWith("YLPLN"), "applied proteoform should end at ...YLPLN with YPSE removed");
+            Assert.That(applied.BaseSequence, Does.Not.EndWith("YPSE"), "the deleted YPSE residues must not survive on the applied proteoform");
+
+            // The applied variation records the deletion's provenance. Coordinates are rebased onto the (shorter)
+            // variant sequence: begin stays at the deletion start (961) while end collapses to begin-1 (960),
+            // encoding the empty variant span — the same post-collapse convention the SAV/MNV/indel test pins.
+            SequenceVariation appliedYpse = applied.AppliedSequenceVariations.Single();
+            Assert.That(appliedYpse.OriginalSequence, Is.EqualTo("YPSE"));
+            Assert.That(appliedYpse.VariantSequence, Is.EqualTo(""));
+            Assert.That(appliedYpse.OneBasedBeginPosition, Is.EqualTo(961));
+            Assert.That(appliedYpse.OneBasedEndPosition, Is.EqualTo(960));
+        }
+
+        /// <summary>
         /// CRITICAL: Tests loading sequence variations that carry modifications.
         /// Validates that modifications attached to variants are correctly positioned in both
         /// target and decoy proteins, and survive XML round-trip. This is essential for
