@@ -1,15 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MassSpectrometry;
 using MzLibUtil;
 
 namespace UsefulProteomicsDatabases
 {
     /// <summary>
-    /// Pure, offline helpers over the PRIDE Archive manifest: resolving a <see cref="PrideArchiveFile"/> to an
-    /// HTTPS download URL, and filtering / summarizing a manifest (a <see cref="IEnumerable{T}"/> of
-    /// <see cref="PrideArchiveFile"/>). No network access — the download itself lives on
-    /// <see cref="PrideArchiveClient"/>.
+    /// Pure, offline helpers over PRIDE data: resolving a <see cref="PrideArchiveFile"/> to an HTTPS download
+    /// URL, filtering / summarizing a manifest (a <see cref="IEnumerable{T}"/> of <see cref="PrideArchiveFile"/>),
+    /// and converting a <see cref="PrideProxiSpectrum"/> to an mzLib <see cref="MzSpectrum"/>. No network access —
+    /// the fetch/download themselves live on <see cref="PrideArchiveClient"/>.
     /// </summary>
     public static class PrideArchiveExtensions
     {
@@ -137,6 +138,43 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentNullException(nameof(files));
 
             return files.Where(f => f != null).Sum(f => f.FileSizeBytes);
+        }
+
+        /// <summary>
+        /// Converts a <see cref="PrideProxiSpectrum"/>'s parallel <c>mzs</c>/<c>intensities</c> arrays into an
+        /// mzLib <see cref="MzSpectrum"/>. Pure and offline — the fetch lives on
+        /// <see cref="PrideArchiveClient.GetProxiSpectrumAsync"/>. The PROXI metadata
+        /// (<see cref="PrideProxiSpectrum.Attributes"/>) is not carried onto the spectrum; read it from the DTO
+        /// if you need charge, precursor m/z, scan number, etc.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="MzSpectrum"/> assumes an ascending m/z array and neither sorts nor validates its inputs, so
+        /// this method does both defensively: it rejects a mzs/intensities length mismatch, and it sorts a fresh
+        /// copy of the peaks by ascending m/z (PROXI normally already returns them sorted). Sorting a copy leaves
+        /// the DTO's own arrays untouched; because those copies are then owned solely by the spectrum, it is
+        /// constructed with <c>shouldCopy: false</c> to avoid a redundant second copy.
+        /// </remarks>
+        /// <param name="spectrum">The PROXI spectrum whose peaks are converted.</param>
+        /// <returns>An <see cref="MzSpectrum"/> of the spectrum's peaks, m/z ascending. Empty if the spectrum has no peaks.</returns>
+        /// <exception cref="ArgumentNullException">The spectrum is null.</exception>
+        /// <exception cref="MzLibException">The spectrum's mzs and intensities arrays have different lengths.</exception>
+        public static MzSpectrum ToMzSpectrum(this PrideProxiSpectrum spectrum)
+        {
+            if (spectrum == null)
+                throw new ArgumentNullException(nameof(spectrum));
+
+            double[] mzs = spectrum.Mzs ?? Array.Empty<double>();
+            double[] intensities = spectrum.Intensities ?? Array.Empty<double>();
+            if (mzs.Length != intensities.Length)
+                throw new MzLibException(
+                    $"PROXI spectrum '{spectrum.Usi}' has {mzs.Length} m/z values but {intensities.Length} intensities; the peak arrays must be parallel.");
+
+            // Copy before sorting so a caller re-reading the DTO's arrays does not see them reordered, then hand
+            // MzSpectrum arrays it alone owns (shouldCopy: false, since Array.Sort already produced fresh arrays).
+            double[] sortedMzs = (double[])mzs.Clone();
+            double[] sortedIntensities = (double[])intensities.Clone();
+            Array.Sort(sortedMzs, sortedIntensities); // sorts intensities as the companion of the m/z key array
+            return new MzSpectrum(sortedMzs, sortedIntensities, shouldCopy: false);
         }
     }
 }

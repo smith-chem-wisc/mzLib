@@ -5,6 +5,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using MassSpectrometry;
 using Newtonsoft.Json;
 
 namespace UsefulProteomicsDatabases
@@ -23,6 +24,14 @@ namespace UsefulProteomicsDatabases
     {
         /// <summary>The base address of the PRIDE Archive REST API (v3).</summary>
         public const string DefaultBaseAddress = "https://www.ebi.ac.uk/pride/ws/archive/v3/";
+
+        /// <summary>
+        /// The base address of PRIDE's PROXI spectrum API. PROXI (the PSI standard for retrieving a spectrum by
+        /// USI) lives under a DIFFERENT path root than the v3 archive API (<see cref="DefaultBaseAddress"/>), so
+        /// PROXI requests are issued as absolute URIs and do not resolve against the client's archive
+        /// <see cref="HttpClient.BaseAddress"/>.
+        /// </summary>
+        public const string DefaultProxiBaseAddress = "https://www.ebi.ac.uk/pride/proxi/archive/v0.1/";
 
         // Explicit JSON nulls must not clobber the non-null string defaults on the DTOs.
         private static readonly JsonSerializerSettings JsonSettings = new() { NullValueHandling = NullValueHandling.Ignore };
@@ -232,6 +241,71 @@ namespace UsefulProteomicsDatabases
                 downloadedPaths.Add(await DownloadFileAsync(file, destinationDirectory, overwrite, cancellationToken).ConfigureAwait(false));
             }
             return downloadedPaths;
+        }
+
+        /// <summary>
+        /// Fetches a single spectrum by its USI (Universal Spectrum Identifier) from PRIDE's PROXI API, returning
+        /// the raw PROXI object: the peak arrays plus the controlled-vocabulary
+        /// <see cref="PrideProxiSpectrum.Attributes"/> (charge, precursor m/z, ms level, scan number,
+        /// instrument, ...). Use <see cref="GetSpectrumAsync"/> instead if you only need the peaks as an
+        /// <see cref="MzSpectrum"/> and can discard the attributes.
+        /// </summary>
+        /// <param name="usi">
+        /// The Universal Spectrum Identifier, e.g.
+        /// "mzspec:PXD000561:Adult_Frontalcortex_bRP_Elite_85_f09:scan:17555:VLHPLEGAVVIIFK/2".
+        /// </param>
+        /// <param name="cancellationToken">Cancels the fetch.</param>
+        /// <returns>The spectrum identified by <paramref name="usi"/>. Never null.</returns>
+        /// <exception cref="ArgumentException">The USI is null, empty, or whitespace.</exception>
+        /// <exception cref="HttpRequestException">
+        /// The API returned a non-success status — PROXI answers an unknown or unreadable USI with 404 and a
+        /// malformed USI with 400 — or returned an empty result for the USI.
+        /// </exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<PrideProxiSpectrum> GetProxiSpectrumAsync(string usi, CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(usi))
+                throw new ArgumentException("A USI (Universal Spectrum Identifier) is required.", nameof(usi));
+
+            // PROXI is a different path root than the v3 archive BaseAddress, so an archive-relative URI (the
+            // GetProjectFilesAsync pattern) would resolve to the wrong path. An absolute PROXI URI overrides the
+            // client's BaseAddress. resultType=full asks PROXI for the peak arrays, not just the metadata.
+            string requestUri = $"{DefaultProxiBaseAddress}spectra?usi={Uri.EscapeDataString(usi)}&resultType=full";
+            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"PRIDE PROXI request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            // PROXI wraps its result in a JSON array (one entry per matched spectrum). A USI identifies exactly
+            // one spectrum, so take the first. An empty array on a 200 is a contract oddity — unknown USIs 404
+            // rather than returning [] — so treat "no spectrum" as an error instead of returning null.
+            List<PrideProxiSpectrum> spectra =
+                JsonConvert.DeserializeObject<List<PrideProxiSpectrum>>(content, JsonSettings) ?? new List<PrideProxiSpectrum>();
+            if (spectra.Count == 0 || spectra[0] == null)
+                throw new HttpRequestException($"PRIDE PROXI returned no spectrum for USI '{usi}'.");
+
+            return spectra[0];
+        }
+
+        /// <summary>
+        /// Fetches a spectrum by its USI and returns its peaks as an mzLib <see cref="MzSpectrum"/>. This is the
+        /// convenience over <see cref="GetProxiSpectrumAsync"/> + <see cref="PrideArchiveExtensions.ToMzSpectrum"/>:
+        /// the PROXI metadata attributes are discarded — call <see cref="GetProxiSpectrumAsync"/> to keep them.
+        /// </summary>
+        /// <param name="usi">The Universal Spectrum Identifier.</param>
+        /// <param name="cancellationToken">Cancels the fetch.</param>
+        /// <returns>The spectrum's peaks as an <see cref="MzSpectrum"/> (m/z ascending). Never null.</returns>
+        /// <exception cref="ArgumentException">The USI is null, empty, or whitespace.</exception>
+        /// <exception cref="HttpRequestException">The API returned a non-success status or an empty result for the USI.</exception>
+        /// <exception cref="MzLibUtil.MzLibException">The returned spectrum's peak arrays are not parallel.</exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<MzSpectrum> GetSpectrumAsync(string usi, CancellationToken cancellationToken = default)
+        {
+            PrideProxiSpectrum spectrum = await GetProxiSpectrumAsync(usi, cancellationToken).ConfigureAwait(false);
+            return spectrum.ToMzSpectrum();
         }
 
         /// <summary>Reads the PRIDE "total_records" response header, if present and numeric.</summary>
