@@ -66,8 +66,8 @@ public static class BioPolymerGroupTsvSchema
         => SampleGroupColumnBuilder.Build(
             groups,
             SampleGroupsOf,
-            (g, result) => Truncate(result.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: false)),
-            (g, result) => Truncate(result.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: true)));
+            (g, result) => Truncate(result.FormatOccupancy(OccupancyKeys(g), proteinLevel: true, intensityBased: false)),
+            (g, result) => Truncate(result.FormatOccupancy(OccupancyKeys(g), proteinLevel: true, intensityBased: true)));
 
     private static IReadOnlyList<SampleGroupResult> SampleGroupsOf(BioPolymerGroup group)
     {
@@ -77,18 +77,11 @@ public static class BioPolymerGroupTsvSchema
         return group.SampleGroupResults!;
     }
 
-    private static bool IsParentLevel(BioPolymerGroup group)
-        => group.GroupType == BioPolymerGroupType.Parent;
-
     /// <summary>
-    /// Entity keys the occupancy string is ordered by: accessions at parent level, base sequences
-    /// at digestion-product level.
+    /// Entity keys the occupancy string is ordered by: the group's parent accessions.
     /// </summary>
     private static List<string> OccupancyKeys(BioPolymerGroup group)
-        => (IsParentLevel(group)
-                ? group.ListOfBioPolymersOrderedByAccession.Select(p => p.Accession)
-                : group.AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
-            .ToList();
+        => [.. group.ListOfBioPolymersOrderedByAccession.Select(p => p.Accession)];
 
     /// <summary>
     /// Coverage already computed for this group, or an empty result. Deliberately does not trigger

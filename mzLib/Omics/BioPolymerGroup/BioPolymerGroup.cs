@@ -45,13 +45,8 @@ namespace Omics.BioPolymerGroup
         /// including sequences shared with other groups.</param>
         /// <param name="uniqueBioPolymersWithSetMods">Sequences with modifications that are unique to this group
         /// and not shared with any other biopolymer group.</param>
-        /// <param name="groupType">Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
-        /// <see cref="BioPolymerGroupType.Parent"/> uses parent(typically protein)-level coordinates;
-        /// <see cref="BioPolymerGroupType.DigestionProduct"/> uses
-        /// digestion-product-local coordinates (typically peptide positions).</param>
         public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
-            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods, BioPolymerGroupType groupType = BioPolymerGroupType.Parent)
+            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods)
         {
             BioPolymers = bioPolymers;
             ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
@@ -65,7 +60,6 @@ namespace Omics.BioPolymerGroup
             IsDecoy = false;
             IsContaminant = false;
             IsEntrapment = false;
-            GroupType = groupType;
 
             // if any of the biopolymers in the group are decoys, the group is a decoy
             foreach (var bioPolymer in bioPolymers)
@@ -252,14 +246,6 @@ namespace Omics.BioPolymerGroup
         public bool DisplayModsOnPeptides { get; set; }
 
         /// <summary>
-        /// Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
-        /// <see cref="BioPolymerGroupType.Parent"/> uses protein-level coordinates;
-        /// <see cref="BioPolymerGroupType.DigestionProduct"/> use digestion-product-local coordinates.
-        /// </summary>
-        public BioPolymerGroupType GroupType { get; }
-
-        /// <summary>
         /// Cached sequence coverage results from <see cref="CalculateSequenceCoverage"/>.
         /// Null until coverage is calculated. Invalidated when <see cref="MergeWith"/> is called.
         /// </summary>
@@ -310,35 +296,22 @@ namespace Omics.BioPolymerGroup
         }
 
         /// <summary>
-        /// Populates protein-level and peptide-level modification occupancy on a <see cref="SampleGroupResult"/>
-        /// using the specified PSMs. PSM grouping, form filtering, TotalCount derivation, and intensity
+        /// Populates parent-level modification occupancy on a <see cref="SampleGroupResult"/> using
+        /// the specified PSMs. PSM grouping, form filtering, TotalCount derivation, and intensity
         /// lookup are all handled internally by <see cref="ModificationOccupancyCalculator"/>.
+        ///
+        /// Occupancy is reported in each parent biopolymer's coordinates. For digestion-product-local
+        /// positions, use <see cref="BioPolymerWithSetModsGroup"/> instead.
         /// </summary>
         private void PopulateOccupancy(SampleGroupResult result, List<ISpectralMatch> psms)
         {
-            if (GroupType == BioPolymerGroupType.Parent)
+            foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
             {
-                foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
-                {
-                    var occupancy = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
-                        bioPolymer, psms);
+                var occupancy = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
+                    bioPolymer, psms);
 
-                    if (occupancy.Count > 0)
-                        result.ParentOccupancy[bioPolymer.Accession] = occupancy;
-                }
-            }
-            else
-            {
-                var psmsGroupedByBaseSequence = psms.GroupBy(p => p.BaseSequence);
-                foreach (var baseSeqGroup in psmsGroupedByBaseSequence)
-                { 
-                    var occupancy = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(baseSeqGroup.ToList());
-
-                    if (occupancy.Count > 0)
-                    {
-                        result.DigestionProductOccupancy[baseSeqGroup.Key] = occupancy;
-                    }
-                }
+                if (occupancy.Count > 0)
+                    result.ParentOccupancy[bioPolymer.Accession] = occupancy;
             }
         }
 
@@ -416,12 +389,10 @@ namespace Omics.BioPolymerGroup
             var allUniqueSequencesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(UniqueBioPolymersWithSetMods.Intersect(allSequencesForThisFile));
 
-            // ConstructSubsetBioPolymerGroup passes it through the constructor instead of object initializer
             BioPolymerGroup subsetGroup = new BioPolymerGroup(
                 BioPolymers,
                 allSequencesForThisFile,
-                allUniqueSequencesForThisFile,
-                GroupType)
+                allUniqueSequencesForThisFile)
             {
                 AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
                 DisplayModsOnPeptides = DisplayModsOnPeptides

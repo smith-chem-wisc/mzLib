@@ -101,14 +101,6 @@ namespace Omics.BioPolymerGroup
         List<SampleGroupResult>? SampleGroupResults { get; set; }
 
         /// <summary>
-        /// Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Parent"/> uses
-        /// parent-level positions; <see cref="BioPolymerGroupType.DigestionProduct"/> uses 
-        /// digestion-product-local positions.
-        /// </summary>
-        BioPolymerGroupType GroupType { get; }
-
-        /// <summary>
         /// Cumulative count of target groups at or above this group's rank, used for FDR calculation.
         /// </summary>
         int CumulativeTarget { get; set; }
