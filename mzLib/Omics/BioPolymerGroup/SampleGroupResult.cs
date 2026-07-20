@@ -119,9 +119,12 @@ public sealed class SampleGroupResult
     /// Output: semicolon-separated mod entries within each entity, pipe-separated between entities.
     /// </summary>
     /// <param name="orderedKeys">Ordered accessions (protein-level) or base sequences (peptide-level).</param>
-    /// <param name="proteinLevel">True for protein-level occupancy; false for peptide-level.</param>
+    /// <param name="proteinLevel">True for protein-level occupancy; false for peptide-level.
+    /// Deliberately has no default: each group kind populates only one of the two occupancy
+    /// dictionaries, and asking for the wrong one returns an empty string rather than failing —
+    /// which reads as "no modifications found" instead of "you asked the wrong question".</param>
     /// <param name="intensityBased">True to format intensity-based stoichiometry; false for count-based occupancy.</param>
-    public string FormatOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true, bool intensityBased = false)
+    public string FormatOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel, bool intensityBased = false)
     {
         var occupancy = proteinLevel ? ParentOccupancy : DigestionProductOccupancy;
 

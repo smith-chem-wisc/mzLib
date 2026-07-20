@@ -150,7 +150,14 @@ public static class ModificationOccupancyCalculator
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
         var result = new Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>>();
 
-        var psmsWithBaseSeq = psmList.Where(p => p.BaseSequence != null).ToList();
+        // A PSM whose sequence could not be resolved carries an empty base sequence, not null, so
+        // testing for null alone would let it through and then trip the all-same check below.
+        var psmsWithBaseSeq = psmList.Where(p => !string.IsNullOrEmpty(p.BaseSequence)).ToList();
+
+        // Nothing resolved means nothing to attribute a modification to — not an error. Returning
+        // here also keeps AllSame() off an empty sequence, where its First() call would throw.
+        if (psmsWithBaseSeq.Count == 0)
+            return new Dictionary<int, List<SiteSpecificModificationOccupancy>>();
 
         if (!psmsWithBaseSeq.Select(p => p.BaseSequence).AllSame())
         {

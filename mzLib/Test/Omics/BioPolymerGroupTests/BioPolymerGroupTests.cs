@@ -808,11 +808,11 @@ namespace Test.Omics.BioPolymerGroupTests
         [Test]
         public void MaxStringLength_ControlsTruncation()
         {
-            var originalMax = BioPolymerGroupTsvSchema.MaxStringLength;
+            var originalMax = TsvWriter.MaxFieldLength;
             try
             {
                 // Test with custom limit
-                BioPolymerGroupTsvSchema.MaxStringLength = 100;
+                TsvWriter.MaxFieldLength = 100;
                 var longName = new string('X', 200);
                 var bioPolymer = new MockBioPolymer("SEQ", "P00001", fullName: longName);
                 var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
@@ -824,13 +824,13 @@ namespace Test.Omics.BioPolymerGroupTests
                 Assert.That(result.Contains(new string('X', 100)), Is.True);
 
                 // Test disabling truncation (0 or negative)
-                BioPolymerGroupTsvSchema.MaxStringLength = 0;
+                TsvWriter.MaxFieldLength = 0;
                 var result2 = GroupTsv.Row(bg);
                 Assert.That(result2, Does.Contain(longName), "MaxStringLength=0 should disable truncation");
             }
             finally
             {
-                BioPolymerGroupTsvSchema.MaxStringLength = originalMax;
+                TsvWriter.MaxFieldLength = originalMax;
             }
         }
 

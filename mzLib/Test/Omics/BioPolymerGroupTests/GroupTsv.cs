@@ -26,5 +26,18 @@ namespace Test.Omics.BioPolymerGroupTests
         /// <summary>Row for one group rendered against the schema of the whole dataset.</summary>
         public static string RowInDataset(BioPolymerGroup group, IReadOnlyCollection<BioPolymerGroup> dataset) =>
             TsvWriter.RowLine(BioPolymerGroupTsvSchema.For(dataset), group);
+
+        /// <summary>Header line for a file containing the given digestion-product groups.</summary>
+        public static string PeptideHeader(params BioPolymerWithSetModsGroup[] groups) =>
+            TsvWriter.HeaderLine(BioPolymerWithSetModsGroupTsvSchema.For(groups));
+
+        /// <summary>Row for a digestion-product group written on its own.</summary>
+        public static string PeptideRow(BioPolymerWithSetModsGroup group) =>
+            TsvWriter.RowLine(BioPolymerWithSetModsGroupTsvSchema.For([group]), group);
+
+        /// <summary>Row for one digestion-product group rendered against the whole dataset's schema.</summary>
+        public static string PeptideRowInDataset(
+            BioPolymerWithSetModsGroup group, IReadOnlyCollection<BioPolymerWithSetModsGroup> dataset) =>
+            TsvWriter.RowLine(BioPolymerWithSetModsGroupTsvSchema.For(dataset), group);
     }
 }

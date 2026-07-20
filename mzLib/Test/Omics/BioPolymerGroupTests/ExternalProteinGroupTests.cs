@@ -161,10 +161,10 @@ namespace Test.Omics.BioPolymerGroupTests
                 new HashSet<IBioPolymerWithSetMods>(),
                 new HashSet<IBioPolymerWithSetMods>());
 
-            var originalMaxLength = BioPolymerGroupTsvSchema.MaxStringLength;
+            var originalMaxLength = TsvWriter.MaxFieldLength;
             try
             {
-                BioPolymerGroupTsvSchema.MaxStringLength = 100;
+                TsvWriter.MaxFieldLength = 100;
                 var output = GroupTsv.Row(group);
 
                 // Output should not contain the full 50,000 character sequence
@@ -172,7 +172,7 @@ namespace Test.Omics.BioPolymerGroupTests
             }
             finally
             {
-                BioPolymerGroupTsvSchema.MaxStringLength = originalMaxLength;
+                TsvWriter.MaxFieldLength = originalMaxLength;
             }
         }
 
@@ -189,15 +189,15 @@ namespace Test.Omics.BioPolymerGroupTests
                 new HashSet<IBioPolymerWithSetMods>(),
                 new HashSet<IBioPolymerWithSetMods>());
 
-            var originalMaxLength = BioPolymerGroupTsvSchema.MaxStringLength;
+            var originalMaxLength = TsvWriter.MaxFieldLength;
             try
             {
-                BioPolymerGroupTsvSchema.MaxStringLength = 0;
+                TsvWriter.MaxFieldLength = 0;
                 Assert.DoesNotThrow(() => GroupTsv.Row(group));
             }
             finally
             {
-                BioPolymerGroupTsvSchema.MaxStringLength = originalMaxLength;
+                TsvWriter.MaxFieldLength = originalMaxLength;
             }
         }
 

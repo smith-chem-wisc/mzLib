@@ -12,19 +12,6 @@ namespace Omics.BioPolymerGroup;
 public static class BioPolymerGroupTsvSchema
 {
     /// <summary>
-    /// Maximum length for string fields in output. Strings exceeding this length are truncated.
-    ///
-    /// Default is 32,000 characters, slightly below Excel's cell limit of 32,767, so output files
-    /// open in Excel without truncation or corruption. Set to 0 or negative to disable truncation
-    /// (useful for programmatic processing where Excel compatibility does not matter).
-    /// </summary>
-    /// <remarks>
-    /// Excel specification: a cell can contain up to 32,767 characters.
-    /// See: https://support.microsoft.com/en-us/office/excel-specifications-and-limits
-    /// </remarks>
-    public static int MaxStringLength { get; set; } = 32000;
-
-    /// <summary>
     /// Builds the schema for a set of groups that will be written to one file.
     /// </summary>
     /// <param name="groups">All groups destined for the file. Their sample group results are
@@ -71,121 +58,23 @@ public static class BioPolymerGroupTsvSchema
     }
 
     /// <summary>
-    /// One block of columns per sample group in the dataset: spectral count and count-based
-    /// occupancy always, plus intensity and intensity-based occupancy for any sample group that
-    /// carries intensity data in at least one of the groups being written.
+    /// One block of columns per sample group in the dataset, with occupancy rendered in this
+    /// group's coordinate space.
     /// </summary>
     private static IEnumerable<TsvColumn<BioPolymerGroup>> QuantificationColumns(
         IReadOnlyCollection<BioPolymerGroup> groups)
+        => SampleGroupColumnBuilder.Build(
+            groups,
+            SampleGroupsOf,
+            (g, result) => Truncate(result.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: false)),
+            (g, result) => Truncate(result.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: true)));
+
+    private static IReadOnlyList<SampleGroupResult> SampleGroupsOf(BioPolymerGroup group)
     {
-        foreach (var group in groups)
-        {
-            if (group.SampleGroupResults is null)
-                group.PopulateSampleGroupResults();
-        }
+        if (group.SampleGroupResults is null)
+            group.PopulateSampleGroupResults();
 
-        // Union of the dataset's sample groups, in first-seen order. 
-        //
-        // Sample groups are matched across records by Identity — the files they cover — never by
-        // Label and never by position. Labels are not unique (SampleGroupBuilder names a sample
-        // group after its first file whenever conditions are undefined or a file is missing from
-        // disk, so same-named files in different directories collide), and position is not stable
-        // across records because a record only has sample groups for the files it appears in.
-        var identities = new List<string>();
-        var seen = new HashSet<string>();
-        var labelByIdentity = new Dictionary<string, (string Label, string? LabelSourcePath)>();
-
-        foreach (var group in groups)
-        {
-            foreach (var result in group.SampleGroupResults!)
-            {
-                if (seen.Add(result.Identity))
-                {
-                    identities.Add(result.Identity);
-                    labelByIdentity[result.Identity] = (result.Label, result.LabelSourcePath);
-                }
-
-            }
-        }
-
-        // Whether the intensity columns exist is a property of the run, not of a sample group:
-        // an engine either populated these groups or it did not. Deliberately not
-        // SampleGroupResult.HasIntensityData, which answers "did this sample group get a value" --
-        // using that to choose columns made a group whose samples were all unobserved describe a
-        // narrower table than its neighbour. Same predicate the group applied before rendering moved
-        // out; both members are public, so the schema computes it rather than needing access.
-        bool quantified = groups.Any(g => g.SamplesForQuantification is { Count: > 0 }
-                                       && g.IntensitiesBySample is not null);
-
-        var displayLabels = SampleGroupLabels.Disambiguate(identities, labelByIdentity);
-
-        var index = new SampleGroupIndex();
-        var columns = new List<TsvColumn<BioPolymerGroup>>();
-
-        foreach (var identity in identities)
-        {
-            string thisIdentity = identity;
-            string display = displayLabels[thisIdentity];
-
-            columns.Add(new TsvColumn<BioPolymerGroup>($"SpectralCount_{display}",
-                g => index.ResultFor(g, thisIdentity)?.SpectralCount.ToString() ?? string.Empty));
-
-            if (quantified)
-                columns.Add(new TsvColumn<BioPolymerGroup>($"Intensity_{display}",
-                    g => index.ResultFor(g, thisIdentity) is { HasIntensityData: true } r ? r.Intensity.ToString() : string.Empty));
-
-            columns.Add(new TsvColumn<BioPolymerGroup>($"CountOccupancy_{display}",
-                g => Truncate(index.ResultFor(g, thisIdentity)?.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: false))));
-
-            if (quantified)
-                columns.Add(new TsvColumn<BioPolymerGroup>($"IntensityOccupancy_{display}",
-                    g => Truncate(index.ResultFor(g, thisIdentity)?.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: true))));
-        }
-
-        return columns;
-    }
-
-    /// <summary>
-    /// Finds a group's sample group by identity, in place of scanning its list once per cell.
-    ///
-    /// Decoupling a column from its position in the group's list is what fixes the ragged-row
-    /// defect, but it also means a column can no longer read its value off the list in order. Left
-    /// as a scan, each of the ~4 columns per sample group re-walks the whole list, so writing costs
-    /// O(samples² × records) where rendering a row used to cost O(samples).
-    ///
-    /// A row is rendered one group at a time across every column, so remembering the most recent
-    /// group's lookup restores O(samples × records).
-    ///
-    /// Keyed on the sample-group list instance rather than on the group: every invalidation path
-    /// nulls SampleGroupResults, and repopulating assigns a fresh list, so a group whose
-    /// quantification changed mid-write rebuilds its index instead of serving a stale one.
-    /// Not thread-safe, in common with the lazy population it wraps.
-    /// </summary>
-    private sealed class SampleGroupIndex
-    {
-        private List<SampleGroupResult>? _source;
-        private Dictionary<string, SampleGroupResult> _byIdentity = [];
-
-        public SampleGroupResult? ResultFor(BioPolymerGroup group, string identity)
-        {
-            if (group.SampleGroupResults is null)
-                group.PopulateSampleGroupResults();
-
-            var results = group.SampleGroupResults!;
-
-            if (!ReferenceEquals(results, _source))
-            {
-                _source = results;
-                _byIdentity = new Dictionary<string, SampleGroupResult>(results.Count);
-
-                // First wins, matching the FirstOrDefault this replaces — identities are unique
-                // within a group by construction, but TryAdd keeps a hand-built list from throwing.
-                foreach (var result in results)
-                    _byIdentity.TryAdd(result.Identity, result);
-            }
-
-            return _byIdentity.GetValueOrDefault(identity);
-        }
+        return group.SampleGroupResults!;
     }
 
     private static bool IsParentLevel(BioPolymerGroup group)
@@ -250,17 +139,5 @@ public static class BioPolymerGroupTsvSchema
         return "T";
     }
 
-    /// <summary>
-    /// Truncates to <see cref="MaxStringLength"/> so output stays within Excel's cell limit.
-    /// </summary>
-    private static string Truncate(string? input)
-    {
-        if (string.IsNullOrEmpty(input))
-            return string.Empty;
-
-        if (MaxStringLength <= 0 || input.Length <= MaxStringLength)
-            return input;
-
-        return input.Substring(0, MaxStringLength);
-    }
+    private static string Truncate(string? input) => TsvWriter.Truncate(input);
 }

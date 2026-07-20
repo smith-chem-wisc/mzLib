@@ -30,6 +30,33 @@ public sealed class TsvColumn<T>
 /// </summary>
 public static class TsvWriter
 {
+    /// <summary>
+    /// Maximum length for a single field. Longer values are truncated by <see cref="Truncate"/>.
+    ///
+    /// Default is 32,000 characters, slightly below Excel's cell limit of 32,767, so output files
+    /// open in Excel without truncation or corruption. Set to 0 or negative to disable truncation
+    /// (useful for programmatic processing where Excel compatibility does not matter).
+    /// </summary>
+    /// <remarks>
+    /// Excel specification: a cell can contain up to 32,767 characters.
+    /// See: https://support.microsoft.com/en-us/office/excel-specifications-and-limits
+    /// </remarks>
+    public static int MaxFieldLength { get; set; } = 32000;
+
+    /// <summary>
+    /// Caps a field at <see cref="MaxFieldLength"/>. Null and empty both render as an empty field.
+    /// </summary>
+    public static string Truncate(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        if (MaxFieldLength <= 0 || value.Length <= MaxFieldLength)
+            return value;
+
+        return value.Substring(0, MaxFieldLength);
+    }
+
     /// <summary>Renders the header line for a schema.</summary>
     public static string HeaderLine<T>(IReadOnlyList<TsvColumn<T>> schema)
         => string.Join('\t', schema.Select(c => c.Header));
