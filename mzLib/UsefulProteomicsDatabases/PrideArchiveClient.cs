@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
@@ -130,6 +131,83 @@ namespace UsefulProteomicsDatabases
             }
 
             return files;
+        }
+
+        /// <summary>
+        /// Returns the metadata describing a PRIDE Archive project — title, protocols, instruments,
+        /// species, publications and submitters — letting a caller judge and cite a dataset before
+        /// downloading any of it. Use <see cref="TryGetProjectAsync"/> instead when the accession comes
+        /// from user input and may simply not exist.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="cancellationToken">Cancels the fetch.</param>
+        /// <returns>The project's metadata. Never null.</returns>
+        /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
+        /// <exception cref="HttpRequestException">
+        /// No project has that accession — unlike <see cref="GetProjectFilesAsync"/>, which answers an
+        /// unknown accession with an empty manifest, this endpoint answers with 404 — or the API returned
+        /// some other non-success status, or an empty body.
+        /// </exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<PrideProject> GetProjectAsync(string accession, CancellationToken cancellationToken = default)
+        {
+            (bool found, PrideProject project) = await TryGetProjectAsync(accession, cancellationToken).ConfigureAwait(false);
+
+            if (!found)
+                throw new HttpRequestException($"PRIDE Archive has no project with accession '{accession}'.");
+
+            return project;
+        }
+
+        /// <summary>
+        /// Attempts to fetch a PRIDE Archive project's metadata, reporting a non-existent accession as a
+        /// value rather than an exception — the cheap way to validate an accession a user typed.
+        /// </summary>
+        /// <remarks>
+        /// <c>Found</c> is false for one reason only: PRIDE answered, and no project has that accession
+        /// (HTTP 404). Every other failure — the service being unreachable, timing out, rate-limiting, or
+        /// returning 5xx — still throws, because collapsing an outage into "no such project" would send a
+        /// caller hunting for a typo in a perfectly good accession. This is also what lets a live test
+        /// distinguish "PRIDE is down, skip" from "the contract broke, fail".
+        /// </remarks>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="cancellationToken">Cancels the fetch.</param>
+        /// <returns>
+        /// <c>Found</c> and the project when the accession exists; <c>false</c> and null when PRIDE reports
+        /// no such project. The project is never null when <c>Found</c> is true.
+        /// </returns>
+        /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
+        /// <exception cref="HttpRequestException">The API was unreachable, returned a non-success status other than 404, or returned an empty body.</exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<(bool Found, PrideProject Project)> TryGetProjectAsync(string accession,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+
+            // This endpoint shares the v3 BaseAddress, so a relative URI resolves correctly (unlike PROXI,
+            // which sits under a different path root and needs an absolute URI).
+            string requestUri = $"projects/{Uri.EscapeDataString(accession)}";
+            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+
+            // 404 is the ONE expected "no" and is reported as a value. It is checked before the general
+            // status guard so that every other failure still throws.
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return (false, null);
+
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            // Unlike the manifest and PROXI endpoints, this one returns a bare object rather than an array,
+            // so there is nothing to unwrap. A 200 carrying no project is a broken contract, not an absence.
+            PrideProject project = JsonConvert.DeserializeObject<PrideProject>(content, JsonSettings);
+            if (project == null)
+                throw new HttpRequestException($"PRIDE Archive returned an empty body for accession '{accession}'.");
+
+            return (true, project);
         }
 
         /// <summary>
