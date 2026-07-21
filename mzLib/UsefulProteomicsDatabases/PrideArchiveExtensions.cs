@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
@@ -9,8 +10,9 @@ namespace UsefulProteomicsDatabases
     /// <summary>
     /// Pure, offline helpers over PRIDE data: resolving a <see cref="PrideArchiveFile"/> to an HTTPS download
     /// URL, filtering / summarizing a manifest (a <see cref="IEnumerable{T}"/> of <see cref="PrideArchiveFile"/>),
-    /// and converting a <see cref="PrideProxiSpectrum"/> to an mzLib <see cref="MzSpectrum"/>. No network access —
-    /// the fetch/download themselves live on <see cref="PrideArchiveClient"/>.
+    /// and reading a <see cref="PrideProxiSpectrum"/>'s controlled-vocabulary metadata into an mzLib
+    /// <see cref="MsDataScan"/>. No network access — the fetch/download themselves live on
+    /// <see cref="PrideArchiveClient"/>.
     /// </summary>
     public static class PrideArchiveExtensions
     {
@@ -140,41 +142,222 @@ namespace UsefulProteomicsDatabases
             return files.Where(f => f != null).Sum(f => f.FileSizeBytes);
         }
 
+        // ---- PROXI spectrum metadata -------------------------------------------------------------------
+        //
+        // The PSI-MS accessions PROXI uses to describe a spectrum. Matched on accession, never on name (see
+        // CvParam's own doc). Verified against a live PRIDE PROXI response for
+        // mzspec:PXD000561:Adult_Frontalcortex_bRP_Elite_85_f09:scan:17555:VLHPLEGAVVIIFK/2.
+
+        /// <summary>"MS:1000511" — ms level (1 for a survey scan, 2 for a fragment spectrum, ...).</summary>
+        private const string MsLevelAccession = "MS:1000511";
+
+        /// <summary>"MS:1003057" — the scan's number within its originating run.</summary>
+        private const string ScanNumberAccession = "MS:1003057";
+
+        /// <summary>"MS:1000041" — the precursor's charge state.</summary>
+        private const string ChargeStateAccession = "MS:1000041";
+
+        /// <summary>"MS:1000744" — the selected (precursor) ion's m/z.</summary>
+        private const string SelectedIonMzAccession = "MS:1000744";
+
+        /// <summary>"MS:1000042" — the selected ion's peak intensity.</summary>
+        private const string SelectedIonIntensityAccession = "MS:1000042";
+
+        /// <summary>"MS:1000827" — the isolation window's target m/z.</summary>
+        private const string IsolationWindowTargetMzAccession = "MS:1000827";
+
+        /// <summary>"MS:1000828" — the isolation window's lower offset from its target.</summary>
+        private const string IsolationWindowLowerOffsetAccession = "MS:1000828";
+
+        /// <summary>"MS:1000829" — the isolation window's upper offset from its target.</summary>
+        private const string IsolationWindowUpperOffsetAccession = "MS:1000829";
+
+        /// <summary>"MS:1000016" — the scan's start (retention) time.</summary>
+        private const string ScanStartTimeAccession = "MS:1000016";
+
+        /// <summary>"MS:1000927" — the ion injection time, in milliseconds.</summary>
+        private const string IonInjectionTimeAccession = "MS:1000927";
+
+        /// <summary>"MS:1000512" — the vendor filter string describing the scan.</summary>
+        private const string FilterStringAccession = "MS:1000512";
+
+        /// <summary>"MS:1000465" — scan polarity, whose value names the polarity ("positive scan"/"negative scan").</summary>
+        private const string ScanPolarityAccession = "MS:1000465";
+
+        /// <summary>"MS:1000130" — positive scan, when polarity is given as a bare term rather than a value.</summary>
+        private const string PositiveScanAccession = "MS:1000130";
+
+        /// <summary>"MS:1000129" — negative scan, when polarity is given as a bare term rather than a value.</summary>
+        private const string NegativeScanAccession = "MS:1000129";
+
+        /// <summary>"MS:1000525" — spectrum representation, whose value is "centroid spectrum" or "profile spectrum".</summary>
+        private const string SpectrumRepresentationAccession = "MS:1000525";
+
+        /// <summary>"MS:1000127" — centroid spectrum, when representation is given as a bare term.</summary>
+        private const string CentroidSpectrumAccession = "MS:1000127";
+
+        /// <summary>"UO:0000031" — the unit term for minutes.</summary>
+        private const string MinuteUnitAccession = "UO:0000031";
+
         /// <summary>
-        /// Converts a <see cref="PrideProxiSpectrum"/>'s parallel <c>mzs</c>/<c>intensities</c> arrays into an
-        /// mzLib <see cref="MzSpectrum"/>. Pure and offline — the fetch lives on
-        /// <see cref="PrideArchiveClient.GetProxiSpectrumAsync"/>. The PROXI metadata
-        /// (<see cref="PrideProxiSpectrum.Attributes"/>) is not carried onto the spectrum; read it from the DTO
-        /// if you need charge, precursor m/z, scan number, etc.
+        /// Reads a <see cref="PrideProxiSpectrum"/>'s controlled-vocabulary <see cref="PrideProxiSpectrum.Attributes"/>
+        /// into a fully-populated mzLib <see cref="MsDataScan"/> — scan number, ms level, polarity, retention time,
+        /// centroid-ness, precursor m/z and charge, isolation window, injection time and filter string — carrying
+        /// the spectrum itself through as the scan's <see cref="MsDataScan.MassSpectrum"/> (a
+        /// <see cref="PrideProxiSpectrum"/> already is an <see cref="MzSpectrum"/>). Pure and offline; the fetch
+        /// lives on <see cref="PrideArchiveClient.GetProxiSpectrumAsync"/>.
         /// </summary>
         /// <remarks>
-        /// <see cref="MzSpectrum"/> assumes an ascending m/z array and neither sorts nor validates its inputs, so
-        /// this method does both defensively: it rejects a mzs/intensities length mismatch, and it sorts a fresh
-        /// copy of the peaks by ascending m/z (PROXI normally already returns them sorted). Sorting a copy leaves
-        /// the DTO's own arrays untouched; because those copies are then owned solely by the spectrum, it is
-        /// constructed with <c>shouldCopy: false</c> to avoid a redundant second copy.
+        /// PROXI describes far less than a vendor file does, so several <see cref="MsDataScan"/> fields are filled
+        /// with the honest "not stated" value rather than a guess:
+        /// <list type="bullet">
+        /// <item><description><see cref="MZAnalyzerType.Unknown"/> — PROXI names the <i>instrument</i>
+        /// ("MS:1000463"), not the mass analyzer, so there is no analyzer term to map. (An mzML-sourced analyzer
+        /// accession would map through <c>Readers.Mzml.AnalyzerDictionary</c>, which is not reachable from this
+        /// project: Readers references UsefulProteomicsDatabases, not the reverse.)</description></item>
+        /// <item><description><see cref="DissociationType.Unknown"/> — PROXI carries no dissociation term; the
+        /// method is recorded only inside the vendor filter string, which is too vendor-specific to parse
+        /// reliably. The filter string is preserved verbatim as <see cref="MsDataScan.ScanFilter"/>.</description></item>
+        /// <item><description>No noise data, and no precursor scan number — PROXI reports neither.</description></item>
+        /// </list>
+        /// Retention time is normalized to <b>minutes</b>, mzLib's convention everywhere. "MS:1000016" is
+        /// interpreted per its unit term when one is present, and as seconds when it is absent — which is what
+        /// PRIDE serves (a live scan reports 4662.32, i.e. 77.7 min, not 4662 min).
+        /// Ms level defaults to 2 and the scan number to 1 when the respective term is absent; a USI addresses a
+        /// fragment spectrum, so 2 is the meaningful default (the same one <c>Mgf</c> hardcodes).
         /// </remarks>
-        /// <param name="spectrum">The PROXI spectrum whose peaks are converted.</param>
-        /// <returns>An <see cref="MzSpectrum"/> of the spectrum's peaks, m/z ascending. Empty if the spectrum has no peaks.</returns>
+        /// <param name="spectrum">The PROXI spectrum to convert.</param>
+        /// <returns>An <see cref="MsDataScan"/> wrapping <paramref name="spectrum"/> and its CV metadata.</returns>
         /// <exception cref="ArgumentNullException">The spectrum is null.</exception>
-        /// <exception cref="MzLibException">The spectrum's mzs and intensities arrays have different lengths.</exception>
-        public static MzSpectrum ToMzSpectrum(this PrideProxiSpectrum spectrum)
+        public static MsDataScan ToMsDataScan(this PrideProxiSpectrum spectrum)
         {
             if (spectrum == null)
                 throw new ArgumentNullException(nameof(spectrum));
 
-            double[] mzs = spectrum.Mzs ?? Array.Empty<double>();
-            double[] intensities = spectrum.Intensities ?? Array.Empty<double>();
-            if (mzs.Length != intensities.Length)
-                throw new MzLibException(
-                    $"PROXI spectrum '{spectrum.Usi}' has {mzs.Length} m/z values but {intensities.Length} intensities; the peak arrays must be parallel.");
+            int scanNumber = GetInt(spectrum, ScanNumberAccession) ?? 1;
+            double? selectedIonMz = GetDouble(spectrum, SelectedIonMzAccession);
 
-            // Copy before sorting so a caller re-reading the DTO's arrays does not see them reordered, then hand
-            // MzSpectrum arrays it alone owns (shouldCopy: false, since Array.Sort already produced fresh arrays).
-            double[] sortedMzs = (double[])mzs.Clone();
-            double[] sortedIntensities = (double[])intensities.Clone();
-            Array.Sort(sortedMzs, sortedIntensities); // sorts intensities as the companion of the m/z key array
-            return new MzSpectrum(sortedMzs, sortedIntensities, shouldCopy: false);
+            // PROXI states the isolation window as a target m/z plus offsets; MsDataScan wants a centre and a
+            // total width. Fall back to the precursor m/z as the centre, as the readers do when only one is known.
+            double? lowerOffset = GetDouble(spectrum, IsolationWindowLowerOffsetAccession);
+            double? upperOffset = GetDouble(spectrum, IsolationWindowUpperOffsetAccession);
+            double? isolationWidth = lowerOffset.HasValue || upperOffset.HasValue
+                ? (lowerOffset ?? 0) + (upperOffset ?? 0)
+                : null;
+
+            // PROXI states no acquisition scan window, so bound it by the peaks actually returned — the same
+            // synthesis Mgf performs for a format that omits it.
+            MzRange scanWindowRange = spectrum.Size > 0
+                ? new MzRange(spectrum.XArray[0], spectrum.XArray[spectrum.Size - 1])
+                : null;
+
+            return new MsDataScan(
+                massSpectrum: spectrum,
+                oneBasedScanNumber: scanNumber,
+                msnOrder: GetInt(spectrum, MsLevelAccession) ?? 2,
+                isCentroid: IsCentroid(spectrum),
+                polarity: GetPolarity(spectrum),
+                retentionTime: GetRetentionTimeInMinutes(spectrum),
+                scanWindowRange: scanWindowRange,
+                scanFilter: GetValue(spectrum, FilterStringAccession),
+                mzAnalyzer: MZAnalyzerType.Unknown,
+                totalIonCurrent: spectrum.SumOfAllY,
+                injectionTime: GetDouble(spectrum, IonInjectionTimeAccession),
+                noiseData: null,
+                nativeId: $"scan={scanNumber}",
+                selectedIonMz: selectedIonMz,
+                selectedIonChargeStateGuess: GetInt(spectrum, ChargeStateAccession),
+                selectedIonIntensity: GetDouble(spectrum, SelectedIonIntensityAccession),
+                isolationMZ: GetDouble(spectrum, IsolationWindowTargetMzAccession) ?? selectedIonMz,
+                isolationWidth: isolationWidth,
+                dissociationType: DissociationType.Unknown,
+                oneBasedPrecursorScanNumber: null,
+                selectedIonMonoisotopicGuessMz: selectedIonMz);
+        }
+
+        /// <summary>
+        /// The value of the first attribute with <paramref name="accession"/>, or null if absent or blank. First,
+        /// not single: PRIDE legitimately repeats a term (one "instrument" per instrument in the project).
+        /// </summary>
+        private static string GetValue(PrideProxiSpectrum spectrum, string accession)
+        {
+            foreach (CvParam attribute in spectrum.Attributes)
+            {
+                if (attribute != null && string.Equals(attribute.Accession, accession, StringComparison.Ordinal))
+                    return string.IsNullOrEmpty(attribute.Value) ? null : attribute.Value;
+            }
+            return null;
+        }
+
+        /// <summary>True if an attribute with <paramref name="accession"/> is present, whatever its value.</summary>
+        private static bool HasAccession(PrideProxiSpectrum spectrum, string accession) =>
+            spectrum.Attributes.Any(a => a != null && string.Equals(a.Accession, accession, StringComparison.Ordinal));
+
+        /// <summary>The first attribute with <paramref name="accession"/> parsed as a double, or null.</summary>
+        private static double? GetDouble(PrideProxiSpectrum spectrum, string accession) =>
+            double.TryParse(GetValue(spectrum, accession), NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+                ? value
+                : null;
+
+        /// <summary>The first attribute with <paramref name="accession"/> parsed as an int, or null.</summary>
+        private static int? GetInt(PrideProxiSpectrum spectrum, string accession) =>
+            int.TryParse(GetValue(spectrum, accession), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
+                ? value
+                : null;
+
+        /// <summary>
+        /// The scan's polarity. PRIDE states it as "MS:1000465" carrying the value "positive scan"/"negative
+        /// scan"; other PROXI servers may instead send the bare PSI terms "MS:1000130"/"MS:1000129". Both forms
+        /// are read; an unstated polarity is <see cref="Polarity.Unknown"/>.
+        /// </summary>
+        private static Polarity GetPolarity(PrideProxiSpectrum spectrum)
+        {
+            if (HasAccession(spectrum, PositiveScanAccession))
+                return Polarity.Positive;
+            if (HasAccession(spectrum, NegativeScanAccession))
+                return Polarity.Negative;
+
+            string polarity = GetValue(spectrum, ScanPolarityAccession);
+            if (polarity == null)
+                return Polarity.Unknown;
+            if (polarity.Contains("positive", StringComparison.OrdinalIgnoreCase))
+                return Polarity.Positive;
+            if (polarity.Contains("negative", StringComparison.OrdinalIgnoreCase))
+                return Polarity.Negative;
+            return Polarity.Unknown;
+        }
+
+        /// <summary>
+        /// Whether the peaks are centroided. PRIDE states this as "MS:1000525" carrying "centroid spectrum";
+        /// other servers may send the bare term "MS:1000127". Absent either, false (profile) is assumed, matching
+        /// the PSI default.
+        /// </summary>
+        private static bool IsCentroid(PrideProxiSpectrum spectrum)
+        {
+            if (HasAccession(spectrum, CentroidSpectrumAccession))
+                return true;
+
+            string representation = GetValue(spectrum, SpectrumRepresentationAccession);
+            return representation != null && representation.Contains("centroid", StringComparison.OrdinalIgnoreCase);
+        }
+
+        /// <summary>
+        /// The scan's retention time in minutes, mzLib's convention. "MS:1000016" is converted per its unit term
+        /// when one is present; with no unit term the value is read as seconds, which is what PRIDE serves.
+        /// Zero when the term is absent.
+        /// </summary>
+        private static double GetRetentionTimeInMinutes(PrideProxiSpectrum spectrum)
+        {
+            double? scanStartTime = GetDouble(spectrum, ScanStartTimeAccession);
+            if (!scanStartTime.HasValue)
+                return 0;
+
+            CvParam term = spectrum.Attributes.FirstOrDefault(
+                a => a != null && string.Equals(a.Accession, ScanStartTimeAccession, StringComparison.Ordinal));
+            bool isMinutes = string.Equals(term?.UnitAccession, MinuteUnitAccession, StringComparison.Ordinal)
+                || string.Equals(term?.UnitName, "minute", StringComparison.OrdinalIgnoreCase);
+
+            return isMinutes ? scanStartTime.Value : scanStartTime.Value / 60.0;
         }
     }
 }

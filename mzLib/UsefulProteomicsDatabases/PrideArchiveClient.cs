@@ -291,9 +291,12 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Fetches a spectrum by its USI and returns its peaks as an mzLib <see cref="MzSpectrum"/>. This is the
-        /// convenience over <see cref="GetProxiSpectrumAsync"/> + <see cref="PrideArchiveExtensions.ToMzSpectrum"/>:
-        /// the PROXI metadata attributes are discarded — call <see cref="GetProxiSpectrumAsync"/> to keep them.
+        /// Fetches a spectrum by its USI and returns it as an mzLib <see cref="MzSpectrum"/> — the simple case,
+        /// for callers that only want the peaks. The returned object is the <see cref="PrideProxiSpectrum"/>
+        /// itself (which derives from <see cref="MzSpectrum"/>), narrowed to the base type; call
+        /// <see cref="GetProxiSpectrumAsync"/> instead to keep its PROXI metadata attributes in view, or
+        /// <see cref="PrideArchiveExtensions.ToMsDataScan"/> to read those attributes into a full
+        /// <see cref="MsDataScan"/>.
         /// </summary>
         /// <param name="usi">The Universal Spectrum Identifier.</param>
         /// <param name="cancellationToken">Cancels the fetch.</param>
@@ -302,11 +305,8 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="HttpRequestException">The API returned a non-success status or an empty result for the USI.</exception>
         /// <exception cref="MzLibUtil.MzLibException">The returned spectrum's peak arrays are not parallel.</exception>
         /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
-        public async Task<MzSpectrum> GetSpectrumAsync(string usi, CancellationToken cancellationToken = default)
-        {
-            PrideProxiSpectrum spectrum = await GetProxiSpectrumAsync(usi, cancellationToken).ConfigureAwait(false);
-            return spectrum.ToMzSpectrum();
-        }
+        public async Task<MzSpectrum> GetSpectrumAsync(string usi, CancellationToken cancellationToken = default) =>
+            await GetProxiSpectrumAsync(usi, cancellationToken).ConfigureAwait(false);
 
         /// <summary>Reads the PRIDE "total_records" response header, if present and numeric.</summary>
         private static bool TryGetTotalRecords(HttpResponseMessage response, out long total)
