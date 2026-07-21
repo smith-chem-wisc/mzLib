@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MzLibUtil;
 using UsefulProteomicsDatabases;
 
 namespace Test.DatabaseTests;
@@ -139,9 +140,14 @@ public class PrideProjectTests
 
     /// <summary>
     /// The dates arrive as bare calendar dates with no time and no UTC offset, which is why they are
-    /// modeled as DateTime rather than the DateTimeOffset used on PrideArchiveFile. Asserting the
-    /// whole value (rather than just the date part) pins that no machine-local offset crept in.
+    /// modeled as DateTime rather than the DateTimeOffset used on PrideArchiveFile.
     /// </summary>
+    /// <remarks>
+    /// DateTime equality ignores Kind, so comparing values alone would still pass if the deserializer
+    /// attached a machine-local offset — the exact drift this test exists to catch. Kind is therefore
+    /// asserted explicitly: Unspecified means no zone was invented, and the time component must be
+    /// midnight because the wire carries no time at all.
+    /// </remarks>
     [Test]
     public async Task GetProjectAsync_BareCalendarDates_ParseWithoutTimeZoneDrift()
     {
@@ -153,6 +159,10 @@ public class PrideProjectTests
         {
             Assert.That(project.SubmissionDate, Is.EqualTo(new DateTime(2019, 1, 15)));
             Assert.That(project.PublicationDate, Is.EqualTo(new DateTime(2025, 7, 13)));
+            Assert.That(project.SubmissionDate.Kind, Is.EqualTo(DateTimeKind.Unspecified));
+            Assert.That(project.PublicationDate.Kind, Is.EqualTo(DateTimeKind.Unspecified));
+            Assert.That(project.SubmissionDate.TimeOfDay, Is.EqualTo(TimeSpan.Zero));
+            Assert.That(project.PublicationDate.TimeOfDay, Is.EqualTo(TimeSpan.Zero));
         });
     }
 
@@ -362,21 +372,31 @@ public class PrideProjectTests
     // converts HttpRequestException into Assert.Ignore — so a LIVE negative test would be silently
     // skipped rather than passed, and would prove nothing.
 
+    /// <summary>
+    /// InstanceOf, not Throws.ArgumentException: the latter is an exact-type constraint, which would pin
+    /// the null case away from the BCL's ArgumentNullException idiom should the guard ever adopt it.
+    /// Asserting no request was recorded proves the guard runs BEFORE the network call, not after.
+    /// </summary>
     [Test]
-    public void GetProjectAsync_BlankAccession_ThrowsArgumentException(
+    public void GetProjectAsync_BlankAccession_ThrowsArgumentExceptionWithoutCallingTheApi(
         [Values(null, "", "   ")] string accession)
     {
-        using var client = ClientReturning(ProjectJson);
+        var handler = new StubHandler(_ => JsonResponse(ProjectJson));
+        using var client = ClientReturning(null, handler: handler);
 
-        Assert.That(async () => await client.GetProjectAsync(accession), Throws.ArgumentException);
+        Assert.That(async () => await client.GetProjectAsync(accession), Throws.InstanceOf<ArgumentException>());
+        Assert.That(handler.RequestedUris, Is.Empty);
     }
 
     [Test]
-    public void TryGetProjectAsync_BlankAccession_ThrowsArgumentException()
+    public void TryGetProjectAsync_BlankAccession_ThrowsArgumentExceptionWithoutCallingTheApi(
+        [Values(null, "", "   ")] string accession)
     {
-        using var client = ClientReturning(ProjectJson);
+        var handler = new StubHandler(_ => JsonResponse(ProjectJson));
+        using var client = ClientReturning(null, handler: handler);
 
-        Assert.That(async () => await client.TryGetProjectAsync("  "), Throws.ArgumentException);
+        Assert.That(async () => await client.TryGetProjectAsync(accession), Throws.InstanceOf<ArgumentException>());
+        Assert.That(handler.RequestedUris, Is.Empty);
     }
 
     /// <summary>An unknown accession 404s on this endpoint — unlike the manifest, which answers 200 [].</summary>
@@ -409,13 +429,25 @@ public class PrideProjectTests
         });
     }
 
+    /// <summary>
+    /// "No such project" must NOT be an HttpRequestException. That type means "the service is
+    /// unavailable" and ExternalServiceTestHelper converts it to a skipped test, so a withdrawn
+    /// accession would silently pass instead of failing. It is an MzLibException, and this test pins
+    /// that it is not an HttpRequestException so the distinction cannot regress.
+    /// </summary>
     [Test]
-    public void GetProjectAsync_UnknownAccession_ThrowsHttpRequestException()
+    public void GetProjectAsync_UnknownAccession_ThrowsMzLibExceptionNotHttpRequestException()
     {
         using var client = ClientReturning("", HttpStatusCode.NotFound);
 
-        Assert.That(async () => await client.GetProjectAsync("PXD999999999"),
-            Throws.InstanceOf<HttpRequestException>().With.Message.Contains("PXD999999999"));
+        MzLibException exception = Assert.ThrowsAsync<MzLibException>(
+            async () => await client.GetProjectAsync("PXD999999999"));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception.Message, Does.Contain("PXD999999999"));
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
     }
 
     /// <summary>
@@ -442,14 +474,66 @@ public class PrideProjectTests
             Throws.InstanceOf<HttpRequestException>());
     }
 
-    /// <summary>A 200 carrying no project is a broken contract, not an absence — so it throws rather than reporting not-found.</summary>
+    /// <summary>
+    /// A 200 carrying no project is a broken contract, not an absence — so it throws, and as an
+    /// MzLibException rather than an HttpRequestException so a live run fails instead of skipping.
+    /// Both the literal "null" payload and a genuinely empty body deserialize to null and must behave
+    /// identically; the empty body is the case a real proxy or truncated response produces.
+    /// </summary>
     [Test]
-    public void TryGetProjectAsync_EmptyBodyOn200_ThrowsHttpRequestException()
+    public void TryGetProjectAsync_NoProjectOn200_ThrowsMzLibException(
+        [Values("null", "", "   ")] string body)
     {
-        using var client = ClientReturning("null");
+        using var client = ClientReturning(body);
 
         Assert.That(async () => await client.TryGetProjectAsync("PXD012345"),
-            Throws.InstanceOf<HttpRequestException>());
+            Throws.InstanceOf<MzLibException>());
+    }
+
+    /// <summary>
+    /// An empty JSON object deserializes to a fully-defaulted PrideProject, which would otherwise be
+    /// returned as a successful result carrying nothing. A real project always has its accession.
+    /// </summary>
+    [Test]
+    public void TryGetProjectAsync_EmptyJsonObject_ThrowsMzLibException()
+    {
+        using var client = ClientReturning("{}");
+
+        Assert.That(async () => await client.TryGetProjectAsync("PXD012345"),
+            Throws.InstanceOf<MzLibException>().With.Message.Contains("no accession"));
+    }
+
+    /// <summary>
+    /// NullValueHandling.Ignore suppresses null values, not null ELEMENTS, so a null inside a CV array
+    /// would otherwise survive into a collection documented as never-null and NRE at first dereference.
+    /// </summary>
+    [Test]
+    public async Task TryGetProjectAsync_NullElementsInArrays_AreDropped()
+    {
+        using var client = ClientReturning("""
+            {
+              "accession": "PXD012345",
+              "instruments": [ null, { "accession": "MS:1000449", "name": "LTQ Orbitrap" }, null ],
+              "projectTags": [ null, "Technical" ],
+              "submitters": [ null ],
+              "sampleAttributes": [
+                null,
+                { "key": { "accession": "OBI:0100026" }, "value": [ null, { "accession": "NEWT:562" } ] }
+              ]
+            }
+            """);
+
+        (_, PrideProject project) = await client.TryGetProjectAsync("PXD012345");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.Instruments, Has.Count.EqualTo(1));
+            Assert.That(project.Instruments.Single().Accession, Is.EqualTo("MS:1000449"));
+            Assert.That(project.ProjectTags, Is.EqualTo(new[] { "Technical" }));
+            Assert.That(project.Submitters, Is.Empty);
+            Assert.That(project.SampleAttributes, Has.Count.EqualTo(1));
+            Assert.That(project.SampleAttributes.Single().Value.Single().Accession, Is.EqualTo("NEWT:562"));
+        });
     }
 
     [Test]
@@ -473,9 +557,13 @@ public class PrideProjectTests
 /// missing value) still FAILS. Run on demand — or in the external-service job — to detect API drift.
 /// </summary>
 /// <remarks>
-/// Only positive assertions belong here. A live "unknown accession" test would raise the very
-/// HttpRequestException that RunAsync treats as an outage, so it would be silently skipped rather
-/// than passed; that coverage lives offline in <see cref="PrideProjectTests"/>.
+/// What the live unknown-accession canary below can and cannot catch, stated precisely because the
+/// distinction is easy to get wrong: if PRIDE ever answered a nonexistent accession with 200 and a
+/// project, TryGetProjectAsync would report Found = true and the test FAILS, which is the drift worth
+/// catching. If PRIDE instead answered 5xx, that is indistinguishable from an outage and RunAsync
+/// skips — so the test cannot prove 404 is still 404. The exhaustive error-contract coverage
+/// therefore lives offline in <see cref="PrideProjectTests"/>, where the status code is dictated by a
+/// stub rather than by EBI's mood.
 /// </remarks>
 [TestFixture]
 [Category("ExternalService")]
@@ -496,7 +584,9 @@ public class PrideProjectLiveTests
                 Assert.That(project.Title, Is.Not.Empty);
                 Assert.That(project.SubmissionDate, Is.Not.EqualTo(default(DateTime)));
                 Assert.That(project.Instruments, Is.Not.Empty);
-                Assert.That(project.Instruments.All(i => !string.IsNullOrEmpty(i.Accession)));
+                // Constraint form, not Assert.That(bool): a collapsed LINQ predicate reports only
+                // "Expected: True, But was: False", which cannot be triaged from a CI log.
+                Assert.That(project.Instruments, Is.All.Matches<CvParam>(i => !string.IsNullOrEmpty(i.Accession)));
                 Assert.That(project.Submitters, Is.Not.Empty);
             });
         });
