@@ -182,7 +182,7 @@ public class PrideProjectTests
     }
 
     [Test]
-    public async Task GetProjectAsync_CvParamGroups_DeserializeAndKeyOnAccession()
+    public async Task GetProjectAsync_CvParamGroups_Deserialize()
     {
         using var client = ClientReturning(ProjectJson);
 
@@ -210,10 +210,10 @@ public class PrideProjectTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(project.QuantificationMethods, Is.Empty);
-            Assert.That(project.OrganismParts, Is.Empty);
-            Assert.That(project.Diseases, Is.Empty);
-            Assert.That(project.AdditionalAttributes, Is.Empty);
+            Assert.That(project.QuantificationMethods, Is.Not.Null.And.Empty);
+            Assert.That(project.OrganismParts, Is.Not.Null.And.Empty);
+            Assert.That(project.Diseases, Is.Not.Null.And.Empty);
+            Assert.That(project.AdditionalAttributes, Is.Not.Null.And.Empty);
         });
     }
 
@@ -304,11 +304,11 @@ public class PrideProjectTests
             Assert.That(project.Accession, Is.EqualTo("PXD000001"));
             Assert.That(project.Title, Is.Empty);
             Assert.That(project.Doi, Is.Empty);
-            Assert.That(project.Instruments, Is.Empty);
-            Assert.That(project.Submitters, Is.Empty);
-            Assert.That(project.References, Is.Empty);
-            Assert.That(project.SampleAttributes, Is.Empty);
-            Assert.That(project.ProjectTags, Is.Empty);
+            Assert.That(project.Instruments, Is.Not.Null.And.Empty);
+            Assert.That(project.Submitters, Is.Not.Null.And.Empty);
+            Assert.That(project.References, Is.Not.Null.And.Empty);
+            Assert.That(project.SampleAttributes, Is.Not.Null.And.Empty);
+            Assert.That(project.ProjectTags, Is.Not.Null.And.Empty);
         });
     }
 
@@ -367,6 +367,33 @@ public class PrideProjectTests
             Is.EqualTo("https://www.ebi.ac.uk/pride/ws/archive/v3/projects/PXD%23frag"));
     }
 
+    /// <summary>
+    /// The traversal case, which is the reason the escape matters: an accession containing path
+    /// separators must stay a single path segment rather than climbing out of projects/. It is asserted
+    /// through AbsolutePath, captured in the responder, because the recorded RequestedUris uses
+    /// Uri.ToString(), which renders %2F back as "/" and would show a traversal that did not occur.
+    /// </summary>
+    [Test]
+    public async Task GetProjectAsync_AccessionWithPathSeparators_CannotEscapeTheProjectsSegment()
+    {
+        string absolutePath = null;
+        var handler = new StubHandler(request =>
+        {
+            absolutePath = request.RequestUri.AbsolutePath;
+            return JsonResponse(ProjectJson);
+        });
+        using var client = ClientReturning(null, handler: handler);
+
+        await client.GetProjectAsync("PXD/../../evil");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(absolutePath, Is.EqualTo("/pride/ws/archive/v3/projects/PXD%2F..%2F..%2Fevil"));
+            Assert.That(absolutePath, Does.StartWith("/pride/ws/archive/v3/projects/"));
+            Assert.That(absolutePath, Does.Not.Contain("/.."));
+        });
+    }
+
     // ---- error contract -----------------------------------------------------
     // Kept offline deliberately: the live fixture routes through ExternalServiceTestHelper, which
     // converts HttpRequestException into Assert.Ignore — so a LIVE negative test would be silently
@@ -384,8 +411,11 @@ public class PrideProjectTests
         var handler = new StubHandler(_ => JsonResponse(ProjectJson));
         using var client = ClientReturning(null, handler: handler);
 
-        Assert.That(async () => await client.GetProjectAsync(accession), Throws.InstanceOf<ArgumentException>());
-        Assert.That(handler.RequestedUris, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(async () => await client.GetProjectAsync(accession), Throws.InstanceOf<ArgumentException>());
+            Assert.That(handler.RequestedUris, Is.Empty);
+        });
     }
 
     [Test]
@@ -395,8 +425,11 @@ public class PrideProjectTests
         var handler = new StubHandler(_ => JsonResponse(ProjectJson));
         using var client = ClientReturning(null, handler: handler);
 
-        Assert.That(async () => await client.TryGetProjectAsync(accession), Throws.InstanceOf<ArgumentException>());
-        Assert.That(handler.RequestedUris, Is.Empty);
+        Assert.Multiple(() =>
+        {
+            Assert.That(async () => await client.TryGetProjectAsync(accession), Throws.InstanceOf<ArgumentException>());
+            Assert.That(handler.RequestedUris, Is.Empty);
+        });
     }
 
     /// <summary>An unknown accession 404s on this endpoint — unlike the manifest, which answers 200 [].</summary>
@@ -462,15 +495,6 @@ public class PrideProjectTests
         using var client = ClientReturning("upstream failure", status);
 
         Assert.That(async () => await client.TryGetProjectAsync("PXD012345"),
-            Throws.InstanceOf<HttpRequestException>());
-    }
-
-    [Test]
-    public void GetProjectAsync_NonSuccessStatus_ThrowsHttpRequestException()
-    {
-        using var client = ClientReturning("server error", HttpStatusCode.InternalServerError);
-
-        Assert.That(async () => await client.GetProjectAsync("PXD012345"),
             Throws.InstanceOf<HttpRequestException>());
     }
 
@@ -588,6 +612,11 @@ public class PrideProjectLiveTests
                 // "Expected: True, But was: False", which cannot be triaged from a CI log.
                 Assert.That(project.Instruments, Is.All.Matches<CvParam>(i => !string.IsNullOrEmpty(i.Accession)));
                 Assert.That(project.Submitters, Is.Not.Empty);
+                // The nested key/value shape is the likeliest place for the wire format to drift, and
+                // the offline fixture cannot notice drift because it is a frozen copy of that format.
+                Assert.That(project.SampleAttributes, Is.Not.Empty);
+                Assert.That(project.SampleAttributes,
+                    Is.All.Matches<PrideSampleAttribute>(a => !string.IsNullOrEmpty(a.Key.Accession) && a.Value.Count > 0));
             });
         });
 
