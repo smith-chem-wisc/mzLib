@@ -144,6 +144,34 @@ public class PrideArchiveClientTests
     }
 
     [Test]
+    public async Task GetProjectFilesAsync_ServerCapsPageSize_StillReturnsFullManifest()
+    {
+        // Regression: PRIDE caps pageSize server-side (100 as of 2026-07-23) and then pages by the
+        // capped size, so asking for 4 yields a 2-file page that is NOT the last page. Treating a
+        // short page as terminal truncated the manifest silently -- it returned 2 of 3 files with
+        // no error, while the doc promised the full manifest regardless of page size.
+        const long total = 3;
+        const int serverCap = 2;
+        var handler = new StubHandler(request =>
+        {
+            var uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("c")), totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        // Ask for more per page than the stub will ever hand back, exactly as a caller passing 500 does.
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: serverCap * 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2)); // kept paging past the capped page
+        });
+    }
+
+    [Test]
     public void GetProjectFilesAsync_ServerIgnoresPaging_ThrowsAfterMaxPages()
     {
         // Every page is full and carries no total_records header, so neither the total nor the
@@ -297,5 +325,27 @@ public class PrideArchiveClientLiveTests
             var files = await client.GetProjectFilesAsync("PXD012345");
             Assert.That(files.Count, Is.GreaterThan(1));
             Assert.That(files.All(f => !string.IsNullOrEmpty(f.FileName)));
+        });
+
+    /// <summary>
+    /// Asking for more files per page than PRIDE will serve must not shorten the manifest. PRIDE caps
+    /// pageSize server-side (100 as of 2026-07-23) and then pages by the capped size, so an
+    /// over-large request comes back "short" on every page while more records remain. Counts are
+    /// compared against the default-page-size call rather than a literal, because the project's file
+    /// count drifts; the invariant — page size must not change the answer — does not.
+    /// </summary>
+    [Test]
+    public Task GetProjectFilesAsync_LivePageSizeAboveServerCap_ReturnsSameManifestAsDefault() =>
+        ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
+        {
+            using var client = new PrideArchiveClient();
+            var atDefault = await client.GetProjectFilesAsync("PXD012345");
+            var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: 500);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(atDefault.Count, Is.GreaterThan(100), "expected a multi-page project to exercise paging");
+                Assert.That(aboveCap.Select(f => f.FileName), Is.EquivalentTo(atDefault.Select(f => f.FileName)));
+            });
         });
 }

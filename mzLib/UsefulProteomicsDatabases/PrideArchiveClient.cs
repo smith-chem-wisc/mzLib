@@ -87,7 +87,10 @@ namespace UsefulProteomicsDatabases
         /// fetched and concatenated; paging is an implementation detail hidden from the caller.
         /// </summary>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
-        /// <param name="pageSize">Files requested per page (default 100). The full manifest is returned regardless.</param>
+        /// <param name="pageSize">
+        /// Files requested per page (default 100). PRIDE silently caps this server-side, so a larger
+        /// value simply means more pages, never fewer files: the full manifest is returned regardless.
+        /// </param>
         /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
         /// <returns>
         /// The project's files. Empty if the project has no files or the accession is unknown (PRIDE
@@ -127,12 +130,21 @@ namespace UsefulProteomicsDatabases
 
                 files.AddRange(pageFiles);
 
-                // Stop when we have collected everything the server reported.
-                if (TryGetTotalRecords(response, out long total) && files.Count >= total)
+                if (TryGetTotalRecords(response, out long total))
+                {
+                    // The server's own record count is authoritative: stop once we have all of it.
+                    if (files.Count >= total)
+                        break;
+                    // More remain, so keep paging even though the page may look short. PRIDE caps
+                    // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
+                    // so requesting 500 yields a 100-file "short" page that still has successors.
+                    // Treating that as the last page silently truncated the manifest.
+                }
+                else if (pageFiles.Count < pageSize)
+                {
+                    // No total to trust: a short page is the last page.
                     break;
-                // Safety net: a short page is the last page even if the total header is missing.
-                if (pageFiles.Count < pageSize)
-                    break;
+                }
 
                 page++;
                 if (page >= MaxPages)
@@ -438,6 +450,12 @@ namespace UsefulProteomicsDatabases
             project.SampleAttributes.RemoveAll(x => x == null);
 
             // A surviving sample attribute can still hold nulls in its own value list.
+            // Key and Value themselves need no guard here: an explicit "key": null or "value": null is
+            // dropped by NullValueHandling.Ignore (JsonSettings), leaving the DTO's `= new()` defaults
+            // standing, so neither can be null by the time this runs. That is load-bearing rather than
+            // incidental -- callers dereference attribute.Key.Accession directly -- so it is pinned by
+            // TryGetProjectAsync_NullKeyOrValueOnSampleAttribute_AreReplacedWithEmpties rather than
+            // re-checked here, where the null branch would be unreachable and untestable.
             foreach (PrideSampleAttribute attribute in project.SampleAttributes)
                 attribute.Value.RemoveAll(x => x == null);
         }
