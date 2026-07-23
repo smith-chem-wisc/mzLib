@@ -88,8 +88,13 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
         /// <param name="pageSize">
-        /// Files requested per page (default 100). PRIDE silently caps this server-side, so a larger
-        /// value simply means more pages, never fewer files: the full manifest is returned regardless.
+        /// Files requested per page (default 100). PRIDE silently caps this server-side and then pages
+        /// by the capped size, so a value above the cap means more pages rather than fewer files
+        /// <em>provided the response reports <c>total_records</c></em>, which PRIDE does on every
+        /// observed response. If that header is ever absent or unparseable there is nothing left to
+        /// page against, and termination falls back to the first short page — under which a requested
+        /// size above the server cap can still return a partial manifest. Leave this at the default
+        /// unless you have a reason not to; the full manifest is returned either way at or below the cap.
         /// </param>
         /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
         /// <returns>
@@ -125,6 +130,13 @@ namespace UsefulProteomicsDatabases
                 List<PrideArchiveFile> pageFiles =
                     JsonConvert.DeserializeObject<List<PrideArchiveFile>>(content, JsonSettings) ?? new List<PrideArchiveFile>();
 
+                // An empty page ends the fetch. This is also the backstop for a total_records that
+                // overstates what the server will actually serve: paging past the end returns a
+                // zero-byte body (verified live 2026-07-23), which deserializes to an empty list. An
+                // overstatement is therefore accepted as the server's own correction rather than
+                // reported as a shortfall -- there is no way to distinguish it from a project whose
+                // file count changed mid-fetch, and throwing would fail a caller who asked for
+                // nothing unreasonable.
                 if (pageFiles.Count == 0)
                     break; // no (more) files
 

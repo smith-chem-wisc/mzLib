@@ -150,8 +150,8 @@ public class PrideArchiveClientTests
         // capped size, so asking for 4 yields a 2-file page that is NOT the last page. Treating a
         // short page as terminal truncated the manifest silently -- it returned 2 of 3 files with
         // no error, while the doc promised the full manifest regardless of page size.
+        // The stub serves at most 2 files per page whatever is asked for, standing in for that cap.
         const long total = 3;
-        const int serverCap = 2;
         var handler = new StubHandler(request =>
         {
             var uri = request.RequestUri.ToString();
@@ -162,12 +162,62 @@ public class PrideArchiveClientTests
         using var client = new PrideArchiveClient(new HttpClient(handler));
 
         // Ask for more per page than the stub will ever hand back, exactly as a caller passing 500 does.
-        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: serverCap * 2);
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
 
         Assert.Multiple(() =>
         {
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
-            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2)); // kept paging past the capped page
+            // Assert the URIs, not just the count: this is what distinguishes the test from
+            // PagesUntilTotalRecords, which pages with a size the stub actually honours. It pins that
+            // the second page was requested at the CALLER's page size after a short first page.
+            Assert.That(handler.RequestedUris, Is.EqualTo(new[]
+            {
+                "https://www.ebi.ac.uk/pride/ws/archive/v3/projects/PXD012345/files?pageSize=4&page=0",
+                "https://www.ebi.ac.uk/pride/ws/archive/v3/projects/PXD012345/files?pageSize=4&page=1",
+            }));
+        });
+    }
+
+    /// <summary>
+    /// The header is authoritative for whether to keep paging, so when it overstates what the server
+    /// will actually serve the empty-page check is the only thing left to stop the loop. That path
+    /// became load-bearing with the capped-pageSize fix -- before it, the short-page break caught this
+    /// case first -- so it is pinned here rather than left to the argument in the PR body.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsOverstated_StopsOnEmptyPage()
+    {
+        const long overstatedTotal = 5; // the stub will only ever serve 2
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: overstatedTotal)
+                : JsonResponse("[]", totalRecords: overstatedTotal));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            // The shortfall against the reported total is accepted, not thrown.
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2)); // stopped at the empty page, did not run to MaxPages
+        });
+    }
+
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsExactlyMatched_DoesNotFetchExtraPage()
+    {
+        // The counterpart to the overstated case: an accurate total must not cost a wasted request.
+        const long total = 2;
+        var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Has.Count.EqualTo(2));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(1));
         });
     }
 
@@ -338,14 +388,22 @@ public class PrideArchiveClientLiveTests
     public Task GetProjectFilesAsync_LivePageSizeAboveServerCap_ReturnsSameManifestAsDefault() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
+            // The cap PRIDE was observed to apply, and a request deliberately above it. Named rather
+            // than inline so a future cap change is a one-line edit.
+            const int observedServerCap = 100;
+            const int deliberatelyAboveCap = 500;
+
             using var client = new PrideArchiveClient();
             var atDefault = await client.GetProjectFilesAsync("PXD012345");
-            var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: 500);
+            var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: deliberatelyAboveCap);
 
-            Assert.Multiple(() =>
-            {
-                Assert.That(atDefault.Count, Is.GreaterThan(100), "expected a multi-page project to exercise paging");
-                Assert.That(aboveCap.Select(f => f.FileName), Is.EquivalentTo(atDefault.Select(f => f.FileName)));
-            });
+            // Assume, not Assert: if PXD012345 is ever trimmed below the cap, or EBI raises the cap,
+            // the client is still correct and only the fixture stopped being multi-page. That must
+            // read as inconclusive, not as a client regression.
+            Assume.That(atDefault.Count, Is.GreaterThan(observedServerCap),
+                "PXD012345 no longer spans multiple pages; nothing to exercise.");
+
+            // The real invariant: page size must not change the answer.
+            Assert.That(aboveCap.Select(f => f.FileName), Is.EquivalentTo(atDefault.Select(f => f.FileName)));
         });
 }
