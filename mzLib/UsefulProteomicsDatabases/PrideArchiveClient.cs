@@ -2,23 +2,34 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using MassSpectrometry;
+using MzLibUtil;
 using Newtonsoft.Json;
 
 namespace UsefulProteomicsDatabases
 {
     /// <summary>
     /// A client for the PRIDE Archive REST API (https://www.ebi.ac.uk/pride/ws/archive/v3/) that makes
-    /// EBI PRIDE proteomics dataset data available to mzLib. The initial capability, given a project
-    /// accession (e.g. "PXD012345"), is to return the complete manifest of that project's files.
+    /// EBI PRIDE proteomics dataset data available to mzLib. Given a project accession (e.g. "PXD012345")
+    /// it returns the project's metadata, the complete manifest of its files, and the files' bytes; it
+    /// also fetches individual spectra by USI through the PROXI standard.
     /// </summary>
     /// <remarks>
+    /// Two failure kinds are deliberately given different exception types, because callers — and
+    /// <c>ExternalServiceTestHelper</c>, which skips a live test on <see cref="HttpRequestException"/> —
+    /// must be able to tell them apart. The service being unreachable, timing out or answering 5xx is an
+    /// <see cref="HttpRequestException"/>. PRIDE answering successfully but with something the contract
+    /// forbids — no such project, an empty body, a payload missing its accession — is an
+    /// <see cref="MzLibException"/>, so it fails loudly instead of being mistaken for an outage.
+    /// <para>
     /// Holds one reusable <see cref="HttpClient"/> and is <see cref="IDisposable"/>. Use one instance
     /// per unit of work and dispose it. A constructor overload accepts an <see cref="HttpClient"/> to
     /// support testing and custom configuration.
+    /// </para>
     /// </remarks>
     public sealed class PrideArchiveClient : IDisposable
     {
@@ -130,6 +141,101 @@ namespace UsefulProteomicsDatabases
             }
 
             return files;
+        }
+
+        /// <summary>
+        /// Returns the metadata describing a PRIDE Archive project — title, protocols, instruments,
+        /// species, publications and submitters — letting a caller judge and cite a dataset before
+        /// downloading any of it. Use <see cref="TryGetProjectAsync"/> instead when the accession comes
+        /// from user input and may simply not exist.
+        /// </summary>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="cancellationToken">Cancels the fetch.</param>
+        /// <returns>The project's metadata. Never null.</returns>
+        /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
+        /// <exception cref="MzLibException">
+        /// No project has that accession — unlike <see cref="GetProjectFilesAsync"/>, which answers an
+        /// unknown accession with an empty manifest, this endpoint answers with 404. This is deliberately
+        /// NOT an <see cref="HttpRequestException"/>: that type means "the service is unavailable" and is
+        /// converted to a skipped test by <c>ExternalServiceTestHelper</c>, which would let a withdrawn
+        /// accession pass unnoticed instead of failing.
+        /// </exception>
+        /// <exception cref="HttpRequestException">The API was unreachable or returned a non-success status other than 404.</exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<PrideProject> GetProjectAsync(string accession, CancellationToken cancellationToken = default)
+        {
+            (bool found, PrideProject project) = await TryGetProjectAsync(accession, cancellationToken).ConfigureAwait(false);
+
+            if (!found)
+                throw new MzLibException($"PRIDE Archive has no project with accession '{accession}'.");
+
+            return project;
+        }
+
+        /// <summary>
+        /// Attempts to fetch a PRIDE Archive project's metadata, reporting a non-existent accession as a
+        /// value rather than an exception — the cheap way to validate an accession a user typed.
+        /// </summary>
+        /// <remarks>
+        /// <c>Found</c> is false for one reason only: PRIDE answered, and no project has that accession
+        /// (HTTP 404). Every other failure — the service being unreachable, timing out, rate-limiting, or
+        /// returning 5xx — still throws, because collapsing an outage into "no such project" would send a
+        /// caller hunting for a typo in a perfectly good accession. This is also what lets a live test
+        /// distinguish "PRIDE is down, skip" from "the contract broke, fail".
+        /// </remarks>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="cancellationToken">Cancels the fetch.</param>
+        /// <returns>
+        /// <c>Found</c> and the project when the accession exists; <c>false</c> and null when PRIDE reports
+        /// no such project. The project is never null when <c>Found</c> is true.
+        /// </returns>
+        /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
+        /// <exception cref="HttpRequestException">The API was unreachable or returned a non-success status other than 404.</exception>
+        /// <exception cref="MzLibException">PRIDE answered successfully but the payload was empty or carried no accession — a broken contract rather than an absence.</exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<(bool Found, PrideProject Project)> TryGetProjectAsync(string accession,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+
+            // This endpoint shares the v3 BaseAddress, so a relative URI resolves correctly (unlike PROXI,
+            // which sits under a different path root and needs an absolute URI).
+            string requestUri = $"projects/{Uri.EscapeDataString(accession)}";
+            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+
+            // 404 is the ONE expected "no" and is reported as a value. It is checked before the general
+            // status guard so that every other failure still throws.
+            if (response.StatusCode == HttpStatusCode.NotFound)
+                return (false, null);
+
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+
+            string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            // Unlike the manifest and PROXI endpoints, this one returns a bare object rather than an array,
+            // so there is nothing to unwrap. A 200 carrying no project is a broken contract, not an absence,
+            // so it throws MzLibException rather than HttpRequestException — the latter would be read as an
+            // outage and silently skip a live test.
+            PrideProject project = JsonConvert.DeserializeObject<PrideProject>(content, JsonSettings);
+            if (project == null)
+                throw new MzLibException($"PRIDE Archive returned an empty body for accession '{accession}'.");
+
+            // An empty JSON object deserializes to a fully-defaulted instance, which would otherwise be
+            // handed back as a successful result. The accession is always present on a real project, so its
+            // absence means the payload is not one.
+            if (string.IsNullOrEmpty(project.Accession))
+                throw new MzLibException(
+                    $"PRIDE Archive returned a payload with no accession for '{accession}'; the response is not a project.");
+
+            // NullValueHandling.Ignore suppresses null *values*, not null *elements*: PRIDE sending
+            // "instruments": [null] would otherwise put a null inside a collection the DTO documents as
+            // never-null, and NRE at the caller's first dereference.
+            RemoveNullElements(project);
+
+            return (true, project);
         }
 
         /// <summary>
@@ -307,6 +413,34 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
         public async Task<MzSpectrum> GetSpectrumAsync(string usi, CancellationToken cancellationToken = default) =>
             await GetProxiSpectrumAsync(usi, cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// Drops null elements from every collection on a deserialized <see cref="PrideProject"/>, so the
+        /// type's documented "never null" guarantee covers the elements and not merely the collections.
+        /// </summary>
+        private static void RemoveNullElements(PrideProject project)
+        {
+            project.ProjectTags.RemoveAll(x => x == null);
+            project.Keywords.RemoveAll(x => x == null);
+            project.Countries.RemoveAll(x => x == null);
+            project.Submitters.RemoveAll(x => x == null);
+            project.LabPIs.RemoveAll(x => x == null);
+            project.References.RemoveAll(x => x == null);
+            project.Instruments.RemoveAll(x => x == null);
+            project.Softwares.RemoveAll(x => x == null);
+            project.ExperimentTypes.RemoveAll(x => x == null);
+            project.QuantificationMethods.RemoveAll(x => x == null);
+            project.Organisms.RemoveAll(x => x == null);
+            project.OrganismParts.RemoveAll(x => x == null);
+            project.Diseases.RemoveAll(x => x == null);
+            project.IdentifiedPTMStrings.RemoveAll(x => x == null);
+            project.AdditionalAttributes.RemoveAll(x => x == null);
+            project.SampleAttributes.RemoveAll(x => x == null);
+
+            // A surviving sample attribute can still hold nulls in its own value list.
+            foreach (PrideSampleAttribute attribute in project.SampleAttributes)
+                attribute.Value.RemoveAll(x => x == null);
+        }
 
         /// <summary>Reads the PRIDE "total_records" response header, if present and numeric.</summary>
         private static bool TryGetTotalRecords(HttpResponseMessage response, out long total)
