@@ -570,7 +570,7 @@ public class PrideProjectTests
     /// never-taken null branch in the client.
     /// </summary>
     [Test]
-    public async Task TryGetProjectAsync_NullKeyOrValueOnSampleAttribute_AreReplacedWithEmpties()
+    public async Task TryGetProjectAsync_ExplicitJsonNullKeyOrValue_DoNotClobberSampleAttributeDefaults()
     {
         using var client = ClientReturning("""
             {

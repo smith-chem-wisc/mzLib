@@ -466,8 +466,8 @@ namespace UsefulProteomicsDatabases
             // dropped by NullValueHandling.Ignore (JsonSettings), leaving the DTO's `= new()` defaults
             // standing, so neither can be null by the time this runs. That is load-bearing rather than
             // incidental -- callers dereference attribute.Key.Accession directly -- so it is pinned by
-            // TryGetProjectAsync_NullKeyOrValueOnSampleAttribute_AreReplacedWithEmpties rather than
-            // re-checked here, where the null branch would be unreachable and untestable.
+            // TryGetProjectAsync_ExplicitJsonNullKeyOrValue_DoNotClobberSampleAttributeDefaults rather
+            // than re-checked here, where the null branch would be unreachable and untestable.
             foreach (PrideSampleAttribute attribute in project.SampleAttributes)
                 attribute.Value.RemoveAll(x => x == null);
         }

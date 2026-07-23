@@ -167,13 +167,16 @@ public class PrideArchiveClientTests
         Assert.Multiple(() =>
         {
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
-            // Assert the URIs, not just the count: this is what distinguishes the test from
-            // PagesUntilTotalRecords, which pages with a size the stub actually honours. It pins that
-            // the second page was requested at the CALLER's page size after a short first page.
-            Assert.That(handler.RequestedUris, Is.EqualTo(new[]
+            // Assert the query strings, not just the request count: this is what distinguishes the
+            // test from PagesUntilTotalRecords, which pages with a size the stub actually honours. It
+            // pins that a SECOND page was requested, and still at the CALLER's page size, after a
+            // first page came back shorter than asked for. Only the query is asserted -- the base
+            // address is already pinned by GetProjectAsync_BuildsRelativeV3Uri, and repeating it here
+            // would fail as an opaque two-long-strings diff if that constant ever changed.
+            Assert.That(handler.RequestedUris.Select(u => new Uri(u).Query), Is.EqualTo(new[]
             {
-                "https://www.ebi.ac.uk/pride/ws/archive/v3/projects/PXD012345/files?pageSize=4&page=0",
-                "https://www.ebi.ac.uk/pride/ws/archive/v3/projects/PXD012345/files?pageSize=4&page=1",
+                "?pageSize=4&page=0",
+                "?pageSize=4&page=1",
             }));
         });
     }
@@ -194,20 +197,30 @@ public class PrideArchiveClientTests
                 : JsonResponse("[]", totalRecords: overstatedTotal));
         using var client = new PrideArchiveClient(new HttpClient(handler));
 
-        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+        // pageSize is deliberately ABOVE what the stub serves, and that is what makes this test
+        // discriminate. Asking for 2 would make the old short-page check a no-op (2 < 2 is false),
+        // so the pre-fix code produced an identical result and the test would pin nothing.
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
 
         Assert.Multiple(() =>
         {
             // The shortfall against the reported total is accepted, not thrown.
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
-            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2)); // stopped at the empty page, did not run to MaxPages
+            // 2 requests, not 1: the overstated header kept us paging past the short page, and the
+            // EMPTY page -- not the short one -- is what stopped us. This also pins the cost of the
+            // fix, so an "optimisation" that restores the early break fails here.
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2));
         });
     }
 
     [Test]
     public async Task GetProjectFilesAsync_TotalRecordsExactlyMatched_DoesNotFetchExtraPage()
     {
-        // The counterpart to the overstated case: an accurate total must not cost a wasted request.
+        // The counterpart to the overstated case. Note the stub ignores `page` and serves the same
+        // two files forever, never an empty page: that makes the total_records check the ONLY thing
+        // that can stop this loop, so if it is ever weakened this test does not fail by one wasted
+        // request -- it runs to the MaxPages throw. PagesUntilTotalRecords cannot pin that, because
+        // its fallback returns [] and the empty-page check would rescue it.
         const long total = 2;
         var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total));
         using var client = new PrideArchiveClient(new HttpClient(handler));
@@ -216,7 +229,7 @@ public class PrideArchiveClientTests
 
         Assert.Multiple(() =>
         {
-            Assert.That(files, Has.Count.EqualTo(2));
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
             Assert.That(handler.RequestedUris.Count, Is.EqualTo(1));
         });
     }
@@ -397,11 +410,15 @@ public class PrideArchiveClientLiveTests
             var atDefault = await client.GetProjectFilesAsync("PXD012345");
             var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: deliberatelyAboveCap);
 
-            // Assume, not Assert: if PXD012345 is ever trimmed below the cap, or EBI raises the cap,
-            // the client is still correct and only the fixture stopped being multi-page. That must
-            // read as inconclusive, not as a client regression.
-            Assume.That(atDefault.Count, Is.GreaterThan(observedServerCap),
-                "PXD012345 no longer spans multiple pages; nothing to exercise.");
+            // These two are deliberately different constraints. A project that genuinely shrank comes
+            // back with FEWER files than the cap -- inconclusive, nothing to exercise, so it skips. A
+            // manifest that stops EXACTLY at the cap is the truncation signature this canary exists to
+            // catch, so that must fail red rather than skip: a skip in the external-service job reads
+            // as an EBI outage, which would hide the regression instead of reporting it.
+            Assume.That(atDefault.Count, Is.Not.LessThan(observedServerCap),
+                "PXD012345 shrank below the server cap; nothing to exercise.");
+            Assert.That(atDefault.Count, Is.GreaterThan(observedServerCap),
+                "manifest stopped exactly at the server cap - truncation regression, not dataset drift");
 
             // The real invariant: page size must not change the answer.
             Assert.That(aboveCap.Select(f => f.FileName), Is.EquivalentTo(atDefault.Select(f => f.FileName)));
