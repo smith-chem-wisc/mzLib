@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
 // This file (FragmentGenerationTests.cs) is part of Proteomics.
@@ -572,6 +572,24 @@ namespace Test.Omics.FragmentationTests
             List<Product> myFragments = new List<Product>();
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, myFragments);
             Assert.AreEqual(fragmentCount, myFragments.Count());
+
+            // Pin the series, not just the total: for ETD the count of 11 is also satisfied by 6 y + 5 zDot,
+            // so a regression that dropped the c series instead of y would pass a count-only check.
+            List<ProductType> productTypesPresent = myFragments.Select(p => p.ProductType).Distinct().ToList();
+            switch (dissociationType)
+            {
+                case DissociationType.ETD:
+                case DissociationType.ECD:
+                    CollectionAssert.AreEquivalent(new[] { ProductType.c, ProductType.zDot }, productTypesPresent);
+                    break;
+                case DissociationType.HCD:
+                    CollectionAssert.AreEquivalent(new[] { ProductType.b, ProductType.y }, productTypesPresent);
+                    break;
+                case DissociationType.EThcD:
+                    CollectionAssert.AreEquivalent(
+                        new[] { ProductType.b, ProductType.y, ProductType.c, ProductType.zDot }, productTypesPresent);
+                    break;
+            }
         }
 
         [Test]
@@ -588,6 +606,15 @@ namespace Test.Omics.FragmentationTests
             CollectionAssert.AreEquivalent(new[] { ProductType.c, ProductType.zDot }, products);
             Assert.That(products, Does.Not.Contain(ProductType.y), "y ions require amide cleavage");
             Assert.That(products, Does.Not.Contain(ProductType.b), "b ions require amide cleavage");
+
+            // The water/ammonia-loss helper is a second, independent source of ETD/ECD product types, so
+            // pin it too: with no y series there is no y-derived loss, at any terminus. Otherwise a y-loss
+            // ion with no parent y could be reintroduced through this path with the suite still green.
+            foreach (FragmentationTerminus terminus in new[]
+                     { FragmentationTerminus.N, FragmentationTerminus.C, FragmentationTerminus.Both })
+                CollectionAssert.IsEmpty(
+                    DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(dissociationType, terminus),
+                    $"ETD/ECD must yield no water/ammonia-loss ions ({terminus})");
         }
 
         [Test]
@@ -671,8 +698,10 @@ namespace Test.Omics.FragmentationTests
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.HCD, FragmentationTerminus.Both));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.EThcD, FragmentationTerminus.Both));
 
-            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ECD, FragmentationTerminus.Both));
-            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ETD, FragmentationTerminus.Both));
+            // ECD/ETD produce c and z-dot only (N-Ca cleavage), so there is no y series and no y water/ammonia
+            // loss -- consistent with ProductType.y no longer being in the ECD/ETD product sets.
+            CollectionAssert.IsEmpty(DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ECD, FragmentationTerminus.Both));
+            CollectionAssert.IsEmpty(DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ETD, FragmentationTerminus.Both));
 
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.N));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.C));
