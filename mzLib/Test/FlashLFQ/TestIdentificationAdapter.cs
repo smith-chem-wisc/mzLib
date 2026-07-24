@@ -55,9 +55,7 @@ namespace Test.FlashLFQ
             Identification identification1 = identifications[0];
             Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
             Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
-            // MSFragger's "Retention" column is 1.9398 SECONDS. This assertion previously read
-            // Is.EqualTo(1.9398), pinning the seconds value into a property named for minutes —
-            // the bug itself, encoded as an expectation.
+            // MSFragger's "Retention" column is in seconds (1.9398), so the expected value in minutes is 1.9398 / 60.
             Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398 / 60.0).Within(1e-12));
             Assert.That(identification1.MonoisotopicMass, Is.EqualTo(669.4173));
             Assert.That(identification1.PrecursorChargeState, Is.EqualTo(2));

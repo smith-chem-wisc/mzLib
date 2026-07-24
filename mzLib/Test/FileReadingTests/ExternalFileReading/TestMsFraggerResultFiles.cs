@@ -513,11 +513,24 @@ namespace Test.FileReadingTests.ExternalFileReading
                 "FileReadingTests", "ExternalFileTypes", "FraggerPsm_FragPipev21.1_psm.tsv");
             MsFraggerPsmFile file = FileReader.ReadFile<MsFraggerPsmFile>(filePath);
 
-            foreach (MsFraggerPsm psm in file)
+            List<MsFraggerPsm> psms = file.ToList();
+            // Guard against a vacuous pass: an empty fixture would satisfy every per-record assertion below.
+            Assert.That(psms, Has.Count.EqualTo(5));
+
+            // Assert against literals read from the fixture, not against the property under test, so a
+            // wrong divisor is caught. The last scan is 19.114 s in the file; in minutes that is 19.114/60.
+            Assert.That(psms.Last().RetentionTime, Is.EqualTo(19.114 / 60.0).Within(1e-12));
+
+            // The five scans span 19.114 - 1.9398 = 17.1742 s in the file; expressing that span in minutes
+            // pins the divisor at 60 (dividing by 600 or 3600 would fail this even though every value would
+            // still be < 1).
+            double spanInMinutes = psms.Last().RetentionTime - psms.First().RetentionTime;
+            Assert.That(spanInMinutes, Is.EqualTo((19.114 - 1.9398) / 60.0).Within(1e-9));
+
+            foreach (MsFraggerPsm psm in psms)
             {
                 Assert.That(psm.RetentionTime, Is.LessThan(1.0),
                     "scans seconds apart cannot be minutes apart");
-                Assert.That(psm.RetentionTime, Is.EqualTo(psm.RetentionTimeInSeconds / 60.0).Within(1e-12));
             }
         }
     }
