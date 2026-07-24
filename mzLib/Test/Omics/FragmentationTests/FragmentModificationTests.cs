@@ -552,9 +552,9 @@ namespace Test.Omics.FragmentationTests
 
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.zDot) == 10);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.c) == 0);
-            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 9);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 0);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.M) == 1);
-            Assert.That(products.Count(p => p.NeutralLoss == 126) == 20);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 11);
         }
     }
 }

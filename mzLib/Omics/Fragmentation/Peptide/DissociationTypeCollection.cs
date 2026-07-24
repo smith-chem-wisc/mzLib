@@ -15,9 +15,12 @@ namespace Omics.Fragmentation.Peptide
             { DissociationType.CID, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.LowCID, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.aStar, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.aDegree, ProductType.bWaterLoss, ProductType.yWaterLoss } },
             { DissociationType.IRMPD, new List<ProductType>{ ProductType.b, ProductType.y } },
-            { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
+            // ECD/ETD cleave the N-Cα backbone bond and produce c and z• ions only; the amide-cleavage b/y series
+            // requires vibrational activation. EThcD below deliberately keeps b and y because its supplemental
+            // collisional activation produces both together (b without y, or y without b, has no mechanism).
+            { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.zDot } },
             { DissociationType.PQD, new List<ProductType>() },
-            { DissociationType.ETD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
+            { DissociationType.ETD, new List<ProductType>{ ProductType.c, ProductType.zDot } },
             { DissociationType.HCD, new List<ProductType>{ ProductType.b, ProductType.y } },//HCD often creates a-, aStar, and aDegree-ions and we should examine what other prominent algoroithms do to see if that would benefit our search results
             { DissociationType.AnyActivationType, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.EThcD, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.c, ProductType.zDot } },
@@ -87,14 +90,10 @@ namespace Omics.Fragmentation.Peptide
                         productList.Add(ProductType.yAmmoniaLoss);
                     }
                     break;
-                case DissociationType.ECD:
-                case DissociationType.ETD:
-                    if (fragmentationTerminus == FragmentationTerminus.C || fragmentationTerminus == FragmentationTerminus.Both)
-                    {
-                        productList.Add(ProductType.yWaterLoss);
-                        productList.Add(ProductType.yAmmoniaLoss);
-                    }
-                    break;
+                // ECD/ETD produce c and z• only (N-Cα cleavage), so there is no y series and therefore no
+                // y water/ammonia loss to report -- a y-derived loss ion with no parent y has no mechanism,
+                // the same argument that removed ProductType.y from the ECD/ETD product sets above. Falls
+                // through to default and returns an empty list.
                 default:
                     break;
             }
