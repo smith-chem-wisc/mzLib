@@ -100,7 +100,7 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(first.NextAminoAcid, Is.EqualTo('K'));
             Assert.That(first.PeptideLength, Is.EqualTo(7));
             Assert.That(first.Charge, Is.EqualTo(2));
-            Assert.That(first.RetentionTime, Is.EqualTo(1.9398));
+            Assert.That(first.RetentionTimeInSeconds, Is.EqualTo(1.9398));
             Assert.That(first.ObservedMass, Is.EqualTo(669.4164));
             Assert.That(first.CalibratedObservedMass, Is.EqualTo(669.4123));
             Assert.That(first.ObservedMz, Is.EqualTo(335.7155));
@@ -141,7 +141,7 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(last.NextAminoAcid, Is.EqualTo('V'));
             Assert.That(last.PeptideLength, Is.EqualTo(7));
             Assert.That(last.Charge, Is.EqualTo(2));
-            Assert.That(last.RetentionTime, Is.EqualTo(19.114));
+            Assert.That(last.RetentionTimeInSeconds, Is.EqualTo(19.114));
             Assert.That(last.ObservedMass, Is.EqualTo(724.3984));
             Assert.That(last.CalibratedObservedMass, Is.EqualTo
             (724.3949));
@@ -476,6 +476,61 @@ namespace Test.FileReadingTests.ExternalFileReading
                 var original = JsonConvert.SerializeObject(file2.ElementAt(i));
                 var written = JsonConvert.SerializeObject(outFile.ElementAt(i));
                 Assert.That(original, Is.EqualTo(written));
+            }
+        }
+
+        /// <summary>
+        /// MSFragger writes retention time in seconds; mzLib's IQuantifiableRecord contract is
+        /// minutes. Nothing enforced that, so the seconds reached FlashLFQ unconverted and every
+        /// peptide was searched for at a sixtieth of its true elution time.
+        /// </summary>
+        [Test]
+        public static void MsFraggerPsm_RetentionTime_IsConvertedFromSecondsToMinutes()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "FileReadingTests", "ExternalFileTypes", "FraggerPsm_FragPipev21.1_psm.tsv");
+            MsFraggerPsmFile file = FileReader.ReadFile<MsFraggerPsmFile>(filePath);
+            MsFraggerPsm first = file.First();
+
+            // The raw column, unchanged, so the file still round-trips on write.
+            Assert.That(first.RetentionTimeInSeconds, Is.EqualTo(1.9398));
+
+            // The interface member, in the unit the interface documents.
+            Assert.That(first.RetentionTime, Is.EqualTo(1.9398 / 60.0).Within(1e-12));
+            Assert.That(((IQuantifiableRecord)first).RetentionTime,
+                Is.EqualTo(first.RetentionTime), "the interface must see the converted value");
+        }
+
+        /// <summary>
+        /// The gradient sanity check that would have caught this from the data alone: these five
+        /// scans span 17 seconds of an LTQ Orbitrap Velos run at roughly one scan per second. Read
+        /// as minutes they would imply a whole HeLa run of about eighty scans.
+        /// </summary>
+        [Test]
+        public static void MsFraggerPsm_RetentionTimesAreAPlausibleGradientInMinutes()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "FileReadingTests", "ExternalFileTypes", "FraggerPsm_FragPipev21.1_psm.tsv");
+            MsFraggerPsmFile file = FileReader.ReadFile<MsFraggerPsmFile>(filePath);
+
+            List<MsFraggerPsm> psms = file.ToList();
+            // Guard against a vacuous pass: an empty fixture would satisfy every per-record assertion below.
+            Assert.That(psms, Has.Count.EqualTo(5));
+
+            // Assert against literals read from the fixture, not against the property under test, so a
+            // wrong divisor is caught. The last scan is 19.114 s in the file; in minutes that is 19.114/60.
+            Assert.That(psms.Last().RetentionTime, Is.EqualTo(19.114 / 60.0).Within(1e-12));
+
+            // The five scans span 19.114 - 1.9398 = 17.1742 s in the file; expressing that span in minutes
+            // pins the divisor at 60 (dividing by 600 or 3600 would fail this even though every value would
+            // still be < 1).
+            double spanInMinutes = psms.Last().RetentionTime - psms.First().RetentionTime;
+            Assert.That(spanInMinutes, Is.EqualTo((19.114 - 1.9398) / 60.0).Within(1e-9));
+
+            foreach (MsFraggerPsm psm in psms)
+            {
+                Assert.That(psm.RetentionTime, Is.LessThan(1.0),
+                    "scans seconds apart cannot be minutes apart");
             }
         }
     }
