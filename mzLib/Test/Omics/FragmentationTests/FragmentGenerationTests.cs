@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Derek J. Bailey
+﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
 // This file (FragmentGenerationTests.cs) is part of Proteomics.
@@ -87,8 +87,8 @@ namespace Test.Omics.FragmentationTests
 
         [Test]
         [TestCase(DissociationType.HCD, new[] { ProductType.b, ProductType.y })]
-        [TestCase(DissociationType.ECD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
-        [TestCase(DissociationType.ETD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
+        [TestCase(DissociationType.ECD, new[] { ProductType.c, ProductType.zDot })]
+        [TestCase(DissociationType.ETD, new[] { ProductType.c, ProductType.zDot })]
         [TestCase(DissociationType.EThcD, new[] { ProductType.b, ProductType.y })]
         [TestCase(DissociationType.AnyActivationType, new[] { ProductType.b, ProductType.y })]
         public static void TestDissociationProductTypes(DissociationType dissociationType, IEnumerable<ProductType> expectedProductTypes)
@@ -261,7 +261,7 @@ namespace Test.Omics.FragmentationTests
             var theseTheoreticalFragments = new List<Product>();
             aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
-            Assert.That(theseTheoreticalFragments.Count == 22);
+            Assert.That(theseTheoreticalFragments.Count == 15);
             Assert.That(theseTheoreticalFragments.Last().Annotation == "zDot8");
             Assert.That(theseTheoreticalFragments.Last().NeutralMass > 1842);
         }
@@ -453,9 +453,9 @@ namespace Test.Omics.FragmentationTests
             Assert.AreEqual(new List<ProductType> { ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
             Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
 
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
             Assert.AreEqual(new List<ProductType> { ProductType.c }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
             Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
 
             Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
@@ -484,13 +484,13 @@ namespace Test.Omics.FragmentationTests
             Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.N, fragments);
             Assert.AreEqual(new List<ProductType> { ProductType.c }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.C, fragments);
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.None, fragments);
             Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
@@ -560,8 +560,8 @@ namespace Test.Omics.FragmentationTests
 
         [Test]
         [TestCase(DissociationType.HCD, 12)]//the first part is the test case, the latter part is ther result of the assertion
-        [TestCase(DissociationType.ETD, 17)]//the first part is the test case, the latter part is ther result of the assertion
-        [TestCase(DissociationType.ECD, 17)]//the first part is the test case, the latter part is ther result of the assertion
+        [TestCase(DissociationType.ETD, 11)]//the first part is the test case, the latter part is ther result of the assertion
+        [TestCase(DissociationType.ECD, 11)]//the first part is the test case, the latter part is ther result of the assertion
         [TestCase(DissociationType.EThcD, 23)]//the first part is the test case, the latter part is ther result of the assertion
         public static void Test_ETD_ECD_EThcD_Fragmentation_No_FragmentsAtProline(DissociationType dissociationType, int fragmentCount)
         {
@@ -572,6 +572,33 @@ namespace Test.Omics.FragmentationTests
             List<Product> myFragments = new List<Product>();
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, myFragments);
             Assert.AreEqual(fragmentCount, myFragments.Count());
+        }
+
+        [Test]
+        [TestCase(DissociationType.ETD)]
+        [TestCase(DissociationType.ECD)]
+        public static void ElectronTransferDissociationProducesCAndZDotOnly(DissociationType dissociationType)
+        {
+            // ETD and ECD cleave the N-Ca bond, which yields c and z-dot ions. The b and y ions come
+            // from amide cleavage under vibrational activation, so neither belongs here. If residual
+            // activation is to be modelled then b and y arrive together, which is what EThcD does --
+            // a y series with no b series has no fragmentation mechanism behind it.
+            List<ProductType> products = DissociationTypeCollection.ProductsFromDissociationType[dissociationType];
+
+            CollectionAssert.AreEquivalent(new[] { ProductType.c, ProductType.zDot }, products);
+            Assert.That(products, Does.Not.Contain(ProductType.y), "y ions require amide cleavage");
+            Assert.That(products, Does.Not.Contain(ProductType.b), "b ions require amide cleavage");
+        }
+
+        [Test]
+        public static void EThcDKeepsBAndYTogetherBecauseSupplementalActivationProducesBoth()
+        {
+            // The counterpart to the test above: supplemental HCD genuinely does add amide cleavage,
+            // so EThcD carries b and y alongside c and z-dot. This pins the asymmetry as deliberate.
+            List<ProductType> products = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.EThcD];
+
+            CollectionAssert.AreEquivalent(
+                new[] { ProductType.b, ProductType.y, ProductType.c, ProductType.zDot }, products);
         }
 
         [Test]

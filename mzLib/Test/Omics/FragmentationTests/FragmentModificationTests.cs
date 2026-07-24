@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Derek J. Bailey
+﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
 // This file (FragmentModificationTests.cs) is part of Proteomics.
@@ -552,9 +552,9 @@ namespace Test.Omics.FragmentationTests
 
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.zDot) == 10);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.c) == 0);
-            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 9);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 0);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.M) == 1);
-            Assert.That(products.Count(p => p.NeutralLoss == 126) == 20);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 11);
         }
     }
 }

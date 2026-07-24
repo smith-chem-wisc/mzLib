@@ -15,9 +15,9 @@ namespace Omics.Fragmentation.Peptide
             { DissociationType.CID, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.LowCID, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.aStar, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.aDegree, ProductType.bWaterLoss, ProductType.yWaterLoss } },
             { DissociationType.IRMPD, new List<ProductType>{ ProductType.b, ProductType.y } },
-            { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
+            { DissociationType.ECD, new List<ProductType>{ ProductType.c, ProductType.zDot } },
             { DissociationType.PQD, new List<ProductType>() },
-            { DissociationType.ETD, new List<ProductType>{ ProductType.c, ProductType.y, ProductType.zDot } },
+            { DissociationType.ETD, new List<ProductType>{ ProductType.c, ProductType.zDot } },
             { DissociationType.HCD, new List<ProductType>{ ProductType.b, ProductType.y } },//HCD often creates a-, aStar, and aDegree-ions and we should examine what other prominent algoroithms do to see if that would benefit our search results
             { DissociationType.AnyActivationType, new List<ProductType>{ ProductType.b, ProductType.y } },
             { DissociationType.EThcD, new List<ProductType>{ ProductType.b, ProductType.y, ProductType.c, ProductType.zDot } },
