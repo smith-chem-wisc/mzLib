@@ -85,6 +85,11 @@ namespace Readers
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Contains('D');
+
+        // A .psmtsv always carries decoy status, so the record view is never "not provided".
+        // Explicit implementation keeps the public bool (consumed directly, incl. by MetaMorpheus)
+        // while presenting the nullable IQuantifiableRecord contract.
+        bool? IQuantifiableRecord.IsDecoy => IsDecoy;
         public bool IsEntrapment => DecoyContamTarget.Contains('E');
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;

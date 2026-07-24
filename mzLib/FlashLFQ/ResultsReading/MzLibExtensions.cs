@@ -69,8 +69,10 @@ namespace FlashLFQ
                     ms2RetentionTimeInMinutes, 
                     precursorChargeState, 
                     proteinGroups, 
-                    useForProteinQuant: !record.IsDecoy, 
-                    decoy: record.IsDecoy,
+                    // A record whose format does not carry decoy info (IsDecoy == null) is treated as
+                    // a target for quantification, matching the pre-nullable behaviour.
+                    useForProteinQuant: !(record.IsDecoy ?? false),
+                    decoy: record.IsDecoy ?? false,
                     psmScore: score,
                     qValue: usePepQValue ? pepQValue : qValue);
                 identifications.Add(id);
