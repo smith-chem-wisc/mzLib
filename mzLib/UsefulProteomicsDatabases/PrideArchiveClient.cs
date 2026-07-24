@@ -83,11 +83,22 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Returns the complete manifest of files belonging to a PRIDE Archive project. All pages are
-        /// fetched and concatenated; paging is an implementation detail hidden from the caller.
+        /// Returns the manifest of files belonging to a PRIDE Archive project. All pages are fetched
+        /// and concatenated; paging is an implementation detail hidden from the caller. The manifest is
+        /// complete at the default page size and for any size at or below the server cap, and complete
+        /// above the cap as long as the response reports <c>total_records</c> (see
+        /// <paramref name="pageSize"/> for the one case that can still return a partial manifest).
         /// </summary>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
-        /// <param name="pageSize">Files requested per page (default 100). The full manifest is returned regardless.</param>
+        /// <param name="pageSize">
+        /// Files requested per page (default 100). PRIDE silently caps this server-side and then pages
+        /// by the capped size, so a value above the cap means more pages rather than fewer files
+        /// <em>provided the response reports <c>total_records</c></em>, which PRIDE does on every
+        /// observed response. If that header is ever absent or unparseable there is nothing left to
+        /// page against, and termination falls back to the first short page — under which a requested
+        /// size above the server cap can still return a partial manifest. Leave this at the default
+        /// unless you have a reason not to; the full manifest is returned either way at or below the cap.
+        /// </param>
         /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
         /// <returns>
         /// The project's files. Empty if the project has no files or the accession is unknown (PRIDE
@@ -96,6 +107,11 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
         /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
+        /// <exception cref="MzLibException">
+        /// PRIDE answered successfully but served a page identical to its predecessor while
+        /// <c>total_records</c> reported more remained — a broken contract rather than an outage, so it
+        /// is not mistaken for one (see the class remarks) and is not retried as network trouble.
+        /// </exception>
         /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
         public async Task<List<PrideArchiveFile>> GetProjectFilesAsync(string accession, int pageSize = 100,
             CancellationToken cancellationToken = default)
@@ -106,6 +122,7 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
 
             var files = new List<PrideArchiveFile>();
+            string previousPageIdentity = null;
             int page = 0;
 
             while (true)
@@ -122,17 +139,58 @@ namespace UsefulProteomicsDatabases
                 List<PrideArchiveFile> pageFiles =
                     JsonConvert.DeserializeObject<List<PrideArchiveFile>>(content, JsonSettings) ?? new List<PrideArchiveFile>();
 
+                // An empty page ends the fetch. This is also the backstop for a total_records that
+                // overstates what the server will actually serve: paging past the end returns a
+                // zero-byte body (verified live 2026-07-23), which deserializes to an empty list. An
+                // overstatement is therefore accepted as the server's own correction rather than
+                // reported as a shortfall -- there is no way to distinguish it from a project whose
+                // file count changed mid-fetch, and throwing would fail a caller who asked for
+                // nothing unreasonable.
                 if (pageFiles.Count == 0)
                     break; // no (more) files
 
+                // Every entry the server returns stays in the manifest. A manifest may legitimately
+                // repeat a leaf name (the same name under different publicFileLocations), and an entry
+                // with no fileName at all is a case DownloadFileAsync already expects and guards. So
+                // paging progress is a property of the PAGE, not of individual file names: deciding
+                // membership by name uniqueness would silently drop real records, which is precisely
+                // the failure this method exists to prevent.
+                string pageIdentity = string.Join("", pageFiles.Select(f => f.FileName));
+                bool pageAdvanced = pageIdentity != previousPageIdentity;
+                previousPageIdentity = pageIdentity;
+
                 files.AddRange(pageFiles);
 
-                // Stop when we have collected everything the server reported.
-                if (TryGetTotalRecords(response, out long total) && files.Count >= total)
+                if (TryGetTotalRecords(response, out long total))
+                {
+                    // Checked BEFORE the total comparison: a server re-serving the same page forever
+                    // would otherwise push files.Count past total with duplicates and break out as if
+                    // it had succeeded, hiding the fault behind a plausible-looking manifest.
+                    //
+                    // This is deliberately the strict signal -- a page byte-identical to its
+                    // predecessor -- rather than "this page added nothing new". A project whose files
+                    // change mid-fetch can legitimately return a page that merely overlaps the previous
+                    // one, and the empty-page comment above declines to throw on exactly that
+                    // ambiguity; failing only on an exactly-repeated page keeps the two consistent.
+                    if (!pageAdvanced)
+                        throw new MzLibException(
+                            $"PRIDE Archive re-served an identical page {page} for accession '{accession}' " +
+                            $"while reporting {total} total records. The server may be ignoring the page " +
+                            $"parameter, or the project's file list may have changed mid-fetch.");
+
+                    // The server's own record count is authoritative: stop once we have all of it.
+                    if (files.Count >= total)
+                        break;
+                    // More remain, so keep paging even though the page may look short. PRIDE caps
+                    // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
+                    // so requesting 500 yields a 100-file "short" page that still has successors.
+                    // Treating that as the last page silently truncated the manifest.
+                }
+                else if (pageFiles.Count < pageSize)
+                {
+                    // No total to trust: a short page is the last page.
                     break;
-                // Safety net: a short page is the last page even if the total header is missing.
-                if (pageFiles.Count < pageSize)
-                    break;
+                }
 
                 page++;
                 if (page >= MaxPages)
@@ -438,6 +496,12 @@ namespace UsefulProteomicsDatabases
             project.SampleAttributes.RemoveAll(x => x == null);
 
             // A surviving sample attribute can still hold nulls in its own value list.
+            // Key and Value themselves need no guard here: an explicit "key": null or "value": null is
+            // dropped by NullValueHandling.Ignore (JsonSettings), leaving the DTO's `= new()` defaults
+            // standing, so neither can be null by the time this runs. That is load-bearing rather than
+            // incidental -- callers dereference attribute.Key.Accession directly -- so it is pinned by
+            // TryGetProjectAsync_ExplicitJsonNullKeyOrValue_DoNotClobberSampleAttributeDefaults rather
+            // than re-checked here, where the null branch would be unreachable and untestable.
             foreach (PrideSampleAttribute attribute in project.SampleAttributes)
                 attribute.Value.RemoveAll(x => x == null);
         }

@@ -560,6 +560,45 @@ public class PrideProjectTests
         });
     }
 
+    /// <summary>
+    /// Callers dereference attribute.Key.Accession directly (the live canary does), so a null Key
+    /// would NRE rather than read as an absent term. Nothing in RemoveNullElements guards it — what
+    /// actually defends it is NullValueHandling.Ignore dropping the explicit null and leaving the
+    /// DTO's `= new()` default standing. That is a property of JsonSettings, not of the DTO, and a
+    /// later serializer change could remove it without touching this file. This test is the pin: it
+    /// fails if that protection is ever lost, which is why the guard lives here and not in a
+    /// never-taken null branch in the client.
+    /// </summary>
+    [Test]
+    public async Task TryGetProjectAsync_ExplicitJsonNullKeyOrValue_DoNotClobberSampleAttributeDefaults()
+    {
+        using var client = ClientReturning("""
+            {
+              "accession": "PXD012345",
+              "sampleAttributes": [
+                { "key": null, "value": [ { "accession": "NEWT:562" } ] },
+                { "key": { "accession": "OBI:0100026" }, "value": null }
+              ]
+            }
+            """);
+
+        (_, PrideProject project) = await client.TryGetProjectAsync("PXD012345");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(project.SampleAttributes, Has.Count.EqualTo(2));
+            // The null key reads as an empty term, not as a null reference.
+            Assert.That(project.SampleAttributes[0].Key, Is.Not.Null);
+            Assert.That(project.SampleAttributes[0].Key.Accession, Is.Empty);
+            Assert.That(project.SampleAttributes[0].Value.Single().Accession, Is.EqualTo("NEWT:562"));
+            Assert.That(project.SampleAttributes[1].Key.Accession, Is.EqualTo("OBI:0100026"));
+            Assert.That(project.SampleAttributes[1].Value, Is.Not.Null.And.Empty);
+        });
+
+        // The dereference the guard exists to protect, exactly as callers write it.
+        Assert.That(project.SampleAttributes.Count(a => !string.IsNullOrEmpty(a.Key.Accession)), Is.EqualTo(1));
+    }
+
     [Test]
     public void GetProjectAsync_Cancelled_ThrowsOperationCanceledException()
     {
