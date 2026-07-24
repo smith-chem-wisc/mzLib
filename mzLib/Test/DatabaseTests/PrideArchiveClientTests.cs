@@ -164,20 +164,26 @@ public class PrideArchiveClientTests
         // Ask for more per page than the stub will ever hand back, exactly as a caller passing 500 does.
         var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
 
+        // Parse each recorded request into its paging parameters, so the assertions pin the paging
+        // semantics -- two requests, both at the CALLER's page size, pages 0 then 1 -- without coupling
+        // to query-string order, spelling, or the presence of unrelated parameters. URL construction is
+        // owned elsewhere and is explicitly not what this PR changes; a reordered or extended query
+        // (an added sort/filter) must not read as a paging regression here.
+        List<Dictionary<string, string>> requestedQueries = handler.RequestedUris
+            .Select(u => new Uri(u).Query.TrimStart('?')
+                .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Select(pair => pair.Split('=', 2))
+                .ToDictionary(kv => kv[0], kv => kv.Length > 1 ? kv[1] : string.Empty))
+            .ToList();
+
         Assert.Multiple(() =>
         {
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
-            // Assert the query strings, not just the request count: this is what distinguishes the
-            // test from PagesUntilTotalRecords, which pages with a size the stub actually honours. It
-            // pins that a SECOND page was requested, and still at the CALLER's page size, after a
-            // first page came back shorter than asked for. Only the query is asserted -- the base
-            // address is already pinned by GetProjectAsync_BuildsRelativeV3Uri, and repeating it here
-            // would fail as an opaque two-long-strings diff if that constant ever changed.
-            Assert.That(handler.RequestedUris.Select(u => new Uri(u).Query), Is.EqualTo(new[]
-            {
-                "?pageSize=4&page=0",
-                "?pageSize=4&page=1",
-            }));
+            // A SECOND page was requested, still at the CALLER's page size, after a first page came
+            // back shorter than asked for -- that is the invariant, not the exact query text.
+            Assert.That(requestedQueries, Has.Count.EqualTo(2));
+            Assert.That(requestedQueries.Select(q => q["pageSize"]), Is.EqualTo(new[] { "4", "4" }));
+            Assert.That(requestedQueries.Select(q => q["page"]), Is.EqualTo(new[] { "0", "1" }));
         });
     }
 
@@ -232,6 +238,23 @@ public class PrideArchiveClientTests
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
             Assert.That(handler.RequestedUris.Count, Is.EqualTo(1));
         });
+    }
+
+    [Test]
+    public void GetProjectFilesAsync_ServerIgnoresPageButReportsTotal_ThrowsInsteadOfReturningDuplicates()
+    {
+        // A server that honours the capped pageSize but ignores `page` re-serves the same records on
+        // every request while still reporting total_records. Before the dedup guard, files.Count
+        // accumulated the duplicates and tripped `files.Count >= total`, returning a manifest padded
+        // with duplicates and silently missing the records past the cap as a "success". The
+        // non-advancing-page check must now fail loudly instead, the same way MaxPages does for a
+        // server that also withholds the header.
+        const long total = 3; // more than the stub will ever serve on its single, repeated page
+        var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        Assert.That(async () => await client.GetProjectFilesAsync("PXD012345", pageSize: 4),
+            Throws.InstanceOf<HttpRequestException>());
     }
 
     [Test]
@@ -410,17 +433,19 @@ public class PrideArchiveClientLiveTests
             var atDefault = await client.GetProjectFilesAsync("PXD012345");
             var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: deliberatelyAboveCap);
 
-            // These two are deliberately different constraints. A project that genuinely shrank comes
-            // back with FEWER files than the cap -- inconclusive, nothing to exercise, so it skips. A
-            // manifest that stops EXACTLY at the cap is the truncation signature this canary exists to
-            // catch, so that must fail red rather than skip: a skip in the external-service job reads
-            // as an EBI outage, which would hide the regression instead of reporting it.
-            Assume.That(atDefault.Count, Is.Not.LessThan(observedServerCap),
-                "PXD012345 shrank below the server cap; nothing to exercise.");
-            Assert.That(atDefault.Count, Is.GreaterThan(observedServerCap),
-                "manifest stopped exactly at the server cap - truncation regression, not dataset drift");
+            // Skip when the over-cap paging path cannot be exercised at all: if even the default call
+            // (which pages at the cap and so returns the project's true count) comes back at or below
+            // the cap, a single page already holds everything and pageSize cannot change the answer, so
+            // there is nothing to distinguish. This deliberately treats an exactly-at-cap manifest as
+            // inconclusive rather than a hard failure -- a genuinely 100-file project and a truncated
+            // one are indistinguishable from the count alone, and resolving that ambiguity to red would
+            // make the canary go permanently red on dataset drift. A real truncation regression cannot
+            // hide here: it shows up below as aboveCap disagreeing with atDefault, which fails red.
+            Assume.That(atDefault.Count, Is.GreaterThan(observedServerCap),
+                "PXD012345 does not exceed the server cap, so an over-cap request cannot be exercised.");
 
-            // The real invariant: page size must not change the answer.
+            // The real invariant, and the loud-failure path: page size must not change the answer. A
+            // manifest truncated at the cap for the over-large request fails here (red), not skips.
             Assert.That(aboveCap.Select(f => f.FileName), Is.EquivalentTo(atDefault.Select(f => f.FileName)));
         });
 }

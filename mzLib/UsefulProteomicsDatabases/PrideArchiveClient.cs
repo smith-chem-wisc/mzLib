@@ -83,8 +83,11 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Returns the complete manifest of files belonging to a PRIDE Archive project. All pages are
-        /// fetched and concatenated; paging is an implementation detail hidden from the caller.
+        /// Returns the manifest of files belonging to a PRIDE Archive project. All pages are fetched
+        /// and concatenated; paging is an implementation detail hidden from the caller. The manifest is
+        /// complete at the default page size and for any size at or below the server cap, and complete
+        /// above the cap as long as the response reports <c>total_records</c> (see
+        /// <paramref name="pageSize"/> for the one case that can still return a partial manifest).
         /// </summary>
         /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
         /// <param name="pageSize">
@@ -114,6 +117,7 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
 
             var files = new List<PrideArchiveFile>();
+            var seenFileNames = new HashSet<string>(StringComparer.Ordinal);
             int page = 0;
 
             while (true)
@@ -140,7 +144,17 @@ namespace UsefulProteomicsDatabases
                 if (pageFiles.Count == 0)
                     break; // no (more) files
 
-                files.AddRange(pageFiles);
+                // Collect only files not already seen. A manifest lists each file once, so a repeated
+                // FileName is a paging artefact -- a server honouring the capped pageSize but ignoring
+                // `page` re-serves the same records -- not a real duplicate. Deduplicating keeps such a
+                // server from inflating files.Count past total_records on identical pages.
+                bool pageAddedNewFile = false;
+                foreach (PrideArchiveFile file in pageFiles)
+                    if (seenFileNames.Add(file.FileName))
+                    {
+                        files.Add(file);
+                        pageAddedNewFile = true;
+                    }
 
                 if (TryGetTotalRecords(response, out long total))
                 {
@@ -151,6 +165,16 @@ namespace UsefulProteomicsDatabases
                     // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
                     // so requesting 500 yields a 100-file "short" page that still has successors.
                     // Treating that as the last page silently truncated the manifest.
+                    //
+                    // But a page that added nothing new, while total says records remain, means the
+                    // server is ignoring `page` and re-serving the capped page forever -- paging can
+                    // never reach total. Fail loudly, like the MaxPages backstop below, rather than
+                    // returning a manifest silently missing records. (Without total_records the
+                    // short-page and MaxPages checks still cover the paging-ignored server.)
+                    if (!pageAddedNewFile)
+                        throw new HttpRequestException(
+                            $"PRIDE Archive returned no new files on page {page} for accession '{accession}' " +
+                            $"while reporting {total} total records; the server may be ignoring the page parameter.");
                 }
                 else if (pageFiles.Count < pageSize)
                 {
