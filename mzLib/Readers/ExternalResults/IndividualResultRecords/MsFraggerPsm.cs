@@ -45,8 +45,19 @@ namespace Readers
         [Name("Charge")]
         public int Charge { get; set; }
 
+        /// <summary>
+        /// The raw "Retention" column, in SECONDS — the unit MSFragger writes.
+        /// </summary>
+        /// <remarks>
+        /// Named for its unit because the unit is the whole problem. mzLib's convention for
+        /// retention time is minutes (see <see cref="IQuantifiableRecord.RetentionTime"/>, and the
+        /// spectra readers, which all divide by 60), but this column is not in minutes, and reading
+        /// it as though it were made FlashLFQ search for every peptide at a sixtieth of its true
+        /// elution time. Keep the raw value here so the file round-trips on write, and convert at
+        /// the interface boundary below.
+        /// </remarks>
         [Name("Retention")]
-        public double RetentionTime { get; set; }
+        public double RetentionTimeInSeconds { get; set; }
 
         [Name("Observed Mass")]
         public double ObservedMass { get; set; }
@@ -213,6 +224,24 @@ namespace Readers
         [Ignore] private List<(string, string, string)> _proteinGroupInfos;
 
         [Ignore] public int ChargeState => Charge;
+
+        /// <summary>
+        /// The retention time in MINUTES, converted from the seconds MSFragger writes.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="IQuantifiableRecord.RetentionTime"/> is documented as minutes and every
+        /// consumer treats it that way — <c>MzLibExtensions.MakeIdentifications</c> assigns it
+        /// straight to a variable named <c>ms2RetentionTimeInMinutes</c>, and FlashLFQ then builds
+        /// a ±2 minute peak-finding window around it. Passing MSFragger's seconds through
+        /// unconverted therefore looked for a peptide eluting at 60 minutes at the 1 minute mark,
+        /// and quantification collapsed toward zero rather than failing.
+        /// <para>
+        /// This mirrors what the spectra readers already do at their own boundary
+        /// (<c>BrukerFileReader</c>, <c>MsAlign</c>, <c>Mgf</c>, <c>Mzml</c> all normalise to
+        /// minutes), so both halves of the library now agree on the unit.
+        /// </para>
+        /// </remarks>
+        [Ignore] public double RetentionTime => RetentionTimeInSeconds / 60.0;
 
         // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
         [Ignore] public bool IsDecoy => false;
