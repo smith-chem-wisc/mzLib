@@ -214,8 +214,9 @@ namespace Readers
 
         [Ignore] public int ChargeState => Charge;
 
-        // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
-        [Ignore] public bool IsDecoy => false;
+        // MSFragger psm.tsv has no target/decoy column -- FragPipe/Philosopher strip decoys before
+        // writing it -- so decoy status is genuinely not provided. null (not a fake false) says so.
+        [Ignore] public bool? IsDecoy => null;
 
         [Ignore] public double MonoisotopicMass => CalculatedPeptideMass;
 

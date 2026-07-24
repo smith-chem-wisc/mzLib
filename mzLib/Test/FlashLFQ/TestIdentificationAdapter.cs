@@ -197,6 +197,43 @@ namespace Test.FlashLFQ
         }
 
         [Test]
+        public void MakeIdentifications_IsDecoyNullOrTrueOrFalse_MapsToTargetDecoyCorrectly()
+        {
+            // null = the source format does not provide decoy info (e.g. MSFragger psm.tsv). It must
+            // be treated as a target so the record is still quantified, matching pre-nullable behaviour.
+            var records = new List<IQuantifiableRecord>
+            {
+                MakeMock("NOTPROVIDED", isDecoy: null),
+                MakeMock("KNOWNTARGET",  isDecoy: false),
+                MakeMock("KNOWNDECOY",   isDecoy: true),
+            };
+            var spectraFiles = new List<SpectraFileInfo> { new SpectraFileInfo("file1.mzML", "", 0, 0, 0) };
+
+            var result = MzLibExtensions.MakeIdentifications(new MockQuantifiableResultFile(records), spectraFiles);
+
+            var notProvided = result.Single(i => i.BaseSequence == "NOTPROVIDED");
+            Assert.That(notProvided.IsDecoy, Is.False, "null IsDecoy must be treated as a target");
+            Assert.That(notProvided.UseForProteinQuant, Is.True);
+
+            Assert.That(result.Single(i => i.BaseSequence == "KNOWNTARGET").IsDecoy, Is.False);
+            var decoy = result.Single(i => i.BaseSequence == "KNOWNDECOY");
+            Assert.That(decoy.IsDecoy, Is.True);
+            Assert.That(decoy.UseForProteinQuant, Is.False);
+        }
+
+        private static MockQuantifiableRecord MakeMock(string baseSeq, bool? isDecoy) => new MockQuantifiableRecord
+        {
+            BaseSequence = baseSeq,
+            FullSequence = baseSeq,
+            RetentionTime = 5.0,
+            MonoisotopicMass = 500.0,
+            ChargeState = 2,
+            FileName = "file1.mzML",
+            IsDecoy = isDecoy,
+            ProteinGroupInfos = new List<(string proteinAccessions, string geneName, string organism)> { ("P1", "Gene1", "Org1") }
+        };
+
+        [Test]
         public void SpectraFileNotFound()
         {
             var quantifiableRecords = new List<IQuantifiableRecord>
@@ -335,7 +372,7 @@ namespace Test.FlashLFQ
         public int ChargeState { get; set; }
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos { get; set; }
         public string FileName { get; set; }
-        public bool IsDecoy { get; set; }
+        public bool? IsDecoy { get; set; }
     }
 
 }

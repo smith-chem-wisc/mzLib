@@ -83,6 +83,18 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         [Test]
+        public void MsFraggerPsm_IsDecoy_IsNull_BecauseFormatHasNoDecoyColumn()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv");
+            MsFraggerPsmFile file = new MsFraggerPsmFile(filePath);
+
+            // MSFragger psm.tsv carries no target/decoy column, so decoy status is "not provided", not false.
+            foreach (MsFraggerPsm psm in file)
+                Assert.That(((IQuantifiableRecord)psm).IsDecoy, Is.Null);
+        }
+
+        [Test]
         public void TestMsFraggerPsmFirstAndLastCorrect()
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,

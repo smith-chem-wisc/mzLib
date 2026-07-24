@@ -43,9 +43,11 @@ namespace Readers
         public int ChargeState { get; }
 
         /// <summary>
-        /// Defines whether or not the result is a decoy identification
+        /// Whether the result is a decoy identification: <c>true</c> = decoy, <c>false</c> = target,
+        /// <c>null</c> = the source format does not carry target/decoy information (e.g. MSFragger
+        /// psm.tsv, which has no decoy column). Consumers should treat <c>null</c> as not-a-decoy.
         /// </summary>
-        public bool IsDecoy { get; }
+        public bool? IsDecoy { get; }
 
         /// <summary>
         /// The mass of the monoisotopic peptide (i.e., no c13 or n15 atoms are present, the lowest possible mass)

@@ -33,6 +33,11 @@ namespace Readers
         public int ChargeState { get; }
         public double MonoisotopicMass { get; }
 
+        // The shared bool IsDecoy above satisfies ISpectralMatch (a parsed match always knows its
+        // decoy status). Explicit implementation presents it through the nullable IQuantifiableRecord
+        // contract without forcing the public property, or ISpectralMatch, to nullable.
+        bool? IQuantifiableRecord.IsDecoy => IsDecoy;
+
         // Additional fields for filtering / downstream use
         public double QValue { get; }
         public double PepQValue { get; }
