@@ -237,7 +237,11 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         public IEnumerable<ProteolyticPeptide> Digestion(Protein protein, bool topDownTruncationSearch = false)
         {
-            return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
+            // EffectiveMaxMissedCleavages equals MaximumMissedCleavages unless cleavage-blocking
+            // modifications are being respected, in which case it adds slack so the read-through form
+            // of a blocked cleavage can be generated; the surplus is trimmed again by the open-site
+            // filter in ProteolyticPeptide.GetModifiedPeptides.
+            return Protease.GetUnmodifiedPeptides(protein, DigestionParams.EffectiveMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
         }
     }
 }

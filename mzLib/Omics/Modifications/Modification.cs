@@ -40,6 +40,17 @@ namespace Omics.Modifications
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
+        /// <summary>
+        /// True when this modification sits on a trypsin-family cleavage residue (Lys/Arg) and
+        /// neutralises or masks its side-chain charge enough that the protease would not have cleaved
+        /// after it -- N6-succinyllysine, N6-acetyllysine and the other epsilon-amine acylations.
+        /// A peptide reported as ending in such a residue describes a cleavage that cannot happen.
+        /// Curated classification; see <see cref="CleavageBlockingModifications"/> for what is in the
+        /// set and why the methyl series is excluded. Digestion consults this only when
+        /// DigestionParams.RespectCleavageBlockingModifications is set.
+        /// </summary>
+        public bool BlocksCleavage => CleavageBlockingModifications.NeutralizesCleavageResidue(this);
+
         public virtual bool ValidModification
         {
             get
