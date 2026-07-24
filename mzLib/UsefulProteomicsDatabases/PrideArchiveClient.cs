@@ -107,6 +107,11 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
         /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
+        /// <exception cref="MzLibException">
+        /// PRIDE answered successfully but served a page identical to its predecessor while
+        /// <c>total_records</c> reported more remained — a broken contract rather than an outage, so it
+        /// is not mistaken for one (see the class remarks) and is not retried as network trouble.
+        /// </exception>
         /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
         public async Task<List<PrideArchiveFile>> GetProjectFilesAsync(string accession, int pageSize = 100,
             CancellationToken cancellationToken = default)
@@ -117,7 +122,7 @@ namespace UsefulProteomicsDatabases
                 throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
 
             var files = new List<PrideArchiveFile>();
-            var seenFileNames = new HashSet<string>(StringComparer.Ordinal);
+            string previousPageIdentity = null;
             int page = 0;
 
             while (true)
@@ -144,20 +149,35 @@ namespace UsefulProteomicsDatabases
                 if (pageFiles.Count == 0)
                     break; // no (more) files
 
-                // Collect only files not already seen. A manifest lists each file once, so a repeated
-                // FileName is a paging artefact -- a server honouring the capped pageSize but ignoring
-                // `page` re-serves the same records -- not a real duplicate. Deduplicating keeps such a
-                // server from inflating files.Count past total_records on identical pages.
-                bool pageAddedNewFile = false;
-                foreach (PrideArchiveFile file in pageFiles)
-                    if (seenFileNames.Add(file.FileName))
-                    {
-                        files.Add(file);
-                        pageAddedNewFile = true;
-                    }
+                // Every entry the server returns stays in the manifest. A manifest may legitimately
+                // repeat a leaf name (the same name under different publicFileLocations), and an entry
+                // with no fileName at all is a case DownloadFileAsync already expects and guards. So
+                // paging progress is a property of the PAGE, not of individual file names: deciding
+                // membership by name uniqueness would silently drop real records, which is precisely
+                // the failure this method exists to prevent.
+                string pageIdentity = string.Join("", pageFiles.Select(f => f.FileName));
+                bool pageAdvanced = pageIdentity != previousPageIdentity;
+                previousPageIdentity = pageIdentity;
+
+                files.AddRange(pageFiles);
 
                 if (TryGetTotalRecords(response, out long total))
                 {
+                    // Checked BEFORE the total comparison: a server re-serving the same page forever
+                    // would otherwise push files.Count past total with duplicates and break out as if
+                    // it had succeeded, hiding the fault behind a plausible-looking manifest.
+                    //
+                    // This is deliberately the strict signal -- a page byte-identical to its
+                    // predecessor -- rather than "this page added nothing new". A project whose files
+                    // change mid-fetch can legitimately return a page that merely overlaps the previous
+                    // one, and the empty-page comment above declines to throw on exactly that
+                    // ambiguity; failing only on an exactly-repeated page keeps the two consistent.
+                    if (!pageAdvanced)
+                        throw new MzLibException(
+                            $"PRIDE Archive re-served an identical page {page} for accession '{accession}' " +
+                            $"while reporting {total} total records. The server may be ignoring the page " +
+                            $"parameter, or the project's file list may have changed mid-fetch.");
+
                     // The server's own record count is authoritative: stop once we have all of it.
                     if (files.Count >= total)
                         break;
@@ -165,16 +185,6 @@ namespace UsefulProteomicsDatabases
                     // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
                     // so requesting 500 yields a 100-file "short" page that still has successors.
                     // Treating that as the last page silently truncated the manifest.
-                    //
-                    // But a page that added nothing new, while total says records remain, means the
-                    // server is ignoring `page` and re-serving the capped page forever -- paging can
-                    // never reach total. Fail loudly, like the MaxPages backstop below, rather than
-                    // returning a manifest silently missing records. (Without total_records the
-                    // short-page and MaxPages checks still cover the paging-ignored server.)
-                    if (!pageAddedNewFile)
-                        throw new HttpRequestException(
-                            $"PRIDE Archive returned no new files on page {page} for accession '{accession}' " +
-                            $"while reporting {total} total records; the server may be ignoring the page parameter.");
                 }
                 else if (pageFiles.Count < pageSize)
                 {
