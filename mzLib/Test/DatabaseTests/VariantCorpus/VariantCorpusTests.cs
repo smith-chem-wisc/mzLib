@@ -22,7 +22,10 @@ namespace Test.DatabaseTests.VariantCorpus
     ///   Corpus_Node_RoundTrip — same, but the consensus protein is serialized through the real ProteinDbWriter
     ///                           and re-read first, so encode+decode is exercised too (invariant 6 / #1083).
     /// L0 (substitutions + PTMs) + L1 (deletions: single/multi-base, before/on/after a PTM, out-of-range, and the
-    /// VCF depth cutoff = minAlleleDepth); processing/digestion/insertions are later layers.
+    /// VCF depth cutoff = minAlleleDepth). The S-series deepens the substitution axis (before/on/after a PTM,
+    /// protein start/end, VCF depth cutoff, multi-residue MNV, and double substitutions) and pulls the bottom-up
+    /// DIGESTION axis forward for the "a substitution moves the knife" cases (installment 5): trypsin cut-site
+    /// create/destroy and the not-before-proline rule (trypsin|P). Processing/insertions are later layers.
     /// </summary>
     [TestFixture]
     internal class VariantCorpusTests
@@ -243,6 +246,176 @@ namespace Test.DatabaseTests.VariantCorpus
                     "PPTIDE", "PPT[Biological:Phosphorylation on T]IDE",
                     "PEPIDE", "PPIDE"
                 });
+
+            // ---- S-series: the substitution axis, deepened (installments 2, 5, 11; invariants 1-2, 5) ---------
+            // Substitutions HOLD position (no downstream renumbering, unlike indels), so a mod survives iff the
+            // substitution does not land ON its anchor residue. S00-S02 walk a sub past a PTM (before/on/after);
+            // S03-S04 hit the protein termini; S05-S06 are the VCF depth-cutoff twins; S07-S09 move the trypsin
+            // knife (bottom-up); S10 is a multi-residue MNV; SS00-SS01 are double substitutions.
+
+            // S00 — substitution BEFORE the PTM. Phospho@T4; sub E2->A. T4 unmoved (subs hold position), phospho
+            // survives on the variant. Consensus{0,1} + variant PAPTIDE{0,1} = 4 forms.
+            yield return new CorpusCase(
+                Id: "S00", Layer: "L0-sub-int", Tests: "sub-before-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E VAR=A POS=2 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Substitution upstream of the mod holds position (no renumbering); phospho stays anchored at T4. Consensus{0,1} + PAPTIDE{0,1} = 4. Installment 2; AdjustModificationIndices leaves k outside [begin,end] untouched.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PAPTIDE", "PAPT[Biological:Phosphorylation on T]IDE" });
+
+            // S01 — substitution ON the PTM residue, motif-preserving-LOOKING (T->S). The phospho is dropped on the
+            // variant anyway: positionally (D7 — position 4 lies in the edited [4,4]) AND motif-wise (our annotated
+            // mod is "Phosphorylation on T"; serine does not satisfy a T-specific motif). Consensus keeps it. 3
+            // forms NOT 4. This pins the D7 case for a RESIDUE-SPECIFIC motif (both rules agree -> drop); the truly
+            // ambiguous D7 (a mod whose motif would still fit post-sub, e.g. a phospho annotated "on S or T") stays
+            // parked for a later node/decision (installment 11).
+            yield return new CorpusCase(
+                Id: "S01", Layer: "L0-sub-int", Tests: "sub-on-ptm-motif-preserving",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=S POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "pruned:illegal-mod",
+                Reason: "T->S drops the phospho on the variant: positional drop (pos 4 in edited [4,4]) and our motif is T-specific so S does not fit either. Consensus keeps it. 3 forms NOT 4. Pins D7 for a residue-specific motif; the motif-still-fits D7 case is parked (installment 11).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPSIDE" });
+
+            // S02 — substitution AFTER the PTM. Phospho@T4; sub D6->A. T4 unmoved, phospho survives. 4 forms.
+            yield return new CorpusCase(
+                Id: "S02", Layer: "L0-sub-int", Tests: "sub-after-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=D VAR=A POS=6 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Substitution downstream of the mod holds position; phospho stays anchored at T4. Consensus{0,1} + PEPTIAE{0,1} = 4.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTIAE", "PEPT[Biological:Phosphorylation on T]IAE" });
+
+            // S03 — substitution at the protein START (position 1). P1->A. No mod. Consensus + AEPTIDE = 2 forms.
+            yield return new CorpusCase(
+                Id: "S03", Layer: "L0-sub", Tests: "sub-at-start",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=P VAR=A POS=1 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Substitution at the first residue (P1->A). No initiator-Met interplay (M-free base, Retain behavior). Consensus + AEPTIDE = 2.",
+                ExpectedForms: new[] { "PEPTIDE", "AEPTIDE" });
+
+            // S04 — substitution at the protein END (position 7 = last residue). E7->A. Consensus + PEPTIDA = 2 forms.
+            yield return new CorpusCase(
+                Id: "S04", Layer: "L0-sub", Tests: "sub-at-end",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=E VAR=A POS=7 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Substitution at the last residue (E7->A). In-range boundary (contrast F04, pos 9 > len). Consensus + PEPTIDA = 2.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPTIDA" });
+
+            // S05 — VCF substitution PASSING the depth cutoff. T4->V, het 0/1, alt AD=6 >= minAlleleDepth 5 ->
+            // consensus AND variant (installment 12; ApplyVariants het path). 2 forms.
+            yield return new CorpusCase(
+                Id: "S05", Layer: "L0-sub-vcf", Tests: "sub-depth-pass",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=T VAR=V POS=4 SRC=vcf GT=0/1 AD=8,6 DP=14", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "VCF substitution T4->V; het alt AD=6 >= minAlleleDepth=5 -> consensus + PEPVIDE. Depth filter = minAlleleDepth (VCF AD).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPVIDE" },
+                MinAlleleDepth: 5);
+
+            // S06 — same VCF substitution FAILING the depth cutoff. alt AD=6 < minAlleleDepth 7 -> allele filtered;
+            // consensus only. The variant is still READ (SequenceVariation created), so the round-trip family asserts
+            // the writer preserves it (teeth, as with D08).
+            yield return new CorpusCase(
+                Id: "S06", Layer: "L0-sub-vcf", Tests: "sub-depth-fail",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=T VAR=V POS=4 SRC=vcf GT=0/1 AD=8,6 DP=14", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 1, Verdict: "filtered:below-depth-cutoff",
+                Reason: "Same VCF substitution; alt AD=6 < minAlleleDepth=7 -> isDeepAlternateAllele false, not applied; consensus only.",
+                ExpectedForms: new[] { "PEPTIDE" },
+                MinAlleleDepth: 7);
+
+            // ---- Bottom-up: a substitution moves the trypsin knife (installment 5; invariant 5) ---------------
+            // These are the first DIGESTION-axis nodes: protease = trypsin, so consensus and variant digest
+            // independently and the peptide SET is a function of which variant is applied. FullSequence of an
+            // unmodified peptide == its base sequence.
+
+            // S07 — substitution DESTROYS a cut site (K4->A). trypsin cuts after K/R: consensus PEPKIDE -> {PEPK, IDE};
+            // variant PEPAIDE has no K/R -> {PEPAIDE}. Union = 3 peptides.
+            yield return new CorpusCase(
+                Id: "S07", Layer: "L3-digest", Tests: "sub-destroys-cut-site",
+                Base: "PEPKIDE", Mods: "-", Variants: "OP=K VAR=A POS=4 SRC=uniprot", Protease: "trypsin",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "applied",
+                Reason: "K4->A removes trypsin's cut after K4: consensus PEPKIDE -> PEPK + IDE; variant PEPAIDE (no K/R) -> one peptide. K/R->X merges two peptides into one (installment 5).",
+                ExpectedForms: new[] { "PEPK", "IDE", "PEPAIDE" });
+
+            // S08 — substitution CREATES a cut site (A4->K), the inverse of S07. Consensus PEPAIDE (no K/R) ->
+            // {PEPAIDE}; variant PEPKIDE -> {PEPK, IDE}. Union = 3 peptides.
+            yield return new CorpusCase(
+                Id: "S08", Layer: "L3-digest", Tests: "sub-creates-cut-site",
+                Base: "PEPAIDE", Mods: "-", Variants: "OP=A VAR=K POS=4 SRC=uniprot", Protease: "trypsin",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "applied",
+                Reason: "A4->K introduces a trypsin cut after position 4: consensus PEPAIDE -> one peptide; variant PEPKIDE -> PEPK + IDE. X->K/R splits one peptide into two (installment 5). Inverse of S07.",
+                ExpectedForms: new[] { "PEPAIDE", "PEPK", "IDE" });
+
+            // S09 — substitution BLOCKS a cut site via the not-before-proline rule (I5->P), under trypsin|P
+            // (K[P]|,R[P]|). Consensus PEPKIDE -> {PEPK, IDE} (K4 before I, cuts); variant PEPKPDE -> {PEPKPDE}
+            // (K4 now before P, cut suppressed). Under plain trypsin the variant would still cut (PEPK + PDE), so
+            // this node specifically pins trypsin|P's proline restriction, not just any K-adjacent edit.
+            yield return new CorpusCase(
+                Id: "S09", Layer: "L3-digest", Tests: "sub-blocks-cut-before-proline",
+                Base: "PEPKIDE", Mods: "-", Variants: "OP=I VAR=P POS=5 SRC=uniprot", Protease: "trypsin|P",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "applied",
+                Reason: "I5->P puts a proline immediately after K4; trypsin|P (K[P]|) does not cut before P, so variant PEPKPDE stays whole while consensus PEPKIDE -> PEPK + IDE. A variant destroys a cut site WITHOUT touching K/R (installment 5). Requires trypsin|P, not trypsin.",
+                ExpectedForms: new[] { "PEPK", "IDE", "PEPKPDE" });
+
+            // S10 — MULTI-RESIDUE substitution (MNV), same length. TI->VL over [4,5] -> PEPVLDE. Exercises the
+            // begin/end range path for substitutions (equal length, no coordinate shift). 2 forms.
+            yield return new CorpusCase(
+                Id: "S10", Layer: "L0-sub", Tests: "sub-multi-residue-mnv",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=TI VAR=VL BEGIN=4 END=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "applied",
+                Reason: "Two-residue substitution TI->VL over [4,5] (equal length -> no renumbering). Consensus + PEPVLDE = 2. Tests the range (begin/end) apply path for a same-length variant.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPVLDE" });
+
+            // S11 — substitution that CARRIES A MOD into the proteoform (variant-borne mod; installment 4, #1083).
+            // The reciprocal of F03: there the consensus bears the phospho and the T->V variant loses it; here the
+            // CONSENSUS residue (V) cannot bear phospho, and a phospho is stored ON THE VARIANT's new T (V4->T). So
+            // the consensus yields one bare form, and only the applied variant carries the (variable) phospho.
+            // 3 forms: PEPVIDE, PEPTIDE, PEPT[phospho]IDE. Encoded via the nested <subfeature>/<subposition>; the
+            // round-trip family gives this real teeth on variant-borne-mod SERIALIZATION (a writer that drops the
+            // sub-feature would produce only 2 forms on reload).
+            yield return new CorpusCase(
+                Id: "S11", Layer: "L0-sub-int", Tests: "sub-carries-variant-borne-mod",
+                Base: "PEPVIDE", Mods: "-", Variants: "OP=V VAR=T POS=4 SRC=uniprot VMOD=Phosphorylation@4", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "applied",
+                Reason: "V4->T introduces a phosphorylatable T; the phospho is stored on the VARIANT (SequenceVariation.OneBasedModifications), so the consensus PEPVIDE is bare while the applied PEPTIDE carries a variable phospho. Reciprocal of F03 (installment 4; AdjustModificationIndices merges variant.OneBasedModifications). 3 forms.",
+                ExpectedForms: new[] { "PEPVIDE", "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE" });
+
+            // ---- L4 multi: double substitutions (combinatorial path; invariants 3-4) --------------------------
+
+            // SS00 — two INDEPENDENT substitutions. E2->A and D6->A -> consensus + each single + the pair. Subs hold
+            // position so no re-anchoring; base+2+1 = 4 forms (under cap). Mirror of the deletion MD00.
+            yield return new CorpusCase(
+                Id: "SS00", Layer: "L4-multi", Tests: "sub-x2-independent",
+                Base: "PEPTIDE", Mods: "-", Variants: "OP=E VAR=A POS=2 SRC=uniprot; OP=D VAR=A POS=6 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Two independent substitutions -> consensus + each single + the pair. base+2+1 = 4 (under cap). No re-anchoring (subs hold position).",
+                ExpectedForms: new[] { "PEPTIDE", "PAPTIDE", "PEPTIAE", "PAPTIAE" });
+
+            // SS01 — two substitutions where ONE lands on the PTM residue. Phospho@T4; sub E2->A (before) and
+            // T4->V (on). Phospho survives the combos WITHOUT the T4 sub (consensus, subE2), dropped in the combos
+            // WITH it (subT4, both). 2+2+1+1 = 6 forms. Mirror of the deletion MD02.
+            yield return new CorpusCase(
+                Id: "SS01", Layer: "L4-multi", Tests: "sub-x2-one-on-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E VAR=A POS=2 SRC=uniprot; OP=T VAR=V POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 6, Verdict: "applied",
+                Reason: "Phospho kept where T4 survives (consensus{0,1}, subE2{0,1}), dropped where T4->V (subT4, both). 2+2+1+1 = 6.",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "PAPTIDE", "PAPT[Biological:Phosphorylation on T]IDE",
+                    "PEPVIDE", "PAPVIDE"
+                });
         }
 
         private static IEnumerable<TestCaseData> Cases()
@@ -391,20 +564,44 @@ namespace Test.DatabaseTests.VariantCorpus
 
         // --- helpers: parse the case's mods/variants DSL and emit the matching mzLib XML ------------------
 
+        // Every mod the reader might need in allKnownModifications: the consensus mods (Mods DSL, motif = the
+        // consensus residue) AND any variant-borne mods (a VMOD token on a variant, motif = the VARIANT residue,
+        // since the mod sits on the post-substitution proteoform). De-duplicated by IdWithMotif so a mod shared by
+        // both sides is registered once.
         private static List<Modification> BuildMods(CorpusCase c)
         {
-            var mods = new List<Modification>();
-            if (c.Mods == "-") return mods;
-            foreach (var token in c.Mods.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            var byId = new Dictionary<string, Modification>();
+            void Register(string name, char motifChar)
             {
-                var (name, pos) = ParseNameAtPos(token.Trim());
-                char motifChar = c.Base[pos - 1];
                 ModificationMotif.TryGetMotif(motifChar.ToString(), out ModificationMotif motif);
                 var (type, mass) = ModRegistry[name];
-                mods.Add(new Modification(_originalId: name, _modificationType: type, _target: motif,
-                    _locationRestriction: "Anywhere.", _monoisotopicMass: mass));
+                var mod = new Modification(_originalId: name, _modificationType: type, _target: motif,
+                    _locationRestriction: "Anywhere.", _monoisotopicMass: mass);
+                byId[mod.IdWithMotif] = mod;
             }
-            return mods;
+
+            if (c.Mods != "-")
+                foreach (var token in c.Mods.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var (name, pos) = ParseNameAtPos(token.Trim());
+                    Register(name, c.Base[pos - 1]);
+                }
+
+            if (c.Variants != "-")
+                foreach (var v in c.Variants.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var kv = ParseKeyVals(v.Trim());
+                    if (!kv.TryGetValue("VMOD", out var vmodSpec)) continue;
+                    string variation = kv.TryGetValue("VAR", out var vv) && vv != "-" ? vv : "";
+                    int begin = kv.ContainsKey("BEGIN") ? int.Parse(kv["BEGIN"]) : int.Parse(kv["POS"]);
+                    foreach (var m in vmodSpec.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                    {
+                        var (name, subpos) = ParseNameAtPos(m);
+                        Register(name, variation[subpos - begin]);  // motif = variant residue at the mod site
+                    }
+                }
+
+            return byId.Values.ToList();
         }
 
         private static string BuildXml(CorpusCase c)
@@ -447,11 +644,15 @@ namespace Test.DatabaseTests.VariantCorpus
                     if (kv.TryGetValue("SRC", out var src) && src == "vcf")
                     {
                         string gt = kv["GT"], ad = kv["AD"], dp = kv.TryGetValue("DP", out var d) ? d : "0";
+                        // Effect label is cosmetic for the reader (only ANN's Allele field, == ALT, drives
+                        // AlleleIndex); label it faithfully anyway: empty variation = deletion, equal-length = sub.
+                        string effect = variation == "" ? "inframe_deletion"
+                            : (variation.Length == op.Length ? "missense_variant" : "frameshift_variant");
                         // Tabs as literal "\t" (VariantCallFormat normalizes them); ANN carries the 16
                         // pipe-delimited fields SnpEffAnnotation indexes, with Allele == ALT so AlleleIndex resolves.
                         description =
                             $"1\\t{begin}\\t.\\t{op}\\t{variation}\\t.\\tPASS\\t" +
-                            $"ANN={variation}|inframe_deletion|MODERATE|TEST|TESTID|transcript|tx1|protein_coding|1/1|c.1del|p.1del||1/7|1/7||\\t" +
+                            $"ANN={variation}|{effect}|MODERATE|TEST|TESTID|transcript|tx1|protein_coding|1/1|c.1del|p.1del||1/7|1/7||\\t" +
                             $"GT:AD:DP\\t{gt}:{ad}:{dp}";
                     }
                     else
@@ -459,9 +660,33 @@ namespace Test.DatabaseTests.VariantCorpus
                         description = variation == "" ? $"deletion {op}{begin}" : $"{op}{begin}{variation} variant";
                     }
 
-                    string location = hasRange
-                        ? $"      <location><begin position=\"{begin}\" /><end position=\"{end}\" /></location>\n"
-                        : $"      <location><position position=\"{begin}\" /></location>\n";
+                    string locInner = hasRange
+                        ? $"<begin position=\"{begin}\" /><end position=\"{end}\" />"
+                        : $"<position position=\"{begin}\" />";
+
+                    // VMOD=Name@subpos[,Name@subpos...] -> variant-BORNE mod(s): a mod that lives on the variant,
+                    // not the consensus. Encoded (per the reader/writer) as a <subfeature type="modified residue">
+                    // NESTED inside the variant's <location>, keyed by <subposition subposition="N"/> (distinct from
+                    // the variant's own <position>). Only when the variant is applied does the mod reach the
+                    // proteoform (installment 4 / #1083 reciprocal storage).
+                    var subfeatures = new System.Text.StringBuilder();
+                    if (kv.TryGetValue("VMOD", out var vmodSpec))
+                    {
+                        foreach (var m in vmodSpec.Split(',', StringSplitOptions.RemoveEmptyEntries))
+                        {
+                            var (mname, subpos) = ParseNameAtPos(m);
+                            char motifChar = variation[subpos - begin];
+                            string idWithMotif = $"{mname} on {motifChar}";
+                            subfeatures.Append(
+                                $"        <subfeature type=\"modified residue\" description=\"{idWithMotif}\">\n" +
+                                $"          <location><subposition subposition=\"{subpos}\" /></location>\n" +
+                                $"        </subfeature>\n");
+                        }
+                    }
+
+                    string location = subfeatures.Length == 0
+                        ? $"      <location>{locInner}</location>\n"
+                        : $"      <location>\n        {locInner}\n{subfeatures}      </location>\n";
 
                     features.Append(
                         $"    <feature type=\"sequence variant\" description=\"{description}\">\n" +
