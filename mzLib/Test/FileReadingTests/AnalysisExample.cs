@@ -11,6 +11,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
 using Test.FileReadingTests;
@@ -540,39 +541,58 @@ namespace Test.FileReadingTests
 
             var extractor = new GroundTruthExtractor(allMs1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
-            var sliceFit = FitProteoforms(qFilteredSliceRecords, extractor, rtHalfWidth, useGlobalAbundanceRefit, globalRefitMaxModels);
-            Assert.That(sliceFit.Models, Is.Not.Empty, "No simulated models were fitted for 31-35 min slice.");
+            // The slice records are a subset of the full set, so everything is extracted and fitted
+            // once and the slice is then selected out of it. The global refit is a joint fit, so it
+            // is still applied separately to each output set — the slice refit is conditioned on the
+            // slice, exactly as before.
+            var stageSw = Stopwatch.StartNew();
+            var allFits = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth);
+            Console.WriteLine($"Fitted {allFits.Fits.Length}/{qFilteredRecords.Length} records in {stageSw.Elapsed}");
+            Assert.That(allFits.Fits, Is.Not.Empty, "No simulated models were fitted for full q<=0.01 run.");
+
+            var sliceSelection = Enumerable.Range(0, allFits.Fits.Length)
+                .Where(i => allFits.Records[i].RetentionTime >= rtStart && allFits.Records[i].RetentionTime <= rtEnd)
+                .ToArray();
+            Assert.That(sliceSelection, Is.Not.Empty, "No fitted proteoforms fell inside 31-35 min.");
+
+            var sliceModels = ApplyGlobalRefit(
+                sliceSelection.Select(i => allFits.Fits[i]).ToArray(),
+                sliceSelection.Select(i => allFits.Truths[i]).ToArray(),
+                allFits.MinCharge, allFits.MaxCharge, allFits.SigmaMz,
+                useGlobalAbundanceRefit, globalRefitMaxModels, "31-35 min slice");
 
             var sliceScanTimes = rtSliceMs1Scans.Select(s => s.RetentionTime).ToArray();
             var sliceExport = new Simulator().WriteMzml(
-                sliceFit.Models,
-                sliceFit.MinCharge,
-                sliceFit.MaxCharge,
-                sliceFit.SigmaMz,
+                sliceModels,
+                allFits.MinCharge,
+                allFits.MaxCharge,
+                allFits.SigmaMz,
                 sliceScanTimes,
                 simSliceMzmlPath,
                 reduction);
 
             Console.WriteLine($"Simulated slice mzML written: {sliceExport.MzmlPath}");
             Console.WriteLine($"Ground truth: {sliceExport.GroundTruthPath}");
-            Console.WriteLine($"Simulated slice models: {sliceFit.Models.Length}, scans: {sliceExport.ScanCount}, peaks: {sliceExport.PeakCount}");
+            Console.WriteLine($"Simulated slice models: {sliceModels.Length}, scans: {sliceExport.ScanCount}, peaks: {sliceExport.PeakCount}");
 
-            var fullFit = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth, useGlobalAbundanceRefit, globalRefitMaxModels);
-            Assert.That(fullFit.Models, Is.Not.Empty, "No simulated models were fitted for full q<=0.01 run.");
+            var fullModels = ApplyGlobalRefit(
+                allFits.Fits, allFits.Truths,
+                allFits.MinCharge, allFits.MaxCharge, allFits.SigmaMz,
+                useGlobalAbundanceRefit, globalRefitMaxModels, "full q<=0.01 run");
 
             var fullScanTimes = allMs1Scans.Select(s => s.RetentionTime).ToArray();
             var fullExport = new Simulator().WriteMzml(
-                fullFit.Models,
-                fullFit.MinCharge,
-                fullFit.MaxCharge,
-                fullFit.SigmaMz,
+                fullModels,
+                allFits.MinCharge,
+                allFits.MaxCharge,
+                allFits.SigmaMz,
                 fullScanTimes,
                 simFullMzmlPath,
                 reduction);
 
             Console.WriteLine($"Simulated full mzML written: {fullExport.MzmlPath}");
             Console.WriteLine($"Ground truth: {fullExport.GroundTruthPath}");
-            Console.WriteLine($"Simulated full models: {fullFit.Models.Length}, scans: {fullExport.ScanCount}, peaks: {fullExport.PeakCount}");
+            Console.WriteLine($"Simulated full models: {fullModels.Length}, scans: {fullExport.ScanCount}, peaks: {fullExport.PeakCount}");
             Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
         }
 
@@ -615,52 +635,85 @@ namespace Test.FileReadingTests
             return records;
         }
 
-        private static (ProteoformModel[] Models, int MinCharge, int MaxCharge, double SigmaMz) FitProteoforms(
+        private sealed record FitBatch(
+            FittedProteoform[] Fits,
+            ProteoformGroundTruth[] Truths,
+            MmResultRecord[] Records,
+            int MinCharge,
+            int MaxCharge,
+            double SigmaMz);
+
+        /// <summary>
+        /// Extracts and fits every record. No global refit is applied here — that is a joint fit
+        /// over a chosen set of models, so it belongs to whoever assembles that set.
+        /// </summary>
+        /// <remarks>
+        /// The record loop runs in parallel. Each iteration builds its own IsotopeEnvelopeKernel
+        /// and its own fitters, and GroundTruthExtractor is read-only after construction, so
+        /// nothing is shared across threads. Results are written into preallocated slots and then
+        /// compacted in record order, so the surviving set, the model ordering and the median sigma
+        /// are all independent of how the work happened to be scheduled.
+        /// </remarks>
+        private static FitBatch FitProteoforms(
             IReadOnlyList<MmResultRecord> records,
             GroundTruthExtractor extractor,
-            double rtHalfWidth,
-            bool useGlobalAbundanceRefit,
-            int globalRefitMaxModels)
+            double rtHalfWidth)
         {
-            var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
-            var fitted = new List<FittedProteoform>(records.Count);
+            var fits = new FittedProteoform[records.Count];
+            var truths = new ProteoformGroundTruth[records.Count];
+            var chargeRanges = new (int Min, int Max)[records.Count];
+            int completed = 0;
 
-            // Ground truths are only kept when the global refit will actually consume them.
-            // Retaining them otherwise pins the whole extraction tensor for every record.
-            var truths = useGlobalAbundanceRefit ? new List<ProteoformGroundTruth>(records.Count) : null;
+            Parallel.For(0, records.Count, i =>
+            {
+                var record = records[i];
+                int minCharge = Math.Max(2, record.PrecursorCharge - 2);
+                int maxCharge = Math.Min(80, record.PrecursorCharge + 2);
+                if (minCharge > maxCharge)
+                    return;
+
+                var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth, minCharge, maxCharge);
+
+                FittedProteoform fit;
+                try
+                {
+                    fit = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012))
+                        .Fit(truth, record.Identifier);
+                }
+                catch (InvalidOperationException)
+                {
+                    return;
+                }
+
+                if (double.IsNaN(fit.Model.Abundance) || fit.Model.Abundance <= 0)
+                    return;
+
+                fits[i] = fit;
+                truths[i] = truth;
+                chargeRanges[i] = (minCharge, maxCharge);
+
+                int done = Interlocked.Increment(ref completed);
+                if (done % 100 == 0)
+                    Console.WriteLine($"Fitted {done}/{records.Count} records");
+            });
+
+            var keptFits = new List<FittedProteoform>(records.Count);
+            var keptTruths = new List<ProteoformGroundTruth>(records.Count);
+            var keptRecords = new List<MmResultRecord>(records.Count);
 
             int minChargeGlobal = int.MaxValue;
             int maxChargeGlobal = int.MinValue;
 
             for (int i = 0; i < records.Count; i++)
             {
-                var record = records[i];
-                int minCharge = Math.Max(2, record.PrecursorCharge - 2);
-                int maxCharge = Math.Min(80, record.PrecursorCharge + 2);
-                if (minCharge > maxCharge)
+                if (fits[i] is null)
                     continue;
 
-                if (i % 25 == 0)
-                    Console.WriteLine($"Fitting record {i + 1}/{records.Count}: {record.Identifier}");
-
-                var truth = extractor.Extract(record.MonoisotopicMass, record.RetentionTime, rtHalfWidth, minCharge, maxCharge);
-                FittedProteoform fit;
-                try
-                {
-                    fit = fitter.Fit(truth, record.Identifier);
-                }
-                catch (InvalidOperationException)
-                {
-                    continue;
-                }
-
-                if (double.IsNaN(fit.Model.Abundance) || fit.Model.Abundance <= 0)
-                    continue;
-
-                fitted.Add(fit);
-                truths?.Add(truth);
-                minChargeGlobal = Math.Min(minChargeGlobal, minCharge);
-                maxChargeGlobal = Math.Max(maxChargeGlobal, maxCharge);
+                keptFits.Add(fits[i]);
+                keptTruths.Add(truths[i]);
+                keptRecords.Add(records[i]);
+                minChargeGlobal = Math.Min(minChargeGlobal, chargeRanges[i].Min);
+                maxChargeGlobal = Math.Max(maxChargeGlobal, chargeRanges[i].Max);
             }
 
             if (minChargeGlobal == int.MaxValue)
@@ -668,39 +721,58 @@ namespace Test.FileReadingTests
             if (maxChargeGlobal == int.MinValue)
                 maxChargeGlobal = 80;
 
-            var sigmaCandidates = fitted
+            var sigmaCandidates = keptFits
                 .Select(f => f.SigmaMz)
                 .Where(s => !double.IsNaN(s) && !double.IsInfinity(s) && s > 0)
                 .OrderBy(s => s)
                 .ToArray();
             double sigmaMz = sigmaCandidates.Length == 0 ? 0.012 : sigmaCandidates[sigmaCandidates.Length / 2];
 
-            if (useGlobalAbundanceRefit && truths is not null && fitted.Count > 1)
-            {
-                if (fitted.Count > globalRefitMaxModels)
-                {
-                    Console.WriteLine($"Skipping global abundance refit for {fitted.Count} models (max allowed: {globalRefitMaxModels}).");
-                }
-                else
-                {
-                var refitter = new GlobalAbundanceRefitter(new GlobalAbundanceRefitOptions(
-                    MaxIterations: 8,
-                    ConvergenceTolerance: 1e-3,
-                    MinimumAbundance: 0,
-                    Verbose: true));
-
-                var refitResult = refitter.Refit(fitted, truths, minChargeGlobal, maxChargeGlobal, sigmaMz);
-                fitted = refitResult.FittedProteoforms.ToList();
-                Console.WriteLine($"Global abundance refit iterations: {refitResult.IterationsCompleted}, converged: {refitResult.Converged}");
-                Console.WriteLine($"Global abundance refit residual fraction: {refitResult.InitialResidualFraction:G6} -> {refitResult.FinalResidualFraction:G6}");
-                }
-            }
-
-            return (
-                fitted.Select(f => f.Model).ToArray(),
+            return new FitBatch(
+                keptFits.ToArray(),
+                keptTruths.ToArray(),
+                keptRecords.ToArray(),
                 minChargeGlobal,
                 maxChargeGlobal,
                 sigmaMz);
+        }
+
+        /// <summary>
+        /// Runs the joint non-negative abundance refit over one set of fitted proteoforms and
+        /// returns their models. The refit is conditioned on exactly the set passed in.
+        /// </summary>
+        private static ProteoformModel[] ApplyGlobalRefit(
+            FittedProteoform[] fits,
+            ProteoformGroundTruth[] truths,
+            int minCharge,
+            int maxCharge,
+            double sigmaMz,
+            bool useGlobalAbundanceRefit,
+            int globalRefitMaxModels,
+            string label)
+        {
+            if (!useGlobalAbundanceRefit || fits.Length <= 1)
+                return fits.Select(f => f.Model).ToArray();
+
+            if (fits.Length > globalRefitMaxModels)
+            {
+                Console.WriteLine($"Skipping global abundance refit for {label}: {fits.Length} models exceeds max {globalRefitMaxModels}.");
+                return fits.Select(f => f.Model).ToArray();
+            }
+
+            var sw = Stopwatch.StartNew();
+            var refitter = new GlobalAbundanceRefitter(new GlobalAbundanceRefitOptions(
+                MaxIterations: 8,
+                ConvergenceTolerance: 1e-3,
+                MinimumAbundance: 0,
+                Verbose: true));
+
+            var refitResult = refitter.Refit(fits, truths, minCharge, maxCharge, sigmaMz);
+            Console.WriteLine($"Global abundance refit ({label}) over {fits.Length} models took {sw.Elapsed}");
+            Console.WriteLine($"  iterations: {refitResult.IterationsCompleted}, converged: {refitResult.Converged}");
+            Console.WriteLine($"  residual fraction: {refitResult.InitialResidualFraction:G6} -> {refitResult.FinalResidualFraction:G6}");
+
+            return refitResult.FittedProteoforms.Select(f => f.Model).ToArray();
         }
 
         private static MmResultRecord[] DeduplicateByProteoform(IReadOnlyList<MmResultRecord> records)

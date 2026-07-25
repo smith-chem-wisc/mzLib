@@ -12,7 +12,8 @@ public sealed record GlobalAbundanceRefitOptions(
     double ConvergenceTolerance = 1e-3,
     double MinimumAbundance = 0.0,
     bool Verbose = false,
-    long MaxBasisCacheBytes = 1L << 30);
+    long MaxBasisCacheBytes = 1L << 30,
+    double BasisSparsityThreshold = 1e-10);
 
 public sealed record GlobalAbundanceRefitResult(
     FittedProteoform[] FittedProteoforms,
@@ -31,6 +32,13 @@ public sealed class GlobalAbundanceRefitter
     private const double BasisInclusionThreshold = 1e-12;
 
     private sealed record SampleSet(double[] Times, double[] Mzs, double[] Observed, double[] Basis);
+
+    /// <summary>
+    /// Compressed-row storage of the (sample x model) basis matrix for one sample set:
+    /// entries for sample <c>k</c> are <c>[RowStart[k], RowStart[k + 1])</c>, model indices
+    /// ascending so summation order matches the dense formulation.
+    /// </summary>
+    private sealed record SparseBasis(int[] RowStart, int[] ModelIndices, double[] Values);
 
     private readonly GlobalAbundanceRefitOptions _options;
 
@@ -76,18 +84,19 @@ public sealed class GlobalAbundanceRefitter
         // charge distribution, sigma — none of which this refit touches. Only Abundance changes, so
         // the whole (sample x model) matrix is invariant and is computed once instead of on every
         // one of the MaxIterations + 2 passes below. Cached values are the same numbers the
-        // uncached path would recompute, so results are unchanged either way.
+        // uncached path would recompute, so caching alone does not change results.
         var basisMatrices = TryBuildBasisMatrices(
-            models, kernels, sampleSets, minCharge, maxCharge, sigmaMz, _options.MaxBasisCacheBytes);
+            models, kernels, sampleSets, minCharge, maxCharge, sigmaMz,
+            _options.MaxBasisCacheBytes, _options.BasisSparsityThreshold);
 
-        var initialPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz);
+        var initialPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold);
         double initialResidual = ComputeResidualEnergyFraction(sampleSets, initialPredictedTotals);
         int completedIterations = 0;
         bool converged = false;
 
         for (int iteration = 0; iteration < _options.MaxIterations; iteration++)
         {
-            var predictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz);
+            var predictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold);
             double maxRelativeChange = 0;
 
             for (int p = 0; p < models.Length; p++)
@@ -118,7 +127,7 @@ public sealed class GlobalAbundanceRefitter
             }
         }
 
-        var finalPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz);
+        var finalPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold);
         double finalResidual = ComputeResidualEnergyFraction(sampleSets, finalPredictedTotals);
         var updatedFits = new FittedProteoform[fitted.Count];
         for (int i = 0; i < fitted.Count; i++)
@@ -213,60 +222,86 @@ public sealed class GlobalAbundanceRefitter
     }
 
     /// <summary>
-    /// Precomputes the (sample x model) basis matrix for every sample set, flattened per sample set
-    /// as <c>[k * modelCount + m]</c>. Returns null when the matrix would exceed
-    /// <paramref name="maxBytes"/>, in which case callers fall back to recomputing basis values on
-    /// demand — slower, but identical arithmetic.
+    /// Precomputes the (sample x model) basis matrix for every sample set in compressed-row form.
+    /// Returns null when it would exceed <paramref name="maxBytes"/>, in which case callers fall
+    /// back to recomputing basis values on demand — slower, but the same arithmetic, because the
+    /// fallback applies the identical sparsity cutoff.
     /// </summary>
-    private static double[][]? TryBuildBasisMatrices(
+    private static SparseBasis[]? TryBuildBasisMatrices(
         IReadOnlyList<ProteoformModel> models,
         IReadOnlyList<IsotopeEnvelopeKernel> kernels,
         IReadOnlyList<SampleSet> sampleSets,
         int minCharge,
         int maxCharge,
         double sigmaMz,
-        long maxBytes)
+        long maxBytes,
+        double sparsityThreshold)
     {
+        const int bytesPerEntry = sizeof(int) + sizeof(double);
         int modelCount = models.Count;
+        long budgetEntries = maxBytes / bytesPerEntry;
+        long usedEntries = 0;
 
-        long entries = 0;
-        for (int p = 0; p < sampleSets.Count; p++)
-            entries += (long)sampleSets[p].Observed.Length * modelCount;
+        var matrices = new SparseBasis[sampleSets.Count];
+        var modelIndices = new List<int>();
+        var values = new List<double>();
 
-        if (entries * sizeof(double) > maxBytes)
-            return null;
-
-        var matrices = new double[sampleSets.Count][];
         for (int p = 0; p < sampleSets.Count; p++)
         {
             var set = sampleSets[p];
             int sampleCount = set.Observed.Length;
-            var flat = new double[(long)sampleCount * modelCount];
+            var rowStart = new int[sampleCount + 1];
+
+            modelIndices.Clear();
+            values.Clear();
 
             for (int k = 0; k < sampleCount; k++)
             {
-                int offset = k * modelCount;
+                rowStart[k] = modelIndices.Count;
                 double time = set.Times[k];
                 double mz = set.Mzs[k];
+                double cutoff = SparsityCutoff(set.Basis[k], sparsityThreshold);
 
                 for (int m = 0; m < modelCount; m++)
-                    flat[offset + m] = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+                {
+                    double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+                    if (basis <= 0 || basis < cutoff)
+                        continue;
+
+                    modelIndices.Add(m);
+                    values.Add(basis);
+                }
+
+                if (usedEntries + modelIndices.Count > budgetEntries)
+                    return null;
             }
 
-            matrices[p] = flat;
+            rowStart[sampleCount] = modelIndices.Count;
+            usedEntries += modelIndices.Count;
+            matrices[p] = new SparseBasis(rowStart, modelIndices.ToArray(), values.ToArray());
         }
 
         return matrices;
     }
 
+    /// <summary>
+    /// Terms below this fraction of the sample's own-model basis are dropped. Scaling by the
+    /// own-model basis makes the cutoff relative to the signal actually present at that sample
+    /// rather than an absolute intensity, so it behaves the same across abundance ranges.
+    /// A threshold of zero keeps every positive term.
+    /// </summary>
+    private static double SparsityCutoff(double ownBasis, double sparsityThreshold) =>
+        sparsityThreshold > 0 ? sparsityThreshold * ownBasis : 0;
+
     private static double[][] ComputePredictedTotals(
         IReadOnlyList<ProteoformModel> models,
         IReadOnlyList<IsotopeEnvelopeKernel> kernels,
         IReadOnlyList<SampleSet> sampleSets,
-        double[][]? basisMatrices,
+        SparseBasis[]? basisMatrices,
         int minCharge,
         int maxCharge,
-        double sigmaMz)
+        double sigmaMz,
+        double sparsityThreshold = 0)
     {
         var predicted = new double[sampleSets.Count][];
         int modelCount = models.Count;
@@ -275,24 +310,32 @@ public sealed class GlobalAbundanceRefitter
         {
             var set = sampleSets[p];
             var totals = new double[set.Observed.Length];
-            var flat = basisMatrices?[p];
+            var sparse = basisMatrices?[p];
 
             for (int k = 0; k < totals.Length; k++)
             {
                 double sum = 0;
-                double time = set.Times[k];
-                double mz = set.Mzs[k];
-                int offset = k * modelCount;
 
-                for (int m = 0; m < modelCount; m++)
+                if (sparse is not null)
                 {
-                    double basis = flat is not null
-                        ? flat[offset + m]
-                        : EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
-                    if (basis <= 0)
-                        continue;
+                    int end = sparse.RowStart[k + 1];
+                    for (int e = sparse.RowStart[k]; e < end; e++)
+                        sum += models[sparse.ModelIndices[e]].Abundance * sparse.Values[e];
+                }
+                else
+                {
+                    double time = set.Times[k];
+                    double mz = set.Mzs[k];
+                    double cutoff = SparsityCutoff(set.Basis[k], sparsityThreshold);
 
-                    sum += models[m].Abundance * basis;
+                    for (int m = 0; m < modelCount; m++)
+                    {
+                        double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+                        if (basis <= 0 || basis < cutoff)
+                            continue;
+
+                        sum += models[m].Abundance * basis;
+                    }
                 }
 
                 totals[k] = sum;

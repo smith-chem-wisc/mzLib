@@ -79,6 +79,65 @@ public class GlobalAbundanceRefitterTests
     }
 
     [Test]
+    public void SparseBasisMatchesTheExactBasisToFarBetterThanFitPrecision()
+    {
+        // The sparsity threshold drops basis terms below a fraction of the sample's own-model
+        // basis. That is the one change in this class that can move fitted numbers, so measure how
+        // far it actually moves them rather than assuming it is negligible.
+        const int minCharge = 6;
+        const int maxCharge = 11;
+        const double sigmaMz = 0.012;
+
+        var trueModels = new[]
+        {
+            new ProteoformModel(10000.0, 1.4e6, new EmgProfile(20.0, 0.16, 0.06),
+                new GaussianChargeDistribution(8.2, 1.1), "pf1"),
+            new ProteoformModel(10000.2, 8.5e5, new EmgProfile(20.03, 0.15, 0.06),
+                new GaussianChargeDistribution(8.4, 1.0), "pf2"),
+            new ProteoformModel(10001.1, 3.1e5, new EmgProfile(20.06, 0.17, 0.05),
+                new GaussianChargeDistribution(8.0, 1.2), "pf3"),
+        };
+
+        var scanArray = BuildCentroidedScansFromForwardModel(trueModels, minCharge, maxCharge, sigmaMz);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+
+        var truths = trueModels
+            .Select(m => extractor.Extract(m.MonoisotopicMass, m.RtProfile.Mu, 0.8, minCharge, maxCharge))
+            .ToArray();
+
+        var initialFits = trueModels
+            .Select((m, i) => new FittedProteoform(
+                m with { Abundance = m.Abundance * (i % 2 == 0 ? 1.8 : 0.3) },
+                sigmaMz, WidthFitMode.CentroidedFallback, 0, 0))
+            .ToArray();
+
+        GlobalAbundanceRefitResult RefitWith(double threshold) =>
+            new GlobalAbundanceRefitter(new GlobalAbundanceRefitOptions(
+                    MaxIterations: 20,
+                    ConvergenceTolerance: 1e-5,
+                    BasisSparsityThreshold: threshold))
+                .Refit(initialFits, truths, minCharge, maxCharge, sigmaMz);
+
+        var exact = RefitWith(0);            // keep every positive basis term
+        var sparse = RefitWith(1e-10);       // the shipped default
+
+        Assert.That(sparse.FittedProteoforms, Has.Length.EqualTo(exact.FittedProteoforms.Length));
+
+        for (int i = 0; i < exact.FittedProteoforms.Length; i++)
+        {
+            double exactAbundance = exact.FittedProteoforms[i].Model.Abundance;
+            double sparseAbundance = sparse.FittedProteoforms[i].Model.Abundance;
+            double relative = Math.Abs(sparseAbundance - exactAbundance) / exactAbundance;
+
+            Assert.That(relative, Is.LessThan(1e-6),
+                $"Proteoform {i} abundance moved by {relative:E3} relative, which is large enough to matter.");
+        }
+
+        Assert.That(sparse.FinalResidualFraction,
+            Is.EqualTo(exact.FinalResidualFraction).Within(1e-6).Percent);
+    }
+
+    [Test]
     public void RefitKeepsAbundanceNonNegative()
     {
         const int minCharge = 6;
