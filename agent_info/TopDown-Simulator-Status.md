@@ -52,9 +52,20 @@ The fitters are chained in sequence by `ParameterFitter`: `σ_m → g_p → f_p(
 
 | File | What it does |
 |---|---|
-| `Simulation/GridRasterizer.cs` | Builds an m/z grid from the proteoform set (padding in σ_m units), rasterizes `ForwardModel` onto `(scanTimes × mzGrid)` → `RasterizedScanGrid` |
+| `Simulation/GridRasterizer.cs` | `RasterizeAtCentroids(...)` (**the path in use**) evaluates the model at exact theoretical isotopologue m/z via `BuildCentroidMzAxis(...)`; `Rasterize(...)`/`BuildMzGrid(...)` retain the older dense profile grid |
 | `Simulation/ScanBuilder.cs` | Converts `RasterizedScanGrid` → `MsDataScan[]` → `GenericMsDataFile` |
-| `Simulation/Simulator.cs` | High-level entry point: `Simulate(...)` → `SimulationResult`; `WriteMzml(...)` calls `MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra` |
+| `Simulation/SimulatedScanReducer.cs` | Drops peaks below a **global** (not per-scan) intensity floor; `ScanReductionOptions` = `RelativeIntensityThreshold` + `MinimumIntensity` |
+| `Simulation/Simulator.cs` | `SimulateCentroided(...)` → `SimulationResult`; `WriteMzml(...)` → `SimulationExportResult`, writes centroided mzML plus a `.groundtruth.tsv` sidecar of θ_p |
+
+**Output format decision (2026-07-24): centroided mzML only. IMSP is retired.**
+
+- mzLib's own mzML reader throws `MzLibException("Reading profile mode mzmls not supported")`, so profile-mode
+  output can be written but never read back by mzLib or MetaMorpheus. Centroided is the only usable option.
+- Centroids are generated **directly** at theoretical isotopologue m/z — there is no profile grid and no
+  peak-picking step. This removes grid quantization of peak positions entirely and is far cheaper: the m/z
+  axis is the isotopologue count rather than the profile-bin count.
+- Size comparison on rep2 fract7: the old profile IMSP exports were 787 MB and 702 MB; the equivalent
+  centroided mzML is 9.3 MB.
 
 ### Comparison layer — code present, tests present, verify build
 
@@ -98,11 +109,18 @@ cd mzLib && dotnet test ./Test/Test.csproj --filter "FullyQualifiedName~TopDownS
 
 The code structure from the plan is fully scaffolded. After verifying the build passes:
 
-1. **Fix any compilation/test failures** introduced in commit `8288a664`.
-2. **Phase 2** — resolution-scaled `σ_m(m/z) ∝ m/z^1.5 / R` model in `EnvelopeWidthFitter`; currently uses a constant σ_m.
-3. **Phase 3** — wire `CoeluterFinder` into a joint-NNLS abundance fit across co-eluting proteoforms.
-4. **Phase 4** — noise model; population priors across all MM results in a file.
-5. **Phase 5** — already structurally complete in `Simulator.cs`/`WriteMzml`; needs integration with a real data file and the `TopDownEngine` test harness (task T20.1).
+1. **Phase 5 — done (2026-07-24).** Centroided mzML export is wired up, unit-tested, and validated on real
+   data: `AnalysisExample.SimulateJurkatRep2AndWriteMzml` fitted 25 rep2 proteoforms and wrote 2906 scans /
+   93,121 peaks in ~32 s total (simulate + write was 3.7 s of that). Still owed: integration with the
+   `TopDownEngine` test harness (task T20.1).
+2. **Phase 4 — the biggest gap: there is no noise model.** `Model/NoiseModel.cs` from the plan was never
+   written, so simulated output is clean analytical envelopes with no baseline, shot noise, or chemical
+   background. This is the main thing standing between current output and something that looks like real
+   experimental data. Population priors over `(μ_z, σ_z, σ_rt, τ, σ_m)` are also unbuilt.
+3. **Phase 2** — resolution-scaled `σ_m(m/z) ∝ m/z^1.5 / R` model in `EnvelopeWidthFitter`; currently uses a constant σ_m.
+4. **Phase 3** — wire `CoeluterFinder` into a joint-NNLS abundance fit across co-eluting proteoforms.
+   (`GlobalAbundanceRefitter` already does non-negative coordinate descent; verify whether this is now closed.)
+5. **MS2** — a first basic backbone-cleavage-propensity model is being added under `TopDownSimulator/Ms2/`.
 
 ---
 

@@ -36,10 +36,8 @@ namespace Test.FileReadingTests
             SimulationRunMode Mode,
             int MaxRecords,
             double RtHalfWidth,
-            int PointsPerSigma,
-            double MzPaddingInSigmas,
-            double ImspThresholdFraction,
-            double MinImspThreshold);
+            double IntensityThresholdFraction,
+            double MinIntensityThreshold);
 
         private static SimulationRunProfile GetSimulationRunProfile()
         {
@@ -51,25 +49,16 @@ namespace Test.FileReadingTests
                     Mode: SimulationRunMode.FullFidelity,
                     MaxRecords: 200,
                     RtHalfWidth: 0.40,
-                    PointsPerSigma: 3,
-                    MzPaddingInSigmas: 6.0,
-                    ImspThresholdFraction: 1e-5,
-                    MinImspThreshold: 0.1);
+                    IntensityThresholdFraction: 1e-5,
+                    MinIntensityThreshold: 0.1);
             }
 
             return new SimulationRunProfile(
                 Mode: SimulationRunMode.QuickDev,
                 MaxRecords: 25,
                 RtHalfWidth: 0.25,
-                PointsPerSigma: 1,
-                MzPaddingInSigmas: 4.0,
-                ImspThresholdFraction: 1e-4,
-                MinImspThreshold: 1.0);
-        }
-
-        private static bool GetSimulateCentroidedOutput()
-        {
-            return IsTrueEnvironmentVariable("MZLIB_TOPDOWN_SIM_CENTROID");
+                IntensityThresholdFraction: 1e-4,
+                MinIntensityThreshold: 1.0);
         }
 
         private static bool GetDeduplicateProteoforms()
@@ -403,16 +392,14 @@ namespace Test.FileReadingTests
         }
 
         [Test]
-        [Explicit("Fits TopDownSimulator models from rep2 and writes simulated IMSP")]
-        public static void SimulateJurkatRep2AndWriteImsp()
+        [Explicit("Fits TopDownSimulator models from rep2 and writes centroided simulated mzML")]
+        public static void SimulateJurkatRep2AndWriteMzml()
         {
             var totalSw = Stopwatch.StartNew();
             var profile = GetSimulationRunProfile();
-            bool centroidOutput = GetSimulateCentroidedOutput();
             bool deduplicate = GetDeduplicateProteoforms();
 
             Console.WriteLine($"Simulation mode: {profile.Mode} (set MZLIB_TOPDOWN_SIM_MODE=full for full-fidelity)");
-            Console.WriteLine($"Centroid output: {centroidOutput} (set MZLIB_TOPDOWN_SIM_CENTROID=1 to enable)");
             Console.WriteLine($"Deduplicate proteoforms: {deduplicate} (set MZLIB_TOPDOWN_SIM_NO_DEDUP=1 to disable)");
 
             string rawPath = ResolveLocalPath(@"D:\JurkatTopdown\02-18-20_jurkat_td_rep2_fract7.raw");
@@ -420,7 +407,7 @@ namespace Test.FileReadingTests
 
             string stem = Path.GetFileNameWithoutExtension(rawPath);
             string outDir = Path.GetDirectoryName(rawPath)!;
-            string imspOutPath = Path.Combine(outDir, stem + ".simulated.imsp");
+            string mzmlOutPath = Path.Combine(outDir, stem + ".simulated.mzML");
 
             var stageSw = Stopwatch.StartNew();
             var reader = MsDataFileReader.GetDataFile(rawPath);
@@ -507,54 +494,39 @@ namespace Test.FileReadingTests
 
             var scanTimes = ms1Scans.Select(s => s.RetentionTime).ToArray();
             var models = fitted.Select(f => f.Model).ToArray();
+
             stageSw.Restart();
-            var simulation = new Simulator().Simulate(
+            var export = new Simulator().WriteMzml(
                 models,
                 globalMinCharge,
                 globalMaxCharge,
                 sigmaMz,
                 scanTimes,
-                pointsPerSigma: profile.PointsPerSigma,
-                mzPaddingInSigmas: profile.MzPaddingInSigmas);
-            Console.WriteLine($"Simulated {simulation.Scans.Length} scans in {stageSw.Elapsed}");
-
-            var scansForExport = centroidOutput
-                ? CentroidizeSimulatedScans(simulation.Scans, relativeIntensityThreshold: 1e-4)
-                : simulation.Scans;
-
-            stageSw.Restart();
-            double maxSimIntensity = 0;
-            foreach (var scan in scansForExport)
-            {
-                if (!scan.MassSpectrum.YArray.Any())
-                    continue;
-
-                double localMax = scan.MassSpectrum.YArray.Max();
-                if (localMax > maxSimIntensity)
-                    maxSimIntensity = localMax;
-            }
-
-            double intensityThreshold = Math.Max(profile.MinImspThreshold, maxSimIntensity * profile.ImspThresholdFraction);
-            int peakCount = WriteImspFile(scansForExport, imspOutPath, intensityThreshold: intensityThreshold);
-            Console.WriteLine($"Wrote IMSP in {stageSw.Elapsed} (threshold={intensityThreshold:F2})");
+                mzmlOutPath,
+                new ScanReductionOptions
+                {
+                    RelativeIntensityThreshold = profile.IntensityThresholdFraction,
+                    MinimumIntensity = profile.MinIntensityThreshold,
+                });
+            Console.WriteLine($"Simulated and wrote mzML in {stageSw.Elapsed}");
 
             Console.WriteLine($"Simulated models: {models.Length}");
             Console.WriteLine($"Fitted sigmaMz (median): {sigmaMz:F6}");
             Console.WriteLine($"Charge range: {globalMinCharge}-{globalMaxCharge}");
-            Console.WriteLine($"Wrote simulated IMSP: {imspOutPath}");
-            Console.WriteLine($"Simulated peak count: {peakCount}");
+            Console.WriteLine($"Wrote simulated mzML: {export.MzmlPath}");
+            Console.WriteLine($"Ground truth: {export.GroundTruthPath}");
+            Console.WriteLine($"Simulated scans: {export.ScanCount}, peak count: {export.PeakCount}");
             Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
         }
 
         [Test]
-        [Explicit("Writes real 31-35 min IMSP slice, simulated 31-35 slice, and full q<=0.01 simulation for rep2 fract7")]
+        [Explicit("Writes centroided simulated mzML for the 31-35 min slice and the full q<=0.01 run of rep2 fract7")]
         public static void ExportRep2SliceAndQValueSimulations()
         {
             const double rtStart = 31.0;
             const double rtEnd = 35.0;
             const double qValueThreshold = 0.01;
             const double rtHalfWidth = 0.25;
-            bool centroidOutput = GetSimulateCentroidedOutput();
             bool deduplicate = GetDeduplicateProteoforms();
             bool useGlobalAbundanceRefit = GetGlobalAbundanceRefitEnabled();
             int globalRefitMaxModels = GetGlobalAbundanceRefitMaxModels();
@@ -564,9 +536,14 @@ namespace Test.FileReadingTests
             string stem = Path.GetFileNameWithoutExtension(rawPath);
             string outDir = Path.GetDirectoryName(rawPath)!;
 
-            string realSliceImspPath = Path.Combine(outDir, stem + ".rt31-35.real.imsp");
-            string simSliceImspPath = Path.Combine(outDir, stem + ".rt31-35.simulated.q001.imsp");
-            string simFullImspPath = Path.Combine(outDir, stem + ".full.simulated.q001.imsp");
+            string simSliceMzmlPath = Path.Combine(outDir, stem + ".rt31-35.simulated.q001.mzML");
+            string simFullMzmlPath = Path.Combine(outDir, stem + ".full.simulated.q001.mzML");
+
+            var reduction = new ScanReductionOptions
+            {
+                RelativeIntensityThreshold = 1e-4,
+                MinimumIntensity = 1.0,
+            };
 
             var totalSw = Stopwatch.StartNew();
             Console.WriteLine($"Global abundance refit: {useGlobalAbundanceRefit} (set MZLIB_TOPDOWN_SIM_NO_GLOBAL_ABUNDANCE_REFIT=1 to disable)");
@@ -586,9 +563,10 @@ namespace Test.FileReadingTests
                 .ToArray();
             Assert.That(rtSliceMs1Scans, Is.Not.Empty, "No MS1 scans were found in the 31-35 min window.");
 
-            int realSlicePeakCount = WriteImspFile(rtSliceMs1Scans, realSliceImspPath, intensityThreshold: 10000);
-            Console.WriteLine($"Real slice IMSP written: {realSliceImspPath}");
-            Console.WriteLine($"Real slice scans: {rtSliceMs1Scans.Length}, peaks: {realSlicePeakCount}");
+            // Real data is not re-exported here; ConvertJurkatTopdownRawToMzml handles raw -> mzML.
+            // Its centroid status is logged because mzLib cannot read a profile-mode mzML back.
+            Console.WriteLine($"Real slice scans: {rtSliceMs1Scans.Length} " +
+                              $"(centroided: {rtSliceMs1Scans.Count(s => s.IsCentroid)}/{rtSliceMs1Scans.Length})");
 
             var qFilteredRecords = LoadQualifiedMmRecords(resultPath, stem, qValueThreshold, rtStart: null, rtEnd: null);
             if (deduplicate)
@@ -610,51 +588,35 @@ namespace Test.FileReadingTests
             Assert.That(sliceFit.Models, Is.Not.Empty, "No simulated models were fitted for 31-35 min slice.");
 
             var sliceScanTimes = rtSliceMs1Scans.Select(s => s.RetentionTime).ToArray();
-            var sliceSimulation = new Simulator().Simulate(
+            var sliceExport = new Simulator().WriteMzml(
                 sliceFit.Models,
                 sliceFit.MinCharge,
                 sliceFit.MaxCharge,
                 sliceFit.SigmaMz,
                 sliceScanTimes,
-                pointsPerSigma: 1,
-                mzPaddingInSigmas: 4.0);
+                simSliceMzmlPath,
+                reduction);
 
-            var sliceScansForExport = centroidOutput
-                ? CentroidizeSimulatedScans(sliceSimulation.Scans, relativeIntensityThreshold: 1e-4)
-                : sliceSimulation.Scans;
-
-            int simSlicePeakCount = WriteImspFile(
-                sliceScansForExport,
-                simSliceImspPath,
-                intensityThreshold: ComputeSimulationImspThreshold(sliceScansForExport, 1e-4, 1.0));
-
-            Console.WriteLine($"Simulated slice IMSP written: {simSliceImspPath}");
-            Console.WriteLine($"Simulated slice models: {sliceFit.Models.Length}, scans: {sliceSimulation.Scans.Length}, peaks: {simSlicePeakCount}");
+            Console.WriteLine($"Simulated slice mzML written: {sliceExport.MzmlPath}");
+            Console.WriteLine($"Ground truth: {sliceExport.GroundTruthPath}");
+            Console.WriteLine($"Simulated slice models: {sliceFit.Models.Length}, scans: {sliceExport.ScanCount}, peaks: {sliceExport.PeakCount}");
 
             var fullFit = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth, useGlobalAbundanceRefit, globalRefitMaxModels);
             Assert.That(fullFit.Models, Is.Not.Empty, "No simulated models were fitted for full q<=0.01 run.");
 
             var fullScanTimes = allMs1Scans.Select(s => s.RetentionTime).ToArray();
-            var fullSimulation = new Simulator().Simulate(
+            var fullExport = new Simulator().WriteMzml(
                 fullFit.Models,
                 fullFit.MinCharge,
                 fullFit.MaxCharge,
                 fullFit.SigmaMz,
                 fullScanTimes,
-                pointsPerSigma: 1,
-                mzPaddingInSigmas: 4.0);
+                simFullMzmlPath,
+                reduction);
 
-            var fullScansForExport = centroidOutput
-                ? CentroidizeSimulatedScans(fullSimulation.Scans, relativeIntensityThreshold: 1e-4)
-                : fullSimulation.Scans;
-
-            int simFullPeakCount = WriteImspFile(
-                fullScansForExport,
-                simFullImspPath,
-                intensityThreshold: ComputeSimulationImspThreshold(fullScansForExport, 1e-4, 1.0));
-
-            Console.WriteLine($"Simulated full IMSP written: {simFullImspPath}");
-            Console.WriteLine($"Simulated full models: {fullFit.Models.Length}, scans: {fullSimulation.Scans.Length}, peaks: {simFullPeakCount}");
+            Console.WriteLine($"Simulated full mzML written: {fullExport.MzmlPath}");
+            Console.WriteLine($"Ground truth: {fullExport.GroundTruthPath}");
+            Console.WriteLine($"Simulated full models: {fullFit.Models.Length}, scans: {fullExport.ScanCount}, peaks: {fullExport.PeakCount}");
             Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
         }
 
@@ -806,101 +768,6 @@ namespace Test.FileReadingTests
             return $"{psm.FileNameWithoutExtension}:{psm.Ms2ScanNumber}";
         }
 
-        private static double ComputeSimulationImspThreshold(
-            MsDataScan[] scans,
-            double fractionOfMaxIntensity,
-            double minimumThreshold)
-        {
-            double maxIntensity = 0;
-            foreach (var scan in scans)
-            {
-                if (!scan.MassSpectrum.YArray.Any())
-                    continue;
-
-                double localMax = scan.MassSpectrum.YArray.Max();
-                if (localMax > maxIntensity)
-                    maxIntensity = localMax;
-            }
-
-            return Math.Max(minimumThreshold, maxIntensity * fractionOfMaxIntensity);
-        }
-
-        private static MsDataScan[] CentroidizeSimulatedScans(MsDataScan[] profileScans, double relativeIntensityThreshold)
-        {
-            var centroided = new MsDataScan[profileScans.Length];
-
-            for (int s = 0; s < profileScans.Length; s++)
-            {
-                var scan = profileScans[s];
-                var x = scan.MassSpectrum.XArray;
-                var y = scan.MassSpectrum.YArray;
-
-                if (x.Length == 0)
-                {
-                    centroided[s] = CloneScanWithSpectrum(scan, Array.Empty<double>(), Array.Empty<double>(), isCentroid: true);
-                    continue;
-                }
-
-                double maxIntensity = y.Max();
-                double floor = Math.Max(0.0, maxIntensity * relativeIntensityThreshold);
-
-                var mzList = new List<double>();
-                var intList = new List<double>();
-
-                for (int i = 1; i < y.Length - 1; i++)
-                {
-                    double current = y[i];
-                    if (current < floor)
-                        continue;
-
-                    bool isPeak = current >= y[i - 1] && current >= y[i + 1]
-                                  && (current > y[i - 1] || current > y[i + 1]);
-                    if (!isPeak)
-                        continue;
-
-                    mzList.Add(x[i]);
-                    intList.Add(current);
-                }
-
-                centroided[s] = CloneScanWithSpectrum(scan, mzList.ToArray(), intList.ToArray(), isCentroid: true);
-            }
-
-            return centroided;
-        }
-
-        private static MsDataScan CloneScanWithSpectrum(MsDataScan source, double[] mz, double[] intensities, bool isCentroid)
-        {
-            double tic = intensities.Sum();
-            MzRange scanWindowRange = mz.Length > 0
-                ? new MzRange(mz[0], mz[^1])
-                : source.ScanWindowRange;
-
-            return new MsDataScan(
-                massSpectrum: new MzSpectrum(mz, intensities, false),
-                oneBasedScanNumber: source.OneBasedScanNumber,
-                msnOrder: source.MsnOrder,
-                isCentroid: isCentroid,
-                polarity: source.Polarity,
-                retentionTime: source.RetentionTime,
-                scanWindowRange: scanWindowRange,
-                scanFilter: source.ScanFilter,
-                mzAnalyzer: source.MzAnalyzer,
-                totalIonCurrent: tic,
-                injectionTime: source.InjectionTime,
-                noiseData: source.NoiseData,
-                nativeId: source.NativeId,
-                selectedIonMz: source.SelectedIonMZ,
-                selectedIonChargeStateGuess: source.SelectedIonChargeStateGuess,
-                selectedIonIntensity: source.SelectedIonIntensity,
-                isolationMZ: source.IsolationMz,
-                isolationWidth: source.IsolationWidth,
-                dissociationType: source.DissociationType,
-                oneBasedPrecursorScanNumber: source.OneBasedPrecursorScanNumber,
-                selectedIonMonoisotopicGuessMz: source.SelectedIonMonoisotopicGuessMz,
-                hcdEnergy: source.HcdEnergy,
-                scanDescription: source.ScanDescription,
-                compensationVoltage: source.CompensationVoltage);
-        }
 
         private static string ResolveLocalPath(string preferredPath)
         {
