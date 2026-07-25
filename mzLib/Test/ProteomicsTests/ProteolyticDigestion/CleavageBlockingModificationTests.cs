@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -61,11 +62,24 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsFalse(MakeKModification("N6-methyllysine").BlocksCleavage);
             Assert.IsFalse(MakeKModification("Trimethyl").BlocksCleavage);
 
-            // A modification that is not on a cleavage residue cannot block a cleavage.
+            // The residue gate: a name that DOES match a blocking acyl stem, but on a non-cleavage
+            // residue, must still be false -- so this fails if the classifier ever stopped checking the
+            // target motif (which the phospho case below cannot catch, since "Phospho" matches no stem).
             ModificationMotif.TryGetMotif("S", out ModificationMotif serine);
+            var succinylSerine = new Modification(_originalId: "N-succinylserine", _modificationType: "Test",
+                _target: serine, _locationRestriction: "Anywhere.", _monoisotopicMass: 100.01604);
+            Assert.IsFalse(succinylSerine.BlocksCleavage, "succinyl on serine is not on a cleavage residue");
+
             var phosphoSerine = new Modification(_originalId: "Phospho", _modificationType: "Test",
                 _target: serine, _locationRestriction: "Anywhere.", _monoisotopicMass: 79.96633);
             Assert.IsFalse(phosphoSerine.BlocksCleavage);
+
+            // The location gate: the same acyl group as an N-terminal (alpha-amine) modification on K
+            // leaves the side chain charged, so it must NOT classify as blocking.
+            ModificationMotif.TryGetMotif("K", out ModificationMotif lysine);
+            var nTermAcetylK = new Modification(_originalId: "N-acetyllysine", _modificationType: "Test",
+                _target: lysine, _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
+            Assert.IsFalse(nTermAcetylK.BlocksCleavage, "alpha-amine N-terminal acetylation does not block cleavage");
         }
 
         [Test]
@@ -122,18 +136,114 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             var succinyl = MakeKModification("N6-succinyllysine");
 
-            // Default is off, and the explicit false must agree with it, so existing callers and every
-            // downstream search are unaffected until they opt in.
             var defaultParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 7);
-            Assert.IsFalse(defaultParams.RespectCleavageBlockingModifications);
+            Assert.IsFalse(defaultParams.RespectCleavageBlockingModifications, "the flag must default to off");
 
             var protein = new Protein(Sequence, "accession");
-            var byDefault = protein.Digest(defaultParams, new List<Modification>(), new List<Modification> { succinyl })
-                .Cast<PeptideWithSetModifications>().Select(p => p.FullSequence).OrderBy(s => s).ToList();
-            var explicitlyOff = Digest(respectBlockingMods: false, maxMissedCleavages: 2, succinyl)
-                .Select(p => p.FullSequence).OrderBy(s => s).ToList();
+            var flagOff = protein.Digest(defaultParams, new List<Modification>(), new List<Modification> { succinyl })
+                .Cast<PeptideWithSetModifications>().ToList();
 
-            CollectionAssert.AreEqual(byDefault, explicitlyOff);
+            // Pin the concrete historical (modification-blind) digest of PEPTIDEKAAAAAAAR with variable
+            // succinyl on K, rather than comparing one flag-off run to another (which only re-checks the
+            // default). Trypsin gives PEPTIDEK, AAAAAAAR and the 1-missed-cleavage read-through
+            // PEPTIDEKAAAAAAAR; the two K-bearing peptides each appear unmodified and succinylated.
+            Assert.That(flagOff, Is.Not.Empty);
+            CollectionAssert.AreEquivalent(
+                new[] { "PEPTIDEK", "PEPTIDEK", "AAAAAAAR", "PEPTIDEKAAAAAAAR", "PEPTIDEKAAAAAAAR" },
+                flagOff.Select(p => p.BaseSequence));
+
+            // The decisive check the old assertion missed: flag-off KEEPS the succinyl-on-C-terminal-K
+            // PEPTIDEK form -- the exact peptidoform the correction drops -- so this genuinely reproduces
+            // pre-PR output instead of matching a second run of the same new code path.
+            Assert.That(flagOff.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
+                "modification-blind digestion keeps the impossible peptidoform");
+        }
+
+        [Test]
+        public static void Citrulline_BlocksCleavage_OnArginineOnly()
+        {
+            ModificationMotif.TryGetMotif("R", out ModificationMotif arg);
+            var citrullineR = new Modification(_originalId: "Citrulline", _modificationType: "Test",
+                _target: arg, _locationRestriction: "Anywhere.", _monoisotopicMass: 0.98402);
+            Assert.IsTrue(citrullineR.BlocksCleavage, "citrulline removes arginine's charge, so trypsin does not cleave");
+
+            // The same name on K is not the arginine chemistry and must not classify.
+            ModificationMotif.TryGetMotif("K", out ModificationMotif lys);
+            var citrullineK = new Modification(_originalId: "Citrulline", _modificationType: "Test",
+                _target: lys, _locationRestriction: "Anywhere.", _monoisotopicMass: 0.98402);
+            Assert.IsFalse(citrullineK.BlocksCleavage);
+        }
+
+        [Test]
+        public static void Clone_PreservesRespectCleavageBlockingModifications()
+        {
+            // Clone() has two return paths (None-specificity and everything else); both must carry the
+            // flag or a cloned params silently reverts to modification-blind digestion.
+            foreach (CleavageSpecificity mode in new[] { CleavageSpecificity.Full, CleavageSpecificity.None })
+            {
+                var dp = new DigestionParams(protease: "trypsin", searchModeType: mode,
+                    respectCleavageBlockingModifications: true);
+                var clone = (DigestionParams)dp.Clone();
+                Assert.IsTrue(clone.RespectCleavageBlockingModifications, $"clone lost the flag for {mode}");
+                Assert.AreEqual(dp, clone, $"clone compares unequal for {mode}");
+            }
+        }
+
+        [Test]
+        public static void BlockedResidueAtProteinCTerminus_Survives_BecauseNoCleavageHappensThere()
+        {
+            // The protein's own C-terminal K is not a cleavage site, so an acylation there ends a real
+            // peptide and must not be dropped -- the position distinction the C-terminal drop respects.
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein("AAAAAAAPEPTIDEK", "accession");   // single K, at the protein C-terminus
+            var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
+                respectCleavageBlockingModifications: true);
+
+            var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { succinyl })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            Assert.That(digest.Any(p => p.BaseSequence == "AAAAAAAPEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
+                "an acylation on the protein's terminal K ends a real peptide and must survive");
+        }
+
+        [Test]
+        public static void SemiSpecific_NonFullPeptides_AreUnaffectedByTheFlag()
+        {
+            // The drop is restricted to full-specificity peptides (both ends real cuts). A semi digest
+            // also yields peptides whose C-terminus is a length truncation, not a protease cut
+            // (CleavageSpecificityForFdrCategory != Full); a blocking modification there invalidates
+            // nothing, so the flag must leave that non-Full subset exactly as it was.
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein("PEPTIDEKAAAAAAAR", "accession");
+
+            List<string> NonFullSubset(bool respect) =>
+                protein.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
+                        searchModeType: CleavageSpecificity.Semi, respectCleavageBlockingModifications: respect),
+                        new List<Modification>(), new List<Modification> { succinyl })
+                    .Cast<PeptideWithSetModifications>()
+                    .Where(p => p.CleavageSpecificityForFdrCategory != CleavageSpecificity.Full)
+                    .Select(p => p.FullSequence).OrderBy(s => s).ToList();
+
+            CollectionAssert.AreEqual(NonFullSubset(respect: false), NonFullSubset(respect: true));
+        }
+
+        [Test]
+        public static void MultipleBlockedSites_ReadThroughSurvives_WithSlackTiedToMaxMods()
+        {
+            // Three succinylated K's in a row: the read-through spanning all of them costs three missed
+            // cleavages, so a fixed slack of 2 would lose it. Slack = MaxMods (here 3) reaches it.
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein("AAAAKAAAAKAAAAKAAAAR", "accession");   // K at 5, 10, 15; R at 20
+            var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 7,
+                maxModsForPeptides: 3, respectCleavageBlockingModifications: true);
+
+            var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { succinyl })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            // The full-length read-through carrying all three succinyl-K's must survive at 0 missed cleavages.
+            Assert.That(
+                digest.Any(p => p.BaseSequence == "AAAAKAAAAKAAAAKAAAAR" && p.AllModsOneIsNterminus.Count == 3),
+                Is.True, "the read-through past three blocked sites must survive when slack = MaxMods");
         }
     }
 }

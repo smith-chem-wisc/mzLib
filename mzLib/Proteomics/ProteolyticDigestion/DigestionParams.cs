@@ -34,19 +34,6 @@ namespace Proteomics.ProteolyticDigestion
             RespectCleavageBlockingModifications = respectCleavageBlockingModifications;
         }
 
-        /// <summary>
-        /// Extra missed cleavages generated, beyond <see cref="MaxMissedCleavages"/>, when
-        /// <see cref="RespectCleavageBlockingModifications"/> is on. A peptidoform whose C-terminal
-        /// residue carries a cleavage-blocking modification is impossible, and its real counterpart
-        /// reads THROUGH that residue to the next site -- which costs a missed cleavage under the
-        /// ordinary (modification-blind) count. Without this slack that read-through form would never
-        /// be generated at low limits, and at MaxMissedCleavages = 0 the real peptide would be lost
-        /// entirely rather than merely mis-reported. The surplus is trimmed again by the open-site
-        /// filter in ProteolyticPeptide.GetModifiedPeptides, so only genuinely-reachable peptidoforms
-        /// survive; the cost is enumeration, not correctness.
-        /// </summary>
-        public const int CleavageBlockingReadThroughSlack = 2;
-
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; private set; }
         public int MaxMissedCleavages { get; set; }
         public int MaxModificationIsoforms { get; set; }
@@ -72,17 +59,6 @@ namespace Proteomics.ProteolyticDigestion
         /// digestion exactly.
         /// </summary>
         public bool RespectCleavageBlockingModifications { get; private set; }
-
-        /// <summary>
-        /// The missed-cleavage budget used for GENERATION, as opposed to <see cref="MaxMissedCleavages"/>
-        /// which remains the budget the caller asked for and which the open-site filter enforces.
-        /// Only full-specificity digestion is inflated: the semi- and single-terminus modes do not
-        /// enumerate by missed cleavage in the same way, and the C-terminal drop still applies to them.
-        /// </summary>
-        public int EffectiveMaxMissedCleavages =>
-            RespectCleavageBlockingModifications && SearchModeType == CleavageSpecificity.Full
-                ? MaxMissedCleavages + CleavageBlockingReadThroughSlack
-                : MaxMissedCleavages;
 
         #region Properties overridden by more generic interface
 
@@ -175,7 +151,8 @@ namespace Proteomics.ProteolyticDigestion
                     RespectCleavageBlockingModifications);
             return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
                 MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
-                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide,
+                RespectCleavageBlockingModifications);
         }
             
 

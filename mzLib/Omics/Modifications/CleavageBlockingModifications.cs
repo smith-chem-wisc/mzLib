@@ -48,9 +48,25 @@ namespace Omics.Modifications
             if (targetResidue != 'K' && targetResidue != 'R')
                 return false;
 
+            // Only a SIDE-CHAIN modification neutralises the cleavage-directing charge. The same acyl
+            // group can appear as a protein N-terminal (alpha-amine) modification -- e.g. UniProt ships
+            // both "N6-acetyllysine" (epsilon-amine, LocationRestriction "Anywhere.", genuinely blocking)
+            // and "N-acetyllysine" (alpha-amine, "N-terminal.") -- and the terminal form leaves the
+            // lysine side chain charged, so trypsin still cleaves. Restrict to the side-chain ("Anywhere.")
+            // form so a terminal acylation is not misclassified.
+            if (modification.LocationRestriction != "Anywhere.")
+                return false;
+
             string id = (modification.OriginalId ?? modification.IdWithMotif ?? string.Empty).ToLowerInvariant();
             if (id.Length == 0)
                 return false;
+
+            // Citrullination (deimination) converts arginine's guanidinium to a neutral ureido group,
+            // removing the positive charge trypsin recognises -- the one common Arg-side blocking mod.
+            if (targetResidue == 'R')
+                return id.Contains("citrullin") || id.Contains("deimin");
+
+            // --- Lysine epsilon-amine chemistry below ---
 
             // Methylation retains the charge -- excluded by design (see class remarks).
             if (id.Contains("methyl"))

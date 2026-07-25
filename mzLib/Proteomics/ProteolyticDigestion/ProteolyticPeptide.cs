@@ -69,8 +69,12 @@ namespace Proteomics.ProteolyticDigestion
 
                     // Modifications are placed AFTER cleavage, so nothing so far has checked whether a
                     // modification abolishes the very site this peptide was cut at. Skip the peptidoforms
-                    // the protease could not have produced.
+                    // the protease could not have produced. Full specificity only: for semi- and
+                    // single-terminus peptides a C-terminus is a length-driven truncation, not a protease
+                    // cut, so a blocking modification there invalidates nothing -- and only the full path
+                    // is given the generation slack that keeps the read-through form reachable.
                     if (digestionParams.RespectCleavageBlockingModifications
+                        && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                         && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, digestionParams.MaxMissedCleavages))
                     {
                         continue;

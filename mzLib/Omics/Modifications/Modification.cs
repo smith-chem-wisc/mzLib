@@ -41,10 +41,12 @@ namespace Omics.Modifications
         protected const double tolForEquality = 1e-9;
 
         /// <summary>
-        /// True when this modification sits on a trypsin-family cleavage residue (Lys/Arg) and
-        /// neutralises or masks its side-chain charge enough that the protease would not have cleaved
+        /// True when this modification sits on the side chain of a trypsin-family cleavage residue
+        /// (Lys/Arg) and neutralises or masks its charge enough that the protease would not cleave
         /// after it -- N6-succinyllysine, N6-acetyllysine and the other epsilon-amine acylations.
-        /// A peptide reported as ending in such a residue describes a cleavage that cannot happen.
+        /// This is a property of the modification alone; whether it actually invalidates a given
+        /// peptidoform is a question of POSITION that digestion decides -- an acylated residue that is
+        /// the protein's own C-terminus ends a perfectly real peptide, since no cleavage happens there.
         /// Curated classification; see <see cref="CleavageBlockingModifications"/> for what is in the
         /// set and why the methyl series is excluded. Digestion consults this only when
         /// DigestionParams.RespectCleavageBlockingModifications is set.
