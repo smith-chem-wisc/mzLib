@@ -573,21 +573,32 @@ namespace Test.Omics.FragmentationTests
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, myFragments);
             Assert.AreEqual(fragmentCount, myFragments.Count());
 
-            // Pin the series, not just the total: for ETD the count of 11 is also satisfied by 6 y + 5 zDot,
-            // so a regression that dropped the c series instead of y would pass a count-only check.
-            List<ProductType> productTypesPresent = myFragments.Select(p => p.ProductType).Distinct().ToList();
+            // Pin the per-series COUNTS, not the total or the distinct set: for ETD the total of 11 is
+            // equally satisfied by 6 y + 5 zDot, and even the distinct set { c, zDot } is satisfied by a
+            // 5 c / 6 zDot split -- so a regression moving the proline suppression from the z• series to
+            // the c series would slip through anything weaker than a per-series count.
+            int Count(ProductType t) => myFragments.Count(p => p.ProductType == t);
             switch (dissociationType)
             {
                 case DissociationType.ETD:
                 case DissociationType.ECD:
-                    CollectionAssert.AreEquivalent(new[] { ProductType.c, ProductType.zDot }, productTypesPresent);
+                    Assert.AreEqual(6, Count(ProductType.c));
+                    Assert.AreEqual(5, Count(ProductType.zDot));   // one z• suppressed at the proline
+                    Assert.AreEqual(0, Count(ProductType.b));
+                    Assert.AreEqual(0, Count(ProductType.y));
                     break;
                 case DissociationType.HCD:
-                    CollectionAssert.AreEquivalent(new[] { ProductType.b, ProductType.y }, productTypesPresent);
+                    Assert.AreEqual(6, Count(ProductType.b));
+                    Assert.AreEqual(6, Count(ProductType.y));
                     break;
                 case DissociationType.EThcD:
-                    CollectionAssert.AreEquivalent(
-                        new[] { ProductType.b, ProductType.y, ProductType.c, ProductType.zDot }, productTypesPresent);
+                    Assert.AreEqual(6, Count(ProductType.b));
+                    Assert.AreEqual(6, Count(ProductType.y));
+                    Assert.AreEqual(6, Count(ProductType.c));
+                    Assert.AreEqual(5, Count(ProductType.zDot));
+                    break;
+                default:
+                    Assert.Fail($"No expected per-series counts for {dissociationType}; add a case when adding a [TestCase].");
                     break;
             }
         }
@@ -608,10 +619,10 @@ namespace Test.Omics.FragmentationTests
             Assert.That(products, Does.Not.Contain(ProductType.b), "b ions require amide cleavage");
 
             // The water/ammonia-loss helper is a second, independent source of ETD/ECD product types, so
-            // pin it too: with no y series there is no y-derived loss, at any terminus. Otherwise a y-loss
-            // ion with no parent y could be reintroduced through this path with the suite still green.
-            foreach (FragmentationTerminus terminus in new[]
-                     { FragmentationTerminus.N, FragmentationTerminus.C, FragmentationTerminus.Both })
+            // pin it too: with no y series there is no y-derived loss, at ANY terminus. Drive the loop from
+            // every FragmentationTerminus value (including None) rather than a hand-written subset, so a
+            // reintroduced ETD/ECD arm returning y-losses for only one terminus cannot slip through green.
+            foreach (FragmentationTerminus terminus in Enum.GetValues<FragmentationTerminus>())
                 CollectionAssert.IsEmpty(
                     DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(dissociationType, terminus),
                     $"ETD/ECD must yield no water/ammonia-loss ions ({terminus})");
@@ -622,10 +633,53 @@ namespace Test.Omics.FragmentationTests
         {
             // The counterpart to the test above: supplemental HCD genuinely does add amide cleavage,
             // so EThcD carries b and y alongside c and z-dot. This pins the asymmetry as deliberate.
+            // Assert CONTAINMENT, not an exact set: the invariant this test's name states is that b and y
+            // are retained ALONGSIDE c and z•, and EThcD is a row this PR does not otherwise own, so an
+            // unrelated later addition to it (e.g. zPlusOne) must not fail a b/y-togetherness test.
             List<ProductType> products = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.EThcD];
 
-            CollectionAssert.AreEquivalent(
-                new[] { ProductType.b, ProductType.y, ProductType.c, ProductType.zDot }, products);
+            Assert.That(products, Does.Contain(ProductType.b));
+            Assert.That(products, Does.Contain(ProductType.y));
+            Assert.That(products, Does.Contain(ProductType.c));
+            Assert.That(products, Does.Contain(ProductType.zDot));
+        }
+
+        /// <summary>
+        /// The which-series-a-type-produces fact is hand-maintained in two places -- the
+        /// ProductsFromDissociationType rows and the GetWaterAndAmmoniaLossProductTypesFromDissociation
+        /// switch -- and the ECD/ETD drift between them is exactly what the first commit of this PR
+        /// missed. This pins the STRUCTURAL invariant across every row rather than naming ETD/ECD only,
+        /// so the same class of drift on any other row is caught: a neutral-loss ion may be returned
+        /// only if its parent series is in that type's product row. (One-directional: a row may carry a
+        /// series without the helper reporting a loss for it, e.g. LowCID, so the loss list is not
+        /// derived from the rows -- that would change LowCID and is out of scope.)
+        /// </summary>
+        [Test]
+        public static void GetWaterAndAmmoniaLoss_NeverReturnsALossWhoseParentSeriesIsAbsentFromTheRow()
+        {
+            var bSeriesLosses = new[] { ProductType.bWaterLoss, ProductType.bAmmoniaLoss };
+            var ySeriesLosses = new[] { ProductType.yWaterLoss, ProductType.yAmmoniaLoss };
+
+            foreach (var typeAndRow in DissociationTypeCollection.ProductsFromDissociationType)
+            {
+                DissociationType type = typeAndRow.Key;
+                List<ProductType> row = typeAndRow.Value;
+
+                // b and y are amide-cleavage complements: every row carries both or neither.
+                Assert.That(row.Contains(ProductType.b), Is.EqualTo(row.Contains(ProductType.y)),
+                    $"{type}: b and y must appear together or not at all");
+
+                foreach (FragmentationTerminus terminus in Enum.GetValues<FragmentationTerminus>())
+                {
+                    var losses = DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(type, terminus);
+                    if (!row.Contains(ProductType.b))
+                        Assert.That(losses.Intersect(bSeriesLosses), Is.Empty,
+                            $"{type}/{terminus}: b-series loss returned but the row has no b");
+                    if (!row.Contains(ProductType.y))
+                        Assert.That(losses.Intersect(ySeriesLosses), Is.Empty,
+                            $"{type}/{terminus}: y-series loss returned but the row has no y");
+                }
+            }
         }
 
         [Test]

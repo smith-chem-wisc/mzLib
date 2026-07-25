@@ -92,8 +92,10 @@ namespace Omics.Fragmentation.Peptide
                     break;
                 // ECD/ETD produce c and z• only (N-Cα cleavage), so there is no y series and therefore no
                 // y water/ammonia loss to report -- a y-derived loss ion with no parent y has no mechanism,
-                // the same argument that removed ProductType.y from the ECD/ETD product sets above. Falls
-                // through to default and returns an empty list.
+                // the same argument that removed ProductType.y from the ECD/ETD product sets above.
+                case DissociationType.ECD:
+                case DissociationType.ETD:
+                    break;
                 default:
                     break;
             }
