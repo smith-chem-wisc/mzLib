@@ -72,8 +72,7 @@ public class ParameterFitterTests
         }
 
         var scanArray = scans.ToArray();
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
-        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
         var truth = extractor.Extract(mass, rtCenter: 20.0, rtHalfWidth: 2.0,
             minCharge: minCharge, maxCharge: maxCharge);
 

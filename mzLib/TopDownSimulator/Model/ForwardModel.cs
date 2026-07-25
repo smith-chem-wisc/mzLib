@@ -59,38 +59,61 @@ public sealed class ForwardModel
     /// Rasterize the forward model onto a rectangular grid.
     /// Returns a [scan, mz] intensity array.
     /// </summary>
+    /// <remarks>
+    /// The envelope shape does not depend on scan time, so the kernel is evaluated once per
+    /// (species, charge) across that envelope's m/z span and then scaled per scan, rather than
+    /// re-evaluated for every scan. For any given output cell the (species, charge) terms are still
+    /// accumulated in the same order as a scan-outer loop would, so the result is unchanged.
+    /// </remarks>
     public double[,] Rasterize(double[] scanTimes, double[] mzGrid)
     {
         var result = new double[scanTimes.Length, mzGrid.Length];
 
         double mzPadding = EvaluationWindowInSigmas * _sigmaMz;
-        for (int s = 0; s < scanTimes.Length; s++)
+        var rtScaledAbundances = new double[scanTimes.Length];
+        double[] kernelValues = Array.Empty<double>();
+
+        foreach (var (model, kernel) in _species)
         {
-            double t = scanTimes[s];
-
-            foreach (var (model, kernel) in _species)
+            bool anyScanContributes = false;
+            for (int s = 0; s < scanTimes.Length; s++)
             {
-                double rt = model.RtProfile.Evaluate(t);
-                if (rt <= 0)
+                double rt = model.RtProfile.Evaluate(scanTimes[s]);
+                double scaled = rt > 0 ? model.Abundance * rt : 0;
+                rtScaledAbundances[s] = scaled;
+                anyScanContributes |= scaled > MinimumContributionWeight;
+            }
+
+            if (!anyScanContributes)
+                continue;
+
+            for (int z = _minCharge; z <= _maxCharge; z++)
+            {
+                double fz = model.ChargeDistribution.Evaluate(z);
+                if (fz <= 0)
                     continue;
 
-                double rtScaledAbundance = model.Abundance * rt;
-                if (rtScaledAbundance <= MinimumContributionWeight)
+                var (minMz, maxMz) = kernel.GetMzBounds(z);
+                int start = LowerBound(mzGrid, minMz - mzPadding);
+                int endExclusive = UpperBound(mzGrid, maxMz + mzPadding);
+                int span = endExclusive - start;
+                if (span <= 0)
                     continue;
 
-                for (int z = _minCharge; z <= _maxCharge; z++)
+                if (kernelValues.Length < span)
+                    kernelValues = new double[span];
+
+                for (int b = 0; b < span; b++)
+                    kernelValues[b] = kernel.Evaluate(mzGrid[start + b], z, _sigmaMz);
+
+                for (int s = 0; s < scanTimes.Length; s++)
                 {
-                    double fz = model.ChargeDistribution.Evaluate(z);
-                    double weight = rtScaledAbundance * fz;
-                    if (weight <= MinimumContributionWeight)
+                    double weight = rtScaledAbundances[s] * fz;
+                    if (rtScaledAbundances[s] <= MinimumContributionWeight || weight <= MinimumContributionWeight)
                         continue;
 
-                    var (minMz, maxMz) = kernel.GetMzBounds(z);
-                    int start = LowerBound(mzGrid, minMz - mzPadding);
-                    int endExclusive = UpperBound(mzGrid, maxMz + mzPadding);
-
-                    for (int b = start; b < endExclusive; b++)
-                        result[s, b] += weight * kernel.Evaluate(mzGrid[b], z, _sigmaMz);
+                    for (int b = 0; b < span; b++)
+                        result[s, start + b] += weight * kernelValues[b];
                 }
             }
         }

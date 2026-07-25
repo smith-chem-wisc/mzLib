@@ -39,10 +39,30 @@ public sealed class ProteoformGroundTruth
     /// if no peaks fell in the window. Supplies the raw m/z profile the envelope-width fitter
     /// consumes.
     /// </summary>
+    /// <remarks>
+    /// When produced by <c>GroundTruthExtractor</c>, only the apex column
+    /// (<see cref="ApexChargeIndex"/>, <see cref="ApexScanIndex"/>) is populated; every other cell
+    /// is an empty array. That column is the only one any consumer reads, and materializing the
+    /// full tensor costs hundreds of megabytes across a run. Objects built by hand may of course
+    /// populate whatever they like.
+    /// </remarks>
     public required PeakSample[][][][] IsotopologuePeakWindows { get; init; }
 
     /// <summary>m/z half-width used when collecting <see cref="IsotopologuePeakWindows"/>.</summary>
     public required double MzWindowHalfWidth { get; init; }
+
+    /// <summary>
+    /// Charge offset of the highest point of <see cref="ChargeXics"/>, or -1 when no positive
+    /// signal was found. This is the column of <see cref="IsotopologuePeakWindows"/> the extractor
+    /// populates.
+    /// </summary>
+    public int ApexChargeIndex { get; init; } = -1;
+
+    /// <summary>
+    /// Scan index of the highest point of <see cref="ChargeXics"/>, or -1 when no positive signal
+    /// was found. Parallel to <see cref="ApexChargeIndex"/>.
+    /// </summary>
+    public int ApexScanIndex { get; init; } = -1;
 
     /// <summary>
     /// Summed-isotopologue intensity per (chargeOffset, scanIndex). Shape [nCharges][nScans].

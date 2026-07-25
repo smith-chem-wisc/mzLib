@@ -31,38 +31,37 @@ public class GroundTruthExtractorTests
             nativeId: "scan=" + oneBasedScanNumber);
     }
 
-    [Test]
-    public void ExtractsCorrectTensorShapeAndIntensities()
+    private const double Mass = 10000.0;
+    private const int MinCharge = 7;
+    private const int MaxCharge = 10;
+    private const double ApexRt = 20.0;
+
+    /// <summary>Chargewise intensity scales, so per-charge XIC sums are predictable. z = 7,8,9,10.</summary>
+    private static readonly double[] ChargeScale = { 100.0, 200.0, 300.0, 150.0 };
+
+    /// <summary>Triangular RT profile peaked at the apex; 11 scans spaced 0.1 min apart.</summary>
+    private static readonly double[] RtScale = { 0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 0.75, 0.5, 0.25, 0 };
+
+    private static MsDataScan[] BuildScans()
     {
-        const double mass = 10000.0;
-        const int minCharge = 7;
-        const int maxCharge = 10;
-        const double apexRt = 20.0;
-
-        var kernel = new IsotopeEnvelopeKernel(mass);
+        var kernel = new IsotopeEnvelopeKernel(Mass);
         int nIso = kernel.IsotopologueCount;
-
-        // Chargewise intensity scales so the extractor can confirm per-charge XIC sums.
-        double[] chargeScale = { 100.0, 200.0, 300.0, 150.0 }; // z=7,8,9,10
-
-        // RT profile: triangle peaked at apex; 11 scans spaced 0.1 min apart.
-        double[] rtScale = { 0, 0.25, 0.5, 0.75, 1.0, 1.0, 1.0, 0.75, 0.5, 0.25, 0 };
-
         var scans = new List<MsDataScan>();
-        for (int s = 0; s < rtScale.Length; s++)
+
+        for (int s = 0; s < RtScale.Length; s++)
         {
-            double rt = apexRt - 0.5 + s * 0.1;
+            double rt = ApexRt - 0.5 + s * 0.1;
             var mzList = new List<double>();
             var intList = new List<double>();
 
-            for (int z = minCharge; z <= maxCharge; z++)
+            for (int z = MinCharge; z <= MaxCharge; z++)
             {
-                int c = z - minCharge;
+                int c = z - MinCharge;
                 double[] centroids = kernel.CentroidMzs(z);
                 for (int i = 0; i < nIso; i++)
                 {
                     mzList.Add(centroids[i]);
-                    intList.Add(chargeScale[c] * rtScale[s] * kernel.Intensity(i));
+                    intList.Add(ChargeScale[c] * RtScale[s] * kernel.Intensity(i));
                 }
             }
 
@@ -75,9 +74,23 @@ public class GroundTruthExtractorTests
                 intensity: ordered.Select(t => t.i).ToArray()));
         }
 
-        var scanArray = scans.ToArray();
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
-        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        return scans.ToArray();
+    }
+
+    [Test]
+    public void ExtractsCorrectTensorShapeAndIntensities()
+    {
+        const double mass = Mass;
+        const int minCharge = MinCharge;
+        const int maxCharge = MaxCharge;
+        const double apexRt = ApexRt;
+
+        var kernel = new IsotopeEnvelopeKernel(mass);
+        int nIso = kernel.IsotopologueCount;
+        var chargeScale = ChargeScale;
+
+        var scanArray = BuildScans();
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
         var truth = extractor.Extract(
             monoisotopicMass: mass,
@@ -112,28 +125,63 @@ public class GroundTruthExtractorTests
             Assert.That(truth.IsotopologueIntensities[c][0][5], Is.EqualTo(expected).Within(1e-3));
         }
 
-        // Peak-window tensor: at the apex scan, each centroid window should contain at
-        // least one peak (the centroid itself) and its intensity should match the scalar.
+        // Peak windows are collected only at the apex (charge, scan) cell, which is the only one
+        // any consumer reads. The apex here is the strongest charge at the middle scan.
         Assert.That(truth.MzWindowHalfWidth, Is.EqualTo(0.05));
         Assert.That(truth.IsotopologuePeakWindows.Length, Is.EqualTo(4));
+
+        // Strongest charge wins; the RT profile plateaus over scans 4-6, and ties resolve to the
+        // first, so the apex scan is 4.
+        Assert.That(truth.ApexChargeIndex,
+            Is.EqualTo(System.Array.IndexOf(chargeScale, chargeScale.Max())));
+        Assert.That(truth.ApexScanIndex, Is.EqualTo(4));
+
+        int apexC = truth.ApexChargeIndex;
+        var window = truth.IsotopologuePeakWindows[apexC][0][truth.ApexScanIndex];
+        Assert.That(window.Length, Is.GreaterThanOrEqualTo(1));
+
+        // There should be a peak in the window whose m/z is ~the centroid and whose intensity
+        // equals the scalar cell.
+        double apexCentroid = truth.CentroidMzs[apexC][0];
+        bool foundMatch = window.Any(p =>
+            System.Math.Abs(p.Mz - apexCentroid) < 1e-6
+            && System.Math.Abs(p.Intensity - truth.IsotopologueIntensities[apexC][0][truth.ApexScanIndex]) < 1e-3);
+        Assert.That(foundMatch, Is.True);
+
+        // Every other cell is allocated but empty rather than null, so consumers can index freely.
         for (int c = 0; c < 4; c++)
         {
-            var window = truth.IsotopologuePeakWindows[c][0][5];
-            Assert.That(window.Length, Is.GreaterThanOrEqualTo(1));
-            double centroid = truth.CentroidMzs[c][0];
-            // There should be a peak within the window whose m/z is ~centroid and whose
-            // intensity equals the scalar cell.
-            bool foundMatch = window.Any(p =>
-                System.Math.Abs(p.Mz - centroid) < 1e-6
-                && System.Math.Abs(p.Intensity - truth.IsotopologueIntensities[c][0][5]) < 1e-3);
-            Assert.That(foundMatch, Is.True);
+            Assert.That(truth.IsotopologuePeakWindows[c][0][0], Is.Not.Null.And.Empty);
+            Assert.That(truth.IsotopologuePeakWindows[c][0][^1], Is.Not.Null.And.Empty);
+        }
+    }
+
+    [Test]
+    public void ApexCellMatchesTheOneEnvelopeWidthFitterSelects()
+    {
+        // The extractor populates peak windows only at the apex it computes, and the width fitter
+        // independently recomputes an apex to read them. If those ever diverge the fitter silently
+        // sees empty windows and falls back, so pin them together.
+        var extractor = new GroundTruthExtractor(BuildScans(), ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var truth = extractor.Extract(Mass, ApexRt, rtHalfWidth: 1.0, minCharge: MinCharge, maxCharge: MaxCharge);
+
+        int bestC = 0, bestS = 0;
+        double bestApex = double.NegativeInfinity;
+        for (int c = 0; c < truth.ChargeCount; c++)
+        {
+            for (int s = 0; s < truth.ScanCount; s++)
+            {
+                double v = truth.ChargeXics[c][s];
+                if (v > bestApex)
+                {
+                    bestApex = v;
+                    bestC = c;
+                    bestS = s;
+                }
+            }
         }
 
-        // RT edge scans still have a window allocated (but empty or zero-intensity).
-        for (int c = 0; c < 4; c++)
-        {
-            Assert.That(truth.IsotopologuePeakWindows[c][0][0], Is.Not.Null);
-            Assert.That(truth.IsotopologuePeakWindows[c][0][^1], Is.Not.Null);
-        }
+        Assert.That(truth.ApexChargeIndex, Is.EqualTo(bestC));
+        Assert.That(truth.ApexScanIndex, Is.EqualTo(bestS));
     }
 }

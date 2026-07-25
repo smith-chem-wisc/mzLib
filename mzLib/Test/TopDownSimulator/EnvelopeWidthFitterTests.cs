@@ -63,8 +63,7 @@ public class EnvelopeWidthFitterTests
         }
 
         var scanArray = scans.ToArray();
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
-        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
         var truth = extractor.Extract(mass, rtCenter: 20.1, rtHalfWidth: 0.5,
             minCharge: minCharge, maxCharge: maxCharge);
 
@@ -119,10 +118,9 @@ public class EnvelopeWidthFitterTests
         }
 
         var scanArray = scans.ToArray();
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
         // Window half-width must be a bit less than half the centroid spacing to avoid
         // neighboring-isotopologue spillover (at z=8 centroids are ~0.125 m/z apart).
-        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
         var truth = extractor.Extract(mass, rtCenter: 20.1, rtHalfWidth: 0.5,
             minCharge: minCharge, maxCharge: maxCharge);
 

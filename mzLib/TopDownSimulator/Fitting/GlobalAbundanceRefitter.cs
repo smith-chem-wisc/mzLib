@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -10,7 +11,8 @@ public sealed record GlobalAbundanceRefitOptions(
     int MaxIterations = 8,
     double ConvergenceTolerance = 1e-3,
     double MinimumAbundance = 0.0,
-    bool Verbose = false);
+    bool Verbose = false,
+    long MaxBasisCacheBytes = 1L << 30);
 
 public sealed record GlobalAbundanceRefitResult(
     FittedProteoform[] FittedProteoforms,
@@ -69,14 +71,23 @@ public sealed class GlobalAbundanceRefitter
         var kernels = models.Select(m => new IsotopeEnvelopeKernel(m.MonoisotopicMass)).ToArray();
 
         var sampleSets = BuildSampleSets(models, truths, kernels, minCharge, maxCharge, sigmaMz);
-        var initialPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, minCharge, maxCharge, sigmaMz);
+
+        // The basis value of model m at sample k depends only on shape terms — mass, RT profile,
+        // charge distribution, sigma — none of which this refit touches. Only Abundance changes, so
+        // the whole (sample x model) matrix is invariant and is computed once instead of on every
+        // one of the MaxIterations + 2 passes below. Cached values are the same numbers the
+        // uncached path would recompute, so results are unchanged either way.
+        var basisMatrices = TryBuildBasisMatrices(
+            models, kernels, sampleSets, minCharge, maxCharge, sigmaMz, _options.MaxBasisCacheBytes);
+
+        var initialPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz);
         double initialResidual = ComputeResidualEnergyFraction(sampleSets, initialPredictedTotals);
         int completedIterations = 0;
         bool converged = false;
 
         for (int iteration = 0; iteration < _options.MaxIterations; iteration++)
         {
-            var predictedTotals = ComputePredictedTotals(models, kernels, sampleSets, minCharge, maxCharge, sigmaMz);
+            var predictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz);
             double maxRelativeChange = 0;
 
             for (int p = 0; p < models.Length; p++)
@@ -107,7 +118,7 @@ public sealed class GlobalAbundanceRefitter
             }
         }
 
-        var finalPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, minCharge, maxCharge, sigmaMz);
+        var finalPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz);
         double finalResidual = ComputeResidualEnergyFraction(sampleSets, finalPredictedTotals);
         var updatedFits = new FittedProteoform[fitted.Count];
         for (int i = 0; i < fitted.Count; i++)
@@ -201,30 +212,83 @@ public sealed class GlobalAbundanceRefitter
         return sampleSets;
     }
 
-    private static double[][] ComputePredictedTotals(
+    /// <summary>
+    /// Precomputes the (sample x model) basis matrix for every sample set, flattened per sample set
+    /// as <c>[k * modelCount + m]</c>. Returns null when the matrix would exceed
+    /// <paramref name="maxBytes"/>, in which case callers fall back to recomputing basis values on
+    /// demand — slower, but identical arithmetic.
+    /// </summary>
+    private static double[][]? TryBuildBasisMatrices(
         IReadOnlyList<ProteoformModel> models,
         IReadOnlyList<IsotopeEnvelopeKernel> kernels,
         IReadOnlyList<SampleSet> sampleSets,
         int minCharge,
         int maxCharge,
+        double sigmaMz,
+        long maxBytes)
+    {
+        int modelCount = models.Count;
+
+        long entries = 0;
+        for (int p = 0; p < sampleSets.Count; p++)
+            entries += (long)sampleSets[p].Observed.Length * modelCount;
+
+        if (entries * sizeof(double) > maxBytes)
+            return null;
+
+        var matrices = new double[sampleSets.Count][];
+        for (int p = 0; p < sampleSets.Count; p++)
+        {
+            var set = sampleSets[p];
+            int sampleCount = set.Observed.Length;
+            var flat = new double[(long)sampleCount * modelCount];
+
+            for (int k = 0; k < sampleCount; k++)
+            {
+                int offset = k * modelCount;
+                double time = set.Times[k];
+                double mz = set.Mzs[k];
+
+                for (int m = 0; m < modelCount; m++)
+                    flat[offset + m] = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+            }
+
+            matrices[p] = flat;
+        }
+
+        return matrices;
+    }
+
+    private static double[][] ComputePredictedTotals(
+        IReadOnlyList<ProteoformModel> models,
+        IReadOnlyList<IsotopeEnvelopeKernel> kernels,
+        IReadOnlyList<SampleSet> sampleSets,
+        double[][]? basisMatrices,
+        int minCharge,
+        int maxCharge,
         double sigmaMz)
     {
         var predicted = new double[sampleSets.Count][];
+        int modelCount = models.Count;
 
         for (int p = 0; p < sampleSets.Count; p++)
         {
             var set = sampleSets[p];
             var totals = new double[set.Observed.Length];
+            var flat = basisMatrices?[p];
 
             for (int k = 0; k < totals.Length; k++)
             {
                 double sum = 0;
                 double time = set.Times[k];
                 double mz = set.Mzs[k];
+                int offset = k * modelCount;
 
-                for (int m = 0; m < models.Count; m++)
+                for (int m = 0; m < modelCount; m++)
                 {
-                    double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+                    double basis = flat is not null
+                        ? flat[offset + m]
+                        : EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
                     if (basis <= 0)
                         continue;
 
@@ -238,25 +302,6 @@ public sealed class GlobalAbundanceRefitter
         }
 
         return predicted;
-    }
-
-    private static double EvaluateTotal(
-        IReadOnlyList<ProteoformModel> models,
-        IReadOnlyList<IsotopeEnvelopeKernel> kernels,
-        double time,
-        double mz,
-        int minCharge,
-        int maxCharge,
-        double sigmaMz)
-    {
-        double total = 0;
-        for (int i = 0; i < models.Count; i++)
-        {
-            double basis = EvaluateUnitContribution(models[i], kernels[i], time, mz, minCharge, maxCharge, sigmaMz);
-            total += models[i].Abundance * basis;
-        }
-
-        return total;
     }
 
     private static double EvaluateUnitContribution(

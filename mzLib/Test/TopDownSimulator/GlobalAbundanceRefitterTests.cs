@@ -54,8 +54,7 @@ public class GlobalAbundanceRefitterTests
         };
 
         var scanArray = BuildCentroidedScansFromForwardModel(trueModels, minCharge, maxCharge, sigmaMz);
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
-        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
         var truths = new[]
         {
@@ -103,8 +102,7 @@ public class GlobalAbundanceRefitterTests
         };
 
         var scanArray = BuildCentroidedScansFromForwardModel(trueModels, minCharge, maxCharge, sigmaMz);
-        var index = PeakIndexingEngine.InitializeIndexingEngine(scanArray)!;
-        var extractor = new GroundTruthExtractor(index, scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
         var truths = new[]
         {

@@ -1,4 +1,4 @@
-﻿using Chemistry;
+using Chemistry;
 using FlashLFQ;
 using MassSpectrometry;
 using MzIdentML;
@@ -120,8 +120,7 @@ namespace Test.FileReadingTests
         {
             const double mass = 10000.0;
             var simulation = BuildSimulation();
-            var index = PeakIndexingEngine.InitializeIndexingEngine(simulation.Scans)!;
-            var extractor = new GroundTruthExtractor(index, simulation.Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+            var extractor = new GroundTruthExtractor(simulation.Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
             var truth = extractor.Extract(mass, rtCenter: 20.0, rtHalfWidth: 1.0, minCharge: 6, maxCharge: 11);
 
             int chargeOffset = 8 - truth.MinCharge;
@@ -381,9 +380,8 @@ namespace Test.FileReadingTests
             Console.WriteLine($"Collected {ms1Scans.Length} MS1 scans in {stageSw.Elapsed}");
 
             stageSw.Restart();
-            var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(ms1Scans)!;
-            var extractor = new GroundTruthExtractor(indexingEngine, ms1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
-            Console.WriteLine($"Built indexing engine in {stageSw.Elapsed}");
+            var extractor = new GroundTruthExtractor(ms1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+            Console.WriteLine($"Built ground-truth extractor in {stageSw.Elapsed}");
 
             stageSw.Restart();
             var loader = new MmResultLoader();
@@ -540,8 +538,7 @@ namespace Test.FileReadingTests
             Assert.That(qFilteredSliceRecords, Is.Not.Empty, "No proteoforms passed q<=0.01 inside 31-35 min.");
             Assert.That(qFilteredRecords, Is.Not.Empty, "No proteoforms passed q<=0.01 for full run.");
 
-            var index = PeakIndexingEngine.InitializeIndexingEngine(allMs1Scans)!;
-            var extractor = new GroundTruthExtractor(index, allMs1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+            var extractor = new GroundTruthExtractor(allMs1Scans, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
 
             var sliceFit = FitProteoforms(qFilteredSliceRecords, extractor, rtHalfWidth, useGlobalAbundanceRefit, globalRefitMaxModels);
             Assert.That(sliceFit.Models, Is.Not.Empty, "No simulated models were fitted for 31-35 min slice.");
@@ -627,7 +624,10 @@ namespace Test.FileReadingTests
         {
             var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
             var fitted = new List<FittedProteoform>(records.Count);
-            var truths = new List<ProteoformGroundTruth>(records.Count);
+
+            // Ground truths are only kept when the global refit will actually consume them.
+            // Retaining them otherwise pins the whole extraction tensor for every record.
+            var truths = useGlobalAbundanceRefit ? new List<ProteoformGroundTruth>(records.Count) : null;
 
             int minChargeGlobal = int.MaxValue;
             int maxChargeGlobal = int.MinValue;
@@ -658,7 +658,7 @@ namespace Test.FileReadingTests
                     continue;
 
                 fitted.Add(fit);
-                truths.Add(truth);
+                truths?.Add(truth);
                 minChargeGlobal = Math.Min(minChargeGlobal, minCharge);
                 maxChargeGlobal = Math.Max(maxChargeGlobal, maxCharge);
             }
@@ -675,7 +675,7 @@ namespace Test.FileReadingTests
                 .ToArray();
             double sigmaMz = sigmaCandidates.Length == 0 ? 0.012 : sigmaCandidates[sigmaCandidates.Length / 2];
 
-            if (useGlobalAbundanceRefit && fitted.Count > 1)
+            if (useGlobalAbundanceRefit && truths is not null && fitted.Count > 1)
             {
                 if (fitted.Count > globalRefitMaxModels)
                 {
