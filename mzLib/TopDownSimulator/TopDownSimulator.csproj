@@ -15,9 +15,19 @@
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Published amino-acid-pair peptide-bond cleavage propensities. Embedded so the default table
+         is always available regardless of how the assembly is deployed; also copied next to the
+         assembly so it is discoverable and can be edited/swapped via
+         ResiduePairCleavagePropensityTable.Load(path). -->
+    <EmbeddedResource Include="Ms2\ResiduePairCleavagePropensities.tsv" />
+    <None Update="Ms2\ResiduePairCleavagePropensities.tsv" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
