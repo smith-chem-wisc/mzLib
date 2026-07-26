@@ -18,6 +18,22 @@ public class ForwardModelTests
     }
 
     /// <summary>
+    /// m/z of the most intense isotopologue. The kernel orders isotopologues by ascending mass,
+    /// so the brightest one has to be searched for rather than read off index 0.
+    /// </summary>
+    private static double MostIntenseMz(IsotopeEnvelopeKernel kernel, int charge)
+    {
+        int best = 0;
+        for (int i = 1; i < kernel.IsotopologueCount; i++)
+        {
+            if (kernel.Intensity(i) > kernel.Intensity(best))
+                best = i;
+        }
+
+        return kernel.CentroidMzs(charge)[best];
+    }
+
+    /// <summary>
     /// The original scan-outer formulation of Rasterize, kept here as the reference the optimized
     /// (species, charge)-outer implementation must reproduce exactly.
     /// </summary>
@@ -104,7 +120,7 @@ public class ForwardModelTests
         var fm = new ForwardModel(new[] { model }, minCharge: 5, maxCharge: 12, sigmaMz: 0.01);
 
         var kernel = new IsotopeEnvelopeKernel(10000.0);
-        double apexMz = kernel.CentroidMzs(8)[0];
+        double apexMz = MostIntenseMz(kernel, 8);
 
         double onPeak = fm.Evaluate(t: 20.0, mz: apexMz);
         double offRt = fm.Evaluate(t: 25.0, mz: apexMz);
@@ -140,7 +156,7 @@ public class ForwardModelTests
         var onlyB = new ForwardModel(new[] { b }, minCharge: 5, maxCharge: 14, sigmaMz: 0.02);
 
         var kernelA = new IsotopeEnvelopeKernel(10000.0);
-        double mz = kernelA.CentroidMzs(8)[0];
+        double mz = MostIntenseMz(kernelA, 8);
 
         Assert.That(
             both.Evaluate(20.0, mz),

@@ -256,6 +256,8 @@ public class MzmlExportTests
         var firstKernel = new IsotopeEnvelopeKernel(10000.0);
         var secondKernel = new IsotopeEnvelopeKernel(10500.0);
 
+        // Index 0 is the lowest-mass isotopologue — the monoisotopic one — because the kernel
+        // orders isotopologues by ascending mass.
         Assert.That(NearestPpm(apex.MassSpectrum.XArray, firstKernel.CentroidMzs(8)[0]), Is.LessThan(1.0),
             "Expected a peak at the first proteoform's monoisotopic m/z.");
         Assert.That(NearestPpm(apex.MassSpectrum.XArray, secondKernel.CentroidMzs(8)[0]), Is.LessThan(1.0),

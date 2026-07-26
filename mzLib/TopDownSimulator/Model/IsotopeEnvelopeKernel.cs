@@ -16,6 +16,14 @@ namespace TopDownSimulator.Model;
 /// averagine index with the closest most-intense mass, then shift every theoretical
 /// isotopologue mass by (M − averagine_monoisotopic) so that the returned envelope
 /// is anchored on the caller's monoisotopic mass.
+/// <para>
+/// Isotopologues are ordered by <b>ascending neutral mass</b>, and therefore by ascending m/z
+/// for every charge: index 0 is the lowest-mass (monoisotopic) isotopologue, not the most
+/// intense one. Note that this is the opposite of <see cref="Averagine"/>'s own tables, which
+/// are stored most-intense-first; the reordering happens once in this constructor so that
+/// callers which reason about isotopologue *position* — nearest-neighbour boundaries, m/z
+/// spans, binary search — are correct by construction.
+/// </para>
 /// </remarks>
 public sealed class IsotopeEnvelopeKernel
 {
@@ -24,15 +32,19 @@ public sealed class IsotopeEnvelopeKernel
     private readonly double[] _neutralMasses;
     private readonly double[] _normalizedIntensities;
     private readonly Dictionary<int, double[]> _centroidCacheByCharge = new();
-    private readonly Dictionary<int, (double[] Centroids, double[] Intensities)> _sortedEvaluationCacheByCharge = new();
-    private readonly Dictionary<int, (double MinMz, double MaxMz)> _mzBoundsCacheByCharge = new();
 
     public IsotopeEnvelopeKernel(double monoisotopicMass)
     {
         int idx = new Averagine().GetMostIntenseMassIndex(monoisotopicMass);
+        // Both of these are ordered most-intense-first by Averagine's static constructor, and
+        // they are the shared static tables — never sort them, only the local copies below.
         double[] theorMasses = Averagine.AllMasses[idx];
         double[] theorIntensities = Averagine.AllIntensities[idx];
 
+        // DiffToMonoisotopic is (most-intense mass − monoisotopic mass), so this must read the
+        // most-intense entry — theorMasses[0] in Averagine's ordering. Computed before the local
+        // arrays are reordered below, and from Averagine's array rather than ours, so it is
+        // unaffected by that reordering.
         double averagineMonoisotopic = theorMasses[0] - Averagine.DiffToMonoisotopic[idx];
         double shift = monoisotopicMass - averagineMonoisotopic;
 
@@ -50,6 +62,9 @@ public sealed class IsotopeEnvelopeKernel
             _normalizedIntensities[i] = theorIntensities[i] / sum;
         }
 
+        // Reorder both arrays together into ascending mass, establishing the ordering contract
+        // documented above. Paired in one sort so mass i and intensity i stay the same isotopologue.
+        Array.Sort(_neutralMasses, _normalizedIntensities);
     }
 
     public int IsotopologueCount => _neutralMasses.Length;
@@ -68,7 +83,9 @@ public sealed class IsotopeEnvelopeKernel
         double norm = 1.0 / (sigmaMz * Math.Sqrt(2 * Math.PI));
         double window = EvaluationWindowInSigmas * sigmaMz;
 
-        var (centroids, intensities) = GetSortedEvaluationArrays(charge);
+        // Ascending m/z, so the isotopologues within the evaluation window are one contiguous run.
+        double[] centroids = CentroidMzs(charge);
+        double[] intensities = _normalizedIntensities;
         int start = LowerBound(centroids, mz - window);
         int endExclusive = UpperBound(centroids, mz + window);
 
@@ -103,36 +120,10 @@ public sealed class IsotopeEnvelopeKernel
 
     public (double MinMz, double MaxMz) GetMzBounds(int charge)
     {
-        if (_mzBoundsCacheByCharge.TryGetValue(charge, out var cached))
-            return cached;
-
         var centroids = CentroidMzs(charge);
-        double minMz = double.PositiveInfinity;
-        double maxMz = double.NegativeInfinity;
-        for (int i = 0; i < centroids.Length; i++)
-        {
-            if (centroids[i] < minMz) minMz = centroids[i];
-            if (centroids[i] > maxMz) maxMz = centroids[i];
-        }
-
-        var computed = (minMz, maxMz);
-        _mzBoundsCacheByCharge[charge] = computed;
-        return computed;
-    }
-
-    private (double[] Centroids, double[] Intensities) GetSortedEvaluationArrays(int charge)
-    {
-        if (_sortedEvaluationCacheByCharge.TryGetValue(charge, out var cached))
-            return cached;
-
-        var centroids = CentroidMzs(charge);
-        var sortedCentroids = (double[])centroids.Clone();
-        var sortedIntensities = (double[])_normalizedIntensities.Clone();
-        Array.Sort(sortedCentroids, sortedIntensities);
-
-        var computed = (sortedCentroids, sortedIntensities);
-        _sortedEvaluationCacheByCharge[charge] = computed;
-        return computed;
+        return centroids.Length == 0
+            ? (double.PositiveInfinity, double.NegativeInfinity)
+            : (centroids[0], centroids[^1]);
     }
 
     private static int LowerBound(double[] values, double target)

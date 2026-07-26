@@ -83,11 +83,60 @@ public class EnvelopeWidthFitterTests
         const int minCharge = 8, maxCharge = 9;
         const double trueSigmaMz = 0.008;
         var kernel = new IsotopeEnvelopeKernel(mass);
-        int nIso = kernel.IsotopologueCount;
 
-        // Dense sampling: ±5σ around each centroid at 0.001 m/z spacing.
+        var scanArray = BuildProfileScans(kernel, minCharge, maxCharge, trueSigmaMz);
+        // Window half-width must be a bit less than half the centroid spacing to avoid
+        // neighboring-isotopologue spillover (at z=8 centroids are ~0.125 m/z apart).
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var truth = extractor.Extract(mass, rtCenter: 20.1, rtHalfWidth: 0.5,
+            minCharge: minCharge, maxCharge: maxCharge);
+
+        var fit = new EnvelopeWidthFitter(fallbackSigmaMz: 0.02).Fit(truth);
+
+        Assert.That(fit.Mode, Is.EqualTo(WidthFitMode.Profile));
+        Assert.That(fit.SigmaMz, Is.EqualTo(trueSigmaMz).Within(5e-4));
+        Assert.That(fit.PeaksUsed, Is.GreaterThan(10));
+    }
+
+    [Test]
+    public void ProfileInputRecoversSigmaWhenNeighbouringIsotopologuesShareTheWindow()
+    {
+        // At z = 20 isotopologues are ~0.050 m/z apart, so the extractor's ±0.05 window around one
+        // centroid swallows most of each neighbour's peak. Separating them is the entire job of the
+        // midpoint boundaries in EnvelopeWidthFitter, and those boundaries are only meaningful if
+        // CentroidMzs is ordered by m/z — index i-1 and i+1 have to be the actual neighbours.
+        // Against the intensity-ordered envelope this fixture recovered 0.0178, 4.5x the truth.
+        const double mass = 10000.0;
+        const int minCharge = 20, maxCharge = 21;
+        const double trueSigmaMz = 0.004;
+        var kernel = new IsotopeEnvelopeKernel(mass);
+
+        double spacing = kernel.CentroidMzs(minCharge)[1] - kernel.CentroidMzs(minCharge)[0];
+        Assert.That(spacing, Is.GreaterThan(0).And.LessThan(2 * 0.05),
+            "This fixture is only meaningful if neighbouring isotopologues fall inside the window.");
+
+        var scanArray = BuildProfileScans(kernel, minCharge, maxCharge, trueSigmaMz);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var truth = extractor.Extract(mass, rtCenter: 20.1, rtHalfWidth: 0.5,
+            minCharge: minCharge, maxCharge: maxCharge);
+
+        var fit = new EnvelopeWidthFitter(fallbackSigmaMz: 0.012).Fit(truth);
+
+        Assert.That(fit.Mode, Is.EqualTo(WidthFitMode.Profile));
+        Assert.That(fit.SigmaMz, Is.EqualTo(trueSigmaMz).Within(5e-4));
+        Assert.That(fit.PeaksUsed, Is.GreaterThan(10));
+    }
+
+    /// <summary>
+    /// Three scans of profile data in which every theoretical isotopologue of every charge is a
+    /// Gaussian of width <paramref name="trueSigmaMz"/>, sampled to ±5σ at 0.001 m/z.
+    /// </summary>
+    private static MsDataScan[] BuildProfileScans(
+        IsotopeEnvelopeKernel kernel, int minCharge, int maxCharge, double trueSigmaMz)
+    {
         const double sampleStep = 0.001;
-        const double halfSpan = 5.0 * trueSigmaMz;
+        double halfSpan = 5.0 * trueSigmaMz;
+        int nIso = kernel.IsotopologueCount;
 
         var scans = new List<MsDataScan>();
         double[] rtScale = { 0.2, 1.0, 0.2 };
@@ -117,17 +166,6 @@ public class EnvelopeWidthFitterTests
                 ordered.Select(t => t.i).ToArray()));
         }
 
-        var scanArray = scans.ToArray();
-        // Window half-width must be a bit less than half the centroid spacing to avoid
-        // neighboring-isotopologue spillover (at z=8 centroids are ~0.125 m/z apart).
-        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
-        var truth = extractor.Extract(mass, rtCenter: 20.1, rtHalfWidth: 0.5,
-            minCharge: minCharge, maxCharge: maxCharge);
-
-        var fit = new EnvelopeWidthFitter(fallbackSigmaMz: 0.02).Fit(truth);
-
-        Assert.That(fit.Mode, Is.EqualTo(WidthFitMode.Profile));
-        Assert.That(fit.SigmaMz, Is.EqualTo(trueSigmaMz).Within(5e-4));
-        Assert.That(fit.PeaksUsed, Is.GreaterThan(10));
+        return scans.ToArray();
     }
 }
