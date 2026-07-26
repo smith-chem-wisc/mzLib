@@ -1,4 +1,5 @@
 using CsvHelper;
+using CsvHelper.Configuration;
 
 namespace Readers
 {
@@ -12,7 +13,21 @@ namespace Readers
         public override SupportedFileType FileType => SupportedFileType.DiaNnReport;
         public override Software Software { get; set; }
 
-        public DiaNnReportFile(string filePath) : base(filePath, Software.DiaNn) { }
+        /// <summary>
+        /// Whether to load the four per-fragment columns (Fragment.Quant.Raw,
+        /// Fragment.Quant.Corrected, Fragment.Correlations, and Fragment.Info). They are off by
+        /// default because they dominate the file: in a 9-run report they are 40% of its bytes, and
+        /// loading them costs roughly 2 GB of managed heap that nothing in the quantification path
+        /// reads. Turn this on only to inspect fragment-level data or to rewrite a file unchanged --
+        /// with it off, <see cref="WriteResults"/> leaves those four columns empty.
+        /// </summary>
+        public bool ReadFragmentColumns { get; set; }
+
+        public DiaNnReportFile(string filePath, bool readFragmentColumns = false)
+            : base(filePath, Software.DiaNn)
+        {
+            ReadFragmentColumns = readFragmentColumns;
+        }
 
         /// <summary>
         /// Constructor used to initialize from the factory method
@@ -22,7 +37,58 @@ namespace Readers
         public override void LoadResults()
         {
             using var csv = new CsvReader(new StreamReader(FilePath), DiaNnPrecursor.CsvConfiguration);
-            Results = csv.GetRecords<DiaNnPrecursor>().ToList();
+            if (!ReadFragmentColumns)
+                csv.Context.RegisterClassMap<FragmentFreeMap>();
+
+            // A DIA-NN report repeats a small number of distinct strings across every row -- nine
+            // run names over 836,342 rows in the file this was built against, and each peptide once
+            // per run. CsvHelper allocates a fresh string per field, so without pooling the same
+            // run path is stored hundreds of thousands of times.
+            var pool = new Dictionary<string, string>(StringComparer.Ordinal);
+            Results = csv.GetRecords<DiaNnPrecursor>().Select(record => Deduplicate(record, pool)).ToList();
+        }
+
+        /// <summary>
+        /// Replaces the repeated strings on a record with a single shared instance each. Only the
+        /// columns that repeat heavily are pooled; the pool would otherwise grow as large as the
+        /// data it is meant to shrink.
+        /// </summary>
+        private static DiaNnPrecursor Deduplicate(DiaNnPrecursor record, Dictionary<string, string> pool)
+        {
+            record.SpectraFilePath = Pool(record.SpectraFilePath, pool);
+            record.Run = Pool(record.Run, pool);
+            record.ProteinGroup = Pool(record.ProteinGroup, pool);
+            record.ProteinIds = Pool(record.ProteinIds, pool);
+            record.ProteinNames = Pool(record.ProteinNames, pool);
+            record.Genes = Pool(record.Genes, pool);
+            record.ModifiedSequence = Pool(record.ModifiedSequence, pool);
+            record.BaseSequence = Pool(record.BaseSequence, pool);
+            record.PrecursorId = Pool(record.PrecursorId, pool);
+            return record;
+        }
+
+        private static string Pool(string value, Dictionary<string, string> pool)
+        {
+            if (value is null) return null;
+            if (pool.TryGetValue(value, out var shared)) return shared;
+            pool[value] = value;
+            return value;
+        }
+
+        /// <summary>
+        /// Maps every column except the four per-fragment ones, so CsvHelper never materializes
+        /// those strings rather than building and immediately discarding them.
+        /// </summary>
+        private sealed class FragmentFreeMap : ClassMap<DiaNnPrecursor>
+        {
+            public FragmentFreeMap()
+            {
+                AutoMap(DiaNnPrecursor.CsvConfiguration);
+                Map(precursor => precursor.FragmentQuantRaw).Ignore();
+                Map(precursor => precursor.FragmentQuantCorrected).Ignore();
+                Map(precursor => precursor.FragmentCorrelations).Ignore();
+                Map(precursor => precursor.FragmentInfo).Ignore();
+            }
         }
 
         public override void WriteResults(string outputPath)

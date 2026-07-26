@@ -110,7 +110,46 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(first.PrecursorMz, Is.EqualTo(443.2495117));
             Assert.That(first.LibraryIndex, Is.EqualTo(26));
             Assert.That(first.IonMobility, Is.EqualTo(0));
-            Assert.That(first.FragmentInfo, Does.StartWith("y7^1/601.3427124;y6^1/530.305603;"));
+        }
+
+        /// <summary>
+        /// The per-fragment columns are 40% of the file's bytes and nothing in the quantification
+        /// path reads them, so they are skipped unless asked for.
+        /// </summary>
+        [Test]
+        public void TestFragmentColumnsAreSkippedUnlessRequested()
+        {
+            DiaNnPrecursor withoutFragments = new DiaNnReportFile(TestFilePath).First();
+            Assert.That(withoutFragments.FragmentInfo, Is.Null);
+            Assert.That(withoutFragments.FragmentQuantRaw, Is.Null);
+            Assert.That(withoutFragments.FragmentQuantCorrected, Is.Null);
+            Assert.That(withoutFragments.FragmentCorrelations, Is.Null);
+
+            // Everything else is unaffected
+            Assert.That(withoutFragments.PrecursorId, Is.EqualTo("AAAAAAAAAAR2"));
+            Assert.That(withoutFragments.Ms2ScanNumber, Is.EqualTo(18291));
+
+            DiaNnPrecursor withFragments = new DiaNnReportFile(TestFilePath, readFragmentColumns: true).First();
+            Assert.That(withFragments.FragmentInfo, Does.StartWith("y7^1/601.3427124;y6^1/530.305603;"));
+            Assert.That(withFragments.FragmentQuantRaw, Does.StartWith("709.9885254;1161.098877;"));
+            Assert.That(withFragments.FragmentCorrelations, Does.StartWith("0.4798017144;0.6663590074;"));
+            Assert.That(withFragments.PrecursorId, Is.EqualTo("AAAAAAAAAAR2"));
+        }
+
+        /// <summary>
+        /// The strings that repeat on every row -- run name, spectra path, protein columns, and the
+        /// sequences -- are pooled so the same text is stored once rather than once per row.
+        /// </summary>
+        [Test]
+        public void TestRepeatedStringsAreShared()
+        {
+            var records = new DiaNnReportFile(TestFilePath)
+                .Where(precursor => precursor.Run == "20240316_PBMCs_24min_3Th-1_centroid")
+                .ToList();
+
+            Assert.That(records.Count, Is.GreaterThan(1));
+            Assert.That(records.All(r => ReferenceEquals(r.Run, records[0].Run)));
+            Assert.That(records.All(r => ReferenceEquals(r.SpectraFilePath, records[0].SpectraFilePath)));
         }
 
         [Test]
@@ -490,16 +529,62 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(identifications.All(id => id.UseForProteinQuant));
         }
 
+        /// <summary>
+        /// FlashLFQ gates MBR donor selection on Identification.QValue, so leaving it at the default
+        /// zero would make every DIA-NN precursor a top-confidence donor. The value has to be
+        /// Global.Q.Value rather than Q.Value: DIA-NN scopes Q.Value to a single run and has already
+        /// filtered it below 1%, so it carries no information across runs.
+        /// </summary>
+        [Test]
+        public void TestQValuesReachIdentifications()
+        {
+            DiaNnReportFile file = new DiaNnReportFile(TestFilePath);
+
+            List<SpectraFileInfo> spectraFiles = new()
+            {
+                new SpectraFileInfo(@"D:\Data\20240315_PBMCs_24min_3Th-1_centroid.mzML", "PBMC", 0, 0, 0),
+                new SpectraFileInfo(@"D:\Data\20240316_PBMCs_24min_3Th-1_centroid.mzML", "PBMC", 1, 0, 0),
+                new SpectraFileInfo(@"D:\Data\20240317_PBMCs_24min_3Th-1_centroid.mzML", "PBMC", 2, 0, 0),
+            };
+
+            DiaNnPrecursor firstRecord = file.First();
+            Assert.That(firstRecord.GlobalQValue, Is.EqualTo(0.0717228204));
+            Assert.That(firstRecord.PosteriorErrorProbability, Is.EqualTo(0.003596759867));
+            Assert.That(firstRecord.CScore, Is.EqualTo(0.997564137));
+
+            Identification first = MzLibExtensions.MakeIdentifications(file, spectraFiles)[0];
+            Assert.That(first.QValue, Is.EqualTo(0.0717228204));
+            Assert.That(first.PsmScore, Is.EqualTo(0.997564137));
+
+            // usePepQValue swaps in the posterior error probability instead
+            Identification firstUsingPep = MzLibExtensions.MakeIdentifications(file, spectraFiles, usePepQValue: true)[0];
+            Assert.That(firstUsingPep.QValue, Is.EqualTo(0.003596759867));
+            Assert.That(firstUsingPep.PsmScore, Is.EqualTo(0.997564137));
+
+            // Not everything collapses to zero, and this row would have passed a 1% donor gate it
+            // does not deserve: its run-specific Q.Value is 0.00017 but experiment-wide it is 7.2%
+            Assert.That(firstRecord.QValue, Is.LessThan(0.01));
+            Assert.That(first.QValue, Is.GreaterThan(0.01));
+
+            var allIdentifications = MzLibExtensions.MakeIdentifications(file, spectraFiles);
+            Assert.That(allIdentifications.Any(id => id.QValue > 0));
+            Assert.That(allIdentifications.All(id => id.PsmScore > 0));
+        }
+
+        /// <summary>
+        /// Round-tripping the fragment columns requires asking for them; that is the case this
+        /// covers, since a file loaded without them writes them back empty by design.
+        /// </summary>
         [Test]
         public void TestDiaNnReportReadWriteRoundTrip()
         {
-            DiaNnReportFile original = new DiaNnReportFile(TestFilePath);
+            DiaNnReportFile original = new DiaNnReportFile(TestFilePath, readFragmentColumns: true);
             string outputPath = Path.Combine(_outputDirectory, "roundTrip_report.tsv");
 
             original.WriteResults(outputPath);
             Assert.That(File.Exists(outputPath));
 
-            DiaNnReportFile rewritten = new DiaNnReportFile(outputPath);
+            DiaNnReportFile rewritten = new DiaNnReportFile(outputPath, readFragmentColumns: true);
             Assert.That(rewritten.Count(), Is.EqualTo(original.Count()));
 
             foreach (var (before, after) in original.Zip(rewritten))
@@ -533,7 +618,7 @@ namespace Test.FileReadingTests.ExternalFileReading
         [Test]
         public void TestProteotypicRoundTripsAsZeroOrOne()
         {
-            DiaNnReportFile original = new DiaNnReportFile(TestFilePath);
+            DiaNnReportFile original = new DiaNnReportFile(TestFilePath, readFragmentColumns: true);
             string outputPath = Path.Combine(_outputDirectory, "proteotypic_report.tsv");
             original.WriteResults(outputPath);
 

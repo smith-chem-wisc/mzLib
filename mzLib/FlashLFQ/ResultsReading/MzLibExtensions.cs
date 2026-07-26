@@ -53,12 +53,25 @@ namespace FlashLFQ
                 double qValue = 0;
                 double pepQValue = 0;
                 double score = 0;
-                // Populate optional fields currently only supported for MetaMorpheus results
+                // Populate optional fields, which only some result types report
                 if( record is SpectrumMatchFromTsv psmFromTsv)
                 {
                     qValue = psmFromTsv.QValue;
                     pepQValue = psmFromTsv.PEP_QValue;
                     score = psmFromTsv.Score;
+                }
+                else if (record is DiaNnPrecursor diaNnPrecursor)
+                {
+                    // Global.Q.Value, not Q.Value: DIA-NN's Q.Value is scoped to a single run and is
+                    // already filtered below 1%, so it would let every precursor through the
+                    // experiment-wide gates below. Global.Q.Value is the run-spanning figure, which
+                    // is what DonorQValueThreshold is comparing against when it picks MBR donors.
+                    qValue = diaNnPrecursor.GlobalQValue;
+                    pepQValue = diaNnPrecursor.PosteriorErrorProbability;
+
+                    // CScore is DIA-NN's classifier score, higher being better, which matches how
+                    // DonorCriterion.Score reads PsmScore
+                    score = diaNnPrecursor.CScore ?? 0;
                 }
 
                 Identification id = new Identification(

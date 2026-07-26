@@ -218,7 +218,12 @@ namespace Readers
 
         /// <summary>
         /// Semicolon-delimited per-fragment intensities, in the same order as <see cref="FragmentInfo"/>.
-        /// Kept as the raw string so the file round-trips on write.
+        /// Kept as the raw string rather than parsed, so that a file read with fragments can be
+        /// written back unchanged.
+        /// <para>
+        /// Null unless the file was read with <see cref="DiaNnReportFile.ReadFragmentColumns"/> set;
+        /// this and the three other Fragment columns are skipped by default because of their size.
+        /// </para>
         /// </summary>
         [Optional]
         [Name("Fragment.Quant.Raw")]
@@ -240,6 +245,7 @@ namespace Readers
 
         /// <summary>
         /// Semicolon-delimited fragment annotations and m/z values, e.g. "y7^1/601.3427124;b3^1/214.1191711;".
+        /// Null unless the file was read with <see cref="DiaNnReportFile.ReadFragmentColumns"/> set.
         /// </summary>
         [Optional]
         [Name("Fragment.Info")]
