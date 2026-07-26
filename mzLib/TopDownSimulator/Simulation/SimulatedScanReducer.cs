@@ -42,13 +42,7 @@ public static class SimulatedScanReducer
         if (scans is null)
             throw new ArgumentNullException(nameof(scans));
 
-        options ??= new ScanReductionOptions();
-        if (options.RelativeIntensityThreshold < 0)
-            throw new ArgumentOutOfRangeException(nameof(options), "Relative intensity threshold must be non-negative.");
-        if (options.MinimumIntensity < 0)
-            throw new ArgumentOutOfRangeException(nameof(options), "Minimum intensity must be non-negative.");
-
-        double floor = Math.Max(options.MinimumIntensity, GlobalMaxIntensity(scans) * options.RelativeIntensityThreshold);
+        double floor = ComputeFloor(scans, options);
 
         var reduced = new MsDataScan[scans.Length];
         for (int s = 0; s < scans.Length; s++)
@@ -59,6 +53,25 @@ public static class SimulatedScanReducer
         }
 
         return reduced;
+    }
+
+    /// <summary>
+    /// The intensity below which a peak is dropped. Exposed because the feature-level ground truth
+    /// has to describe what survived reduction, and the only way for it to agree with the mzML is
+    /// to apply the identical floor.
+    /// </summary>
+    public static double ComputeFloor(MsDataScan[] scans, ScanReductionOptions? options = null)
+    {
+        if (scans is null)
+            throw new ArgumentNullException(nameof(scans));
+
+        options ??= new ScanReductionOptions();
+        if (options.RelativeIntensityThreshold < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), "Relative intensity threshold must be non-negative.");
+        if (options.MinimumIntensity < 0)
+            throw new ArgumentOutOfRangeException(nameof(options), "Minimum intensity must be non-negative.");
+
+        return Math.Max(options.MinimumIntensity, GlobalMaxIntensity(scans) * options.RelativeIntensityThreshold);
     }
 
     public static double GlobalMaxIntensity(MsDataScan[] scans)

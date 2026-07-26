@@ -10,9 +10,9 @@ namespace TopDownSimulator.Extraction;
 /// Pulls a <see cref="ProteoformGroundTruth"/> tensor straight from the MS1 scans of a run.
 ///
 /// For each MS1 scan within (rtCenter ± rtHalfWidth) and each charge in
-/// [minCharge, maxCharge], the extractor records the intensity of the peak closest to each
-/// theoretical isotopologue centroid, and collects the full set of peaks around each centroid at
-/// the apex (charge, scan) cell.
+/// [minCharge, maxCharge], the extractor records the intensity and identity of the peak closest to
+/// each theoretical isotopologue centroid, and collects the full set of peaks around each centroid
+/// at every charge's own apex scan.
 /// </summary>
 /// <remarks>
 /// This deliberately does not use <c>IndexingEngine</c>. All lookups are binary searches inside a
@@ -100,19 +100,29 @@ public sealed class GroundTruthExtractor
         }
 
         var intensities = new double[nCharges][][];
+        var sourcePeakIndices = new int[nCharges][][];
+        var sourcePeakDeltas = new float[nCharges][][];
         var peakWindows = new PeakSample[nCharges][][][];
         var chargeXics = new double[nCharges][];
 
         for (int c = 0; c < nCharges; c++)
         {
             intensities[c] = new double[nIsotopologues][];
+            sourcePeakIndices[c] = new int[nIsotopologues][];
+            sourcePeakDeltas[c] = new float[nIsotopologues][];
             peakWindows[c] = new PeakSample[nIsotopologues][][];
             for (int i = 0; i < nIsotopologues; i++)
             {
                 intensities[c][i] = new double[nScans];
+                sourcePeakIndices[c][i] = new int[nScans];
+                sourcePeakDeltas[c][i] = new float[nScans];
                 peakWindows[c][i] = new PeakSample[nScans][];
                 for (int s = 0; s < nScans; s++)
+                {
+                    sourcePeakIndices[c][i][s] = -1;
+                    sourcePeakDeltas[c][i][s] = float.NaN;
                     peakWindows[c][i][s] = Array.Empty<PeakSample>();
+                }
             }
             chargeXics[c] = new double[nScans];
         }
@@ -120,9 +130,10 @@ public sealed class GroundTruthExtractor
         var windowTolerance = new AbsoluteTolerance(_mzWindowHalfWidth);
         var ppmTolerance = new PpmTolerance(_ppmTolerance);
 
-        // Pass 1: scalar intensities and charge XICs over the whole window. Peak samples are read
-        // but not retained — materializing all nScans x nCharges x nIsotopologues of them is the
-        // dominant allocation in this class and only one (charge, scan) column is ever consumed.
+        // Pass 1: scalar intensities, the identity of the peak each came from, and charge XICs over
+        // the whole window. Peak samples are read but not retained — materializing all
+        // nScans x nCharges x nIsotopologues of them is the dominant allocation in this class and
+        // only one scan per charge is ever consumed.
         for (int s = 0; s < nScans; s++)
         {
             var spectrum = windowSpectra[s];
@@ -138,6 +149,7 @@ public sealed class GroundTruthExtractor
 
                     double bestIntensity = 0;
                     double bestDelta = double.MaxValue;
+                    int bestIndex = -1;
                     for (int k = 0; k < indices.Count; k++)
                     {
                         int idx = indices[k];
@@ -149,39 +161,43 @@ public sealed class GroundTruthExtractor
                         {
                             bestDelta = delta;
                             bestIntensity = spectrum.YArray[idx];
+                            bestIndex = idx;
                         }
                     }
 
                     intensities[c][i][s] = bestIntensity;
+                    sourcePeakIndices[c][i][s] = bestIndex;
+                    sourcePeakDeltas[c][i][s] = bestIndex < 0 ? float.NaN : (float)bestDelta;
                     chargeXics[c][s] += bestIntensity;
                 }
             }
         }
 
-        // Pass 2: collect the peak windows for the apex cell only. The selection matches
-        // EnvelopeWidthFitter's, which is the sole consumer.
-        int apexCharge = 0, apexScan = 0;
-        double apexValue = double.NegativeInfinity;
+        // Pass 2: collect the peak windows at each charge's own apex scan. One column per charge —
+        // rather than the single global apex — is what gives the width fitter measurements spread
+        // across the charge envelope's m/z range, which is the only way to see how σ_m varies.
+        var apexScanByCharge = new int[nCharges];
         for (int c = 0; c < nCharges; c++)
         {
+            int bestScan = -1;
+            double bestValue = 0;
             for (int s = 0; s < nScans; s++)
             {
-                double v = chargeXics[c][s];
-                if (v > apexValue)
+                if (chargeXics[c][s] > bestValue)
                 {
-                    apexValue = v;
-                    apexCharge = c;
-                    apexScan = s;
+                    bestValue = chargeXics[c][s];
+                    bestScan = s;
                 }
             }
-        }
 
-        if (apexValue > 0 && windowSpectra[apexScan] is not null)
-        {
-            var spectrum = windowSpectra[apexScan];
+            apexScanByCharge[c] = bestScan;
+            if (bestScan < 0 || windowSpectra[bestScan] is null)
+                continue;
+
+            var spectrum = windowSpectra[bestScan];
             for (int i = 0; i < nIsotopologues; i++)
             {
-                double centroid = centroidMzs[apexCharge][i];
+                double centroid = centroidMzs[c][i];
                 var indices = spectrum.GetPeakIndicesWithinTolerance(centroid, windowTolerance);
                 if (indices.Count == 0)
                     continue;
@@ -193,7 +209,20 @@ public sealed class GroundTruthExtractor
                     samples[k] = new PeakSample(spectrum.XArray[idx], spectrum.YArray[idx]);
                 }
 
-                peakWindows[apexCharge][i][apexScan] = samples;
+                peakWindows[c][i][bestScan] = samples;
+            }
+        }
+
+        int apexCharge = -1, apexScan = -1;
+        double apexValue = 0;
+        for (int c = 0; c < nCharges; c++)
+        {
+            int s = apexScanByCharge[c];
+            if (s >= 0 && chargeXics[c][s] > apexValue)
+            {
+                apexValue = chargeXics[c][s];
+                apexCharge = c;
+                apexScan = s;
             }
         }
 
@@ -208,10 +237,13 @@ public sealed class GroundTruthExtractor
             CentroidMzs = centroidMzs,
             IsotopologueIntensities = intensities,
             IsotopologuePeakWindows = peakWindows,
+            SourcePeakIndices = sourcePeakIndices,
+            SourcePeakDeltas = sourcePeakDeltas,
             ChargeXics = chargeXics,
             MzWindowHalfWidth = _mzWindowHalfWidth,
-            ApexChargeIndex = apexValue > 0 ? apexCharge : -1,
-            ApexScanIndex = apexValue > 0 ? apexScan : -1,
+            ApexChargeIndex = apexCharge,
+            ApexScanIndex = apexScan,
+            ApexScanIndexByCharge = apexScanByCharge,
         };
     }
 }

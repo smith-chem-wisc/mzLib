@@ -1,6 +1,6 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using TopDownSimulator.Model;
 
 namespace TopDownSimulator.Simulation;
@@ -16,15 +16,25 @@ public sealed class GridRasterizer
         IReadOnlyList<ProteoformModel> proteoforms,
         int minCharge,
         int maxCharge,
-        double sigmaMz,
+        IPeakWidthModel widthModel,
         double[] scanTimes,
         int pointsPerSigma = 3,
         double mzPaddingInSigmas = 6.0)
     {
-        var mzGrid = BuildMzGrid(proteoforms, minCharge, maxCharge, sigmaMz, pointsPerSigma, mzPaddingInSigmas);
-        var model = new ForwardModel(proteoforms, minCharge, maxCharge, sigmaMz);
+        var mzGrid = BuildMzGrid(proteoforms, minCharge, maxCharge, widthModel, pointsPerSigma, mzPaddingInSigmas);
+        var model = new ForwardModel(proteoforms, minCharge, maxCharge, widthModel);
         return new RasterizedScanGrid((double[])scanTimes.Clone(), mzGrid, model.Rasterize(scanTimes, mzGrid));
     }
+
+    public RasterizedScanGrid Rasterize(
+        IReadOnlyList<ProteoformModel> proteoforms,
+        int minCharge,
+        int maxCharge,
+        double sigmaMz,
+        double[] scanTimes,
+        int pointsPerSigma = 3,
+        double mzPaddingInSigmas = 6.0) =>
+        Rasterize(proteoforms, minCharge, maxCharge, new ConstantPeakWidth(sigmaMz), scanTimes, pointsPerSigma, mzPaddingInSigmas);
 
     /// <summary>
     /// Evaluates the forward model directly at the theoretical isotopologue m/z of every charge
@@ -41,30 +51,38 @@ public sealed class GridRasterizer
         IReadOnlyList<ProteoformModel> proteoforms,
         int minCharge,
         int maxCharge,
-        double sigmaMz,
+        IPeakWidthModel widthModel,
         double[] scanTimes)
     {
-        var mzAxis = BuildCentroidMzAxis(proteoforms, minCharge, maxCharge, sigmaMz);
-        var model = new ForwardModel(proteoforms, minCharge, maxCharge, sigmaMz);
+        var mzAxis = BuildCentroidMzAxis(proteoforms, minCharge, maxCharge, widthModel);
+        var model = new ForwardModel(proteoforms, minCharge, maxCharge, widthModel);
         return new RasterizedScanGrid((double[])scanTimes.Clone(), mzAxis, model.Rasterize(scanTimes, mzAxis));
     }
 
+    public RasterizedScanGrid RasterizeAtCentroids(
+        IReadOnlyList<ProteoformModel> proteoforms,
+        int minCharge,
+        int maxCharge,
+        double sigmaMz,
+        double[] scanTimes) =>
+        RasterizeAtCentroids(proteoforms, minCharge, maxCharge, new ConstantPeakWidth(sigmaMz), scanTimes);
+
     /// <summary>
     /// The sorted union of every isotopologue m/z across the supplied proteoforms and charges.
-    /// Positions closer together than a small fraction of σ_m are collapsed, since they are one
-    /// peak as far as the instrument is concerned and the forward model sums into either of them
-    /// identically.
+    /// Positions closer together than a small fraction of the local σ_m are collapsed, since they
+    /// are one peak as far as the instrument is concerned and the forward model sums into either of
+    /// them identically.
     /// </summary>
     public double[] BuildCentroidMzAxis(
         IReadOnlyList<ProteoformModel> proteoforms,
         int minCharge,
         int maxCharge,
-        double sigmaMz)
+        IPeakWidthModel widthModel)
     {
         if (proteoforms.Count == 0)
             throw new ArgumentException("At least one proteoform is required.", nameof(proteoforms));
-        if (sigmaMz <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sigmaMz));
+        if (widthModel is null)
+            throw new ArgumentNullException(nameof(widthModel));
         if (minCharge < 1 || maxCharge < minCharge)
             throw new ArgumentException("Charge range must satisfy 1 ≤ minCharge ≤ maxCharge.");
 
@@ -78,10 +96,12 @@ public sealed class GridRasterizer
 
         all.Sort();
 
-        double mergeTolerance = sigmaMz / 100.0;
         var axis = new List<double>(all.Count);
         foreach (double mz in all)
         {
+            // Evaluated at the candidate position rather than once for the whole axis: under a
+            // width law the merge tolerance at m/z 1500 is several times the one at m/z 600.
+            double mergeTolerance = widthModel.SigmaAt(mz) / 100.0;
             if (axis.Count == 0 || mz - axis[^1] > mergeTolerance)
                 axis.Add(mz);
         }
@@ -89,18 +109,29 @@ public sealed class GridRasterizer
         return axis.ToArray();
     }
 
+    public double[] BuildCentroidMzAxis(
+        IReadOnlyList<ProteoformModel> proteoforms,
+        int minCharge,
+        int maxCharge,
+        double sigmaMz) =>
+        BuildCentroidMzAxis(proteoforms, minCharge, maxCharge, new ConstantPeakWidth(sigmaMz));
+
+    /// <summary>
+    /// A profile m/z grid whose spacing tracks the local σ_m, so every peak is sampled
+    /// <paramref name="pointsPerSigma"/> times regardless of where in the range it lands.
+    /// </summary>
     public double[] BuildMzGrid(
         IReadOnlyList<ProteoformModel> proteoforms,
         int minCharge,
         int maxCharge,
-        double sigmaMz,
+        IPeakWidthModel widthModel,
         int pointsPerSigma = 3,
         double mzPaddingInSigmas = 6.0)
     {
         if (proteoforms.Count == 0)
             throw new ArgumentException("At least one proteoform is required.", nameof(proteoforms));
-        if (sigmaMz <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sigmaMz));
+        if (widthModel is null)
+            throw new ArgumentNullException(nameof(widthModel));
         if (pointsPerSigma < 1)
             throw new ArgumentOutOfRangeException(nameof(pointsPerSigma));
 
@@ -123,16 +154,35 @@ public sealed class GridRasterizer
         if (!double.IsFinite(minMz) || !double.IsFinite(maxMz))
             throw new InvalidOperationException("Could not determine an m/z range for the supplied proteoforms.");
 
-        double padding = mzPaddingInSigmas * sigmaMz;
-        double start = minMz - padding;
-        double end = maxMz + padding;
-        double step = sigmaMz / pointsPerSigma;
-        int pointCount = Math.Max(2, (int)Math.Ceiling((end - start) / step) + 1);
+        double start = minMz - mzPaddingInSigmas * widthModel.SigmaAt(minMz);
+        double end = maxMz + mzPaddingInSigmas * widthModel.SigmaAt(maxMz);
 
-        var mzGrid = new double[pointCount];
-        for (int i = 0; i < pointCount; i++)
-            mzGrid[i] = start + i * step;
+        var mzGrid = new List<double>();
+        for (double mz = start; mz <= end; )
+        {
+            mzGrid.Add(mz);
+            double step = widthModel.SigmaAt(mz) / pointsPerSigma;
+            if (!(step > 0) || !double.IsFinite(step))
+                throw new InvalidOperationException($"Width model produced a non-positive σ_m at m/z {mz}.");
 
-        return mzGrid;
+            mz += step;
+        }
+
+        // The accumulating loop stops at the last position not past `end`, which would leave the
+        // top of the 6σ padding uncovered. Under a constant width the old closed-form grid always
+        // spanned it, so extend rather than truncate.
+        if (mzGrid.Count < 2 || mzGrid[^1] < end)
+            mzGrid.Add(end);
+
+        return mzGrid.ToArray();
     }
+
+    public double[] BuildMzGrid(
+        IReadOnlyList<ProteoformModel> proteoforms,
+        int minCharge,
+        int maxCharge,
+        double sigmaMz,
+        int pointsPerSigma = 3,
+        double mzPaddingInSigmas = 6.0) =>
+        BuildMzGrid(proteoforms, minCharge, maxCharge, new ConstantPeakWidth(sigmaMz), pointsPerSigma, mzPaddingInSigmas);
 }

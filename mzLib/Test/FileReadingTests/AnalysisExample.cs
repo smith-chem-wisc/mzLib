@@ -90,6 +90,60 @@ namespace Test.FileReadingTests
                 : defaultMaxModels;
         }
 
+        /// <summary>
+        /// Whether to fit σ_m as a function of m/z rather than collapsing every record to one
+        /// scalar. On by default; a constant width makes high-m/z envelopes far easier to resolve
+        /// than they are on an instrument, which is precisely the regime a feature-finder benchmark
+        /// needs to be honest about.
+        /// </summary>
+        private static bool GetPeakWidthModelEnabled() =>
+            !IsTrueEnvironmentVariable("MZLIB_TOPDOWN_SIM_CONSTANT_PEAK_WIDTH");
+
+        /// <summary>
+        /// How far the free-slope diagnostic may sit from 1.5 before the fitted width law is
+        /// rejected outright rather than shipped with a warning.
+        /// </summary>
+        private const double MaxSlopeDeviationInStandardErrors = 3.0;
+
+        /// <summary>
+        /// Overrides how finely a window must be sampled to count as a peak shape. Set to 0 to
+        /// disable the guard, which is how the centroid-scatter artifact is reproduced: without it
+        /// the pooled fit happily returns σ ∝ (m/z)^0.94.
+        /// </summary>
+        private static double GetMinimumSamplesPerSigma()
+        {
+            var raw = Environment.GetEnvironmentVariable("MZLIB_TOPDOWN_SIM_MIN_SAMPLES_PER_SIGMA");
+            if (string.IsNullOrWhiteSpace(raw))
+                return EnvelopeWidthFitter.DefaultMinimumSamplesPerSigma;
+
+            return double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture, out double parsed) && parsed >= 0
+                ? parsed
+                : EnvelopeWidthFitter.DefaultMinimumSamplesPerSigma;
+        }
+
+        /// <summary>
+        /// An explicitly supplied k for σ_m = k·(m/z)^1.5, or null to fit it from the data.
+        /// </summary>
+        /// <remarks>
+        /// σ_m is not measurable from a centroided source — the peaks have already been reduced to
+        /// positions — so on a centroided run the pooled fit is refused and the simulation falls
+        /// back to a constant width, which is the defect this was meant to remove. Supplying k lets
+        /// the merged-envelope regime be reached anyway. For an Orbitrap, k ≈ FWHM/(2.355·(m/z)^1.5)
+        /// at any m/z where the resolving power is known: 60k at m/z 400 gives k ≈ 1.4e-7.
+        /// </remarks>
+        private static double? GetExplicitPeakWidthK()
+        {
+            var raw = Environment.GetEnvironmentVariable("MZLIB_TOPDOWN_SIM_PEAK_WIDTH_K");
+            if (string.IsNullOrWhiteSpace(raw))
+                return null;
+
+            return double.TryParse(raw, System.Globalization.NumberStyles.Float,
+                       System.Globalization.CultureInfo.InvariantCulture, out double parsed) && parsed > 0
+                ? parsed
+                : null;
+        }
+
         private static bool IsTrueEnvironmentVariable(string variableName)
         {
             var value = Environment.GetEnvironmentVariable(variableName);
@@ -399,8 +453,11 @@ namespace Test.FileReadingTests
 
             Assert.That(simulationRecords, Is.Not.Empty, "No MetaMorpheus proteoform rows matched the rep2 raw filename.");
 
-            var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012));
+            var fitter = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(
+                fallbackSigmaMz: 0.012,
+                minSamplesPerSigma: GetMinimumSamplesPerSigma()));
             var fitted = new List<FittedProteoform>(simulationRecords.Length);
+            var truths = new List<ProteoformGroundTruth>(simulationRecords.Length);
 
             int globalMinCharge = int.MaxValue;
             int globalMaxCharge = int.MinValue;
@@ -430,6 +487,7 @@ namespace Test.FileReadingTests
                     continue;
 
                 fitted.Add(fit);
+                truths.Add(truth);
                 globalMinCharge = Math.Min(globalMinCharge, minCharge);
                 globalMaxCharge = Math.Max(globalMaxCharge, maxCharge);
                 counter++;
@@ -450,15 +508,18 @@ namespace Test.FileReadingTests
             if (globalMaxCharge == int.MinValue)
                 globalMaxCharge = 80;
 
+            var (widthModel, fittedUnderSharedWidth) = FitSharedPeakWidth(
+                fitted.ToArray(), truths.ToArray(), sigmaMz, GetPeakWidthModelEnabled());
+
             var scanTimes = ms1Scans.Select(s => s.RetentionTime).ToArray();
-            var models = fitted.Select(f => f.Model).ToArray();
+            var models = fittedUnderSharedWidth.Select(f => f.Model).ToArray();
 
             stageSw.Restart();
             var export = new Simulator().WriteMzml(
                 models,
                 globalMinCharge,
                 globalMaxCharge,
-                sigmaMz,
+                widthModel,
                 scanTimes,
                 mzmlOutPath,
                 new ScanReductionOptions
@@ -469,10 +530,11 @@ namespace Test.FileReadingTests
             Console.WriteLine($"Simulated and wrote mzML in {stageSw.Elapsed}");
 
             Console.WriteLine($"Simulated models: {models.Length}");
-            Console.WriteLine($"Fitted sigmaMz (median): {sigmaMz:F6}");
+            Console.WriteLine($"Median per-record sigmaMz: {sigmaMz:F6}");
             Console.WriteLine($"Charge range: {globalMinCharge}-{globalMaxCharge}");
             Console.WriteLine($"Wrote simulated mzML: {export.MzmlPath}");
-            Console.WriteLine($"Ground truth: {export.GroundTruthPath}");
+            Console.WriteLine($"Parameter truth: {export.GroundTruthPath}");
+            Console.WriteLine($"Feature truth: {export.FeatureGroundTruthPath} ({export.FeatureCount} features)");
             Console.WriteLine($"Simulated scans: {export.ScanCount}, peak count: {export.PeakCount}");
             Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
         }
@@ -546,7 +608,7 @@ namespace Test.FileReadingTests
             // is still applied separately to each output set — the slice refit is conditioned on the
             // slice, exactly as before.
             var stageSw = Stopwatch.StartNew();
-            var allFits = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth);
+            var allFits = FitProteoforms(qFilteredRecords, extractor, rtHalfWidth, GetPeakWidthModelEnabled());
             Console.WriteLine($"Fitted {allFits.Fits.Length}/{qFilteredRecords.Length} records in {stageSw.Elapsed}");
             Assert.That(allFits.Fits, Is.Not.Empty, "No simulated models were fitted for full q<=0.01 run.");
 
@@ -558,7 +620,7 @@ namespace Test.FileReadingTests
             var sliceModels = ApplyGlobalRefit(
                 sliceSelection.Select(i => allFits.Fits[i]).ToArray(),
                 sliceSelection.Select(i => allFits.Truths[i]).ToArray(),
-                allFits.MinCharge, allFits.MaxCharge, allFits.SigmaMz,
+                allFits.MinCharge, allFits.MaxCharge, allFits.WidthModel,
                 useGlobalAbundanceRefit, globalRefitMaxModels, "31-35 min slice");
 
             var sliceScanTimes = rtSliceMs1Scans.Select(s => s.RetentionTime).ToArray();
@@ -566,18 +628,19 @@ namespace Test.FileReadingTests
                 sliceModels,
                 allFits.MinCharge,
                 allFits.MaxCharge,
-                allFits.SigmaMz,
+                allFits.WidthModel,
                 sliceScanTimes,
                 simSliceMzmlPath,
                 reduction);
 
             Console.WriteLine($"Simulated slice mzML written: {sliceExport.MzmlPath}");
-            Console.WriteLine($"Ground truth: {sliceExport.GroundTruthPath}");
+            Console.WriteLine($"Parameter truth: {sliceExport.GroundTruthPath}");
+            Console.WriteLine($"Feature truth: {sliceExport.FeatureGroundTruthPath} ({sliceExport.FeatureCount} features)");
             Console.WriteLine($"Simulated slice models: {sliceModels.Length}, scans: {sliceExport.ScanCount}, peaks: {sliceExport.PeakCount}");
 
             var fullModels = ApplyGlobalRefit(
                 allFits.Fits, allFits.Truths,
-                allFits.MinCharge, allFits.MaxCharge, allFits.SigmaMz,
+                allFits.MinCharge, allFits.MaxCharge, allFits.WidthModel,
                 useGlobalAbundanceRefit, globalRefitMaxModels, "full q<=0.01 run");
 
             var fullScanTimes = allMs1Scans.Select(s => s.RetentionTime).ToArray();
@@ -585,13 +648,14 @@ namespace Test.FileReadingTests
                 fullModels,
                 allFits.MinCharge,
                 allFits.MaxCharge,
-                allFits.SigmaMz,
+                allFits.WidthModel,
                 fullScanTimes,
                 simFullMzmlPath,
                 reduction);
 
             Console.WriteLine($"Simulated full mzML written: {fullExport.MzmlPath}");
-            Console.WriteLine($"Ground truth: {fullExport.GroundTruthPath}");
+            Console.WriteLine($"Parameter truth: {fullExport.GroundTruthPath}");
+            Console.WriteLine($"Feature truth: {fullExport.FeatureGroundTruthPath} ({fullExport.FeatureCount} features)");
             Console.WriteLine($"Simulated full models: {fullModels.Length}, scans: {fullExport.ScanCount}, peaks: {fullExport.PeakCount}");
             Console.WriteLine($"Total elapsed: {totalSw.Elapsed}");
         }
@@ -641,7 +705,122 @@ namespace Test.FileReadingTests
             MmResultRecord[] Records,
             int MinCharge,
             int MaxCharge,
-            double SigmaMz);
+            double SigmaMz,
+            IPeakWidthModel WidthModel);
+
+        /// <summary>
+        /// Fits σ_m = k·(m/z)^1.5 from the pooled per-isotopologue width measurements of every
+        /// record, and re-fits every abundance under it so the fitted numbers describe the file
+        /// that will actually be rendered.
+        /// </summary>
+        /// <remarks>
+        /// Returns the median-σ constant model when the pooled fit has too little to work with. The
+        /// free-slope diagnostic is printed rather than assumed: if it does not come out near 1.5
+        /// the data is saying something about the instrument or about the estimator, and that is
+        /// worth seeing before trusting the shipped fit.
+        /// </remarks>
+        private static (IPeakWidthModel Model, FittedProteoform[] Fits) FitSharedPeakWidth(
+            FittedProteoform[] fits,
+            ProteoformGroundTruth[] truths,
+            double medianSigmaMz,
+            bool enabled)
+        {
+            var constant = new ConstantPeakWidth(medianSigmaMz);
+            if (!enabled)
+            {
+                Console.WriteLine($"Peak width model: {constant} (set by MZLIB_TOPDOWN_SIM_CONSTANT_PEAK_WIDTH)");
+                return (constant, fits);
+            }
+
+            IPeakWidthModel widthModel;
+            double? explicitK = GetExplicitPeakWidthK();
+            if (explicitK.HasValue)
+            {
+                widthModel = new OrbitrapPeakWidth(explicitK.Value);
+                Console.WriteLine($"Peak width model: {widthModel} (supplied via MZLIB_TOPDOWN_SIM_PEAK_WIDTH_K)");
+            }
+            else
+            {
+                var measurements = fits.SelectMany(f => f.WidthMeasurements).ToArray();
+                var widthFit = new PeakWidthModelFitter().Fit(measurements);
+                if (widthFit is null)
+                {
+                    int coarse = fits.Sum(f => f.WidthWindowsTooCoarselySampled);
+                    Console.WriteLine($"Peak width model: {constant}");
+                    Console.WriteLine($"  Refused to fit a width law: {measurements.Length} usable width measurements" +
+                                      (coarse > 0 ? $", with {coarse} windows rejected as too coarsely sampled to be peak shapes." : "."));
+                    Console.WriteLine("  This is what a centroided source looks like — the peaks were reduced to positions");
+                    Console.WriteLine("  before mzLib saw them, so sigma_m is not recoverable from this file. Supply k via");
+                    Console.WriteLine("  MZLIB_TOPDOWN_SIM_PEAK_WIDTH_K to simulate m/z-dependent widths anyway.");
+                    return (constant, fits);
+                }
+
+                Console.WriteLine($"Peak width fit: {widthFit.Model}");
+                Console.WriteLine($"  measurements: {widthFit.MeasurementsUsed}/{widthFit.MeasurementCount} used, " +
+                                  $"median sigma {widthFit.MedianSigmaMz:F6} at median m/z {widthFit.MedianMz:F2}");
+                Console.WriteLine($"  m/z span covered: {widthFit.MinMz:F1} - {widthFit.MaxMz:F1}");
+                Console.WriteLine($"  free-slope diagnostic: {widthFit.FreeSlope:F3} +/- {widthFit.FreeSlopeStandardError:F3} " +
+                                  $"(expected ~{OrbitrapPeakWidth.Exponent}; " +
+                                  $"{widthFit.SlopeDeviationInStandardErrors:F1} standard errors away)");
+
+                // The slope is the whole reason it is fitted free rather than assumed. If the data
+                // disagrees with the width law by more than a few standard errors, the measurements
+                // are describing something other than instrument peak width, and shipping k from
+                // them would put a confident wrong number into every simulated spectrum.
+                if (widthFit.ContradictsWidthLaw(MaxSlopeDeviationInStandardErrors))
+                {
+                    Console.WriteLine($"Peak width model: {constant}");
+                    Console.WriteLine("  Refused the fitted width law: the free slope disagrees with (m/z)^1.5 by more than");
+                    Console.WriteLine($"  {MaxSlopeDeviationInStandardErrors} standard errors. A slope near 1 is the signature of width measured from");
+                    Console.WriteLine("  centroided input: the extraction window is half the isotopologue spacing, 0.5/z, and");
+                    Console.WriteLine("  m/z ~ M/z, so centroid scatter fills a window proportional to m/z. Supply k via");
+                    Console.WriteLine("  MZLIB_TOPDOWN_SIM_PEAK_WIDTH_K to simulate m/z-dependent widths anyway.");
+                    return (constant, fits);
+                }
+
+                if (widthFit.Clamped)
+                    Console.WriteLine("  WARNING: the fitted width law hit its plausibility clamp.");
+
+                widthModel = widthFit.Model;
+                Console.WriteLine($"Peak width model: {widthModel}");
+            }
+
+            Console.WriteLine($"  sigma at m/z 600 / 1000 / 1500: " +
+                              $"{widthModel.SigmaAt(600):F5} / {widthModel.SigmaAt(1000):F5} / {widthModel.SigmaAt(1500):F5}");
+
+            // Peak height goes as 1/sigma, so an abundance fitted under this record's own sigma and
+            // then rendered under a shared model is off by their ratio. Re-fitting closes that gap.
+            var abundanceFitter = new AbundanceFitter();
+            var refitted = new FittedProteoform[fits.Length];
+            int notRefitted = 0;
+            for (int i = 0; i < fits.Length; i++)
+            {
+                try
+                {
+                    var abundance = abundanceFitter.Fit(
+                        truths[i], widthModel, fits[i].Model.RtProfile, fits[i].Model.ChargeDistribution);
+                    refitted[i] = fits[i] with
+                    {
+                        Model = fits[i].Model with { Abundance = abundance.Abundance },
+                        Residual = abundance.Residual,
+                    };
+                }
+                catch (InvalidOperationException)
+                {
+                    // The model predicts zero everywhere for this record, so there is nothing to fit
+                    // against. Its abundance stays as fitted under its own per-record sigma, which
+                    // means it is the one case where the fitting/rendering mismatch survives.
+                    refitted[i] = fits[i];
+                    notRefitted++;
+                }
+            }
+
+            if (notRefitted > 0)
+                Console.WriteLine($"  {notRefitted}/{fits.Length} records could not be re-fitted under the shared width " +
+                                  "model and keep an abundance fitted under their own sigma.");
+
+            return (widthModel, refitted);
+        }
 
         /// <summary>
         /// Extracts and fits every record. No global refit is applied here — that is a joint fit
@@ -657,12 +836,14 @@ namespace Test.FileReadingTests
         private static FitBatch FitProteoforms(
             IReadOnlyList<MmResultRecord> records,
             GroundTruthExtractor extractor,
-            double rtHalfWidth)
+            double rtHalfWidth,
+            bool fitPeakWidthModel = true)
         {
             var fits = new FittedProteoform[records.Count];
             var truths = new ProteoformGroundTruth[records.Count];
             var chargeRanges = new (int Min, int Max)[records.Count];
             int completed = 0;
+            double minSamplesPerSigma = GetMinimumSamplesPerSigma();
 
             Parallel.For(0, records.Count, i =>
             {
@@ -677,7 +858,9 @@ namespace Test.FileReadingTests
                 FittedProteoform fit;
                 try
                 {
-                    fit = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(fallbackSigmaMz: 0.012))
+                    fit = new ParameterFitter(widthFitter: new EnvelopeWidthFitter(
+                            fallbackSigmaMz: 0.012,
+                            minSamplesPerSigma: minSamplesPerSigma))
                         .Fit(truth, record.Identifier);
                 }
                 catch (InvalidOperationException)
@@ -728,13 +911,17 @@ namespace Test.FileReadingTests
                 .ToArray();
             double sigmaMz = sigmaCandidates.Length == 0 ? 0.012 : sigmaCandidates[sigmaCandidates.Length / 2];
 
+            var (widthModel, fitsUnderSharedWidth) = FitSharedPeakWidth(
+                keptFits.ToArray(), keptTruths.ToArray(), sigmaMz, fitPeakWidthModel);
+
             return new FitBatch(
-                keptFits.ToArray(),
+                fitsUnderSharedWidth,
                 keptTruths.ToArray(),
                 keptRecords.ToArray(),
                 minChargeGlobal,
                 maxChargeGlobal,
-                sigmaMz);
+                sigmaMz,
+                widthModel);
         }
 
         /// <summary>
@@ -746,7 +933,7 @@ namespace Test.FileReadingTests
             ProteoformGroundTruth[] truths,
             int minCharge,
             int maxCharge,
-            double sigmaMz,
+            IPeakWidthModel widthModel,
             bool useGlobalAbundanceRefit,
             int globalRefitMaxModels,
             string label)
@@ -767,10 +954,23 @@ namespace Test.FileReadingTests
                 MinimumAbundance: 0,
                 Verbose: true));
 
-            var refitResult = refitter.Refit(fits, truths, minCharge, maxCharge, sigmaMz);
+            var refitResult = refitter.Refit(fits, truths, minCharge, maxCharge, widthModel);
             Console.WriteLine($"Global abundance refit ({label}) over {fits.Length} models took {sw.Elapsed}");
             Console.WriteLine($"  iterations: {refitResult.IterationsCompleted}, converged: {refitResult.Converged}");
-            Console.WriteLine($"  residual fraction: {refitResult.InitialResidualFraction:G6} -> {refitResult.FinalResidualFraction:G6}");
+            Console.WriteLine($"  unexplained energy fraction: {refitResult.InitialResidualFraction:G6} -> {refitResult.FinalResidualFraction:G6}");
+
+            // The two numbers describe opposite failures: signal we could not explain, and signal we
+            // predicted where the instrument recorded nothing. The unexplained fraction is over
+            // distinct experimental peaks, so a peak claimed by several overlapping proteoforms
+            // counts once. The overpredicted one is per sample — an unmatched sample has no peak to
+            // key on — so it still scales with crowding and is not comparable across runs.
+            var final = refitResult.FinalResiduals;
+            if (final is not null)
+            {
+                Console.WriteLine($"  overpredicted energy fraction (per sample, not deduplicated): " +
+                                  $"{refitResult.InitialResiduals!.OverpredictedFraction:G6} -> {final.OverpredictedFraction:G6}");
+                Console.WriteLine($"  distinct observed peaks: {final.DistinctPeaks}, samples with no matching peak: {final.UnmatchedSamples}");
+            }
 
             return refitResult.FittedProteoforms.Select(f => f.Model).ToArray();
         }

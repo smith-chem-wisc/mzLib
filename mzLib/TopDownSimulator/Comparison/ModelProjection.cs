@@ -9,9 +9,9 @@ internal static class ModelProjection
     public static double[][][] ProjectIsotopologueIntensities(
         ProteoformGroundTruth truth,
         IReadOnlyList<ProteoformModel> proteoforms,
-        double sigmaMz)
+        IPeakWidthModel widthModel)
     {
-        var forwardModel = new ForwardModel(proteoforms, truth.MinCharge, truth.MaxCharge, sigmaMz);
+        var forwardModel = new ForwardModel(proteoforms, truth.MinCharge, truth.MaxCharge, widthModel);
         int nCharges = truth.ChargeCount;
         int nIso = truth.CentroidMzs[0].Length;
         int nScans = truth.ScanCount;

@@ -15,13 +15,45 @@ public sealed record GlobalAbundanceRefitOptions(
     long MaxBasisCacheBytes = 1L << 30,
     double BasisSparsityThreshold = 1e-10);
 
+/// <summary>
+/// How much of the observed signal the fitted abundances fail to account for, and how much signal
+/// they invent, reported separately.
+/// </summary>
+/// <param name="UnexplainedFraction">
+/// Σ(observed − predicted)² / Σ observed², over <b>distinct experimental peaks</b>. Overlapping
+/// proteoforms are matched to the same physical peak once each; counting that peak once per
+/// claimant inflates both sums by an amount that depends on how crowded the region is, making the
+/// number incomparable between runs.
+/// </param>
+/// <param name="OverpredictedFraction">
+/// Σ predicted² over samples where no experimental peak matched at all, on the same denominator.
+/// This is signal the model puts somewhere the instrument saw nothing — the opposite failure to
+/// <paramref name="UnexplainedFraction"/>, with the opposite fix, so the two are not folded into
+/// one ratio.
+/// <para>
+/// <b>Unlike <paramref name="UnexplainedFraction"/>, this numerator is summed over samples, not
+/// over distinct positions.</b> A sample that matched nothing has no peak index to key on, so
+/// there is nothing to deduplicate it by; two proteoforms probing the same empty neighbourhood
+/// each contribute. It therefore still scales with proteoform crowding and should be read as a
+/// within-run diagnostic rather than compared across runs of differing density.
+/// </para>
+/// </param>
+/// <param name="UnmatchedSamples">Count of samples, not of distinct empty positions.</param>
+public sealed record ResidualEnergySummary(
+    double UnexplainedFraction,
+    double OverpredictedFraction,
+    int DistinctPeaks,
+    int UnmatchedSamples);
+
 public sealed record GlobalAbundanceRefitResult(
     FittedProteoform[] FittedProteoforms,
     int IterationsCompleted,
     bool Converged,
     double InitialResidualFraction,
     double FinalResidualFraction,
-    IReadOnlyList<double> ResidualFractionByIteration);
+    IReadOnlyList<double> ResidualFractionByIteration,
+    ResidualEnergySummary? InitialResiduals = null,
+    ResidualEnergySummary? FinalResiduals = null);
 
 /// <summary>
 /// Refines per-proteoform abundance values jointly over potentially overlapping
@@ -40,7 +72,31 @@ public sealed class GlobalAbundanceRefitter
 {
     private const double BasisInclusionThreshold = 1e-12;
 
-    private sealed record SampleSet(double[] Times, double[] Mzs, double[] Observed, double[] Basis);
+    /// <summary>Marks a sample where the extractor found no experimental peak at all.</summary>
+    private const long UnmatchedSourceKey = long.MinValue;
+
+    /// <summary>
+    /// High bit reserved for the synthetic keys handed to truths that carry no peak identity, so
+    /// they can never collide with a real (scan, peak) key and nothing is deduplicated by accident.
+    /// </summary>
+    private const long SyntheticSourceKeyBase = 1L << 62;
+
+    /// <param name="SourceKeys">
+    /// Identity of the experimental peak behind each sample. Samples sharing a key across sample
+    /// sets are the same physical peak claimed by different proteoforms.
+    /// </param>
+    /// <param name="SourceDistances">
+    /// |observed m/z − this claimant's theoretical centroid|. Each claimant recorded the sample at
+    /// its <i>own</i> centroid, which is up to a tolerance width away, so this is what says whose
+    /// sample sits closest to the real peak.
+    /// </param>
+    private sealed record SampleSet(
+        double[] Times,
+        double[] Mzs,
+        double[] Observed,
+        double[] Basis,
+        long[] SourceKeys,
+        double[] SourceDistances);
 
     /// <summary>
     /// Compressed-row storage of the (sample x model) basis matrix for one sample set:
@@ -83,14 +139,22 @@ public sealed class GlobalAbundanceRefitter
         IReadOnlyList<ProteoformGroundTruth> truths,
         int minCharge,
         int maxCharge,
-        double sigmaMz)
+        double sigmaMz) =>
+        Refit(fitted, truths, minCharge, maxCharge, new ConstantPeakWidth(sigmaMz));
+
+    public GlobalAbundanceRefitResult Refit(
+        IReadOnlyList<FittedProteoform> fitted,
+        IReadOnlyList<ProteoformGroundTruth> truths,
+        int minCharge,
+        int maxCharge,
+        IPeakWidthModel widthModel)
     {
         if (fitted.Count != truths.Count)
             throw new ArgumentException("fitted and truths must be parallel arrays with identical length.");
         if (minCharge < 1 || maxCharge < minCharge)
             throw new ArgumentException("Charge range must satisfy 1 <= minCharge <= maxCharge.");
-        if (sigmaMz <= 0)
-            throw new ArgumentOutOfRangeException(nameof(sigmaMz));
+        if (widthModel is null)
+            throw new ArgumentNullException(nameof(widthModel));
 
         if (fitted.Count == 0)
         {
@@ -100,13 +164,16 @@ public sealed class GlobalAbundanceRefitter
                 Converged: true,
                 InitialResidualFraction: 0,
                 FinalResidualFraction: 0,
-                ResidualFractionByIteration: Array.Empty<double>());
+                ResidualFractionByIteration: Array.Empty<double>(),
+                InitialResiduals: new ResidualEnergySummary(0, 0, 0, 0),
+                FinalResiduals: new ResidualEnergySummary(0, 0, 0, 0));
         }
 
         var models = fitted.Select(f => f.Model).ToArray();
         var kernels = models.Select(m => new IsotopeEnvelopeKernel(m.MonoisotopicMass)).ToArray();
 
-        var sampleSets = BuildSampleSets(models, truths, kernels, minCharge, maxCharge, sigmaMz);
+        var sampleSets = BuildSampleSets(models, truths, kernels, minCharge, maxCharge, widthModel);
+        var sampleSetOffsets = BuildSampleSetOffsets(sampleSets);
 
         // The basis value of model m at sample k depends only on shape terms — mass, RT profile,
         // charge distribution, sigma — none of which this refit touches. Only Abundance changes, so
@@ -114,7 +181,7 @@ public sealed class GlobalAbundanceRefitter
         // one of the MaxIterations + 2 passes below. Cached values are the same numbers the
         // uncached path would recompute, so caching alone does not change results.
         var basisMatrices = TryBuildBasisMatrices(
-            models, kernels, sampleSets, minCharge, maxCharge, sigmaMz,
+            models, kernels, sampleSets, minCharge, maxCharge, widthModel,
             _options.MaxBasisCacheBytes, _options.BasisSparsityThreshold);
 
         // Model-major view of the same entries. Null only when the basis itself could not be cached,
@@ -126,8 +193,8 @@ public sealed class GlobalAbundanceRefitter
             ? null
             : new double[transpose.SampleSetOffsets[sampleSets.Length]];
 
-        var initialPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold);
-        double initialResidual = ComputeResidualEnergyFraction(sampleSets, initialPredictedTotals);
+        var initialPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, widthModel, _options.BasisSparsityThreshold);
+        var initialResiduals = ComputeResidualEnergy(sampleSets, Flatten(initialPredictedTotals, sampleSetOffsets), sampleSetOffsets);
         var residualByIteration = new List<double>(_options.MaxIterations);
         int completedIterations = 0;
         bool converged = false;
@@ -157,7 +224,7 @@ public sealed class GlobalAbundanceRefitter
                     // Recomputed immediately before use, which is what makes this branch
                     // Gauss-Seidel too. Over a whole sweep it touches each sample set exactly once,
                     // so it costs no more than the single up-front pass it replaces.
-                    totals = ComputeSampleSetTotals(models, kernels, sampleSets[p], minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold);
+                    totals = ComputeSampleSetTotals(models, kernels, sampleSets[p], minCharge, maxCharge, widthModel, _options.BasisSparsityThreshold);
                     totalsOffset = 0;
                 }
 
@@ -181,11 +248,12 @@ public sealed class GlobalAbundanceRefitter
 
             completedIterations++;
 
-            double sweepResidual = transpose is not null
-                ? ComputeResidualEnergyFraction(sampleSets, liveTotals!, transpose.SampleSetOffsets)
-                : ComputeResidualEnergyFraction(
-                    sampleSets,
-                    ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold));
+            double[] sweepTotals = transpose is not null
+                ? liveTotals!
+                : Flatten(
+                    ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, widthModel, _options.BasisSparsityThreshold),
+                    sampleSetOffsets);
+            double sweepResidual = ComputeResidualEnergy(sampleSets, sweepTotals, sampleSetOffsets).UnexplainedFraction;
             residualByIteration.Add(sweepResidual);
 
             if (_options.Verbose)
@@ -198,8 +266,8 @@ public sealed class GlobalAbundanceRefitter
             }
         }
 
-        var finalPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, sigmaMz, _options.BasisSparsityThreshold);
-        double finalResidual = ComputeResidualEnergyFraction(sampleSets, finalPredictedTotals);
+        var finalPredictedTotals = ComputePredictedTotals(models, kernels, sampleSets, basisMatrices, minCharge, maxCharge, widthModel, _options.BasisSparsityThreshold);
+        var finalResiduals = ComputeResidualEnergy(sampleSets, Flatten(finalPredictedTotals, sampleSetOffsets), sampleSetOffsets);
         var updatedFits = new FittedProteoform[fitted.Count];
         for (int i = 0; i < fitted.Count; i++)
         {
@@ -210,16 +278,42 @@ public sealed class GlobalAbundanceRefitter
             updatedFits,
             completedIterations,
             converged,
-            initialResidual,
-            finalResidual,
-            residualByIteration);
+            initialResiduals.UnexplainedFraction,
+            finalResiduals.UnexplainedFraction,
+            residualByIteration,
+            initialResiduals,
+            finalResiduals);
+    }
+
+    private static int[] BuildSampleSetOffsets(IReadOnlyList<SampleSet> sampleSets)
+    {
+        var offsets = new int[sampleSets.Count + 1];
+        for (int p = 0; p < sampleSets.Count; p++)
+            offsets[p + 1] = offsets[p] + sampleSets[p].Observed.Length;
+
+        return offsets;
+    }
+
+    private static double[] Flatten(IReadOnlyList<double[]> jagged, int[] offsets)
+    {
+        var flat = new double[offsets[^1]];
+        for (int p = 0; p < jagged.Count; p++)
+            Array.Copy(jagged[p], 0, flat, offsets[p], jagged[p].Length);
+
+        return flat;
     }
 
     /// <summary>
-    /// Groups the entries of <paramref name="matrices"/> by model instead of by sample. Iterating
-    /// models in ascending order while filling means each sample's contributions land in ascending
-    /// model order, matching the forward pass's summation order exactly.
+    /// Groups the entries of <paramref name="matrices"/> by model instead of by sample. Each
+    /// model's row comes out ordered by ascending flat sample index.
     /// </summary>
+    /// <remarks>
+    /// Agreement with the forward pass's summation order does <b>not</b> come from this method — it
+    /// comes from <see cref="RefreshLiveTotals"/> accumulating models in ascending order, which is
+    /// what makes each sample's contributions land in the same sequence the sample-major pass adds
+    /// them in. Reordering or parallelising that loop would break the bit-agreement the tests lean
+    /// on, however this method is written.
+    /// </remarks>
     private static BasisTranspose BuildTranspose(
         SparseBasis[] matrices,
         IReadOnlyList<SampleSet> sampleSets,
@@ -330,7 +424,7 @@ public sealed class GlobalAbundanceRefitter
         IReadOnlyList<IsotopeEnvelopeKernel> kernels,
         int minCharge,
         int maxCharge,
-        double sigmaMz)
+        IPeakWidthModel widthModel)
     {
         var sampleSets = new SampleSet[truths.Count];
 
@@ -339,11 +433,14 @@ public sealed class GlobalAbundanceRefitter
             var truth = truths[p];
             var model = models[p];
             var kernel = kernels[p];
+            bool hasIdentity = truth.HasSourcePeakIdentity;
 
             var times = new List<double>();
             var mzs = new List<double>();
             var observed = new List<double>();
             var basis = new List<double>();
+            var sourceKeys = new List<long>();
+            var sourceDistances = new List<double>();
 
             for (int c = 0; c < truth.ChargeCount; c++)
             {
@@ -353,7 +450,7 @@ public sealed class GlobalAbundanceRefitter
                     double mz = chargeMzs[i];
                     for (int s = 0; s < truth.ScanCount; s++)
                     {
-                        double b = EvaluateUnitContribution(model, kernel, truth.ScanTimes[s], mz, minCharge, maxCharge, sigmaMz);
+                        double b = EvaluateUnitContribution(model, kernel, truth.ScanTimes[s], mz, minCharge, maxCharge, widthModel);
                         if (b <= BasisInclusionThreshold)
                             continue;
 
@@ -361,11 +458,29 @@ public sealed class GlobalAbundanceRefitter
                         mzs.Add(mz);
                         observed.Add(truth.IsotopologueIntensities[c][i][s]);
                         basis.Add(b);
+
+                        if (hasIdentity)
+                        {
+                            int peakIndex = truth.SourcePeakIndices[c][i][s];
+                            sourceKeys.Add(peakIndex < 0
+                                ? UnmatchedSourceKey
+                                : ((long)truth.ZeroBasedScanIndices[s] << 32) | (uint)peakIndex);
+                            sourceDistances.Add(truth.SourcePeakDeltas[c][i][s]);
+                        }
+                        else
+                        {
+                            // No identity to dedup on, so give each sample a key of its own and let
+                            // the accounting behave as it did before peak identity existed.
+                            sourceKeys.Add(SyntheticSourceKeyBase + ((long)p << 32) + sourceKeys.Count);
+                            sourceDistances.Add(double.NaN);
+                        }
                     }
                 }
             }
 
-            sampleSets[p] = new SampleSet(times.ToArray(), mzs.ToArray(), observed.ToArray(), basis.ToArray());
+            sampleSets[p] = new SampleSet(
+                times.ToArray(), mzs.ToArray(), observed.ToArray(), basis.ToArray(),
+                sourceKeys.ToArray(), sourceDistances.ToArray());
         }
 
         return sampleSets;
@@ -383,7 +498,7 @@ public sealed class GlobalAbundanceRefitter
         IReadOnlyList<SampleSet> sampleSets,
         int minCharge,
         int maxCharge,
-        double sigmaMz,
+        IPeakWidthModel widthModel,
         long maxBytes,
         double sparsityThreshold)
     {
@@ -414,7 +529,7 @@ public sealed class GlobalAbundanceRefitter
 
                 for (int m = 0; m < modelCount; m++)
                 {
-                    double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+                    double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, widthModel);
                     if (basis <= 0 || basis < cutoff)
                         continue;
 
@@ -450,7 +565,7 @@ public sealed class GlobalAbundanceRefitter
         SparseBasis[]? basisMatrices,
         int minCharge,
         int maxCharge,
-        double sigmaMz,
+        IPeakWidthModel widthModel,
         double sparsityThreshold = 0)
     {
         var predicted = new double[sampleSets.Count][];
@@ -460,7 +575,7 @@ public sealed class GlobalAbundanceRefitter
             var sparse = basisMatrices?[p];
             predicted[p] = sparse is not null
                 ? ComputeSampleSetTotalsFromSparse(models, sampleSets[p], sparse)
-                : ComputeSampleSetTotals(models, kernels, sampleSets[p], minCharge, maxCharge, sigmaMz, sparsityThreshold);
+                : ComputeSampleSetTotals(models, kernels, sampleSets[p], minCharge, maxCharge, widthModel, sparsityThreshold);
         }
 
         return predicted;
@@ -496,7 +611,7 @@ public sealed class GlobalAbundanceRefitter
         SampleSet set,
         int minCharge,
         int maxCharge,
-        double sigmaMz,
+        IPeakWidthModel widthModel,
         double sparsityThreshold)
     {
         int modelCount = models.Count;
@@ -511,7 +626,7 @@ public sealed class GlobalAbundanceRefitter
             double sum = 0;
             for (int m = 0; m < modelCount; m++)
             {
-                double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, sigmaMz);
+                double basis = EvaluateUnitContribution(models[m], kernels[m], time, mz, minCharge, maxCharge, widthModel);
                 if (basis <= 0 || basis < cutoff)
                     continue;
 
@@ -531,7 +646,7 @@ public sealed class GlobalAbundanceRefitter
         double mz,
         int minCharge,
         int maxCharge,
-        double sigmaMz)
+        IPeakWidthModel widthModel)
     {
         double rt = model.RtProfile.Evaluate(time);
         if (rt <= 0)
@@ -544,46 +659,39 @@ public sealed class GlobalAbundanceRefitter
             if (fz <= 0)
                 continue;
 
-            chargeSum += fz * kernel.Evaluate(mz, z, sigmaMz);
+            chargeSum += fz * kernel.Evaluate(mz, z, widthModel);
         }
 
         return chargeSum > 0 ? rt * chargeSum : 0;
     }
 
-    private static double ComputeResidualEnergyFraction(
-        IReadOnlyList<SampleSet> sampleSets,
-        IReadOnlyList<double[]> predictedTotals)
-    {
-        double observedEnergy = 0;
-        double residualEnergy = 0;
-
-        for (int p = 0; p < sampleSets.Count; p++)
-        {
-            var set = sampleSets[p];
-            var totals = predictedTotals[p];
-            for (int k = 0; k < set.Observed.Length; k++)
-            {
-                double observed = set.Observed[k];
-                double residual = observed - totals[k];
-                observedEnergy += observed * observed;
-                residualEnergy += residual * residual;
-            }
-        }
-
-        return observedEnergy > 0 ? residualEnergy / observedEnergy : 0;
-    }
-
     /// <summary>
-    /// Same quantity as the jagged overload, read off the flat live totals so a sweep can report
-    /// its residual without a second pass over the basis.
+    /// Energy accounting over <b>distinct experimental peaks</b> rather than over samples.
     /// </summary>
-    private static double ComputeResidualEnergyFraction(
+    /// <remarks>
+    /// Sample sets are built one per proteoform from that proteoform's own centroid grid, so when
+    /// two proteoforms overlap in m/z and RT the extractor matches the same experimental peak into
+    /// both. Summing over sample sets independently counts that peak's intensity once per claimant,
+    /// inflating the denominator by an amount that depends on how crowded the neighbourhood is. The
+    /// result is a weighted average over per-proteoform neighbourhoods, not a fraction of the
+    /// file's energy, and it is not comparable across runs with different degrees of overlap —
+    /// which is the only comparison anyone would want to make with it.
+    /// <para>
+    /// Deduplication cannot key on the recorded m/z: each claimant stored the sample at its own
+    /// theoretical centroid, and those differ by Δmass/z even though the source peak is identical.
+    /// It keys on (scan, peak index) instead, and where several claimants share a peak it keeps the
+    /// one whose theoretical centroid sits closest to where the peak actually is, that being the
+    /// best available estimate of what the model predicts at the real peak position.
+    /// </para>
+    /// </remarks>
+    private static ResidualEnergySummary ComputeResidualEnergy(
         IReadOnlyList<SampleSet> sampleSets,
-        double[] liveTotals,
+        double[] flatTotals,
         int[] sampleSetOffsets)
     {
-        double observedEnergy = 0;
-        double residualEnergy = 0;
+        var bestBySourcePeak = new Dictionary<long, (double Observed, double Predicted, double Distance)>();
+        double overpredictedEnergy = 0;
+        int unmatchedSamples = 0;
 
         for (int p = 0; p < sampleSets.Count; p++)
         {
@@ -591,13 +699,37 @@ public sealed class GlobalAbundanceRefitter
             int offset = sampleSetOffsets[p];
             for (int k = 0; k < set.Observed.Length; k++)
             {
-                double observed = set.Observed[k];
-                double residual = observed - liveTotals[offset + k];
-                observedEnergy += observed * observed;
-                residualEnergy += residual * residual;
+                double predicted = flatTotals[offset + k];
+                long key = set.SourceKeys[k];
+
+                if (key == UnmatchedSourceKey)
+                {
+                    // Nothing was there to explain. Predicting signal here is a different failure
+                    // from failing to explain signal that is there, so it is reported separately.
+                    overpredictedEnergy += predicted * predicted;
+                    unmatchedSamples++;
+                    continue;
+                }
+
+                double distance = set.SourceDistances[k];
+                if (!bestBySourcePeak.TryGetValue(key, out var existing) || distance < existing.Distance)
+                    bestBySourcePeak[key] = (set.Observed[k], predicted, distance);
             }
         }
 
-        return observedEnergy > 0 ? residualEnergy / observedEnergy : 0;
+        double observedEnergy = 0;
+        double residualEnergy = 0;
+        foreach (var entry in bestBySourcePeak.Values)
+        {
+            double residual = entry.Observed - entry.Predicted;
+            observedEnergy += entry.Observed * entry.Observed;
+            residualEnergy += residual * residual;
+        }
+
+        return new ResidualEnergySummary(
+            UnexplainedFraction: observedEnergy > 0 ? residualEnergy / observedEnergy : 0,
+            OverpredictedFraction: observedEnergy > 0 ? overpredictedEnergy / observedEnergy : 0,
+            DistinctPeaks: bestBySourcePeak.Count,
+            UnmatchedSamples: unmatchedSamples);
     }
 }

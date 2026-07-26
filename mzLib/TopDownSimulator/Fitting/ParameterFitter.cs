@@ -1,4 +1,6 @@
 #nullable enable
+using System;
+using System.Collections.Generic;
 using TopDownSimulator.Extraction;
 using TopDownSimulator.Model;
 
@@ -9,7 +11,18 @@ public sealed record FittedProteoform(
     double SigmaMz,
     WidthFitMode WidthMode,
     int WidthPeaksUsed,
-    double Residual);
+    double Residual,
+    IReadOnlyList<PeakWidthMeasurement>? WidthMeasurements = null,
+    int WidthWindowsTooCoarselySampled = 0)
+{
+    /// <summary>
+    /// The (m/z, σ) observations this record contributed. Pooled across every record they are the
+    /// input to <see cref="PeakWidthModelFitter"/>; <see cref="SigmaMz"/> alone cannot support a
+    /// width law.
+    /// </summary>
+    public IReadOnlyList<PeakWidthMeasurement> WidthMeasurements { get; init; } =
+        WidthMeasurements ?? Array.Empty<PeakWidthMeasurement>();
+}
 
 /// <summary>
 /// Top-level Phase 1 fitter. Runs the per-factor fitters in order —
@@ -35,12 +48,24 @@ public sealed class ParameterFitter
         _abundanceFitter = abundanceFitter ?? new AbundanceFitter();
     }
 
-    public FittedProteoform Fit(ProteoformGroundTruth truth, string? identifier = null)
+    /// <summary>
+    /// Fits one proteoform. When <paramref name="widthModel"/> is supplied the abundance is fitted
+    /// under it, so the fitted number is consistent with what a simulation under that same model
+    /// will render; otherwise the abundance is fitted under this record's own measured σ.
+    /// </summary>
+    public FittedProteoform Fit(
+        ProteoformGroundTruth truth,
+        string? identifier = null,
+        IPeakWidthModel? widthModel = null)
     {
         var width = _widthFitter.Fit(truth);
         var rt = _rtFitter.Fit(truth);
         var charge = _chargeFitter.Fit(truth);
-        var abundance = _abundanceFitter.Fit(truth, width.SigmaMz, rt.Profile, charge.Distribution);
+        var abundance = _abundanceFitter.Fit(
+            truth,
+            widthModel ?? new ConstantPeakWidth(width.SigmaMz),
+            rt.Profile,
+            charge.Distribution);
 
         var model = new ProteoformModel(
             MonoisotopicMass: truth.MonoisotopicMass,
@@ -54,6 +79,8 @@ public sealed class ParameterFitter
             SigmaMz: width.SigmaMz,
             WidthMode: width.Mode,
             WidthPeaksUsed: width.PeaksUsed,
-            Residual: abundance.Residual);
+            Residual: abundance.Residual,
+            WidthMeasurements: width.Measurements,
+            WidthWindowsTooCoarselySampled: width.WindowsTooCoarselySampled);
     }
 }

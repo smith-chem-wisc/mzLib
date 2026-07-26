@@ -17,11 +17,14 @@ public sealed record ComparisonReport(
 
 public static class ComparisonReportBuilder
 {
-    public static ComparisonReport Create(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz)
+    public static ComparisonReport Create(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz) =>
+        Create(truth, proteoforms, new ConstantPeakWidth(sigmaMz));
+
+    public static ComparisonReport Create(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, IPeakWidthModel widthModel)
     {
         return new ComparisonReport(
-            PerScanSpectralAngles: SpectralAngle.ComputePerScan(truth, proteoforms, sigmaMz),
-            PerChargeXicCorrelations: XicCorrelation.ComputePerCharge(truth, proteoforms, sigmaMz),
-            Residuals: ResidualAnalyzer.Analyze(truth, proteoforms, sigmaMz));
+            PerScanSpectralAngles: SpectralAngle.ComputePerScan(truth, proteoforms, widthModel),
+            PerChargeXicCorrelations: XicCorrelation.ComputePerCharge(truth, proteoforms, widthModel),
+            Residuals: ResidualAnalyzer.Analyze(truth, proteoforms, widthModel));
     }
 }

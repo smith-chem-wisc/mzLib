@@ -39,9 +39,12 @@ public static class SpectralAngle
         return 1.0 - 2.0 * Math.Acos(cosine) / Math.PI;
     }
 
-    public static double[] ComputePerScan(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz)
+    public static double[] ComputePerScan(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz) =>
+        ComputePerScan(truth, proteoforms, new ConstantPeakWidth(sigmaMz));
+
+    public static double[] ComputePerScan(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, IPeakWidthModel widthModel)
     {
-        var projected = ModelProjection.ProjectIsotopologueIntensities(truth, proteoforms, sigmaMz);
+        var projected = ModelProjection.ProjectIsotopologueIntensities(truth, proteoforms, widthModel);
         int nCharges = truth.ChargeCount;
         int nIso = truth.CentroidMzs[0].Length;
         int nScans = truth.ScanCount;

@@ -1,3 +1,4 @@
+#nullable enable
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -17,9 +18,9 @@ public sealed class ForwardModel
     private readonly IReadOnlyList<(ProteoformModel Model, IsotopeEnvelopeKernel Kernel)> _species;
     private readonly int _minCharge;
     private readonly int _maxCharge;
-    private readonly double _sigmaMz;
+    private readonly IPeakWidthModel _widthModel;
 
-    public ForwardModel(IEnumerable<ProteoformModel> proteoforms, int minCharge, int maxCharge, double sigmaMz)
+    public ForwardModel(IEnumerable<ProteoformModel> proteoforms, int minCharge, int maxCharge, IPeakWidthModel widthModel)
     {
         if (minCharge < 1 || maxCharge < minCharge)
             throw new ArgumentException("Charge range must satisfy 1 ≤ minCharge ≤ maxCharge.");
@@ -29,8 +30,16 @@ public sealed class ForwardModel
             .ToList();
         _minCharge = minCharge;
         _maxCharge = maxCharge;
-        _sigmaMz = sigmaMz;
+        _widthModel = widthModel ?? throw new ArgumentNullException(nameof(widthModel));
     }
+
+    public ForwardModel(IEnumerable<ProteoformModel> proteoforms, int minCharge, int maxCharge, double sigmaMz)
+        : this(proteoforms, minCharge, maxCharge, new ConstantPeakWidth(sigmaMz))
+    {
+    }
+
+    /// <summary>The width law every peak in this model is rendered under.</summary>
+    public IPeakWidthModel WidthModel => _widthModel;
 
     /// <summary>
     /// Evaluate the forward model at a single (t, mz) point.
@@ -48,7 +57,7 @@ public sealed class ForwardModel
             {
                 double fz = model.ChargeDistribution.Evaluate(z);
                 if (fz <= 0) continue;
-                chargeSum += fz * kernel.Evaluate(mz, z, _sigmaMz);
+                chargeSum += fz * kernel.Evaluate(mz, z, _widthModel);
             }
             total += model.Abundance * rt * chargeSum;
         }
@@ -69,7 +78,6 @@ public sealed class ForwardModel
     {
         var result = new double[scanTimes.Length, mzGrid.Length];
 
-        double mzPadding = EvaluationWindowInSigmas * _sigmaMz;
         var rtScaledAbundances = new double[scanTimes.Length];
         double[] kernelValues = Array.Empty<double>();
 
@@ -94,6 +102,14 @@ public sealed class ForwardModel
                     continue;
 
                 var (minMz, maxMz) = kernel.GetMzBounds(z);
+                if (!double.IsFinite(minMz) || !double.IsFinite(maxMz))
+                    continue;
+
+                // Padding is per (species, charge) rather than hoisted, because under an
+                // m/z-dependent width law the envelope at charge 6 and the one at charge 40 sit at
+                // very different m/z and need very different tails. Taking the widest σ over the
+                // envelope's own span keeps the window conservative at both ends.
+                double mzPadding = EvaluationWindowInSigmas * _widthModel.MaxSigmaOver(minMz, maxMz);
                 int start = LowerBound(mzGrid, minMz - mzPadding);
                 int endExclusive = UpperBound(mzGrid, maxMz + mzPadding);
                 int span = endExclusive - start;
@@ -104,7 +120,7 @@ public sealed class ForwardModel
                     kernelValues = new double[span];
 
                 for (int b = 0; b < span; b++)
-                    kernelValues[b] = kernel.Evaluate(mzGrid[start + b], z, _sigmaMz);
+                    kernelValues[b] = kernel.Evaluate(mzGrid[start + b], z, _widthModel);
 
                 for (int s = 0; s < scanTimes.Length; s++)
                 {

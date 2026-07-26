@@ -11,9 +11,12 @@ public sealed record ResidualSummary(double ResidualEnergyFraction, double Obser
 /// </summary>
 public static class ResidualAnalyzer
 {
-    public static ResidualSummary Analyze(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz)
+    public static ResidualSummary Analyze(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz) =>
+        Analyze(truth, proteoforms, new ConstantPeakWidth(sigmaMz));
+
+    public static ResidualSummary Analyze(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, IPeakWidthModel widthModel)
     {
-        var projected = ModelProjection.ProjectIsotopologueIntensities(truth, proteoforms, sigmaMz);
+        var projected = ModelProjection.ProjectIsotopologueIntensities(truth, proteoforms, widthModel);
         double observedEnergy = 0;
         double residualEnergy = 0;
 

@@ -1,3 +1,5 @@
+using System;
+
 namespace TopDownSimulator.Extraction;
 
 /// <summary>
@@ -40,13 +42,53 @@ public sealed class ProteoformGroundTruth
     /// consumes.
     /// </summary>
     /// <remarks>
-    /// When produced by <c>GroundTruthExtractor</c>, only the apex column
-    /// (<see cref="ApexChargeIndex"/>, <see cref="ApexScanIndex"/>) is populated; every other cell
-    /// is an empty array. That column is the only one any consumer reads, and materializing the
-    /// full tensor costs hundreds of megabytes across a run. Objects built by hand may of course
-    /// populate whatever they like.
+    /// When produced by <c>GroundTruthExtractor</c>, only each charge's own apex scan
+    /// (<see cref="ApexScanIndexByCharge"/>) is populated; every other cell is an empty array.
+    /// Materializing the full tensor costs hundreds of megabytes across a run, while one column per
+    /// charge gives the width fitter a width measurement at several m/z spanning the charge
+    /// envelope, which is what fitting an m/z-dependent width law needs. Objects built by hand may
+    /// of course populate whatever they like.
     /// </remarks>
     public required PeakSample[][][][] IsotopologuePeakWindows { get; init; }
+
+    /// <summary>
+    /// Index of the experimental peak that supplied each entry of
+    /// <see cref="IsotopologueIntensities"/>, or -1 where no peak matched. The index is into that
+    /// scan's <c>MzSpectrum</c>, so (<see cref="ZeroBasedScanIndices"/>[s], this) identifies a
+    /// physical peak uniquely across the whole run.
+    /// </summary>
+    /// <remarks>
+    /// Two proteoforms that overlap in m/z and RT are matched to the <i>same</i> experimental peak,
+    /// once each. Without this key any energy accounting over sample sets counts that peak twice.
+    /// Empty on hand-built truths; see <see cref="HasSourcePeakIdentity"/>.
+    /// </remarks>
+    public int[][][] SourcePeakIndices { get; init; } = Array.Empty<int[][]>();
+
+    /// <summary>
+    /// |observed m/z − theoretical centroid| for the peak named by <see cref="SourcePeakIndices"/>,
+    /// or NaN where none matched. Lets a consumer tell which of several claimants sits closest to
+    /// the real peak.
+    /// </summary>
+    /// <remarks>
+    /// Single precision, and a delta rather than the m/z itself. This is a dense tensor in a class
+    /// that otherwise works hard to avoid them, and every truth is retained for the length of a run;
+    /// storing the delta directly is both what the tie-break needs and half the width of the m/z it
+    /// would otherwise be derived from. Distances here are ≤ the extraction window, so a float's
+    /// ~1e-7 relative precision is several orders finer than any tie it has to break.
+    /// </remarks>
+    public float[][][] SourcePeakDeltas { get; init; } = Array.Empty<float[][]>();
+
+    /// <summary>
+    /// Whether <see cref="SourcePeakIndices"/> and <see cref="SourcePeakDeltas"/> were populated.
+    /// </summary>
+    public bool HasSourcePeakIdentity =>
+        SourcePeakIndices.Length == ChargeCount && SourcePeakDeltas.Length == ChargeCount;
+
+    /// <summary>
+    /// Scan index at which each charge's XIC peaks, or -1 for a charge with no positive signal.
+    /// These are the columns of <see cref="IsotopologuePeakWindows"/> the extractor populates.
+    /// </summary>
+    public int[] ApexScanIndexByCharge { get; init; } = Array.Empty<int>();
 
     /// <summary>m/z half-width used when collecting <see cref="IsotopologuePeakWindows"/>.</summary>
     public required double MzWindowHalfWidth { get; init; }

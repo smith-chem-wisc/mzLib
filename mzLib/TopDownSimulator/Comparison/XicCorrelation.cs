@@ -12,9 +12,12 @@ public sealed record ChargeCorrelation(int Charge, double Correlation);
 /// </summary>
 public static class XicCorrelation
 {
-    public static ChargeCorrelation[] ComputePerCharge(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz)
+    public static ChargeCorrelation[] ComputePerCharge(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, double sigmaMz) =>
+        ComputePerCharge(truth, proteoforms, new ConstantPeakWidth(sigmaMz));
+
+    public static ChargeCorrelation[] ComputePerCharge(ProteoformGroundTruth truth, IReadOnlyList<ProteoformModel> proteoforms, IPeakWidthModel widthModel)
     {
-        var projected = ModelProjection.ProjectIsotopologueIntensities(truth, proteoforms, sigmaMz);
+        var projected = ModelProjection.ProjectIsotopologueIntensities(truth, proteoforms, widthModel);
         var projectedXics = ModelProjection.SumIsotopologuesByCharge(projected);
         var correlations = new ChargeCorrelation[truth.ChargeCount];
 
