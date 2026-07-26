@@ -138,6 +138,71 @@ public class GlobalAbundanceRefitterTests
     }
 
     [Test]
+    public void ResidualFractionFallsMonotonicallyAndConvergesQuickly()
+    {
+        // Four heavily overlapping proteoforms: same mass to within ~1 Da, same elution window,
+        // same charge envelope. This is where a Jacobi sweep — every coordinate reasoning about
+        // totals frozen at the start of the sweep — costs the most, because each update is made
+        // in ignorance of the three updates beside it.
+        const int minCharge = 6;
+        const int maxCharge = 11;
+        const double sigmaMz = 0.012;
+
+        var trueModels = new[]
+        {
+            new ProteoformModel(10000.0, 1.4e6, new EmgProfile(20.0, 0.16, 0.06),
+                new GaussianChargeDistribution(8.2, 1.1), "pf1"),
+            new ProteoformModel(10000.2, 8.5e5, new EmgProfile(20.03, 0.15, 0.06),
+                new GaussianChargeDistribution(8.4, 1.0), "pf2"),
+            new ProteoformModel(10001.1, 3.1e5, new EmgProfile(20.06, 0.17, 0.05),
+                new GaussianChargeDistribution(8.0, 1.2), "pf3"),
+            new ProteoformModel(10000.6, 9.4e5, new EmgProfile(20.01, 0.16, 0.06),
+                new GaussianChargeDistribution(8.3, 1.1), "pf4"),
+        };
+
+        var scanArray = BuildCentroidedScansFromForwardModel(trueModels, minCharge, maxCharge, sigmaMz);
+        var extractor = new GroundTruthExtractor(scanArray, ppmTolerance: 20.0, mzWindowHalfWidth: 0.05);
+        var truths = trueModels
+            .Select(m => extractor.Extract(m.MonoisotopicMass, m.RtProfile.Mu, 0.8, minCharge, maxCharge))
+            .ToArray();
+
+        var initialFits = trueModels
+            .Select((m, i) => new FittedProteoform(
+                m with { Abundance = m.Abundance * (i % 2 == 0 ? 1.8 : 0.3) },
+                sigmaMz, WidthFitMode.CentroidedFallback, 0, 0))
+            .ToArray();
+
+        var result = new GlobalAbundanceRefitter(
+                new GlobalAbundanceRefitOptions(MaxIterations: 60, ConvergenceTolerance: 1e-5))
+            .Refit(initialFits, truths, minCharge, maxCharge, sigmaMz);
+
+        // Monotone descent is the property Gauss-Seidel buys and Jacobi does not guarantee, so it
+        // is the sharpest available check that each coordinate really did see its predecessors.
+        Assert.That(result.ResidualFractionByIteration, Has.Count.EqualTo(result.IterationsCompleted));
+        Assert.That(result.ResidualFractionByIteration[0], Is.LessThan(result.InitialResidualFraction));
+        for (int i = 1; i < result.ResidualFractionByIteration.Count; i++)
+        {
+            Assert.That(result.ResidualFractionByIteration[i],
+                Is.LessThanOrEqualTo(result.ResidualFractionByIteration[i - 1]),
+                $"Residual energy rose at iteration {i + 1}, which a Gauss-Seidel sweep cannot do.");
+        }
+
+        // Measured on this fixture: Jacobi ran all 60 sweeps without reaching 1e-5; Gauss-Seidel
+        // converges in 16. The bound is loose enough to absorb platform arithmetic differences and
+        // still far below what the stale-totals sweep could reach.
+        Assert.That(result.Converged, Is.True);
+        Assert.That(result.IterationsCompleted, Is.LessThanOrEqualTo(30));
+
+        for (int i = 0; i < trueModels.Length; i++)
+        {
+            double relative = Math.Abs(result.FittedProteoforms[i].Model.Abundance - trueModels[i].Abundance)
+                              / trueModels[i].Abundance;
+            Assert.That(relative, Is.LessThan(1e-4),
+                $"Proteoform {i} did not recover its true abundance.");
+        }
+    }
+
+    [Test]
     public void RefitKeepsAbundanceNonNegative()
     {
         const int minCharge = 6;
