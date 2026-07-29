@@ -1,9 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MassSpectrometry;
@@ -141,6 +143,139 @@ namespace UsefulProteomicsDatabases
             }
 
             return files;
+        }
+
+        /// <summary>
+        /// Returns the COMPLETE list of a project's files by walking its FTP directory tree — for the
+        /// cases where <see cref="GetProjectFilesAsync"/> is not enough. PRIDE's REST manifest is
+        /// knowingly incomplete (for PXD000001 it lists 8 files while the FTP tree holds 13, omitting
+        /// the two largest), so a caller that must know everything a project contains — or its true
+        /// size — reads the tree instead of trusting the manifest.
+        /// </summary>
+        /// <remarks>
+        /// The tree lives at <c>https://{PrideFtpHost}/pride/data/archive/{yyyy}/{MM}/{accession}/</c>,
+        /// where the year and month are the project's <see cref="PrideProject.PublicationDate"/>. The FTP
+        /// host also serves that path over HTTPS — the same fact <see cref="DownloadFileAsync"/> relies
+        /// on — so the whole walk goes over this client's reused <see cref="HttpClient"/>. Subdirectories
+        /// are followed; each returned file's <see cref="PrideFtpFile.RelativePath"/> is relative to the
+        /// project root. Sizes are PRIDE's rounded index sizes — see <see cref="PrideFtpFile.ApproximateSizeBytes"/>.
+        /// </remarks>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="cancellationToken">Cancels the (multi-request) walk.</param>
+        /// <returns>Every file under the project's FTP root, subdirectories included. Never null.</returns>
+        /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
+        /// <exception cref="MzLibException">No project has that accession, or it carries no publication date to locate its FTP directory.</exception>
+        /// <exception cref="HttpRequestException">A directory could not be listed (non-success status).</exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<List<PrideFtpFile>> GetProjectFilesFromFtpAsync(string accession,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+
+            // GetProjectAsync gives the publication date AND the right failure contract: an unknown
+            // accession is an MzLibException (not an HttpRequestException that a live test would skip).
+            PrideProject project = await GetProjectAsync(accession, cancellationToken).ConfigureAwait(false);
+            if (project.PublicationDate == default)
+                throw new MzLibException(
+                    $"PRIDE project '{accession}' has no publication date, so its FTP directory cannot be located.");
+
+            string rootUrl = string.Format(CultureInfo.InvariantCulture,
+                "https://{0}/pride/data/archive/{1:yyyy}/{1:MM}/{2}/",
+                PrideArchiveExtensions.PrideFtpHost, project.PublicationDate, accession);
+
+            var files = new List<PrideFtpFile>();
+            await CollectFtpFilesAsync(rootUrl, relativePrefix: "", files, cancellationToken).ConfigureAwait(false);
+            return files;
+        }
+
+        /// <summary>
+        /// Lists one FTP directory (over HTTPS), appends its files to <paramref name="files"/>, and
+        /// recurses into each subdirectory. <paramref name="relativePrefix"/> is the path from the
+        /// project root down to this directory, so nested files carry a full relative path.
+        /// </summary>
+        private async Task CollectFtpFilesAsync(string directoryUrl, string relativePrefix,
+            List<PrideFtpFile> files, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            using HttpResponseMessage response = await _httpClient.GetAsync(directoryUrl, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUrl}'.");
+
+            string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            foreach ((string href, string sizeText) in ParseAutoIndexRows(html))
+            {
+                if (href.EndsWith("/", StringComparison.Ordinal))
+                {
+                    // A subdirectory (e.g. "generated/"): descend. ParseAutoIndexRows has already
+                    // dropped the "Parent Directory" link and the column-sort links.
+                    await CollectFtpFilesAsync(directoryUrl + href, relativePrefix + href, files, cancellationToken)
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    files.Add(new PrideFtpFile(relativePrefix + href, ParseAutoIndexSize(sizeText), directoryUrl + href));
+                }
+            }
+        }
+
+        // The PRIDE FTP host serves a standard Apache autoindex table over HTTPS: one <tr> per entry,
+        // whose <a href> is the (relative) name and whose LAST right-aligned cell is the size. The sort
+        // headers link to "?C=...", and "Parent Directory" links to an absolute "/..." path; both are
+        // skipped so only real entries survive.
+        private static readonly Regex RowRegex = new(@"<tr[^>]*>(.*?)</tr>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        private static readonly Regex HrefRegex = new("<a\\s+href=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+        private static readonly Regex RightCellRegex = new("<td[^>]*align=\"right\"[^>]*>(.*?)</td>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+
+        /// <summary>Yields (href, sizeText) for each real entry in an Apache autoindex table.</summary>
+        private static IEnumerable<(string Href, string SizeText)> ParseAutoIndexRows(string html)
+        {
+            foreach (Match row in RowRegex.Matches(html))
+            {
+                Match href = HrefRegex.Match(row.Groups[1].Value);
+                if (!href.Success)
+                    continue;
+
+                string h = WebUtility.HtmlDecode(href.Groups[1].Value);
+                // Skip the column-sort links ("?C=N;O=D"), the absolute-path "Parent Directory", and anchors.
+                if (h.Length == 0 || h[0] == '/' || h[0] == '?' || h[0] == '#')
+                    continue;
+
+                // The size is the last right-aligned cell (the first is the last-modified date).
+                string sizeText = string.Empty;
+                foreach (Match cell in RightCellRegex.Matches(row.Groups[1].Value))
+                    sizeText = cell.Groups[1].Value;
+
+                yield return (h, sizeText.Trim());
+            }
+        }
+
+        /// <summary>
+        /// Parses one Apache autoindex size cell ("1.6K", "20M", "9.3M", "1.2G", a bare byte count, or
+        /// "-" for a directory) into an APPROXIMATE byte count. The index rounds to ~3 significant
+        /// figures, so this is not exact — see <see cref="PrideFtpFile.ApproximateSizeBytes"/>.
+        /// </summary>
+        private static long ParseAutoIndexSize(string sizeText)
+        {
+            sizeText = sizeText.Trim();
+            if (sizeText.Length == 0 || sizeText == "-")
+                return 0;
+
+            double multiplier = char.ToUpperInvariant(sizeText[sizeText.Length - 1]) switch
+            {
+                'K' => 1024d,
+                'M' => 1024d * 1024,
+                'G' => 1024d * 1024 * 1024,
+                'T' => 1024d * 1024 * 1024 * 1024,
+                _ => 1d,
+            };
+            string number = multiplier == 1d ? sizeText : sizeText.Substring(0, sizeText.Length - 1);
+            return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+                ? (long)Math.Round(value * multiplier)
+                : 0;
         }
 
         /// <summary>
