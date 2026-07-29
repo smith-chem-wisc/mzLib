@@ -3,9 +3,9 @@ namespace UsefulProteomicsDatabases
     /// <summary>
     /// One file found by walking a PRIDE project's FTP directory tree — the COMPLETE listing. PRIDE's
     /// REST manifest (<see cref="PrideArchiveClient.GetProjectFilesAsync"/>) is knowingly incomplete:
-    /// for PXD000001 it returns 8 files while the FTP tree holds 13, omitting the two largest. When a
-    /// caller must know everything a project actually contains — or its true size — this is the
-    /// authoritative list.
+    /// for PXD000001 it returns 8 files while the FTP tree holds 13 — it omits five, including the two
+    /// largest. When a caller must know everything a project actually contains — or its true size —
+    /// this is the authoritative list.
     /// </summary>
     public sealed class PrideFtpFile
     {

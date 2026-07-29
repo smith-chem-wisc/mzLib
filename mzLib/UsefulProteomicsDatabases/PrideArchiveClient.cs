@@ -148,9 +148,9 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Returns the COMPLETE list of a project's files by walking its FTP directory tree — for the
         /// cases where <see cref="GetProjectFilesAsync"/> is not enough. PRIDE's REST manifest is
-        /// knowingly incomplete (for PXD000001 it lists 8 files while the FTP tree holds 13, omitting
-        /// the two largest), so a caller that must know everything a project contains — or its true
-        /// size — reads the tree instead of trusting the manifest.
+        /// knowingly incomplete (for PXD000001 it lists 8 files while the FTP tree holds 13 — it omits
+        /// five, including the two largest), so a caller that must know everything a project contains —
+        /// or its true size — reads the tree instead of trusting the manifest.
         /// </summary>
         /// <remarks>
         /// The tree lives at <c>https://{PrideFtpHost}/pride/data/archive/{yyyy}/{MM}/{accession}/</c>,
@@ -165,7 +165,7 @@ namespace UsefulProteomicsDatabases
         /// <returns>Every file under the project's FTP root, subdirectories included. Never null.</returns>
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="MzLibException">No project has that accession, or it carries no publication date to locate its FTP directory.</exception>
-        /// <exception cref="HttpRequestException">A directory could not be listed (non-success status).</exception>
+        /// <exception cref="HttpRequestException">The project or a directory could not be fetched (non-success status), or the directory nesting exceeded the cyclic-listing guard.</exception>
         /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
         public async Task<List<PrideFtpFile>> GetProjectFilesFromFtpAsync(string accession,
             CancellationToken cancellationToken = default)
@@ -185,19 +185,32 @@ namespace UsefulProteomicsDatabases
                 PrideArchiveExtensions.PrideFtpHost, project.PublicationDate, accession);
 
             var files = new List<PrideFtpFile>();
-            await CollectFtpFilesAsync(rootUrl, relativePrefix: "", files, cancellationToken).ConfigureAwait(false);
+            await CollectFtpFilesAsync(rootUrl, relativePrefix: "", depth: 0, files, cancellationToken).ConfigureAwait(false);
             return files;
         }
 
         /// <summary>
-        /// Lists one FTP directory (over HTTPS), appends its files to <paramref name="files"/>, and
-        /// recurses into each subdirectory. <paramref name="relativePrefix"/> is the path from the
-        /// project root down to this directory, so nested files carry a full relative path.
+        /// A hard cap on how deep the FTP walk descends, guarding against a cyclic or self-referential
+        /// listing (a symlink loop) the way <see cref="MaxPages"/> guards the REST pager. No real PRIDE
+        /// project nests anywhere near this deep; exceeding it throws rather than recursing to a
+        /// process-killing <see cref="StackOverflowException"/>.
         /// </summary>
-        private async Task CollectFtpFilesAsync(string directoryUrl, string relativePrefix,
+        private const int MaxFtpDirectoryDepth = 64;
+
+        /// <summary>
+        /// Lists one FTP directory (over HTTPS), appends its files to <paramref name="files"/>, and
+        /// recurses into each child subdirectory. <paramref name="relativePrefix"/> is the path from the
+        /// project root down to this directory, so nested files carry a full relative path;
+        /// <paramref name="depth"/> bounds the recursion.
+        /// </summary>
+        private async Task CollectFtpFilesAsync(string directoryUrl, string relativePrefix, int depth,
             List<PrideFtpFile> files, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            if (depth > MaxFtpDirectoryDepth)
+                throw new HttpRequestException(
+                    $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUrl}'; the listing may be cyclic.");
 
             using HttpResponseMessage response = await _httpClient.GetAsync(directoryUrl, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
@@ -208,16 +221,28 @@ namespace UsefulProteomicsDatabases
 
             foreach ((string href, string sizeText) in ParseAutoIndexRows(html))
             {
+                // The href is HTML-decoded but still URL-encoded — Apache percent-encodes special
+                // characters in the link. Keep the encoded form for the URL (a valid, downloadable path)
+                // and decode it only for the human-readable name, so a file called "my file.raw" does not
+                // surface as "my%20file.raw".
+                string name = Uri.UnescapeDataString(href);
+
                 if (href.EndsWith("/", StringComparison.Ordinal))
                 {
-                    // A subdirectory (e.g. "generated/"): descend. ParseAutoIndexRows has already
-                    // dropped the "Parent Directory" link and the column-sort links.
-                    await CollectFtpFilesAsync(directoryUrl + href, relativePrefix + href, files, cancellationToken)
+                    // Descend only into a plain child directory — a single "<name>/" segment. A "../" or
+                    // "./" link, or any multi-segment path, would walk OUT of the project subtree (the Uri
+                    // class normalises "../" against the base), so it is refused; the depth cap above is
+                    // the backstop for a child that links back to itself.
+                    string segment = name.TrimEnd('/');
+                    if (segment.Length == 0 || segment == "." || segment == ".." || segment.Contains('/'))
+                        continue;
+
+                    await CollectFtpFilesAsync(directoryUrl + href, relativePrefix + name, depth + 1, files, cancellationToken)
                         .ConfigureAwait(false);
                 }
                 else
                 {
-                    files.Add(new PrideFtpFile(relativePrefix + href, ParseAutoIndexSize(sizeText), directoryUrl + href));
+                    files.Add(new PrideFtpFile(relativePrefix + name, ParseAutoIndexSize(sizeText), directoryUrl + href));
                 }
             }
         }

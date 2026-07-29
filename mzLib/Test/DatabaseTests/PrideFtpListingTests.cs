@@ -86,6 +86,16 @@ public class PrideFtpListingTests
         return new PrideArchiveClient(new HttpClient(handler));
     }
 
+    /// <summary>A minimal Apache-autoindex page wrapping the given entry rows.</summary>
+    private static string Index(params string[] rows) =>
+        "<html><body><table>\n" +
+        """<tr><th><a href="?C=N;O=D">Name</a></th></tr>""" + "\n" +
+        string.Join("\n", rows) + "\n</table></body></html>";
+
+    /// <summary>One autoindex row for an entry (a trailing "/" in <paramref name="href"/> makes it a directory).</summary>
+    private static string Row(string href, string size) =>
+        $"""<tr><td><a href="{href}">{href}</a></td><td align="right">2021-10-20 04:56  </td><td align="right">{size}</td></tr>""";
+
     [Test]
     public async Task WalksTheWholeTreeAndReportsFilesTheRestManifestOmits()
     {
@@ -164,6 +174,89 @@ public class PrideFtpListingTests
 
         Assert.ThrowsAsync<HttpRequestException>(async () =>
             await client.GetProjectFilesFromFtpAsync("PXD000001"));
+    }
+
+    [Test]
+    public void ASelfReferentialSubdirectoryHitsTheDepthCapInsteadOfRecursingForever()
+    {
+        // A listing whose only entry links back to itself would recurse until the stack overflows; the
+        // depth cap turns that into a throwable HttpRequestException, and the walk stays bounded.
+        int dirFetches = 0;
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri.Contains("/projects/")) return new HttpResponseMessage(HttpStatusCode.NotFound);
+            dirFetches++;
+            return Ok(Index(Row("loop/", "-")));
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var ex = Assert.ThrowsAsync<HttpRequestException>(async () =>
+            await client.GetProjectFilesFromFtpAsync("PXD000001"));
+        Assert.Multiple(() =>
+        {
+            Assert.That(ex!.Message, Does.Contain("nesting exceeded"));
+            Assert.That(dirFetches, Is.LessThan(200), "the walk must be bounded, not runaway");
+        });
+    }
+
+    [Test]
+    public async Task ARelativeParentLinkIsRefusedSoTheWalkStaysInsideTheProject()
+    {
+        // A "../" would resolve (via Uri normalisation) to the project's PARENT directory and pull in
+        // unrelated files. It must be skipped; only plain child directories are followed.
+        const string parentUrl = "https://ftp.pride.ebi.ac.uk/pride/data/archive/2012/03/";
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri == RootUrl) return Ok(Index(Row("../", "-"), Row("keep.raw", "1.0K")));
+            if (uri == parentUrl) return Ok(Index(Row("escaped.raw", "9.9M")));
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        List<PrideFtpFile> files = await client.GetProjectFilesFromFtpAsync("PXD000001");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.RequestedUris, Does.Not.Contain(parentUrl),
+                "a '../' link must not be followed out of the project subtree");
+            Assert.That(files.Select(f => f.RelativePath), Is.EquivalentTo(new[] { "keep.raw" }));
+        });
+    }
+
+    [Test]
+    public async Task PercentEncodedNamesAreDecodedWhileTheUrlStaysEncoded()
+    {
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri == RootUrl) return Ok(Index(Row("my%20run%20(1).raw", "1.0K")));
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        PrideFtpFile file = (await client.GetProjectFilesFromFtpAsync("PXD000001")).Single();
+
+        Assert.Multiple(() =>
+        {
+            // The human-readable name is percent-decoded; the URL keeps the encoding so it stays a
+            // valid, downloadable path.
+            Assert.That(file.FileName, Is.EqualTo("my run (1).raw"));
+            Assert.That(file.RelativePath, Is.EqualTo("my run (1).raw"));
+            Assert.That(file.Url, Is.EqualTo(RootUrl + "my%20run%20(1).raw"));
+        });
+    }
+
+    [Test]
+    public async Task TotalApproximateSizeBytesSumsTheWholeTree()
+    {
+        using PrideArchiveClient client = StubbedClient(out _);
+        List<PrideFtpFile> files = await client.GetProjectFilesFromFtpAsync("PXD000001");
+
+        // Sums every file including the one under generated/, matching the REST-side TotalSizeBytes.
+        Assert.That(files.TotalApproximateSizeBytes(), Is.EqualTo(files.Sum(f => f.ApproximateSizeBytes)));
+        Assert.That(files.TotalApproximateSizeBytes(), Is.GreaterThan(0));
     }
 }
 
