@@ -179,8 +179,10 @@ public class PrideFtpListingTests
     [Test]
     public void ASelfReferentialSubdirectoryHitsTheDepthCapInsteadOfRecursingForever()
     {
-        // A listing whose only entry links back to itself would recurse until the stack overflows; the
-        // depth cap turns that into a throwable HttpRequestException, and the walk stays bounded.
+        // A listing whose only entry links to a deeper copy of itself grows the URL each level, so the
+        // visited-set cannot prune it — the depth cap is the backstop. It throws MzLibException (a broken
+        // listing is a contract violation, NOT an HttpRequestException a live test would skip as an
+        // outage), and the walk stays bounded to MaxFtpDirectoryDepth (64) levels plus the root = 65.
         int dirFetches = 0;
         var handler = new StubHandler(uri =>
         {
@@ -191,12 +193,12 @@ public class PrideFtpListingTests
         });
         using var client = new PrideArchiveClient(new HttpClient(handler));
 
-        var ex = Assert.ThrowsAsync<HttpRequestException>(async () =>
+        var ex = Assert.ThrowsAsync<MzLibException>(async () =>
             await client.GetProjectFilesFromFtpAsync("PXD000001"));
         Assert.Multiple(() =>
         {
             Assert.That(ex!.Message, Does.Contain("nesting exceeded"));
-            Assert.That(dirFetches, Is.LessThan(200), "the walk must be bounded, not runaway");
+            Assert.That(dirFetches, Is.EqualTo(65), "the walk must stop at the depth cap, not run away");
         });
     }
 
@@ -254,9 +256,80 @@ public class PrideFtpListingTests
         using PrideArchiveClient client = StubbedClient(out _);
         List<PrideFtpFile> files = await client.GetProjectFilesFromFtpAsync("PXD000001");
 
-        // Sums every file including the one under generated/, matching the REST-side TotalSizeBytes.
-        Assert.That(files.TotalApproximateSizeBytes(), Is.EqualTo(files.Sum(f => f.ApproximateSizeBytes)));
-        Assert.That(files.TotalApproximateSizeBytes(), Is.GreaterThan(0));
+        // Pinned to the literal expected total (README 1.6K + run1 210M + hidden 429M + the nested
+        // generated/summary 844K), so the assertion can fail on a real regression rather than
+        // re-deriving the implementation's own Sum. Proves the helper sums the WHOLE tree, subdir included.
+        const long expected = 1638L + 210L * 1024 * 1024 + 429L * 1024 * 1024 + 864256L;
+        Assert.That(files.TotalApproximateSizeBytes(), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public async Task ADescriptionColumnDoesNotStealTheSizeCell()
+    {
+        // A stock Apache template also right-aligns the (empty) Description column, so the LAST
+        // right-aligned cell is not the size. The parser picks the first cell that parses as a size.
+        const string rowWithDescription =
+            """<tr><td><a href="d.raw">d.raw</a></td><td align="right">2021-10-20 04:56  </td><td align="right">2.0M</td><td align="right">&nbsp;</td></tr>""";
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri == RootUrl) return Ok(Index(rowWithDescription));
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        PrideFtpFile file = (await client.GetProjectFilesFromFtpAsync("PXD000001")).Single();
+        Assert.That(file.ApproximateSizeBytes, Is.EqualTo(2L * 1024 * 1024),
+            "the empty Description column must not shadow the Size cell");
+    }
+
+    [Test]
+    public async Task HtmlEntitiesInNamesAreDecoded()
+    {
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri == RootUrl) return Ok(Index(Row("a&amp;b.raw", "1.0K")));
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        PrideFtpFile file = (await client.GetProjectFilesFromFtpAsync("PXD000001")).Single();
+        Assert.That(file.FileName, Is.EqualTo("a&b.raw"), "an HTML entity in the href must decode for the name");
+    }
+
+    [Test]
+    public async Task SizeSuffixesGAndBareByteCountsParse()
+    {
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri == RootUrl) return Ok(Index(Row("big.raw", "1.2G"), Row("tiny.txt", "512")));
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        Dictionary<string, PrideFtpFile> byPath =
+            (await client.GetProjectFilesFromFtpAsync("PXD000001")).ToDictionary(f => f.RelativePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byPath["big.raw"].ApproximateSizeBytes, Is.EqualTo((long)Math.Round(1.2 * 1024 * 1024 * 1024)));
+            Assert.That(byPath["tiny.txt"].ApproximateSizeBytes, Is.EqualTo(512L), "a bare byte count carries no suffix");
+        });
+    }
+
+    [Test]
+    public void APreCancelledTokenStopsTheWalk()
+    {
+        using PrideArchiveClient client = StubbedClient(out _);
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        // CatchAsync, not ThrowsAsync: the concrete type is TaskCanceledException, which derives from
+        // OperationCanceledException but would fail an exact-type ThrowsAsync match.
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await client.GetProjectFilesFromFtpAsync("PXD000001", cts.Token));
     }
 }
 
@@ -282,11 +355,16 @@ public class PrideFtpListingLiveTests
             List<PrideFtpFile> ftpFiles = await client.GetProjectFilesFromFtpAsync("PXD000001");
             List<PrideArchiveFile> restFiles = await client.GetProjectFilesAsync("PXD000001");
 
-            // The whole point: the FTP tree is more complete than the REST manifest PRIDE serves.
-            // Asserted as a comparison rather than a hard-coded 13, so it survives PRIDE re-curating the
-            // dataset while still failing if the autoindex parse breaks (which would yield zero files).
+            HashSet<string> ftpNames = ftpFiles.Select(f => f.FileName).ToHashSet();
+
+            // The whole point: the FTP tree is a strict SUPERSET of the REST manifest — it contains
+            // every file REST reports AND more. Asserted structurally (not a hard-coded 13), so it
+            // survives PRIDE re-curating the dataset while still failing if the parse breaks (zero files)
+            // or ever drops a file REST does list.
+            Assert.That(restFiles.Select(r => r.FileName), Is.SubsetOf(ftpNames),
+                "the FTP tree should contain every file the REST manifest lists");
             Assert.That(ftpFiles.Count, Is.GreaterThan(restFiles.Count),
-                "the FTP tree should hold more files than the REST manifest");
+                $"FTP tree ({ftpFiles.Count}) should hold more files than the REST manifest ({restFiles.Count})");
             Assert.That(ftpFiles, Is.Not.Empty);
             Assert.That(ftpFiles.All(f => !string.IsNullOrEmpty(f.RelativePath) && !string.IsNullOrEmpty(f.Url)));
             Assert.That(ftpFiles.Any(f => f.ApproximateSizeBytes > 0), "at least one file should have a parsed size");

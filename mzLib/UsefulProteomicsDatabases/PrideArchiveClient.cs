@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -185,15 +185,17 @@ namespace UsefulProteomicsDatabases
                 PrideArchiveExtensions.PrideFtpHost, project.PublicationDate, accession);
 
             var files = new List<PrideFtpFile>();
-            await CollectFtpFilesAsync(rootUrl, relativePrefix: "", depth: 0, files, cancellationToken).ConfigureAwait(false);
+            await CollectFtpFilesAsync(new Uri(rootUrl), relativePrefix: "", depth: 0, files, cancellationToken)
+                .ConfigureAwait(false);
             return files;
         }
 
         /// <summary>
-        /// A hard cap on how deep the FTP walk descends, guarding against a cyclic or self-referential
-        /// listing (a symlink loop) the way <see cref="MaxPages"/> guards the REST pager. No real PRIDE
-        /// project nests anywhere near this deep; exceeding it throws rather than recursing to a
-        /// process-killing <see cref="StackOverflowException"/>.
+        /// A hard cap on how deep the FTP walk descends. A symlink cycle is normally pruned by the
+        /// visited-URL set, so this is only a last-resort backstop for a genuinely (and implausibly)
+        /// deep tree; no real PRIDE project nests anywhere near this deep, and exceeding it is treated
+        /// as a broken listing (<see cref="MzLibException"/>) rather than left to a process-killing
+        /// <see cref="StackOverflowException"/>.
         /// </summary>
         private const int MaxFtpDirectoryDepth = 64;
 
@@ -203,60 +205,66 @@ namespace UsefulProteomicsDatabases
         /// project root down to this directory, so nested files carry a full relative path;
         /// <paramref name="depth"/> bounds the recursion.
         /// </summary>
-        private async Task CollectFtpFilesAsync(string directoryUrl, string relativePrefix, int depth,
+        private async Task CollectFtpFilesAsync(Uri directoryUri, string relativePrefix, int depth,
             List<PrideFtpFile> files, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
+            // The traversal guard below only ever appends a single non-".." segment, so the URL strictly
+            // deepens and can never revisit an earlier directory — no visited-set is needed. A cyclic
+            // listing (a self-linking symlink) therefore grows the URL without bound and is caught here.
+            // A broken listing is a contract violation (MzLibException) — NOT an HttpRequestException,
+            // which ExternalServiceTestHelper would misread as a service outage.
             if (depth > MaxFtpDirectoryDepth)
-                throw new HttpRequestException(
-                    $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUrl}'; the listing may be cyclic.");
+                throw new MzLibException(
+                    $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUri}'; the listing may be cyclic.");
 
-            using HttpResponseMessage response = await _httpClient.GetAsync(directoryUrl, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await _httpClient.GetAsync(directoryUri, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException(
-                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUrl}'.");
+                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.");
 
             string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
-            foreach ((string href, string sizeText) in ParseAutoIndexRows(html))
+            foreach ((string rawHref, string sizeText) in ParseAutoIndexRows(html))
             {
-                // The href is HTML-decoded but still URL-encoded — Apache percent-encodes special
-                // characters in the link. Keep the encoded form for the URL (a valid, downloadable path)
-                // and decode it only for the human-readable name, so a file called "my file.raw" does not
-                // surface as "my%20file.raw".
+                // rawHref is the link's attribute value, still URL-encoded. Resolve HTML entities, then
+                // compose the child URL with Uri joining (which escapes and handles the base's trailing
+                // slash safely), and decode only for the human-readable name — so "my%20file.raw"
+                // downloads from an encoded URL but surfaces as "my file.raw".
+                string href = WebUtility.HtmlDecode(rawHref);
                 string name = Uri.UnescapeDataString(href);
+                bool isDirectory = href.EndsWith("/", StringComparison.Ordinal);
+                string segment = isDirectory ? name.TrimEnd('/') : name;
 
-                if (href.EndsWith("/", StringComparison.Ordinal))
-                {
-                    // Descend only into a plain child directory — a single "<name>/" segment. A "../" or
-                    // "./" link, or any multi-segment path, would walk OUT of the project subtree (the Uri
-                    // class normalises "../" against the base), so it is refused; the depth cap above is
-                    // the backstop for a child that links back to itself.
-                    string segment = name.TrimEnd('/');
-                    if (segment.Length == 0 || segment == "." || segment == ".." || segment.Contains('/'))
-                        continue;
+                // Refuse a "." / ".." traversal (which the Uri join would normalise OUT of the project
+                // subtree) and any decoded segment that gained a path separator (an encoded "%2F"),
+                // before it is used to build either the URL or the relative path.
+                if (segment.Length == 0 || segment == "." || segment == ".." || segment.Contains('/'))
+                    continue;
 
-                    await CollectFtpFilesAsync(directoryUrl + href, relativePrefix + name, depth + 1, files, cancellationToken)
+                Uri childUri = new(directoryUri, href);
+
+                if (isDirectory)
+                    await CollectFtpFilesAsync(childUri, relativePrefix + name, depth + 1, files, cancellationToken)
                         .ConfigureAwait(false);
-                }
                 else
-                {
-                    files.Add(new PrideFtpFile(relativePrefix + name, ParseAutoIndexSize(sizeText), directoryUrl + href));
-                }
+                    files.Add(new PrideFtpFile(relativePrefix + name, ParseAutoIndexSize(sizeText), childUri.AbsoluteUri));
             }
         }
 
         // The PRIDE FTP host serves a standard Apache autoindex table over HTTPS: one <tr> per entry,
-        // whose <a href> is the (relative) name and whose LAST right-aligned cell is the size. The sort
-        // headers link to "?C=...", and "Parent Directory" links to an absolute "/..." path; both are
-        // skipped so only real entries survive.
+        // whose <a href> is the (relative) name and whose right-aligned cells are the last-modified date
+        // and the size. The sort headers link to "?C=...", and "Parent Directory" links to an absolute
+        // "/..." path; both are skipped so only real entries survive.
         private static readonly Regex RowRegex = new(@"<tr[^>]*>(.*?)</tr>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
         private static readonly Regex HrefRegex = new("<a\\s+href=\"([^\"]+)\"", RegexOptions.IgnoreCase);
         private static readonly Regex RightCellRegex = new("<td[^>]*align=\"right\"[^>]*>(.*?)</td>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        // A size cell is "-" (a directory) or a number optionally suffixed K/M/G/T — never a date.
+        private static readonly Regex SizeRegex = new(@"^(-|\d+(\.\d+)?[KMGT]?)$", RegexOptions.IgnoreCase);
 
-        /// <summary>Yields (href, sizeText) for each real entry in an Apache autoindex table.</summary>
-        private static IEnumerable<(string Href, string SizeText)> ParseAutoIndexRows(string html)
+        /// <summary>Yields the raw href and the size text for each real entry in an Apache autoindex table.</summary>
+        private static IEnumerable<(string RawHref, string SizeText)> ParseAutoIndexRows(string html)
         {
             foreach (Match row in RowRegex.Matches(html))
             {
@@ -264,17 +272,28 @@ namespace UsefulProteomicsDatabases
                 if (!href.Success)
                     continue;
 
-                string h = WebUtility.HtmlDecode(href.Groups[1].Value);
-                // Skip the column-sort links ("?C=N;O=D"), the absolute-path "Parent Directory", and anchors.
-                if (h.Length == 0 || h[0] == '/' || h[0] == '?' || h[0] == '#')
+                string raw = href.Groups[1].Value;
+                // Skip the column-sort links ("?C=N;O=D"), the absolute-path "Parent Directory", and
+                // anchors. Test the leading char on the decoded form; the RAW href is what the caller joins.
+                string decoded = WebUtility.HtmlDecode(raw);
+                if (decoded.Length == 0 || decoded[0] == '/' || decoded[0] == '?' || decoded[0] == '#')
                     continue;
 
-                // The size is the last right-aligned cell (the first is the last-modified date).
+                // Pick the FIRST right-aligned cell whose text parses as a size, NOT blindly the last: a
+                // stock Apache template also right-aligns the (empty) Description column, and the date cell
+                // is right-aligned too — neither of which looks like a size.
                 string sizeText = string.Empty;
                 foreach (Match cell in RightCellRegex.Matches(row.Groups[1].Value))
-                    sizeText = cell.Groups[1].Value;
+                {
+                    string text = WebUtility.HtmlDecode(cell.Groups[1].Value).Trim();
+                    if (SizeRegex.IsMatch(text))
+                    {
+                        sizeText = text;
+                        break;
+                    }
+                }
 
-                yield return (h, sizeText.Trim());
+                yield return (raw, sizeText);
             }
         }
 
@@ -289,7 +308,9 @@ namespace UsefulProteomicsDatabases
             if (sizeText.Length == 0 || sizeText == "-")
                 return 0;
 
-            double multiplier = char.ToUpperInvariant(sizeText[sizeText.Length - 1]) switch
+            char last = char.ToUpperInvariant(sizeText[sizeText.Length - 1]);
+            bool hasSuffix = last is 'K' or 'M' or 'G' or 'T';
+            double multiplier = last switch
             {
                 'K' => 1024d,
                 'M' => 1024d * 1024,
@@ -297,7 +318,7 @@ namespace UsefulProteomicsDatabases
                 'T' => 1024d * 1024 * 1024 * 1024,
                 _ => 1d,
             };
-            string number = multiplier == 1d ? sizeText : sizeText.Substring(0, sizeText.Length - 1);
+            string number = hasSuffix ? sizeText.Substring(0, sizeText.Length - 1) : sizeText;
             return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
                 ? (long)Math.Round(value * multiplier)
                 : 0;
