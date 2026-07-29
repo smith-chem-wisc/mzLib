@@ -102,11 +102,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
             Assert.AreEqual(p_cnbr.FullSequence, p_cnbr_reverse.PeptideDescription);
 
-            //  elastase cleave after A, V, S, G, L, I,
+            //  elastase cleave after I, S, L, V, N, T, K, A, G, Y, Q, R, F, D (not before P)
+            //  Only V(3, blocked by the following P), P(4) and H(8) are not cleavage residues,
+            //  so every other position is pinned and just those three are reversed into place.
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
             PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase|P"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("NADHRSPGVLYIK", p_elastase_reverse.BaseSequence);
+            Assert.AreEqual("KAYHPSRGVLDIN", p_elastase_reverse.BaseSequence);
 
             //  top-down
             newAminoAcidPositions = new int["RPEPTIREK".Length];
