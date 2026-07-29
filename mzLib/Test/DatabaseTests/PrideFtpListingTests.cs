@@ -331,6 +331,53 @@ public class PrideFtpListingTests
         Assert.CatchAsync<OperationCanceledException>(async () =>
             await client.GetProjectFilesFromFtpAsync("PXD000001", cts.Token));
     }
+
+    [Test]
+    public void AProjectWithNoPublicationDateIsAnMzLibException()
+    {
+        // Without a publication date there is no year/month to locate the FTP directory. That is a
+        // broken contract (MzLibException), reported before any FTP request is attempted.
+        const string noDateJson = """{ "accession": "PXD000001" }""";
+        var handler = new StubHandler(uri =>
+            uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)
+                ? Ok(noDateJson)
+                : new HttpResponseMessage(HttpStatusCode.NotFound));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var ex = Assert.ThrowsAsync<MzLibException>(async () =>
+            await client.GetProjectFilesFromFtpAsync("PXD000001"));
+        Assert.That(ex!.Message, Does.Contain("no publication date"));
+    }
+
+    [Test]
+    public void TotalApproximateSizeBytesRejectsANullSequence()
+    {
+        Assert.Throws<ArgumentNullException>(() => ((IEnumerable<PrideFtpFile>)null).TotalApproximateSizeBytes());
+    }
+
+    [Test]
+    public async Task ATSuffixParsesAndAnUnrecognisedSizeCellIsZeroNotAFailure()
+    {
+        var handler = new StubHandler(uri =>
+        {
+            if (uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)) return Ok(ProjectJson);
+            if (uri == RootUrl) return Ok(Index(Row("huge.raw", "1.5T"), Row("weird.dat", "N/A")));
+            return new HttpResponseMessage(HttpStatusCode.NotFound);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        Dictionary<string, PrideFtpFile> byPath =
+            (await client.GetProjectFilesFromFtpAsync("PXD000001")).ToDictionary(f => f.RelativePath);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byPath["huge.raw"].ApproximateSizeBytes,
+                Is.EqualTo((long)Math.Round(1.5 * 1024 * 1024 * 1024 * 1024)));
+            // A cell that is not a recognisable size leaves the file listed with an unknown (0) size
+            // rather than dropping it or throwing — the list stays complete.
+            Assert.That(byPath["weird.dat"].ApproximateSizeBytes, Is.EqualTo(0L));
+        });
+    }
 }
 
 /// <summary>
