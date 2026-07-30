@@ -142,6 +142,20 @@ namespace UsefulProteomicsDatabases
             return files.Where(f => f != null).Sum(f => f.FileSizeBytes);
         }
 
+        /// <summary>
+        /// The estimated total size in bytes of a project's FTP tree (from
+        /// <see cref="PrideArchiveClient.GetProjectFilesFromFtpAsync"/>), nulls ignored. APPROXIMATE for
+        /// the same reason the per-file value is — see <see cref="PrideFtpFile.ApproximateSizeBytes"/>.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">The sequence is null.</exception>
+        public static long TotalApproximateSizeBytes(this IEnumerable<PrideFtpFile> files)
+        {
+            if (files == null)
+                throw new ArgumentNullException(nameof(files));
+
+            return files.Where(f => f != null).Sum(f => f.ApproximateSizeBytes);
+        }
+
         // ---- PROXI spectrum metadata -------------------------------------------------------------------
         //
         // The PSI-MS accessions PROXI uses to describe a spectrum. Matched on accession, never on name (see
