@@ -1,9 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using MassSpectrometry;
@@ -199,6 +201,185 @@ namespace UsefulProteomicsDatabases
             }
 
             return files;
+        }
+
+        /// <summary>
+        /// Returns the COMPLETE list of a project's files by walking its FTP directory tree — for the
+        /// cases where <see cref="GetProjectFilesAsync"/> is not enough. PRIDE's REST manifest is
+        /// knowingly incomplete (for PXD000001 it lists 8 files while the FTP tree holds 13 — it omits
+        /// five, including the two largest), so a caller that must know everything a project contains —
+        /// or its true size — reads the tree instead of trusting the manifest.
+        /// </summary>
+        /// <remarks>
+        /// The tree lives at <c>https://{PrideFtpHost}/pride/data/archive/{yyyy}/{MM}/{accession}/</c>,
+        /// where the year and month are the project's <see cref="PrideProject.PublicationDate"/>. The FTP
+        /// host also serves that path over HTTPS — the same fact <see cref="DownloadFileAsync"/> relies
+        /// on — so the whole walk goes over this client's reused <see cref="HttpClient"/>. Subdirectories
+        /// are followed; each returned file's <see cref="PrideFtpFile.RelativePath"/> is relative to the
+        /// project root. Sizes are PRIDE's rounded index sizes — see <see cref="PrideFtpFile.ApproximateSizeBytes"/>.
+        /// </remarks>
+        /// <param name="accession">The PRIDE project accession, e.g. "PXD012345".</param>
+        /// <param name="cancellationToken">Cancels the (multi-request) walk.</param>
+        /// <returns>Every file under the project's FTP root, subdirectories included. Never null.</returns>
+        /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
+        /// <exception cref="MzLibException">No project has that accession, or it carries no publication date to locate its FTP directory.</exception>
+        /// <exception cref="HttpRequestException">The project or a directory could not be fetched (non-success status), or the directory nesting exceeded the cyclic-listing guard.</exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<List<PrideFtpFile>> GetProjectFilesFromFtpAsync(string accession,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(accession))
+                throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
+
+            // GetProjectAsync gives the publication date AND the right failure contract: an unknown
+            // accession is an MzLibException (not an HttpRequestException that a live test would skip).
+            PrideProject project = await GetProjectAsync(accession, cancellationToken).ConfigureAwait(false);
+            if (project.PublicationDate == default)
+                throw new MzLibException(
+                    $"PRIDE project '{accession}' has no publication date, so its FTP directory cannot be located.");
+
+            string rootUrl = string.Format(CultureInfo.InvariantCulture,
+                "https://{0}/pride/data/archive/{1:yyyy}/{1:MM}/{2}/",
+                PrideArchiveExtensions.PrideFtpHost, project.PublicationDate, accession);
+
+            var files = new List<PrideFtpFile>();
+            await CollectFtpFilesAsync(new Uri(rootUrl), relativePrefix: "", depth: 0, files, cancellationToken)
+                .ConfigureAwait(false);
+            return files;
+        }
+
+        /// <summary>
+        /// A hard cap on how deep the FTP walk descends. A symlink cycle is normally pruned by the
+        /// visited-URL set, so this is only a last-resort backstop for a genuinely (and implausibly)
+        /// deep tree; no real PRIDE project nests anywhere near this deep, and exceeding it is treated
+        /// as a broken listing (<see cref="MzLibException"/>) rather than left to a process-killing
+        /// <see cref="StackOverflowException"/>.
+        /// </summary>
+        private const int MaxFtpDirectoryDepth = 64;
+
+        /// <summary>
+        /// Lists one FTP directory (over HTTPS), appends its files to <paramref name="files"/>, and
+        /// recurses into each child subdirectory. <paramref name="relativePrefix"/> is the path from the
+        /// project root down to this directory, so nested files carry a full relative path;
+        /// <paramref name="depth"/> bounds the recursion.
+        /// </summary>
+        private async Task CollectFtpFilesAsync(Uri directoryUri, string relativePrefix, int depth,
+            List<PrideFtpFile> files, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            // The traversal guard below only ever appends a single non-".." segment, so the URL strictly
+            // deepens and can never revisit an earlier directory — no visited-set is needed. A cyclic
+            // listing (a self-linking symlink) therefore grows the URL without bound and is caught here.
+            // A broken listing is a contract violation (MzLibException) — NOT an HttpRequestException,
+            // which ExternalServiceTestHelper would misread as a service outage.
+            if (depth > MaxFtpDirectoryDepth)
+                throw new MzLibException(
+                    $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUri}'; the listing may be cyclic.");
+
+            using HttpResponseMessage response = await _httpClient.GetAsync(directoryUri, cancellationToken).ConfigureAwait(false);
+            if (!response.IsSuccessStatusCode)
+                throw new HttpRequestException(
+                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.");
+
+            string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+            foreach ((string rawHref, string sizeText) in ParseAutoIndexRows(html))
+            {
+                // rawHref is the link's attribute value, still URL-encoded. Resolve HTML entities, then
+                // compose the child URL with Uri joining (which escapes and handles the base's trailing
+                // slash safely), and decode only for the human-readable name — so "my%20file.raw"
+                // downloads from an encoded URL but surfaces as "my file.raw".
+                string href = WebUtility.HtmlDecode(rawHref);
+                string name = Uri.UnescapeDataString(href);
+                bool isDirectory = href.EndsWith("/", StringComparison.Ordinal);
+                string segment = isDirectory ? name.TrimEnd('/') : name;
+
+                // Refuse a "." / ".." traversal (which the Uri join would normalise OUT of the project
+                // subtree) and any decoded segment that gained a path separator (an encoded "%2F"),
+                // before it is used to build either the URL or the relative path.
+                if (segment.Length == 0 || segment == "." || segment == ".." || segment.Contains('/'))
+                    continue;
+
+                Uri childUri = new(directoryUri, href);
+
+                if (isDirectory)
+                    await CollectFtpFilesAsync(childUri, relativePrefix + name, depth + 1, files, cancellationToken)
+                        .ConfigureAwait(false);
+                else
+                    files.Add(new PrideFtpFile(relativePrefix + name, ParseAutoIndexSize(sizeText), childUri.AbsoluteUri));
+            }
+        }
+
+        // The PRIDE FTP host serves a standard Apache autoindex table over HTTPS: one <tr> per entry,
+        // whose <a href> is the (relative) name and whose right-aligned cells are the last-modified date
+        // and the size. The sort headers link to "?C=...", and "Parent Directory" links to an absolute
+        // "/..." path; both are skipped so only real entries survive.
+        private static readonly Regex RowRegex = new(@"<tr[^>]*>(.*?)</tr>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        private static readonly Regex HrefRegex = new("<a\\s+href=\"([^\"]+)\"", RegexOptions.IgnoreCase);
+        private static readonly Regex RightCellRegex = new("<td[^>]*align=\"right\"[^>]*>(.*?)</td>", RegexOptions.Singleline | RegexOptions.IgnoreCase);
+        // A size cell is "-" (a directory) or a number optionally suffixed K/M/G/T — never a date.
+        private static readonly Regex SizeRegex = new(@"^(-|\d+(\.\d+)?[KMGT]?)$", RegexOptions.IgnoreCase);
+
+        /// <summary>Yields the raw href and the size text for each real entry in an Apache autoindex table.</summary>
+        private static IEnumerable<(string RawHref, string SizeText)> ParseAutoIndexRows(string html)
+        {
+            foreach (Match row in RowRegex.Matches(html))
+            {
+                Match href = HrefRegex.Match(row.Groups[1].Value);
+                if (!href.Success)
+                    continue;
+
+                string raw = href.Groups[1].Value;
+                // Skip the column-sort links ("?C=N;O=D"), the absolute-path "Parent Directory", and
+                // anchors. Test the leading char on the decoded form; the RAW href is what the caller joins.
+                string decoded = WebUtility.HtmlDecode(raw);
+                if (decoded.Length == 0 || decoded[0] == '/' || decoded[0] == '?' || decoded[0] == '#')
+                    continue;
+
+                // Pick the FIRST right-aligned cell whose text parses as a size, NOT blindly the last: a
+                // stock Apache template also right-aligns the (empty) Description column, and the date cell
+                // is right-aligned too — neither of which looks like a size.
+                string sizeText = string.Empty;
+                foreach (Match cell in RightCellRegex.Matches(row.Groups[1].Value))
+                {
+                    string text = WebUtility.HtmlDecode(cell.Groups[1].Value).Trim();
+                    if (SizeRegex.IsMatch(text))
+                    {
+                        sizeText = text;
+                        break;
+                    }
+                }
+
+                yield return (raw, sizeText);
+            }
+        }
+
+        /// <summary>
+        /// Parses one Apache autoindex size cell ("1.6K", "20M", "9.3M", "1.2G", a bare byte count, or
+        /// "-" for a directory) into an APPROXIMATE byte count. The index rounds to ~3 significant
+        /// figures, so this is not exact — see <see cref="PrideFtpFile.ApproximateSizeBytes"/>.
+        /// </summary>
+        private static long ParseAutoIndexSize(string sizeText)
+        {
+            sizeText = sizeText.Trim();
+            if (sizeText.Length == 0 || sizeText == "-")
+                return 0;
+
+            char last = char.ToUpperInvariant(sizeText[sizeText.Length - 1]);
+            bool hasSuffix = last is 'K' or 'M' or 'G' or 'T';
+            double multiplier = last switch
+            {
+                'K' => 1024d,
+                'M' => 1024d * 1024,
+                'G' => 1024d * 1024 * 1024,
+                'T' => 1024d * 1024 * 1024 * 1024,
+                _ => 1d,
+            };
+            string number = hasSuffix ? sizeText.Substring(0, sizeText.Length - 1) : sizeText;
+            return double.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out double value)
+                ? (long)Math.Round(value * multiplier)
+                : 0;
         }
 
         /// <summary>
