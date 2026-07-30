@@ -45,8 +45,13 @@ namespace Readers
         [Name("Charge")]
         public int Charge { get; set; }
 
+        /// <summary>
+        /// The raw "Retention" column, in seconds, which is the unit MSFragger writes.
+        /// The verbatim value is kept here so the file round-trips on write; conversion to
+        /// minutes for <see cref="IQuantifiableRecord.RetentionTime"/> happens at the interface below.
+        /// </summary>
         [Name("Retention")]
-        public double RetentionTime { get; set; }
+        public double RetentionTimeInSeconds { get; set; }
 
         [Name("Observed Mass")]
         public double ObservedMass { get; set; }
@@ -213,6 +218,14 @@ namespace Readers
         [Ignore] private List<(string, string, string)> _proteinGroupInfos;
 
         [Ignore] public int ChargeState => Charge;
+
+        /// <summary>
+        /// The retention time in minutes, per the <see cref="IQuantifiableRecord.RetentionTime"/>
+        /// convention, converted from the seconds MSFragger writes in <see cref="RetentionTimeInSeconds"/>.
+        /// This mirrors the seconds-to-minutes conversion the spectra readers already do at their
+        /// own boundary (BrukerFileReader, MsAlign, Mgf, Mzml).
+        /// </summary>
+        [Ignore] public double RetentionTime => RetentionTimeInSeconds / 60.0;
 
         // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
         [Ignore] public bool IsDecoy => false;
