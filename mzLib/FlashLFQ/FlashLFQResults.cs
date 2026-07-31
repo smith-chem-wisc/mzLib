@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using MassSpectrometry;
 using FlashLFQ.IsoTracker;
+using Readers;
 
 namespace FlashLFQ
 {
@@ -709,6 +710,83 @@ namespace FlashLFQ
             if (!silent)
             {
                 Console.WriteLine("Finished writing output");
+            }
+        }
+
+        /// <summary>
+        /// Writes one row per MS1 peak observed around each quantified chromatographic peak: every peak between the
+        /// chromatographic peak's first and last retention time, from mzExpansion below the lowest m/z observed for
+        /// that peak to mzExpansion above the highest. Peaks belonging to other species are included, so the output
+        /// shows the interference and co-elution surrounding each quantified precursor.
+        ///
+        /// This is not part of WriteResults because it re-reads each spectra file: FlashLfqEngine discards the raw
+        /// data once quantification finishes, and holding the extracted peaks in memory instead would cost far more
+        /// than reading the files a second time. Rows are streamed to disk as each window is extracted, so only one
+        /// file is resident at a time.
+        /// </summary>
+        /// <param name="outputPath"> the file the rows are written to </param>
+        /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
+        /// <param name="silent"> suppresses console progress output </param>
+        public void WritePeakWindows(string outputPath, double mzExpansion = PeakWindow.DefaultMzExpansion, bool silent = false)
+        {
+            if (outputPath == null)
+            {
+                return;
+            }
+
+            if (!silent)
+            {
+                Console.WriteLine("Writing peak windows...");
+            }
+
+            using (StreamWriter output = new StreamWriter(outputPath))
+            {
+                output.WriteLine(PeakWindow.TabSeparatedHeader);
+
+                foreach (SpectraFileInfo spectraFile in SpectraFiles)
+                {
+                    if (!Peaks.TryGetValue(spectraFile, out var peaksInFile) || !peaksInFile.Any())
+                    {
+                        continue;
+                    }
+
+                    MsDataFile dataFile = MsDataFileReader.GetDataFile(spectraFile.FullFilePathWithExtension);
+                    dataFile.LoadAllStaticData();
+                    int[] ms1ScanNumberMap = PeakWindow.BuildMs1ScanNumberMap(dataFile);
+
+                    if (ms1ScanNumberMap.Length == 0)
+                    {
+                        if (!silent)
+                        {
+                            Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension
+                                + " contained no MS1 scans; no peak windows were written for it");
+                        }
+                        continue;
+                    }
+
+                    // Ordered to match the QuantifiedPeaks output, so that the nth peak of a file in one file is the
+                    // nth peak of that file in the other
+                    int peakId = 0;
+                    foreach (ChromatographicPeak peak in peaksInFile.OrderByDescending(p => p.Intensity))
+                    {
+                        peakId++;
+                        PeakWindow window = PeakWindow.Create(peak, dataFile, ms1ScanNumberMap, mzExpansion);
+                        if (window == null)
+                        {
+                            continue;
+                        }
+
+                        foreach (string row in window.ToTsvRows(peakId))
+                        {
+                            output.WriteLine(row);
+                        }
+                    }
+
+                    if (!silent)
+                    {
+                        Console.WriteLine("Finished writing peak windows for " + spectraFile.FilenameWithoutExtension);
+                    }
+                }
             }
         }
 

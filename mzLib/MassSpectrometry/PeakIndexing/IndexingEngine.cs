@@ -224,6 +224,80 @@ namespace MassSpectrometry
             }
             return xics;
         }
+        /// <summary>
+        /// Returns every indexed peak that falls inside a rectangular region of the m/z by scan-index plane.
+        /// Unlike GetIndexedPeak and GetXic, no attempt is made to pick a single best peak per scan: peaks belonging
+        /// to species other than the one of interest are included, as are multiple peaks from the same scan.
+        /// </summary>
+        /// <param name="minM"> the inclusive lower bound of the m/z (or mass) range </param>
+        /// <param name="maxM"> the inclusive upper bound of the m/z (or mass) range </param>
+        /// <param name="minZeroBasedScanIndex"> the inclusive index of the first scan to search </param>
+        /// <param name="maxZeroBasedScanIndex"> the inclusive index of the last scan to search </param>
+        /// <returns> A list of IIndexedPeak objects, ordered by scan index and then by m/z, both ascending </returns>
+        public List<IIndexedPeak> GetPeaksInRange(double minM, double maxM, int minZeroBasedScanIndex, int maxZeroBasedScanIndex)
+        {
+            if (IndexedPeaks == null) throw new MzLibException("Error: Attempt to retrieve indexed peaks before peak indexing was performed");
+
+            List<IIndexedPeak> peaksInRange = new();
+            if (minM > maxM || minZeroBasedScanIndex > maxZeroBasedScanIndex)
+                return peaksInRange;
+
+            // Peaks are binned by Math.Round(m * BinsPerDalton), so flooring the lower bound and ceilinging the
+            // upper bound is guaranteed to cover every bin that could hold a peak inside [minM, maxM].
+            int firstBin = Math.Max(0, (int)Math.Floor(minM * BinsPerDalton));
+            int lastBin = Math.Min(IndexedPeaks.Length - 1, (int)Math.Ceiling(maxM * BinsPerDalton));
+
+            for (int bin = firstBin; bin <= lastBin; bin++)
+            {
+                List<T>? peaksInBin = IndexedPeaks[bin];
+                if (peaksInBin == null)
+                    continue;
+
+                for (int i = BinarySearchForIndexedPeak(peaksInBin, minZeroBasedScanIndex); i < peaksInBin.Count; i++)
+                {
+                    T peak = peaksInBin[i];
+                    if (peak.ZeroBasedScanIndex > maxZeroBasedScanIndex)
+                        break;
+                    if (peak.ZeroBasedScanIndex >= minZeroBasedScanIndex && peak.M >= minM && peak.M <= maxM)
+                        peaksInRange.Add(peak);
+                }
+            }
+
+            peaksInRange.Sort((x, y) => x.ZeroBasedScanIndex == y.ZeroBasedScanIndex
+                ? x.M.CompareTo(y.M)
+                : x.ZeroBasedScanIndex.CompareTo(y.ZeroBasedScanIndex));
+            return peaksInRange;
+        }
+
+        /// <summary>
+        /// Returns every indexed peak that falls inside a rectangular region of the m/z by retention time plane.
+        /// See the scan-index overload for details.
+        /// </summary>
+        /// <param name="minM"> the inclusive lower bound of the m/z (or mass) range </param>
+        /// <param name="maxM"> the inclusive upper bound of the m/z (or mass) range </param>
+        /// <param name="minRetentionTime"> the inclusive lower bound of the retention time range </param>
+        /// <param name="maxRetentionTime"> the inclusive upper bound of the retention time range </param>
+        /// <returns> A list of IIndexedPeak objects, ordered by scan index and then by m/z, both ascending </returns>
+        public List<IIndexedPeak> GetPeaksInRange(double minM, double maxM, double minRetentionTime, double maxRetentionTime)
+        {
+            if (ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve indexed peaks before peak indexing was performed");
+
+            int minScanIndex = int.MaxValue;
+            int maxScanIndex = int.MinValue;
+            foreach (ScanInfo scan in ScanInfoArray)
+            {
+                if (scan == null || scan.RetentionTime < minRetentionTime || scan.RetentionTime > maxRetentionTime)
+                    continue;
+                minScanIndex = Math.Min(minScanIndex, scan.ZeroBasedScanIndex);
+                maxScanIndex = Math.Max(maxScanIndex, scan.ZeroBasedScanIndex);
+            }
+
+            if (minScanIndex > maxScanIndex)
+                return new List<IIndexedPeak>();
+
+            return GetPeaksInRange(minM, maxM, minScanIndex, maxScanIndex);
+        }
+
         #region Peak finding helper functions
 
         internal List<List<T>> GetBinsInRange(double mz, Tolerance ppmTolerance)
