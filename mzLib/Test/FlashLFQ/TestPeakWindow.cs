@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Test.FileReadingTests;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
@@ -85,6 +86,14 @@ namespace Test.FlashLFQ
         private static ChromatographicPeak BuildPeak(SpectraFileInfo file, string sequence,
             params (double Mz, int ZeroBasedScanIndex, double RetentionTime)[] envelopePeaks)
         {
+            return BuildPeak(file, sequence, true, envelopePeaks);
+        }
+
+        /// <param name="resolveApex"> when false the peak keeps its envelopes but never gets an apex, as happens
+        /// before CalculateIntensityForThisFeature has run </param>
+        private static ChromatographicPeak BuildPeak(SpectraFileInfo file, string sequence, bool resolveApex,
+            params (double Mz, int ZeroBasedScanIndex, double RetentionTime)[] envelopePeaks)
+        {
             var pg = new ProteinGroup("MyProtein", "gene", "org");
             var id = new Identification(file, sequence, sequence, 1350.65681, 1.0, 2, new List<ProteinGroup> { pg });
             var peak = new ChromatographicPeak(id, file);
@@ -95,7 +104,10 @@ namespace Test.FlashLFQ
                     new IndexedMassSpectralPeak(envelopePeak.Mz, 1e6, envelopePeak.ZeroBasedScanIndex,
                         envelopePeak.RetentionTime), 2, 1e6, 1.0));
             }
-            peak.CalculateIntensityForThisFeature(false);
+            if (resolveApex)
+            {
+                peak.CalculateIntensityForThisFeature(false);
+            }
             return peak;
         }
 
@@ -225,9 +237,9 @@ namespace Test.FlashLFQ
             // and it covers exactly the scans the peak was observed in
             int firstMs1Index = peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex);
             int lastMs1Index = peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex);
-            Assert.AreEqual(lastMs1Index - firstMs1Index + 1, window.Scans.Length);
-            Assert.AreEqual(map[firstMs1Index], window.Scans.First().OneBasedScanNumber);
-            Assert.AreEqual(map[lastMs1Index], window.Scans.Last().OneBasedScanNumber);
+            Assert.AreEqual(lastMs1Index - firstMs1Index + 1, window.ScanNumbers.Length);
+            Assert.AreEqual(map[firstMs1Index], window.ScanNumbers.First());
+            Assert.AreEqual(map[lastMs1Index], window.ScanNumbers.Last());
 
             // retention times are the scans' own, taken from the file
             Assert.AreEqual(dataFile.GetOneBasedScan(map[firstMs1Index]).RetentionTime, window.MinRetentionTime);
@@ -235,35 +247,44 @@ namespace Test.FlashLFQ
             Assert.AreEqual(dataFile.GetOneBasedScan(map[peak.Apex.IndexedPeak.ZeroBasedScanIndex]).RetentionTime,
                 window.ApexRetentionTime);
 
-            // each scan's slice is the m/z window of that scan's spectrum, parallel arrays and all
-            Assert.AreEqual(window.Scans.Sum(s => s.Mz.Length), window.PeakCount);
-            foreach (PeakWindowScan scan in window.Scans)
+            // each scan's slice is the m/z window of that scan's spectrum, held as parallel arrays
+            Assert.AreEqual(window.Mz.Sum(a => a.Length), window.PeakCount);
+            Assert.AreEqual(window.ScanNumbers.Length, window.RetentionTimes.Length);
+            Assert.AreEqual(window.ScanNumbers.Length, window.Mz.Length);
+            Assert.AreEqual(window.ScanNumbers.Length, window.Intensity.Length);
+            Assert.AreEqual(window.ScanNumbers.Length, window.PeakfindingIndices.Length);
+
+            for (int i = 0; i < window.ScanNumbers.Length; i++)
             {
-                MsDataScan sourceScan = dataFile.GetOneBasedScan(scan.OneBasedScanNumber);
-                Assert.AreEqual(sourceScan.RetentionTime, scan.RetentionTime);
-                Assert.AreEqual(scan.Mz.Length, scan.Intensity.Length);
-                Assert.AreEqual(scan.Mz.Length, scan.IsPeakfindingPeak.Length);
-                Assert.IsTrue(scan.Mz.All(mz => mz >= window.MinMz && mz <= window.MaxMz));
+                MsDataScan sourceScan = dataFile.GetOneBasedScan(window.ScanNumbers[i]);
+                Assert.AreEqual(sourceScan.RetentionTime, window.RetentionTimes[i]);
+                Assert.AreEqual(window.Mz[i].Length, window.Intensity[i].Length);
+                Assert.IsTrue(window.Mz[i].All(mz => mz >= window.MinMz && mz <= window.MaxMz));
 
                 // the slice matches a brute force filter of the whole spectrum, so the binary search found it all
                 var expected = sourceScan.MassSpectrum.XArray
-                    .Where(mz => mz >= window.MinMz && mz <= window.MaxMz).ToArray();
-                CollectionAssert.AreEqual(expected, scan.Mz);
+                    .Where(mz => mz >= window.MinMz && mz <= window.MaxMz).Select(mz => (float)mz).ToArray();
+                CollectionAssert.AreEqual(expected, window.Mz[i]);
+
+                // peakfinding entries are indices into this scan's arrays, ascending and in range
+                Assert.IsTrue(window.PeakfindingIndices[i].All(index => index >= 0 && index < window.Mz[i].Length));
+                CollectionAssert.AreEqual(window.PeakfindingIndices[i].OrderBy(index => index).ToArray(),
+                    window.PeakfindingIndices[i]);
             }
 
-            // every peak FlashLFQ used to trace the feature is flagged, and nothing else is
-            Assert.AreEqual(peak.IsotopicEnvelopes.Select(e => e.IndexedPeak).Distinct().Count(),
-                window.Scans.Sum(s => s.IsPeakfindingPeak.Count(f => f)));
+            // every peak FlashLFQ used to trace the feature is marked, and nothing else is
+            int markedPeaks = window.PeakfindingIndices.Sum(a => a.Length);
+            Assert.AreEqual(peak.IsotopicEnvelopes.Select(e => e.IndexedPeak).Distinct().Count(), markedPeaks);
 
             // and the window holds far more than those, which is the whole point of the output
-            Assert.IsTrue(window.PeakCount > window.Scans.Sum(s => s.IsPeakfindingPeak.Count(f => f)));
+            Assert.IsTrue(window.PeakCount > markedPeaks);
 
             // a wider window is a superset of a narrower one
             PeakWindow narrowWindow = PeakWindow.Create(peak, dataFile, map, mzExpansion: 0.5);
             Assert.IsTrue(narrowWindow.PeakCount <= window.PeakCount);
-            Assert.AreEqual(window.Scans.Length, narrowWindow.Scans.Length);
-            var wideMzs = window.Scans.SelectMany(s => s.Mz).ToHashSet();
-            Assert.IsTrue(narrowWindow.Scans.SelectMany(s => s.Mz).All(mz => wideMzs.Contains(mz)));
+            Assert.AreEqual(window.ScanNumbers.Length, narrowWindow.ScanNumbers.Length);
+            var wideMzs = window.Mz.SelectMany(a => a).ToHashSet();
+            Assert.IsTrue(narrowWindow.Mz.SelectMany(a => a).All(mz => wideMzs.Contains(mz)));
 
             // peaks with no isotopic envelopes have no window, and neither do missing arguments
             var pg = new ProteinGroup("MyProtein", "gene", "org");
@@ -297,8 +318,8 @@ namespace Test.FlashLFQ
                 peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex));
 
             const double edgeMargin = 1e-3;
-            var fromFile = window.Scans
-                .SelectMany(s => s.Mz.Select(mz => (s.OneBasedScanNumber, Mz: (float)mz)))
+            var fromFile = window.ScanNumbers
+                .SelectMany((scanNumber, i) => window.Mz[i].Select(mz => (OneBasedScanNumber: scanNumber, Mz: mz)))
                 .Where(p => p.Mz > window.MinMz + edgeMargin && p.Mz < window.MaxMz - edgeMargin)
                 .OrderBy(p => p.OneBasedScanNumber).ThenBy(p => p.Mz)
                 .ToList();
@@ -340,24 +361,26 @@ namespace Test.FlashLFQ
 
             Assert.AreEqual(499.5, window.MinMz, 1e-6);
             Assert.AreEqual(500.5, window.MaxMz, 1e-6);
-            Assert.AreEqual(4, window.Scans.Length);
+            Assert.AreEqual(4, window.ScanNumbers.Length);
 
-            // the scans with nothing in range are kept, holding no peaks
-            Assert.AreEqual(3, window.Scans[0].Mz.Length);
-            Assert.AreEqual(0, window.Scans[1].Mz.Length);
-            Assert.AreEqual(0, window.Scans[2].Mz.Length);
-            Assert.AreEqual(3, window.Scans[3].Mz.Length);
+            // the scans with nothing in range are kept, holding empty arrays
+            Assert.AreEqual(3, window.Mz[0].Length);
+            Assert.AreEqual(0, window.Mz[1].Length);
+            Assert.AreEqual(0, window.Mz[2].Length);
+            Assert.AreEqual(3, window.Mz[3].Length);
             Assert.AreEqual(6, window.PeakCount);
 
-            foreach (PeakWindowScan scan in window.Scans)
+            for (int i = 0; i < window.ScanNumbers.Length; i++)
             {
-                Assert.AreEqual(scan.Mz.Length, scan.Intensity.Length);
-                Assert.AreEqual(scan.Mz.Length, scan.IsPeakfindingPeak.Length);
+                Assert.AreEqual(window.Mz[i].Length, window.Intensity[i].Length);
             }
 
-            // an empty scan contributes no rows, and the peakfinding peaks are still flagged
-            Assert.AreEqual(6, window.ToTsvRows(1).Count());
-            Assert.AreEqual(2, window.Scans.Sum(s => s.IsPeakfindingPeak.Count(f => f)));
+            // the peakfinding peaks are still marked, in the scans that hold them
+            Assert.AreEqual(2, window.PeakfindingIndices.Sum(a => a.Length));
+            Assert.AreEqual(1, window.PeakfindingIndices[0].Single());
+            Assert.AreEqual(0, window.PeakfindingIndices[1].Length);
+            Assert.AreEqual(0, window.PeakfindingIndices[2].Length);
+            Assert.AreEqual(1, window.PeakfindingIndices[3].Single());
         }
 
         [Test]
@@ -408,61 +431,144 @@ namespace Test.FlashLFQ
             SpectraFileInfo mzml = new SpectraFileInfo(SlicedMzmlPath, "a", 0, 0, 0);
             ChromatographicPeak peak = QuantifySlicedMzml(mzml, out FlashLfqResults results);
 
-            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindows.tsv");
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindows.jsonl");
             results.WritePeakWindows(outputPath, silent: true);
 
             Assert.IsTrue(File.Exists(outputPath));
             string[] lines = File.ReadAllLines(outputPath);
-            Assert.AreEqual(PeakWindow.TabSeparatedHeader, lines[0]);
-            Assert.IsTrue(lines.Length > 1);
 
-            string[] headerColumns = lines[0].Split('\t');
-            int mzColumn = Array.IndexOf(headerColumns, "MZ");
-            int intensityColumn = Array.IndexOf(headerColumns, "Intensity");
-            int scanRtColumn = Array.IndexOf(headerColumns, "Scan Retention Time");
-            int scanNumberColumn = Array.IndexOf(headerColumns, "Scan Number");
-            int minMzColumn = Array.IndexOf(headerColumns, "Window Min MZ");
-            int maxMzColumn = Array.IndexOf(headerColumns, "Window Max MZ");
-            int rtStartColumn = Array.IndexOf(headerColumns, "Peak RT Start");
-            int rtEndColumn = Array.IndexOf(headerColumns, "Peak RT End");
-            int peakfindingColumn = Array.IndexOf(headerColumns, "Is Peakfinding Peak");
-            int fullSequenceColumn = Array.IndexOf(headerColumns, "Full Sequence");
+            // one line per quantified peak, each a complete JSON object
+            Assert.AreEqual(1, lines.Length);
 
             MsDataFile dataFile = MsDataFileReader.GetDataFile(SlicedMzmlPath);
             dataFile.LoadAllStaticData();
 
-            int peakfindingRows = 0;
-            foreach (string line in lines.Skip(1))
+            using JsonDocument document = JsonDocument.Parse(lines[0]);
+            JsonElement root = document.RootElement;
+
+            // the metadata appears once for the whole peak, not once per MS1 peak
+            Assert.AreEqual("sliced-mzml", root.GetProperty("fileName").GetString());
+            Assert.AreEqual(1, root.GetProperty("peakId").GetInt32());
+            Assert.AreEqual("EGFQVADGPLYR", root.GetProperty("baseSequence").GetString());
+            Assert.AreEqual("EGFQVADGPLYR", root.GetProperty("fullSequence").GetString());
+            Assert.AreEqual("MSMS", root.GetProperty("detectionType").GetString());
+            Assert.AreEqual(peak.Apex.ChargeState, root.GetProperty("charge").GetInt32());
+
+            double rtStart = root.GetProperty("rtStart").GetDouble();
+            double rtEnd = root.GetProperty("rtEnd").GetDouble();
+            double rtApex = root.GetProperty("rtApex").GetDouble();
+            Assert.IsTrue(rtStart <= rtApex && rtApex <= rtEnd);
+
+            double minMz = root.GetProperty("minMz").GetDouble();
+            double maxMz = root.GetProperty("maxMz").GetDouble();
+
+            int[] scanNumbers = root.GetProperty("scanNumbers").EnumerateArray().Select(e => e.GetInt32()).ToArray();
+            double[] retentionTimes = root.GetProperty("retentionTimes").EnumerateArray().Select(e => e.GetDouble()).ToArray();
+            var mzArrays = root.GetProperty("mz").EnumerateArray()
+                .Select(a => a.EnumerateArray().Select(e => e.GetSingle()).ToArray()).ToArray();
+            var intensityArrays = root.GetProperty("intensity").EnumerateArray()
+                .Select(a => a.EnumerateArray().Select(e => e.GetSingle()).ToArray()).ToArray();
+            var peakfindingIndices = root.GetProperty("peakfindingIndices").EnumerateArray()
+                .Select(a => a.EnumerateArray().Select(e => e.GetInt32()).ToArray()).ToArray();
+
+            // the arrays are parallel, one entry per scan
+            Assert.AreEqual(scanNumbers.Length, retentionTimes.Length);
+            Assert.AreEqual(scanNumbers.Length, mzArrays.Length);
+            Assert.AreEqual(scanNumbers.Length, intensityArrays.Length);
+            Assert.AreEqual(scanNumbers.Length, peakfindingIndices.Length);
+            Assert.AreEqual(mzArrays.Sum(a => a.Length), root.GetProperty("peakCount").GetInt32());
+
+            for (int i = 0; i < scanNumbers.Length; i++)
             {
-                string[] cells = line.Split('\t');
-                Assert.AreEqual(headerColumns.Length, cells.Length);
-                Assert.AreEqual("EGFQVADGPLYR", cells[fullSequenceColumn]);
-
-                double mz = double.Parse(cells[mzColumn], CultureInfo.InvariantCulture);
-                double rt = double.Parse(cells[scanRtColumn], CultureInfo.InvariantCulture);
-                Assert.IsTrue(mz >= double.Parse(cells[minMzColumn], CultureInfo.InvariantCulture));
-                Assert.IsTrue(mz <= double.Parse(cells[maxMzColumn], CultureInfo.InvariantCulture));
-                Assert.IsTrue(rt >= double.Parse(cells[rtStartColumn], CultureInfo.InvariantCulture));
-                Assert.IsTrue(rt <= double.Parse(cells[rtEndColumn], CultureInfo.InvariantCulture));
-                Assert.IsTrue(double.Parse(cells[intensityColumn], CultureInfo.InvariantCulture) > 0);
-
-                // the scan number addresses the raw file directly, and names an MS1 scan at the row's retention time
-                int scanNumber = int.Parse(cells[scanNumberColumn], CultureInfo.InvariantCulture);
-                MsDataScan sourceScan = dataFile.GetOneBasedScan(scanNumber);
+                // the scan number addresses the raw file directly, and names an MS1 scan at the stated time
+                MsDataScan sourceScan = dataFile.GetOneBasedScan(scanNumbers[i]);
                 Assert.AreEqual(1, sourceScan.MsnOrder);
-                Assert.AreEqual(sourceScan.RetentionTime, rt);
+                Assert.AreEqual(sourceScan.RetentionTime, retentionTimes[i]);
+                Assert.IsTrue(retentionTimes[i] >= rtStart && retentionTimes[i] <= rtEnd);
 
-                if (bool.Parse(cells[peakfindingColumn]))
-                {
-                    peakfindingRows++;
-                }
+                Assert.AreEqual(mzArrays[i].Length, intensityArrays[i].Length);
+                Assert.IsTrue(mzArrays[i].All(mz => mz >= minMz && mz <= maxMz));
+                Assert.IsTrue(intensityArrays[i].All(intensity => intensity > 0));
+                Assert.IsTrue(peakfindingIndices[i].All(index => index >= 0 && index < mzArrays[i].Length));
             }
 
-            // the rows FlashLFQ actually quantified are flagged, and they are a strict subset of what was written
-            Assert.AreEqual(peak.IsotopicEnvelopes.Select(e => e.IndexedPeak).Distinct().Count(), peakfindingRows);
-            Assert.IsTrue(lines.Length - 1 > peakfindingRows);
+            // the peaks FlashLFQ actually quantified are marked, and are a strict subset of what was written
+            int markedPeaks = peakfindingIndices.Sum(a => a.Length);
+            Assert.AreEqual(peak.IsotopicEnvelopes.Select(e => e.IndexedPeak).Distinct().Count(), markedPeaks);
+            Assert.IsTrue(mzArrays.Sum(a => a.Length) > markedPeaks);
 
             File.Delete(outputPath);
+        }
+
+        /// <summary>
+        /// The reason for the format: the metadata is written once per peak rather than once per MS1 peak, so it
+        /// stays a rounding error in the output no matter how much raw data the window covers.
+        /// </summary>
+        [Test]
+        public static void TestPeakWindowJsonDoesNotRepeatMetadata()
+        {
+            SpectraFileInfo mzml = new SpectraFileInfo(SlicedMzmlPath, "a", 0, 0, 0);
+            QuantifySlicedMzml(mzml, out FlashLfqResults results);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsMetadata.jsonl");
+            results.WritePeakWindows(outputPath, mzExpansion: 2.0, silent: true);
+
+            string json = File.ReadAllText(outputPath);
+            using JsonDocument document = JsonDocument.Parse(json);
+            int peakCount = document.RootElement.GetProperty("peakCount").GetInt32();
+
+            // the sequence names each appear once for the whole peak, however many MS1 peaks it covers
+            Assert.IsTrue(peakCount > 100);
+            Assert.AreEqual(1, CountOccurrences(json, "\"fullSequence\""));
+            Assert.AreEqual(1, CountOccurrences(json, "EGFQVADGPLYR\",\"detectionType\""));
+            Assert.AreEqual(1, CountOccurrences(json, "\"peakId\""));
+
+            File.Delete(outputPath);
+        }
+
+        /// <summary>
+        /// A peak with no apex has no apex retention time, and NaN is not a JSON number - Utf8JsonWriter throws on
+        /// it - so it has to be written as null or the whole file is lost to one unresolved peak.
+        /// </summary>
+        [Test]
+        public static void TestPeakWithNoApexWritesNullRetentionTime()
+        {
+            SpectraFileInfo file = WriteSyntheticMzml("peakWindowNoApex.mzML", new[]
+            {
+                new[] { 499.9, 500.0, 500.1 },
+                new[] { 499.9, 500.0, 500.1 },
+            });
+
+            var results = new FlashLfqResults(new List<SpectraFileInfo> { file }, new List<Identification>());
+            results.Peaks[file].Add(BuildPeak(file, "PEPTIDE", false, (500.0, 0, 1.0), (500.0, 1, 1.1)));
+
+            MsDataFile dataFile = LoadDataFile(file);
+            PeakWindow window = PeakWindow.Create(results.Peaks[file].Single(), dataFile,
+                PeakWindow.BuildMs1ScanNumberMap(dataFile));
+            Assert.IsNaN(window.ApexRetentionTime);
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsNoApex.jsonl");
+            Assert.DoesNotThrow(() => results.WritePeakWindows(outputPath, silent: true));
+
+            // the object still parses, with a null apex and a zero charge rather than a broken number
+            string line = File.ReadAllLines(outputPath).Single();
+            using JsonDocument document = JsonDocument.Parse(line);
+            Assert.AreEqual(JsonValueKind.Null, document.RootElement.GetProperty("rtApex").ValueKind);
+            Assert.AreEqual(0, document.RootElement.GetProperty("charge").GetInt32());
+            Assert.AreEqual(6, document.RootElement.GetProperty("peakCount").GetInt32());
+
+            File.Delete(outputPath);
+        }
+
+        private static int CountOccurrences(string haystack, string needle)
+        {
+            int count = 0;
+            for (int i = haystack.IndexOf(needle, StringComparison.Ordinal); i >= 0;
+                 i = haystack.IndexOf(needle, i + needle.Length, StringComparison.Ordinal))
+            {
+                count++;
+            }
+            return count;
         }
 
         [Test]
@@ -495,15 +601,16 @@ namespace Test.FlashLFQ
             results.Peaks[fileWithPeaks].Add(BuildPeak(fileWithPeaks, "PEPTIDE", (500.0, 0, 1.0), (500.0, 1, 1.1)));
             results.Peaks[fileWithPeaks].Add(BuildPeak(fileWithPeaks, "NOENVELOPES"));
 
-            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsSkipping.tsv");
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsSkipping.jsonl");
             Assert.DoesNotThrow(() => results.WritePeakWindows(outputPath, silent: false));
 
+            // only the peak that had envelopes produced an object
             string[] lines = File.ReadAllLines(outputPath);
-            Assert.AreEqual(PeakWindow.TabSeparatedHeader, lines[0]);
+            Assert.AreEqual(1, lines.Length);
 
-            // only the peak that had envelopes produced rows
-            Assert.AreEqual(6, lines.Length - 1);
-            Assert.IsTrue(lines.Skip(1).All(l => l.Split('\t')[2] == "PEPTIDE"));
+            using JsonDocument document = JsonDocument.Parse(lines[0]);
+            Assert.AreEqual("PEPTIDE", document.RootElement.GetProperty("fullSequence").GetString());
+            Assert.AreEqual(6, document.RootElement.GetProperty("peakCount").GetInt32());
 
             File.Delete(outputPath);
         }
@@ -531,13 +638,11 @@ namespace Test.FlashLFQ
             var results = new FlashLfqResults(new List<SpectraFileInfo> { file }, new List<Identification>());
             results.Peaks[file].Add(BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0)));
 
-            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsMs2Only.tsv");
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsMs2Only.jsonl");
             Assert.DoesNotThrow(() => results.WritePeakWindows(outputPath, silent: false));
 
-            // the header is written, but the file contributes no rows
-            string[] lines = File.ReadAllLines(outputPath);
-            Assert.AreEqual(1, lines.Length);
-            Assert.AreEqual(PeakWindow.TabSeparatedHeader, lines[0]);
+            // the file contributes nothing, leaving an empty output rather than a malformed one
+            Assert.AreEqual(0, new FileInfo(outputPath).Length);
 
             File.Delete(outputPath);
         }

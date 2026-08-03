@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using MassSpectrometry;
 using FlashLFQ.IsoTracker;
 using Readers;
@@ -714,17 +715,22 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Writes one row per MS1 peak observed around each quantified chromatographic peak: every peak between the
-        /// chromatographic peak's first and last retention time, from mzExpansion below the lowest m/z observed for
-        /// that peak to mzExpansion above the highest. Peaks belonging to other species are included, so the output
-        /// shows the interference and co-elution surrounding each quantified precursor.
+        /// Writes the MS1 data observed around each quantified chromatographic peak: every peak between the
+        /// chromatographic peak's first and last scan, from mzExpansion below the lowest m/z observed for that peak
+        /// to mzExpansion above the highest. Peaks belonging to other species are included, so the output shows the
+        /// interference and co-elution surrounding each quantified precursor.
+        ///
+        /// The format is JSON Lines: one self-contained JSON object per quantified peak, one per line. The peak's
+        /// metadata is written once per peak and the MS1 peaks follow as parallel m/z and intensity arrays, so the
+        /// metadata cost does not scale with the number of peaks in the window. Being line delimited, it also
+        /// streams: a window is written and released before the next is extracted, and a reader can consume one
+        /// peak at a time rather than parsing the whole file.
         ///
         /// This is not part of WriteResults because it re-reads each spectra file: FlashLfqEngine discards the raw
         /// data once quantification finishes, and holding the extracted peaks in memory instead would cost far more
-        /// than reading the files a second time. Rows are streamed to disk as each window is extracted, so only one
-        /// file is resident at a time.
+        /// than reading the files a second time. Only one file is resident at a time.
         /// </summary>
-        /// <param name="outputPath"> the file the rows are written to </param>
+        /// <param name="outputPath"> the file the peak objects are written to </param>
         /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
         /// <param name="silent"> suppresses console progress output </param>
         public void WritePeakWindows(string outputPath, double mzExpansion = PeakWindow.DefaultMzExpansion, bool silent = false)
@@ -739,10 +745,9 @@ namespace FlashLFQ
                 Console.WriteLine("Writing peak windows...");
             }
 
-            using (StreamWriter output = new StreamWriter(outputPath))
+            using (FileStream stream = File.Create(outputPath))
+            using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
             {
-                output.WriteLine(PeakWindow.TabSeparatedHeader);
-
                 foreach (SpectraFileInfo spectraFile in SpectraFiles)
                 {
                     if (!Peaks.TryGetValue(spectraFile, out var peaksInFile) || !peaksInFile.Any())
@@ -776,10 +781,13 @@ namespace FlashLFQ
                             continue;
                         }
 
-                        foreach (string row in window.ToTsvRows(peakId))
-                        {
-                            output.WriteLine(row);
-                        }
+                        window.WriteTo(writer, peakId);
+
+                        // One object per line. The writer has to be reset between objects: it otherwise rejects a
+                        // second top level value, since a stream of them is not itself a JSON document.
+                        writer.Flush();
+                        stream.WriteByte((byte)'\n');
+                        writer.Reset();
                     }
 
                     if (!silent)
