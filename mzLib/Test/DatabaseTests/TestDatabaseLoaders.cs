@@ -297,7 +297,16 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, count);
         }
 
+        // The four Loaders.Update* tests below, and FilesEqualHash, each download an ontology over the
+        // network (unimod.org, github.com, uniprot.org). They were running in the REQUIRED CI job, so any
+        // one of those third parties being down reddened every mzLib PR. [Category("ExternalService")]
+        // moves them to the dedicated non-blocking job, the same treatment the UniProt retrieval tests in
+        // this file now get. Note TestUpdateElements is deliberately NOT categorised: it only validates the
+        // in-memory periodic table and makes no request.
+
         [Test]
+        [Category("ExternalService")]
+        [Category("Unimod")]
         public void TestUpdateUnimod()
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");
@@ -306,13 +315,18 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        [Category("ExternalService")]
+        [Category("PsiMod")]
         public void TestUpdatePsiMod()
         {
             var psimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.xml");
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
         }
+
         [Test]
+        [Category("ExternalService")]
+        [Category("PsiMod")]
         public void TestUpdatePsiModObo()
         {
             string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
@@ -375,14 +389,18 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        [Category("ExternalService")]
+        [Category("UniProt")]
         public void TestUpdateUniprot()
         {
             var uniprotLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist.txt");
             Loaders.UpdateUniprot(uniprotLocation);
             Loaders.UpdateUniprot(uniprotLocation);
-        } 
+        }
 
+        // Downloads from uniprot.org, unimod.org and github.com in one test.
         [Test]
+        [Category("ExternalService")]
         public void FilesEqualHash()
         {
             var fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake.txt");
