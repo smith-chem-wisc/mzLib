@@ -9,9 +9,12 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Test.FileReadingTests;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
+using StringAssert = NUnit.Framework.Legacy.StringAssert;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
+using IsotopicEnvelope = FlashLFQ.IsotopicEnvelope;
 
 namespace Test.FlashLFQ
 {
@@ -54,6 +57,53 @@ namespace Test.FlashLFQ
                 new List<Identification> { id }).Run();
 
             return results.Peaks[mzml].Single();
+        }
+
+        /// <summary>
+        /// Writes a synthetic mzML holding one MS1 scan per supplied peak list, and returns a SpectraFileInfo for it.
+        /// </summary>
+        private static SpectraFileInfo WriteSyntheticMzml(string fileName, IReadOnlyList<double[]> mzPerScan)
+        {
+            var scans = new MsDataScan[mzPerScan.Count];
+            for (int s = 0; s < mzPerScan.Count; s++)
+            {
+                double[] intensities = mzPerScan[s].Select((_, i) => 1e5 * (i + 1)).ToArray();
+                scans[s] = new MsDataScan(new MzSpectrum(mzPerScan[s].ToArray(), intensities, false), s + 1, 1, true,
+                    Polarity.Positive, 1.0 + s * 0.1, new MzRange(50, 1600), "f", MZAnalyzerType.Orbitrap,
+                    intensities.Sum(), 1.0, null, "scan=" + (s + 1));
+            }
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, fileName);
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(scans), path, false);
+            return new SpectraFileInfo(path, "a", 0, 0, 0);
+        }
+
+        /// <summary>
+        /// Builds a ChromatographicPeak directly, without running the engine, so that a test can put its isotopic
+        /// envelopes in exactly the scans it wants - including scans that do not exist.
+        /// </summary>
+        private static ChromatographicPeak BuildPeak(SpectraFileInfo file, string sequence,
+            params (double Mz, int ZeroBasedScanIndex, double RetentionTime)[] envelopePeaks)
+        {
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            var id = new Identification(file, sequence, sequence, 1350.65681, 1.0, 2, new List<ProteinGroup> { pg });
+            var peak = new ChromatographicPeak(id, file);
+
+            foreach (var envelopePeak in envelopePeaks)
+            {
+                peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(
+                    new IndexedMassSpectralPeak(envelopePeak.Mz, 1e6, envelopePeak.ZeroBasedScanIndex,
+                        envelopePeak.RetentionTime), 2, 1e6, 1.0));
+            }
+            peak.CalculateIntensityForThisFeature(false);
+            return peak;
+        }
+
+        private static MsDataFile LoadDataFile(SpectraFileInfo file)
+        {
+            MsDataFile dataFile = MsDataFileReader.GetDataFile(file.FullFilePathWithExtension);
+            dataFile.LoadAllStaticData();
+            return dataFile;
         }
 
         #region IndexingEngine range queries
@@ -264,6 +314,90 @@ namespace Test.FlashLFQ
             engine.ClearIndex();
         }
 
+        /// <summary>
+        /// A scan can hold nothing inside the window even though the peak elutes across it. Both ways that happens
+        /// have to survive the binary search: the scan's peaks can all sit below the window, in which case the
+        /// search clamps to the last peak and the start index has to be walked past the end of the array, or they
+        /// can all sit above it, in which case it clamps to the first.
+        /// </summary>
+        [Test]
+        public static void TestPeakWindowHandlesScansWithNothingInRange()
+        {
+            SpectraFileInfo file = WriteSyntheticMzml("peakWindowEmptyScans.mzML", new[]
+            {
+                new[] { 499.9, 500.0, 500.1 },  // scan 1: inside the window
+                new[] { 100.0, 101.0 },         // scan 2: entirely below it
+                new[] { 900.0, 901.0 },         // scan 3: entirely above it
+                new[] { 499.9, 500.0, 500.1 },  // scan 4: inside the window
+            });
+
+            MsDataFile dataFile = LoadDataFile(file);
+            int[] map = PeakWindow.BuildMs1ScanNumberMap(dataFile);
+
+            // the peak is traced through the first and last scan, so the window spans all four
+            ChromatographicPeak peak = BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 3, 1.3));
+            PeakWindow window = PeakWindow.Create(peak, dataFile, map);
+
+            Assert.AreEqual(499.5, window.MinMz, 1e-6);
+            Assert.AreEqual(500.5, window.MaxMz, 1e-6);
+            Assert.AreEqual(4, window.Scans.Length);
+
+            // the scans with nothing in range are kept, holding no peaks
+            Assert.AreEqual(3, window.Scans[0].Mz.Length);
+            Assert.AreEqual(0, window.Scans[1].Mz.Length);
+            Assert.AreEqual(0, window.Scans[2].Mz.Length);
+            Assert.AreEqual(3, window.Scans[3].Mz.Length);
+            Assert.AreEqual(6, window.PeakCount);
+
+            foreach (PeakWindowScan scan in window.Scans)
+            {
+                Assert.AreEqual(scan.Mz.Length, scan.Intensity.Length);
+                Assert.AreEqual(scan.Mz.Length, scan.IsPeakfindingPeak.Length);
+            }
+
+            // an empty scan contributes no rows, and the peakfinding peaks are still flagged
+            Assert.AreEqual(6, window.ToTsvRows(1).Count());
+            Assert.AreEqual(2, window.Scans.Sum(s => s.IsPeakfindingPeak.Count(f => f)));
+        }
+
+        [Test]
+        public static void TestPeakWindowReturnsNullWhenScanIndexIsNotInTheMap()
+        {
+            SpectraFileInfo file = WriteSyntheticMzml("peakWindowShortFile.mzML", new[]
+            {
+                new[] { 499.9, 500.0, 500.1 },
+                new[] { 499.9, 500.0, 500.1 },
+            });
+
+            MsDataFile dataFile = LoadDataFile(file);
+            int[] map = PeakWindow.BuildMs1ScanNumberMap(dataFile);
+            Assert.AreEqual(2, map.Length);
+
+            // an envelope in a scan the file does not have cannot be translated to a scan number
+            ChromatographicPeak beyondEnd = BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 99, 1.3));
+            Assert.IsNull(PeakWindow.Create(beyondEnd, dataFile, map));
+        }
+
+        [Test]
+        public static void TestPeakWindowToString()
+        {
+            SpectraFileInfo file = WriteSyntheticMzml("peakWindowToString.mzML", new[]
+            {
+                new[] { 499.9, 500.0, 500.1 },
+                new[] { 499.9, 500.0, 500.1 },
+            });
+
+            MsDataFile dataFile = LoadDataFile(file);
+            PeakWindow window = PeakWindow.Create(BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 1, 1.1)),
+                dataFile, PeakWindow.BuildMs1ScanNumberMap(dataFile));
+
+            string description = window.ToString();
+            StringAssert.Contains("PEPTIDE", description);
+            StringAssert.Contains("6 peaks in 2 scans", description);
+            StringAssert.Contains("m/z", description);
+            StringAssert.Contains("min", description);
+        }
+
         #endregion
 
         #region Output file
@@ -336,6 +470,76 @@ namespace Test.FlashLFQ
         {
             var results = new FlashLfqResults(new List<SpectraFileInfo>(), new List<Identification>());
             Assert.DoesNotThrow(() => results.WritePeakWindows(null, silent: true));
+        }
+
+        /// <summary>
+        /// Files with no quantified peaks and peaks with no isotopic envelopes are both skipped. Runs with console
+        /// output on, since that is how a caller would normally invoke it.
+        /// </summary>
+        [Test]
+        public static void TestWritePeakWindowsSkipsWhatItCannotWrite()
+        {
+            SpectraFileInfo fileWithPeaks = WriteSyntheticMzml("peakWindowSkipping.mzML", new[]
+            {
+                new[] { 499.9, 500.0, 500.1 },
+                new[] { 499.9, 500.0, 500.1 },
+            });
+
+            // this file is never read, because it has no quantified peaks - so it need not exist at all
+            var fileWithoutPeaks = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "peakWindowNoSuchFile.mzML"), "a", 1, 0, 0);
+            Assert.IsFalse(File.Exists(fileWithoutPeaks.FullFilePathWithExtension));
+
+            var results = new FlashLfqResults(new List<SpectraFileInfo> { fileWithPeaks, fileWithoutPeaks },
+                new List<Identification>());
+            results.Peaks[fileWithPeaks].Add(BuildPeak(fileWithPeaks, "PEPTIDE", (500.0, 0, 1.0), (500.0, 1, 1.1)));
+            results.Peaks[fileWithPeaks].Add(BuildPeak(fileWithPeaks, "NOENVELOPES"));
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsSkipping.tsv");
+            Assert.DoesNotThrow(() => results.WritePeakWindows(outputPath, silent: false));
+
+            string[] lines = File.ReadAllLines(outputPath);
+            Assert.AreEqual(PeakWindow.TabSeparatedHeader, lines[0]);
+
+            // only the peak that had envelopes produced rows
+            Assert.AreEqual(6, lines.Length - 1);
+            Assert.IsTrue(lines.Skip(1).All(l => l.Split('\t')[2] == "PEPTIDE"));
+
+            File.Delete(outputPath);
+        }
+
+        /// <summary>
+        /// A file whose peaks cannot be placed in any MS1 scan is reported and skipped rather than throwing.
+        /// </summary>
+        [Test]
+        public static void TestWritePeakWindowsWithNoMs1Scans()
+        {
+            var ms2Scans = new MsDataScan[2];
+            for (int s = 0; s < ms2Scans.Length; s++)
+            {
+                double[] mz = { 200.0, 300.0 };
+                double[] intensity = { 1e5, 2e5 };
+                ms2Scans[s] = new MsDataScan(new MzSpectrum(mz, intensity, false), s + 1, 2, true, Polarity.Positive,
+                    1.0 + s * 0.1, new MzRange(50, 1600), "f", MZAnalyzerType.Orbitrap, intensity.Sum(), 1.0, null,
+                    "scan=" + (s + 1), selectedIonMz: 500.0, dissociationType: DissociationType.HCD);
+            }
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowMs2Only.mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(new FakeMsDataFile(ms2Scans), path, false);
+            var file = new SpectraFileInfo(path, "a", 0, 0, 0);
+
+            var results = new FlashLfqResults(new List<SpectraFileInfo> { file }, new List<Identification>());
+            results.Peaks[file].Add(BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0)));
+
+            string outputPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "peakWindowsMs2Only.tsv");
+            Assert.DoesNotThrow(() => results.WritePeakWindows(outputPath, silent: false));
+
+            // the header is written, but the file contributes no rows
+            string[] lines = File.ReadAllLines(outputPath);
+            Assert.AreEqual(1, lines.Length);
+            Assert.AreEqual(PeakWindow.TabSeparatedHeader, lines[0]);
+
+            File.Delete(outputPath);
         }
 
         #endregion
