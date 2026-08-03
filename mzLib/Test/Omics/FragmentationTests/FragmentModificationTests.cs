@@ -552,9 +552,14 @@ namespace Test.Omics.FragmentationTests
 
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.zDot) == 10);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.c) == 0);
-            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 9);
+            Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.y) == 0);
             Assert.That(products.Count(p => p.NeutralLoss == 126 && p.ProductType == ProductType.M) == 1);
-            Assert.That(products.Count(p => p.NeutralLoss == 126) == 20);
+            Assert.That(products.Count(p => p.NeutralLoss == 126) == 11);
+
+            // The assertions above are all gated on NeutralLoss == 126, so on their own they say nothing
+            // about y ions carrying no loss annotation. ETD produces no y at all -- assert it on the WHOLE
+            // product list, so a regression re-adding y to the ETD row (even loss-free y) fails here.
+            Assert.That(products.Count(p => p.ProductType == ProductType.y), Is.EqualTo(0));
         }
     }
 }
