@@ -69,10 +69,22 @@ namespace Proteomics.ProteolyticDigestion
 
                     // Modifications are placed AFTER cleavage, so nothing so far has checked whether a
                     // modification abolishes the very site this peptide was cut at. Skip the peptidoforms
-                    // the protease could not have produced. Full specificity only: for semi- and
-                    // single-terminus peptides a C-terminus is a length-driven truncation, not a protease
-                    // cut, so a blocking modification there invalidates nothing -- and only the full path
-                    // is given the generation slack that keeps the read-through form reachable.
+                    // the protease could not have produced.
+                    //
+                    // Both gates are required, and they are not the same gate.
+                    //
+                    // SearchModeType == Full is what ties the drop to the generation slack, which
+                    // ProteinDigestion adds under exactly that condition. The drop and the slack are two
+                    // halves of one exchange: the impossible peptidoform goes out and the read-through
+                    // form that replaces it comes in. Applying the drop where no slack was granted
+                    // performs half the trade -- a semi search at a missed-cleavage budget too small to
+                    // reach the read-through would lose the impossible form AND never gain the real one,
+                    // leaving that peptide unidentifiable. So a semi or nonspecific search is left
+                    // entirely alone rather than half-corrected.
+                    //
+                    // CleavageSpecificityForFdrCategory == Full then restricts the drop to peptides whose
+                    // C-terminus is a protease cut at all: for a semi or single-terminus peptide it is a
+                    // length-driven truncation, and a blocking modification there invalidates nothing.
                     //
                     // reportedMissedCleavages is what the surviving peptidoform CARRIES, and it is the
                     // blocked-discounted count, not the modification-blind one this peptide was
@@ -82,6 +94,7 @@ namespace Proteomics.ProteolyticDigestion
                     // cleavages than the caller asked for.
                     int reportedMissedCleavages = MissedCleavages;
                     if (digestionParams.RespectCleavageBlockingModifications
+                        && digestionParams.SearchModeType == CleavageSpecificity.Full
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                         && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, digestionParams.MaxMissedCleavages,
                             out reportedMissedCleavages))

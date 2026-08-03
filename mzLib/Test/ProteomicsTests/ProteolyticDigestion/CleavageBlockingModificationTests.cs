@@ -269,25 +269,59 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 "an acylation on the protein's terminal K ends a real peptide and must survive");
         }
 
+        /// <summary>
+        /// A semi or nonspecific search is left ENTIRELY alone by the flag -- not just its non-Full
+        /// subset. The drop and the generation slack are two halves of one exchange (impossible
+        /// peptidoform out, read-through form in), and ProteinDigestion grants the slack only when
+        /// SearchModeType is Full. Applying the drop without it performed half the trade: at a
+        /// missed-cleavage budget too small to reach the read-through, the peptide was dropped and never
+        /// replaced, so it became unidentifiable.
+        ///
+        /// This asserts the WHOLE digest, both specificity categories. The earlier version of this test
+        /// compared only the non-Full subset, which is exactly why it passed while the Full-tagged
+        /// peptides inside a semi search were being dropped unreplaced.
+        /// </summary>
         [Test]
-        public static void SemiSpecific_NonFullPeptides_AreUnaffectedByTheFlag()
+        public static void SemiSpecificSearch_IsEntirelyUnaffectedByTheFlag(
+            [Values(0, 1, 2)] int maxMissedCleavages)
         {
-            // The drop is restricted to full-specificity peptides (both ends real cuts). A semi digest
-            // also yields peptides whose C-terminus is a length truncation, not a protease cut
-            // (CleavageSpecificityForFdrCategory != Full); a blocking modification there invalidates
-            // nothing, so the flag must leave that non-Full subset exactly as it was.
             var succinyl = MakeKModification("N6-succinyllysine");
             var protein = new Protein("PEPTIDEKAAAAAAAR", "accession");
 
-            List<string> NonFullSubset(bool respect) =>
-                protein.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
-                        searchModeType: CleavageSpecificity.Semi, respectCleavageBlockingModifications: respect),
+            List<string> WholeDigest(bool respect) =>
+                protein.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: maxMissedCleavages,
+                        minPeptideLength: 7, searchModeType: CleavageSpecificity.Semi,
+                        respectCleavageBlockingModifications: respect),
                         new List<Modification>(), new List<Modification> { succinyl })
                     .Cast<PeptideWithSetModifications>()
-                    .Where(p => p.CleavageSpecificityForFdrCategory != CleavageSpecificity.Full)
                     .Select(p => p.FullSequence).OrderBy(s => s).ToList();
 
-            CollectionAssert.AreEqual(NonFullSubset(respect: false), NonFullSubset(respect: true));
+            CollectionAssert.AreEqual(WholeDigest(respect: false), WholeDigest(respect: true),
+                "a semi search must be untouched by the flag, not half-corrected");
+        }
+
+        /// <summary>
+        /// The counterpart in Full mode, stated as the exchange it is: the impossible peptidoform leaves
+        /// and the read-through that replaces it arrives, so the peptide remains identifiable. This is
+        /// what a semi search does NOT get, and the pair of tests marks the boundary.
+        /// </summary>
+        [Test]
+        public static void FullSearch_TradesTheImpossibleFormForTheReadThrough()
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            var without = Digest(respectBlockingMods: false, maxMissedCleavages: 0, succinyl);
+            var with = Digest(respectBlockingMods: true, maxMissedCleavages: 0, succinyl);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(without.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
+                    "flag off keeps the impossible form");
+                Assert.That(with.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.False,
+                    "flag on drops the impossible form");
+                Assert.That(with.Any(p => p.BaseSequence == "PEPTIDEKAAAAAAAR" && p.AllModsOneIsNterminus.ContainsKey(9)), Is.True,
+                    "and replaces it with the read-through, so the peptide is not simply lost");
+            });
         }
 
         [Test]

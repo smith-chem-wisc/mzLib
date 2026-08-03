@@ -66,12 +66,18 @@ namespace Proteomics.ProteolyticDigestion
         /// does enumerate a wider span internally to reach the read-through forms, but that slack is
         /// discounted again before a peptide is emitted, so it is never observable in the result.
         ///
-        /// Scope: only full-specificity peptides are affected. In semi- and single-terminus modes a
-        /// peptide's C-terminus is usually a length-driven truncation rather than a protease cut, and
-        /// this flag has no effect there -- including for the minority of semi peptides whose
-        /// C-terminus IS a genuine cut, which are therefore not yet filtered. Extending the rule to
-        /// those requires the peptide to know its protease's site list, which full digestion gets for
-        /// free from its enumeration and semi digestion does not.
+        /// Scope: this flag applies to full-specificity SEARCHES only
+        /// (<see cref="SearchModeType"/> == <see cref="CleavageSpecificity.Full"/>). A semi or
+        /// nonspecific search is left exactly as it was, deliberately and entirely. The drop and the
+        /// wider generation span are two halves of one exchange -- the impossible peptidoform leaves and
+        /// the read-through form that replaces it arrives -- and applying only the first half would make
+        /// a peptide unidentifiable rather than correctly identified whenever the budget is too small to
+        /// reach the read-through. Half a correction is worse than none, so semi gets none.
+        ///
+        /// Making semi searches benefit properly is follow-up work, and it is not just a matter of
+        /// widening this gate: a semi peptide's C-terminus may be a genuine protease cut or a
+        /// length-driven truncation, and telling them apart needs the protease's site list, which full
+        /// digestion gets free from its own enumeration and semi digestion does not.
         /// </remarks>
         public bool RespectCleavageBlockingModifications { get; private set; }
 
