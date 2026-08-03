@@ -131,6 +131,69 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsFalse(withCorrection.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)));
         }
 
+        /// <summary>
+        /// Review concern (nbollis, seconded by Alexander-Sol): with the flag on, does the missed
+        /// cleavage count coming OUT of digestion still match the digestion parameters going in?
+        ///
+        /// It must. A blocked residue is not a cleavage site for the peptidoform carrying it, so it is
+        /// not a missed cleavage either -- the count reports cleavages that could have happened and did
+        /// not, not Lys/Arg residues. Digestion enumerates a wider span internally to reach the
+        /// read-through forms; this pins that the slack is discounted again before a peptide is emitted
+        /// and so never reaches the caller.
+        /// </summary>
+        [Test]
+        public static void ReadThroughOfABlockedSite_ReportsZeroMissedCleavages_NotOne()
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            var withCorrection = Digest(respectBlockingMods: true, maxMissedCleavages: 0, succinyl);
+
+            PeptideWithSetModifications readThrough = withCorrection
+                .Single(p => p.BaseSequence == "PEPTIDEKAAAAAAAR" && p.AllModsOneIsNterminus.ContainsKey(9));
+
+            // The span physically crosses K8, so the modification-blind count is 1. But K8 is blocked
+            // for THIS peptidoform, so no cleavage was missed there and the reported count is 0.
+            Assert.That(readThrough.MissedCleavages, Is.EqualTo(0),
+                "a blocked site is not a cleavage site, so it is not a missed cleavage either");
+        }
+
+        /// <summary>
+        /// The general form of the same invariant, across every peptidoform and every budget: the
+        /// generation slack must never leak out as a peptide claiming more missed cleavages than the
+        /// caller allowed. This is the assertion that fails if the slack is ever widened without
+        /// discounting it again on the way out.
+        /// </summary>
+        [Test]
+        public static void NoEmittedPeptide_EverReportsMoreMissedCleavagesThanRequested(
+            [Values(0, 1, 2)] int maxMissedCleavages)
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            var withCorrection = Digest(respectBlockingMods: true, maxMissedCleavages, succinyl);
+
+            Assert.That(withCorrection, Is.Not.Empty, "the digestion must actually produce peptides");
+            Assert.That(withCorrection.Select(p => p.MissedCleavages), Has.All.LessThanOrEqualTo(maxMissedCleavages),
+                $"no peptide may report more than the requested {maxMissedCleavages} missed cleavages");
+        }
+
+        /// <summary>
+        /// The counterpart: discounting applies only to residues that are actually blocked. An ordinary
+        /// missed cleavage still counts, flag on or off, so the fix above cannot be a blanket zeroing.
+        /// </summary>
+        [Test]
+        public static void AnUnblockedMissedCleavage_StillCountsWithTheFlagOn()
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            var withCorrection = Digest(respectBlockingMods: true, maxMissedCleavages: 1, succinyl);
+
+            PeptideWithSetModifications unmodifiedReadThrough = withCorrection
+                .Single(p => p.BaseSequence == "PEPTIDEKAAAAAAAR" && p.AllModsOneIsNterminus.Count == 0);
+
+            Assert.That(unmodifiedReadThrough.MissedCleavages, Is.EqualTo(1),
+                "an open K is a real missed cleavage and must still be counted");
+        }
+
         [Test]
         public static void Digestion_WithoutTheFlag_ReproducesHistoricalBehaviourExactly()
         {

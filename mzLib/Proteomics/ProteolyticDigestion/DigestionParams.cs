@@ -58,6 +58,21 @@ namespace Proteomics.ProteolyticDigestion
         /// MaxMissedCleavages = 0. Default false, which reproduces the historical (modification-blind)
         /// digestion exactly.
         /// </summary>
+        /// <remarks>
+        /// <see cref="MaxMissedCleavages"/> keeps its meaning and its guarantee: no peptide leaves
+        /// digestion reporting more missed cleavages than were asked for. A blocked residue is not a
+        /// cleavage site for the peptidoform carrying it, so it is not a missed cleavage either -- the
+        /// count reports cleavages that could have happened and did not, not Lys/Arg residues. Digestion
+        /// does enumerate a wider span internally to reach the read-through forms, but that slack is
+        /// discounted again before a peptide is emitted, so it is never observable in the result.
+        ///
+        /// Scope: only full-specificity peptides are affected. In semi- and single-terminus modes a
+        /// peptide's C-terminus is usually a length-driven truncation rather than a protease cut, and
+        /// this flag has no effect there -- including for the minority of semi peptides whose
+        /// C-terminus IS a genuine cut, which are therefore not yet filtered. Extending the rule to
+        /// those requires the peptide to know its protease's site list, which full digestion gets for
+        /// free from its enumeration and semi digestion does not.
+        /// </remarks>
         public bool RespectCleavageBlockingModifications { get; private set; }
 
         #region Properties overridden by more generic interface

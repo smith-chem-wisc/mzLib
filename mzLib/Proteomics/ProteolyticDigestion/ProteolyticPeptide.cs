@@ -73,15 +73,24 @@ namespace Proteomics.ProteolyticDigestion
                     // single-terminus peptides a C-terminus is a length-driven truncation, not a protease
                     // cut, so a blocking modification there invalidates nothing -- and only the full path
                     // is given the generation slack that keeps the read-through form reachable.
+                    //
+                    // reportedMissedCleavages is what the surviving peptidoform CARRIES, and it is the
+                    // blocked-discounted count, not the modification-blind one this peptide was
+                    // enumerated under. A blocked residue is not a cleavage site for this peptidoform,
+                    // so counting it as a missed cleavage would report a cleavage that cannot occur --
+                    // and would let the generation slack leak out as peptides claiming more missed
+                    // cleavages than the caller asked for.
+                    int reportedMissedCleavages = MissedCleavages;
                     if (digestionParams.RespectCleavageBlockingModifications
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
-                        && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, digestionParams.MaxMissedCleavages))
+                        && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, digestionParams.MaxMissedCleavages,
+                            out reportedMissedCleavages))
                     {
                         continue;
                     }
 
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
-                        CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, variableModPattern, numFixedMods);
+                        CleavageSpecificityForFdrCategory, PeptideDescription, reportedMissedCleavages, variableModPattern, numFixedMods);
 
                     variable_modification_isoforms++;
                     if (variable_modification_isoforms == maximumVariableModificationIsoforms)
@@ -105,13 +114,19 @@ namespace Proteomics.ProteolyticDigestion
         /// (1) The C-terminal residue carries a cleavage-blocking modification and is an internal cut.
         ///     Trypsin cannot cleave after an acylated lysine, so this peptidoform -- typically reported
         ///     with zero missed cleavages -- describes an event that does not occur. Drop it.
-        /// (2) The peptidoform only exists because of the generation slack (see
-        ///     <see cref="DigestionParams.CleavageBlockingReadThroughSlack"/>) and, once blocked sites
-        ///     are discounted, still has more OPEN missed cleavages than the caller allowed. A blocked
+        /// (2) The peptidoform only exists because of the generation slack that
+        ///     <see cref="ProteinDigestion"/> adds when this flag is on, and -- once blocked sites are
+        ///     discounted -- still has more OPEN missed cleavages than the caller allowed. A blocked
         ///     internal residue is not a cleavage site for this peptidoform, so it must not be counted
         ///     as a missed cleavage -- which is exactly what lets the read-through form of a blocked
         ///     cleavage survive at MaxMissedCleavages = 0.
         /// </summary>
+        /// <param name="openMissedCleavages">
+        /// The missed cleavages this peptidoform actually has once blocked residues are discounted --
+        /// the count a surviving peptidoform must REPORT. Always assigned. For any peptidoform that
+        /// survives, this is guaranteed to be &lt;= the caller's MaxMissedCleavages, so the generation
+        /// slack stays an enumeration detail and never reaches the caller as an out-of-budget count.
+        /// </param>
         /// <remarks>
         /// Position keys follow the two-based scheme used by the modification pattern: key 1 is the
         /// peptide N-terminus, residue i (1-based) is key i + 1, and key peptideLength + 2 is the
@@ -126,7 +141,7 @@ namespace Proteomics.ProteolyticDigestion
         /// fix this is here for -- is exact.
         /// </remarks>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
-            int peptideLength, int maxMissedCleavagesAllowed)
+            int peptideLength, int maxMissedCleavagesAllowed, out int openMissedCleavages)
         {
             bool cTerminalResidueBlocked = false;
             int blockedInternalSites = 0;
@@ -148,6 +163,10 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
 
+            // Assigned before any early return: the caller reads this on the surviving path, and a
+            // dropped peptidoform's count is simply never used.
+            openMissedCleavages = MissedCleavages - Math.Min(blockedInternalSites, MissedCleavages);
+
             // A peptide ending at the protein's own C-terminus was not produced by a cleavage, so no
             // modification there can invalidate it.
             bool cTerminusIsAnInternalCut = OneBasedEndResidue < Protein.Length;
@@ -156,7 +175,6 @@ namespace Proteomics.ProteolyticDigestion
                 return true;
             }
 
-            int openMissedCleavages = MissedCleavages - Math.Min(blockedInternalSites, MissedCleavages);
             return openMissedCleavages > maxMissedCleavagesAllowed;
         }
     }
