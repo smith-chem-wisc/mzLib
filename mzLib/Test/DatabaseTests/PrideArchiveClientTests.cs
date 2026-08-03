@@ -316,6 +316,119 @@ public class PrideArchiveClientTests
         Assert.That(files.Count, Is.EqualTo(2), "neither unnamed entry may be dropped from the manifest");
     }
 
+    /// <summary>The same leaf name under a different directory — the real shape of a repeated name.</summary>
+    private static string FileJsonInDirectory(string directory, string fileName) =>
+        $$"""
+        {
+          "projectAccessions": ["PXD012345"],
+          "accession": "hash-{{directory}}-{{fileName}}",
+          "fileCategory": { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000404", "name": "category", "value": "RAW" },
+          "checksum": "",
+          "publicFileLocations": [
+            { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000469", "name": "FTP Protocol", "value": "ftp://ftp.pride.ebi.ac.uk/{{directory}}/{{fileName}}" }
+          ],
+          "fileSizeBytes": 1,
+          "fileName": "{{fileName}}"
+        }
+        """;
+
+    /// <summary>
+    /// The duplicate-name case the single-page test above cannot reach. Two pages of genuinely
+    /// DIFFERENT records that happen to share a name sequence -- the same leaf names under different
+    /// directories, which the loop's own comment calls legitimate -- must not be mistaken for the
+    /// server re-serving a page. Judging identity by file names threw MzLibException here against a
+    /// server that paged correctly and reported an honest total_records.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ConsecutivePagesShareANameSequence_ReturnsEveryEntry()
+    {
+        const long total = 4;
+        var handler = new StubHandler(request =>
+        {
+            var uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0"))
+                return JsonResponse(Array(FileJsonInDirectory("dirA", "dup.raw"), FileJsonInDirectory("dirA", "other.raw")), totalRecords: total);
+            if (uri.Contains("page=1"))
+                return JsonResponse(Array(FileJsonInDirectory("dirB", "dup.raw"), FileJsonInDirectory("dirB", "other.raw")), totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Count, Is.EqualTo((int)total), "a repeated name sequence is not a re-served page");
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "dup.raw", "other.raw", "dup.raw", "other.raw" }));
+            // The records really are distinct: each resolves to its own directory.
+            Assert.That(files.Select(f => f.PublicFileLocations[0].Value).Distinct().Count(), Is.EqualTo((int)total));
+        });
+    }
+
+    /// <summary>
+    /// The same false positive reached through absent names rather than repeated ones. Every entry on
+    /// both pages lacks fileName, so a name-derived identity is equal across them however many records
+    /// each page holds -- and DownloadFileAsync already guards for exactly these entries, so the loop
+    /// cannot treat them as a server fault.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ConsecutivePagesOfUnnamedEntries_ReturnEveryEntry()
+    {
+        const long total = 4;
+        var handler = new StubHandler(request =>
+        {
+            var uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse("""[{ "fileSizeBytes": 1 }, { "fileSizeBytes": 2 }]""", totalRecords: total);
+            if (uri.Contains("page=1")) return JsonResponse("""[{ "fileSizeBytes": 3 }, { "fileSizeBytes": 4 }]""", totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Count, Is.EqualTo((int)total), "unnamed entries on consecutive pages are not a re-served page");
+            Assert.That(files.Select(f => f.FileSizeBytes), Is.EqualTo(new long[] { 1, 2, 3, 4 }));
+        });
+    }
+
+    /// <summary>
+    /// A null ELEMENT in the files array is dropped rather than dereferenced. PrideProject already has
+    /// RemoveNullElements for this class of payload; the file list had no equivalent, so a one-token
+    /// body reached straight into the paging loop and out to the caller as a null entry.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_NullElementInFilesArray_IsDroppedNotDereferenced()
+    {
+        const long total = 2;
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse("[" + FileJson("a") + ",null," + FileJson("b") + "]", totalRecords: total)
+                : JsonResponse("[]", totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Has.None.Null, "a null entry must never reach the caller");
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+        });
+    }
+
+    /// <summary>An array of nothing but nulls reads as an empty page, not as a crash.</summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ArrayOfOnlyNulls_ReadsAsEmpty()
+    {
+        var handler = new StubHandler(_ => JsonResponse("[null]"));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345");
+
+        Assert.That(files, Is.Empty);
+    }
+
     /// <summary>
     /// The documented boundary of the narrowed guarantee: with no total_records header there is nothing
     /// authoritative to page against, so a server-side cap below the requested pageSize still truncates

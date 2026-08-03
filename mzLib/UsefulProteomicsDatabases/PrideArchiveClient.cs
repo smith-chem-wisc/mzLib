@@ -141,6 +141,11 @@ namespace UsefulProteomicsDatabases
                 List<PrideArchiveFile> pageFiles =
                     JsonConvert.DeserializeObject<List<PrideArchiveFile>>(content, JsonSettings) ?? new List<PrideArchiveFile>();
 
+                // A null ELEMENT ("[null]") deserializes to a null entry that carries no file at all.
+                // Drop it here, mirroring what RemoveNullElements does for PrideProject, so neither this
+                // loop nor a caller dereferences it. Nothing is lost: a null is not a manifest record.
+                pageFiles.RemoveAll(f => f is null);
+
                 // An empty page ends the fetch. This is also the backstop for a total_records that
                 // overstates what the server will actually serve: paging past the end returns a
                 // zero-byte body (verified live 2026-07-23), which deserializes to an empty list. An
@@ -157,9 +162,19 @@ namespace UsefulProteomicsDatabases
                 // paging progress is a property of the PAGE, not of individual file names: deciding
                 // membership by name uniqueness would silently drop real records, which is precisely
                 // the failure this method exists to prevent.
-                string pageIdentity = string.Join("", pageFiles.Select(f => f.FileName));
-                bool pageAdvanced = pageIdentity != previousPageIdentity;
-                previousPageIdentity = pageIdentity;
+                //
+                // The page's identity is therefore its RAW RESPONSE BODY, not a projection of it.
+                // File names are the one field this method has already established it cannot treat as
+                // an identity: a name may legitimately repeat, or be absent entirely, so two
+                // consecutive pages of genuinely DIFFERENT records can share a name sequence and be
+                // misread as a re-served page -- failing a correct server on exactly the manifests the
+                // comment above promises to support. A separator alone does not close that gap; the
+                // names simply are not the record. The body distinguishes any two pages the server
+                // actually paged, needs no per-record key the DTO does not carry, and degrades safely:
+                // a server that varies its body (an embedded timestamp) merely stops this guard firing
+                // and falls through to the MaxPages backstop, as it did before the guard existed.
+                bool pageAdvanced = content != previousPageIdentity;
+                previousPageIdentity = content;
 
                 files.AddRange(pageFiles);
 
