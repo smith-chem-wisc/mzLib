@@ -9,11 +9,16 @@ using System.Text;
 namespace FlashLFQ
 {
     /// <summary>
-    /// A rectangular slice of the MS1 data surrounding a single ChromatographicPeak. The slice spans the scans the
-    /// peak was observed in, and runs from mzExpansion below the lowest m/z observed for the peak to mzExpansion
-    /// above the highest. Every MS1 peak in that region is retained, including peaks that belong to species other
-    /// than the quantified precursor, which is the point of the type: it captures the co-eluting and interfering
-    /// signal that quantification discards.
+    /// A rectangular slice of the MS1 data surrounding one charge state of a single ChromatographicPeak. The slice
+    /// spans the scans that charge state was observed in, and runs from mzExpansion below the lowest m/z observed
+    /// for it to mzExpansion above the highest. Every MS1 peak in that region is retained, including peaks that
+    /// belong to species other than the quantified precursor, which is the point of the type: it captures the
+    /// co-eluting and interfering signal that quantification discards.
+    ///
+    /// The window is per charge state rather than per peak because a ChromatographicPeak carries one isotopic
+    /// envelope per scan per charge state, and the m/z of a peptide at one charge is nowhere near its m/z at
+    /// another. Bounding all of them at once would produce a window hundreds of daltons wide spanning the gap
+    /// between the charge states, whose contents are the rest of the spectrum rather than the peak's neighbours.
     ///
     /// The peaks are read straight out of the spectra file rather than out of a PeakIndexingEngine. The index is
     /// organized m/z-major and scan-minor, so a contiguous m/z slice of a handful of consecutive scans costs one
@@ -24,6 +29,13 @@ namespace FlashLFQ
         public const double DefaultMzExpansion = 0.5;
 
         public ChromatographicPeak Peak { get; }
+
+        /// <summary>
+        /// The charge state whose isotopic envelopes bound this window. A peak traced at more than one charge state
+        /// produces one window per charge state, all of them describing the same peak.
+        /// </summary>
+        public int ChargeState { get; }
+
         public double MinMz { get; }
         public double MaxMz { get; }
         public double MinRetentionTime { get; }
@@ -41,10 +53,11 @@ namespace FlashLFQ
         /// </summary>
         public int PeakCount { get; }
 
-        private PeakWindow(ChromatographicPeak peak, double minMz, double maxMz, double apexRetentionTime,
-            PeakWindowScan[] scans, int peakCount)
+        private PeakWindow(ChromatographicPeak peak, int chargeState, double minMz, double maxMz,
+            double apexRetentionTime, PeakWindowScan[] scans, int peakCount)
         {
             Peak = peak;
+            ChargeState = chargeState;
             MinMz = minMz;
             MaxMz = maxMz;
             ApexRetentionTime = apexRetentionTime;
@@ -72,31 +85,61 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Extracts the window of MS1 data surrounding a chromatographic peak. Returns null for peaks that have no
-        /// isotopic envelopes, as those have no observed m/z or scan to build a window around.
+        /// Extracts one window per charge state the peak was traced at, in ascending charge order. Peaks with no
+        /// isotopic envelopes yield nothing, as those have no observed m/z or scan to build a window around.
+        /// </summary>
+        /// <param name="peak"> the quantified peak to build windows around </param>
+        /// <param name="dataFile"> the loaded spectra file the peak was quantified from </param>
+        /// <param name="ms1ScanNumberMap"> the map built by BuildMs1ScanNumberMap for that same file </param>
+        /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
+        public static IEnumerable<PeakWindow> CreateForEachChargeState(ChromatographicPeak peak, MsDataFile dataFile,
+            int[] ms1ScanNumberMap, double mzExpansion = DefaultMzExpansion)
+        {
+            if (peak == null || dataFile == null || ms1ScanNumberMap == null)
+                yield break;
+
+            foreach (int chargeState in peak.IsotopicEnvelopes.Select(e => e.ChargeState).Distinct().OrderBy(z => z))
+            {
+                PeakWindow window = Create(peak, dataFile, ms1ScanNumberMap, chargeState, mzExpansion);
+                if (window != null)
+                    yield return window;
+            }
+        }
+
+        /// <summary>
+        /// Extracts the window of MS1 data surrounding one charge state of a chromatographic peak. Returns null when
+        /// the peak was not traced at that charge state, as there is then no observed m/z or scan to build a window
+        /// around, and when the scans it was traced in fall outside the supplied map.
         /// </summary>
         /// <param name="peak"> the quantified peak to build a window around </param>
         /// <param name="dataFile"> the loaded spectra file the peak was quantified from </param>
         /// <param name="ms1ScanNumberMap"> the map built by BuildMs1ScanNumberMap for that same file </param>
+        /// <param name="chargeState"> the charge state whose isotopic envelopes bound the window </param>
         /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z the window extends </param>
         public static PeakWindow Create(ChromatographicPeak peak, MsDataFile dataFile, int[] ms1ScanNumberMap,
-            double mzExpansion = DefaultMzExpansion)
+            int chargeState, double mzExpansion = DefaultMzExpansion)
         {
-            if (peak == null || dataFile == null || ms1ScanNumberMap == null || !peak.IsotopicEnvelopes.Any())
+            if (peak == null || dataFile == null || ms1ScanNumberMap == null)
                 return null;
 
-            double minMz = peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.M) - mzExpansion;
-            double maxMz = peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.M) + mzExpansion;
+            // Only this charge state's envelopes bound the window. A peptide's m/z at one charge is unrelated to its
+            // m/z at another, so bounding every envelope at once would span the gap between the charge states.
+            List<IsotopicEnvelope> envelopes = peak.IsotopicEnvelopes.Where(e => e.ChargeState == chargeState).ToList();
+            if (envelopes.Count == 0)
+                return null;
 
-            int firstMs1Index = peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex);
-            int lastMs1Index = peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex);
+            double minMz = envelopes.Min(e => e.IndexedPeak.M) - mzExpansion;
+            double maxMz = envelopes.Max(e => e.IndexedPeak.M) + mzExpansion;
+
+            int firstMs1Index = envelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex);
+            int lastMs1Index = envelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex);
             if (firstMs1Index < 0 || lastMs1Index >= ms1ScanNumberMap.Length)
                 return null;
 
             // The m/z values FlashLFQ traced, grouped by the scan they were found in, so that the peaks it actually
             // used can be flagged as the window is written out.
             var peakfindingMzByScanNumber = new Dictionary<int, HashSet<float>>();
-            foreach (IsotopicEnvelope envelope in peak.IsotopicEnvelopes)
+            foreach (IsotopicEnvelope envelope in envelopes)
             {
                 int scanNumber = ms1ScanNumberMap[envelope.IndexedPeak.ZeroBasedScanIndex];
                 if (!peakfindingMzByScanNumber.TryGetValue(scanNumber, out HashSet<float> mzValues))
@@ -120,17 +163,16 @@ namespace FlashLFQ
                 peakCount += windowScan.Mz.Length;
             }
 
+            // The apex of this charge state, not of the peak as a whole: the peak's apex can belong to a different
+            // charge state, whose scan is not necessarily inside this window.
             double apexRetentionTime = double.NaN;
-            if (peak.Apex != null)
+            int apexMs1Index = envelopes.MaxBy(e => e.Intensity).IndexedPeak.ZeroBasedScanIndex;
+            if (apexMs1Index >= 0 && apexMs1Index < ms1ScanNumberMap.Length)
             {
-                int apexMs1Index = peak.Apex.IndexedPeak.ZeroBasedScanIndex;
-                if (apexMs1Index >= 0 && apexMs1Index < ms1ScanNumberMap.Length)
-                {
-                    apexRetentionTime = dataFile.GetOneBasedScan(ms1ScanNumberMap[apexMs1Index]).RetentionTime;
-                }
+                apexRetentionTime = dataFile.GetOneBasedScan(ms1ScanNumberMap[apexMs1Index]).RetentionTime;
             }
 
-            return new PeakWindow(peak, minMz, maxMz, apexRetentionTime, scans, peakCount);
+            return new PeakWindow(peak, chargeState, minMz, maxMz, apexRetentionTime, scans, peakCount);
         }
 
         public static string TabSeparatedHeader => string.Join("\t",
@@ -140,9 +182,9 @@ namespace FlashLFQ
             "Full Sequence",
             "Peak Detection Type",
             "Peak Charge",
-            "Peak RT Start",
-            "Peak RT Apex",
-            "Peak RT End",
+            "Window RT Start",
+            "Window RT Apex",
+            "Window RT End",
             "Window Min MZ",
             "Window Max MZ",
             "Scan Number",
@@ -155,7 +197,8 @@ namespace FlashLFQ
         /// One tab separated line per MS1 peak in the window. Rows are yielded rather than returned as a list so
         /// that a caller writing many windows never holds more than one window's worth of text at a time.
         /// </summary>
-        /// <param name="peakId"> an identifier distinguishing this window's peak from the file's other peaks </param>
+        /// <param name="peakId"> an identifier distinguishing this window's peak from the file's other peaks. All of
+        /// a peak's charge states share it, and are told apart by the Peak Charge column. </param>
         public IEnumerable<string> ToTsvRows(int peakId)
         {
             // Everything to the left of the scan columns is constant across the window, so it is built once.
@@ -165,7 +208,7 @@ namespace FlashLFQ
             peakColumns.Append(string.Join("|", Peak.Identifications.Select(p => p.BaseSequence).Distinct()) + "\t");
             peakColumns.Append(string.Join("|", Peak.Identifications.Select(p => p.ModifiedSequence).Distinct()) + "\t");
             peakColumns.Append(Peak.DetectionType.ToString() + "\t");
-            peakColumns.Append((Peak.Apex?.ChargeState ?? 0).ToString(CultureInfo.InvariantCulture) + "\t");
+            peakColumns.Append(ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             peakColumns.Append(MinRetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
             peakColumns.Append(ApexRetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
             peakColumns.Append(MaxRetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
@@ -192,8 +235,8 @@ namespace FlashLFQ
 
         public override string ToString()
         {
-            return Peak.Identifications.First().ModifiedSequence + "; " + PeakCount + " peaks in " + Scans.Length
-                + " scans; " + MinMz.ToString("F2") + "-" + MaxMz.ToString("F2") + " m/z; "
+            return Peak.Identifications.First().ModifiedSequence + "; z=" + ChargeState + "; " + PeakCount
+                + " peaks in " + Scans.Length + " scans; " + MinMz.ToString("F2") + "-" + MaxMz.ToString("F2") + " m/z; "
                 + MinRetentionTime.ToString("F2") + "-" + MaxRetentionTime.ToString("F2") + " min";
         }
     }

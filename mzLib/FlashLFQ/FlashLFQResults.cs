@@ -715,9 +715,10 @@ namespace FlashLFQ
 
         /// <summary>
         /// Writes one row per MS1 peak observed around each quantified chromatographic peak: every peak between the
-        /// chromatographic peak's first and last retention time, from mzExpansion below the lowest m/z observed for
-        /// that peak to mzExpansion above the highest. Peaks belonging to other species are included, so the output
-        /// shows the interference and co-elution surrounding each quantified precursor.
+        /// first and last retention time the peak was traced at a given charge state, from mzExpansion below the
+        /// lowest m/z observed at that charge state to mzExpansion above the highest. Peaks belonging to other
+        /// species are included, so the output shows the interference and co-elution surrounding each quantified
+        /// precursor. A peak traced at several charge states contributes one such window per charge state.
         ///
         /// This is not part of WriteResults because it re-reads each spectra file: FlashLfqEngine discards the raw
         /// data once quantification finishes, and holding the extracted peaks in memory instead would cost far more
@@ -770,15 +771,17 @@ namespace FlashLFQ
                     foreach (ChromatographicPeak peak in peaksInFile.OrderByDescending(p => p.Intensity))
                     {
                         peakId++;
-                        PeakWindow window = PeakWindow.Create(peak, dataFile, ms1ScanNumberMap, mzExpansion);
-                        if (window == null)
-                        {
-                            continue;
-                        }
 
-                        foreach (string row in window.ToTsvRows(peakId))
+                        // One window per charge state the peak was traced at. They share the peak's id and are told
+                        // apart by the Peak Charge column, because a peptide's m/z at one charge is unrelated to its
+                        // m/z at another and a single window bounding both would span the gap between them.
+                        foreach (PeakWindow window in PeakWindow.CreateForEachChargeState(peak, dataFile,
+                            ms1ScanNumberMap, mzExpansion))
                         {
-                            output.WriteLine(row);
+                            foreach (string row in window.ToTsvRows(peakId))
+                            {
+                                output.WriteLine(row);
+                            }
                         }
                     }
 

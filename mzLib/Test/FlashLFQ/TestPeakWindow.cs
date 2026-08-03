@@ -85,6 +85,17 @@ namespace Test.FlashLFQ
         private static ChromatographicPeak BuildPeak(SpectraFileInfo file, string sequence,
             params (double Mz, int ZeroBasedScanIndex, double RetentionTime)[] envelopePeaks)
         {
+            return BuildMultiChargePeak(file, sequence,
+                envelopePeaks.Select(p => (p.Mz, 2, p.ZeroBasedScanIndex, p.RetentionTime)).ToArray());
+        }
+
+        /// <summary>
+        /// As BuildPeak, but each envelope carries its own charge state, so a test can build the peak FlashLFQ
+        /// produces for a peptide traced at more than one charge.
+        /// </summary>
+        private static ChromatographicPeak BuildMultiChargePeak(SpectraFileInfo file, string sequence,
+            params (double Mz, int ChargeState, int ZeroBasedScanIndex, double RetentionTime)[] envelopePeaks)
+        {
             var pg = new ProteinGroup("MyProtein", "gene", "org");
             var id = new Identification(file, sequence, sequence, 1350.65681, 1.0, 2, new List<ProteinGroup> { pg });
             var peak = new ChromatographicPeak(id, file);
@@ -93,7 +104,7 @@ namespace Test.FlashLFQ
             {
                 peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(
                     new IndexedMassSpectralPeak(envelopePeak.Mz, 1e6, envelopePeak.ZeroBasedScanIndex,
-                        envelopePeak.RetentionTime), 2, 1e6, 1.0));
+                        envelopePeak.RetentionTime), envelopePeak.ChargeState, 1e6, 1.0));
             }
             peak.CalculateIntensityForThisFeature(false);
             return peak;
@@ -216,15 +227,18 @@ namespace Test.FlashLFQ
             dataFile.LoadAllStaticData();
             int[] map = PeakWindow.BuildMs1ScanNumberMap(dataFile);
 
-            PeakWindow window = PeakWindow.Create(peak, dataFile, map, mzExpansion: 2.0);
+            int chargeState = peak.Apex.ChargeState;
+            var envelopes = peak.IsotopicEnvelopes.Where(e => e.ChargeState == chargeState).ToList();
+            PeakWindow window = PeakWindow.Create(peak, dataFile, map, chargeState, mzExpansion: 2.0);
+            Assert.AreEqual(chargeState, window.ChargeState);
 
-            // the window is bounded by the peak's observed m/z values, expanded by mzExpansion on either side
-            Assert.AreEqual(peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.M) - 2.0, window.MinMz, 1e-6);
-            Assert.AreEqual(peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.M) + 2.0, window.MaxMz, 1e-6);
+            // the window is bounded by the charge state's observed m/z values, expanded by mzExpansion on either side
+            Assert.AreEqual(envelopes.Min(e => e.IndexedPeak.M) - 2.0, window.MinMz, 1e-6);
+            Assert.AreEqual(envelopes.Max(e => e.IndexedPeak.M) + 2.0, window.MaxMz, 1e-6);
 
-            // and it covers exactly the scans the peak was observed in
-            int firstMs1Index = peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex);
-            int lastMs1Index = peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex);
+            // and it covers exactly the scans that charge state was observed in
+            int firstMs1Index = envelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex);
+            int lastMs1Index = envelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex);
             Assert.AreEqual(lastMs1Index - firstMs1Index + 1, window.Scans.Length);
             Assert.AreEqual(map[firstMs1Index], window.Scans.First().OneBasedScanNumber);
             Assert.AreEqual(map[lastMs1Index], window.Scans.Last().OneBasedScanNumber);
@@ -232,7 +246,8 @@ namespace Test.FlashLFQ
             // retention times are the scans' own, taken from the file
             Assert.AreEqual(dataFile.GetOneBasedScan(map[firstMs1Index]).RetentionTime, window.MinRetentionTime);
             Assert.AreEqual(dataFile.GetOneBasedScan(map[lastMs1Index]).RetentionTime, window.MaxRetentionTime);
-            Assert.AreEqual(dataFile.GetOneBasedScan(map[peak.Apex.IndexedPeak.ZeroBasedScanIndex]).RetentionTime,
+            Assert.AreEqual(dataFile.GetOneBasedScan(
+                    map[envelopes.MaxBy(e => e.Intensity).IndexedPeak.ZeroBasedScanIndex]).RetentionTime,
                 window.ApexRetentionTime);
 
             // each scan's slice is the m/z window of that scan's spectrum, parallel arrays and all
@@ -251,28 +266,121 @@ namespace Test.FlashLFQ
                 CollectionAssert.AreEqual(expected, scan.Mz);
             }
 
-            // every peak FlashLFQ used to trace the feature is flagged, and nothing else is
-            Assert.AreEqual(peak.IsotopicEnvelopes.Select(e => e.IndexedPeak).Distinct().Count(),
+            // every peak FlashLFQ used to trace this charge state is flagged, and nothing else is
+            Assert.AreEqual(envelopes.Select(e => e.IndexedPeak).Distinct().Count(),
                 window.Scans.Sum(s => s.IsPeakfindingPeak.Count(f => f)));
 
             // and the window holds far more than those, which is the whole point of the output
             Assert.IsTrue(window.PeakCount > window.Scans.Sum(s => s.IsPeakfindingPeak.Count(f => f)));
 
             // a wider window is a superset of a narrower one
-            PeakWindow narrowWindow = PeakWindow.Create(peak, dataFile, map, mzExpansion: 0.5);
+            PeakWindow narrowWindow = PeakWindow.Create(peak, dataFile, map, chargeState, mzExpansion: 0.5);
             Assert.IsTrue(narrowWindow.PeakCount <= window.PeakCount);
             Assert.AreEqual(window.Scans.Length, narrowWindow.Scans.Length);
             var wideMzs = window.Scans.SelectMany(s => s.Mz).ToHashSet();
             Assert.IsTrue(narrowWindow.Scans.SelectMany(s => s.Mz).All(mz => wideMzs.Contains(mz)));
 
-            // peaks with no isotopic envelopes have no window, and neither do missing arguments
+            // peaks with no isotopic envelopes have no window, and neither do missing arguments or a charge state
+            // the peak was never traced at
             var pg = new ProteinGroup("MyProtein", "gene", "org");
             var emptyPeak = new ChromatographicPeak(new Identification(mzml, "PEPTIDE", "PEPTIDE", 799.36, 94.1, 2,
                 new List<ProteinGroup> { pg }), mzml);
-            Assert.IsNull(PeakWindow.Create(emptyPeak, dataFile, map));
-            Assert.IsNull(PeakWindow.Create(null, dataFile, map));
-            Assert.IsNull(PeakWindow.Create(peak, null, map));
-            Assert.IsNull(PeakWindow.Create(peak, dataFile, null));
+            Assert.IsNull(PeakWindow.Create(emptyPeak, dataFile, map, chargeState));
+            Assert.IsNull(PeakWindow.Create(null, dataFile, map, chargeState));
+            Assert.IsNull(PeakWindow.Create(peak, null, map, chargeState));
+            Assert.IsNull(PeakWindow.Create(peak, dataFile, null, chargeState));
+            Assert.IsNull(PeakWindow.Create(peak, dataFile, map, chargeState: 97));
+
+            // and the same holds for the per-charge-state enumeration
+            Assert.IsFalse(PeakWindow.CreateForEachChargeState(emptyPeak, dataFile, map).Any());
+            Assert.IsFalse(PeakWindow.CreateForEachChargeState(null, dataFile, map).Any());
+            Assert.IsFalse(PeakWindow.CreateForEachChargeState(peak, null, map).Any());
+            Assert.IsFalse(PeakWindow.CreateForEachChargeState(peak, dataFile, null).Any());
+        }
+
+        /// <summary>
+        /// A ChromatographicPeak holds one isotopic envelope per scan per charge state, and a peptide's m/z at one
+        /// charge is nowhere near its m/z at another. Bounding every envelope at once would produce a single window
+        /// spanning the gap between the charge states - hundreds of daltons of unrelated spectrum - so each charge
+        /// state gets its own window instead.
+        /// </summary>
+        [Test]
+        public static void TestPeakWindowIsBoundedPerChargeState()
+        {
+            // one peak every 0.5 m/z from 400 to 1400, so a window's width is directly readable from its peak count
+            var mzs = Enumerable.Range(0, 2001).Select(i => 400.0 + i * 0.5).ToArray();
+            SpectraFileInfo file = WriteSyntheticMzml("peakWindowMultiCharge.mzML", new[] { mzs, mzs, mzs });
+
+            MsDataFile dataFile = LoadDataFile(file);
+            int[] map = PeakWindow.BuildMs1ScanNumberMap(dataFile);
+
+            // EGFQVADGPLYR, 1350.66 Da, traced at z=2 (676.3 m/z) and z=3 (451.2 m/z) - both entirely ordinary
+            ChromatographicPeak peak = BuildMultiChargePeak(file, "EGFQVADGPLYR",
+                (676.3, 2, 0, 1.0), (451.2, 3, 0, 1.0),
+                (676.3, 2, 1, 1.1), (451.2, 3, 1, 1.1),
+                (676.3, 2, 2, 1.2), (451.2, 3, 2, 1.2));
+            Assert.AreEqual(2, peak.NumChargeStatesObserved);
+
+            var windows = PeakWindow.CreateForEachChargeState(peak, dataFile, map).ToList();
+
+            // one window per charge state, in ascending charge order
+            Assert.AreEqual(2, windows.Count);
+            CollectionAssert.AreEqual(new[] { 2, 3 }, windows.Select(w => w.ChargeState).ToArray());
+
+            // each window is mzExpansion wide on either side of its own charge state's m/z, and nowhere near the other
+            // indexed peaks narrow m/z to float, so the bounds carry float precision - hence the loose deltas
+            const double floatDelta = 1e-3;
+            foreach (PeakWindow chargeWindow in windows)
+            {
+                Assert.AreEqual(2 * PeakWindow.DefaultMzExpansion, chargeWindow.MaxMz - chargeWindow.MinMz, floatDelta);
+                Assert.AreEqual(3, chargeWindow.Scans.Length);
+
+                // 1 m/z of a spectrum with a peak every 0.5 m/z: 2 peaks per scan, over 3 scans
+                Assert.AreEqual(6, chargeWindow.PeakCount);
+                Assert.AreEqual(6, chargeWindow.ToTsvRows(1).Count());
+            }
+
+            Assert.AreEqual(675.8, windows[0].MinMz, floatDelta);
+            Assert.AreEqual(676.8, windows[0].MaxMz, floatDelta);
+            Assert.AreEqual(450.7, windows[1].MinMz, floatDelta);
+            Assert.AreEqual(451.7, windows[1].MaxMz, floatDelta);
+
+            // the regression this guards: a single window bounding both charge states would have run from 450.7 to
+            // 676.8 m/z - 226 Da - and swept in the whole spectrum between them
+            Assert.IsTrue(windows.Sum(w => w.PeakCount) < 50);
+        }
+
+        /// <summary>
+        /// Each charge state's window is centred on that charge state's own apex scan, not on the peak's overall
+        /// apex, which can belong to a different charge state and lie outside the window entirely.
+        /// </summary>
+        [Test]
+        public static void TestPeakWindowApexIsPerChargeState()
+        {
+            var mzs = new[] { 499.9, 500.0, 500.1, 599.9, 600.0, 600.1 };
+            SpectraFileInfo file = WriteSyntheticMzml("peakWindowPerChargeApex.mzML", new[] { mzs, mzs, mzs });
+
+            MsDataFile dataFile = LoadDataFile(file);
+            int[] map = PeakWindow.BuildMs1ScanNumberMap(dataFile);
+
+            var pg = new ProteinGroup("MyProtein", "gene", "org");
+            var id = new Identification(file, "PEPTIDE", "PEPTIDE", 1350.65681, 1.0, 2, new List<ProteinGroup> { pg });
+            var peak = new ChromatographicPeak(id, file);
+
+            // z=2 is most intense in the first scan; z=3 is most intense in the last one
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(500.0, 9e6, 0, 1.0), 2, 9e6, 1.0));
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(500.0, 1e6, 2, 1.2), 2, 1e6, 1.0));
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(600.0, 1e5, 0, 1.0), 3, 1e5, 1.0));
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(600.0, 5e6, 2, 1.2), 3, 5e6, 1.0));
+            peak.CalculateIntensityForThisFeature(false);
+
+            var windows = PeakWindow.CreateForEachChargeState(peak, dataFile, map).ToList();
+            Assert.AreEqual(2, windows.Count);
+
+            // the peak's own apex is the z=2 envelope in scan 1, but the z=3 window apexes in scan 3
+            Assert.AreEqual(2, peak.Apex.ChargeState);
+            Assert.AreEqual(dataFile.GetOneBasedScan(map[0]).RetentionTime, windows[0].ApexRetentionTime, 1e-6);
+            Assert.AreEqual(dataFile.GetOneBasedScan(map[2]).RetentionTime, windows[1].ApexRetentionTime, 1e-6);
         }
 
         /// <summary>
@@ -289,12 +397,14 @@ namespace Test.FlashLFQ
             MsDataFile dataFile = MsDataFileReader.GetDataFile(SlicedMzmlPath);
             dataFile.LoadAllStaticData();
             int[] map = PeakWindow.BuildMs1ScanNumberMap(dataFile);
-            PeakWindow window = PeakWindow.Create(peak, dataFile, map, mzExpansion: 0.5);
+            int chargeState = peak.Apex.ChargeState;
+            var envelopes = peak.IsotopicEnvelopes.Where(e => e.ChargeState == chargeState).ToList();
+            PeakWindow window = PeakWindow.Create(peak, dataFile, map, chargeState, mzExpansion: 0.5);
 
             PeakIndexingEngine engine = PeakIndexingEngine.InitializeIndexingEngine(mzml);
             var indexedPeaks = engine.GetPeaksInRange(window.MinMz, window.MaxMz,
-                peak.IsotopicEnvelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex),
-                peak.IsotopicEnvelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex));
+                envelopes.Min(e => e.IndexedPeak.ZeroBasedScanIndex),
+                envelopes.Max(e => e.IndexedPeak.ZeroBasedScanIndex));
 
             const double edgeMargin = 1e-3;
             var fromFile = window.Scans
@@ -336,7 +446,7 @@ namespace Test.FlashLFQ
 
             // the peak is traced through the first and last scan, so the window spans all four
             ChromatographicPeak peak = BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 3, 1.3));
-            PeakWindow window = PeakWindow.Create(peak, dataFile, map);
+            PeakWindow window = PeakWindow.CreateForEachChargeState(peak, dataFile, map).Single();
 
             Assert.AreEqual(499.5, window.MinMz, 1e-6);
             Assert.AreEqual(500.5, window.MaxMz, 1e-6);
@@ -375,7 +485,8 @@ namespace Test.FlashLFQ
 
             // an envelope in a scan the file does not have cannot be translated to a scan number
             ChromatographicPeak beyondEnd = BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 99, 1.3));
-            Assert.IsNull(PeakWindow.Create(beyondEnd, dataFile, map));
+            Assert.IsNull(PeakWindow.Create(beyondEnd, dataFile, map, chargeState: 2));
+            Assert.IsFalse(PeakWindow.CreateForEachChargeState(beyondEnd, dataFile, map).Any());
         }
 
         [Test]
@@ -388,11 +499,13 @@ namespace Test.FlashLFQ
             });
 
             MsDataFile dataFile = LoadDataFile(file);
-            PeakWindow window = PeakWindow.Create(BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 1, 1.1)),
-                dataFile, PeakWindow.BuildMs1ScanNumberMap(dataFile));
+            PeakWindow window = PeakWindow.CreateForEachChargeState(
+                BuildPeak(file, "PEPTIDE", (500.0, 0, 1.0), (500.0, 1, 1.1)),
+                dataFile, PeakWindow.BuildMs1ScanNumberMap(dataFile)).Single();
 
             string description = window.ToString();
             StringAssert.Contains("PEPTIDE", description);
+            StringAssert.Contains("z=2", description);
             StringAssert.Contains("6 peaks in 2 scans", description);
             StringAssert.Contains("m/z", description);
             StringAssert.Contains("min", description);
@@ -423,10 +536,11 @@ namespace Test.FlashLFQ
             int scanNumberColumn = Array.IndexOf(headerColumns, "Scan Number");
             int minMzColumn = Array.IndexOf(headerColumns, "Window Min MZ");
             int maxMzColumn = Array.IndexOf(headerColumns, "Window Max MZ");
-            int rtStartColumn = Array.IndexOf(headerColumns, "Peak RT Start");
-            int rtEndColumn = Array.IndexOf(headerColumns, "Peak RT End");
+            int rtStartColumn = Array.IndexOf(headerColumns, "Window RT Start");
+            int rtEndColumn = Array.IndexOf(headerColumns, "Window RT End");
             int peakfindingColumn = Array.IndexOf(headerColumns, "Is Peakfinding Peak");
             int fullSequenceColumn = Array.IndexOf(headerColumns, "Full Sequence");
+            int chargeColumn = Array.IndexOf(headerColumns, "Peak Charge");
 
             MsDataFile dataFile = MsDataFileReader.GetDataFile(SlicedMzmlPath);
             dataFile.LoadAllStaticData();
@@ -452,6 +566,10 @@ namespace Test.FlashLFQ
                 Assert.AreEqual(1, sourceScan.MsnOrder);
                 Assert.AreEqual(sourceScan.RetentionTime, rt);
 
+                // every row names the charge state of the window it came from, not the peak's apex charge
+                int rowCharge = int.Parse(cells[chargeColumn], CultureInfo.InvariantCulture);
+                Assert.IsTrue(peak.IsotopicEnvelopes.Any(e => e.ChargeState == rowCharge));
+
                 if (bool.Parse(cells[peakfindingColumn]))
                 {
                     peakfindingRows++;
@@ -461,6 +579,12 @@ namespace Test.FlashLFQ
             // the rows FlashLFQ actually quantified are flagged, and they are a strict subset of what was written
             Assert.AreEqual(peak.IsotopicEnvelopes.Select(e => e.IndexedPeak).Distinct().Count(), peakfindingRows);
             Assert.IsTrue(lines.Length - 1 > peakfindingRows);
+
+            // every charge state the peak was traced at contributed rows
+            CollectionAssert.AreEquivalent(
+                peak.IsotopicEnvelopes.Select(e => e.ChargeState).Distinct().OrderBy(z => z).ToArray(),
+                lines.Skip(1).Select(l => int.Parse(l.Split('\t')[chargeColumn], CultureInfo.InvariantCulture))
+                    .Distinct().OrderBy(z => z).ToArray());
 
             File.Delete(outputPath);
         }
