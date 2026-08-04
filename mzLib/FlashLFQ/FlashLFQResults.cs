@@ -24,6 +24,18 @@ namespace FlashLFQ
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
 
+        /// <summary>
+        /// The MS1 scans of each quantified file, in the order the peak indexing engine numbered them: the
+        /// ZeroBasedScanIndex of every peak in Peaks indexes into this file's array. Set by FlashLfqEngine at the
+        /// end of a run, and null for results assembled some other way.
+        /// </summary>
+        public IReadOnlyDictionary<SpectraFileInfo, ScanInfo[]> Ms1ScanInfo { get; private set; }
+
+        internal void SetMs1ScanInfo(IReadOnlyDictionary<SpectraFileInfo, ScanInfo[]> ms1ScanInfo)
+        {
+            Ms1ScanInfo = ms1ScanInfo;
+        }
+
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
             HashSet<string> peptideModifiedSequencesToQuantify = null, bool isIsoTracker = false)
         {
@@ -715,25 +727,26 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Writes the MS1 data observed around each quantified chromatographic peak: every peak between the
-        /// chromatographic peak's first and last scan, from mzExpansion below the lowest m/z observed for that peak
-        /// to mzExpansion above the highest. Peaks belonging to other species are included, so the output shows the
-        /// interference and co-elution surrounding each quantified precursor.
+        /// Writes the MS1 data observed around each quantified chromatographic peak, one window per charge state
+        /// the peak was observed at: every peak between that charge state's first and last scan, from mzExpansion
+        /// below the lowest m/z observed for it to mzExpansion above the highest. Peaks belonging to other species
+        /// are included, so the output shows the interference and co-elution surrounding each quantified precursor.
         ///
-        /// The format is JSON Lines: one self-contained JSON object per quantified peak, one per line. The peak's
-        /// metadata is written once per peak and the MS1 peaks follow as parallel m/z and intensity arrays, so the
-        /// metadata cost does not scale with the number of peaks in the window. Being line delimited, it also
-        /// streams: a window is written and released before the next is extracted, and a reader can consume one
-        /// peak at a time rather than parsing the whole file.
+        /// The format is JSON Lines: one self-contained JSON object per quantified peak, one per line, holding that
+        /// peak's charge state windows. The peak's metadata is written once per peak and the MS1 peaks follow as
+        /// parallel m/z and intensity arrays, so the metadata cost does not scale with the number of peaks in the
+        /// windows. Being line delimited, it also streams: a feature is written and released before the next is
+        /// extracted, and a reader can consume one peak at a time rather than parsing the whole file.
         ///
         /// This is not part of WriteResults because it re-reads each spectra file: FlashLfqEngine discards the raw
         /// data once quantification finishes, and holding the extracted peaks in memory instead would cost far more
-        /// than reading the files a second time. Only one file is resident at a time.
+        /// than reading the files a second time. Only one file is read at a time, and a file whose windows cover
+        /// fewer scans than it holds is seeked through scan by scan rather than materialized in full.
         /// </summary>
-        /// <param name="outputPath"> the file the peak objects are written to </param>
+        /// <param name="outputPath"> the file the feature objects are written to </param>
         /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
         /// <param name="silent"> suppresses console progress output </param>
-        public void WritePeakWindows(string outputPath, double mzExpansion = PeakWindow.DefaultMzExpansion, bool silent = false)
+        public void WriteMs1Features(string outputPath, double mzExpansion = PeakWindow.DefaultMzExpansion, bool silent = false)
         {
             if (outputPath == null)
             {
@@ -742,60 +755,157 @@ namespace FlashLFQ
 
             if (!silent)
             {
-                Console.WriteLine("Writing peak windows...");
+                Console.WriteLine("Writing MS1 features...");
             }
+
+            Dictionary<SpectraFileInfo, List<(ChromatographicPeak Peak, int FeatureId)>> featuresByFile =
+                AssignFeatureIds();
 
             using (FileStream stream = File.Create(outputPath))
             using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
             {
                 foreach (SpectraFileInfo spectraFile in SpectraFiles)
                 {
-                    if (!Peaks.TryGetValue(spectraFile, out var peaksInFile) || !peaksInFile.Any())
+                    if (!featuresByFile.TryGetValue(spectraFile, out var peaksInFile))
                     {
                         continue;
                     }
 
                     MsDataFile dataFile = MsDataFileReader.GetDataFile(spectraFile.FullFilePathWithExtension);
-                    dataFile.LoadAllStaticData();
-                    int[] ms1ScanNumberMap = PeakWindow.BuildMs1ScanNumberMap(dataFile);
 
-                    if (ms1ScanNumberMap.Length == 0)
+                    // The map is the one the indexing engine numbered the peaks against, when the run that produced
+                    // these results left it behind. Rebuilding it from the file is the fallback, and costs a static
+                    // load: the file has to be read to be able to say which of its scans are MS1.
+                    int[] ms1ScanNumberMap = GetMs1ScanNumberMap(spectraFile);
+
+                    // A static load reads, and then holds, every scan in the file. Seeking to the scans the windows
+                    // actually cover is worth it while there are fewer of them than that, which is the usual case
+                    // for a file contributing a few peaks and never the case for one contributing thousands.
+                    bool readScanByScan = ms1ScanNumberMap != null
+                        && peaksInFile.Sum(p => (long)QuantifiedMs1Feature.CountScansToRead(p.Peak))
+                            < ms1ScanNumberMap.Length;
+                    bool useDynamicConnection = readScanByScan && TryInitiateDynamicConnection(dataFile);
+
+                    if (!useDynamicConnection)
                     {
-                        if (!silent)
+                        if (readScanByScan && !silent)
                         {
-                            Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension
-                                + " contained no MS1 scans; no peak windows were written for it");
+                            Console.WriteLine("FlashLFQ: " + spectraFile.FilenameWithoutExtension + " does not support"
+                                + " reading single scans; loading the whole file to write its MS1 features");
                         }
-                        continue;
+
+                        dataFile.LoadAllStaticData();
+                        ms1ScanNumberMap ??= QuantifiedMs1Feature.BuildMs1ScanNumberMap(dataFile);
                     }
 
-                    // Ordered to match the QuantifiedPeaks output, so that the nth peak of a file in one file is the
-                    // nth peak of that file in the other
-                    int peakId = 0;
-                    foreach (ChromatographicPeak peak in peaksInFile.OrderByDescending(p => p.Intensity))
+                    try
                     {
-                        peakId++;
-                        PeakWindow window = PeakWindow.Create(peak, dataFile, ms1ScanNumberMap, mzExpansion);
-                        if (window == null)
+                        if (ms1ScanNumberMap.Length == 0)
                         {
+                            if (!silent)
+                            {
+                                Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension
+                                    + " contained no MS1 scans; no MS1 features were written for it");
+                            }
                             continue;
                         }
 
-                        window.WriteTo(writer, peakId);
+                        foreach ((ChromatographicPeak peak, int featureId) in peaksInFile)
+                        {
+                            QuantifiedMs1Feature feature = QuantifiedMs1Feature.Create(peak, dataFile,
+                                ms1ScanNumberMap, mzExpansion, useDynamicConnection);
+                            if (feature == null)
+                            {
+                                continue;
+                            }
 
-                        // One object per line. The writer has to be reset between objects: it otherwise rejects a
-                        // second top level value, since a stream of them is not itself a JSON document.
-                        writer.Flush();
-                        stream.WriteByte((byte)'\n');
-                        writer.Reset();
+                            feature.WriteTo(writer, featureId);
+
+                            // One object per line. The writer has to be reset between objects: it otherwise rejects
+                            // a second top level value, since a stream of them is not itself a JSON document.
+                            writer.Flush();
+                            stream.WriteByte((byte)'\n');
+                            writer.Reset();
+                        }
+                    }
+                    finally
+                    {
+                        if (useDynamicConnection)
+                        {
+                            dataFile.CloseDynamicConnection();
+                        }
                     }
 
                     if (!silent)
                     {
-                        Console.WriteLine("Finished writing peak windows for " + spectraFile.FilenameWithoutExtension);
+                        Console.WriteLine("Finished writing MS1 features for " + spectraFile.FilenameWithoutExtension);
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// The MS1 scan number map of a file as the indexing engine numbered it, or null if this results object was
+        /// not produced by a FlashLfqEngine run and so has no scan metadata to draw on.
+        /// </summary>
+        private int[] GetMs1ScanNumberMap(SpectraFileInfo spectraFile)
+        {
+            if (Ms1ScanInfo == null || !Ms1ScanInfo.TryGetValue(spectraFile, out ScanInfo[] scanInfo) || scanInfo == null)
+            {
+                return null;
+            }
+
+            return scanInfo.Select(s => s.OneBasedScanNumber).ToArray();
+        }
+
+        /// <summary>
+        /// Opens a dynamic connection, reporting whether it took. Not every MsDataFile implementation supports one -
+        /// the in-memory ones throw NotImplementedException - and a file that cannot be read scan by scan is read
+        /// statically instead rather than failing the output.
+        /// </summary>
+        private static bool TryInitiateDynamicConnection(MsDataFile dataFile)
+        {
+            try
+            {
+                dataFile.InitiateDynamicConnection();
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Numbers every peak within its spectra file, matching how WriteResults orders the QuantifiedPeaks output:
+        /// by file name, then by descending intensity. Peaks are numbered from 1 within each file name rather than
+        /// within each SpectraFileInfo, because two SpectraFileInfo sharing a base file name - the same path
+        /// registered as two fractions, or two runs of the same name in different directories - are one block in
+        /// that output and are indistinguishable in both, its File Name column and this output's fileName field
+        /// being the name without the extension. Numbering per SpectraFileInfo would hand the same (fileName,
+        /// featureId) pair to two different peaks.
+        /// </summary>
+        private Dictionary<SpectraFileInfo, List<(ChromatographicPeak Peak, int FeatureId)>> AssignFeatureIds()
+        {
+            var featuresByFile = new Dictionary<SpectraFileInfo, List<(ChromatographicPeak, int)>>();
+
+            foreach (var fileNameGroup in Peaks.SelectMany(p => p.Value)
+                         .GroupBy(p => p.SpectraFileInfo.FilenameWithoutExtension))
+            {
+                int featureId = 0;
+                foreach (ChromatographicPeak peak in fileNameGroup.OrderByDescending(p => p.Intensity))
+                {
+                    featureId++;
+                    if (!featuresByFile.TryGetValue(peak.SpectraFileInfo, out var peaksInFile))
+                    {
+                        peaksInFile = new List<(ChromatographicPeak, int)>();
+                        featuresByFile[peak.SpectraFileInfo] = peaksInFile;
+                    }
+                    peaksInFile.Add((peak, featureId));
+                }
+            }
+
+            return featuresByFile;
         }
 
         public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
