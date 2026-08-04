@@ -1,3 +1,5 @@
+using Omics.RetentionTimePrediction;
+
 namespace Chromatography.RetentionTimePrediction.SSRCalc;
 
 /// <summary>

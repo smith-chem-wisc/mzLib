@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using Omics.RetentionTimePrediction;
 
 namespace Chromatography.RetentionTimePrediction;
 
@@ -14,22 +15,22 @@ namespace Chromatography.RetentionTimePrediction;
 /// an <see cref="IRetentionTimePredictor"/>-typed variable can write
 /// <c>using var p = RetentionTimePredictorFactory.Create(...);</c> directly. Implementors
 /// that hold unmanaged resources (e.g. the TorchSharp model in
-/// <see cref="Chronologer.ChronologerRetentionTimePredictor"/>) release them in
+/// <c>ChronologerRetentionTimePredictor</c>) release them in
 /// <see cref="IDisposable.Dispose"/>; lightweight predictors rely on the base-class no-op.
 /// </para>
 /// <para>
 /// <b>Construction is deliberately not part of this interface.</b> Use
-/// <see cref="RetentionTimePredictorFactory.Create"/> with a
-/// <see cref="PredictorType"/> value to build concrete predictors. This keeps the
-/// abstraction free of references to concrete types — most importantly the
-/// TorchSharp-backed <see cref="Chronologer.ChronologerRetentionTimePredictor"/>,
-/// which would otherwise force every consumer of this interface to transitively
-/// depend on TorchSharp and ship its large native binaries.
+/// <c>RetentionTimePredictorFactory.Create</c> with a <c>PredictorType</c> value to build
+/// concrete predictors. This keeps the abstraction free of references to concrete types —
+/// most importantly the TorchSharp-backed <c>ChronologerRetentionTimePredictor</c>, which
+/// would otherwise force every consumer of this interface to transitively depend on
+/// TorchSharp and ship its large native binaries.
 /// </para>
 /// <para>
-/// <b>Migration:</b> the previously-nested <c>Create</c> method and
-/// <c>PredictorType</c> enum on this interface have been moved to the top-level
-/// <see cref="RetentionTimePredictorFactory"/> and <see cref="PredictorType"/>.
+/// <b>Assembly layout:</b> the factory, the <c>PredictorType</c> enum and the Chronologer
+/// predictor all live in the separate <c>Chromatography.Chronologer</c> assembly, which is
+/// why they are referenced here as plain code spans rather than <c>see cref</c> links. This
+/// assembly deliberately does not reference that one; the dependency runs the other way.
 /// </para>
 /// </remarks>
 public interface IRetentionTimePredictor : IDisposable

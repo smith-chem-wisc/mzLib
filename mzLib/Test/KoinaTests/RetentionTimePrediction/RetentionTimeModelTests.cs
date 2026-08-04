@@ -9,6 +9,7 @@ using MzLibUtil;
 using NUnit.Framework;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
+using Omics.RetentionTimePrediction;
 
 namespace Test.KoinaTests.RetentionTimePrediction
 {

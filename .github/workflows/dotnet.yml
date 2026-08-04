@@ -66,13 +66,19 @@ jobs:
     - name: Build
       run: cd mzLib && dotnet build --no-restore --configuration Release
     - name: Change mzLib version, pack, add source
+      # Two packages are produced: mzLib, and mzLib.Chronologer which carries the TorchSharp/libtorch
+      # payload. Both must be stamped 9.9.9 because mzLib.Chronologer pins an exact dependency on
+      # mzLib. Note the packs are explicit: a bare `nuget pack` fails once more than one nuspec is
+      # present in the folder.
       run: |
         cd mzLib;
-        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec; 
+        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec;
+        (Get-Content mzLib.Chronologer.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.Chronologer.nuspec;
         $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
         $mzlibVersion = $mzlibMatch.Matches[0].Value;
         echo "mzLib version number changed to: $mzlibVersion";
-        nuget pack;
+        nuget pack mzLib.nuspec;
+        nuget pack mzLib.Chronologer.nuspec -Properties mzlibversion=9.9.9;
         $currentFolder = pwd;
         dotnet nuget add source $currentFolder;
         dotnet nuget list source;
@@ -95,6 +101,12 @@ jobs:
         dotnet add EngineLayer/EngineLayer.csproj package mzLib -v 9.9.9;
         dotnet remove Test/Test.csproj package mzLib;
         dotnet add Test/Test.csproj package mzLib -v 9.9.9;
+        # Chronologer moved out of the main mzLib package into mzLib.Chronologer. EngineLayer is the
+        # only direct consumer (FdrAnalysisEngine constructs ChronologerRetentionTimePredictor); the
+        # remaining projects pick it up transitively. Added to Test as well for parity with mzLib.
+        # Once MetaMorpheus master carries these PackageReferences itself, these lines can go.
+        dotnet add EngineLayer/EngineLayer.csproj package mzLib.Chronologer -v 9.9.9;
+        dotnet add Test/Test.csproj package mzLib.Chronologer -v 9.9.9;
         dotnet remove TaskLayer/TaskLayer.csproj package mzLib;
         dotnet add TaskLayer/TaskLayer.csproj package mzLib -v 9.9.9;
         dotnet restore;

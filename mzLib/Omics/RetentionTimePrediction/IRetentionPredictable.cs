@@ -1,9 +1,16 @@
-namespace Chromatography.RetentionTimePrediction;
+namespace Omics.RetentionTimePrediction;
 
 /// <summary>
 /// Represents an entity for which retention time can be predicted.
-/// Designed for minimal allocation and no dependencies on higher layers (e.g., Omics).
+/// Designed for minimal allocation and no dependencies on higher layers.
 /// </summary>
+/// <remarks>
+/// This interface lives in Omics rather than Chromatography deliberately. Every real
+/// implementer is an Omics type (see <see cref="IBioPolymerWithSetMods"/>), so hosting it
+/// here lets biopolymer projects describe themselves as retention-predictable without
+/// referencing Chromatography — which in turn keeps the deep-learning predictors and their
+/// native runtime out of the dependency graph of every project that merely handles peptides.
+/// </remarks>
 public interface IRetentionPredictable
 {
     /// <summary>

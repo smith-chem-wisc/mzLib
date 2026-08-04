@@ -12,6 +12,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Omics.SequenceConversion;
+using Omics.RetentionTimePrediction;
 
 namespace Test.RetentionTimePrediction
 {

@@ -39,11 +39,16 @@ jobs:
           $version= &git describe --tags
           cd mzLib
           dotnet test --configuration Release /p:Version=${version} --no-build
-      - name: Pack and Push NuGet Package
+      - name: Pack and Push NuGet Packages
+        # Two packages ship from this tag and must stay in lockstep: mzLib, and mzLib.Chronologer,
+        # which carries the TorchSharp/libtorch payload as an opt-in extra. mzLib.Chronologer pins an
+        # exact dependency on mzLib, so mzLib must be pushed first.
         run: |
           $version= &git describe --tags
           cd mzLib
           nuget pack mzLib.nuspec -Version ${version} -Properties Configuration=Release
+          nuget pack mzLib.Chronologer.nuspec -Version ${version} -Properties "Configuration=Release;mzlibversion=${version}"
           dotnet nuget push mzLib.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
+          dotnet nuget push mzLib.Chronologer.${version}.nupkg --source https://api.nuget.org/v3/index.json --api-key ${env:GITHUB_TOKEN}
         env:
           GITHUB_TOKEN: ${{ secrets.NUGET_KEY }}

@@ -41,6 +41,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Quantification", "Quantific
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PredictionClients", "PredictionClients\PredictionClients.csproj", "{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Chromatography.Chronologer", "Chromatography.Chronologer\Chromatography.Chronologer.csproj", "{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|x64 = Debug|x64
@@ -161,6 +163,12 @@ Global
 		{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}.Release|x64.Build.0 = Release|x64
 		{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}.TestAndRelease|x64.Build.0 = Release|x64
+		{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}.Debug|x64.ActiveCfg = Debug|x64
+		{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}.Debug|x64.Build.0 = Debug|x64
+		{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}.Release|x64.ActiveCfg = Release|x64
+		{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}.Release|x64.Build.0 = Release|x64
+		{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{C5C7359A-88EF-4D6D-87B3-0CE85ADD8E1F}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

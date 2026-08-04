@@ -1,8 +1,8 @@
 ﻿using Chemistry;
-using Chromatography.RetentionTimePrediction;
 using MassSpectrometry;
 using Omics;
 using Omics.BioPolymer;
+using Omics.RetentionTimePrediction;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;

@@ -4,6 +4,7 @@ using Proteomics.ProteolyticDigestion;
 using Omics.Modifications;
 using System.Collections.Generic;
 using Readers;
+using Omics.RetentionTimePrediction;
 
 namespace Test.RetentionTimePrediction
 {
