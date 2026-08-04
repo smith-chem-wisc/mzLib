@@ -19,6 +19,13 @@ namespace UsefulProteomicsDatabases
     /// </summary>
     /// <remarks>
     /// <para>
+    /// The usual sequence for "give me the complete database for this organism" is to find the proteome ID
+    /// in the catalogue and then download it with <see cref="RetrieveProteome"/> asking for
+    /// <see cref="Reviewed.all"/>, in <see cref="ProteomeFormat.fasta"/> or
+    /// <see cref="ProteomeFormat.xml"/>. The resulting file is what
+    /// <see cref="ProteinDbLoader.LoadProteinFasta"/> and <see cref="ProteinDbLoader.LoadProteinXML"/> read.
+    /// </para>
+    /// <para>
     /// Failures are told apart by exception type, because they call for opposite responses. Following the
     /// contract <see cref="PrideArchiveClient"/> already uses for the same problem:
     /// </para>
@@ -84,9 +91,9 @@ namespace UsefulProteomicsDatabases
         /// <para>
         /// <see cref="Reviewed"/> selects a subset rather than a sort order: <see cref="Reviewed.yes"/>
         /// asks for the Swiss-Prot (reviewed) entries only, <see cref="Reviewed.no"/> for the TrEMBL
-        /// (unreviewed) entries only — which is why the file is named "_reviewed" or "_unreviewed". A
-        /// proteome that has none of the kind asked for is an <see cref="MzLibException"/>, not a zero-byte
-        /// file reported as a success.
+        /// (unreviewed) entries only, and <see cref="Reviewed.all"/> for the complete proteome — which is
+        /// why the file is named "_reviewed", "_unreviewed" or "_all". A proteome that has none of the kind
+        /// asked for is an <see cref="MzLibException"/>, not a zero-byte file reported as a success.
         /// </para>
         /// <para>
         /// This costs two requests: one to ask how many entries match, and one to download them. The count
@@ -94,16 +101,30 @@ namespace UsefulProteomicsDatabases
         /// nothing. The download uses UniProt's "stream" endpoint, which returns the whole result set —
         /// "search" would return only its first page of 25.
         /// </para>
+        /// <para>
+        /// A complete proteome is a large download and this method is synchronous: the human proteome as
+        /// gzipped xml is around 400 MB and takes minutes. There is no progress reporting or cancellation,
+        /// so a caller with a user interface should run it on a background thread and say that it will take
+        /// a while.
+        /// </para>
         /// </remarks>
         /// <param name="proteomeID">A UniProt proteome ID, e.g. "UP000005640" (Homo sapiens).</param>
         /// <param name="absolutePathToStorageDirectory">An existing directory to write the file into.</param>
         /// <param name="format">The download format. Only <see cref="ProteomeFormat.fasta"/> and <see cref="ProteomeFormat.xml"/> are supported.</param>
-        /// <param name="reviewed">Whether to take the reviewed (Swiss-Prot) or unreviewed (TrEMBL) entries.</param>
-        /// <param name="compress">Whether to save the download gzipped, under a ".gz" name.</param>
+        /// <param name="reviewed">
+        /// Whether to take the reviewed (Swiss-Prot) entries, the unreviewed (TrEMBL) entries, or
+        /// <see cref="Reviewed.all"/> of them — the last being the complete organism database.
+        /// </param>
+        /// <param name="compress">
+        /// Whether to save the download gzipped, under a ".gz" name. Note that
+        /// <see cref="ProteinDbLoader"/> decompresses a ".gz" database to a fixed "temp" name beside it, so
+        /// two gzipped databases in one directory cannot be loaded at the same time; download them to
+        /// separate directories, or uncompressed, if they are to be read concurrently.
+        /// </param>
         /// <param name="include">Whether to request extra isoform sequences (fasta only).</param>
         /// <returns>The full path of the file written. Never null.</returns>
         /// <exception cref="ArgumentException">The proteome ID or storage directory is blank, or the proteome ID cannot be used as a file name.</exception>
-        /// <exception cref="ArgumentOutOfRangeException">The format is not fasta or xml.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The format is not fasta or xml, or the review status is not a defined <see cref="Reviewed"/> value.</exception>
         /// <exception cref="DirectoryNotFoundException">The storage directory does not exist.</exception>
         /// <exception cref="MzLibException">UniProt answered, but no protein matched — an unknown proteome ID, or none of the requested review status — or it rejected the request, or returned an empty body for a non-empty proteome.</exception>
         /// <exception cref="HttpRequestException">UniProt was unreachable, timed out, rate-limited the caller, or returned 5xx.</exception>
@@ -126,6 +147,12 @@ namespace UsefulProteomicsDatabases
             if (format != ProteomeFormat.fasta && format != ProteomeFormat.xml)
                 throw new ArgumentOutOfRangeException(nameof(format), format,
                     $"Proteome format '{format}' is not supported; use {nameof(ProteomeFormat.fasta)} or {nameof(ProteomeFormat.xml)}.");
+            // Checked here beside the format, not further down: both are "this argument is not a value this
+            // method accepts", and they should not be reported in a different order depending on which
+            // other argument happens to be wrong as well.
+            if (!Enum.IsDefined(typeof(Reviewed), reviewed))
+                throw new ArgumentOutOfRangeException(nameof(reviewed), reviewed,
+                    $"Review status '{reviewed}' is not a defined {nameof(Reviewed)} value.");
 
             // The proteome ID becomes part of a file name, so refuse anything that could escape the storage
             // directory or, on NTFS, be read as an alternate data stream (a ':' in the name).
@@ -138,23 +165,37 @@ namespace UsefulProteomicsDatabases
                 throw new DirectoryNotFoundException(
                     $"The storage directory '{absolutePathToStorageDirectory}' does not exist; create it before retrieving a proteome.");
 
-            bool reviewedBool = reviewed == Reviewed.yes;
             bool compressBool = compress == Compress.yes;
+
             // Only a fasta proteome can carry the extra isoform sequences.
             bool isoformBool = format == ProteomeFormat.fasta && include == IncludeIsoforms.yes;
 
+            string reviewedSuffix = reviewed switch
+            {
+                Reviewed.yes => "_reviewed",
+                Reviewed.no => "_unreviewed",
+                _ => "_all",
+            };
+
             string filename = proteomeID
-                + (reviewedBool ? "_reviewed" : "_unreviewed")
+                + reviewedSuffix
                 + (isoformBool ? "_isoform" : "")
                 + "." + format
                 + (compressBool ? ".gz" : "");
             string destinationPath = Path.Combine(absolutePathToStorageDirectory, filename);
 
-            // The query both requests share. The isoform fragment is kept verbatim, separator and all:
-            // UniProt's parameter is "includeIsoform=", so "includeIsoforms:" has always been ignored.
-            // Spelling it correctly would change which sequences are downloaded, which belongs in its own
-            // change rather than riding along with a failure-reporting fix.
-            string query = Uri.EscapeDataString(proteomeID) + "+AND+reviewed:" + (reviewedBool ? "true" : "false");
+            // The query both requests share. Reviewed.all omits the clause entirely rather than asking for
+            // both values, because "reviewed:true OR reviewed:false" is not how UniProt spells "everything"
+            // — the absence of the clause is. For Homo sapiens (UP000005640) that is 147,506 entries,
+            // exactly the 20,416 reviewed plus the 127,090 unreviewed, which is the arithmetic the live
+            // test asserts.
+            string query = Uri.EscapeDataString(proteomeID);
+            if (reviewed != Reviewed.all)
+                query += "+AND+reviewed:" + (reviewed == Reviewed.yes ? "true" : "false");
+
+            // The isoform fragment is kept verbatim, separator and all: UniProt's parameter is
+            // "includeIsoform=", so "includeIsoforms:" has always been ignored. Spelling it correctly would
+            // change which sequences are downloaded, which belongs in its own change.
             string isoformFragment = format == ProteomeFormat.fasta
                 ? "&includeIsoforms:" + (isoformBool ? "true" : "false")
                 : "";
@@ -167,9 +208,10 @@ namespace UsefulProteomicsDatabases
             long totalResults = GetMatchCount(httpClient, countUrl, proteomeID);
 
             if (totalResults == 0)
-                throw new MzLibException(
-                    $"UniProt returned no {(reviewedBool ? "reviewed" : "unreviewed")} proteins for proteome '{proteomeID}'. " +
-                    "The proteome ID may not exist, or it may have no entries of that review status.");
+                throw new MzLibException(reviewed == Reviewed.all
+                    ? $"UniProt returned no proteins at all for proteome '{proteomeID}'; the proteome ID may not exist."
+                    : $"UniProt returned no {(reviewed == Reviewed.yes ? "reviewed" : "unreviewed")} proteins for proteome '{proteomeID}'. " +
+                      "The proteome ID may not exist, or it may have no entries of that review status.");
 
             // The download itself uses "stream", NOT "search". Both were wrong before: the fasta branch
             // pointed at "/uniprot/search" (a 301 hop to uniprotkb) and the xml branch at "/proteome/search"
@@ -374,8 +416,14 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Downloads and then returns the filepath to a compressed (.gz), tab-delimited text file of the
-        /// available proteomes. Line one is the header.
+        /// available proteomes. Line one is the header; the columns are Proteome Id, Organism, Organism Id
+        /// and Protein count.
         /// </summary>
+        /// <remarks>
+        /// This is how a caller who knows an organism but not its proteome ID finds one: download the
+        /// catalogue, read it with <see cref="UniprotProteomesList"/>, and pass the ID to
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms)"/>.
+        /// </remarks>
         /// <param name="destinationFolder">An existing directory to write the file into.</param>
         /// <returns>The full path of the file written. Never null.</returns>
         /// <exception cref="ArgumentException">The destination folder is blank.</exception>
@@ -613,12 +661,23 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// This designates whether or not unreviewed proteins are included in the downloaded proteome.
+        /// Which review status of protein to take from a proteome. This is a filter, not a flag: the two
+        /// original members are mutually exclusive halves, so neither of them downloads a whole proteome.
         /// </summary>
         public enum Reviewed
         {
+            /// <summary>Swiss-Prot (manually reviewed) entries only.</summary>
             yes,
-            no
+
+            /// <summary>TrEMBL (unreviewed) entries only.</summary>
+            no,
+
+            /// <summary>
+            /// Every entry in the proteome, Swiss-Prot and TrEMBL together — the complete organism
+            /// database. Added because the two members above cannot express it between them: they are
+            /// alternatives, and there was previously no way to ask for the whole thing at once.
+            /// </summary>
+            all
         }
 
         /// <summary>
