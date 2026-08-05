@@ -872,6 +872,7 @@ namespace FlashLFQ
             }
             catch (Exception)
             {
+                dataFile.CloseDynamicConnection();
                 return false;
             }
         }
