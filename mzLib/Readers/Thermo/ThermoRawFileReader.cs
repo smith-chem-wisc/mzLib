@@ -45,48 +45,73 @@ namespace Readers
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
 
-            // GetSourceFile computes a SHA-1 over the entire raw file, which is roughly
-            // half of the total load time and does not touch the Thermo reader. Run it on a background task so
-            // it overlaps the scan reading below: one thread reads the scans, one thread hashes the file.
-            var sourceFileTask = Task.Run(GetSourceFile);
+            // GetSourceFile computes a SHA-1 over the entire raw file, which is roughly half of the total load
+            // time and does not touch the Thermo reader. It is started below - after the file has been validated
+            // - so that it overlaps the scan reading: one thread reads the scans, one thread hashes the file.
+            // It runs on a dedicated long-running thread rather than a pooled one (Task.Run) so the blocking
+            // join at the end cannot starve the thread pool when LoadAllStaticData is itself invoked from a
+            // parallel loop over files.
+            Task<SourceFile> sourceFileTask = null;
 
-            using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
+            try
             {
-                var rawFileAccessor = threadManager.CreateThreadAccessor();
-
-                if (rawFileAccessor.IsError)
+                using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
                 {
-                    throw new MzLibException("Error opening RAW file!");
+                    var rawFileAccessor = threadManager.CreateThreadAccessor();
+
+                    if (rawFileAccessor.IsError)
+                    {
+                        throw new MzLibException("Error opening RAW file!");
+                    }
+
+                    if (!rawFileAccessor.IsOpen)
+                    {
+                        throw new MzLibException("Unable to access RAW file!");
+                    }
+
+                    if (rawFileAccessor.InAcquisition)
+                    {
+                        throw new MzLibException("RAW file still being acquired!");
+                    }
+
+                    // Start hashing only now that the file is known to be readable and not mid-acquisition.
+                    // Hashing before these guards would checksum a file we are about to refuse - and for an
+                    // in-acquisition file, a checksum of a target that is still being written.
+                    sourceFileTask = Task.Factory.StartNew(GetSourceFile, CancellationToken.None,
+                        TaskCreationOptions.LongRunning, TaskScheduler.Default);
+
+                    rawFileAccessor.SelectInstrument(Device.MS, 1);
+                    var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
+
+                    // Read the scans on a single accessor. The Thermo reader serializes internally, so once the
+                    // SHA-1 above is overlapped, spreading the scan reads across more threads only adds contention
+                    // and is no faster than reading sequentially (benchmarked - see BenchmarkFileReading). The
+                    // maxThreads parameter is retained for API compatibility with the MsDataFile signature.
+                    for (int s = 0; s < msDataScans.Length; s++)
+                    {
+                        msDataScans[s] = GetOneBasedScan(rawFileAccessor, filteringParams, s + 1);
+                    }
+
+                    rawFileAccessor.Dispose();
+                    Scans = msDataScans;
                 }
 
-                if (!rawFileAccessor.IsOpen)
-                {
-                    throw new MzLibException("Unable to access RAW file!");
-                }
-
-                if (rawFileAccessor.InAcquisition)
-                {
-                    throw new MzLibException("RAW file still being acquired!");
-                }
-
-                rawFileAccessor.SelectInstrument(Device.MS, 1);
-                var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
-
-                // Read the scans on a single accessor. The Thermo reader serializes internally, so once the
-                // SHA-1 above is overlapped, spreading the scan reads across more threads only adds contention
-                // and is no faster than reading sequentially (benchmarked - see BenchmarkFileReading). The
-                // maxThreads parameter is retained for API compatibility with the MsDataFile signature.
-                for (int s = 0; s < msDataScans.Length; s++)
-                {
-                    msDataScans[s] = GetOneBasedScan(rawFileAccessor, filteringParams, s + 1);
-                }
-
-                rawFileAccessor.Dispose();
-                Scans = msDataScans;
+                SourceFile = sourceFileTask.GetAwaiter().GetResult();
             }
+            finally
+            {
+                // If we are leaving via an exception (e.g. a scan failed to read), the hash may still be running
+                // on its dedicated thread, holding an open read handle that would block the caller from
+                // retrying/deleting/moving the file, and any exception it raised would go unobserved. Join it
+                // here and swallow its exception so it cannot mask the original failure.
+                if (sourceFileTask != null)
+                {
+                    try { sourceFileTask.GetAwaiter().GetResult(); }
+                    catch { /* observed; the original exception from the try block propagates */ }
+                }
 
-            SourceFile = sourceFileTask.GetAwaiter().GetResult();
-            temp.Dispose();
+                temp.Dispose();
+            }
 
             return this;
         }
