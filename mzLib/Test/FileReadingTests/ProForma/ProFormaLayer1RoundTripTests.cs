@@ -50,7 +50,8 @@ namespace Test.FileReadingTests.ProForma
                          .Where(r => r.Valid
                                      && !KnownUnsupportedV1.Contains(r.Id)
                                      && !RequiresMultiTermFacade.Contains(r.Id)))
-                yield return new TestCaseData(r.ProformaString).SetName($"{r.ComplianceLevel}_{r.Id}");
+                yield return new TestCaseData(r.ProformaString)
+                    .SetName($"{r.ComplianceLevel}_{ProFormaTestCorpus.ToTestName(r.Id)}");
         }
 
         [TestCaseSource(nameof(RoundTripExamples))]
