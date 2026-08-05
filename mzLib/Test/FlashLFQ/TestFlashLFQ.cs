@@ -40,6 +40,12 @@ namespace Test.FlashLFQ
         public static void TearDown()
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+
+            // FlashLFQ's PEP engine used to drop a scratch "model.zip" into the input data folder
+            // (mzLib#1124). The fix routes it to a temp dir; clean up here as well so the test suite
+            // never accumulates that artifact — including any left behind by an older build.
+            string pepModelArtifact = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", "model.zip");
+            if (File.Exists(pepModelArtifact)) File.Delete(pepModelArtifact);
         }
 
         [Test]
@@ -1500,6 +1506,11 @@ namespace Test.FlashLFQ
 
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.15, maxMbrWindow: 1);
             var results = engine.Run();
+
+            // REGRESSION (mzLib#1124): this data triggers the PEP path, which must write its scratch
+            // model.zip to a temp dir, NOT the input data folder. Assert before TearDown cleans up.
+            Assert.That(File.Exists(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", "model.zip")), Is.False,
+                "FlashLFQ left its PEP model.zip in the input data folder.");
 
             // Count the number of MBR results in each file
             var f1r1MbrResults = results
