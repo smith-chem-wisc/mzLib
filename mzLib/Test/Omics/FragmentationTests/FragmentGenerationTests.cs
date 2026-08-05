@@ -87,8 +87,8 @@ namespace Test.Omics.FragmentationTests
 
         [Test]
         [TestCase(DissociationType.HCD, new[] { ProductType.b, ProductType.y })]
-        [TestCase(DissociationType.ECD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
-        [TestCase(DissociationType.ETD, new[] { ProductType.c, ProductType.y, ProductType.zDot })]
+        [TestCase(DissociationType.ECD, new[] { ProductType.c, ProductType.zDot })]
+        [TestCase(DissociationType.ETD, new[] { ProductType.c, ProductType.zDot })]
         [TestCase(DissociationType.EThcD, new[] { ProductType.b, ProductType.y })]
         [TestCase(DissociationType.AnyActivationType, new[] { ProductType.b, ProductType.y })]
         public static void TestDissociationProductTypes(DissociationType dissociationType, IEnumerable<ProductType> expectedProductTypes)
@@ -261,7 +261,7 @@ namespace Test.Omics.FragmentationTests
             var theseTheoreticalFragments = new List<Product>();
             aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.Both, theseTheoreticalFragments);
 
-            Assert.That(theseTheoreticalFragments.Count == 22);
+            Assert.That(theseTheoreticalFragments.Count == 15);
             Assert.That(theseTheoreticalFragments.Last().Annotation == "zDot8");
             Assert.That(theseTheoreticalFragments.Last().NeutralMass > 1842);
         }
@@ -453,9 +453,9 @@ namespace Test.Omics.FragmentationTests
             Assert.AreEqual(new List<ProductType> { ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
             Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.HCD]));
 
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
             Assert.AreEqual(new List<ProductType> { ProductType.c }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.N].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
+            Assert.AreEqual(new List<ProductType> { ProductType.zDot }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.C].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
             Assert.AreEqual(new List<ProductType> { }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.None].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.ETD]));
 
             Assert.AreEqual(new List<ProductType> { ProductType.b, ProductType.y }, TerminusSpecificProductTypes.ProductIonTypesFromSpecifiedTerminus[FragmentationTerminus.Both].Intersect(DissociationTypeCollection.ProductsFromDissociationType[DissociationType.CID]));
@@ -484,13 +484,13 @@ namespace Test.Omics.FragmentationTests
             Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
-            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.y, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.c, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.N, fragments);
             Assert.AreEqual(new List<ProductType> { ProductType.c }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.C, fragments);
-            Assert.AreEqual(new List<ProductType> { ProductType.y, ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
+            Assert.AreEqual(new List<ProductType> { ProductType.zDot }, fragments.Select(b => b.ProductType).Distinct().ToList());
 
             p.Fragment(DissociationType.ETD, FragmentationTerminus.None, fragments);
             Assert.AreEqual(new List<ProductType> { }, fragments.Select(b => b.ProductType).Distinct().ToList());
@@ -560,8 +560,8 @@ namespace Test.Omics.FragmentationTests
 
         [Test]
         [TestCase(DissociationType.HCD, 12)]//the first part is the test case, the latter part is ther result of the assertion
-        [TestCase(DissociationType.ETD, 17)]//the first part is the test case, the latter part is ther result of the assertion
-        [TestCase(DissociationType.ECD, 17)]//the first part is the test case, the latter part is ther result of the assertion
+        [TestCase(DissociationType.ETD, 11)]//the first part is the test case, the latter part is ther result of the assertion
+        [TestCase(DissociationType.ECD, 11)]//the first part is the test case, the latter part is ther result of the assertion
         [TestCase(DissociationType.EThcD, 23)]//the first part is the test case, the latter part is ther result of the assertion
         public static void Test_ETD_ECD_EThcD_Fragmentation_No_FragmentsAtProline(DissociationType dissociationType, int fragmentCount)
         {
@@ -572,6 +572,114 @@ namespace Test.Omics.FragmentationTests
             List<Product> myFragments = new List<Product>();
             myPeptide.Fragment(dissociationType, FragmentationTerminus.Both, myFragments);
             Assert.AreEqual(fragmentCount, myFragments.Count());
+
+            // Pin the per-series COUNTS, not the total or the distinct set: for ETD the total of 11 is
+            // equally satisfied by 6 y + 5 zDot, and even the distinct set { c, zDot } is satisfied by a
+            // 5 c / 6 zDot split -- so a regression moving the proline suppression from the z• series to
+            // the c series would slip through anything weaker than a per-series count.
+            int Count(ProductType t) => myFragments.Count(p => p.ProductType == t);
+            switch (dissociationType)
+            {
+                case DissociationType.ETD:
+                case DissociationType.ECD:
+                    Assert.AreEqual(6, Count(ProductType.c));
+                    Assert.AreEqual(5, Count(ProductType.zDot));   // one z• suppressed at the proline
+                    Assert.AreEqual(0, Count(ProductType.b));
+                    Assert.AreEqual(0, Count(ProductType.y));
+                    break;
+                case DissociationType.HCD:
+                    Assert.AreEqual(6, Count(ProductType.b));
+                    Assert.AreEqual(6, Count(ProductType.y));
+                    break;
+                case DissociationType.EThcD:
+                    Assert.AreEqual(6, Count(ProductType.b));
+                    Assert.AreEqual(6, Count(ProductType.y));
+                    Assert.AreEqual(6, Count(ProductType.c));
+                    Assert.AreEqual(5, Count(ProductType.zDot));
+                    break;
+                default:
+                    Assert.Fail($"No expected per-series counts for {dissociationType}; add a case when adding a [TestCase].");
+                    break;
+            }
+        }
+
+        [Test]
+        [TestCase(DissociationType.ETD)]
+        [TestCase(DissociationType.ECD)]
+        public static void ElectronTransferDissociationProducesCAndZDotOnly(DissociationType dissociationType)
+        {
+            // ETD and ECD cleave the N-Ca bond, which yields c and z-dot ions. The b and y ions come
+            // from amide cleavage under vibrational activation, so neither belongs here. If residual
+            // activation is to be modelled then b and y arrive together, which is what EThcD does --
+            // a y series with no b series has no fragmentation mechanism behind it.
+            List<ProductType> products = DissociationTypeCollection.ProductsFromDissociationType[dissociationType];
+
+            CollectionAssert.AreEquivalent(new[] { ProductType.c, ProductType.zDot }, products);
+            Assert.That(products, Does.Not.Contain(ProductType.y), "y ions require amide cleavage");
+            Assert.That(products, Does.Not.Contain(ProductType.b), "b ions require amide cleavage");
+
+            // The water/ammonia-loss helper is a second, independent source of ETD/ECD product types, so
+            // pin it too: with no y series there is no y-derived loss, at ANY terminus. Drive the loop from
+            // every FragmentationTerminus value (including None) rather than a hand-written subset, so a
+            // reintroduced ETD/ECD arm returning y-losses for only one terminus cannot slip through green.
+            foreach (FragmentationTerminus terminus in Enum.GetValues<FragmentationTerminus>())
+                CollectionAssert.IsEmpty(
+                    DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(dissociationType, terminus),
+                    $"ETD/ECD must yield no water/ammonia-loss ions ({terminus})");
+        }
+
+        [Test]
+        public static void EThcDKeepsBAndYTogetherBecauseSupplementalActivationProducesBoth()
+        {
+            // The counterpart to the test above: supplemental HCD genuinely does add amide cleavage,
+            // so EThcD carries b and y alongside c and z-dot. This pins the asymmetry as deliberate.
+            // Assert CONTAINMENT, not an exact set: the invariant this test's name states is that b and y
+            // are retained ALONGSIDE c and z•, and EThcD is a row this PR does not otherwise own, so an
+            // unrelated later addition to it (e.g. zPlusOne) must not fail a b/y-togetherness test.
+            List<ProductType> products = DissociationTypeCollection.ProductsFromDissociationType[DissociationType.EThcD];
+
+            Assert.That(products, Does.Contain(ProductType.b));
+            Assert.That(products, Does.Contain(ProductType.y));
+            Assert.That(products, Does.Contain(ProductType.c));
+            Assert.That(products, Does.Contain(ProductType.zDot));
+        }
+
+        /// <summary>
+        /// The which-series-a-type-produces fact is hand-maintained in two places -- the
+        /// ProductsFromDissociationType rows and the GetWaterAndAmmoniaLossProductTypesFromDissociation
+        /// switch -- and the ECD/ETD drift between them is exactly what the first commit of this PR
+        /// missed. This pins the STRUCTURAL invariant across every row rather than naming ETD/ECD only,
+        /// so the same class of drift on any other row is caught: a neutral-loss ion may be returned
+        /// only if its parent series is in that type's product row. (One-directional: a row may carry a
+        /// series without the helper reporting a loss for it, e.g. LowCID, so the loss list is not
+        /// derived from the rows -- that would change LowCID and is out of scope.)
+        /// </summary>
+        [Test]
+        public static void GetWaterAndAmmoniaLoss_NeverReturnsALossWhoseParentSeriesIsAbsentFromTheRow()
+        {
+            var bSeriesLosses = new[] { ProductType.bWaterLoss, ProductType.bAmmoniaLoss };
+            var ySeriesLosses = new[] { ProductType.yWaterLoss, ProductType.yAmmoniaLoss };
+
+            foreach (var typeAndRow in DissociationTypeCollection.ProductsFromDissociationType)
+            {
+                DissociationType type = typeAndRow.Key;
+                List<ProductType> row = typeAndRow.Value;
+
+                // b and y are amide-cleavage complements: every row carries both or neither.
+                Assert.That(row.Contains(ProductType.b), Is.EqualTo(row.Contains(ProductType.y)),
+                    $"{type}: b and y must appear together or not at all");
+
+                foreach (FragmentationTerminus terminus in Enum.GetValues<FragmentationTerminus>())
+                {
+                    var losses = DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(type, terminus);
+                    if (!row.Contains(ProductType.b))
+                        Assert.That(losses.Intersect(bSeriesLosses), Is.Empty,
+                            $"{type}/{terminus}: b-series loss returned but the row has no b");
+                    if (!row.Contains(ProductType.y))
+                        Assert.That(losses.Intersect(ySeriesLosses), Is.Empty,
+                            $"{type}/{terminus}: y-series loss returned but the row has no y");
+                }
+            }
         }
 
         [Test]
@@ -644,8 +752,10 @@ namespace Test.Omics.FragmentationTests
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.HCD, FragmentationTerminus.Both));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss, ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.EThcD, FragmentationTerminus.Both));
 
-            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ECD, FragmentationTerminus.Both));
-            CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ETD, FragmentationTerminus.Both));
+            // ECD/ETD produce c and z-dot only (N-Ca cleavage), so there is no y series and no y water/ammonia
+            // loss -- consistent with ProductType.y no longer being in the ECD/ETD product sets.
+            CollectionAssert.IsEmpty(DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ECD, FragmentationTerminus.Both));
+            CollectionAssert.IsEmpty(DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.ETD, FragmentationTerminus.Both));
 
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.bWaterLoss, ProductType.bAmmoniaLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.N));
             CollectionAssert.AreEquivalent(new List<ProductType>() { ProductType.yAmmoniaLoss, ProductType.yWaterLoss }, DissociationTypeCollection.GetWaterAndAmmoniaLossProductTypesFromDissociation(DissociationType.CID, FragmentationTerminus.C));
