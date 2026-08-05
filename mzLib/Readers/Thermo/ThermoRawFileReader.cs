@@ -45,7 +45,7 @@ namespace Readers
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
 
-            // GetSourceFile computes a SHA-1 over the entire (potentially ~1 GB) raw file, which is roughly
+            // GetSourceFile computes a SHA-1 over the entire raw file, which is roughly
             // half of the total load time and does not touch the Thermo reader. Run it on a background task so
             // it overlaps the scan reading below: one thread reads the scans, one thread hashes the file.
             var sourceFileTask = Task.Run(GetSourceFile);
