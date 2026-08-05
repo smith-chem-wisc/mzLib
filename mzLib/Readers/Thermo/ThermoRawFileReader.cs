@@ -1,7 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using ThermoFisher.CommonCore.Data.Business;
@@ -48,7 +47,7 @@ namespace Readers
 
             // GetSourceFile computes a SHA-1 over the entire (potentially ~1 GB) raw file, which is roughly
             // half of the total load time and does not touch the Thermo reader. Run it on a background task so
-            // it overlaps the scan-reading loop below instead of running serially after it.
+            // it overlaps the scan reading below: one thread reads the scans, one thread hashes the file.
             var sourceFileTask = Task.Run(GetSourceFile);
 
             using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
@@ -73,21 +72,14 @@ namespace Readers
                 rawFileAccessor.SelectInstrument(Device.MS, 1);
                 var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
 
-                Parallel.ForEach(Partitioner.Create(0, msDataScans.Length),
-                    new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
-                    {
-                        using (var myThreadDataReader = threadManager.CreateThreadAccessor())
-                        {
-                            myThreadDataReader.SelectInstrument(Device.MS, 1);
-
-                            for (int s = fff.Item1; s < fff.Item2; s++)
-                            {
-                                var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
-                                msDataScans[s] = scan;
-                            }
-                        }
-                    });
-
+                // Read the scans on a single accessor. The Thermo reader serializes internally, so once the
+                // SHA-1 above is overlapped, spreading the scan reads across more threads only adds contention
+                // and is no faster than reading sequentially (benchmarked - see BenchmarkFileReading). The
+                // maxThreads parameter is retained for API compatibility with the MsDataFile signature.
+                for (int s = 0; s < msDataScans.Length; s++)
+                {
+                    msDataScans[s] = GetOneBasedScan(rawFileAccessor, filteringParams, s + 1);
+                }
 
                 rawFileAccessor.Dispose();
                 Scans = msDataScans;
