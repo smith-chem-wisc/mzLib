@@ -732,11 +732,13 @@ namespace FlashLFQ
         /// below the lowest m/z observed for it to mzExpansion above the highest. Peaks belonging to other species
         /// are included, so the output shows the interference and co-elution surrounding each quantified precursor.
         ///
-        /// The format is JSON Lines: one self-contained JSON object per quantified peak, one per line, holding that
-        /// peak's charge state windows. The peak's metadata is written once per peak and the MS1 peaks follow as
-        /// parallel m/z and intensity arrays, so the metadata cost does not scale with the number of peaks in the
-        /// windows. Being line delimited, it also streams: a feature is written and released before the next is
-        /// extracted, and a reader can consume one peak at a time rather than parsing the whole file.
+        /// The format is JSON Lines, in three levels. Each spectra file contributes a header object naming the file
+        /// and listing every MS1 scan its features cover, with that scan's retention time and total ion current;
+        /// then one object per quantified peak of that file, each holding one window per charge state; and inside
+        /// those, the MS1 peaks as flat m/z, intensity and scan number arrays. Nothing shared is repeated at a
+        /// deeper level than it belongs to, so neither the peak's metadata nor a scan's grows with the number of
+        /// MS1 peaks written. Being line delimited, it also streams: a feature is written and released before the
+        /// next is extracted, and a reader can consume one object at a time rather than parsing the whole file.
         ///
         /// This is not part of WriteResults because it re-reads each spectra file: FlashLfqEngine discards the raw
         /// data once quantification finishes, and holding the extracted peaks in memory instead would cost far more
@@ -746,7 +748,7 @@ namespace FlashLFQ
         /// <param name="outputPath"> the file the feature objects are written to </param>
         /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
         /// <param name="silent"> suppresses console progress output </param>
-        public void WriteMs1Features(string outputPath, double mzExpansion = PeakWindow.DefaultMzExpansion, bool silent = false)
+        public void WriteMs1Features(string outputPath, double mzExpansion = PeakWindowData.DefaultMzExpansion, bool silent = false)
         {
             if (outputPath == null)
             {
@@ -773,17 +775,17 @@ namespace FlashLFQ
 
                     MsDataFile dataFile = MsDataFileReader.GetDataFile(spectraFile.FullFilePathWithExtension);
 
-                    // The map is the one the indexing engine numbered the peaks against, when the run that produced
-                    // these results left it behind. Rebuilding it from the file is the fallback, and costs a static
-                    // load: the file has to be read to be able to say which of its scans are MS1.
-                    int[] ms1ScanNumberMap = GetMs1ScanNumberMap(spectraFile);
+                    // These are the scans the indexing engine numbered the peaks against, when the run that produced
+                    // these results left them behind. Rebuilding them from the file is the fallback, and costs a
+                    // static load: the file has to be read to be able to say which of its scans are MS1.
+                    ScanInfo[] ms1ScanInfo = GetMs1ScanInfo(spectraFile);
 
                     // A static load reads, and then holds, every scan in the file. Seeking to the scans the windows
                     // actually cover is worth it while there are fewer of them than that, which is the usual case
                     // for a file contributing a few peaks and never the case for one contributing thousands.
-                    bool readScanByScan = ms1ScanNumberMap != null
-                        && peaksInFile.Sum(p => (long)QuantifiedMs1Feature.CountScansToRead(p.Peak))
-                            < ms1ScanNumberMap.Length;
+                    bool readScanByScan = ms1ScanInfo != null
+                        && peaksInFile.Sum(p => (long)Ms1FeatureData.CountScansToRead(p.Peak))
+                            < ms1ScanInfo.Length;
                     bool useDynamicConnection = readScanByScan && TryInitiateDynamicConnection(dataFile);
 
                     if (!useDynamicConnection)
@@ -795,12 +797,12 @@ namespace FlashLFQ
                         }
 
                         dataFile.LoadAllStaticData();
-                        ms1ScanNumberMap ??= QuantifiedMs1Feature.BuildMs1ScanNumberMap(dataFile);
+                        ms1ScanInfo ??= Ms1FeatureData.BuildMs1ScanInfo(dataFile);
                     }
 
                     try
                     {
-                        if (ms1ScanNumberMap.Length == 0)
+                        if (ms1ScanInfo.Length == 0)
                         {
                             if (!silent)
                             {
@@ -810,22 +812,30 @@ namespace FlashLFQ
                             continue;
                         }
 
+                        // The header is written first, and describes only the scans the features that follow will
+                        // refer to, so it comes from the peaks rather than from the features - which do not exist
+                        // yet, and which are extracted one at a time so that they need not all exist at once.
+                        SpectraFileHeaderData header = SpectraFileHeaderData.Create(spectraFile, dataFile,
+                            ms1ScanInfo, peaksInFile.Select(p => p.Peak), useDynamicConnection);
+                        if (header == null)
+                        {
+                            continue;
+                        }
+
+                        header.WriteTo(writer);
+                        WriteLineBreak(writer, stream);
+
                         foreach ((ChromatographicPeak peak, int featureId) in peaksInFile)
                         {
-                            QuantifiedMs1Feature feature = QuantifiedMs1Feature.Create(peak, dataFile,
-                                ms1ScanNumberMap, mzExpansion, useDynamicConnection);
+                            Ms1FeatureData feature = Ms1FeatureData.Create(peak, dataFile,
+                                ms1ScanInfo, mzExpansion, useDynamicConnection);
                             if (feature == null)
                             {
                                 continue;
                             }
 
                             feature.WriteTo(writer, featureId);
-
-                            // One object per line. The writer has to be reset between objects: it otherwise rejects
-                            // a second top level value, since a stream of them is not itself a JSON document.
-                            writer.Flush();
-                            stream.WriteByte((byte)'\n');
-                            writer.Reset();
+                            WriteLineBreak(writer, stream);
                         }
                     }
                     finally
@@ -845,17 +855,28 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// The MS1 scan number map of a file as the indexing engine numbered it, or null if this results object was
-        /// not produced by a FlashLfqEngine run and so has no scan metadata to draw on.
+        /// Ends one JSON Lines record. The writer has to be reset between objects: it otherwise rejects a second
+        /// top level value, since a stream of them is not itself a JSON document.
         /// </summary>
-        private int[] GetMs1ScanNumberMap(SpectraFileInfo spectraFile)
+        private static void WriteLineBreak(Utf8JsonWriter writer, Stream stream)
+        {
+            writer.Flush();
+            stream.WriteByte((byte)'\n');
+            writer.Reset();
+        }
+
+        /// <summary>
+        /// The MS1 scans of a file as the indexing engine numbered them, or null if this results object was not
+        /// produced by a FlashLfqEngine run and so has no scan metadata to draw on.
+        /// </summary>
+        private ScanInfo[] GetMs1ScanInfo(SpectraFileInfo spectraFile)
         {
             if (Ms1ScanInfo == null || !Ms1ScanInfo.TryGetValue(spectraFile, out ScanInfo[] scanInfo) || scanInfo == null)
             {
                 return null;
             }
 
-            return scanInfo.Select(s => s.OneBasedScanNumber).ToArray();
+            return scanInfo;
         }
 
         /// <summary>
