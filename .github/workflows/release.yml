@@ -29,16 +29,21 @@ jobs:
         run: |
           cd mzLib
           dotnet restore
+      # Build the packaged assemblies as Any CPU rather than x64. An x64 PlatformTarget stamps AMD64 into
+      # the PE header, and an arm64 .NET runtime then refuses the assembly with
+      # "FileLoadException: Could not load file or assembly '<name>'". Any CPU assemblies still run 64-bit
+      # on a 64-bit runtime, so x64 consumers are unaffected. Output moves from bin/x64/Release to
+      # bin/Release, which is where mzLib.nuspec now looks.
       - name: Build
         run: |
           $version= &git describe --tags
           cd mzLib
-          dotnet build --no-restore --configuration Release /p:Version=${version}
+          dotnet build --no-restore --configuration Release /p:Platform="Any CPU" /p:Version=${version}
       - name: Test
         run: |
           $version= &git describe --tags
           cd mzLib
-          dotnet test --configuration Release /p:Version=${version} --no-build
+          dotnet test --configuration Release /p:Platform="Any CPU" /p:Version=${version} --no-build
       - name: Pack and Push NuGet Package
         run: |
           $version= &git describe --tags

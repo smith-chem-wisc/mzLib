@@ -426,7 +426,7 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
+        public void FilesLoading() //delete mzLib\Test\bin\Debug to update your local unimod list
         {
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
