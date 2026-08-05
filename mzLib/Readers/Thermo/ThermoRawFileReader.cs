@@ -164,21 +164,18 @@ namespace Readers
             if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
                 return GetOneBasedScan(oneBasedScanNumber);
 
-            var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
-            dymConnection.SelectInstrument(Device.MS, 1);
-
-            if (dymConnection == null)
+            if (dynamicConnection == null)
             {
                 throw new MzLibException("The dynamic connection has not been created yet!");
             }
 
-            if (oneBasedScanNumber > dymConnection.RunHeaderEx.LastSpectrum ||
-                oneBasedScanNumber < dymConnection.RunHeaderEx.FirstSpectrum)
+            if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
+                oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
             {
                 return null;
             }
 
-            return ThermoRawFileReader.GetOneBasedScan(dymConnection, filterParams, oneBasedScanNumber);
+            return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
         }
 
         /// <summary>
