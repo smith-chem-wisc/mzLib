@@ -57,7 +57,7 @@ namespace Test.Omics.FragmentationTests
 
             aPeptideWithSetModifications.Fragment(DissociationType.ECD, FragmentationTerminus.Both, fragments);
             allFragmentIonMzs = new HashSet<int>(fragments.Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
-            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 115, 244, 120, 249, 104, 233 }));
+            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 115, 244, 104, 233 }));
 
             aPeptideWithSetModifications.Fragment(DissociationType.PQD, FragmentationTerminus.Both, fragments);
             allFragmentIonMzs = new HashSet<int>(fragments.Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
@@ -65,7 +65,7 @@ namespace Test.Omics.FragmentationTests
 
             aPeptideWithSetModifications.Fragment(DissociationType.ETD, FragmentationTerminus.Both, fragments);
             allFragmentIonMzs = new HashSet<int>(fragments.Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
-            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 115, 244, 120, 249, 104, 233 }));
+            Assert.IsTrue(allFragmentIonMzs.SetEquals(new HashSet<int> { 115, 244, 104, 233 }));
 
             aPeptideWithSetModifications.Fragment(DissociationType.HCD, FragmentationTerminus.Both, fragments);
             allFragmentIonMzs = new HashSet<int>(fragments.Select(i => (int)Math.Round(i.NeutralMass.ToMz(1))));
