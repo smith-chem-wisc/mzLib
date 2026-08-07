@@ -29,6 +29,26 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
 
+        /// <summary>
+        /// The NCBI taxonomy id from a UniProt FASTA header ("OS=Homo sapiens OX=9606").
+        ///
+        /// OX= was already named in the regexes above, but only ever as a TERMINATOR for the
+        /// preceding field -- nothing captured it, so the FASTA path threw the taxonomy id away
+        /// while the XML path kept it. LoadProteinXML retains it because ProteinXmlEntry stores
+        /// every dbReference generically, so an entry loaded from XML carries
+        /// DatabaseReference("NCBI Taxonomy", "9606") and the same protein loaded from FASTA
+        /// carried nothing. This closes that gap using the same representation.
+        /// </summary>
+        public static readonly FastaHeaderFieldRegex UniprotOrganismIdRegex =
+            new FastaHeaderFieldRegex("organismId", @"OX=(\d+)", 0, 1);
+
+        /// <summary>
+        /// The dbReference type UniProt uses for the NCBI taxonomy identifier, in both its XML and
+        /// (via <see cref="UniprotOrganismIdRegex"/>) its FASTA headers. Declared once so consumers
+        /// do not each repeat the string.
+        /// </summary>
+        public const string NcbiTaxonomyDatabaseReferenceType = "NCBI Taxonomy";
+
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
@@ -200,7 +220,7 @@ namespace UsefulProteomicsDatabases
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
             FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY",
-            string entrapmentIdentifier = "Random", bool isEntrapment = false)
+            string entrapmentIdentifier = "Random", bool isEntrapment = false, FastaHeaderFieldRegex organismIdRegex = null)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -209,6 +229,7 @@ namespace UsefulProteomicsDatabases
             string name = null;
             string fullName = null;
             string organism = null;
+            string organismId = null;
             List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
@@ -258,6 +279,7 @@ namespace UsefulProteomicsDatabases
                                     fullNameRegex = UniprotFullNameRegex;
                                     nameRegex = UniprotNameRegex;
                                     organismRegex = UniprotOrganismRegex;
+                                    organismIdRegex ??= UniprotOrganismIdRegex;
                                     geneNameRegex = UniprotGeneNameRegex;
                                     break;
 
@@ -279,6 +301,7 @@ namespace UsefulProteomicsDatabases
                         fullName = ApplyRegex(fullNameRegex, line);
                         name = ApplyRegex(nameRegex, line);
                         organism = ApplyRegex(organismRegex, line);
+                        organismId = ApplyRegex(organismIdRegex, line);
                         string geneNameString = ApplyRegex(geneNameRegex, line);
                         if (geneNameString != null)
                         {
@@ -331,8 +354,19 @@ namespace UsefulProteomicsDatabases
                             else
                                 accession = entrapmentIdentifier + "_" + accession;
                         }
+                        // Same shape the XML loader produces, so a protein means the same thing
+                        // whichever format it came from.
+                        List<DatabaseReference> databaseReferences = organismId is null
+                            ? null
+                            : new List<DatabaseReference>
+                            {
+                                new DatabaseReference(NcbiTaxonomyDatabaseReferenceType, organismId,
+                                    new List<Tuple<string, string>>())
+                            };
+
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
                             isContaminant: isContaminant, isDecoy: accession.StartsWith(decoyIdentifier), isEntrapment: proteinIsEntrapment,
+                            databaseReferences: databaseReferences,
                             databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
                         if (protein.Length == 0)
                         {
