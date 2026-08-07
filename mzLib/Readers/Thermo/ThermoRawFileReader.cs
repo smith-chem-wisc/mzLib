@@ -111,9 +111,52 @@ namespace Readers
                 sendCheckSum,
                 @"SHA-1",
                 FilePath,
-                Path.GetFileNameWithoutExtension(FilePath));
+                Path.GetFileNameWithoutExtension(FilePath))
+            {
+                InstrumentModel = GetInstrumentModel()
+            };
 
             return sourceFile;
+        }
+
+        /// <summary>
+        /// The instrument model recorded in the RAW file, as a NAME-only CvParam
+        /// (e.g. NT=Orbitrap Fusion Lumos with an empty accession).
+        ///
+        /// Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS cvParam --
+        /// a RAW file records only free text, so no accession can be produced here without a
+        /// controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
+        /// file, and forcing it here would put an ontology dependency into the raw reader. Callers
+        /// that need the accession resolve the name themselves; the empty Accession is the signal
+        /// that they must, and is documented on <see cref="SourceFile.InstrumentModel"/>.
+        ///
+        /// Returns null rather than throwing if the model cannot be read: the instrument name is
+        /// metadata, and failing to obtain it must not stop a file being opened.
+        /// </summary>
+        private CvParam GetInstrumentModel()
+        {
+            try
+            {
+                using var connection = RawFileReaderAdapter.FileFactory(FilePath);
+                if (connection == null || !connection.IsOpen || connection.IsError)
+                    return null;
+
+                connection.SelectInstrument(Device.MS, 1);
+                var instrument = connection.GetInstrumentData();
+
+                // Model is the specific instrument ("Orbitrap Fusion Lumos"); Name is often the
+                // generic device family ("MS"). Prefer Model and fall back to Name.
+                string model = instrument?.Model;
+                if (string.IsNullOrWhiteSpace(model))
+                    model = instrument?.Name;
+
+                // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
+                return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
 
         /// <summary>
