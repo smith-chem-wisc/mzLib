@@ -39,15 +39,18 @@ namespace UsefulProteomicsDatabases
         /// DatabaseReference("NCBI Taxonomy", "9606") and the same protein loaded from FASTA
         /// carried nothing. This closes that gap using the same representation.
         /// </summary>
+        // Anchored on a word boundary: unanchored, a description containing a token that ends in
+        // "OX=" followed by digits (".. SOX=5 .. OS=Homo sapiens OX=9606") matched the wrong number.
+        // A taxonomy id is a join key, where a silently wrong value is worse than a missing one.
         public static readonly FastaHeaderFieldRegex UniprotOrganismIdRegex =
-            new FastaHeaderFieldRegex("organismId", @"OX=(\d+)", 0, 1);
+            new FastaHeaderFieldRegex("organismId", @"(?:^|\s)OX=(\d+)", 0, 1);
 
         /// <summary>
         /// The dbReference type UniProt uses for the NCBI taxonomy identifier, in both its XML and
         /// (via <see cref="UniprotOrganismIdRegex"/>) its FASTA headers. Declared once so consumers
         /// do not each repeat the string.
         /// </summary>
-        public const string NcbiTaxonomyDatabaseReferenceType = "NCBI Taxonomy";
+        public const string NcbiTaxonomyDatabaseReferenceType = Protein.NcbiTaxonomyDatabaseReferenceType;
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);

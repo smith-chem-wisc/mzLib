@@ -88,6 +88,111 @@ namespace Test.FileReadingTests
             }
         }
 
+        /// <summary>
+        /// Regression: decoy proteins did not inherit the taxonomy their targets carry, so half of
+        /// a decoy-containing database answered the organism question and half did not.
+        /// </summary>
+        [Test]
+        public void Decoys_InheritTheTaxonomyOfTheirTarget()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"decoytaxon_{System.Guid.NewGuid():N}.fasta");
+            try
+            {
+                File.WriteAllText(path,
+                    ">sp|P12345|TEST_HUMAN Test OS=Homo sapiens OX=9606 GN=TST PE=1 SV=2\nPEPTIDEKPEPTIDER\n");
+
+                var proteins = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.Reverse, false, out _);
+
+                var target = proteins.Single(p => !p.IsDecoy);
+                var decoy = proteins.Single(p => p.IsDecoy);
+
+                Assert.That(target.NcbiTaxonomyId, Is.EqualTo("9606"));
+                Assert.That(decoy.NcbiTaxonomyId, Is.EqualTo("9606"),
+                    "a decoy is a reversed sequence from this organism's database");
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
+        [Test]
+        public void Decoys_DoNotInheritUnrelatedDatabaseReferences()
+        {
+            // Only the taxonomy travels. A decoy is not annotated in EMBL, GO or anywhere else, and
+            // claiming otherwise would assert things about it that are false.
+            var proteins = ProteinDbLoader.LoadProteinXML(Data("DatabaseTests", "disulfidetests.xml"),
+                true, DecoyType.Reverse, null, false, null, out _);
+
+            var decoy = proteins.First(p => p.IsDecoy);
+            Assert.That(decoy.NcbiTaxonomyId, Is.EqualTo("10090"));
+            Assert.That(decoy.DatabaseReferences.Select(r => r.Type).Distinct(),
+                Is.EquivalentTo(new[] { ProteinDbLoader.NcbiTaxonomyDatabaseReferenceType }));
+        }
+
+        /// <summary>
+        /// Regression: LoadProteinFasta retained the taxonomy but GetUniProtFastaHeader did not
+        /// write it, so a FASTA-to-FASTA round trip silently dropped it again.
+        /// </summary>
+        [Test]
+        public void FastaHeader_RoundTripsTheTaxonomyId()
+        {
+            string input = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"rt_in_{System.Guid.NewGuid():N}.fasta");
+            string output = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"rt_out_{System.Guid.NewGuid():N}.fasta");
+            try
+            {
+                File.WriteAllText(input,
+                    ">sp|P12345|TEST_HUMAN Test OS=Homo sapiens OX=9606 GN=TST PE=1 SV=2\nPEPTIDEK\n");
+
+                var loaded = ProteinDbLoader.LoadProteinFasta(input, true, DecoyType.None, false, out _);
+                ProteinDbWriter.WriteFastaDatabase(loaded.ToList(), output, "|");
+
+                string header = File.ReadAllLines(output).First(l => l.StartsWith(">"));
+                Assert.That(header, Does.Contain("OX=9606"));
+
+                var reloaded = ProteinDbLoader.LoadProteinFasta(output, true, DecoyType.None, false, out _);
+                Assert.That(reloaded.Single().NcbiTaxonomyId, Is.EqualTo("9606"));
+                Assert.That(reloaded.Single().Organism, Is.EqualTo("Homo sapiens"));
+            }
+            finally
+            {
+                foreach (var f in new[] { input, output })
+                    if (File.Exists(f)) File.Delete(f);
+            }
+        }
+
+        [Test]
+        public void FastaHeader_OmitsOxWhenTheTaxonomyIsUnknown()
+        {
+            var protein = new Proteomics.Protein("PEPTIDEK", "P00001", organism: "Homo sapiens");
+            Assert.That(protein.NcbiTaxonomyId, Is.Null);
+            Assert.That(protein.GetUniProtFastaHeader(), Does.Not.Contain("OX="));
+        }
+
+        [Test]
+        public void OxRegex_IsAnchoredAndDoesNotMatchATrailingToken()
+        {
+            // Unanchored, a description token ending in "OX=" followed by digits captured the wrong
+            // number. A taxonomy id is a join key: a silently wrong value is worse than none.
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"anchor_{System.Guid.NewGuid():N}.fasta");
+            try
+            {
+                File.WriteAllText(path,
+                    ">sp|P12345|TEST_HUMAN Protein SOX=5 family OS=Homo sapiens OX=9606 GN=TST PE=1 SV=2\nPEPTIDEK\n");
+
+                var protein = ProteinDbLoader.LoadProteinFasta(path, true, DecoyType.None, false, out _).Single();
+                Assert.That(protein.NcbiTaxonomyId, Is.EqualTo("9606"), "SOX=5 must not be read as the taxonomy");
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
         [Test]
         public void BothFormatsAgreeOnTheRepresentation()
         {
