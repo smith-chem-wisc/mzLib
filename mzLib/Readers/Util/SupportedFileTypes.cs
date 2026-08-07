@@ -33,7 +33,8 @@ namespace Readers
         ExperimentAnnotation,
         BrukerD,
         BrukerTimsTof,
-        CasanovoMzTab
+        CasanovoMzTab,
+        Sdrf
     }
 
     public static class SupportedFileTypeExtensions
@@ -77,6 +78,7 @@ namespace Readers
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 SupportedFileType.CasanovoMzTab => ".mztab",
+                SupportedFileType.Sdrf => ".sdrf.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -146,6 +148,8 @@ namespace Readers
                         return SupportedFileType.ExperimentAnnotation;
                     if(filePath.EndsWith(SupportedFileType.Tsv_Dinosaur.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_Dinosaur;
+                    if(filePath.EndsWith(SupportedFileType.Sdrf.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.Sdrf;
 
                         // these tsv cases are just .tsv and need an extra step to determine the type
                         // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -227,6 +231,7 @@ namespace Readers
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
+                SupportedFileType.Sdrf => typeof(SdrfDocument),
                 _ => throw new MzLibException("File type not supported")
             };
         }
