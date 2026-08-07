@@ -61,3 +61,12 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Vendored ontology snapshots are byte-exact pinned inputs, embedded into the
+# assembly straight from the working tree. Under `* text=auto` above they would
+# be stored LF and handed back CRLF on a Windows checkout, so what CI embeds
+# would not be what was committed or reviewed. Keep these bytes exactly as
+# committed. (Same reasoning as the *.sdrf.tsv rule.)
+###############################################################################
+*.obo -text
