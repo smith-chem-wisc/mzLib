@@ -18,10 +18,19 @@ jobs:
         dotnet-version: 8.0.x
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Request the platform explicitly. The solution offers both x64 and Any CPU, and MSBuild silently
+    # prefers Any CPU as a solution's default, so an unqualified build would depend on that preference
+    # rather than on anything stated here. Any CPU is what the released package is built as.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore
+      run: cd mzLib && dotnet build --no-restore /p:Platform="Any CPU"
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    # A '.' in a test name is spliced into the fully-qualified name, which Test Explorer / vstest
+    # split on '.' -- fragmenting the tree into phantom nodes that cannot be expanded or run.
+    # Runs before the suite so a naming regression fails in seconds rather than after the full run.
+    - name: Check test name hygiene
+      shell: pwsh
+      run: ./.github/scripts/Check-TestNameHygiene.ps1 -Project mzLib/Test/Test.csproj -NoBuild
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
@@ -63,8 +72,11 @@ jobs:
         dotnet-version: 8.0.x
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Any CPU is requested explicitly so this job's output lands in bin/Release, which is where
+    # mzLib.nuspec looks. Relying on MSBuild's implicit preference for Any CPU would make the pack step
+    # below depend on the ordering of a platform list rather than on an intent stated here.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore --configuration Release
+      run: cd mzLib && dotnet build --no-restore --configuration Release /p:Platform="Any CPU"
     - name: Change mzLib version, pack, add source
       run: |
         cd mzLib;

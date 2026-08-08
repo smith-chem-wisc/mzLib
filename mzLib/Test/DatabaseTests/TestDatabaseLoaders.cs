@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -296,7 +297,16 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, count);
         }
 
+        // The four Loaders.Update* tests below, and FilesEqualHash, each download an ontology over the
+        // network (unimod.org, github.com, uniprot.org). They were running in the REQUIRED CI job, so any
+        // one of those third parties being down reddened every mzLib PR. [Category("ExternalService")]
+        // moves them to the dedicated non-blocking job, the same treatment the UniProt retrieval tests in
+        // this file now get. Note TestUpdateElements is deliberately NOT categorised: it only validates the
+        // in-memory periodic table and makes no request.
+
         [Test]
+        [Category("ExternalService")]
+        [Category("Unimod")]
         public void TestUpdateUnimod()
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");
@@ -305,13 +315,18 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        [Category("ExternalService")]
+        [Category("PsiMod")]
         public void TestUpdatePsiMod()
         {
             var psimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.xml");
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
         }
+
         [Test]
+        [Category("ExternalService")]
+        [Category("PsiMod")]
         public void TestUpdatePsiModObo()
         {
             string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
@@ -374,14 +389,18 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        [Category("ExternalService")]
+        [Category("UniProt")]
         public void TestUpdateUniprot()
         {
             var uniprotLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist.txt");
             Loaders.UpdateUniprot(uniprotLocation);
             Loaders.UpdateUniprot(uniprotLocation);
-        } 
+        }
 
+        // Downloads from uniprot.org, unimod.org and github.com in one test.
         [Test]
+        [Category("ExternalService")]
         public void FilesEqualHash()
         {
             var fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake.txt");
@@ -426,7 +445,7 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
+        public void FilesLoading() //delete mzLib\Test\bin\Debug to update your local unimod list
         {
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
@@ -910,15 +929,25 @@ namespace Test.DatabaseTests
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }
 
+        /// <summary>
+        /// Live canary for <see cref="ProteinDbRetriever.RetrieveProteome"/>. Carries
+        /// [Category("ExternalService")] so a UniProt outage cannot redden the required CI job, and runs
+        /// through <see cref="ExternalServiceTestHelper.RunAsync"/> so an outage SKIPS while a contract
+        /// break FAILS — a separation that only became possible once the retriever stopped reporting both
+        /// as null. The offline coverage of the failure contract lives in
+        /// <see cref="ProteinDbRetrieverTests"/>.
+        /// </summary>
         [Test]
-        public static void TestRetrieveUniProtProteome()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestRetrieveUniProtProteome() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
 
             //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
             string returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.yes);
 
-            filepath += "\\UP000008595_reviewed_isoform.fasta.gz";
+            filepath = Path.Combine(filepath, "UP000008595_reviewed_isoform.fasta.gz");
 
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
@@ -943,46 +972,32 @@ namespace Test.DatabaseTests
 
             File.Delete(filepath);
 
-            //fasta; unreviewed; non-compressed; no isoforms
-            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.fasta";
-            Assert.AreEqual(filepath, returnedFilePath);
-            Assert.IsTrue(File.Exists(filepath));
-            File.Delete(filepath);
-
-            //xml; reviewed; compresseded; no isoforms
+            //xml; reviewed; compressed; no isoforms. This one used to save UniProt's 404 page under a .xml
+            //name and pass, because the only thing asserted was that some file had been written.
             filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_reviewed.xml.gz";
+            filepath = Path.Combine(filepath, "UP000008595_reviewed.xml.gz");
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
             File.Delete(filepath);
 
-            //xml; unreviewed; non-compresseded; no isoforms
+            //Uukuniemi virus is entirely reviewed, so asking for its unreviewed entries matches nothing.
+            //That used to be a zero-byte file whose path was returned as a success.
             filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.AreEqual(filepath, returnedFilePath);
-            Assert.IsTrue(File.Exists(filepath));
-            File.Delete(filepath);
+            Assert.Throws<MzLibException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no));
+            Assert.IsFalse(File.Exists(Path.Combine(filepath, "UP000008595_unreviewed.fasta")));
 
-            //junk null return
-            filepath = "pathDoesNotExists";
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.IsNull(returnedFilePath);
+            return Task.CompletedTask;
+        });
 
-            //we don't support filetypes other than fasta or xml currently
-            //requesting gff or other file formats will return null for now.
-            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.IsNull(returnedFilePath);
-        }
-
+        /// <summary>
+        /// Live canary for <see cref="ProteinDbRetriever.DownloadAvailableUniProtProteomes"/>; see the
+        /// remarks on <see cref="TestRetrieveUniProtProteome"/> for why it is categorised and wrapped.
+        /// </summary>
         [Test]
-        public static void TestDownloadAvailableUniProtProteomes()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestDownloadAvailableUniProtProteomes() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
@@ -994,37 +1009,25 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
 
             File.Delete(downloadedFilePath);
-            uniprotProteoms.Clear();
 
-            //test different types of compression
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
+            return Task.CompletedTask;
+        });
 
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt.gz"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
+        /// <summary>
+        /// Reading a downloaded proteome catalogue needs no network, so it is tested offline in the required
+        /// CI job. The failure contract for bad paths and extensions lives in <see cref="ProteinDbRetrieverTests"/>.
+        /// </summary>
+        [Test]
+        public static void TestUniprotProteomesListReadsEveryCompression()
+        {
+            foreach (string fileName in new[] { "b_availableUniProtProteomes.txt", "b_availableUniProtProteomes.txt.gz", "b_availableUniProtProteomes.zip" })
+            {
+                Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(
+                    Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", fileName));
 
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.zip"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
-
-            //return null for bad filepath
-            filepath = "bubba";
-            downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
-            Assert.IsNull(downloadedFilePath);
-
-            //bad file path returns null
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList("badFilePath");
-            Assert.IsNull(uniprotProteoms);
-
-
-            //wrong file extension returns null
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"));
-            Assert.IsNull(uniprotProteoms);
+                Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"), fileName);
+                Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"], fileName);
+            }
         }
 
         [Test]
