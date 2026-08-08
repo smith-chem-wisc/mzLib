@@ -59,20 +59,7 @@ namespace Readers
                 {
                     var rawFileAccessor = threadManager.CreateThreadAccessor();
 
-                    if (rawFileAccessor.IsError)
-                    {
-                        throw new MzLibException("Error opening RAW file!");
-                    }
-
-                    if (!rawFileAccessor.IsOpen)
-                    {
-                        throw new MzLibException("Unable to access RAW file!");
-                    }
-
-                    if (rawFileAccessor.InAcquisition)
-                    {
-                        throw new MzLibException("RAW file still being acquired!");
-                    }
+                    ThrowIfNotReadable(rawFileAccessor.IsError, rawFileAccessor.IsOpen, rawFileAccessor.InAcquisition);
 
                     // Start hashing only now that the file is known to be readable and not mid-acquisition.
                     // Hashing before these guards would checksum a file we are about to refuse - and for an
@@ -114,6 +101,36 @@ namespace Readers
             }
 
             return this;
+        }
+
+        /// <summary>
+        /// Refuses a raw file whose accessor is not in a state we can read from, in the order the
+        /// states are meaningful: an outright open failure first, then a handle that never opened,
+        /// then a file that is still being written by the instrument.
+        /// </summary>
+        /// <remarks>
+        /// Takes the three accessor flags as primitives rather than the <c>IRawDataPlus</c> itself so
+        /// the guard can be exercised directly by unit tests - these states cannot be provoked through
+        /// Thermo's static <c>RawFileReaderFactory</c>, and the Test project deliberately carries no
+        /// reference to any ThermoFisher assembly.
+        /// </remarks>
+        /// <exception cref="MzLibException">The file cannot be read.</exception>
+        internal static void ThrowIfNotReadable(bool isError, bool isOpen, bool inAcquisition)
+        {
+            if (isError)
+            {
+                throw new MzLibException("Error opening RAW file!");
+            }
+
+            if (!isOpen)
+            {
+                throw new MzLibException("Unable to access RAW file!");
+            }
+
+            if (inAcquisition)
+            {
+                throw new MzLibException("RAW file still being acquired!");
+            }
         }
 
         public override SourceFile GetSourceFile()
