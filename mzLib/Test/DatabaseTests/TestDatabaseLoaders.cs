@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
 using System.Threading.Tasks;
 using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
@@ -262,9 +263,9 @@ namespace Test.DatabaseTests
         [TestCase("proteinEntryLipidMoietyBindingRegion.xml", DecoyType.Reverse)]
         public void LoadingLipidAsMod(string fileName, DecoyType decoyType)
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
 
             // Load in proteins
             var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
@@ -297,37 +298,45 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, count);
         }
 
-        // The four Loaders.Update* tests below, and FilesEqualHash, each download an ontology over the
-        // network (unimod.org, github.com, uniprot.org). They were running in the REQUIRED CI job, so any
-        // one of those third parties being down reddened every mzLib PR. [Category("ExternalService")]
-        // moves them to the dedicated non-blocking job, the same treatment the UniProt retrieval tests in
-        // this file now get. Note TestUpdateElements is deliberately NOT categorised: it only validates the
-        // in-memory periodic table and makes no request.
+        // The Loaders.Update* tests below, FilesEqualHash and FilesLoading each download an ontology over
+        // the network (unimod.org, github.com, uniprot.org). They are the live canaries for that download
+        // path, so they carry [Category("ExternalService")] and run in the dedicated non-blocking job.
+        //
+        // They also run through ExternalServiceTestHelper.RunAsync, which is what makes the result
+        // readable: a third party being down reports Skipped with "we tried, the service is down", while a
+        // contract break — a moved URL, a response that no longer parses — still Fails. Without it these
+        // surfaced an outage as a raw 100-second TaskCanceledException, indistinguishable from a real bug.
+        //
+        // Tests that merely need a realistic modification list are NOT canaries and are NOT categorised;
+        // they read the committed fixtures via TestOntologies so they never touch the network at all.
+        // TestUpdateElements is likewise uncategorised: it only validates the in-memory periodic table.
 
         [Test]
         [Category("ExternalService")]
         [Category("Unimod")]
-        public void TestUpdateUnimod()
+        public static Task TestUpdateUnimod() => ExternalServiceTestHelper.RunAsync("Unimod", () =>
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");
             Loaders.UpdateUnimod(unimodLocation);
             Loaders.UpdateUnimod(unimodLocation);
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
         [Category("ExternalService")]
         [Category("PsiMod")]
-        public void TestUpdatePsiMod()
+        public static Task TestUpdatePsiMod() => ExternalServiceTestHelper.RunAsync("PSI-MOD", () =>
         {
             var psimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.xml");
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
         [Category("ExternalService")]
         [Category("PsiMod")]
-        public void TestUpdatePsiModObo()
+        public static Task TestUpdatePsiModObo() => ExternalServiceTestHelper.RunAsync("PSI-MOD", () =>
         {
             string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
             Directory.CreateDirectory(testDirectory);
@@ -380,7 +389,38 @@ namespace Test.DatabaseTests
                 AutoFlush = true
             };
             Console.SetOut(standardOutput);
+            return Task.CompletedTask;
+        });
+
+        /// <summary>
+        /// Pins the reason <see cref="Loaders.DownloadContent"/> checks the status code: it used to stream a
+        /// 404 page to disk, and since the callers hash that file and move it into place, an outage could
+        /// install an error page as the PTM database. The failure then surfaced as a corrupt ontology much
+        /// later instead of as a failed download.
+        ///
+        /// Deliberately NOT routed through <see cref="ExternalServiceTestHelper.RunAsync"/>: it converts
+        /// HttpRequestException into a skip, and the thrown HttpRequestException is precisely what this test
+        /// asserts. EnsureReachable covers the outage case instead — if UniProt is unreachable the fixture is
+        /// skipped, so only a reachable host that answers non-success can fail this.
+        /// </summary>
+        [Test]
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public void DownloadContentRejectsNonSuccessInsteadOfWritingIt()
+        {
+            ExternalServiceTestHelper.EnsureReachable("UniProt", "http://uniprot.org/docs/ptmlist.txt");
+
+            // Same host, a path it answers 404 on — the shape of the bug, not a fabricated one.
+            string outputFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "notFound.ptmlist.txt");
+            File.Delete(outputFile);
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://rest.uniprot.org/docs/ptmlist.txt", outputFile));
+
+            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
+            Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
         }
+
         [Test]
         public void TestUpdateElements()
         {
@@ -391,17 +431,18 @@ namespace Test.DatabaseTests
         [Test]
         [Category("ExternalService")]
         [Category("UniProt")]
-        public void TestUpdateUniprot()
+        public static Task TestUpdateUniprot() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             var uniprotLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist.txt");
             Loaders.UpdateUniprot(uniprotLocation);
             Loaders.UpdateUniprot(uniprotLocation);
-        }
+            return Task.CompletedTask;
+        });
 
         // Downloads from uniprot.org, unimod.org and github.com in one test.
         [Test]
         [Category("ExternalService")]
-        public void FilesEqualHash()
+        public static Task FilesEqualHash() => ExternalServiceTestHelper.RunAsync("UniProt/Unimod/PSI-MOD", () =>
         {
             var fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake.txt");
             using (StreamWriter file = new StreamWriter(fake))
@@ -418,7 +459,8 @@ namespace Test.DatabaseTests
             fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake3.txt");
             using (StreamWriter file = new StreamWriter(fake))
                 file.WriteLine("fake");
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
         public void TestPsiModLoading()
@@ -444,9 +486,17 @@ namespace Test.DatabaseTests
             Assert.IsTrue(anyNegativeValue);
         }
 
+        /// <summary>
+        /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
+        /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
+        /// *2 filenames — which are deliberately absent from the output directory, so Load* downloads them.
+        /// Tests that just need a modification list use the trimmed fixtures via TestOntologies instead.
+        /// </summary>
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\Debug to update your local unimod list
+        [Category("ExternalService")]
+        public static Task FilesLoading() => ExternalServiceTestHelper.RunAsync("UniProt/Unimod/PSI-MOD", () =>
         {
+            //delete mzLib\Test\bin\Debug to update your local unimod list
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
             string uniProtPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
@@ -524,7 +574,8 @@ namespace Test.DatabaseTests
             File.Delete(uniModPath);
             File.Delete(psiModPath);
             File.Delete(uniProtPath);
-        }
+            return Task.CompletedTask;
+        });
 
         /// <summary>
         /// Tests loading an annotated PTM with a longer known motif (>1 character in the motif)
