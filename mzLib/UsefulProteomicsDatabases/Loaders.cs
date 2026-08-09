@@ -212,30 +212,85 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
+        /// Shared client for the ontology downloads below. One instance rather than one per call, which is
+        /// what <see cref="PredictionClients"/>' Koina client and <see cref="PrideArchiveClient"/> both do,
+        /// so repeated refreshes cannot exhaust sockets.
+        /// </summary>
+        /// <remarks>
+        /// The timeout is stated rather than left implicit. It happens to equal HttpClient's own default, but
+        /// relying on that default is what made an unreachable ontology host hang for 100 seconds per call
+        /// with nothing in the code saying so. 100 seconds is generous for files of this size (the largest is
+        /// a few MB) and matches the value <see cref="PrideArchiveClient"/> settled on; it is a backstop
+        /// against a stalled connection, not a latency budget.
+        /// </remarks>
+        private static readonly HttpClient DownloadClient = new() { Timeout = TimeSpan.FromSeconds(100) };
+
+        /// <summary>
         /// Retrieves data using async/await
         /// </summary>
         /// <param name="url">path to retrieve data from</param>
+        /// <param name="cancellationToken">cancels the request; the client's timeout still applies</param>
         /// <returns></returns>
-        public static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url)
+        public static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url, CancellationToken cancellationToken = default)
         {
-            var client = new HttpClient();
-            var response = await client.GetAsync(url).ConfigureAwait(false);
+            var response = await DownloadClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
             return response;
         }
 
         /// <summary>
-        /// Downloads content from the web and saves it as a new file
+        /// Downloads content from the web and saves it as a new file.
         /// </summary>
         /// <param name="url">path to retrieve data from</param>
         /// <param name="outputFile">path to write data to</param>
-        public static void DownloadContent(string url, string outputFile)
+        /// <param name="cancellationToken">cancels the download</param>
+        /// <exception cref="HttpRequestException">
+        /// The server answered with a non-success status. Nothing is written in that case.
+        /// </exception>
+        /// <remarks>
+        /// The status check is the point of this method. Without it a 404 page or a 500 body was streamed to
+        /// disk, and because the callers below hash the result and move it into place, an outage could
+        /// install an error page as the PTM database — the failure being a corrupt ontology later rather than
+        /// a failed download now. A partially written file is removed for the same reason: the callers cannot
+        /// tell a truncated ontology from a short one.
+        /// </remarks>
+        public static void DownloadContent(string url, string outputFile, CancellationToken cancellationToken = default)
         {
-            var httpResponseMessage = AwaitAsync_GetSomeData(url).Result;
+            using HttpResponseMessage httpResponseMessage = AwaitAsync_GetSomeData(url, cancellationToken).GetAwaiter().GetResult();
 
-            using (FileStream stream = new(outputFile, FileMode.CreateNew))
+            if (!httpResponseMessage.IsSuccessStatusCode)
             {
-                Task.Run(() => httpResponseMessage.Content.CopyToAsync(stream)).Wait();
+                throw new HttpRequestException(
+                    $"Download failed with status {(int)httpResponseMessage.StatusCode} {httpResponseMessage.ReasonPhrase} for '{url}'.");
             }
+
+            try
+            {
+                using FileStream stream = new(outputFile, FileMode.CreateNew);
+                httpResponseMessage.Content.CopyToAsync(stream, cancellationToken).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                TryDeletePartialDownload(outputFile);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Removes a half-written download so a later run does not mistake it for a complete file. A failure
+        /// to delete is swallowed deliberately: the caller is already throwing the reason the download failed,
+        /// and that is the more useful exception to surface.
+        /// </summary>
+        private static void TryDeletePartialDownload(string outputFile)
+        {
+            try
+            {
+                if (File.Exists(outputFile))
+                {
+                    File.Delete(outputFile);
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)
