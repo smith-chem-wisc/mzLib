@@ -25,6 +25,12 @@ jobs:
       run: cd mzLib && dotnet build --no-restore /p:Platform="Any CPU"
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    # A '.' in a test name is spliced into the fully-qualified name, which Test Explorer / vstest
+    # split on '.' -- fragmenting the tree into phantom nodes that cannot be expanded or run.
+    # Runs before the suite so a naming regression fails in seconds rather than after the full run.
+    - name: Check test name hygiene
+      shell: pwsh
+      run: ./.github/scripts/Check-TestNameHygiene.ps1 -Project mzLib/Test/Test.csproj -NoBuild
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test

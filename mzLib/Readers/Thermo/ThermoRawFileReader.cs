@@ -161,24 +161,30 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
-                return GetOneBasedScan(oneBasedScanNumber);
+            if (CheckIfScansLoaded())
+                return oneBasedScanNumber > 0 && oneBasedScanNumber <= Scans.Length
+                    ? GetOneBasedScan(oneBasedScanNumber)
+                    : null;
 
-            var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
-            dymConnection.SelectInstrument(Device.MS, 1);
-
-            if (dymConnection == null)
+            // IRawDataPlus is stateful and not thread-safe, but the dynamicConnection field is shared across
+            // callers (e.g. MetaDraw reads scans from multiple threads over one MsDataFile). Serialize reads
+            // through the connection so concurrent calls can't interleave header/peak retrieval for different
+            // scans. Matches the DynamicReadingLock usage in the Mzml, MsAlign, Mgf and Bruker readers.
+            lock (DynamicReadingLock)
             {
-                throw new MzLibException("The dynamic connection has not been created yet!");
-            }
+                if (dynamicConnection == null || !dynamicConnection.IsOpen)
+                {
+                    throw new MzLibException("The dynamic connection has not been created yet!");
+                }
 
-            if (oneBasedScanNumber > dymConnection.RunHeaderEx.LastSpectrum ||
-                oneBasedScanNumber < dymConnection.RunHeaderEx.FirstSpectrum)
-            {
-                return null;
-            }
+                if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
+                    oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+                {
+                    return null;
+                }
 
-            return ThermoRawFileReader.GetOneBasedScan(dymConnection, filterParams, oneBasedScanNumber);
+                return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            }
         }
 
         /// <summary>
