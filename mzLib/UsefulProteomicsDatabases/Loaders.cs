@@ -231,9 +231,17 @@ namespace UsefulProteomicsDatabases
         /// <param name="url">path to retrieve data from</param>
         /// <param name="cancellationToken">cancels the request; the client's timeout still applies</param>
         /// <returns></returns>
-        public static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url, CancellationToken cancellationToken = default)
+        public static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url, CancellationToken cancellationToken = default) =>
+            await AwaitAsync_GetSomeData(url, DownloadClient, cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// <see cref="AwaitAsync_GetSomeData(string,CancellationToken)"/> over a caller-supplied
+        /// <see cref="HttpClient"/>, so tests can drive the response without a live service.
+        /// </summary>
+        internal static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url, HttpClient httpClient,
+            CancellationToken cancellationToken = default)
         {
-            var response = await DownloadClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            var response = await httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
             return response;
         }
 
@@ -253,9 +261,21 @@ namespace UsefulProteomicsDatabases
         /// a failed download now. A partially written file is removed for the same reason: the callers cannot
         /// tell a truncated ontology from a short one.
         /// </remarks>
-        public static void DownloadContent(string url, string outputFile, CancellationToken cancellationToken = default)
+        public static void DownloadContent(string url, string outputFile, CancellationToken cancellationToken = default) =>
+            DownloadContent(url, outputFile, DownloadClient, cancellationToken);
+
+        /// <summary>
+        /// <see cref="DownloadContent(string,string,CancellationToken)"/> over a caller-supplied
+        /// <see cref="HttpClient"/>, so the status check and the partial-file cleanup can be driven without a
+        /// live host. The same seam, for the same reason, that <see cref="ProteinDbRetriever"/> exposes on
+        /// <c>RetrieveEntry</c>: both failure paths matter precisely when the network is misbehaving, which
+        /// is the one condition a live test cannot summon on demand.
+        /// </summary>
+        internal static void DownloadContent(string url, string outputFile, HttpClient httpClient,
+            CancellationToken cancellationToken = default)
         {
-            using HttpResponseMessage httpResponseMessage = AwaitAsync_GetSomeData(url, cancellationToken).GetAwaiter().GetResult();
+            using HttpResponseMessage httpResponseMessage =
+                AwaitAsync_GetSomeData(url, httpClient, cancellationToken).GetAwaiter().GetResult();
 
             if (!httpResponseMessage.IsSuccessStatusCode)
             {

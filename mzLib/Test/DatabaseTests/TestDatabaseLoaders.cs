@@ -29,6 +29,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
 using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
@@ -419,6 +421,192 @@ namespace Test.DatabaseTests
 
             Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
             Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+        }
+
+        // ---- DownloadContent, offline --------------------------------------------------------
+        //
+        // The live canary above proves the contract against the real UniProt. It cannot cover it: the
+        // required CI job, which is the only place coverage is collected, runs
+        // --filter "Category!=ExternalService". So the failure paths are driven here through a stubbed
+        // HttpClient instead, which is also the only way to reach a mid-transfer failure on demand.
+
+        /// <summary>An HttpMessageHandler that returns a caller-supplied response and records request URIs.</summary>
+        private sealed class StubHandler : HttpMessageHandler
+        {
+            private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+            public List<string> RequestedUris { get; } = new();
+
+            public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) => _responder = responder;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                RequestedUris.Add(request.RequestUri.ToString());
+                return Task.FromResult(_responder(request));
+            }
+        }
+
+        /// <summary>A read-only stream that yields a few bytes and then throws, to simulate a mid-transfer failure.</summary>
+        private sealed class ThrowingStream : Stream
+        {
+            private int _bytesBeforeThrow;
+            public ThrowingStream(int bytesBeforeThrow) => _bytesBeforeThrow = bytesBeforeThrow;
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (_bytesBeforeThrow <= 0)
+                    throw new IOException("simulated mid-stream failure");
+                int n = Math.Min(count, _bytesBeforeThrow);
+                for (int i = 0; i < n; i++) buffer[offset + i] = 0x41;
+                _bytesBeforeThrow -= n;
+                return n;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        private static HttpClient ClientReturning(HttpStatusCode status, HttpContent content = null) =>
+            new(new StubHandler(_ => new HttpResponseMessage(status) { Content = content ?? new StringContent("body") }));
+
+        /// <summary>A directory of its own per test, so FileMode.CreateNew always meets a clean destination.</summary>
+        private static string FreshScratchDirectory()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "LoadersDownload_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            return path;
+        }
+
+        /// <summary>
+        /// The offline twin of <see cref="DownloadContentRejectsNonSuccessInsteadOfWritingIt"/>: the same
+        /// contract, without needing a host that is both reachable and willing to answer 404.
+        /// </summary>
+        [Test]
+        [TestCase(HttpStatusCode.NotFound)]
+        [TestCase(HttpStatusCode.InternalServerError)]
+        [TestCase(HttpStatusCode.Forbidden)]
+        public void DownloadContentNonSuccessThrowsAndWritesNothing(HttpStatusCode status)
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile, ClientReturning(status)));
+
+            Assert.IsTrue(e.Message.Contains(((int)status).ToString()),
+                $"the status belongs in the message, got: {e.Message}");
+            Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// A transfer that dies part-way must leave nothing behind, because the callers hash whatever file
+        /// they find and move it into place — a truncated ontology would be installed as a complete one.
+        ///
+        /// It arrives as HttpRequestException, not the underlying IOException, and the destination is never
+        /// created at all. DownloadContent calls GetAsync with the default HttpCompletionOption, so the whole
+        /// body is buffered while the request completes, before the FileStream is opened. That is what makes
+        /// this safe: the file cannot be half-written by a network failure, because there is no network left
+        /// to fail by the time the file exists. The cleanup in the catch below is therefore a guard against
+        /// the DISK failing mid-write, not the transfer.
+        /// </summary>
+        [Test]
+        public void DownloadContentMidTransferFailureThrowsAndWritesNothing()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+
+            var content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 8));
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                    ClientReturning(HttpStatusCode.OK, content)));
+
+            Assert.IsInstanceOf<IOException>(e.InnerException, "the transport failure should still be reachable");
+            Assert.IsFalse(File.Exists(outputFile), "a failed transfer must leave nothing to be hashed");
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// The success path, which nothing else covers without a live host: the body reaches disk byte for
+        /// byte, under the name asked for, and the request goes to the URL asked for.
+        /// </summary>
+        [Test]
+        public void DownloadContentSuccessWritesTheBodyToTheNamedFile()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            const string url = "https://example.invalid/ontology";
+            const string body = "ID   PTM-0001\nDE   a small ontology payload\n//\n";
+
+            var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+            Loaders.DownloadContent(url, outputFile, new HttpClient(handler));
+
+            Assert.IsTrue(File.Exists(outputFile));
+            Assert.AreEqual(body, File.ReadAllText(outputFile));
+            CollectionAssert.AreEqual(new[] { url }, handler.RequestedUris);
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// A cleanup that cannot run must not replace the reason the download failed. TryDeletePartialDownload
+        /// swallows IOException precisely so the caller still sees the original fault; if it did not, a locked
+        /// scratch file would report "file in use" and bury the real cause.
+        /// </summary>
+        [Test]
+        public void DownloadContentFailedCleanupStillSurfacesTheOriginalFailure()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            File.WriteAllText(outputFile, "leftover");
+
+            // Held open with no sharing, so CreateNew fails AND the cleanup's File.Delete cannot succeed.
+            using (FileStream held = new(outputFile, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                Assert.Throws<IOException>(
+                    () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                        ClientReturning(HttpStatusCode.OK)));
+
+                Assert.IsTrue(File.Exists(outputFile), "the undeletable file is still there; the swallow is what lets the real error through");
+            }
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// Pins a sharp edge deliberately rather than leaving it to be discovered. DownloadContent opens the
+        /// destination with FileMode.CreateNew INSIDE its try, so an existing file makes the FileStream
+        /// constructor throw, and the catch then removes that file even though this call never wrote it.
+        ///
+        /// That is survivable only because every caller passes "<real destination>.temp" — the file being
+        /// removed is a leftover scratch file from an interrupted run, never an installed ontology, and
+        /// clearing it is what lets the next run succeed. Were DownloadContent ever pointed at a real
+        /// destination, this would delete it. ProteinDbRetriever does not share the hazard: it writes
+        /// through a Guid-tokened ".partial" and moves it into place.
+        /// </summary>
+        [Test]
+        public void DownloadContentExistingDestinationThrowsAndClearsTheStaleFile()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            File.WriteAllText(outputFile, "a leftover from an interrupted run");
+
+            Assert.Throws<IOException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                    ClientReturning(HttpStatusCode.OK)));
+
+            Assert.IsFalse(File.Exists(outputFile), "the stale scratch file is cleared so the next run can proceed");
+
+            Directory.Delete(scratch, true);
         }
 
         [Test]
