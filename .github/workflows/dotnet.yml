@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  DOTNET_VERSION: 10.0.x
+  DOTNET_FRAMEWORK: net10.0
+
 jobs:
   build:
     runs-on: windows-latest
@@ -15,7 +19,7 @@ jobs:
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     # Request the platform explicitly. The solution offers both x64 and Any CPU, and MSBuild silently
@@ -54,7 +58,7 @@ jobs:
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     - name: Build (Test)
@@ -76,6 +80,8 @@ jobs:
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
+        # Deliberately two literal bands rather than DOTNET_VERSION: this job builds MetaMorpheus as
+        # well as mzLib, so it has to satisfy both repos' global.json at once. See #1143.
         dotnet-version: |
           8.0.x
           10.0.x
@@ -137,5 +143,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusGUI
-        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net8.0-windows/
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/${{ env.DOTNET_FRAMEWORK }}-windows/
 
