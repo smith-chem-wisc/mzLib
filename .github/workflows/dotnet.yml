@@ -8,7 +8,8 @@ on:
 
 env:
   DOTNET_VERSION: 10.0.x
-  DOTNET_FRAMEWORK: net10.0
+  # MetaMorpheus's target framework, not mzLib's - its only use is the GUI artifact path in
+  # the integration job below. Globbed there instead, so the two repos can diverge.
 
 jobs:
   build:
@@ -141,5 +142,5 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusGUI
-        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/${{ env.DOTNET_FRAMEWORK }}-windows/
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net*-windows/
 

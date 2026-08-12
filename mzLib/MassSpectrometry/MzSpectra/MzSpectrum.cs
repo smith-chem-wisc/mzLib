@@ -258,7 +258,10 @@ namespace MassSpectrometry
                     for (int i = candidateForMostIntensePeakIndex + 1; i < XArray.Length; i++) //look at peaks of higher m/z
                     {
                         double deltaMass = XArray[i] - candidateForMostIntensePeakMz;
-                        if (deltaMass < 1.1) //if we're past a Th spacing, we're no longer looking at the closest isotope
+                        // A duplicated m/z makes deltaMass exactly zero, so 1/deltaMass is infinite. The int
+                        // cast of that changed with .NET 9 - it used to wrap to int.MinValue and now saturates
+                        // to int.MaxValue - so exclude it rather than rely on either bound being rejected.
+                        if (deltaMass > 0 && deltaMass < 1.1) //if we're past a Th spacing, we're no longer looking at the closest isotope
                         {
                             //get the lower bound charge state
                             int charge = (int)Math.Floor(1 / deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
