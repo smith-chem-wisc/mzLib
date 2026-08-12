@@ -7,7 +7,6 @@ on:
 
 env:
   DOTNET_VERSION: 10.0.x
-  DOTNET_FRAMEWORK: net10.0
 
 jobs:
   build:
