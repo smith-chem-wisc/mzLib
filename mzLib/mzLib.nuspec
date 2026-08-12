@@ -55,6 +55,9 @@
   </metadata>
   <files>
     <file src="mzLib.png" target="images\" />
+    <!-- CC BY 4.0 attribution for the embedded PSI-MS and PRIDE vocabularies. Required to
+         reach NuGet consumers, who receive the assemblies rather than the repository. -->
+    <file src="..\THIRD-PARTY-NOTICES.md" target="" />
     <!--net10.0 target-->
     <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0" />
     <file src="Chemistry\bin\Release\net10.0\Chemistry.dll" target="lib\net10.0" />
