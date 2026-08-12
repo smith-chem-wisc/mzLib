@@ -10,9 +10,10 @@ using PredictionClients.Koina.Util;
 namespace Test.KoinaTests.CrosslinkIntensityPrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class CrosslinkModelTests
+    public class CrosslinkModelTests : KoinaLiveTestFixture
     {
         // ═══════════════════════════════════════════════════════════════════════════
         // Prosit2023IntensityXLCMS2

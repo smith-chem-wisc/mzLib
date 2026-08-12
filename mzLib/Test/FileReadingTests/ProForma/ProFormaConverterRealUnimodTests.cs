@@ -20,7 +20,7 @@ namespace Test.FileReadingTests.ProForma
         [OneTimeSetUp]
         public void LoadRealUnimod()
         {
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
+            string path = TestOntologies.Unimod;
             _allModsKnown = new Dictionary<string, Modification>();
             foreach (var mod in Loaders.LoadUnimod(path))
                 _allModsKnown.TryAdd(mod.IdWithMotif, mod);
