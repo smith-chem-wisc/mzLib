@@ -9,6 +9,20 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<!-- Two OpenMcdf advisories, same infinite-loop DoS class, both affecting the 2.x line:
+		     GHSA-jxpf-xq2m-q525 / CVE-2026-41511 (fixed in 3.1.3) and
+		     GHSA-5qwm-7pvp-w988 / CVE-2026-45785 (fixed in 3.1.4).
+		     Neither fix is reachable from here: the Thermo CommonCore binaries are compiled against
+		     OpenMcdf 2.x and 3.x is an API-incompatible rewrite, so upgrading breaks .raw reading.
+		     Reported to Thermo, forwarded to the CommonCore developers:
+		     https://github.com/thermofisherlsms/RawFileReader/issues/22
+		     Suppressed by advisory URL, so any new OpenMcdf advisory still surfaces. Remove both once
+		     Thermo ships against 3.1.4+. -->
+		<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jxpf-xq2m-q525" />
+		<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5qwm-7pvp-w988" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<PackageReference Include="CsvHelper" Version="32.0.3" />
 		<!-- OpenMcdf is intentionally pinned to the 2.x line. DO NOT upgrade to 3.x.
 		     The Thermo CommonCore RawFileReader binary is compiled against OpenMcdf 2.x
@@ -19,7 +33,11 @@
 		     we only read trusted local instrument files. -->
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
-		<PackageReference Include="System.Data.SQLite" Version="1.0.118" />
+		<!-- .Core only, not the System.Data.SQLite metapackage. The metapackage adds the EF6 and
+		     LINQ-to-Entities providers, which nothing here uses, and they drag in EntityFramework ->
+		     System.Data.SqlClient (high severity) -> ... -> System.Drawing.Common 4.7.0 (critical).
+		     The provider and native engine live in .Core, so reading is unaffected. -->
+		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
 		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
 		<PackageReference Include="TopDownProteomics" Version="0.0.299" />
 		<PackageReference Include="ZstdSharp.Port" Version="0.8.7" />
