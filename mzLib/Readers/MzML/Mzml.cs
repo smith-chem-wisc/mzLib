@@ -373,14 +373,12 @@ namespace Readers
         /// </summary>
         private CvParam GetInstrumentModel()
         {
-            var configurations = _mzMLConnection?.instrumentConfigurationList?.instrumentConfiguration;
+            var configurations = _mzMLConnection.instrumentConfigurationList?.instrumentConfiguration;
             if (configurations == null || configurations.Length == 0)
                 return null;
 
             var defaultRef = _mzMLConnection.run?.defaultInstrumentConfigurationRef;
-            var configuration = configurations.FirstOrDefault(c => c?.id == defaultRef) ?? configurations[0];
-            if (configuration == null)
-                return null;
+            var configuration = configurations.FirstOrDefault(c => c.id == defaultRef) ?? configurations[0];
 
             // Direct cvParams first: a file that states the model inline means it, and should not be
             // overridden by a shared group.
@@ -394,7 +392,7 @@ namespace Readers
 
             foreach (var groupRef in configuration.referenceableParamGroupRef)
             {
-                var group = groups.FirstOrDefault(g => g?.id == groupRef?.@ref);
+                var group = groups.FirstOrDefault(g => g.id == groupRef.@ref);
                 model = FirstInstrumentModel(group?.cvParam);
                 if (model != null)
                     return model;
@@ -414,7 +412,7 @@ namespace Readers
 
             foreach (var cv in cvParams)
             {
-                if (cv?.accession == null || !cv.accession.StartsWith("MS:", StringComparison.Ordinal))
+                if (cv.accession == null || !cv.accession.StartsWith("MS:", StringComparison.Ordinal))
                     continue;
                 if (NonInstrumentModelAccessions.Contains(cv.accession))
                     continue;
@@ -440,7 +438,7 @@ namespace Readers
 
                 // Value is empty by definition here: a bare presence flag is exactly how the model
                 // term is written, and is the test used above to tell it from serial/customization.
-                return new CvParam("MS", cv.accession, cv.name ?? "", "");
+                return new CvParam("MS", cv.accession, cv.name, "");
             }
 
             return null;

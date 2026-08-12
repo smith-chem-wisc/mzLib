@@ -144,19 +144,33 @@ namespace Readers
                 connection.SelectInstrument(Device.MS, 1);
                 var instrument = connection.GetInstrumentData();
 
-                // Model is the specific instrument ("Orbitrap Fusion Lumos"); Name is often the
-                // generic device family ("MS"). Prefer Model and fall back to Name.
-                string model = instrument?.Model;
-                if (string.IsNullOrWhiteSpace(model))
-                    model = instrument?.Name;
-
-                // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
-                return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
+                return BuildInstrumentModel(instrument?.Model, instrument?.Name);
             }
             catch (Exception)
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Which of the two names a RAW file records is the instrument, as a name-only CvParam.
+        /// Model is the specific instrument ("Orbitrap Fusion Lumos"); Name is often just the
+        /// generic device family ("MS"), so Model is preferred and Name is the fallback. Null when
+        /// the file names no instrument at all -- an empty CvParam would claim to have read one.
+        ///
+        /// Internal rather than private so this choice can be driven directly: every committed
+        /// .raw fixture populates Model, so through a file the fallback is unreachable. The
+        /// parameters are strings rather than IInstrumentData deliberately -- the Test project has
+        /// no ThermoFisher reference and reads the vendor version off the deployed file instead
+        /// (see TestRawFileReaderVersionCompat), which a vendor-typed seam would break.
+        /// </summary>
+        internal static CvParam BuildInstrumentModel(string model, string name)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+                model = name;
+
+            // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
+            return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
         }
 
         /// <summary>

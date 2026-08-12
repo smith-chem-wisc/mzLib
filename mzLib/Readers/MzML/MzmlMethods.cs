@@ -195,7 +195,7 @@ namespace Readers
             // calibration and spectral averaging both do -- silently discarded which mass
             // spectrometer produced the data. Reading such a file back reported no instrument at
             // all, and the loss was invisible because MS:1000031 looks like a real declaration.
-            var instrumentModel = myMsDataFile.SourceFile?.InstrumentModel;
+            var instrumentModel = myMsDataFile.SourceFile.InstrumentModel;
 
             // One configuration is still emitted per mass analyzer present, which is not
             // necessarily how the original file was organised. Recovering the true configuration
