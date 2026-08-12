@@ -9,13 +9,6 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-		<!-- Two moderate infinite-loop DoS advisories in OpenMcdf 2.x, unfixable while Thermo
-		     CommonCore links 2.x: thermofisherlsms/RawFileReader#22 -->
-		<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jxpf-xq2m-q525" />
-		<NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5qwm-7pvp-w988" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<PackageReference Include="CsvHelper" Version="32.0.3" />
 		<!-- Pinned to 2.x: Thermo CommonCore links 2.x, and 3.x is an incompatible rewrite. -->
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
