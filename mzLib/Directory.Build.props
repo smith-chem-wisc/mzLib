@@ -8,8 +8,9 @@
 
   <ItemGroup>
     <!-- Two moderate infinite-loop DoS advisories in OpenMcdf 2.x, unfixable while Thermo
-         CommonCore links 2.x: thermofisherlsms/RawFileReader#22. Suppressed here rather than in
-         Readers.csproj because OpenMcdf reaches six projects transitively.
+         CommonCore links 2.x: thermofisherlsms/RawFileReader#22. Suppressed rather than fixed
+         because the DoS needs a crafted CFB file and we read trusted local instrument files.
+         Here rather than in Readers.csproj because OpenMcdf reaches six projects transitively.
          Watched by .github/workflows/check-thermo-rawfilereader.yml. -->
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jxpf-xq2m-q525" />
     <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5qwm-7pvp-w988" />

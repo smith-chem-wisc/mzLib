@@ -14,6 +14,10 @@ env:
   # those binaries, or this reports drift that does not exist.
   VENDORED_VERSION: "8.0.37"
 
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   check:
     name: Compare against thermofisherlsms/RawFileReader
@@ -107,3 +111,22 @@ jobs:
               sys.exit(1)
           print(f"No change: still {vendored} and still on OpenMcdf {openmcdf}. Suppression still justified.")
           PY
+
+      # Scheduled failures email only the workflow file's author, not the maintainers or watchers,
+      # so a monthly check can fail unnoticed for a very long time. File an issue instead.
+      - name: File an issue if something changed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="Thermo RawFileReader changed - check the OpenMcdf suppression"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          body="The scheduled check found a change: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Read the log before acting. If it reports that the dependency could not be found, that is a
+          parsing failure and **not** a reason to drop the suppression."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
