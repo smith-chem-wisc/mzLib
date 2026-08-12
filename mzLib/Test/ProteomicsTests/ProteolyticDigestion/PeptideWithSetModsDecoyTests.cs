@@ -217,9 +217,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
             //sequence variants, modifications
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
 
             List<Modification> fixedMods = new List<Modification>();
@@ -261,9 +261,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void CountTargetsWithMatchingDecoys()
         {
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
 
             List<Modification> fixedMods = new List<Modification>();

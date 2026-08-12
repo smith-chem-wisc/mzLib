@@ -61,3 +61,16 @@
 #*.PDF   diff=astextplain
 #*.rtf   diff=astextplain
 #*.RTF   diff=astextplain
+
+###############################################################################
+# Ontology test fixtures
+#
+# Committed verbatim from their upstream sources (see
+# mzLib/Test/DataFiles/Ontologies/PROVENANCE.md), so they are exempted from the
+# "* text=auto" normalization above. Without this, git would store them LF and
+# hand back CRLF on a Windows checkout, and what CI reads would not be the bytes
+# that were committed and reviewed -- which also breaks reproducing the trim
+# against the upstream file.
+###############################################################################
+mzLib/Test/DataFiles/Ontologies/*.txt -text
+mzLib/Test/DataFiles/Ontologies/*.xml -text
