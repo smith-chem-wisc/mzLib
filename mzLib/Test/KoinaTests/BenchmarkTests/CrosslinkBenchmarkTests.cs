@@ -8,9 +8,10 @@ using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 namespace Test.KoinaTests.BenchmarkTests
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class CrosslinkBenchmarkTests
+    public class CrosslinkBenchmarkTests : KoinaLiveTestFixture
     {
         private static HashSet<string> GenerateUniquePeptides(int count, int length)
         {

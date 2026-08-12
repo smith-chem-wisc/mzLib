@@ -8,9 +8,10 @@ using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
 namespace Test.KoinaTests.BenchmarkTests
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class RetentionTimeBenchmarkTests
+    public class RetentionTimeBenchmarkTests : KoinaLiveTestFixture
     {
         private static HashSet<string> GenerateUniquePeptides(int count, int length)
         {
