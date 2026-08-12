@@ -60,8 +60,9 @@ namespace UsefulProteomicsDatabases
     /// leaves a truncated file at the destination path; re-running a retrieval overwrites rather than
     /// throwing on an existing file. <see cref="RetrieveEntry"/> instead buffers the whole (small) entry in
     /// memory, because it has to inspect the payload before deciding whether it is worth saving at all.
-    /// Either way these methods do not use <see cref="Loaders.DownloadContent"/>, which ignores the response
-    /// status and writes whatever came back.
+    /// Either way these methods do not use <see cref="Loaders.DownloadContent"/>: it now checks the response
+    /// status too, but it writes with <see cref="FileMode.CreateNew"/> and so throws on an existing file,
+    /// which is the wrong contract for a retrieval a caller is expected to repeat.
     /// </para>
     /// <para>
     /// One place this class deliberately parts company with <see cref="PrideArchiveClient"/>: a storage

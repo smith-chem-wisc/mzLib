@@ -10,9 +10,10 @@ using PredictionClients.Koina.Util;
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class UniSpecTests
+    public class UniSpecTests : KoinaLiveTestFixture
     {
         /// <summary>
         /// Tests that the model correctly processes valid peptide sequences with required instrument type.

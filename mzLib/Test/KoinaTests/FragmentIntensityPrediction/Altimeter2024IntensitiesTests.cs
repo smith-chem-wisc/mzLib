@@ -10,9 +10,10 @@ using PredictionClients.Koina.Util;
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class Altimeter2024IntensitiesTests
+    public class Altimeter2024IntensitiesTests : KoinaLiveTestFixture
     {
         /// <summary>
         /// Tests that the model correctly processes valid peptide sequences.

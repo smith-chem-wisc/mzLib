@@ -9,9 +9,10 @@ using PredictionClients.Koina.SupportedModels.CCSModels;
 namespace Test.KoinaTests.CCSModelTests
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class CCSModelIntegrationTests
+    public class CCSModelIntegrationTests : KoinaLiveTestFixture
     {
         // ═══════════════════════════════════════════════════════════════════════════
         // IM2Deep
