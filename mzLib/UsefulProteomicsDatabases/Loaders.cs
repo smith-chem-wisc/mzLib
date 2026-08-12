@@ -276,7 +276,10 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            DownloadContent(@"http://uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
+            // UniProt retired the www location: http://uniprot.org/docs/ptmlist.txt now answers 301
+            // and redirects twice, ending on their FTP host. Requesting the destination directly
+            // removes the hops and the http-to-https upgrade.
+            DownloadContent(@"https://ftp.uniprot.org/pub/databases/uniprot/knowledgebase/complete/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }
