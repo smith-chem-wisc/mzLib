@@ -63,10 +63,16 @@
 #*.RTF   diff=astextplain
 
 ###############################################################################
-# Vendored ontology snapshots are byte-exact pinned inputs, embedded into the
-# assembly straight from the working tree. Under `* text=auto` above they would
-# be stored LF and handed back CRLF on a Windows checkout, so what CI embeds
-# would not be what was committed or reviewed. Keep these bytes exactly as
-# committed. (Same reasoning as the *.sdrf.tsv rule.)
+# Byte-exact ontology and vocabulary files
+#
+# These are pinned inputs, committed verbatim from their upstream sources: the
+# vendored vocabulary snapshots that are embedded into the assembly straight from
+# the working tree, and the ontology test fixtures under
+# mzLib/Test/DataFiles/Ontologies (see that folder's PROVENANCE.md). Under
+# `* text=auto` above they would be stored LF and handed back CRLF on a Windows
+# checkout, so what CI embeds and reads would not be the bytes that were committed
+# and reviewed -- which also breaks reproducing a trim against the upstream file.
 ###############################################################################
 *.obo -text
+mzLib/Test/DataFiles/Ontologies/*.txt -text
+mzLib/Test/DataFiles/Ontologies/*.xml -text
