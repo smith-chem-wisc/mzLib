@@ -78,6 +78,78 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void ThermoRaw_ReportsTheInstrumentAsANameWithNoAccession()
+        {
+            // A RAW file records free text, never a CV term, so the accession is empty by design.
+            // That is the contract callers have to program against -- an empty Accession is the
+            // only signal that they must resolve the name against a vocabulary themselves -- so it
+            // is asserted rather than left as an implementation detail.
+            var file = MsDataFileReader.GetDataFile(Data("DataFiles", "testFileWMS2.raw"));
+            var model = file.GetSourceFile().InstrumentModel;
+
+            Assert.That(model, Is.Not.Null);
+            Assert.That(model.Name, Is.Not.Empty);
+            Assert.That(model.Accession, Is.Empty, "a RAW file carries no controlled-vocabulary term");
+            Assert.That(model.CvLabel, Is.EqualTo("MS"));
+            Assert.That(model.Value, Is.Empty);
+        }
+
+        [Test]
+        [TestCase("Orbitrap Fusion Lumos", "MS", "Orbitrap Fusion Lumos")]
+        [TestCase("", "MS", "MS")]
+        [TestCase("   ", "Orbitrap Exploris 480", "Orbitrap Exploris 480")]
+        [TestCase("  Orbitrap Fusion Lumos  ", "MS", "Orbitrap Fusion Lumos")]
+        public void ThermoRaw_PrefersTheSpecificModelOverTheGenericDeviceName(
+            string model, string name, string expected)
+        {
+            // A RAW file holds two names and they are not interchangeable: Model is the instrument
+            // ("Orbitrap Fusion Lumos"), Name is frequently just the device family ("MS"). Reading
+            // Name first would report "MS" as the instrument for a whole vendor's files.
+            var result = ThermoRawFileReader.BuildInstrumentModel(model, name);
+
+            Assert.That(result, Is.Not.Null);
+            Assert.That(result.Name, Is.EqualTo(expected));
+            Assert.That(result.Accession, Is.Empty);
+        }
+
+        [Test]
+        public void ThermoRaw_ThatCannotBeOpenedStillYieldsASourceFile()
+        {
+            // The instrument is metadata. Whatever the vendor library does with a file it cannot
+            // open -- refuse it, report an error state, throw -- must not propagate out of
+            // GetSourceFile and stop the file being read, because everything else about the source
+            // file (path, checksum, format) is still perfectly good.
+            string path = Path.Combine(
+                TestContext.CurrentContext.TestDirectory, $"not_really_{System.Guid.NewGuid():N}.raw");
+            File.WriteAllText(path, "this is not a RAW file");
+
+            try
+            {
+                var sourceFile = MsDataFileReader.GetDataFile(path).GetSourceFile();
+
+                Assert.That(sourceFile, Is.Not.Null);
+                Assert.That(sourceFile.CheckSum, Is.Not.Empty);
+                Assert.That(sourceFile.InstrumentModel, Is.Null);
+            }
+            finally
+            {
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
+            }
+        }
+
+        [Test]
+        public void ThermoRaw_WithNoInstrumentNameReportsNoModel()
+        {
+            // Nothing to report is reported as nothing. A CvParam with an empty name would claim an
+            // instrument was read and put an empty cell downstream instead of an absent one.
+            Assert.That(ThermoRawFileReader.BuildInstrumentModel(null, null), Is.Null);
+            Assert.That(ThermoRawFileReader.BuildInstrumentModel("  ", "   "), Is.Null);
+        }
+
+        [Test]
         public void InstrumentModel_DefaultsToNullWhenUnset()
         {
             // Init-only and unset: every pre-existing SourceFile construction site is unaffected.
