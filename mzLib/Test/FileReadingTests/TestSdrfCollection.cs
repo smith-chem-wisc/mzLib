@@ -263,6 +263,40 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TryParseTerm_HandlesTheHalfTermsTheCorpusActuallyWrites()
+        {
+            // "N" is an alternative spelling of the name key -- PXD039582 writes N=Orbitrap in
+            // comment[ms2 analyzer type] 27 times. No accession, so there is no prefix to derive
+            // a CV label from and it must stay empty rather than being guessed.
+            Assert.That(SdrfCell.TryParseTerm("N=Orbitrap", out var named), Is.True);
+            Assert.That(named!.Name, Is.EqualTo("Orbitrap"));
+            Assert.That(named.Accession, Is.Empty);
+            Assert.That(named.CvLabel, Is.Empty);
+
+            // The mirror case: an accession with no name is still a term, and the label comes off
+            // the prefix.
+            Assert.That(SdrfCell.TryParseTerm("AC=MS:1001911", out var accessionOnly), Is.True);
+            Assert.That(accessionOnly!.Name, Is.Empty);
+            Assert.That(accessionOnly.CvLabel, Is.EqualTo("MS"));
+        }
+
+        [Test]
+        public void TryParseTerm_RefusesToPromoteAKeyValueCellThatNamesNoTerm()
+        {
+            // characteristics[pooled sample] carries up to 45 repeated SN= keys. ParseKeyValues is
+            // last-wins, so promoting these produced a Name that was one arbitrary member of the
+            // list with an empty accession -- and because callers branch on this method, 538 cells
+            // left the free-text index without entering the accession index, going invisible to
+            // every kind of drift analysis at once. Neither NT nor AC means not a term.
+            const string pooled = "SN=OSL.53E;SN=OSL.567";
+
+            Assert.That(SdrfCell.TryParseTerm(pooled, out var term), Is.False);
+            Assert.That(term, Is.Null);
+            Assert.That(SdrfCell.IsTerm(pooled), Is.True,
+                "IsTerm still reports the key=value grammar; only TryParseTerm declines to promote it");
+        }
+
+        [Test]
         public void ToCell_WritesTheAccessionVerbatim()
         {
             // Deliberately does NOT upper-case or add a missing prefix. The corpus is full of that

@@ -74,6 +74,60 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void EmptyHeader_IsOneErrorRatherThanOnePerMissingColumn()
+        {
+            var result = SdrfValidator.Validate(
+                new SdrfDocument(new SdrfHeader(Array.Empty<string>()), Array.Empty<SdrfRow>()));
+
+            Assert.That(result.Errors.Any(e => e.Rule == "EmptyHeader"), Is.True, result.ToString());
+
+            // The early return matters: without it a document with no columns would report one
+            // RequiredColumn error for each of the 13 universal columns, burying the real problem.
+            Assert.That(result.Errors.Any(e => e.Rule == "RequiredColumn"), Is.False,
+                "EmptyHeader should short-circuit the required-column sweep");
+        }
+
+        [Test]
+        public void HeaderWithNoRows_WarnsButIsStillValid()
+        {
+            var result = SdrfValidator.Validate(
+                new SdrfDocument(CompleteHeader, Array.Empty<SdrfRow>()));
+
+            Assert.That(result.Warnings.Any(w => w.Rule == "NoRows"), Is.True, result.ToString());
+            Assert.That(result.IsValid, Is.True, "a header with no rows is incomplete, not invalid");
+        }
+
+        [Test]
+        public void BlankColumnName_WarnsWithoutInvalidatingTheDocument()
+        {
+            // Almost always a trailing tab on the header line; one corpus file carries 23 of them.
+            // It must not be an Error, or those files would all fail for a whitespace artefact.
+            var header = new SdrfHeader(CompleteHeader.Concat(new[] { "" }));
+            var result = SdrfValidator.Validate(
+                new SdrfDocument(header, new[] { CompleteRow(header, "Sample 1", "not applicable") }));
+
+            Assert.That(result.Warnings.Any(w => w.Rule == "EmptyColumnName"), Is.True, result.ToString());
+            Assert.That(result.IsValid, Is.True);
+        }
+
+        [Test]
+        public void EmptyCellWarns_AndCellsPastTheHeaderAreNamedByPosition()
+        {
+            // A row wider than its header is an Error, because every cell past the last header
+            // entry is being read under no name at all -- reported positionally so the message
+            // still says where it is.
+            var header = CompleteHeader;
+            var result = SdrfValidator.Validate(
+                new SdrfDocument(header, new[] { CompleteRow(header, "Sample 1", "", "extra") }));
+
+            Assert.That(result.Warnings.Any(w => w.Rule == "EmptyCell"), Is.True, result.ToString());
+            Assert.That(result.Errors.Any(e => e.Rule == "RowWidth"), Is.True,
+                "a row with more cells than the header is a width error");
+            Assert.That(result.Messages.Any(m => m.ColumnName == "(column 17)"), Is.True,
+                "cells beyond the header are named by position: " + result.ToString());
+        }
+
+        [Test]
         public void MissingRequiredColumn_IsError()
         {
             var header = new SdrfHeader(new[] { "assay name", "technology type" });
