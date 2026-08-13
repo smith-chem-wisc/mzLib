@@ -26,7 +26,7 @@
     <dependency id="SharpLearning.Optimization" version="0.28.0" />
     <dependency id="SharpZipLib" version="1.4.2" />
     <dependency id="SkiaSharp" version="2.88.9" />
-    <dependency id="System.Data.SQLite" version="1.0.118" />
+    <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
     <dependency id="TorchSharp" version="0.105.1" />
@@ -47,7 +47,7 @@
     <dependency id="SharpLearning.Optimization" version="0.28.0" />
     <dependency id="SharpZipLib" version="1.4.2" />
     <dependency id="SkiaSharp" version="2.88.9" />
-    <dependency id="System.Data.SQLite" version="1.0.118" />
+    <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
     <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
     <dependency id="TorchSharp" version="0.105.1" />
@@ -57,6 +57,9 @@
   </metadata>
   <files>
     <file src="mzLib.png" target="images\" />
+    <!-- CC BY 4.0 attribution for the embedded PSI-MS and PRIDE vocabularies. Required to
+         reach NuGet consumers, who receive the assemblies rather than the repository. -->
+    <file src="..\THIRD-PARTY-NOTICES.md" target="" />
     <!--net8.0 target-->
     <file src="BayesianEstimation\bin\Release\net8.0\BayesianEstimation.dll" target="lib\net8.0" />
     <file src="Chemistry\bin\Release\net8.0\Chemistry.dll" target="lib\net8.0" />

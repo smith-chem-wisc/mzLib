@@ -111,9 +111,66 @@ namespace Readers
                 sendCheckSum,
                 @"SHA-1",
                 FilePath,
-                Path.GetFileNameWithoutExtension(FilePath));
+                Path.GetFileNameWithoutExtension(FilePath))
+            {
+                InstrumentModel = GetInstrumentModel()
+            };
 
             return sourceFile;
+        }
+
+        /// <summary>
+        /// The instrument model recorded in the RAW file, as a NAME-only CvParam
+        /// (e.g. NT=Orbitrap Fusion Lumos with an empty accession).
+        ///
+        /// Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS cvParam --
+        /// a RAW file records only free text, so no accession can be produced here without a
+        /// controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
+        /// file, and forcing it here would put an ontology dependency into the raw reader. Callers
+        /// that need the accession resolve the name themselves; the empty Accession is the signal
+        /// that they must, and is documented on <see cref="SourceFile.InstrumentModel"/>.
+        ///
+        /// Returns null rather than throwing if the model cannot be read: the instrument name is
+        /// metadata, and failing to obtain it must not stop a file being opened.
+        /// </summary>
+        private CvParam GetInstrumentModel()
+        {
+            try
+            {
+                using var connection = RawFileReaderAdapter.FileFactory(FilePath);
+                if (connection == null || !connection.IsOpen || connection.IsError)
+                    return null;
+
+                connection.SelectInstrument(Device.MS, 1);
+                var instrument = connection.GetInstrumentData();
+
+                return BuildInstrumentModel(instrument?.Model, instrument?.Name);
+            }
+            catch (Exception)
+            {
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// Which of the two names a RAW file records is the instrument, as a name-only CvParam.
+        /// Model is the specific instrument ("Orbitrap Fusion Lumos"); Name is often just the
+        /// generic device family ("MS"), so Model is preferred and Name is the fallback. Null when
+        /// the file names no instrument at all -- an empty CvParam would claim to have read one.
+        ///
+        /// Internal rather than private so this choice can be driven directly: every committed
+        /// .raw fixture populates Model, so through a file the fallback is unreachable. The
+        /// parameters are strings rather than IInstrumentData deliberately -- the Test project has
+        /// no ThermoFisher reference and reads the vendor version off the deployed file instead
+        /// (see TestRawFileReaderVersionCompat), which a vendor-typed seam would break.
+        /// </summary>
+        internal static CvParam BuildInstrumentModel(string model, string name)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+                model = name;
+
+            // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
+            return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
         }
 
         /// <summary>
@@ -161,24 +218,30 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
-                return GetOneBasedScan(oneBasedScanNumber);
+            if (CheckIfScansLoaded())
+                return oneBasedScanNumber > 0 && oneBasedScanNumber <= Scans.Length
+                    ? GetOneBasedScan(oneBasedScanNumber)
+                    : null;
 
-            var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
-            dymConnection.SelectInstrument(Device.MS, 1);
-
-            if (dymConnection == null)
+            // IRawDataPlus is stateful and not thread-safe, but the dynamicConnection field is shared across
+            // callers (e.g. MetaDraw reads scans from multiple threads over one MsDataFile). Serialize reads
+            // through the connection so concurrent calls can't interleave header/peak retrieval for different
+            // scans. Matches the DynamicReadingLock usage in the Mzml, MsAlign, Mgf and Bruker readers.
+            lock (DynamicReadingLock)
             {
-                throw new MzLibException("The dynamic connection has not been created yet!");
-            }
+                if (dynamicConnection == null || !dynamicConnection.IsOpen)
+                {
+                    throw new MzLibException("The dynamic connection has not been created yet!");
+                }
 
-            if (oneBasedScanNumber > dymConnection.RunHeaderEx.LastSpectrum ||
-                oneBasedScanNumber < dymConnection.RunHeaderEx.FirstSpectrum)
-            {
-                return null;
-            }
+                if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
+                    oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+                {
+                    return null;
+                }
 
-            return ThermoRawFileReader.GetOneBasedScan(dymConnection, filterParams, oneBasedScanNumber);
+                return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            }
         }
 
         /// <summary>

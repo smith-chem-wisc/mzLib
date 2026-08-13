@@ -11,9 +11,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 15
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
@@ -25,6 +25,12 @@ jobs:
       run: cd mzLib && dotnet build --no-restore /p:Platform="Any CPU"
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    # A '.' in a test name is spliced into the fully-qualified name, which Test Explorer / vstest
+    # split on '.' -- fragmenting the tree into phantom nodes that cannot be expanded or run.
+    # Runs before the suite so a naming regression fails in seconds rather than after the full run.
+    - name: Check test name hygiene
+      shell: pwsh
+      run: ./.github/scripts/Check-TestNameHygiene.ps1 -Project mzLib/Test/Test.csproj -NoBuild
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
@@ -44,9 +50,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: 8.0.x
     - name: Restore dependencies
@@ -59,11 +65,20 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    # This job is the only one that builds MetaMorpheus as well as mzLib, so it needs whatever SDK
+    # MetaMorpheus's global.json asks for AS WELL AS mzLib's own. setup-dotnet installs into a
+    # user-local dotnet root and the resolver then sees ONLY what this step installed -- the SDKs
+    # preinstalled on the runner become invisible. So requesting a single band makes this job fail at
+    # SDK resolution, before it reaches the pack or restore steps, whenever the two repos are on
+    # different bands. Installing both keeps it green through a .NET migration in either repo,
+    # in either order.
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: |
+          8.0.x
+          10.0.x
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     # Any CPU is requested explicitly so this job's output lands in bin/Release, which is where
