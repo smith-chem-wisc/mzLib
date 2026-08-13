@@ -691,13 +691,24 @@ namespace Test.FileReadingTests.ExternalFileReading
 
             string[] originalLines = File.ReadAllLines(TestFilePath);
             string[] writtenLines = File.ReadAllLines(outputPath);
-            int column = Array.IndexOf(originalLines[0].Split('\t'), "Proteotypic");
 
-            Assert.That(column, Is.GreaterThanOrEqualTo(0));
+            // The reader intentionally drops columns it has no property for (e.g. the unused
+            // Translated.Q.Value), so the written header is not a column-for-column copy of the
+            // original. Locate Proteotypic in each header independently rather than assuming a
+            // shared index -- what this test pins is the 0/1 encoding, not the column layout.
+            int originalColumn = Array.IndexOf(originalLines[0].Split('\t'), "Proteotypic");
+            int writtenColumn = Array.IndexOf(writtenLines[0].Split('\t'), "Proteotypic");
+
+            Assert.That(originalColumn, Is.GreaterThanOrEqualTo(0));
+            Assert.That(writtenColumn, Is.GreaterThanOrEqualTo(0));
+            Assert.That(writtenLines.Length, Is.EqualTo(originalLines.Length));
+
             for (int row = 1; row < originalLines.Length; row++)
             {
-                Assert.That(writtenLines[row].Split('\t')[column],
-                    Is.EqualTo(originalLines[row].Split('\t')[column]));
+                string written = writtenLines[row].Split('\t')[writtenColumn];
+                Assert.That(written, Is.EqualTo(originalLines[row].Split('\t')[originalColumn]));
+                // The whole point: 0/1, not CsvHelper's default "False"/"True"
+                Assert.That(written, Is.AnyOf("0", "1"));
             }
         }
 
