@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <IsPackable>false</IsPackable>
     <Platforms>x64</Platforms>
   </PropertyGroup>
@@ -173,6 +173,18 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\PSI-MOD.obo">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- Trimmed ontology fixtures. These keep the required CI job off the network: Loaders.Load*
+         downloads only when the target file is absent, so a test pointing at a path with no file
+         behind it quietly becomes an external-service test. See DataFiles\Ontologies\PROVENANCE.md. -->
+    <None Update="DataFiles\Ontologies\ptmlist.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\Ontologies\PSI-MOD.obo.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\Ontologies\unimod_tables.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\ranges1.xml">

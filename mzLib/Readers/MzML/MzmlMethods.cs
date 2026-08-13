@@ -186,8 +186,21 @@ namespace Readers
             List<MZAnalyzerType> analyzersInThisFile = (new HashSet<MZAnalyzerType>(myMsDataFile.GetAllScansList().Select(b => b.MzAnalyzer))).ToList();
             Dictionary<MZAnalyzerType, string> analyzersInThisFileDict = new Dictionary<MZAnalyzerType, string>();
 
-            // Leaving empty. Can't figure out the configurations.
-            // ToDo: read instrumentConfigurationList from mzML file
+            // The instrument model the file came from, if the reader could determine it. mzML
+            // records it as an accessioned PSI-MS term; a Thermo RAW yields only a name, so the
+            // accession may be empty and the term is then written name-only.
+            //
+            // Before this was carried through, every mzML written here declared the bare parent
+            // term MS:1000031 "instrument model" and nothing else, so writing a file -- which
+            // calibration and spectral averaging both do -- silently discarded which mass
+            // spectrometer produced the data. Reading such a file back reported no instrument at
+            // all, and the loss was invisible because MS:1000031 looks like a real declaration.
+            var instrumentModel = myMsDataFile.SourceFile.InstrumentModel;
+
+            // One configuration is still emitted per mass analyzer present, which is not
+            // necessarily how the original file was organised. Recovering the true configuration
+            // list (multiple instruments, sources, detectors, serial numbers) needs SourceFile to
+            // carry more than the model, and is left for later.
             mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType
             {
                 count = analyzersInThisFile.Count.ToString(),
@@ -206,13 +219,39 @@ namespace Readers
                     cvParam = new Generated.CVParamType[1]
                 };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].cvParam[0] = new Generated.CVParamType
-                {
-                    cvRef = "MS",
-                    accession = "MS:1000031",
-                    name = "instrument model",
-                    value = ""
-                };
+                // A specific model when we have an ACCESSIONED one, otherwise the bare parent term
+                // as before. The accession is required: mzML types cvParam/@accession as mandatory,
+                // so emitting a name-only term would produce a file that does not validate -- a
+                // worse outcome than the loss being fixed here.
+                //
+                // That means a model read from a Thermo RAW, which records only free text, still
+                // does not survive a write. Recovering it needs a name-to-accession lookup against
+                // the PSI-MS vocabulary, which is a separate piece of work; until then the mzML
+                // path (every converted vendor file) is preserved and the RAW path is unchanged.
+                //
+                // The value stays empty either way: an instrument model is a presence flag, which
+                // is also how a reader tells it from the serial number written beside it.
+                bool haveAccessionedModel =
+                    instrumentModel is not null
+                    && !string.IsNullOrEmpty(instrumentModel.Accession)
+                    && !string.IsNullOrEmpty(instrumentModel.Name);
+
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].cvParam[0] =
+                    haveAccessionedModel
+                        ? new Generated.CVParamType
+                        {
+                            cvRef = "MS",
+                            accession = instrumentModel.Accession,
+                            name = instrumentModel.Name,
+                            value = ""
+                        }
+                        : new Generated.CVParamType
+                        {
+                            cvRef = "MS",
+                            accession = "MS:1000031",
+                            name = "instrument model",
+                            value = ""
+                        };
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList = new Generated.ComponentListType
                 {

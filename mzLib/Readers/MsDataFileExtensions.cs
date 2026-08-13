@@ -180,7 +180,14 @@ namespace Readers
                 originalFile.SourceFile.FileChecksumType,
                 originalFile.SourceFile.Uri,
                 originalFile.SourceFile.Id,
-                originalFile.SourceFile.FileName);
+                originalFile.SourceFile.FileName)
+            {
+                // Carried explicitly: this is a field-by-field COPY of SourceFile, so an init-only
+                // property added later is silently dropped here even though no constructor call
+                // changed. Omitting it meant every snipped mzML still lost the instrument -- the
+                // exact loss the writer fix exists to prevent.
+                InstrumentModel = originalFile.SourceFile.InstrumentModel
+            };
 
             var dataFile = new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);

@@ -10,9 +10,10 @@ using PredictionClients.Koina.Util;
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
     [TestFixture]
+    [Category("ExternalService")]
     [Category("Koina")]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class Ms2PipModelTests
+    public class Ms2PipModelTests : KoinaLiveTestFixture
     {
         // ═══════════════════════════════════════════════════════════════════════════
         // Shared Tests for All MS2PIP Models
