@@ -302,9 +302,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void TestPeptideWithSetModsEssentialSequence()
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
 
             Dictionary<string, int> modsToWrite = new Dictionary<string, int>();
             modsToWrite.Add("UniProt",0);
@@ -328,9 +328,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void TestPeptideWithSetModsEssentialSequence_SequenceSerializerMatchesExtension()
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
 
             Dictionary<string, int> modsToWrite = new Dictionary<string, int>
             {
@@ -397,9 +397,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void TestPeptideWithSetModsFullSequence()
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList(); 
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList(); 
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
@@ -434,9 +434,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void TestIBioPolymerWithSetModsModificationFromFullSequence()
         {
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"),
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList,
                     formalChargesDictionary).ToList();
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"),
                 true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);

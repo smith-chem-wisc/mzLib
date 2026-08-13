@@ -39,4 +39,13 @@
 	</AssemblyAttribute>
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\psi-ms.obo">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\pride_cv.obo">
+      <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
 </Project>

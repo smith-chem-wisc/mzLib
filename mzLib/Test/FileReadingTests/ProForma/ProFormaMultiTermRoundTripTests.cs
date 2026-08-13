@@ -26,7 +26,7 @@ namespace Test.FileReadingTests.ProForma
         private static IEnumerable<TestCaseData> MultiTermExamples()
         {
             foreach (var r in ProFormaTestCorpus.Load().Where(r => MultiTermIds.Contains(r.Id)))
-                yield return new TestCaseData(r.ProformaString).SetName(r.Id);
+                yield return new TestCaseData(r.ProformaString).SetName(ProFormaTestCorpus.ToTestName(r.Id));
         }
 
         [TestCaseSource(nameof(MultiTermExamples))]
