@@ -241,6 +241,13 @@ namespace UsefulProteomicsDatabases
                 // stop gains should still produce decoys with the same length
                 if (stopGain)
                 {
+                    // An applied stop gain truncates the sequence at the stop, but the variation it records
+                    // still points at its position in the untruncated sequence, which is then past the end.
+                    if (sv.OneBasedEndPosition > reversedSequence.Length)
+                    {
+                        continue;
+                    }
+
                     decoyVariations.Add(new SequenceVariation(sv.OneBasedBeginPosition,
                         reversedSequence.Substring(sv.OneBasedBeginPosition - 1, sv.OneBasedEndPosition - sv.OneBasedBeginPosition + 1),
                         new string(variationArray).Substring(1, variationArray.Length - 1) + variationArray[0],
@@ -254,9 +261,26 @@ namespace UsefulProteomicsDatabases
                 // both start with M, but there's more
                 else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && sv.OneBasedBeginPosition == 1 && (sv.OriginalSequence.Length > 1 || sv.VariantSequence.Length > 1))
                 {
+                    // Dropping the trailing character of each reversed sequence is what holds the initiator
+                    // methionine in place: it leaves the reverse of everything after that methionine.
                     string original = new string(originalArray).Substring(0, originalArray.Length - 1);
                     string variant = new string(variationArray).Substring(0, variationArray.Length - 1);
-                    decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, original, variant, $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatDataString, decoyVariantModifications));
+
+                    if (original.Length == 0)
+                    {
+                        // Nothing follows the methionine, so the variant only inserts residues, and reversal
+                        // moves that insertion to the C terminus. Expressed at Length + 1 it would begin past
+                        // the end of the sequence and read as invalid, so anchor it on the final residue -
+                        // the same edit, as a contiguous replacement.
+                        decoyVariations.Add(new SequenceVariation(reversedSequence.Length, reversedSequence.Length,
+                            reversedSequence.Substring(reversedSequence.Length - 1),
+                            reversedSequence.Substring(reversedSequence.Length - 1) + variant,
+                            $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatDataString, decoyVariantModifications));
+                    }
+                    else
+                    {
+                        decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 2, protein.BaseSequence.Length, original, variant, $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatDataString, decoyVariantModifications));
+                    }
                 }
                 // gained an initiating methionine
                 else if (sv.VariantSequence.StartsWith("M", StringComparison.Ordinal) && sv.OneBasedBeginPosition == 1)
@@ -274,7 +298,13 @@ namespace UsefulProteomicsDatabases
                     decoyVariations.Add(new SequenceVariation(protein.BaseSequence.Length - sv.OneBasedEndPosition + 1, protein.BaseSequence.Length - sv.OneBasedBeginPosition + 1, new string(originalArray), new string(variationArray), $"{decoyIdentifier} VARIANT: " + sv.VariantCallFormatDataString, decoyVariantModifications));
                 }
             }
-            return decoyVariations;
+
+            // A start loss removes the initiator methionine and reverses the rest, changing both ends of the
+            // sequence, which no single contiguous replacement can express. Such a variation reads as invalid,
+            // and one invalid variation makes GetVariantBioPolymers abandon combinatorial application for the
+            // whole protein - silently stripping every variation from this decoy, not just the one it could
+            // not express. Drop only what cannot be expressed.
+            return decoyVariations.Where(v => v.AreValid()).ToList();
         }
 
         /// <summary>
