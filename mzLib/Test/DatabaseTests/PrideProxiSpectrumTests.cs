@@ -374,6 +374,26 @@ public class PrideProxiSpectrumTests
         Assert.That(requested, Does.Contain("resultType=full"));
     }
 
+    /// <summary>
+    /// Covers the client's own guard rather than HttpClient's: a stub handler completes synchronously, so
+    /// HttpClient never observes the cancellation, and without ThrowIfCancellationRequested the call
+    /// succeeds and the request goes out. Both assertions therefore bite. Needs no network.
+    /// </summary>
+    [Test]
+    public void GetProxiSpectrumAsync_PreCancelledToken_Throws_AndSendsNothing()
+    {
+        var handler = new StubHandler(_ => JsonResponse(ProxiArray(SpectrumJson(
+            "mzspec:PXD000561:file:scan:17555:VLHPLEGAVVIIFK/2", new[] { 100.0 }, new[] { 1.0 }))));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var cts = new CancellationTokenSource();
+        cts.Cancel();
+
+        Assert.That(async () => await client.GetProxiSpectrumAsync(
+                "mzspec:PXD000561:file:scan:17555:VLHPLEGAVVIIFK/2", cts.Token),
+            Throws.InstanceOf<OperationCanceledException>());
+        Assert.That(handler.RequestedUris, Is.Empty);
+    }
+
     [Test]
     public void GetProxiSpectrumAsync_BlankUsi_ThrowsArgumentException()
     {
