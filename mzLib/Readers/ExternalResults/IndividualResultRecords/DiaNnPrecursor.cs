@@ -10,6 +10,10 @@ namespace Readers
     /// A single row of DIA-NN's main report (the long-format report.tsv written by DIA-NN 1.8/1.9).
     /// Each row is one precursor quantified in one run, so the same peptide appears once per run
     /// it was detected in.
+    /// <para>
+    /// Column meanings follow DIA-NN's main output reference:
+    /// <see href="https://github.com/vdemichev/diann#main-output-reference"/>.
+    /// </para>
     /// </summary>
     public class DiaNnPrecursor : IQuantifiableRecord
     {
