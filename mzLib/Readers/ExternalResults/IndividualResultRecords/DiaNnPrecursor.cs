@@ -122,6 +122,12 @@ namespace Readers
         [Name("GG.Q.Value")]
         public double GeneGroupQValue { get; set; }
 
+        // Written by DIA-NN when it translates precursors across runs; blank (hence nullable) for
+        // runs where translation did not apply, and absent from some older reports (hence Optional).
+        [Optional]
+        [Name("Translated.Q.Value")]
+        public double? TranslatedQValue { get; set; }
+
         [Name("Proteotypic")]
         [TypeConverter(typeof(IntegerBooleanConverter))]
         public bool Proteotypic { get; set; }

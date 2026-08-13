@@ -95,6 +95,7 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(first.GlobalQValue, Is.EqualTo(0.0717228204));
             Assert.That(first.ProteinQValue, Is.EqualTo(0.0001707067277));
             Assert.That(first.ProteinGroupQValue, Is.EqualTo(0.0001623640273));
+            Assert.That(first.TranslatedQValue, Is.EqualTo(0));
             Assert.That(first.Proteotypic, Is.False);
             Assert.That(first.PrecursorQuantity, Is.EqualTo(5359.077148));
             Assert.That(first.PrecursorNormalized, Is.EqualTo(5263.249023));
@@ -670,6 +671,7 @@ namespace Test.FileReadingTests.ExternalFileReading
                 Assert.That(after.GenesQuantity, Is.EqualTo(before.GenesQuantity));
                 Assert.That(after.Ms2ScanNumber, Is.EqualTo(before.Ms2ScanNumber));
                 Assert.That(after.FragmentInfo, Is.EqualTo(before.FragmentInfo));
+                Assert.That(after.TranslatedQValue, Is.EqualTo(before.TranslatedQValue));
                 Assert.That(after.Proteotypic, Is.EqualTo(before.Proteotypic));
             }
 
