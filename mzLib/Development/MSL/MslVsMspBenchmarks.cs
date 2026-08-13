@@ -27,7 +27,7 @@ namespace Development.MSL
 	/// <see cref="GlobalCleanup"/> tries to delete a file that <c>MslLoad_IndexOnly</c>'s
 	/// index-only <c>FileStream</c> may still hold across BenchmarkDotNet process boundaries.
 	/// </summary>
-	[SimpleJob(RuntimeMoniker.Net80)]
+	[SimpleJob(RuntimeMoniker.Net10_0)]
 	[MemoryDiagnoser]
 	[HideColumns("Job", "RntmId", "WarmupCount", "LaunchCount", "TargetCount")]
 	public class MslVsMspBenchmarks
