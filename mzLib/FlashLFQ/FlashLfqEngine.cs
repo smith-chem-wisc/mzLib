@@ -657,6 +657,10 @@ namespace FlashLFQ
         /// design: transfers still cross conditions, biological replicates and technical replicates,
         /// because filling in missing values across those is the point of match-between-runs.
         /// Unknown agent on either side means unrestricted, so callers that supply no agent are unaffected.
+        ///
+        /// Scoped to the <see cref="QuantifyMatchBetweenRunsPeaks"/> path. IsoTracker borrows identifications
+        /// across files of its own accord, in CollectChromPeakInRuns and QuantifyIsobaricPeaks, and does not
+        /// come through here, so those transfers are still unrestricted by digestion agent.
         /// </summary>
         private bool SharesAnalytePool(SpectraFileInfo donorFile, SpectraFileInfo acceptorFile)
         {
