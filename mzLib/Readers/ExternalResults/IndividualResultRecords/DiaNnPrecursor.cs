@@ -122,10 +122,6 @@ namespace Readers
         [Name("GG.Q.Value")]
         public double GeneGroupQValue { get; set; }
 
-        [Optional]
-        [Name("Translated.Q.Value")]
-        public double? TranslatedQValue { get; set; }
-
         [Name("Proteotypic")]
         [TypeConverter(typeof(IntegerBooleanConverter))]
         public bool Proteotypic { get; set; }
