@@ -453,6 +453,8 @@ namespace UsefulProteomicsDatabases
             if (string.IsNullOrWhiteSpace(accession))
                 throw new ArgumentException("A PRIDE project accession is required.", nameof(accession));
 
+            cancellationToken.ThrowIfCancellationRequested();
+
             // This endpoint shares the v3 BaseAddress, so a relative URI resolves correctly (unlike PROXI,
             // which sits under a different path root and needs an absolute URI).
             string requestUri = $"projects/{Uri.EscapeDataString(accession)}";
@@ -626,6 +628,8 @@ namespace UsefulProteomicsDatabases
         {
             if (string.IsNullOrWhiteSpace(usi))
                 throw new ArgumentException("A USI (Universal Spectrum Identifier) is required.", nameof(usi));
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             // PROXI is a different path root than the v3 archive BaseAddress, so an archive-relative URI (the
             // GetProjectFilesAsync pattern) would resolve to the wrong path. An absolute PROXI URI overrides the
