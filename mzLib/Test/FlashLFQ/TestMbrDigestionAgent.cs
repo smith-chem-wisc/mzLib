@@ -142,6 +142,48 @@ namespace Test.FlashLFQ
         }
 
         /// <summary>
+        /// A file that names no agent is unknown rather than different, so it neither donates nor accepts
+        /// under a restriction. Mixing an annotated caller with an unannotated one must not start dropping
+        /// transfers on the unannotated side.
+        /// </summary>
+        [Test]
+        public static void UnknownAgentOnOneSideOnlyStillTransfers()
+        {
+            var results = RunWithAgents("mbr_half_agents", "trypsin", null, "Glu-C");
+
+            Assert.That(WasTransferredInto(results, "mbr_half_agents_2"), Is.True,
+                "the acceptor names no agent, so the transfer is unrestricted");
+            Assert.That(WasTransferredInto(results, "mbr_half_agents_3"), Is.False,
+                "the acceptor names a different agent, so the transfer is still refused");
+        }
+
+        /// <summary>
+        /// A file whose identifications disagree about the digestion agent cannot be assigned one, so it is
+        /// treated as unknown rather than as a group of its own.
+        /// </summary>
+        [Test]
+        public static void FileWithConflictingAgentsIsTreatedAsUnknown()
+        {
+            var file1 = new SpectraFileInfo(WriteMzml("mbr_conflict_1"), "a", 0, 0, 0);
+            var file2 = new SpectraFileInfo(WriteMzml("mbr_conflict_2"), "a", 1, 0, 0);
+
+            var identifications = new List<Identification>();
+
+            // file 2's identifications disagree, so no single agent can be attributed to it
+            foreach (string shared in PepSequences.Where(s => s != TransferredSequence))
+            {
+                identifications.Add(Id(file1, shared, "trypsin"));
+                identifications.Add(Id(file2, shared, shared == PepSequences[0] ? "Glu-C" : "trypsin"));
+            }
+
+            identifications.Add(Id(file1, TransferredSequence, "trypsin"));
+
+            var results = new FlashLfqEngine(identifications, matchBetweenRuns: true, maxThreads: 1).Run();
+
+            Assert.That(WasTransferredInto(results, "mbr_conflict_2"), Is.True);
+        }
+
+        /// <summary>
         /// Callers that supply no digestion agent must see the behaviour they saw before the agent was added.
         /// </summary>
         [Test]

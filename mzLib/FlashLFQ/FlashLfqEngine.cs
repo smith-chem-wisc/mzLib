@@ -642,8 +642,7 @@ namespace FlashLFQ
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
 
-        private string DigestionAgentOf(SpectraFileInfo file) =>
-            _fileToDigestionAgent.TryGetValue(file, out string agent) ? agent : null;
+        private string DigestionAgentOf(SpectraFileInfo file) => _fileToDigestionAgent.GetValueOrDefault(file);
 
         /// <summary>
         /// Whether an identification in the donor file could be present in the acceptor file at all.
