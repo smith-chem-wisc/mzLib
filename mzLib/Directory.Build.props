@@ -1,8 +1,9 @@
 <Project>
 
   <PropertyGroup>
-    <!-- Audit transitive packages, not just direct ones. This is the .NET 9+ default, but the CI
-         setup-dotnet pin means it would otherwise stay off until that moves. -->
+    <!-- Audit transitive packages, not just direct ones. Redundant while everything targets
+         net10.0, since that is the default from net9.0 on; stated anyway so retargeting a project
+         downwards cannot quietly reduce auditing to direct dependencies only. -->
     <NuGetAuditMode>all</NuGetAuditMode>
   </PropertyGroup>
 
