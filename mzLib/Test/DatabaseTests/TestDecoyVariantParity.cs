@@ -102,6 +102,67 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
+        /// An accession has to identify one sequence, because it is the key everything downstream joins on -
+        /// Spritz writes accession-to-sequence and accession-to-variant pivot tables straight from these.
+        ///
+        /// Two variations beginning at the same position are the case that broke it. Overlapping edits are
+        /// spliced together rather than replacing one another, but the record of what was applied dropped any
+        /// earlier variation whose span the later one covered, and a deletion's post-application span is the
+        /// single residue it leaves behind. So the deletion vanished from the accession while staying in the
+        /// sequence. Reversal maps variations sharing an end onto variations sharing a begin, which is why
+        /// decoys hit this far more often than targets.
+        /// </summary>
+        [Test]
+        public static void OverlappingVariationsAtOneBeginPositionGiveDistinctAccessions()
+        {
+            var consensus = new Protein("MABCDEFGHIJ", "ACC", sequenceVariations: new List<SequenceVariation>
+            {
+                new SequenceVariation(2, 6, "ABCDE", "X", "deletion collapsing to one residue"),
+                new SequenceVariation(2, 4, "ABC", "YY", "substitution starting at the same position")
+            });
+
+            var entries = consensus.GetVariantBioPolymers(4, 1).ToList();
+
+            var withBoth = entries.Where(p => p.AppliedSequenceVariations.Count == 2).ToList();
+            Assert.That(withBoth, Is.Not.Empty,
+                "premise: both variations are applied together, and both edits stay in the sequence");
+
+            var accessions = entries.Select(p => p.Accession).ToList();
+            Assert.That(accessions, Is.Unique);
+
+            foreach (var group in entries.GroupBy(p => p.Accession))
+            {
+                Assert.That(group.Select(p => p.BaseSequence).Distinct().Count(), Is.EqualTo(1),
+                    $"accession {group.Key} must not name two different sequences");
+            }
+        }
+
+        /// <summary>
+        /// The same property across a target-decoy pair, which is where it actually bit.
+        /// </summary>
+        [Test]
+        public static void ADecoyDatabaseNamesEachSequenceOnce()
+        {
+            var consensus = new Protein("MABCDEFGHIJKLMNOP", "ACC", sequenceVariations: new List<SequenceVariation>
+            {
+                // sharing an end, so reversal makes them share a begin
+                new SequenceVariation(4, 17, "DEFGHIJKLMNOP", "Q", "long deletion to the C terminus"),
+                new SequenceVariation(12, 17, "LMNOP", "RR", "shorter edit ending at the same place")
+            });
+
+            var decoyConsensus = DecoyProteinGenerator.GenerateDecoys(
+                new List<Protein> { consensus }, DecoyType.Reverse).Single();
+
+            Assert.That(decoyConsensus.SequenceVariations.Select(v => v.OneBasedBeginPosition).Distinct().Count(),
+                Is.EqualTo(1), "premise: reversal put both variations at the same begin position");
+
+            var accessions = consensus.GetVariantBioPolymers(4, 1).Select(p => p.Accession)
+                .Concat(decoyConsensus.GetVariantBioPolymers(4, 1).Select(p => p.Accession)).ToList();
+
+            Assert.That(accessions, Is.Unique);
+        }
+
+        /// <summary>
         /// An applied stop gain truncates the sequence but keeps recording its position in the untruncated
         /// one, so reversing such a protein indexed past the end of the sequence and threw. Reachable from any
         /// caller that generates decoys from variant-applied proteins, which is a public entry point.
