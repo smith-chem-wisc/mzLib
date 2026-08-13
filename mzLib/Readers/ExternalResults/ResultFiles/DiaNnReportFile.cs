@@ -119,14 +119,20 @@ namespace Readers
         public Dictionary<string, string> FileNameToFilePath(List<string> fullFilePath)
         {
             List<string> runNames = Results.Select(precursor => precursor.FileName).Distinct().ToList();
-            fullFilePath = fullFilePath.Distinct().ToList();
+            // File-system identity is case-insensitive on Windows, so fold case here rather than let
+            // "S1.raw" and "s1.raw" survive as two candidates that could match two runs and then slip
+            // past the contested-set cleanup below, which groups on the same comparer.
+            fullFilePath = fullFilePath.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             Dictionary<string, string> allFiles = new Dictionary<string, string>();
 
             foreach (var runName in runNames)
             {
-                string match = null;
-                int matchLength = -1;
-                bool ambiguous = false;
+                string exactMatch = null;
+                int exactMatchCount = 0;
+
+                string fuzzyMatch = null;
+                int fuzzyShared = -1;
+                bool fuzzyAmbiguous = false;
 
                 foreach (var file in fullFilePath)
                 {
@@ -136,42 +142,54 @@ namespace Readers
                     if (fileNameWithoutExtension.Length == 0)
                         continue;
 
-                    // An exact match is unambiguous, so take it and stop looking
-                    if (fileNameWithoutExtension.Equals(runName, StringComparison.InvariantCultureIgnoreCase))
+                    // An exact match is the best possible pairing, but two entries can strip to the
+                    // same name (C:\batch1\QC.raw and C:\batch2\QC.mzML both strip to "QC"), so count
+                    // them rather than take the first -- the contested-set cleanup below only catches
+                    // one file claimed by two runs, never two files claimed by one run.
+                    if (fileNameWithoutExtension.Equals(runName, StringComparison.OrdinalIgnoreCase))
                     {
-                        match = file;
-                        ambiguous = false;
-                        break;
+                        exactMatch = file;
+                        exactMatchCount++;
+                        continue;
                     }
 
                     if (!IsSuffixExtensionOf(runName, fileNameWithoutExtension))
                         continue;
 
-                    // Prefer the longest candidate: given files "sample" and "sample_rep1" for run
-                    // "sample_rep1_centroid", the longer one shares more of the name and is the
-                    // likelier pairing. Equal-length candidates give no reason to prefer either.
-                    if (fileNameWithoutExtension.Length > matchLength)
+                    // Rank by how much of the run name the candidate reproduces, not by the
+                    // candidate's own length. When the file name is a prefix of the run name
+                    // ("sample" -> run "sample_rep1_centroid") a longer file shares more of the run
+                    // and is the likelier pairing. But when the run name is a prefix of the file name
+                    // ("sample_rep1" and "sample_rep10" both extend run "sample") every candidate
+                    // reproduces the whole run name and none is more specific, so those must tie and
+                    // be rejected rather than ranked by their trailing digits.
+                    int sharedWithRun = Math.Min(fileNameWithoutExtension.Length, runName.Length);
+                    if (sharedWithRun > fuzzyShared)
                     {
-                        match = file;
-                        matchLength = fileNameWithoutExtension.Length;
-                        ambiguous = false;
+                        fuzzyMatch = file;
+                        fuzzyShared = sharedWithRun;
+                        fuzzyAmbiguous = false;
                     }
-                    else if (fileNameWithoutExtension.Length == matchLength)
+                    else if (sharedWithRun == fuzzyShared)
                     {
-                        ambiguous = true;
+                        fuzzyAmbiguous = true;
                     }
                 }
 
-                // Leaving an ambiguous run unmatched makes MakeIdentifications throw by name, which
-                // is far easier to diagnose than quantifying against the wrong file
-                if (match is not null && !ambiguous)
-                    allFiles.Add(runName, match);
+                // A single exact match is unambiguous and outranks any fuzzy match; two of them give
+                // no reason to prefer either. Leaving an ambiguous run unmatched makes
+                // MakeIdentifications throw by name, which is far easier to diagnose than quantifying
+                // against the wrong file.
+                if (exactMatchCount == 1)
+                    allFiles.Add(runName, exactMatch);
+                else if (exactMatchCount == 0 && fuzzyMatch is not null && !fuzzyAmbiguous)
+                    allFiles.Add(runName, fuzzyMatch);
             }
 
             // One spectra file cannot be the source of two runs. If it were claimed twice, FlashLFQ
             // would merge both runs' identifications into a single SpectraFileInfo and quantify them
             // as one file, so drop the whole contested set rather than pick a winner.
-            foreach (var contested in allFiles.GroupBy(pair => pair.Value).Where(group => group.Count() > 1).ToList())
+            foreach (var contested in allFiles.GroupBy(pair => pair.Value, StringComparer.OrdinalIgnoreCase).Where(group => group.Count() > 1).ToList())
                 foreach (var pair in contested)
                     allFiles.Remove(pair.Key);
 
@@ -193,7 +211,18 @@ namespace Readers
             string longer = runName.Length > fileName.Length ? runName : fileName;
             string shorter = runName.Length > fileName.Length ? fileName : runName;
 
-            if (!longer.StartsWith(shorter, StringComparison.InvariantCultureIgnoreCase))
+            // Equal-length names cannot differ by a suffix. Guarding here also keeps the boundary
+            // index below in range: an ordinal StartsWith on a strictly longer string always leaves
+            // at least one character at shorter.Length.
+            if (longer.Length == shorter.Length)
+                return false;
+
+            // Ordinal, not culture-aware: file-system identity is ordinal, LoadResults already pools
+            // these strings with StringComparer.Ordinal, and it is faster inside this O(runs x files)
+            // loop. A linguistic comparison can also report a prefix match between strings of unequal
+            // code-point length (ICU collapses ignorable code points such as the soft hyphen), which
+            // would push longer[shorter.Length] past the end.
+            if (!longer.StartsWith(shorter, StringComparison.OrdinalIgnoreCase))
                 return false;
 
             char boundary = longer[shorter.Length];

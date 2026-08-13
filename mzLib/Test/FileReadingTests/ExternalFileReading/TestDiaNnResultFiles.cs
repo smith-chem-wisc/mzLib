@@ -339,11 +339,20 @@ namespace Test.FileReadingTests.ExternalFileReading
                 @"D:\Data\20240317_PBMCs_24min_3Th-1.raw",
             };
 
-            Dictionary<string, string> matched = file.FileNameToFilePath(fullFilePaths);
+            // Assert the whole run -> path mapping, not just the count: a transposition that paired
+            // 20240315's run with 20240317's file and vice versa would leave the count at 3.
+            Dictionary<string, string> expected = new()
+            {
+                ["20240315_PBMCs_24min_3Th-1_centroid"] = @"D:\Data\20240315_PBMCs_24min_3Th-1.raw",
+                ["20240316_PBMCs_24min_3Th-1_centroid"] = @"D:\Data\20240316_PBMCs_24min_3Th-1.raw",
+                ["20240317_PBMCs_24min_3Th-1_centroid"] = @"D:\Data\20240317_PBMCs_24min_3Th-1.raw",
+            };
 
-            Assert.That(matched.Count, Is.EqualTo(3));
-            Assert.That(matched["20240316_PBMCs_24min_3Th-1_centroid"],
-                Is.EqualTo(@"D:\Data\20240316_PBMCs_24min_3Th-1.raw"));
+            Assert.That(file.FileNameToFilePath(fullFilePaths), Is.EqualTo(expected));
+
+            // The mapping cannot depend on how the caller happened to order its spectra files
+            List<string> reordered = new() { fullFilePaths[2], fullFilePaths[0], fullFilePaths[1] };
+            Assert.That(file.FileNameToFilePath(reordered), Is.EqualTo(expected));
         }
 
         /// <summary>
@@ -360,8 +369,12 @@ namespace Test.FileReadingTests.ExternalFileReading
                 @"D:\Data\20240316_PBMCs_24min_3Th-1_centroid.mzML",
             });
 
-            Assert.That(matched.Count, Is.EqualTo(1));
-            Assert.That(matched.ContainsKey("20240315_PBMCs_24min_3Th-1_centroid"), Is.False);
+            // Only the run whose file was supplied survives, mapped to that file; the other two runs
+            // (20240315, 20240317) are absent rather than mapped to the one file that was given.
+            Assert.That(matched, Is.EqualTo(new Dictionary<string, string>
+            {
+                ["20240316_PBMCs_24min_3Th-1_centroid"] = @"D:\Data\20240316_PBMCs_24min_3Th-1_centroid.mzML",
+            }));
 
             Assert.That(file.FileNameToFilePath(new List<string>()), Is.Empty);
         }
@@ -447,6 +460,54 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         /// <summary>
+        /// When the run name is a prefix of several candidate files, every candidate reproduces the
+        /// whole run name and none shares more of it than another, so length must not break the tie.
+        /// "sample_rep1" and "sample_rep10" both extend run "sample"; ranking by candidate length
+        /// would silently quantify "sample" against sample_rep10 -- the same A1/A10 plate collision,
+        /// in the direction the delimiter check does not guard.
+        /// </summary>
+        [Test]
+        public void TestFileNameToFilePathDoesNotRankByCandidateLengthWhenRunIsThePrefix()
+        {
+            DiaNnReportFile ambiguous = new DiaNnReportFile(TestFilePath)
+            {
+                Results = new List<DiaNnPrecursor>
+                {
+                    new() { Run = "sample", ProteinIds = "P1", PrecursorCharge = 2 },
+                }
+            };
+
+            var forward = ambiguous.FileNameToFilePath(new List<string> { @"D:\d\sample_rep1.raw", @"D:\d\sample_rep10.raw" });
+            var reversed = ambiguous.FileNameToFilePath(new List<string> { @"D:\d\sample_rep10.raw", @"D:\d\sample_rep1.raw" });
+
+            Assert.That(forward, Is.Empty);
+            Assert.That(forward, Is.EqualTo(reversed));
+        }
+
+        /// <summary>
+        /// Two paths can strip to the same name when they differ only by directory or extension
+        /// (C:\batch1\QC.raw and C:\batch2\QC.mzML both strip to "QC"). Both are exact matches for run
+        /// "QC" and give no reason to prefer either, so the run is left unmatched rather than bound to
+        /// whichever path the caller listed first. The contested-set cleanup does not catch this,
+        /// because it only detects one file claimed by two runs.
+        /// </summary>
+        [Test]
+        public void TestFileNameToFilePathLeavesRunUnmatchedWhenTwoFilesStripToItsName()
+        {
+            DiaNnReportFile file = new DiaNnReportFile(TestFilePath)
+            {
+                Results = new List<DiaNnPrecursor>
+                {
+                    new() { Run = "QC", ProteinIds = "P1", PrecursorCharge = 2 },
+                }
+            };
+
+            var matched = file.FileNameToFilePath(new List<string> { @"C:\batch1\QC.raw", @"C:\batch2\QC.mzML" });
+
+            Assert.That(matched, Is.Empty);
+        }
+
+        /// <summary>
         /// DIA-NN writes report.pr_matrix.tsv into the same directory as the main report, and it
         /// carries Precursor.Id and Stripped.Sequence too -- but one column per run instead of
         /// File.Name, so it is not readable as a long-format report.
@@ -523,10 +584,15 @@ namespace Test.FileReadingTests.ExternalFileReading
             Identification fourProteins = identifications.First(id => id.BaseSequence == "AADESER");
             Assert.That(fourProteins.ProteinGroups.Count, Is.EqualTo(4));
 
-            // Decoys are not reported as rows in DIA-NN's main report, so everything is usable
-            // for protein quantification
+            // DIA-NN's main report lists only target precursors, so none of these are decoys
             Assert.That(identifications.All(id => !id.IsDecoy));
+
+            // The FlashLFQ path does not consult DIA-NN's Proteotypic column: every target row is
+            // currently treated as eligible for protein quantification, the shared-peptide rows in
+            // this fixture included -- AAAAAAAAAAR (Q8NFD5;Q9Y651) and AADESER (four tropomyosins),
+            // both Proteotypic 0. If that policy ever changes, this assertion should change with it.
             Assert.That(identifications.All(id => id.UseForProteinQuant));
+            Assert.That(identifications.Any(id => id.BaseSequence is "AAAAAAAAAAR" or "AADESER"));
         }
 
         /// <summary>
@@ -556,7 +622,8 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(first.QValue, Is.EqualTo(0.0717228204));
             Assert.That(first.PsmScore, Is.EqualTo(0.997564137));
 
-            // usePepQValue swaps in the posterior error probability instead
+            // usePepQValue swaps in DIA-NN's raw PEP -- the local posterior error probability of this
+            // one precursor, stored as-is rather than converted to a PEP-derived q-value
             Identification firstUsingPep = MzLibExtensions.MakeIdentifications(file, spectraFiles, usePepQValue: true)[0];
             Assert.That(firstUsingPep.QValue, Is.EqualTo(0.003596759867));
             Assert.That(firstUsingPep.PsmScore, Is.EqualTo(0.997564137));

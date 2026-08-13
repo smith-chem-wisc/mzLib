@@ -78,6 +78,11 @@ namespace Readers
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 SupportedFileType.CasanovoMzTab => ".mztab",
+                // Unlike the other .tsv members, this is a conventional whole-name rather than a
+                // suffix ParseFileType keys on: DIA-NN reports are detected by their header, so the
+                // extension round-trip ("anything" + GetFileExtension()).ParseFileType() == type that
+                // holds for the others does not hold here. This value is only what WriteResults
+                // appends when naming an output file.
                 SupportedFileType.DiaNnReport => "report.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
