@@ -17,6 +17,7 @@
 
 using System;
 using System.IO;
+using MzLibUtil;
 
 namespace MassSpectrometry
 {
@@ -54,5 +55,27 @@ namespace MassSpectrometry
 
         public string FileName { get; }
         public string Id { get; }
+
+        /// <summary>
+        /// The mass spectrometer that produced this file, e.g. NT=Q Exactive;AC=MS:1001911.
+        /// Null when the source format does not record it or the reader could not determine it.
+        ///
+        /// Init-only, so every existing construction site is unaffected: this is additive.
+        ///
+        /// The two readers that can populate it do so with different completeness, and callers need
+        /// to know which they have:
+        ///
+        ///   mzML   carries the instrument as a PSI-MS cvParam in instrumentConfigurationList, so
+        ///          both <see cref="MzLibUtil.CvParam.Accession"/> and Name are set. Nothing has to
+        ///          be looked up or guessed.
+        ///   Thermo RAW records only a model NAME ("Orbitrap Fusion Lumos"), so Name is set and
+        ///          Accession is empty. Resolving that name to an accession needs a controlled-
+        ///          vocabulary lookup, which is a separate concern from reading the file.
+        ///
+        /// Consumers must therefore check Accession for emptiness rather than assuming a populated
+        /// InstrumentModel is fully accessioned. Per the rule on <see cref="MzLibUtil.CvParam"/>,
+        /// match on Accession and never on Name.
+        /// </summary>
+        public CvParam InstrumentModel { get; init; }
     }
 }

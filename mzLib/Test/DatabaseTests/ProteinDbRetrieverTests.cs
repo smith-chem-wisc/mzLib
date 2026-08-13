@@ -926,8 +926,21 @@ public class ProteinDbRetrieverLiveTests
 
     /// <summary>
     /// "NOTANACC" is malformed, so UniProt answers 400; "P0ZZZ9" is well-formed but unknown, so it answers
-    /// 404. Both must arrive as a permanent MzLibException — if either came back as HttpRequestException the
-    /// helper would skip this test and the distinction would go untested precisely when it mattered.
+    /// 404. Both must arrive as a permanent MzLibException rather than an outage.
+    ///
+    /// The availability escape hatch is deliberate. UniProt's xml route answers a malformed accession with
+    /// 500 instead of 400 on a fraction of cache-miss requests — observed at roughly two in five, which is
+    /// why a repeated hand probe looks clean once the CDN has cached a 400 — and ThrowIfServiceUnavailable
+    /// then correctly classifies that 500 as an outage. Wrapping the call in Assert.Throws used to catch
+    /// that HttpRequestException here and report it as a failed assertion, so a third-party server fault
+    /// turned into red CI on every unrelated PR. Letting it propagate hands it to RunAsync, which skips —
+    /// the same way the TryRetrieveEntry case below already did.
+    ///
+    /// Skipping costs nothing that is not already covered deterministically: the 400/404/200-empty
+    /// classification is pinned by the stubbed RetrieveEntry_NoSuchEntry_ThrowsMzLibException and
+    /// TryRetrieveEntry_NoSuchEntry_ReportsNotFoundWithoutThrowing above, which need no network. What this
+    /// test adds is the live canary that UniProt still answers the way those stubs assume, and a canary
+    /// that skips loudly on an outage is worth more than one that cries wolf.
     /// </summary>
     [Test]
     [TestCase("NOTANACC")]
@@ -935,7 +948,13 @@ public class ProteinDbRetrieverLiveTests
     public Task RetrieveEntry_LiveUnknownAccession_ThrowsMzLibException(string accession) =>
         ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
-            Assert.Throws<MzLibException>(() => ProteinDbRetriever.RetrieveEntry(accession, _storageDirectory));
+            // Assert.Catch rather than Assert.Throws: it still fails when nothing is thrown, but it lets the
+            // availability case be re-thrown to RunAsync instead of being swallowed into an assertion.
+            Exception caught = Assert.Catch(() => ProteinDbRetriever.RetrieveEntry(accession, _storageDirectory));
+            if (caught is HttpRequestException unavailable)
+                throw unavailable;
+
+            Assert.That(caught, Is.TypeOf<MzLibException>());
             Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
             return Task.CompletedTask;
         });
