@@ -102,7 +102,12 @@ namespace FlashLFQ
                     group => group.Key,
                     group =>
                     {
-                        var agents = group.Select(id => id.DigestionAgentName).Distinct().ToList();
+                        // an identification that names no agent is unknown, not a conflicting agent -
+                        // it must not turn a file whose other identifications agree into an unknown one
+                        var agents = group.Select(id => id.DigestionAgentName)
+                            .Where(name => name != null)
+                            .Distinct()
+                            .ToList();
                         return agents.Count == 1 ? agents[0] : null;
                     });
 

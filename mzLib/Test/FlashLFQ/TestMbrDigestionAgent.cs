@@ -184,6 +184,38 @@ namespace Test.FlashLFQ
         }
 
         /// <summary>
+        /// An identification that names no agent is unknown, not a third agent that disagrees with the rest.
+        /// A file whose named identifications all agree keeps that agent, so the restriction still applies -
+        /// otherwise a single unannotated identification silently lifts it for the whole file.
+        /// </summary>
+        [Test]
+        public static void UnannotatedIdentificationDoesNotMakeAFileUnknown()
+        {
+            var file1 = new SpectraFileInfo(WriteMzml("mbr_partial_1"), "a", 0, 0, 0);
+            var file2 = new SpectraFileInfo(WriteMzml("mbr_partial_2"), "a", 1, 0, 0);
+            var file3 = new SpectraFileInfo(WriteMzml("mbr_partial_3"), "a", 2, 0, 0);
+
+            var identifications = new List<Identification>();
+
+            // file 3 is Glu-C throughout except for one identification that names no agent at all
+            foreach (string shared in PepSequences.Where(s => s != TransferredSequence))
+            {
+                identifications.Add(Id(file1, shared, "trypsin"));
+                identifications.Add(Id(file2, shared, "trypsin"));
+                identifications.Add(Id(file3, shared, shared == PepSequences[0] ? null : "Glu-C"));
+            }
+
+            identifications.Add(Id(file1, TransferredSequence, "trypsin"));
+
+            var results = new FlashLfqEngine(identifications, matchBetweenRuns: true, maxThreads: 1).Run();
+
+            Assert.That(WasTransferredInto(results, "mbr_partial_2"), Is.True,
+                "the transfer between the two trypsin files must still happen, or this test proves nothing");
+            Assert.That(WasTransferredInto(results, "mbr_partial_3"), Is.False,
+                "one unannotated identification must not make the Glu-C file unknown and re-permit the transfer");
+        }
+
+        /// <summary>
         /// Callers that supply no digestion agent must see the behaviour they saw before the agent was added.
         /// </summary>
         [Test]
