@@ -433,6 +433,21 @@ namespace Test.FileReadingTests
         ///
         /// This is the regression that actually guards the format layer. The three committed
         /// fixtures pin the failure modes already found; this catches the ones that have not been.
+        ///
+        /// TWO WAYS A GREEN RUN HERE CAN MEAN NOTHING, both of which have actually happened, so the
+        /// summary line reports what was measured rather than only whether it passed:
+        ///
+        ///   1. POINT IT AT datasets/, NOT THE CLONE ROOT. The repository also carries sandbox/,
+        ///      which holds a second copy of many accessions. The root yields ~1,531 files against
+        ///      datasets/'s ~1,282, so every corpus-derived count quoted elsewhere in this project
+        ///      comes out different and looks invented.
+        ///
+        ///   2. CHECK THE LINE ENDINGS THE SUMMARY PRINTS. Upstream the corpus is LF and has no
+        ///      .gitattributes, so a clone made with core.autocrlf=true (the Windows default) has a
+        ///      working tree that is entirely CRLF. The round trip still passes -- the writer
+        ///      reproduces whatever it read -- but it did NOT test the upstream bytes, and reporting
+        ///      it as though it had is exactly the mistake that once made this reader pin CRLF.
+        ///      To measure upstream: git -c core.autocrlf=false clone, or add a worktree the same way.
         /// </summary>
         [Test]
         [Explicit("Requires a local clone of bigbio/sdrf-annotated-datasets; set MZLIB_SDRF_CORPUS.")]
@@ -446,6 +461,9 @@ namespace Test.FileReadingTests
             Assert.That(files, Is.Not.Empty, "corpus directory contained no .sdrf.tsv files");
 
             var failures = new List<string>();
+            var endings = new Dictionary<string, int>(StringComparer.Ordinal);
+            int bomFiles = 0;
+
             string scratch = Path.Combine(Path.GetTempPath(), $"sdrf_corpus_{Guid.NewGuid():N}");
             Directory.CreateDirectory(scratch);
             try
@@ -455,8 +473,22 @@ namespace Test.FileReadingTests
                     string outputPath = Path.Combine(scratch, "rt.sdrf.tsv");
                     try
                     {
+                        byte[] original = File.ReadAllBytes(file);
+
+                        // Recorded, not asserted: both endings are valid SDRF and the writer
+                        // reproduces whichever it read. What this guards against is a reader of
+                        // the RESULT believing they measured upstream bytes when git converted
+                        // them on checkout. See the two traps on this method.
+                        string text = System.Text.Encoding.UTF8.GetString(original);
+                        string ending = text.Contains("\r\n") ? "CRLF"
+                                      : text.Contains('\n') ? "LF"
+                                      : text.Contains('\r') ? "CR" : "none";
+                        endings[ending] = endings.GetValueOrDefault(ending) + 1;
+                        if (original.Length >= 3 && original[0] == 0xEF && original[1] == 0xBB && original[2] == 0xBF)
+                            bomFiles++;
+
                         new SdrfDocument(file).WriteResults(outputPath);
-                        if (!File.ReadAllBytes(outputPath).SequenceEqual(File.ReadAllBytes(file)))
+                        if (!File.ReadAllBytes(outputPath).SequenceEqual(original))
                             failures.Add($"{Path.GetFileName(file)}: bytes differ");
                     }
                     catch (Exception e)
@@ -470,12 +502,18 @@ namespace Test.FileReadingTests
                 if (Directory.Exists(scratch)) Directory.Delete(scratch, true);
             }
 
-            TestContext.Progress.WriteLine($"round-tripped {files.Length} files, {failures.Count} failures");
+            string measured = $"round-tripped {files.Length} files from '{corpus}', "
+                            + $"{failures.Count} failures; line endings "
+                            + string.Join(", ", endings.OrderByDescending(kv => kv.Value)
+                                                       .Select(kv => $"{kv.Key}={kv.Value}"))
+                            + $"; BOM in {bomFiles}";
+            TestContext.Progress.WriteLine(measured);
             foreach (var f in failures.Take(25))
                 TestContext.Progress.WriteLine("  " + f);
 
             Assert.That(failures, Is.Empty,
-                $"{failures.Count} of {files.Length} corpus files did not round-trip byte-identically");
+                $"{failures.Count} of {files.Length} corpus files did not round-trip "
+              + $"byte-identically. {measured}");
         }
 
         [Test]
