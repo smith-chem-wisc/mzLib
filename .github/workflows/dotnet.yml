@@ -6,16 +6,19 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  DOTNET_VERSION: 10.0.x
+
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     # Request the platform explicitly. The solution offers both x64 and Any CPU, and MSBuild silently
@@ -54,7 +57,7 @@ jobs:
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     - name: Build (Test)
@@ -66,19 +69,16 @@ jobs:
     timeout-minutes: 45
     steps:
     - uses: actions/checkout@v4
-    # This job is the only one that builds MetaMorpheus as well as mzLib, so it needs whatever SDK
-    # MetaMorpheus's global.json asks for AS WELL AS mzLib's own. setup-dotnet installs into a
-    # user-local dotnet root and the resolver then sees ONLY what this step installed -- the SDKs
-    # preinstalled on the runner become invisible. So requesting a single band makes this job fail at
-    # SDK resolution, before it reaches the pack or restore steps, whenever the two repos are on
-    # different bands. Installing both keeps it green through a .NET migration in either repo,
-    # in either order.
+    # This job builds MetaMorpheus as well as mzLib, so it needs whatever SDK MetaMorpheus's
+    # global.json asks for. setup-dotnet installs into a user-local dotnet root and the resolver then
+    # sees ONLY what this step installed, so the runner's preinstalled SDKs do not count. Both repos
+    # are on .NET 10, so one band. Note this job cannot pass while mzLib's target framework is ahead
+    # of MetaMorpheus's -- a net10.0-only package is NU1202-incompatible with a net8.0 consumer, which
+    # no amount of installed SDKs fixes -- so mzLib retargets only after MetaMorpheus does.
     - name: Set up .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: |
-          8.0.x
-          10.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     # Any CPU is requested explicitly so this job's output lands in bin/Release, which is where
@@ -137,5 +137,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusGUI
-        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net8.0-windows/
+        # Globbed rather than pinned to a framework: this is MetaMorpheus's target framework,
+        # not mzLib's, so the two repos can move independently.
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net*-windows/
 

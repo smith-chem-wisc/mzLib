@@ -23,7 +23,7 @@ namespace Development.MSL
 	/// into <see cref="_queryLib"/>. <see cref="GlobalCleanup"/> disposes and deletes
 	/// the temp file.
 	/// </summary>
-	[SimpleJob(RuntimeMoniker.Net80)]
+	[SimpleJob(RuntimeMoniker.Net10_0)]
 	[MemoryDiagnoser]
 	[HideColumns("Job", "RntmId", "WarmupCount", "LaunchCount", "TargetCount")]
 	public class MslBenchmarks
