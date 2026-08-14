@@ -43,6 +43,13 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- architecture-stamped input for TestNoArchitectureSpecificAssemblyReferences; not referenced, not shipped -->
+    <None Include="..\Readers\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" Link="FileReadingTests\ArchitectureGuard\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="AveragingTests\TestData\FAIMS_snip_10665-11578.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
