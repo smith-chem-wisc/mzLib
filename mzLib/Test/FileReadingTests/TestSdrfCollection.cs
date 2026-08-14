@@ -265,10 +265,9 @@ namespace Test.FileReadingTests
         [Test]
         public void TryParseTerm_HandlesTheHalfTermsTheCorpusActuallyWrites()
         {
-            // "N" is an alternative spelling of the name key -- PXD039582 writes N=Orbitrap in
-            // comment[ms2 analyzer type] 27 times. No accession, so there is no prefix to derive
-            // a CV label from and it must stay empty rather than being guessed.
-            Assert.That(SdrfCell.TryParseTerm("N=Orbitrap", out var named), Is.True);
+            // A name with no accession is still a term, and the CV label must stay empty rather
+            // than being guessed, because there is no prefix to derive one from.
+            Assert.That(SdrfCell.TryParseTerm("NT=Orbitrap", out var named), Is.True);
             Assert.That(named!.Name, Is.EqualTo("Orbitrap"));
             Assert.That(named.Accession, Is.Empty);
             Assert.That(named.CvLabel, Is.Empty);
@@ -278,6 +277,45 @@ namespace Test.FileReadingTests
             Assert.That(SdrfCell.TryParseTerm("AC=MS:1001911", out var accessionOnly), Is.True);
             Assert.That(accessionOnly!.Name, Is.Empty);
             Assert.That(accessionOnly.CvLabel, Is.EqualTo("MS"));
+        }
+
+        [Test]
+        public void BareN_IsFreeTextNotAName()
+        {
+            // "N" is not a key in the SDRF grammar -- the specification defines NT as the only name
+            // key. 45 corpus cells write "N=Orbitrap" in comment[ms2 analyzer type] (27 in
+            // PXD039582, 18 in PXD039585), and an earlier revision accepted them as terms. That
+            // decoded one submitter's typo AS the grammar, which also hid it from the drift lint,
+            // whose whole job is to report exactly this.
+            Assert.That(SdrfCell.IsTerm("N=Orbitrap"), Is.False);
+            Assert.That(SdrfCell.TryParseTerm("N=Orbitrap", out var term), Is.False);
+            Assert.That(term, Is.Null);
+            Assert.That(SdrfCell.ParseKeyValues("N=Orbitrap"), Is.Empty);
+
+            // And it is not silently readmitted after a legitimate leading key either.
+            Assert.That(SdrfCell.TryParseTerm("AC=MS:1000484;N=Orbitrap", out var partial), Is.True);
+            Assert.That(partial!.Name, Is.Empty, "N must not be promoted to the name");
+        }
+
+        [Test]
+        public void SnLeadsPooledSampleCellsAndStaysInTheGrammar()
+        {
+            // SN is easy to mistake for drift because it is absent from the modification-style key
+            // list, but the specification defines it for characteristics[pooled sample]
+            // ("SN=sample1;SN=sample2", README.adoc:352 and :362). All 383 leading SN cells in the
+            // corpus are of exactly that shape, so it stays -- unlike N, which the spec never
+            // defines.
+            Assert.That(SdrfCell.IsTerm("SN=sample_1;SN=sample_2"), Is.True);
+        }
+
+        [Test]
+        public void LeadingKeysAreASubsetOfKnownKeys()
+        {
+            // KnownKeys is the source of truth; a key cannot enter the grammar through the
+            // leading-key set without being justified there first. Had this existed, it would have
+            // caught "N" on its own -- it was in both sets and in neither the specification nor any
+            // deliberate decision.
+            Assert.That(SdrfCell.KnownLeadingKeys, Is.SubsetOf(SdrfCell.KnownKeys));
         }
 
         [Test]

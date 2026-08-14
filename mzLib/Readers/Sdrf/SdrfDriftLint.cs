@@ -1,7 +1,7 @@
 namespace Readers
 {
     /// <summary>The kind of inconsistency found across a set of documents.</summary>
-    public enum SdrfDriftKind
+    internal enum SdrfDriftKind
     {
         /// <summary>
         /// One accession, written with different names. The accession is the identity and the name
@@ -41,7 +41,7 @@ namespace Readers
     }
 
     /// <summary>One way a concept was written, and how widely.</summary>
-    public sealed record SdrfDriftVariant(string Value, int Occurrences, IReadOnlyList<string> Documents)
+    internal sealed record SdrfDriftVariant(string Value, int Occurrences, IReadOnlyList<string> Documents)
     {
         public override string ToString() =>
             $"'{Value}' x{Occurrences} in {Documents.Count} document(s)";
@@ -57,7 +57,7 @@ namespace Readers
     /// </param>
     /// <param name="Column">The column involved, or null when the finding is about a column name itself.</param>
     /// <param name="Variants">Every spelling seen, most frequent first. The first is the corpus's own majority usage.</param>
-    public sealed record SdrfDriftFinding(
+    internal sealed record SdrfDriftFinding(
         SdrfDriftKind Kind,
         string Concept,
         string? Column,
@@ -100,7 +100,7 @@ namespace Readers
     /// values are resolved from the pinned vocabulary irrespective of the majority; tolerating
     /// other people's free text is this layer's job, not the writer's.
     /// </summary>
-    public static class SdrfDriftLint
+    internal static class SdrfDriftLint
     {
         /// <summary>
         /// Columns whose values are legitimately unique per row, so variation in them is data rather

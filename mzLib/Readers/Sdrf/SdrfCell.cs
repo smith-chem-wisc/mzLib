@@ -17,41 +17,89 @@ namespace Readers
     /// URLs whose query strings carry "Signature=", "Expires=" and "Id=" -- 5,750 occurrences each
     /// -- and a shape-based parser decodes those as controlled-vocabulary descriptors.
     /// </summary>
-    public static class SdrfCell
+    internal static class SdrfCell
     {
         /// <summary>
-        /// Keys observed across the whole 1,236-file curated corpus, most frequent first:
-        /// NT name, AC accession, MT modification type, TA target amino acid, VV version value,
-        /// PP position, MM monoisotopic mass, SN specificity name, CS cleavage site,
-        /// CF chemical formula, CT compound type, QY quantity, SP species, CN common name,
-        /// ML/MH mass low/high, A generic attribute.
+        /// The keys the SDRF-Proteomics specification defines. This is the SOURCE OF TRUTH:
+        /// <see cref="KnownLeadingKeys"/> is a subset of <see cref="KnownKeys"/>, pinned by
+        /// LeadingKeysAreASubsetOfKnownKeys in the test project, so a key cannot enter the grammar
+        /// through the leading-key set without first being justified here.
+        ///
+        /// NT name, AC accession, MT modification type, TA target amino acid, PP position,
+        /// VV version value, CT compound type, QY quantity, PS peptide sequence, SP species,
+        /// CN common name, CV vendor, CL cleavable, MH/ML stub mass high/low, SN source name.
+        ///
+        /// SN is genuinely specified, which is easy to doubt because it is absent from the
+        /// modification-style key list: it belongs to characteristics[pooled sample], where
+        /// "SN=sample1;SN=sample2" lists the source names of a pool (specification README.adoc
+        /// lines 352 and 362, TERMS.tsv "pooled sample"). The corpus agrees -- all 383 leading SN
+        /// cells sit in characteristics[pooled sample].
         /// </summary>
-        private static readonly HashSet<string> KnownKeys = new(StringComparer.OrdinalIgnoreCase)
+        private static readonly HashSet<string> SpecKeys = new(StringComparer.OrdinalIgnoreCase)
         {
-            "NT", "AC", "MT", "TA", "VV", "PP", "MM", "SN", "CS", "CF",
-            "CT", "QY", "SP", "CN", "ML", "MH", "N", "CL", "CV", "PMID"
+            "NT", "AC", "MT", "TA", "PP", "VV", "CT", "QY",
+            "PS", "SP", "CN", "CV", "CL", "MH", "ML", "SN"
         };
 
         /// <summary>
-        /// Keys that actually appear FIRST in a corpus cell: NT (1,459,772), AC (190,369),
-        /// CT (389), SN (383), and N. Everything else in <see cref="KnownKeys"/> only ever appears
-        /// after a semicolon.
+        /// Keys the corpus uses that the specification does not define, kept because they are
+        /// widespread and unambiguous in context -- MM monoisotopic mass (26,828 occurrences),
+        /// CS cleavage site (3,810), CF chemical formula (2,602), all inside modification and
+        /// cleavage-agent cells.
+        ///
+        /// Separated from <see cref="SpecKeys"/> rather than merged so that the distinction between
+        /// "the format says so" and "the community writes it anyway" stays visible. Anything added
+        /// here is a tolerance, and tolerances belong on the reading side only -- never in authored
+        /// output.
+        /// </summary>
+        private static readonly HashSet<string> ObservedNonSpecKeys = new(StringComparer.OrdinalIgnoreCase)
+        {
+            "MM", "CS", "CF"
+        };
+
+        /// <summary>
+        /// Every key this reader will interpret: the specified ones plus the tolerated ones.
+        ///
+        /// "PMID" was removed. It is not a key in any position -- the specification uses PMID only
+        /// as a VALUE format for reference columns ("URL, DOI, or PMID"), and the 3 corpus
+        /// occurrences are of that kind. "N" was removed for the reasons given on
+        /// <see cref="KnownLeadingKeys"/>. "PS" was added: it is specified (spiked-compound cells,
+        /// "CT=peptide;PS=PEPTIDESEQ;QY=10 fmol") though no corpus file uses it yet.
+        /// </summary>
+        internal static readonly HashSet<string> KnownKeys =
+            new(SpecKeys.Concat(ObservedNonSpecKeys), StringComparer.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// Keys that actually appear FIRST in a corpus cell: NT (1,459,508 cells in all 1,236
+        /// files), AC (190,369 in 323), CT (389 in 6) and SN (383 in 4). Everything else in
+        /// <see cref="KnownKeys"/> only ever appears after a semicolon.
         ///
         /// "A" was removed from the set entirely. It is a single character, it never leads a real
         /// cell, and as a leading key it can only ever produce false positives -- any free-text
         /// value beginning "A=" would have been decoded as a controlled-vocabulary term.
+        ///
+        /// "N" was removed for exactly the same reasons, and the specification settles it: the key
+        /// grammar has no "N", and NT is the only name key. It leads 45 corpus cells -- 27 in
+        /// PXD039582 and 18 in PXD039585, every one of them "N=Orbitrap" in
+        /// comment[ms2 analyzer type] -- which is a typo for NT= in two files by one submitter, not
+        /// a spelling of the grammar. Accepting it decoded drift AS the grammar and so hid it from
+        /// the one component whose job is to report it; SdrfDriftLint now sees those cells as the
+        /// free text they are. An earlier revision of this comment listed the leading keys as
+        /// "NT, AC, CT, SN, and N" with a count against every key except N, which is what made the
+        /// reviewer look.
         /// </summary>
-        private static readonly HashSet<string> KnownLeadingKeys = new(StringComparer.OrdinalIgnoreCase)
+        internal static readonly HashSet<string> KnownLeadingKeys = new(StringComparer.OrdinalIgnoreCase)
         {
-            "NT", "AC", "CT", "SN", "N", "MT", "TA", "PP", "CS", "CF", "CL", "CV", "MM", "VV"
+            "NT", "AC", "CT", "SN", "MT", "TA", "PP", "CS", "CF", "CL", "CV", "MM", "VV"
         };
 
         /// <summary>
         /// Formats a controlled-vocabulary term as an SDRF cell: "NT=Oxidation;AC=UNIMOD:35".
         ///
-        /// NT first, then AC, then any extra keys in the order given -- the specification's own
-        /// examples put the name first, and the curated corpus agrees overwhelmingly (NT leads
-        /// 1,459,772 cells, AC 190,369).
+        /// NT first, then AC, then any extra keys in the order given. This is a specification MUST,
+        /// not merely a convention read off the corpus: "The key order MUST be NT (name) first,
+        /// followed by AC (accession), then any additional keys" (README.adoc:261). The corpus
+        /// agrees overwhelmingly anyway -- NT leads 1,459,508 cells, AC 190,369.
         ///
         /// The accession is written EXACTLY as supplied. This deliberately does not "helpfully"
         /// upper-case or add a missing prefix: the corpus is full of drift the caller should not be
@@ -144,10 +192,11 @@ namespace Readers
             var pairs = ParseKeyValues(cell);
             if (pairs.Count == 0) return false;
 
-            // "N" is an alternative spelling of the name key -- PXD039582 writes N=Orbitrap in
-            // comment[ms2 analyzer type] 27 times.
-            if (!pairs.TryGetValue("NT", out string? name))
-                pairs.TryGetValue("N", out name);
+            // NT is the ONLY name key. An earlier revision also accepted "N" as an alternative
+            // spelling, on the strength of 45 corpus cells that write "N=Orbitrap"; the
+            // specification defines no such key, so that was decoding one submitter's typo as
+            // grammar. See KnownLeadingKeys.
+            pairs.TryGetValue("NT", out string? name);
             pairs.TryGetValue("AC", out string? accession);
 
             // A cell in the key=value grammar with neither NT nor AC is NOT a controlled-vocabulary

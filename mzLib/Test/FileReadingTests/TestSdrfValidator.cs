@@ -88,6 +88,44 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void MisCasedRequiredColumn_SaysSoInsteadOfJustSayingMissing()
+        {
+            // The severity is right -- the spec makes lowercase a MUST and names
+            // "Characteristics[organism]" as an explicit failure, so a consumer joining on column
+            // names really does not have this column. But "missing comment[data file]" on a file
+            // that visibly contains "Comment[data file]" sends a curator hunting for the wrong bug.
+            var names = CompleteHeader.ToList();
+            names[names.IndexOf("comment[data file]")] = "Comment[data file]";
+            var header = new SdrfHeader(names);
+
+            var result = SdrfValidator.Validate(
+                new SdrfDocument(header, new[] { CompleteRow(header, "Sample 1") }));
+
+            var missing = result.Errors.Single(e => e.Rule == "RequiredColumn");
+            Assert.That(missing.ColumnName, Is.EqualTo("comment[data file]"));
+            Assert.That(missing.Message, Does.Contain("Comment[data file]"),
+                "the message must name the column that IS present");
+            Assert.That(missing.Message, Does.Contain("differs only in casing"));
+
+            // ColumnNameCase still reports it independently; the hint does not replace that.
+            Assert.That(result.Warnings.Any(w => w.Rule == "ColumnNameCase"), Is.True);
+        }
+
+        [Test]
+        public void GenuinelyMissingRequiredColumn_GetsNoCasingHint()
+        {
+            var names = CompleteHeader.Where(n => n != "comment[data file]").ToList();
+            var header = new SdrfHeader(names);
+
+            var result = SdrfValidator.Validate(
+                new SdrfDocument(header, new[] { new SdrfRow(header, names) }));
+
+            var missing = result.Errors.Single(
+                e => e.Rule == "RequiredColumn" && e.ColumnName == "comment[data file]");
+            Assert.That(missing.Message, Does.Not.Contain("casing"));
+        }
+
+        [Test]
         public void HeaderWithNoRows_WarnsButIsStillValid()
         {
             var result = SdrfValidator.Validate(

@@ -8,7 +8,7 @@ namespace Readers
     /// the community has to a reference set -- violates parts of its own specification. A rule that
     /// fires on most curated files is a wrong rule, not 1,236 wrong files.
     /// </summary>
-    public enum SdrfValidationSeverity
+    internal enum SdrfValidationSeverity
     {
         /// <summary>
         /// The document deviates from the specification but can still be consumed and joined:
@@ -40,7 +40,7 @@ namespace Readers
     /// the header occupies line 1 and file lines are 1-based.
     /// </param>
     /// <param name="ColumnName">The column involved, or null when the finding is not column-specific.</param>
-    public sealed record SdrfValidationMessage(
+    internal sealed record SdrfValidationMessage(
         SdrfValidationSeverity Severity,
         string Rule,
         string Message,
@@ -61,7 +61,7 @@ namespace Readers
     /// <summary>
     /// The outcome of validating one SDRF document.
     /// </summary>
-    public sealed class SdrfValidationResult
+    internal sealed class SdrfValidationResult
     {
         public SdrfValidationResult(IEnumerable<SdrfValidationMessage> messages)
         {

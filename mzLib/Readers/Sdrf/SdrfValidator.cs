@@ -19,8 +19,25 @@ namespace Readers
     /// curated files is a wrong rule. See SdrfValidatorCorpusCalibration in the test project, which
     /// pins the observed rates so that a future rule change cannot quietly start condemning the
     /// reference set.
+    ///
+    /// CASE POLICY -- deliberately NOT uniform, because the two kinds of comparison answer
+    /// different questions. Do not "tidy" one into the other:
+    ///
+    ///   EXISTENCE is ORDINAL (SdrfHeader.Contains, IndexOf, IndexesOf). The specification makes
+    ///   column names case-sensitive AND lowercase, naming "Source Name" and
+    ///   "Characteristics[organism]" as failures, so "Comment[data file]" genuinely is not the
+    ///   column "comment[data file]" and must not silently satisfy a requirement for it. Every
+    ///   consumer joining a corpus on column names sees it that way too. CasingHint keeps the
+    ///   resulting message honest about what actually happened.
+    ///
+    ///   ORDERING is ORDINALIGNORECASE (BlockRank). Here strictness would be
+    ///   self-defeating: an ordinal test cannot rank "Factor Value[organism part]" at all, so it
+    ///   returns null, the column is skipped, and a mis-cased file silently loses the whole
+    ///   ordering rule -- the file most likely to be disordered is the one the rule stops
+    ///   checking. Ranking it anyway costs nothing, since ColumnNameCase reports the casing
+    ///   separately.
     /// </summary>
-    public static class SdrfValidator
+    internal static class SdrfValidator
     {
         /// <summary>
         /// Columns present in EVERY one of the 1,236 curated corpus files, so demanding them
@@ -109,6 +126,31 @@ namespace Readers
             return new SdrfValidationResult(messages);
         }
 
+        /// <summary>
+        /// ", but 'Comment[data file]' is present and differs only in casing" when a column exists
+        /// under a different case, otherwise empty.
+        ///
+        /// The severity of the finding does not change: the specification makes lowercase a MUST and
+        /// gives "Characteristics[organism]" as an explicit failure, so a mis-cased mandatory column
+        /// really is a missing one for any consumer joining on column names. It is the MESSAGE that
+        /// misled -- a curator told "missing comment[data file]" about a file that visibly contains
+        /// that column looks for a bug in the validator, not for a capital letter. ColumnNameCase
+        /// reports the casing separately, which is to say the validator already knew.
+        /// </summary>
+        private static string CasingHint(SdrfHeader header, string columnName)
+        {
+            foreach (string name in header)
+            {
+                if (string.Equals(name, columnName, StringComparison.OrdinalIgnoreCase)
+                    && !string.Equals(name, columnName, StringComparison.Ordinal))
+                {
+                    return $", but '{name}' is present and differs only in casing; column names are " +
+                           "case-sensitive and must be lowercase";
+                }
+            }
+            return "";
+        }
+
         private static void ValidateHeader(SdrfHeader header, List<SdrfValidationMessage> messages)
         {
             if (header.Count == 0)
@@ -123,7 +165,8 @@ namespace Readers
                 if (!header.Contains(required))
                     messages.Add(new SdrfValidationMessage(
                         SdrfValidationSeverity.Error, "RequiredColumn",
-                        $"Required column '{required}' is missing.", null, required));
+                        $"Required column '{required}' is missing{CasingHint(header, required)}.",
+                        null, required));
             }
 
             foreach (var recommended in RecommendedColumns)
@@ -131,7 +174,8 @@ namespace Readers
                 if (!header.Contains(recommended))
                     messages.Add(new SdrfValidationMessage(
                         SdrfValidationSeverity.Warning, "RecommendedColumn",
-                        $"Column '{recommended}' is listed as mandatory for MS proteomics but is absent.",
+                        $"Column '{recommended}' is listed as mandatory for MS proteomics but is " +
+                        $"absent{CasingHint(header, recommended)}.",
                         null, recommended));
             }
 
