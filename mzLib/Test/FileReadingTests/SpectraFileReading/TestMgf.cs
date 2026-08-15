@@ -167,6 +167,28 @@ namespace Test.FileReadingTests.SpectraFileReading
             NUnit.Framework.Assert.That(scans[0].SelectedIonIntensity, Is.EqualTo(47641904.0).Within(0.00001));
         }
 
+        /// <summary>
+        /// A trailing '-' on the CHARGE line means a negative charge state, and polarity is derived from
+        /// the sign of that charge. The positive scan is asserted alongside it so an inverted sign test
+        /// cannot pass.
+        /// </summary>
+        [Test]
+        public void ReadsNegativeChargeAndPolarityFromChargeLine()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "negativeModeCharge.mgf");
+
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData();
+
+            var negative = reader.GetOneBasedScan(1);
+            NUnit.Framework.Assert.That(negative.SelectedIonChargeStateGuess, Is.EqualTo(-2));
+            NUnit.Framework.Assert.That(negative.Polarity, Is.EqualTo(Polarity.Negative));
+
+            var positive = reader.GetOneBasedScan(2);
+            NUnit.Framework.Assert.That(positive.SelectedIonChargeStateGuess, Is.EqualTo(3));
+            NUnit.Framework.Assert.That(positive.Polarity, Is.EqualTo(Polarity.Positive));
+        }
+
 
         [Test]
         public static void TestLoadCorruptMgf()

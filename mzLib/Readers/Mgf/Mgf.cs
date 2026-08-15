@@ -177,7 +177,8 @@ namespace Readers
                 {
                     string entry = sArray[1];
                     charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
-                    if (entry[entry.Length - 1].Equals("-"))
+                    // compare char to char; comparing against the string "-" is always false
+                    if (entry[entry.Length - 1] == '-')
                     {
                         charge *= -1;
                     }
