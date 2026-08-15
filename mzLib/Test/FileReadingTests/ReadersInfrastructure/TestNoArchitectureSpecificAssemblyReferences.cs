@@ -112,9 +112,10 @@ namespace Test.FileReadingTests.ReadersInfrastructure
 
         /// <summary>
         /// Positive control for the classifier. Without a genuinely architecture-stamped input, the scan
-        /// above would pass whether or not its logic worked. ThermoFisher.CommonCore.MassPrecisionEstimator
-        /// is kept in the test output purely as that input - nothing references it, and it is no longer
-        /// shipped in the package.
+        /// above would pass whether or not its logic worked. The assembly under FileReadingTests is test
+        /// data pinned for that purpose - nothing references it, it is not shipped, and it is deliberately
+        /// a separate copy from Readers\Thermo\ so that updating the vendored binaries cannot leave this
+        /// control with nothing to measure.
         /// </summary>
         [Test]
         public void TheClassifierRecognisesAnArchitectureStampedAssembly()

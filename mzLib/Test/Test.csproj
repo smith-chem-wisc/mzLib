@@ -43,8 +43,10 @@
   </ItemGroup>
 
   <ItemGroup>
-    <!-- architecture-stamped input for TestNoArchitectureSpecificAssemblyReferences; not referenced, not shipped -->
-    <None Include="..\Readers\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" Link="FileReadingTests\ArchitectureGuard\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
+    <!-- Architecture-stamped input for TestNoArchitectureSpecificAssemblyReferences. Test data, not a
+         dependency: pinned here rather than read from Readers\Thermo\ so that updating the vendored
+         Thermo binaries cannot leave the positive control with nothing to assert. See the README beside it. -->
+    <None Update="FileReadingTests\ArchitectureGuard\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
