@@ -8,6 +8,12 @@ using MassSpectrometry;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// An integrated elution peak for one identified species in one spectra file: the isotopic envelopes
+    /// that were grouped together, the resulting intensity, and how the peak was found. Peaks whose
+    /// <see cref="DetectionType"/> is MBR were transferred from another file by match-between-runs rather
+    /// than identified in this one.
+    /// </summary>
     public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
         public double Intensity { get; private set; }

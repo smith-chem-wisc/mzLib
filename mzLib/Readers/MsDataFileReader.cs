@@ -9,6 +9,11 @@ using MzLibUtil;
 
 namespace Readers
 {
+    /// <summary>
+    /// Entry point for reading a mass spectrometry data file. Dispatches on the file's extension and
+    /// returns the appropriate reader, so callers do not need to know whether they were handed an mzML,
+    /// a Thermo .raw, an MGF or a Bruker .d.
+    /// </summary>
     public static class MsDataFileReader 
     {
 

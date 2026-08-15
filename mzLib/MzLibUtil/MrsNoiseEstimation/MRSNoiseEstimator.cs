@@ -77,8 +77,8 @@ namespace MzLibUtil.NoiseEstimation
         /// <param name="noiseEstimate">The initial noise estimation of the signal.</param>
         /// <param name="noiseThreshold">A multiple of the noise estimate. noiseThreshold * noiseEstimate
         /// is the cutoff value determining whether or not a pixel is signal or noise.</param>
-        /// <returns>List<int[]>. Each element in the int[] is either a 0 or positive integer, representing a noise value (if 0)
-        /// or a signal value (if >9).</int></returns>
+        /// <returns>List of int[]. Each element in the int[] is either a 0 or positive integer, representing a noise value (if 0)
+        /// or a signal value (if &gt;9).</returns>
         private static List<int[]> BooleanizeLevels(ModWtOutput wtOutput, double noiseEstimate, double noiseThreshold)
         {
             List<int[]> booleanizedLevels = new();

@@ -15,7 +15,7 @@ using System.Xml.Serialization;
 // 
 
 
-/// <remarks/>
+// <remarks/>
 
 namespace mzIdentML120.Generated
 {

@@ -11,7 +11,7 @@ namespace Quantification.Interfaces
     /// An example would be collapsing technical replicates into a single sample by averaging their values.
     /// This is a column-wise operation that reduces the number of columns in the matrix.
     /// Incoming matrix has dimensions (p x s) where s = number of samples and p = number of peptide/proteins 
-    /// Outgoing matrix has dimensions (p x S) where S = number of collapsed sample, S <= s, and p = number of peptide/proteins 
+    /// Outgoing matrix has dimensions (p x S) where S = number of collapsed sample, S &lt;= s, and p = number of peptide/proteins 
     /// </summary>
     public interface ICollapseStrategy
     {

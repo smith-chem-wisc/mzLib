@@ -11,14 +11,14 @@ namespace Quantification;
 /// 1) Creates one SpectralMatchMatrix per file
 ///     1a) Normalize the SpectralMatch Matrix for each file
 /// 2) Roll up to peptides for each file
-///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
+///     2a) Map the PSMs to peptides, creating a Dictionary of IBioPolymerWithSetMods to List of int, mapping peptides to the indices of their PSMs in the QuantMatrix
 ///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
 ///     2c) Combine the per-file peptide matrices into a single matrix spanning all files, with missing values filled in as 0s
 /// 3) Normalize the peptide matrix
 /// 4) Collapse the peptide matrix, combining fractions and technical replicates
 /// * Writes peptide information (if enabled)
 /// 5) Roll up to proteins
-///     5a) Map the peptides to proteins, creating a Dictionary<IBioPolymerGroup, List<int>> Map mapping proteins to the indices of their peptides in the QuantMatrix
+///     5a) Map the peptides to proteins, creating a Dictionary of IBioPolymerGroup to List of int, mapping proteins to the indices of their peptides in the QuantMatrix
 ///     5b) Roll-up. The roll-up strategy will take in a QuantMatrix of peptides and the map, and output a Protein QuantMatrix
 /// 6) Normalize the protein matrix
 /// * Writes protein information (if enabled)

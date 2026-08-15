@@ -5,7 +5,7 @@ namespace Readers
 {
     public static class MsDataFileExtensions
     {
-        // <summary>
+        /// <summary>
         /// Extracts an ion chromatogram from the spectra file, given a mass, charge, retention time, and mass tolerance.
         /// </summary>
         public static ExtractedIonChromatogram ExtractIonChromatogram(this MsDataFile file, double neutralMass, int charge, Tolerance massTolerance, double retentionTimeInMinutes, int msOrder = 1, double retentionTimeWindowWidthInMinutes = 5)

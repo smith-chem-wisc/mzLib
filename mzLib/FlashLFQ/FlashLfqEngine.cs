@@ -21,6 +21,12 @@ using MassSpectrometry;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// Label-free quantification: takes identifications from a search, finds and integrates their
+    /// chromatographic peaks in each spectra file, optionally transfers identifications between files by
+    /// match-between-runs, then rolls peaks up to peptide and protein intensities.
+    /// Construct it with the identifications and options, then call <see cref="Run"/> once.
+    /// </summary>
     public class FlashLfqEngine
     {
         public FlashLfqParameters FlashParams { get; init; }
@@ -1992,7 +1998,7 @@ namespace FlashLFQ
         /// The ChromPeaks will be stored in chromPeaksInThisSequence
         /// For example, we have four invaild peak in the XIC, then we look at the first peak, generate chormPeak from each file. The dictionary will be like: peak1: [chromPeak (run 1), chromPeak (run 2), chromPeak (run 3)...]
         /// </summary>
-        /// <param name="peaksInOneXIC"> The time window for the valid peak, format is <time < start, end>> </start></param>
+        /// <param name="peaksInOneXIC"> The time window for the valid peak, format is time &lt; start, end &gt; </param>
         /// <param name="chromPeaksInThisSequence"> The resilt will store the inforamtion</param>
         internal void CollectChromPeakInRuns(PeakRegion sharedPeak, List<ChromatographicPeak> chromPeaksInSharedPeak, XICGroups xICGroups)
         {

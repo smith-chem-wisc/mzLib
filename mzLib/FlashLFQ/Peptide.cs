@@ -5,6 +5,12 @@ using System.Text;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// One peptide sequence's quantification across every spectra file: its intensity per file, how that
+    /// intensity was obtained per file, and the protein groups it belongs to. This is the roll-up of the
+    /// <see cref="ChromatographicPeak"/> objects sharing a sequence, and is what
+    /// QuantifiedPeptides.tsv is written from.
+    /// </summary>
     public class Peptide
     {
         public readonly string Sequence;

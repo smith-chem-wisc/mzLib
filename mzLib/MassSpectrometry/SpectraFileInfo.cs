@@ -67,7 +67,7 @@ namespace MassSpectrometry
         }
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are equal.
-        /// Two samples are equal if they have the same <see cref="FullFilePathWithExtension"/> and <see cref="ChannelLabel"/>.
+        /// Two samples are equal if they have the same <see cref="FullFilePathWithExtension"/> and <c>ChannelLabel</c>.
         /// </summary>
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
@@ -80,7 +80,7 @@ namespace MassSpectrometry
 
         /// <summary>
         /// Determines whether two <see cref="SpectraFileInfo"/> instances are not equal.
-        /// Two samples are not equal if they differ in <see cref="FullFilePathWithExtension"/> or <see cref="ChannelLabel"/>.
+        /// Two samples are not equal if they differ in <see cref="FullFilePathWithExtension"/> or <c>ChannelLabel</c>.
         /// </summary>
         /// <param name="left">The first instance to compare.</param>
         /// <param name="right">The second instance to compare.</param>
