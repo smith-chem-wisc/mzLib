@@ -5,6 +5,24 @@
          net10.0, since that is the default from net9.0 on; stated anyway so retargeting a project
          downwards cannot quietly reduce auditing to direct dependencies only. -->
     <NuGetAuditMode>all</NuGetAuditMode>
+
+    <!-- Emit the XML documentation file next to each assembly, and ship it in the package, so that
+         consumers get tooltips for mzLib types in their IDE. Roughly 1,900 <summary> blocks already
+         exist across the tree and none of them reached anyone outside this repository before now. -->
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+
+    <!-- Turning documentation generation on also turns on the doc-comment diagnostics. Two of them
+         are suppressed and two are deliberately left visible, on the line between "incomplete" and
+         "malformed":
+           CS1591 missing XML comment for a public type or member - 248 of 930 public types have none,
+                  so this would bury every other warning. Worth filling in, not worth hiding the build.
+           CS1573 a parameter has no matching param tag - partial documentation is still useful
+                  documentation, and the tooltip renders.
+         Left visible, because these mean a comment may not render at all and so defeat the point of
+         shipping the file: CS1570 badly formed XML, and CS1587 comment not on a valid language
+         element. Roughly 200 of those exist today; the generated XML still parses, so they degrade
+         rather than break, but they are real defects worth fixing. -->
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
