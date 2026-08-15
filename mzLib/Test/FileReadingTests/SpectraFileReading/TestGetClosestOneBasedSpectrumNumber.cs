@@ -11,10 +11,9 @@ namespace Test.FileReadingTests.SpectraFileReading
     /// the answers it must give, because a binary search is easy to write in a way that is right for
     /// interior values and wrong at the edges, on exact hits, or where scans share a retention time.
     ///
-    /// Note the variables below are typed as MsDataFile, not FakeMsDataFile. FakeMsDataFile declares its
-    /// own GetClosestOneBasedSpectrumNumber which HIDES rather than overrides the real one, and returns an
-    /// insertion point instead of the closest scan. A test that held the derived type would quietly
-    /// exercise the fake instead of the implementation.
+    /// These deliberately do not use FakeMsDataFile. It declares its own GetClosestOneBasedSpectrumNumber
+    /// which HIDES rather than overrides the real one and returns an insertion point instead of the closest
+    /// scan, so a test holding that type would quietly exercise the double instead of the implementation.
     /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -29,7 +28,30 @@ namespace Test.FileReadingTests.SpectraFileReading
                 scans[i] = new MsDataScan(spectrum, i + 1, 1, true, Polarity.Positive, retentionTimes[i],
                     new MzRange(50, 2000), "f", MZAnalyzerType.Orbitrap, 1.0, null, null, "scan=" + (i + 1));
             }
-            return new FakeMsDataFile(scans);
+            return new AlreadyLoadedFile(scans);
+        }
+
+        /// <summary>
+        /// A file whose scans are already in memory, so LoadAllStaticData is a no-op rather than a throw.
+        /// FakeMsDataFile cannot be used here for two reasons: it hides GetClosestOneBasedSpectrumNumber
+        /// with its own version, and its LoadAllStaticData throws. The second matters for the zero-scan
+        /// case, because CheckIfScansLoaded is "Scans != null &amp;&amp; Scans.Length > 0" - a file with no
+        /// scans always counts as not loaded, so the method tries to load before it can return anything.
+        /// </summary>
+        private sealed class AlreadyLoadedFile : MsDataFile
+        {
+            public AlreadyLoadedFile(MsDataScan[] scans)
+                : base(scans, new SourceFile(@"scan number only nativeID format", "mzML format", null,
+                    "SHA-1", @"C:\fake.mzML", null))
+            {
+            }
+
+            public override MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1) => this;
+            public override SourceFile GetSourceFile() => SourceFile;
+            public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber,
+                IFilteringParams filterParams = null) => GetOneBasedScan(oneBasedScanNumber);
+            public override void CloseDynamicConnection() { }
+            public override void InitiateDynamicConnection() { }
         }
 
         [Test]
@@ -125,11 +147,13 @@ namespace Test.FileReadingTests.SpectraFileReading
         }
 
         /// <summary>
-        /// A file with no scans returns 0 rather than 1 or an exception, matching what the linear version
-        /// returned when its loop never ran.
+        /// A file that loads successfully but contains no scans returns 0 rather than 1 or an exception,
+        /// matching what the linear version returned when its loop never ran. Reaching this requires a
+        /// LoadAllStaticData that succeeds without producing scans, because CheckIfScansLoaded treats a
+        /// zero-scan file as not loaded and the method therefore attempts a load first.
         /// </summary>
         [Test]
-        public static void EmptyFileReturnsZero()
+        public static void FileThatLoadsWithNoScansReturnsZero()
         {
             MsDataFile file = FileWithRetentionTimes();
 
