@@ -148,17 +148,43 @@ namespace MassSpectrometry
             if (!CheckIfScansLoaded())
                 LoadAllStaticData();
 
-            // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
-            double bestDiff = double.MaxValue;
-            for (int i = 0; i < NumSpectra; i++)
+            if (NumSpectra == 0)
+                return 0;
+
+            // Binary search rather than a walk. Retention times ascending is not a new assumption: the
+            // linear version this replaces stopped as soon as a scan's distance to the target grew, so it
+            // never looked past the first local minimum either. Making it explicit turns O(n) into
+            // O(log n), which matters because callers such as GetMsScansInTimeRange start here.
+            int low = 1;
+            int high = NumSpectra;
+            while (low < high)
             {
-                double diff = Math.Abs(GetOneBasedScan(i + 1).RetentionTime - retentionTime);
-                if (diff > bestDiff)
-                    return i;
-                bestDiff = diff;
+                int mid = low + (high - low) / 2;
+                if (GetOneBasedScan(mid).RetentionTime < retentionTime)
+                    low = mid + 1;
+                else
+                    high = mid;
             }
 
-            return NumSpectra;
+            // low is now the first scan at or after retentionTime, so the closest is either it or its
+            // predecessor. Strict less-than keeps the previous behaviour of preferring the later scan
+            // when a target falls exactly between two of them.
+            if (low > 1)
+            {
+                double distanceAfter = Math.Abs(GetOneBasedScan(low).RetentionTime - retentionTime);
+                double distanceBefore = Math.Abs(GetOneBasedScan(low - 1).RetentionTime - retentionTime);
+                if (distanceBefore < distanceAfter)
+                    return low - 1;
+            }
+
+            // Scans can share a retention time. The linear version kept walking while the distance stayed
+            // equal, so it came to rest on the last scan of such a run; binary search lands on the first.
+            // Advancing to the end of the run keeps the answer identical to the previous implementation.
+            double closestRetentionTime = GetOneBasedScan(low).RetentionTime;
+            while (low < NumSpectra && GetOneBasedScan(low + 1).RetentionTime == closestRetentionTime)
+                low++;
+
+            return low;
         }
 
         public virtual int[] GetMsOrderByScanInDynamicConnection()
