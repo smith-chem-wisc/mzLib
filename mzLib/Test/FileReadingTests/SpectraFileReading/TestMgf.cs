@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
@@ -240,6 +241,113 @@ namespace Test.FileReadingTests.SpectraFileReading
                 "CHARGE=2 did not parse as 2.");
             NUnit.Framework.Assert.That(reader.GetOneBasedScan(1).Polarity, Is.EqualTo(Polarity.Positive),
                 "An unsigned charge is positive.");
+        }
+
+        /// <summary>
+        /// Builds an MS1 + MS2 file in memory, writes it, and reads it back. MGF is a lossy container --
+        /// analyzer type, dissociation type and scan filters have nowhere to go, and the reader drops peaks
+        /// below 0.01 intensity and sorts by m/z -- so this asserts the subset the format can actually carry
+        /// rather than object equality, which could only pass by being weakened until it proved nothing.
+        /// </summary>
+        [Test]
+        public void MgfRoundTripPreservesScanContentThatTheFormatCanCarry()
+        {
+            var ms1 = new MsDataScan(
+                new MzSpectrum(new[] { 300.1, 400.2, 500.3 }, new[] { 1000.0, 2000.0, 3000.0 }, false),
+                oneBasedScanNumber: 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.5, scanWindowRange: new MzRange(300, 501), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 6000.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1");
+
+            var ms2 = new MsDataScan(
+                new MzSpectrum(new[] { 110.05, 220.11 }, new[] { 500.0, 750.0 }, false),
+                oneBasedScanNumber: 2, msnOrder: 2, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.6, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1250.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=2", selectedIonMz: 571.8069,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: 999999.0);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfRoundTrip.mgf");
+            new GenericMsDataFile(new[] { ms1, ms2 }, null).ExportAsMgf(path);
+
+            try
+            {
+                var reread = MsDataFileReader.GetDataFile(path);
+                reread.LoadAllStaticData();
+                var scans = reread.GetAllScansList();
+
+                NUnit.Framework.Assert.That(scans.Count, Is.EqualTo(2));
+
+                var readMs1 = scans[0];
+                NUnit.Framework.Assert.That(readMs1.MsnOrder, Is.EqualTo(1));
+                NUnit.Framework.Assert.That(readMs1.OneBasedScanNumber, Is.EqualTo(1));
+                NUnit.Framework.Assert.That(readMs1.SelectedIonMZ, Is.Null);
+                NUnit.Framework.Assert.That(readMs1.RetentionTime, Is.EqualTo(1.5).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs1.MassSpectrum.XArray, Is.EqualTo(new[] { 300.1, 400.2, 500.3 }).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs1.MassSpectrum.YArray, Is.EqualTo(new[] { 1000.0, 2000.0, 3000.0 }).Within(1e-9));
+
+                var readMs2 = scans[1];
+                NUnit.Framework.Assert.That(readMs2.MsnOrder, Is.EqualTo(2));
+                NUnit.Framework.Assert.That(readMs2.OneBasedScanNumber, Is.EqualTo(2));
+                NUnit.Framework.Assert.That(readMs2.SelectedIonMZ, Is.EqualTo(571.8069).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs2.SelectedIonChargeStateGuess, Is.EqualTo(2));
+                NUnit.Framework.Assert.That(readMs2.SelectedIonIntensity, Is.EqualTo(999999.0).Within(1e-6));
+                NUnit.Framework.Assert.That(readMs2.RetentionTime, Is.EqualTo(1.6).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs2.MassSpectrum.XArray, Is.EqualTo(new[] { 110.05, 220.11 }).Within(1e-9));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// The Matrix Science specification requires no whitespace around '=', all parameters ahead of the
+        /// fragment peaks, and '.' as the decimal separator regardless of machine locale. The culture is
+        /// switched to one that uses ',' for decimals so a missing InvariantCulture would show up here.
+        /// </summary>
+        [Test]
+        public void MgfWriterEmitsSpecConformantText()
+        {
+            var scan = new MsDataScan(
+                new MzSpectrum(new[] { 110.05, 220.11 }, new[] { 500.0, 750.0 }, false),
+                oneBasedScanNumber: 7, msnOrder: 2, isCentroid: true, polarity: Polarity.Negative,
+                retentionTime: 2.0, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1250.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=7", selectedIonMz: 350.5,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfSpecConformance.mgf");
+            var originalCulture = System.Threading.Thread.CurrentThread.CurrentCulture;
+
+            try
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture = new CultureInfo("de-DE");
+                new GenericMsDataFile(new[] { scan }, null).ExportAsMgf(path);
+
+                string[] lines = File.ReadAllLines(path);
+
+                NUnit.Framework.Assert.That(lines[0], Is.EqualTo("BEGIN IONS"));
+                NUnit.Framework.Assert.That(lines[^1], Is.EqualTo("END IONS"));
+
+                // a negative-polarity scan must carry the '-' suffix, and decimals must not be localised
+                NUnit.Framework.Assert.That(lines, Has.Member("CHARGE=2-"));
+                NUnit.Framework.Assert.That(lines, Has.Member("MSLEVEL=2"));
+                NUnit.Framework.Assert.That(lines, Has.Member("SCANS=7"));
+                NUnit.Framework.Assert.That(lines, Has.Member("PEPMASS=350.5"));
+                NUnit.Framework.Assert.That(lines, Has.Member("RTINSECONDS=120"));
+                NUnit.Framework.Assert.That(lines, Has.Member("110.05 500"));
+
+                // every parameter must precede the first peak line
+                int lastParameter = Array.FindLastIndex(lines, l => l.Contains('='));
+                int firstPeak = Array.FindIndex(lines, l => l.Length > 0 && char.IsDigit(l[0]));
+                NUnit.Framework.Assert.That(lastParameter, Is.LessThan(firstPeak));
+            }
+            finally
+            {
+                System.Threading.Thread.CurrentThread.CurrentCulture = originalCulture;
+                File.Delete(path);
+            }
         }
 
 

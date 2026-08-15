@@ -40,6 +40,9 @@ namespace Readers
                 {
                     using (StreamReader sr = new StreamReader(bs))
                     {
+                        // MS1 blocks carry no CHARGE, so their polarity comes from the last block that did
+                        Polarity lastPolarity = Polarity.Positive;
+
                         while (sr.Peek() > 0)
                         {
                             string line = sr.ReadLine();
@@ -48,10 +51,14 @@ namespace Readers
                                 continue;
                             }
 
-                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
+                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams,
+                                null, lastPolarity);
 
                             if (scan is not null)
+                            {
                                 scans.Add(scan);
+                                lastPolarity = scan.Polarity;
+                            }
                         }
                     }
                 }
@@ -138,8 +145,9 @@ namespace Readers
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
-        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
-            IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
+        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved,
+            IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null,
+            Polarity fallbackPolarity = Polarity.Positive)
         {
             List<double> mzs = new List<double>();
             List<double> intensities = new List<double>();
@@ -147,6 +155,9 @@ namespace Readers
             double precursorMz = 0;
             double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
+            int? msLevel = null; //from the MSLEVEL line when present
+            bool sawPrecursorMz = false;
+            bool sawCharge = false;
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
             int scanNumber = alreadyKnownScanNumber.HasValue ? alreadyKnownScanNumber.Value : 0;
@@ -172,6 +183,11 @@ namespace Readers
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
                     if (sArray.Length > 1)
                         precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
+                    sawPrecursorMz = true;
+                }
+                else if (line.StartsWith("MSLEVEL"))
+                {
+                    msLevel = Convert.ToInt32(sArray[1], CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("CHARGE"))
                 {
@@ -187,6 +203,7 @@ namespace Readers
                     {
                         charge *= -1;
                     }
+                    sawCharge = true;
                 }
                 else if (line.StartsWith("SCANS"))
                 {
@@ -242,8 +259,24 @@ namespace Readers
 
             scanNumbersAlreadyObserved.Add(scanNumber);
 
-            return new MsDataScan(spectrum, scanNumber, 2, true,
-                charge > 0 ? Polarity.Positive : Polarity.Negative,
+            // MSLEVEL when the writer supplied one; otherwise a block with a precursor is MS2 and a
+            // block without one is MS1. Files predating MSLEVEL all carry PEPMASS, so they read as before.
+            int msnOrder = msLevel ?? (sawPrecursorMz ? 2 : 1);
+
+            // MGF has no polarity field, so it can only be inferred from the sign of CHARGE. Blocks
+            // without one inherit the last polarity seen in the file.
+            Polarity polarity = sawCharge
+                ? (charge > 0 ? Polarity.Positive : Polarity.Negative)
+                : fallbackPolarity;
+
+            if (msnOrder == 1)
+            {
+                return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
+                    rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
+                    intensities.Sum(), 0, null, null);
+            }
+
+            return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
                 intensities.Sum(), 0, null, null, precursorMz, charge,
                 precursorIntensity, precursorMz, null, DissociationType.Unknown,
