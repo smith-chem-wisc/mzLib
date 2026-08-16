@@ -38,6 +38,7 @@ namespace Readers
         // metadata, then factor values.
         private const string SourceName = "source name";
         private const string Organism = "characteristics[organism]";
+        private const string OrganismPart = "characteristics[organism part]";
         private const string BiologicalReplicate = "characteristics[biological replicate]";
         private const string AssayName = "assay name";
         private const string TechnologyType = "technology type";
@@ -59,6 +60,25 @@ namespace Readers
         /// <summary>The one value SDRF defines for this column in an MS experiment.</summary>
         private const string TechnologyTypeValue = "proteomic profiling by mass spectrometry";
 
+        /// <summary>
+        /// Characteristics columns SDRF requires of every document, and which are therefore emitted
+        /// whether or not the caller supplied a value.
+        ///
+        /// Every other column this builder writes is unconditional, so a caller cannot omit one by
+        /// accident. These are the exception, because they arrive through
+        /// <see cref="SdrfSample.Characteristics"/> — an open dictionary — and a caller that simply
+        /// does not populate it produces a document with the column MISSING rather than empty.
+        ///
+        /// That distinction is the whole reason for this list. A missing column is invisible to
+        /// every instrument built to detect thin metadata: <see cref="SdrfCoverage"/> measures the
+        /// fill rate of columns that EXIST, so an absent column has no fill rate to report at all.
+        /// An empty column is visible, honest, and permitted — the specification marks organism part
+        /// required but allows the reserved words, and a fifth of the curated corpus uses one.
+        ///
+        /// So the rule is: always emit the column; let <see cref="Missing"/> decide what goes in it.
+        /// </summary>
+        private static readonly string[] RequiredCharacteristics = { OrganismPart };
+
         public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions options = null)
         {
             if (rows is null) throw new ArgumentNullException(nameof(rows));
@@ -73,8 +93,12 @@ namespace Readers
             int modificationSlots = Math.Max(1, inputs.Max(r =>
                 r.Assay.FixedModifications.Count + r.Assay.VariableModifications.Count));
 
+            // Union with the required set, so a caller who supplied no characteristics at all still
+            // gets a spec-conformant header. See RequiredCharacteristics for why absent is worse
+            // than empty.
             var characteristicColumns = inputs
                 .SelectMany(r => r.Sample.Characteristics.Keys)
+                .Concat(RequiredCharacteristics)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();

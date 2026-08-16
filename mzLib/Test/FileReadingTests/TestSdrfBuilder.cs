@@ -297,6 +297,48 @@ namespace Test.FileReadingTests
             }
         }
 
+        /// <summary>
+        /// A caller that supplies no characteristics at all still gets every required column.
+        ///
+        /// This is the one gap the rest of this fixture could not see, because Sample() has always
+        /// populated organism part — so every other test here proved the builder writes a column it
+        /// was handed, never that it writes one it was not. MetaMorpheus, which populates nothing,
+        /// produced documents with the column ABSENT for as long as that was true.
+        ///
+        /// Absent is strictly worse than empty. SdrfCoverage reports the fill rate of columns that
+        /// exist, so it cannot report a column that is not there; the document reads as complete
+        /// precisely where it says least.
+        /// </summary>
+        [Test]
+        public void RequiredCharacteristicsAreEmittedEvenWhenTheCallerSuppliesNone()
+        {
+            var sample = Sample() with { Characteristics = new Dictionary<string, CvParam>() };
+            var options = new SdrfBuilderOptions { RequireSampleMetadata = false };
+
+            var document = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) }, options);
+
+            Assert.That(document.Header.Contains("characteristics[organism part]"), Is.True,
+                "SDRF requires this column of every document; a caller that supplies no value must " +
+                "still get the column, or nothing downstream can see that it says nothing.");
+            Assert.That(document.Results[0]["characteristics[organism part]"], Is.EqualTo("not available"),
+                "The specification permits the reserved word here, and a fifth of the curated corpus " +
+                "uses one. Empty and honest beats absent.");
+            Assert.That(SdrfValidator.Validate(document).IsValid, Is.True);
+        }
+
+        /// <summary>
+        /// The strict path is unchanged: asking for sample metadata and not supplying it still
+        /// throws rather than quietly writing a reserved word.
+        /// </summary>
+        [Test]
+        public void RequiringSampleMetadataStillRefusesAnUnsuppliedRequiredCharacteristic()
+        {
+            var sample = Sample() with { Characteristics = new Dictionary<string, CvParam>() };
+
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) }),
+                Throws.TypeOf<MzLibException>());
+        }
+
         [Test]
         public void EmptyInputIsRejected()
         {
