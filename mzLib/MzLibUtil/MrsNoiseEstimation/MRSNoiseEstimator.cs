@@ -149,7 +149,6 @@ namespace MzLibUtil.NoiseEstimation
         /// Computes the standard deviation of the noise pixels of a signal given the signal, the
         /// output of the ModWt wavelet transform and the indexes generated from multi-resolution support. 
         /// </summary>
-        /// <param name="wtOutput">The output of the mod wavelet transform.</param>
         /// <param name="signal">A signal that has been smoothed by subtracting the wavelet coefficients from the original signal.</param>
         /// <param name="noiseIndices">An array of noise indices with either a zero or a positive integer value.
         /// Zero represents a noise pixel; positive integer represents a non-noise pixel.</param>

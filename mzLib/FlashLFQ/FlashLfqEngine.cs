@@ -823,7 +823,6 @@ namespace FlashLFQ
         /// Returns a pseudo-randomly selected peak that does not have the same mass as the donor
         /// </summary>
         /// <param name="peaksOrderedByMass"></param>
-        /// <param name="donorPeakPeakfindingMass"> Will search for a peak at least 5 Da away from the peakfinding mass </param>
         /// <returns></returns>
         internal ChromatographicPeak GetRandomPeak(
             List<ChromatographicPeak> peaksOrderedByMass,
@@ -1166,7 +1165,6 @@ namespace FlashLFQ
         /// <param name="rtInfo"> RtInfo object containing the predicted retention time for the acceptor peak and the width of the expected RT window </param>
         /// <param name="fileSpecificTol"> Ppm Tolerance specific to the acceptor file</param>
         /// <param name="donorPeak"> The donor peak. Acceptor peaks are presumed to represent the same peptide as the donor peak</param>
-        /// <param name="matchBetweenRunsIdentifiedPeaksThreadSpecific"> A dictionary containing peptide sequences and their associated mbr peaks </param>
         internal void FindAllAcceptorPeaks(
             SpectraFileInfo acceptorFile, 
             MbrScorer scorer,
@@ -1249,7 +1247,6 @@ namespace FlashLFQ
         /// <param name="acceptorFile"></param>
         /// <param name="mbrTol"></param>
         /// <param name="rtInfo"></param>
-        /// <param name="rtScoringDistribution"></param>
         /// <param name="z"></param>
         /// <param name="chargeEnvelopes"></param>
         /// <returns> An acceptor chromatographic peak, unless the peak found was already linked to an MS/MS id, in which case it return null. </returns>
@@ -1998,8 +1995,8 @@ namespace FlashLFQ
         /// The ChromPeaks will be stored in chromPeaksInThisSequence
         /// For example, we have four invaild peak in the XIC, then we look at the first peak, generate chormPeak from each file. The dictionary will be like: peak1: [chromPeak (run 1), chromPeak (run 2), chromPeak (run 3)...]
         /// </summary>
-        /// <param name="peaksInOneXIC"> The time window for the valid peak, format is time &lt; start, end &gt; </param>
-        /// <param name="chromPeaksInThisSequence"> The resilt will store the inforamtion</param>
+        /// <param name="sharedPeak"> The time window for the valid peak, format is time &lt; start, end &gt; </param>
+        /// <param name="chromPeaksInSharedPeak"> The resilt will store the inforamtion</param>
         internal void CollectChromPeakInRuns(PeakRegion sharedPeak, List<ChromatographicPeak> chromPeaksInSharedPeak, XICGroups xICGroups)
         {
             foreach (var xic in xICGroups)
@@ -2069,8 +2066,7 @@ namespace FlashLFQ
         /// </summary>
         /// <param name="rtInfo">Retention information</param>
         /// <param name="xic">The searched XIC</param>
-        /// <param name="idForChrom"></param>
-        /// <param name="isMBR"></param>
+        /// <param name="idsForChrom"></param>
         /// <returns></returns>
         internal ChromatographicPeak FindChromPeak(Tuple<double, double, double> rtInfo, XIC xic, List<Identification> idsForChrom, DetectionType detectionType)
         {

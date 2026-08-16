@@ -44,9 +44,7 @@ namespace FlashLFQ
         /// overloaded constructor for Isobaric_ambiguity peaks. In this case, the peak is identified by multiple identifications
         /// </summary>
         /// <param name="ids"></param>
-        /// <param name="isMbrPeak"></param>
         /// <param name="fileInfo"></param>
-        /// <param name="randomRt"></param>
         public ChromatographicPeak(List<Identification> ids, SpectraFileInfo fileInfo, DetectionType detectionType)
         { 
             SplitRT = 0;
