@@ -340,6 +340,9 @@
     <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\noncovalently_assoc_1_3_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\TestParentTolerance.mzid">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
      </None>

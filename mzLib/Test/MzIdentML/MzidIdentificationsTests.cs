@@ -24,6 +24,28 @@ namespace Test.MzIdentML
             Assert.That(mzid.Count, Is.EqualTo(65));
         }
 
+        /// <summary>
+        /// A 1.3.0 file declares the http://psidev.info/psi/pi/mzIdentML/1.3 namespace, so deserialization
+        /// against the 1.1.0, 1.1.1 and 1.2.0 types all fail before the 1.3.0 branch is reached. Reading a
+        /// value through several different accessors is the point: each one has its own version cascade, so
+        /// a missing 1.3.0 branch in any of them surfaces as a NullReferenceException rather than a wrong
+        /// answer. The fixture is the HUPO-PSI non-covalent association example.
+        /// </summary>
+        [Test]
+        public void MzIdentML130_IsReadThroughTheVersionCascade()
+        {
+            var mzid130 = new MzidIdentifications(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noncovalently_assoc_1_3_0.mzid"));
+
+            Assert.That(mzid130.Count, Is.EqualTo(1));
+            Assert.That(mzid130.PeptideSequenceWithoutModifications(0, 0), Is.EqualTo("AYALMTDIHWDDCFCR"));
+            Assert.That(mzid130.ChargeState(0, 0), Is.EqualTo(3));
+            Assert.That(mzid130.ExperimentalMassToCharge(0, 0), Is.EqualTo(1392.897440641436).Within(1e-9));
+            Assert.That(mzid130.CalculatedMassToCharge(0, 0), Is.EqualTo(1392.567094980103).Within(1e-9));
+            Assert.That(mzid130.ProteinAccession(0, 0), Is.EqualTo("P15640"));
+            Assert.That(mzid130.IsDecoy(0, 0), Is.False);
+        }
+
         [Test]
         public void ParentTolerance_IsNotNull()
         {
