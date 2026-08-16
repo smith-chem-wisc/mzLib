@@ -67,6 +67,31 @@ public class PrideArchiveClientTests
 
     private static string Array(params string[] fileJson) => "[" + string.Join(",", fileJson) + "]";
 
+    /// <summary>
+    /// The same record <see cref="FileJson"/> produces, written with its properties in a different
+    /// order and different whitespace — the same record to anything that parses it, a different one to
+    /// anything that compares bytes.
+    /// </summary>
+    private static string FileJsonReordered(string fileName) =>
+        $$"""
+        {   "totalDownloads": 19,
+            "fileName": "{{fileName}}",
+            "additionalAttributes": [], "compress": false,
+            "updatedDate": "2019-01-15T09:47:55.000+00:00",
+            "publicationDate": "2025-07-13T23:01:04.308+00:00",
+            "submissionDate": "2019-01-15T09:42:57.000+00:00",
+            "fileSizeBytes": 96358400,
+            "publicFileLocations": [
+              { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000469", "name": "FTP Protocol", "value": "ftp://ftp.pride.ebi.ac.uk/{{fileName}}" },
+              { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000468", "name": "Aspera Protocol", "value": "prd_ascp@fasp.ebi.ac.uk:{{fileName}}" }
+            ],
+            "checksum": "",
+            "fileCategory": { "value": "SEARCH", "name": "category", "accession": "PRIDE:0000408", "cvLabel": "PRIDE", "@type": "CvParam" },
+            "accession": "hashid",
+            "projectAccessions": ["PXD012345"]
+        }
+        """;
+
     // ---- deserialization ----------------------------------------------------
 
     [Test]
@@ -319,6 +344,84 @@ public class PrideArchiveClientTests
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
             Assert.That(handler.RequestedUris.Count, Is.EqualTo(2), "a short final page needs no probe");
         });
+    }
+
+    /// <summary>
+    /// The single-page fetch is the common case -- most PRIDE projects hold fewer files than the
+    /// default page size -- so it is the one the probe must not tax. Page 0 is trivially the largest
+    /// page seen, so "as full as any served" is vacuously true there and would probe every such fetch;
+    /// the requested pageSize is what decides it instead. 50 of a requested 100 is the server running
+    /// out, not a full page, so the header is believed and nothing further is requested.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_SinglePageShorterThanRequested_DoesNotProbe()
+    {
+        string[] names = Enumerable.Range(0, 50).Select(i => "f" + i).ToArray();
+        var handler = new StubHandler(request => request.RequestUri.ToString().Contains("page=0")
+            ? JsonResponse(Array(names.Select(n => FileJson(n)).ToArray()), totalRecords: 50)
+            : JsonResponse("[]", totalRecords: 50));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345"); // the default pageSize of 100
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Has.Count.EqualTo(50));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(1),
+                "50 files at a requested page size of 100 is a short page; the probe is not for it");
+        });
+    }
+
+    /// <summary>
+    /// A result set that GROWS between two requests repages itself, so the probe can be handed records
+    /// the fetch already holds: page 0 of a 2-record set is [a, b], and page 1 of the 3-record set it
+    /// became is [b, c]. The server is behaving correctly throughout -- the empty-page and
+    /// identical-page comments both decline to fail on exactly this -- so the answer cannot be to
+    /// throw, and it cannot be to append either: that hands the caller a duplicate "b", which it has no
+    /// way to see, and which a caller acts on by downloading the same file twice or reporting the wrong
+    /// count. The repeat is dropped by matching the whole JSON record, and only "c" is appended.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ResultSetGrowsBeforeTheProbe_DoesNotDuplicateARecord()
+    {
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: 2);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("b"), FileJson("c")), totalRecords: 3);
+            return JsonResponse("[]", totalRecords: 3);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        // Not [a, b, b, c]. The record the probe repeats is dropped; the one it genuinely adds is kept,
+        // so the probe still does the job it exists for on a result set that moved underneath it.
+        Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
+    }
+
+    /// <summary>
+    /// The repeat is matched on the whole record as PARSED JSON, not as raw bytes, so a server that
+    /// re-serves the same record with different whitespace or a different property order is still
+    /// recognised. Byte identity alone would miss it and append the duplicate.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ProbeRepeatsARecordFormattedDifferently_StillDropsIt()
+    {
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: 2);
+            // Same two records, reformatted: whitespace inserted and the properties reordered.
+            if (uri.Contains("page=1"))
+                return JsonResponse("[\n  " + FileJson("a") + " ,\n  " + FileJsonReordered("b") + "\n]", totalRecords: 2);
+            return JsonResponse("[]", totalRecords: 2);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
     }
 
     [Test]

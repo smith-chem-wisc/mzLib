@@ -11,6 +11,7 @@ using System.Threading.Tasks;
 using MassSpectrometry;
 using MzLibUtil;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace UsefulProteomicsDatabases
 {
@@ -103,7 +104,13 @@ namespace UsefulProteomicsDatabases
         /// <para>
         /// A <c>total_records</c> that misreports the count in either direction is tolerated: an
         /// overstated one stops on the empty page past the end, and an understated one is caught by
-        /// fetching one further page whenever the fetch would otherwise end on a full page.
+        /// fetching one further page whenever the fetch would otherwise end on a page that could be
+        /// full — a first page holding everything that was asked for, or a later page as large as the
+        /// largest the server has served. That costs one extra request per fetch of exactly that shape;
+        /// a fetch ending on a page that is visibly short pays nothing. The one case it cannot catch is
+        /// an understated total on a single page requested ABOVE the server cap, where the capped page
+        /// that comes back looks short but may not be — the same above-the-cap caveat as the paragraph
+        /// above.
         /// </para>
         /// </param>
         /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
@@ -670,9 +677,11 @@ namespace UsefulProteomicsDatabases
                     JsonConvert.DeserializeObject<List<T>>(content, JsonSettings) ?? new List<T>();
 
                 // A null ELEMENT ("[null]") deserializes to a null entry that carries no record at all.
-                // Drop it here, mirroring what RemoveNullElements does for PrideProject, so neither this
-                // loop nor a caller dereferences it. Nothing is lost: a null is not a record.
-                pageItems.RemoveAll(x => x is null);
+                // It is dropped below, mirroring what RemoveNullElements does for PrideProject, so
+                // neither this loop nor a caller dereferences it. Nothing is lost: a null is not a
+                // record. The count of what the SERVER actually served is taken first, because that --
+                // not what survives the tail-probe dedup further down -- is what says how full a page is.
+                int servedCount = pageItems.Count(x => x is not null);
 
                 // An empty page ends the fetch. This is also the backstop for a total_records that
                 // overstates what the server will actually serve: paging past the end returns a
@@ -681,7 +690,7 @@ namespace UsefulProteomicsDatabases
                 // reported as a shortfall -- there is no way to distinguish it from a result set whose
                 // size changed mid-fetch, and throwing would fail a caller who asked for
                 // nothing unreasonable.
-                if (pageItems.Count == 0)
+                if (servedCount == 0)
                     break; // no (more) records
 
                 // Every entry the server returns is kept. A page may legitimately repeat a value that
@@ -701,23 +710,60 @@ namespace UsefulProteomicsDatabases
                 // actually paged, needs no per-record key the DTO does not carry, and degrades safely:
                 // a server that varies its body (an embedded timestamp) merely stops this guard firing
                 // and falls through to the MaxPages backstop, as it did before the guard existed.
-                bool pageAdvanced = content != previousPageIdentity;
+                string previousPageBody = previousPageIdentity;
+                bool pageAdvanced = content != previousPageBody;
                 previousPageIdentity = content;
 
                 // A tail probe (see the total_records branch below) is speculative: total_records has
                 // already said the fetch is done, and this page is only being read in case it lied
                 // downward. So it must never be able to make things worse than trusting the header
-                // would have been. A probe that brought nothing new ends the fetch and lets the header
-                // stand -- deliberately NOT the identical-page throw, which is reserved for a server
-                // contradicting a total that says more is still to come. A server that ignores `page`
-                // entirely therefore still returns its records rather than throwing, exactly as it did
-                // before this guard existed.
-                if (verifyingTail && !pageAdvanced)
-                    break;
+                // would have been, and there are two ways it could.
+                //
+                // (1) It could bring nothing new, in which case the header was right after all and the
+                // fetch ends -- deliberately NOT the identical-page throw, which is reserved for a
+                // server contradicting a total that says more is still to come. A server that ignores
+                // `page` therefore still returns its records rather than throwing, as it did before this
+                // guard existed. A byte-identical body is that case outright, and is taken here without
+                // parsing anything; a body that repeats the same records in different bytes is caught by
+                // the record comparison below, which sees past whitespace and property order.
+                //
+                // One case is NOT recovered, and the claim is limited to match: a server that both
+                // ignores `page` AND varies the CONTENT of the records it re-serves (a per-record
+                // timestamp, say) produces pages that are new by every measure available here, so the
+                // fetch runs to the MaxPages backstop and throws where the total check used to stop it.
+                // That server already defeated the identical-page guard above before this probe existed;
+                // what is new is that the total check no longer rescues it. Nothing short of a record
+                // key -- which this loop has established the DTO does not have -- would tell those pages
+                // apart, and MaxPages remains settable by a caller who meets such a server.
+                //
+                // (2) It could bring records this fetch ALREADY HOLDS. A result set that grows between
+                // two requests shifts its own paging: page 0 of a 2-record set is [a, b], and page 1 of
+                // the 3-record set it became is [b, c]. That is a correct server, and the comments above
+                // and below both promise to tolerate it -- but appending the probe's answer wholesale
+                // would hand the caller a duplicated record, which is a worse failure than the truncation
+                // this probe exists to prevent, and one the caller cannot see. So a probe's records are
+                // matched against the page before them and the repeats are dropped.
+                //
+                // Matching is on the WHOLE JSON record, not on any field of it. The distinction matters:
+                // the comment above refuses to treat a field as a record's identity because a value may
+                // repeat or be absent, so two different records can share one. A complete record cannot
+                // be confused with a different record that way. Two byte-equal records in one manifest
+                // are indistinguishable from each other anyway, so dropping one of a straddling pair
+                // costs nothing a caller could act on.
+                if (verifyingTail)
+                {
+                    if (!pageAdvanced)
+                        break;
 
+                    NullOutRecordsRepeatedFromPreviousPage(pageItems, content, previousPageBody);
+                    if (pageItems.All(x => x is null))
+                        break; // the probe held nothing this fetch did not already have
+                }
+
+                pageItems.RemoveAll(x => x is null);
                 items.AddRange(pageItems);
-                if (pageItems.Count > largestPageSeen)
-                    largestPageSeen = pageItems.Count;
+                if (servedCount > largestPageSeen)
+                    largestPageSeen = servedCount;
 
                 if (TryGetTotalRecords(response, out long total))
                 {
@@ -743,21 +789,42 @@ namespace UsefulProteomicsDatabases
                     // and every record past the reported total is dropped with no error.
                     //
                     // It is only distinguishable by asking for one more page, and only worth asking
-                    // when the answer is in doubt. A page SHORTER than the largest the server has
-                    // actually served is the end of the data -- the server ran out, and the header
-                    // agrees -- so that stop is trusted outright. Stopping on a page that is as full as
-                    // any seen so far is the ambiguous case: it looks identical whether the total is
-                    // honest or one page short. There, one speculative page is fetched before
-                    // believing the header.
+                    // when the answer is in doubt. Truncation needs the last page to have been FULL:
+                    // a server with more to give fills the page it is giving. So a page that is not
+                    // full is the end of the data, the header agrees, and that stop is trusted outright.
+                    // A full one is the ambiguous case -- it looks identical whether the total is honest
+                    // or one page short -- and there one speculative page is fetched before believing
+                    // the header.
                     //
-                    // The probe cannot cost correctness, only a single request: it may add records the
-                    // header disclaimed, and the guard above makes an empty or repeated answer mean
-                    // "the header was right after all". The one request is spent only when a fetch ends
-                    // exactly on a full page boundary, which for an honest server means the record
-                    // count is an exact multiple of the page size.
+                    // "Full" is measured against different evidence on the first page than on later
+                    // ones, because the two pages carry different information.
+                    //
+                    // On a LATER page, the size of the largest page already served is what a full page
+                    // looks like from here, and it is the only sound measure: PRIDE caps pageSize
+                    // server-side and pages by the capped size, so a page of 100 against a requested 500
+                    // is full, and #1102 established that the requested size cannot tell the two apart.
+                    //
+                    // On page 0 there is no such evidence -- the first page is trivially the largest
+                    // seen, so that test is vacuously true and would probe every single-page fetch,
+                    // doubling the request count of the common case. The requested pageSize is the only
+                    // evidence there is, so it is used: a first page shorter than what was asked for is
+                    // the server running out. That is exact whenever pageSize is at or below the server
+                    // cap, which is every default call. It leaves one gap, and only one: a single-page
+                    // fetch that asked for MORE than the cap gets back a capped -- and therefore
+                    // possibly full -- page that looks short, so an understated total would still
+                    // truncate it. That is the same above-the-cap caveat the public docstring already
+                    // carries, and it buys back a request on every ordinary call.
+                    //
+                    // Getting this judgement wrong costs at most one request in one direction and, in
+                    // the gap above, the records the header disclaimed -- never a record the header
+                    // acknowledged. The probe itself cannot cost correctness at all: the guard above
+                    // drops anything it repeats, so it can only ever add.
                     if (items.Count >= total)
                     {
-                        if (pageItems.Count < largestPageSeen)
+                        bool pageCouldBeFull = page == 0
+                            ? servedCount >= pageSize
+                            : servedCount >= largestPageSeen;
+                        if (!pageCouldBeFull)
                             break;
                         verifyingTail = true;
                     }
@@ -770,7 +837,7 @@ namespace UsefulProteomicsDatabases
                         verifyingTail = false;
                     }
                 }
-                else if (pageItems.Count < pageSize)
+                else if (servedCount < pageSize)
                 {
                     // No total to trust: a short page is the last page.
                     break;
@@ -783,6 +850,48 @@ namespace UsefulProteomicsDatabases
             }
 
             return items;
+        }
+
+        /// <summary>
+        /// Nulls out the entries of a speculative tail page that the page before it already delivered,
+        /// so the null sweep in <see cref="GetAllPagesAsync{T}"/> removes them before they are appended.
+        /// Records are matched whole, as parsed JSON, which ignores whitespace and property order but
+        /// nothing that carries meaning.
+        /// </summary>
+        /// <remarks>
+        /// Nulling in place rather than filtering keeps this index-aligned with the raw array — the
+        /// caller has not yet swept its own nulls, so element <c>i</c> here is element <c>i</c> there —
+        /// and reuses the null removal that already exists instead of adding a second one.
+        /// <para>
+        /// Both bodies are known to be JSON arrays of the same length as their deserialized lists: the
+        /// caller reached this line only by deserializing <paramref name="pageBody"/> into
+        /// <paramref name="pageItems"/> element-for-element, and only on a page that follows another.
+        /// Re-checking either fact here would be an unreachable branch, so the invariant is stated
+        /// rather than guarded.
+        /// </para>
+        /// </remarks>
+        private static void NullOutRecordsRepeatedFromPreviousPage<T>(List<T> pageItems, string pageBody,
+            string previousPageBody) where T : class
+        {
+            JArray currentRecords = ParseJsonArray(pageBody);
+            JArray previousRecords = ParseJsonArray(previousPageBody);
+
+            for (int i = 0; i < pageItems.Count; i++)
+            {
+                if (previousRecords.Any(earlier => JToken.DeepEquals(currentRecords[i], earlier)))
+                    pageItems[i] = null;
+            }
+        }
+
+        /// <summary>
+        /// Parses a JSON array without the date recognition Newtonsoft applies by default, so a record
+        /// is compared as the server wrote it rather than as a round-trip through <see cref="DateTime"/>
+        /// would render it.
+        /// </summary>
+        private static JArray ParseJsonArray(string json)
+        {
+            using var reader = new JsonTextReader(new StringReader(json)) { DateParseHandling = DateParseHandling.None };
+            return JArray.Load(reader);
         }
 
         /// <summary>Reads the PRIDE "total_records" response header, if present and numeric.</summary>
