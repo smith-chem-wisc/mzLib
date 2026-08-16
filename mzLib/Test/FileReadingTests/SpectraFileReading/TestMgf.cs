@@ -350,6 +350,91 @@ namespace Test.FileReadingTests.SpectraFileReading
             }
         }
 
+        [Test]
+        public void MgfWriterRejectsANullFile()
+        {
+            NUnit.Framework.Assert.Throws<ArgumentNullException>(
+                () => MgfMethods.WriteMgf(null, Path.Combine(TestContext.CurrentContext.TestDirectory, "unused.mgf")));
+        }
+
+        /// <summary>
+        /// A file straight from MsDataFileReader has not loaded its scans yet, so the writer has to load
+        /// them itself. It also has a FilePath, which is where TITLE takes its name from in preference to
+        /// the output path.
+        /// </summary>
+        [Test]
+        public void MgfWriterLoadsAnUnloadedFileAndNamesTitleFromItsPath()
+        {
+            var source = MsDataFileReader.GetDataFile(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "tester.mgf"));
+            NUnit.Framework.Assert.That(source.Scans, Is.Null, "precondition: the file must not be loaded yet");
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfFromUnloaded.mgf");
+
+            try
+            {
+                source.ExportAsMgf(path);
+
+                string[] lines = File.ReadAllLines(path);
+                NUnit.Framework.Assert.That(lines.Count(l => l == "BEGIN IONS"), Is.EqualTo(source.GetAllScansList().Count));
+
+                // named for the source file, not the destination
+                NUnit.Framework.Assert.That(lines.First(l => l.StartsWith("TITLE=")), Does.Contain("tester"));
+                NUnit.Framework.Assert.That(lines.First(l => l.StartsWith("TITLE=")), Does.Not.Contain("mgfFromUnloaded"));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// Exercises the writer's three "nothing to say" paths: a null scan and an empty spectrum are both
+        /// skipped rather than emitted as peakless blocks, an unknown retention time omits RTINSECONDS
+        /// rather than writing NaN, and a null NativeId still produces a well-formed TITLE.
+        /// </summary>
+        [Test]
+        public void MgfWriterSkipsEmptyScansAndOmitsUnknownRetentionTime()
+        {
+            var empty = new MsDataScan(
+                new MzSpectrum(Array.Empty<double>(), Array.Empty<double>(), false),
+                oneBasedScanNumber: 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.0, scanWindowRange: null, scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 0.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1");
+
+            var noRetentionTime = new MsDataScan(
+                new MzSpectrum(new[] { 150.0 }, new[] { 42.0 }, false),
+                oneBasedScanNumber: 2, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: double.NaN, scanWindowRange: null, scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 42.0, injectionTime: null,
+                noiseData: null, nativeId: null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfSparse.mgf");
+
+            try
+            {
+                new GenericMsDataFile(new[] { null, empty, noRetentionTime }, null).ExportAsMgf(path);
+
+                string[] lines = File.ReadAllLines(path);
+
+                // only the one scan that has peaks is written
+                NUnit.Framework.Assert.That(lines.Count(l => l == "BEGIN IONS"), Is.EqualTo(1));
+                NUnit.Framework.Assert.That(lines, Has.Member("SCANS=2"));
+                NUnit.Framework.Assert.That(lines, Has.No.Member("SCANS=1"));
+
+                // NaN retention time drops the line rather than writing "RTINSECONDS=NaN"
+                NUnit.Framework.Assert.That(lines.Any(l => l.StartsWith("RTINSECONDS")), Is.False);
+
+                // a null NativeId still yields a parseable TITLE
+                NUnit.Framework.Assert.That(lines.First(l => l.StartsWith("TITLE=")), Does.Contain("NativeID:\"\""));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
 
         [Test]
         public static void TestLoadCorruptMgf()
