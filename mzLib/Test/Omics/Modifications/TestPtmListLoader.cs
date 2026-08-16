@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using System.Linq;
 using Omics.Modifications;
+using ModificationLoader = global::Omics.Modifications.IO.ModificationLoader;
 using UsefulProteomicsDatabases;
 using Stopwatch = System.Diagnostics.Stopwatch;
 
@@ -164,6 +165,69 @@ namespace Test.Omics.Modifications
             NUnit.Framework.Assert.That(warnings.Count == 2);
 
             NUnit.Framework.Assert.That(warnings.First().Item2.Contains("Modification type cannot contain ':'!"));
+        }
+
+        // Issue #353: a field code with no value used to be dereferenced without a null check. Existing tests
+        // only covered an absent line, which is a different path. Both loaders are covered because
+        // PtmListLoader duplicates the parsing loop rather than delegating to ModificationLoader.
+        private const string ValidMod = "ID   testmod\r\nMT   type\r\nPP   Anywhere.\r\nTG   X\r\nCF   H1\r\n//";
+
+        [Test]
+        // padded to the usual column and bare, because the loader trims before it slices the value off
+        [TestCase("ID")] [TestCase("MT")] [TestCase("PP")] [TestCase("TG")] [TestCase("CF")]
+        [TestCase("MM")] [TestCase("DR")] [TestCase("TR")] [TestCase("KW")] [TestCase("NL")]
+        [TestCase("DI")] [TestCase("FT")] [TestCase("AC")]
+        public static void TestFieldCodeWithNoValueDoesNotThrow(string fieldCode)
+        {
+            foreach (string emptyLine in new[] { fieldCode, fieldCode + "   " })
+            {
+                string modText = ValidMod.Replace("//", emptyLine + "\r\n//");
+
+                NUnit.Framework.Assert.DoesNotThrow(() =>
+                    ModificationLoader.ReadModsFromString(modText, out _).ToList(),
+                    $"ModificationLoader threw on an empty '{fieldCode}' value");
+#pragma warning disable CS0618 // the obsolete wrapper duplicates the loop, so it needs its own guard
+                NUnit.Framework.Assert.DoesNotThrow(() =>
+                    PtmListLoader.ReadModsFromString(modText, out _).ToList(),
+                    $"PtmListLoader threw on an empty '{fieldCode}' value");
+#pragma warning restore CS0618
+            }
+        }
+
+        // DR and TR expect a "key; value" pair and indexed straight into the split result.
+        [Test]
+        [TestCase("DR")]
+        [TestCase("TR")]
+        public static void TestDatabaseAndTaxonomicReferenceWithoutAPairDoesNotThrow(string fieldCode)
+        {
+            string modText = ValidMod.Replace("//", fieldCode + "   onlykey\r\n//");
+
+            NUnit.Framework.Assert.DoesNotThrow(() =>
+                ModificationLoader.ReadModsFromString(modText, out _).ToList());
+        }
+
+        // The reachable form of the bug: these are values mzLib's own writer emits, so a database it wrote
+        // could not be read back. An empty keyword writes "KW   " and an empty reference writes "DR   ; ".
+        [Test]
+        public static void TestModificationsMzLibWritesCanBeReadBack()
+        {
+            ModificationMotif.TryGetMotif("X", out ModificationMotif motif);
+
+            var emptyKeyword = new Modification("m", null, "mt", null, motif, "Anywhere.", null, 10,
+                _keywords: new System.Collections.Generic.List<string> { "" });
+            var emptyReference = new Modification("m", null, "mt", null, motif, "Anywhere.", null, 10,
+                _databaseReference: new System.Collections.Generic.Dictionary<string, System.Collections.Generic.IList<string>>
+                    { { "", new System.Collections.Generic.List<string> { "" } } });
+
+            foreach (var modification in new[] { emptyKeyword, emptyReference })
+            {
+                string written = modification.ToString() + "\r\n//";
+                var reread = ModificationLoader.ReadModsFromString(written, out var errors).ToList();
+
+                NUnit.Framework.Assert.That(reread.Count, Is.EqualTo(1),
+                    $"could not read back a modification mzLib wrote:\r\n{written}");
+                NUnit.Framework.Assert.That(errors.Count, Is.EqualTo(0));
+            }
         }
     }
 }

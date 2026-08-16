@@ -19,6 +19,11 @@ namespace UsefulProteomicsDatabases
     {
         private static readonly Dictionary<string, char> AminoAcidCodes;
 
+        // Field codes whose handlers below require a value. NL and DI are absent on purpose: both
+        // accept an empty value.
+        private static readonly HashSet<string> FieldCodesRequiringAValue =
+            new() { "TG", "CF", "MM", "DR", "TR", "KW" };
+
         static PtmListLoader()
         {
             AminoAcidCodes = new Dictionary<string, char>
@@ -190,6 +195,14 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
+                        // A field code with no value is treated as an absent line (#353). Without this the cases
+                        // below dereference a null modValue. NL and DI are excluded deliberately: both are
+                        // documented to be meaningful with no value, and "//" must still reach the switch.
+                        if (string.IsNullOrWhiteSpace(modValue) && FieldCodesRequiringAValue.Contains(modKey))
+                        {
+                            continue;
+                        }
+
                     switch (modKey)
                     {
                         case "ID": // Mandatory
@@ -245,6 +258,10 @@ namespace UsefulProteomicsDatabases
 
                         case "DR": // External database links!
                             var splitStringDR = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
+                            if (splitStringDR.Length < 2)
+                            {
+                                break; //not a "key; value" pair
+                            }
                             if(_databaseReference==null)
                             {
                                 _databaseReference = new Dictionary<string, IList<string>>();
@@ -262,6 +279,10 @@ namespace UsefulProteomicsDatabases
 
                         case "TR": // External database links!
                             var splitStringTR = modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None);
+                            if (splitStringTR.Length < 2)
+                            {
+                                break; //not a "key; value" pair
+                            }
 
                             if (_taxonomicRange == null)
                             {
