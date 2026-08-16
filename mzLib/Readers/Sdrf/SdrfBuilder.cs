@@ -314,8 +314,14 @@ namespace Readers
                 : SdrfReserved.NotAvailable;
     }
 
-    /// <summary>The SDRF reserved words, which the specification requires lowercase.</summary>
-    public static class SdrfReserved
+    /// <summary>
+    /// The SDRF reserved words, which the specification requires lowercase.
+    ///
+    /// Internal, per D19: nothing outside this assembly calls it. The builder is the only thing that
+    /// writes a reserved word, and a consumer reading one back compares against the literal text the
+    /// specification fixes, not against a constant this library owns.
+    /// </summary>
+    internal static class SdrfReserved
     {
         public const string NotAvailable = "not available";
         public const string NotApplicable = "not applicable";
