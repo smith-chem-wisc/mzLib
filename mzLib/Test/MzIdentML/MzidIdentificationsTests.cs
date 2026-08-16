@@ -26,24 +26,52 @@ namespace Test.MzIdentML
 
         /// <summary>
         /// A 1.3.0 file declares the http://psidev.info/psi/pi/mzIdentML/1.3 namespace, so deserialization
-        /// against the 1.1.0, 1.1.1 and 1.2.0 types all fail before the 1.3.0 branch is reached. Reading a
-        /// value through several different accessors is the point: each one has its own version cascade, so
-        /// a missing 1.3.0 branch in any of them surfaces as a NullReferenceException rather than a wrong
-        /// answer. The fixture is the HUPO-PSI non-covalent association example.
+        /// against the 1.1.0, 1.1.1 and 1.2.0 types all fail before the 1.3.0 branch is reached.
+        ///
+        /// Every accessor carries its own independent version cascade, so each one has to be exercised
+        /// separately -- a cascade missing its 1.3.0 branch ends at a null 1.2.0 field and throws
+        /// NullReferenceException rather than returning a wrong answer. MatchedIons and MatchedIonCounts
+        /// are the two not covered here: no published 1.3.0 example carries a fragmentation table.
+        ///
+        /// The fixture is examples/1_3examples/crosslinking/noncovalently_assoc_1_3_0_draft.mzid from the
+        /// HUPO-PSI repository, which validates against the released 1.3.0 schema.
         /// </summary>
         [Test]
-        public void MzIdentML130_IsReadThroughTheVersionCascade()
+        public void MzIdentML130_IsReadThroughEveryVersionCascade()
         {
             var mzid130 = new MzidIdentifications(
                 Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noncovalently_assoc_1_3_0.mzid"));
 
-            Assert.That(mzid130.Count, Is.EqualTo(1));
-            Assert.That(mzid130.PeptideSequenceWithoutModifications(0, 0), Is.EqualTo("AYALMTDIHWDDCFCR"));
-            Assert.That(mzid130.ChargeState(0, 0), Is.EqualTo(3));
-            Assert.That(mzid130.ExperimentalMassToCharge(0, 0), Is.EqualTo(1392.897440641436).Within(1e-9));
-            Assert.That(mzid130.CalculatedMassToCharge(0, 0), Is.EqualTo(1392.567094980103).Within(1e-9));
-            Assert.That(mzid130.ProteinAccession(0, 0), Is.EqualTo("P15640"));
-            Assert.That(mzid130.IsDecoy(0, 0), Is.False);
+            Assert.Multiple(() =>
+            {
+                Assert.That(mzid130.ParentTolerance.Value, Is.EqualTo(3.0).Within(1e-9));
+                Assert.That(mzid130.FragmentTolerance.Value, Is.EqualTo(20.0).Within(1e-9));
+
+                Assert.That(mzid130.Count, Is.EqualTo(1));
+                Assert.That(mzid130.NumPSMsFromScan(0), Is.EqualTo(2));
+                Assert.That(mzid130.Ms2SpectrumID(0), Is.EqualTo("13773"));
+
+                Assert.That(mzid130.CalculatedMassToCharge(0, 0), Is.EqualTo(1392.567094980103).Within(1e-9));
+                Assert.That(mzid130.ExperimentalMassToCharge(0, 0), Is.EqualTo(1392.897440641436).Within(1e-9));
+                Assert.That(mzid130.ChargeState(0, 0), Is.EqualTo(3));
+                Assert.That(mzid130.IsDecoy(0, 0), Is.False);
+
+                // the fixture declares no q-value, and the accessor reports that as -1
+                Assert.That(mzid130.QValue(0, 0), Is.EqualTo(-1).Within(1e-9));
+
+                Assert.That(mzid130.PeptideSequenceWithoutModifications(0, 0), Is.EqualTo("AYALMTDIHWDDCFCR"));
+                Assert.That(mzid130.ProteinAccession(0, 0), Is.EqualTo("P15640"));
+                Assert.That(mzid130.ProteinFullName(0, 0), Does.StartWith("PUR2_ECOLI"));
+                Assert.That(mzid130.StartResidueInProtein(0, 0), Is.EqualTo("401"));
+                Assert.That(mzid130.EndResidueInProtein(0, 0), Is.EqualTo("416"));
+
+                Assert.That(mzid130.NumModifications(0, 0), Is.EqualTo(3));
+                Assert.That(mzid130.ModificationAcession(0, 0, 0), Is.EqualTo("MS:1003393"));
+                Assert.That(mzid130.ModificationValue(0, 0, 0), Is.EqualTo("ox"));
+                Assert.That(mzid130.ModificationDictionary(0, 0, 0), Is.EqualTo("PSI-MS"));
+                Assert.That(mzid130.ModificationLocation(0, 0, 0), Is.EqualTo(5));
+                Assert.That(mzid130.ModificationMass(0, 0, 0), Is.EqualTo(15.99491).Within(1e-9));
+            });
         }
 
         [Test]
