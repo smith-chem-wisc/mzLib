@@ -24,7 +24,7 @@ namespace Readers
     /// <item>
     ///     <description>
     ///     Mapping source file fields to the required interface properties:
-    ///     <c>ISingleChargeMs1Feature.MZ</c>,
+    ///     <see cref="ISingleChargeMs1Feature.Mz"/>,
     ///     <see cref="ISingleChargeMs1Feature.Charge"/>,
     ///     <see cref="ISingleChargeMs1Feature.RetentionTimeStart"/>,
     ///     <see cref="ISingleChargeMs1Feature.RetentionTimeEnd"/>,

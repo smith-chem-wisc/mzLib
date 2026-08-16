@@ -113,7 +113,7 @@ namespace Omics.SpectralMatch
 
         /// <summary>
         /// One-based positions of residues covered by matched fragment ions.
-        /// Null until <c>GetSequenceCoverage(IEnumerable{int}, IEnumerable{int})</c> is called.
+        /// Null until <see cref="GetSequenceCoverage"/> is called.
         /// A residue is considered covered if it has fragment evidence from sequential ions
         /// or from both N-terminal and C-terminal directions.
         /// </summary>

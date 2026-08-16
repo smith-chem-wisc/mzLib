@@ -14,17 +14,22 @@
          code no consumer ever sees. -->
     <GenerateDocumentationFile Condition="'$(MSBuildProjectName)' != 'Test' and '$(MSBuildProjectName)' != 'Development'">true</GenerateDocumentationFile>
 
-    <!-- Turning documentation generation on also turns on the doc-comment diagnostics. Two of them
-         are suppressed and two are deliberately left visible, on the line between "incomplete" and
-         "malformed":
+    <!-- Turning documentation generation on turns on seven doc-comment diagnostics. Two are
+         suppressed, on the line between "incomplete" and "wrong":
            CS1591 missing XML comment for a public type or member - 248 of 930 public types have none,
                   so this would bury every other warning. Worth filling in, not worth hiding the build.
            CS1573 a parameter has no matching param tag - partial documentation is still useful
                   documentation, and the tooltip renders.
-         Left visible, because these mean a comment may not render at all and so defeat the point of
-         shipping the file: CS1570 badly formed XML, and CS1587 comment not on a valid language
-         element. Roughly 200 of those exist today; the generated XML still parses, so they degrade
-         rather than break, but they are real defects worth fixing. -->
+         The rest are left visible, because each one means a comment renders wrongly or not at all,
+         which defeats the point of shipping the file:
+           CS1570 badly formed XML                CS1587 comment not on a valid language element
+           CS1572 param tag, no such parameter    CS1711 typeparam tag, no such type parameter
+           CS1734 paramref, no such parameter     CS1574 cref that does not resolve
+           CS0419 ambiguous cref
+         All are at 0 except CS0419, which sits at 24. Those do resolve, just to an unspecified
+         overload, so the link works and only the signature is arbitrary.
+         Counts come from a non-incremental build; an incremental one hides warnings from
+         dependency projects it did not rebuild. -->
     <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
   </PropertyGroup>
 
