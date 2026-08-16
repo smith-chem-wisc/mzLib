@@ -123,99 +123,11 @@ namespace UsefulProteomicsDatabases
             if (pageSize <= 0)
                 throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
 
-            var files = new List<PrideArchiveFile>();
-            string previousPageIdentity = null;
-            int page = 0;
-
-            while (true)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-                string requestUri = $"projects/{Uri.EscapeDataString(accession)}/files?pageSize={pageSize}&page={page}";
-                using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
-
-                if (!response.IsSuccessStatusCode)
-                    throw new HttpRequestException(
-                        $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
-
-                string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-                List<PrideArchiveFile> pageFiles =
-                    JsonConvert.DeserializeObject<List<PrideArchiveFile>>(content, JsonSettings) ?? new List<PrideArchiveFile>();
-
-                // A null ELEMENT ("[null]") deserializes to a null entry that carries no file at all.
-                // Drop it here, mirroring what RemoveNullElements does for PrideProject, so neither this
-                // loop nor a caller dereferences it. Nothing is lost: a null is not a manifest record.
-                pageFiles.RemoveAll(f => f is null);
-
-                // An empty page ends the fetch. This is also the backstop for a total_records that
-                // overstates what the server will actually serve: paging past the end returns a
-                // zero-byte body (verified live 2026-07-23), which deserializes to an empty list. An
-                // overstatement is therefore accepted as the server's own correction rather than
-                // reported as a shortfall -- there is no way to distinguish it from a project whose
-                // file count changed mid-fetch, and throwing would fail a caller who asked for
-                // nothing unreasonable.
-                if (pageFiles.Count == 0)
-                    break; // no (more) files
-
-                // Every entry the server returns stays in the manifest. A manifest may legitimately
-                // repeat a leaf name (the same name under different publicFileLocations), and an entry
-                // with no fileName at all is a case DownloadFileAsync already expects and guards. So
-                // paging progress is a property of the PAGE, not of individual file names: deciding
-                // membership by name uniqueness would silently drop real records, which is precisely
-                // the failure this method exists to prevent.
-                //
-                // The page's identity is therefore its RAW RESPONSE BODY, not a projection of it.
-                // File names are the one field this method has already established it cannot treat as
-                // an identity: a name may legitimately repeat, or be absent entirely, so two
-                // consecutive pages of genuinely DIFFERENT records can share a name sequence and be
-                // misread as a re-served page -- failing a correct server on exactly the manifests the
-                // comment above promises to support. A separator alone does not close that gap; the
-                // names simply are not the record. The body distinguishes any two pages the server
-                // actually paged, needs no per-record key the DTO does not carry, and degrades safely:
-                // a server that varies its body (an embedded timestamp) merely stops this guard firing
-                // and falls through to the MaxPages backstop, as it did before the guard existed.
-                bool pageAdvanced = content != previousPageIdentity;
-                previousPageIdentity = content;
-
-                files.AddRange(pageFiles);
-
-                if (TryGetTotalRecords(response, out long total))
-                {
-                    // Checked BEFORE the total comparison: a server re-serving the same page forever
-                    // would otherwise push files.Count past total with duplicates and break out as if
-                    // it had succeeded, hiding the fault behind a plausible-looking manifest.
-                    //
-                    // This is deliberately the strict signal -- a page byte-identical to its
-                    // predecessor -- rather than "this page added nothing new". A project whose files
-                    // change mid-fetch can legitimately return a page that merely overlaps the previous
-                    // one, and the empty-page comment above declines to throw on exactly that
-                    // ambiguity; failing only on an exactly-repeated page keeps the two consistent.
-                    if (!pageAdvanced)
-                        throw new MzLibException(
-                            $"PRIDE Archive re-served an identical page {page} for accession '{accession}' " +
-                            $"while reporting {total} total records. The server may be ignoring the page " +
-                            $"parameter, or the project's file list may have changed mid-fetch.");
-
-                    // The server's own record count is authoritative: stop once we have all of it.
-                    if (files.Count >= total)
-                        break;
-                    // More remain, so keep paging even though the page may look short. PRIDE caps
-                    // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
-                    // so requesting 500 yields a 100-file "short" page that still has successors.
-                    // Treating that as the last page silently truncated the manifest.
-                }
-                else if (pageFiles.Count < pageSize)
-                {
-                    // No total to trust: a short page is the last page.
-                    break;
-                }
-
-                page++;
-                if (page >= MaxPages)
-                    throw new HttpRequestException(
-                        $"PRIDE Archive paging exceeded {MaxPages} pages for accession '{accession}'; the server may be ignoring paging parameters.");
-            }
-
-            return files;
+            return await GetAllPagesAsync<PrideArchiveFile>(
+                page => $"projects/{Uri.EscapeDataString(accession)}/files?pageSize={pageSize}&page={page}",
+                pageSize,
+                $"accession '{accession}'",
+                cancellationToken).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -704,6 +616,127 @@ namespace UsefulProteomicsDatabases
             // than re-checked here, where the null branch would be unreachable and untestable.
             foreach (PrideSampleAttribute attribute in project.SampleAttributes)
                 attribute.Value.RemoveAll(x => x == null);
+        }
+
+        /// <summary>
+        /// Fetches every page of a PRIDE endpoint that answers with a bare JSON array plus a
+        /// <c>total_records</c> response header, and concatenates them in server order.
+        /// </summary>
+        /// <remarks>
+        /// More than one PRIDE endpoint uses this envelope, and the termination rules below are subtle
+        /// enough — and have been got wrong often enough — that a second copy of them would only be a
+        /// second place for the same truncation bug to live. The rules are documented at each step
+        /// rather than here, because each one exists to defend against a specific observed behavior.
+        /// </remarks>
+        /// <typeparam name="T">The element type of a single page.</typeparam>
+        /// <param name="requestUriForPage">Builds the request URI for a zero-based page index.</param>
+        /// <param name="pageSize">
+        /// The page size that was requested. Used only by the fallback that runs when the response
+        /// carries no usable <c>total_records</c> header.
+        /// </param>
+        /// <param name="subject">
+        /// Names what is being paged, for error messages — e.g. <c>accession 'PXD012345'</c>. It is
+        /// interpolated as written, so each endpoint's failures stay as specific as they were when this
+        /// loop lived inside that endpoint's own method.
+        /// </param>
+        /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
+        /// <returns>Every element the endpoint served, across all pages. Never null.</returns>
+        private async Task<List<T>> GetAllPagesAsync<T>(Func<int, string> requestUriForPage, int pageSize,
+            string subject, CancellationToken cancellationToken) where T : class
+        {
+            var items = new List<T>();
+            string previousPageIdentity = null;
+            int page = 0;
+
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                string requestUri = requestUriForPage(page);
+                using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+
+                if (!response.IsSuccessStatusCode)
+                    throw new HttpRequestException(
+                        $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+
+                string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                List<T> pageItems =
+                    JsonConvert.DeserializeObject<List<T>>(content, JsonSettings) ?? new List<T>();
+
+                // A null ELEMENT ("[null]") deserializes to a null entry that carries no record at all.
+                // Drop it here, mirroring what RemoveNullElements does for PrideProject, so neither this
+                // loop nor a caller dereferences it. Nothing is lost: a null is not a record.
+                pageItems.RemoveAll(x => x is null);
+
+                // An empty page ends the fetch. This is also the backstop for a total_records that
+                // overstates what the server will actually serve: paging past the end returns a
+                // zero-byte body (verified live 2026-07-23), which deserializes to an empty list. An
+                // overstatement is therefore accepted as the server's own correction rather than
+                // reported as a shortfall -- there is no way to distinguish it from a result set whose
+                // size changed mid-fetch, and throwing would fail a caller who asked for
+                // nothing unreasonable.
+                if (pageItems.Count == 0)
+                    break; // no (more) records
+
+                // Every entry the server returns is kept. A page may legitimately repeat a value that
+                // looks like a key (a manifest may list the same leaf name under different
+                // publicFileLocations, and an entry with no fileName at all is a case DownloadFileAsync
+                // already expects and guards). So paging progress is a property of the PAGE, not of the
+                // individual records: deciding membership by the uniqueness of any one field would
+                // silently drop real records, which is precisely the failure this loop exists to prevent.
+                //
+                // The page's identity is therefore its RAW RESPONSE BODY, not a projection of it.
+                // A record field is the one thing this loop has already established it cannot treat as
+                // an identity: a value may legitimately repeat, or be absent entirely, so two
+                // consecutive pages of genuinely DIFFERENT records can share a field sequence and be
+                // misread as a re-served page -- failing a correct server on exactly the result sets the
+                // comment above promises to support. A separator alone does not close that gap; the
+                // fields simply are not the record. The body distinguishes any two pages the server
+                // actually paged, needs no per-record key the DTO does not carry, and degrades safely:
+                // a server that varies its body (an embedded timestamp) merely stops this guard firing
+                // and falls through to the MaxPages backstop, as it did before the guard existed.
+                bool pageAdvanced = content != previousPageIdentity;
+                previousPageIdentity = content;
+
+                items.AddRange(pageItems);
+
+                if (TryGetTotalRecords(response, out long total))
+                {
+                    // Checked BEFORE the total comparison: a server re-serving the same page forever
+                    // would otherwise push items.Count past total with duplicates and break out as if
+                    // it had succeeded, hiding the fault behind a plausible-looking result.
+                    //
+                    // This is deliberately the strict signal -- a page byte-identical to its
+                    // predecessor -- rather than "this page added nothing new". A result set that
+                    // changes mid-fetch can legitimately return a page that merely overlaps the previous
+                    // one, and the empty-page comment above declines to throw on exactly that
+                    // ambiguity; failing only on an exactly-repeated page keeps the two consistent.
+                    if (!pageAdvanced)
+                        throw new MzLibException(
+                            $"PRIDE Archive re-served an identical page {page} for {subject} " +
+                            $"while reporting {total} total records. The server may be ignoring the page " +
+                            $"parameter, or the result set may have changed mid-fetch.");
+
+                    // The server's own record count is authoritative: stop once we have all of it.
+                    if (items.Count >= total)
+                        break;
+                    // More remain, so keep paging even though the page may look short. PRIDE caps
+                    // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
+                    // so requesting 500 yields a 100-record "short" page that still has successors.
+                    // Treating that as the last page silently truncated the result.
+                }
+                else if (pageItems.Count < pageSize)
+                {
+                    // No total to trust: a short page is the last page.
+                    break;
+                }
+
+                page++;
+                if (page >= MaxPages)
+                    throw new HttpRequestException(
+                        $"PRIDE Archive paging exceeded {MaxPages} pages for {subject}; the server may be ignoring paging parameters.");
+            }
+
+            return items;
         }
 
         /// <summary>Reads the PRIDE "total_records" response header, if present and numeric.</summary>
