@@ -229,15 +229,22 @@ public class PrideArchiveClientTests
         });
     }
 
+    /// <summary>
+    /// The counterpart to the overstated case, and the pin on what the tail probe costs. The fetch ends
+    /// on a page as full as any served, which is indistinguishable from a total that is one page short,
+    /// so one further page is requested before the header is believed.
+    /// </summary>
+    /// <remarks>
+    /// The stub ignores <c>page</c> and serves the same two files forever, never an empty page. That is
+    /// deliberate and does double duty: it makes total_records the only thing that can stop this loop,
+    /// so weakening that check shows up here; and it is the worst case for the probe, because the probe
+    /// walks straight into the identical-page guard. Returning the two files rather than throwing is
+    /// what makes the probe strictly non-regressive -- a server that ignores paging behaves exactly as
+    /// it did before the probe existed.
+    /// </remarks>
     [Test]
-    public async Task GetProjectFilesAsync_TotalRecordsExactlyMatched_DoesNotFetchExtraPage()
+    public async Task GetProjectFilesAsync_TotalRecordsExactlyMatched_ProbesOncePastTheReportedTotal()
     {
-        // The counterpart to the overstated case. Note the stub ignores `page` and serves the same
-        // two files forever, never an empty page: that makes the total_records check the ONLY thing
-        // that can stop this loop on the first request, so if it is ever weakened this test does not
-        // fail by one wasted request -- the second request re-serves an identical page and trips the
-        // identical-page guard instead. PagesUntilTotalRecords cannot pin that, because its fallback
-        // returns [] and the empty-page check would rescue it.
         const long total = 2;
         var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total));
         using var client = new PrideArchiveClient(new HttpClient(handler));
@@ -246,8 +253,71 @@ public class PrideArchiveClientTests
 
         Assert.Multiple(() =>
         {
+            // The repeated page is discarded, not appended: the probe adds records only when the server
+            // actually has some. Duplicating "a" and "b" here would be the tail probe reintroducing the
+            // duplicate-padding failure the identical-page guard exists to prevent.
             Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
-            Assert.That(handler.RequestedUris.Count, Is.EqualTo(1));
+            // 2, not 1: the cost of closing the understated-total hole, paid only when a fetch ends
+            // exactly on a full page. Was 1 before the probe; changing it back re-opens that hole.
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2));
+        });
+    }
+
+    /// <summary>
+    /// An UNDERSTATED total_records is the mirror of the overstated case and truncates the tail: every
+    /// record past the reported total is dropped with no error, which is the same silent-truncation
+    /// class as the capped-pageSize bug. Verified RED against the pre-probe loop, which returns 2 of 4.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsUnderstated_ReturnsEveryRecordAnyway()
+    {
+        // The server has 4 files but reports 2. Reaching page=1 at all requires disbelieving the header.
+        const long understatedTotal = 2;
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: understatedTotal);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("c"), FileJson("d")), totalRecords: understatedTotal);
+            return JsonResponse("[]", totalRecords: understatedTotal);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c", "d" }));
+            // 3 requests: page 0, the probe that finds the disclaimed tail, and the empty page that
+            // ends it. Asserting the count is what makes this discriminate -- the file list alone would
+            // also pass if the loop ignored total_records entirely, which is not the fix.
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(3));
+        });
+    }
+
+    /// <summary>
+    /// The probe is spent only on the ambiguous stop. A fetch that ends on a page SHORTER than the
+    /// largest served has reached the end of the data, the header agrees, and no extra request is made.
+    /// This is what keeps the probe from costing a request on every ordinary multi-page fetch.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsMatchedOnAShortPage_DoesNotProbe()
+    {
+        const long total = 3;
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("c")), totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2), "a short final page needs no probe");
         });
     }
 

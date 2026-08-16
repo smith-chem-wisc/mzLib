@@ -100,6 +100,11 @@ namespace UsefulProteomicsDatabases
         /// page against, and termination falls back to the first short page — under which a requested
         /// size above the server cap can still return a partial manifest. Leave this at the default
         /// unless you have a reason not to; the full manifest is returned either way at or below the cap.
+        /// <para>
+        /// A <c>total_records</c> that misreports the count in either direction is tolerated: an
+        /// overstated one stops on the empty page past the end, and an understated one is caught by
+        /// fetching one further page whenever the fetch would otherwise end on a full page.
+        /// </para>
         /// </param>
         /// <param name="cancellationToken">Cancels the (possibly multi-page) fetch.</param>
         /// <returns>
@@ -647,6 +652,8 @@ namespace UsefulProteomicsDatabases
             var items = new List<T>();
             string previousPageIdentity = null;
             int page = 0;
+            int largestPageSeen = 0;
+            bool verifyingTail = false;
 
             while (true)
             {
@@ -697,7 +704,20 @@ namespace UsefulProteomicsDatabases
                 bool pageAdvanced = content != previousPageIdentity;
                 previousPageIdentity = content;
 
+                // A tail probe (see the total_records branch below) is speculative: total_records has
+                // already said the fetch is done, and this page is only being read in case it lied
+                // downward. So it must never be able to make things worse than trusting the header
+                // would have been. A probe that brought nothing new ends the fetch and lets the header
+                // stand -- deliberately NOT the identical-page throw, which is reserved for a server
+                // contradicting a total that says more is still to come. A server that ignores `page`
+                // entirely therefore still returns its records rather than throwing, exactly as it did
+                // before this guard existed.
+                if (verifyingTail && !pageAdvanced)
+                    break;
+
                 items.AddRange(pageItems);
+                if (pageItems.Count > largestPageSeen)
+                    largestPageSeen = pageItems.Count;
 
                 if (TryGetTotalRecords(response, out long total))
                 {
@@ -716,13 +736,39 @@ namespace UsefulProteomicsDatabases
                             $"while reporting {total} total records. The server may be ignoring the page " +
                             $"parameter, or the result set may have changed mid-fetch.");
 
-                    // The server's own record count is authoritative: stop once we have all of it.
+                    // The server's own record count is authoritative for stopping -- but only upward.
+                    // An OVERSTATED total is already handled (the empty page above accepts it as the
+                    // server's own correction). An UNDERSTATED one is the mirror failure, and it
+                    // truncates the tail exactly as the capped-pageSize bug did: stop at Count >= total
+                    // and every record past the reported total is dropped with no error.
+                    //
+                    // It is only distinguishable by asking for one more page, and only worth asking
+                    // when the answer is in doubt. A page SHORTER than the largest the server has
+                    // actually served is the end of the data -- the server ran out, and the header
+                    // agrees -- so that stop is trusted outright. Stopping on a page that is as full as
+                    // any seen so far is the ambiguous case: it looks identical whether the total is
+                    // honest or one page short. There, one speculative page is fetched before
+                    // believing the header.
+                    //
+                    // The probe cannot cost correctness, only a single request: it may add records the
+                    // header disclaimed, and the guard above makes an empty or repeated answer mean
+                    // "the header was right after all". The one request is spent only when a fetch ends
+                    // exactly on a full page boundary, which for an honest server means the record
+                    // count is an exact multiple of the page size.
                     if (items.Count >= total)
-                        break;
-                    // More remain, so keep paging even though the page may look short. PRIDE caps
-                    // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
-                    // so requesting 500 yields a 100-record "short" page that still has successors.
-                    // Treating that as the last page silently truncated the result.
+                    {
+                        if (pageItems.Count < largestPageSeen)
+                            break;
+                        verifyingTail = true;
+                    }
+                    else
+                    {
+                        // More remain, so keep paging even though the page may look short. PRIDE caps
+                        // pageSize server-side (100 as of 2026-07-23) and then pages by the capped size,
+                        // so requesting 500 yields a 100-record "short" page that still has successors.
+                        // Treating that as the last page silently truncated the result.
+                        verifyingTail = false;
+                    }
                 }
                 else if (pageItems.Count < pageSize)
                 {
