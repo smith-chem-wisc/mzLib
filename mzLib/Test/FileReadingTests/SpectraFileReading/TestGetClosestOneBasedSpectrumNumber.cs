@@ -257,6 +257,36 @@ namespace Test.FileReadingTests.SpectraFileReading
             });
         }
 
+        /// <summary>
+        /// Retention times are assumed finite and ascending, and MGF makes that easy to break: RTINSECONDS
+        /// is optional, so Mgf stores NaN when it is absent. Test/DataFiles/tester.mgf has three such scans
+        /// interleaved with two real ones.
+        ///
+        /// None of the values below is a contract. There is no meaningful answer for these files - they are
+        /// pinned so that a change in the search surfaces here as a deliberate edit rather than a silent
+        /// behaviour flip. The pre-binary-search walk returned the last scan for the all-NaN case where this
+        /// returns the first, which is exactly the kind of change worth noticing. Tracked in #1175.
+        ///
+        /// Note the last assertion: a query past the end of the file comes back with a scan that has no
+        /// retention time at all, which is the clearest illustration that the answer is arbitrary.
+        /// </summary>
+        [Test]
+        public static void NonFiniteRetentionTimesHaveNoDefinedAnswerButAreStable()
+        {
+            MsDataFile allNaN = FileWithRetentionTimes(double.NaN, double.NaN, double.NaN);
+            MsDataFile interleaved = FileWithRetentionTimes(double.NaN, 1.0, 2.0, double.NaN, double.NaN);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(allNaN.GetClosestOneBasedSpectrumNumber(5.0), Is.EqualTo(1), "unspecified, pinned");
+                Assert.That(allNaN.GetMsScansInTimeRange(0, 100).Count(), Is.EqualTo(3), "unspecified, pinned");
+                Assert.That(interleaved.GetClosestOneBasedSpectrumNumber(0.0), Is.EqualTo(1), "unspecified, pinned");
+                Assert.That(interleaved.GetClosestOneBasedSpectrumNumber(1.4), Is.EqualTo(2), "unspecified, pinned");
+                Assert.That(interleaved.GetClosestOneBasedSpectrumNumber(100.0), Is.EqualTo(4),
+                    "unspecified, pinned - scan 4 has no retention time");
+            });
+        }
+
         [Test]
         public static void RangeQueriesSeededByThisMethodYieldTheExpectedScans()
         {

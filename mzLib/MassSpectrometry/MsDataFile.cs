@@ -143,6 +143,23 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// The one-based scan number whose retention time is closest to <paramref name="retentionTime"/>,
+        /// or 0 for a file with no scans. Where several scans share the closest retention time, the last of
+        /// them is returned.
+        /// </summary>
+        /// <remarks>
+        /// Assumes retention times ascend with scan order, which is what makes the search valid. Nothing
+        /// enforces that. Readers order scans by scan number rather than by retention time, RTINSECONDS is
+        /// optional in MGF so Mgf stores NaN when it is absent, and MsAlign stores DefaultErrorValue when
+        /// the field will not parse. Test/DataFiles/tester.mgf is such a file: three of its five scans have
+        /// no retention time, interleaved with the two that do rather than grouped at one end.
+        ///
+        /// For a file that breaks the assumption the result is unspecified, and the break is not detected,
+        /// because every comparison against NaN is false and the search simply converges somewhere. Tests
+        /// pin the current answers so that changing them has to be a deliberate edit rather than a silent
+        /// flip, but callers should not rely on them. See #1175.
+        /// </remarks>
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
             if (!CheckIfScansLoaded())
