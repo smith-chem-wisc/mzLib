@@ -155,12 +155,31 @@ namespace MassSpectrometry
             // linear version this replaces stopped as soon as a scan's distance to the target grew, so it
             // never looked past the first local minimum either. Making it explicit turns O(n) into
             // O(log n), which matters because callers such as GetMsScansInTimeRange start here.
-            int low = 1;
-            int high = NumSpectra;
+            //
+            // Indexes Scans rather than calling GetOneBasedScan. Mgf and MsAlign override that accessor to
+            // read a separate null-padded array sized to the largest scan number, so probing an arbitrary
+            // slot in [1, NumSpectra] throws on a file whose scan numbers have gaps. Scans is the array
+            // NumSpectra is measured from, so searching it directly cannot land on a hole those two readers
+            // introduced.
+            //
+            // The result is converted back through OneBasedScanNumber rather than returned as a position,
+            // because for those same two readers the two differ. Everywhere else they coincide: the base
+            // GetOneBasedScan is Scans[n - 1], and Mzml keeps that true even for an out-of-order file by
+            // rebuilding Scans indexed by scan number. So this changes no answer that was previously
+            // correct, and starts giving a usable one where the position was meaningless.
+            //
+            // Chemistry.ClassExtensions.GetClosestIndex is the existing helper for this shape of search and
+            // was considered. It does not fit: it takes a double[], so it would need a materialised array of
+            // retention times, which is O(n) per call unless cached on the file and invalidated on load; and
+            // Array.BinarySearch is documented as unspecified for duplicate keys, so it cannot reproduce the
+            // last-scan-of-an-equal-run answer below. Mslindex.BinarySearchLowerBound hand-rolls its loop for
+            // the same reason.
+            int low = 0;
+            int high = NumSpectra - 1;
             while (low < high)
             {
                 int mid = low + (high - low) / 2;
-                if (GetOneBasedScan(mid).RetentionTime < retentionTime)
+                if (Scans[mid].RetentionTime < retentionTime)
                     low = mid + 1;
                 else
                     high = mid;
@@ -168,23 +187,39 @@ namespace MassSpectrometry
 
             // low is now the first scan at or after retentionTime, so the closest is either it or its
             // predecessor. Strict less-than keeps the previous behaviour of preferring the later scan
-            // when a target falls exactly between two of them.
-            if (low > 1)
+            // when a target falls exactly between two of them. No run-advance is needed on this branch:
+            // the search has already landed past the run, so its predecessor is the last member.
+            if (low > 0)
             {
-                double distanceAfter = Math.Abs(GetOneBasedScan(low).RetentionTime - retentionTime);
-                double distanceBefore = Math.Abs(GetOneBasedScan(low - 1).RetentionTime - retentionTime);
+                double distanceAfter = Math.Abs(Scans[low].RetentionTime - retentionTime);
+                double distanceBefore = Math.Abs(Scans[low - 1].RetentionTime - retentionTime);
                 if (distanceBefore < distanceAfter)
-                    return low - 1;
+                    return Scans[low - 1].OneBasedScanNumber;
             }
 
             // Scans can share a retention time. The linear version kept walking while the distance stayed
             // equal, so it came to rest on the last scan of such a run; binary search lands on the first.
-            // Advancing to the end of the run keeps the answer identical to the previous implementation.
-            double closestRetentionTime = GetOneBasedScan(low).RetentionTime;
-            while (low < NumSpectra && GetOneBasedScan(low + 1).RetentionTime == closestRetentionTime)
-                low++;
+            // A second search for the end of the run keeps the answer identical to the previous
+            // implementation without reintroducing a linear step: the run is unbounded, because MsAlign
+            // assigns DefaultErrorValue to every scan whose retention time field fails to parse, which makes
+            // the whole file one run.
+            //
+            // The exact == is deliberate. The walk being reproduced continued only while the distance was
+            // not strictly greater than the best so far, which is itself an exact-equality test, so a
+            // tolerance here would merge scans a few ULPs apart that the old code kept separate.
+            double closestRetentionTime = Scans[low].RetentionTime;
+            int runEnd = low;
+            int runHigh = NumSpectra - 1;
+            while (runEnd < runHigh)
+            {
+                int mid = runEnd + (runHigh - runEnd + 1) / 2;
+                if (Scans[mid].RetentionTime == closestRetentionTime)
+                    runEnd = mid;
+                else
+                    runHigh = mid - 1;
+            }
 
-            return low;
+            return Scans[runEnd].OneBasedScanNumber;
         }
 
         public virtual int[] GetMsOrderByScanInDynamicConnection()
