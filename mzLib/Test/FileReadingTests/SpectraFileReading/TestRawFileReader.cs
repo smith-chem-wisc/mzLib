@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -346,13 +346,24 @@ namespace Test.FileReadingTests.SpectraFileReading
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
+            // Two readers, deliberately. GetOneBasedScanFromDynamicConnection short-circuits to the
+            // static cache when scans are already loaded, so a single reader that has called
+            // LoadAllStaticData hands back the very same MsDataScan instance and every comparison
+            // below is a scan against itself.
             var staticRaw = MsDataFileReader.GetDataFile(filePath);
             staticRaw.LoadAllStaticData();
-            staticRaw.InitiateDynamicConnection();
+
+            var dynamicRaw = MsDataFileReader.GetDataFile(filePath);
+            dynamicRaw.InitiateDynamicConnection();
 
             foreach (MsDataScan staticScan in staticRaw.GetAllScansList())
             {
-                MsDataScan dynamicScan = staticRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan = dynamicRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                NUnit.Framework.Assert.That(dynamicScan, Is.Not.Null,
+                    $"No scan {staticScan.OneBasedScanNumber} came back from the dynamic connection.");
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan, staticScan), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
 
                 Assert.IsFalse(staticScan.MassSpectrum.YArray.Contains(0));
                 Assert.IsFalse(dynamicScan.MassSpectrum.YArray.Contains(0));
