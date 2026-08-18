@@ -195,13 +195,13 @@ namespace UsefulProteomicsDatabases
                         }
                     }
 
-                        // A field code with no value is treated as an absent line (#353). Without this the cases
-                        // below dereference a null modValue. NL and DI are excluded deliberately: both are
-                        // documented to be meaningful with no value, and "//" must still reach the switch.
-                        if (string.IsNullOrWhiteSpace(modValue) && FieldCodesRequiringAValue.Contains(modKey))
-                        {
-                            continue;
-                        }
+                    // A field code with no value is treated as an absent line (#353). Without this the cases
+                    // below dereference a null modValue. NL and DI are excluded deliberately: both are
+                    // documented to be meaningful with no value, and "//" must still reach the switch.
+                    if (string.IsNullOrWhiteSpace(modValue) && FieldCodesRequiringAValue.Contains(modKey))
+                    {
+                        continue;
+                    }
 
                     switch (modKey)
                     {
