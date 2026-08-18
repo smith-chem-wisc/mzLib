@@ -343,6 +343,15 @@
     <None Update="DataFiles\noncovalently_assoc_1_3_0.mzid">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\multiple_spectra_per_id_1_3_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\OpenxQuest_example_1_2_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\mzidLib_xtandem_fdr_1_2_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\TestParentTolerance.mzid">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
      </None>
