@@ -27,9 +27,9 @@ namespace Test.DatabaseTests
         [OneTimeSetUp]
         public static void SetUpModifications()
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
         }
 
         [SetUp]

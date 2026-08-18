@@ -115,14 +115,20 @@ public class KoinaModelDiscoveryTests
     /// extra underscore) silently turns every prediction for that model into a 404 at runtime. This
     /// case catches that against the real registry instead of trusting the spelling in the code.
     ///
-    /// Tagged [Category("Koina")] so it only runs when network tests are enabled; it will report a
-    /// false failure if the Koina server itself is unreachable. [TestCaseSource] runs it once per
-    /// discovered model, so a wrong name fails as its own clearly-labelled case.
+    /// Tagged [Category("ExternalService")] so it runs in the dedicated non-blocking job rather than the
+    /// required one, and routed through <see cref="ExternalServiceTestHelper.RunAsync"/> so an unreachable
+    /// Koina server reports Skipped with a reason instead of the false failure this test used to produce.
+    /// A wrong model name still fails, because the assertion below is not an availability problem.
+    /// [TestCaseSource] runs it once per discovered model, so a wrong name fails as its own case.
+    ///
+    /// The rest of this fixture is offline and deliberately stays in the required job.
     /// </summary>
     [Test]
+    [Category("ExternalService")]
     [Category("Koina")]
     [TestCaseSource(nameof(ConcreteKoinaModelTypes))]
-    public static async Task EveryConcreteModel_ModelNameResolvesToRegisteredKoinaEndpoint(Type modelType)
+    public static Task EveryConcreteModel_ModelNameResolvesToRegisteredKoinaEndpoint(Type modelType) =>
+        ExternalServiceTestHelper.RunAsync("Koina", async () =>
     {
         // ConcreteKoinaModelTypes() (above) discovered this Type by reflection — we only have a Type,
         // not a statically-typed reference. Build an instance with its default ctor, then read the
@@ -139,6 +145,10 @@ public class KoinaModelDiscoveryTests
         // registered model and a 4xx (e.g. 400) for a name it does not recognize.
         using var response = await client.GetAsync($"{HTTP.ModelsURL}{modelName}");
 
+        // Separate "Koina is unwell" from "this name is wrong" before asserting: 408/429/5xx are the
+        // server's problem and skip, where the 4xx it returns for an unknown name must still fail.
+        ExternalServiceTestHelper.ThrowIfUnavailable(response);
+
         // A success status means the name is registered. On failure the message names the offending
         // class, its ModelName, and the HTTP status so the fix is obvious — compare against the docs
         // and keep ModelName, the doc-URL comment, and the PR table in agreement.
@@ -146,5 +156,5 @@ public class KoinaModelDiscoveryTests
             $"{modelType.Name}.ModelName '{modelName}' did not resolve at Koina " +
             $"({(int)response.StatusCode} {response.ReasonPhrase}). Verify the exact identifier against " +
             "https://koina.wilhelmlab.org/docs.");
-    }
+    });
 }

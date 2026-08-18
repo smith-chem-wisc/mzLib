@@ -163,7 +163,15 @@ namespace UsefulProteomicsDatabases
                     protein.FullName,
                     true,
                     protein.IsContaminant,
-                    null,
+                    // Carry the taxonomy across, and ONLY the taxonomy. A decoy is a reversed
+                    // sequence from this organism's database, so its organism is genuinely the
+                    // same; it is not annotated in EMBL, GO or anywhere else, so copying every
+                    // database reference would assert things about it that are false. Without this
+                    // a FASTA target answered the taxonomy question and its decoy did not, which
+                    // defeats the point of recording it.
+                    protein.DatabaseReferences
+                        ?.Where(r => r.Type == Protein.NcbiTaxonomyDatabaseReferenceType)
+                        .ToList(),
                     decoyVariations,
                     decoyAppliedVariations,
                     protein.SampleNameForVariants,

@@ -28,6 +28,10 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
 using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -261,9 +265,9 @@ namespace Test.DatabaseTests
         [TestCase("proteinEntryLipidMoietyBindingRegion.xml", DecoyType.Reverse)]
         public void LoadingLipidAsMod(string fileName, DecoyType decoyType)
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
 
             // Load in proteins
             var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
@@ -296,23 +300,45 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, count);
         }
 
+        // The Loaders.Update* tests below, FilesEqualHash and FilesLoading each download an ontology over
+        // the network (unimod.org, github.com, uniprot.org). They are the live canaries for that download
+        // path, so they carry [Category("ExternalService")] and run in the dedicated non-blocking job.
+        //
+        // They also run through ExternalServiceTestHelper.RunAsync, which is what makes the result
+        // readable: a third party being down reports Skipped with "we tried, the service is down", while a
+        // contract break — a moved URL, a response that no longer parses — still Fails. Without it these
+        // surfaced an outage as a raw 100-second TaskCanceledException, indistinguishable from a real bug.
+        //
+        // Tests that merely need a realistic modification list are NOT canaries and are NOT categorised;
+        // they read the committed fixtures via TestOntologies so they never touch the network at all.
+        // TestUpdateElements is likewise uncategorised: it only validates the in-memory periodic table.
+
         [Test]
-        public void TestUpdateUnimod()
+        [Category("ExternalService")]
+        [Category("Unimod")]
+        public static Task TestUpdateUnimod() => ExternalServiceTestHelper.RunAsync("Unimod", () =>
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");
             Loaders.UpdateUnimod(unimodLocation);
             Loaders.UpdateUnimod(unimodLocation);
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
-        public void TestUpdatePsiMod()
+        [Category("ExternalService")]
+        [Category("PsiMod")]
+        public static Task TestUpdatePsiMod() => ExternalServiceTestHelper.RunAsync("PSI-MOD", () =>
         {
             var psimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.xml");
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
-        }
+            return Task.CompletedTask;
+        });
+
         [Test]
-        public void TestUpdatePsiModObo()
+        [Category("ExternalService")]
+        [Category("PsiMod")]
+        public static Task TestUpdatePsiModObo() => ExternalServiceTestHelper.RunAsync("PSI-MOD", () =>
         {
             string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
             Directory.CreateDirectory(testDirectory);
@@ -365,7 +391,224 @@ namespace Test.DatabaseTests
                 AutoFlush = true
             };
             Console.SetOut(standardOutput);
+            return Task.CompletedTask;
+        });
+
+        /// <summary>
+        /// Pins the reason <see cref="Loaders.DownloadContent"/> checks the status code: it used to stream a
+        /// 404 page to disk, and since the callers hash that file and move it into place, an outage could
+        /// install an error page as the PTM database. The failure then surfaced as a corrupt ontology much
+        /// later instead of as a failed download.
+        ///
+        /// Deliberately NOT routed through <see cref="ExternalServiceTestHelper.RunAsync"/>: it converts
+        /// HttpRequestException into a skip, and the thrown HttpRequestException is precisely what this test
+        /// asserts. EnsureReachable covers the outage case instead — if UniProt is unreachable the fixture is
+        /// skipped, so only a reachable host that answers non-success can fail this.
+        /// </summary>
+        [Test]
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public void DownloadContentRejectsNonSuccessInsteadOfWritingIt()
+        {
+            ExternalServiceTestHelper.EnsureReachable("UniProt", "http://uniprot.org/docs/ptmlist.txt");
+
+            // Same host, a path it answers 404 on — the shape of the bug, not a fabricated one.
+            string outputFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "notFound.ptmlist.txt");
+            File.Delete(outputFile);
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://rest.uniprot.org/docs/ptmlist.txt", outputFile));
+
+            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
+            Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
         }
+
+        // ---- DownloadContent, offline --------------------------------------------------------
+        //
+        // The live canary above proves the contract against the real UniProt. It cannot cover it: the
+        // required CI job, which is the only place coverage is collected, runs
+        // --filter "Category!=ExternalService". So the failure paths are driven here through a stubbed
+        // HttpClient instead, which is also the only way to reach a mid-transfer failure on demand.
+
+        /// <summary>An HttpMessageHandler that returns a caller-supplied response and records request URIs.</summary>
+        private sealed class StubHandler : HttpMessageHandler
+        {
+            private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+            public List<string> RequestedUris { get; } = new();
+
+            public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) => _responder = responder;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                RequestedUris.Add(request.RequestUri.ToString());
+                return Task.FromResult(_responder(request));
+            }
+        }
+
+        /// <summary>A read-only stream that yields a few bytes and then throws, to simulate a mid-transfer failure.</summary>
+        private sealed class ThrowingStream : Stream
+        {
+            private int _bytesBeforeThrow;
+            public ThrowingStream(int bytesBeforeThrow) => _bytesBeforeThrow = bytesBeforeThrow;
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (_bytesBeforeThrow <= 0)
+                    throw new IOException("simulated mid-stream failure");
+                int n = Math.Min(count, _bytesBeforeThrow);
+                for (int i = 0; i < n; i++) buffer[offset + i] = 0x41;
+                _bytesBeforeThrow -= n;
+                return n;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        private static HttpClient ClientReturning(HttpStatusCode status, HttpContent content = null) =>
+            new(new StubHandler(_ => new HttpResponseMessage(status) { Content = content ?? new StringContent("body") }));
+
+        /// <summary>A directory of its own per test, so FileMode.CreateNew always meets a clean destination.</summary>
+        private static string FreshScratchDirectory()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "LoadersDownload_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            return path;
+        }
+
+        /// <summary>
+        /// The offline twin of <see cref="DownloadContentRejectsNonSuccessInsteadOfWritingIt"/>: the same
+        /// contract, without needing a host that is both reachable and willing to answer 404.
+        /// </summary>
+        [Test]
+        [TestCase(HttpStatusCode.NotFound)]
+        [TestCase(HttpStatusCode.InternalServerError)]
+        [TestCase(HttpStatusCode.Forbidden)]
+        public void DownloadContentNonSuccessThrowsAndWritesNothing(HttpStatusCode status)
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile, ClientReturning(status)));
+
+            Assert.IsTrue(e.Message.Contains(((int)status).ToString()),
+                $"the status belongs in the message, got: {e.Message}");
+            Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// A transfer that dies part-way must leave nothing behind, because the callers hash whatever file
+        /// they find and move it into place — a truncated ontology would be installed as a complete one.
+        ///
+        /// It arrives as HttpRequestException, not the underlying IOException, and the destination is never
+        /// created at all. DownloadContent calls GetAsync with the default HttpCompletionOption, so the whole
+        /// body is buffered while the request completes, before the FileStream is opened. That is what makes
+        /// this safe: the file cannot be half-written by a network failure, because there is no network left
+        /// to fail by the time the file exists. The cleanup in the catch below is therefore a guard against
+        /// the DISK failing mid-write, not the transfer.
+        /// </summary>
+        [Test]
+        public void DownloadContentMidTransferFailureThrowsAndWritesNothing()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+
+            var content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 8));
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                    ClientReturning(HttpStatusCode.OK, content)));
+
+            Assert.IsInstanceOf<IOException>(e.InnerException, "the transport failure should still be reachable");
+            Assert.IsFalse(File.Exists(outputFile), "a failed transfer must leave nothing to be hashed");
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// The success path, which nothing else covers without a live host: the body reaches disk byte for
+        /// byte, under the name asked for, and the request goes to the URL asked for.
+        /// </summary>
+        [Test]
+        public void DownloadContentSuccessWritesTheBodyToTheNamedFile()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            const string url = "https://example.invalid/ontology";
+            const string body = "ID   PTM-0001\nDE   a small ontology payload\n//\n";
+
+            var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+            Loaders.DownloadContent(url, outputFile, new HttpClient(handler));
+
+            Assert.IsTrue(File.Exists(outputFile));
+            Assert.AreEqual(body, File.ReadAllText(outputFile));
+            CollectionAssert.AreEqual(new[] { url }, handler.RequestedUris);
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// A cleanup that cannot run must not replace the reason the download failed. TryDeletePartialDownload
+        /// swallows IOException precisely so the caller still sees the original fault; if it did not, a locked
+        /// scratch file would report "file in use" and bury the real cause.
+        /// </summary>
+        [Test]
+        public void DownloadContentFailedCleanupStillSurfacesTheOriginalFailure()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            File.WriteAllText(outputFile, "leftover");
+
+            // Held open with no sharing, so CreateNew fails AND the cleanup's File.Delete cannot succeed.
+            using (FileStream held = new(outputFile, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                Assert.Throws<IOException>(
+                    () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                        ClientReturning(HttpStatusCode.OK)));
+
+                Assert.IsTrue(File.Exists(outputFile), "the undeletable file is still there; the swallow is what lets the real error through");
+            }
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// Pins a sharp edge deliberately rather than leaving it to be discovered. DownloadContent opens the
+        /// destination with FileMode.CreateNew INSIDE its try, so an existing file makes the FileStream
+        /// constructor throw, and the catch then removes that file even though this call never wrote it.
+        ///
+        /// That is survivable only because every caller passes "<real destination>.temp" — the file being
+        /// removed is a leftover scratch file from an interrupted run, never an installed ontology, and
+        /// clearing it is what lets the next run succeed. Were DownloadContent ever pointed at a real
+        /// destination, this would delete it. ProteinDbRetriever does not share the hazard: it writes
+        /// through a Guid-tokened ".partial" and moves it into place.
+        /// </summary>
+        [Test]
+        public void DownloadContentExistingDestinationThrowsAndClearsTheStaleFile()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            File.WriteAllText(outputFile, "a leftover from an interrupted run");
+
+            Assert.Throws<IOException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                    ClientReturning(HttpStatusCode.OK)));
+
+            Assert.IsFalse(File.Exists(outputFile), "the stale scratch file is cleared so the next run can proceed");
+
+            Directory.Delete(scratch, true);
+        }
+
         [Test]
         public void TestUpdateElements()
         {
@@ -374,15 +617,20 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void TestUpdateUniprot()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestUpdateUniprot() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             var uniprotLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist.txt");
             Loaders.UpdateUniprot(uniprotLocation);
             Loaders.UpdateUniprot(uniprotLocation);
-        } 
+            return Task.CompletedTask;
+        });
 
+        // Downloads from uniprot.org, unimod.org and github.com in one test.
         [Test]
-        public void FilesEqualHash()
+        [Category("ExternalService")]
+        public static Task FilesEqualHash() => ExternalServiceTestHelper.RunAsync("UniProt/Unimod/PSI-MOD", () =>
         {
             var fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake.txt");
             using (StreamWriter file = new StreamWriter(fake))
@@ -399,7 +647,8 @@ namespace Test.DatabaseTests
             fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake3.txt");
             using (StreamWriter file = new StreamWriter(fake))
                 file.WriteLine("fake");
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
         public void TestPsiModLoading()
@@ -425,9 +674,17 @@ namespace Test.DatabaseTests
             Assert.IsTrue(anyNegativeValue);
         }
 
+        /// <summary>
+        /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
+        /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
+        /// *2 filenames — which are deliberately absent from the output directory, so Load* downloads them.
+        /// Tests that just need a modification list use the trimmed fixtures via TestOntologies instead.
+        /// </summary>
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
+        [Category("ExternalService")]
+        public static Task FilesLoading() => ExternalServiceTestHelper.RunAsync("UniProt/Unimod/PSI-MOD", () =>
         {
+            //delete mzLib\Test\bin\Debug to update your local unimod list
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
             string uniProtPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
@@ -505,7 +762,8 @@ namespace Test.DatabaseTests
             File.Delete(uniModPath);
             File.Delete(psiModPath);
             File.Delete(uniProtPath);
-        }
+            return Task.CompletedTask;
+        });
 
         /// <summary>
         /// Tests loading an annotated PTM with a longer known motif (>1 character in the motif)
@@ -910,15 +1168,25 @@ namespace Test.DatabaseTests
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }
 
+        /// <summary>
+        /// Live canary for <see cref="ProteinDbRetriever.RetrieveProteome"/>. Carries
+        /// [Category("ExternalService")] so a UniProt outage cannot redden the required CI job, and runs
+        /// through <see cref="ExternalServiceTestHelper.RunAsync"/> so an outage SKIPS while a contract
+        /// break FAILS — a separation that only became possible once the retriever stopped reporting both
+        /// as null. The offline coverage of the failure contract lives in
+        /// <see cref="ProteinDbRetrieverTests"/>.
+        /// </summary>
         [Test]
-        public static void TestRetrieveUniProtProteome()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestRetrieveUniProtProteome() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
 
             //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
             string returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.yes);
 
-            filepath += "\\UP000008595_reviewed_isoform.fasta.gz";
+            filepath = Path.Combine(filepath, "UP000008595_reviewed_isoform.fasta.gz");
 
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
@@ -943,46 +1211,32 @@ namespace Test.DatabaseTests
 
             File.Delete(filepath);
 
-            //fasta; unreviewed; non-compressed; no isoforms
-            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.fasta";
-            Assert.AreEqual(filepath, returnedFilePath);
-            Assert.IsTrue(File.Exists(filepath));
-            File.Delete(filepath);
-
-            //xml; reviewed; compresseded; no isoforms
+            //xml; reviewed; compressed; no isoforms. This one used to save UniProt's 404 page under a .xml
+            //name and pass, because the only thing asserted was that some file had been written.
             filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_reviewed.xml.gz";
+            filepath = Path.Combine(filepath, "UP000008595_reviewed.xml.gz");
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
             File.Delete(filepath);
 
-            //xml; unreviewed; non-compresseded; no isoforms
+            //Uukuniemi virus is entirely reviewed, so asking for its unreviewed entries matches nothing.
+            //That used to be a zero-byte file whose path was returned as a success.
             filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.AreEqual(filepath, returnedFilePath);
-            Assert.IsTrue(File.Exists(filepath));
-            File.Delete(filepath);
+            Assert.Throws<MzLibException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no));
+            Assert.IsFalse(File.Exists(Path.Combine(filepath, "UP000008595_unreviewed.fasta")));
 
-            //junk null return
-            filepath = "pathDoesNotExists";
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.IsNull(returnedFilePath);
+            return Task.CompletedTask;
+        });
 
-            //we don't support filetypes other than fasta or xml currently
-            //requesting gff or other file formats will return null for now.
-            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.IsNull(returnedFilePath);
-        }
-
+        /// <summary>
+        /// Live canary for <see cref="ProteinDbRetriever.DownloadAvailableUniProtProteomes"/>; see the
+        /// remarks on <see cref="TestRetrieveUniProtProteome"/> for why it is categorised and wrapped.
+        /// </summary>
         [Test]
-        public static void TestDownloadAvailableUniProtProteomes()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestDownloadAvailableUniProtProteomes() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
@@ -994,37 +1248,25 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
 
             File.Delete(downloadedFilePath);
-            uniprotProteoms.Clear();
 
-            //test different types of compression
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
+            return Task.CompletedTask;
+        });
 
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt.gz"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
+        /// <summary>
+        /// Reading a downloaded proteome catalogue needs no network, so it is tested offline in the required
+        /// CI job. The failure contract for bad paths and extensions lives in <see cref="ProteinDbRetrieverTests"/>.
+        /// </summary>
+        [Test]
+        public static void TestUniprotProteomesListReadsEveryCompression()
+        {
+            foreach (string fileName in new[] { "b_availableUniProtProteomes.txt", "b_availableUniProtProteomes.txt.gz", "b_availableUniProtProteomes.zip" })
+            {
+                Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(
+                    Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", fileName));
 
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.zip"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
-
-            //return null for bad filepath
-            filepath = "bubba";
-            downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
-            Assert.IsNull(downloadedFilePath);
-
-            //bad file path returns null
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList("badFilePath");
-            Assert.IsNull(uniprotProteoms);
-
-
-            //wrong file extension returns null
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"));
-            Assert.IsNull(uniprotProteoms);
+                Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"), fileName);
+                Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"], fileName);
+            }
         }
 
         [Test]

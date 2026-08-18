@@ -6,22 +6,34 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  DOTNET_VERSION: 10.0.x
+
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Request the platform explicitly. The solution offers both x64 and Any CPU, and MSBuild silently
+    # prefers Any CPU as a solution's default, so an unqualified build would depend on that preference
+    # rather than on anything stated here. Any CPU is what the released package is built as.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore
+      run: cd mzLib && dotnet build --no-restore /p:Platform="Any CPU"
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    # A '.' in a test name is spliced into the fully-qualified name, which Test Explorer / vstest
+    # split on '.' -- fragmenting the tree into phantom nodes that cannot be expanded or run.
+    # Runs before the suite so a naming regression fails in seconds rather than after the full run.
+    - name: Check test name hygiene
+      shell: pwsh
+      run: ./.github/scripts/Check-TestNameHygiene.ps1 -Project mzLib/Test/Test.csproj -NoBuild
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
@@ -41,11 +53,11 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 20
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
     - name: Build (Test)
@@ -56,15 +68,24 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    # This job builds MetaMorpheus as well as mzLib, so it needs whatever SDK MetaMorpheus's
+    # global.json asks for. setup-dotnet installs into a user-local dotnet root and the resolver then
+    # sees ONLY what this step installed, so the runner's preinstalled SDKs do not count. Both repos
+    # are on .NET 10, so one band. Note this job cannot pass while mzLib's target framework is ahead
+    # of MetaMorpheus's -- a net10.0-only package is NU1202-incompatible with a net8.0 consumer, which
+    # no amount of installed SDKs fixes -- so mzLib retargets only after MetaMorpheus does.
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Any CPU is requested explicitly so this job's output lands in bin/Release, which is where
+    # mzLib.nuspec looks. Relying on MSBuild's implicit preference for Any CPU would make the pack step
+    # below depend on the ordering of a platform list rather than on an intent stated here.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore --configuration Release
+      run: cd mzLib && dotnet build --no-restore --configuration Release /p:Platform="Any CPU"
     - name: Change mzLib version, pack, add source
       # Two packages are produced: mzLib, and mzLib.Chronologer which carries the TorchSharp/libtorch
       # payload. Both must be stamped 9.9.9 because mzLib.Chronologer pins an exact dependency on
@@ -128,5 +149,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusGUI
-        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net8.0-windows/
+        # Globbed rather than pinned to a framework: this is MetaMorpheus's target framework,
+        # not mzLib's, so the two repos can move independently.
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net*-windows/
 

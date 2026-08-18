@@ -22,12 +22,12 @@
         compiled against a specific Chromatography.dll. Both packages are produced from the same
         release tag, so they always version in lockstep.
       -->
-      <group targetFramework="net8.0">
+      <group targetFramework="net10.0">
         <dependency id="mzLib" version="[$mzlibversion$]" />
         <dependency id="TorchSharp" version="0.105.1" />
         <dependency id="libtorch-cpu-win-x64" version="2.5.1" />
       </group>
-      <group targetFramework="net8.0-windows7.0">
+      <group targetFramework="net10.0-windows7.0">
         <dependency id="mzLib" version="[$mzlibversion$]" />
         <dependency id="TorchSharp" version="0.105.1" />
         <dependency id="libtorch-cpu-win-x64" version="2.5.1" />
@@ -36,7 +36,7 @@
   </metadata>
   <files>
     <file src="mzLib.png" target="images\" />
-    <file src="Chromatography.Chronologer\bin\x64\Release\net8.0\Chromatography.Chronologer.dll" target="lib\net8.0" />
-    <file src="Chromatography.Chronologer\bin\x64\Release\net8.0\Chromatography.Chronologer.dll" target="lib\net8.0-windows7.0" />
+    <file src="Chromatography.Chronologer\bin\Release\net10.0\Chromatography.Chronologer.dll" target="lib\net10.0" />
+    <file src="Chromatography.Chronologer\bin\Release\net10.0\Chromatography.Chronologer.dll" target="lib\net10.0-windows7.0" />
   </files>
 </package>

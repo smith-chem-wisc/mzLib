@@ -1405,14 +1405,30 @@ namespace FlashLFQ
             List<double> tempQs = new();
             if (mbrPeaks.Count > 100 && decoyPeakTotal > 20)
             {
-                PepAnalysisEngine pepAnalysisEngine = new PepAnalysisEngine(
-                    mbrPeaks,
-                    outputFolder: Path.GetDirectoryName(SpectraFileInfoList.First().FullFilePathWithExtension),
-                    maxThreads: FlashParams.MaxThreads,
-                    pepTrainingFraction: PepTrainingFraction);
-                var pepOutput = pepAnalysisEngine.ComputePEPValuesForAllPeaks();
+                // The PEP engine serializes each trained model to disk and reloads a private copy per
+                // thread (ML.NET models are not thread-safe). This is internal scratch, never a user
+                // deliverable, so it goes in a unique temporary folder. Deriving the path from the input
+                // data folder polluted it and, worse, made two FlashLFQ runs that shared an input
+                // directory collide on a single "model.zip" (a file lock, or one run reading the other's
+                // model). See smith-chem-wisc/mzLib#1124.
+                string pepModelFolder = Path.Combine(Path.GetTempPath(), "FlashLFQ", "pep-" + Guid.NewGuid().ToString("N"));
+                Directory.CreateDirectory(pepModelFolder);
+                try
+                {
+                    PepAnalysisEngine pepAnalysisEngine = new PepAnalysisEngine(
+                        mbrPeaks,
+                        outputFolder: pepModelFolder,
+                        maxThreads: FlashParams.MaxThreads,
+                        pepTrainingFraction: PepTrainingFraction);
+                    var pepOutput = pepAnalysisEngine.ComputePEPValuesForAllPeaks();
 
-                _results.PepResultString = pepOutput;
+                    _results.PepResultString = pepOutput;
+                }
+                finally
+                {
+                    try { Directory.Delete(pepModelFolder, recursive: true); }
+                    catch { /* best-effort cleanup of a temp scratch folder */ }
+                }
 
                 return true;
             }
