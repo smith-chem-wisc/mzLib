@@ -186,8 +186,21 @@ namespace Readers
             List<MZAnalyzerType> analyzersInThisFile = (new HashSet<MZAnalyzerType>(myMsDataFile.GetAllScansList().Select(b => b.MzAnalyzer))).ToList();
             Dictionary<MZAnalyzerType, string> analyzersInThisFileDict = new Dictionary<MZAnalyzerType, string>();
 
-            // Leaving empty. Can't figure out the configurations.
-            // ToDo: read instrumentConfigurationList from mzML file
+            // The instrument model the file came from, if the reader could determine it. mzML
+            // records it as an accessioned PSI-MS term; a Thermo RAW yields only a name, so the
+            // accession may be empty and the term is then written name-only.
+            //
+            // Before this was carried through, every mzML written here declared the bare parent
+            // term MS:1000031 "instrument model" and nothing else, so writing a file -- which
+            // calibration and spectral averaging both do -- silently discarded which mass
+            // spectrometer produced the data. Reading such a file back reported no instrument at
+            // all, and the loss was invisible because MS:1000031 looks like a real declaration.
+            var instrumentModel = myMsDataFile.SourceFile.InstrumentModel;
+
+            // One configuration is still emitted per mass analyzer present, which is not
+            // necessarily how the original file was organised. Recovering the true configuration
+            // list (multiple instruments, sources, detectors, serial numbers) needs SourceFile to
+            // carry more than the model, and is left for later.
             mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType
             {
                 count = analyzersInThisFile.Count.ToString(),
@@ -206,13 +219,39 @@ namespace Readers
                     cvParam = new Generated.CVParamType[1]
                 };
 
-                mzML.instrumentConfigurationList.instrumentConfiguration[i].cvParam[0] = new Generated.CVParamType
-                {
-                    cvRef = "MS",
-                    accession = "MS:1000031",
-                    name = "instrument model",
-                    value = ""
-                };
+                // A specific model when we have an ACCESSIONED one, otherwise the bare parent term
+                // as before. The accession is required: mzML types cvParam/@accession as mandatory,
+                // so emitting a name-only term would produce a file that does not validate -- a
+                // worse outcome than the loss being fixed here.
+                //
+                // That means a model read from a Thermo RAW, which records only free text, still
+                // does not survive a write. Recovering it needs a name-to-accession lookup against
+                // the PSI-MS vocabulary, which is a separate piece of work; until then the mzML
+                // path (every converted vendor file) is preserved and the RAW path is unchanged.
+                //
+                // The value stays empty either way: an instrument model is a presence flag, which
+                // is also how a reader tells it from the serial number written beside it.
+                bool haveAccessionedModel =
+                    instrumentModel is not null
+                    && !string.IsNullOrEmpty(instrumentModel.Accession)
+                    && !string.IsNullOrEmpty(instrumentModel.Name);
+
+                mzML.instrumentConfigurationList.instrumentConfiguration[i].cvParam[0] =
+                    haveAccessionedModel
+                        ? new Generated.CVParamType
+                        {
+                            cvRef = "MS",
+                            accession = instrumentModel.Accession,
+                            name = instrumentModel.Name,
+                            value = ""
+                        }
+                        : new Generated.CVParamType
+                        {
+                            cvRef = "MS",
+                            accession = "MS:1000031",
+                            name = "instrument model",
+                            value = ""
+                        };
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList = new Generated.ComponentListType
                 {
@@ -689,14 +728,14 @@ namespace Readers
                 {
                     mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
                     {
-                        cvParam = new Generated.CVParamType[3]
+                        cvParam = new Generated.CVParamType[4]
                     };
                 }
                 else
                 {
                     mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0] = new Generated.ScanType
                     {
-                        cvParam = new Generated.CVParamType[3],
+                        cvParam = new Generated.CVParamType[4],
                         instrumentConfigurationRef = analyzersInThisFileDict[myMsDataFile.GetOneBasedScan(i).MzAnalyzer]
                     };
                 }
@@ -730,6 +769,22 @@ namespace Readers
                         unitCvRef = "UO"
                     };
                 }
+
+                // Write compensation voltage if present
+                if (myMsDataFile.GetOneBasedScan(i).CompensationVoltage.HasValue)
+                {
+                    mzML.run.spectrumList.spectrum[i - 1].scanList.scan[0].cvParam[3] = new Generated.CVParamType
+                    {
+                        name = "FAIMS compensation voltage",
+                        accession = "MS:1001581",
+                        value = myMsDataFile.GetOneBasedScan(i).CompensationVoltage?.ToString(CultureInfo.InvariantCulture),
+                        cvRef = "MS",
+                        unitName = "volt",
+                        unitAccession = "UO:0000218",
+                        unitCvRef = "UO"
+                    };
+                }
+
                 if (myMsDataFile.GetOneBasedScan(i).MsnOrder != 1)
                 {
                     var scanWithPrecursor = myMsDataFile.GetOneBasedScan(i);
@@ -773,27 +828,18 @@ namespace Readers
                     unitAccession = "MS:1000040",
                     unitName = "m/z"
                 };
-                if (myMsDataFile.GetOneBasedScan(i).NoiseData == null)
+                // Compute the binary-array-list size: m/z + intensity (always),
+                // + noise/baseline/SNR (3) when NoiseData is set,
+                // + charge array (1) when ChargeArray is set.
+                int extraArrays = 0;
+                if (myMsDataFile.GetOneBasedScan(i).NoiseData != null) extraArrays += 3;
+                if (myMsDataFile.GetOneBasedScan(i).ChargeArray != null) extraArrays += 1;
+                int arrayCount = 2 + extraArrays;
+                mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType
                 {
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType
-                    {
-                        // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
-                        // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
-                        count = 2.ToString(),
-                        binaryDataArray = new Generated.BinaryDataArrayType[2]
-                    };
-                }
-
-                if (myMsDataFile.GetOneBasedScan(i).NoiseData != null)
-                {
-                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList = new Generated.BinaryDataArrayListType
-                    {
-                        // ONLY WRITING M/Z AND INTENSITY DATA, NOT THE CHARGE! (but can add charge info later)
-                        // CHARGE (and other stuff) CAN BE IMPORTANT IN ML APPLICATIONS!!!!!
-                        count = 5.ToString(),
-                        binaryDataArray = new Generated.BinaryDataArrayType[5]
-                    };
-                }
+                    count = arrayCount.ToString(CultureInfo.InvariantCulture),
+                    binaryDataArray = new Generated.BinaryDataArrayType[arrayCount]
+                };
 
                 // M/Z Data
                 mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[0] = new Generated.BinaryDataArrayType
@@ -968,6 +1014,50 @@ namespace Readers
                     {
                         name = "kelleherCustomType",
                         value = "noise intensity",
+                    };
+                }
+
+                // Charge array (PSI-MS MS:1000516). One integer per peak, parallel to the m/z and
+                // intensity arrays, encoded as 32-bit float (charges fit in well under 2^23) and
+                // base64'd uncompressed. Conformant mzML readers that don't understand the
+                // accession ignore this array silently.
+                int[] chargeArray = myMsDataFile.GetOneBasedScan(i).ChargeArray;
+                if (chargeArray != null)
+                {
+                    int chargeArrayIndex = 2 + (myMsDataFile.GetOneBasedScan(i).NoiseData != null ? 3 : 0);
+                    byte[] encoded = new byte[chargeArray.Length * 4];
+                    for (int k = 0; k < chargeArray.Length; k++)
+                    {
+                        byte[] floatBytes = BitConverter.GetBytes((float)chargeArray[k]);
+                        Buffer.BlockCopy(floatBytes, 0, encoded, k * 4, 4);
+                    }
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex] = new Generated.BinaryDataArrayType
+                    {
+                        binary = encoded
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].arrayLength = chargeArray.Length.ToString(CultureInfo.InvariantCulture);
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].encodedLength = (4 * Math.Ceiling(((double)encoded.Length / 3))).ToString(CultureInfo.InvariantCulture);
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam = new Generated.CVParamType[3];
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam[0] = new Generated.CVParamType
+                    {
+                        accession = "MS:1000516",
+                        name = "charge array",
+                        cvRef = "MS",
+                        value = ""
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam[1] = new Generated.CVParamType
+                    {
+                        accession = "MS:1000521",
+                        name = "32-bit float",
+                        cvRef = "MS",
+                        value = ""
+                    };
+                    mzML.run.spectrumList.spectrum[i - 1].binaryDataArrayList.binaryDataArray[chargeArrayIndex].cvParam[2] = new Generated.CVParamType
+                    {
+                        accession = "MS:1000576",
+                        name = "no compression",
+                        cvRef = "MS",
+                        value = ""
                     };
                 }
             }

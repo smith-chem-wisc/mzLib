@@ -195,6 +195,17 @@ namespace MassSpectrometry
         /// A generic method performing peak tracing for all the peaks in an indexingEngine and trying to find all XICs.
         /// <param name="cutPeakDiscriminationFactor"> The discrimination factor to determine if a peak should be cut if we are doing peak cutting </param>
         /// <returns> A list of ExtractedIonChromatogram objects representing all XICs that can be found in an indexingEngine </returns>
+        public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold, double? cutPeakDiscriminationFactor = null)
+        {
+            return GetAllXics(peakFindingTolerance, maxMissedScanAllowed, maxRTRange, numPeakThreshold, out _, cutPeakDiscriminationFactor);
+        }
+
+        /// <summary>
+        /// As above, additionally reporting which XIC each indexed peak was traced into. Callers that only want the
+        /// XICs use the overload without it; this one exists for callers that need to get from a peak back to the
+        /// chromatogram it belongs to, which the returned list alone cannot answer without a second pass.
+        /// </summary>
+        /// <param name="matchedPeaks"> every peak that ended up in an XIC, mapped to that XIC </param>
         public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold, out Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks, double? cutPeakDiscriminationFactor = null)
         {
             var xics = new List<ExtractedIonChromatogram>();

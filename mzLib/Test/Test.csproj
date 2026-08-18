@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net10.0-windows</TargetFramework>
     <IsPackable>false</IsPackable>
     <Platforms>x64</Platforms>
   </PropertyGroup>
@@ -18,14 +18,16 @@
     <PackageReference Include="NUnit3TestAdapter" Version="4.5.0" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.10.0" />
     <PackageReference Include="SharpLearning.Optimization" Version="0.28.0" />
-    <PackageReference Include="TopDownProteomics" Version="0.0.297" />
+    <PackageReference Include="TopDownProteomics" Version="0.0.299" />
 	<AssemblyAttribute Include="System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverageAttribute" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\BayesianEstimation\BayesianEstimation.csproj" />
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
+    <ProjectReference Include="..\Chromatography\Chromatography.csproj" />
     <ProjectReference Include="..\FlashLFQ\FlashLFQ.csproj" />
+    <ProjectReference Include="..\PredictionClients\PredictionClients.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
     <ProjectReference Include="..\Omics\Omics.csproj" />
@@ -37,10 +39,17 @@
     <ProjectReference Include="..\Readers\Readers.csproj" />
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+    <ProjectReference Include="..\Quantification\Quantification.csproj" />
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="AveragingTests\TestData\FAIMS_snip_10665-11578.mzML">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\nucleotideVariantsAsModifications.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\outOfRangeVariant.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\proteinEntryLipidMoietyBindingRegion.xml">
@@ -94,9 +103,6 @@
     <None Update="DatabaseTests\ensembl_prrc2a.fa">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DatabaseTests\essentialSequences.txt">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
     <None Update="DatabaseTests\fake_h4.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -104,6 +110,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\fullSequences.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\essentialSequences.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\fullSequencesWithMassShift.txt">
@@ -164,6 +173,18 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\PSI-MOD.obo">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <!-- Trimmed ontology fixtures. These keep the required CI job off the network: Loaders.Load*
+         downloads only when the target file is absent, so a test pointing at a path with no file
+         behind it quietly becomes an external-service test. See DataFiles\Ontologies\PROVENANCE.md. -->
+    <None Update="DataFiles\Ontologies\ptmlist.txt">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\Ontologies\PSI-MOD.obo.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\Ontologies\unimod_tables.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\ranges1.xml">
@@ -262,6 +283,12 @@
     <None Update="DatabaseTests\test_ensembl.pep.all.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\truncationsExpected.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\TwoHumanHistone_mimic_Retain3.fasta">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\uniprot_aifm1.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -272,6 +299,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\VariantModsGPTMD.xml">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\vcf_comprehensive_examples.vcf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\Working_86.tsv">
@@ -304,6 +334,9 @@
     <None Update="DataFiles\BinGenerationTest.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\MS3_TMT11_Mouse_snip.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -326,6 +359,24 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\timsTOF_snippet_Corrupted.d\analysis.tdf_bin">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\withEmptySpectra.mgf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\withIntensity.mgf">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\PXD026824.sdrf.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\PXD059974.sdrf.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\DinoSnippet.features.tsv">
@@ -367,6 +418,9 @@
     <None Update="FileReadingTests\ExternalFileTypes\crux.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -399,7 +453,7 @@
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Align_TopFDv1.6.2_ms2.msalign">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</None>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\MsPathFinderT_WithMods_IcTda.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -452,6 +506,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.6.2_ms1.feature">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Ms2Feature_TopFDv1.6.2_ms2.feature">
@@ -532,8 +589,17 @@
     <None Update="DataFiles\withZeros.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="DoubleProtease.tsv">
+    <None Update="FileReadingTests\SearchResults\TDGPTMDSearchResults_NoNameAndGene.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\DoubleProtease.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\SearchResults\nglyco_noLocalizationScore.psmtsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\SearchResults\oGlycoAllPsms.psmtsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\SearchResults\AutoGeneratedManuscriptProse.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -619,16 +685,16 @@
     <None Update="ModificationTests\ProteaseMods.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_badMod.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_badMod_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_dupName.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
+    <None Update="ProteomicsTests\ProteaseFilesForLoadingTests\TestProteases_Mod_dupName.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	</None>
     <None Update="FileReadingTests\SearchResults\ExcelEditedPeptide.psmtsv">
@@ -655,22 +721,25 @@
     <None Update="FileReadingTests\SearchResults\VariantCrossTest.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\myPrositLib.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\myPrositLib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\RnaSpectralLibrary.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\RnaSpectralLibrary.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\spectralLibraryNeutralLossTest.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\SpectralLibrary_XL.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\SpectralLibrary_XL.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\test_ms2pip.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\syntheticTest2_PredictedLibrary.msp">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\test_ms2pip.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="SpectralLibrary\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
+    <None Update="FileReadingTests\SpectralLibraryTests\SpectralLibraryData\yeast2fake_pdeep_lib.msp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="Transcriptomics\TestData\20mer1.fasta">
@@ -742,37 +811,37 @@
     <None Update="Transcriptomics\TestData\TruncationAndVariantMods.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML">
+    <None Update="FlashLFQ\XICData\20100604_Velos1_TaGe_SA_A549_3_first_noRt.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML">
+    <None Update="FlashLFQ\XICData\20100604_Velos1_TaGe_SA_A549_3_second_noRt.mzML">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IDMergeConflict_2.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IDMergeConflict_2.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IDMergeConflict.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IDMergeConflict.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IdChecking.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IdChecking.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_SearchTarget.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_SearchTarget.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID_Combined.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID_Combined.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID_Mixture.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID_Mixture.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
-    <None Update="XICData\AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv">
+    <None Update="FlashLFQ\XICData\AllPSMs_IsoID_MonoIsotopicmassTolerance.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
 	<None Update="DataFiles\centroid_1x_MS1_4x_autoMS2.d\**">
@@ -790,6 +859,12 @@
 	  <None Update="DataFiles\profile_and_centroid_1x_MS1_4x_autoMS2.d\**">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </None>
+	  <None Update="DataFiles\TestCompensationVoltageReading.raw">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
+    <None Update="FileReadingTests\ProForma\manuscript-examples.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>

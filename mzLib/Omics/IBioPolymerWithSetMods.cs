@@ -46,10 +46,10 @@ namespace Omics
         IBioPolymer Parent { get; }
 
         public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus,
-            List<Product> products, FragmentationParams? fragmentationParams = null);
+            List<Product> products, IFragmentationParams? fragmentationParams = null);
 
         public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments,
-            List<Product> products, FragmentationParams? fragmentationParams = null);
+            List<Product> products, IFragmentationParams? fragmentationParams = null);
 
         /// <summary>
         /// Outputs a duplicate IBioPolymerWithSetMods with a localized mass shift, replacing a modification when present
@@ -125,11 +125,10 @@ namespace Omics
                     {
                         try
                         {
-                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
+                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot") if present
                             string modString = fullSequence.Substring(currentModStart, r - currentModStart);
                             int splitIndex = modString.IndexOf(':');
-                            string modType = modString.Substring(0, splitIndex);
-                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
+                            modId = splitIndex > 0 ? modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1) : modString;
                         }
                         catch (Exception e)
                         {
