@@ -13,6 +13,12 @@ namespace FlashLFQ
     public class FlashLfqResults
     {
         public bool IsoTracker = false;
+
+        /// <summary>
+        /// Whether the run retained the isotope peaks behind each envelope, and so whether QuantifiedPeaks.tsv is
+        /// written with the three extra columns describing them.
+        /// </summary>
+        public readonly bool WriteVerbosePeaks;
         public readonly List<SpectraFileInfo> SpectraFiles;
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
@@ -21,12 +27,6 @@ namespace FlashLFQ
         public IDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict = null;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
-
-        /// <summary>
-        /// Whether the run retained the isotope peaks behind each envelope, and so whether QuantifiedPeaks.tsv is
-        /// written with the three extra columns describing them.
-        /// </summary>
-        public readonly bool WriteVerbosePeaks;
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
             HashSet<string> peptideModifiedSequencesToQuantify = null, bool isIsoTracker = false,
