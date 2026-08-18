@@ -175,9 +175,15 @@ namespace Readers
                 }
                 else if (line.StartsWith("CHARGE"))
                 {
+                    // The sign suffix is optional: "2+", "2-" and "2" are all valid charge states.
+                    // Strip it only when present -- stripping unconditionally drops a digit, so "12"
+                    // read as 1. Polarity is derived from the sign of this charge.
                     string entry = sArray[1];
-                    charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
-                    if (entry[entry.Length - 1].Equals("-"))
+                    char sign = entry[entry.Length - 1];
+                    bool signed = sign == '+' || sign == '-';
+
+                    charge = Convert.ToInt32(signed ? entry.Substring(0, entry.Length - 1) : entry);
+                    if (sign == '-')
                     {
                         charge *= -1;
                     }
