@@ -12,6 +12,8 @@ namespace Omics.Modifications
             motifString = motif;
         }
 
+        public string Motif => motifString;
+
         /// <summary>
         /// Only upper and lower case letters allowed, must have a single upper case letter
         /// </summary>
@@ -28,20 +30,6 @@ namespace Omics.Modifications
             }
             return false;
         }
-        // Commented out by AVC on 4/5/23. Methods were unused and untested 
-        // since 2017. 
-        // public override bool Equals(object o)
-        // {
-        //     ModificationMotif m = o as ModificationMotif;
-        //     return m != null
-        //         && m.motifString == motifString;
-        // }
-        //
-        // public override int GetHashCode()
-        // {
-        //     return motifString.GetHashCode();
-        // }
-
         public override string ToString()
         {
             return motifString;

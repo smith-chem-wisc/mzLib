@@ -54,7 +54,7 @@ public static class SpectraFileAveraging
         // create output
         MsDataScan averagedScan = new(averagedSpectrum, 1, representativeScan.OneBasedScanNumber,
             representativeScan.IsCentroid, representativeScan.Polarity, scans.Select(p => p.RetentionTime).Average(),
-            averagedSpectrum.Range, null, representativeScan.MzAnalyzer, scans.Select(p => p.TotalIonCurrent).Average(),
+            averagedSpectrum.Range, representativeScan.ScanFilter, representativeScan.MzAnalyzer, scans.Select(p => p.TotalIonCurrent).Average(),
             representativeScan.InjectionTime, null, representativeScan.NativeId);
         MsDataScan[] msDataScans = { averagedScan };
         return msDataScans;
@@ -97,18 +97,25 @@ public static class SpectraFileAveraging
             parameters.NumberOfScansToAverage / 2 - 1 : parameters.NumberOfScansToAverage / 2;
 
         // iterate through all MS1 scans and average them
-        foreach (var scan in scans.Where(p => p.MsnOrder == 1))
+        foreach (var cvGroup in scans
+            .Where(p => p.MsnOrder == 1)
+            .OrderBy(p => p.OneBasedScanNumber)
+            .GroupBy(p => p.CompensationVoltage))
         {
-            scansToProcess.Add(scan);
-            // average with new scan from iteration, then remove first scan from list
-            if (scansToProcess.Count != parameters.NumberOfScansToAverage) continue;
+            foreach (var scan in cvGroup)
+            {
+                scansToProcess.Add(scan);
+                // average with new scan from iteration, then remove first scan from list
+                if (scansToProcess.Count != parameters.NumberOfScansToAverage) continue;
 
-            MsDataScan centralScan = scansToProcess[representativeScanMs1Index];
-            var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
-            var averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, centralScan);
+                MsDataScan centralScan = scansToProcess[representativeScanMs1Index];
+                var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
+                var averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, centralScan);
 
-            averagedScans.Add(averagedScan);
-            scansToProcess.RemoveAt(0);
+                averagedScans.Add(averagedScan);
+                scansToProcess.RemoveAt(0);
+            }
+            scansToProcess.Clear();
         }
         
         // add all scans that did not get averaged
@@ -129,7 +136,8 @@ public static class SpectraFileAveraging
             centralScan.IsCentroid,
             centralScan.Polarity,
             centralScan.RetentionTime,
-            averagedSpectrum.Range, null,
+            averagedSpectrum.Range,
+            centralScan.ScanFilter,
             centralScan.MzAnalyzer,
             averagedSpectrum.SumOfAllY,
             centralScan.InjectionTime,
@@ -142,7 +150,13 @@ public static class SpectraFileAveraging
             centralScan.IsolationWidth,
             centralScan.DissociationType,
             centralScan.OneBasedPrecursorScanNumber,
-            centralScan.SelectedIonMonoisotopicGuessIntensity);
+            centralScan.SelectedIonMonoisotopicGuessMz,
+            centralScan.HcdEnergy,
+            centralScan.ScanDescription,
+            centralScan.CompensationVoltage
+            );
+
+
         var newNativeId =
             averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), centralScan.OneBasedScanNumber.ToString());
         averagedScan.SetNativeID(newNativeId);

@@ -1,23 +1,11 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using System.Xml.Linq;
+﻿using System.Globalization;
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
-using MassSpectrometry;
-using Omics.Modifications;
-using Proteomics.AminoAcidPolymer;
-using Proteomics;
-using static System.Net.Mime.MediaTypeNames;
-using ThermoFisher.CommonCore.Data.Interfaces;
+using Easy.Common.Extensions;
 
 namespace Readers
 {
-    public class MsFraggerPsm
+    public class MsFraggerPsm : IQuantifiableRecord
     {
         public static CsvConfiguration CsvConfiguration = new CsvConfiguration(CultureInfo.InvariantCulture)
         {
@@ -40,7 +28,7 @@ namespace Readers
         public string BaseSequence { get; set; }
 
         [Name("Modified Peptide")]
-        public string FullSequence { get; set; }
+        public string ModifiedPeptide { get; set; }
 
         [Name("Extended Peptide")]
         public string ExtendedSequence { get; set; }
@@ -57,9 +45,14 @@ namespace Readers
         [Name("Charge")]
         public int Charge { get; set; }
 
+        /// <summary>
+        /// The raw "Retention" column, in seconds, which is the unit MSFragger writes.
+        /// The verbatim value is kept here so the file round-trips on write; conversion to
+        /// minutes for <see cref="IQuantifiableRecord.RetentionTime"/> happens at the interface below.
+        /// </summary>
         [Name("Retention")]
-        public double RetentionTime { get; set; }
-        
+        public double RetentionTimeInSeconds { get; set; }
+
         [Name("Observed Mass")]
         public double ObservedMass { get; set; }
 
@@ -90,7 +83,11 @@ namespace Readers
         [Name("Nextscore")]
         public double NextScore { get; set; }
 
-        [Name("PeptideProphet Probability")]
+        /// <summary>
+        /// MsFragger v22.0 output renames the header "PeptideProphet Probability" as just "Probability".
+        /// Headers are mutually exclusive, will not both occur in the same file. 
+        /// </summary>
+        [Name("PeptideProphet Probability", "Probability")]
         public double PeptideProphetProbability { get; set; }
 
         [Name("Number of Enzymatic Termini")]
@@ -153,6 +150,87 @@ namespace Readers
 
         [Ignore]
         public int OneBasedScanNumber => _oneBasedScanNumber ??= int.Parse(Spectrum.Split('.')[1]);
+
+        #endregion
+
+        #region IQuantifiableRecord Implementation
+
+        [Ignore] public string FileName => SpectrumFilePath;
+
+        [Ignore] public List<(string, string, string)> ProteinGroupInfos
+        {
+            get 
+            {
+                _proteinGroupInfos ??= AddProteinGroupInfos();
+                return _proteinGroupInfos;
+            }
+        }
+
+        [Ignore] public string FullSequence => ModifiedPeptide.IsNullOrEmpty() ? BaseSequence : ModifiedPeptide;
+
+        /// <summary>
+        /// Creates a list of tuples, each of which represents a protein.
+        /// Each tuple contains the accession number, gene name, and organism.
+        /// These parameters are used to create a ProteinGroup object, 
+        /// which is needed to make an identification.
+        /// </summary>
+        /// <returns></returns>
+        private List<(string, string, string)> AddProteinGroupInfos ()
+        {
+            _proteinGroupInfos = new List<(string, string, string)> ();
+            string protein = Protein;
+
+            char[] delimiterChars = { '|', '_'};
+            string[] proteinInfo = protein.Split(delimiterChars);
+
+            string proteinAccessions;
+            string geneName;
+            string organism;
+
+            // Fasta header is parsed to separate the accession number, gene name, and organism.
+            // If the protein does not have this information, it will be assigned an empty string.
+            // Ideally, a future refactor would create a method for parsing fasta headers
+            // that is shared by Readers and UsefulProteomicsDatabases.
+            proteinAccessions = proteinInfo.Length >= 2 ? proteinInfo[1] : "";
+            geneName = proteinInfo.Length >= 3 ? proteinInfo[2] : "";
+            organism = proteinInfo.Length >= 4 ? proteinInfo[3] : ""; ;
+
+            _proteinGroupInfos.Add((proteinAccessions, geneName, organism));
+
+            if (MappedProteins.IsNullOrEmpty()) return _proteinGroupInfos;
+
+            string mappedProteins = MappedProteins;
+            string[] allMappedProteinInfo = mappedProteins.Split(',');
+            foreach (var singleMappedProteinInfo in allMappedProteinInfo)
+            {
+                string[] mappedProteinInfo = singleMappedProteinInfo.Split(delimiterChars);
+
+                proteinAccessions = mappedProteinInfo.Length >= 2 ? mappedProteinInfo[1] : "";
+                geneName = mappedProteinInfo.Length >= 3 ? mappedProteinInfo[2] : "";
+                organism = mappedProteinInfo.Length >= 4 ? mappedProteinInfo[3] : "";
+
+                _proteinGroupInfos.Add((proteinAccessions, geneName, organism));
+            }
+
+            return _proteinGroupInfos;
+        }
+
+        [Ignore] private List<(string, string, string)> _proteinGroupInfos;
+
+        [Ignore] public int ChargeState => Charge;
+
+        /// <summary>
+        /// The retention time in minutes, per the <see cref="IQuantifiableRecord.RetentionTime"/>
+        /// convention, converted from the seconds MSFragger writes in <see cref="RetentionTimeInSeconds"/>.
+        /// This mirrors the seconds-to-minutes conversion the spectra readers already do at their
+        /// own boundary (BrukerFileReader, MsAlign, Mgf, Mzml).
+        /// </summary>
+        [Ignore] public double RetentionTime => RetentionTimeInSeconds / 60.0;
+
+        // decoy reading isn't currently supported for MsFragger psms, this will be revisited later
+        [Ignore] public bool IsDecoy => false;
+
+        [Ignore] public double MonoisotopicMass => CalculatedPeptideMass;
 
         #endregion
     }

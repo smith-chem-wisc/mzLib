@@ -1,0 +1,1573 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   A-&gt;G on A
+MT   1 nucleotide substitution
+TG   A
+PP   Anywhere.
+CF   C-1H-2
+MM   -14.015650064
+
+//</modification>
+  <modification>ID   A-&gt;T on A
+MT   1 nucleotide substitution
+TG   A
+PP   Anywhere.
+CF   CH2O
+MM   30.010564684
+
+//</modification>
+  <modification>ID   A-&gt;V on A
+MT   1 nucleotide substitution
+TG   A
+PP   Anywhere.
+CF   C2H4
+MM   28.031300129
+
+//</modification>
+  <modification>ID   D-&gt;E on D
+MT   1 nucleotide substitution
+TG   D
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   D-&gt;G on D
+MT   1 nucleotide substitution
+TG   D
+PP   Anywhere.
+CF   C-2H-2O-2
+MM   -58.005479304
+
+//</modification>
+  <modification>ID   D-&gt;Y on D
+MT   1 nucleotide substitution
+TG   D
+PP   Anywhere.
+CF   C5H4O-1
+MM   48.036385509
+
+//</modification>
+  <modification>ID   E-&gt;A on E
+MT   1 nucleotide substitution
+TG   E
+PP   Anywhere.
+CF   C-2H-2O-2
+MM   -58.005479304
+
+//</modification>
+  <modification>ID   E-&gt;D on E
+MT   1 nucleotide substitution
+TG   E
+PP   Anywhere.
+CF   C-1H-2
+MM   -14.015650064
+
+//</modification>
+  <modification>ID   E-&gt;V on E
+MT   1 nucleotide substitution
+TG   E
+PP   Anywhere.
+CF   H2O-2
+MM   -29.974179175
+
+//</modification>
+  <modification>ID   F-&gt;C on F
+MT   1 nucleotide substitution
+TG   F
+PP   Anywhere.
+CF   C-6H-4S
+MM   -44.059228955
+
+//</modification>
+  <modification>ID   G-&gt;A on G
+MT   1 nucleotide substitution
+TG   G
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   G-&gt;E on G
+MT   1 nucleotide substitution
+TG   G
+PP   Anywhere.
+CF   C3H4O2
+MM   72.021129368
+
+//</modification>
+  <modification>ID   G-&gt;R on G
+MT   1 nucleotide substitution
+TG   G
+PP   Anywhere.
+CF   C4H9N3
+MM   99.079647303
+
+//</modification>
+  <modification>ID   G-&gt;S on G
+MT   1 nucleotide substitution
+TG   G
+PP   Anywhere.
+CF   CH2O
+MM   30.010564684
+
+//</modification>
+  <modification>ID   I-&gt;F on I
+MT   1 nucleotide substitution
+TG   I
+PP   Anywhere.
+CF   C3H-2
+MM   33.984349936
+
+//</modification>
+  <modification>ID   I-&gt;K on I
+MT   1 nucleotide substitution
+TG   I
+PP   Anywhere.
+CF   HN
+MM   15.010899037
+
+//</modification>
+  <modification>ID   I-&gt;R on I
+MT   1 nucleotide substitution
+TG   I
+PP   Anywhere.
+CF   HN3
+MM   43.017047046
+
+//</modification>
+  <modification>ID   I-&gt;S on I
+MT   1 nucleotide substitution
+TG   I
+PP   Anywhere.
+CF   C-3H-6O
+MM   -26.052035574
+
+//</modification>
+  <modification>ID   K-&gt;E on K
+MT   1 nucleotide substitution
+TG   K
+PP   Anywhere.
+CF   C-1H-5N-1O2
+MM   0.947630074
+
+//</modification>
+  <modification>ID   K-&gt;I on K
+MT   1 nucleotide substitution
+TG   K
+PP   Anywhere.
+CF   H-1N-1
+MM   -15.010899037
+
+//</modification>
+  <modification>ID   K-&gt;M on K
+MT   1 nucleotide substitution
+TG   K
+PP   Anywhere.
+CF   C-1H-3N-1S
+MM   2.945522073
+
+//</modification>
+  <modification>ID   K-&gt;N on K
+MT   1 nucleotide substitution
+TG   K
+PP   Anywhere.
+CF   C-2H-6O
+MM   -14.052035574
+
+//</modification>
+  <modification>ID   K-&gt;Q on K
+MT   1 nucleotide substitution
+TG   K
+PP   Anywhere.
+CF   C-1H-4O
+MM   -0.036385509
+
+//</modification>
+  <modification>ID   L-&gt;F on L
+MT   1 nucleotide substitution
+TG   L
+PP   Anywhere.
+CF   C3H-2
+MM   33.984349936
+
+//</modification>
+  <modification>ID   L-&gt;R on L
+MT   1 nucleotide substitution
+TG   L
+PP   Anywhere.
+CF   HN3
+MM   43.017047046
+
+//</modification>
+  <modification>ID   L-&gt;S on L
+MT   1 nucleotide substitution
+TG   L
+PP   Anywhere.
+CF   C-3H-6O
+MM   -26.052035574
+
+//</modification>
+  <modification>ID   L-&gt;V on L
+MT   1 nucleotide substitution
+TG   L
+PP   Anywhere.
+CF   C-1H-2
+MM   -14.015650064
+
+//</modification>
+  <modification>ID   L-&gt;W on L
+MT   1 nucleotide substitution
+TG   L
+PP   Anywhere.
+CF   C5H-1N
+MM   72.995248972
+
+//</modification>
+  <modification>ID   N-&gt;H on N
+MT   1 nucleotide substitution
+TG   N
+PP   Anywhere.
+CF   C2HNO-1
+MM   23.015984417
+
+//</modification>
+  <modification>ID   N-&gt;T on N
+MT   1 nucleotide substitution
+TG   N
+PP   Anywhere.
+CF   HN-1
+MM   -12.995248972
+
+//</modification>
+  <modification>ID   P-&gt;L on P
+MT   1 nucleotide substitution
+TG   P
+PP   Anywhere.
+CF   CH4
+MM   16.031300129
+
+//</modification>
+  <modification>ID   P-&gt;T on P
+MT   1 nucleotide substitution
+TG   P
+PP   Anywhere.
+CF   C-1O
+MM   3.99491462
+
+//</modification>
+  <modification>ID   Q-&gt;E on Q
+MT   1 nucleotide substitution
+TG   Q
+PP   Anywhere.
+CF   H-1N-1O
+MM   0.984015583
+
+//</modification>
+  <modification>ID   R-&gt;C on R
+MT   1 nucleotide substitution
+TG   R
+PP   Anywhere.
+CF   C-3H-7N-3S
+MM   -53.091926065
+
+//</modification>
+  <modification>ID   R-&gt;K on R
+MT   1 nucleotide substitution
+TG   R
+PP   Anywhere.
+CF   N-2
+MM   -28.006148009
+
+//</modification>
+  <modification>ID   R-&gt;P on R
+MT   1 nucleotide substitution
+TG   R
+PP   Anywhere.
+CF   C-1H-5N-3
+MM   -59.048347174
+
+//</modification>
+  <modification>ID   R-&gt;Q on R
+MT   1 nucleotide substitution
+TG   R
+PP   Anywhere.
+CF   C-1H-4N-2O
+MM   -28.042533518
+
+//</modification>
+  <modification>ID   R-&gt;T on R
+MT   1 nucleotide substitution
+TG   R
+PP   Anywhere.
+CF   C-2H-5N-3O
+MM   -55.053432555
+
+//</modification>
+  <modification>ID   S-&gt;C on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   O-1S
+MM   15.977156555
+
+//</modification>
+  <modification>ID   S-&gt;I on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   C3H6O-1
+MM   26.052035574
+
+//</modification>
+  <modification>ID   S-&gt;L on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   C3H6O-1
+MM   26.052035574
+
+//</modification>
+  <modification>ID   S-&gt;N on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   CHN
+MM   27.010899037
+
+//</modification>
+  <modification>ID   S-&gt;P on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   C2H2O-1
+MM   10.020735445
+
+//</modification>
+  <modification>ID   S-&gt;T on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   S-&gt;Y on S
+MT   1 nucleotide substitution
+TG   S
+PP   Anywhere.
+CF   C6H4
+MM   76.031300129
+
+//</modification>
+  <modification>ID   T-&gt;A on T
+MT   1 nucleotide substitution
+TG   T
+PP   Anywhere.
+CF   C-1H-2O-1
+MM   -30.010564684
+
+//</modification>
+  <modification>ID   T-&gt;I on T
+MT   1 nucleotide substitution
+TG   T
+PP   Anywhere.
+CF   C2H4O-1
+MM   12.036385509
+
+//</modification>
+  <modification>ID   T-&gt;K on T
+MT   1 nucleotide substitution
+TG   T
+PP   Anywhere.
+CF   C2H5NO-1
+MM   27.047284546
+
+//</modification>
+  <modification>ID   T-&gt;L on T
+MT   1 nucleotide substitution
+TG   T
+PP   Anywhere.
+CF   C2H4O-1
+MM   12.036385509
+
+//</modification>
+  <modification>ID   T-&gt;P on T
+MT   1 nucleotide substitution
+TG   T
+PP   Anywhere.
+CF   CO-1
+MM   -3.99491462
+
+//</modification>
+  <modification>ID   T-&gt;S on T
+MT   1 nucleotide substitution
+TG   T
+PP   Anywhere.
+CF   C-1H-2
+MM   -14.015650064
+
+//</modification>
+  <modification>ID   V-&gt;A on V
+MT   1 nucleotide substitution
+TG   V
+PP   Anywhere.
+CF   C-2H-4
+MM   -28.031300129
+
+//</modification>
+  <modification>ID   V-&gt;D on V
+MT   1 nucleotide substitution
+TG   V
+PP   Anywhere.
+CF   C-1H-4O2
+MM   15.95852911
+
+//</modification>
+  <modification>ID   V-&gt;I on V
+MT   1 nucleotide substitution
+TG   V
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   V-&gt;L on V
+MT   1 nucleotide substitution
+TG   V
+PP   Anywhere.
+CF   CH2
+MM   14.015650064
+
+//</modification>
+  <modification>ID   V-&gt;M on V
+MT   1 nucleotide substitution
+TG   V
+PP   Anywhere.
+CF   S
+MM   31.972071174
+
+//</modification>
+  <modification>ID   Y-&gt;H on Y
+MT   1 nucleotide substitution
+TG   Y
+PP   Anywhere.
+CF   C-3H-2N2O-1
+MM   -26.004416675
+
+//</modification>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>A0A0G2JIC6</accession>
+    <name>Mitochondrial ribosomal protein S18B</name>
+    <protein>
+      <recommendedName>
+        <fullName>Mitochondrial ribosomal protein S18B</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">MRPS18B</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="N-&gt;T on N">
+      <location>
+        <position position="7" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;C on S">
+      <location>
+        <position position="171" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;E on G">
+      <location>
+        <position position="179" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;E on G">
+      <location>
+        <position position="186" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="E-&gt;V on E">
+      <location>
+        <position position="190" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="205" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="207" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="210" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="213" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="214" />
+      </location>
+    </feature>
+    <sequence length="215">MAASVLNTVLRRLPMLSLFRGSHRVQVPLQTLCTKAPSEEDSLSSVPISPYKDEPWKYLESEEYQERYGSRPVWADYRRNHKGGVPPQRTRKTCINVKLLEQFVCAHTGIIFYAPYTGLLIYHIPQVEPRDLDFSTSHGAVSATPPAPTLVSGDPWYPWYNWKQPPERELSRLRRLYQGHLQEESGPPPESMPKMPPRTPAEASSTGQTGPQSAL</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>E5RJZ1</accession>
+    <name>Cytochrome c oxidase subunit 7A2 like</name>
+    <protein>
+      <recommendedName>
+        <fullName>Cytochrome c oxidase subunit 7A2 like</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">COX7A2L</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="E-&gt;V on E">
+      <location>
+        <position position="19" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Y-&gt;H on Y">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;R on G">
+      <location>
+        <position position="25" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;R on I">
+      <location>
+        <position position="37" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;R on I">
+      <location>
+        <position position="38" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;I on T">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;L on T">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="43" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="46" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="50" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;M on V">
+      <location>
+        <position position="51" />
+      </location>
+    </feature>
+    <sequence length="79">MYYKFSGFTQKLAGAWASEAYSPQGLKPVVSTEAPPIIFATPTKLTSDSTVYDYAGKNKVPELQKFFQVREDTLQQKSL</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>E9PIE3</accession>
+    <name>Caveolae associated protein 3</name>
+    <protein>
+      <recommendedName>
+        <fullName>Caveolae associated protein 3</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">CAVIN3</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="S-&gt;C on S">
+      <location>
+        <position position="34" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;P on S">
+      <location>
+        <position position="56" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;D on V">
+      <location>
+        <position position="218" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;Q on R">
+      <location>
+        <position position="222" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="237" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;E on K">
+      <location>
+        <position position="240" />
+      </location>
+    </feature>
+    <sequence length="293">MRESALERGPVPEAPAGGPVHAVTVVTLLEKLASMLETLRERQGGLARRQGGLAGSVRRIQSGLGALSRSHDTTSNTLAQLLAKAERVSSHANAAQERAVRRAAQVQRLEANHGLLVARGKLHVLLFKASPTLQRFAVRTQLSLPLPSHACLSPQTLAAEEEGEVPASAFQKAPEPLGPADQSELGPEQLEAEVGESSDEEPVESRAQRLRRTGLQKVQSLRRALSGRKGPAAPPPTPVKPPRLGPGRSAEAQPEAQPALEPTLEPEPPQDTEEDPGRPGAAEEALLQMESVA</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>H0YBD2</accession>
+    <name>Cytochrome c oxidase subunit 7A2 like (Fragment)</name>
+    <protein>
+      <recommendedName>
+        <fullName>Cytochrome c oxidase subunit 7A2 like (Fragment)</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">COX7A2L</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="E-&gt;V on E">
+      <location>
+        <position position="15" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Y-&gt;H on Y">
+      <location>
+        <position position="17" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;R on G">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;R on I">
+      <location>
+        <position position="33" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;R on I">
+      <location>
+        <position position="34" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;I on T">
+      <location>
+        <position position="37" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;L on T">
+      <location>
+        <position position="37" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="37" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="39" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="42" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="43" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="43" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="46" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;M on V">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <sequence length="95">FSGFTQKLAGAWASEAYSPQGLKPVVSTEAPPIIFATPTKLTSDSTVYDYAGKNKVPELQKFFQETYLQTILFLWLLETPVVGILDKGTFPAGLQ</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>O14548</accession>
+    <name>Cytochrome c oxidase subunit 7A2-like, mitochondrial</name>
+    <protein>
+      <recommendedName>
+        <fullName>Cytochrome c oxidase subunit 7A2-like, mitochondrial</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">COX7A2L</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="E-&gt;V on E">
+      <location>
+        <position position="19" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Y-&gt;H on Y">
+      <location>
+        <position position="21" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;R on G">
+      <location>
+        <position position="25" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;R on I">
+      <location>
+        <position position="37" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;R on I">
+      <location>
+        <position position="38" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;I on T">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;L on T">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="41" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="43" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="46" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="47" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="50" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;M on V">
+      <location>
+        <position position="51" />
+      </location>
+    </feature>
+    <sequence length="114">MYYKFSGFTQKLAGAWASEAYSPQGLKPVVSTEAPPIIFATPTKLTSDSTVYDYAGKNKVPELQKFFQKADGVPVYLKRGLPDQMLYRTTMALTVGGTIYCLIALYMASQPKNK</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>Q969G5</accession>
+    <name>Caveolae-associated protein 3</name>
+    <protein>
+      <recommendedName>
+        <fullName>Caveolae-associated protein 3</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">CAVIN3</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="S-&gt;C on S">
+      <location>
+        <position position="34" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;P on S">
+      <location>
+        <position position="56" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;D on V">
+      <location>
+        <position position="186" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;Q on R">
+      <location>
+        <position position="190" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;P on T">
+      <location>
+        <position position="205" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;E on K">
+      <location>
+        <position position="208" />
+      </location>
+    </feature>
+    <sequence length="261">MRESALERGPVPEAPAGGPVHAVTVVTLLEKLASMLETLRERQGGLARRQGGLAGSVRRIQSGLGALSRSHDTTSNTLAQLLAKAERVSSHANAAQERAVRRAAQVQRLEANHGLLVARGKLHVLLFKEEGEVPASAFQKAPEPLGPADQSELGPEQLEAEVGESSDEEPVESRAQRLRRTGLQKVQSLRRALSGRKGPAAPPPTPVKPPRLGPGRSAEAQPEAQPALEPTLEPEPPQDTEEDPGRPGAAEEALLQMESVA</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>Q9UKV3</accession>
+    <name>Apoptotic chromatin condensation inducer in the nucleus</name>
+    <protein>
+      <recommendedName>
+        <fullName>Apoptotic chromatin condensation inducer in the nucleus</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ACIN1</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="S-&gt;N on S">
+      <location>
+        <position position="10" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;C on R">
+      <location>
+        <position position="14" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;N on K">
+      <location>
+        <position position="58" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;G on A">
+      <location>
+        <position position="60" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="60" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="E-&gt;D on E">
+      <location>
+        <position position="61" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;V on L">
+      <location>
+        <position position="62" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="E-&gt;D on E">
+      <location>
+        <position position="63" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;A on V">
+      <location>
+        <position position="65" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;I on V">
+      <location>
+        <position position="65" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;L on V">
+      <location>
+        <position position="65" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;A on T">
+      <location>
+        <position position="66" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;S on T">
+      <location>
+        <position position="66" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;E on D">
+      <location>
+        <position position="68" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="69" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;W on L">
+      <location>
+        <position position="102" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;W on L">
+      <location>
+        <position position="106" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;W on L">
+      <location>
+        <position position="108" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;Y on D">
+      <location>
+        <position position="218" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;Q on K">
+      <location>
+        <position position="305" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;I on K">
+      <location>
+        <position position="349" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="365" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="365" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;Q on R">
+      <location>
+        <position position="372" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;E on K">
+      <location>
+        <position position="375" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;N on K">
+      <location>
+        <position position="375" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;S on G">
+      <location>
+        <position position="379" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;L on P">
+      <location>
+        <position position="502" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="507" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="507" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;Y on S">
+      <location>
+        <position position="507" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;T on A">
+      <location>
+        <position position="510" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;Y on S">
+      <location>
+        <position position="513" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;R on L">
+      <location>
+        <position position="529" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;E on K">
+      <location>
+        <position position="540" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;T on R">
+      <location>
+        <position position="612" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="659" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;I on V">
+      <location>
+        <position position="660" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;L on V">
+      <location>
+        <position position="660" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;E on D">
+      <location>
+        <position position="663" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;C on S">
+      <location>
+        <position position="667" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="667" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Q-&gt;E on Q">
+      <location>
+        <position position="711" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="714" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="715" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;G on D">
+      <location>
+        <position position="839" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="E-&gt;A on E">
+      <location>
+        <position position="841" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;Q on R">
+      <location>
+        <position position="847" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;F on I">
+      <location>
+        <position position="866" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;K on T">
+      <location>
+        <position position="867" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;K on T">
+      <location>
+        <position position="868" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;F on L">
+      <location>
+        <position position="871" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;K on T">
+      <location>
+        <position position="922" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N-&gt;H on N">
+      <location>
+        <position position="1018" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;S on L">
+      <location>
+        <position position="1038" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="F-&gt;C on F">
+      <location>
+        <position position="1043" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;K on I">
+      <location>
+        <position position="1045" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;S on I">
+      <location>
+        <position position="1045" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;C on R">
+      <location>
+        <position position="1096" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;L on P">
+      <location>
+        <position position="1114" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;P on R">
+      <location>
+        <position position="1163" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;I on K">
+      <location>
+        <position position="1201" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;Q on K">
+      <location>
+        <position position="1201" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;T on P">
+      <location>
+        <position position="1206" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;T on P">
+      <location>
+        <position position="1207" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="1239" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;M on K">
+      <location>
+        <position position="1279" />
+      </location>
+    </feature>
+    <sequence length="1341">MWRRKHPRTSGGTRGVLSGNRGVEYGSGRGHLGTFEGRWRKLPKMPEAVGTDPSTSRKMAELEEVTLDGKPLQALRVTDLKAALEQRGLAKSGQKSALVKRLKGALMLENLQKHSTPHAAFQPNSQIGEEMSQNSFIKQYLEKQQELLRQRLEREAREAAELEEASAESEDEMIHPEGVASLLPPDFQSSLERPELELSRHSPRKSSSISEEKGDSDDEKPRKGERRSSRVRQARAAKLSEGSQPAEEEEDQETPSRNLRVRADRNLKTEEEEEEEEEEEEDDEEEEGDDEGQKSREAPILKEFKEEGEEIPRVKPEEMMDERPKTRSQEQEVLERGGRFTRSQEEARKSHLARQQQEKEMKTTSPLEEEEREIKSSQGLKEKSKSPSPPRLTEDRKKASLVALPEQTASEEETPPPLLTKEASSPPPHPQLHSEEEIEPMEGPAPAVLIQLSPPNTDADTRELLVSQHTVQLVGGLSPLSSPSDTKAESPAEKVPEESVLPLVQKSTLADYSAQKDLEPESDRSAQPLPLKIEELALAKGITEECLKQPSLEQKEGRRASHTLLPSHRLKQSADSSSSRSSSSSSSSSRSRSRSPDSSGSRSHSPLRSKQRDVAQARTHANPRGRPKMGSRSTSESRSRSRSRSRSASSNSRKSLSPGVSRDSSTSYTETKDPSSGQEVATPPVPQLQVCEPKERTSTSSSSVQARRLSQPESAEKHVTQRLQPERGSPKKCEAEEAEPPAATQPQTSETQTSHLPESERIHHTVEEKEEVTMDTSENRPENDVPEPPMPIADQVSNDDRPEGSVEDEEKKESSLPKSFKRKISVVSATKGVPAGNSDTEGGQPGRKRRWGASTATTQKKPSISITTESLKSLIPDIKPLAGQEAVVDLHADDSRISEDETERNGDDGTHDKGLKICRTVTQVVPAEGQENGQREEEEEEKEPEAEPPVPPQVSVEVALPPPAEHEVKKVTLGDTLTRRSISQQKSGVSITIDDPVRTAQVPSPPRGKISNIVHISNLVRPFTLGQLKELLGRTGTLVEEAFWIDKIKSHCFVTYSTVEEAVATRTALHGVKWPQSNPKFLCADYAEQDELDYHRGLLVDRPSETKTEEQGIPRPLHPPPPPPVQPPQHPRAEQREQERAVREQWAEREREMERRERTRSEREWDRDKVREGPRSRSRSRDRRRKERAKSKEKKSEKKEKAQEEPPAKLLDDLFRKTKAAPCIYWLPLTDSQIVQKEAERAERAKEREKRRKEQEEEEQKEREKEAERERNRQLEREKRREHSRERDRERERERERDRGDRDRDRERDRERGRERDRRDTKRHSRSRSRSTPVRDRGGRR</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>Q9Y676</accession>
+    <name>Small ribosomal subunit protein mS40</name>
+    <protein>
+      <recommendedName>
+        <fullName>Small ribosomal subunit protein mS40</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">MRPS18B</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="N-&gt;T on N">
+      <location>
+        <position position="7" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;K on R">
+      <location>
+        <position position="118" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;C on S">
+      <location>
+        <position position="214" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;E on G">
+      <location>
+        <position position="222" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;E on G">
+      <location>
+        <position position="229" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="E-&gt;V on E">
+      <location>
+        <position position="233" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="248" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="250" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="253" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="256" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="257" />
+      </location>
+    </feature>
+    <sequence length="258">MAASVLNTVLRRLPMLSLFRGSHRVQVPLQTLCTKAPSEEDSLSSVPISPYKDEPWKYLESEEYQERYGSRPVWADYRRNHKGGVPPQRTRKTCIRRNKVVGNPCPICRDHKLHVDFRNVKLLEQFVCAHTGIIFYAPYTGVCVKQHKRLTQAIQKARDHGLLIYHIPQVEPRDLDFSTSHGAVSATPPAPTLVSGDPWYPWYNWKQPPERELSRLRRLYQGHLQEESGPPPESMPKMPPRTPAEASSTGQTGPQSAL</sequence>
+  </entry>
+  <entry dataset="unknown" created="unknown" modified="unknown" version="unknown" xmlns="http://uniprot.org/uniprot">
+    <accession>S4R3H4</accession>
+    <name>Apoptotic chromatin condensation inducer 1</name>
+    <protein>
+      <recommendedName>
+        <fullName>Apoptotic chromatin condensation inducer 1</fullName>
+      </recommendedName>
+    </protein>
+    <gene>
+      <name type="primary">ACIN1</name>
+    </gene>
+    <organism>
+      <name type="scientific">Homo sapiens</name>
+    </organism>
+    <feature type="modified residue" description="L-&gt;W on L">
+      <location>
+        <position position="44" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;W on L">
+      <location>
+        <position position="48" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;W on L">
+      <location>
+        <position position="50" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;Y on D">
+      <location>
+        <position position="160" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;Q on K">
+      <location>
+        <position position="247" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;I on K">
+      <location>
+        <position position="291" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="307" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="307" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;Q on R">
+      <location>
+        <position position="314" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;E on K">
+      <location>
+        <position position="317" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;N on K">
+      <location>
+        <position position="317" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;S on G">
+      <location>
+        <position position="321" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;L on P">
+      <location>
+        <position position="444" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;I on S">
+      <location>
+        <position position="449" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;L on S">
+      <location>
+        <position position="449" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;Y on S">
+      <location>
+        <position position="449" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;T on A">
+      <location>
+        <position position="452" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;Y on S">
+      <location>
+        <position position="455" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;R on L">
+      <location>
+        <position position="471" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;E on K">
+      <location>
+        <position position="482" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;T on R">
+      <location>
+        <position position="554" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="G-&gt;A on G">
+      <location>
+        <position position="601" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;I on V">
+      <location>
+        <position position="602" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="V-&gt;L on V">
+      <location>
+        <position position="602" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;E on D">
+      <location>
+        <position position="605" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;C on S">
+      <location>
+        <position position="609" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="609" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="Q-&gt;E on Q">
+      <location>
+        <position position="653" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="S-&gt;T on S">
+      <location>
+        <position position="656" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="657" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="D-&gt;G on D">
+      <location>
+        <position position="781" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="E-&gt;A on E">
+      <location>
+        <position position="783" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;Q on R">
+      <location>
+        <position position="789" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;F on I">
+      <location>
+        <position position="808" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;K on T">
+      <location>
+        <position position="809" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;K on T">
+      <location>
+        <position position="810" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;F on L">
+      <location>
+        <position position="813" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="T-&gt;K on T">
+      <location>
+        <position position="864" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="N-&gt;H on N">
+      <location>
+        <position position="960" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="L-&gt;S on L">
+      <location>
+        <position position="980" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="F-&gt;C on F">
+      <location>
+        <position position="985" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;K on I">
+      <location>
+        <position position="987" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="I-&gt;S on I">
+      <location>
+        <position position="987" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;C on R">
+      <location>
+        <position position="1038" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;L on P">
+      <location>
+        <position position="1056" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="R-&gt;P on R">
+      <location>
+        <position position="1105" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;I on K">
+      <location>
+        <position position="1143" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;Q on K">
+      <location>
+        <position position="1143" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;T on P">
+      <location>
+        <position position="1148" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="P-&gt;T on P">
+      <location>
+        <position position="1149" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="A-&gt;V on A">
+      <location>
+        <position position="1181" />
+      </location>
+    </feature>
+    <feature type="modified residue" description="K-&gt;M on K">
+      <location>
+        <position position="1221" />
+      </location>
+    </feature>
+    <sequence length="1283">MAELEEVTLDGKPLQALRVTDLKAALEQRGLAKSGQKSALVKRLKGALMLENLQKHSTPHAAFQPNSQIGEEMSQNSFIKQYLEKQQELLRQRLEREAREAAELEEASAESEDEMIHPEGVASLLPPDFQSSLERPELELSRHSPRKSSSISEEKGDSDDEKPRKGERRSSRVRQARAAKLSEGSQPAEEEEDQETPSRNLRVRADRNLKTEEEEEEEEEEEEDDEEEEGDDEGQKSREAPILKEFKEEGEEIPRVKPEEMMDERPKTRSQEQEVLERGGRFTRSQEEARKSHLARQQQEKEMKTTSPLEEEEREIKSSQGLKEKSKSPSPPRLTEDRKKASLVALPEQTASEEETPPPLLTKEASSPPPHPQLHSEEEIEPMEGPAPAVLIQLSPPNTDADTRELLVSQHTVQLVGGLSPLSSPSDTKAESPAEKVPEESVLPLVQKSTLADYSAQKDLEPESDRSAQPLPLKIEELALAKGITEECLKQPSLEQKEGRRASHTLLPSHRLKQSADSSSSRSSSSSSSSSRSRSRSPDSSGSRSHSPLRSKQRDVAQARTHANPRGRPKMGSRSTSESRSRSRSRSRSASSNSRKSLSPGVSRDSSTSYTETKDPSSGQEVATPPVPQLQVCEPKERTSTSSSSVQARRLSQPESAEKHVTQRLQPERGSPKKCEAEEAEPPAATQPQTSETQTSHLPESERIHHTVEEKEEVTMDTSENRPENDVPEPPMPIADQVSNDDRPEGSVEDEEKKESSLPKSFKRKISVVSATKGVPAGNSDTEGGQPGRKRRWGASTATTQKKPSISITTESLKSLIPDIKPLAGQEAVVDLHADDSRISEDETERNGDDGTHDKGLKICRTVTQVVPAEGQENGQREEEEEEKEPEAEPPVPPQVSVEVALPPPAEHEVKKVTLGDTLTRRSISQQKSGVSITIDDPVRTAQVPSPPRGKISNIVHISNLVRPFTLGQLKELLGRTGTLVEEAFWIDKIKSHCFVTYSTVEEAVATRTALHGVKWPQSNPKFLCADYAEQDELDYHRGLLVDRPSETKTEEQGIPRPLHPPPPPPVQPPQHPRAEQREQERAVREQWAEREREMERRERTRSEREWDRDKVREGPRSRSRSRDRRRKERAKSKEKKSEKKEKAQEEPPAKLLDDLFRKTKAAPCIYWLPLTDSQIVQKEAERAERAKEREKRRKEQEEEEQKEREKEAERERNRQLEREKRREHSRERDRERERERERDRGDRDRDRERDRERGRERDRRDTKRHSRSRSRSTPVRDRGGRR</sequence>
+  </entry>
+</mzLibProteinDb>

@@ -1,20 +1,11 @@
-﻿using System;
+using Chemistry;
+using MzLibUtil;
+using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Easy.Common.Extensions;
-using Easy.Common.Interfaces;
-using MzLibUtil;
 
 namespace MassSpectrometry
 {
-    public enum DeconvolutionType
-    {
-        ClassicDeconvolution,
-        ExampleNewDeconvolutionTemplate,
-    }
-
     /// <summary>
     /// Context class for all deconvolution
     /// </summary>
@@ -30,27 +21,22 @@ namespace MassSpectrometry
         public static IEnumerable<IsotopicEnvelope> Deconvolute(MsDataScan scan,
             DeconvolutionParameters deconvolutionParameters, MzRange rangeToGetPeaksFrom = null)
         {
-            rangeToGetPeaksFrom ??= scan.MassSpectrum.Range;
+            // FromFile decon needs RT in addition to m/z. If the caller didn't supply
+            // an MzRtRange we synthesize one from the scan's RetentionTime (the natural
+            // anchor when "this scan's precursor" is what's being requested).
+            var requiresRt = deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
+                             || (deconvolutionParameters is MultipleDeconParameters multiple
+                                 && multiple.Parameters.Any(p => p.DeconvolutionType == DeconvolutionType.FromFile));
 
-            // set deconvolution algorithm and any specific deconvolution parameters found in the MsDataScan
-            DeconvolutionAlgorithm deconAlgorithm;
-            switch (deconvolutionParameters.DeconvolutionType)
+            if (requiresRt && rangeToGetPeaksFrom is not MzRtRange)
             {
-                case DeconvolutionType.ClassicDeconvolution:
-                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
-                    break;
-
-                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
-                    break;
-
-                default: throw new MzLibException("DeconvolutionType not yet supported");
+                rangeToGetPeaksFrom = rangeToGetPeaksFrom is null
+                    ? new MzRtRange(scan.MassSpectrum.Range, scan.RetentionTime)
+                    : new MzRtRange(rangeToGetPeaksFrom, scan.RetentionTime);
             }
 
-            return deconAlgorithm.Deconvolute(scan.MassSpectrum, rangeToGetPeaksFrom);
+            return Deconvolute(scan.MassSpectrum, deconvolutionParameters, rangeToGetPeaksFrom);
         }
-                    
-
 
         /// <summary>
         /// Static deconvolution of an MzSpectrum that does not require Deconvoluter construction
@@ -64,22 +50,126 @@ namespace MassSpectrometry
         {
             rangeToGetPeaksFrom ??= spectrum.Range;
 
-            // set deconvolution algorithm 
-            DeconvolutionAlgorithm deconAlgorithm;
-            switch (deconvolutionParameters.DeconvolutionType)
+            // FromFile decon has no spectrum to anchor RT against — the caller must
+            // supply an MzRtRange explicitly. We surface that as an ArgumentException
+            // rather than letting it surface deeper inside the algorithm.
+            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
+                && rangeToGetPeaksFrom is not MzRtRange)
             {
-                case DeconvolutionType.ClassicDeconvolution:
-                    deconAlgorithm = new ClassicDeconvolutionAlgorithm(deconvolutionParameters);
-                    break;
-
-                case DeconvolutionType.ExampleNewDeconvolutionTemplate:
-                    deconAlgorithm = new ExampleNewDeconvolutionAlgorithmTemplate(deconvolutionParameters);
-                    break;
-
-                default: throw new MzLibException("DeconvolutionType not yet supported");
+                throw new ArgumentException(
+                    "FromFile deconvolution requires an MzRtRange (with RT bounds). " +
+                    "Use the MsDataScan overload, or construct an MzRtRange explicitly.",
+                    nameof(rangeToGetPeaksFrom));
             }
 
-            return deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+            // Short circuit deconvolution if it is called on a neutral mass spectrum
+            if (spectrum is NeutralMassSpectrum newt)
+                return DeconvoluteNeutralMassSpectrum(newt, rangeToGetPeaksFrom);
+
+            // set deconvolution algorithm
+            DeconvolutionAlgorithm deconAlgorithm = CreateAlgorithm(deconvolutionParameters);
+            var envelopes = deconAlgorithm.Deconvolute(spectrum, rangeToGetPeaksFrom);
+
+            // Optional generic-scoring post-pass, gated by parameters.UseGenericScore.
+            // Implemented in a separate iterator helper so the NeutralMassSpectrum
+            // early-return above stays eager rather than being deferred to MoveNext.
+            return deconvolutionParameters.UseGenericScore
+                ? AddGenericScoring(envelopes, deconvolutionParameters, spectrum)
+                : envelopes;
+        }
+
+        private static IEnumerable<IsotopicEnvelope> AddGenericScoring(
+            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters,
+            MzSpectrum spectrum)
+        {
+            AverageResidue model = deconvolutionParameters.AverageResidueModel;
+            foreach (var envelope in envelopes)
+            {
+                if (envelope.GenericScore == null)
+                {
+                    // Spectrum-aware path (PR #1056): the 3-arg ScoreEnvelope folds in SNR
+                    // and CompetingPeakRatio features against the source spectrum. The
+                    // envelope-only 2-arg overload is retained for call sites that no
+                    // longer hold the spectrum (e.g.
+                    // IsotopicEnvelopeExtensions.GetOrComputeGenericScore).
+                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model, spectrum);
+                    envelope.SetGenericScore(score);
+                }
+                yield return envelope;
+            }
+        }
+
+        public static (List<IsotopicEnvelope> Targets, List<IsotopicEnvelope> Decoys)
+            DeconvoluteWithDecoys(MsDataScan scan, DeconvolutionParameters parameters,
+                MzRange rangeToGetPeaksFrom = null)
+            => DeconvoluteWithDecoys(scan.MassSpectrum, parameters, rangeToGetPeaksFrom);
+
+        public static (List<IsotopicEnvelope> Targets, List<IsotopicEnvelope> Decoys)
+            DeconvoluteWithDecoys(MzSpectrum spectrum, DeconvolutionParameters parameters,
+                MzRange rangeToGetPeaksFrom = null)
+        {
+            var targets = Deconvolute(spectrum, parameters, rangeToGetPeaksFrom).ToList();
+
+            var decoyParams = parameters.ToDecoyParameters();
+            if (decoyParams is null)
+            {
+                throw new InvalidOperationException(
+                    $"DeconvoluteWithDecoys requires decoy support, but {parameters.GetType().Name} " +
+                    $"does not implement ToDecoyParameters(). Override ToDecoyParameters() in your " +
+                    $"parameter class to enable decoy deconvolution.");
+            }
+            var decoys = Deconvolute(spectrum, decoyParams, rangeToGetPeaksFrom).ToList();
+
+            return (targets, decoys);
+        }
+
+        /// <summary>
+        /// Factory method to create the correct deconvolution algorithm from the parameters.
+        /// First gives the parameters object a chance to construct its own algorithm via
+        /// <see cref="DeconvolutionParameters.CreateAlgorithm"/> — this is how algorithms
+        /// living outside <c>MassSpectrometry</c> (e.g. <c>FromFileDeconvolutionAlgorithm</c>
+        /// in <c>Readers</c>) plug themselves in. Falls back to the enum-based switch for
+        /// in-project algorithms.
+        /// </summary>
+        /// <param name="parameters"></param>
+        /// <returns></returns>
+        /// <exception cref="MzLibException"></exception>
+        private static DeconvolutionAlgorithm CreateAlgorithm(DeconvolutionParameters parameters)
+        {
+            return parameters.CreateAlgorithm() ?? parameters.DeconvolutionType switch
+            {
+                DeconvolutionType.ClassicDeconvolution => new ClassicDeconvolutionAlgorithm(parameters),
+                DeconvolutionType.ExampleNewDeconvolutionTemplate => new ExampleNewDeconvolutionAlgorithmTemplate(parameters),
+                DeconvolutionType.IsoDecDeconvolution => new IsoDecAlgorithm(parameters),
+                DeconvolutionType.FromFile => throw new MzLibException(
+                    "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
+                    "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),
+                DeconvolutionType.Multiple => new MultipleDeconvolutionAlgorithm(parameters),
+                _ => throw new MzLibException("DeconvolutionType not yet supported")
+            };
+        }
+
+        /// <summary>
+        /// Returns all peaks in the neutral mass spectrum as an isotopic envelope with a single peak
+        /// </summary>
+        /// <param name="neutralSpectrum"></param>
+        /// 
+        /// <param name="range"></param>
+        /// <returns></returns>
+        private static IEnumerable<IsotopicEnvelope> DeconvoluteNeutralMassSpectrum(
+            NeutralMassSpectrum neutralSpectrum, MzRange range)
+        {
+            for (int i = 0; i < neutralSpectrum.XArray.Length; i++)
+            {
+                double neutralMass = neutralSpectrum.XArray[i];
+                double intensity = neutralSpectrum.YArray[i];
+                int chargeState = neutralSpectrum.Charges[i];
+
+                if (range.Contains(neutralMass.ToMz(chargeState)))
+                {
+                    yield return new IsotopicEnvelope(neutralMass, intensity, chargeState);
+                }
+            }
         }
     }
 }

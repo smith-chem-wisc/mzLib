@@ -1,6 +1,8 @@
-﻿using System.Text;
+using System.Text;
 using Chemistry;
+using Omics.Fragmentation;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 
 namespace Omics;
 
@@ -12,48 +14,20 @@ public static class BioPolymerWithSetModsExtensions
     /// after the position of that modification
     /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
     /// </summary>
-    /// <returns></returns>
+    /// <param name="withSetMods">The biopolymer to serialize.</param>
+    /// <param name="lookup">Optional modification lookup to resolve modifications that don't have mass information.</param>
+    /// <param name="decimalPlaces">Number of decimal places for mass values (default: 6).</param>
+    /// <returns>The sequence with mass shifts in bracket notation.</returns>
     public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods)
     {
-        var subsequence = new StringBuilder();
+        // Convert to canonical sequence using the extension method
+        var canonical = withSetMods.ToCanonicalSequenceBuilder().Build();
 
-        // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
-        {
-            subsequence.Append('[' + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-        }
+        // Serialize to mass shift format
+        var result = MassShiftSequenceSerializer.Instance.Serialize(canonical);
 
-        for (int r = 0; r < withSetMods.Length; r++)
-        {
-            subsequence.Append(withSetMods[r]);
-
-            // modification on this residue
-            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-            {
-                if (mod.MonoisotopicMass > 0)
-                {
-                    subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                }
-                else
-                {
-                    subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-                }
-            }
-        }
-
-        // modification on peptide C-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod))
-        {
-            if (mod.MonoisotopicMass > 0)
-            {
-                subsequence.Append("[+" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-            }
-            else
-            {
-                subsequence.Append("[" + mod.MonoisotopicMass.RoundedDouble(6).ToString() + ']');
-            }
-        }
-        return subsequence.ToString();
+        // Should never be null since we're using ThrowException mode by default
+        return result ?? throw new InvalidOperationException("Failed to serialize sequence to mass shift format.");
     }
 
     /// <summary>
@@ -68,14 +42,15 @@ public static class BioPolymerWithSetModsExtensions
         string essentialSequence = withSetMods.BaseSequence;
         if (modstoWritePruned != null)
         {
-            var sbsequence = new StringBuilder();
+            var sbsequence = new StringBuilder(withSetMods.FullSequence.Length);
 
             // variable modification on peptide N-terminus
             if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
             {
                 if (modstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
                 {
-                    sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
+                    sbsequence.Append(
+                        $"[{pep_n_term_variable_mod.ModificationType}:{pep_n_term_variable_mod.IdWithMotif}]");
                 }
             }
             for (int r = 0; r < withSetMods.Length; r++)
@@ -86,7 +61,8 @@ public static class BioPolymerWithSetModsExtensions
                 {
                     if (modstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
                     {
-                        sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
+                        sbsequence.Append(
+                            $"[{residue_variable_mod.ModificationType}:{residue_variable_mod.IdWithMotif}]");
                     }
                 }
             }
@@ -96,7 +72,8 @@ public static class BioPolymerWithSetModsExtensions
             {
                 if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
                 {
-                    sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
+                    sbsequence.Append(
+                        $"-[{pep_c_term_variable_mod.ModificationType}:{pep_c_term_variable_mod.IdWithMotif}]");
                 }
             }
 
@@ -105,38 +82,21 @@ public static class BioPolymerWithSetModsExtensions
         return essentialSequence;
     }
 
-    /// <summary>
-    /// Determines the full sequence of a BioPolymerWithSetMods from its base sequence and modifications
-    /// </summary>
-    /// <param name="withSetMods"></param>
-    /// <returns></returns>
-    public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods)
+    public static string DetermineFullSequence(this IBioPolymerWithSetMods withSetMods) => IBioPolymerWithSetMods
+        .DetermineFullSequence(withSetMods.BaseSequence, withSetMods.AllModsOneIsNterminus);
+
+    public static IEnumerable<Product> GetMIons(this IBioPolymerWithSetMods withSetMods, IFragmentationParams? fragmentParams)
     {
-        var subSequence = new StringBuilder();
+        // Normal intact molecular ion
+        yield return new CustomMProduct("", withSetMods.MonoisotopicMass);
 
-        // modification on peptide N-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
+        if (fragmentParams is null)
+            yield break;
+
+        // Molecular ion with neutral losses
+        foreach (var ionLoss in fragmentParams.MIonLosses)
         {
-            subSequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
+            yield return new CustomMProduct(ionLoss.Annotation, withSetMods.MonoisotopicMass - ionLoss.MonoisotopicMass);
         }
-
-        for (int r = 0; r < withSetMods.Length; r++)
-        {
-            subSequence.Append(withSetMods[r]);
-
-            // modification on this residue
-            if (withSetMods.AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-            {
-                subSequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-        }
-
-        // modification on peptide C-terminus
-        if (withSetMods.AllModsOneIsNterminus.TryGetValue(withSetMods.Length + 2, out mod))
-        {
-            subSequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-        }
-
-        return subSequence.ToString();
     }
 }

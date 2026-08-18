@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net6.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
 	  <Platforms>x64</Platforms>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -12,6 +12,10 @@
 		<DebugSymbols>true</DebugSymbols>
 	</PropertyGroup>
 
+	<ItemGroup>
+	  <PackageReference Include="CsvHelper" Version="32.0.3" />
+	</ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\Chemistry\Chemistry.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
@@ -19,9 +23,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Digestion\rnases.tsv">
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </None>
+    <EmbeddedResource Include="Digestion\rnases.tsv" />
   </ItemGroup>
 
 </Project>

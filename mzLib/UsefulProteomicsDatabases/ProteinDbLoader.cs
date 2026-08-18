@@ -10,7 +10,11 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Chemistry;
+using Omics.BioPolymer;
 using Omics.Modifications;
+using Transcriptomics;
+using Omics.Modifications.IO;
 
 namespace UsefulProteomicsDatabases
 {
@@ -24,6 +28,29 @@ namespace UsefulProteomicsDatabases
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotOrganismRegex = new FastaHeaderFieldRegex("organism", @"OS=(.*?)\s(GN=|PE=|SV=|OX=)", 0, 1);
+
+        /// <summary>
+        /// The NCBI taxonomy id from a UniProt FASTA header ("OS=Homo sapiens OX=9606").
+        ///
+        /// OX= was already named in the regexes above, but only ever as a TERMINATOR for the
+        /// preceding field -- nothing captured it, so the FASTA path threw the taxonomy id away
+        /// while the XML path kept it. LoadProteinXML retains it because ProteinXmlEntry stores
+        /// every dbReference generically, so an entry loaded from XML carries
+        /// DatabaseReference("NCBI Taxonomy", "9606") and the same protein loaded from FASTA
+        /// carried nothing. This closes that gap using the same representation.
+        /// </summary>
+        // Anchored on a word boundary: unanchored, a description containing a token that ends in
+        // "OX=" followed by digits (".. SOX=5 .. OS=Homo sapiens OX=9606") matched the wrong number.
+        // A taxonomy id is a join key, where a silently wrong value is worse than a missing one.
+        public static readonly FastaHeaderFieldRegex UniprotOrganismIdRegex =
+            new FastaHeaderFieldRegex("organismId", @"(?:^|\s)OX=(\d+)", 0, 1);
+
+        /// <summary>
+        /// The dbReference type UniProt uses for the NCBI taxonomy identifier, in both its XML and
+        /// (via <see cref="UniprotOrganismIdRegex"/>) its FASTA headers. Declared once so consumers
+        /// do not each repeat the string.
+        /// </summary>
+        public const string NcbiTaxonomyDatabaseReferenceType = Protein.NcbiTaxonomyDatabaseReferenceType;
 
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
@@ -57,7 +84,8 @@ namespace UsefulProteomicsDatabases
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false)
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY",
+            string entrapmentIdentifier = "Random", bool isEntrapment = false)
         {
             List<Modification> prespecified = GetPtmListFromProteinXml(proteinDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
@@ -71,6 +99,7 @@ namespace UsefulProteomicsDatabases
                 IdWithMotifToMod = GetModificationDictWithMotifs(new HashSet<Modification>(prespecified.Concat(allKnownModifications)));
             }
             List<Protein> targets = new List<Protein>();
+            List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
             string newProteinDbLocation = proteinDbLocation;
@@ -101,14 +130,25 @@ namespace UsefulProteomicsDatabases
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation);
+                            Protein newProtein = block.ParseEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, proteinDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment);
                             if (newProtein != null)
                             {
+                                //If we have read any modifications that are nucleotide substitutions, convert them to sequence variants here:
+                                newProtein.ConvertNucleotideSubstitutionModificationsToSequenceVariants();
+
                                 if (addTruncations)
                                 {
                                     newProtein.AddTruncations();
                                 }
-                                targets.Add(newProtein);
+
+                                if (newProtein.IsDecoy)
+                                {
+                                    decoys.Add(newProtein);
+                                }
+                                else
+                                {
+                                    targets.Add(newProtein);
+                                }
                             }
                         }
 
@@ -121,9 +161,10 @@ namespace UsefulProteomicsDatabases
                 File.Delete(newProteinDbLocation);
             }
 
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
+            decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
             IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            return proteinsToExpand.SelectMany(p => p.GetVariantProteins(maxHeterozygousVariants, minAlleleDepth)).ToList();
+            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            return Merge(toReturn).ToList();
         }
 
         /// <summary>
@@ -165,7 +206,7 @@ namespace UsefulProteomicsDatabases
                                     //This block of code does not process information in any of the entries.
                                     protein_xml_modlist_general = storedKnownModificationsBuilder.Length <= 0 ?
                                         new List<Modification>() :
-                                        PtmListLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
+                                        ModificationLoader.ReadModsFromString(storedKnownModificationsBuilder.ToString(), out var errors).ToList();
                                     break;
                                 }
                             }
@@ -181,7 +222,8 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public static List<Protein> LoadProteinFasta(string proteinDbLocation, bool generateTargets, DecoyType decoyType, bool isContaminant, out List<string> errors,
             FastaHeaderFieldRegex accessionRegex = null, FastaHeaderFieldRegex fullNameRegex = null, FastaHeaderFieldRegex nameRegex = null,
-            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false)
+            FastaHeaderFieldRegex geneNameRegex = null, FastaHeaderFieldRegex organismRegex = null, int maxThreads = -1, bool addTruncations = false, string decoyIdentifier = "DECOY",
+            string entrapmentIdentifier = "Random", bool isEntrapment = false, FastaHeaderFieldRegex organismIdRegex = null)
         {
             FastaHeaderType? HeaderType = null;
             HashSet<string> unique_accessions = new HashSet<string>();
@@ -190,11 +232,13 @@ namespace UsefulProteomicsDatabases
             string name = null;
             string fullName = null;
             string organism = null;
+            string organismId = null;
             List<Tuple<string, string>> geneName = new List<Tuple<string, string>>();
             errors = new List<string>();
             Regex substituteWhitespace = new Regex(@"\s+");
 
             List<Protein> targets = new List<Protein>();
+            List<Protein> decoys = new List<Protein>();
 
             string newProteinDbLocation = proteinDbLocation;
 
@@ -238,6 +282,7 @@ namespace UsefulProteomicsDatabases
                                     fullNameRegex = UniprotFullNameRegex;
                                     nameRegex = UniprotNameRegex;
                                     organismRegex = UniprotOrganismRegex;
+                                    organismIdRegex ??= UniprotOrganismIdRegex;
                                     geneNameRegex = UniprotGeneNameRegex;
                                     break;
 
@@ -259,6 +304,7 @@ namespace UsefulProteomicsDatabases
                         fullName = ApplyRegex(fullNameRegex, line);
                         name = ApplyRegex(nameRegex, line);
                         organism = ApplyRegex(organismRegex, line);
+                        organismId = ApplyRegex(organismIdRegex, line);
                         string geneNameString = ApplyRegex(geneNameRegex, line);
                         if (geneNameString != null)
                         {
@@ -297,11 +343,41 @@ namespace UsefulProteomicsDatabases
                             unique_identifier = 2; //reset
                         }
                         unique_accessions.Add(accession);
+                        // Auto-detect entrapment if the accession contains the entrapment identifier anywhere
+                        bool proteinIsEntrapment = isEntrapment || accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                        if (proteinIsEntrapment && isContaminant)
+                            throw new MzLibUtil.MzLibException($"Protein accession '{accession}' cannot be both a contaminant and an entrapment protein.",
+                                new ArgumentException("isContaminant and isEntrapment cannot both be true"));
+                        // Prepend entrapment identifier if the caller flagged this as entrapment but accession doesn't already contain it
+                        if (proteinIsEntrapment && accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                        {
+                            bool startsWithDecoy = accession.StartsWith(decoyIdentifier, StringComparison.OrdinalIgnoreCase);
+                            if (startsWithDecoy)
+                                accession = decoyIdentifier + "_" + entrapmentIdentifier + "_" + accession.Substring(decoyIdentifier.Length).TrimStart('_');
+                            else
+                                accession = entrapmentIdentifier + "_" + accession;
+                        }
+                        // Same shape the XML loader produces, so a protein means the same thing
+                        // whichever format it came from.
+                        List<DatabaseReference> databaseReferences = organismId is null
+                            ? null
+                            : new List<DatabaseReference>
+                            {
+                                new DatabaseReference(NcbiTaxonomyDatabaseReferenceType, organismId,
+                                    new List<Tuple<string, string>>())
+                            };
+
                         Protein protein = new Protein(sequence, accession, organism, geneName, name: name, fullName: fullName,
-                            isContaminant: isContaminant, databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
+                            isContaminant: isContaminant, isDecoy: accession.StartsWith(decoyIdentifier), isEntrapment: proteinIsEntrapment,
+                            databaseReferences: databaseReferences,
+                            databaseFilePath: proteinDbLocation, addTruncations: addTruncations);
                         if (protein.Length == 0)
                         {
                             errors.Add("Line" + line + ", Protein Length of 0: " + protein.Name + " was skipped from database: " + proteinDbLocation);
+                        }
+                        else if (protein.IsDecoy)
+                        {
+                            decoys.Add(protein);
                         }
                         else
                         {
@@ -332,19 +408,20 @@ namespace UsefulProteomicsDatabases
             {
                 errors.Add("Error: No proteins could be read from the database: " + proteinDbLocation);
             }
-            List<Protein> decoys = DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads);
-            return generateTargets ? targets.Concat(decoys).ToList() : decoys;
+            decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
+            var toReturn = generateTargets ? targets.Concat(decoys) : decoys;
+            return Merge(toReturn).ToList();
         }
 
         /// <summary>
         /// Merge proteins that have the same accession, sequence, and contaminant designation.
         /// </summary>
-        public static IEnumerable<Protein> MergeProteins(IEnumerable<Protein> mergeThese)
+        public static IEnumerable<Protein> Merge(IEnumerable<Protein> mergeThese)
         {
-            Dictionary<Tuple<string, string, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool>, List<Protein>>();
+            Dictionary<Tuple<string, string, bool, bool, bool>, List<Protein>> proteinsByAccessionSequenceContaminant = new Dictionary<Tuple<string, string, bool, bool, bool>, List<Protein>>();
             foreach (Protein p in mergeThese)
             {
-                Tuple<string, string, bool, bool> key = new Tuple<string, string, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy);
+                Tuple<string, string, bool, bool, bool> key = new Tuple<string, string, bool, bool, bool>(p.Accession, p.BaseSequence, p.IsContaminant, p.IsDecoy, p.IsEntrapment);
                 if (!proteinsByAccessionSequenceContaminant.TryGetValue(key, out List<Protein> bundled))
                 {
                     proteinsByAccessionSequenceContaminant.Add(key, new List<Protein> { p });
@@ -355,13 +432,24 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            foreach (KeyValuePair<Tuple<string, string, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
+            foreach (KeyValuePair<Tuple<string, string, bool, bool, bool>, List<Protein>> proteins in proteinsByAccessionSequenceContaminant)
             {
+                if (proteins.Value.Count == 1)
+                {
+                    yield return proteins.Value[0];
+                    continue;
+                }
+
+                HashSet<string> datasets = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Dataset));
+                HashSet<string> createds = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Created));
+                HashSet<string> modifieds = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Modified));
+                HashSet<string> versions = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Version));
+                HashSet<string> xmlnses = new HashSet<string>(proteins.Value.Select(p => p.UniProtEntryAttributes.Xmlns));
                 HashSet<string> names = new HashSet<string>(proteins.Value.Select(p => p.Name));
                 HashSet<string> fullnames = new HashSet<string>(proteins.Value.Select(p => p.FullName));
                 HashSet<string> descriptions = new HashSet<string>(proteins.Value.Select(p => p.FullDescription));
                 HashSet<Tuple<string, string>> genenames = new HashSet<Tuple<string, string>>(proteins.Value.SelectMany(p => p.GeneNames));
-                HashSet<ProteolysisProduct> proteolysis = new HashSet<ProteolysisProduct>(proteins.Value.SelectMany(p => p.ProteolysisProducts));
+                HashSet<TruncationProduct> proteolysis = new HashSet<TruncationProduct>(proteins.Value.SelectMany(p => p.TruncationProducts));
                 HashSet<SequenceVariation> variants = new HashSet<SequenceVariation>(proteins.Value.SelectMany(p => p.SequenceVariations));
                 HashSet<DatabaseReference> references = new HashSet<DatabaseReference>(proteins.Value.SelectMany(p => p.DatabaseReferences));
                 HashSet<DisulfideBond> bonds = new HashSet<DisulfideBond>(proteins.Value.SelectMany(p => p.DisulfideBonds));
@@ -384,11 +472,14 @@ namespace UsefulProteomicsDatabases
                 }
                 Dictionary<int, List<Modification>> mod_dict2 = mod_dict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
+                // TODO: Handle applied variants. 
                 yield return new Protein(
+
                     proteins.Key.Item2,
                     proteins.Key.Item1,
                     isContaminant: proteins.Key.Item3,
                     isDecoy: proteins.Key.Item4,
+                    isEntrapment: proteins.Key.Item5,
                     geneNames: genenames.ToList(),
                     oneBasedModifications: mod_dict2,
                     proteolysisProducts: proteolysis.ToList(),
@@ -397,12 +488,18 @@ namespace UsefulProteomicsDatabases
                     databaseReferences: references.ToList(),
                     disulfideBonds: bonds.ToList(),
                     sequenceVariations: variants.ToList(),
-                    spliceSites: splices.ToList()
+                    spliceSites: splices.ToList(),
+                    uniProtEntryAttributes: new UniProtEntryAttributes(
+                        datasets.FirstOrDefault(),
+                        createds.FirstOrDefault(),
+                        modifieds.FirstOrDefault(),
+                        versions.FirstOrDefault(),
+                        xmlnses.FirstOrDefault())
                     );
             }
         }
 
-        private static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
+        internal static string ApplyRegex(FastaHeaderFieldRegex regex, string line)
         {
             string result = null;
             if (regex != null)
@@ -416,7 +513,7 @@ namespace UsefulProteomicsDatabases
             return result;
         }
 
-        private static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
+        internal static Dictionary<string, IList<Modification>> GetModificationDict(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, IList<Modification>>();
 
@@ -436,7 +533,7 @@ namespace UsefulProteomicsDatabases
             return mod_dict;
         }
 
-        private static Dictionary<string, Modification> GetModificationDictWithMotifs(IEnumerable<Modification> mods)
+        internal static Dictionary<string, Modification> GetModificationDictWithMotifs(IEnumerable<Modification> mods)
         {
             var mod_dict = new Dictionary<string, Modification>();
 
