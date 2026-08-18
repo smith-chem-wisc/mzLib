@@ -10,7 +10,7 @@ namespace Readers
     /// Builds an SDRF-Proteomics document from mzLib-native inputs.
     ///
     /// Takes <see cref="Tolerance"/>, <see cref="Omics.Digestion.DigestionAgent"/>,
-    /// <see cref="Modification"/>, <see cref="DissociationType"/> and <see cref="SourceFile"/> —
+    /// <see cref="Modification"/>, <see cref="DissociationType"/> and <see cref="CvParam"/> —
     /// nothing application-specific — so a caller passes what it already holds rather than
     /// translating. That is what keeps the MetaMorpheus side of this a thin call rather than a
     /// second implementation.
