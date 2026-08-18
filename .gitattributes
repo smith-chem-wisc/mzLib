@@ -63,6 +63,15 @@
 #*.RTF   diff=astextplain
 
 ###############################################################################
+# SDRF-Proteomics test fixtures are byte-exact regression inputs.
+# `* text=auto` above would store them LF-normalized and hand them back CRLF on
+# a checkout with core.autocrlf=true, so a byte-identical round-trip test would
+# be validating git's conversion rather than the reader, and would fail on any
+# clone with autocrlf=false or input. Keep these bytes exactly as committed.
+###############################################################################
+*.sdrf.tsv -text
+
+###############################################################################
 # Byte-exact ontology and vocabulary files
 #
 # These are pinned inputs, committed verbatim from their upstream sources: the
