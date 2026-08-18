@@ -253,6 +253,22 @@ namespace Proteomics
         /// </summary>
         public string BaseSequence { get; private set; }
 
+        /// <summary>
+        /// The dbReference type UniProt uses for the NCBI taxonomy identifier, in both its XML
+        /// (&lt;dbReference type="NCBI Taxonomy" id="9606"/&gt;) and its FASTA headers (OX=9606).
+        /// Declared here rather than in the loader so that anything holding a Protein can find the
+        /// taxonomy without depending on how the protein was read.
+        /// </summary>
+        public const string NcbiTaxonomyDatabaseReferenceType = "NCBI Taxonomy";
+
+        /// <summary>
+        /// The NCBI taxonomy identifier for this protein's organism, or null if the database did
+        /// not supply one. The organism NAME is free text and ambiguous across databases; this is
+        /// the stable machine identifier.
+        /// </summary>
+        public string NcbiTaxonomyId => DatabaseReferences
+            ?.FirstOrDefault(r => r.Type == NcbiTaxonomyDatabaseReferenceType)?.Id;
+
         public string Organism { get; }
         public bool IsDecoy { get; }
         public int Length => BaseSequence.Length;
@@ -303,7 +319,14 @@ namespace Proteomics
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
 
-            return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
+            // OX= sits between OS= and GN=, matching real UniProt headers -- and matching
+            // ProteinDbLoader.UniprotOrganismRegex, which already treats OX= as a terminator for the
+            // organism name. Omitted entirely when unknown rather than written empty, so a header
+            // without taxonomy stays exactly as it was.
+            string taxonomy = NcbiTaxonomyId;
+            return string.IsNullOrEmpty(taxonomy)
+                ? string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName)
+                : string.Format("mz|{0}|{1} {2} OS={3} OX={4} GN={5}", Accession, Name, FullName, Organism, taxonomy, geneName);
         }
 
         /// <summary>

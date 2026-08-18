@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MzLibUtil;
 using UsefulProteomicsDatabases;
 
 namespace Test.DatabaseTests;
@@ -65,6 +66,31 @@ public class PrideArchiveClientTests
         """;
 
     private static string Array(params string[] fileJson) => "[" + string.Join(",", fileJson) + "]";
+
+    /// <summary>
+    /// The same record <see cref="FileJson"/> produces, written with its properties in a different
+    /// order and different whitespace — the same record to anything that parses it, a different one to
+    /// anything that compares bytes.
+    /// </summary>
+    private static string FileJsonReordered(string fileName) =>
+        $$"""
+        {   "totalDownloads": 19,
+            "fileName": "{{fileName}}",
+            "additionalAttributes": [], "compress": false,
+            "updatedDate": "2019-01-15T09:47:55.000+00:00",
+            "publicationDate": "2025-07-13T23:01:04.308+00:00",
+            "submissionDate": "2019-01-15T09:42:57.000+00:00",
+            "fileSizeBytes": 96358400,
+            "publicFileLocations": [
+              { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000469", "name": "FTP Protocol", "value": "ftp://ftp.pride.ebi.ac.uk/{{fileName}}" },
+              { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000468", "name": "Aspera Protocol", "value": "prd_ascp@fasp.ebi.ac.uk:{{fileName}}" }
+            ],
+            "checksum": "",
+            "fileCategory": { "value": "SEARCH", "name": "category", "accession": "PRIDE:0000408", "cvLabel": "PRIDE", "@type": "CvParam" },
+            "accession": "hashid",
+            "projectAccessions": ["PXD012345"]
+        }
+        """;
 
     // ---- deserialization ----------------------------------------------------
 
@@ -141,6 +167,463 @@ public class PrideArchiveClientTests
         var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
 
         Assert.That(files.Count, Is.EqualTo(1));
+    }
+
+    [Test]
+    public async Task GetProjectFilesAsync_ServerCapsPageSize_StillReturnsFullManifest()
+    {
+        // Regression: PRIDE caps pageSize server-side (100 as of 2026-07-23) and then pages by the
+        // capped size, so asking for 4 yields a 2-file page that is NOT the last page. Treating a
+        // short page as terminal truncated the manifest silently -- it returned 2 of 3 files with
+        // no error, while the doc promised the full manifest regardless of page size.
+        // The stub serves at most 2 files per page whatever is asked for, standing in for that cap.
+        const long total = 3;
+        var handler = new StubHandler(request =>
+        {
+            var uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("c")), totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        // Ask for more per page than the stub will ever hand back, exactly as a caller passing 500 does.
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        // Parse each recorded request into its paging parameters, so the assertions pin the paging
+        // semantics -- two requests, both at the CALLER's page size, pages 0 then 1 -- without coupling
+        // to query-string order, spelling, or the presence of unrelated parameters. URL construction is
+        // owned elsewhere and is explicitly not what this PR changes; a reordered or extended query
+        // (an added sort/filter) must not read as a paging regression here.
+        List<ILookup<string, string>> requestedQueries = handler.RequestedUris
+            .Select(u => new Uri(u).Query.TrimStart('?')
+                .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Select(pair => pair.Split('=', 2))
+                .ToLookup(kv => kv[0], kv => kv.Length > 1 ? kv[1] : string.Empty))
+            .ToList();
+
+        // Read through the lookup rather than an indexer: a renamed or dropped paging parameter -- the
+        // very drift this rewrite loosened the test against -- then shows up as a null in the compared
+        // sequence and produces the intended message, instead of throwing KeyNotFoundException out of
+        // the Assert.Multiple block. A repeated key would likewise break ToDictionary but not ToLookup.
+        static string Param(ILookup<string, string> query, string name) => query[name].FirstOrDefault();
+
+        // A precondition, kept outside the multiple block so the assertions below cannot run against
+        // a request list of unexpected length.
+        Assert.That(requestedQueries, Has.Count.EqualTo(2));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
+            // A SECOND page was requested, still at the CALLER's page size, after a first page came
+            // back shorter than asked for -- that is the invariant, not the exact query text.
+            Assert.That(requestedQueries.Select(q => Param(q, "pageSize")), Is.EqualTo(new[] { "4", "4" }));
+            Assert.That(requestedQueries.Select(q => Param(q, "page")), Is.EqualTo(new[] { "0", "1" }));
+        });
+    }
+
+    /// <summary>
+    /// The header is authoritative for whether to keep paging, so when it overstates what the server
+    /// will actually serve the empty-page check is the only thing left to stop the loop. That path
+    /// became load-bearing with the capped-pageSize fix -- before it, the short-page break caught this
+    /// case first -- so it is pinned here rather than left to the argument in the PR body.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsOverstated_StopsOnEmptyPage()
+    {
+        const long overstatedTotal = 5; // the stub will only ever serve 2
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: overstatedTotal)
+                : JsonResponse("[]", totalRecords: overstatedTotal));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        // pageSize is deliberately ABOVE what the stub serves, and that is what makes this test
+        // discriminate. Asking for 2 would make the old short-page check a no-op (2 < 2 is false),
+        // so the pre-fix code produced an identical result and the test would pin nothing.
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        Assert.Multiple(() =>
+        {
+            // The shortfall against the reported total is accepted, not thrown.
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+            // 2 requests, not 1: the overstated header kept us paging past the short page, and the
+            // EMPTY page -- not the short one -- is what stopped us. This also pins the cost of the
+            // fix, so an "optimisation" that restores the early break fails here.
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2));
+        });
+    }
+
+    /// <summary>
+    /// The counterpart to the overstated case, and the pin on what the tail probe costs. The fetch ends
+    /// on a page as full as any served, which is indistinguishable from a total that is one page short,
+    /// so one further page is requested before the header is believed.
+    /// </summary>
+    /// <remarks>
+    /// The stub ignores <c>page</c> and serves the same two files forever, never an empty page. That is
+    /// deliberate and does double duty: it makes total_records the only thing that can stop this loop,
+    /// so weakening that check shows up here; and it is the worst case for the probe, because the probe
+    /// walks straight into the identical-page guard. Returning the two files rather than throwing is
+    /// what makes the probe strictly non-regressive -- a server that ignores paging behaves exactly as
+    /// it did before the probe existed.
+    /// </remarks>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsExactlyMatched_ProbesOncePastTheReportedTotal()
+    {
+        const long total = 2;
+        var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            // The repeated page is discarded, not appended: the probe adds records only when the server
+            // actually has some. Duplicating "a" and "b" here would be the tail probe reintroducing the
+            // duplicate-padding failure the identical-page guard exists to prevent.
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+            // 2, not 1: the cost of closing the understated-total hole, paid only when a fetch ends
+            // exactly on a full page. Was 1 before the probe; changing it back re-opens that hole.
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2));
+        });
+    }
+
+    /// <summary>
+    /// An UNDERSTATED total_records is the mirror of the overstated case and truncates the tail: every
+    /// record past the reported total is dropped with no error, which is the same silent-truncation
+    /// class as the capped-pageSize bug. Verified RED against the pre-probe loop, which returns 2 of 4.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsUnderstated_ReturnsEveryRecordAnyway()
+    {
+        // The server has 4 files but reports 2. Reaching page=1 at all requires disbelieving the header.
+        const long understatedTotal = 2;
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: understatedTotal);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("c"), FileJson("d")), totalRecords: understatedTotal);
+            return JsonResponse("[]", totalRecords: understatedTotal);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c", "d" }));
+            // 3 requests: page 0, the probe that finds the disclaimed tail, and the empty page that
+            // ends it. Asserting the count is what makes this discriminate -- the file list alone would
+            // also pass if the loop ignored total_records entirely, which is not the fix.
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(3));
+        });
+    }
+
+    /// <summary>
+    /// The probe is spent only on the ambiguous stop. A fetch that ends on a page SHORTER than the
+    /// largest served has reached the end of the data, the header agrees, and no extra request is made.
+    /// This is what keeps the probe from costing a request on every ordinary multi-page fetch.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_TotalRecordsMatchedOnAShortPage_DoesNotProbe()
+    {
+        const long total = 3;
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("c")), totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(2), "a short final page needs no probe");
+        });
+    }
+
+    /// <summary>
+    /// The single-page fetch is the common case -- most PRIDE projects hold fewer files than the
+    /// default page size -- so it is the one the probe must not tax. Page 0 is trivially the largest
+    /// page seen, so "as full as any served" is vacuously true there and would probe every such fetch;
+    /// the requested pageSize is what decides it instead. 50 of a requested 100 is the server running
+    /// out, not a full page, so the header is believed and nothing further is requested.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_SinglePageShorterThanRequested_DoesNotProbe()
+    {
+        string[] names = Enumerable.Range(0, 50).Select(i => "f" + i).ToArray();
+        var handler = new StubHandler(request => request.RequestUri.ToString().Contains("page=0")
+            ? JsonResponse(Array(names.Select(n => FileJson(n)).ToArray()), totalRecords: 50)
+            : JsonResponse("[]", totalRecords: 50));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345"); // the default pageSize of 100
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Has.Count.EqualTo(50));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(1),
+                "50 files at a requested page size of 100 is a short page; the probe is not for it");
+        });
+    }
+
+    /// <summary>
+    /// A result set that GROWS between two requests repages itself, so the probe can be handed records
+    /// the fetch already holds: page 0 of a 2-record set is [a, b], and page 1 of the 3-record set it
+    /// became is [b, c]. The server is behaving correctly throughout -- the empty-page and
+    /// identical-page comments both decline to fail on exactly this -- so the answer cannot be to
+    /// throw, and it cannot be to append either: that hands the caller a duplicate "b", which it has no
+    /// way to see, and which a caller acts on by downloading the same file twice or reporting the wrong
+    /// count. The repeat is dropped by matching the whole JSON record, and only "c" is appended.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ResultSetGrowsBeforeTheProbe_DoesNotDuplicateARecord()
+    {
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: 2);
+            if (uri.Contains("page=1")) return JsonResponse(Array(FileJson("b"), FileJson("c")), totalRecords: 3);
+            return JsonResponse("[]", totalRecords: 3);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        // Not [a, b, b, c]. The record the probe repeats is dropped; the one it genuinely adds is kept,
+        // so the probe still does the job it exists for on a result set that moved underneath it.
+        Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b", "c" }));
+    }
+
+    /// <summary>
+    /// The repeat is matched on the whole record as PARSED JSON, not as raw bytes, so a server that
+    /// re-serves the same record with different whitespace or a different property order is still
+    /// recognised. Byte identity alone would miss it and append the duplicate.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ProbeRepeatsARecordFormattedDifferently_StillDropsIt()
+    {
+        var handler = new StubHandler(request =>
+        {
+            string uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: 2);
+            // Same two records, reformatted: whitespace inserted and the properties reordered.
+            if (uri.Contains("page=1"))
+                return JsonResponse("[\n  " + FileJson("a") + " ,\n  " + FileJsonReordered("b") + "\n]", totalRecords: 2);
+            return JsonResponse("[]", totalRecords: 2);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+    }
+
+    [Test]
+    public void GetProjectFilesAsync_ServerIgnoresPageButReportsTotal_ThrowsInsteadOfReturningDuplicates()
+    {
+        // A server that honours the capped pageSize but ignores `page` re-serves the same records on
+        // every request while still reporting total_records. Left alone, files.Count accumulates the
+        // duplicates and trips `files.Count >= total`, returning a manifest padded with duplicates and
+        // silently missing the records past the cap as a "success".
+        const long total = 3; // more than the stub will ever serve on its single, repeated page
+        var handler = new StubHandler(_ => JsonResponse(Array(FileJson("a"), FileJson("b")), totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler)); // MaxPages left at its default
+
+        // MzLibException, not HttpRequestException: the server answered successfully and broke the
+        // contract, which the class remarks reserve HttpRequestException from precisely so that
+        // ExternalServiceTestHelper does not convert a real regression into a green skip.
+        Assert.That(async () => await client.GetProjectFilesAsync("PXD012345", pageSize: 4),
+            Throws.InstanceOf<MzLibException>());
+
+        // The count is what makes this test discriminating rather than decorative. The repeated page is
+        // detected on the SECOND request and aborts there. Delete the identical-page guard and the loop
+        // instead runs all the way to the MaxPages backstop, so this assertion goes red -- asserting the
+        // exception type alone would not, because MaxPages throws too.
+        Assert.That(handler.RequestedUris.Count, Is.EqualTo(2));
+    }
+
+    /// <summary>
+    /// Paging progress is judged per PAGE, never per file name, so no manifest entry is ever dropped.
+    /// A manifest may legitimately repeat a leaf name (the same name under different
+    /// publicFileLocations), and deciding membership by name uniqueness would silently lose the
+    /// duplicate -- reintroducing the truncation this method exists to prevent.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ManifestRepeatsAFileName_ReturnsEveryEntry()
+    {
+        const long total = 3;
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse(Array(FileJson("a"), FileJson("dup"), FileJson("dup")), totalRecords: total)
+                : JsonResponse("[]", totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "dup", "dup" }));
+        Assert.That(files.Count, Is.EqualTo((int)total));
+    }
+
+    /// <summary>
+    /// An entry whose fileName is absent from the JSON is a case DownloadFileAsync explicitly guards
+    /// against, so the manifest must carry every such entry rather than collapsing them together.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_EntriesWithNoFileName_AreAllReturned()
+    {
+        const long total = 2;
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse("""[{ "fileSizeBytes": 1 }, { "fileSizeBytes": 2 }]""", totalRecords: total)
+                : JsonResponse("[]", totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        Assert.That(files.Count, Is.EqualTo(2), "neither unnamed entry may be dropped from the manifest");
+    }
+
+    /// <summary>The same leaf name under a different directory — the real shape of a repeated name.</summary>
+    private static string FileJsonInDirectory(string directory, string fileName) =>
+        $$"""
+        {
+          "projectAccessions": ["PXD012345"],
+          "accession": "hash-{{directory}}-{{fileName}}",
+          "fileCategory": { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000404", "name": "category", "value": "RAW" },
+          "checksum": "",
+          "publicFileLocations": [
+            { "@type": "CvParam", "cvLabel": "PRIDE", "accession": "PRIDE:0000469", "name": "FTP Protocol", "value": "ftp://ftp.pride.ebi.ac.uk/{{directory}}/{{fileName}}" }
+          ],
+          "fileSizeBytes": 1,
+          "fileName": "{{fileName}}"
+        }
+        """;
+
+    /// <summary>
+    /// The duplicate-name case the single-page test above cannot reach. Two pages of genuinely
+    /// DIFFERENT records that happen to share a name sequence -- the same leaf names under different
+    /// directories, which the loop's own comment calls legitimate -- must not be mistaken for the
+    /// server re-serving a page. Judging identity by file names threw MzLibException here against a
+    /// server that paged correctly and reported an honest total_records.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ConsecutivePagesShareANameSequence_ReturnsEveryEntry()
+    {
+        const long total = 4;
+        var handler = new StubHandler(request =>
+        {
+            var uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0"))
+                return JsonResponse(Array(FileJsonInDirectory("dirA", "dup.raw"), FileJsonInDirectory("dirA", "other.raw")), totalRecords: total);
+            if (uri.Contains("page=1"))
+                return JsonResponse(Array(FileJsonInDirectory("dirB", "dup.raw"), FileJsonInDirectory("dirB", "other.raw")), totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Count, Is.EqualTo((int)total), "a repeated name sequence is not a re-served page");
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "dup.raw", "other.raw", "dup.raw", "other.raw" }));
+            // The records really are distinct: each resolves to its own directory.
+            Assert.That(files.Select(f => f.PublicFileLocations[0].Value).Distinct().Count(), Is.EqualTo((int)total));
+        });
+    }
+
+    /// <summary>
+    /// The same false positive reached through absent names rather than repeated ones. Every entry on
+    /// both pages lacks fileName, so a name-derived identity is equal across them however many records
+    /// each page holds -- and DownloadFileAsync already guards for exactly these entries, so the loop
+    /// cannot treat them as a server fault.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ConsecutivePagesOfUnnamedEntries_ReturnEveryEntry()
+    {
+        const long total = 4;
+        var handler = new StubHandler(request =>
+        {
+            var uri = request.RequestUri.ToString();
+            if (uri.Contains("page=0")) return JsonResponse("""[{ "fileSizeBytes": 1 }, { "fileSizeBytes": 2 }]""", totalRecords: total);
+            if (uri.Contains("page=1")) return JsonResponse("""[{ "fileSizeBytes": 3 }, { "fileSizeBytes": 4 }]""", totalRecords: total);
+            return JsonResponse("[]", totalRecords: total);
+        });
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 2);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Count, Is.EqualTo((int)total), "unnamed entries on consecutive pages are not a re-served page");
+            Assert.That(files.Select(f => f.FileSizeBytes), Is.EqualTo(new long[] { 1, 2, 3, 4 }));
+        });
+    }
+
+    /// <summary>
+    /// A null ELEMENT in the files array is dropped rather than dereferenced. PrideProject already has
+    /// RemoveNullElements for this class of payload; the file list had no equivalent, so a one-token
+    /// body reached straight into the paging loop and out to the caller as a null entry.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_NullElementInFilesArray_IsDroppedNotDereferenced()
+    {
+        const long total = 2;
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse("[" + FileJson("a") + ",null," + FileJson("b") + "]", totalRecords: total)
+                : JsonResponse("[]", totalRecords: total));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files, Has.None.Null, "a null entry must never reach the caller");
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+        });
+    }
+
+    /// <summary>An array of nothing but nulls reads as an empty page, not as a crash.</summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ArrayOfOnlyNulls_ReadsAsEmpty()
+    {
+        var handler = new StubHandler(_ => JsonResponse("[null]"));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345");
+
+        Assert.That(files, Is.Empty);
+    }
+
+    /// <summary>
+    /// The documented boundary of the narrowed guarantee: with no total_records header there is nothing
+    /// authoritative to page against, so a server-side cap below the requested pageSize still truncates
+    /// on the first short page. This pins the limitation the summary now admits to, in both directions.
+    /// </summary>
+    [Test]
+    public async Task GetProjectFilesAsync_ServerCapsPageSizeWithoutTotalHeader_StopsOnShortPage()
+    {
+        // No total_records anywhere, and the stub caps every page at 2 however many are asked for.
+        var handler = new StubHandler(request =>
+            request.RequestUri.ToString().Contains("page=0")
+                ? JsonResponse(Array(FileJson("a"), FileJson("b")))
+                : JsonResponse(Array(FileJson("c"))));
+        using var client = new PrideArchiveClient(new HttpClient(handler));
+
+        var files = await client.GetProjectFilesAsync("PXD012345", pageSize: 4);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(files.Select(f => f.FileName), Is.EqualTo(new[] { "a", "b" }));
+            Assert.That(handler.RequestedUris.Count, Is.EqualTo(1), "the short first page terminates the fetch");
+        });
     }
 
     [Test]
@@ -297,5 +780,41 @@ public class PrideArchiveClientLiveTests
             var files = await client.GetProjectFilesAsync("PXD012345");
             Assert.That(files.Count, Is.GreaterThan(1));
             Assert.That(files.All(f => !string.IsNullOrEmpty(f.FileName)));
+        });
+
+    /// <summary>
+    /// Asking for more files per page than PRIDE will serve must not shorten the manifest. PRIDE caps
+    /// pageSize server-side (100 as of 2026-07-23) and then pages by the capped size, so an
+    /// over-large request comes back "short" on every page while more records remain. Counts are
+    /// compared against the default-page-size call rather than a literal, because the project's file
+    /// count drifts; the invariant — page size must not change the answer — does not.
+    /// </summary>
+    [Test]
+    public Task GetProjectFilesAsync_LivePageSizeAboveServerCap_ReturnsSameManifestAsDefault() =>
+        ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
+        {
+            // The cap PRIDE was observed to apply, and a request deliberately above it. Named rather
+            // than inline so a future cap change is a one-line edit.
+            const int observedServerCap = 100;
+            const int deliberatelyAboveCap = 500;
+
+            using var client = new PrideArchiveClient();
+            var atDefault = await client.GetProjectFilesAsync("PXD012345");
+            var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: deliberatelyAboveCap);
+
+            // Skip when the over-cap paging path cannot be exercised at all: if even the default call
+            // (which pages at the cap and so returns the project's true count) comes back at or below
+            // the cap, a single page already holds everything and pageSize cannot change the answer, so
+            // there is nothing to distinguish. This deliberately treats an exactly-at-cap manifest as
+            // inconclusive rather than a hard failure -- a genuinely 100-file project and a truncated
+            // one are indistinguishable from the count alone, and resolving that ambiguity to red would
+            // make the canary go permanently red on dataset drift. A real truncation regression cannot
+            // hide here: it shows up below as aboveCap disagreeing with atDefault, which fails red.
+            Assume.That(atDefault.Count, Is.GreaterThan(observedServerCap),
+                "PXD012345 does not exceed the server cap, so an over-cap request cannot be exercised.");
+
+            // The real invariant, and the loud-failure path: page size must not change the answer. A
+            // manifest truncated at the cap for the over-large request fails here (red), not skips.
+            Assert.That(aboveCap.Select(f => f.FileName), Is.EquivalentTo(atDefault.Select(f => f.FileName)));
         });
 }

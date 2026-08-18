@@ -17,6 +17,19 @@ namespace Test.FileReadingTests.ProForma
         public static string TsvPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             @"FileReadingTests\ProForma\manuscript-examples.tsv");
 
+        /// <summary>
+        /// Turns a corpus id into a name safe to hand to NUnit's SetName.
+        /// <para>
+        /// Corpus ids carry ProForma spec section numbers ("v2-4.2.3.1-01"). NUnit splices a test's name
+        /// verbatim into its fully-qualified name, and both VS Test Explorer and vstest build their tree
+        /// by splitting that FQN on '.', so a dotted name is shredded into phantom parent nodes
+        /// ("...ProFormaLayer1RoundTripTests.top-down_v2-4" -> "2" -> "1-03") that cannot be expanded,
+        /// run, or filtered. Dots become underscores; the id stays legible and one-to-one with the TSV.
+        /// </para>
+        /// Enforced assembly-wide by .github/scripts/Check-TestNameHygiene.ps1.
+        /// </summary>
+        public static string ToTestName(string id) => id.Replace('.', '_');
+
         public static List<CorpusRow> Load()
         {
             var rows = new List<CorpusRow>();
