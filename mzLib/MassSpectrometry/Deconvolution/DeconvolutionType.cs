@@ -5,5 +5,7 @@
         ClassicDeconvolution,
         ExampleNewDeconvolutionTemplate,
         IsoDecDeconvolution,
+        FromFile,
+        Multiple
     }
 }

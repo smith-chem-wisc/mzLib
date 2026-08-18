@@ -10,7 +10,8 @@ using Omics.Fragmentation;
 using Omics.Fragmentation.Oligo;
 using Omics.Modifications;
 using Transcriptomics.Digestion;
-using UsefulProteomicsDatabases;
+using Chemistry;
+using Omics.Modifications.IO;
 
 namespace Test.Transcriptomics
 {
@@ -128,7 +129,7 @@ namespace Test.Transcriptomics
         public void TestFragmentation_Modified(string sequence, string modString, string fullSequence, double unmodifiedMass, double modifiedMass,
             ProductType productType, double[] unmodifiedFragmentMass, double[] modifiedFragmentMasses)
         {
-            var mods = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).ToList();
+            var mods = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
             var rna = new RNA(sequence);
 
@@ -238,6 +239,207 @@ namespace Test.Transcriptomics
             Assert.That(!product1.Equals((object)uniqueProduct));
             Assert.That(!product1.Equals((object)new Product(ProductType.d, FragmentationTerminus.N, 200, 4, 4, 0.0)));
             Assert.That(!product1.Equals((object)null));
+        }
+
+        [Test]
+        public void TestCustomMProducts()
+        {
+            var rna = new RNA("GUACUG")
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            List<Product> products = new();
+
+            // No custom M products
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(1));
+            Assert.That(mProducts[0].NeutralMass, Is.EqualTo(rna.MonoisotopicMass).Within(0.01));
+
+            // With Fragment Params, no custom M Products
+            products.Clear();
+            var fragmentParams = new RnaFragmentationParams();
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragmentParams);
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(1));
+            Assert.That(mProducts[0].NeutralMass, Is.EqualTo(rna.MonoisotopicMass).Within(0.01));
+
+            // With Fragment Params, with custom M Products
+            products.Clear();
+            fragmentParams = new RnaFragmentationParams();
+            fragmentParams.MIonLosses.Add(MIonLoss.WaterLoss);
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragmentParams);
+            mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+            Assert.That(mProducts.Count, Is.EqualTo(2));
+            var expectedMasses = new[] { rna.MonoisotopicMass, rna.MonoisotopicMass - MIonLoss.WaterLoss.MonoisotopicMass };
+            var expectedAnnotations = new[] { "M", "M-H2O" };
+            for (int i = 0; i < mProducts.Count; i++)
+            {
+                Assert.That(mProducts[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
+                Assert.That(mProducts[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
+            }
+        }
+
+        [Test]
+        public void TestCustomMProducts_Absolute()
+        {
+            var rna = new RNA("GUACUG")
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+            List<Product> products = new();
+
+            // No custom M products
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products);
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+
+            // With Fragment Params, with custom M Products
+            products.Clear();
+            var fragmentParams = new RnaFragmentationParams();
+            fragmentParams.MIonLosses.Add(MIonLoss.WaterLoss);
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragmentParams);
+            var mIonsWithLoss = products.Where(p => p.ProductType == ProductType.M).ToList();
+
+            Assert.That(mIonsWithLoss.Count - mProducts.Count, Is.EqualTo(1));
+            var expectedMasses = new[] { rna.MonoisotopicMass, rna.MonoisotopicMass - ChemicalFormula.ParseFormula("H2O").MonoisotopicMass };
+            var expectedAnnotations = new[] { "M", "M-H2O" };
+            for (int i = 0; i < mIonsWithLoss.Count; i++)
+            {
+                Assert.That(mIonsWithLoss[i].NeutralMass, Is.EqualTo(expectedMasses[i]).Within(0.01));
+                Assert.That(mIonsWithLoss[i].Annotation, Is.EqualTo(expectedAnnotations[i]));
+            }
+        }
+
+        [Test]
+        public void TestAllRnaNeutralLossProducts()
+        {
+            // Create a simple RNA sequence and digest it
+            var rna = new RNA("GUACUG")
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+
+            // Use all neutral loss products defined in MIonLoss.AllMIonLosses
+            var fragParams = new RnaFragmentationParams();
+            var allNeutralLosses = MIonLoss.AllMIonLosses.Values.ToList();
+
+            // Set up fragmentation params to use all neutral losses
+            fragParams.MIonLosses.AddRange(allNeutralLosses);
+
+            // Fragment and collect M ions with all neutral losses
+            List<Product> products = new();
+            rna.Fragment(DissociationType.CID, FragmentationTerminus.Both, products, fragParams);
+
+            // Find all M ions and their neutral loss annotations
+            var mProducts = products.Where(p => p.ProductType == ProductType.M).ToList();
+
+            // There should be one M ion for each neutral loss (plus the unmodified M ion)
+            Assert.That(mProducts.Count, Is.EqualTo(allNeutralLosses.Count + 1));
+
+            // Check that each neutral loss annotation is present
+            var expectedAnnotations = new HashSet<string>(allNeutralLosses.Select(l => "M" + l.Annotation));
+            expectedAnnotations.Add("M"); // unmodified
+
+            var actualAnnotations = new HashSet<string>(mProducts.Select(p => p.Annotation));
+            Assert.That(actualAnnotations.SetEquals(expectedAnnotations));
+
+            // Check that the neutral mass for each M ion matches the expected loss
+            foreach (var mProduct in mProducts)
+            {
+                if (mProduct.Annotation == "M")
+                {
+                    Assert.That(mProduct.NeutralMass, Is.EqualTo(rna.MonoisotopicMass).Within(0.01));
+                }
+                else
+                {
+                    var loss = allNeutralLosses.FirstOrDefault(l => "M" + l.Annotation == mProduct.Annotation);
+                    Assert.That(loss, Is.Not.Null, $"Loss not found for annotation {mProduct.Annotation}");
+                    Assert.That(mProduct.NeutralMass, Is.EqualTo(rna.MonoisotopicMass - loss.MonoisotopicMass).Within(0.01));
+                }
+            }
+        }
+
+        [Test]
+        public static void TestFragmentation_3PrimeTerminalMod()
+        {
+            string unmodifiedSeq = "GUACUG";
+            string modifiedSeq = "GUACUG-[Digestion Termini:Cyclic Phosphate on X]";
+
+            var unmodifiedOligo = new OligoWithSetMods(unmodifiedSeq);
+            var modifiedOligo = new OligoWithSetMods(modifiedSeq);
+            var modMass = modifiedOligo.AllModsOneIsNterminus.First().Value.MonoisotopicMass.Value;
+            Assert.That(modifiedOligo.MonoisotopicMass, Is.EqualTo(unmodifiedOligo.MonoisotopicMass + modMass).Within(0.001));
+
+            List<Product> unmodifiedProducts = new();
+            List<Product> modifiedProducts = new();
+
+            unmodifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
+            modifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedProducts);
+
+            Assert.That(modifiedProducts.Count, Is.EqualTo(unmodifiedProducts.Count));
+
+            // All Five Prime products should be unchanged.
+            var unModFivePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+            var modFivePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+
+            Assert.That(modFivePrime.Count, Is.EqualTo(unModFivePrime.Count));
+            for (int i = 0; i < unModFivePrime.Count; i++)
+            {
+                Assert.That(modFivePrime[i].NeutralMass, Is.EqualTo(unModFivePrime[i].NeutralMass).Within(0.01));
+                Assert.That(modFivePrime[i].Annotation, Is.EqualTo(unModFivePrime[i].Annotation));
+            }
+
+            // All Three Prime products should have the mass of the cyclic phosphate modification (H-2 O-1) added.
+            var unModThreePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+            var modThreePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+
+            Assert.That(modThreePrime.Count, Is.EqualTo(unModThreePrime.Count));
+            for (int i = 0; i < unModThreePrime.Count; i++)
+            {
+                Assert.That(modThreePrime[i].NeutralMass, Is.EqualTo(unModThreePrime[i].NeutralMass + modMass).Within(0.01));
+                Assert.That(modThreePrime[i].Annotation, Is.EqualTo(unModThreePrime[i].Annotation));
+            }
+        }
+
+        [Test]
+        public static void TestFragmentation_5PrimeTerminalMod()
+        {
+            string unmodifiedSeq = "GUACUG";
+            string modifiedSeq = "[Digestion Termini:Terminal Phosphorylation on X]GUACUG";
+
+            var unmodifiedOligo = new OligoWithSetMods(unmodifiedSeq);
+            var modifiedOligo = new OligoWithSetMods(modifiedSeq);
+            var modMass = modifiedOligo.AllModsOneIsNterminus.First().Value.MonoisotopicMass.Value;
+            Assert.That(modifiedOligo.MonoisotopicMass, Is.EqualTo(unmodifiedOligo.MonoisotopicMass + modMass).Within(0.001));
+
+            List<Product> unmodifiedProducts = new();
+            List<Product> modifiedProducts = new();
+
+            unmodifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, unmodifiedProducts);
+            modifiedOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedProducts);
+
+            Assert.That(modifiedProducts.Count, Is.EqualTo(unmodifiedProducts.Count));
+
+            // All Three Prime products should be unchanged.
+            var unModThreePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+            var modThreePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.ThreePrime).ToList();
+
+            Assert.That(modThreePrime.Count, Is.EqualTo(unModThreePrime.Count));
+            for (int i = 0; i < unModThreePrime.Count; i++)
+            {
+                Assert.That(modThreePrime[i].NeutralMass, Is.EqualTo(unModThreePrime[i].NeutralMass).Within(0.01));
+                Assert.That(modThreePrime[i].Annotation, Is.EqualTo(unModThreePrime[i].Annotation));
+            }
+
+
+
+            // All Five Prime products should have the mass of the terminal phosphorylation modification added.
+            var unModFivePrime = unmodifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+            var modFivePrime = modifiedProducts.Where(p => p.Terminus == FragmentationTerminus.FivePrime).ToList();
+
+            Assert.That(modFivePrime.Count, Is.EqualTo(unModFivePrime.Count));
+            for (int i = 0; i < unModFivePrime.Count; i++)
+            {
+                Assert.That(modFivePrime[i].NeutralMass, Is.EqualTo(unModFivePrime[i].NeutralMass + modMass).Within(0.01));
+                Assert.That(modFivePrime[i].Annotation, Is.EqualTo(unModFivePrime[i].Annotation));
+            }
         }
     }
 }

@@ -135,7 +135,7 @@ namespace Test.AveragingTests
                 var mzSpectra = mzSpectraArr.ToList();
 
                 // DDA creation
-                var dummyDDAScansOutOfOrder = new List<MsDataScan> ();
+                var dummyDDAScansOutOfOrder = new List<MsDataScan>();
                 List<MsDataScan> dummyDDAMs1Scans = new();
                 List<MsDataScan> dummyDDAMs2Scans = new();
                 List<MzSpectrum> spectraForDummyDDAMs1Scans = mzSpectra.Take(5).ToList();
@@ -280,7 +280,7 @@ namespace Test.AveragingTests
             SpectralAveragingParameters.SpectraFileAveragingType = SpectraFileAveragingType.AverageEverynScans;
             SpectralAveragingParameters.NumberOfScansToAverage = 5;
             MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(DummyAllMs1Scans, SpectralAveragingParameters);
-            double[] expected = new double[] {4, 8};
+            double[] expected = new double[] { 4, 8 };
             Assert.That(averagedScans.Length == 2);
             Assert.That(averagedScans[0].MassSpectrum.YArray.SequenceEqual(expected));
             Assert.That(averagedScans[1].MassSpectrum.YArray.SequenceEqual(expected));
@@ -372,7 +372,7 @@ namespace Test.AveragingTests
             int ms2Count = scansToAverage.Count(p => p.MsnOrder == 2);
             int?[] precursorScanNumbers = scansToAverage.Select(p => p.OneBasedPrecursorScanNumber).ToArray();
             int[] scanNumbers = scansToAverage.Select(p => p.OneBasedScanNumber).ToArray();
-            
+
             MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(scansToAverage, SpectralAveragingParameters);
 
             // Assert that there are the same number of ms1 and ms2 scans, and that they are in the same order
@@ -410,7 +410,7 @@ namespace Test.AveragingTests
 
             // ensure no duplicates in scan numbers and precursor scan numbers
             CollectionAssert.AllItemsAreUnique(averagedScans.Select(p => p.OneBasedScanNumber));
-            CollectionAssert.AllItemsAreUnique(averagedScans.Select(p =>(p.OneBasedScanNumber, p.OneBasedPrecursorScanNumber)));
+            CollectionAssert.AllItemsAreUnique(averagedScans.Select(p => (p.OneBasedScanNumber, p.OneBasedPrecursorScanNumber)));
 
             // ensure retention times are sequentially increasing
             double previousRt = 0;
@@ -418,6 +418,47 @@ namespace Test.AveragingTests
             {
                 Assert.That(rt > previousRt);
                 previousRt = rt;
+            }
+        }
+
+
+        [Test]
+        public static void AveragingFaimsDdaFile()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "AveragingTests", "TestData", "FAIMS_snip_10665-11578.mzML");
+
+            var file = MsDataFileReader.GetDataFile(filePath);
+            var scansToAverage = file.GetAllScansList();
+
+            List<(int ScanNumber, int? PrecursorScanNumber, double? CompensationVoltage)> scanData = scansToAverage
+                .Select(s => (s.OneBasedScanNumber, s.OneBasedPrecursorScanNumber, s.CompensationVoltage))
+                .ToList();
+
+            var parameters = new SpectralAveragingParameters
+            {
+                SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans,
+                NumberOfScansToAverage = 3,
+                OutlierRejectionType = OutlierRejectionType.NoRejection,
+                SpectralWeightingType = SpectraWeightingType.WeightEvenly,
+                NormalizationType = NormalizationType.NoNormalization,
+                MaxThreadsToUsePerFile = 12
+            };
+
+            MsDataScan[] averagedScans = SpectraFileAveraging.AverageSpectraFile(scansToAverage, parameters);
+
+            List<(int ScanNumber, int? PrecursorScanNumber, double? CompensationVoltage)> averagedScanData = averagedScans
+                .Select(s => (s.OneBasedScanNumber, s.OneBasedPrecursorScanNumber, s.CompensationVoltage))
+                .ToList();
+
+            // Scan arrays are the same length
+            Assert.That(averagedScanData.Count, Is.EqualTo(scanData.Count));
+
+            // Ensure that the scan metadata matches between the original and averaged scans
+            for (int i = 0; i < averagedScanData.Count; i++)
+            {
+                Assert.That(averagedScanData[i].ScanNumber, Is.EqualTo(scanData[i].ScanNumber));
+                Assert.That(averagedScanData[i].PrecursorScanNumber, Is.EqualTo(scanData[i].PrecursorScanNumber));
+                Assert.That(averagedScanData[i].CompensationVoltage, Is.EqualTo(scanData[i].CompensationVoltage));
             }
         }
     }

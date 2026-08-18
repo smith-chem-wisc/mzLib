@@ -22,7 +22,7 @@ namespace MassSpectrometry
         /// <param name="spectrumToDeconvolute">spectrum to deconvolute</param>
         /// <param name="range">Range of peaks to deconvolute</param>
         /// <returns></returns>
-        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
+        protected internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrumToDeconvolute, MzRange range)
         {
             var deconParams = DeconvolutionParameters as ClassicDeconvolutionParameters ?? throw new MzLibException("Deconvolution params and algorithm do not match");
             spectrum = spectrumToDeconvolute;
@@ -72,6 +72,14 @@ namespace MassSpectrometry
                         {
                             //get the lower bound charge state
                             int charge = 0;
+                            // A duplicated m/z makes deltaMass exactly zero, so 1/deltaMass is infinite.
+                            // The int cast of that changed with .NET 9 - it used to wrap to int.MinValue
+                            // and now saturates to int.MaxValue - so guard rather than rely on either.
+                            if (deltaMass == 0)
+                            {
+                                continue;
+                            }
+
                             if (deconParams.Polarity == Polarity.Negative)
                             {
                                 charge = (int)Math.Floor(-1 / deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)

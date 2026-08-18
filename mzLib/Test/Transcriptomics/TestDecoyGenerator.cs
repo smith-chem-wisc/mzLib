@@ -4,14 +4,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using NUnit.Framework.Interfaces;
 using Transcriptomics;
 using Transcriptomics.Digestion;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Chemistry;
+using Omics.Modifications.IO;
 
 namespace Test.Transcriptomics
 {
@@ -46,6 +44,28 @@ namespace Test.Transcriptomics
             Assert.That(decoys.All(p => Equals(p.FivePrimeTerminus, example.FivePrimeTerminus)));
             Assert.That(decoys.All(p => Equals(p.ThreePrimeTerminus, example.ThreePrimeTerminus)));
             Assert.That(decoys.All(p => p.OneBasedPossibleLocalizedModifications.Count == example.OneBasedPossibleLocalizedModifications.Count));
+        }
+
+        [Test]
+        public static void TestReverseDecoy_EntrapmentIsPreserved()
+        {
+            var entrapmentRna = new RNA("GUUCUG", "Random_RNA1", isEntrapment: true);
+            var targetRna = new RNA("GUGCUA", "RNA2");
+
+            var oligos = new List<RNA> { entrapmentRna, targetRna };
+            var decoys = RnaDecoyGenerator.GenerateDecoys(oligos, DecoyType.Reverse, 1);
+
+            Assert.That(decoys.Count, Is.EqualTo(2));
+
+            var entrapmentDecoy = decoys.First(d => d.BaseSequence == "GUCUUG");
+            Assert.That(entrapmentDecoy.IsEntrapment, Is.True);
+            Assert.That(entrapmentDecoy.IsDecoy, Is.True);
+            Assert.That(entrapmentDecoy.Accession.StartsWith("DECOY_"), Is.True);
+            Assert.That(entrapmentDecoy.Accession.Contains("Random_"), Is.True);
+
+            var targetDecoy = decoys.First(d => d.BaseSequence == "AUCGUG");
+            Assert.That(targetDecoy.IsEntrapment, Is.False);
+            Assert.That(targetDecoy.IsDecoy, Is.True);
         }
 
         [Test]
@@ -232,7 +252,7 @@ namespace Test.Transcriptomics
         [Test]
         public void TestCreateNew()
         {
-            var mods = PtmListLoader.ReadModsFromString(
+            var mods = ModificationLoader.ReadModsFromString(
                 "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
                 out List<(Modification, string)> modsOut).ToList();
             var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
@@ -277,6 +297,58 @@ namespace Test.Transcriptomics
             Assert.That(oligos.First().BaseSequence, Is.Not.EqualTo(clonedOligo.BaseSequence));
             Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.Not.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
             Assert.That(oligos.First().Parent.IsDecoy, Is.EqualTo(clonedOligo.Parent.IsDecoy));
+        }
+
+        [Test]
+        public void TestCreateNew_FromDecoy()
+        {
+            var mods = ModificationLoader.ReadModsFromString(
+                "ID   Sodium\r\nMT   Metal\r\nPP   Anywhere.\r\nTG   A\r\nCF   Na1H-1\r\n" + @"//",
+                out List<(Modification, string)> modsOut).ToList();
+            var modDict = mods.ToDictionary(p => p.IdWithMotif, p => p);
+            var oneBasedPossibleLocalizedModifications = new Dictionary<int, List<Modification>>()
+            {
+                { 1, new List<Modification>() { modDict["Sodium on A"] } },
+                { 3, new List<Modification>() { modDict["Sodium on A"] } },
+            };
+
+            var rnaDecoyAccession = new RNA("GAACUG", "DECOY_accession", oneBasedPossibleLocalizedModifications, fivePrimeTerminus: null, threePrimeTerminus: null,
+                name: "name", organism: "organism", databaseFilePath: "databaseFilePath", isContaminant: false, isDecoy: true, geneNames: new List<Tuple<string, string>>(), databaseAdditionalFields: new Dictionary<string, string>());
+
+            var clone = rnaDecoyAccession.CreateNew(null, null, true);
+            Assert.That(rnaDecoyAccession.BaseSequence, Is.EqualTo(clone.BaseSequence));
+            Assert.That(rnaDecoyAccession.OneBasedPossibleLocalizedModifications, Is.EqualTo(clone.OneBasedPossibleLocalizedModifications));
+            Assert.That(rnaDecoyAccession.IsDecoy, Is.EqualTo(clone.IsDecoy));
+            Assert.That(rnaDecoyAccession.Accession, Is.EqualTo(clone.Accession));
+            Assert.That(clone.Accession, Is.EqualTo("DECOY_accession"));
+
+            var oligos = rnaDecoyAccession
+                .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
+                .ToList();
+            var clonedOligo = oligos.First().CreateNew(null, null, true);
+            Assert.That(oligos.First().BaseSequence, Is.EqualTo(clonedOligo.BaseSequence));
+            Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
+            Assert.That(oligos.First().Parent.IsDecoy, Is.EqualTo(clonedOligo.Parent.IsDecoy));
+            Assert.That(oligos.First().Parent.Accession, Is.EqualTo(clonedOligo.Parent.Accession));
+
+
+            var rnaDecoy_noDecoyInAccession = new RNA("GAACUG", "accession", oneBasedPossibleLocalizedModifications, fivePrimeTerminus: null, threePrimeTerminus: null,
+                name: "name", organism: "organism", databaseFilePath: "databaseFilePath", isContaminant: false, isDecoy: true, geneNames: new List<Tuple<string, string>>(), databaseAdditionalFields: new Dictionary<string, string>());
+            clone = rnaDecoy_noDecoyInAccession.CreateNew(null, null, true);
+            Assert.That(rnaDecoy_noDecoyInAccession.BaseSequence, Is.EqualTo(clone.BaseSequence));
+            Assert.That(rnaDecoy_noDecoyInAccession.OneBasedPossibleLocalizedModifications, Is.EqualTo(clone.OneBasedPossibleLocalizedModifications));
+            Assert.That(rnaDecoy_noDecoyInAccession.IsDecoy, Is.EqualTo(clone.IsDecoy));
+            Assert.That(rnaDecoy_noDecoyInAccession.Accession, Is.Not.EqualTo(clone.Accession));
+            Assert.That(clone.Accession, Is.EqualTo("DECOY_accession"));
+
+            oligos = rnaDecoy_noDecoyInAccession
+                .Digest(new RnaDigestionParams(maxMods: 1), new List<Modification>(), mods)
+                .ToList();
+            clonedOligo = oligos.First().CreateNew(null, null, true);
+            Assert.That(oligos.First().BaseSequence, Is.EqualTo(clonedOligo.BaseSequence));
+            Assert.That(oligos.First().OneBasedPossibleLocalizedModifications, Is.EqualTo(clonedOligo.OneBasedPossibleLocalizedModifications));
+            Assert.That(oligos.First().Parent.IsDecoy, Is.EqualTo(clonedOligo.Parent.IsDecoy));
+            Assert.That(oligos.First().Parent.Accession, Is.Not.EqualTo(clonedOligo.Parent.Accession));
         }
     }
 }

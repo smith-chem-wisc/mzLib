@@ -5,12 +5,12 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
 using Omics;
+using Omics.Modifications.IO;
+using MzLibUtil;
 
 namespace Test.Transcriptomics
 {
@@ -27,7 +27,7 @@ namespace Test.Transcriptomics
         private static IEnumerable<(string, RnaFastaHeaderType)> DetectHeaderTestCases =>
             new List<(string, RnaFastaHeaderType)>
             {
-                (Path.Combine(TestContext.CurrentContext.TestDirectory, "DoubleProtease.tsv"), RnaFastaHeaderType.Unknown),
+                (Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "DoubleProtease.tsv"), RnaFastaHeaderType.Unknown),
                 (ModomicsUnmodifedFastaPath, RnaFastaHeaderType.Modomics),
                 (Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta"), RnaFastaHeaderType.Modomics),
                 
@@ -122,7 +122,7 @@ namespace Test.Transcriptomics
             Assert.That(errors.Count, Is.EqualTo(0));
 
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
-            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+            var methylG = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
@@ -142,7 +142,7 @@ namespace Test.Transcriptomics
             rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
 
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
@@ -164,9 +164,8 @@ namespace Test.Transcriptomics
             var rna = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.None, false, out var errors)
                 .Cast<IBioPolymer>().ToList();
             Assert.That(errors.Count, Is.EqualTo(0));
-
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
-            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+            var methylG = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
@@ -185,7 +184,7 @@ namespace Test.Transcriptomics
             rna.Add(newRna);
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
 
-            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
             var temp = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.None, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods);
 
@@ -207,7 +206,7 @@ namespace Test.Transcriptomics
             Assert.That(errors.Count, Is.EqualTo(0));
 
             var modString = "ID   Methylation\r\nMT   Biological\r\nPP   Anywhere.\r\nTG   G\r\nCF   C1H2\r\n" + @"//";
-            var methylG = PtmListLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
+            var methylG = ModificationLoader.ReadModsFromString(modString, out List<(Modification, string)> modsOut).First();
 
             Dictionary<string, HashSet<Tuple<int, Modification>>> mods = new Dictionary<string, HashSet<Tuple<int, Modification>>>();
             mods.Add("SO:0000254", new HashSet<Tuple<int, Modification>>()
@@ -217,7 +216,7 @@ namespace Test.Transcriptomics
             });
 
             string outpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed2.xml");
-            var xml = ProteinDbWriter.WriteXmlDatabase(rna, outpath);
+            var xml = ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(), rna, outpath);
             rna = RnaDbLoader.LoadRnaXML(outpath, true, DecoyType.Reverse, false,
                 new List<Modification>() { methylG }, new List<string>(), out var unknownMods, decoyIdentifier: "rev");
 
@@ -332,5 +331,220 @@ namespace Test.Transcriptomics
             Assert.That(first.AdditionalDatabaseFields!["Chromosome"], Is.EqualTo("1"));
         }
 
+        [Test]
+        public static void DecoyWritingLoading_Fasta()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(5));
+            Assert.That(decoyCount, Is.EqualTo(5));
+
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.fasta");
+            
+            ProteinDbWriter.WriteFastaDatabase(oligos, fastapath);
+            var readIn = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+
+            var readInWithDecoyGeneration = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Xml()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(ModomicsUnmodifedFastaPath, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(5));
+            Assert.That(decoyCount, Is.EqualTo(5));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.xml");
+
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+            var readIn = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+
+            var readInWithDecoyGeneration = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.Reverse, false, new List<Modification>(), new List<string>(), out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(5));
+            Assert.That(readInDecoyCount, Is.EqualTo(5));
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_PrependingAndDecoy()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Count, Is.EqualTo(2));
+
+            var target = rnas.Single(p => !p.IsDecoy);
+            Assert.That(target.IsEntrapment, Is.True);
+            Assert.That(target.Accession.Contains("Random_"), Is.True);
+
+            var decoy = rnas.Single(p => p.IsDecoy);
+            Assert.That(decoy.IsEntrapment, Is.True);
+            Assert.That(decoy.Accession.Contains("DECOY_"), Is.True);
+            Assert.That(decoy.Accession.Contains("Random_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_PrependingWhenMissing()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_prepend.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Count, Is.EqualTo(1));
+            Assert.That(rnas[0].IsEntrapment, Is.True);
+            Assert.That(rnas[0].Accession.Contains("Random_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_DecoyPrependsWithNtrap()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_decoy.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var rnas = RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(rnas.Count, Is.EqualTo(2));
+
+            var target = rnas.Single(p => !p.IsDecoy);
+            Assert.That(target.IsEntrapment, Is.True);
+            Assert.That(target.Accession.Contains("Random_"), Is.True);
+
+            var decoy = rnas.Single(p => p.IsDecoy);
+            Assert.That(decoy.IsEntrapment, Is.True);
+            Assert.That(decoy.Accession.Contains("DECOY_"), Is.True);
+            Assert.That(decoy.Accession.Contains("Random_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_ContaminantAndEntrapment_Throws()
+        {
+            string fastacontent = ">id:RNA1|Name:RNA1|SOterm:transcript|Type:gene|Species:Homo sapiens\nGUUCUG";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_contam_entrap.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            Assert.Throws<MzLibException>(() =>
+                RnaDbLoader.LoadRnaFasta(fastapath, true, DecoyType.None, true, out var errors, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_AutoDetection()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            var loadedRnas = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random");
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(loadedRnas.All(p => !p.IsEntrapment), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_PrependingWhenMissing()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_prepend_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            var loadedRnas = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(loadedRnas.All(p => p.IsEntrapment), Is.True);
+            Assert.That(loadedRnas.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_DecoyPrependsWithEntrapmentPrefix()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_entrapment_decoy_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            var loadedRnas = RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, false, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            var targets = loadedRnas.Where(p => !p.IsDecoy).ToList();
+            var decoys = loadedRnas.Where(p => p.IsDecoy).ToList();
+
+            Assert.That(targets.All(p => p.IsEntrapment), Is.True);
+            Assert.That(decoys.All(p => p.IsEntrapment), Is.True);
+            Assert.That(targets.All(p => p.Accession.Contains("Random_")), Is.True);
+            Assert.That(decoys.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_ContaminantAndEntrapment_Throws()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
+            var rnas = RnaDbLoader.LoadRnaFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_rna_contam_entrap_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], rnas, xmlPath);
+
+            Assert.Throws<MzLibException>(() =>
+                RnaDbLoader.LoadRnaXML(xmlPath, true, DecoyType.None, true, new List<Modification>(), new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(xmlPath);
+        }
     }
 }
