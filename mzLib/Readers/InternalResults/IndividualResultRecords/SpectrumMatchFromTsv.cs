@@ -5,7 +5,8 @@ using System.Text.RegularExpressions;
 using Chemistry;
 using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
-using System.Collections.Generic;
+using MzLibUtil;
+using System.Numerics;
 
 namespace Readers
 {
@@ -16,6 +17,7 @@ namespace Readers
         protected static readonly Regex IonParser = new Regex(@"([a-zA-Z]+)(\d+)");
 
         public string FullSequence { get; protected set; }
+        public string ProForma { get; protected set; }
         public int Ms2ScanNumber { get; protected set; }
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
@@ -23,7 +25,14 @@ namespace Readers
         public double? PrecursorIntensity { get; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
+        /// <summary>
+        /// The observed neutral mass of the most abundant (tallest) isotopologue of the precursor envelope,
+        /// the companion observation to the monoisotopic <see cref="PrecursorMass"/>. Null when the source
+        /// file did not contain the "Precursor Most Abundant Mass" column (the usual monoisotopic-mode case).
+        /// </summary>
+        public double? PrecursorMostAbundantMass { get; protected set; }
         public double RetentionTime { get; protected set; }
+        public double? CollisionEnergy { get; protected set; }
         public double Score { get; protected set; }
         public int SpectrumMatchCount { get; protected set; }
         public string Accession { get; protected set; }
@@ -43,6 +52,12 @@ namespace Readers
         public string MonoisotopicMassString { get; protected set; }
         public string MassDiffDa { get; protected set; }
         public string MassDiffPpm { get; protected set; }
+        /// <summary>
+        /// Optional most-abundant-mode precursor mass error (ppm), the analogue of <see cref="MassDiffPpm"/>.
+        /// Null when the source file did not contain the "Most Abundant Mass Diff (ppm)" column (the usual
+        /// monoisotopic-mode case). Read as a string because ambiguous matches carry a "|"-separated list.
+        /// </summary>
+        public string MostAbundantMassDiffPpm { get; protected set; }
         public string Name { get; protected set; }
         public string GeneName { get; protected set; }
         public string OrganismName { get; protected set; }
@@ -58,14 +73,19 @@ namespace Readers
         public string NextResidue { get; protected set; }
         public string DecoyContamTarget { get; protected set; }
         public double? QValueNotch { get; protected set; }
+        public double? OneOverK0 { get; protected set; }
 
         public List<MatchedFragmentIon> VariantCrossingIons { get; protected set; }
 
+        public double[]? Intensities { get; protected set; }
+
         #region IQuantifiableRecord Properties and Methods
         public string FileName => FileNameWithoutExtension;
+        public int OneBasedScanNumber => Ms2ScanNumber;
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContamTarget.Contains('D');
+        public bool IsEntrapment => DecoyContamTarget.Contains('E');
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
@@ -101,13 +121,15 @@ namespace Readers
         /// </summary>
         /// <param name="line"></param>
         /// <param name="split">what to split on</param>
-        /// <param name="parsedHeader">index of each potential column in the header</param>
-        protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader)
+        /// <param name="parsedHeader">index of each potential column in the headerField</param>
+        /// <param name="parsingParams">parsing parameters</param>
+        protected SpectrumMatchFromTsv(string line, char[] split, Dictionary<string, int> parsedHeader, SpectrumMatchParsingParameters? parsingParams = null)
         {
+            parsingParams ??= new SpectrumMatchParsingParameters();
             var spl = line.Split(split).Select(p => p.Trim('\"')).ToArray();
 
             //Required properties
-            FileNameWithoutExtension = spl[parsedHeader[SpectrumMatchFromTsvHeader.FileName]].Trim();
+            FileNameWithoutExtension = GetRequiredValue(SpectrumMatchFromTsvHeader.FileName, parsedHeader, spl);
 
             // remove file format, e.g., .raw, .mzML, .mgf, .d
             // this is more robust but slower than Path.GetFileNameWithoutExtension
@@ -119,7 +141,7 @@ namespace Readers
                 }
             }
 
-            Ms2ScanNumber = int.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanNumber]]);
+            Ms2ScanNumber = GetRequiredValue<int>(SpectrumMatchFromTsvHeader.Ms2ScanNumber, parsedHeader, spl);
 
             // this will probably not be known in an .mgf data file
             if (int.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorScanNum]].Trim(), out int result))
@@ -131,52 +153,59 @@ namespace Readers
                 PrecursorScanNum = 0;
             }
 
-            PrecursorCharge = (int)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorCharge]].Trim(), CultureInfo.InvariantCulture);
-            PrecursorIntensity = (parsedHeader[SpectrumMatchFromTsvHeader.PrecursorIntensity] < 0) ? null : Double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorIntensity]].Trim(), out double value) ? value : null;
-            PrecursorMz = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMz]].Trim(), CultureInfo.InvariantCulture);
-            PrecursorMass = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PrecursorMass]].Trim(), CultureInfo.InvariantCulture);
-            BaseSeq = RemoveParentheses(spl[parsedHeader[SpectrumMatchFromTsvHeader.BaseSequence]].Trim());
-            FullSequence = spl[parsedHeader[SpectrumMatchFromTsvHeader.FullSequence]];
-            MonoisotopicMassString = spl[parsedHeader[SpectrumMatchFromTsvHeader.MonoisotopicMass]].Trim();
-            Score = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Score]].Trim(), CultureInfo.InvariantCulture);
-            DecoyContamTarget = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
-            QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValue]].Trim(), CultureInfo.InvariantCulture);
+            PrecursorCharge = (int)GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorCharge, parsedHeader, spl);
+            PrecursorIntensity = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorIntensity, parsedHeader, spl, null);
+            PrecursorMz = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMz, parsedHeader, spl);
+            PrecursorMass = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMass, parsedHeader, spl);
+            PrecursorMostAbundantMass = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass, parsedHeader, spl, null);
+            BaseSeq = RemoveParentheses(GetRequiredValue(SpectrumMatchFromTsvHeader.BaseSequence, parsedHeader, spl));
+            FullSequence = GetRequiredValue(SpectrumMatchFromTsvHeader.FullSequence, parsedHeader, spl);
+            MonoisotopicMassString = GetRequiredValue(SpectrumMatchFromTsvHeader.MonoisotopicMass, parsedHeader, spl);
+            Score = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.Score, parsedHeader, spl);
+            DecoyContamTarget = GetRequiredValue(SpectrumMatchFromTsvHeader.DecoyContaminantTarget, parsedHeader, spl);
+            QValue = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.QValue, parsedHeader, spl);
 
             //we are reading in all primary and child ions here only to delete the child scans later. This should be done better.
-            MatchedIons = (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) ?
-                ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq).First().Value :
-                ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim());
+            MatchedIons = parsingParams.ParseMatchedFragmentIons 
+                ? (spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].StartsWith("{")) 
+                    ? ReadChildScanMatchedIons(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams).First().Value 
+                    : ReadFragmentIonsFromString(spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMzRatios]].Trim(), spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonIntensities]].Trim(), BaseSeq, parsingParams, spl[parsedHeader[SpectrumMatchFromTsvHeader.MatchedIonMassDiffDa]].Trim(), this is PsmFromTsv)
+                : [];
 
             #pragma warning disable CS8601 // Possible null reference assignment.
-            AmbiguityLevel = (parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.AmbiguityLevel]].Trim();
-            TotalIonCurrent = (parsedHeader[SpectrumMatchFromTsvHeader.TotalIonCurrent] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.TotalIonCurrent]].Trim(), CultureInfo.InvariantCulture);
-            DeltaScore = (parsedHeader[SpectrumMatchFromTsvHeader.DeltaScore] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.DeltaScore]].Trim(), CultureInfo.InvariantCulture);
-            Notch = (parsedHeader[SpectrumMatchFromTsvHeader.Notch] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Notch]].Trim();
-            EssentialSeq = (parsedHeader[SpectrumMatchFromTsvHeader.EssentialSequence] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.EssentialSequence]].Trim();
-            MissedCleavage = (parsedHeader[SpectrumMatchFromTsvHeader.MissedCleavages] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MissedCleavages]].Trim();
-            MassDiffDa = (parsedHeader[SpectrumMatchFromTsvHeader.MassDiffDa] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MassDiffDa]].Trim();
-            MassDiffPpm = (parsedHeader[SpectrumMatchFromTsvHeader.MassDiffPpm] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.MassDiffPpm]].Trim();
-            Accession = (parsedHeader[SpectrumMatchFromTsvHeader.Accession] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Accession]].Trim();
-            Name = (parsedHeader[SpectrumMatchFromTsvHeader.Name] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Name]].Trim();
-            GeneName = (parsedHeader[SpectrumMatchFromTsvHeader.GeneName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.GeneName]].Trim();
-            OrganismName = (parsedHeader[SpectrumMatchFromTsvHeader.OrganismName] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.OrganismName]].Trim();
-            IntersectingSequenceVariations = (parsedHeader[SpectrumMatchFromTsvHeader.IntersectingSequenceVariations] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.IntersectingSequenceVariations]].Trim();
-            IdentifiedSequenceVariations = (parsedHeader[SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations]].Trim();
-            SpliceSites = (parsedHeader[SpectrumMatchFromTsvHeader.SpliceSites] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.SpliceSites]].Trim();
-            Description = (parsedHeader[SpectrumMatchFromTsvHeader.Description] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.Description]].Trim();
-            StartAndEndResiduesInParentSequence = (parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence]].Trim();
-            PreviousResidue = (parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.PreviousResidue]].Trim();
-            NextResidue = (parsedHeader[SpectrumMatchFromTsvHeader.NextResidue] < 0) ? null : spl[parsedHeader[SpectrumMatchFromTsvHeader.NextResidue]].Trim();
-            QValueNotch = (parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch] < 0) ? null : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.QValueNotch]].Trim(), CultureInfo.InvariantCulture);
-            RetentionTime = (parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime] < 0) ? -1 : double.TryParse(spl[parsedHeader[SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime]].Trim(), CultureInfo.InvariantCulture, out double rt) ? rt : -1;
-            PEP = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP]].Trim(), CultureInfo.InvariantCulture);
-            PEP_QValue = double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture);
+            AmbiguityLevel = GetOptionalValue(SpectrumMatchFromTsvHeader.AmbiguityLevel, parsedHeader, spl);
+            TotalIonCurrent = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.TotalIonCurrent, parsedHeader, spl);
+            DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
+            Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
+            EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
+            ProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl); // optional: absent in pre-ProForma files
+            MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
+            MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
+            MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
+            MostAbundantMassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm, parsedHeader, spl);
+            Accession = GetOptionalValue(SpectrumMatchFromTsvHeader.Accession, parsedHeader, spl);
+            Name = GetOptionalValue(SpectrumMatchFromTsvHeader.Name, parsedHeader, spl);
+            GeneName = GetOptionalValue(SpectrumMatchFromTsvHeader.GeneName, parsedHeader, spl);
+            OrganismName = GetOptionalValue(SpectrumMatchFromTsvHeader.OrganismName, parsedHeader, spl);
+            IntersectingSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IntersectingSequenceVariations, parsedHeader, spl);
+            IdentifiedSequenceVariations = GetOptionalValue(SpectrumMatchFromTsvHeader.IdentifiedSequenceVariations, parsedHeader, spl, "");
+            SpliceSites = GetOptionalValue(SpectrumMatchFromTsvHeader.SpliceSites, parsedHeader, spl, "");
+            Description = GetOptionalValue(SpectrumMatchFromTsvHeader.Description, parsedHeader, spl);
+            StartAndEndResiduesInParentSequence = GetOptionalValue(SpectrumMatchFromTsvHeader.StartAndEndResiduesInFullSequence, parsedHeader, spl);
+            PreviousResidue = GetOptionalValue(SpectrumMatchFromTsvHeader.PreviousResidue, parsedHeader, spl);
+            NextResidue = GetOptionalValue(SpectrumMatchFromTsvHeader.NextResidue, parsedHeader, spl);
+            QValueNotch = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.QValueNotch, parsedHeader, spl);
+            RetentionTime = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime, parsedHeader, spl, -1).GetValueOrDefault(-1);
+            PEP = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PEP, parsedHeader, spl, double.NaN).GetValueOrDefault(double.NaN);
+            PEP_QValue = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PEP_QValue, parsedHeader, spl, double.NaN).GetValueOrDefault(double.NaN);
+            OneOverK0 = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.OneOverK0, parsedHeader, spl);
             VariantCrossingIons = FindVariantCrossingIons();
-            SpectralAngle = (parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle] < 0)
-                ? null
-                : (double?)double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.SpectralAngle]].Trim(),
-                    CultureInfo.InvariantCulture);
-            #pragma warning restore CS8601 // Possible null reference assignment.
+            SpectralAngle = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.SpectralAngle, parsedHeader, spl);
+#pragma warning restore CS8601 // Possible null reference assignment.
+
+            // Parse TMT/isobaric reporter ion columns if present
+            Intensities = ParseReporterIonColumns(spl, parsedHeader);
+            CollisionEnergy = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.CollisionEnergy, parsedHeader, spl);
         }
 
         /// <summary>
@@ -191,6 +220,7 @@ namespace Readers
             if (!psm.FullSequence.Contains("|"))
             {
                 FullSequence = fullSequence;
+                ProForma = psm.ProForma;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
@@ -200,29 +230,54 @@ namespace Readers
                 MonoisotopicMassString = psm.MonoisotopicMassString;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
+                MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm;
             }
             // potentially ambiguous fields
             else
             {
                 FullSequence = fullSequence;
+                // ProForma uses '|' as an internal descriptor separator, so it cannot be split per candidate; carry the parent value.
+                ProForma = psm.ProForma;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
                 Accession = psm.Accession.Split("|")[index];
-                Name = psm.Name.Split("|")[index];
-                GeneName = psm.GeneName.Split("|")[index];
+
+                if (psm.Name is null)
+                    Name = string.Empty;
+                else
+                {
+                    var nameSplits = psm.Name.Split("|");
+                    if (nameSplits.Length == 1)
+                        Name = nameSplits[0];
+                    else
+                        Name = nameSplits[index];
+                }
+
+                if (psm.GeneName is null)
+                    GeneName = string.Empty;
+                else
+                {
+                    var geneSplits = psm.GeneName.Split("|");
+                    if (geneSplits.Length == 1)
+                        GeneName = geneSplits[0];
+                    else
+                        GeneName = geneSplits[index];
+                }
 
                 if (psm.MonoisotopicMassString.Split("|").Count() == 1)
                 {
                     MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
+                    MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm?.Split("|")[0];
                 }
                 else
                 {
                     MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
+                    MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm?.Split("|")[index];
                 }
             }
 
@@ -232,6 +287,8 @@ namespace Readers
             PrecursorScanNum = psm.PrecursorScanNum;
             PrecursorCharge = psm.PrecursorCharge;
             PrecursorIntensity = psm.PrecursorIntensity;
+            // An observation of the precursor envelope, so it is the same for every hypothesis of this match.
+            PrecursorMostAbundantMass = psm.PrecursorMostAbundantMass;
             Score = psm.Score;
             MatchedIons = psm.MatchedIons.ToList();
             ChildScanMatchedIons = psm.ChildScanMatchedIons;
@@ -251,11 +308,112 @@ namespace Readers
             DecoyContamTarget = psm.DecoyContamTarget;
             QValueNotch = psm.QValueNotch;
             RetentionTime = psm.RetentionTime;
+            OneOverK0 = psm.OneOverK0;
+        }
+
+
+
+        #region Parsing Methods
+
+        protected string GetRequiredValue(string headerField, Dictionary<string, int> parsedHeader, string[] splitLine)
+        {
+            if (!parsedHeader.ContainsKey(headerField) || parsedHeader[headerField] < 0)
+                throw new KeyNotFoundException($"Required Header '{headerField}' not found or invalid in parsedHeader.");
+
+            return splitLine[parsedHeader[headerField]].Trim();
+        }
+
+        protected TNumber GetRequiredValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine)
+            where TNumber : INumber<TNumber> 
+        {
+            string value = GetRequiredValue(header, parsedHeader, splitLine);
+            if (TNumber.TryParse(value, CultureInfo.InvariantCulture, out TNumber? result))
+                return result;
+
+            throw new FormatException($"Value '{value}' for header '{header}' could not be parsed as {typeof(TNumber).Name}.");
+        }
+
+        protected string? GetOptionalValue(string header, Dictionary<string, int> parsedHeader, string[] splitLine, string? defaultValue = null)
+        {
+            if (!parsedHeader.ContainsKey(header) || parsedHeader[header] < 0)
+            {
+                return defaultValue;
+            }
+            var value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value)) // if the cell is empty or only whitespace, treat it as missing and return defaultValue
+            {
+                return defaultValue;
+            }
+            return value;
+        }
+
+        protected TNumber? GetOptionalValue<TNumber>(string header, Dictionary<string, int> parsedHeader, string[] splitLine, TNumber? defaultValue = null)
+            where TNumber : struct, IFormattable, IConvertible, IComparable, INumber<TNumber>
+        {
+            if (!parsedHeader.ContainsKey(header) || parsedHeader[header] < 0)
+                return defaultValue;
+
+            string value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                return defaultValue;
+
+            if (TNumber.TryParse(value, CultureInfo.InvariantCulture, out TNumber result))
+                return result;
+            return defaultValue;
+        }
+
+        protected IHasChemicalFormula? GetOptionalChemicalFormula(string header, Dictionary<string, int> parsedHeader, string[] splitLine, IHasChemicalFormula? defaultValue = null)
+        {
+            if (!parsedHeader.ContainsKey(header) || parsedHeader[header] < 0)
+                return defaultValue;
+
+            string value = splitLine[parsedHeader[header]].Trim();
+            if (string.IsNullOrWhiteSpace(value))
+                return defaultValue;
+
+            try
+            {
+                return ChemicalFormula.ParseFormula(value);
+            }
+            catch
+            {
+                return defaultValue;
+            }
         }
 
         /// <summary>
-        /// All parsing should take place within the derived class constructurs
+        /// Detects TMT reporter ion columns in the header and parses their values.
+        /// Returns null if no TMT columns are found.
         /// </summary>
+        private static double[]? ParseReporterIonColumns(string[] spl, Dictionary<string, int> parsedHeader)
+        {
+            // Find which TMT channels are present in the header, preserving order
+            var presentChannels = new List<(string name, int index)>();
+            foreach (var channelName in SpectrumMatchFromTsvHeader.TmtChannelNames)
+            {
+                if (parsedHeader.TryGetValue(channelName, out int colIndex) && colIndex >= 0 && colIndex < spl.Length)
+                {
+                    presentChannels.Add((channelName, colIndex));
+                }
+            }
+
+            if (presentChannels.Count == 0)
+                return null;
+
+            double[] values = new double[presentChannels.Count];
+            for (int i = 0; i < presentChannels.Count; i++)
+            {
+                if (double.TryParse(spl[presentChannels[i].index].Trim(),
+                    System.Globalization.NumberStyles.Any,
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    out double val))
+                {
+                    values[i] = val;
+                }
+                // else stays 0.0
+            }
+            return values;
+        }
 
         //Used to remove Silac labels for proper annotation
         public static string RemoveParentheses(string baseSequence)
@@ -286,71 +444,16 @@ namespace Readers
         }
 
         /// <summary>
-        /// Parses the full sequence to identify mods
+        /// Parses the full sequence to identify mods. Local wrapper for MzLibUtil extension method.
         /// </summary>
         /// <param name="fullSequence"> Full sequence of the peptide in question</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
-        public static Dictionary<int, List<string>> ParseModifications(string fullSeq)
+        public static Dictionary<int, string> ParseModifications(string fullSeq)
         {
-            // use a regex to get all modifications
-            string pattern = @"\[(.+?)\]";
-            Regex regex = new(pattern);
-
-            // remove each match after adding to the dict. Otherwise, getting positions
-            // of the modifications will be rather difficult.
-            //int patternMatches = regex.Matches(fullSeq).Count;
-            Dictionary<int, List<string>> modDict = new();
-
-            RemoveSpecialCharacters(ref fullSeq);
-            MatchCollection matches = regex.Matches(fullSeq);
-            int currentPosition = 0;
-            foreach (Match match in matches)
-            {
-                GroupCollection group = match.Groups;
-                string val = group[1].Value;
-                int startIndex = group[0].Index;
-                int captureLength = group[0].Length;
-                int position = group["(.+?)"].Index;
-
-                List<string> modList = new List<string>();
-                modList.Add(val);
-                // check to see if key already exist
-                // if there is a missed cleavage, then there will be a label on K and a Label on X modification.
-                // And, it'll be like [label]|[label] which complicates the positional stuff a little bit.
-                // if the already key exists, update the current position with the capture length + 1.
-                // otherwise, add the modification to the dict.
-
-                // int to add is startIndex - current position
-                int positionToAddToDict = startIndex - currentPosition;
-                if (modDict.ContainsKey(positionToAddToDict))
-                {
-                    modDict[positionToAddToDict].Add(val);
-                }
-                else
-                {
-                    modDict.Add(positionToAddToDict, modList);
-                }
-                currentPosition += startIndex + captureLength;
-            }
-            return modDict;
+            return fullSeq.ParseModifications();
         }
 
-        /// <summary>
-        /// Fixes an issue where the | appears and throws off the numbering if there are multiple mods on a single amino acid.
-        /// </summary>
-        /// <param name="fullSeq"></param>
-        /// <param name="replacement"></param>
-        /// <param name="specialCharacter"></param>
-        /// <returns></returns>
-        public static void RemoveSpecialCharacters(ref string fullSeq, string replacement = @"", string specialCharacter = @"\|")
-        {
-            // next regex is used in the event that multiple modifications are on a missed cleavage Lysine (K)
-            Regex regexSpecialChar = new(specialCharacter);
-            fullSeq = regexSpecialChar.Replace(fullSeq, replacement);
-        }
-
-
-        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, string matchedMassErrorDaString = null, bool isProtein = true)
+        protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, SpectrumMatchParsingParameters parsingParams, string? matchedMassErrorDaString = null, bool isProtein = true)
         {
             List<MatchedFragmentIon> matchedIons = new List<MatchedFragmentIon>();
 
@@ -358,44 +461,76 @@ namespace Readers
             {
                 List<string> peakMzs = CleanMatchedIonString(matchedMzString);
                 List<string> peakIntensities = CleanMatchedIonString(matchedIntensityString);
-                List<string> peakMassErrorDa = null;
+                List<string>? peakMassErrorDa = matchedMassErrorDaString.IsNotNullOrEmpty()
+                    ? CleanMatchedIonString(matchedMassErrorDaString)
+                    : null;
 
-                if (matchedMassErrorDaString.IsNotNullOrEmpty())
+                // Helper: Extract nth number (with sign) from a string
+                static double ExtractNumber(string input, int n)
                 {
-                    peakMassErrorDa = CleanMatchedIonString(matchedMassErrorDaString);
+                    var matches = Regex.Matches(input, @"-?\d+(\.\d+)?");
+                    return matches.Count > n
+                        ? double.Parse(matches[n].Value, CultureInfo.InvariantCulture)
+                        : 1; // fallback default
                 }
 
                 for (int index = 0; index < peakMzs.Count; index++)
                 {
                     string peak = peakMzs[index];
-                    string[] split = peak.Split(new char[] { '+', ':' }); //TODO: needs update for negative charges that doesn't break internal fragment ions or neutral losses
 
-                    // if there is a mismatch between the number of peaks and number of intensities from the psmtsv, the intensity will be set to 1
-                    double intensity = peakMzs.Count == peakIntensities.Count ? //TODO: needs update for negative charges that doesn't break internal fragment ions or neutral losses
-                        double.Parse(peakIntensities[index].Split(new char[] { '+', ':', ']' })[2], CultureInfo.InvariantCulture) :
-                        1.0;
+                    // Matches M, optional digits (to be stripped), optional custom loss, charge, m/z
+                    // Examples matched: M15+1, M+1, M-P+1, M-P+1, M-A-P-H20-2, etc.
+                    var mIonMatch = Regex.Match(peak, @"^(M)(\d*)([\w\-]*)([+-]\d+):([\d\.]+)$");
+                    if (mIonMatch.Success)
+                    {
+                        // mIonMatch.Groups[1]: "M"
+                        // mIonMatch.Groups[2]: digits after M (to be ignored)
+                        // mIonMatch.Groups[3]: custom annotation (e.g., "-P", "-A-P-H20", or empty)
+                        // mIonMatch.Groups[4]: charge (with sign)
+                        // mIonMatch.Groups[5]: m/z
 
-                    int fragmentNumber = 0;
-                    int secondaryFragmentNumber = 0;
+                        string customAnnotation = mIonMatch.Groups[3].Value; // e.g., "-P", "-A-P-H20", or ""
+                        int charge = int.Parse(mIonMatch.Groups[4].Value, CultureInfo.InvariantCulture);
+                        double mZ = double.Parse(mIonMatch.Groups[5].Value, CultureInfo.InvariantCulture);
+                        double intens = ExtractNumber(peakIntensities[index], 2);
+
+                        double neutralMass = mZ.ToMass(charge);
+                        var product = new CustomMProduct(customAnnotation, neutralMass);
+                        matchedIons.Add(parsingParams.FragmentIonsHavePlaceholderForEnvelope
+                            ? new MatchedFragmentIonWithEnvelope(product, mZ, intens, charge)
+                            : new MatchedFragmentIonWithCache(product, mZ, intens, charge));
+                        continue;
+                    }
+
+                    // Regex: IonTypeAndNumber (with optional neutral loss), charge (+/-), m/z
+                    // Examples:
+                    //   y1+1:147.11267
+                    //   (b5-97.98)+1:531.18657
+                    //   aBaseLoss5-1:1234.489
+                    //   (b5-97.98)-1:531.18657
+                    var match = Regex.Match(peak, @"^(.*?)([+-]\d+):([\d\.]+)$");
+                    if (!match.Success)
+                        throw new FormatException($"Could not parse ion string: {peak}");
+
+                    //get theoretical fragment
+                    string ionTypeAndNumber = match.Groups[1].Value;
+                    string chargeStr = match.Groups[2].Value;
+                    string mzStr = match.Groups[3].Value;
+
+                    int fragmentNumber, secondaryFragmentNumber = 0;
                     ProductType productType;
                     ProductType? secondaryProductType = null;
                     FragmentationTerminus terminus = FragmentationTerminus.None; //default for internal fragments
                     int aminoAcidPosition;
-                    double neutralLoss = 0;
+                    double neutralLoss = 0, intensity, errorDa = 0;
 
-                    //get theoretical fragment
-                    string ionTypeAndNumber = split[0];
 
                     //if an internal fragment
-                    if (ionTypeAndNumber.Contains("["))
+                    if (ionTypeAndNumber.Contains('['))
                     {
-                        // if there is no mismatch between intensity and peak counts from the psmtsv
-                        if (!intensity.Equals(1.0))
-                        {
-                            intensity = double.Parse(peakIntensities[index].Split(new char[] { '+', ':', ']' })[3],
-                                CultureInfo.InvariantCulture);
-                        }
-                        string[] internalSplit = split[0].Split('[');
+                        intensity = ExtractNumber(peakIntensities[index], 3);
+
+                        string[] internalSplit = ionTypeAndNumber.Split('[');
                         string[] productSplit = internalSplit[0].Split("I");
                         string[] positionSplit = internalSplit[1].Replace("]", "").Split('-');
                         productType = (ProductType)Enum.Parse(typeof(ProductType), productSplit[0]);
@@ -403,14 +538,22 @@ namespace Readers
                         fragmentNumber = int.Parse(positionSplit[0]);
                         secondaryFragmentNumber = int.Parse(positionSplit[1]);
                         aminoAcidPosition = secondaryFragmentNumber - fragmentNumber;
+
+                        //get mass error in Daltons
+                        if (peakMassErrorDa != null && !string.IsNullOrEmpty(peakMassErrorDa[index]))
+                            errorDa = ExtractNumber(peakMassErrorDa[index], 3);
+
                     }
                     else //terminal fragment
                     {
+                        intensity = ExtractNumber(peakIntensities[index], 2);
+
                         Match result = IonParser.Match(ionTypeAndNumber);
                         productType = (ProductType)Enum.Parse(typeof(ProductType), result.Groups[1].Value);
                         fragmentNumber = int.Parse(result.Groups[2].Value);
+
                         // check for neutral loss  
-                        if (ionTypeAndNumber.Contains("("))
+                        if (ionTypeAndNumber.Contains('('))
                         {
                             string temp = ionTypeAndNumber.Replace("(", "");
                             temp = temp.Replace(")", "");
@@ -423,28 +566,22 @@ namespace Readers
                             TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
                         else
-                            Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
+                           Omics.Fragmentation.Oligo.TerminusSpecificProductTypes.ProductTypeToFragmentationTerminus.TryGetValue(productType,
                                 out terminus);
-
 
                         //get amino acid position
                         aminoAcidPosition = terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime ?
                             peptideBaseSequence.Split('|')[0].Length - fragmentNumber :
                             fragmentNumber;
-                    }
 
-                    //get mass error in Daltons
-                    double errorDa = 0;
-                    if (matchedMassErrorDaString.IsNotNullOrEmpty() && peakMassErrorDa[index].IsNotNullOrEmpty())
-                    {
-                        string peakError = peakMassErrorDa[index];
-                        string[] errorSplit = peakError.Split(new char[] { '+', ':', ']' });
-                        errorDa = double.Parse(errorSplit[2], CultureInfo.InvariantCulture);
+                        //get mass error in Daltons
+                        if (peakMassErrorDa != null && !string.IsNullOrEmpty(peakMassErrorDa[index]))
+                            errorDa = ExtractNumber(peakMassErrorDa[index], 2);
                     }
 
                     //get charge and mz
-                    int z = int.Parse(split[1]);
-                    double mz = double.Parse(split[2], CultureInfo.InvariantCulture);
+                    int z = int.Parse(chargeStr, NumberStyles.Integer, CultureInfo.InvariantCulture);
+                    double mz = double.Parse(mzStr, CultureInfo.InvariantCulture);
                     double neutralExperimentalMass = mz.ToMass(z); //read in m/z converted to mass
                     double neutralTheoreticalMass = neutralExperimentalMass - errorDa; //theoretical mass is measured mass - measured error
 
@@ -458,7 +595,9 @@ namespace Readers
                       secondaryProductType,
                       secondaryFragmentNumber);
 
-                    matchedIons.Add(new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
+                    matchedIons.Add(parsingParams.FragmentIonsHavePlaceholderForEnvelope
+                        ? new MatchedFragmentIonWithEnvelope(theoreticalProduct, mz, intensity, z)
+                        : new MatchedFragmentIonWithCache(theoreticalProduct, mz, intensity, z));
                 }
             }
             return matchedIons;
@@ -480,7 +619,7 @@ namespace Readers
             return ionProperty;
         }
 
-        protected static Dictionary<int, List<MatchedFragmentIon>> ReadChildScanMatchedIons(string childScanMatchedMzString, string childScanMatchedIntensitiesString, string peptideBaseSequence)
+        protected static Dictionary<int, List<MatchedFragmentIon>> ReadChildScanMatchedIons(string childScanMatchedMzString, string childScanMatchedIntensitiesString, string peptideBaseSequence, SpectrumMatchParsingParameters parsingParams)
         {
             var childScanMatchedIons = new Dictionary<int, List<MatchedFragmentIon>>();
 
@@ -496,7 +635,7 @@ namespace Readers
                 string matchedMzStrings = mzsplit[1];
                 string matchedIntensityStrings = intSplit[1];
 
-                var childMatchedIons = ReadFragmentIonsFromString(matchedMzStrings, matchedIntensityStrings, peptideBaseSequence);
+                var childMatchedIons = ReadFragmentIonsFromString(matchedMzStrings, matchedIntensityStrings, peptideBaseSequence, parsingParams);
                 childScanMatchedIons.Add(scanNumber, childMatchedIons);
             }
 
@@ -541,24 +680,8 @@ namespace Readers
             }
             return variantCrossingIons;
         }
-        public static List<Tuple<int, string, double>> ReadLocalizedGlycan(string localizedGlycan)
-        {
-            List<Tuple<int, string, double>> tuples = new List<Tuple<int, string, double>>();
-            if (localizedGlycan == null)
-            {
-                return tuples;
-            }
-            var lgs = localizedGlycan.Split(new string[] { "[", "]" }, StringSplitOptions.RemoveEmptyEntries);
-            foreach (var lg in lgs)
-            {
-                var g = lg.Split(',', StringSplitOptions.RemoveEmptyEntries);
 
-                Tuple<int, string, double> tuple = new Tuple<int, string, double>(int.Parse(g[0], CultureInfo.InvariantCulture), g[1], double.Parse(g[2], CultureInfo.InvariantCulture));
-                tuples.Add(tuple);
-            }
-
-            return tuples;
-        }
+        #endregion
 
         public override string ToString()
         {

@@ -21,11 +21,11 @@ using MzLibUtil;
 using System.Collections.Concurrent;
 using System.Globalization;
 using System.IO.Compression;
+using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
-using UsefulProteomicsDatabases;
 
 // old namespace to ensure backwards compatibility
 namespace IO.MzML
@@ -63,6 +63,16 @@ namespace Readers
         private const string _ionInjectionTime = "MS:1000927";
         private const string _mzArray = "MS:1000514";
         private const string _intensityArray = "MS:1000515";
+        private const string _chargeArray = "MS:1000516";
+
+        /// <summary>
+        /// HUPO-PSI Information: 
+        /// name: FAIMS compensation voltage
+        /// def: "The DC potential applied to the asymmetric waveform in FAIMS that compensates for the difference between high and low field mobility of an ion." [PSI: MS]
+        /// synonym: "FAIMS CV" EXACT[]
+        /// </summary>
+        private const string _compensationVoltage = "MS:1001581"; // FAIMS compensation voltage
+
         private static readonly Regex MZAnalyzerTypeRegex = new Regex(@"^[a-zA-Z]*", RegexOptions.Compiled);
 
         public static readonly Dictionary<string, Polarity> PolarityDictionary = new Dictionary<string, Polarity>
@@ -274,14 +284,33 @@ namespace Readers
                     }
                 }
 
+                // Defensive URI parse: some converters (Waters / Bruker / vendor exporters)
+                // write a non-URI string in the sourceFile/@location attribute — e.g.
+                // "Company", a bare Windows path "Z:\foo\bar", or a relative path. The
+                // mzML XSD types this as xsd:anyURI but in practice anything goes. The
+                // previous `new Uri(simpler.location)` threw UriFormatException and aborted
+                // the entire file load. Now: try absolute first, fall back to wrapping the
+                // value as a file:/// URI based on the file we actually opened, finally
+                // fall back to a synthetic placeholder. The Uri is metadata only — none
+                // of the algorithm or writer paths depend on it being meaningful.
+                Uri sourceUri;
+                if (string.IsNullOrWhiteSpace(simpler.location)
+                    || !Uri.TryCreate(simpler.location, UriKind.Absolute, out sourceUri))
+                {
+                    try { sourceUri = new Uri(System.IO.Path.GetFullPath(FilePath)); }
+                    catch { sourceUri = new Uri("file:///unknown-source"); }
+                }
                 sourceFile = new SourceFile(
                     nativeIdFormat,
                     fileFormat,
                     checkSum,
                     checkSumType,
-                    new Uri(simpler.location),
+                    sourceUri,
                     simpler.id,
-                    simpler.name);
+                    simpler.name)
+                {
+                    InstrumentModel = GetInstrumentModel()
+                };
             }
             else
             {
@@ -299,362 +328,524 @@ namespace Readers
                     sendCheckSum,
                     @"SHA-1",
                     Path.GetFullPath(FilePath),
-                    Path.GetFileNameWithoutExtension(FilePath));
+                    Path.GetFileNameWithoutExtension(FilePath))
+                {
+                    InstrumentModel = GetInstrumentModel()
+                };
             }
             return sourceFile;
         }
+
+        /// <summary>
+        /// The instrument model declared in instrumentConfigurationList, as a PSI-MS cvParam.
+        /// Null when the file does not declare one.
+        ///
+        /// The information was already being read and thrown away: GetMsDataOneBasedScanFromConnection
+        /// walks the same instrumentConfiguration entries but keeps only
+        /// componentList.analyzer[0].cvParam[0], the mass analyzer. The instrument model is a
+        /// cvParam on the instrumentConfiguration element ITSELF, one level up from componentList,
+        /// which is why it never surfaced.
+        ///
+        /// Identifying it: an instrumentConfiguration carries a mixed bag of cvParams -- the model,
+        /// plus things like MS:1000529 (instrument serial number) and MS:1000032 (customization).
+        /// Instrument models are the children of MS:1000031 ("instrument model") in psi-ms.obo, and
+        /// there are several hundred of them, so they cannot be listed here. They are instead
+        /// identified negatively: an MS: cvParam that is not one of the known non-model terms and
+        /// that carries no value is the model. That is exactly how the term is written in practice
+        /// -- a model is a bare presence flag, e.g. <cvParam accession="MS:1001911" name="Q Exactive"
+        /// value=""/> -- whereas serial number and customization both carry a value.
+        ///
+        /// The default configuration is preferred when the run names one; otherwise the first entry
+        /// is used. Instrument model is a property of the run, not of a scan, so no attempt is made
+        /// to resolve it per-scan even though mzML permits per-scan configuration references.
+        ///
+        /// The term is usually NOT a direct child of instrumentConfiguration. ProteoWizard -- which
+        /// converted essentially every vendor file anyone will read -- hoists it into a
+        /// referenceableParamGroup and points at it with referenceableParamGroupRef:
+        ///
+        ///   referenceableParamGroup id="CommonInstrumentParams"
+        ///     cvParam accession="MS:1002732" name="Orbitrap Fusion Lumos" value=""
+        ///     cvParam accession="MS:1000529" name="instrument serial number" value="EXRFSN20410"
+        ///
+        /// so both places must be searched, or every real converted file reports no instrument.
+        /// That pair is also the clearest illustration of the value test above: the model carries no
+        /// value, the serial number does.
+        /// </summary>
+        private CvParam GetInstrumentModel()
+        {
+            var configurations = _mzMLConnection.instrumentConfigurationList?.instrumentConfiguration;
+            if (configurations == null || configurations.Length == 0)
+                return null;
+
+            var defaultRef = _mzMLConnection.run?.defaultInstrumentConfigurationRef;
+            var configuration = configurations.FirstOrDefault(c => c.id == defaultRef) ?? configurations[0];
+
+            // Direct cvParams first: a file that states the model inline means it, and should not be
+            // overridden by a shared group.
+            var model = FirstInstrumentModel(configuration.cvParam);
+            if (model != null)
+                return model;
+
+            var groups = _mzMLConnection.referenceableParamGroupList?.referenceableParamGroup;
+            if (configuration.referenceableParamGroupRef == null || groups == null)
+                return null;
+
+            foreach (var groupRef in configuration.referenceableParamGroupRef)
+            {
+                var group = groups.FirstOrDefault(g => g.id == groupRef.@ref);
+                model = FirstInstrumentModel(group?.cvParam);
+                if (model != null)
+                    return model;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// The first cvParam in the list that looks like an instrument model, or null.
+        /// See <see cref="GetInstrumentModel"/> for how "looks like" is decided.
+        /// </summary>
+        private static CvParam FirstInstrumentModel(Generated.CVParamType[] cvParams)
+        {
+            if (cvParams == null)
+                return null;
+
+            foreach (var cv in cvParams)
+            {
+                if (cv.accession == null || !cv.accession.StartsWith("MS:", StringComparison.Ordinal))
+                    continue;
+                if (NonInstrumentModelAccessions.Contains(cv.accession))
+                    continue;
+                if (!string.IsNullOrEmpty(cv.value))
+                    continue;
+
+                // A model must be NAMED. cvParam/@name is optional in the schema, and a term with an
+                // accession but no name is useless downstream -- it cannot be written into an SDRF
+                // cell or matched against anything.
+                if (string.IsNullOrWhiteSpace(cv.name))
+                    continue;
+
+                // Reject the abstract vendor branch nodes. PSI-MS names every one of them
+                // "<Vendor> instrument model" -- MS:1000483 Thermo Fisher Scientific, MS:1000122
+                // Bruker Daltonics, MS:1000126 Waters, MS:1000121 SCIEX, MS:1000490 Agilent,
+                // MS:1000489 Shimadzu, MS:1000495 Applied Biosystems -- and they are valueless, so
+                // the value test alone lets every one of them through. badScan7192.mzML in this
+                // repo's own test data carries MS:1000483 and would otherwise be reported, and then
+                // WRITTEN, as though it identified an instrument. Matching the naming convention
+                // rather than listing accessions catches vendors nobody has added yet.
+                if (cv.name.EndsWith("instrument model", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Value is empty by definition here: a bare presence flag is exactly how the model
+                // term is written, and is the test used above to tell it from serial/customization.
+                return new CvParam("MS", cv.accession, cv.name, "");
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// cvParams that appear on an instrumentConfiguration but are not the instrument model.
+        /// Kept small on purpose: a term wrongly listed here silently suppresses a real model, while
+        /// a term wrongly omitted is caught by the value check in <see cref="GetInstrumentModel"/>,
+        /// since every one of these carries a value and a model does not.
+        /// </summary>
+        private static readonly HashSet<string> NonInstrumentModelAccessions = new(StringComparer.Ordinal)
+        {
+            "MS:1000529", // instrument serial number
+            "MS:1000032", // customization
+            "MS:1000031"  // "instrument model" itself, the parent term -- some writers emit it bare
+        };
 
         /// <summary>
         /// Gets the scan with the specified one-based scan number.
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
+            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
+                return GetOneBasedScan(oneBasedScanNumber);
+
             MsDataScan scan = null;
-
-            if (ScanNumberToByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
+            lock (DynamicReadingLock)
             {
-                // seek to the byte of the scan
-                reader.BaseStream.Position = byteOffset;
-                reader.DiscardBufferedData();
-
-                // DO NOT USE THIS METHOD! it does not seek reliably
-                //stream.BaseStream.Seek(byteOffset, SeekOrigin.Begin);
-
-                // read the scan
-                using (XmlReader xmlReader = XmlReader.Create(reader))
+                if (ScanNumberToByteOffset.TryGetValue(oneBasedScanNumber, out long byteOffset))
                 {
-                    string nativeId = null;
-                    while (xmlReader.Read())
+                    // seek to the byte of the scan
+                    reader.BaseStream.Position = byteOffset;
+                    reader.DiscardBufferedData();
+
+                    // DO NOT USE THIS METHOD! it does not seek reliably
+                    //stream.BaseStream.Seek(byteOffset, SeekOrigin.Begin);
+
+                    // read the scan
+                    using (XmlReader xmlReader = XmlReader.Create(reader))
                     {
-                        // this skips whitespace
-                        string upperName = xmlReader.Name.ToUpper();
-                        if (upperName == "SPECTRUM" && xmlReader.IsStartElement())
+                        string nativeId = null;
+                        while (xmlReader.Read())
                         {
-                            nativeId = xmlReader["id"];
-                            break;
+                            // this skips whitespace
+                            string upperName = xmlReader.Name.ToUpper();
+                            if (upperName == "SPECTRUM" && xmlReader.IsStartElement())
+                            {
+                                nativeId = xmlReader["id"];
+                                break;
+                            }
                         }
-                    }
 
-                    // deserializing the scan's data doesn't work well. the spectrum type is deserialized
-                    // but sub-elements aren't. this is probably because we're trying to deserialize only
-                    // a part of the XML file... deserialization would probably be cleaner code than
-                    // using the current implementation but I couldn't get it to work
-                    //var deserializedSpectrum = (IO.MzML.Generated.SpectrumType)serializer.Deserialize(xmlReader.ReadSubtree());
+                        // deserializing the scan's data doesn't work well. the spectrum type is deserialized
+                        // but sub-elements aren't. this is probably because we're trying to deserialize only
+                        // a part of the XML file... deserialization would probably be cleaner code than
+                        // using the current implementation but I couldn't get it to work
+                        //var deserializedSpectrum = (IO.MzML.Generated.SpectrumType)serializer.Deserialize(xmlReader.ReadSubtree());
 
-                    MzSpectrum spectrum = null;
-                    int? msOrder = 0;
-                    bool? isCentroid = false;
-                    Polarity polarity = Polarity.Unknown;
-                    double retentionTime = double.NaN;
-                    MzRange range = null;
-                    string scanFilter = null;
-                    MZAnalyzerType mzAnalyzerType = MZAnalyzerType.Unknown;
-                    double tic = 0;
-                    double? injTime = null;
-                    double[,] noiseData = null; // TODO: read this
-                    double? selectedIonMz = null;
-                    int? selectedCharge = null;
-                    double? selectedIonIntensity = null;
-                    double? isolationMz = null; // TODO: should this be refined? or taken from the scan header?
-                    double? isolationWidth = null;
-                    DissociationType? dissociationType = null;
-                    int? oneBasedPrecursorScanNumber = null;
-                    double? selectedIonMonoisotopicGuessMz = null;
+                        MzSpectrum spectrum = null;
+                        int? msOrder = 0;
+                        bool? isCentroid = false;
+                        Polarity polarity = Polarity.Unknown;
+                        double retentionTime = double.NaN;
+                        MzRange range = null;
+                        string scanFilter = null;
+                        MZAnalyzerType mzAnalyzerType = MZAnalyzerType.Unknown;
+                        double tic = 0;
+                        double? injTime = null; 
+                        double? compensationVoltage = null;
+                        double[,] noiseData = null; // TODO: read this
+                        double? selectedIonMz = null;
+                        int? selectedCharge = null;
+                        double? selectedIonIntensity = null;
+                        double? isolationMz = null; // TODO: should this be refined? or taken from the scan header?
+                        double? isolationWidth = null;
+                        DissociationType? dissociationType = null;
+                        int? oneBasedPrecursorScanNumber = null;
+                        double? selectedIonMonoisotopicGuessMz = null;
 
-                    double scanLowerLimit = double.NaN;
-                    double scanUpperLimit = double.NaN;
-                    double isolationWindowLowerOffset = double.NaN;
-                    double isolationWindowUpperOffset = double.NaN;
+                        double scanLowerLimit = double.NaN;
+                        double scanUpperLimit = double.NaN;
+                        double isolationWindowLowerOffset = double.NaN;
+                        double isolationWindowUpperOffset = double.NaN;
 
-                    bool compressed = false;
-                    bool readingMzs = false;
-                    bool readingIntensities = false;
-                    bool is32bit = true;
-                    double[] mzs = null;
-                    double[] intensities = null;
+                        bool compressed = false;
+                        bool readingMzs = false;
+                        bool readingIntensities = false;
+                        bool readingCharges = false;
+                        bool is32bit = true;
+                        double[] mzs = null;
+                        double[] intensities = null;
+                        // Per-peak charge array (PSI-MS MS:1000516). Stays null when the
+                        // spectrum doesn't include the third binaryDataArray, matching the
+                        // static-reader path's behavior.
+                        int[] chargeArray = null;
 
-                    while (xmlReader.Read())
-                    {
-                        switch (xmlReader.Name.ToUpper())
+                        while (xmlReader.Read())
                         {
-                            // controlled vocabulary parameter
-                            case "CVPARAM":
-                                string cvParamAccession = xmlReader["accession"];
+                            switch (xmlReader.Name.ToUpper())
+                            {
+                                // controlled vocabulary parameter
+                                case "CVPARAM":
+                                    string cvParamAccession = xmlReader["accession"];
 
-                                if (Mzml.DissociationDictionary.ContainsKey(cvParamAccession))
-                                {
-                                    dissociationType = Mzml.DissociationDictionary[cvParamAccession];
-                                    break;
-                                }
-
-                                if (Mzml.PolarityDictionary.ContainsKey(cvParamAccession))
-                                {
-                                    polarity = Mzml.PolarityDictionary[cvParamAccession];
-                                    break;
-                                }
-
-                                switch (cvParamAccession)
-                                {
-                                    // MS order
-                                    case "MS:1000511":
-                                        msOrder = int.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // centroid mode
-                                    case "MS:1000127":
-                                        isCentroid = true;
-                                        break;
-
-                                    // profile mode
-                                    case "MS:1000128":
-                                        isCentroid = false;
-                                        throw new MzLibException("Reading profile mode mzmls not supported");
-                                    //break;
-
-                                    // total ion current
-                                    case "MS:1000285":
-                                        tic = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // retention time
-                                    case "MS:1000016":
-                                        retentionTime = double.Parse(xmlReader["value"]);
-
-                                        // determine units (e.g., minutes or seconds)
-                                        string units = xmlReader["unitAccession"];
-
-                                        if (units != null && units == "UO:0000010")
-                                        {
-                                            // convert from seconds to minutes
-                                            retentionTime /= 60;
-                                        }
-                                        else if (units != null && units == "UO:0000031")
-                                        {
-                                            // do nothing; the RT is already in minutes
-                                        }
-                                        else
-                                        {
-                                            throw new MzLibException("The retention time for scan " + oneBasedScanNumber + " could not be interpreted because there was " +
-                                                "no value for units (e.g., minutes or seconds)");
-                                        }
-
-                                        break;
-
-                                    // filter string
-                                    case "MS:1000512":
-                                        scanFilter = xmlReader["value"];
-                                        break;
-
-                                    // ion injection time
-                                    case "MS:1000927":
-                                        injTime = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // scan lower limit
-                                    case "MS:1000501":
-                                        scanLowerLimit = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // scan upper limit
-                                    case "MS:1000500":
-                                        scanUpperLimit = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // isolation window lower offset
-                                    case "MS:1000828":
-                                        isolationWindowLowerOffset = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // isolation window upper offset
-                                    case "MS:1000829":
-                                        isolationWindowUpperOffset = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // isolated m/z
-                                    case "MS:1000827":
-                                        isolationMz = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // selected ion m/z
-                                    case "MS:1000744":
-                                        selectedIonMz = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // selected charge state
-                                    case "MS:1000041":
-                                        selectedCharge = int.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // selected intensity
-                                    case "MS:1000042":
-                                        selectedIonIntensity = double.Parse(xmlReader["value"]);
-                                        break;
-
-                                    // mass analyzer types
-                                    case "MS:1000081":
-                                        mzAnalyzerType = MZAnalyzerType.Quadrupole;
-                                        break;
-
-                                    case "MS:1000291":
-                                        mzAnalyzerType = MZAnalyzerType.IonTrap2D;
-                                        break;
-
-                                    case "MS:1000082":
-                                        mzAnalyzerType = MZAnalyzerType.IonTrap3D;
-                                        break;
-
-                                    case "MS:1000484":
-                                        mzAnalyzerType = MZAnalyzerType.Orbitrap;
-                                        break;
-
-                                    case "MS:1000084":
-                                        mzAnalyzerType = MZAnalyzerType.TOF;
-                                        break;
-
-                                    case "MS:1000079":
-                                        mzAnalyzerType = MZAnalyzerType.FTICR;
-                                        break;
-
-                                    case "MS:1000080":
-                                        mzAnalyzerType = MZAnalyzerType.Sector;
-                                        break;
-
-                                    case "MS:1000523":
-                                        is32bit = false;
-                                        break;
-
-                                    case "MS:1000521":
-                                        is32bit = true;
-                                        break;
-
-                                    case "MS:1000576":
-                                        compressed = false;
-                                        break;
-
-                                    case "MS:1000574":
-                                        compressed = true;
-                                        break;
-
-                                    case "MS:1000514":
-                                        readingMzs = true;
-                                        break;
-
-                                    case "MS:1000515":
-                                        readingIntensities = true;
-                                        break;
-                                }
-                                break;
-
-                            // binary data array (e.g., m/z or intensity array)
-                            case "BINARY":
-                                if (!readingMzs && !readingIntensities)
-                                {
-                                    break;
-                                }
-
-                                while (string.IsNullOrWhiteSpace(xmlReader.Value))
-                                {
-                                    xmlReader.Read();
-                                }
-
-                                string binaryString = xmlReader.Value;
-
-                                byte[] binaryData = Convert.FromBase64String(binaryString);
-
-                                double[] data = Mzml.ConvertBase64ToDoubles(binaryData, compressed, is32bit);
-
-                                if (readingMzs)
-                                {
-                                    mzs = data;
-                                    readingMzs = false;
-                                }
-                                else if (readingIntensities)
-                                {
-                                    intensities = data;
-                                    readingIntensities = false;
-                                }
-
-                                break;
-
-                            case "PRECURSOR":
-                                if (xmlReader.IsStartElement())
-                                {
-                                    // TODO: note that the precursor scan info may not be available in the .mzML. in this case the precursor
-                                    // scan number will incorrectly be null. one fix would be to go backwards through the scans to find
-                                    // the precursor scan and then set the scan num here, which would be very time consuming.
-                                    string precursorScanInfo = xmlReader["spectrumRef"];
-
-                                    if (precursorScanInfo != null)
+                                    if (Mzml.DissociationDictionary.ContainsKey(cvParamAccession))
                                     {
-                                        oneBasedPrecursorScanNumber = NativeIdToScanNumber[precursorScanInfo];
-                                    }
-                                }
-                                break;
-
-                            case "USERPARAM":
-                                if (xmlReader.IsStartElement() && xmlReader["name"] != null && xmlReader["name"] == "[mzLib]Monoisotopic M/Z:")
-                                {
-                                    selectedIonMonoisotopicGuessMz = double.Parse(xmlReader["value"]);
-                                }
-                                break;
-
-                            // done reading spectrum
-                            case "SPECTRUM":
-                                if (!xmlReader.IsStartElement())
-                                {
-                                    if (msOrder > 1)
-                                    {
-                                        isolationWidth = isolationWindowUpperOffset + isolationWindowLowerOffset;
-
-                                        if (dissociationType == null)
-                                        {
-                                            dissociationType = DissociationType.Unknown;
-                                        }
+                                        dissociationType = Mzml.DissociationDictionary[cvParamAccession];
+                                        break;
                                     }
 
-                                    if (!msOrder.HasValue || !isCentroid.HasValue)
+                                    if (Mzml.PolarityDictionary.ContainsKey(cvParamAccession))
                                     {
-                                        throw new MzLibException("Could not determine the MS order or centroid/profile status");
+                                        polarity = Mzml.PolarityDictionary[cvParamAccession];
+                                        break;
                                     }
 
-                                    //Remove Zero Intensity Peaks
-                                    double zeroEquivalentIntensity = 0.01;
-                                    int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
-                                    int intensityValueCount = intensities.Count();
-                                    if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+                                    switch (cvParamAccession)
                                     {
-                                        Array.Sort(intensities, mzs);
-                                        double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
-                                        double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
-                                        intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
-                                        mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                        // MS order
+                                        case "MS:1000511":
+                                            msOrder = int.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // centroid mode
+                                        case "MS:1000127":
+                                            isCentroid = true;
+                                            break;
+
+                                        // profile mode
+                                        case "MS:1000128":
+                                            isCentroid = false;
+                                            throw new MzLibException("Reading profile mode mzmls not supported");
+                                        //break;
+
+                                        // total ion current
+                                        case "MS:1000285":
+                                            tic = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // retention time
+                                        case "MS:1000016":
+                                            retentionTime = double.Parse(xmlReader["value"]);
+
+                                            // determine units (e.g., minutes or seconds)
+                                            string units = xmlReader["unitAccession"];
+
+                                            if (units != null && units == "UO:0000010")
+                                            {
+                                                // convert from seconds to minutes
+                                                retentionTime /= 60;
+                                            }
+                                            else if (units != null && units == "UO:0000031")
+                                            {
+                                                // do nothing; the RT is already in minutes
+                                            }
+                                            else
+                                            {
+                                                throw new MzLibException("The retention time for scan " + oneBasedScanNumber + " could not be interpreted because there was " +
+                                                    "no value for units (e.g., minutes or seconds)");
+                                            }
+
+                                            break;
+
+                                        // filter string
+                                        case "MS:1000512":
+                                            scanFilter = xmlReader["value"];
+                                            break;
+
+                                        // ion injection time
+                                        case "MS:1000927":
+                                            injTime = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // FAIMS compensation voltage
+                                        case "MS:1001581":
+                                            compensationVoltage = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // scan lower limit
+                                        case "MS:1000501":
+                                            scanLowerLimit = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // scan upper limit
+                                        case "MS:1000500":
+                                            scanUpperLimit = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // isolation window lower offset
+                                        case "MS:1000828":
+                                            isolationWindowLowerOffset = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // isolation window upper offset
+                                        case "MS:1000829":
+                                            isolationWindowUpperOffset = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // isolated m/z
+                                        case "MS:1000827":
+                                            isolationMz = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // selected ion m/z
+                                        case "MS:1000744":
+                                            selectedIonMz = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // selected charge state
+                                        case "MS:1000041":
+                                            selectedCharge = int.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // selected intensity
+                                        case "MS:1000042":
+                                            selectedIonIntensity = double.Parse(xmlReader["value"]);
+                                            break;
+
+                                        // mass analyzer types
+                                        case "MS:1000081":
+                                            mzAnalyzerType = MZAnalyzerType.Quadrupole;
+                                            break;
+
+                                        case "MS:1000291":
+                                            mzAnalyzerType = MZAnalyzerType.IonTrap2D;
+                                            break;
+
+                                        case "MS:1000082":
+                                            mzAnalyzerType = MZAnalyzerType.IonTrap3D;
+                                            break;
+
+                                        case "MS:1000484":
+                                            mzAnalyzerType = MZAnalyzerType.Orbitrap;
+                                            break;
+
+                                        case "MS:1000084":
+                                            mzAnalyzerType = MZAnalyzerType.TOF;
+                                            break;
+
+                                        case "MS:1000079":
+                                            mzAnalyzerType = MZAnalyzerType.FTICR;
+                                            break;
+
+                                        case "MS:1000080":
+                                            mzAnalyzerType = MZAnalyzerType.Sector;
+                                            break;
+
+                                        case "MS:1000523":
+                                            is32bit = false;
+                                            break;
+
+                                        case "MS:1000521":
+                                            is32bit = true;
+                                            break;
+
+                                        case "MS:1000576":
+                                            compressed = false;
+                                            break;
+
+                                        case "MS:1000574":
+                                            compressed = true;
+                                            break;
+
+                                        case "MS:1000514":
+                                            readingMzs = true;
+                                            break;
+
+                                        case "MS:1000515":
+                                            readingIntensities = true;
+                                            break;
+
+                                        // charge array — PSI-MS MS:1000516. The static-reader
+                                        // path (GetMsDataOneBasedScanFromConnection) recognizes
+                                        // this and populates MsDataScan.ChargeArray; previously
+                                        // the dynamic path did not, so any caller using
+                                        // InitiateDynamicConnection silently lost per-peak charge
+                                        // info round-tripping through this reader.
+                                        case "MS:1000516":
+                                            readingCharges = true;
+                                            break;
+                                    }
+                                    break;
+
+                                // binary data array (e.g., m/z or intensity or charge array)
+                                case "BINARY":
+                                    if (!readingMzs && !readingIntensities && !readingCharges)
+                                    {
+                                        break;
+                                    }
+
+                                    while (string.IsNullOrWhiteSpace(xmlReader.Value))
+                                    {
+                                        xmlReader.Read();
+                                    }
+
+                                    string binaryString = xmlReader.Value;
+
+                                    byte[] binaryData = Convert.FromBase64String(binaryString);
+
+                                    double[] data = Mzml.ConvertBase64ToDoubles(binaryData, compressed, is32bit);
+
+                                    if (readingMzs)
+                                    {
+                                        mzs = data;
+                                        readingMzs = false;
+                                    }
+                                    else if (readingIntensities)
+                                    {
+                                        intensities = data;
+                                        readingIntensities = false;
+                                    }
+                                    else if (readingCharges)
+                                    {
+                                        // Mirror the static-reader path: charges are stored as
+                                        // 32-bit float per PSI-MS convention; round back to int
+                                        // for the public API.
+                                        chargeArray = new int[data.Length];
+                                        for (int k = 0; k < data.Length; k++)
+                                            chargeArray[k] = (int)Math.Round(data[k]);
+                                        readingCharges = false;
+                                    }
+
+                                    break;
+
+                                case "PRECURSOR":
+                                    if (xmlReader.IsStartElement())
+                                    {
+                                        // TODO: note that the precursor scan info may not be available in the .mzML. in this case the precursor
+                                        // scan number will incorrectly be null. one fix would be to go backwards through the scans to find
+                                        // the precursor scan and then set the scan num here, which would be very time consuming.
+                                        string precursorScanInfo = xmlReader["spectrumRef"];
+
+                                        if (precursorScanInfo != null)
+                                        {
+                                            oneBasedPrecursorScanNumber = NativeIdToScanNumber[precursorScanInfo];
+                                        }
+                                    }
+                                    break;
+
+                                case "USERPARAM":
+                                    if (xmlReader.IsStartElement() && xmlReader["name"] != null && xmlReader["name"] == "[mzLib]Monoisotopic M/Z:")
+                                    {
+                                        selectedIonMonoisotopicGuessMz = double.Parse(xmlReader["value"]);
+                                    }
+                                    break;
+
+                                // done reading spectrum
+                                case "SPECTRUM":
+                                    if (!xmlReader.IsStartElement())
+                                    {
+                                        if (msOrder > 1)
+                                        {
+                                            isolationWidth = isolationWindowUpperOffset + isolationWindowLowerOffset;
+
+                                            if (dissociationType == null)
+                                            {
+                                                dissociationType = DissociationType.Unknown;
+                                            }
+                                        }
+
+                                        if (!msOrder.HasValue || !isCentroid.HasValue)
+                                        {
+                                            throw new MzLibException("Could not determine the MS order or centroid/profile status");
+                                        }
+
+                                        //Remove Zero Intensity Peaks
+                                        double zeroEquivalentIntensity = 0.01;
+                                        int zeroIntensityCount = intensities.Count(i => i < zeroEquivalentIntensity);
+                                        int intensityValueCount = intensities.Count();
+                                        if (zeroIntensityCount > 0 && zeroIntensityCount < intensityValueCount)
+                                        {
+                                            Array.Sort(intensities, mzs);
+                                            double[] nonZeroIntensities = new double[intensityValueCount - zeroIntensityCount];
+                                            double[] nonZeroMzs = new double[intensityValueCount - zeroIntensityCount];
+                                            intensities = intensities.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                            mzs = mzs.SubArray(zeroIntensityCount, intensityValueCount - zeroIntensityCount);
+                                            Array.Sort(mzs, intensities);
+                                        }
+
+
+                                        // peak filtering
+                                        if (filterParams != null && intensities.Length > 0 &&
+                                            ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value == 2) || (filterParams.ApplyTrimmingToMsN && msOrder.Value > 2)))
+                                        {
+                                            WindowModeHelper.Run(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
+                                        }
+
                                         Array.Sort(mzs, intensities);
+
+                                        range = new MzRange(scanLowerLimit, scanUpperLimit);
+                                        spectrum = new MzSpectrum(mzs, intensities, false);
+
+                                        scan = new MsDataScan(spectrum, oneBasedScanNumber, msOrder.Value, isCentroid.Value, polarity,
+                                            retentionTime, range, scanFilter, mzAnalyzerType, tic, injTime, noiseData,
+                                            nativeId, selectedIonMz, selectedCharge, selectedIonIntensity, isolationMz, isolationWidth,
+                                            dissociationType, oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz,
+                                            compensationVoltage: compensationVoltage,
+                                            chargeArray: chargeArray);
+
+                                        return scan;
                                     }
-
-
-                                    // peak filtering
-                                    if (filterParams != null && intensities.Length > 0 &&
-                                        ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
+                                    else
                                     {
-                                        WindowModeHelper.Run(ref intensities, ref mzs, filterParams, scanLowerLimit, scanUpperLimit);
+                                        throw new MzLibException("Spectrum data is malformed");
                                     }
-
-                                    Array.Sort(mzs, intensities);
-
-                                    range = new MzRange(scanLowerLimit, scanUpperLimit);
-                                    spectrum = new MzSpectrum(mzs, intensities, false);
-
-                                    scan = new MsDataScan(spectrum, oneBasedScanNumber, msOrder.Value, isCentroid.Value, polarity,
-                                        retentionTime, range, scanFilter, mzAnalyzerType, tic, injTime, noiseData,
-                                        nativeId, selectedIonMz, selectedCharge, selectedIonIntensity, isolationMz, isolationWidth,
-                                        dissociationType, oneBasedPrecursorScanNumber, selectedIonMonoisotopicGuessMz);
-
-                                    return scan;
-                                }
-                                else
-                                {
-                                    throw new MzLibException("Spectrum data is malformed");
-                                }
+                            }
                         }
                     }
                 }
@@ -766,6 +957,7 @@ namespace Readers
             double rtInMinutes = double.NaN;
             string scanFilter = null;
             double? injectionTime = null;
+            double? compensationVoltage = null;
             int oneBasedScanNumber = oneBasedIndex;
             if (_mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].scanList.scan[0].cvParam != null)
             {
@@ -782,6 +974,10 @@ namespace Readers
                     if (cv.accession.Equals(_filterString))
                     {
                         scanFilter = cv.value;
+                    }
+                    if (cv.accession.Equals(_compensationVoltage))
+                    {
+                        compensationVoltage = double.Parse(cv.value, CultureInfo.InvariantCulture);
                     }
                     if (cv.accession.Equals(_ionInjectionTime))
                     {
@@ -811,16 +1007,19 @@ namespace Readers
                     tic,
                     injectionTime,
                     null,
-                    nativeId);
+                    nativeId, 
+                    compensationVoltage: compensationVoltage);
 
             double[] masses = new double[0];
             double[] intensities = new double[0];
+            int[] chargeArray = null;
 
             foreach (Generated.BinaryDataArrayType binaryData in _mzMLConnection.run.spectrumList.spectrum[oneBasedIndex - 1].binaryDataArrayList.binaryDataArray)
             {
                 bool compressed = false;
                 bool mzArray = false;
                 bool intensityArray = false;
+                bool isChargeArray = false;
                 bool is32bit = true;
                 foreach (Generated.CVParamType cv in binaryData.cvParam)
                 {
@@ -829,6 +1028,7 @@ namespace Readers
                     is32bit |= cv.accession.Equals(_32bit);
                     mzArray |= cv.accession.Equals(_mzArray);
                     intensityArray |= cv.accession.Equals(_intensityArray);
+                    isChargeArray |= cv.accession.Equals(_chargeArray);
                 }
 
                 //in the futurem we may see scass w/ no data and there will be a crash here. if that happens, you can retrun an MsDataScan with null as the mzSpectrum
@@ -842,6 +1042,15 @@ namespace Readers
                 if (intensityArray)
                 {
                     intensities = data;
+                }
+
+                if (isChargeArray)
+                {
+                    // Charge array stores integer charge states as float (per PSI-MS convention).
+                    // Cast back to int for the public API.
+                    chargeArray = new int[data.Length];
+                    for (int k = 0; k < data.Length; k++)
+                        chargeArray[k] = (int)Math.Round(data[k]);
                 }
             }
 
@@ -879,7 +1088,7 @@ namespace Readers
                 Array.Sort(masses, intensities);
             }
 
-            if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value > 1)))
+            if (filterParams != null && intensities.Length > 0 && ((filterParams.ApplyTrimmingToMs1 && msOrder.Value == 1) || (filterParams.ApplyTrimmingToMsMs && msOrder.Value == 2) || (filterParams.ApplyTrimmingToMsN && msOrder.Value > 2)))
             {
                 WindowModeHelper.Run(ref intensities, ref masses, filterParams, low, high);
             }
@@ -902,7 +1111,9 @@ namespace Readers
                     tic,
                     injectionTime,
                     null,
-                    nativeId);
+                    nativeId,
+                    compensationVoltage: compensationVoltage,
+                    chargeArray: chargeArray);
             }
 
             double selectedIonMz = double.NaN;
@@ -1018,7 +1229,9 @@ namespace Readers
                 lowIsolation + highIsolation,
                 dissociationType,
                 precursorScanNumber,
-                monoisotopicMz
+                monoisotopicMz,
+                compensationVoltage: compensationVoltage,
+                chargeArray: chargeArray
                 );
         }
 

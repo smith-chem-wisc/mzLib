@@ -1,0 +1,1454 @@
+<?xml version='1.0' encoding='utf-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="2007-10-23" modified="2025-06-18" version="136">
+<accession>A6NJ78</accession>
+<accession>A8MRS5</accession>
+<accession>B7WNU2</accession>
+<accession>Q3MHD3</accession>
+<accession>Q8N601</accession>
+<accession>Q8NBA7</accession>
+<name>MET15_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName>12S rRNA N(4)-cytidine methyltransferase METTL15</fullName>
+<shortName>12S rRNA m4C methyltransferase</shortName>
+<ecNumber evidence="5 6">2.1.1.-</ecNumber>
+</recommendedName>
+<alternativeName>
+<fullName>Methyltransferase 5 domain-containing protein 1</fullName>
+</alternativeName>
+<alternativeName>
+<fullName>Methyltransferase-like protein 15</fullName>
+</alternativeName>
+</protein>
+<gene>
+<name evidence="9 11" type="primary">METTL15</name>
+<name type="synonym">METT5D1</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<name type="common">Human</name>
+<dbReference type="NCBI Taxonomy" id="9606"/>
+<lineage>
+<taxon>Eukaryota</taxon>
+<taxon>Metazoa</taxon>
+<taxon>Chordata</taxon>
+<taxon>Craniata</taxon>
+<taxon>Vertebrata</taxon>
+<taxon>Euteleostomi</taxon>
+<taxon>Mammalia</taxon>
+<taxon>Eutheria</taxon>
+<taxon>Euarchontoglires</taxon>
+<taxon>Primates</taxon>
+<taxon>Haplorrhini</taxon>
+<taxon>Catarrhini</taxon>
+<taxon>Hominidae</taxon>
+<taxon>Homo</taxon>
+</lineage>
+</organism>
+<reference key="1">
+<citation type="journal article" date="2004" name="Nat. Genet." volume="36" first="40" last="45">
+<title>
+Complete sequencing and characterization of 21,243 full-length human cDNAs.
+</title>
+<authorList>
+<person name="Ota T."/>
+<person name="Suzuki Y."/>
+<person name="Nishikawa T."/>
+<person name="Otsuki T."/>
+<person name="Sugiyama T."/>
+<person name="Irie R."/>
+<person name="Wakamatsu A."/>
+<person name="Hayashi K."/>
+<person name="Sato H."/>
+<person name="Nagai K."/>
+<person name="Kimura K."/>
+<person name="Makita H."/>
+<person name="Sekine M."/>
+<person name="Obayashi M."/>
+<person name="Nishi T."/>
+<person name="Shibahara T."/>
+<person name="Tanaka T."/>
+<person name="Ishii S."/>
+<person name="Yamamoto J."/>
+<person name="Saito K."/>
+<person name="Kawai Y."/>
+<person name="Isono Y."/>
+<person name="Nakamura Y."/>
+<person name="Nagahari K."/>
+<person name="Murakami K."/>
+<person name="Yasuda T."/>
+<person name="Iwayanagi T."/>
+<person name="Wagatsuma M."/>
+<person name="Shiratori A."/>
+<person name="Sudo H."/>
+<person name="Hosoiri T."/>
+<person name="Kaku Y."/>
+<person name="Kodaira H."/>
+<person name="Kondo H."/>
+<person name="Sugawara M."/>
+<person name="Takahashi M."/>
+<person name="Kanda K."/>
+<person name="Yokoi T."/>
+<person name="Furuya T."/>
+<person name="Kikkawa E."/>
+<person name="Omura Y."/>
+<person name="Abe K."/>
+<person name="Kamihara K."/>
+<person name="Katsuta N."/>
+<person name="Sato K."/>
+<person name="Tanikawa M."/>
+<person name="Yamazaki M."/>
+<person name="Ninomiya K."/>
+<person name="Ishibashi T."/>
+<person name="Yamashita H."/>
+<person name="Murakawa K."/>
+<person name="Fujimori K."/>
+<person name="Tanai H."/>
+<person name="Kimata M."/>
+<person name="Watanabe M."/>
+<person name="Hiraoka S."/>
+<person name="Chiba Y."/>
+<person name="Ishida S."/>
+<person name="Ono Y."/>
+<person name="Takiguchi S."/>
+<person name="Watanabe S."/>
+<person name="Yosida M."/>
+<person name="Hotuta T."/>
+<person name="Kusano J."/>
+<person name="Kanehori K."/>
+<person name="Takahashi-Fujii A."/>
+<person name="Hara H."/>
+<person name="Tanase T.-O."/>
+<person name="Nomura Y."/>
+<person name="Togiya S."/>
+<person name="Komai F."/>
+<person name="Hara R."/>
+<person name="Takeuchi K."/>
+<person name="Arita M."/>
+<person name="Imose N."/>
+<person name="Musashino K."/>
+<person name="Yuuki H."/>
+<person name="Oshima A."/>
+<person name="Sasaki N."/>
+<person name="Aotsuka S."/>
+<person name="Yoshikawa Y."/>
+<person name="Matsunawa H."/>
+<person name="Ichihara T."/>
+<person name="Shiohata N."/>
+<person name="Sano S."/>
+<person name="Moriya S."/>
+<person name="Momiyama H."/>
+<person name="Satoh N."/>
+<person name="Takami S."/>
+<person name="Terashima Y."/>
+<person name="Suzuki O."/>
+<person name="Nakagawa S."/>
+<person name="Senoh A."/>
+<person name="Mizoguchi H."/>
+<person name="Goto Y."/>
+<person name="Shimizu F."/>
+<person name="Wakebe H."/>
+<person name="Hishigaki H."/>
+<person name="Watanabe T."/>
+<person name="Sugiyama A."/>
+<person name="Takemoto M."/>
+<person name="Kawakami B."/>
+<person name="Yamazaki M."/>
+<person name="Watanabe K."/>
+<person name="Kumagai A."/>
+<person name="Itakura S."/>
+<person name="Fukuzumi Y."/>
+<person name="Fujimori Y."/>
+<person name="Komiyama M."/>
+<person name="Tashiro H."/>
+<person name="Tanigami A."/>
+<person name="Fujiwara T."/>
+<person name="Ono T."/>
+<person name="Yamada K."/>
+<person name="Fujii Y."/>
+<person name="Ozaki K."/>
+<person name="Hirao M."/>
+<person name="Ohmori Y."/>
+<person name="Kawabata A."/>
+<person name="Hikiji T."/>
+<person name="Kobatake N."/>
+<person name="Inagaki H."/>
+<person name="Ikema Y."/>
+<person name="Okamoto S."/>
+<person name="Okitani R."/>
+<person name="Kawakami T."/>
+<person name="Noguchi S."/>
+<person name="Itoh T."/>
+<person name="Shigeta K."/>
+<person name="Senba T."/>
+<person name="Matsumura K."/>
+<person name="Nakajima Y."/>
+<person name="Mizuno T."/>
+<person name="Morinaga M."/>
+<person name="Sasaki M."/>
+<person name="Togashi T."/>
+<person name="Oyama M."/>
+<person name="Hata H."/>
+<person name="Watanabe M."/>
+<person name="Komatsu T."/>
+<person name="Mizushima-Sugano J."/>
+<person name="Satoh T."/>
+<person name="Shirai Y."/>
+<person name="Takahashi Y."/>
+<person name="Nakagawa K."/>
+<person name="Okumura K."/>
+<person name="Nagase T."/>
+<person name="Nomura N."/>
+<person name="Kikuchi H."/>
+<person name="Masuho Y."/>
+<person name="Yamashita R."/>
+<person name="Nakai K."/>
+<person name="Yada T."/>
+<person name="Nakamura Y."/>
+<person name="Ohara O."/>
+<person name="Isogai T."/>
+<person name="Sugano S."/>
+</authorList>
+<dbReference type="PubMed" id="14702039"/>
+<dbReference type="DOI" id="10.1038/ng1285"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORM 2)</scope>
+<scope>VARIANT LYS-31</scope>
+</reference>
+<reference key="2">
+<citation type="journal article" date="2006" name="Nature" volume="440" first="497" last="500">
+<title>
+Human chromosome 11 DNA sequence and analysis including novel gene identification.
+</title>
+<authorList>
+<person name="Taylor T.D."/>
+<person name="Noguchi H."/>
+<person name="Totoki Y."/>
+<person name="Toyoda A."/>
+<person name="Kuroki Y."/>
+<person name="Dewar K."/>
+<person name="Lloyd C."/>
+<person name="Itoh T."/>
+<person name="Takeda T."/>
+<person name="Kim D.-W."/>
+<person name="She X."/>
+<person name="Barlow K.F."/>
+<person name="Bloom T."/>
+<person name="Bruford E."/>
+<person name="Chang J.L."/>
+<person name="Cuomo C.A."/>
+<person name="Eichler E."/>
+<person name="FitzGerald M.G."/>
+<person name="Jaffe D.B."/>
+<person name="LaButti K."/>
+<person name="Nicol R."/>
+<person name="Park H.-S."/>
+<person name="Seaman C."/>
+<person name="Sougnez C."/>
+<person name="Yang X."/>
+<person name="Zimmer A.R."/>
+<person name="Zody M.C."/>
+<person name="Birren B.W."/>
+<person name="Nusbaum C."/>
+<person name="Fujiyama A."/>
+<person name="Hattori M."/>
+<person name="Rogers J."/>
+<person name="Lander E.S."/>
+<person name="Sakaki Y."/>
+</authorList>
+<dbReference type="PubMed" id="16554811"/>
+<dbReference type="DOI" id="10.1038/nature04632"/>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+</reference>
+<reference key="3">
+<citation type="submission" date="2005-09" db="EMBL/GenBank/DDBJ databases">
+<authorList>
+<person name="Mural R.J."/>
+<person name="Istrail S."/>
+<person name="Sutton G.G."/>
+<person name="Florea L."/>
+<person name="Halpern A.L."/>
+<person name="Mobarry C.M."/>
+<person name="Lippert R."/>
+<person name="Walenz B."/>
+<person name="Shatkay H."/>
+<person name="Dew I."/>
+<person name="Miller J.R."/>
+<person name="Flanigan M.J."/>
+<person name="Edwards N.J."/>
+<person name="Bolanos R."/>
+<person name="Fasulo D."/>
+<person name="Halldorsson B.V."/>
+<person name="Hannenhalli S."/>
+<person name="Turner R."/>
+<person name="Yooseph S."/>
+<person name="Lu F."/>
+<person name="Nusskern D.R."/>
+<person name="Shue B.C."/>
+<person name="Zheng X.H."/>
+<person name="Zhong F."/>
+<person name="Delcher A.L."/>
+<person name="Huson D.H."/>
+<person name="Kravitz S.A."/>
+<person name="Mouchard L."/>
+<person name="Reinert K."/>
+<person name="Remington K.A."/>
+<person name="Clark A.G."/>
+<person name="Waterman M.S."/>
+<person name="Eichler E.E."/>
+<person name="Adams M.D."/>
+<person name="Hunkapiller M.W."/>
+<person name="Myers E.W."/>
+<person name="Venter J.C."/>
+</authorList>
+</citation>
+<scope>NUCLEOTIDE SEQUENCE [LARGE SCALE GENOMIC DNA]</scope>
+</reference>
+<reference key="4">
+<citation type="journal article" date="2004" name="Genome Res." volume="14" first="2121" last="2127">
+<title>
+The status, quality, and expansion of the NIH full-length cDNA project: the Mammalian Gene Collection (MGC).
+</title>
+<authorList>
+<consortium name="The MGC Project Team"/>
+</authorList>
+<dbReference type="PubMed" id="15489334"/>
+<dbReference type="DOI" id="10.1101/gr.2596504"/>
+</citation>
+<scope>
+NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA] (ISOFORMS 3 AND 4)
+</scope>
+<scope>VARIANT LYS-31</scope>
+<source>
+<tissue>Brain</tissue>
+<tissue>Testis</tissue>
+</source>
+</reference>
+<reference key="5">
+<citation type="journal article" date="2013" name="J. Proteome Res." volume="12" first="260" last="271">
+<title>
+Toward a comprehensive characterization of a human cancer cell phosphoproteome.
+</title>
+<authorList>
+<person name="Zhou H."/>
+<person name="Di Palma S."/>
+<person name="Preisinger C."/>
+<person name="Peng M."/>
+<person name="Polat A.N."/>
+<person name="Heck A.J."/>
+<person name="Mohammed S."/>
+</authorList>
+<dbReference type="PubMed" id="23186163"/>
+<dbReference type="DOI" id="10.1021/pr300630k"/>
+</citation>
+<scope>PHOSPHORYLATION [LARGE SCALE ANALYSIS] AT SER-358</scope>
+<scope>
+IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]
+</scope>
+<source>
+<tissue>Erythroleukemia</tissue>
+</source>
+</reference>
+<reference key="6">
+<citation type="journal article" date="2019" name="Nucleic Acids Res." volume="47" first="10267" last="10281">
+<title>
+METTL15 introduces N4-methylcytidine into human mitochondrial 12S rRNA and is required for mitoribosome biogenesis.
+</title>
+<authorList>
+<person name="Van Haute L."/>
+<person name="Hendrick A.G."/>
+<person name="D'Souza A.R."/>
+<person name="Powell C.A."/>
+<person name="Rebelo-Guiomar P."/>
+<person name="Harbour M.E."/>
+<person name="Ding S."/>
+<person name="Fearnley I.M."/>
+<person name="Andrews B."/>
+<person name="Minczuk M."/>
+</authorList>
+<dbReference type="PubMed" id="31665743"/>
+<dbReference type="DOI" id="10.1093/nar/gkz735"/>
+</citation>
+<scope>FUNCTION</scope>
+<scope>SUBCELLULAR LOCATION</scope>
+<scope>CATALYTIC ACTIVITY</scope>
+<scope>MUTAGENESIS OF 119-ASP-ARG-120 AND GLU-298</scope>
+</reference>
+<reference key="7">
+<citation type="journal article" date="2020" name="J. Biol. Chem." volume="295" first="8505" last="8513">
+<title>
+The human mitochondrial 12S rRNA m4C methyltransferase METTL15 is required for mitochondrial function.
+</title>
+<authorList>
+<person name="Chen H."/>
+<person name="Shi Z."/>
+<person name="Guo J."/>
+<person name="Chang K.J."/>
+<person name="Chen Q."/>
+<person name="Yao C.H."/>
+<person name="Haigis M.C."/>
+<person name="Shi Y."/>
+</authorList>
+<dbReference type="PubMed" id="32371392"/>
+<dbReference type="DOI" id="10.1074/jbc.ra119.012127"/>
+</citation>
+<scope>FUNCTION</scope>
+<scope>CATALYTIC ACTIVITY</scope>
+<scope>SUBCELLULAR LOCATION</scope>
+<scope>MUTAGENESIS OF 98-GLY--GLY-101</scope>
+</reference>
+<comment type="function">
+<text evidence="5 6">
+N4-methylcytidine (m4C) methyltransferase responsible for the methylation of position C839 in mitochondrial 12S rRNA (PubMed:31665743, PubMed:32371392). Involved in the stabilization of 12S rRNA folding, therefore facilitating the assembly of the mitochondrial small ribosomal subunits (PubMed:31665743, PubMed:32371392).
+</text>
+</comment>
+<comment type="catalytic activity">
+<reaction evidence="5 6">
+<text>
+cytidine(839) in 12S rRNA + S-adenosyl-L-methionine = N(4)-methylcytidine(839) in 12S rRNA + S-adenosyl-L-homocysteine + H(+)
+</text>
+<dbReference type="Rhea" id="RHEA:62524"/>
+<dbReference type="Rhea" id="RHEA-COMP:16109"/>
+<dbReference type="Rhea" id="RHEA-COMP:16110"/>
+<dbReference type="ChEBI" id="CHEBI:15378"/>
+<dbReference type="ChEBI" id="CHEBI:57856"/>
+<dbReference type="ChEBI" id="CHEBI:59789"/>
+<dbReference type="ChEBI" id="CHEBI:74506"/>
+<dbReference type="ChEBI" id="CHEBI:82748"/>
+</reaction>
+<physiologicalReaction direction="left-to-right" evidence="5 6">
+<dbReference type="Rhea" id="RHEA:62525"/>
+</physiologicalReaction>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10742528">
+<id>A6NJ78</id>
+</interactant>
+<interactant intactId="EBI-6149062">
+<id>Q9H7P6</id>
+<label>MVB12B</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>2</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-718729">
+<id>P55212</id>
+<label>CASP6</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-14151404">
+<id>Q96AQ7</id>
+<label>CIDEC</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-711360">
+<id>P33240</id>
+<label>CSTF2</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-10976677">
+<id>G5E9A7</id>
+<label>DMWD</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-1054228">
+<id>P41091</id>
+<label>EIF2S3</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-2339898">
+<id>Q9NW38</id>
+<label>FANCL</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-10226858">
+<id>Q0VDC6</id>
+<label>FKBP1A</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-748515">
+<id>Q8IVS8</id>
+<label>GLYCTK</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-1752118">
+<id>P31273</id>
+<label>HOXC8</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-21591415">
+<id>P13473-2</id>
+<label>LAMP2</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-947402">
+<id>O60336</id>
+<label>MAPKBP1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-10699187">
+<id>Q8IXL7-2</id>
+<label>MSRB3</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-11750983">
+<id>Q9HC98-4</id>
+<label>NEK6</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-724639">
+<id>Q9UBV8</id>
+<label>PEF1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-9027467">
+<id>O75360</id>
+<label>PROP1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-286642">
+<id>P62826</id>
+<label>RAN</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-1053431">
+<id>P49591</id>
+<label>SARS1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-11959123">
+<id>Q99932-2</id>
+<label>SPAG8</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-5235340">
+<id>Q7Z699</id>
+<label>SPRED1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-358993">
+<id>Q15645</id>
+<label>TRIP13</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>6</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-739895">
+<id>Q8N6Y0</id>
+<label>USHBP1</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="interaction">
+<interactant intactId="EBI-10174029">
+<id>A6NJ78-4</id>
+</interactant>
+<interactant intactId="EBI-2107455">
+<id>Q08AM6</id>
+<label>VAC14</label>
+</interactant>
+<organismsDiffer>false</organismsDiffer>
+<experiments>3</experiments>
+</comment>
+<comment type="subcellular location">
+<subcellularLocation>
+<location evidence="5 6">Mitochondrion matrix</location>
+</subcellularLocation>
+</comment>
+<comment type="alternative products">
+<event type="alternative splicing"/>
+<isoform>
+<id>A6NJ78-1</id>
+<name>1</name>
+<sequence type="displayed"/>
+</isoform>
+<isoform>
+<id>A6NJ78-2</id>
+<name>2</name>
+<sequence type="described" ref="VSP_028973 VSP_028974"/>
+</isoform>
+<isoform>
+<id>A6NJ78-3</id>
+<name>3</name>
+<sequence type="described" ref="VSP_028970 VSP_028971"/>
+</isoform>
+<isoform>
+<id>A6NJ78-4</id>
+<name>4</name>
+<sequence type="described" ref="VSP_028972 VSP_028975"/>
+</isoform>
+</comment>
+<comment type="similarity">
+<text evidence="10">
+Belongs to the methyltransferase superfamily. RsmH family.
+</text>
+</comment>
+<comment type="sequence caution" evidence="10">
+<conflict type="erroneous initiation">
+<sequence resource="EMBL-CDS" id="AAH30997" version="1"/>
+</conflict>
+<text>Truncated N-terminus.</text>
+</comment>
+<dbReference type="EC" id="2.1.1.-" evidence="5 6"/>
+<dbReference type="EMBL" id="AK091298">
+<property type="protein sequence ID" value="BAC03631.1"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="EMBL" id="AC023206">
+<property type="status" value="NOT_ANNOTATED_CDS"/>
+<property type="molecule type" value="Genomic_DNA"/>
+</dbReference>
+<dbReference type="EMBL" id="AC087376">
+<property type="status" value="NOT_ANNOTATED_CDS"/>
+<property type="molecule type" value="Genomic_DNA"/>
+</dbReference>
+<dbReference type="EMBL" id="CH471064">
+<property type="protein sequence ID" value="EAW68267.1"/>
+<property type="molecule type" value="Genomic_DNA"/>
+</dbReference>
+<dbReference type="EMBL" id="CH471064">
+<property type="protein sequence ID" value="EAW68266.1"/>
+<property type="molecule type" value="Genomic_DNA"/>
+</dbReference>
+<dbReference type="EMBL" id="BC030997">
+<property type="protein sequence ID" value="AAH30997.1"/>
+<property type="status" value="ALT_INIT"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="EMBL" id="BC105287">
+<property type="protein sequence ID" value="AAI05288.1"/>
+<property type="molecule type" value="mRNA"/>
+</dbReference>
+<dbReference type="CCDS" id="CCDS31450.1">
+<molecule id="A6NJ78-2"/>
+</dbReference>
+<dbReference type="CCDS" id="CCDS44559.1">
+<molecule id="A6NJ78-1"/>
+</dbReference>
+<dbReference type="CCDS" id="CCDS73269.1">
+<molecule id="A6NJ78-4"/>
+</dbReference>
+<dbReference type="RefSeq" id="NP_001107000.1">
+<molecule id="A6NJ78-1"/>
+<property type="nucleotide sequence ID" value="NM_001113528.2"/>
+</dbReference>
+<dbReference type="RefSeq" id="NP_001284704.1">
+<molecule id="A6NJ78-4"/>
+<property type="nucleotide sequence ID" value="NM_001297775.2"/>
+</dbReference>
+<dbReference type="RefSeq" id="NP_689849.2">
+<molecule id="A6NJ78-2"/>
+<property type="nucleotide sequence ID" value="NM_152636.3"/>
+</dbReference>
+<dbReference type="RefSeq" id="XP_016872786.1">
+<property type="nucleotide sequence ID" value="XM_017017297.1"/>
+</dbReference>
+<dbReference type="PDB" id="7PNX">
+<property type="method" value="EM"/>
+<property type="resolution" value="2.76 A"/>
+<property type="chains" value="b=1-407"/>
+</dbReference>
+<dbReference type="PDB" id="7PNY">
+<property type="method" value="EM"/>
+<property type="resolution" value="3.06 A"/>
+<property type="chains" value="b=1-407"/>
+</dbReference>
+<dbReference type="PDB" id="7PNZ">
+<property type="method" value="EM"/>
+<property type="resolution" value="3.09 A"/>
+<property type="chains" value="b=1-407"/>
+</dbReference>
+<dbReference type="PDB" id="8IPI">
+<property type="method" value="X-ray"/>
+<property type="resolution" value="2.10 A"/>
+<property type="chains" value="A=70-407"/>
+</dbReference>
+<dbReference type="PDB" id="8IPK">
+<property type="method" value="X-ray"/>
+<property type="resolution" value="1.90 A"/>
+<property type="chains" value="A=70-407"/>
+</dbReference>
+<dbReference type="PDB" id="8IPL">
+<property type="method" value="X-ray"/>
+<property type="resolution" value="2.20 A"/>
+<property type="chains" value="A=70-407"/>
+</dbReference>
+<dbReference type="PDB" id="8IPM">
+<property type="method" value="X-ray"/>
+<property type="resolution" value="3.10 A"/>
+<property type="chains" value="D=70-407"/>
+</dbReference>
+<dbReference type="PDB" id="8QRL">
+<property type="method" value="EM"/>
+<property type="resolution" value="3.34 A"/>
+<property type="chains" value="8=1-407"/>
+</dbReference>
+<dbReference type="PDBsum" id="7PNX"/>
+<dbReference type="PDBsum" id="7PNY"/>
+<dbReference type="PDBsum" id="7PNZ"/>
+<dbReference type="PDBsum" id="8IPI"/>
+<dbReference type="PDBsum" id="8IPK"/>
+<dbReference type="PDBsum" id="8IPL"/>
+<dbReference type="PDBsum" id="8IPM"/>
+<dbReference type="PDBsum" id="8QRL"/>
+<dbReference type="AlphaFoldDB" id="A6NJ78"/>
+<dbReference type="EMDB" id="EMD-13555"/>
+<dbReference type="EMDB" id="EMD-13556"/>
+<dbReference type="EMDB" id="EMD-13557"/>
+<dbReference type="SMR" id="A6NJ78"/>
+<dbReference type="BioGRID" id="128190">
+<property type="interactions" value="303"/>
+</dbReference>
+<dbReference type="FunCoup" id="A6NJ78">
+<property type="interactions" value="1528"/>
+</dbReference>
+<dbReference type="IntAct" id="A6NJ78">
+<property type="interactions" value="95"/>
+</dbReference>
+<dbReference type="STRING" id="9606.ENSP00000384369"/>
+<dbReference type="GlyCosmos" id="A6NJ78">
+<property type="glycosylation" value="1 site, 1 glycan"/>
+</dbReference>
+<dbReference type="GlyGen" id="A6NJ78">
+<property type="glycosylation" value="1 site, 1 O-linked glycan (1 site)"/>
+</dbReference>
+<dbReference type="iPTMnet" id="A6NJ78"/>
+<dbReference type="PhosphoSitePlus" id="A6NJ78"/>
+<dbReference type="BioMuta" id="METTL15"/>
+<dbReference type="jPOST" id="A6NJ78"/>
+<dbReference type="MassIVE" id="A6NJ78"/>
+<dbReference type="PaxDb" id="9606-ENSP00000384369"/>
+<dbReference type="PeptideAtlas" id="A6NJ78"/>
+<dbReference type="ProteomicsDB" id="1313">
+<molecule id="A6NJ78-1"/>
+</dbReference>
+<dbReference type="ProteomicsDB" id="1314">
+<molecule id="A6NJ78-2"/>
+</dbReference>
+<dbReference type="ProteomicsDB" id="1315">
+<molecule id="A6NJ78-3"/>
+</dbReference>
+<dbReference type="ProteomicsDB" id="1316">
+<molecule id="A6NJ78-4"/>
+</dbReference>
+<dbReference type="Pumba" id="A6NJ78"/>
+<dbReference type="Antibodypedia" id="25483">
+<property type="antibodies" value="40 antibodies from 14 providers"/>
+</dbReference>
+<dbReference type="DNASU" id="196074"/>
+<dbReference type="Ensembl" id="ENST00000303459.10">
+<molecule id="A6NJ78-2"/>
+<property type="protein sequence ID" value="ENSP00000307251.6"/>
+<property type="gene ID" value="ENSG00000169519.21"/>
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000406787.7">
+<molecule id="A6NJ78-4"/>
+<property type="protein sequence ID" value="ENSP00000385507.3"/>
+<property type="gene ID" value="ENSG00000169519.21"/>
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000407364.8">
+<molecule id="A6NJ78-1"/>
+<property type="protein sequence ID" value="ENSP00000384369.3"/>
+<property type="gene ID" value="ENSG00000169519.21"/>
+</dbReference>
+<dbReference type="Ensembl" id="ENST00000437814.1">
+<molecule id="A6NJ78-3"/>
+<property type="protein sequence ID" value="ENSP00000392806.1"/>
+<property type="gene ID" value="ENSG00000169519.21"/>
+</dbReference>
+<dbReference type="GeneID" id="196074"/>
+<dbReference type="KEGG" id="hsa:196074"/>
+<dbReference type="MANE-Select" id="ENST00000407364.8">
+<property type="protein sequence ID" value="ENSP00000384369.3"/>
+<property type="RefSeq nucleotide sequence ID" value="NM_001113528.2"/>
+<property type="RefSeq protein sequence ID" value="NP_001107000.1"/>
+</dbReference>
+<dbReference type="UCSC" id="uc001mse.3">
+<molecule id="A6NJ78-1"/>
+<property type="organism name" value="human"/>
+</dbReference>
+<dbReference type="AGR" id="HGNC:26606"/>
+<dbReference type="CTD" id="196074"/>
+<dbReference type="DisGeNET" id="196074"/>
+<dbReference type="GeneCards" id="METTL15"/>
+<dbReference type="HGNC" id="HGNC:26606">
+<property type="gene designation" value="METTL15"/>
+</dbReference>
+<dbReference type="HPA" id="ENSG00000169519">
+<property type="expression patterns" value="Low tissue specificity"/>
+</dbReference>
+<dbReference type="MIM" id="618711">
+<property type="type" value="gene"/>
+</dbReference>
+<dbReference type="neXtProt" id="NX_A6NJ78"/>
+<dbReference type="OpenTargets" id="ENSG00000169519"/>
+<dbReference type="PharmGKB" id="PA142671458"/>
+<dbReference type="VEuPathDB" id="HostDB:ENSG00000169519"/>
+<dbReference type="eggNOG" id="KOG2782">
+<property type="taxonomic scope" value="Eukaryota"/>
+</dbReference>
+<dbReference type="GeneTree" id="ENSGT00390000014756"/>
+<dbReference type="HOGENOM" id="CLU_038422_1_0_1"/>
+<dbReference type="InParanoid" id="A6NJ78"/>
+<dbReference type="OMA" id="NPAKRTF"/>
+<dbReference type="OrthoDB" id="16290at2759"/>
+<dbReference type="PAN-GO" id="A6NJ78">
+<property type="GO annotations" value="2 GO annotations based on evolutionary models"/>
+</dbReference>
+<dbReference type="PhylomeDB" id="A6NJ78"/>
+<dbReference type="TreeFam" id="TF106425"/>
+<dbReference type="PathwayCommons" id="A6NJ78"/>
+<dbReference type="SignaLink" id="A6NJ78"/>
+<dbReference type="BioGRID-ORCS" id="196074">
+<property type="hits" value="79 hits in 1120 CRISPR screens"/>
+</dbReference>
+<dbReference type="ChiTaRS" id="METTL15">
+<property type="organism name" value="human"/>
+</dbReference>
+<dbReference type="GenomeRNAi" id="196074"/>
+<dbReference type="Pharos" id="A6NJ78">
+<property type="development level" value="Tdark"/>
+</dbReference>
+<dbReference type="PRO" id="PR:A6NJ78"/>
+<dbReference type="Proteomes" id="UP000005640">
+<property type="component" value="Chromosome 11"/>
+</dbReference>
+<dbReference type="RNAct" id="A6NJ78">
+<property type="molecule type" value="protein"/>
+</dbReference>
+<dbReference type="Bgee" id="ENSG00000169519">
+<property type="expression patterns" value="Expressed in adrenal tissue and 177 other cell types or tissues"/>
+</dbReference>
+<dbReference type="ExpressionAtlas" id="A6NJ78">
+<property type="expression patterns" value="baseline and differential"/>
+</dbReference>
+<dbReference type="GO" id="GO:0005759">
+<property type="term" value="C:mitochondrial matrix"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="GO" id="GO:0005739">
+<property type="term" value="C:mitochondrion"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="GO" id="GO:0071424">
+<property type="term" value="F:rRNA (cytosine-N4-)-methyltransferase activity"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="GO" id="GO:0070475">
+<property type="term" value="P:rRNA base methylation"/>
+<property type="evidence" value="ECO:0000314"/>
+<property type="project" value="UniProtKB"/>
+</dbReference>
+<dbReference type="FunFam" id="3.40.50.150:FF:000776">
+<property type="entry name" value="Methyltransferase like 15"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="FunFam" id="1.10.150.170:FF:000002">
+<property type="entry name" value="Probable methyltransferase-like protein 15"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="FunFam" id="3.40.50.150:FF:000226">
+<property type="entry name" value="probable methyltransferase-like protein 15 isoform X3"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="Gene3D" id="1.10.150.170">
+<property type="entry name" value="Putative methyltransferase TM0872, insert domain"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="Gene3D" id="3.40.50.150">
+<property type="entry name" value="Vaccinia Virus protein VP39"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="HAMAP" id="MF_01007">
+<property type="entry name" value="16SrRNA_methyltr_H"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="InterPro" id="IPR002903">
+<property type="entry name" value="RsmH"/>
+</dbReference>
+<dbReference type="InterPro" id="IPR023397">
+<property type="entry name" value="SAM-dep_MeTrfase_MraW_recog"/>
+</dbReference>
+<dbReference type="InterPro" id="IPR029063">
+<property type="entry name" value="SAM-dependent_MTases_sf"/>
+</dbReference>
+<dbReference type="NCBIfam" id="TIGR00006">
+<property type="entry name" value="16S rRNA (cytosine(1402)-N(4))-methyltransferase RsmH"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="PANTHER" id="PTHR11265:SF1">
+<property type="entry name" value="12S RRNA N4-METHYLCYTIDINE (M4C) METHYLTRANSFERASE-RELATED"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="PANTHER" id="PTHR11265">
+<property type="entry name" value="S-ADENOSYL-METHYLTRANSFERASE MRAW"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="Pfam" id="PF01795">
+<property type="entry name" value="Methyltransf_5"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="SUPFAM" id="SSF81799">
+<property type="entry name" value="Putative methyltransferase TM0872, insert domain"/>
+<property type="match status" value="1"/>
+</dbReference>
+<dbReference type="SUPFAM" id="SSF53335">
+<property type="entry name" value="S-adenosyl-L-methionine-dependent methyltransferases"/>
+<property type="match status" value="1"/>
+</dbReference>
+<proteinExistence type="evidence at protein level"/>
+<keyword id="KW-0002">3D-structure</keyword>
+<keyword id="KW-0025">Alternative splicing</keyword>
+<keyword id="KW-0489">Methyltransferase</keyword>
+<keyword id="KW-0496">Mitochondrion</keyword>
+<keyword id="KW-0597">Phosphoprotein</keyword>
+<keyword id="KW-1267">Proteomics identification</keyword>
+<keyword id="KW-1185">Reference proteome</keyword>
+<keyword id="KW-0949">S-adenosyl-L-methionine</keyword>
+<keyword id="KW-0808">Transferase</keyword>
+<keyword id="KW-0809">Transit peptide</keyword>
+<feature type="transit peptide" description="Mitochondrion" evidence="2">
+<location>
+<begin position="1"/>
+<end status="unknown"/>
+</location>
+</feature>
+<feature type="chain" id="PRO_0000308332" description="12S rRNA N(4)-cytidine methyltransferase METTL15">
+<location>
+<begin status="unknown"/>
+<end position="407"/>
+</location>
+</feature>
+<feature type="binding site" evidence="1">
+<location>
+<begin position="100"/>
+<end position="102"/>
+</location>
+<ligand>
+<name>S-adenosyl-L-methionine</name>
+<dbReference type="ChEBI" id="CHEBI:59789"/>
+</ligand>
+</feature>
+<feature type="binding site" evidence="1">
+<location>
+<position position="119"/>
+</location>
+<ligand>
+<name>S-adenosyl-L-methionine</name>
+<dbReference type="ChEBI" id="CHEBI:59789"/>
+</ligand>
+</feature>
+<feature type="binding site" evidence="1">
+<location>
+<position position="146"/>
+</location>
+<ligand>
+<name>S-adenosyl-L-methionine</name>
+<dbReference type="ChEBI" id="CHEBI:59789"/>
+</ligand>
+</feature>
+<feature type="binding site" evidence="1">
+<location>
+<position position="169"/>
+</location>
+<ligand>
+<name>S-adenosyl-L-methionine</name>
+<dbReference type="ChEBI" id="CHEBI:59789"/>
+</ligand>
+</feature>
+<feature type="binding site" evidence="1">
+<location>
+<position position="176"/>
+</location>
+<ligand>
+<name>S-adenosyl-L-methionine</name>
+<dbReference type="ChEBI" id="CHEBI:59789"/>
+</ligand>
+</feature>
+<feature type="modified residue" description="Phosphoserine" evidence="12">
+<location>
+<position position="358"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_028970" description="In isoform 3." evidence="8">
+<original>IFLDMTFGS</original>
+<variation>SLGVRSVGI</variation>
+<location>
+<begin position="91"/>
+<end position="99"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_028971" description="In isoform 3." evidence="8">
+<location>
+<begin position="100"/>
+<end position="407"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_028972" description="In isoform 4." evidence="8">
+<original>
+YPDMPTAADVVNALDQQALASILRTYGEEKHAKKIASAIVQARSIYPITRTQQLASIVAGAFPPSAIYTRKDLLQRSTHIATKTFQALRIFVNNELNELYTGLKTAQKFLRPGGRLVALS
+</original>
+<variation>
+STGTCIYPKNIRGGEACQENRFSNCSGTQHLPHHQNPAACQHRCRSISSLCYLYTERLTTAIYPYCHQDFPGSSHICEQ
+</variation>
+<location>
+<begin position="201"/>
+<end position="320"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_028973" description="In isoform 2." evidence="7">
+<original>GAFPPSAIYTRKDL</original>
+<variation>EYSETYFPVAQTLY</variation>
+<location>
+<begin position="260"/>
+<end position="273"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_028974" description="In isoform 2." evidence="7">
+<location>
+<begin position="274"/>
+<end position="407"/>
+</location>
+</feature>
+<feature type="splice variant" id="VSP_028975" description="In isoform 4." evidence="8">
+<location>
+<begin position="321"/>
+<end position="407"/>
+</location>
+</feature>
+<feature type="sequence variant" id="VAR_036801" description="In dbSNP:rs2883478." evidence="3 4">
+<original>N</original>
+<variation>K</variation>
+<location>
+<position position="31"/>
+</location>
+</feature>
+<feature type="sequence variant" id="VAR_036802" description="In dbSNP:rs11823114.">
+<original>A</original>
+<variation>T</variation>
+<location>
+<position position="149"/>
+</location>
+</feature>
+<feature type="sequence variant" id="VAR_059446" description="In dbSNP:rs11030280.">
+<original>I</original>
+<variation>F</variation>
+<location>
+<position position="267"/>
+</location>
+</feature>
+<feature type="mutagenesis site" description="Abolished methylation of 12S rRNA position C839." evidence="6">
+<original>GSGG</original>
+<variation>ASAA</variation>
+<location>
+<begin position="98"/>
+<end position="101"/>
+</location>
+</feature>
+<feature type="mutagenesis site" description="Absence of methylation of 12S rRNA position C839 and decreased methylation at position C841." evidence="5">
+<original>DR</original>
+<variation>AA</variation>
+<location>
+<begin position="119"/>
+<end position="120"/>
+</location>
+</feature>
+<feature type="mutagenesis site" description="Decreased methylation of 12S rRNA positions C839 and C841." evidence="5">
+<original>E</original>
+<variation>A</variation>
+<location>
+<position position="298"/>
+</location>
+</feature>
+<feature type="sequence conflict" description="In Ref. 4; AAH30997." evidence="10" ref="4">
+<original>P</original>
+<variation>S</variation>
+<location>
+<position position="191"/>
+</location>
+</feature>
+<feature type="sequence conflict" description="In Ref. 1; BAC03631." evidence="10" ref="1">
+<original>M</original>
+<variation>V</variation>
+<location>
+<position position="194"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="77"/>
+<end position="84"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="90"/>
+<end position="95"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="101"/>
+<end position="109"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="112"/>
+<end position="121"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="122"/>
+<end position="134"/>
+</location>
+</feature>
+<feature type="turn" evidence="13">
+<location>
+<begin position="136"/>
+<end position="138"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="139"/>
+<end position="143"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="146"/>
+<end position="155"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="163"/>
+<end position="169"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="174"/>
+<end position="178"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="180"/>
+<end position="182"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="186"/>
+<end position="188"/>
+</location>
+</feature>
+<feature type="turn" evidence="13">
+<location>
+<begin position="196"/>
+<end position="199"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="207"/>
+<end position="213"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="216"/>
+<end position="227"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="232"/>
+<end position="243"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="251"/>
+<end position="260"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="264"/>
+<end position="267"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="271"/>
+<end position="274"/>
+</location>
+</feature>
+<feature type="turn" evidence="13">
+<location>
+<begin position="276"/>
+<end position="278"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="282"/>
+<end position="293"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="295"/>
+<end position="309"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="310"/>
+<end position="320"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="323"/>
+<end position="333"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="341"/>
+<end position="343"/>
+</location>
+</feature>
+<feature type="helix" evidence="13">
+<location>
+<begin position="346"/>
+<end position="351"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="375"/>
+<end position="382"/>
+</location>
+</feature>
+<feature type="helix" evidence="14">
+<location>
+<begin position="387"/>
+<end position="392"/>
+</location>
+</feature>
+<feature type="helix" evidence="14">
+<location>
+<begin position="394"/>
+<end position="396"/>
+</location>
+</feature>
+<feature type="strand" evidence="13">
+<location>
+<begin position="400"/>
+<end position="406"/>
+</location>
+</feature>
+<evidence type="ECO:0000250" key="1">
+<source>
+<dbReference type="UniProtKB" id="Q9WZX6"/>
+</source>
+</evidence>
+<evidence type="ECO:0000255" key="2"/>
+<evidence type="ECO:0000269" key="3">
+<source>
+<dbReference type="PubMed" id="14702039"/>
+</source>
+</evidence>
+<evidence type="ECO:0000269" key="4">
+<source>
+<dbReference type="PubMed" id="15489334"/>
+</source>
+</evidence>
+<evidence type="ECO:0000269" key="5">
+<source>
+<dbReference type="PubMed" id="31665743"/>
+</source>
+</evidence>
+<evidence type="ECO:0000269" key="6">
+<source>
+<dbReference type="PubMed" id="32371392"/>
+</source>
+</evidence>
+<evidence type="ECO:0000303" key="7">
+<source>
+<dbReference type="PubMed" id="14702039"/>
+</source>
+</evidence>
+<evidence type="ECO:0000303" key="8">
+<source>
+<dbReference type="PubMed" id="15489334"/>
+</source>
+</evidence>
+<evidence type="ECO:0000303" key="9">
+<source>
+<dbReference type="PubMed" id="31665743"/>
+</source>
+</evidence>
+<evidence type="ECO:0000305" key="10"/>
+<evidence type="ECO:0000312" key="11">
+<source>
+<dbReference type="HGNC" id="HGNC:26606"/>
+</source>
+</evidence>
+<evidence type="ECO:0007744" key="12">
+<source>
+<dbReference type="PubMed" id="23186163"/>
+</source>
+</evidence>
+<evidence type="ECO:0007829" key="13">
+<source>
+<dbReference type="PDB" id="8IPK"/>
+</source>
+</evidence>
+<evidence type="ECO:0007829" key="14">
+<source>
+<dbReference type="PDB" id="8QRL"/>
+</source>
+</evidence>
+<sequence length="407" mass="46121" checksum="1DA02B5842483080" modified="2007-07-24" version="1" precursor="true">
+MLRYPYFCRMYKECLSCWLESGIPNLGVWPNRIHTTAEKYREYEAREQTDQTQAQELHRSQDRDFETMAKLHIPVMVDEVVHCLSPQKGQIFLDMTFGSGGHTKAILQKESDIVLYALDRDPTAYALAEHLSELYPKQIRAMLGQFSQAEALLMKAGVQPGTFDGVLMDLGCSSMQLDTPERGFSLRKDGPLDMRMDGGRYPDMPTAADVVNALDQQALASILRTYGEEKHAKKIASAIVQARSIYPITRTQQLASIVAGAFPPSAIYTRKDLLQRSTHIATKTFQALRIFVNNELNELYTGLKTAQKFLRPGGRLVALSFHSLEDRIVKRFLLGISMTERFNLSVRQQVMKTSQLGSDHENTEEVSMRRAPLMWELIHKKVLSPQDQDVQDNPRGRSAKLRAAIKL
+</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

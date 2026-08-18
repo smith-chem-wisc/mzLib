@@ -152,18 +152,20 @@ namespace Readers
         /// <summary>
         /// Merges multiple index and intensity arrays into an MS1 spectrum.
         /// This operation is somewhere between averaging and centroiding
-        /// In the TimsTofFileReader, MS1 scans are kept as index arrays and intensity arrays.
+        /// In the TimsTofFileReader, MS1 scans and MRM scans are kept as index arrays and intensity arrays.
         /// </summary>
         /// <param name="indexArrays">List of index arrays.</param>
         /// <param name="intensityArrays">List of intensity arrays.</param>
         /// <param name="proxyFactory">Frame proxy factory.</param>
         /// <param name="filteringParams">Filtering parameters (optional).</param>
+        /// <param name="msnLevel">MSn level (default is 1). Used to determine filtering for spectrum </param>
         /// <returns>A merged MS1 spectrum.</returns>
-        internal static MzSpectrum MergeArraysToMs1Spectrum(
+        internal static MzSpectrum MergeArraysToSpectrum(
             List<uint[]> indexArrays, 
             List<int[]> intensityArrays, 
             FrameProxyFactory proxyFactory,
-            FilteringParams filteringParams = null)
+            FilteringParams filteringParams = null,
+            int msnLevel = 1)
         {
             if (!indexArrays.IsNotNullOrEmpty() || intensityArrays == null || intensityArrays.Count() != indexArrays.Count())
                 return null;

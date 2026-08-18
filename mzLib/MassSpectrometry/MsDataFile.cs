@@ -28,11 +28,11 @@ namespace MassSpectrometry
     /// </summary>
     public abstract class MsDataFile : IEnumerable<MsDataScan>
     {
+        protected readonly object DynamicReadingLock = new();
         public MsDataScan[] Scans { get; protected set; }
         public SourceFile SourceFile { get; set; }
-        public int NumSpectra => Scans.Length;
+        public int NumSpectra => Scans?.Length ?? 0;
         public string FilePath { get; }
-
         protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
@@ -49,6 +49,8 @@ namespace MassSpectrometry
         {
             FilePath = filePath;
         }
+
+        public MsDataScan this[int index] => Scans[index];
 
         #region Abstract members
 

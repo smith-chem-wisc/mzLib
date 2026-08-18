@@ -1,0 +1,104 @@
+﻿using Easy.Common.Extensions;
+using MzLibUtil;
+using Omics.SequenceConversion;
+using PredictionClients.Koina.AbstractClasses;
+
+namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
+{
+    /// <summary>
+    /// Implementation of the Prosit 2019 indexed retention time (iRT) prediction model.
+    /// Predicts indexed retention times for peptide sequences using the Koina API.
+    /// </summary>
+    /// <remarks>
+    /// Model specifications:
+    /// - Supports peptides with length 1-30 amino acids
+    /// - Processes up to 1000 peptides per batch
+    /// - Predicts indexed retention time (iRT) values for relative comparison
+    /// - Supports carbamidomethylation on cysteine and oxidation on methionine
+    /// 
+    /// iRT values provide relative retention time measurements that are independent of 
+    /// chromatographic conditions, enabling cross-laboratory comparison of retention times.
+    /// 
+    /// API Documentation: https://koina.wilhelmlab.org/docs#post-/Prosit_2019_irt/infer
+    /// </remarks>
+    public class Prosit2019iRT : RetentionTimeModel
+    {
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        private static readonly ISequenceConverter Converter = CreateUnimodConverter(
+            UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
+
+        /// <summary>The Koina API model name identifier</summary>
+        public override string ModelName => "Prosit_2019_irt";
+
+        /// <summary>Maximum number of peptides that can be processed in a single API request</summary>
+        public override int MaxBatchSize => 1000;
+
+        /// <summary>
+        /// Maximum number of batches that should be processed in a single API request. This is necessary 
+        /// to prevent overwhelming the server with too many concurrent requests, which can lead to timeouts 
+        /// or rate limiting. Adjust this value based on the expected number of peptides and server capacity.
+        /// </summary>
+        public override int MaxNumberOfBatchesPerRequest { get; init; }
+
+        /// <summary>
+        /// Throttle time between batches to avoid overwhelming the server. 
+        /// Adjust as needed based on model performance and server capacity.
+        /// </summary> 
+        public override int ThrottlingDelayInMilliseconds { get; init; }
+        public override int BenchmarkedTimeForOneMaxBatchSizeInMilliseconds => 1500;
+
+        /// <summary>Maximum allowed peptide sequence length in amino acids</summary>
+        public override int MaxPeptideLength => 30;
+
+        /// <summary>Minimum allowed peptide sequence length in amino acids</summary>
+        public override int MinPeptideLength => 1;
+
+        /// <summary>
+        /// Indicates this model predicts indexed retention time (iRT) values.
+        /// iRT values are relative measurements independent of chromatographic conditions.
+        /// </summary>
+        public override bool IsIndexedRetentionTimeModel => true;
+        public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
+
+        public Prosit2019iRT(SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull, int maxNumberOfBatchesPerRequest = 500, int throttlingDelayInMilliseconds = 100)
+            : base(Converter)
+        {
+            ModHandlingMode = modHandlingMode;
+            MaxNumberOfBatchesPerRequest = maxNumberOfBatchesPerRequest;
+            ThrottlingDelayInMilliseconds = throttlingDelayInMilliseconds;
+        }
+
+        /// <summary>
+        /// Creates batched API requests formatted for the Prosit 2019 iRT model.
+        /// Each batch contains up to MaxBatchSize peptide sequences for optimal API performance.
+        /// </summary>
+        /// <returns>
+        /// List of request dictionaries compatible with Koina API format.
+        /// Each request contains peptide sequences in UNIMOD format with carbamidomethylated cysteines.
+        /// </returns>
+        /// <remarks>
+        /// Request structure follows Koina API specification for Prosit_2019_irt:
+        /// - peptide_sequences: BYTES array containing UNIMOD-formatted sequences
+        /// - Shape: [batch_size, 1] for tensor compatibility
+        /// - Datatype: BYTES for string sequence data
+        /// 
+        /// Batching strategy:
+        /// - Splits input sequences into chunks of MaxBatchSize (1000)
+        /// - Each batch gets a unique identifier for tracking
+        /// - Enables concurrent processing of large sequence sets
+        /// </remarks>
+        protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
+        {
+            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
+            for (int i = 0; i < batchedPeptides.Length; i++)
+            {
+                batchedRequests.Add(BuildBatchedRequest(i,
+                    new InputField("peptide_sequences", "BYTES", batchedPeptides[i])));
+            }
+            return batchedRequests;
+        }
+    }
+}
+

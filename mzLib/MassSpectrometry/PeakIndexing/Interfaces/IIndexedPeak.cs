@@ -6,8 +6,8 @@
     /// </summary>
     public interface IIndexedPeak
     {
-        public double Intensity { get; }
-        public double RetentionTime { get; }
+        public float Intensity { get; }
+        public float RetentionTime { get; }
         /// <summary>
         /// Refers to the index of the scan in an array that contains scans that were indexed 
         /// (i.e., for indexing MS1 peaks, the array only contains MS1 scans)
@@ -16,6 +16,6 @@
         /// <summary>
         /// Represents the mass, either as m/z or a neutral mass, depending on the context
         /// </summary>
-        public double M { get; }
+        public float M { get; }
     }
 }

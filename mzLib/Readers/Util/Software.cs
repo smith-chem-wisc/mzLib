@@ -17,11 +17,16 @@
         MsFragger, // files tested were from fragpipe v21.1
         MsPathFinderT,
         Crux,
+        Dinosaur,
         ProteomeDiscoverer,
         ProsightPD,
         Chimerys,
+        DiaNn,     // files tested were from DIA-NN 1.8/1.9 long-format report.tsv
 
         // Quantification
         FlashLFQ,
+
+        // Other
+        Casanovo,
     }
 }

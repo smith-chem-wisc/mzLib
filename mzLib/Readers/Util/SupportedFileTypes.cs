@@ -1,4 +1,5 @@
 ﻿using MzLibUtil;
+using Readers.ExternalResults.ResultFiles;
 
 namespace Readers
 {
@@ -9,6 +10,7 @@ namespace Readers
         TopFDMzrt,
         Ms1Tsv_FlashDeconv,
         Tsv_FlashDeconv,
+        Tsv_Dinosaur,
         ThermoRaw,
         MzML,
         Mgf,
@@ -30,7 +32,10 @@ namespace Readers
         CruxResult,
         ExperimentAnnotation,
         BrukerD,
-        BrukerTimsTof
+        BrukerTimsTof,
+        CasanovoMzTab,
+        DiaNnReport,
+        Sdrf
     }
 
     public static class SupportedFileTypeExtensions
@@ -49,6 +54,7 @@ namespace Readers
                 SupportedFileType.Ms2Feature => "_ms2.feature",
                 SupportedFileType.TopFDMzrt => ".mzrt.csv",
                 SupportedFileType.Ms1Tsv_FlashDeconv => "_ms1.tsv",
+                SupportedFileType.Tsv_Dinosaur => ".feature.tsv",
                 SupportedFileType.Tsv_FlashDeconv => ".tsv",
                 SupportedFileType.ThermoRaw => ".raw",
                 SupportedFileType.MzML => ".mzML",
@@ -72,6 +78,14 @@ namespace Readers
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
+                SupportedFileType.CasanovoMzTab => ".mztab",
+                // Unlike the other .tsv members, this is a conventional whole-name rather than a
+                // suffix ParseFileType keys on: DIA-NN reports are detected by their header, so the
+                // extension round-trip ("anything" + GetFileExtension()).ParseFileType() == type that
+                // holds for the others does not hold here. This value is only what WriteResults
+                // appends when naming an output file.
+                SupportedFileType.DiaNnReport => "report.tsv",
+                SupportedFileType.Sdrf => ".sdrf.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -87,7 +101,7 @@ namespace Readers
                     var fileList = Directory.GetFiles(filePath).Select(p => Path.GetFileName(p));
                     if (fileList.Any(file => file == "analysis.baf"))
                         return SupportedFileType.BrukerD;
-                    if (fileList.Any(file => file == "analysis.tdf"))
+                    if (fileList.Any(file => file == "analysis.tdf" || file == "analysis.tsf"))
                         return SupportedFileType.BrukerTimsTof;
                     throw new MzLibException("Bruker file type not recognized");
 
@@ -139,15 +153,31 @@ namespace Readers
                         return SupportedFileType.MsPathFinderTAllResults;
                     if(filePath.EndsWith(SupportedFileType.ExperimentAnnotation.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.ExperimentAnnotation;
+                    if(filePath.EndsWith(SupportedFileType.Tsv_Dinosaur.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.Tsv_Dinosaur;
+                    if(filePath.EndsWith(SupportedFileType.Sdrf.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.Sdrf;
 
-                    // these tsv cases are just .tsv and need an extra step to determine the type
-                    // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
-                    using var sw = new StreamReader(filePath);
+                        // these tsv cases are just .tsv and need an extra step to determine the type
+                        // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
+                        using var sw = new StreamReader(filePath);
                     var firstLine = sw.ReadLine() ?? "";
                     if (firstLine == "") throw new MzLibException("Tsv file is empty");
 
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
+
+                    // DIA-NN's main report is conventionally named report.tsv, but the name is set by
+                    // whoever ran the search and is routinely changed, so match on the header instead.
+                    // File.Name is what separates the long-format report from the matrix reports
+                    // (report.pr_matrix.tsv) that DIA-NN writes beside it, which also carry
+                    // Precursor.Id and Stripped.Sequence but have one column per run instead.
+                    var tsvHeaders = firstLine.Split('\t');
+                    if (tsvHeaders.Contains("Precursor.Id")
+                        && tsvHeaders.Contains("Stripped.Sequence")
+                        && tsvHeaders.Contains("File.Name"))
+                        return SupportedFileType.DiaNnReport;
+
                     throw new MzLibException("Tsv file type not supported");
                 }
 
@@ -162,6 +192,18 @@ namespace Readers
                     if (filePath.EndsWith(SupportedFileType.Ms2Align.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms2Align;
                     throw new MzLibException("MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2");
+
+                case ".mztab":
+                    using (var reader = new StreamReader(filePath))
+                    {
+                        for (int i = 0; i < 5 && !reader.EndOfStream; i++)
+                        {
+                            var line = reader.ReadLine();
+                            if (line != null && line.Contains("casanovo", StringComparison.InvariantCultureIgnoreCase))
+                                return SupportedFileType.CasanovoMzTab;
+                        }
+                    }
+                    throw new MzLibException("MzTab file type not supported");
 
                 default:
                     throw new MzLibException("File type not supported");
@@ -184,6 +226,7 @@ namespace Readers
                 SupportedFileType.TopFDMzrt => typeof(TopFDMzrtFile),
                 SupportedFileType.Ms1Tsv_FlashDeconv => typeof(FlashDeconvMs1TsvFile),
                 SupportedFileType.Tsv_FlashDeconv => typeof(FlashDeconvTsvFile),
+                SupportedFileType.Tsv_Dinosaur => typeof(DinosaurTsvFile),
                 SupportedFileType.psmtsv => typeof(PsmFromTsvFile),
                 SupportedFileType.osmtsv => typeof(OsmFromTsvFile),
                 SupportedFileType.ToppicPrsm => typeof(ToppicSearchResultFile),
@@ -206,6 +249,9 @@ namespace Readers
                 SupportedFileType.BrukerTimsTof => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
+                SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
+                SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
+                SupportedFileType.Sdrf => typeof(SdrfDocument),
                 _ => throw new MzLibException("File type not supported")
             };
         }

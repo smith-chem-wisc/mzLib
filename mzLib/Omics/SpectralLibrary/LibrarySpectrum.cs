@@ -1,4 +1,6 @@
-﻿using System.Text;
+using System.Globalization;
+using System.Text;
+using Chemistry;
 using Easy.Common.Extensions;
 using MassSpectrometry;
 using MassSpectrometry.MzSpectra;
@@ -6,7 +8,7 @@ using Omics.Fragmentation;
 
 namespace Omics.SpectrumMatch
 {
-    public class LibrarySpectrum : MzSpectrum
+    public class LibrarySpectrum : MzSpectrum, IEquatable<LibrarySpectrum>
     {
         public string Sequence { get; set; }
         public double? RetentionTime { get; set; }
@@ -86,6 +88,57 @@ namespace Omics.SpectrumMatch
             }
 
             return spectrum.ToString();
+        }
+
+        // For decoy library spectrum generation, we use the predicted m/z value of the decoy sequence and we use the decoy's corresponding target's library spectrum's intensity values as decoy's intensities
+        public static List<MatchedFragmentIon> GetDecoyLibrarySpectrumFromTargetByReverse(LibrarySpectrum targetSpectrum, List<Product> decoyPeptideTheorProducts)
+        {
+            var decoyFragmentIons = new List<MatchedFragmentIon>();
+            foreach (var targetIon in targetSpectrum.MatchedFragmentIons)
+            {
+                foreach (var decoyPeptideTheorIon in decoyPeptideTheorProducts)
+                {
+                    if (targetIon.NeutralTheoreticalProduct.ProductType == decoyPeptideTheorIon.ProductType && targetIon.NeutralTheoreticalProduct.FragmentNumber == decoyPeptideTheorIon.FragmentNumber)
+                    {
+                        double decoyFragmentMz = decoyPeptideTheorIon.NeutralMass.ToMz(targetIon.Charge);
+                        Product temProduct = decoyPeptideTheorIon;
+                        decoyFragmentIons.Add(new MatchedFragmentIon(temProduct, decoyFragmentMz, targetIon.Intensity, targetIon.Charge));
+                    }
+                }
+            }
+            return decoyFragmentIons;
+        }
+
+        public bool Equals(LibrarySpectrum? other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
+            return base.Equals(other) && Sequence == other.Sequence && Nullable.Equals(RetentionTime, other.RetentionTime) && PrecursorMz.Equals(other.PrecursorMz) && ChargeState == other.ChargeState && MatchedFragmentIons.SequenceEqual(other.MatchedFragmentIons) && IsDecoy == other.IsDecoy;
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (obj is null) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != GetType()) return false;
+            return Equals((LibrarySpectrum)obj);
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(base.GetHashCode());
+            hash.Add(Sequence);
+            hash.Add(RetentionTime);
+            hash.Add(PrecursorMz);
+            hash.Add(ChargeState);
+            hash.Add(IsDecoy);
+            foreach (var ion in MatchedFragmentIons)
+            {
+                hash.Add(ion);
+            }
+            return hash.ToHashCode();
         }
     }
 }

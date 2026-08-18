@@ -1,7 +1,7 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
 	<PropertyGroup>
-		<TargetFramework>net8.0</TargetFramework>
+		<TargetFramework>net10.0</TargetFramework>
 		<Platforms>x64</Platforms>
 		<ImplicitUsings>enable</ImplicitUsings>
 		<Nullable>enable</Nullable>
@@ -9,18 +9,13 @@
 	</PropertyGroup>
 
 	<ItemGroup>
-	  <None Remove="Resources\Mods.txt" />
-	  <None Remove="Resources\PSI-MOD.obo.xml" />
-	  <None Remove="Resources\ptmlist.txt" />
-	  <None Remove="Resources\unimod.xml" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<PackageReference Include="CsvHelper" Version="32.0.3" />
+		<!-- Pinned to 2.x: Thermo CommonCore links 2.x, and 3.x is an incompatible rewrite. -->
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
-		<PackageReference Include="System.Data.SQLite" Version="1.0.118" />
-		<PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
+		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
+		<PackageReference Include="TopDownProteomics" Version="0.0.299" />
+		<PackageReference Include="ZstdSharp.Port" Version="0.8.7" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -52,34 +47,23 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <EmbeddedResource Include="Resources\Mods.txt">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\PSI-MOD.obo.xml">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\ptmlist.txt">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="Resources\unimod.xml">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Update="Bruker\baf2sql_c.dll">
+		<!-- Bruker baf2sql native library + its VC++ 2012 runtime dependencies.
+		     These live in the project root (not a subfolder) so they copy to the output root
+		     and can be resolved by the bare-name DllImport ("baf2sql_c") in BrukerFileReader.
+		     baf2sql_c.dll depends on msvcp110/msvcr110/vcomp110, so all four must sit together. -->
+		<None Update="baf2sql_c.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Bruker\baf2sql_c.lib">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\msvcp110.dll">
+		<None Update="msvcp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\msvcr110.dll">
+		<None Update="msvcr110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
-		<None Update="Bruker\vcomp110.dll">
+		<None Update="vcomp110.dll">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll">

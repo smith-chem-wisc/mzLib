@@ -14,76 +14,73 @@ namespace Readers
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static List<T> ReadTsv<T>(string filePath, out List<string> warnings) where T : SpectrumMatchFromTsv
+        public static List<T> ReadTsv<T>(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) where T : SpectrumMatchFromTsv
         {
-            List<T> psms = new List<T>();
-            warnings = new List<string>();
-
-            StreamReader reader = null;
+            string[] lines;
             try
             {
-                reader = new StreamReader(filePath);
+                lines = File.ReadAllLines(filePath);
             }
             catch (Exception e)
             {
                 throw new MzLibException("Could not read file: " + e.Message, e);
             }
 
-            int lineCount = 0;
-
-            string line;
-            Dictionary<string, int> parsedHeader = null;
             MzLibException? parsingException = null;
-
-            while (reader.Peek() > 0)
+            SupportedFileType type;
+            try
             {
-                lineCount++;
+                type = filePath.ParseFileType();
+            }
+            catch (MzLibException e)
+            {
+                // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
+                parsingException = e;
+                type = SupportedFileType.psmtsv;
+            }
+            Dictionary<string, int> parsedHeader = ParseHeader(lines[0]);
+            bool fileIsGlyco = parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.GlycanMass) && parsedHeader[ SpectrumMatchFromTsvHeader.GlycanMass] != -1; // Glyco search results have different required headers
+            int lineCount = lines.Length - 1; // Exclude header
 
-                line = reader.ReadLine();
+            // Pre-allocate result array
+            T?[] psmsArray = new T[lineCount];
+            var warningsBag = new System.Collections.Concurrent.ConcurrentBag<string>();
+            int maxThreads = Math.Min(8, Environment.ProcessorCount - 1);
+            int chunkSize = (int)Math.Ceiling((double)lineCount / maxThreads);
 
-                if (lineCount == 1)
+            Parallel.For(0, maxThreads, new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, threadIdx =>
+            {
+                int start = 1 + threadIdx * chunkSize;
+                int end = Math.Min(lines.Length, start + chunkSize);
+                for (int i = start; i < end; i++)
                 {
-                    parsedHeader = ParseHeader(line);
-                    continue;
-                }
-
-                try
-                {
-                    SupportedFileType type;
+                    var line = lines[i];
                     try
                     {
-                        type = filePath.ParseFileType();
-                    }
-                    catch (MzLibException e)
-                    {
-                        // if the parsing fails due to file path not being in the correct format, assume Psm reader will work. 
-                        parsingException = e;
-                        type = SupportedFileType.psmtsv;
-                    }
+                        // If we are reading an AllPSMs file, we have both glyco and non-glyco results, must split based upon line content
+                        bool lineIsGlyco = fileIsGlyco && ResultIsGlyco(parsedHeader, line);
 
-                    switch (type)
+                        T result = type switch
+                        {
+                            SupportedFileType.osmtsv => (T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader, parsingParams),
+                            _ when lineIsGlyco => (T)(SpectrumMatchFromTsv)new GlycoPsmFromTsv(line, Split, parsedHeader, parsingParams),
+                            _ => (T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader, parsingParams)
+                        };
+                        psmsArray[i - 1] = result; // -1 to align with result array (excluding header)
+                    }
+                    catch (Exception)
                     {
-                        case SupportedFileType.osmtsv:
-                            psms.Add((T)(SpectrumMatchFromTsv)new OsmFromTsv(line, Split, parsedHeader));
-                            break;
-
-                        case SupportedFileType.psmtsv:
-                        default:
-                            psms.Add((T)(SpectrumMatchFromTsv)new PsmFromTsv(line, Split, parsedHeader));
-                            break;
+                        warningsBag.Add("Could not read line: " + (i + 1)); // plus one to account for header line
                     }
                 }
-                catch (Exception)
-                {
-                    warnings.Add("Could not read line: " + lineCount);
-                }
-            }
+            });
 
-            reader.Close();
+            var psms = psmsArray.Where(p => p != null).Cast<T>().ToList();
+            warnings = warningsBag.ToList();
 
-            if (lineCount - 1 != psms.Count)
+            if (lineCount != psms.Count)
             {
-                warnings.Add("Warning: " + (lineCount - 1 - psms.Count) + " PSMs were not read.");
+                warnings.Add("Warning: " + (lineCount - psms.Count) + " PSMs were not read.");
             }
 
             // if we could not parse type, we assumed PSMs were in the file.
@@ -104,8 +101,8 @@ namespace Readers
         /// <returns></returns>
         /// <exception cref="MzLibException"></exception>
         /// <exception cref="ArgumentOutOfRangeException"></exception>
-        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<SpectrumMatchFromTsv>(filePath, out warnings);
+        public static List<SpectrumMatchFromTsv> ReadTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<SpectrumMatchFromTsv>(filePath, out warnings, parsingParams);
 
         /// <summary>
         /// Reads a psmtsv file and returns PsmFromTsv objects
@@ -114,8 +111,11 @@ namespace Readers
         /// <param name="filePath"></param>
         /// <param name="warnings"></param>
         /// <returns></returns>
-        public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<PsmFromTsv>(filePath, out warnings);
+        public static List<PsmFromTsv> ReadPsmTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<PsmFromTsv>(filePath, out warnings, parsingParams);
+
+        public static List<GlycoPsmFromTsv> ReadGlycoPsmTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<GlycoPsmFromTsv>(filePath, out warnings, parsingParams);
 
         /// <summary>
         /// Reads a osmtsv file and returns OsmFromTsv objects
@@ -123,10 +123,10 @@ namespace Readers
         /// <param name="filePath"></param>
         /// <param name="warnings"></param>
         /// <returns></returns>
-        public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings) =>
-            ReadTsv<OsmFromTsv>(filePath, out warnings);
+        public static List<OsmFromTsv> ReadOsmTsv(string filePath, out List<string> warnings, SpectrumMatchParsingParameters? parsingParams = null) =>
+            ReadTsv<OsmFromTsv>(filePath, out warnings, parsingParams);
 
-        public static Dictionary<string, int> ParseHeader(string header)
+        public static Dictionary<string, int> ParseHeader(string header, SpectrumMatchParsingParameters? parsingParams = null)
         {
             var parsedHeader = new Dictionary<string, int>();
             var spl = header.Split(Split);
@@ -140,15 +140,20 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorIntensity, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorIntensity));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMz, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMz));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMass));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.OneOverK0, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.OneOverK0));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Score, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Score));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.DeltaScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.DeltaScore));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Notch, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Notch));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.BaseSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.BaseSequence));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.EssentialSequence, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.EssentialSequence));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.ProForma, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ProForma)); // -1 when absent (pre-ProForma files)
             parsedHeader.Add(SpectrumMatchFromTsvHeader.AmbiguityLevel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.AmbiguityLevel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MissedCleavages, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MissedCleavages));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MassDiffDa, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MassDiffDa));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.MassDiffPpm, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MassDiffPpm));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.CollisionEnergy, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.CollisionEnergy));
 
             //Handle legacy input
             if (spl.Contains(SpectrumMatchFromTsvHeader.Accession))
@@ -174,6 +179,13 @@ namespace Readers
                 parsedHeader.Add(SpectrumMatchFromTsvHeader.PreviousResidue, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.PreviousAminoAcid));
             }
 
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.FlankingResidues, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.FlankingResidues));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] == -1) // try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.FlankingResidues] = Array.IndexOf(spl, "FlankingResidues");
+            }
+
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.NumberOfMods, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumberOfMods));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GeneName, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GeneName));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.OrganismName, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.OrganismName));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.IntersectingSequenceVariations, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.IntersectingSequenceVariations));
@@ -207,14 +219,53 @@ namespace Readers
             parsedHeader.Add(SpectrumMatchFromTsvHeader.ParentIonsLabel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ParentIonsLabel));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.Ms2ScanRetentionTime));
 
-
+            // Glyco
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanMass, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanMass));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanStructure, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanStructure));
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanComposition, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanComposition));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedScores, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedScores));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.NumberOfGlycan, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NumberOfGlycan));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.TotalGlycanSite, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.TotalGlycanSite));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] == -1) // try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.TotalGlycanSite] = Array.IndexOf(spl, "Total Glycosylation sites");
+            }
             parsedHeader.Add(SpectrumMatchFromTsvHeader.GlycanLocalizationLevel, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.GlycanLocalizationLevel));
-            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedGlycan, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedGlycan));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedGlycanInPeptide));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.LocalizedGlycanInProtein));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.YionScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.YionScore));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.DiagonosticIonScore, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.DiagonosticIonScore));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.NGlycanMotifCheck, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.NGlycanMotifCheck));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck] == -1)// try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.NGlycanMotifCheck] = Array.IndexOf(spl, "N-Glycan motif Check");
+            }
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.R138144, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.R138144));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization] == -1)// try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.AllPotentialGlycanLocalization] = Array.IndexOf(spl, "All potential glycan localizations");
+            }
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability));
+            if (parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] == -1)// try legacy name from previous versions
+            {
+                parsedHeader[SpectrumMatchFromTsvHeader.AllSiteSpecificLocalizationProbability] = Array.IndexOf(spl, "AllSiteSpecificLocalizationProbability");
+            }
+
+            // Oligo
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.FivePrimeTerminus, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.FivePrimeTerminus));
+            parsedHeader.Add(SpectrumMatchFromTsvHeader.ThreePrimeTerminus, Array.IndexOf(spl, SpectrumMatchFromTsvHeader.ThreePrimeTerminus));
+
+            // TMT/Isobaric reporter ion channels
+            foreach (var channelName in SpectrumMatchFromTsvHeader.TmtChannelNames)
+            {
+                parsedHeader[channelName] = Array.IndexOf(spl, channelName);
+            }
 
             return parsedHeader;
         }
+    
+        private static bool ResultIsGlyco(Dictionary<string, int> parsedHeader, string line) =>
+            parsedHeader.ContainsKey(SpectrumMatchFromTsvHeader.GlycanMass) && parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass] != -1 && line.Split(Split).Length > parsedHeader[SpectrumMatchFromTsvHeader.GlycanMass];
     }
 }

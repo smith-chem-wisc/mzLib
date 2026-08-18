@@ -1,4 +1,6 @@
 ﻿using MassSpectrometry;
+using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace Readers
@@ -12,6 +14,7 @@ namespace Readers
         internal UInt64 FileHandle { get; }
         internal Object FileLock { get; }
         internal TimsConversion Converter { get; }
+        internal TimsTofFileType FileType { get; init; }
         public int MaxIndex { get; init; } 
         /// <summary>
         /// Used to convert the tofIndices stored in the .d file to m/z values
@@ -22,19 +25,25 @@ namespace Readers
         /// </summary>
         public double[] OneOverK0LookupArray { get; set; }
 
-        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock, int maxIndex)
+        internal FrameProxyFactory(FrameTable table, UInt64 fileHandle, Object fileLock, int maxIndex, TimsTofFileType fileType)
         {
             FramesTable = table;
             FileHandle = fileHandle;
             FileLock = fileLock;
             Converter = new TimsConversion(fileHandle, fileLock);
             MaxIndex = maxIndex;
+            FileType = fileType;
             InitializeLookupTables(fileHandle);
         }   
 
-        internal FrameProxy GetFrameProxy(long frameId)
+        /// <summary>
+        /// This class is marked virtual for testing purposes only.
+        /// </summary>
+        internal virtual FrameProxy GetFrameProxy(long frameId)
         {
-            return new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter);
+            return FileType == TimsTofFileType.TDF 
+                ? new FrameProxy(FileHandle, frameId, FramesTable.NumScans[frameId - 1], FileLock, Converter)
+                : new TsfFrameProxy(FileHandle, frameId, 0, FileLock, Converter);
         }
 
         internal double[] ConvertIndicesToMz(IList<uint> indices)
@@ -47,6 +56,11 @@ namespace Readers
                 mzArray[idx] = MzLookupArray[indices[idx]];
             }
             return mzArray;
+        }
+
+        internal double[] ConvertIndicesToMz(double[] indices, int frameId = 1)
+        {
+            return Converter.DoTransformation(FileHandle, frameId, indices, ConversionFunctions.IndexToMzTsf);
         }
 
         /// <summary>
@@ -70,7 +84,11 @@ namespace Readers
             // Populate the mzLookupArray
             double[] mzLookupIndices = Array
                 .ConvertAll(lArray, entry => (double)entry);
-            MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, ConversionFunctions.IndexToMz);
+            MzLookupArray = Converter.DoTransformation(handle, medianFrameId, mzLookupIndices, 
+                FileType == TimsTofFileType.TDF ? ConversionFunctions.IndexToMz : ConversionFunctions.IndexToMzTsf);
+
+            if (FileType == TimsTofFileType.TSF) /// No scans or 1/K0 values in TSF files
+                return;
 
             // Populate the 1/K0 lookup array
             int scanMax = FramesTable.NumScans.Max();
@@ -97,9 +115,13 @@ namespace Readers
             }
         }
 
+        /// <summary>
+        /// Returns retention time in minutes for a given frame ID.
+        /// </summary>
+        /// <returns>Retention time in minutes</returns>
         internal double GetRetentionTime(long frameId)
         {
-            return (double)FramesTable.RetentionTime[frameId - 1];
+            return (double)FramesTable.RetentionTime[frameId - 1] / 60;
         }
 
         internal double GetInjectionTime(long frameId)
@@ -124,7 +146,7 @@ namespace Readers
     /// </summary>
     internal class FrameProxy
     {
-        private int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
+        protected int[] _scanOffsets; // Number of peaks that precede a given scan in a frame
         /// <summary>
         /// This is one huge array that stores ALLLL the information for the frame. 
         /// Specific scans are accessed by determining the number of data points that were collected 
@@ -134,21 +156,43 @@ namespace Readers
         /// <summary>
         /// default size for the raw data array
         /// </summary>
-        private const int _defaultBufferSize = 4096;
-        internal UInt64 FileHandle { get; }
-        internal long FrameId { get; }
-        internal int NumberOfScans { get; }
-        internal TimsConversion Converter { get; }
-        
+        protected const int _defaultBufferSize = 4096;
+        internal UInt64 FileHandle { get; init; }
+        internal long FrameId { get; init; }
+        internal int NumberOfScans { get; init; }
+        internal TimsConversion Converter { get; init; }
+
+        internal Object FileLock { get; init; }
+
         internal FrameProxy(UInt64 fileHandle, long frameId, int numScans, Object fileLock, TimsConversion converter)
         {
             NumberOfScans = numScans;
             FileHandle = fileHandle;
             FrameId = frameId;
             Converter = converter;
+            FileLock = fileLock;
 
-            _rawData = GetScanRawData(fileHandle, frameId, (uint)numScans, fileLock);
-            _scanOffsets = PartialSum(_rawData, 0, numScans);
+            _rawData = GetScanRawData(FileHandle, FrameId, (uint)NumberOfScans, FileLock);
+            _scanOffsets = PartialSum(_rawData, 0, NumberOfScans);
+        }
+
+        internal FrameProxy() { }
+
+        /// <summary>
+        /// Sometimes, with corrupted data, the _scanOffsets array will specify a scan range that is 
+        /// greater than the legnth of the _rawData array or is negative. This method checks if the frame is valid
+        /// </summary>
+        /// <returns></returns>
+        internal bool IsFrameValid()
+        {
+            // All offsets should be non-negative and smaller than tge _rawData length
+            for (int i = 0; i < _scanOffsets.Length - 1; i++)
+            {
+                if (_scanOffsets[i] < 0 || _scanOffsets[i] > _rawData.Length)
+                    return false;
+            }
+
+            return true;
         }
 
         /// <summary>
@@ -255,7 +299,12 @@ namespace Readers
         private Range GetScanRange(int zeroIndexedScanNumber, int offset)
         {
             int start = NumberOfScans + 2*_scanOffsets[zeroIndexedScanNumber] + offset;
-            return new Range(start, start + (int)_rawData[zeroIndexedScanNumber]);
+            int end = Math.Min(_rawData.Length, start + (int)_rawData[zeroIndexedScanNumber]);
+            if (start >= _rawData.Length)
+            {
+                throw new ArgumentException("Scan data exceeds raw data array length. This indicates that the .tdf_bin file is corrupted");
+            }
+            return new Range(start, end);
         }
 
         /// <summary>

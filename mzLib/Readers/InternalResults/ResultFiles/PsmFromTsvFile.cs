@@ -10,11 +10,11 @@ public class PsmFromTsvFile : SpectrumMatchFromTsvFile<PsmFromTsv>
     /// </summary>
     public PsmFromTsvFile() : base() { }
 
-    public PsmFromTsvFile(string filePath) : base(filePath) { }
+    public PsmFromTsvFile(string filePath, SpectrumMatchParsingParameters? parsingParams = null) : base(filePath, parsingParams) { }
 
     public override void LoadResults()
     {
-        Results = SpectrumMatchTsvReader.ReadPsmTsv(FilePath, out List<string> warnings);
+        Results = SpectrumMatchTsvReader.ReadPsmTsv(FilePath, out List<string> warnings, ParsingParams);
     }
 
     public override void WriteResults(string outputPath) => throw new NotImplementedException();
