@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Linq;
 using MassSpectrometry;
@@ -144,12 +144,15 @@ namespace Test.FileReadingTests.SpectraFileReading
             Assert.IsFalse(reader.GetAllScansList()[0].MassSpectrum.YArray.Contains(0));
             Assert.IsFalse(reader.GetAllScansList()[1].MassSpectrum.YArray.Contains(0));
 
-            reader.InitiateDynamicConnection();
-            MsDataScan dynamicScan1 = reader.GetOneBasedScanFromDynamicConnection(1);
-            MsDataScan dynamicScan2 = reader.GetOneBasedScanFromDynamicConnection(2);
+            // A separate reader, with no static load: reusing the one above would return the cached
+            // scans and check the static path twice rather than the dynamic parse.
+            var dynamicReader = MsDataFileReader.GetDataFile(path);
+            dynamicReader.InitiateDynamicConnection();
+            MsDataScan dynamicScan1 = dynamicReader.GetOneBasedScanFromDynamicConnection(1);
+            MsDataScan dynamicScan2 = dynamicReader.GetOneBasedScanFromDynamicConnection(2);
             Assert.IsFalse(dynamicScan1.MassSpectrum.YArray.Contains(0));
             Assert.IsFalse(dynamicScan2.MassSpectrum.YArray.Contains(0));
-            reader.CloseDynamicConnection();
+            dynamicReader.CloseDynamicConnection();
         }
 
         [Test]
@@ -165,6 +168,78 @@ namespace Test.FileReadingTests.SpectraFileReading
             NUnit.Framework.Assert.That(scans.Count, Is.EqualTo(1));
             NUnit.Framework.Assert.That(scans[0].SelectedIonIntensity, Is.Not.Null);
             NUnit.Framework.Assert.That(scans[0].SelectedIonIntensity, Is.EqualTo(47641904.0).Within(0.00001));
+        }
+
+        /// <summary>
+        /// Pins the sign parsed off the CHARGE line. The polarity assertions are not independent
+        /// evidence -- MsDataScan's constructor normalizes the charge sign to the polarity, and Mgf
+        /// derives that polarity from the same charge -- so the scan count and retention times are
+        /// asserted as well, which the normalization cannot manufacture.
+        /// </summary>
+        [Test]
+        public void NegativeModeSetsCorrectCharge_FromMgfChargeLine()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "negativeModeCharge.mgf");
+
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData();
+
+            var scans = reader.GetAllScansList();
+            NUnit.Framework.Assert.That(scans.Count, Is.EqualTo(2), path + " did not parse as two scans.");
+            NUnit.Framework.Assert.That(scans.Select(s => s.RetentionTime).Distinct().Count(), Is.EqualTo(2),
+                "Both scans carry the same retention time, so the two BEGIN IONS blocks did not parse separately.");
+
+            var negative = reader.GetOneBasedScan(1);
+            NUnit.Framework.Assert.That(negative.SelectedIonChargeStateGuess, Is.EqualTo(-2),
+                "CHARGE=2- did not parse as -2.");
+            NUnit.Framework.Assert.That(negative.Polarity, Is.EqualTo(Polarity.Negative),
+                "Scan polarity is not negative.");
+
+            var positive = reader.GetOneBasedScan(2);
+            NUnit.Framework.Assert.That(positive.SelectedIonChargeStateGuess, Is.EqualTo(3),
+                "CHARGE=3+ did not parse as 3.");
+            NUnit.Framework.Assert.That(positive.Polarity, Is.EqualTo(Polarity.Positive),
+                "Scan polarity is not positive.");
+        }
+
+        /// <summary>
+        /// The dangerous half of the optional sign suffix, kept in its own fixture so the assertion
+        /// that fails is the VALUE. Stripping the last character unconditionally dropped a digit, so
+        /// CHARGE=12 read as 1 -- and 1 is a valid charge, so nothing surfaced.
+        /// </summary>
+        [Test]
+        public void UnsignedMultiDigitChargeKeepsEveryDigit()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "unsignedMultiDigitCharge.mgf");
+
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData();
+
+            NUnit.Framework.Assert.That(reader.GetOneBasedScan(1).SelectedIonChargeStateGuess, Is.EqualTo(12),
+                "CHARGE=12 did not parse as 12; an unconditional suffix strip reads it as 1.");
+            NUnit.Framework.Assert.That(reader.GetOneBasedScan(2).SelectedIonChargeStateGuess, Is.EqualTo(13),
+                "CHARGE=13 did not parse as 13; an unconditional suffix strip reads it as 1.");
+            NUnit.Framework.Assert.That(reader.GetAllScansList().Select(s => s.Polarity),
+                Is.All.EqualTo(Polarity.Positive), "An unsigned charge is positive.");
+        }
+
+        /// <summary>
+        /// The loud half: a single-digit unsigned charge left nothing to parse, so the whole file
+        /// failed to load. Separate fixture, so this failing cannot mask the silent case above.
+        /// </summary>
+        [Test]
+        public void UnsignedSingleDigitChargeLoads()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "unsignedSingleDigitCharge.mgf");
+
+            var reader = MsDataFileReader.GetDataFile(path);
+            NUnit.Framework.Assert.DoesNotThrow(() => reader.LoadAllStaticData(),
+                "CHARGE=2 left an empty string to parse, so the file did not load at all.");
+
+            NUnit.Framework.Assert.That(reader.GetOneBasedScan(1).SelectedIonChargeStateGuess, Is.EqualTo(2),
+                "CHARGE=2 did not parse as 2.");
+            NUnit.Framework.Assert.That(reader.GetOneBasedScan(1).Polarity, Is.EqualTo(Polarity.Positive),
+                "An unsigned charge is positive.");
         }
 
 
@@ -195,17 +270,31 @@ namespace Test.FileReadingTests.SpectraFileReading
         [Test]
         [TestCase("tester.mgf")]
         [TestCase("SmallCalibratibleYeast.mgf")]
+        [TestCase("negativeModeCharge.mgf")]
+        [TestCase("unsignedMultiDigitCharge.mgf")]
         public static void TestDynamicMgf(string fileName)
         {
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            var reader = MsDataFileReader.GetDataFile(filePath);
-            reader.LoadAllStaticData();
-            reader.InitiateDynamicConnection();
+            // Two readers, deliberately. GetOneBasedScanFromDynamicConnection short-circuits to the
+            // static cache when scans are already loaded, so a single reader that has called
+            // LoadAllStaticData returns the very same MsDataScan instance and every comparison below
+            // is a scan against itself. Keeping the dynamic reader free of a static load is what makes
+            // this exercise the dynamic parse.
+            var staticReader = MsDataFileReader.GetDataFile(filePath);
+            staticReader.LoadAllStaticData();
 
-            foreach (MsDataScan staticScan in reader.GetAllScansList())
+            var dynamicReader = MsDataFileReader.GetDataFile(filePath);
+            dynamicReader.InitiateDynamicConnection();
+
+            foreach (MsDataScan staticScan in staticReader.GetAllScansList())
             {
-                MsDataScan dynamicScan = reader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan = dynamicReader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                NUnit.Framework.Assert.That(dynamicScan, Is.Not.Null,
+                    $"No scan {staticScan.OneBasedScanNumber} came back from the dynamic connection.");
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan, staticScan), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
 
                 NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 NUnit.Framework.Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
@@ -256,6 +345,8 @@ namespace Test.FileReadingTests.SpectraFileReading
                     NUnit.Framework.Assert.That(dynamicIntensity == staticIntensity);
                 }
             }
+
+            dynamicReader.CloseDynamicConnection();
         }
 
         [Test]
