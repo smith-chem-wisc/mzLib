@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
@@ -341,6 +341,74 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(
                 digest.Any(p => p.BaseSequence == "AAAAKAAAAKAAAAKAAAAR" && p.AllModsOneIsNterminus.Count == 3),
                 Is.True, "the read-through past three blocked sites must survive when slack = MaxMods");
+        }
+        /// <summary>
+        /// The classifier's three defensive guards. A modification reaches this code straight from a
+        /// database read, so a null instance, a null Target and a nameless modification are all shapes
+        /// it has to survive rather than throw on -- and each returns false, since nothing that cannot
+        /// be identified can be asserted to block a cleavage.
+        /// </summary>
+        [Test]
+        public static void NeutralizesCleavageResidue_GuardsAgainstMalformedModifications()
+        {
+            Assert.IsFalse(CleavageBlockingModifications.NeutralizesCleavageResidue(null),
+                "a null modification cannot block a cleavage");
+
+            var noTarget = new Modification(_originalId: "N6-succinyllysine", _modificationType: "Test",
+                _target: null, _locationRestriction: "Anywhere.", _monoisotopicMass: 100.01604);
+            Assert.IsFalse(noTarget.BlocksCleavage,
+                "a blocking NAME with no target motif must not classify -- the residue is unknown");
+
+            // OriginalId null leaves IdWithMotif null too, so the classifier has no name to match on.
+            ModificationMotif.TryGetMotif("K", out ModificationMotif lysine);
+            var nameless = new Modification(_originalId: null, _modificationType: "Test",
+                _target: lysine, _locationRestriction: "Anywhere.", _monoisotopicMass: 100.01604);
+            Assert.IsFalse(nameless.BlocksCleavage,
+                "a modification with no id cannot be classified as blocking");
+        }
+
+        /// <summary>
+        /// Citrulline is the common name, but the reaction is deimination and databases ship both
+        /// spellings; the arginine branch accepts either. An arginine modification matching neither
+        /// must still be false, which is what stops the branch degrading into "any Arg mod blocks".
+        /// </summary>
+        [Test]
+        public static void Deimination_BlocksCleavage_AndAnUnrelatedArginineModDoesNot()
+        {
+            ModificationMotif.TryGetMotif("R", out ModificationMotif arg);
+
+            var deiminated = new Modification(_originalId: "Deimination", _modificationType: "Test",
+                _target: arg, _locationRestriction: "Anywhere.", _monoisotopicMass: 0.98402);
+            Assert.IsTrue(deiminated.BlocksCleavage, "deimination is citrullination under its other name");
+
+            var methylArg = new Modification(_originalId: "Methyl", _modificationType: "Test",
+                _target: arg, _locationRestriction: "Anywhere.", _monoisotopicMass: 14.01565);
+            Assert.IsFalse(methylArg.BlocksCleavage,
+                "methylarginine keeps the guanidinium charge, so trypsin still cleaves");
+        }
+
+        /// <summary>
+        /// With the flag on, a variable modification that does NOT block cleavage has to be ignored by
+        /// the blocking rule rather than discounting a missed cleavage. Methylation is the case that
+        /// matters: it sits on the same residue trypsin cuts at, so a rule keyed on position rather
+        /// than on <see cref="Modification.BlocksCleavage"/> would silently treat it as blocking.
+        /// </summary>
+        [Test]
+        public static void ANonBlockingModOnACleavageResidue_DoesNotDiscountAMissedCleavage()
+        {
+            var methyl = MakeKModification("N6-methyllysine", mass: 14.01565);
+
+            var digest = Digest(respectBlockingMods: true, maxMissedCleavages: 1, methyl);
+
+            // The methylated read-through still spans the K, and that K is still a real missed cleavage.
+            PeptideWithSetModifications methylatedReadThrough = digest
+                .Single(p => p.BaseSequence == "PEPTIDEKAAAAAAAR" && p.AllModsOneIsNterminus.Count == 1);
+            Assert.That(methylatedReadThrough.MissedCleavages, Is.EqualTo(1),
+                "a non-blocking modification must not discount the missed cleavage at that residue");
+
+            // And the peptidoform ending in methyl-K survives, because methylation does not abolish the site.
+            Assert.That(digest.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
+                "a methylated C-terminal K is a cleavage trypsin can still perform");
         }
     }
 }
