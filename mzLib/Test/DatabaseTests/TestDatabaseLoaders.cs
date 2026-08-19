@@ -1612,5 +1612,107 @@ namespace Test.DatabaseTests
             Assert.That(readInTargetCount, Is.EqualTo(2));
             Assert.That(readInDecoyCount, Is.EqualTo(2));
         }
+
+        /// <summary>
+        /// PtmListLoader forwards to ModificationLoader rather than carrying its own copy of the parser.
+        /// These pin the two together on every mods file mzLib ships, so a future change to one cannot
+        /// silently diverge from the other while the deprecated entry point is still public.
+        /// </summary>
+        [Test]
+        [TestCase("DataFiles", "Ontologies", "ptmlist.txt")]
+        [TestCase("ModificationTests", "", "ModsWithComments.txt")]
+        [TestCase("ModificationTests", "", "ProteaseMods.txt")]
+        [TestCase("Transcriptomics", "TestData", "RnaMods.txt")]
+        public static void DeprecatedPtmListLoaderMatchesModificationLoader(string folder, string subFolder, string modsFile)
+        {
+            string path = subFolder.Length == 0
+                ? Path.Combine(TestContext.CurrentContext.TestDirectory, folder, modsFile)
+                : Path.Combine(TestContext.CurrentContext.TestDirectory, folder, subFolder, modsFile);
+            Assert.That(File.Exists(path), Is.True, $"{modsFile} is missing from the test data");
+
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            var viaDeprecated = PtmListLoader.ReadModsFromFile(path, out var deprecatedWarnings).ToList();
+#pragma warning restore CS0618
+            var viaReplacement = ModificationLoader.ReadModsFromFile(path, out var replacementWarnings).ToList();
+
+            static string Describe(Modification m) =>
+                $"{m.IdWithMotif}|{m.ModificationType}|{m.MonoisotopicMass}|{m.LocationRestriction}|"
+                + $"DI:{Flatten(m.DiagnosticIons)}|NL:{Flatten(m.NeutralLosses)}";
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viaDeprecated.Select(Describe).OrderBy(s => s),
+                    Is.EqualTo(viaReplacement.Select(Describe).OrderBy(s => s)));
+                Assert.That(deprecatedWarnings, Has.Count.EqualTo(replacementWarnings.Count));
+            });
+        }
+
+        private static string Flatten(Dictionary<DissociationType, List<double>> byDissociationType) =>
+            byDissociationType == null
+                ? "-"
+                : string.Join(";", byDissociationType.OrderBy(k => k.Key)
+                    .Select(k => k.Key + "=" + string.Join(",", k.Value.OrderBy(v => v))));
+
+        /// <summary>
+        /// Two dissociation keys cannot be resolved by a plain Enum.TryParse and have to be special-cased
+        /// ahead of it. "MPD" is itself an enum member -- MS:1000435 photodissociation, the parent of
+        /// MS:1000262 IRMPD in the PSI-MS ontology -- so a generic parse succeeds and shadows the intended
+        /// IRMPD mapping. "Any" has no member at all, since the enum spells it AnyActivationType, so a
+        /// generic parse resolves it to nothing and the entry is dropped without warning.
+        /// </summary>
+        [Test]
+        [TestCase("Any", DissociationType.AnyActivationType)]
+        [TestCase("any", DissociationType.AnyActivationType)]
+        [TestCase("MPD", DissociationType.IRMPD)]
+        [TestCase("mpd", DissociationType.IRMPD)]
+        [TestCase("HCD", DissociationType.HCD)]
+        [TestCase("hcd", DissociationType.HCD)]
+        [TestCase("ETD", DissociationType.ETD)]
+        [TestCase("UVPD", DissociationType.UVPD)]
+        public static void DissociationKeysResolveAsIntended(string key, DissociationType expected)
+        {
+            var parsed = ModificationLoader.DiagnosticIonsAndNeutralLosses(
+                $"{key}:H2O", new Dictionary<DissociationType, List<double>>());
+
+            Assert.That(parsed.Keys, Is.EquivalentTo(new[] { expected }));
+        }
+
+        /// <summary>
+        /// An unrecognised dissociation type is not merely skipped: it throws internally, the surrounding
+        /// catch swallows it, and the whole dictionary is discarded, so the modification loses every
+        /// diagnostic ion and neutral loss it had. Pre-existing behaviour, pinned here because it is what
+        /// made the unresolvable "Any" spelling costly rather than harmless.
+        /// </summary>
+        [Test]
+        public static void UnrecognisedDissociationKeyDiscardsTheWholeEntry()
+        {
+            var started = new Dictionary<DissociationType, List<double>>
+            {
+                { DissociationType.HCD, new List<double> { 18.0 } }
+            };
+
+            var parsed = ModificationLoader.DiagnosticIonsAndNeutralLosses("NotADissociationType:H2O", started);
+
+            Assert.That(parsed, Is.Null);
+        }
+
+        /// <summary>
+        /// The deprecated ModDissociationType is a forward now, so it must give the same answer as the
+        /// method it forwards to for every key the old hand-written switch handled.
+        /// </summary>
+        [Test]
+        public static void DeprecatedModDissociationTypeAgreesWithItsReplacement()
+        {
+            foreach (string key in new[]
+                     { "Any", "CID", "MPD", "ECD", "PQD", "ETD", "HCD", "EThcD", "Custom", "NotADissociationType" })
+            {
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+                var viaDeprecated = PtmListLoader.ModDissociationType(key);
+#pragma warning restore CS0618
+                Assert.That(viaDeprecated, Is.EqualTo(ModificationLoader.ParseDissociationType(key)),
+                    $"the two disagreed on '{key}'");
+            }
+        }
+
     }
 }
