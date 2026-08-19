@@ -38,7 +38,10 @@ namespace Test.MzIdentML
         {
             int psmCount = 0, decoys = 0, withQValue = 0;
 
-            for (int sir = 0; sir < ids.Count; sir++)
+            // Count is itself a version cascade, so it is read once rather than per iteration
+            int results = ids.Count;
+
+            for (int sir = 0; sir < results; sir++)
             {
                 Assert.That(ids.Ms2SpectrumID(sir), Is.Not.Null.And.Not.Empty);
 
