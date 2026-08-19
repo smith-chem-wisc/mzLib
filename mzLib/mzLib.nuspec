@@ -88,7 +88,6 @@
     <file src="Readers\bin\Release\net10.0\Readers.dll" target="lib\net10.0" />
     <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net10.0" />
     <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net10.0" />
-    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net10.0" />
     <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net10.0" />
     <file src="Readers\bin\Release\net10.0\timsdata.dll" target="lib\net10.0" />
     <file src="Readers\bin\Release\net10.0\timsdata.lib" target="lib\net10.0" />
@@ -121,7 +120,6 @@
     <file src="Readers\bin\Release\net10.0\Readers.dll" target="lib\net10.0-windows7.0" />
     <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net10.0-windows7.0" />
     <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net10.0-windows7.0" />
-    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net10.0-windows7.0" />
     <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net10.0-windows7.0" />
     <file src="Readers\bin\Release\net10.0\timsdata.dll" target="lib\net10.0-windows7.0" />
     <file src="Readers\bin\Release\net10.0\timsdata.lib" target="lib\net10.0-windows7.0" />
