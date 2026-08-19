@@ -92,7 +92,6 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="newBaseSequence"></param>
-        /// <param name="silacAccession"></param>
         public Protein(Protein originalProtein, string newBaseSequence)
         {
             BaseSequence = newBaseSequence;
