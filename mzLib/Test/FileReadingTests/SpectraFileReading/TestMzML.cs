@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -1478,13 +1478,24 @@ namespace Test.FileReadingTests.SpectraFileReading
 
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
 
-            var reader = MsDataFileReader.GetDataFile(filePath);
-            reader.LoadAllStaticData();
-            reader.InitiateDynamicConnection();
+            // Two readers, deliberately. GetOneBasedScanFromDynamicConnection short-circuits to the
+            // static cache when scans are already loaded, so a single reader that has called
+            // LoadAllStaticData hands back the very same MsDataScan instance and every comparison
+            // below is a scan against itself.
+            var staticReader = MsDataFileReader.GetDataFile(filePath);
+            staticReader.LoadAllStaticData();
 
-            foreach (MsDataScan staticScan in reader.GetAllScansList())
+            var dynamicReader = MsDataFileReader.GetDataFile(filePath);
+            dynamicReader.InitiateDynamicConnection();
+
+            foreach (MsDataScan staticScan in staticReader.GetAllScansList())
             {
-                MsDataScan dynamicScan = reader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan = dynamicReader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                NUnit.Framework.Assert.That(dynamicScan, Is.Not.Null,
+                    $"No scan {staticScan.OneBasedScanNumber} came back from the dynamic connection.");
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan, staticScan), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
 
                 NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 NUnit.Framework.Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
@@ -1549,7 +1560,7 @@ namespace Test.FileReadingTests.SpectraFileReading
                     NUnit.Framework.Assert.That(dynamicIntensity == staticIntensity);
                 }
             }
-            reader.CloseDynamicConnection();
+            dynamicReader.CloseDynamicConnection();
         }
 
         [Test]
@@ -1558,11 +1569,17 @@ namespace Test.FileReadingTests.SpectraFileReading
             string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "SmallCalibratibleYeast.mzml");
             FilteringParams filteringParams = new FilteringParams(200, 0.01, 1, null, false, true, true);
 
-            var reader = MsDataFileReader.GetDataFile(filePath);
-            reader.LoadAllStaticData(filteringParams);
-            reader.InitiateDynamicConnection();
+            // Two readers, deliberately. GetOneBasedScanFromDynamicConnection short-circuits to the
+            // static cache when scans are already loaded, so a single reader that has called
+            // LoadAllStaticData hands back the very same MsDataScan instance and every comparison
+            // below is a scan against itself.
+            var staticReader = MsDataFileReader.GetDataFile(filePath);
+            staticReader.LoadAllStaticData(filteringParams);
 
-            foreach (MsDataScan staticScan in reader.GetAllScansList())
+            var dynamicReader = MsDataFileReader.GetDataFile(filePath);
+            dynamicReader.InitiateDynamicConnection();
+
+            foreach (MsDataScan staticScan in staticReader.GetAllScansList())
             {
                 if (staticScan.OneBasedScanNumber > 10)
                 {
@@ -1570,7 +1587,12 @@ namespace Test.FileReadingTests.SpectraFileReading
                     break;
                 }
 
-                MsDataScan dynamicScan = reader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber, filteringParams);
+                MsDataScan dynamicScan = dynamicReader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber, filteringParams);
+
+                NUnit.Framework.Assert.That(dynamicScan, Is.Not.Null,
+                    $"No scan {staticScan.OneBasedScanNumber} came back from the dynamic connection.");
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan, staticScan), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
 
                 NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 NUnit.Framework.Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
@@ -1652,8 +1674,13 @@ namespace Test.FileReadingTests.SpectraFileReading
             var reader2 = MsDataFileReader.GetDataFile(filePath2);
             reader2.LoadAllStaticData();
 
-            reader1.InitiateDynamicConnection();
-            reader2.InitiateDynamicConnection();
+            // reader1/reader2 keep their static loads for the genuine cross-file comparison below;
+            // the dynamic reads need readers that have NOT been loaded, or they short-circuit to
+            // those same caches and re-compare the static scans.
+            var dynamicReader1 = MsDataFileReader.GetDataFile(filePath);
+            dynamicReader1.InitiateDynamicConnection();
+            var dynamicReader2 = MsDataFileReader.GetDataFile(filePath2);
+            dynamicReader2.InitiateDynamicConnection();
 
             foreach (MsDataScan staticScan in reader1.GetAllScansList())
             {
@@ -1668,8 +1695,13 @@ namespace Test.FileReadingTests.SpectraFileReading
                 }
 
                 MsDataScan staticScan2 = reader2.GetOneBasedScan(staticScan.OneBasedScanNumber);
-                MsDataScan dynamicScan1 = reader1.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
-                MsDataScan dynamicScan2 = reader2.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan1 = dynamicReader1.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                MsDataScan dynamicScan2 = dynamicReader2.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan1, staticScan), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan2, staticScan2), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
 
                 NUnit.Framework.Assert.That(staticScan2.OneBasedScanNumber == staticScan.OneBasedScanNumber);
                 NUnit.Framework.Assert.That(dynamicScan1.OneBasedScanNumber == staticScan.OneBasedScanNumber);
