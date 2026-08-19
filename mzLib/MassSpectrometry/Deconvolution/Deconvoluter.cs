@@ -24,8 +24,11 @@ namespace MassSpectrometry
             // FromFile decon needs RT in addition to m/z. If the caller didn't supply
             // an MzRtRange we synthesize one from the scan's RetentionTime (the natural
             // anchor when "this scan's precursor" is what's being requested).
-            if (deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
-                && rangeToGetPeaksFrom is not MzRtRange)
+            var requiresRt = deconvolutionParameters.DeconvolutionType == DeconvolutionType.FromFile
+                             || (deconvolutionParameters is MultipleDeconParameters multiple
+                                 && multiple.Parameters.Any(p => p.DeconvolutionType == DeconvolutionType.FromFile));
+
+            if (requiresRt && rangeToGetPeaksFrom is not MzRtRange)
             {
                 rangeToGetPeaksFrom = rangeToGetPeaksFrom is null
                     ? new MzRtRange(scan.MassSpectrum.Range, scan.RetentionTime)
@@ -71,19 +74,25 @@ namespace MassSpectrometry
             // Implemented in a separate iterator helper so the NeutralMassSpectrum
             // early-return above stays eager rather than being deferred to MoveNext.
             return deconvolutionParameters.UseGenericScore
-                ? AddGenericScoring(envelopes, deconvolutionParameters)
+                ? AddGenericScoring(envelopes, deconvolutionParameters, spectrum)
                 : envelopes;
         }
 
         private static IEnumerable<IsotopicEnvelope> AddGenericScoring(
-            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters)
+            IEnumerable<IsotopicEnvelope> envelopes, DeconvolutionParameters deconvolutionParameters,
+            MzSpectrum spectrum)
         {
             AverageResidue model = deconvolutionParameters.AverageResidueModel;
             foreach (var envelope in envelopes)
             {
                 if (envelope.GenericScore == null)
                 {
-                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model);
+                    // Spectrum-aware path (PR #1056): the 3-arg ScoreEnvelope folds in SNR
+                    // and CompetingPeakRatio features against the source spectrum. The
+                    // envelope-only 2-arg overload is retained for call sites that no
+                    // longer hold the spectrum (e.g.
+                    // IsotopicEnvelopeExtensions.GetOrComputeGenericScore).
+                    double score = DeconvolutionScorer.ScoreEnvelope(envelope, model, spectrum);
                     envelope.SetGenericScore(score);
                 }
                 yield return envelope;
@@ -135,6 +144,7 @@ namespace MassSpectrometry
                 DeconvolutionType.FromFile => throw new MzLibException(
                     "FromFile deconvolution requires a DeconvolutionParameters subclass that overrides " +
                     "CreateAlgorithm() (typically FromFileDeconvolutionParameters in the Readers project)."),
+                DeconvolutionType.Multiple => new MultipleDeconvolutionAlgorithm(parameters),
                 _ => throw new MzLibException("DeconvolutionType not yet supported")
             };
         }

@@ -1,4 +1,5 @@
-﻿using Chemistry;
+using System;
+using Chemistry;
 using MassSpectrometry;
 using Omics.Digestion;
 using Omics.Modifications;
@@ -7,8 +8,18 @@ namespace Omics;
 
 public record struct AverageResidueComposition(double C, double H, double O, double N, double P, double S, double Se);
 
+/// <summary>
+/// Average residue model derived from empirical data. Equality is composition-based:
+/// two instances constructed from equal <see cref="Composition"/> values compare equal,
+/// regardless of the state of derived array fields (<see cref="AllMasses"/>,
+/// <see cref="AllIntensities"/>, <see cref="MostIntenseMasses"/>,
+/// <see cref="DiffToMonoisotopic"/>), which are deterministically computed from
+/// <see cref="Composition"/> at construction time.
+/// </summary>
 public class EmpiricalAverageResidue : AverageResidue
 {
+    public AverageResidueComposition Composition { get; }
+
     public readonly double[][] AllMasses = new double[NumAveraginesToGenerate][];
     public readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
     public readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
@@ -31,6 +42,7 @@ public class EmpiricalAverageResidue : AverageResidue
 
     public EmpiricalAverageResidue(AverageResidueComposition composition)
     {
+        Composition = composition;
         for (int i = 0; i < NumAveraginesToGenerate; i++)
         {
             double averagineMultiplier = (i + 1) / 4.0;
@@ -83,5 +95,16 @@ public class EmpiricalAverageResidue : AverageResidue
         double averageSe = totalChemicalFormula.CountWithIsotopes(PeriodicTable.GetElement("Se")) / (double)totalResidues;
 
         return new AverageResidueComposition(averageC, averageH, averageO, averageN, averageP, averageS, averageSe);
+    }
+
+    protected override bool EqualProperties(AverageResidue other)
+    {
+        var o = (EmpiricalAverageResidue)other;
+        return Composition.Equals(o.Composition);
+    }
+
+    protected override void AddHashCodes(HashCode hash)
+    {
+        hash.Add(Composition);
     }
 }

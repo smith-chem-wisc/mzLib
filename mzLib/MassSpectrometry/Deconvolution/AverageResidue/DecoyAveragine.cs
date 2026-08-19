@@ -1,6 +1,7 @@
-﻿using Chemistry;
+using Chemistry;
 using System;
 using System.Linq;
+
 
 namespace MassSpectrometry;
 
@@ -114,6 +115,23 @@ public sealed class DecoyAveragine : AverageResidue
     /// </summary>
     public override double GetDiffToMonoisotopic(int index)
         => _real.GetDiffToMonoisotopic(index);
+
+    #region IEquatable<DecoyAveragine>
+
+    protected override bool EqualProperties(AverageResidue other)
+    {
+        var o = (DecoyAveragine)other;
+        return DecoyIsotopeSpacing.Equals(o.DecoyIsotopeSpacing)
+            && _real.Equals(o._real);
+    }
+
+    protected override void AddHashCodes(HashCode hash)
+    {
+        hash.Add(DecoyIsotopeSpacing);
+        hash.Add(_real);
+    }
+
+    #endregion
 
     // ── Constructor ───────────────────────────────────────────────────────────
 

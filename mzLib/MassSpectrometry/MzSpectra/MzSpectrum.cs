@@ -309,6 +309,14 @@ namespace MassSpectrometry
                         double deltaMass = XArray[i] - candidateForMostIntensePeakMz;
                         if (deltaMass < 1.1) //if we're past a Th spacing, we're no longer looking at the closest isotope
                         {
+                            // A duplicated m/z makes deltaMass exactly zero, so 1/deltaMass is infinite. The int
+                            // cast of that changed with .NET 9 - it used to wrap to int.MinValue and now saturates
+                            // to int.MaxValue - so guard rather than rely on either.
+                            if (deltaMass == 0)
+                            {
+                                continue;
+                            }
+
                             //get the lower bound charge state
                             int charge = (int)Math.Floor(1 / deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
                             if (charge >= minAssumedChargeState && charge <= maxAssumedChargeState)

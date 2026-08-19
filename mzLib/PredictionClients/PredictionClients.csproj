@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <Platforms>x64</Platforms>
@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Chromatography\Chromatography.csproj" />
     <ProjectReference Include="..\Readers\Readers.csproj" />
 	<ProjectReference Include="..\Chemistry\Chemistry.csproj" />
 	<ProjectReference Include="..\Omics\Omics.csproj" />

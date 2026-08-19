@@ -1,4 +1,6 @@
 #nullable enable
+using System;
+using System.Linq;
 using System.Runtime.InteropServices;
 using Chemistry;
 
@@ -224,6 +226,59 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         if (Polarity == Polarity.Negative)
             AdductMass = (float)-1.00727276467;
     }
+
+    #region IEquatable<IsoDecDeconvolutionParameters>
+
+    protected override bool EqualProperties(DeconvolutionParameters other)
+    {
+        var o = (IsoDecDeconvolutionParameters)other;
+        return PhaseRes == o.PhaseRes
+            && CssThreshold.Equals(o.CssThreshold)
+            && MatchTolerance.Equals(o.MatchTolerance)
+            && MaxShift == o.MaxShift
+            && KnockdownRounds == o.KnockdownRounds
+            && MinAreaCovered.Equals(o.MinAreaCovered)
+            && DataThreshold.Equals(o.DataThreshold)
+            && ReportMulitpleMonoisos == o.ReportMulitpleMonoisos
+            && MzWindow.SequenceEqual(o.MzWindow);
+    }
+
+    protected override void AddHashCodes(HashCode hash)
+    {
+        hash.Add(PhaseRes);
+        hash.Add(CssThreshold);
+        hash.Add(MatchTolerance);
+        hash.Add(MaxShift);
+        hash.Add(KnockdownRounds);
+        hash.Add(MinAreaCovered);
+        hash.Add(DataThreshold);
+        hash.Add(ReportMulitpleMonoisos);
+        foreach (var mz in MzWindow)
+            hash.Add(mz);
+    }
+
+    public override IsoDecDeconvolutionParameters Clone()
+    {
+        var clone = new IsoDecDeconvolutionParameters(
+            polarity: Polarity,
+            phaseRes: PhaseRes,
+            reportMultipleMonoisos: ReportMulitpleMonoisos,
+            cssThreshold: CssThreshold,
+            matchTolerance: MatchTolerance,
+            maxShift: MaxShift,
+            mzWindow: (float[])MzWindow.Clone(),
+            knockdownRounds: KnockdownRounds,
+            minAreaCovered: MinAreaCovered,
+            relativeDataThreshold: DataThreshold,
+            averageResidueModel: AverageResidueModel,
+            expectedIsotopeSpacing: ExpectedIsotopeSpacing)
+        {
+            UseGenericScore = UseGenericScore
+        };
+        return clone;
+    }
+
+    #endregion
 
     // Thread-safe lazy caching of decoy parameters using double-checked locking.
     // See ClassicDeconvolutionParameters for the full rationale: ??= alone is not

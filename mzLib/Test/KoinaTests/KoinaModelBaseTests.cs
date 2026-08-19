@@ -78,6 +78,11 @@ public class KoinaModelBaseTests
         {
             return CreateUnimodConverter(UnimodSequenceFormatSchema.Instance, allowedUnimodIds);
         }
+
+        public static ISequenceConverter BuildAcceptAllConverter()
+        {
+            return CreateUnimodConverterAcceptAll(UnimodSequenceFormatSchema.Instance);
+        }
     }
 
     [Test]
@@ -184,6 +189,30 @@ public class KoinaModelBaseTests
         Assert.That(apiSequence, Is.Null);
         Assert.That(warning, Is.Not.Null);
         Assert.That(warning!.Message, Does.Contain("serialize failed"));
+    }
+
+    [Test]
+    public void TryCleanSequence_AcceptAllConverter_SerializesKnownModification()
+    {
+        // CreateUnimodConverterAcceptAll backs ms2pip / AlphaPeptDeep, which accept any UNIMOD mod
+        // regardless of the model's AllowedUnimodIds set.
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildAcceptAllConverter());
+
+        var result = model.TryClean("PEPM[Common Variable:Oxidation on M]IDE", out var apiSequence, out _);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(apiSequence, Does.Contain("UNIMOD:35"));
+    }
+
+    [Test]
+    public void TryCleanSequence_ExceedsMaxLength_ReturnsNull()
+    {
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int>()));
+
+        var result = model.TryClean(new string('A', 60), out var apiSequence, out _);
+
+        Assert.That(result, Is.Null);
+        Assert.That(apiSequence, Is.Null);
     }
 
     [Test]

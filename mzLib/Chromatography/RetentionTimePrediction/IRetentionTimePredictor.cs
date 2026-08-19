@@ -1,4 +1,7 @@
-﻿namespace Chromatography.RetentionTimePrediction;
+﻿using System;
+using System.Collections.Generic;
+
+namespace Chromatography.RetentionTimePrediction;
 
 /// <summary>
 /// Contract for a retention time predictor. Implementations produce a predicted
@@ -31,9 +34,7 @@
 /// </remarks>
 public interface IRetentionTimePredictor : IDisposable
 {
-    /// <summary>
-    /// Name/identifier for this predictor (e.g., "SSRCalc3", "Chronologer")
-    /// </summary>
+    /// <summary>Human-readable name, e.g. "Chronologer", "Prosit2019iRT".</summary>
     string PredictorName { get; }
 
     /// <summary>
@@ -42,9 +43,10 @@ public interface IRetentionTimePredictor : IDisposable
     SeparationType SeparationType { get; }
 
     /// <summary>
-    /// Predicts a retention time equivalent for a given peptide.
-    /// The value may represent a time, iRT, or hydrophobicity depending on the predictor.
-    /// Returns null if prediction cannot be made.
+    /// Returns the predictor-specific formatted sequence string for a peptide,
+    /// or null (with <paramref name="failureReason"/> set) if the peptide cannot
+    /// be formatted for this predictor.
+    /// Useful for diagnostics and for callers that cache formatted sequences.
     /// </summary>
     /// <returns>Predicted value in predictor-specific units, or null if prediction not possible</returns>
     double? PredictRetentionTimeEquivalent(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
@@ -61,4 +63,4 @@ public interface IRetentionTimePredictor : IDisposable
     IReadOnlyList<(double? PredictedValue, IRetentionPredictable Peptide, RetentionTimeFailureReason? FailureReason)> PredictRetentionTimeEquivalents(IEnumerable<IRetentionPredictable> peptides, int maxThreads = 1);
 
     public string? GetFormattedSequence(IRetentionPredictable peptide, out RetentionTimeFailureReason? failureReason);
-}
+}

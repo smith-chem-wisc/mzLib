@@ -6,45 +6,86 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  DOTNET_VERSION: 10.0.x
+
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Request the platform explicitly. The solution offers both x64 and Any CPU, and MSBuild silently
+    # prefers Any CPU as a solution's default, so an unqualified build would depend on that preference
+    # rather than on anything stated here. Any CPU is what the released package is built as.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore
+      run: cd mzLib && dotnet build --no-restore /p:Platform="Any CPU"
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    # A '.' in a test name is spliced into the fully-qualified name, which Test Explorer / vstest
+    # split on '.' -- fragmenting the tree into phantom nodes that cannot be expanded or run.
+    # Runs before the suite so a naming regression fails in seconds rather than after the full run.
+    - name: Check test name hygiene
+      shell: pwsh
+      run: ./.github/scripts/Check-TestNameHygiene.ps1 -Project mzLib/Test/Test.csproj -NoBuild
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
-      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
+      # Exclude live external-service tests (Koina, etc.) from the required run; they run in the
+      # separate, non-blocking external-service job below. ExternalService supersedes the old Koina filter.
+      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService" --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+  # Runs mzLib's live external-service tests (Koina). Intentionally NOT a required status check, so a
+  # third-party outage never blocks a PR; the tests self-classify (outage -> Skipped, real break -> Fail).
+  # Do NOT add this job to branch-protection required checks.
+  external-service-tests:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+    - uses: actions/checkout@v4
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    - name: Build (Test)
+      run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    - name: Test (external services)
+      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category=ExternalService" ./Test/Test.csproj
   integration:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
+    # This job builds MetaMorpheus as well as mzLib, so it needs whatever SDK MetaMorpheus's
+    # global.json asks for. setup-dotnet installs into a user-local dotnet root and the resolver then
+    # sees ONLY what this step installed, so the runner's preinstalled SDKs do not count. Both repos
+    # are on .NET 10, so one band. Note this job cannot pass while mzLib's target framework is ahead
+    # of MetaMorpheus's -- a net10.0-only package is NU1202-incompatible with a net8.0 consumer, which
+    # no amount of installed SDKs fixes -- so mzLib retargets only after MetaMorpheus does.
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Any CPU is requested explicitly so this job's output lands in bin/Release, which is where
+    # mzLib.nuspec looks. Relying on MSBuild's implicit preference for Any CPU would make the pack step
+    # below depend on the ordering of a platform list rather than on an intent stated here.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore --configuration Release
+      run: cd mzLib && dotnet build --no-restore --configuration Release /p:Platform="Any CPU"
     - name: Change mzLib version, pack, add source
       run: |
         cd mzLib;
@@ -81,7 +122,11 @@ jobs:
     - name: Build MetaMorpheus
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
     - name: Test
-      run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal
+      # Exclude live external-service tests from the MetaMorpheus integration run: they gate on third-party
+      # services (UniProt, etc.), are not relevant to mzLib<->MetaMorpheus compatibility, and MetaMorpheus
+      # exercises them in its own non-blocking job. This is what keeps a UniProt outage from reddening
+      # every mzLib PR (this integration job clones MetaMorpheus master and runs its suite).
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService"
     - name: Upload artifact (installer)
       uses: actions/upload-artifact@v4
       with:
@@ -92,5 +137,7 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: MetaMorpheusGUI
-        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net8.0-windows/
+        # Globbed rather than pinned to a framework: this is MetaMorpheus's target framework,
+        # not mzLib's, so the two repos can move independently.
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net*-windows/
 

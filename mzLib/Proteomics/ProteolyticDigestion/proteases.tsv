@@ -100,7 +100,7 @@ Arg-C	R|	full	MS:1001303	Arg-C
 Asp-N	|D	full	MS:1001304	Asp-N	
 chymotrypsin|P	F[P]|,W[P]|,Y[P]|,L[P]|	full	MS:1001306	Chymotrypsin	
 CNBr	M|	full	MS:1001307	CNBr	Homoserine lactone on M
-elastase|P	A[P]|,V[P]|,S[P]|,G[P]|,L[P]|,I[P]|	full		Elastase	
+elastase|P	I[P]|,S[P]|,L[P]|,V[P]|,N[P]|,T[P]|,K[P]|,A[P]|,G[P]|,Y[P]|,Q[P]|,R[P]|,F[P]|,D[P]|	full		Elastase	
 Glu-C	E|	full			
 Glu-C (with asp)	E|,D|	full			
 Lys-C|P	K[P]|	full	MS:1001309	Lys-C	

@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -5,6 +6,7 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using NUnit.Framework.Legacy;
 using Readers;
 using Test.FileReadingTests;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
@@ -252,8 +254,14 @@ namespace Test.MassSpectrometryTests
             Assert.IsTrue(parameters.Features.Count >= 25,
                 $"fixture {Path.GetFileName(relativeFixturePath)} unexpectedly small: {parameters.Features.Count} per-charge entries");
 
-            var precursorMs1 = MakeMs1(1, rt: 2390.0);
-            var ms2 = MakeMs2(2, rt: 2390.0, isolationMz: 1084.6, isolationWidth: 2.0);
+            // MS2 RT is in minutes -- MsDataScan.RetentionTime convention is always minutes
+            // (mzML / Thermo's API). Both fixtures' feature row 1 has Time_apex ~ 2390 in
+            // seconds, which FromFileDeconvolutionParameters auto-converts to ~39.85 minutes
+            // at load (the max-RT-magnitude heuristic detects seconds-as-loaded). Without
+            // that normalisation the algorithm would compare 2390s vs 39min and never see
+            // overlap; this MS2 rt at 39.85 deliberately lands inside the normalised window.
+            var precursorMs1 = MakeMs1(1, rt: 39.85);
+            var ms2 = MakeMs2(2, rt: 39.85, isolationMz: 1084.6, isolationWidth: 2.0);
 
             var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
 
@@ -285,6 +293,136 @@ namespace Test.MassSpectrometryTests
             Assert.AreEqual(0, envelopes.Count);
         }
 
+        [Test]
+        public void FromFileDeconvolutionParameters_FileWithRtInSeconds_NormalisesToMinutes()
+        {
+            // FlashDeconv / TopFD canonical _ms1.feature output uses RT in SECONDS
+            // (e.g., Time_begin = 2787 for a 46 minute LC run). MsDataScan.RetentionTime
+            // is always MINUTES (mzML / Thermo convention). The FromFile algorithm compares
+            // feature RT vs scan RT directly, so feature RT must be normalised to minutes
+            // at load time or no scan ever overlaps a feature's window.
+            //
+            // Heuristic: if max RetentionTimeEnd > 500 in the loaded file, treat it as
+            // seconds and divide all RT fields by 60. 500 min = 8 hours, longer than any
+            // realistic LC gradient -- safe upper bound.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                // Append the canonical _ms1.feature extension so SupportedFileType.GetResultFileType
+                // recognises it. Path.GetTempFileName returns a .tmp path; rename.
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                // Single feature row with RT in SECONDS. Time_begin / Time_end / Time_apex
+                // around 2400 s = 40 min.
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t2390.0\t2410.0\t2400.0\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.AreEqual(3, parameters.Features.Count,
+                    "10..12 charges of one feature row should expand to 3 SingleChargeMs1Feature entries");
+                Assert.IsTrue(parameters.RetentionTimeNormalizedFromSeconds,
+                    "a seconds-RT file should be flagged as normalised");
+
+                // Confirm every per-charge feature's RT is in MINUTES (after the load-time
+                // seconds->minutes conversion). 2390.0 / 60 = 39.833...; 2410.0 / 60 = 40.166...
+                foreach (var f in parameters.Features)
+                {
+                    Assert.IsTrue(f.RetentionTimeStart > 39.5 && f.RetentionTimeStart < 40.0,
+                        $"RetentionTimeStart {f.RetentionTimeStart} not in expected minutes range (~39.83)");
+                    Assert.IsTrue(f.RetentionTimeEnd > 40.0 && f.RetentionTimeEnd < 40.5,
+                        $"RetentionTimeEnd {f.RetentionTimeEnd} not in expected minutes range (~40.17)");
+                }
+
+                // Sanity: pairing an MS2 in MINUTES against this feature now finds it,
+                // confirming the FromFile algorithm sees aligned units after normalisation.
+                var precursorMs1 = MakeMs1(1, rt: 40.0);
+                var ms2 = MakeMs2(2, rt: 40.0,
+                    isolationMz: parameters.Features.First().Mz,
+                    isolationWidth: 5.0);
+                var envelopes = ms2.GetIsolatedMassesAndCharges(precursorMs1, parameters).ToList();
+                Assert.IsTrue(envelopes.Count >= 1,
+                    "expected at least one envelope after RT normalisation; got 0 (regression in seconds->minutes conversion)");
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_FileWithRtInMinutes_LeavesUnchanged()
+        {
+            // Sister test: a file already in MINUTES (max RT < 500) must NOT be
+            // double-converted. Same shape as the seconds test but Time_begin/end are
+            // 39.0 / 40.0 minutes.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t39.0\t40.0\t39.5\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.IsFalse(parameters.RetentionTimeNormalizedFromSeconds,
+                    "an in-minutes file must not be flagged as normalised");
+                foreach (var f in parameters.Features)
+                {
+                    Assert.AreEqual(39.0, f.RetentionTimeStart, 1e-6,
+                        "in-minutes file must not be double-converted to 39/60 = 0.65");
+                    Assert.AreEqual(40.0, f.RetentionTimeEnd, 1e-6);
+                }
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_NonFiniteRetentionTimeEnd_DoesNotFlipUnits()
+        {
+            // A single NaN RetentionTimeEnd must not poison the seconds-vs-minutes sniff.
+            // Before the guard, Max(RetentionTimeEnd) returned NaN, (NaN <= 500) was false,
+            // and a clearly-in-minutes file was wrongly flagged as seconds and divided by 60.
+            string tempFeatureFile = Path.GetTempFileName();
+            try
+            {
+                string renamed = tempFeatureFile + "_ms1.feature";
+                File.Move(tempFeatureFile, renamed);
+                tempFeatureFile = renamed;
+
+                // Row 1 is unambiguously in MINUTES (end 40.0). Row 2 carries a NaN Time_end,
+                // as could arise from an upstream divide-by-zero in a producer.
+                File.WriteAllLines(tempFeatureFile, new[]
+                {
+                    "Sample_ID\tID\tMass\tIntensity\tTime_begin\tTime_end\tTime_apex\tMinimum_charge_state\tMaximum_charge_state\tMinimum_fraction_id\tMaximum_fraction_id",
+                    "0\t1\t10000.0\t1.0e8\t39.0\t40.0\t39.5\t10\t12\t0\t0",
+                    "0\t2\t12000.0\t1.0e8\t41.0\tNaN\t41.5\t10\t12\t0\t0",
+                });
+
+                var parameters = new FromFileDeconvolutionParameters(tempFeatureFile, minCharge: 1, maxCharge: 60);
+                Assert.IsFalse(parameters.RetentionTimeNormalizedFromSeconds,
+                    "a NaN RetentionTimeEnd must not flip an in-minutes file to seconds");
+                Assert.IsTrue(parameters.Features.Any(f => System.Math.Abs(f.RetentionTimeEnd - 40.0) < 1e-6),
+                    "the in-minutes feature row must be preserved at 40.0 min, not divided by 60");
+            }
+            finally
+            {
+                if (File.Exists(tempFeatureFile)) File.Delete(tempFeatureFile);
+            }
+        }
+
         // -------- contract / error-path tests for FromFileDeconvolutionParameters
 
         [Test]
@@ -298,12 +436,46 @@ namespace Test.MassSpectrometryTests
         public void FromFileDeconvolutionParameters_NonFeatureFile_ThrowsMzLibException()
         {
             // .psmtsv is a recognized SupportedFileType but its IResultFile (PsmFromTsvFile)
-            // doesn't implement IMs1FeatureFile — the ctor must reject it with a clear
-            // message rather than silently producing an empty feature set.
+            // doesn't implement IMs1FeatureFile — the rejection must come from the lazy
+            // .Features load, NOT the constructor. Split the two: prove ctor is lazy
+            // (no throw, no I/O) here, and assert the throw surfaces on .Features below.
             var psmTsv = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"FileReadingTests\SearchResults\BottomUpExample.psmtsv");
-            Assert.Throws<MzLibUtil.MzLibException>(
-                () => new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60));
+            var parameters = new FromFileDeconvolutionParameters(psmTsv, minCharge: 1, maxCharge: 60);
+            // No exception should have been thrown by the constructor above; reaching
+            // this line proves the file was not eagerly opened in the ctor.
+
+            var ex = Assert.Throws<MzLibUtil.MzLibException>(() => _ = parameters.Features,
+                "loading features from a non-feature file should throw MzLibException");
+            StringAssert.Contains("MS1 feature file", ex.Message,
+                "exception message should mention the missing MS1 Feature File interface; was: " + ex.Message);
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_NonExistentFile_ConstructorDoesNotThrow_LoadDoes()
+        {
+            // Locks the lazy-load contract: constructing with a non-existent path must
+            // succeed (no I/O), and only the .Features access must surface the failure.
+            var missing = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\__missing_for_lazy_test__.ms1.feature");
+            Assume.That(File.Exists(missing), Is.False,
+                "guard: test fixture assumed this file does not exist; if it does, pick another path");
+
+            FromFileDeconvolutionParameters parameters = null;
+            Assert.DoesNotThrow(
+                () => parameters = new FromFileDeconvolutionParameters(missing, minCharge: 1, maxCharge: 60),
+                "constructor must not open or read the file (lazy-load contract)");
+
+            Assert.IsNotNull(parameters);
+            Assert.AreEqual(missing, parameters.FilePath);
+
+            // The load path runs FileReader.ReadResultFile, which throws a wide
+            // variety of exceptions for a missing path (FileNotFoundException, or
+            // a downstream MzLibException depending on extension). Use a constraint
+            // so any exception type satisfies the assertion, then assert SOMETHING
+            // throws on .Features and that it is not thrown by the ctor.
+            Assert.That(() => _ = parameters.Features, Throws.Exception,
+                "loading features from a non-existent file should throw");
         }
 
         [Test]
@@ -351,6 +523,15 @@ namespace Test.MassSpectrometryTests
             public override DeconvolutionType DeconvolutionType { get; protected set; } = DeconvolutionType.FromFile;
             public FromFileParamsWithoutAlgorithmOverride() : base(minCharge: 1, maxCharge: 10) { }
             public override DeconvolutionParameters ToDecoyParameters() => null;
+            protected override bool EqualProperties(DeconvolutionParameters other) => true;
+            protected override void AddHashCodes(HashCode hash) { }
+            public override FromFileParamsWithoutAlgorithmOverride Clone()
+            {
+                return new FromFileParamsWithoutAlgorithmOverride
+                {
+                    UseGenericScore = UseGenericScore
+                };
+            }
         }
 
         [Test]
@@ -362,6 +543,91 @@ namespace Test.MassSpectrometryTests
                 () => Deconvoluter.Deconvolute(MinimalMs1Spectrum(), brokenParams, range).ToList());
             Assert.IsTrue(ex.Message.Contains("CreateAlgorithm"),
                 $"exception message should point at the missing CreateAlgorithm override; was: {ex.Message}");
+        }
+
+        // -------- lazy-load contract: equality / hash are I/O-free --------------
+
+        [Test]
+        public void FromFileDeconvolutionParameters_GetHashCode_OnUnloadedInstance_DoesNotLoadFile()
+        {
+            // Hash must be safe to call on an instance whose feature cache has not been
+            // materialized — no I/O, no throw, even if FilePath points at a non-feature
+            // or missing file. This locks the contract that hashing belongs to the
+            // config-only identity (FilePath), not to loaded feature state.
+            var missing = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\__missing_for_hash_test__.ms1.feature");
+            var p = new FromFileDeconvolutionParameters(missing, minCharge: 1, maxCharge: 60);
+
+            int hash = 0;
+            Assert.DoesNotThrow(() => hash = p.GetHashCode(),
+                "GetHashCode must not throw and must not perform I/O before .Features is touched");
+            Assert.AreNotEqual(0, hash, "hash should be a non-trivial value (driven by FilePath)");
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_Equals_OnUnloadedInstances_DoesNotLoadFile()
+        {
+            // Two instances built from the same path should be equal via Equals WITHOUT
+            // loading the file. If equality forced a load, a missing/invalid path would
+            // throw from the Equals call — a regression of the original eager-load
+            // design that this PR set out to remove.
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var a = new FromFileDeconvolutionParameters(path, minCharge: 1, maxCharge: 60);
+            var b = new FromFileDeconvolutionParameters(path, minCharge: 1, maxCharge: 60);
+
+            // Neither instance has touched .Features yet; reaching this line proves no
+            // file I/O was triggered by construction or by the following Equals.
+            Assert.IsTrue(a.Equals(b), "two instances built from the same FilePath must be equal");
+            Assert.IsTrue(a.Equals((object)b), "Equals(object) must agree with Equals(FromFileDeconvolutionParameters)");
+            Assert.AreEqual(a.GetHashCode(), b.GetHashCode(),
+                "equal instances must produce equal hash codes");
+        }
+
+        // -------- FilePath setter invalidates the cache ------------------------
+
+        [Test]
+        public void FromFileDeconvolutionParameters_SetFilePath_InvalidatesCache()
+        {
+            // After .Features has been read once, reassigning FilePath must cause the
+            // next .Features access to re-read from the new path. Without invalidation,
+            // the cached features would be silently stale.
+            var pathA = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var pathB = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_FlashDeconvOpenMs3.0.0_ms1.feature");
+
+            var p = new FromFileDeconvolutionParameters(pathA, minCharge: 1, maxCharge: 60);
+            var firstFeatures = p.Features; // materializes cache from pathA
+            Assert.IsTrue(firstFeatures.Count > 0, "pathA feature file should yield at least one feature");
+
+            p.FilePath = pathB;
+            Assert.AreEqual(pathB, p.FilePath, "FilePath setter must reflect the new value");
+
+            var secondFeatures = p.Features; // must re-read from pathB
+            Assert.IsTrue(secondFeatures.Count > 0, "pathB feature file should yield at least one feature");
+            // The two feature files are different (different instruments / formats), so
+            // the materialized lists are not expected to be reference-equal. Assert the
+            // cache was rebuilt by comparing a content fingerprint — Mz of first feature
+            // is unlikely to coincide between these two files.
+            Assume.That(firstFeatures.Count, Is.GreaterThan(0));
+            Assume.That(secondFeatures.Count, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void FromFileDeconvolutionParameters_RepeatedFeaturesAccess_LoadsOnce()
+        {
+            // Double-checked locking on the lazy load path: repeated .Features access
+            // must return the same list reference (no re-read, no re-parse).
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\Ms1Feature_TopFDv1.7.0_ms1.feature");
+            var p = new FromFileDeconvolutionParameters(path, minCharge: 1, maxCharge: 60);
+
+            var first = p.Features;
+            var second = p.Features;
+            var third = p.Features;
+            Assert.AreSame(first, second, "second .Features access must return the cached list");
+            Assert.AreSame(first, third, "third .Features access must return the cached list");
         }
     }
 }

@@ -33,7 +33,9 @@ namespace Readers
         ExperimentAnnotation,
         BrukerD,
         BrukerTimsTof,
-        CasanovoMzTab
+        CasanovoMzTab,
+        DiaNnReport,
+        Sdrf
     }
 
     public static class SupportedFileTypeExtensions
@@ -77,6 +79,13 @@ namespace Readers
                 SupportedFileType.CruxResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 SupportedFileType.CasanovoMzTab => ".mztab",
+                // Unlike the other .tsv members, this is a conventional whole-name rather than a
+                // suffix ParseFileType keys on: DIA-NN reports are detected by their header, so the
+                // extension round-trip ("anything" + GetFileExtension()).ParseFileType() == type that
+                // holds for the others does not hold here. This value is only what WriteResults
+                // appends when naming an output file.
+                SupportedFileType.DiaNnReport => "report.tsv",
+                SupportedFileType.Sdrf => ".sdrf.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -146,6 +155,8 @@ namespace Readers
                         return SupportedFileType.ExperimentAnnotation;
                     if(filePath.EndsWith(SupportedFileType.Tsv_Dinosaur.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Tsv_Dinosaur;
+                    if(filePath.EndsWith(SupportedFileType.Sdrf.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.Sdrf;
 
                         // these tsv cases are just .tsv and need an extra step to determine the type
                         // currently need to distinguish between FlashDeconvTsv and MsFraggerPsm
@@ -155,6 +166,18 @@ namespace Readers
 
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
+
+                    // DIA-NN's main report is conventionally named report.tsv, but the name is set by
+                    // whoever ran the search and is routinely changed, so match on the header instead.
+                    // File.Name is what separates the long-format report from the matrix reports
+                    // (report.pr_matrix.tsv) that DIA-NN writes beside it, which also carry
+                    // Precursor.Id and Stripped.Sequence but have one column per run instead.
+                    var tsvHeaders = firstLine.Split('\t');
+                    if (tsvHeaders.Contains("Precursor.Id")
+                        && tsvHeaders.Contains("Stripped.Sequence")
+                        && tsvHeaders.Contains("File.Name"))
+                        return SupportedFileType.DiaNnReport;
+
                     throw new MzLibException("Tsv file type not supported");
                 }
 
@@ -227,6 +250,8 @@ namespace Readers
                 SupportedFileType.Ms1Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.Ms2Align => typeof(MsDataFileToResultFileAdapter),
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
+                SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
+                SupportedFileType.Sdrf => typeof(SdrfDocument),
                 _ => throw new MzLibException("File type not supported")
             };
         }

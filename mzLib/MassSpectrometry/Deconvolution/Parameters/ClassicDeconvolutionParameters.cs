@@ -1,4 +1,5 @@
-﻿#nullable enable
+#nullable enable
+using System;
 using Chemistry;
 
 namespace MassSpectrometry
@@ -26,6 +27,34 @@ namespace MassSpectrometry
             IntensityRatioLimit = intensityRatio;
             DeconvolutionTolerancePpm = deconPpm;
         }
+
+        #region IEquatable<ClassicDeconvolutionParameters>
+
+        protected override bool EqualProperties(DeconvolutionParameters other)
+        {
+            var o = (ClassicDeconvolutionParameters)other;
+            return DeconvolutionTolerancePpm.Equals(o.DeconvolutionTolerancePpm)
+                && IntensityRatioLimit.Equals(o.IntensityRatioLimit);
+        }
+
+        protected override void AddHashCodes(HashCode hash)
+        {
+            hash.Add(DeconvolutionTolerancePpm);
+            hash.Add(IntensityRatioLimit);
+        }
+
+        public override ClassicDeconvolutionParameters Clone()
+        {
+            return new ClassicDeconvolutionParameters(
+                MinAssumedChargeState, MaxAssumedChargeState,
+                DeconvolutionTolerancePpm, IntensityRatioLimit,
+                Polarity, AverageResidueModel, ExpectedIsotopeSpacing)
+            {
+                UseGenericScore = UseGenericScore
+            };
+        }
+
+        #endregion
 
         // Thread-safe lazy caching of decoy parameters using double-checked locking.
         // The ??= operator alone is not atomic: two threads can both observe null,

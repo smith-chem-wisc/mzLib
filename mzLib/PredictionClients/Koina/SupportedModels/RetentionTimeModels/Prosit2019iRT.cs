@@ -90,29 +90,12 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </remarks>
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            // Split sequences into batches for optimal API performance
-            // ValidatedFullSequence should not be null at this point due to prior validation steps
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToList();
-            var batchedRequests = new List<Dictionary<string, object>>();
-
-            for (int i = 0; i < batchedPeptides.Count; i++)
+            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
+            for (int i = 0; i < batchedPeptides.Length; i++)
             {
-                // Create API request structure following Koina specification
-                var request = new Dictionary<string, object>
-                {
-                    { "id", $"Batch{i}_" + Guid.NewGuid()}, // Unique identifier for request tracking
-                    { "inputs", new List<object>
-                        {
-                            new {
-                                name = "peptide_sequences",           // Model input parameter name
-                                shape = new[]{ batchedPeptides[i].Length, 1 }, // Tensor shape [batch_size, 1]
-                                datatype = "BYTES",                   // String data type
-                                data = batchedPeptides[i]            // Actual sequence data
-                            },
-                        }
-                    }
-                };
-                batchedRequests.Add(request);
+                batchedRequests.Add(BuildBatchedRequest(i,
+                    new InputField("peptide_sequences", "BYTES", batchedPeptides[i])));
             }
             return batchedRequests;
         }

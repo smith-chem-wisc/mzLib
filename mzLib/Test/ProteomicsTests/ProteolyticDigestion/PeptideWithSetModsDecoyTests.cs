@@ -102,11 +102,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.AreEqual("MKEITPMEP", p_cnbr_reverse.BaseSequence);
             Assert.AreEqual(p_cnbr.FullSequence, p_cnbr_reverse.PeptideDescription);
 
-            //  elastase cleave after A, V, S, G, L, I,
+            //  elastase cleave after I, S, L, V, N, T, K, A, G, Y, Q, R, F, D (not before P)
+            //  Only V(3, blocked by the following P), P(4) and H(8) are not cleavage residues,
+            //  so every other position is pinned and just those three are reversed into place.
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
             PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase|P"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
-            Assert.AreEqual("NADHRSPGVLYIK", p_elastase_reverse.BaseSequence);
+            Assert.AreEqual("KAYHPSRGVLDIN", p_elastase_reverse.BaseSequence);
 
             //  top-down
             newAminoAcidPositions = new int["RPEPTIREK".Length];
@@ -215,9 +217,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             //Just making sure there are no snafus when creating decoy peptides from an xml,which will have mods in various places, etc.
             //sequence variants, modifications
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
 
             List<Modification> fixedMods = new List<Modification>();
@@ -259,9 +261,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void CountTargetsWithMatchingDecoys()
         {
             Dictionary<string, Modification> un = new Dictionary<string, Modification>();
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
             List<Protein> proteins = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cRAP_databaseGPTMD.xml"), true, DecoyType.None, UniProtPtms, false, new string[] { "exclude_me" }, out un);
 
             List<Modification> fixedMods = new List<Modification>();

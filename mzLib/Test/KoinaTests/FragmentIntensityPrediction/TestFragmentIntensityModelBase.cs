@@ -46,9 +46,9 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             : base(Converter)
         {
             AllowedPrecursorCharges = allowedCharges ?? new HashSet<int> { 2, 3, 4 };
-            AllowedCollisionEnergies = allowedEnergies ?? new HashSet<int>();
-            AllowedInstrumentTypes = allowedInstruments ?? new HashSet<string>();
-            AllowedFragmentationTypes = allowedFragmentations ?? new HashSet<string>();
+            AllowedCollisionEnergies = allowedEnergies;
+            AllowedInstrumentTypes = allowedInstruments;
+            AllowedFragmentationTypes = allowedFragmentations;
             ModHandlingMode = modHandlingMode;
             ParameterHandlingMode = parameterHandlingMode;
             FragmentIonMappingMode = fragmentIonMappingMode;
