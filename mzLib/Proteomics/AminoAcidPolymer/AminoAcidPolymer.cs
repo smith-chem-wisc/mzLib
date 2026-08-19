@@ -453,7 +453,7 @@ namespace Proteomics.AminoAcidPolymer
             if (_modifications != null)
                 count += _modifications.Where(mod => mod is IHasChemicalFormula).Cast<IHasChemicalFormula>().Sum(mod => mod.ThisChemicalFormula.CountWithIsotopes(element));
 
-            count += ChemicalFormula.ParseFormula("H2O").CountWithIsotopes(element);
+            count += Constants.WaterChemicalFormula.CountWithIsotopes(element);
             return count;
         }
 

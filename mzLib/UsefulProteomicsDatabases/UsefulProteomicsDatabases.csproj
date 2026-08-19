@@ -11,6 +11,11 @@
   </PropertyGroup>
   
   <ItemGroup>
+    <None Remove="Resources\modomicsmods.csv" />
+    <None Remove="Transcriptomics\modomics.json" />
+  </ItemGroup>
+  
+  <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
     <PackageReference Include="TopDownProteomics" Version="0.0.299" />
@@ -45,6 +50,15 @@
     </EmbeddedResource>
     <EmbeddedResource Include="Resources\pride_cv.obo">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\modomicsmods.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+    <EmbeddedResource Include="Resources\modomicsmods.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
   </ItemGroup>
 
