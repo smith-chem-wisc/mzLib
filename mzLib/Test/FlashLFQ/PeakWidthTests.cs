@@ -205,6 +205,52 @@ namespace Test.FlashLFQ
         }
 
         /// <summary>
+        /// Every row must carry as many fields as the header, for both the base peak and the MBR subclass
+        /// that duplicates the whole row rather than extending it. Adding the two width columns to
+        /// ChromatographicPeak alone shifted every MBR row two fields out of step with the header, which
+        /// is invisible in a spot check of one row and corrupts the whole file.
+        /// </summary>
+        [Test]
+        [TestCase(true)]
+        [TestCase(false)]
+        public void EveryRowHasAsManyFieldsAsTheHeader(bool withApex)
+        {
+            int headerFields = ChromatographicPeak.TabSeparatedHeader.Split('\t').Length;
+
+            var file = new SpectraFileInfo("f.mzML", "c", 0, 0, 0);
+            var identification = new Identification(
+                file, "PEPTIDE", "PEPTIDE", 799.36, 10.0, 2, new List<ProteinGroup>());
+
+            var peaks = new ChromatographicPeak[]
+            {
+                new ChromatographicPeak(identification, file),
+                new MbrChromatographicPeak(identification, file, 1, false)
+            };
+
+            foreach (ChromatographicPeak peak in peaks)
+            {
+                peak.IsotopicEnvelopes = new[]
+                    {
+                        (10.0, 0.0), (10.5, 50.0), (11.0, 100.0), (11.5, 50.0), (12.0, 0.0)
+                    }
+                    .Select((p, i) => new IsotopicEnvelope(
+                        new IndexedMassSpectralPeak(799.36, p.Item2, i, p.Item1), 2, p.Item2 * 2, 1.0))
+                    .ToList();
+
+                // Apex is only set by CalculateIntensityForThisFeature, so skipping it exercises the
+                // no-apex branch, which writes a different set of literals.
+                if (withApex)
+                {
+                    peak.CalculateIntensityForThisFeature(false);
+                }
+
+                Assert.That(peak.ToString().Split('\t').Length, Is.EqualTo(headerFields),
+                    $"{peak.GetType().Name} wrote a row of a different width than the header " +
+                    $"(apex {(withApex ? "set" : "null")})");
+            }
+        }
+
+        /// <summary>
         /// A peak with no apex reports NoApex rather than throwing.
         /// </summary>
         [Test]
