@@ -237,7 +237,20 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         public IEnumerable<ProteolyticPeptide> Digestion(Protein protein, bool topDownTruncationSearch = false)
         {
-            return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
+            // Generation uses MaximumMissedCleavages -- the instance property SpeedySemiSpecificDigestion
+            // also reads, so the two digestion paths stay in step even if a caller mutates it after
+            // construction. When cleavage-blocking modifications are respected in full-specificity mode we
+            // add slack so the read-through form of a blocked cleavage can be generated (it costs one extra
+            // missed cleavage per blocked site); the surplus is trimmed again by the open-site filter in
+            // ProteolyticPeptide.GetModifiedPeptides. The slack is MaxMods, not a fixed 2: a peptidoform
+            // can carry at most MaxMods variable modifications and therefore at most that many blocked
+            // sites, so this reaches every variable-mod read-through no matter how many co-occur. (A fixed
+            // blocking modification is unbounded and remains a documented limitation.)
+            int generationMaxMissedCleavages = MaximumMissedCleavages;
+            if (DigestionParams.RespectCleavageBlockingModifications && DigestionParams.SearchModeType == CleavageSpecificity.Full)
+                generationMaxMissedCleavages += DigestionParams.MaxMods;
+
+            return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
         }
     }
 }
