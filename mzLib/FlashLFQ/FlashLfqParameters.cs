@@ -23,6 +23,7 @@ namespace FlashLFQ
 
             // IsoTracker settings
             IsoTracker = false;
+            AcceptablePeakWidth = 0.4;
             IsoTrackerIdFilter = new IsoTrackerIdFilter(null); //If there is no targetMotif uploaded, then we don't filter the peptide sequence
             RequireMultipleIdsInOneFiles = true; //Default is true
 
@@ -58,6 +59,11 @@ namespace FlashLFQ
 
         //IsoTracker settings
         public bool IsoTracker { get; set; }
+        /// <summary>
+        /// The shortest a shared peak may be, in minutes, and still be searched for isobaric species. Peaks
+        /// narrower than this carry too little of the elution to align across runs.
+        /// </summary>
+        public double AcceptablePeakWidth { get; set; }
         /// <summary>
         /// Only use in IsoTracker engine, the targetMotif will be used to filter ID in isobaric searching.
         /// If there is no targetMotif uploaded, then we don't filter the peptide sequence.
