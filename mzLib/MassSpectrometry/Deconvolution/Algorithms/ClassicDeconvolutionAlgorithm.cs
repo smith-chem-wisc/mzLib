@@ -188,26 +188,40 @@ namespace MassSpectrometry
             for (int indexToLookAt = 1; indexToLookAt < theoreticalIntensities.Length; indexToLookAt++) //cycle through all theoretical peaks in this envelope from most intense to least intense
             {
                 double theorMassThatTryingToFind = theoreticalMasses[indexToLookAt] + differenceBetweenTheorAndActualMass; //get the expected mass of the next most intense peak
-                int closestPeakToTheorMass = spectrum.GetClosestPeakIndex(theorMassThatTryingToFind.ToMz(chargeState)); //find the experimental peak for that mass
-                double closestPeakmz = spectrum.XArray[closestPeakToTheorMass];
-                double closestPeakIntensity = spectrum.YArray[closestPeakToTheorMass];
-                double closestPeakMass = closestPeakmz.ToMass(chargeState);
-                //if the peak is within the deconvolution tolerance, has the correct intensity, and hasn't already been observed
-                if (Math.Abs(closestPeakMass - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 <= deconvolutionTolerancePpm
-                    && Peak2satisfiesRatio(theoreticalIntensities[0], theoreticalIntensities[indexToLookAt], candidateForMostIntensePeakIntensity, closestPeakIntensity, intensityRatioLimit)
-                    && !listOfObservedPeaks.Contains((closestPeakmz, closestPeakIntensity)))
-                {
-                    //Found a match to an isotope peak for this charge state!
-                    listOfObservedPeaks.Add((closestPeakmz, closestPeakIntensity)); //add to observed list
-                    totalIntensity += closestPeakIntensity; //add intensity
-                    listOfRatios.Add(theoreticalIntensities[indexToLookAt] / closestPeakIntensity); //add ratio
-                    double monoisotopicMassFromThisPeak = monoisotopicMass + closestPeakMass - theorMassThatTryingToFind;
-                    monoisotopicMassPredictions.Add(monoisotopicMassFromThisPeak);
-                }
-                else
+                int matchedPeakIndex = spectrum.GetClosestPeakIndex(theorMassThatTryingToFind.ToMz(chargeState)); //find the experimental peak for that mass
+                double matchedPeakMz = spectrum.XArray[matchedPeakIndex];
+                double matchedPeakIntensity = spectrum.YArray[matchedPeakIndex];
+                double matchedPeakMass = matchedPeakMz.ToMass(chargeState);
+
+                //the nearest peak is out of tolerance, and it bounds every other peak's distance from the sought mass
+                if (Math.Abs(matchedPeakMass - theorMassThatTryingToFind) / theorMassThatTryingToFind * 1e6 > deconvolutionTolerancePpm)
                 {
                     break;
                 }
+
+                //the nearest peak is unusable, but issue #245: a usable isotope may sit just behind it, still in tolerance
+                if (!Peak2satisfiesRatio(theoreticalIntensities[0], theoreticalIntensities[indexToLookAt], candidateForMostIntensePeakIntensity, matchedPeakIntensity, intensityRatioLimit)
+                    || listOfObservedPeaks.Contains((matchedPeakMz, matchedPeakIntensity)))
+                {
+                    matchedPeakIndex = FindUsablePeakNearTheorMass(theorMassThatTryingToFind, chargeState, deconvolutionTolerancePpm,
+                        theoreticalIntensities[0], theoreticalIntensities[indexToLookAt], candidateForMostIntensePeakIntensity,
+                        intensityRatioLimit, listOfObservedPeaks);
+                    if (matchedPeakIndex < 0)
+                    {
+                        break;
+                    }
+
+                    matchedPeakMz = spectrum.XArray[matchedPeakIndex];
+                    matchedPeakIntensity = spectrum.YArray[matchedPeakIndex];
+                    matchedPeakMass = matchedPeakMz.ToMass(chargeState);
+                }
+
+                //Found a match to an isotope peak for this charge state!
+                listOfObservedPeaks.Add((matchedPeakMz, matchedPeakIntensity)); //add to observed list
+                totalIntensity += matchedPeakIntensity; //add intensity
+                listOfRatios.Add(theoreticalIntensities[indexToLookAt] / matchedPeakIntensity); //add ratio
+                double monoisotopicMassFromThisPeak = monoisotopicMass + matchedPeakMass - theorMassThatTryingToFind;
+                monoisotopicMassPredictions.Add(monoisotopicMassFromThisPeak);
             }
 
             return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
@@ -292,6 +306,62 @@ namespace MassSpectrometry
             return (
                 spectrum.XArray.GetClosestIndex(minX, ArraySearchOption.Next),
                 spectrum.XArray.GetClosestIndex(maxX, ArraySearchOption.Previous));
+        }
+
+        /// <summary>
+        /// Nearest peak to <paramref name="theorMass"/> that is in tolerance, matches the predicted intensity and is
+        /// unclaimed, or -1 if there is none. Called only when the closest peak itself is unusable (issue #245).
+        /// </summary>
+        private int FindUsablePeakNearTheorMass(double theorMass, int chargeState, double deconvolutionTolerancePpm,
+            double peak1TheorIntensity, double peak2TheorIntensity, double peak1Intensity,
+            double intensityRatioLimit, List<(double, double)> alreadyObservedPeaks)
+        {
+            int nearestIndex = spectrum.GetClosestPeakIndex(theorMass.ToMz(chargeState));
+
+            //bound the window in the mass domain, since the acceptance test is a ppm check on neutral mass; converting
+            //the other way would clip it by the proton offset
+            double windowRadius = theorMass * deconvolutionTolerancePpm / 1e6;
+            double minMz = (theorMass - windowRadius).ToMz(chargeState);
+            double maxMz = (theorMass + windowRadius).ToMz(chargeState);
+
+            int startIndex = nearestIndex;
+            while (startIndex > 0 && spectrum.XArray[startIndex - 1] >= minMz)
+            {
+                startIndex--;
+            }
+
+            int endIndex = nearestIndex;
+            while (endIndex < spectrum.XArray.Length - 1 && spectrum.XArray[endIndex + 1] <= maxMz)
+            {
+                endIndex++;
+            }
+
+            int bestIndex = -1;
+            double bestMassError = double.PositiveInfinity;
+
+            for (int index = startIndex; index <= endIndex; index++)
+            {
+                double candidateMz = spectrum.XArray[index];
+                double candidateIntensity = spectrum.YArray[index];
+                double massError = Math.Abs(candidateMz.ToMass(chargeState) - theorMass);
+
+                //rank survivors by mass error: the ratio test has already screened out implausible abundances
+                if (massError / theorMass * 1e6 > deconvolutionTolerancePpm
+                    || candidateIntensity <= 0
+                    || !Peak2satisfiesRatio(peak1TheorIntensity, peak2TheorIntensity, peak1Intensity, candidateIntensity, intensityRatioLimit)
+                    || alreadyObservedPeaks.Contains((candidateMz, candidateIntensity)))
+                {
+                    continue;
+                }
+
+                if (massError < bestMassError)
+                {
+                    bestIndex = index;
+                    bestMassError = massError;
+                }
+            }
+
+            return bestIndex;
         }
 
         private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
