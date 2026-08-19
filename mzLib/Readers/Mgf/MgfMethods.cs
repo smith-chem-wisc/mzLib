@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using MassSpectrometry;
+using MzLibUtil;
 
 namespace Readers
 {
@@ -21,7 +22,14 @@ namespace Readers
     /// </para>
     /// <para>
     /// Scans with no peaks are skipped: MGF requires at least one fragment per block, and
-    /// <see cref="Mgf"/> discards empty blocks on read.
+    /// <see cref="Mgf"/> discards empty blocks on read. Writing a file with no blocks at all throws,
+    /// because the reader cannot load one.
+    /// </para>
+    /// <para>
+    /// Polarity does not survive a round trip for any scan without a charge state guess. MGF has no
+    /// polarity field, so CHARGE is the only carrier of the sign, and CHARGE is written only where a
+    /// guess exists. Such scans read back as positive. This applies to MS1 scans and equally to an MS2
+    /// with a null charge guess, and is a limit of the format rather than of this writer.
     /// </para>
     /// </remarks>
     public static class MgfMethods
@@ -42,14 +50,27 @@ namespace Readers
                 ? Path.GetFileNameWithoutExtension(outputFile)
                 : Path.GetFileNameWithoutExtension(myMsDataFile.FilePath);
 
-            using StreamWriter output = new StreamWriter(outputFile);
+            List<MsDataScan> scansToWrite = new List<MsDataScan>();
             foreach (MsDataScan scan in myMsDataFile.GetAllScansList())
             {
-                if (scan?.MassSpectrum == null || scan.MassSpectrum.Size == 0)
+                if (scan?.MassSpectrum != null && scan.MassSpectrum.Size > 0)
                 {
-                    continue;
+                    scansToWrite.Add(scan);
                 }
+            }
 
+            // Checked before opening the writer: a blockless mgf is not readable, so producing one would
+            // hand the caller a file that throws on the way back in.
+            if (scansToWrite.Count == 0)
+            {
+                throw new MzLibException(
+                    "Cannot write an mgf with no spectra: every scan was empty, and mgf requires at least "
+                    + "one fragment peak per block.");
+            }
+
+            using StreamWriter output = new StreamWriter(outputFile);
+            foreach (MsDataScan scan in scansToWrite)
+            {
                 WriteScan(output, scan, sourceName);
             }
         }

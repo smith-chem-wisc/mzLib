@@ -549,5 +549,123 @@ namespace Test.FileReadingTests.SpectraFileReading
             StreamReader streamReader = null;
             NUnit.Framework.Assert.Throws<MzLibException>(() => TextFileReading.GetByteOffsetAtCurrentPosition(streamReader));
         }
+
+        /// <summary>
+        /// Polarity is only carried by CHARGE, and CHARGE is written only where a charge guess exists, so
+        /// scans without one come back positive. The point of the test is that both read paths say so:
+        /// a static load and a random-access dynamic read of the same scan must agree, since the dynamic
+        /// reader cannot see what preceded the block it seeks to. Covers MS1 and, equally, an MS2 whose
+        /// charge guess is null.
+        /// </summary>
+        [Test]
+        public void MgfStaticAndDynamicReadsAgreeOnPolarity()
+        {
+            var ms1 = new MsDataScan(
+                new MzSpectrum(new[] { 300.1, 400.2 }, new[] { 1000.0, 2000.0 }, false),
+                oneBasedScanNumber: 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Negative,
+                retentionTime: 1.0, scanWindowRange: new MzRange(300, 401), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 3000.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1");
+
+            // Negative MS2 with a charge guess: CHARGE carries the sign, so this one survives.
+            var ms2WithCharge = new MsDataScan(
+                new MzSpectrum(new[] { 110.05, 220.11 }, new[] { 500.0, 750.0 }, false),
+                oneBasedScanNumber: 2, msnOrder: 2, isCentroid: true, polarity: Polarity.Negative,
+                retentionTime: 1.1, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1250.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=2", selectedIonMz: 571.8069,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: 999999.0);
+
+            // Negative MS2 with no charge guess: no CHARGE line is written, so the sign is unrecoverable.
+            var ms2NoCharge = new MsDataScan(
+                new MzSpectrum(new[] { 130.07, 240.13 }, new[] { 400.0, 650.0 }, false),
+                oneBasedScanNumber: 3, msnOrder: 2, isCentroid: true, polarity: Polarity.Negative,
+                retentionTime: 1.2, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1050.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=3", selectedIonMz: 481.2,
+                selectedIonChargeStateGuess: null, selectedIonIntensity: 5000.0);
+
+            // A second MS1 after the negative MS2, which is where an inherited polarity would have shown up.
+            var trailingMs1 = new MsDataScan(
+                new MzSpectrum(new[] { 310.1, 410.2 }, new[] { 1100.0, 2100.0 }, false),
+                oneBasedScanNumber: 4, msnOrder: 1, isCentroid: true, polarity: Polarity.Negative,
+                retentionTime: 1.3, scanWindowRange: new MzRange(300, 411), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 3200.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=4");
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfPolarityAgreement.mgf");
+            new GenericMsDataFile(new[] { ms1, ms2WithCharge, ms2NoCharge, trailingMs1 }, null).ExportAsMgf(path);
+
+            try
+            {
+                var staticFile = MsDataFileReader.GetDataFile(path);
+                staticFile.LoadAllStaticData();
+                var staticScans = staticFile.GetAllScansList();
+
+                var dynamicReader = MsDataFileReader.GetDataFile(path);
+                dynamicReader.InitiateDynamicConnection();
+                try
+                {
+                    for (int scanNumber = 1; scanNumber <= 4; scanNumber++)
+                    {
+                        MsDataScan dynamicScan = dynamicReader.GetOneBasedScanFromDynamicConnection(scanNumber);
+                        MsDataScan staticScan = staticScans[scanNumber - 1];
+
+                        NUnit.Framework.Assert.That(dynamicScan.Polarity, Is.EqualTo(staticScan.Polarity),
+                            $"scan {scanNumber}: the static and dynamic readers must not disagree on polarity");
+                    }
+                }
+                finally
+                {
+                    dynamicReader.CloseDynamicConnection();
+                }
+
+                // Only the scan that wrote a CHARGE line keeps its sign; the format cannot carry the rest.
+                NUnit.Framework.Assert.That(staticScans[1].Polarity, Is.EqualTo(Polarity.Negative),
+                    "the MS2 with a charge guess wrote CHARGE=2- and must read back negative");
+                NUnit.Framework.Assert.That(staticScans[0].Polarity, Is.EqualTo(Polarity.Positive),
+                    "an MS1 has no CHARGE line, so its polarity is not recoverable from the format");
+                NUnit.Framework.Assert.That(staticScans[2].Polarity, Is.EqualTo(Polarity.Positive),
+                    "an MS2 with a null charge guess writes no CHARGE either, so it behaves like the MS1");
+                NUnit.Framework.Assert.That(staticScans[3].Polarity, Is.EqualTo(Polarity.Positive),
+                    "position in the file must not change the answer; polarity is not inherited");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// A file whose every scan is empty would produce an mgf with no blocks, which the reader cannot
+        /// load -- it indexes by the last scan number and throws on an empty array. Better to refuse to
+        /// write it than to hand back a file that fails on the way in.
+        /// </summary>
+        [Test]
+        public void MgfWriterRefusesToWriteAFileWithNoBlocks()
+        {
+            var empty = new MsDataScan(
+                new MzSpectrum(Array.Empty<double>(), Array.Empty<double>(), false),
+                oneBasedScanNumber: 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.0, scanWindowRange: new MzRange(300, 400), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 0.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1");
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfNoBlocks.mgf");
+            try
+            {
+                var exception = NUnit.Framework.Assert.Throws<MzLibException>(
+                    () => new GenericMsDataFile(new[] { empty }, null).ExportAsMgf(path));
+                NUnit.Framework.Assert.That(exception.Message, Does.Contain("no spectra"));
+
+                // Refusing before opening the writer means no half-written file is left behind.
+                NUnit.Framework.Assert.That(File.Exists(path), Is.False);
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
+
     }
 }

@@ -40,9 +40,6 @@ namespace Readers
                 {
                     using (StreamReader sr = new StreamReader(bs))
                     {
-                        // MS1 blocks carry no CHARGE, so their polarity comes from the last block that did
-                        Polarity lastPolarity = Polarity.Positive;
-
                         while (sr.Peek() > 0)
                         {
                             string line = sr.ReadLine();
@@ -51,14 +48,10 @@ namespace Readers
                                 continue;
                             }
 
-                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams,
-                                null, lastPolarity);
+                            var scan = GetNextMsDataOneBasedScanFromConnection(sr, checkForDuplicateScans, filterParams);
 
                             if (scan is not null)
-                            {
                                 scans.Add(scan);
-                                lastPolarity = scan.Polarity;
-                            }
                         }
                     }
                 }
@@ -146,8 +139,7 @@ namespace Readers
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
         private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved,
-            IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null,
-            Polarity fallbackPolarity = Polarity.Positive)
+            IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
             List<double> intensities = new List<double>();
@@ -263,11 +255,11 @@ namespace Readers
             // block without one is MS1. Files predating MSLEVEL all carry PEPMASS, so they read as before.
             int msnOrder = msLevel ?? (sawPrecursorMz ? 2 : 1);
 
-            // MGF has no polarity field, so it can only be inferred from the sign of CHARGE. Blocks
-            // without one inherit the last polarity seen in the file.
-            Polarity polarity = sawCharge
-                ? (charge > 0 ? Polarity.Positive : Polarity.Negative)
-                : fallbackPolarity;
+            // MGF has no polarity field, so it is only inferrable from the sign of CHARGE. A block with
+            // no CHARGE line reads as positive on both the static and dynamic paths -- inheriting it from
+            // a neighbouring block would make the two disagree, since a random-access read cannot see
+            // what preceded it.
+            Polarity polarity = charge > 0 ? Polarity.Positive : Polarity.Negative;
 
             if (msnOrder == 1)
             {
