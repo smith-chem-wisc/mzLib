@@ -1,26 +1,19 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
+  <!--
+    Deliberately free of heavy dependencies. This project holds the retention time prediction
+    abstractions plus the two analytical predictors (SSRCalc3, CZE), which are pure C#. The
+    TorchSharp-backed Chronologer predictor lives in Chromatography.Chronologer so that consumers
+    which only describe or consume predictors never pay for libtorch. Do not add native or
+    ML-runtime package references here.
+  -->
+
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<Platforms>x64</Platforms>
   </PropertyGroup>
-
-  <ItemGroup>
-    <None Remove="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <EmbeddedResource Include="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </EmbeddedResource>
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="libtorch-cpu" Version="2.5.1" />
-    <PackageReference Include="TorchSharp" Version="0.105.1" />
-  </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />

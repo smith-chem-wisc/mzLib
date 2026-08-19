@@ -5,6 +5,7 @@ using Chromatography.RetentionTimePrediction;
 using Chromatography;
 using NUnit.Framework;
 using Omics.SequenceConversion;
+using Omics.RetentionTimePrediction;
 
 namespace Test.RetentionTimePrediction
 {

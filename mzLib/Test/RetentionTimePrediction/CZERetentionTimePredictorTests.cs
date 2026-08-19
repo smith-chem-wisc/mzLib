@@ -3,6 +3,7 @@ using Chromatography.RetentionTimePrediction;
 using Chromatography.RetentionTimePrediction.CZE;
 using NUnit.Framework;
 using Omics.SequenceConversion;
+using Omics.RetentionTimePrediction;
 
 namespace Test.RetentionTimePrediction;
 

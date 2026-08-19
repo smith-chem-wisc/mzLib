@@ -1,0 +1,45 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Chronologer is split out of Chromatography so that TorchSharp and the ~318 MB libtorch native
+    runtime are an opt-in cost. Only composition roots that actually want deep-learning retention
+    time prediction should reference this project; everything else references Chromatography, which
+    carries the abstractions plus the analytical SSRCalc3 and CZE predictors at no native cost.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Remove="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!--
+      LogicalName is pinned explicitly. Chronologer.cs looks the weights up by building the string
+      "{AssemblyName}.RetentionTimePrediction.Chronologer.<file>"; without this pin, the manifest
+      name would be derived from the folder layout and a future directory rename would break weight
+      loading silently at runtime rather than at build time.
+    -->
+    <EmbeddedResource Include="RetentionTimePrediction\Chronologer\Chronologer_20220601193755_TorchSharp.dat">
+      <LogicalName>Chromatography.Chronologer.RetentionTimePrediction.Chronologer.Chronologer_20220601193755_TorchSharp.dat</LogicalName>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </EmbeddedResource>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="libtorch-cpu-win-x64" Version="2.5.1" />
+    <PackageReference Include="TorchSharp" Version="0.105.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Chromatography\Chromatography.csproj" />
+    <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
+    <ProjectReference Include="..\Omics\Omics.csproj" />
+  </ItemGroup>
+
+</Project>

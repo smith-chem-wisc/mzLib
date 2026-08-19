@@ -1,4 +1,5 @@
-﻿using Omics.SequenceConversion;
+﻿using Omics.RetentionTimePrediction;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.Client;
 using Chromatography;
 using Chromatography.RetentionTimePrediction;
