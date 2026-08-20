@@ -755,15 +755,40 @@ namespace FlashLFQ
                 return;
             }
 
+            using FileStream stream = File.Create(outputPath);
+            WriteMs1Features(stream, mzExpansion, silent);
+        }
+
+        /// <summary>
+        /// Writes the MS1 features to an arbitrary stream rather than a file, so the same JSON Lines output can be
+        /// sent over a pipe, socket, or process's standard output for local IPC instead of landing on disk. The
+        /// format and streaming behaviour are identical to the file overload: each record is flushed to the stream
+        /// as it is produced, so a reader on the other end consumes one feature at a time.
+        ///
+        /// The caller owns <paramref name="destination"/> and is responsible for disposing it; this method neither
+        /// closes nor flushes it beyond the per-record flushes needed to stream. When the destination is a process's
+        /// standard output, pass <paramref name="silent"/> as true so progress text does not share the data channel;
+        /// progress and error text is written to standard error regardless, and never to the destination stream.
+        /// </summary>
+        /// <param name="destination"> the stream the feature objects are written to </param>
+        /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
+        /// <param name="silent"> suppresses progress output (written to standard error) </param>
+        public void WriteMs1Features(Stream destination, double mzExpansion = PeakWindowData.DefaultMzExpansion, bool silent = false)
+        {
+            if (destination == null)
+            {
+                return;
+            }
+
             if (!silent)
             {
-                Console.WriteLine("Writing MS1 features...");
+                Console.Error.WriteLine("Writing MS1 features...");
             }
 
             Dictionary<SpectraFileInfo, List<(ChromatographicPeak Peak, int FeatureId)>> featuresByFile =
                 AssignFeatureIds();
 
-            using (FileStream stream = File.Create(outputPath))
+            Stream stream = destination;
             using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
             {
                 foreach (SpectraFileInfo spectraFile in SpectraFiles)
@@ -792,7 +817,7 @@ namespace FlashLFQ
                     {
                         if (readScanByScan && !silent)
                         {
-                            Console.WriteLine("FlashLFQ: " + spectraFile.FilenameWithoutExtension + " does not support"
+                            Console.Error.WriteLine("FlashLFQ: " + spectraFile.FilenameWithoutExtension + " does not support"
                                 + " reading single scans; loading the whole file to write its MS1 features");
                         }
 
@@ -806,7 +831,7 @@ namespace FlashLFQ
                         {
                             if (!silent)
                             {
-                                Console.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension
+                                Console.Error.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension
                                     + " contained no MS1 scans; no MS1 features were written for it");
                             }
                             continue;
@@ -848,7 +873,7 @@ namespace FlashLFQ
 
                     if (!silent)
                     {
-                        Console.WriteLine("Finished writing MS1 features for " + spectraFile.FilenameWithoutExtension);
+                        Console.Error.WriteLine("Finished writing MS1 features for " + spectraFile.FilenameWithoutExtension);
                     }
                 }
             }
@@ -862,6 +887,10 @@ namespace FlashLFQ
         {
             writer.Flush();
             stream.WriteByte((byte)'\n');
+            // Push the completed record through to the destination now, so a pipe or socket reader on the other
+            // end receives it as it is produced rather than when an internal buffer happens to fill. For a
+            // FileStream this is a cheap flush of already-buffered bytes; for a pipe it is what makes it stream.
+            stream.Flush();
             writer.Reset();
         }
 
