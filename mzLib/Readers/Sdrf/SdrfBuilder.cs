@@ -1,4 +1,4 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MzLibUtil;
 using Omics.Modifications;
 using Proteomics.ProteolyticDigestion;
@@ -88,6 +88,14 @@ namespace Readers
             if (inputs.Count == 0)
                 throw new ArgumentException("An SDRF document needs at least one row.", nameof(rows));
 
+            // Build null-checks its argument, so the members it goes on to dereference are checked
+            // here too. Without this, a null Assay or a null Characteristics dictionary surfaces as
+            // a NullReferenceException thrown from inside a LINQ lambda, which tells the caller
+            // neither which row was wrong nor what was missing -- and the entry point has already
+            // established ArgumentException as the contract for a malformed input.
+            for (int i = 0; i < inputs.Count; i++)
+                RequireComplete(inputs[i], i);
+
             // Multi-cardinality columns are as wide as the widest row needs, and every row pads to
             // that width. Sizing per row would produce a ragged document.
             int modificationSlots = Math.Max(1, inputs.Max(r =>
@@ -119,6 +127,33 @@ namespace Readers
                 .ToList();
 
             return new SdrfDocument(header, built);
+        }
+
+        /// <summary>
+        /// Checks the one row for the nulls <see cref="Build"/> would otherwise dereference. The
+        /// collection properties default to empty, so reaching this with a null means the caller set
+        /// one to null explicitly; an empty list or dictionary is what it wants instead.
+        /// </summary>
+        private static void RequireComplete(SdrfRowInput input, int index)
+        {
+            if (input is null)
+                throw new ArgumentException($"Row {index} is null.", nameof(input));
+            if (input.Sample is null)
+                throw new ArgumentException($"Row {index} has no sample.", nameof(input));
+            if (input.Assay is null)
+                throw new ArgumentException($"Row {index} has no assay.", nameof(input));
+            if (input.Sample.Characteristics is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.Characteristics)}; pass an empty " +
+                    "dictionary for a sample with no characteristics.", nameof(input));
+            if (input.Assay.FixedModifications is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfAssay.FixedModifications)}; pass an empty " +
+                    "list for a search with none.", nameof(input));
+            if (input.Assay.VariableModifications is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfAssay.VariableModifications)}; pass an " +
+                    "empty list for a search with none.", nameof(input));
         }
 
         private static List<string> BuildHeader(
@@ -177,7 +212,7 @@ namespace Readers
             cells.Add(InstrumentCell(assay.Instrument, options));
             cells.Add(CleavageAgentCell(assay.CleavageAgent, options));
 
-            var modifications = ModificationCells(assay).ToList();
+            var modifications = ModificationCells(assay, options).ToList();
             for (int i = 0; i < modificationSlots; i++)
                 cells.Add(i < modifications.Count ? modifications[i] : SdrfReserved.NotApplicable);
 
@@ -193,7 +228,11 @@ namespace Readers
             if (options.Software is not null)
                 cells.Add(SoftwareCell(options));
             if (!string.IsNullOrWhiteSpace(options.SdrfVersion))
-                cells.Add("v" + options.SdrfVersion.TrimStart('v'));
+                // Either casing of the prefix is stripped before ours is added. Stripping only 'v'
+                // turned a caller's "V1.1.0" into "vV1.1.0", and nothing downstream validates this
+                // column, so the malformed value would have gone out silently. The specification
+                // asks for vMAJOR.MINOR.PATCH.
+                cells.Add("v" + options.SdrfVersion.TrimStart('v', 'V'));
 
             foreach (var column in factors)
                 cells.Add(string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
@@ -218,6 +257,14 @@ namespace Readers
                 && ControlledVocabulary.PsiMs.TryGetByName(instrument.Name, out var resolved))
                 instrument = resolved;
 
+            // Neither a name nor an accession is not a term, and SdrfCell.ToCell rightly refuses
+            // it. That refusal must not be how a lenient build ends: RequireSampleMetadata = false
+            // exists precisely so a finished search is never thrown away, and an ArgumentException
+            // raised from a formatting helper would defeat it. Route it through Missing, which is
+            // the one place that decides what an absent value costs.
+            if (string.IsNullOrEmpty(instrument.Accession) && string.IsNullOrEmpty(instrument.Name))
+                return Missing(Instrument, options);
+
             return string.IsNullOrEmpty(instrument.Accession)
                 // Named but unresolvable. The specification allows NT= with no AC=, and that is
                 // honest: it says which instrument without claiming a term we could not find.
@@ -237,6 +284,11 @@ namespace Readers
                 ? named.PsiMsName
                 : agent.Name;
 
+            // Same reason as InstrumentCell: an agent that names nothing cannot be written as a
+            // term, and a lenient build must get a reserved word rather than an exception.
+            if (string.IsNullOrEmpty(accession) && string.IsNullOrEmpty(name))
+                return Missing(CleavageAgent, options);
+
             return SdrfCell.ToCell(new CvParam(
                 string.IsNullOrEmpty(accession) ? "" : "MS", accession ?? "", name, ""));
         }
@@ -246,13 +298,24 @@ namespace Readers
         /// UNIMOD database reference — mzLib already resolves it when loading — and the target
         /// residues from its motif.
         /// </summary>
-        private static IEnumerable<string> ModificationCells(SdrfAssay assay)
+        private static IEnumerable<string> ModificationCells(SdrfAssay assay, SdrfBuilderOptions options)
         {
-            foreach (var mod in assay.FixedModifications) yield return ModificationCell(mod, "Fixed");
-            foreach (var mod in assay.VariableModifications) yield return ModificationCell(mod, "Variable");
+            foreach (var mod in assay.FixedModifications) yield return ModificationCell(mod, "Fixed", options);
+            foreach (var mod in assay.VariableModifications) yield return ModificationCell(mod, "Variable", options);
         }
 
-        private static string ModificationCell(Modification mod, string modificationType)
+        /// <summary>
+        /// NT= carries the BARE modification name and TA= carries the residue, which is what the
+        /// specification's own examples show — "NT=Oxidation;AC=UNIMOD:35;TA=M;MT=Variable".
+        ///
+        /// So the name comes from <see cref="Modification.OriginalId"/>, not
+        /// <see cref="Modification.IdWithMotif"/>. mzLib's Modification constructor sets
+        /// IdWithMotif to "Oxidation on M" whenever a target is present (Modification.cs:78), so
+        /// taking the name from there wrote the motif twice, and once in a field that is not for it.
+        /// OriginalId is the same choice ProFormaConverter.cs:159 makes when it emits a modification
+        /// name into an external format.
+        /// </summary>
+        private static string ModificationCell(Modification mod, string modificationType, SdrfBuilderOptions options)
         {
             string accession = "";
             if (mod.DatabaseReference is not null
@@ -264,9 +327,17 @@ namespace Readers
             if (mod.Target is not null) extras.Add(("TA", mod.Target.ToString()));
             extras.Add(("MT", modificationType));
 
+            // IdWithMotif is only ever populated when OriginalId is, so this fallback order is the
+            // safe one; the reverse could never reach OriginalId.
+            string name = mod.OriginalId ?? mod.IdWithMotif ?? "";
+
+            // As in InstrumentCell: a modification naming nothing and accessioned to nothing cannot
+            // be written as a term, and must not throw out of a lenient build.
+            if (string.IsNullOrEmpty(name) && string.IsNullOrEmpty(accession))
+                return Missing(ModificationParameters, options);
+
             return SdrfCell.ToCell(
-                new CvParam(string.IsNullOrEmpty(accession) ? "" : "UNIMOD", accession,
-                    mod.IdWithMotif ?? mod.OriginalId ?? "", ""),
+                new CvParam(string.IsNullOrEmpty(accession) ? "" : "UNIMOD", accession, name, ""),
                 extras.ToArray());
         }
 
@@ -274,13 +345,19 @@ namespace Readers
         /// Tolerances are written as a value and a unit ("10 ppm", "0.02 Da"), which is what the
         /// corpus does and what the specification's examples show — not as the MS:1001412/1001413
         /// cvParam pair the mzIdentML writer uses.
+        ///
+        /// INVARIANT CULTURE, because this is a number in a file format, not a number shown to a
+        /// person: on a de-DE machine the default would write "0,02 Da", which no consumer parses.
+        /// PpmTolerance and AbsoluteTolerance already format their own values this way
+        /// (PpmTolerance.cs:38, AbsoluteTolerance.cs:38), as does <see cref="Positive"/> below.
+        /// Their ToString is not reused here only because it renders "±10.0000 PPM", which is not
+        /// the grammar SDRF asks for.
         /// </summary>
         private static string ToleranceCell(Tolerance tolerance, string column, SdrfBuilderOptions options)
         {
             if (tolerance is null) return Missing(column, options);
-            return tolerance is PpmTolerance
-                ? $"{tolerance.Value} ppm"
-                : $"{tolerance.Value} Da";
+            string value = tolerance.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return tolerance is PpmTolerance ? value + " ppm" : value + " Da";
         }
 
         private static string DissociationCell(DissociationType dissociation, SdrfBuilderOptions options)
@@ -327,12 +404,19 @@ namespace Readers
         /// Writing a reserved word would produce a document that passes every validator, generates
         /// no drift findings, and says nothing — the failure mode this whole design exists to
         /// prevent. A caller that genuinely wants a partial document opts out explicitly.
+        ///
+        /// NOTE that the switch is named for the columns it exists for, but it guards EVERY column
+        /// routed through here — comment[label] and comment[dissociation method] among them. So the
+        /// message names the column that has no value rather than asserting that sample metadata is
+        /// what is missing, which for those two would be untrue. Splitting the switch in two would
+        /// be a design change rather than a wording fix, and no caller needs the halves separately
+        /// yet.
         /// </summary>
         private static string Missing(string column, SdrfBuilderOptions options) =>
             options.RequireSampleMetadata
                 ? throw new MzLibException(
-                    $"No value for '{column}'. An SDRF written with reserved words in place of its " +
-                    "sample metadata is uniformly consistent, passes validation, and cannot be " +
+                    $"No value for '{column}'. An SDRF that writes a reserved word wherever it " +
+                    "cannot state a fact is uniformly consistent, passes validation, and cannot be " +
                     "mined. Supply the value, or set RequireSampleMetadata = false to accept a " +
                     "document that says nothing here.")
                 : SdrfReserved.NotAvailable;

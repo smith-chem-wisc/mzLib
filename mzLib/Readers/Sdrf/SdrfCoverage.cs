@@ -1,12 +1,15 @@
-namespace Readers
+﻿namespace Readers
 {
     /// <summary>
     /// How completely one column is actually filled in across a collection.
     /// </summary>
     /// <param name="Column">The column name.</param>
     /// <param name="Documents">Documents that declare the column at all.</param>
-    /// <param name="Rows">Rows in those documents.</param>
-    /// <param name="Filled">Rows whose value is a real answer.</param>
+    /// <param name="Rows">
+    /// Rows in those documents. A column that appears several times in one header — SDRF's
+    /// multi-cardinality columns do — still contributes ONE row here, not one per repeat.
+    /// </param>
+    /// <param name="Filled">Rows carrying a real answer in at least one of that column's cells.</param>
     /// <param name="Absent">
     /// Rows that say nothing: empty, or one of the SDRF reserved words. Reserved words are the
     /// SPEC-CORRECT way to write "no value", which is exactly why they have to be counted as
@@ -14,8 +17,11 @@ namespace Readers
     /// answers no question.
     /// </param>
     /// <param name="DistinctValues">
-    /// How many different real answers appear. A column filled to 100% with one repeated value
-    /// cannot group anything, so fill rate alone is not enough.
+    /// How many different real answers appear, compared case-insensitively and ignoring surrounding
+    /// whitespace. A column filled to 100% with one repeated value cannot group anything, so fill
+    /// rate alone is not enough — and "liver" and "Liver" are that one repeated value, not two, so
+    /// counting them apart would hide exactly the case this number exists to catch. The casing
+    /// difference is itself a real finding, but it belongs to <see cref="SdrfDriftLint"/>.
     /// </param>
     public sealed record SdrfColumnCoverage(
         string Column,
@@ -84,6 +90,20 @@ namespace Readers
 
                 foreach (var row in document.Results)
                 {
+                    // Counted ONCE PER ROW per column NAME, not once per header position.
+                    //
+                    // SDRF columns are multi-cardinality: comment[modification parameters] appears
+                    // as many times as the widest row needs, and every narrower row pads the rest
+                    // with a reserved word, which IsAnswer correctly reads as unfilled. Counting
+                    // positions therefore put that padding in the denominator. Four files, one with
+                    // eight modifications and three with two, gave eight columns and 14 real cells
+                    // out of 32 — a 44% fill rate reported as uninformative for a column in which
+                    // every modification searched was in fact recorded.
+                    //
+                    // So a row asks one question per column name: did it say anything here at all.
+                    var countedThisRow = new HashSet<string>(StringComparer.Ordinal);
+                    var answeredThisRow = new HashSet<string>(StringComparer.Ordinal);
+
                     for (int c = 0; c < header.Count; c++)
                     {
                         string column = header[c];
@@ -94,17 +114,21 @@ namespace Readers
                             documents[column] = seenIn = new HashSet<int>();
                             rows[column] = 0;
                             filled[column] = 0;
-                            values[column] = new HashSet<string>(StringComparer.Ordinal);
+                            // OrdinalIgnoreCase, matching IsAnswer. These disagreed: a cell was
+                            // judged filled case-insensitively but counted distinct case-sensitively.
+                            values[column] = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
                         }
                         seenIn.Add(d);
-                        rows[column]++;
+                        if (countedThisRow.Add(column)) rows[column]++;
 
                         string cell = c < row.Cells.Count ? row.Cells[c] : "";
-                        if (IsAnswer(cell))
-                        {
-                            filled[column]++;
-                            values[column].Add(cell);
-                        }
+                        if (!IsAnswer(cell)) continue;
+
+                        if (answeredThisRow.Add(column)) filled[column]++;
+
+                        // Trimmed for the same reason IsAnswer trims: leading whitespace does not
+                        // make a second answer.
+                        values[column].Add(cell.Trim());
                     }
                 }
             }

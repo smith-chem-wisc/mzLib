@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -514,6 +514,86 @@ namespace Test.FileReadingTests
             Assert.That(part.IsUninformative, Is.False);
             Assert.That(SdrfCoverage.Uninformative(collection).Select(c => c.Column),
                 Does.Not.Contain("characteristics[organism part]"));
+        }
+
+        /// <summary>
+        /// SDRF's multi-cardinality columns appear several times in one header, and every narrower
+        /// row pads the remainder with a reserved word — which IsAnswer correctly reads as unfilled.
+        /// Counting header POSITIONS therefore put the format's own padding in the denominator: four
+        /// files, one with four modifications and three with one each, reported 7 of 16 cells filled
+        /// and the column called uninformative, although every modification searched was recorded.
+        /// </summary>
+        [Test]
+        public void ARepeatedColumnIsCountedOncePerRowNotOncePerCell()
+        {
+            const string Mods = "comment[modification parameters]";
+            string[] names = { "source name", "assay name", Mods, Mods, Mods, Mods };
+
+            var docs = new[]
+            {
+                Doc(names, new[] { "S0", "run 0", "NT=Oxidation;AC=UNIMOD:35", "NT=Acetyl;AC=UNIMOD:1", "NT=Phospho;AC=UNIMOD:21", "NT=Deamidated;AC=UNIMOD:7" }),
+                Doc(names, new[] { "S1", "run 1", "NT=Oxidation;AC=UNIMOD:35", "not applicable", "not applicable", "not applicable" }),
+                Doc(names, new[] { "S2", "run 2", "NT=Acetyl;AC=UNIMOD:1", "not applicable", "not applicable", "not applicable" }),
+                Doc(names, new[] { "S3", "run 3", "NT=Phospho;AC=UNIMOD:21", "not applicable", "not applicable", "not applicable" })
+            };
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var coverage = SdrfCoverage.Measure(collection).Single(c => c.Column == Mods);
+
+            Assert.That(coverage.Rows, Is.EqualTo(4), "four rows, not sixteen cells");
+            Assert.That(coverage.Filled, Is.EqualTo(4), "every row named at least one modification");
+            Assert.That(coverage.Absent, Is.EqualTo(0));
+            Assert.That(coverage.FillRate, Is.EqualTo(1d));
+            Assert.That(coverage.DistinctValues, Is.EqualTo(4));
+            Assert.That(coverage.IsUninformative, Is.False,
+                "the padding is the format's, not a gap in the annotation");
+        }
+
+        /// <summary>
+        /// The other half of the same rule: a row that says nothing in ANY of a repeated column's
+        /// cells is still absent, exactly once.
+        /// </summary>
+        [Test]
+        public void ARepeatedColumnEmptyAcrossTheWholeRowStillCountsAsAbsentOnce()
+        {
+            const string Mods = "comment[modification parameters]";
+            string[] names = { "source name", "assay name", Mods, Mods };
+            var docs = new[]
+            {
+                Doc(names, new[] { "S0", "run 0", "NT=Oxidation;AC=UNIMOD:35", "not applicable" }),
+                Doc(names, new[] { "S1", "run 1", "not applicable", "not applicable" })
+            };
+            var collection = new SdrfCollection(docs, new[] { "A", "B" });
+
+            var coverage = SdrfCoverage.Measure(collection).Single(c => c.Column == Mods);
+
+            Assert.That(coverage.Rows, Is.EqualTo(2));
+            Assert.That(coverage.Filled, Is.EqualTo(1));
+            Assert.That(coverage.Absent, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// The distinct count exists to catch a column filled with one repeated value. "liver" and
+        /// "Liver" ARE that one value; counting them apart made a column that says one thing four
+        /// ways look like it could group four samples into four. The casing difference is a real
+        /// finding, but it is SdrfDriftLint's to report — IsAnswer already reads the reserved words
+        /// case-insensitively for exactly this reason.
+        /// </summary>
+        [Test]
+        public void DistinctValuesIgnoresCasingAndSurroundingWhitespace()
+        {
+            string[] names = { "source name", "assay name", "characteristics[organism part]" };
+            var docs = new[] { "liver", "Liver", "LIVER", " liver " }
+                .Select((tissue, i) => Doc(names, new[] { "S" + i, "run " + i, tissue }))
+                .ToArray();
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var part = SdrfCoverage.Measure(collection).Single(c => c.Column == "characteristics[organism part]");
+
+            Assert.That(part.FillRate, Is.EqualTo(1d), "all four are real answers");
+            Assert.That(part.DistinctValues, Is.EqualTo(1));
+            Assert.That(part.IsUninformative, Is.True,
+                "a column that says 'liver' four ways cannot group anything");
         }
 
         [Test]

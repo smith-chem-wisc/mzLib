@@ -1,10 +1,11 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
+using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics.ProteolyticDigestion;
 using Readers;
@@ -102,8 +103,40 @@ namespace Test.FileReadingTests
             var mods = row.All("comment[modification parameters]");
 
             Assert.That(mods.Count, Is.EqualTo(2));
-            Assert.That(mods[0], Does.Contain("AC=UNIMOD:4").And.Contain("TA=C").And.Contain("MT=Fixed"));
-            Assert.That(mods[1], Does.Contain("AC=UNIMOD:35").And.Contain("TA=M").And.Contain("MT=Variable"));
+
+            // EXACT, not Does.Contain. The contains-form passed for as long as NT= carried
+            // "Carbamidomethyl on C" — the motif duplicated into the name field, where the
+            // specification puts only the bare name and leaves the residue to TA=. Every other
+            // column in this fixture is pinned exactly; these two were the only ones that were not,
+            // which is precisely why a green suite could not see it.
+            Assert.That(mods[0], Is.EqualTo("NT=Carbamidomethyl;AC=UNIMOD:4;TA=C;MT=Fixed"));
+            Assert.That(mods[1], Is.EqualTo("NT=Oxidation;AC=UNIMOD:35;TA=M;MT=Variable"));
+        }
+
+        /// <summary>
+        /// mzLib's Modification carries the motif in IdWithMotif ("Oxidation on M") and the bare
+        /// name in OriginalId (Modification.cs:57-84). SDRF wants the bare name in NT= and the
+        /// residue in TA=, so a cell named from IdWithMotif states the residue twice and states it
+        /// once in a field that is not for it.
+        /// </summary>
+        [Test]
+        public void TheModificationNameIsBareAndTheResidueAppearsOnlyInTa()
+        {
+            var mod = Mod("Oxidation on M", "M", "35");
+            Assert.That(mod.IdWithMotif, Is.EqualTo("Oxidation on M"),
+                "the input really does carry the motif; that is what makes this worth pinning");
+            Assert.That(mod.OriginalId, Is.EqualTo("Oxidation"));
+
+            var assay = Assay() with
+            {
+                FixedModifications = Array.Empty<Modification>(),
+                VariableModifications = new[] { mod }
+            };
+            string cell = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) })
+                .Results[0]["comment[modification parameters]"];
+
+            Assert.That(cell, Is.EqualTo("NT=Oxidation;AC=UNIMOD:35;TA=M;MT=Variable"));
+            Assert.That(cell, Does.Not.Contain(" on "), "the motif belongs to TA=, not to NT=");
         }
 
         [Test]
@@ -123,6 +156,47 @@ namespace Test.FileReadingTests
             var absolute = Assay() with { ProductMassTolerance = new AbsoluteTolerance(0.02) };
             var daltons = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), absolute) }).Results[0];
             Assert.That(daltons["comment[fragment mass tolerance]"], Is.EqualTo("0.02 Da"));
+        }
+
+        /// <summary>
+        /// A tolerance is a number in a file format, not a number shown to a person. Under the
+        /// machine's own culture this wrote "0,02 Da" on a de-DE box, which no SDRF consumer parses
+        /// — and the rest of the suite could not see it, because the machine it runs on is en-US.
+        /// </summary>
+        [Test]
+        [SetCulture("de-DE")]
+        public void TolerancesAreWrittenInInvariantCultureWhateverTheMachineIsSetTo()
+        {
+            Assert.That(0.02d.ToString(), Is.EqualTo("0,02"),
+                "guard on the fixture itself: this test proves nothing unless the culture took");
+
+            var assay = Assay() with
+            {
+                PrecursorMassTolerance = new PpmTolerance(5.5),
+                ProductMassTolerance = new AbsoluteTolerance(0.02)
+            };
+            var row = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) }).Results[0];
+
+            Assert.That(row["comment[precursor mass tolerance]"], Is.EqualTo("5.5 ppm"));
+            Assert.That(row["comment[fragment mass tolerance]"], Is.EqualTo("0.02 Da"));
+        }
+
+        /// <summary>
+        /// The specification asks for vMAJOR.MINOR.PATCH. Stripping only a lowercase prefix turned a
+        /// caller's "V1.1.0" into "vV1.1.0", and nothing downstream validates this column, so the
+        /// malformed value went out silently.
+        /// </summary>
+        [Test]
+        public void TheSdrfVersionPrefixIsWrittenOnceWhateverCasingTheCallerSupplied()
+        {
+            string Version(string supplied) => SdrfBuilder
+                .Build(new[] { new SdrfRowInput(Sample(), Assay()) },
+                       new SdrfBuilderOptions { SdrfVersion = supplied })
+                .Results[0]["comment[sdrf version]"];
+
+            Assert.That(Version("1.1.0"), Is.EqualTo("v1.1.0"));
+            Assert.That(Version("v1.1.0"), Is.EqualTo("v1.1.0"));
+            Assert.That(Version("V1.1.0"), Is.EqualTo("v1.1.0"));
         }
 
         // ---------------- what it refuses to do ----------------
@@ -345,6 +419,71 @@ namespace Test.FileReadingTests
             Assert.That(() => SdrfBuilder.Build(Array.Empty<SdrfRowInput>()),
                 Throws.TypeOf<ArgumentException>());
             Assert.That(() => SdrfBuilder.Build(null), Throws.TypeOf<ArgumentNullException>());
+        }
+
+        /// <summary>
+        /// RequireSampleMetadata = false exists so that a finished search is never thrown away, so
+        /// nothing under it may throw. SdrfCell.ToCell rightly refuses a term with neither a name nor
+        /// an accession, and three cell writers could hand it one: an instrument, a digestion agent
+        /// and a modification that each name nothing.
+        /// </summary>
+        [Test]
+        public void ALenientBuildDoesNotThrowOnATermThatNamesNothing()
+        {
+            var assay = Assay() with
+            {
+                Instrument = new CvParam("MS", "", "", ""),
+                CleavageAgent = new Protease("", CleavageSpecificity.Full, "", "", new List<DigestionMotif>()),
+                FixedModifications = Array.Empty<Modification>(),
+                VariableModifications = new[] { new Modification() }
+            };
+            var options = new SdrfBuilderOptions { RequireSampleMetadata = false };
+
+            SdrfDocument document = null;
+            Assert.That(() => document = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) }, options),
+                Throws.Nothing);
+
+            Assert.That(document.Results[0]["comment[instrument]"], Is.EqualTo("not available"));
+            Assert.That(document.Results[0]["comment[cleavage agent details]"], Is.EqualTo("not available"));
+            Assert.That(document.Results[0]["comment[modification parameters]"], Is.EqualTo("not available"));
+        }
+
+        /// <summary>
+        /// And the strict path still refuses it — but as the MzLibException this class contracts for,
+        /// not as an ArgumentException escaping a formatting helper.
+        /// </summary>
+        [Test]
+        public void TheStrictPathRefusesATermThatNamesNothingWithTheUsualException()
+        {
+            var assay = Assay() with { Instrument = new CvParam("MS", "", "", "") };
+
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) }),
+                Throws.TypeOf<MzLibException>());
+        }
+
+        /// <summary>
+        /// Build null-checks its argument, so the members it then dereferences are checked too.
+        /// Without this, a null Assay or Characteristics surfaced as a NullReferenceException thrown
+        /// from inside a LINQ lambda, naming neither the row nor what was missing.
+        /// </summary>
+        [Test]
+        public void ARowWithANullPartIsRejectedAsAnArgumentException()
+        {
+            var sample = Sample();
+            var assay = Assay();
+
+            Assert.That(() => SdrfBuilder.Build(new SdrfRowInput[] { null }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(null, assay) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, null) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with { Characteristics = null }, assay) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, assay with { FixedModifications = null }) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, assay with { VariableModifications = null }) }),
+                Throws.TypeOf<ArgumentException>());
         }
     }
 }
