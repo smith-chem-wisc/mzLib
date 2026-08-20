@@ -8,13 +8,17 @@ namespace MassSpectrometry
         public readonly int MsnOrder;
 
         /// <summary>
-        /// The scan's total ion current, or NaN when it was recorded by a caller that did not have the scan in hand.
-        /// Carried here so that summarizing a run's scans does not mean re-reading the file that was just indexed.
+        /// Total ion current of the scan, or <see cref="double.NaN"/> when the indexing engine that built
+        /// this instance did not record one. Callers that write it out are expected to check for NaN.
         /// </summary>
         public readonly double TotalIonCurrent;
 
-        public ScanInfo(int oneBasedScanNumber, int zeroBasedScanIndex, double retentionTime, int msnOrder,
-            double totalIonCurrent = double.NaN)
+        public ScanInfo(int oneBasedScanNumber, int zeroBasedScanIndex, double retentionTime, int msnOrder)
+            : this(oneBasedScanNumber, zeroBasedScanIndex, retentionTime, msnOrder, double.NaN)
+        {
+        }
+
+        public ScanInfo(int oneBasedScanNumber, int zeroBasedScanIndex, double retentionTime, int msnOrder, double totalIonCurrent)
         {
             OneBasedScanNumber = oneBasedScanNumber;
             ZeroBasedScanIndex = zeroBasedScanIndex;
