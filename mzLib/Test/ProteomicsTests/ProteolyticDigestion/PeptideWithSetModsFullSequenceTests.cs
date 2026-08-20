@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -312,7 +312,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+            // trypsin/P, not trypsin: these expected sequences were generated against the
+            // enzyme that cleaves before proline. That enzyme is spelled trypsin/P now;
+            // bare trypsin applies the proline restriction and yields a different list.
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin/P", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
 
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)
@@ -340,7 +343,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
+            // trypsin/P, not trypsin: these expected sequences were generated against the
+            // enzyme that cleaves before proline. That enzyme is spelled trypsin/P now;
+            // bare trypsin applies the proline restriction and yields a different list.
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin/P", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable), UniProtPtms, new List<Modification>());
 
             var serializer = new EssentialSequenceSerializer(modsToWrite);
             var service = SequenceConversionService.Default;
@@ -403,7 +409,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var proteinXml = ProteinDbLoader.LoadProteinXML(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "humanGAPDH.xml"), true, DecoyType.None, UniProtPtms, false, null, out var unknownMod);
             var gapdh = proteinXml[0];
 
-            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
+            // trypsin/P, not trypsin: these expected sequences were generated against the
+            // enzyme that cleaves before proline. That enzyme is spelled trypsin/P now;
+            // bare trypsin applies the proline restriction and yields a different list.
+            var gapdhPeptides = gapdh.Digest(new DigestionParams(protease: "trypsin/P", maxMissedCleavages: 0, minPeptideLength:1, initiatorMethionineBehavior:InitiatorMethionineBehavior.Variable),UniProtPtms,new List<Modification>());
             
             List<string> allSequences = new List<string>();
             foreach (var peptide in gapdhPeptides)

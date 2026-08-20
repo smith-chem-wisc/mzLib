@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -68,15 +68,15 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(dictionary.Count, Is.GreaterThan(0));
 
             // Verify well-known proteases exist with expected properties
-            Assert.That(dictionary.ContainsKey("trypsin|P"), Is.True);
-            Assert.That(dictionary["trypsin|P"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
-            Assert.That(dictionary["trypsin|P"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
+            Assert.That(dictionary.ContainsKey("trypsin"), Is.True);
+            Assert.That(dictionary["trypsin"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(dictionary["trypsin"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
         }
 
         /// <summary>
         /// Tests backward compatibility for old-style protease names.
         /// Names like "chymotrypsin (don't cleave before proline)" should automatically
-        /// resolve to "chymotrypsin|P".
+        /// resolve to "chymotrypsin".
         /// </summary>
         [Test]
         public static void GetProtease_OldStyleName_ResolvesToNewFormat()
@@ -87,9 +87,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             // Test various old-style naming patterns
             var testCases = new[]
             {
-                ("chymotrypsin (don't cleave before proline)", "chymotrypsin|P"),
-                ("trypsin (don't cleave before proline)", "trypsin|P"),
-                ("Lys-C (don't cleave before proline)", "Lys-C|P"),
+                ("chymotrypsin (don't cleave before proline)", "chymotrypsin"),
+                ("trypsin (don't cleave before proline)", "trypsin"),
+                ("Lys-C (don't cleave before proline)", "Lys-C"),
             };
 
             foreach (var (oldName, expectedNewName) in testCases)
@@ -120,13 +120,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             ProteaseDictionary.ResetToDefaults();
 
-            var protease = ProteaseDictionary.GetProtease("trypsin|P");
+            var protease = ProteaseDictionary.GetProtease("trypsin");
             Assert.That(protease, Is.Not.Null);
-            Assert.That(protease.Name, Is.EqualTo("trypsin|P"));
+            Assert.That(protease.Name, Is.EqualTo("trypsin"));
 
-            bool found = ProteaseDictionary.TryGetProtease("chymotrypsin|P", out var protease2);
+            bool found = ProteaseDictionary.TryGetProtease("chymotrypsin", out var protease2);
             Assert.That(found, Is.True);
-            Assert.That(protease2.Name, Is.EqualTo("chymotrypsin|P"));
+            Assert.That(protease2.Name, Is.EqualTo("chymotrypsin"));
         }
 
         /// <summary>
@@ -151,7 +151,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void NormalizeProteaseName_NoMatch_ReturnsOriginal()
         {
             Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
-            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin|P"), Is.EqualTo("trypsin|P"));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
             Assert.That(ProteaseDictionary.NormalizeProteaseName("custom protease"), Is.EqualTo("custom protease"));
             Assert.That(ProteaseDictionary.NormalizeProteaseName(""), Is.EqualTo(""));
             Assert.That(ProteaseDictionary.NormalizeProteaseName(null), Is.Null);
@@ -230,19 +230,19 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             // Arrange - capture initial state
             ProteaseDictionary.ResetToDefaults();
             int initialProteaseCount = ProteaseDictionary.Dictionary.Count;
-            var originalTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
+            var originalTrypsin = ProteaseDictionary.Dictionary["trypsin"];
             Assert.That(originalTrypsin.DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
             Assert.That(originalTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
             Assert.That(originalTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
 
             // Create a custom protease file that:
-            // 1. Attempts to override trypsin|P — should be SKIPPED (built-in wins)
+            // 1. Attempts to override trypsin — should be SKIPPED (built-in wins)
             // 2. Adds a completely new custom protease
             string customProteaseFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_custom_proteases.tsv");
             string[] lines =
             {
                 "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
-                "trypsin|P\tL[P]|\tfull\tMS:1001313\tTrypsin\t",  // Collision: same name as built-in, will be skipped
+                "trypsin\tL[P]|\tfull\tMS:1001313\tTrypsin\t",  // Collision: same name as built-in, will be skipped
                 "MyLabProtease\tE|\tfull\t\tCustom Glu-C variant\t"  // New: cleaves after glutamate
             };
             File.WriteAllLines(customProteaseFile, lines);
@@ -253,15 +253,15 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 var result = ProteaseDictionary.LoadAndMergeCustomProteases(customProteaseFile);
 
                 // Assert - verify merge results
-                // trypsin|P collides with a built-in → Skipped; MyLabProtease is new → Added
+                // trypsin collides with a built-in → Skipped; MyLabProtease is new → Added
                 Assert.That(result.Added.Count, Is.EqualTo(1));
                 Assert.That(result.Added, Contains.Item("MyLabProtease"));
                 Assert.That(result.Skipped.Count, Is.EqualTo(1));
-                Assert.That(result.Skipped, Contains.Item("trypsin|P"));
+                Assert.That(result.Skipped, Contains.Item("trypsin"));
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount + 1));
 
-                // Verify trypsin|P was NOT overwritten — original K[P]|, R[P]| motifs intact
-                var trypsinAfterMerge = ProteaseDictionary.Dictionary["trypsin|P"];
+                // Verify trypsin was NOT overwritten — original K[P]|, R[P]| motifs intact
+                var trypsinAfterMerge = ProteaseDictionary.Dictionary["trypsin"];
                 Assert.That(trypsinAfterMerge.DigestionMotifs.Count, Is.EqualTo(2));
                 Assert.That(trypsinAfterMerge.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
                 Assert.That(trypsinAfterMerge.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
@@ -288,8 +288,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialProteaseCount));
                 Assert.That(ProteaseDictionary.Dictionary.ContainsKey("MyLabProtease"), Is.False);
 
-                // Verify trypsin|P is still the built-in definition
-                var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
+                // Verify trypsin is still the built-in definition
+                var restoredTrypsin = ProteaseDictionary.Dictionary["trypsin"];
                 Assert.That(restoredTrypsin.DigestionMotifs.Count, Is.EqualTo(2));
                 Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "K"), Is.True);
                 Assert.That(restoredTrypsin.DigestionMotifs.Any(m => m.InducingCleavage == "R"), Is.True);
@@ -301,5 +301,108 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     File.Delete(customProteaseFile);
             }
         }
+
+        #region Proline naming convention
+
+        /// <summary>
+        /// The bare name is the proline-restricted enzyme and the "/P" suffix is the variant that
+        /// ignores the restriction, matching MaxQuant, Mascot, Comet and the PSI-MS cleavage agent
+        /// terms of the same spelling. Between January 2026 and the restoration of this convention
+        /// the file said the reverse, so this pins the direction rather than merely the motifs.
+        /// </summary>
+        [Test]
+        public static void ProlineSuffixFollowsTheCommunityConvention()
+        {
+            ProteaseDictionary.ResetToDefaults();
+
+            var restricted = ProteaseDictionary.GetProtease("trypsin");
+            var unrestricted = ProteaseDictionary.GetProtease("trypsin/P");
+
+            Assert.That(restricted.DigestionMotifs.All(m => m.PreventingCleavage == "P"), Is.True,
+                "bare 'trypsin' must carry the proline restriction (K[P]|,R[P]|)");
+            Assert.That(unrestricted.DigestionMotifs.All(m => string.IsNullOrEmpty(m.PreventingCleavage)), Is.True,
+                "'trypsin/P' must not carry the proline restriction (K|,R|)");
+        }
+
+        /// <summary>
+        /// The convention is only real if it changes digestion. KPEPTIDER has a proline
+        /// immediately after K1, so the restricted enzyme must read through it.
+        /// </summary>
+        [Test]
+        public static void BareNameDoesNotCleaveBeforeProlineButSlashPDoes()
+        {
+            ProteaseDictionary.ResetToDefaults();
+            var protein = new Protein("KPEPTIDER", "PROLINE_TEST");
+            var noMods = new List<Modification>();
+
+            var restricted = protein
+                .Digest(new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1), noMods, noMods)
+                .Select(p => p.BaseSequence).ToList();
+            var unrestricted = protein
+                .Digest(new DigestionParams("trypsin/P", maxMissedCleavages: 0, minPeptideLength: 1), noMods, noMods)
+                .Select(p => p.BaseSequence).ToList();
+
+            Assert.That(restricted, Is.EquivalentTo(new[] { "KPEPTIDER" }),
+                "trypsin must not cut K1|P2, leaving the sequence intact");
+            Assert.That(unrestricted, Is.EquivalentTo(new[] { "K", "PEPTIDER" }),
+                "trypsin/P must cut K1|P2");
+        }
+
+        /// <summary>
+        /// Every proline-restricted enzyme drops the suffix. Nothing in the shipped file may
+        /// reintroduce a "|P" name, because "|P" now means the opposite of what it used to.
+        /// </summary>
+        [Test]
+        public static void NoShippedProteaseUsesThePipePSuffix()
+        {
+            ProteaseDictionary.ResetToDefaults();
+
+            var offenders = ProteaseDictionary.Dictionary.Keys
+                .Where(k => k.EndsWith("|P", StringComparison.OrdinalIgnoreCase)).ToList();
+
+            Assert.That(offenders, Is.Empty,
+                $"'|P' named the restricted enzyme and now means the opposite; found: {string.Join(", ", offenders)}");
+        }
+
+        /// <summary>
+        /// Settings saved under either historical spelling must resolve to the same enzyme they
+        /// named when they were written, so no saved toml silently changes meaning.
+        /// </summary>
+        [Test]
+        [TestCase("trypsin|P", "trypsin")]
+        [TestCase("chymotrypsin|P", "chymotrypsin")]
+        [TestCase("Lys-C|P", "Lys-C")]
+        [TestCase("elastase|P", "elastase")]
+        [TestCase("subtilisin|P", "subtilisin")]
+        [TestCase("trypsin (don't cleave before proline)", "trypsin")]
+        [TestCase("chymotrypsin (don't cleave before proline)", "chymotrypsin")]
+        [TestCase("Lys-C (don't cleave before proline)", "Lys-C")]
+        [TestCase("trypsin (cleave before proline)", "trypsin/P")]
+        public static void HistoricalNamesResolveToTheSameEnzyme(string legacyName, string currentName)
+        {
+            ProteaseDictionary.ResetToDefaults();
+
+            Assert.That(ProteaseDictionary.NormalizeProteaseName(legacyName), Is.EqualTo(currentName));
+
+            Assert.That(ProteaseDictionary.TryGetProtease(legacyName, out var viaLegacy), Is.True,
+                $"'{legacyName}' no longer resolves; settings saved under it would fail to load");
+            Assert.That(viaLegacy.Name, Is.EqualTo(currentName));
+
+            // DigestionParams is the path a toml actually travels; it must accept the legacy name too.
+            Assert.That(new DigestionParams(legacyName).Protease.Name, Is.EqualTo(currentName));
+        }
+
+        /// <summary>
+        /// Bare "trypsin" is the one name whose meaning changed, and it cannot be detected at lookup
+        /// time because both spellings are live keys. Pinned so the trade-off stays deliberate.
+        /// </summary>
+        [Test]
+        public static void BareTrypsinIsNotRemapped()
+        {
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin/P"), Is.EqualTo("trypsin/P"));
+        }
+
+        #endregion
     }
 }

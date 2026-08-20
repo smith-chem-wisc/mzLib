@@ -410,8 +410,8 @@ namespace Proteomics.ProteolyticDigestion
 
         /// <summary>
         /// Gets a protease by name, with backward compatibility for old naming conventions.
-        /// Old names like "chymotrypsin (don't cleave before proline)" are automatically
-        /// converted to the new format "chymotrypsin|P".
+        /// Old names like "chymotrypsin (don't cleave before proline)" and "chymotrypsin|P"
+        /// are automatically converted to the current name "chymotrypsin".
         /// </summary>
         /// <param name="name">The protease name (old or new format).</param>
         /// <returns>The <see cref="Protease"/> object.</returns>
@@ -451,24 +451,55 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Normalizes old-style protease names to the current format.
-        /// Converts "chymotrypsin (don't cleave before proline)" → "chymotrypsin|P".
+        /// Normalizes a historical protease name onto the name this file uses today.
+        /// <para>
+        /// Proline-restricted enzymes have been spelled three ways over time. All of them
+        /// name the same motif, so all of them normalize to the bare name:
+        /// </para>
+        /// <list type="bullet">
+        ///   <item><description>"chymotrypsin (don't cleave before proline)" → "chymotrypsin"</description></item>
+        ///   <item><description>"chymotrypsin|P" → "chymotrypsin"</description></item>
+        /// </list>
+        /// <para>
+        /// The unrestricted variant was once spelled "(cleave before proline)" and is now
+        /// suffixed "/P", matching MaxQuant, Mascot, Comet and the PSI-MS cleavage agent terms:
+        /// "chymotrypsin (cleave before proline)" → "chymotrypsin/P".
+        /// </para>
+        /// <para>
+        /// One name is deliberately NOT remapped: bare "trypsin". Between January 2026 and the
+        /// restoration of this convention it named the unrestricted motif; it now names the
+        /// restricted one. Both spellings are live dictionary keys, so the change cannot be
+        /// detected here — it is called out in proteases.tsv and in the release notes instead.
+        /// </para>
         /// </summary>
+        /// <param name="name">A protease name in any historical spelling.</param>
+        /// <returns>The current name, or <paramref name="name"/> unchanged if it needs no mapping.</returns>
         public static string NormalizeProteaseName(string name)
         {
             if (string.IsNullOrEmpty(name))
                 return name;
 
-            string[] prolineRestrictionPatterns = { " (don't cleave before proline)" };
+            // Longest pattern first: " (don't cleave before proline)" contains no substring
+            // collision with " (cleave before proline)", but order is pinned so it stays that way.
+            (string Pattern, string Suffix)[] parentheticalForms =
+            {
+                (" (don't cleave before proline)", ""),
+                (" (cleave before proline)", "/P"),
+            };
 
-            foreach (var pattern in prolineRestrictionPatterns)
+            foreach (var (pattern, suffix) in parentheticalForms)
             {
                 int index = name.IndexOf(pattern, StringComparison.OrdinalIgnoreCase);
                 if (index >= 0)
                 {
-                    string baseName = name.Substring(0, index).Trim();
-                    return baseName + "|P";
+                    return name.Substring(0, index).Trim() + suffix;
                 }
+            }
+
+            // The "|P" suffix marked the proline-restricted enzyme, which is now the bare name.
+            if (name.EndsWith("|P", StringComparison.OrdinalIgnoreCase) && name.Length > 2)
+            {
+                return name.Substring(0, name.Length - 2).Trim();
             }
 
             return name;
