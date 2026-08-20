@@ -162,18 +162,23 @@ namespace Readers
                     continue;
                 }
 
+                // A header whose value is missing entirely -- "CHARGE" with no "=" -- is skipped rather
+                // than read, the same as any other unrecognised line. Indexing sArray[1] regardless is
+                // what made a stray header take down the whole file.
+                bool hasValue = sArray.Length > 1;
+
                 if (char.IsDigit(line[0]) && sArray.Length == 1)
                 {
-                    ParsePeakLine(line, mzs, intensities);
+                    TryParsePeakLine(line, mzs, intensities);
                 }
-                else if (line.StartsWith("PEPMASS"))
+                else if (line.StartsWith("PEPMASS") && hasValue)
                 {
                     sArray = sArray[1].Split(' ');
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
                     if (sArray.Length > 1)
                         precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
                 }
-                else if (line.StartsWith("CHARGE"))
+                else if (line.StartsWith("CHARGE") && hasValue && sArray[1].Length > 0)
                 {
                     // The sign suffix is optional: "2+", "2-" and "2" are all valid charge states.
                     // Strip it only when present -- stripping unconditionally drops a digit, so "12"
@@ -188,11 +193,11 @@ namespace Readers
                         charge *= -1;
                     }
                 }
-                else if (line.StartsWith("SCANS"))
+                else if (line.StartsWith("SCANS") && hasValue)
                 {
                     scanNumber = Convert.ToInt32(sArray[1]);
                 }
-                else if (line.StartsWith("RTINSECONDS"))
+                else if (line.StartsWith("RTINSECONDS") && hasValue)
                 {
                     rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1], CultureInfo.InvariantCulture) / 60.0;
                 }
@@ -250,12 +255,30 @@ namespace Readers
                 null, precursorMz);
         }
 
-        private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)
+        /// <summary>
+        /// Adds a peak to <paramref name="mzs"/> and <paramref name="intensities"/>, and reports whether
+        /// the line was a well-formed peak at all.
+        ///
+        /// "Starts with a digit" is the only test that gets a line here, which is a weak classifier: a
+        /// stray line carrying one number, or a number followed by something that is not one, reaches
+        /// this method too. Those are skipped like any other unrecognised line instead of indexing past
+        /// the end of the split, which surfaced as an IndexOutOfRangeException out of the reader and
+        /// took down the entire file.
+        /// </summary>
+        private static bool TryParsePeakLine(string line, List<double> mzs, List<double> intensities)
         {
             string[] sArray = line.Split(new Char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 
-            mzs.Add(Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture));
-            intensities.Add(Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture));
+            if (sArray.Length < 2
+                || !double.TryParse(sArray[0], NumberStyles.Any, CultureInfo.InvariantCulture, out double mz)
+                || !double.TryParse(sArray[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double intensity))
+            {
+                return false;
+            }
+
+            mzs.Add(mz);
+            intensities.Add(intensity);
+            return true;
         }
 
 

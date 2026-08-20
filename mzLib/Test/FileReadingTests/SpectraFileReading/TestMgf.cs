@@ -243,6 +243,50 @@ namespace Test.FileReadingTests.SpectraFileReading
         }
 
 
+        /// <summary>
+        /// Regression for MetaMorpheus issue #2366: a malformed line threw IndexOutOfRangeException out
+        /// of the reader, so one bad line made the whole file unreadable rather than being skipped the
+        /// way tester_corrupt.mgf's unknown words already are.
+        ///
+        /// malformedLines.mgf carries one such line per scan: a peak with an m/z but no intensity, a
+        /// header with no "=", a header with "=" and nothing after it, and a line that starts with a
+        /// digit but is not a peak. Each scan's well-formed peaks must survive.
+        /// </summary>
+        [Test]
+        public static void TestLoadMgfWithMalformedLines()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "malformedLines.mgf");
+            var reader = MsDataFileReader.GetDataFile(path);
+
+            NUnit.Framework.Assert.DoesNotThrow(() => reader.LoadAllStaticData(),
+                "one malformed line must not make the file unreadable");
+
+            NUnit.Framework.Assert.That(reader.NumSpectra, Is.EqualTo(4));
+
+            // scan 1: "202.456" has no intensity and is dropped; the two complete peaks remain
+            var peakWithoutIntensity = reader.GetOneBasedScan(1);
+            NUnit.Framework.Assert.That(peakWithoutIntensity.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(peakWithoutIntensity.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 201.123, 203.789 }).Within(1e-9));
+
+            // scan 2: bare "CHARGE" carries no value, so the default charge stands
+            var chargeWithoutEquals = reader.GetOneBasedScan(2);
+            NUnit.Framework.Assert.That(chargeWithoutEquals.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(chargeWithoutEquals.SelectedIonChargeStateGuess, Is.EqualTo(2));
+
+            // scan 3: "CHARGE=" is empty, and "9notanumber here" starts with a digit but is not a peak
+            var emptyChargeAndNonNumericPeak = reader.GetOneBasedScan(3);
+            NUnit.Framework.Assert.That(emptyChargeAndNonNumericPeak.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(emptyChargeAndNonNumericPeak.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 401.5, 402.5 }).Within(1e-9));
+
+            // scan 4: valueless RTINSECONDS and SCANS leave their defaults rather than throwing
+            var headersWithoutValues = reader.GetOneBasedScan(4);
+            NUnit.Framework.Assert.That(headersWithoutValues.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(headersWithoutValues.SelectedIonChargeStateGuess, Is.EqualTo(3));
+        }
+
+
         [Test]
         public static void TestLoadCorruptMgf()
         {
