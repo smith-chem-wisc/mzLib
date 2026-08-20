@@ -5,8 +5,10 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.Json;
 using MassSpectrometry;
 using FlashLFQ.IsoTracker;
+using Readers;
 
 namespace FlashLFQ
 {
@@ -21,6 +23,18 @@ namespace FlashLFQ
         public IDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict = null;
         public string PepResultString { get; set; }
         public double MbrQValueThreshold { get; set; }
+
+        /// <summary>
+        /// The MS1 scans of each quantified file, in the order the peak indexing engine numbered them: the
+        /// ZeroBasedScanIndex of every peak in Peaks indexes into this file's array. Set by FlashLfqEngine at the
+        /// end of a run, and null for results assembled some other way.
+        /// </summary>
+        public IReadOnlyDictionary<SpectraFileInfo, ScanInfo[]> Ms1ScanInfo { get; private set; }
+
+        internal void SetMs1ScanInfo(IReadOnlyDictionary<SpectraFileInfo, ScanInfo[]> ms1ScanInfo)
+        {
+            Ms1ScanInfo = ms1ScanInfo;
+        }
 
         public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
             HashSet<string> peptideModifiedSequencesToQuantify = null, bool isIsoTracker = false)
@@ -710,6 +724,239 @@ namespace FlashLFQ
             {
                 Console.WriteLine("Finished writing output");
             }
+        }
+
+        /// <summary>
+        /// Writes the MS1 data observed around each quantified chromatographic peak, one window per charge state
+        /// the peak was observed at: every peak between that charge state's first and last scan, from mzExpansion
+        /// below the lowest m/z observed for it to mzExpansion above the highest. Peaks belonging to other species
+        /// are included, so the output shows the interference and co-elution surrounding each quantified precursor.
+        ///
+        /// The format is JSON Lines, in three levels. Each spectra file contributes a header object naming the file
+        /// and listing every MS1 scan its features cover, with that scan's retention time and total ion current;
+        /// then one object per quantified peak of that file, each holding one window per charge state; and inside
+        /// those, the MS1 peaks as flat m/z, intensity and scan number arrays. Nothing shared is repeated at a
+        /// deeper level than it belongs to, so neither the peak's metadata nor a scan's grows with the number of
+        /// MS1 peaks written. Being line delimited, it also streams: a feature is written and released before the
+        /// next is extracted, and a reader can consume one object at a time rather than parsing the whole file.
+        ///
+        /// This is not part of WriteResults because it re-reads each spectra file: FlashLfqEngine discards the raw
+        /// data once quantification finishes, and holding the extracted peaks in memory instead would cost far more
+        /// than reading the files a second time. Only one file is read at a time, and a file whose windows cover
+        /// fewer scans than it holds is seeked through scan by scan rather than materialized in full.
+        /// </summary>
+        /// <param name="outputPath"> the file the feature objects are written to </param>
+        /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
+        /// <param name="silent"> suppresses console progress output </param>
+        public void WriteMs1Features(string outputPath, double mzExpansion = PeakWindowData.DefaultMzExpansion, bool silent = false)
+        {
+            if (outputPath == null)
+            {
+                return;
+            }
+
+            using FileStream stream = File.Create(outputPath);
+            WriteMs1Features(stream, mzExpansion, silent);
+        }
+
+        /// <summary>
+        /// Writes the MS1 features to an arbitrary stream rather than a file, so the same JSON Lines output can be
+        /// sent over a pipe, socket, or process's standard output for local IPC instead of landing on disk. The
+        /// format and streaming behaviour are identical to the file overload: each record is flushed to the stream
+        /// as it is produced, so a reader on the other end consumes one feature at a time.
+        ///
+        /// The caller owns <paramref name="destination"/> and is responsible for disposing it; this method neither
+        /// closes nor flushes it beyond the per-record flushes needed to stream. When the destination is a process's
+        /// standard output, pass <paramref name="silent"/> as true so progress text does not share the data channel;
+        /// progress and error text is written to standard error regardless, and never to the destination stream.
+        /// </summary>
+        /// <param name="destination"> the stream the feature objects are written to </param>
+        /// <param name="mzExpansion"> how far below the lowest and above the highest observed m/z each window extends </param>
+        /// <param name="silent"> suppresses progress output (written to standard error) </param>
+        public void WriteMs1Features(Stream destination, double mzExpansion = PeakWindowData.DefaultMzExpansion, bool silent = false)
+        {
+            if (destination == null)
+            {
+                return;
+            }
+
+            if (!silent)
+            {
+                Console.Error.WriteLine("Writing MS1 features...");
+            }
+
+            Dictionary<SpectraFileInfo, List<(ChromatographicPeak Peak, int FeatureId)>> featuresByFile =
+                AssignFeatureIds();
+
+            Stream stream = destination;
+            using (Utf8JsonWriter writer = new Utf8JsonWriter(stream))
+            {
+                foreach (SpectraFileInfo spectraFile in SpectraFiles)
+                {
+                    if (!featuresByFile.TryGetValue(spectraFile, out var peaksInFile))
+                    {
+                        continue;
+                    }
+
+                    MsDataFile dataFile = MsDataFileReader.GetDataFile(spectraFile.FullFilePathWithExtension);
+
+                    // These are the scans the indexing engine numbered the peaks against, when the run that produced
+                    // these results left them behind. Rebuilding them from the file is the fallback, and costs a
+                    // static load: the file has to be read to be able to say which of its scans are MS1.
+                    ScanInfo[] ms1ScanInfo = GetMs1ScanInfo(spectraFile);
+
+                    // A static load reads, and then holds, every scan in the file. Seeking to the scans the windows
+                    // actually cover is worth it while there are fewer of them than that, which is the usual case
+                    // for a file contributing a few peaks and never the case for one contributing thousands.
+                    bool readScanByScan = ms1ScanInfo != null
+                        && peaksInFile.Sum(p => (long)Ms1FeatureData.CountScansToRead(p.Peak))
+                            < ms1ScanInfo.Length;
+                    bool useDynamicConnection = readScanByScan && TryInitiateDynamicConnection(dataFile);
+
+                    if (!useDynamicConnection)
+                    {
+                        if (readScanByScan && !silent)
+                        {
+                            Console.Error.WriteLine("FlashLFQ: " + spectraFile.FilenameWithoutExtension + " does not support"
+                                + " reading single scans; loading the whole file to write its MS1 features");
+                        }
+
+                        dataFile.LoadAllStaticData();
+                        ms1ScanInfo ??= Ms1FeatureData.BuildMs1ScanInfo(dataFile);
+                    }
+
+                    try
+                    {
+                        if (ms1ScanInfo.Length == 0)
+                        {
+                            if (!silent)
+                            {
+                                Console.Error.WriteLine("FlashLFQ Error: The file " + spectraFile.FilenameWithoutExtension
+                                    + " contained no MS1 scans; no MS1 features were written for it");
+                            }
+                            continue;
+                        }
+
+                        // The header is written first, and describes only the scans the features that follow will
+                        // refer to, so it comes from the peaks rather than from the features - which do not exist
+                        // yet, and which are extracted one at a time so that they need not all exist at once.
+                        SpectraFileHeaderData header = SpectraFileHeaderData.Create(spectraFile, dataFile,
+                            ms1ScanInfo, peaksInFile.Select(p => p.Peak), useDynamicConnection);
+                        if (header == null)
+                        {
+                            continue;
+                        }
+
+                        header.WriteTo(writer);
+                        WriteLineBreak(writer, stream);
+
+                        foreach ((ChromatographicPeak peak, int featureId) in peaksInFile)
+                        {
+                            Ms1FeatureData feature = Ms1FeatureData.Create(peak, dataFile,
+                                ms1ScanInfo, mzExpansion, useDynamicConnection);
+                            if (feature == null)
+                            {
+                                continue;
+                            }
+
+                            feature.WriteTo(writer, featureId);
+                            WriteLineBreak(writer, stream);
+                        }
+                    }
+                    finally
+                    {
+                        if (useDynamicConnection)
+                        {
+                            dataFile.CloseDynamicConnection();
+                        }
+                    }
+
+                    if (!silent)
+                    {
+                        Console.Error.WriteLine("Finished writing MS1 features for " + spectraFile.FilenameWithoutExtension);
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Ends one JSON Lines record. The writer has to be reset between objects: it otherwise rejects a second
+        /// top level value, since a stream of them is not itself a JSON document.
+        /// </summary>
+        private static void WriteLineBreak(Utf8JsonWriter writer, Stream stream)
+        {
+            writer.Flush();
+            stream.WriteByte((byte)'\n');
+            // Push the completed record through to the destination now, so a pipe or socket reader on the other
+            // end receives it as it is produced rather than when an internal buffer happens to fill. For a
+            // FileStream this is a cheap flush of already-buffered bytes; for a pipe it is what makes it stream.
+            stream.Flush();
+            writer.Reset();
+        }
+
+        /// <summary>
+        /// The MS1 scans of a file as the indexing engine numbered them, or null if this results object was not
+        /// produced by a FlashLfqEngine run and so has no scan metadata to draw on.
+        /// </summary>
+        private ScanInfo[] GetMs1ScanInfo(SpectraFileInfo spectraFile)
+        {
+            if (Ms1ScanInfo == null || !Ms1ScanInfo.TryGetValue(spectraFile, out ScanInfo[] scanInfo) || scanInfo == null)
+            {
+                return null;
+            }
+
+            return scanInfo;
+        }
+
+        /// <summary>
+        /// Opens a dynamic connection, reporting whether it took. Not every MsDataFile implementation supports one -
+        /// the in-memory ones throw NotImplementedException - and a file that cannot be read scan by scan is read
+        /// statically instead rather than failing the output.
+        /// </summary>
+        private static bool TryInitiateDynamicConnection(MsDataFile dataFile)
+        {
+            try
+            {
+                dataFile.InitiateDynamicConnection();
+                return true;
+            }
+            catch (Exception)
+            {
+                dataFile.CloseDynamicConnection();
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Numbers every peak within its spectra file, matching how WriteResults orders the QuantifiedPeaks output:
+        /// by file name, then by descending intensity. Peaks are numbered from 1 within each file name rather than
+        /// within each SpectraFileInfo, because two SpectraFileInfo sharing a base file name - the same path
+        /// registered as two fractions, or two runs of the same name in different directories - are one block in
+        /// that output and are indistinguishable in both, its File Name column and this output's fileName field
+        /// being the name without the extension. Numbering per SpectraFileInfo would hand the same (fileName,
+        /// featureId) pair to two different peaks.
+        /// </summary>
+        private Dictionary<SpectraFileInfo, List<(ChromatographicPeak Peak, int FeatureId)>> AssignFeatureIds()
+        {
+            var featuresByFile = new Dictionary<SpectraFileInfo, List<(ChromatographicPeak, int)>>();
+
+            foreach (var fileNameGroup in Peaks.SelectMany(p => p.Value)
+                         .GroupBy(p => p.SpectraFileInfo.FilenameWithoutExtension))
+            {
+                int featureId = 0;
+                foreach (ChromatographicPeak peak in fileNameGroup.OrderByDescending(p => p.Intensity))
+                {
+                    featureId++;
+                    if (!featuresByFile.TryGetValue(peak.SpectraFileInfo, out var peaksInFile))
+                    {
+                        peaksInFile = new List<(ChromatographicPeak, int)>();
+                        featuresByFile[peak.SpectraFileInfo] = peaksInFile;
+                    }
+                    peaksInFile.Add((peak, featureId));
+                }
+            }
+
+            return featuresByFile;
         }
 
         public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)

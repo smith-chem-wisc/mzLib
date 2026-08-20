@@ -57,7 +57,7 @@ namespace MassSpectrometry
                     continue; // Skip null scans
 
                 // Store scan metadata
-                ScanInfoArray[scanIndex] = new ScanInfo(scan.OneBasedScanNumber, scanIndex, scan.RetentionTime, scan.MsnOrder);
+                ScanInfoArray[scanIndex] = new ScanInfo(scan.OneBasedScanNumber, scanIndex, scan.RetentionTime, scan.MsnOrder, scan.TotalIonCurrent);
 
                 // Deconvolute the scan to get isotopic envelopes
                 var envelopes = Deconvoluter.Deconvolute(scan.MassSpectrum, deconParameters, mzRange);

@@ -326,6 +326,13 @@ namespace FlashLFQ
                 }
             }
 
+            // The scan metadata built during indexing outlives the index itself - ClearIndex releases the peaks and
+            // leaves ScanInfoArray alone - so handing it to the results lets anything that needs to translate the
+            // zero based scan indices carried by peaks do so without rebuilding the mapping from the spectra files.
+            _results.SetMs1ScanInfo(IndexingEngineDictionary
+                .Where(p => p.Value.ScanInfoArray != null)
+                .ToDictionary(p => p.Key, p => p.Value.ScanInfoArray));
+
             // done
             if (!FlashParams.Silent)
             {
