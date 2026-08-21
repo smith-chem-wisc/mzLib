@@ -69,7 +69,7 @@ namespace Test.Omics.Modifications
         public static void TestBasicProtease2()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("Lys-C|P", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new DigestionParams("Lys-C", minPeptideLength: 1, maxMissedCleavages: 0);
             // create a protein
             Protein myProtein = new Protein("MKPKPKPMKA", "myAccession");
             // digest it into peptides
@@ -178,7 +178,7 @@ namespace Test.Omics.Modifications
         public static void TestEndSequenceCTerm()
         {
             var empty = new List<Modification>();
-            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin|P", minPeptideLength: 1, maxMissedCleavages: 0);
+            DigestionParams myDigestionParams = new DigestionParams("chymotrypsin", minPeptideLength: 1, maxMissedCleavages: 0);
             // create a protein
             Protein myProtein = new Protein("AASFPWDJSSMF", "myAccession");
             // digest it into peptides

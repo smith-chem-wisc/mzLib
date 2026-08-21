@@ -88,9 +88,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.AreEqual("DKEITPDEP", p_aspN_reverse.BaseSequence);
             Assert.AreEqual(p_aspN.FullSequence, p_aspN_reverse.PeptideDescription);
 
-            //  chymotrypsin|P
+            //  chymotrypsin
             newAminoAcidPositions = new int["FKFPRWAWPSYGYPG".Length];
-            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin|P", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_chymoP = new PeptideWithSetModifications(new Protein("FKFPRWAWPSYGYPG", "DECOY_CHYMOP"), new DigestionParams(protease: "chymotrypsin", maxMissedCleavages: 10), 1, 15, CleavageSpecificity.Full, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_chymoP_reverse = p_chymoP.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("FGPYGWSPWAYRPFK", p_chymoP_reverse.BaseSequence);
             Assert.AreEqual(p_chymoP.FullSequence, p_chymoP_reverse.PeptideDescription);
@@ -106,7 +106,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             //  Only V(3, blocked by the following P), P(4) and H(8) are not cleavage residues,
             //  so every other position is pinned and just those three are reversed into place.
             newAminoAcidPositions = new int["KAYVPSRGHLDIN".Length];
-            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase|P"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
+            PeptideWithSetModifications p_elastase = new PeptideWithSetModifications(new Protein("KAYVPSRGHLDIN", "DECOY_ELASTASE"), new DigestionParams(protease: "elastase"), 1, 13, CleavageSpecificity.Semi, null, 0, new Dictionary<int, Modification>(), 0, null);
             PeptideWithSetModifications p_elastase_reverse = p_elastase.GetReverseDecoyFromTarget(newAminoAcidPositions);
             Assert.AreEqual("KAYHPSRGVLDIN", p_elastase_reverse.BaseSequence);
 
