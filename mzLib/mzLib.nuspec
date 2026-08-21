@@ -73,6 +73,9 @@
     <file src="Omics\Resources\Mods.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\RnaMods.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\TMT.txt" target="modificationData\Mods" />
+    <!-- Payload only, not embedded: mzLib does not load these itself today. -->
+    <file src="Omics\Resources\substitutions.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\surfactants.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\ptmlist.txt" target="modificationData\Data" />
     <file src="Omics\Resources\PSI-MOD.obo.xml" target="modificationData\Data" />
     <file src="Omics\Resources\unimod.xml" target="modificationData\Data" />
