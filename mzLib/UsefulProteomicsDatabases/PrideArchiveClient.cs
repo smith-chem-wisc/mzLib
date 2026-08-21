@@ -419,6 +419,83 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
+        /// Finds PRIDE Archive projects matching a free-text keyword (v3 <c>search/projects</c>) — the
+        /// discovery entry point for a caller who has a subject rather than an accession.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// Hits come back as <see cref="PrideProjectSearchResult"/>, NOT <see cref="PrideProject"/>.
+        /// PRIDE serves search from a separate flattened projection in which controlled-vocabulary
+        /// terms are reduced to display strings and contacts to names — see the remarks on
+        /// <see cref="PrideProjectSearchResult"/>. Follow a hit's
+        /// <see cref="PrideProjectSearchResult.Accession"/> to <see cref="GetProjectAsync"/> when the
+        /// full metadata object is wanted.
+        /// </para>
+        /// <para>
+        /// Only <paramref name="keyword"/> is exposed. PRIDE also accepts <c>filter</c>,
+        /// <c>sortFields</c> and <c>sortDirection</c>, but validates NONE of them: a misspelled field
+        /// or an invalid direction returns 200 with unfiltered, unsorted results (verified live
+        /// 2026-07-23), so a caller typo would silently produce wrong data instead of an error. Those
+        /// parameters are deferred until they can be validated in C# — an enum for the direction, a
+        /// restricted set for the sort fields — so a mistake fails here rather than at PRIDE.
+        /// </para>
+        /// <para>
+        /// A keyword is required. PRIDE treats an absent one as "browse the whole archive" (40 000+
+        /// projects at the time of writing), which is a different capability with a different cost,
+        /// not a degenerate search — so asking for it has to be deliberate rather than the result of
+        /// passing through an empty string.
+        /// </para>
+        /// <para>
+        /// EVERY matching project is returned, which for a search means the cost is set by the
+        /// KEYWORD rather than by anything the caller can cap. That differs in kind from
+        /// <see cref="GetProjectFilesAsync"/>, whose result is bounded by one project: a broad term
+        /// ("liver" matched 2 197 projects on 2026-08-21) pages until it has them all, so a caller
+        /// wanting a quick look should search narrowly rather than reach for
+        /// <paramref name="pageSize"/>, which changes only how many requests that takes. Narrowing
+        /// beyond a keyword needs <c>filter</c>, which is deferred for the reason above.
+        /// </para>
+        /// </remarks>
+        /// <param name="keyword">
+        /// The free-text query. Escaped before it is sent, so it may contain any character —
+        /// <c>&amp;</c> and <c>=</c> included, which would otherwise split it into further query
+        /// parameters.
+        /// </param>
+        /// <param name="pageSize">
+        /// Hits requested per page (default 100). PRIDE caps this server-side and then pages by the
+        /// capped size, exactly as it does for the file manifest; see
+        /// <see cref="GetProjectFilesAsync"/> for what that means for termination. Every page is
+        /// fetched regardless — this is a throughput knob, not a limit on how many hits are returned.
+        /// </param>
+        /// <param name="cancellationToken">Cancels the (possibly multi-page) search.</param>
+        /// <returns>
+        /// Every matching project, across all pages. Empty when nothing matches — PRIDE reports no
+        /// hits as an empty result rather than an error, so there is no <c>Try</c> variant of this
+        /// method as there is for <see cref="GetProjectAsync"/>. Never null.
+        /// </returns>
+        /// <exception cref="ArgumentException">The keyword is null, empty, or whitespace.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
+        /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
+        /// <exception cref="MzLibException">
+        /// PRIDE answered successfully but served a page identical to its predecessor while
+        /// <c>total_records</c> reported more remained — a broken contract rather than an outage.
+        /// </exception>
+        /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
+        public async Task<List<PrideProjectSearchResult>> SearchProjectsAsync(string keyword, int pageSize = 100,
+            CancellationToken cancellationToken = default)
+        {
+            if (string.IsNullOrWhiteSpace(keyword))
+                throw new ArgumentException("A search keyword is required.", nameof(keyword));
+            if (pageSize <= 0)
+                throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
+
+            return await GetAllPagesAsync<PrideProjectSearchResult>(
+                page => $"search/projects?keyword={Uri.EscapeDataString(keyword)}&pageSize={pageSize}&page={page}",
+                pageSize,
+                $"keyword '{keyword}'",
+                cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
         /// Downloads a single PRIDE file's bytes to <paramref name="destinationDirectory"/>, saved under the
         /// file's own <see cref="PrideArchiveFile.FileName"/>. The download runs over HTTPS through this
         /// client's reused <see cref="HttpClient"/>: PRIDE exposes files as FTP/Aspera locations, but its FTP
