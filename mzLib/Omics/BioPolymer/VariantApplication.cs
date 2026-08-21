@@ -261,10 +261,15 @@ namespace Omics.BioPolymer
 
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
             string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
-            // Keep previously applied variations not fully overwritten by this edit,
-            // regardless of whether there is a partial overlap with a prior variant.
+            // Keep every previously applied variation. Overlapping edits are spliced into one sequence rather
+            // than replacing one another, so an earlier edit stays in the sequence and has to stay in the
+            // record - the accession is built from this list. Includes() compares post-application spans, and
+            // a deletion's span collapses to a single residue, so it read as overwritten by any later edit
+            // beginning at the same position: two entries then differed by a deletion while carrying the same
+            // accession. Reversal makes that common, because it maps variations sharing an end onto
+            // variations sharing a begin.
             appliedVariations = appliedVariations
-                .Concat((protein.AppliedSequenceVariations ?? Enumerable.Empty<SequenceVariation>()).Where(x => !variantGettingApplied.Includes(x)))
+                .Concat(protein.AppliedSequenceVariations ?? Enumerable.Empty<SequenceVariation>())
                 .ToList();
 
             // Clip at stop (*) if any
