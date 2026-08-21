@@ -37,9 +37,15 @@ jobs:
     - name: Add coverlet collector (Test)
       run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
-      # Exclude live external-service tests (Koina, etc.) from the required run; they run in the
-      # separate, non-blocking external-service job below. ExternalService supersedes the old Koina filter.
-      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService" --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
+      # Exclude live external-service tests (Koina, UniProt, PRIDE) from the required run; they run in
+      # the separate, non-blocking external-service job below.
+      #
+      # The exclusion lives in Test/required.runsettings as an NUnit Where clause, NOT as
+      # --filter "Category!=ExternalService". That filter did not actually exclude them: live UniProt
+      # tests were observed running in THIS job on 2026-08-21, and once the download grew a real
+      # inactivity deadline they cost five minutes apiece and pushed the job past its budget. See the
+      # runsettings file for why VSTest trait filtering and NUnit categories disagree here.
+      run: cd mzLib && dotnet test --no-build --verbosity normal --settings ./Test/required.runsettings --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       env:
