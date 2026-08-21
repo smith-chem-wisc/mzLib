@@ -49,9 +49,17 @@ jobs:
   # Runs mzLib's live external-service tests (Koina). Intentionally NOT a required status check, so a
   # third-party outage never blocks a PR; the tests self-classify (outage -> Skipped, real break -> Fail).
   # Do NOT add this job to branch-protection required checks.
+  #
+  # Headroom, not a bound. What actually bounds a run now lives in ProteinDbRetriever: 2 minutes for a
+  # service to start responding, then a 5-minute inactivity deadline on the transfer itself. Before
+  # those existed a stalled download had no deadline at all, one live test spent 12m43s of the budget
+  # and the runner cancelled the job -- which reports as a red check on every open PR, exactly the
+  # "an outage blocks a PR" outcome the paragraph above exists to prevent. With the deadlines in place
+  # a hang is no longer possible, but a dozen live tests each waiting out a stall still add up, so the
+  # budget carries some slack above the ~15 minutes a healthy run takes.
   external-service-tests:
     runs-on: windows-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
     - uses: actions/checkout@v4
     - name: Set up .NET
