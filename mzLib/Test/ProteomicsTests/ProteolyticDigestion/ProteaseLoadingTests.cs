@@ -378,6 +378,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [TestCase("chymotrypsin (don't cleave before proline)", "chymotrypsin")]
         [TestCase("Lys-C (don't cleave before proline)", "Lys-C")]
         [TestCase("trypsin (cleave before proline)", "trypsin/P")]
+        [TestCase("chymotrypsin (cleave before proline)", "chymotrypsin/P")]
+        [TestCase("Lys-C (cleave before proline)", "Lys-C/P")]
         public static void HistoricalNamesResolveToTheSameEnzyme(string legacyName, string currentName)
         {
             ProteaseDictionary.ResetToDefaults();
@@ -401,6 +403,30 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
             Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin/P"), Is.EqualTo("trypsin/P"));
+        }
+
+
+        /// <summary>
+        /// mzLib #1005 dropped the unrestricted chymotrypsin and Lys-C variants when it moved to the
+        /// "|P" naming, leaving "chymotrypsin (cleave before proline)" and "Lys-C (cleave before
+        /// proline)" -- names that really did ship -- with nothing to resolve to. They are restored
+        /// here under the "/P" spelling, which is what makes the parenthetical mapping above real.
+        /// </summary>
+        [Test]
+        [TestCase("chymotrypsin/P", "F", "W", "Y", "L")]
+        [TestCase("Lys-C/P", "K")]
+        public static void RestoredUnrestrictedVariantsIgnoreProline(string name, params string[] residues)
+        {
+            ProteaseDictionary.ResetToDefaults();
+
+            var protease = ProteaseDictionary.GetProtease(name);
+            Assert.That(protease.DigestionMotifs.Select(m => m.InducingCleavage), Is.EquivalentTo(residues));
+            Assert.That(protease.DigestionMotifs.All(m => string.IsNullOrEmpty(m.PreventingCleavage)), Is.True,
+                $"'{name}' must not carry the proline restriction");
+
+            // And the restricted sibling still does, so the pair is a real pair.
+            var restricted = ProteaseDictionary.GetProtease(name.Substring(0, name.Length - 2));
+            Assert.That(restricted.DigestionMotifs.All(m => m.PreventingCleavage == "P"), Is.True);
         }
 
         #endregion

@@ -122,11 +122,13 @@ Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
 Arg-C	R|	full	MS:1001303	Arg-C	
 Asp-N	|D	full	MS:1001304	Asp-N	
 chymotrypsin	F[P]|,W[P]|,Y[P]|,L[P]|	full	MS:1001306	Chymotrypsin	
+chymotrypsin/P	F|,W|,Y|,L|	full			
 CNBr	M|	full	MS:1001307	CNBr	Homoserine lactone on M
 elastase	I[P]|,S[P]|,L[P]|,V[P]|,N[P]|,T[P]|,K[P]|,A[P]|,G[P]|,Y[P]|,Q[P]|,R[P]|,F[P]|,D[P]|	full		Elastase	
 Glu-C	E|	full			
 Glu-C (with asp)	E|,D|	full			
 Lys-C	K[P]|	full	MS:1001309	Lys-C	
+Lys-C/P	K|	full			
 Lys-N	|K	full			
 trypsin	K[P]|,R[P]|	full	MS:1001313	Trypsin	
 trypsin/P	K|,R|	full	MS:1001313	Trypsin	
