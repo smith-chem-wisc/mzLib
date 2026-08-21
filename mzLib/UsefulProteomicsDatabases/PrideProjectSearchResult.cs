@@ -29,15 +29,30 @@ namespace UsefulProteomicsDatabases
     /// </para>
     /// <para>
     /// Fields PRIDE omits for a given project arrive as empty collections, empty strings or zero,
-    /// never null. Several are genuinely sparse — <see cref="YearlyDownloads"/>,
-    /// <see cref="BotCount"/>, <see cref="HubCount"/>, <see cref="OrganicCount"/> and
-    /// <see cref="OtherOmicsLinks"/> were absent from most hits in a 100-hit sample captured
-    /// 2026-08-21 — so treat a zero or an empty list as "not reported" rather than as a measurement.
+    /// never null. Several are genuinely sparse: across 1 600 hits sampled from 16 different queries
+    /// on 2026-08-21, <see cref="ProjectTags"/> was populated on 2.6%, <see cref="Sdrf"/> on 2.4%,
+    /// <see cref="OtherOmicsLinks"/> on 18%, and <see cref="YearlyDownloads"/> with the
+    /// <see cref="BotCount"/>/<see cref="HubCount"/>/<see cref="OrganicCount"/> trio on under half.
+    /// Treat a zero or an empty list as "not reported", never as a measured zero. How sparse a given
+    /// field looks tracks the RESULT SET rather than the archive, so it varies by query.
+    /// </para>
+    /// <para>
+    /// One caveat the never-null guarantee does NOT cover: it applies to the fields, not to the
+    /// elements inside them. PRIDE ships empty and whitespace-only strings inside
+    /// <see cref="Keywords"/> on roughly 9% of hits, so filter before displaying or joining them.
     /// </para>
     /// </remarks>
     public class PrideProjectSearchResult
     {
-        /// <summary>The ProteomeXchange accession (e.g. "PXD012345"). The key to the full metadata object.</summary>
+        /// <summary>
+        /// The project accession (e.g. "PXD012345") — the key to the full metadata object via
+        /// <see cref="PrideArchiveClient.GetProjectAsync"/>.
+        /// </summary>
+        /// <remarks>
+        /// Usually a ProteomeXchange "PXD" accession, but not always: search also returns legacy
+        /// PRIDE-era "PRD" accessions and affinity "PAD" ones. Both resolve on the metadata endpoint,
+        /// so treat this as an opaque key rather than assuming a prefix.
+        /// </remarks>
         public string Accession { get; set; } = string.Empty;
 
         /// <summary>The project title.</summary>
@@ -55,10 +70,25 @@ namespace UsefulProteomicsDatabases
         /// <summary>The dataset DOI, or empty if PRIDE has not minted one.</summary>
         public string Doi { get; set; } = string.Empty;
 
-        /// <summary>Whether the submission is "COMPLETE", "PARTIAL" or "AFFINITY".</summary>
+        /// <summary>
+        /// How the project was submitted: "COMPLETE", "PARTIAL", "AFFINITY", or "PRIDE" for legacy
+        /// pre-ProteomeXchange submissions. Not treated as a closed set — it is a plain string
+        /// because PRIDE has added values before.
+        /// </summary>
         public string SubmissionType { get; set; } = string.Empty;
 
-        /// <summary>The project's SDRF sample-metadata file, or empty if it has none.</summary>
+        /// <summary>
+        /// The project's SDRF sample metadata, flattened by PRIDE's search index into a single
+        /// space-joined bag of the term VALUES — e.g. "Nt=label free sample;ac=ms:1002038
+        /// Nt=trypsin;ac=ms:1001251 Mus musculus Liver Male 18 weeks". Empty when the project has no
+        /// SDRF, which is the common case.
+        /// </summary>
+        /// <remarks>
+        /// Not a file, a filename or a URL: nothing can be fetched with it, and the row/column
+        /// structure of the real SDRF is gone. It is searchable text, useful for reading and matching
+        /// rather than for parsing. Rare in practice — non-empty on roughly 2% of hits sampled
+        /// 2026-08-21.
+        /// </remarks>
         public string Sdrf { get; set; } = string.Empty;
 
         /// <summary>The date the project was submitted to PRIDE.</summary>

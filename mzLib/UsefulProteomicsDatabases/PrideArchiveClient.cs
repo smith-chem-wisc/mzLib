@@ -60,6 +60,17 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public int MaxPages { get; init; } = 10000;
 
+        /// <summary>
+        /// The longest keyword <see cref="SearchProjectsAsync"/> will send. PRIDE answers a very long
+        /// keyword with HTTP 500 rather than a 400 or a 414 (observed at 2000 characters on
+        /// 2026-08-21; 500 characters still answered 200), and a 500 is the one signature that cannot
+        /// be told apart from an outage — <c>ExternalServiceTestHelper</c> reads it as "the service is
+        /// down" and SKIPS. Refusing the request here turns a caller's bug into an
+        /// <see cref="ArgumentException"/> at the call site instead. The exact server threshold is not
+        /// published; this sits well inside the range observed to work.
+        /// </summary>
+        public const int MaxKeywordLength = 1000;
+
         /// <summary>Creates a client with its own <see cref="HttpClient"/> pointed at the PRIDE Archive API.</summary>
         public PrideArchiveClient()
             : this(new HttpClient { BaseAddress = new Uri(DefaultBaseAddress), Timeout = TimeSpan.FromSeconds(100) }, ownsHttpClient: true)
@@ -448,11 +459,22 @@ namespace UsefulProteomicsDatabases
         /// <para>
         /// EVERY matching project is returned, which for a search means the cost is set by the
         /// KEYWORD rather than by anything the caller can cap. That differs in kind from
-        /// <see cref="GetProjectFilesAsync"/>, whose result is bounded by one project: a broad term
-        /// ("liver" matched 2 197 projects on 2026-08-21) pages until it has them all, so a caller
-        /// wanting a quick look should search narrowly rather than reach for
-        /// <paramref name="pageSize"/>, which changes only how many requests that takes. Narrowing
-        /// beyond a keyword needs <c>filter</c>, which is deferred for the reason above.
+        /// <see cref="GetProjectFilesAsync"/>, whose result is bounded by one project. Search hits are
+        /// also fat — roughly 10-14 KB each, since each carries the full protocols, every file name and
+        /// the match highlights — so a request count badly understates the load. Measured live
+        /// 2026-08-21: "liver" was 2 197 projects over 22 requests and about 30 MB; "proteomics" was
+        /// 37 356 projects over 374 requests and roughly 355 MB, most of the archive. PRIDE offers no
+        /// compression even when asked, so none of that can be traded away. Search narrowly;
+        /// <paramref name="pageSize"/> changes only how many requests it takes, never how much comes
+        /// back. Narrowing beyond a keyword needs <c>filter</c>, which is deferred for the reason above.
+        /// </para>
+        /// <para>
+        /// The keyword is free text with AND-of-prefix-token semantics, and PRIDE supports no query
+        /// operators: quotes are discarded (there is no phrase search), <c>*</c> is dropped, and
+        /// <c>AND</c>/<c>OR</c> match as ordinary literal terms — "liver OR kidney" returned 2 hits
+        /// where "liver" alone returned 2 197. Diacritics are not folded either: "Nájera" found nothing
+        /// while "Najera" found a project. None of this can be escaped around, so a caller who passes
+        /// query syntax silently gets a different result set (all verified live 2026-08-21).
         /// </para>
         /// </remarks>
         /// <param name="keyword">
@@ -461,18 +483,35 @@ namespace UsefulProteomicsDatabases
         /// parameters.
         /// </param>
         /// <param name="pageSize">
-        /// Hits requested per page (default 100). PRIDE caps this server-side and then pages by the
-        /// capped size, exactly as it does for the file manifest; see
+        /// Hits requested per page (default 100). PRIDE caps this server-side at 100 and then pages by
+        /// the capped size, exactly as it does for the file manifest; see
         /// <see cref="GetProjectFilesAsync"/> for what that means for termination. Every page is
-        /// fetched regardless — this is a throughput knob, not a limit on how many hits are returned.
+        /// fetched regardless, so this is never a limit on how many hits are returned.
+        /// <para>
+        /// Above the cap it is not a throughput knob either — it is a no-op. A request for 500 comes
+        /// back byte-identical to a request for 100 (verified live 2026-08-21), so the fetch costs the
+        /// same requests and buys nothing. Below the cap it only costs MORE requests, and a small value
+        /// also guarantees the tail probe fires, since every page is then trivially "full". The default
+        /// is the value to leave it at.
+        /// </para>
         /// </param>
         /// <param name="cancellationToken">Cancels the (possibly multi-page) search.</param>
         /// <returns>
-        /// Every matching project, across all pages. Empty when nothing matches — PRIDE reports no
-        /// hits as an empty result rather than an error, so there is no <c>Try</c> variant of this
-        /// method as there is for <see cref="GetProjectAsync"/>. Never null.
+        /// Every matching project, across all pages, with no accession repeated. Empty when nothing
+        /// matches — PRIDE reports no hits as an empty result rather than an error, so there is no
+        /// <c>Try</c> variant of this method as there is for <see cref="GetProjectAsync"/>. Never null.
+        /// <para>
+        /// One caveat, stated because it cannot be fixed here: PRIDE pages a LIVE index and offers no
+        /// stable cursor, so a result set that changes DURING a multi-page fetch shifts its own paging.
+        /// A project published mid-fetch is served on two pages — that is deduplicated, so it comes
+        /// back once — but a project REMOVED mid-fetch slides the window the other way and can fall
+        /// between two pages, and then no page carries it. A search whose results fit on one page
+        /// cannot be affected. Verified live 2026-08-21.
+        /// </para>
         /// </returns>
-        /// <exception cref="ArgumentException">The keyword is null, empty, or whitespace.</exception>
+        /// <exception cref="ArgumentException">
+        /// The keyword is null, empty, whitespace, or longer than <see cref="MaxKeywordLength"/>.
+        /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
         /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
         /// <exception cref="MzLibException">
@@ -485,14 +524,38 @@ namespace UsefulProteomicsDatabases
         {
             if (string.IsNullOrWhiteSpace(keyword))
                 throw new ArgumentException("A search keyword is required.", nameof(keyword));
+            if (keyword.Length > MaxKeywordLength)
+                throw new ArgumentException(
+                    $"A search keyword may be at most {MaxKeywordLength} characters, but this one is {keyword.Length}. " +
+                    "PRIDE answers a very long keyword with HTTP 500, which is indistinguishable from the service " +
+                    "being down.", nameof(keyword));
             if (pageSize <= 0)
                 throw new ArgumentOutOfRangeException(nameof(pageSize), "Page size must be positive.");
 
-            return await GetAllPagesAsync<PrideProjectSearchResult>(
+            List<PrideProjectSearchResult> hits = await GetAllPagesAsync<PrideProjectSearchResult>(
                 page => $"search/projects?keyword={Uri.EscapeDataString(keyword)}&pageSize={pageSize}&page={page}",
                 pageSize,
                 $"keyword '{keyword}'",
                 cancellationToken).ConfigureAwait(false);
+
+            // PRIDE pages a LIVE index with no stable cursor, so the result set can change underneath a
+            // multi-page fetch. Verified live 2026-08-21: a project left the "liver" set mid-session and
+            // every record after it shifted up one position, which moves a record from page 1 into
+            // page 0's range after page 0 was already read. Publication does the same in reverse, and
+            // then a record is served on two consecutive pages.
+            //
+            // The shared pager cannot fix this, and deliberately does not try: it refuses to treat any
+            // FIELD as a record's identity because the file manifest it was written for has no unique
+            // key, so dropping "repeats" there would drop real files. That reasoning does not carry
+            // over. A search hit HAS a real identity — its accession is the very thing a caller would
+            // use to fetch the project — so two hits sharing one are the same project, not two projects
+            // that happen to look alike. Deduping here is therefore sound where it would not be there.
+            //
+            // Only the duplicate half is fixable. A record can equally be skipped, when the window
+            // slides the other way, and nothing short of a cursor the API does not offer would catch
+            // that. It is stated in the returns docs rather than papered over.
+            var seenAccessions = new HashSet<string>(StringComparer.Ordinal);
+            return hits.Where(hit => seenAccessions.Add(hit.Accession)).ToList();
         }
 
         /// <summary>
@@ -761,8 +824,13 @@ namespace UsefulProteomicsDatabases
                 int servedCount = pageItems.Count(x => x is not null);
 
                 // An empty page ends the fetch. This is also the backstop for a total_records that
-                // overstates what the server will actually serve: paging past the end returns a
-                // zero-byte body (verified live 2026-07-23), which deserializes to an empty list. An
+                // overstates what the server will actually serve. Paging past the end returns an EMPTY
+                // JSON ARRAY -- "[]" from the file manifest, "[ ]" from search -- with the total_records
+                // header still present (re-verified live 2026-08-21; an earlier note here claimed a
+                // zero-byte body with no header, which was wrong for both endpoints. A zero-byte form
+                // does exist, but only far past the end, beyond roughly offset 40 000, which no current
+                // result set is large enough to reach). Every form deserializes to an empty list, the
+                // zero-byte one via the null-coalesce above. An
                 // overstatement is therefore accepted as the server's own correction rather than
                 // reported as a shortfall -- there is no way to distinguish it from a result set whose
                 // size changed mid-fetch, and throwing would fail a caller who asked for
@@ -812,6 +880,18 @@ namespace UsefulProteomicsDatabases
                 // what is new is that the total check no longer rescues it. Nothing short of a record
                 // key -- which this loop has established the DTO does not have -- would tell those pages
                 // apart, and MaxPages remains settable by a caller who meets such a server.
+                //
+                // Correction, from live evidence on 2026-08-21. A body-varying server is NOT
+                // hypothetical, and the paragraph above understated what it costs. On search/projects
+                // PRIDE serialises the dynamic `highlights` map from an unordered hash map, so two
+                // identical requests routinely differ in bytes while carrying the very same records --
+                // which silently disables the identical-page guard below for that endpoint. And the
+                // outcome it degrades to is NOT the MaxPages throw: a page-ignoring server whose bytes
+                // vary gets its records appended a second time, items.Count reaches total, and the
+                // fetch ENDS EARLY holding duplicates that look like a complete answer. SearchProjectsAsync
+                // therefore deduplicates its own results on accession, which it can do because a search
+                // hit carries the record key this loop does not have. The file manifest has no such key
+                // and stays exposed to this -- the honest state of it, rather than a claim otherwise.
                 //
                 // (2) It could bring records this fetch ALREADY HOLDS. A result set that grows between
                 // two requests shifts its own paging: page 0 of a 2-record set is [a, b], and page 1 of
