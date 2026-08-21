@@ -196,6 +196,51 @@ public class ProteinDbRetrieverTests
         }
     }
 
+    private static HttpClient StallingEntryClient() =>
+        new(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new StallingStream(">sp|P02768|ALBU_HUMAN started\n"))
+        }));
+
+    /// <summary>
+    /// The entry path buffers the whole (small) body in memory rather than streaming it to disk, so it
+    /// reads through a different method than <see cref="RetrieveProteome"/> — and needs its own deadline
+    /// for the same reason.
+    /// </summary>
+    /// <remarks>
+    /// Worth a separate test rather than trusting the proteome one: the two paths share
+    /// <c>CopyUntilStalled</c> but not the code that turns a cancelled read into the "try again later"
+    /// exception type. If only the proteome path were covered, a stall on an entry download could surface
+    /// as a raw OperationCanceledException and nothing would notice.
+    /// </remarks>
+    [Test]
+    public void RetrieveEntry_BodyStallsMidTransfer_ThrowsInsteadOfHangingForever()
+    {
+        TimeSpan original = ProteinDbRetriever.BodyStallTimeout;
+        ProteinDbRetriever.BodyStallTimeout = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            using HttpClient client = StallingEntryClient();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveEntry(
+                "P02768", _storageDirectory, ProteinDbRetriever.ProteomeFormat.fasta, client));
+            watch.Stop();
+
+            Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(30)),
+                "the stall must be detected by the read deadline, not by waiting out the transfer");
+            // HttpRequestException specifically: ExternalServiceTestHelper skips on that type, so a stall
+            // is classified as "try again later" rather than as a broken contract.
+            Assert.That(ex.Message, Does.Contain("delivered nothing"));
+            Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty,
+                "a stalled entry download must leave nothing on disk");
+        }
+        finally
+        {
+            ProteinDbRetriever.BodyStallTimeout = original;
+        }
+    }
+
     /// <summary>The nginx page the "/proteome/search" URL used to return, and which used to be saved as a proteome.</summary>
     private const string NotFoundHtml =
         "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n</body>\r\n</html>";
