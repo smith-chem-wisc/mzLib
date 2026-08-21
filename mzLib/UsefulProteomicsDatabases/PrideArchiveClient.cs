@@ -827,6 +827,13 @@ namespace UsefulProteomicsDatabases
                 // be confused with a different record that way. Two byte-equal records in one manifest
                 // are indistinguishable from each other anyway, so dropping one of a straddling pair
                 // costs nothing a caller could act on.
+                //
+                // Stated plainly, because it is the one asymmetry this dedup introduces: a genuinely
+                // REPEATED record survives or not depending on where the page boundary happens to fall.
+                // Two byte-equal records inside one page are both kept; the same pair split across the
+                // probe boundary loses one. Nothing here can tell that pair from a re-served record,
+                // and the boundary is the server's to choose, so the count of an exactly-duplicated
+                // record is not something a caller should read anything into.
                 if (verifyingTail)
                 {
                     if (!pageAdvanced)
