@@ -1,4 +1,4 @@
-<?xml version="1.0"?>
+﻿<?xml version="1.0"?>
 <package>
   <metadata>
     <id>mzLib</id>
@@ -66,6 +66,19 @@
     <!-- CC BY 4.0 attribution for the embedded PSI-MS and PRIDE vocabularies. Required to
          reach NuGet consumers, who receive the assemblies rather than the repository. -->
     <file src="..\THIRD-PARTY-NOTICES.md" target="" />
+    <!-- Modification data. Also embedded in Omics.dll; shipped as files as well so an
+         application can expose an editable Mods\ folder. Consumers opt in with
+         MzLibIncludeModificationData=true; see nuget\mzLib.targets. -->
+    <file src="nuget\mzLib.targets" target="build\mzLib.targets" />
+    <file src="Omics\Resources\Mods.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\RnaMods.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\TMT.txt" target="modificationData\Mods" />
+    <!-- Payload only, not embedded: mzLib does not load these itself today. -->
+    <file src="Omics\Resources\substitutions.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\surfactants.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\ptmlist.txt" target="modificationData\Data" />
+    <file src="Omics\Resources\PSI-MOD.obo.xml" target="modificationData\Data" />
+    <file src="Omics\Resources\unimod.xml" target="modificationData\Data" />
     <!--net10.0 target-->
     <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0" />
     <file src="Chemistry\bin\Release\net10.0\Chemistry.dll" target="lib\net10.0" />

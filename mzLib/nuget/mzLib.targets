@@ -1,0 +1,29 @@
+<Project>
+
+  <!--
+    Ships the modification data files that mzLib embeds so a consuming application can also
+    expose them as editable files on disk. Off by default: the payload is ~6.8 MB, and most
+    consumers only need the copies embedded in Omics.dll.
+
+    Opt in with <MzLibIncludeModificationData>true</MzLibIncludeModificationData>.
+    Files land in Mods\ and Data\ beside the application, and flow to the output of any
+    project that references the one opting in.
+  -->
+
+  <PropertyGroup>
+    <MzLibIncludeModificationData Condition="'$(MzLibIncludeModificationData)' == ''">false</MzLibIncludeModificationData>
+    <MzLibModificationDataRoot>$(MSBuildThisFileDirectory)..\modificationData\</MzLibModificationDataRoot>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(MzLibIncludeModificationData)' == 'true'">
+    <None Include="$(MzLibModificationDataRoot)Mods\*"
+          Link="Mods\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="true" />
+    <None Include="$(MzLibModificationDataRoot)Data\*"
+          Link="Data\%(Filename)%(Extension)"
+          CopyToOutputDirectory="PreserveNewest"
+          Visible="true" />
+  </ItemGroup>
+
+</Project>
