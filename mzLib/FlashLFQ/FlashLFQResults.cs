@@ -89,6 +89,12 @@ namespace FlashLFQ
                     {
                         mergeToPep.SetIntensity(file, mergeFromPep.GetIntensity(file));
                         mergeToPep.SetDetectionType(file, mergeFromPep.GetDetectionType(file));
+                        mergeToPep.SetRetentionTime(file, mergeFromPep.GetRetentionTime(file));
+                    }
+
+                    foreach (ProteinGroup proteinGroup in mergeFromPep.ProteinGroups)
+                    {
+                        mergeToPep.ProteinGroups.Add(proteinGroup);
                     }
                 }
                 else
