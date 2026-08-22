@@ -13,7 +13,7 @@
 
   Not theoretical: live UniProt tests were executing in the required job on 2026-08-21, and were cheap
   only because UniProt was answering 5xx quickly. Once the download grew a real inactivity deadline
-  they cost five minutes each instead, which pushed the job past its budget and turned every open PR
+  they cost minutes each instead, which pushed the job past its budget and turned every open PR
   red.
 -->
 <RunSettings>

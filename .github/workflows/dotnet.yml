@@ -43,7 +43,7 @@ jobs:
       # The exclusion lives in Test/required.runsettings as an NUnit Where clause, NOT as
       # --filter "Category!=ExternalService". That filter did not actually exclude them: live UniProt
       # tests were observed running in THIS job on 2026-08-21, and once the download grew a real
-      # inactivity deadline they cost five minutes apiece and pushed the job past its budget. See the
+      # inactivity deadline they cost minutes apiece and pushed the job past its budget. See the
       # runsettings file for why VSTest trait filtering and NUnit categories disagree here.
       run: cd mzLib && dotnet test --no-build --verbosity normal --settings ./Test/required.runsettings --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: Upload coverage to Codecov
@@ -57,7 +57,7 @@ jobs:
   # Do NOT add this job to branch-protection required checks.
   #
   # Headroom, not a bound. What actually bounds a run now lives in ProteinDbRetriever: 2 minutes for a
-  # service to start responding, then a 5-minute inactivity deadline on the transfer itself. Before
+  # service to start responding, then a 2-minute inactivity deadline on the transfer itself. Before
   # those existed a stalled download had no deadline at all, one live test spent 12m43s of the budget
   # and the runner cancelled the job -- which reports as a red check on every open PR, exactly the
   # "an outage blocks a PR" outcome the paragraph above exists to prevent. With the deadlines in place

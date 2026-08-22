@@ -110,11 +110,20 @@ namespace UsefulProteomicsDatabases
         /// job before failing, cancelling the job and turning the run red on every open PR.
         /// </para>
         /// <para>
+        /// Two minutes, chosen against measurement rather than taste. A transfer that is merely SLOW is
+        /// unaffected, because every byte restarts the clock: on 2026-08-21 a degraded UniProt served
+        /// TryRetrieveEntry_LiveP02768_ReportsFound over 6 minutes and it passed, because data never
+        /// stopped arriving. What the deadline ends is silence, and two minutes of complete silence on an
+        /// HTTP response body is already a dead connection. Five minutes was tried first and was too
+        /// generous to be useful: one live test spent 14m42s stalling three downloads in sequence and took
+        /// the external-service job past its budget with it.
+        /// </para>
+        /// <para>
         /// Settable for tests, which cannot afford to wait minutes to prove a stall is detected. Restore it
         /// after changing it — it is process-wide.
         /// </para>
         /// </remarks>
-        internal static TimeSpan BodyStallTimeout = TimeSpan.FromMinutes(5);
+        internal static TimeSpan BodyStallTimeout = TimeSpan.FromMinutes(2);
 
         /// <summary>
         /// Downloads a UniProt proteome — every protein belonging to one organism's proteome ID — and
