@@ -68,6 +68,11 @@ namespace FlashLFQ
         private FlashLfqResults _results;
         private readonly List<Identification> _allIdentifications;
         private readonly Stopwatch _globalStopwatch;
+        /// <summary>
+        /// The digestion agent each file was digested with, where the identifications agree on one.
+        /// A file whose identifications name no agent, or disagree, maps to null and is left unrestricted.
+        /// </summary>
+        private readonly Dictionary<SpectraFileInfo, string> _fileToDigestionAgent;
         #endregion
 
         /// <summary>
@@ -91,6 +96,21 @@ namespace FlashLFQ
                 .ThenBy(p => p.TechnicalReplicate).ToList();
 
             _allIdentifications = allIdentifications;
+            _fileToDigestionAgent = allIdentifications
+                .GroupBy(id => id.FileInfo)
+                .ToDictionary(
+                    group => group.Key,
+                    group =>
+                    {
+                        // an identification that names no agent is unknown, not a conflicting agent -
+                        // it must not turn a file whose other identifications agree into an unknown one
+                        var agents = group.Select(id => id.DigestionAgentName)
+                            .Where(name => name != null)
+                            .Distinct()
+                            .ToList();
+                        return agents.Count == 1 ? agents[0] : null;
+                    });
+
             PeptideModifiedSequencesToQuantify = peptideSequencesToQuantify.IsNotNullOrEmpty()
                 ? new HashSet<string>(peptideSequencesToQuantify)
                 : allIdentifications.Select(id => id.ModifiedSequence).ToHashSet();
@@ -627,23 +647,48 @@ namespace FlashLFQ
             return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
         }
 
+        private string DigestionAgentOf(SpectraFileInfo file) => _fileToDigestionAgent.GetValueOrDefault(file);
+
+        /// <summary>
+        /// Whether an identification in the donor file could be present in the acceptor file at all.
+        /// Digestion determines which analytes exist in a run, so an identification is only transferable
+        /// between files digested with the same agent. This is the same kind of constraint as the fraction
+        /// check in <see cref="PredictRetentionTime"/>, and is deliberately separate from the experimental
+        /// design: transfers still cross conditions, biological replicates and technical replicates,
+        /// because filling in missing values across those is the point of match-between-runs.
+        /// Unknown agent on either side means unrestricted, so callers that supply no agent are unaffected.
+        ///
+        /// Scoped to the <see cref="QuantifyMatchBetweenRunsPeaks"/> path. IsoTracker borrows identifications
+        /// across files of its own accord, in CollectChromPeakInRuns and QuantifyIsobaricPeaks, and does not
+        /// come through here, so those transfers are still unrestricted by digestion agent.
+        /// </summary>
+        private bool SharesAnalytePool(SpectraFileInfo donorFile, SpectraFileInfo acceptorFile)
+        {
+            string donorAgent = DigestionAgentOf(donorFile);
+            string acceptorAgent = DigestionAgentOf(acceptorFile);
+
+            return donorAgent == null || acceptorAgent == null || donorAgent == acceptorAgent;
+        }
+
         /// <summary>
         /// For every MSMS identified peptide, selects one file that will be used as the donor
         /// by finding files that contain the most peaks in the local neighborhood,
         /// then writes the restults to the DonorFileToIdsDict.
+        /// A donor is chosen per (sequence, digestion agent) rather than per sequence, so that a file
+        /// digested with one agent cannot take the donor slot away from files digested with another.
         /// WARNING! Strong assumption that this is called BEFORE MBR peaks are identified/assigned to the results
         /// </summary>
         private void FindPeptideDonorFiles()
         {
             DonorFileToPeakDict = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
 
-            Dictionary<string, List<ChromatographicPeak>> seqPeakDict = _results.Peaks
+            Dictionary<(string Sequence, string DigestionAgent), List<ChromatographicPeak>> seqPeakDict = _results.Peaks
                     .SelectMany(kvp => kvp.Value)
                     .Where(peak => peak.NumIdentificationsByFullSeq == 1
                         && peak.IsotopicEnvelopes.Any()
                         && peak.Identifications.Min(id => id.QValue) < FlashParams.DonorQValueThreshold)
-                    .GroupBy(peak => peak.Identifications.First().ModifiedSequence)
-                    .Where(group => PeptideModifiedSequencesToQuantify.Contains(group.Key))
+                    .Where(peak => PeptideModifiedSequencesToQuantify.Contains(peak.Identifications.First().ModifiedSequence))
+                    .GroupBy(peak => (peak.Identifications.First().ModifiedSequence, DigestionAgentOf(peak.SpectraFileInfo)))
                     .ToDictionary(group => group.Key, group => group.ToList());
 
             // iterate through each unique sequence
@@ -913,6 +958,11 @@ namespace FlashLFQ
             foreach (var donorFilePeakListKvp in DonorFileToPeakDict)
             {
                 if (acceptorFile.Equals(donorFilePeakListKvp.Key))
+                {
+                    continue;
+                }
+
+                if (!SharesAnalytePool(donorFilePeakListKvp.Key, acceptorFile))
                 {
                     continue;
                 }
