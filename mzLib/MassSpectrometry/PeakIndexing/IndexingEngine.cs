@@ -82,10 +82,11 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
-        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
+        /// <param name="matchedPeaks"> the peaks already considered; a null value marks a peak that was
+        /// examined but did not form an xic, so it is not revisited </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
         public List<IIndexedPeak> GetXic(double m, double retentionTime, Tolerance ppmTolerance,
-            int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
+            int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram?>? matchedPeaks = null)
         {
             // get precursor scan to start at
             int scanIndex = -1;
@@ -118,9 +119,10 @@ namespace MassSpectrometry
         /// <param name="missedScansAllowed"> the number of successive missed scans allowed before the xic is terminated </param>
         /// <param name="maxPeakHalfWidth"> the maximum distance from the apex RT of the XIC to both start RT and end RT </param>
         /// <param name="charge"> an optional parameter used only for IIndexedMass and massIndexingEngine; must be null for mz peak indexing </param>
-        /// <param name="matchedPeaks"> the dictionary that stores all the peaks already matched to an xic </param>
+        /// <param name="matchedPeaks"> the peaks already considered; a null value marks a peak that was
+        /// examined but did not form an xic, so it is not revisited </param>
         /// <returns> A list of IIndexedPeak objects, ordered by retention time </returns>
-        public List<IIndexedPeak> GetXicByScanIndex(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram> matchedPeaks = null)
+        public List<IIndexedPeak> GetXicByScanIndex(double m, int zeroBasedStartIndex, Tolerance ppmTolerance, int missedScansAllowed, double maxPeakHalfWidth = double.MaxValue, int? charge = null, Dictionary<IIndexedPeak, ExtractedIonChromatogram?>? matchedPeaks = null)
         {
             if (IndexedPeaks == null || ScanInfoArray == null) throw new MzLibException("Error: Attempt to retrieve XIC before peak indexing was performed");
 
@@ -198,7 +200,7 @@ namespace MassSpectrometry
         public virtual List<ExtractedIonChromatogram> GetAllXics(Tolerance peakFindingTolerance, int maxMissedScanAllowed, double maxRTRange, int numPeakThreshold, double? cutPeakDiscriminationFactor = null)
         {
             var xics = new List<ExtractedIonChromatogram>();
-            var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram>();
+            var matchedPeaks = new Dictionary<IIndexedPeak, ExtractedIonChromatogram?>();
             var sortedPeaks = IndexedPeaks.Where(v => v != null).SelectMany(peaks => peaks).OrderByDescending(p => p.Intensity).ToList();
             foreach (var peak in sortedPeaks)
             {
