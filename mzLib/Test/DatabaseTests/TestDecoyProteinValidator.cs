@@ -115,7 +115,6 @@ public class DecoySequenceValidatorTests
         var digestionParams = new RnaDigestionParams("RNase T1", maxMissedCleavages: 1, minLength: 5);
         var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
 
-        bool oneIsPalindromic = false;
         int palindromeCount = oligos.Count(p => DecoySequenceValidator.IsPalindromic(p.BaseSequence, out _));  
         Assert.That(palindromeCount, Is.GreaterThan(0));
 

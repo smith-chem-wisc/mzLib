@@ -195,7 +195,6 @@ namespace Test.FlashLFQ
 
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
-            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
 
             List<Identification> ids = new List<Identification>();
