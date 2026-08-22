@@ -23,6 +23,7 @@ namespace FlashLFQ
             this.integrate = integrate;
             this.silent = silent;
             this.maxThreads = maxThreads;
+            this.quantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
         }
 
         /// <summary>

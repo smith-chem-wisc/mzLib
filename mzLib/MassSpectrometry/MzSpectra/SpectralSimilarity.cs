@@ -51,7 +51,6 @@ namespace MassSpectrometry.MzSpectra
         private readonly double _localPpmTolerance;
         private readonly SpectrumNormalizationScheme _scheme;
         private readonly bool _allPeaks;
-        private readonly bool _keepAllTheoreticalPeaks;
 
         public List<(double, double)> IntensityPairs { get; } = new();
 
@@ -385,7 +384,7 @@ namespace MassSpectrometry.MzSpectra
         // This method should only be used when allPeaks is set to true
         public double? SpectralEntropy()
         {
-            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_allPeaks && !_keepAllTheoreticalPeaks)
+            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_allPeaks)
             {
                 return null;
             }
