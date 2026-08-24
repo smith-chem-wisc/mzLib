@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -417,6 +417,228 @@ namespace Test.FileReadingTests
             Assert.That(collection.Labels[0], Is.Not.EqualTo(collection.Labels[1]));
             Assert.That(collection.Merge().Results.Count,
                 Is.EqualTo(collection[0].Results.Count + collection[1].Results.Count));
+        }
+
+        // ---------------- coverage (gap G8) ----------------
+
+        /// <summary>
+        /// The failure this whole metric exists for: a corpus that is uniformly "not available"
+        /// passes the validator and produces zero drift findings, and is worthless.
+        /// </summary>
+        [Test]
+        public void AnEmptyCorpusPassesValidationAndDriftButFailsCoverage()
+        {
+            // A FULLY VALID document -- every required column present, assay columns properly
+            // filled from a search -- whose sample columns are all reserved words. This is exactly
+            // what an implementation that writes "not available" when it cannot find a value
+            // produces, and it is the shape the corpus would take at scale.
+            string[] names =
+            {
+                "source name", "characteristics[organism]", "characteristics[organism part]",
+                "characteristics[biological replicate]", "assay name", "technology type",
+                "comment[proteomics data acquisition method]", "comment[label]", "comment[instrument]",
+                "comment[cleavage agent details]", "comment[fraction identifier]",
+                "comment[technical replicate]", "comment[data file]"
+            };
+            string[] Cells(string s) => new[]
+            {
+                s, "not available", "not available", "not available", "run " + s, "t",
+                "NT=Data-dependent acquisition;AC=PRIDE:0000627", "label free sample",
+                "NT=Q Exactive;AC=MS:1001911", "NT=Trypsin;AC=MS:1001251", "1", "1", s + ".raw"
+            };
+            var a = Doc(names, Cells("S1"));
+            var b = Doc(names, Cells("S2"));
+            var collection = new SdrfCollection(new[] { a, b }, new[] { "A", "B" });
+
+            // The two existing instruments see nothing wrong.
+            Assert.That(SdrfValidator.Validate(a).Errors, Is.Empty,
+                "the reserved word is the spec-correct way to state an absence");
+            Assert.That(SdrfDriftLint.Analyze(collection)
+                .Any(f => f.Column == "characteristics[organism part]"), Is.False,
+                "the drift lint skips reserved words, so an empty column cannot drift");
+
+            // Coverage is what sees it.
+            var organismPart = SdrfCoverage.Measure(collection)
+                .Single(c => c.Column == "characteristics[organism part]");
+
+            Assert.That(organismPart.Filled, Is.EqualTo(0));
+            Assert.That(organismPart.Absent, Is.EqualTo(2));
+            Assert.That(organismPart.FillRate, Is.EqualTo(0d));
+            Assert.That(organismPart.IsUninformative, Is.True);
+            Assert.That(SdrfCoverage.Uninformative(collection).Select(c => c.Column),
+                Does.Contain("characteristics[organism part]"));
+        }
+
+        [Test]
+        public void EveryReservedWordCountsAsAbsent()
+        {
+            string[] names = { "source name", "assay name", "characteristics[disease]" };
+            var docs = new[] { "not available", "not applicable", "anonymized", "pooled", "Not Available" }
+                .Select((word, i) => Doc(names, new[] { "S" + i, "run " + i, word }))
+                .ToArray();
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var disease = SdrfCoverage.Measure(collection).Single(c => c.Column == "characteristics[disease]");
+            Assert.That(disease.Filled, Is.EqualTo(0), "including the mis-cased one");
+            Assert.That(disease.Absent, Is.EqualTo(5));
+        }
+
+        [Test]
+        public void AColumnFilledWithOneRepeatedValueIsUninformative()
+        {
+            // 100% fill rate, zero grouping power. Fill rate alone would call this healthy.
+            string[] names = { "source name", "assay name", "characteristics[organism]" };
+            var docs = Enumerable.Range(0, 4)
+                .Select(i => Doc(names, new[] { "S" + i, "run " + i, "homo sapiens" }))
+                .ToArray();
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var organism = SdrfCoverage.Measure(collection).Single(c => c.Column == "characteristics[organism]");
+            Assert.That(organism.FillRate, Is.EqualTo(1d));
+            Assert.That(organism.DistinctValues, Is.EqualTo(1));
+            Assert.That(organism.IsUninformative, Is.True);
+        }
+
+        [Test]
+        public void AGenuinelyPopulatedColumnIsNotFlagged()
+        {
+            string[] names = { "source name", "assay name", "characteristics[organism part]" };
+            var docs = new[] { "liver", "kidney", "brain", "lung" }
+                .Select((tissue, i) => Doc(names, new[] { "S" + i, "run " + i, tissue }))
+                .ToArray();
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var part = SdrfCoverage.Measure(collection).Single(c => c.Column == "characteristics[organism part]");
+            Assert.That(part.FillRate, Is.EqualTo(1d));
+            Assert.That(part.DistinctValues, Is.EqualTo(4));
+            Assert.That(part.IsUninformative, Is.False);
+            Assert.That(SdrfCoverage.Uninformative(collection).Select(c => c.Column),
+                Does.Not.Contain("characteristics[organism part]"));
+        }
+
+        /// <summary>
+        /// SDRF's multi-cardinality columns appear several times in one header, and every narrower
+        /// row pads the remainder with a reserved word — which IsAnswer correctly reads as unfilled.
+        /// Counting header POSITIONS therefore put the format's own padding in the denominator: four
+        /// files, one with four modifications and three with one each, reported 7 of 16 cells filled
+        /// and the column called uninformative, although every modification searched was recorded.
+        /// </summary>
+        [Test]
+        public void ARepeatedColumnIsCountedOncePerRowNotOncePerCell()
+        {
+            const string Mods = "comment[modification parameters]";
+            string[] names = { "source name", "assay name", Mods, Mods, Mods, Mods };
+
+            var docs = new[]
+            {
+                Doc(names, new[] { "S0", "run 0", "NT=Oxidation;AC=UNIMOD:35", "NT=Acetyl;AC=UNIMOD:1", "NT=Phospho;AC=UNIMOD:21", "NT=Deamidated;AC=UNIMOD:7" }),
+                Doc(names, new[] { "S1", "run 1", "NT=Oxidation;AC=UNIMOD:35", "not applicable", "not applicable", "not applicable" }),
+                Doc(names, new[] { "S2", "run 2", "NT=Acetyl;AC=UNIMOD:1", "not applicable", "not applicable", "not applicable" }),
+                Doc(names, new[] { "S3", "run 3", "NT=Phospho;AC=UNIMOD:21", "not applicable", "not applicable", "not applicable" })
+            };
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var coverage = SdrfCoverage.Measure(collection).Single(c => c.Column == Mods);
+
+            Assert.That(coverage.Rows, Is.EqualTo(4), "four rows, not sixteen cells");
+            Assert.That(coverage.Filled, Is.EqualTo(4), "every row named at least one modification");
+            Assert.That(coverage.Absent, Is.EqualTo(0));
+            Assert.That(coverage.FillRate, Is.EqualTo(1d));
+            Assert.That(coverage.DistinctValues, Is.EqualTo(4));
+            Assert.That(coverage.IsUninformative, Is.False,
+                "the padding is the format's, not a gap in the annotation");
+        }
+
+        /// <summary>
+        /// The other half of the same rule: a row that says nothing in ANY of a repeated column's
+        /// cells is still absent, exactly once.
+        /// </summary>
+        [Test]
+        public void ARepeatedColumnEmptyAcrossTheWholeRowStillCountsAsAbsentOnce()
+        {
+            const string Mods = "comment[modification parameters]";
+            string[] names = { "source name", "assay name", Mods, Mods };
+            var docs = new[]
+            {
+                Doc(names, new[] { "S0", "run 0", "NT=Oxidation;AC=UNIMOD:35", "not applicable" }),
+                Doc(names, new[] { "S1", "run 1", "not applicable", "not applicable" })
+            };
+            var collection = new SdrfCollection(docs, new[] { "A", "B" });
+
+            var coverage = SdrfCoverage.Measure(collection).Single(c => c.Column == Mods);
+
+            Assert.That(coverage.Rows, Is.EqualTo(2));
+            Assert.That(coverage.Filled, Is.EqualTo(1));
+            Assert.That(coverage.Absent, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// The distinct count exists to catch a column filled with one repeated value. "liver" and
+        /// "Liver" ARE that one value; counting them apart made a column that says one thing four
+        /// ways look like it could group four samples into four. The casing difference is a real
+        /// finding, but it is SdrfDriftLint's to report — IsAnswer already reads the reserved words
+        /// case-insensitively for exactly this reason.
+        /// </summary>
+        [Test]
+        public void DistinctValuesIgnoresCasingAndSurroundingWhitespace()
+        {
+            string[] names = { "source name", "assay name", "characteristics[organism part]" };
+            var docs = new[] { "liver", "Liver", "LIVER", " liver " }
+                .Select((tissue, i) => Doc(names, new[] { "S" + i, "run " + i, tissue }))
+                .ToArray();
+            var collection = new SdrfCollection(docs, docs.Select((_, i) => "D" + i).ToArray());
+
+            var part = SdrfCoverage.Measure(collection).Single(c => c.Column == "characteristics[organism part]");
+
+            Assert.That(part.FillRate, Is.EqualTo(1d), "all four are real answers");
+            Assert.That(part.DistinctValues, Is.EqualTo(1));
+            Assert.That(part.IsUninformative, Is.True,
+                "a column that says 'liver' four ways cannot group anything");
+        }
+
+        [Test]
+        public void CoverageIsReportedWorstFirst()
+        {
+            string[] names = { "source name", "assay name", "characteristics[organism part]", "characteristics[disease]" };
+            var docs = new[]
+            {
+                Doc(names, new[] { "S1", "run 1", "liver", "not available" }),
+                Doc(names, new[] { "S2", "run 2", "kidney", "not available" })
+            };
+            var collection = new SdrfCollection(docs, new[] { "A", "B" });
+
+            var ordered = SdrfCoverage.Measure(collection);
+            Assert.That(ordered.First().Column, Is.EqualTo("characteristics[disease]"),
+                "the empty column must be the one you see first");
+        }
+
+        /// <summary>
+        /// Coverage over the curated corpus, for reference. [Explicit]; needs MZLIB_SDRF_CORPUS.
+        /// Community annotations are the benchmark for what a populated corpus looks like.
+        /// </summary>
+        [Test]
+        [Explicit("Requires a local clone of bigbio/sdrf-annotated-datasets; set MZLIB_SDRF_CORPUS.")]
+        public void CorpusCoverageReport()
+        {
+            string corpus = Environment.GetEnvironmentVariable("MZLIB_SDRF_CORPUS");
+            if (string.IsNullOrWhiteSpace(corpus) || !Directory.Exists(corpus))
+                Assert.Ignore($"MZLIB_SDRF_CORPUS not set or not found: '{corpus}'");
+
+            var collection = SdrfCollection.FromFiles(
+                Directory.GetFiles(corpus, "*.sdrf.tsv", SearchOption.AllDirectories));
+            var coverage = SdrfCoverage.Measure(collection);
+
+            TestContext.Progress.WriteLine($"columns measured : {coverage.Count}");
+            TestContext.Progress.WriteLine($"uninformative    : {coverage.Count(c => c.IsUninformative)}");
+            TestContext.Progress.WriteLine("");
+            TestContext.Progress.WriteLine("the columns SDRF calls mandatory:");
+            foreach (var required in SdrfValidator.RequiredColumns)
+            {
+                var c = coverage.FirstOrDefault(x => x.Column == required);
+                if (c is not null) TestContext.Progress.WriteLine("  " + c);
+            }
+
+            Assert.That(coverage, Is.Not.Empty);
         }
 
         /// <summary>
