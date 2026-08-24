@@ -71,6 +71,42 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public const int MaxKeywordLength = 1000;
 
+        /// <summary>
+        /// How long <see cref="DownloadFileAsync"/> will wait for the NEXT bytes of a response body before
+        /// abandoning the transfer. Each read gets a fresh window, so this bounds silence, not duration.
+        /// </summary>
+        /// <remarks>
+        /// An INACTIVITY deadline, deliberately not a total-duration one. PRIDE serves raw and peak files
+        /// measured in gigabytes and a slow link may legitimately need a very long time to finish them, so
+        /// the question worth asking is whether data is still arriving — not how long it has been arriving
+        /// for. A total cap would abort exactly the healthy downloads that need the most time.
+        /// <para>
+        /// <see cref="HttpClient.Timeout"/> does not cover this. The download reads with
+        /// <see cref="HttpCompletionOption.ResponseHeadersRead"/>, so the client timeout is spent once the
+        /// headers arrive and the body that follows had no deadline at all — a stalled transfer stayed open
+        /// until the socket gave up.
+        /// </para>
+        /// <para>
+        /// The failure this prevents was observed in this repository, in the sibling client rather than
+        /// here: on 2026-08-21 a stalled UniProt body occupied 12m43s of a 20-minute CI job before the job
+        /// was cancelled, reddening the run on every open PR. <c>ProteinDbRetriever.BodyStallTimeout</c>
+        /// (#1189) closed it there; this closes the same hole here, and the two minutes is that fix's
+        /// measured value, not a fresh guess — a merely SLOW transfer is unaffected because every byte
+        /// restarts the clock, and two minutes of complete silence on a response body is already a dead
+        /// connection.
+        /// </para>
+        /// <para>
+        /// A stall is reported as <see cref="HttpRequestException"/>, the transport-failure type: silence
+        /// from EBI is an outage, not a contract break, and a live test should skip on it rather than fail.
+        /// Cancellation by the caller stays an <see cref="OperationCanceledException"/> and is not converted.
+        /// </para>
+        /// <para>
+        /// Settable through an object initializer, as <see cref="MaxPages"/> is, so a test can prove a stall
+        /// is detected without waiting minutes for it.
+        /// </para>
+        /// </remarks>
+        public TimeSpan BodyStallTimeout { get; init; } = TimeSpan.FromMinutes(2);
+
         /// <summary>Creates a client with its own <see cref="HttpClient"/> pointed at the PRIDE Archive API.</summary>
         public PrideArchiveClient()
             : this(new HttpClient { BaseAddress = new Uri(DefaultBaseAddress), Timeout = TimeSpan.FromSeconds(100) }, ownsHttpClient: true)
@@ -578,7 +614,8 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentNullException">The file is null.</exception>
         /// <exception cref="ArgumentException">The destination directory is blank, the file has no name, or the file name is not a bare file name (contains a path separator, a "..", or a root).</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only).</exception>
-        /// <exception cref="HttpRequestException">The download returned a non-success status code.</exception>
+        /// <exception cref="HttpRequestException">The download returned a non-success status code, or the response body delivered nothing for <see cref="BodyStallTimeout"/>.</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled. A stall is NOT reported this way — see <see cref="BodyStallTimeout"/>.</exception>
         public async Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
             bool overwrite = true, CancellationToken cancellationToken = default)
         {
@@ -622,7 +659,9 @@ namespace UsefulProteomicsDatabases
                 using (var fileStream = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None))
                 using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
                 {
-                    await httpStream.CopyToAsync(fileStream, cancellationToken).ConfigureAwait(false);
+                    // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
+                    // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
+                    await CopyUntilStalledAsync(httpStream, fileStream, url, cancellationToken).ConfigureAwait(false);
                 }
                 File.Move(partialPath, destinationPath, overwrite: true);
             }
@@ -633,6 +672,47 @@ namespace UsefulProteomicsDatabases
             }
 
             return destinationPath;
+        }
+
+        /// <summary>
+        /// Copies <paramref name="source"/> to <paramref name="destination"/>, giving up if no bytes arrive
+        /// for <see cref="BodyStallTimeout"/>. Each read gets a FRESH window, so a transfer that keeps
+        /// delivering data runs as long as it needs to and only an actual stoppage ends it.
+        /// </summary>
+        /// <remarks>
+        /// The stall window is linked to <paramref name="cancellationToken"/> so a caller's cancellation is
+        /// still honoured immediately, but the two are told apart afterwards: only a window that fired on
+        /// its own becomes an <see cref="HttpRequestException"/>. A caller who cancels gets the
+        /// <see cref="OperationCanceledException"/> they asked for, because reporting that as a transport
+        /// failure would make <c>ExternalServiceTestHelper</c> skip a test that was deliberately cancelled.
+        /// </remarks>
+        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string url,
+            CancellationToken cancellationToken)
+        {
+            byte[] buffer = new byte[81920];
+            while (true)
+            {
+                int read;
+                using (var stallWindow = new CancellationTokenSource(BodyStallTimeout))
+                using (var linked = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, stallWindow.Token))
+                {
+                    try
+                    {
+                        read = await source.ReadAsync(buffer.AsMemory(), linked.Token).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException e) when (stallWindow.IsCancellationRequested
+                                                               && !cancellationToken.IsCancellationRequested)
+                    {
+                        throw new HttpRequestException(
+                            $"The PRIDE response body for '{url}' delivered nothing for {BodyStallTimeout}.", e);
+                    }
+                }
+
+                if (read == 0)
+                    return;
+
+                await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
+            }
         }
 
         /// <summary>
