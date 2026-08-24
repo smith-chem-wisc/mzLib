@@ -107,6 +107,140 @@ public class ProteinDbRetrieverTests
         bool omitCountHeader = false) =>
         new(ProteomeHandler(totalResults, payload, countStatus, streamStatus, omitCountHeader));
 
+    /// <summary>
+    /// A body that delivers some bytes and then stops forever, without closing the connection — the shape
+    /// of a stalled transfer rather than a failed one. Reads after the first block never complete, so only
+    /// a read deadline can end them.
+    /// </summary>
+    private sealed class StallingStream : Stream
+    {
+        private readonly byte[] _prefix;
+        private int _offset;
+
+        public StallingStream(string prefix) => _prefix = Encoding.UTF8.GetBytes(prefix);
+
+        public override int Read(byte[] buffer, int offset, int count)
+            => ReadAsync(buffer.AsMemory(offset, count), CancellationToken.None).AsTask().GetAwaiter().GetResult();
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            if (_offset < _prefix.Length)
+            {
+                int n = Math.Min(buffer.Length, _prefix.Length - _offset);
+                _prefix.AsMemory(_offset, n).CopyTo(buffer);
+                _offset += n;
+                return n;
+            }
+
+            // The stall. Honour cancellation — that is the whole point of the test — but never return.
+            await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+            return 0;
+        }
+
+        public override bool CanRead => true;
+        public override bool CanSeek => false;
+        public override bool CanWrite => false;
+        public override long Length => throw new NotSupportedException();
+        public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+        public override void Flush() { }
+        public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+        public override void SetLength(long value) => throw new NotSupportedException();
+        public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+    }
+
+    private static HttpClient StallingProteomeClient() =>
+        new(new StubHandler(request => request.RequestUri.ToString().Contains("/search?")
+            ? Response("", HttpStatusCode.OK, 1)
+            : new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StallingStream(">sp|P00000|STARTED\n")) }));
+
+    /// <summary>
+    /// A transfer that starts and then stops delivering data must be abandoned, not waited on forever.
+    /// </summary>
+    /// <remarks>
+    /// This is the failure that turned CI red on every open PR: the request timeout does not cover the
+    /// body, because requests are issued with ResponseHeadersRead, so a stalled download had no deadline
+    /// at all and stayed open until the socket gave up. One live test spent 12m43s that way and cancelled
+    /// a 20-minute job. The stall must surface as HttpRequestException — the "try again later" type — so
+    /// ExternalServiceTestHelper skips rather than fails on it.
+    /// <para>
+    /// BodyStallTimeout is process-wide, so it is restored in a finally. The value here is small enough
+    /// that the test costs milliseconds; the production default is minutes.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public void RetrieveProteome_BodyStallsMidTransfer_ThrowsInsteadOfHangingForever()
+    {
+        TimeSpan original = ProteinDbRetriever.BodyStallTimeout;
+        ProteinDbRetriever.BodyStallTimeout = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            using HttpClient client = StallingProteomeClient();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveProteome(
+                "UP000005640", _storageDirectory, ProteinDbRetriever.ProteomeFormat.fasta,
+                ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.no,
+                ProteinDbRetriever.IncludeIsoforms.no, client));
+            watch.Stop();
+
+            Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(30)),
+                "the stall must be detected by the read deadline, not by waiting out the transfer");
+            Assert.That(ex.Message, Does.Contain("body"));
+            // The half-written scratch file must not be left behind or promoted to the destination.
+            Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty,
+                "a stalled download must leave nothing on disk");
+        }
+        finally
+        {
+            ProteinDbRetriever.BodyStallTimeout = original;
+        }
+    }
+
+    private static HttpClient StallingEntryClient() =>
+        new(new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StreamContent(new StallingStream(">sp|P02768|ALBU_HUMAN started\n"))
+        }));
+
+    /// <summary>
+    /// The entry path buffers the whole (small) body in memory rather than streaming it to disk, so it
+    /// reads through a different method than <see cref="RetrieveProteome"/> — and needs its own deadline
+    /// for the same reason.
+    /// </summary>
+    /// <remarks>
+    /// Worth a separate test rather than trusting the proteome one: the two paths share
+    /// <c>CopyUntilStalled</c> but not the code that turns a cancelled read into the "try again later"
+    /// exception type. If only the proteome path were covered, a stall on an entry download could surface
+    /// as a raw OperationCanceledException and nothing would notice.
+    /// </remarks>
+    [Test]
+    public void RetrieveEntry_BodyStallsMidTransfer_ThrowsInsteadOfHangingForever()
+    {
+        TimeSpan original = ProteinDbRetriever.BodyStallTimeout;
+        ProteinDbRetriever.BodyStallTimeout = TimeSpan.FromMilliseconds(250);
+        try
+        {
+            using HttpClient client = StallingEntryClient();
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            var ex = Assert.Throws<HttpRequestException>(() => ProteinDbRetriever.RetrieveEntry(
+                "P02768", _storageDirectory, ProteinDbRetriever.ProteomeFormat.fasta, client));
+            watch.Stop();
+
+            Assert.That(watch.Elapsed, Is.LessThan(TimeSpan.FromSeconds(30)),
+                "the stall must be detected by the read deadline, not by waiting out the transfer");
+            // HttpRequestException specifically: ExternalServiceTestHelper skips on that type, so a stall
+            // is classified as "try again later" rather than as a broken contract.
+            Assert.That(ex.Message, Does.Contain("delivered nothing"));
+            Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty,
+                "a stalled entry download must leave nothing on disk");
+        }
+        finally
+        {
+            ProteinDbRetriever.BodyStallTimeout = original;
+        }
+    }
+
     /// <summary>The nginx page the "/proteome/search" URL used to return, and which used to be saved as a proteome.</summary>
     private const string NotFoundHtml =
         "<html>\r\n<head><title>404 Not Found</title></head>\r\n<body>\r\n<center><h1>404 Not Found</h1></center>\r\n</body>\r\n</html>";
@@ -1061,13 +1195,31 @@ public class ProteinDbRetrieverLiveTests
     /// Uukuniemi virus is fully reviewed, so asking for its unreviewed entries legitimately matches nothing.
     /// That used to be a zero-byte file whose path was returned as a success.
     /// </summary>
+    /// <remarks>
+    /// Deliberately NOT written as <c>Assert.Throws&lt;MzLibException&gt;</c>. That helper catches whatever
+    /// is thrown, and when UniProt is unavailable what is thrown is an <see cref="HttpRequestException"/> —
+    /// which it then re-reports as an NUnit assertion failure. <see cref="ExternalServiceTestHelper.RunAsync"/>
+    /// never sees the transport exception, so an outage FAILS this test instead of skipping it. Catching the
+    /// expected type explicitly lets every other exception propagate to RunAsync, which is what classifies
+    /// an outage as Skipped.
+    /// </remarks>
     [Test]
     public Task RetrieveProteome_LiveQueryMatchingNothing_ThrowsMzLibException() =>
         ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
-            var ex = Assert.Throws<MzLibException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595",
-                _storageDirectory, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no,
-                ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no));
+            MzLibException ex;
+            try
+            {
+                ProteinDbRetriever.RetrieveProteome("UP000008595",
+                    _storageDirectory, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no,
+                    ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
+                throw new AssertionException(
+                    "expected an MzLibException for a query that matches nothing, but the call succeeded");
+            }
+            catch (MzLibException caught)
+            {
+                ex = caught;
+            }
 
             Assert.That(ex.Message, Does.Contain("UP000008595"));
             Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
