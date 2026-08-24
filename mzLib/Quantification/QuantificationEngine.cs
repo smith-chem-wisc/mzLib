@@ -1,4 +1,4 @@
-using Omics;
+﻿using Omics;
 using Omics.SpectralMatch;
 using Omics.BioPolymerGroup;
 using MassSpectrometry;
@@ -60,39 +60,111 @@ public class QuantificationEngine
             return badResults;
         }
 
-        // Write immutable raw snapshot 
-        Task rawWriter = null;
+        var writtenFiles = new List<string>();
+
+        // Write immutable raw snapshot
+        Task<string> rawWriter = null;
         if (Parameters.WriteRawInformation)
         {
-            rawWriter = Task.Run(async () =>
-            {
-                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
-            });
+            rawWriter = Task.Run(() =>
+                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory));
         }
 
         RunPeptideQuant(out var peptideMatrix);
 
-        Task peptideWriter = null;
+        Task<string> peptideWriter = null;
         if (Parameters.WritePeptideInformation)
         {
-            peptideWriter = Task.Run(async () =>
-            {
-                QuantificationWriter.WritePeptideMatrix(peptideMatrix, Parameters.OutputDirectory);
-            });
+            peptideWriter = Task.Run(() =>
+                QuantificationWriter.WritePeptideMatrix(peptideMatrix, Parameters.OutputDirectory));
         }
 
         RunProteinQuant(peptideMatrix, out proteinMatrix);
 
         // 9) Write protein results (If enabled) No need to spin up a task, as this is the last step and we need to wait for it to complete before returning results anyway
+        string proteinFile = null;
         if (Parameters.WriteProteinInformation)
-            QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, Parameters.OutputDirectory);
+            proteinFile = QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, Parameters.OutputDirectory);
 
-        if (rawWriter != null) Task.WaitAll(rawWriter);
-        if (peptideWriter != null) Task.WaitAll(peptideWriter);
+        if (rawWriter != null) writtenFiles.Add(rawWriter.GetAwaiter().GetResult());
+        if (peptideWriter != null) writtenFiles.Add(peptideWriter.GetAwaiter().GetResult());
+        if (proteinFile != null) writtenFiles.Add(proteinFile);
+
+        // 10) Deliver. Write the final values back onto every entity that opts in via
+        //     IHasSampleIntensities, so that the existing BioPolymerGroup writers can render them,
+        //     and collect the same values into the returned results object.
+        ApplySampleIntensities(peptideMatrix);
+        ApplySampleIntensities(proteinMatrix);
+
         return new QuantificationResults
         {
-            Summary = "Quantification completed successfully."
+            Summary = "Quantification completed successfully.",
+            Success = true,
+            Samples = proteinMatrix.ColumnKeys.ToList(),
+            PeptideIntensities = BuildIntensityTable(peptideMatrix),
+            ProteinIntensities = BuildIntensityTable(proteinMatrix),
+            WrittenFiles = writtenFiles
         };
+    }
+
+    /// <summary>
+    /// Writes the matrix values back onto any row key that implements <see cref="IHasSampleIntensities"/>,
+    /// setting both <see cref="IHasSampleIntensities.SamplesForQuantification"/> (the column order) and
+    /// <see cref="IHasSampleIntensities.IntensitiesBySample"/> (the values).
+    /// </summary>
+    /// <remarks>
+    /// Row keys that do not implement the interface are skipped, so this is safe to call on a peptide
+    /// matrix even though <see cref="IBioPolymerWithSetMods"/> does not carry quantification state.
+    /// Zero-valued cells are omitted: the matrix uses 0 to mean "not observed in this sample", and
+    /// omitting them keeps <c>SampleGroupResult.HasIntensityData</c> meaningful.
+    /// </remarks>
+    internal static void ApplySampleIntensities<T>(QuantMatrix<T> matrix) where T : IEquatable<T>
+    {
+        if (matrix == null) return;
+
+        for (int row = 0; row < matrix.RowCount; row++)
+        {
+            if (matrix.RowKeys[row] is not IHasSampleIntensities entity)
+                continue;
+
+            var intensities = new Dictionary<ISampleInfo, double>(matrix.ColumnCount);
+            for (int col = 0; col < matrix.ColumnCount; col++)
+            {
+                double value = matrix.Matrix[row, col];
+                if (value != 0)
+                    intensities[matrix.ColumnKeys[col]] = value;
+            }
+
+            // Assign intensities before samples: BioPolymerGroup's setters invalidate the cached
+            // SampleGroupResults, and we want the invalidation to be the last thing that happens.
+            entity.IntensitiesBySample = intensities;
+            entity.SamplesForQuantification = matrix.ColumnKeys.ToList();
+        }
+    }
+
+    /// <summary>
+    /// Projects a matrix into a row-key → (sample → intensity) table for <see cref="QuantificationResults"/>.
+    /// Zero-valued cells are omitted, matching <see cref="ApplySampleIntensities{T}"/>.
+    /// </summary>
+    internal static Dictionary<T, Dictionary<ISampleInfo, double>> BuildIntensityTable<T>(QuantMatrix<T> matrix)
+        where T : IEquatable<T>
+    {
+        var table = new Dictionary<T, Dictionary<ISampleInfo, double>>();
+        if (matrix == null) return table;
+
+        for (int row = 0; row < matrix.RowCount; row++)
+        {
+            var intensities = new Dictionary<ISampleInfo, double>(matrix.ColumnCount);
+            for (int col = 0; col < matrix.ColumnCount; col++)
+            {
+                double value = matrix.Matrix[row, col];
+                if (value != 0)
+                    intensities[matrix.ColumnKeys[col]] = value;
+            }
+            table[matrix.RowKeys[row]] = intensities;
+        }
+
+        return table;
     }
 
     /// <summary>
@@ -105,34 +177,22 @@ public class QuantificationEngine
         badResults = null;
         if (ExperimentalDesign == null)
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: Experimental design is null."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: Experimental design is null.");
             return false;
         }
         if(SpectralMatches.IsNullOrEmpty())
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: No spectral matches provided for quantification."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: No spectral matches provided for quantification.");
             return false;
         }
         if(ModifiedBioPolymers.IsNullOrEmpty())
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification.");
             return false;
         }
         if(BioPolymerGroups.IsNullOrEmpty())
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: No biopolymer groups (proteins) provided for quantification."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: No biopolymer groups (proteins) provided for quantification.");
             return false;
         }
         return true;

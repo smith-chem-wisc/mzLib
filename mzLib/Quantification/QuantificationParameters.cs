@@ -37,12 +37,20 @@ namespace Quantification
         /// <summary>
         /// If true, the quantification engine will write raw quantification information to disk.
         /// This enables re-analysis later using different normalization or roll-up strategies without re-processing the raw data.
+        /// Off by default: writing is a side effect, and <see cref="OutputDirectory"/> defaults to the
+        /// working directory, so callers opt in rather than discover files they did not ask for.
         /// </summary>
-        public bool WriteRawInformation { get; set; } = true;
+        public bool WriteRawInformation { get; set; } = false;
 
-        public bool WritePeptideInformation { get; set; } = true;
+        /// <summary>
+        /// If true, the final peptide matrix is written to <see cref="OutputDirectory"/>. Off by default.
+        /// </summary>
+        public bool WritePeptideInformation { get; set; } = false;
 
-        public bool WriteProteinInformation { get; set; } = true;
+        /// <summary>
+        /// If true, the final protein-group matrix is written to <see cref="OutputDirectory"/>. Off by default.
+        /// </summary>
+        public bool WriteProteinInformation { get; set; } = false;
 
         internal static QuantificationParameters GetSimpleParameters()
         {
@@ -56,9 +64,9 @@ namespace Quantification
                 ProteinNormalizationStrategy = new NoNormalization(),
                 OutputDirectory = string.Empty,
                 UseSharedPeptidesForProteinQuant = false,
-                WriteRawInformation = true,
-                WritePeptideInformation = true,
-                WriteProteinInformation = true
+                WriteRawInformation = false,
+                WritePeptideInformation = false,
+                WriteProteinInformation = false
             };
         }
     }
