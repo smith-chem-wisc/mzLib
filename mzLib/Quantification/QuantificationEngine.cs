@@ -1,4 +1,4 @@
-using Omics;
+﻿using Omics;
 using Omics.SpectralMatch;
 using Omics.BioPolymerGroup;
 using MassSpectrometry;
@@ -172,7 +172,7 @@ public class QuantificationEngine
         out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
     {
         // 6) Collapse samples (technical replicates, fractions)
-        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm);
+        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
 
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
