@@ -93,8 +93,8 @@ public class QuantificationEngine
         // 10) Deliver. Write the final values back onto every entity that opts in via
         //     IHasSampleIntensities, so that the existing BioPolymerGroup writers can render them,
         //     and collect the same values into the returned results object.
-        ApplySampleIntensities(peptideMatrix);
-        ApplySampleIntensities(proteinMatrix);
+        OverwriteSampleIntensities(peptideMatrix);
+        OverwriteSampleIntensities(proteinMatrix);
 
         return new QuantificationResults
         {
@@ -108,17 +108,29 @@ public class QuantificationEngine
     }
 
     /// <summary>
-    /// Writes the matrix values back onto any row key that implements <see cref="IHasSampleIntensities"/>,
-    /// setting both <see cref="IHasSampleIntensities.SamplesForQuantification"/> (the column order) and
-    /// <see cref="IHasSampleIntensities.IntensitiesBySample"/> (the values).
+    /// True when any of the three write flags is set, and the run therefore needs an output directory.
+    /// </summary>
+    private bool WritesAnything() =>
+        Parameters.WriteRawInformation || Parameters.WritePeptideInformation || Parameters.WriteProteinInformation;
+
+    /// <summary>
+    /// Replaces the values on any row key that implements <see cref="IHasSampleIntensities"/> with the
+    /// final matrix values, setting both <see cref="IHasSampleIntensities.SamplesForQuantification"/>
+    /// (the column order) and <see cref="IHasSampleIntensities.IntensitiesBySample"/> (the values).
     /// </summary>
     /// <remarks>
+    /// This is destructive by design — hence "Overwrite". Anything already on the entity is discarded,
+    /// so an entity carrying values from an earlier run comes out holding this run's values only.
+    /// The pre-normalization PSM values are not lost: <see cref="QuantificationWriter.WriteRawData"/>
+    /// records them before any normalization or roll-up runs, which is what makes re-processing with
+    /// different strategies possible without re-searching.
+    ///
     /// Row keys that do not implement the interface are skipped, so this is safe to call on a peptide
     /// matrix even though <see cref="IBioPolymerWithSetMods"/> does not carry quantification state.
     /// Zero-valued cells are omitted: the matrix uses 0 to mean "not observed in this sample", and
     /// omitting them keeps <c>SampleGroupResult.HasIntensityData</c> meaningful.
     /// </remarks>
-    internal static void ApplySampleIntensities<T>(QuantMatrix<T> matrix) where T : IEquatable<T>
+    internal static void OverwriteSampleIntensities<T>(QuantMatrix<T> matrix) where T : IEquatable<T>
     {
         if (matrix == null) return;
 
@@ -144,7 +156,7 @@ public class QuantificationEngine
 
     /// <summary>
     /// Projects a matrix into a row-key → (sample → intensity) table for <see cref="QuantificationResults"/>.
-    /// Zero-valued cells are omitted, matching <see cref="ApplySampleIntensities{T}"/>.
+    /// Zero-valued cells are omitted, matching <see cref="OverwriteSampleIntensities{T}"/>.
     /// </summary>
     internal static Dictionary<T, Dictionary<ISampleInfo, double>> BuildIntensityTable<T>(QuantMatrix<T> matrix)
         where T : IEquatable<T>
@@ -193,6 +205,16 @@ public class QuantificationEngine
         if(BioPolymerGroups.IsNullOrEmpty())
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: No biopolymer groups (proteins) provided for quantification.");
+            return false;
+        }
+        // Writing is on by default, so a caller who never set OutputDirectory would otherwise scatter
+        // files into the working directory. Say so instead of guessing where they meant.
+        if (WritesAnything() && string.IsNullOrWhiteSpace(Parameters.OutputDirectory))
+        {
+            badResults = QuantificationResults.Failure(
+                "QuantificationEngine Error: OutputDirectory must be set when WriteRawInformation, " +
+                "WritePeptideInformation or WriteProteinInformation is enabled. " +
+                "Set an output directory, or turn the write flags off to quantify without writing files.");
             return false;
         }
         return true;

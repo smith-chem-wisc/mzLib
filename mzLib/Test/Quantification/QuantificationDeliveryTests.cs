@@ -1,4 +1,4 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using NUnit.Framework;
 using Omics;
 using Omics.BioPolymerGroup;
@@ -105,41 +105,74 @@ public class QuantificationDeliveryTests
             PeptideToProteinRollUpStrategy = new SumRollUp(),
             ProteinNormalizationStrategy = new NoNormalization(),
             OutputDirectory = outputDirectory,
-            UseSharedPeptidesForProteinQuant = false
+            UseSharedPeptidesForProteinQuant = false,
+            // Most tests here are about the values, not the files. Writing is on by default and
+            // requires an output directory, so it is turned off unless a test asks for it.
+            WriteRawInformation = false,
+            WritePeptideInformation = false,
+            WriteProteinInformation = false
         };
     }
 
     #endregion
 
     /// <summary>
-    /// The three write flags must default to off. They previously defaulted to on while
-    /// <see cref="QuantificationWriter"/> threw, which made a default-configured Run() throw.
+    /// Writing stays on by default: the raw file is what makes re-processing a search under different
+    /// strategies possible, so a caller has to opt out of it rather than opt in.
     /// </summary>
     [Test]
-    public void WriteFlags_DefaultToOff()
+    public void WriteFlags_DefaultToOn()
     {
         var fresh = new QuantificationParameters();
         Assert.Multiple(() =>
         {
-            Assert.That(fresh.WriteRawInformation, Is.False);
-            Assert.That(fresh.WritePeptideInformation, Is.False);
-            Assert.That(fresh.WriteProteinInformation, Is.False);
+            Assert.That(fresh.WriteRawInformation, Is.True);
+            Assert.That(fresh.WritePeptideInformation, Is.True);
+            Assert.That(fresh.WriteProteinInformation, Is.True);
         });
     }
 
     /// <summary>
-    /// A default-configured engine must run to completion rather than throwing out of the writer.
+    /// Writing is on by default and OutputDirectory is not, so the engine must say where it expected
+    /// the files to go rather than scattering them into the working directory. This replaces the older
+    /// behaviour, where a default-configured Run() threw out of an unimplemented writer.
     /// </summary>
     [Test]
-    public void Run_WithDefaultParameters_DoesNotThrow()
+    public void Run_WithWritingOnAndNoOutputDirectory_ReturnsClearFailure()
     {
         BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
 
         var parameters = SimpleParameters();
-        var engine = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups);
+        parameters.WriteRawInformation = true;   // OutputDirectory is still empty
 
         QuantificationResults results = null;
-        Assert.DoesNotThrow(() => results = engine.Run());
+        Assert.DoesNotThrow(() =>
+            results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain("OutputDirectory must be set"));
+            Assert.That(results.WrittenFiles, Is.Empty);
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+
+        foreach (var group in proteinGroups)
+            Assert.That(group.IntensitiesBySample, Is.Null, "a rejected run must not touch the entities");
+    }
+
+    /// <summary>
+    /// Quantifying without writing anything is legitimate, and must not require an output directory.
+    /// </summary>
+    [Test]
+    public void Run_WithWritingOff_NeedsNoOutputDirectory()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+
+        QuantificationResults results = null;
+        Assert.DoesNotThrow(() =>
+            results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run());
+
         Assert.That(results.Success, Is.True);
         Assert.That(results.WrittenFiles, Is.Empty);
     }
