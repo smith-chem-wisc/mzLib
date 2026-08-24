@@ -306,7 +306,7 @@ public class QuantificationDeliveryTests
 
             string rawPath = Path.Combine(outputDirectory, QuantificationWriter.RawFileName);
             var rawLines = File.ReadAllLines(rawPath);
-            Assert.That(rawLines[0].Split('\t'), Does.Contain("Intensity_3"));
+            Assert.That(rawLines[0].Split('\t'), Does.Contain("Reporter_3"));
             Assert.That(rawLines, Has.Length.EqualTo(1 + spectralMatches.Count));
 
             string proteinPath = Path.Combine(outputDirectory, QuantificationWriter.ProteinGroupFileName);
@@ -328,6 +328,32 @@ public class QuantificationDeliveryTests
         {
             if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
         }
+    }
+
+    /// <summary>
+    /// A label-free run has one value per match and gets a single Intensity column; an isobaric run
+    /// gets one Reporter_n column per channel. Carried over from the writer in #1001.
+    /// </summary>
+    [TestCase(1, "Intensity")]
+    [TestCase(3, "Reporter_1")]
+    [TestCase(11, "Reporter_11")]
+    public void RawHeader_NamesLabelFreeAndIsobaricColumnsDifferently(int channelCount, string expectedColumn)
+    {
+        var columns = QuantificationWriter.RawHeader(channelCount).Split('\t');
+
+        Assert.That(columns, Does.Contain(expectedColumn));
+        Assert.That(columns, Has.Length.EqualTo(7 + channelCount), "seven identity columns plus the values");
+        Assert.That(columns[0], Is.EqualTo("File"));
+    }
+
+    /// <summary>A single-channel header must not use the plural Reporter naming.</summary>
+    [Test]
+    public void RawHeader_SingleChannel_HasNoReporterColumns()
+    {
+        var columns = QuantificationWriter.RawHeader(1).Split('\t');
+
+        Assert.That(columns, Has.None.StartsWith("Reporter_"));
+        Assert.That(columns[^1], Is.EqualTo("Intensity"));
     }
 
     /// <summary>

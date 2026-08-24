@@ -55,10 +55,7 @@ namespace Quantification
 
             using var output = new StreamWriter(path);
 
-            var header = new StringBuilder("File\tScan\tBaseSequence\tFullSequence\tAccession\tIsDecoy\tScore");
-            for (int i = 0; i < channelCount; i++)
-                header.Append("\tIntensity_").Append(i + 1);
-            output.WriteLine(header.ToString());
+            output.WriteLine(RawHeader(channelCount));
 
             var line = new StringBuilder();
             foreach (var match in quantified)
@@ -81,6 +78,35 @@ namespace Quantification
             }
 
             return path;
+        }
+
+        /// <summary>
+        /// Builds the raw-file header. One value per match is a label-free intensity and gets a single
+        /// <c>Intensity</c> column; several values are isobaric reporter channels and get one
+        /// <c>Reporter_n</c> column each.
+        /// </summary>
+        /// <remarks>
+        /// The reporter columns are positional rather than named by channel, because a spectral match
+        /// carries no channel labels — only <see cref="ISpectralMatch.Intensities"/>, which is
+        /// positionally aligned with the experimental design's <see cref="ISampleInfo"/> array. Naming
+        /// them "126", "127N", … would require the design here, and would be wrong for a run whose
+        /// files do not all share one plex.
+        /// </remarks>
+        internal static string RawHeader(int channelCount)
+        {
+            var header = new StringBuilder("File\tScan\tBaseSequence\tFullSequence\tAccession\tIsDecoy\tScore");
+
+            if (channelCount == 1)
+            {
+                header.Append("\tIntensity");
+            }
+            else
+            {
+                for (int i = 0; i < channelCount; i++)
+                    header.Append("\tReporter_").Append((i + 1).ToString(CultureInfo.InvariantCulture));
+            }
+
+            return header.ToString();
         }
 
         /// <summary>
