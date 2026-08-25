@@ -874,8 +874,6 @@ namespace Test.FlashLFQ
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
-
             // generate mzml file
 
             // 1 MS1 scan per peptide
@@ -942,8 +940,6 @@ namespace Test.FlashLFQ
             string fileToWrite = "myMzml.mzML";
             string peptide = "PEPTIDE";
             double intensity = 1e6;
-
-            Loaders.LoadElements();
 
             // generate mzml file
 

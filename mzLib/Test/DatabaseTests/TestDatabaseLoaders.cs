@@ -889,7 +889,7 @@ namespace Test.DatabaseTests
         [Test]
         public void MultiMod_ProteinDbWriter()
         {
-            var sampleModList = PtmListLoader
+            var sampleModList = ModificationLoader
                 .ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"),
                     out var errors).ToList();
             var currentMod = sampleModList.First();
