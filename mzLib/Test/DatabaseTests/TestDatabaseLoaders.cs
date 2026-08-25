@@ -410,7 +410,11 @@ namespace Test.DatabaseTests
         [Category("UniProt")]
         public void DownloadContentRejectsNonSuccessInsteadOfWritingIt()
         {
-            ExternalServiceTestHelper.EnsureReachable("UniProt", "http://uniprot.org/docs/ptmlist.txt");
+            // Probe the host this test actually calls. It used to probe http://uniprot.org while the
+            // download below goes to https://rest.uniprot.org — a different host, so the probe could pass
+            // while the host that matters was down, which is how a UniProt outage turned this red instead
+            // of skipping it. The probe URL must answer 200; the download URL deliberately does not.
+            ExternalServiceTestHelper.EnsureReachable("UniProt", "https://rest.uniprot.org/uniprotkb/P02768.fasta");
 
             // Same host, a path it answers 404 on — the shape of the bug, not a fabricated one.
             string outputFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "notFound.ptmlist.txt");
@@ -419,8 +423,31 @@ namespace Test.DatabaseTests
             var e = Assert.Throws<HttpRequestException>(
                 () => Loaders.DownloadContent("https://rest.uniprot.org/docs/ptmlist.txt", outputFile));
 
-            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
+            // A non-success response must never reach disk, whatever the status. That half of the contract
+            // holds during an outage too, so it is asserted unconditionally.
             Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+
+            // The other half — that the status reaches the message — can only be checked against the 404
+            // this path is chosen to produce. A degraded UniProt substitutes a 5xx (observed live: 500 on
+            // every endpoint on 2026-08-21), which says nothing about the contract, so skip rather than
+            // fail. Without this the test reports a third-party outage as a code failure.
+            int status = 0;
+            foreach (string token in e.Message.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (token.Length == 3 && int.TryParse(token, out int parsed))
+                {
+                    status = parsed;
+                    break;
+                }
+            }
+
+            if (status >= 500 || status == 408 || status == 429)
+            {
+                Assert.Ignore($"Skipping external-service test: UniProt unavailable (answered {status} where this " +
+                              "path normally answers 404). This is a third-party availability problem, not a code failure.");
+            }
+
+            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
         }
 
         // ---- DownloadContent, offline --------------------------------------------------------
