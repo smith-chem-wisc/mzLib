@@ -12,7 +12,8 @@ namespace Quantification
     /// QuantificationParameters contain all the strategies and settings needed to perform quantification. These are:
     /// 3 normalization strategies (for spectral matches, peptides, and proteins),
     /// 2 roll-up strategies (spectral matches to peptides, peptides to proteins),
-    /// 1 collapse strategy (to collapse samples, e.g., fractions and technical replicates)
+    /// 1 collapse strategy (which samples are combined, e.g., fractions and technical replicates)
+    /// paired with 1 aggregation strategy (how the combined values are reduced to one)
     /// Quantification is performed in the following order:
     /// 1) Spectral Match Normalization ->
     /// 2) Spectral Match to Peptide Roll-Up ->
@@ -28,7 +29,16 @@ namespace Quantification
         public INormalizationStrategy SpectralMatchNormalizationStrategy { get; set; }
         public IRollUpStrategy SpectralMatchToPeptideRollUpStrategy { get; set; }
         public INormalizationStrategy PeptideNormalizationStrategy { get; set; }
+        /// <summary>
+        /// Which samples are combined when collapsing (fractions, technical replicates, ...).
+        /// </summary>
         public ICollapseStrategy CollapseStrategy { get; set; }
+
+        /// <summary>
+        /// How the values within a collapsed group are reduced to one. Paired with
+        /// <see cref="CollapseStrategy"/>, which decides what gets grouped in the first place.
+        /// </summary>
+        public IAggregationStrategy CollapseAggregationStrategy { get; set; }
         public IRollUpStrategy PeptideToProteinRollUpStrategy { get; set; }
         public INormalizationStrategy ProteinNormalizationStrategy { get; set; }
         /// <summary>
@@ -83,6 +93,7 @@ namespace Quantification
                 SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
                 PeptideNormalizationStrategy = new NoNormalization(),
                 CollapseStrategy = new NoCollapse(),
+                CollapseAggregationStrategy = new SumAggregation(),
                 PeptideToProteinRollUpStrategy = new SumRollUp(),
                 ProteinNormalizationStrategy = new NoNormalization(),
                 OutputDirectory = string.Empty,
