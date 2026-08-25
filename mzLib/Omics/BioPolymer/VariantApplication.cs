@@ -254,12 +254,12 @@ namespace Omics.BioPolymer
                 vcf,
                 variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
 
-            // If an already-applied variation partially overlaps the current edit, use the consensus tail to avoid index corruption
-            bool intersectsAppliedRegionIncompletely =
-                protein.AppliedSequenceVariations != null
-                && protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
-
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
+            // The tail always comes from BaseSequence, never from ConsensusVariant.BaseSequence. Variations are
+            // applied in descending position order, so BaseSequence already carries every edit downstream of this
+            // one and the consensus tail would revert them. Do not reintroduce a branch here on whether an
+            // already-applied variation partially overlaps this edit and take the consensus tail in that case -
+            // that is the bug OverlappingVariants_NullVcf_ProducesCorrectCombinedSequence exists to pin.
             string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
             // Keep every previously applied variation. Overlapping edits are spliced into one sequence rather
             // than replacing one another, so an earlier edit stays in the sequence and has to stay in the
