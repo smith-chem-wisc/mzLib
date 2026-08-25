@@ -45,6 +45,13 @@ public class QuantificationEngine
         BioPolymerGroups = bioPolymerGroups;
     }
 
+    /// <summary>
+    /// The directory this run writes to: <see cref="QuantificationParameters.OutputDirectory"/> when the
+    /// caller set one, otherwise the directory the source data files live in. Null until
+    /// <see cref="ValidateEngine"/> has run, and null for a run with all three write flags off.
+    /// </summary>
+    public string ResolvedOutputDirectory { get; private set; }
+
     public QuantificationResults Run()
     {
         return Run(out var proteinMatrix);
@@ -60,39 +67,124 @@ public class QuantificationEngine
             return badResults;
         }
 
-        // Write immutable raw snapshot 
-        Task rawWriter = null;
+        var writtenFiles = new List<string>();
+
+        // Write immutable raw snapshot
+        Task<string> rawWriter = null;
         if (Parameters.WriteRawInformation)
         {
-            rawWriter = Task.Run(async () =>
-            {
-                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory);
-            });
+            rawWriter = Task.Run(() =>
+                QuantificationWriter.WriteRawData(SpectralMatches, ResolvedOutputDirectory));
         }
 
         RunPeptideQuant(out var peptideMatrix);
 
-        Task peptideWriter = null;
+        Task<string> peptideWriter = null;
         if (Parameters.WritePeptideInformation)
         {
-            peptideWriter = Task.Run(async () =>
-            {
-                QuantificationWriter.WritePeptideMatrix(peptideMatrix, Parameters.OutputDirectory);
-            });
+            peptideWriter = Task.Run(() =>
+                QuantificationWriter.WritePeptideMatrix(peptideMatrix, ResolvedOutputDirectory));
         }
 
         RunProteinQuant(peptideMatrix, out proteinMatrix);
 
         // 9) Write protein results (If enabled) No need to spin up a task, as this is the last step and we need to wait for it to complete before returning results anyway
+        string proteinFile = null;
         if (Parameters.WriteProteinInformation)
-            QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, Parameters.OutputDirectory);
+            proteinFile = QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, ResolvedOutputDirectory);
 
-        if (rawWriter != null) Task.WaitAll(rawWriter);
-        if (peptideWriter != null) Task.WaitAll(peptideWriter);
+        if (rawWriter != null) writtenFiles.Add(rawWriter.GetAwaiter().GetResult());
+        if (peptideWriter != null) writtenFiles.Add(peptideWriter.GetAwaiter().GetResult());
+        if (proteinFile != null) writtenFiles.Add(proteinFile);
+
+        // 10) Deliver. Write the final values back onto every entity that opts in via
+        //     IHasSampleIntensities, so that the existing BioPolymerGroup writers can render them,
+        //     and collect the same values into the returned results object.
+        OverwriteSampleIntensities(peptideMatrix);
+        OverwriteSampleIntensities(proteinMatrix);
+
         return new QuantificationResults
         {
-            Summary = "Quantification completed successfully."
+            Summary = "Quantification completed successfully.",
+            Success = true,
+            Samples = proteinMatrix.ColumnKeys.ToList(),
+            PeptideIntensities = BuildIntensityTable(peptideMatrix),
+            ProteinIntensities = BuildIntensityTable(proteinMatrix),
+            WrittenFiles = writtenFiles,
+            OutputDirectory = ResolvedOutputDirectory
         };
+    }
+
+    /// <summary>
+    /// True when any of the three write flags is set, and the run therefore needs an output directory.
+    /// </summary>
+    private bool WritesAnything() =>
+        Parameters.WriteRawInformation || Parameters.WritePeptideInformation || Parameters.WriteProteinInformation;
+
+    /// <summary>
+    /// Replaces the values on any row key that implements <see cref="IHasSampleIntensities"/> with the
+    /// final matrix values, setting both <see cref="IHasSampleIntensities.SamplesForQuantification"/>
+    /// (the column order) and <see cref="IHasSampleIntensities.IntensitiesBySample"/> (the values).
+    /// </summary>
+    /// <remarks>
+    /// This is destructive by design — hence "Overwrite". Anything already on the entity is discarded,
+    /// so an entity carrying values from an earlier run comes out holding this run's values only.
+    /// The pre-normalization PSM values are not lost: <see cref="QuantificationWriter.WriteRawData"/>
+    /// records them before any normalization or roll-up runs, which is what makes re-processing with
+    /// different strategies possible without re-searching.
+    ///
+    /// Row keys that do not implement the interface are skipped, so this is safe to call on a peptide
+    /// matrix even though <see cref="IBioPolymerWithSetMods"/> does not carry quantification state.
+    /// Zero-valued cells are omitted: the matrix uses 0 to mean "not observed in this sample", and
+    /// omitting them keeps <c>SampleGroupResult.HasIntensityData</c> meaningful.
+    /// </remarks>
+    internal static void OverwriteSampleIntensities<T>(QuantMatrix<T> matrix) where T : IEquatable<T>
+    {
+        if (matrix == null) return;
+
+        for (int row = 0; row < matrix.RowCount; row++)
+        {
+            if (matrix.RowKeys[row] is not IHasSampleIntensities entity)
+                continue;
+
+            var intensities = new Dictionary<ISampleInfo, double>(matrix.ColumnCount);
+            for (int col = 0; col < matrix.ColumnCount; col++)
+            {
+                double value = matrix.Matrix[row, col];
+                if (value != 0)
+                    intensities[matrix.ColumnKeys[col]] = value;
+            }
+
+            // Assign intensities before samples: BioPolymerGroup's setters invalidate the cached
+            // SampleGroupResults, and we want the invalidation to be the last thing that happens.
+            entity.IntensitiesBySample = intensities;
+            entity.SamplesForQuantification = matrix.ColumnKeys.ToList();
+        }
+    }
+
+    /// <summary>
+    /// Projects a matrix into a row-key → (sample → intensity) table for <see cref="QuantificationResults"/>.
+    /// Zero-valued cells are omitted, matching <see cref="OverwriteSampleIntensities{T}"/>.
+    /// </summary>
+    internal static Dictionary<T, Dictionary<ISampleInfo, double>> BuildIntensityTable<T>(QuantMatrix<T> matrix)
+        where T : IEquatable<T>
+    {
+        var table = new Dictionary<T, Dictionary<ISampleInfo, double>>();
+        if (matrix == null) return table;
+
+        for (int row = 0; row < matrix.RowCount; row++)
+        {
+            var intensities = new Dictionary<ISampleInfo, double>(matrix.ColumnCount);
+            for (int col = 0; col < matrix.ColumnCount; col++)
+            {
+                double value = matrix.Matrix[row, col];
+                if (value != 0)
+                    intensities[matrix.ColumnKeys[col]] = value;
+            }
+            table[matrix.RowKeys[row]] = intensities;
+        }
+
+        return table;
     }
 
     /// <summary>
@@ -105,37 +197,133 @@ public class QuantificationEngine
         badResults = null;
         if (ExperimentalDesign == null)
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: Experimental design is null."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: Experimental design is null.");
             return false;
         }
         if(SpectralMatches.IsNullOrEmpty())
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: No spectral matches provided for quantification."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: No spectral matches provided for quantification.");
             return false;
         }
         if(ModifiedBioPolymers.IsNullOrEmpty())
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: No modified biopolymers (peptides) provided for quantification.");
             return false;
         }
         if(BioPolymerGroups.IsNullOrEmpty())
         {
-            badResults = new QuantificationResults
-            {
-                Summary = "QuantificationEngine Error: No biopolymer groups (proteins) provided for quantification."
-            };
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: No biopolymer groups (proteins) provided for quantification.");
             return false;
         }
+        // Writing is on by default, so a caller who never set OutputDirectory would otherwise scatter
+        // files into the working directory. Fall back to the directory the data came from, and only
+        // if even that cannot be worked out, say so rather than guessing.
+        ResolvedOutputDirectory = null;
+        if (WritesAnything())
+        {
+            if (!string.IsNullOrWhiteSpace(Parameters.OutputDirectory))
+            {
+                ResolvedOutputDirectory = Parameters.OutputDirectory;
+            }
+            else if (TryGetSourceFileDirectory(SpectralMatches, out string beside))
+            {
+                ResolvedOutputDirectory = beside;
+            }
+            else
+            {
+                badResults = QuantificationResults.Failure(
+                    "QuantificationEngine Error: OutputDirectory is not set and no default could be " +
+                    "derived, because the spectral matches' file paths are missing, relative, or span " +
+                    "unrelated directories. Set OutputDirectory, or turn WriteRawInformation, " +
+                    "WritePeptideInformation and WriteProteinInformation off to quantify without writing files.");
+                return false;
+            }
+        }
         return true;
+    }
+
+    /// <summary>
+    /// The default output directory: where the source data files live, so that output lands beside the
+    /// data it came from when the caller did not name a directory.
+    /// </summary>
+    /// <remarks>
+    /// Only absolute source paths are considered. A bare file name or a relative path resolves against
+    /// the process's working directory, which is precisely the ambiguity this default exists to avoid,
+    /// so such matches are ignored rather than silently anchored to wherever the caller happened to be.
+    ///
+    /// When the files span several directories the nearest common ancestor is used, so one search over
+    /// <c>data/fraction1</c> and <c>data/fraction2</c> writes to <c>data</c>. A common ancestor that is
+    /// a drive or filesystem root is rejected: files on unrelated volumes, or in unrelated top-level
+    /// folders, have no shared home and the caller has to say where output goes.
+    /// </remarks>
+    /// <returns>True if a directory could be derived, in which case <paramref name="directory"/> holds it.</returns>
+    internal static bool TryGetSourceFileDirectory(IEnumerable<ISpectralMatch> spectralMatches, out string directory)
+    {
+        directory = null;
+        if (spectralMatches == null) return false;
+
+        var directories = new List<string>();
+        foreach (var match in spectralMatches)
+        {
+            string path = match?.FullFilePath;
+            if (string.IsNullOrWhiteSpace(path)) continue;
+
+            string dir;
+            try
+            {
+                dir = Path.GetDirectoryName(path);
+            }
+            catch (ArgumentException)
+            {
+                continue; // malformed path; it contributes nothing to the default
+            }
+
+            if (string.IsNullOrEmpty(dir) || !Path.IsPathRooted(dir)) continue;
+            if (!directories.Contains(dir, StringComparer.OrdinalIgnoreCase))
+                directories.Add(dir);
+        }
+
+        if (directories.Count == 0) return false;
+        if (directories.Count == 1)
+        {
+            directory = directories[0];
+            return true;
+        }
+
+        string common = directories[0];
+        for (int i = 1; i < directories.Count && common != null; i++)
+            common = CommonAncestor(common, directories[i]);
+
+        // Path.GetDirectoryName returns null only for a root, which is not a meaningful "beside the data".
+        if (common == null || Path.GetDirectoryName(common) == null) return false;
+
+        directory = common;
+        return true;
+    }
+
+    /// <summary>
+    /// The deepest directory that is a prefix of both paths, or null if they share nothing above the
+    /// root. Comparison is per path segment, so <c>C:\dataset</c> and <c>C:\dataset2</c> share
+    /// <c>C:\</c> rather than the character prefix <c>C:\dataset</c>.
+    /// </summary>
+    private static string CommonAncestor(string first, string second)
+    {
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+        var a = first.Split(separators, StringSplitOptions.None);
+        var b = second.Split(separators, StringSplitOptions.None);
+
+        int shared = 0;
+        while (shared < a.Length && shared < b.Length &&
+               string.Equals(a[shared], b[shared], StringComparison.OrdinalIgnoreCase))
+        {
+            shared++;
+        }
+
+        if (shared == 0) return null; // different drives, or one rooted and one not
+
+        // One shared segment is the root itself: "C:" from "C:\x", or "" from "/x".
+        string joined = string.Join(Path.DirectorySeparatorChar.ToString(), a, 0, shared);
+        return shared == 1 ? joined + Path.DirectorySeparatorChar : joined;
     }
 
     internal void RunPeptideQuant(out QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm)
