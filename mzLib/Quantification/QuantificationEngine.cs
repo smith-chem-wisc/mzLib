@@ -45,6 +45,13 @@ public class QuantificationEngine
         BioPolymerGroups = bioPolymerGroups;
     }
 
+    /// <summary>
+    /// The directory this run writes to: <see cref="QuantificationParameters.OutputDirectory"/> when the
+    /// caller set one, otherwise the directory the source data files live in. Null until
+    /// <see cref="ValidateEngine"/> has run, and null for a run with all three write flags off.
+    /// </summary>
+    public string ResolvedOutputDirectory { get; private set; }
+
     public QuantificationResults Run()
     {
         return Run(out var proteinMatrix);
@@ -67,7 +74,7 @@ public class QuantificationEngine
         if (Parameters.WriteRawInformation)
         {
             rawWriter = Task.Run(() =>
-                QuantificationWriter.WriteRawData(SpectralMatches, Parameters.OutputDirectory));
+                QuantificationWriter.WriteRawData(SpectralMatches, ResolvedOutputDirectory));
         }
 
         RunPeptideQuant(out var peptideMatrix);
@@ -76,7 +83,7 @@ public class QuantificationEngine
         if (Parameters.WritePeptideInformation)
         {
             peptideWriter = Task.Run(() =>
-                QuantificationWriter.WritePeptideMatrix(peptideMatrix, Parameters.OutputDirectory));
+                QuantificationWriter.WritePeptideMatrix(peptideMatrix, ResolvedOutputDirectory));
         }
 
         RunProteinQuant(peptideMatrix, out proteinMatrix);
@@ -84,7 +91,7 @@ public class QuantificationEngine
         // 9) Write protein results (If enabled) No need to spin up a task, as this is the last step and we need to wait for it to complete before returning results anyway
         string proteinFile = null;
         if (Parameters.WriteProteinInformation)
-            proteinFile = QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, Parameters.OutputDirectory);
+            proteinFile = QuantificationWriter.WriteProteinGroupMatrix(proteinMatrix, ResolvedOutputDirectory);
 
         if (rawWriter != null) writtenFiles.Add(rawWriter.GetAwaiter().GetResult());
         if (peptideWriter != null) writtenFiles.Add(peptideWriter.GetAwaiter().GetResult());
@@ -103,7 +110,8 @@ public class QuantificationEngine
             Samples = proteinMatrix.ColumnKeys.ToList(),
             PeptideIntensities = BuildIntensityTable(peptideMatrix),
             ProteinIntensities = BuildIntensityTable(proteinMatrix),
-            WrittenFiles = writtenFiles
+            WrittenFiles = writtenFiles,
+            OutputDirectory = ResolvedOutputDirectory
         };
     }
 
@@ -208,16 +216,114 @@ public class QuantificationEngine
             return false;
         }
         // Writing is on by default, so a caller who never set OutputDirectory would otherwise scatter
-        // files into the working directory. Say so instead of guessing where they meant.
-        if (WritesAnything() && string.IsNullOrWhiteSpace(Parameters.OutputDirectory))
+        // files into the working directory. Fall back to the directory the data came from, and only
+        // if even that cannot be worked out, say so rather than guessing.
+        ResolvedOutputDirectory = null;
+        if (WritesAnything())
         {
-            badResults = QuantificationResults.Failure(
-                "QuantificationEngine Error: OutputDirectory must be set when WriteRawInformation, " +
-                "WritePeptideInformation or WriteProteinInformation is enabled. " +
-                "Set an output directory, or turn the write flags off to quantify without writing files.");
-            return false;
+            if (!string.IsNullOrWhiteSpace(Parameters.OutputDirectory))
+            {
+                ResolvedOutputDirectory = Parameters.OutputDirectory;
+            }
+            else if (TryGetSourceFileDirectory(SpectralMatches, out string beside))
+            {
+                ResolvedOutputDirectory = beside;
+            }
+            else
+            {
+                badResults = QuantificationResults.Failure(
+                    "QuantificationEngine Error: OutputDirectory is not set and no default could be " +
+                    "derived, because the spectral matches' file paths are missing, relative, or span " +
+                    "unrelated directories. Set OutputDirectory, or turn WriteRawInformation, " +
+                    "WritePeptideInformation and WriteProteinInformation off to quantify without writing files.");
+                return false;
+            }
         }
         return true;
+    }
+
+    /// <summary>
+    /// The default output directory: where the source data files live, so that output lands beside the
+    /// data it came from when the caller did not name a directory.
+    /// </summary>
+    /// <remarks>
+    /// Only absolute source paths are considered. A bare file name or a relative path resolves against
+    /// the process's working directory, which is precisely the ambiguity this default exists to avoid,
+    /// so such matches are ignored rather than silently anchored to wherever the caller happened to be.
+    ///
+    /// When the files span several directories the nearest common ancestor is used, so one search over
+    /// <c>data/fraction1</c> and <c>data/fraction2</c> writes to <c>data</c>. A common ancestor that is
+    /// a drive or filesystem root is rejected: files on unrelated volumes, or in unrelated top-level
+    /// folders, have no shared home and the caller has to say where output goes.
+    /// </remarks>
+    /// <returns>True if a directory could be derived, in which case <paramref name="directory"/> holds it.</returns>
+    internal static bool TryGetSourceFileDirectory(IEnumerable<ISpectralMatch> spectralMatches, out string directory)
+    {
+        directory = null;
+        if (spectralMatches == null) return false;
+
+        var directories = new List<string>();
+        foreach (var match in spectralMatches)
+        {
+            string path = match?.FullFilePath;
+            if (string.IsNullOrWhiteSpace(path)) continue;
+
+            string dir;
+            try
+            {
+                dir = Path.GetDirectoryName(path);
+            }
+            catch (ArgumentException)
+            {
+                continue; // malformed path; it contributes nothing to the default
+            }
+
+            if (string.IsNullOrEmpty(dir) || !Path.IsPathRooted(dir)) continue;
+            if (!directories.Contains(dir, StringComparer.OrdinalIgnoreCase))
+                directories.Add(dir);
+        }
+
+        if (directories.Count == 0) return false;
+        if (directories.Count == 1)
+        {
+            directory = directories[0];
+            return true;
+        }
+
+        string common = directories[0];
+        for (int i = 1; i < directories.Count && common != null; i++)
+            common = CommonAncestor(common, directories[i]);
+
+        // Path.GetDirectoryName returns null only for a root, which is not a meaningful "beside the data".
+        if (common == null || Path.GetDirectoryName(common) == null) return false;
+
+        directory = common;
+        return true;
+    }
+
+    /// <summary>
+    /// The deepest directory that is a prefix of both paths, or null if they share nothing above the
+    /// root. Comparison is per path segment, so <c>C:\dataset</c> and <c>C:\dataset2</c> share
+    /// <c>C:\</c> rather than the character prefix <c>C:\dataset</c>.
+    /// </summary>
+    private static string CommonAncestor(string first, string second)
+    {
+        var separators = new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar };
+        var a = first.Split(separators, StringSplitOptions.None);
+        var b = second.Split(separators, StringSplitOptions.None);
+
+        int shared = 0;
+        while (shared < a.Length && shared < b.Length &&
+               string.Equals(a[shared], b[shared], StringComparison.OrdinalIgnoreCase))
+        {
+            shared++;
+        }
+
+        if (shared == 0) return null; // different drives, or one rooted and one not
+
+        // One shared segment is the root itself: "C:" from "C:\x", or "" from "/x".
+        string joined = string.Join(Path.DirectorySeparatorChar.ToString(), a, 0, shared);
+        return shared == 1 ? joined + Path.DirectorySeparatorChar : joined;
     }
 
     internal void RunPeptideQuant(out QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm)

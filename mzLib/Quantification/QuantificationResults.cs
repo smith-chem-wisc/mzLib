@@ -62,6 +62,13 @@ namespace Quantification
         /// </summary>
         public IReadOnlyList<string> WrittenFiles { get; internal set; } = new List<string>();
 
+        /// <summary>
+        /// The directory the engine wrote to. This is <see cref="QuantificationParameters.OutputDirectory"/>
+        /// when the caller set one, and otherwise the directory derived from the source data files, so a
+        /// caller who relied on the default can find out where output went. Null when the run wrote nothing.
+        /// </summary>
+        public string OutputDirectory { get; internal set; }
+
         internal static QuantificationResults Failure(string summary) =>
             new QuantificationResults { Summary = summary, Success = false };
     }

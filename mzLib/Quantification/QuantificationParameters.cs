@@ -31,6 +31,13 @@ namespace Quantification
         public ICollapseStrategy CollapseStrategy { get; set; }
         public IRollUpStrategy PeptideToProteinRollUpStrategy { get; set; }
         public INormalizationStrategy ProteinNormalizationStrategy { get; set; }
+        /// <summary>
+        /// Where the output files are written. Optional: when this is left empty and any of the
+        /// <c>Write*Information</c> flags is on, the engine writes beside the source data — the directory
+        /// holding the spectral matches' files, or their nearest common ancestor when they span several.
+        /// Setting it always wins over that default, and a run that writes nothing ignores it entirely.
+        /// The directory actually used is reported as <see cref="QuantificationResults.OutputDirectory"/>.
+        /// </summary>
         public string OutputDirectory { get; set; }
         public bool UseSharedPeptidesForProteinQuant { get; set; } = false;
 
@@ -42,9 +49,10 @@ namespace Quantification
         /// search can be re-quantified under different normalization, roll-up and collapse strategies
         /// without re-searching. Turning it off discards that option for the run.
         ///
-        /// <see cref="OutputDirectory"/> must be set whenever this or either of the other two write
-        /// flags is on; the engine rejects the run with a descriptive
-        /// <see cref="QuantificationResults.Summary"/> rather than writing into the working directory.
+        /// <see cref="OutputDirectory"/> need not be set: the engine falls back to the directory the
+        /// source files came from. It rejects the run with a descriptive
+        /// <see cref="QuantificationResults.Summary"/> only when neither is available, rather than
+        /// writing into the working directory.
         /// </summary>
         public bool WriteRawInformation { get; set; } = true;
 
@@ -58,6 +66,15 @@ namespace Quantification
         /// </summary>
         public bool WriteProteinInformation { get; set; } = true;
 
+        /// <summary>
+        /// A no-op configuration — no normalization, no collapsing, sum roll-ups — for the test and
+        /// development projects only. It is deliberately <c>internal</c>: production callers should
+        /// construct a <see cref="QuantificationParameters"/> and choose strategies for their data.
+        ///
+        /// Writing is switched off so that a test run leaves nothing behind. That matters more than it
+        /// looks: with no <see cref="OutputDirectory"/>, a write-enabled run would fall back to writing
+        /// beside whatever data files the test pointed at.
+        /// </summary>
         internal static QuantificationParameters GetSimpleParameters()
         {
             return new QuantificationParameters
@@ -70,7 +87,6 @@ namespace Quantification
                 ProteinNormalizationStrategy = new NoNormalization(),
                 OutputDirectory = string.Empty,
                 UseSharedPeptidesForProteinQuant = false,
-                // No OutputDirectory, so writing must stay off or the engine will reject the run.
                 WriteRawInformation = false,
                 WritePeptideInformation = false,
                 WriteProteinInformation = false

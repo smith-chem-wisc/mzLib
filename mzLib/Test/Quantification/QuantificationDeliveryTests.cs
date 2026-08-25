@@ -41,11 +41,17 @@ public class QuantificationDeliveryTests
     /// Two files x three TMT channels, one peptide per protein, with distinct intensities per cell so
     /// that a transposed or mis-ordered result is detectable.
     /// </summary>
+    /// <param name="sourceDirectory">
+    /// When given, the spectral matches carry absolute file paths inside this directory, which is what
+    /// lets the engine derive a default output directory. The experimental design stays keyed by bare
+    /// file name either way, as <see cref="QuantificationEngine.PivotByFile"/> requires.
+    /// </param>
     private static void BuildFixture(
         out IExperimentalDesign design,
         out List<ISpectralMatch> spectralMatches,
         out List<IBioPolymerWithSetMods> peptides,
-        out List<IBioPolymerGroup> proteinGroups)
+        out List<IBioPolymerGroup> proteinGroups,
+        string sourceDirectory = null)
     {
         var dict = new Dictionary<string, ISampleInfo[]>();
         foreach (string file in new[] { File1, File2 })
@@ -81,15 +87,18 @@ public class QuantificationDeliveryTests
                 new HashSet<IBioPolymerWithSetMods> { pep2 })
         };
 
+        string path1 = sourceDirectory == null ? File1 : Path.Combine(sourceDirectory, File1);
+        string path2 = sourceDirectory == null ? File2 : Path.Combine(sourceDirectory, File2);
+
         spectralMatches = new List<ISpectralMatch>
         {
-            new MockSpectralMatch(File1, pep1.FullSequence, pep1.BaseSequence, 10.0, 1, new[] { pep1 })
+            new MockSpectralMatch(path1, pep1.FullSequence, pep1.BaseSequence, 10.0, 1, new[] { pep1 })
                 { Intensities = new double[] { 100, 200, 300 } },
-            new MockSpectralMatch(File1, pep2.FullSequence, pep2.BaseSequence, 10.0, 2, new[] { pep2 })
+            new MockSpectralMatch(path1, pep2.FullSequence, pep2.BaseSequence, 10.0, 2, new[] { pep2 })
                 { Intensities = new double[] { 400, 500, 600 } },
-            new MockSpectralMatch(File2, pep1.FullSequence, pep1.BaseSequence, 10.0, 3, new[] { pep1 })
+            new MockSpectralMatch(path2, pep1.FullSequence, pep1.BaseSequence, 10.0, 3, new[] { pep1 })
                 { Intensities = new double[] { 1000, 2000, 3000 } },
-            new MockSpectralMatch(File2, pep2.FullSequence, pep2.BaseSequence, 10.0, 4, new[] { pep2 })
+            new MockSpectralMatch(path2, pep2.FullSequence, pep2.BaseSequence, 10.0, 4, new[] { pep2 })
                 { Intensities = new double[] { 4000, 5000, 6000 } }
         };
     }
@@ -133,12 +142,12 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
-    /// Writing is on by default and OutputDirectory is not, so the engine must say where it expected
-    /// the files to go rather than scattering them into the working directory. This replaces the older
-    /// behaviour, where a default-configured Run() threw out of an unimplemented writer.
+    /// Writing is on by default. With no OutputDirectory AND no usable source-file directory — this
+    /// fixture's matches carry bare file names — the engine has nowhere defensible to write, so it must
+    /// say so rather than scattering files into the working directory.
     /// </summary>
     [Test]
-    public void Run_WithWritingOnAndNoOutputDirectory_ReturnsClearFailure()
+    public void Run_WithWritingOnAndNothingToDeriveFrom_ReturnsClearFailure()
     {
         BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
 
@@ -152,7 +161,7 @@ public class QuantificationDeliveryTests
         Assert.Multiple(() =>
         {
             Assert.That(results.Success, Is.False);
-            Assert.That(results.Summary, Does.Contain("OutputDirectory must be set"));
+            Assert.That(results.Summary, Does.Contain("OutputDirectory is not set"));
             Assert.That(results.WrittenFiles, Is.Empty);
             Assert.That(results.ProteinIntensities, Is.Empty);
         });
@@ -160,6 +169,146 @@ public class QuantificationDeliveryTests
         foreach (var group in proteinGroups)
             Assert.That(group.IntensitiesBySample, Is.Null, "a rejected run must not touch the entities");
     }
+
+    /// <summary>
+    /// The default: writing is on, no OutputDirectory was given, and the matches name real files — so
+    /// output lands beside the data rather than failing or landing in the working directory.
+    /// </summary>
+    [Test]
+    public void Run_WithWritingOnAndNoOutputDirectory_WritesBesideTheSourceFiles()
+    {
+        string dataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantDefaultOutput_" + TestContext.CurrentContext.Test.ID);
+        Directory.CreateDirectory(dataDirectory);
+        try
+        {
+            BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups,
+                dataDirectory);
+
+            var parameters = SimpleParameters();   // OutputDirectory left empty
+            parameters.WriteRawInformation = true;
+            parameters.WritePeptideInformation = true;
+            parameters.WriteProteinInformation = true;
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(results.Success, Is.True);
+                Assert.That(results.OutputDirectory, Is.EqualTo(dataDirectory));
+                Assert.That(results.WrittenFiles, Has.Count.EqualTo(3));
+            });
+
+            foreach (string file in results.WrittenFiles)
+            {
+                Assert.That(File.Exists(file), Is.True, file + " should exist");
+                Assert.That(Path.GetDirectoryName(file), Is.EqualTo(dataDirectory));
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(dataDirectory)) Directory.Delete(dataDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// The derived directory is only a default. An explicit OutputDirectory wins, even when the source
+    /// files would have supplied one.
+    /// </summary>
+    [Test]
+    public void Run_WithOutputDirectorySet_IgnoresTheSourceFileDirectory()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantExplicitOutput_" + TestContext.CurrentContext.Test.ID);
+        string dataDirectory = Path.Combine(root, "data");
+        string chosenDirectory = Path.Combine(root, "chosen");
+        Directory.CreateDirectory(dataDirectory);
+        try
+        {
+            BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups,
+                dataDirectory);
+
+            var parameters = SimpleParameters(chosenDirectory);
+            parameters.WriteProteinInformation = true;
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+
+            Assert.That(results.OutputDirectory, Is.EqualTo(chosenDirectory));
+            Assert.That(File.Exists(Path.Combine(chosenDirectory, QuantificationWriter.ProteinGroupFileName)), Is.True);
+            Assert.That(Directory.GetFiles(dataDirectory), Is.Empty, "nothing should be written beside the data");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Bare file names and relative paths resolve against the process's working directory, which is the
+    /// ambiguity the default exists to avoid, so neither may produce one.
+    /// </summary>
+    [Test]
+    public void TryGetSourceFileDirectory_WithNoUsablePath_DerivesNothing()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(QuantificationEngine.TryGetSourceFileDirectory(null, out _), Is.False);
+            Assert.That(QuantificationEngine.TryGetSourceFileDirectory(new List<ISpectralMatch>(), out _), Is.False);
+            Assert.That(QuantificationEngine.TryGetSourceFileDirectory(MatchesFrom("file1.raw"), out _), Is.False,
+                "a bare file name has no directory");
+            Assert.That(QuantificationEngine.TryGetSourceFileDirectory(
+                    MatchesFrom(Path.Combine("data", "file1.raw")), out _), Is.False,
+                "a relative directory depends on the working directory");
+        });
+    }
+
+    /// <summary>
+    /// One directory is used as-is; several sibling directories collapse to their nearest common
+    /// ancestor, so a fractionated search writes to the folder holding the fractions.
+    /// </summary>
+    [Test]
+    public void TryGetSourceFileDirectory_DerivesTheDirectoryOrItsNearestCommonAncestor()
+    {
+        string root = Path.Combine(TestContext.CurrentContext.TestDirectory, "QuantDerive");
+        string fraction1 = Path.Combine(root, "fraction1");
+        string fraction2 = Path.Combine(root, "fraction2");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(QuantificationEngine.TryGetSourceFileDirectory(
+                MatchesFrom(Path.Combine(fraction1, "a.raw"), Path.Combine(fraction1, "b.raw")),
+                out string single), Is.True);
+            Assert.That(single, Is.EqualTo(fraction1));
+
+            Assert.That(QuantificationEngine.TryGetSourceFileDirectory(
+                MatchesFrom(Path.Combine(fraction1, "a.raw"), Path.Combine(fraction2, "b.raw")),
+                out string ancestor), Is.True);
+            Assert.That(ancestor, Is.EqualTo(root));
+        });
+    }
+
+    /// <summary>
+    /// Files whose only shared ancestor is the drive or filesystem root have no shared home. Writing to
+    /// the root would be worse than asking, so nothing is derived.
+    /// </summary>
+    [Test]
+    public void TryGetSourceFileDirectory_RejectsARootAsTheCommonAncestor()
+    {
+        string root = Path.GetPathRoot(TestContext.CurrentContext.TestDirectory);
+        Assert.That(root, Is.Not.Null.And.Not.Empty);
+
+        bool derived = QuantificationEngine.TryGetSourceFileDirectory(
+            MatchesFrom(Path.Combine(root, "alpha", "a.raw"), Path.Combine(root, "beta", "b.raw")),
+            out _);
+
+        Assert.That(derived, Is.False);
+    }
+
+    /// <summary>Spectral matches that carry nothing but the given file paths.</summary>
+    private static List<ISpectralMatch> MatchesFrom(params string[] filePaths) =>
+        filePaths
+            .Select((path, i) => (ISpectralMatch)new MockSpectralMatch(path, "SEQ", "SEQ", 10.0, i + 1))
+            .ToList();
 
     /// <summary>
     /// Quantifying without writing anything is legitimate, and must not require an output directory.
@@ -175,6 +324,7 @@ public class QuantificationDeliveryTests
 
         Assert.That(results.Success, Is.True);
         Assert.That(results.WrittenFiles, Is.Empty);
+        Assert.That(results.OutputDirectory, Is.Null, "a run that writes nothing resolves no directory");
     }
 
     /// <summary>
