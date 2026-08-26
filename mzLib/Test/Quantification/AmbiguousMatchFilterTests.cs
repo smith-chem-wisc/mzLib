@@ -102,6 +102,35 @@ namespace Test.Quantification
             Assert.That(map[pepA], Is.EqualTo(new List<int> { 0 }));
         }
 
+        /// <summary>
+        /// A match whose identification collection is null rather than empty. MockSpectralMatch always
+        /// returns a list, so reaching that branch takes a match that does not.
+        /// </summary>
+        private class NullIdentificationMatch : BaseSpectralMatch
+        {
+            public NullIdentificationMatch(int scan)
+                : base(File, scan, 100.0, $"SEQ{scan}", $"SEQ{scan}")
+            {
+                Intensities = new[] { 1000.0, 2000.0 };
+            }
+
+            public override IEnumerable<IBioPolymerWithSetMods> GetIdentifiedBioPolymersWithSetMods() => null;
+        }
+
+        [Test]
+        public void MatchWithANullIdentificationCollection_IsExcludedRatherThanThrowing()
+        {
+            var pepA = Peptide("PEPTIDEK", "P1");
+
+            var matrix = MatrixOf(Match(1, pepA), new NullIdentificationMatch(2));
+
+            Dictionary<IBioPolymerWithSetMods, List<int>> map = null;
+            Assert.DoesNotThrow(() => map = QuantificationEngine.GetPsmToPeptideMap(
+                matrix, new List<IBioPolymerWithSetMods> { pepA }));
+
+            Assert.That(map[pepA], Is.EqualTo(new List<int> { 0 }));
+        }
+
         [Test]
         public void SamePeptideNamedTwice_IsNotAmbiguous()
         {
