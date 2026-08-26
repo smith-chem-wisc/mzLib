@@ -11,8 +11,10 @@ namespace Omics.BioPolymerGroup
     /// 
     /// Supports both label-free and isobaric (TMT/iTRAQ) quantification methods.
     /// Implementations provide scoring, FDR estimation, sequence coverage, and output formatting.
+    /// Per-sample quantification values are carried via <see cref="IHasSampleIntensities"/>, which a
+    /// quantification engine populates.
     /// </summary>
-    public interface IBioPolymerGroup : IEquatable<IBioPolymerGroup>
+    public interface IBioPolymerGroup : IEquatable<IBioPolymerGroup>, IHasSampleIntensities
     {
         /// <summary>
         /// True if any biopolymer in this group is marked as a decoy, used for FDR estimation.
@@ -28,13 +30,6 @@ namespace Omics.BioPolymerGroup
         /// True if any biopolymer in this group is marked as an entrapment protein.
         /// </summary>
         bool IsEntrapment { get; }
-
-        /// <summary>
-        /// Samples that contribute quantification data for this group.
-        /// Supports <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
-        /// May be null when no experimental design is available.
-        /// </summary>
-        List<ISampleInfo>? SamplesForQuantification { get; set; }
 
         /// <summary>
         /// All biopolymers (e.g., proteins, RNA sequences) that belong to this group.
@@ -89,13 +84,6 @@ namespace Omics.BioPolymerGroup
         /// The best (highest) score among all identified sequences in this group.
         /// </summary>
         double BestBioPolymerWithSetModsScore { get; set; }
-
-        /// <summary>
-        /// Measured intensity values for this group, keyed by sample.
-        /// Supports both <see cref="SpectraFileInfo"/> and <see cref="IsobaricQuantSampleInfo"/> as keys.
-        /// May be null when no intensity data is available.
-        /// </summary>
-        Dictionary<ISampleInfo, double>? IntensitiesBySample { get; set; }
 
         /// <summary>
         /// All biopolymers in this group ordered alphabetically by accession.
