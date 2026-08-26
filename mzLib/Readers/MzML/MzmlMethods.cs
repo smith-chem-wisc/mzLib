@@ -1,4 +1,4 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using MzLibUtil;
 using System;
 using System.Collections.Generic;
@@ -155,10 +155,13 @@ namespace Readers
                 mzML.fileDescription.sourceFileList.sourceFile[0] = new Generated.SourceFileType
                 {
                     id = idName,
-                    name = myMsDataFile.SourceFile.FileName,
-                    // SourceFile.Uri is null whenever the constructor without a path was used, or
-                    // when that path failed to parse; location is required, so emit a placeholder.
-                    location = myMsDataFile.SourceFile.Uri?.ToString() ?? "file:///unknown-source",
+                    // name and location are both use="required" in the mzML schema, and a null string
+                    // attribute is OMITTED by XmlSerializer rather than written empty -- so either being
+                    // null produced exactly the schema-invalid output this method exists to avoid.
+                    // FileName is null whenever the id-only SourceFile constructor was used; Uri is null
+                    // for that same case and when a path failed to parse.
+                    name = myMsDataFile.SourceFile.FileName ?? SourceFile.UnknownName,
+                    location = myMsDataFile.SourceFile.Uri?.ToString() ?? SourceFile.UnknownLocation,
                 };
 
                 mzML.fileDescription.sourceFileList.sourceFile[0].cvParam = new Generated.CVParamType[3];

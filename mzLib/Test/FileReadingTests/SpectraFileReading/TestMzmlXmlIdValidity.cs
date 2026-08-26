@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml;
@@ -138,7 +138,28 @@ namespace Test.FileReadingTests.SpectraFileReading
                 Assert.That(() => MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(
                     new GenericMsDataFile(new[] { OneScan() }, sourceFile), outPath, false), Throws.Nothing);
 
-                Assert.That(ReadIdAttributes(outPath).ContainsKey("sourceFile"), Is.True);
+                // Read the attributes back. Asserting only that a sourceFile id EXISTS let this test
+                // pass against a bare Uri?.ToString(): a null string attribute is omitted rather than
+                // written, and Mzml.GetSourceFile treats a missing location as absent and substitutes
+                // the opened path -- so NumSpectra was still 1 and the half-fix shipped green.
+                var sourceFileElement = ReadSourceFileAttributes(outPath);
+
+                Assert.Multiple(() =>
+                {
+                    // Both are use="required" in the mzML schema, so neither may be omitted.
+                    Assert.That(sourceFileElement.TryGetValue("location", out string location), Is.True,
+                        "sourceFile/@location was omitted, which is schema-invalid");
+                    Assert.That(location, Is.EqualTo(SourceFile.UnknownLocation));
+
+                    Assert.That(sourceFileElement.TryGetValue("name", out string name), Is.True,
+                        "sourceFile/@name was omitted, which is schema-invalid");
+                    Assert.That(name, Is.EqualTo(SourceFile.UnknownName));
+
+                    // The only test that exercises the null-FileName branch of ToValidXmlId.
+                    Assert.That(sourceFileElement.TryGetValue("id", out string id), Is.True);
+                    Assert.That(() => XmlConvert.VerifyNCName(id), Throws.Nothing,
+                        $"sourceFile/@id '{id}' is not a valid NCName");
+                });
 
                 var reread = MsDataFileReader.GetDataFile(outPath);
                 reread.LoadAllStaticData();
@@ -148,6 +169,30 @@ namespace Test.FileReadingTests.SpectraFileReading
             {
                 if (File.Exists(outPath)) File.Delete(outPath);
             }
+        }
+
+        /// <summary>
+        /// Every attribute of the written <c>sourceFile</c> element. Distinct from
+        /// <c>ReadIdAttributes</c>, which only collects <c>@id</c> and so cannot see an omitted
+        /// required attribute.
+        /// </summary>
+        private static Dictionary<string, string> ReadSourceFileAttributes(string mzmlPath)
+        {
+            using var reader = XmlReader.Create(mzmlPath);
+            while (reader.Read())
+            {
+                if (reader.NodeType != XmlNodeType.Element || reader.LocalName != "sourceFile")
+                    continue;
+
+                var attributes = new Dictionary<string, string>();
+                if (reader.MoveToFirstAttribute())
+                {
+                    do { attributes[reader.LocalName] = reader.Value; } while (reader.MoveToNextAttribute());
+                }
+                return attributes;
+            }
+
+            return new Dictionary<string, string>();
         }
 
         private static void WriteOneScanMzml(string outPath, string sourceFileName)

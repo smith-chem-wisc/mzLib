@@ -1,4 +1,4 @@
-// Copyright 2012, 2013, 2014 Derek J. Bailey
+﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work Copyright 2016, 2017 Stefan Solntsev
 //
 // This file (Mzml.cs) is part of MassSpecFiles.
@@ -298,7 +298,7 @@ namespace Readers
                     || !Uri.TryCreate(simpler.location, UriKind.Absolute, out sourceUri))
                 {
                     try { sourceUri = new Uri(System.IO.Path.GetFullPath(FilePath)); }
-                    catch { sourceUri = new Uri("file:///unknown-source"); }
+                    catch { sourceUri = new Uri(SourceFile.UnknownLocation); }
                 }
                 sourceFile = new SourceFile(
                     nativeIdFormat,

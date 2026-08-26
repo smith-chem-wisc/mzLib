@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Xml;
 using System.Xml.Serialization;
@@ -30,7 +30,12 @@ namespace Test.MzIdentML
         public void RootTypeDeclaresTheSchemaTargetNamespace(Type rootType, string expectedNamespace)
         {
             var root = (XmlRootAttribute)Attribute.GetCustomAttribute(rootType, typeof(XmlRootAttribute));
-            var type = (XmlTypeAttribute)Attribute.GetCustomAttribute(rootType, typeof(XmlTypeAttribute));
+            // inherit: false deliberately. The two-argument overload is inherit: true, and every root
+            // type derives from IdentifiableType, which carries its own [XmlType(Namespace = ".../1.1")]
+            // (mzIdentML1_1_0.cs:888). Deleting the attribute from the derived type would let the lookup
+            // walk up and find the base's, and this assertion would pass vacuously -- which is the exact
+            // regression it exists to catch.
+            var type = (XmlTypeAttribute)Attribute.GetCustomAttribute(rootType, typeof(XmlTypeAttribute), inherit: false);
 
             Assert.That(root, Is.Not.Null, $"{rootType.Name} has no XmlRootAttribute");
             Assert.That(root.ElementName, Is.EqualTo("MzIdentML"));
