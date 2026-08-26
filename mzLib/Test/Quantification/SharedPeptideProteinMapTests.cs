@@ -52,6 +52,14 @@ namespace Test.Quantification
                 new HashSet<IBioPolymerWithSetMods>(unique));
         }
 
+        /// <summary>The group's delivered intensities, keyed by channel label rather than sample object.</summary>
+        private static Dictionary<string, double> ByChannel(IBioPolymerGroup group)
+        {
+            return group.IntensitiesBySample.ToDictionary(
+                kvp => ((IsobaricQuantSampleInfo)kvp.Key).ChannelLabel,
+                kvp => kvp.Value);
+        }
+
         private static QuantMatrix<IBioPolymerWithSetMods> MatrixOf(params IBioPolymerWithSetMods[] peptides)
         {
             const string file = "file1.raw";
@@ -161,8 +169,12 @@ namespace Test.Quantification
             Assert.That(map[group], Is.EqualTo(new List<int> { 0, 1, 2, 3 }));
         }
 
-        [Test]
-        public void Engine_RunsWithSharedPeptidesEnabled()
+        /// <summary>
+        /// Builds the same two-group scenario each time -- fresh groups, because the engine writes its
+        /// results onto them -- and returns each group's per-channel totals.
+        /// </summary>
+        private static (Dictionary<string, double> g1, Dictionary<string, double> g2, QuantificationResults result)
+            RunSharedPeptideScenario(bool useSharedPeptides)
         {
             const string file = "file1.raw";
             var columns = new ISampleInfo[]
@@ -182,33 +194,72 @@ namespace Test.Quantification
             var g2 = Group("G2", new[] { pepShared, pepC }, new[] { pepC });
             var groups = new List<IBioPolymerGroup> { g1, g2 };
 
+            // Distinct intensities per peptide, so the expected protein totals are only reachable if
+            // the shared peptide really is counted in both groups. With equal values the totals match
+            // even when the shared peptide is dropped from both.
+            var intensityByPeptide = new Dictionary<IBioPolymerWithSetMods, double[]>
+            {
+                [pepA] = new[] { 100.0, 200.0 },
+                [pepShared] = new[] { 30.0, 60.0 },
+                [pepC] = new[] { 7.0, 14.0 },
+            };
+
             int scan = 1;
             var matches = peptides
                 .Select(p => (ISpectralMatch)new MockSpectralMatch(
                     file, p.FullSequence, p.BaseSequence, 100.0, scan++, new[] { p })
                 {
-                    Intensities = new[] { 1000.0, 2000.0 }
+                    Intensities = intensityByPeptide[p]
                 })
                 .ToList();
 
             var parameters = QuantificationParameters.GetSimpleParameters();
-            parameters.UseSharedPeptidesForProteinQuant = true;
+            parameters.UseSharedPeptidesForProteinQuant = useSharedPeptides;
 
             var engine = new QuantificationEngine(parameters, design, matches, peptides, groups);
 
-            // Before this change, Run() threw NotImplementedException here -- the flag was settable
-            // and unusable.
+            // Before this change, Run() threw NotImplementedException here with the flag on -- it was
+            // settable and unusable.
             var result = engine.Run();
+
+            return (ByChannel(g1), ByChannel(g2), result);
+        }
+
+        [Test]
+        public void Engine_RunsWithSharedPeptidesEnabled()
+        {
+            var (g1ByChannel, g2ByChannel, result) = RunSharedPeptideScenario(useSharedPeptides: true);
 
             Assert.Multiple(() =>
             {
                 Assert.That(result.Success, Is.True, result.Summary);
 
-                // Both groups quantify. G1 gets pepA + pepShared, G2 gets pepShared + pepC, so with
-                // equal peptide intensities the shared peptide lands in both totals.
-                Assert.That(g1.IntensitiesBySample, Is.Not.Null.And.Not.Empty);
-                Assert.That(g2.IntensitiesBySample, Is.Not.Null.And.Not.Empty);
-                Assert.That(g1.IntensitiesBySample.Values.Sum(), Is.EqualTo(g2.IntensitiesBySample.Values.Sum()));
+                // G1 = pepA + pepShared = 100+30 and 200+60. G2 = pepShared + pepC = 30+7 and 60+14.
+                // Neither is reachable without the shared peptide -- the companion test below pins
+                // what the same input produces when it is excluded.
+                Assert.That(g1ByChannel["126"], Is.EqualTo(130.0));
+                Assert.That(g1ByChannel["127N"], Is.EqualTo(260.0));
+                Assert.That(g2ByChannel["126"], Is.EqualTo(37.0));
+                Assert.That(g2ByChannel["127N"], Is.EqualTo(74.0));
+            });
+        }
+
+        [Test]
+        public void Engine_WithSharedPeptidesOff_LeavesTheSharedPeptideOut()
+        {
+            var (g1ByChannel, g2ByChannel, result) = RunSharedPeptideScenario(useSharedPeptides: false);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Success, Is.True, result.Summary);
+
+                // Same input, unique peptides only: G1 is pepA alone and G2 is pepC alone. Every value
+                // differs from the shared-peptide run, so the pair of tests distinguishes the two
+                // behaviours rather than merely agreeing with each other.
+                Assert.That(g1ByChannel["126"], Is.EqualTo(100.0));
+                Assert.That(g1ByChannel["127N"], Is.EqualTo(200.0));
+                Assert.That(g2ByChannel["126"], Is.EqualTo(7.0));
+                Assert.That(g2ByChannel["127N"], Is.EqualTo(14.0));
             });
         }
 
