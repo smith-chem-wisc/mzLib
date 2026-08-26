@@ -67,9 +67,16 @@ namespace FlashLFQ.IsoTracker
             return false;
         }
 
+        /// <summary>
+        /// Defers to the typed overload. The previous body was Equals(this, (Extremum)obj), which binds
+        /// to the static object.Equals(object, object); that ends in a virtual objA.Equals(objB) and
+        /// arrives straight back here, so any non-generic comparison of two distinct Extrema recursed
+        /// until the stack ran out. Generic callers never saw it, because Dictionary and LINQ resolve
+        /// IEquatable<Extremum> and reach the typed overload directly.
+        /// </summary>
         public override bool Equals(Object obj)
         {
-            return Equals(this, (Extremum)obj);
+            return obj is Extremum other && Equals(other);
         }
 
         public static double operator - (Extremum extremun1, Extremum extrenum2)

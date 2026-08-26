@@ -1986,6 +1986,34 @@ namespace Test.FlashLFQ
             }
 
         }
+
+        /// <summary>
+        /// Extremum.Equals(object) used to call the static object.Equals(object, object), which comes
+        /// back through the virtual Equals and recursed until the stack ran out. Only non-generic
+        /// callers reached it -- Dictionary and LINQ resolve IEquatable&lt;Extremum&gt; -- but
+        /// ClassicAssert.AreEqual is one of them, so a test comparing two Extrema took the host down
+        /// rather than failing.
+        /// </summary>
+        [Test]
+        public static void ExtremumEqualsObjectDoesNotRecurse()
+        {
+            var apex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var equalApex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var laterApex = new Extremum(100.0, 20.0, ExtremumType.Maximum);
+
+            NUnit.Framework.Assert.Multiple(() =>
+            {
+                NUnit.Framework.Assert.That(((object)apex).Equals(equalApex), Is.True);
+                NUnit.Framework.Assert.That(((object)apex).Equals(laterApex), Is.False);
+                NUnit.Framework.Assert.That(((object)apex).Equals(null), Is.False);
+
+                // previously an InvalidCastException from the (Extremum) cast
+                NUnit.Framework.Assert.That(((object)apex).Equals("not an extremum"), Is.False);
+
+                // the typed overload is unchanged
+                NUnit.Framework.Assert.That(apex.Equals(equalApex), Is.True);
+            });
+        }
     }
 
 }
