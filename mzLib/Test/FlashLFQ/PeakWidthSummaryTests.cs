@@ -68,6 +68,68 @@ namespace Test.FlashLFQ
 
         private static SpectraFileInfo File(string name, int order) => new SpectraFileInfo(name + ".mzML", "c", order, 0, 0);
 
+        /// <summary>A peak with no isotopic envelopes, so no apex and ApexRetentionTime of -1.</summary>
+        private static ChromatographicPeak ApexlessPeak(SpectraFileInfo file)
+        {
+            var identification = new Identification(
+                file, "PEPTIDE", "PEPTIDE", 799.36, 15.0, 2, new List<ProteinGroup>());
+            var peak = new ChromatographicPeak(identification, file);
+            peak.IsotopicEnvelopes = new List<IsotopicEnvelope>();
+            return peak;
+        }
+
+        [Test]
+        public void FilesSharingABaseNameAreSummarisedSeparately()
+        {
+            // Same file name, different directories -- two runs, not one.
+            var runA = new SpectraFileInfo(@"C:\Data\RunA\sample.mzML", "c", 0, 0, 0);
+            var runB = new SpectraFileInfo(@"C:\Data\RunB\sample.mzML", "c", 1, 0, 0);
+
+            var peaks = new List<ChromatographicPeak>
+            {
+                PeakOfWidth(0.2, 10, runA), PeakOfWidth(0.2, 20, runA),
+                PeakOfWidth(0.8, 10, runB), PeakOfWidth(0.8, 20, runB)
+            };
+
+            List<PeakWidthSummary> summaries = PeakWidthSummary.Summarize(peaks);
+
+            Assert.Multiple(() =>
+            {
+                // Grouped by base name, these would be one bucket of four peaks with a median between
+                // the two -- a number describing neither run.
+                Assert.That(summaries, Has.Count.EqualTo(2));
+                Assert.That(summaries.Select(x => x.TotalPeakCount), Is.EqualTo(new[] { 2, 2 }));
+                Assert.That(summaries[0].MedianFullWidthAtHalfMaximum,
+                    Is.EqualTo(0.2).Within(FloatRetentionTimeTolerance));
+                Assert.That(summaries[1].MedianFullWidthAtHalfMaximum,
+                    Is.EqualTo(0.8).Within(FloatRetentionTimeTolerance));
+            });
+        }
+
+        [Test]
+        public void PeaksWithNoApexAreLeftOutEntirely()
+        {
+            var file = File("a", 0);
+
+            var peaks = new List<ChromatographicPeak>
+            {
+                ApexlessPeak(file),
+                PeakOfWidth(0.4, 10, file),
+                PeakOfWidth(0.4, 20, file)
+            };
+
+            List<PeakWidthSummary> summaries = PeakWidthSummary.Summarize(peaks);
+
+            Assert.Multiple(() =>
+            {
+                // ApexRetentionTime is -1 without an apex, so the peak would sort first, drag
+                // RetentionTimeStart to -1 and count toward the bin it cannot contribute a width to.
+                Assert.That(summaries, Has.Count.EqualTo(1));
+                Assert.That(summaries[0].TotalPeakCount, Is.EqualTo(2));
+                Assert.That(summaries[0].RetentionTimeStart, Is.EqualTo(10.0).Within(FloatRetentionTimeTolerance));
+            });
+        }
+
         [Test]
         public void OneSummaryPerFileWithTheMedianOfThatFile()
         {

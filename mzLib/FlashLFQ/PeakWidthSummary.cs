@@ -61,10 +61,20 @@ namespace FlashLFQ
 
             foreach (var byFile in peaks
                 .Where(p => p?.SpectraFileInfo != null)
-                .GroupBy(p => p.SpectraFileInfo.FilenameWithoutExtension)
-                .OrderBy(g => g.Key, StringComparer.Ordinal))
+                // Grouped by the SpectraFileInfo itself, not its base name. Two files in different
+                // directories, or two fractions or replicates that happen to share a name, are
+                // different runs -- merging them would report one summary covering both, with counts
+                // and a retention range belonging to neither.
+                .GroupBy(p => p.SpectraFileInfo)
+                .OrderBy(g => g.Key.FullFilePathWithExtension, StringComparer.Ordinal))
             {
-                List<ChromatographicPeak> ordered = byFile.OrderBy(p => p.ApexRetentionTime).ToList();
+                // A peak with no apex reports ApexRetentionTime as -1, so it would sort ahead of every
+                // real peak, take the first bin's RetentionTimeStart down to -1, and inflate that bin's
+                // TotalPeakCount. It cannot contribute a width either, so it is not summarised at all.
+                List<ChromatographicPeak> ordered = byFile
+                    .Where(p => p.Apex != null)
+                    .OrderBy(p => p.ApexRetentionTime)
+                    .ToList();
 
                 // Equal-count bins. Integer division leaves a remainder, which goes to the last bin
                 // rather than becoming a short extra bin.
@@ -91,7 +101,7 @@ namespace FlashLFQ
 
                     summaries.Add(new PeakWidthSummary
                     {
-                        FileName = byFile.Key,
+                        FileName = byFile.Key.FilenameWithoutExtension,
                         RetentionTimeStart = inBin.First().ApexRetentionTime,
                         RetentionTimeEnd = inBin.Last().ApexRetentionTime,
                         MeasuredPeakCount = widths.Count,
