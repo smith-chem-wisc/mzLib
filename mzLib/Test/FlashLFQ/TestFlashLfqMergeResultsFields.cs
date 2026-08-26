@@ -73,5 +73,37 @@ namespace Test.FlashLFQ
                 Is.EquivalentTo(new[] { "ProteinA", "ProteinB" }),
                 "protein groups found only in the merged-in run must not be dropped");
         }
+
+        [Test]
+        public static void MergeDoesNotWriteTheOtherRunsProteinGroupsOntoFileAsIdentifications()
+        {
+            var resultsA = QuantifyOneFile("merge_alias_a", "ProteinA", out SpectraFileInfo fileA);
+            var resultsB = QuantifyOneFile("merge_alias_b", "ProteinB", out SpectraFileInfo fileB);
+
+            // The identifications belonging to the receiving run, reached through its peaks -- these are
+            // what the output rows are written from.
+            var fileAIdentifications = resultsA.Peaks[fileA]
+                .SelectMany(peak => peak.Identifications)
+                .ToList();
+
+            Assert.That(fileAIdentifications, Is.Not.Empty,
+                "the first run must have identified peaks, or this test proves nothing");
+
+            resultsA.MergeResultsWith(resultsB);
+
+            // Peptide used to hold the caller's HashSet rather than a copy, so it was the very set
+            // attached to the first Identification carrying this sequence. Merging then wrote ProteinB
+            // into file A's identification, which never saw it.
+            foreach (Identification identification in fileAIdentifications)
+            {
+                Assert.That(identification.ProteinGroups.Select(p => p.ProteinGroupName),
+                    Does.Not.Contain("ProteinB"),
+                    "an identification from the first run must not gain a protein group seen only in the second");
+            }
+
+            // ...while the peptide-level union still happens, which is the point of the merge.
+            Assert.That(resultsA.PeptideModifiedSequences[Sequence].ProteinGroups.Select(p => p.ProteinGroupName),
+                Is.EquivalentTo(new[] { "ProteinA", "ProteinB" }));
+        }
     }
 }
