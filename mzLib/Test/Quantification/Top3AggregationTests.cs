@@ -5,6 +5,7 @@ using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
 using Quantification;
+using Quantification.Interfaces;
 using Quantification.Strategies;
 
 namespace Test.Quantification
@@ -27,6 +28,15 @@ namespace Test.Quantification
             {
                 FileNameSampleInfoDictionary = dict;
             }
+        }
+
+        /// <summary>
+        /// Lets a test drive the shared roll-up loop with an aggregation mzLib ships no named roll-up
+        /// for, so Top3's result can be compared against what Mean and Median would give.
+        /// </summary>
+        private class AggregatingRollUpForTest : AggregatingRollUp
+        {
+            public AggregatingRollUpForTest(IAggregationStrategy aggregation) : base(aggregation) { }
         }
 
         private class Key : IEquatable<Key>
@@ -137,6 +147,44 @@ namespace Test.Quantification
                 // Summing, by contrast, reports the six-peptide protein as twice as abundant.
                 Assert.That(sum.GetRow(threePeptides)[0], Is.EqualTo(300.0));
                 Assert.That(sum.GetRow(sixPeptides)[0], Is.EqualTo(600.0));
+            });
+        }
+
+        [Test]
+        public void Top3RollUp_PinsTheEstimatorEndToEnd_NotJustItsName()
+        {
+            var columns = new List<ISampleInfo>
+            {
+                new IsobaricQuantSampleInfo(File, "Control", 0, 0, 0, 0, "126", 126.0, false)
+            };
+            var design = new TestExperimentalDesign(
+                new Dictionary<string, ISampleInfo[]> { [File] = columns.ToArray() });
+
+            // Heterogeneous on purpose: Top3 = (100+80+60)/3 = 80, mean = 49.2, median = 60, sum = 246.
+            // Uniform inputs cannot tell these apart, so they cannot show the estimator is really wired
+            // through the shared roll-up loop.
+            var values = new[] { 100.0, 80.0, 60.0, 5.0, 1.0 };
+            var rows = values.Select((_, i) => new Key($"pep{i}")).ToList();
+            var matrix = new QuantMatrix<Key>(rows, columns, design);
+            for (int i = 0; i < values.Length; i++)
+            {
+                matrix.SetRow(rows[i], new[] { values[i] });
+            }
+
+            var protein = new Key("protein");
+            var map = new Dictionary<Key, List<int>> { [protein] = Enumerable.Range(0, values.Length).ToList() };
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(new Top3RollUp().RollUp(matrix, map).GetRow(protein)[0], Is.EqualTo(80.0));
+
+                // The values Mean and Median would have produced, so a mis-wiring is visibly different
+                // rather than coincidentally equal.
+                Assert.That(new AggregatingRollUpForTest(new MeanAggregation()).RollUp(matrix, map).GetRow(protein)[0],
+                    Is.EqualTo(49.2).Within(1e-9));
+                Assert.That(new AggregatingRollUpForTest(new MedianAggregation()).RollUp(matrix, map).GetRow(protein)[0],
+                    Is.EqualTo(60.0));
+                Assert.That(new SumRollUp().RollUp(matrix, map).GetRow(protein)[0], Is.EqualTo(246.0));
             });
         }
 
