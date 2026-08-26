@@ -161,9 +161,30 @@ namespace UsefulProteomicsDatabases
                 File.Delete(newProteinDbLocation);
             }
 
-            decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
-            IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            // Expand the targets first, then mirror each expanded entry, so that every generated decoy is the
+            // reversal of exactly one target sequence: same length, same residue composition, one for one.
+            //
+            // Reversing the variations and expanding the decoy separately does not give that. Reversal maps a
+            // variation at [b,e] onto [L-e+2, L-b+2], which turns variations sharing an end into variations
+            // sharing a begin, and overlapping variations compose differently under the two geometries. The
+            // decoy half then gained and lost entries that mirrored no target - on a U2OS Spritz database, 385
+            // decoys mirrored nothing (one of them 2 residues long) and 114 targets had no decoy at all.
+            //
+            // Mirroring an already-expanded target keeps the variant character of the null, which is the point
+            // of building decoys through the same pipeline: the reversal of a variant protein still contains
+            // that variant's junction, so variant peptides still have decoys to be scored against.
+            var expandedTargets = targets
+                .SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth))
+                .ToList();
+
+            // Decoys read from the file itself are expanded as they always were; only generated decoys mirror.
+            var expandedFileDecoys = decoys
+                .SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+
+            IEnumerable<Protein> toReturn = (generateTargets ? expandedTargets : Enumerable.Empty<Protein>())
+                .Concat(expandedFileDecoys)
+                .Concat(DecoyProteinGenerator.GenerateDecoys(expandedTargets, decoyType, maxThreads, decoyIdentifier));
+
             return Merge(toReturn).ToList();
         }
 
