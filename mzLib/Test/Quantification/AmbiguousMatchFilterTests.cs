@@ -103,6 +103,73 @@ namespace Test.Quantification
         }
 
         [Test]
+        public void SamePeptideNamedTwice_IsNotAmbiguous()
+        {
+            var pepA = Peptide("PEPTIDEK", "P1");
+
+            // A match can name one peptide once per protein it maps to. That identifies a single
+            // peptide in substance, so counting raw entries would throw away a good measurement.
+            var matrix = MatrixOf(Match(1, pepA, pepA));
+
+            var map = QuantificationEngine.GetPsmToPeptideMap(
+                matrix, new List<IBioPolymerWithSetMods> { pepA });
+
+            Assert.That(map[pepA], Is.EqualTo(new List<int> { 0 }));
+        }
+
+        [Test]
+        public void NullAlongsideOneIdentification_IsNotAmbiguous()
+        {
+            var pepA = Peptide("PEPTIDEK", "P1");
+
+            var matrix = MatrixOf(Match(1, pepA, null));
+
+            var map = QuantificationEngine.GetPsmToPeptideMap(
+                matrix, new List<IBioPolymerWithSetMods> { pepA });
+
+            Assert.That(map[pepA], Is.EqualTo(new List<int> { 0 }));
+        }
+
+        [Test]
+        public void TheReportedCountMatchesWhatWasActuallyDropped()
+        {
+            var pepA = Peptide("PEPTIDEK", "P1");
+            var pepB = Peptide("SEQUENCEK", "P2");
+            var peptides = new List<IBioPolymerWithSetMods> { pepA, pepB };
+
+            var group = new BioPolymerGroup(
+                new HashSet<IBioPolymer> { new Protein("MPEPTIDEK", "G1") },
+                new HashSet<IBioPolymerWithSetMods>(peptides),
+                new HashSet<IBioPolymerWithSetMods>(peptides));
+
+            var matches = new List<ISpectralMatch>
+            {
+                Match(1, pepA),
+                Match(2, pepA, pepA),   // one peptide, named twice -- kept
+                Match(3, pepA, null),   // one peptide plus a null -- kept
+                Match(4, pepA, pepB),   // genuinely ambiguous -- dropped
+                Match(5)                // no identification -- dropped
+            };
+
+            var columns = Columns();
+            var engine = new QuantificationEngine(
+                QuantificationParameters.GetSimpleParameters(), Design(columns), matches, peptides,
+                new List<IBioPolymerGroup> { group });
+
+            var result = engine.Run();
+
+            // The count and the filter run off one predicate, so this pins them together.
+            var matrix = MatrixOf(matches.ToArray());
+            var kept = QuantificationEngine.GetPsmToPeptideMap(matrix, peptides).Values.Sum(v => v.Count);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.AmbiguousSpectralMatchesExcluded, Is.EqualTo(2));
+                Assert.That(kept, Is.EqualTo(matches.Count - result.AmbiguousSpectralMatchesExcluded));
+            });
+        }
+
+        [Test]
         public void UnambiguousMatches_AreUnaffected()
         {
             var pepA = Peptide("PEPTIDEK", "P1");

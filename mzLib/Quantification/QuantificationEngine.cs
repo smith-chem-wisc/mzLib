@@ -105,8 +105,9 @@ public class QuantificationEngine
 
         // Report the matches the peptide map had to drop, so an unexpectedly small result set has a
         // stated cause rather than being silently smaller than the search.
+        // Same predicate the peptide map applies, so the count cannot drift from what was dropped.
         int ambiguousExcluded = SpectralMatches
-            .Count(sm => sm.Intensities != null && sm.GetIdentifiedBioPolymersWithSetMods().Take(2).Count() != 1);
+            .Count(sm => sm.Intensities != null && SingleIdentifiedBioPolymerOrNull(sm) == null);
 
         return new QuantificationResults
         {
@@ -510,6 +511,34 @@ public class QuantificationEngine
     /// Only SMs corresponding to these bioPolymers are included in the result.</param>
     /// <returns>A dictionary mapping each modified bioPolymer in the input list to a list of indices of PSMs in the matrix that
     /// are associated with it. If a bioPolymer has no corresponding PSMs, its list will be empty.</returns>
+    /// <summary>
+    /// The single biopolymer a spectral match identifies, or null when it identifies none or several.
+    /// This is the unambiguous filter, in one place, so that the quantified set and the count reported
+    /// as <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> cannot disagree.
+    /// </summary>
+    /// <remarks>
+    /// Distinct, not raw count. A match that names the same biopolymer more than once -- once per
+    /// protein it maps to, for instance -- identifies one peptide in substance, and dropping it as
+    /// ambiguous would discard a perfectly good measurement. Nulls are ignored for the same reason.
+    /// Take(2) still short-circuits, so a long ambiguity list is not enumerated.
+    /// </remarks>
+    internal static IBioPolymerWithSetMods SingleIdentifiedBioPolymerOrNull(ISpectralMatch spectralMatch)
+    {
+        var identified = spectralMatch.GetIdentifiedBioPolymersWithSetMods();
+        if (identified == null)
+        {
+            return null;
+        }
+
+        var distinct = identified
+            .Where(bp => bp != null)
+            .Distinct()
+            .Take(2)
+            .ToList();
+
+        return distinct.Count == 1 ? distinct[0] : null;
+    }
+
     public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers)
     {
         var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>();
@@ -521,15 +550,13 @@ public class QuantificationEngine
         {
             var sm = smMatrix.RowKeys[i];
 
-            // Only unambiguous matches are quantified. Take(2) is enough to tell "exactly one" from
-            // "more than one" without enumerating a long ambiguity list.
-            var identified = sm.GetIdentifiedBioPolymersWithSetMods().Take(2).ToList();
-            if (identified.Count != 1)
+            // Only unambiguous matches are quantified.
+            var peptide = SingleIdentifiedBioPolymerOrNull(sm);
+            if (peptide == null)
             {
                 continue;
             }
 
-            var peptide = identified[0];
             if (!peptideToPsmMap.ContainsKey(peptide))
             {
                 continue;
