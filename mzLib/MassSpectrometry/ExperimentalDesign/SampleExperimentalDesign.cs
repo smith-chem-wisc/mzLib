@@ -11,6 +11,11 @@ namespace MassSpectrometry
     /// channel, and the per-file order is the contract that aligns them with
     /// <c>ISpectralMatch.Intensities</c>.
     ///
+    /// Named for the samples it holds rather than simply "ExperimentalDesign", because MetaMorpheus
+    /// already has an <c>EngineLayer.ExperimentalDesign</c> -- the reader for its ExperimentalDesign.tsv
+    /// -- and files there import both namespaces. An unqualified "ExperimentalDesign" in
+    /// <c>MassSpectrometry</c> makes every one of those references ambiguous.
+    ///
     /// Before this type, the only implementations of the interface lived in the Development project and
     /// in test fixtures, so every consumer outside MetaMorpheus had to write its own.
     ///
@@ -23,7 +28,7 @@ namespace MassSpectrometry
     /// <c>sample1.raw</c>, which it would not under the default ordinal comparer — and a case-only
     /// collision is rejected at <see cref="Add"/> rather than silently keeping one of the two.
     /// </summary>
-    public class ExperimentalDesign : IExperimentalDesign
+    public class SampleExperimentalDesign : IExperimentalDesign
     {
         /// <inheritdoc />
         public Dictionary<string, ISampleInfo[]> FileNameSampleInfoDictionary { get; }
@@ -31,7 +36,7 @@ namespace MassSpectrometry
         /// <summary>
         /// Creates an empty design. Populate it with <see cref="Add"/>.
         /// </summary>
-        public ExperimentalDesign()
+        public SampleExperimentalDesign()
         {
             FileNameSampleInfoDictionary =
                 new Dictionary<string, ISampleInfo[]>(StringComparer.OrdinalIgnoreCase);
@@ -102,14 +107,14 @@ namespace MassSpectrometry
         /// them (ascending reporter m/z, for MetaMorpheus).
         /// </summary>
         /// <exception cref="ArgumentException">A sample is null or names no file.</exception>
-        public static ExperimentalDesign FromSamples(IEnumerable<ISampleInfo> samples)
+        public static SampleExperimentalDesign FromSamples(IEnumerable<ISampleInfo> samples)
         {
             if (samples == null)
             {
                 throw new ArgumentNullException(nameof(samples));
             }
 
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
 
             var byFile = samples
                 .Select((sample, index) => (sample, index))
@@ -147,14 +152,14 @@ namespace MassSpectrometry
         /// A file is null, names no path, or appears twice. Label-free measures a file once; a repeat is
         /// a caller mistake rather than a second channel.
         /// </exception>
-        public static ExperimentalDesign LabelFree(IEnumerable<SpectraFileInfo> files)
+        public static SampleExperimentalDesign LabelFree(IEnumerable<SpectraFileInfo> files)
         {
             if (files == null)
             {
                 throw new ArgumentNullException(nameof(files));
             }
 
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
 
             foreach (var file in files)
             {

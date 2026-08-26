@@ -7,14 +7,14 @@ using NUnit.Framework;
 namespace Test.Omics.SampleInfo
 {
     /// <summary>
-    /// Tests for ExperimentalDesign, the general-purpose IExperimentalDesign implementation.
+    /// Tests for SampleExperimentalDesign, the general-purpose IExperimentalDesign implementation.
     /// The behaviour that matters to the quantification engine is the key form -- file name with
     /// extension, matched case-insensitively -- and the per-file sample order, which is what aligns
     /// samples with ISpectralMatch.Intensities.
     /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
-    public class ExperimentalDesignTests
+    public class SampleExperimentalDesignTests
     {
         private static SpectraFileInfo File(string path, string condition = "Control", int biorep = 1)
             => new SpectraFileInfo(path, condition, biorep, 1, 0);
@@ -25,7 +25,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Add_KeysByFileNameWithExtension_NotByFullPath()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
             design.Add(@"C:\Data\Experiment\run1.raw", File(@"C:\Data\Experiment\run1.raw"));
 
             Assert.Multiple(() =>
@@ -40,7 +40,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Add_AcceptsABareFileName()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
             design.Add("run1.raw", File(@"C:\Data\run1.raw"));
 
             Assert.That(design.FileNameSampleInfoDictionary.ContainsKey("run1.raw"), Is.True);
@@ -49,7 +49,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Lookup_IsCaseInsensitive()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
             design.Add("Sample1.raw", File(@"C:\Data\Sample1.raw"));
 
             // A design that names Sample1.raw should resolve data at sample1.raw. Under the default
@@ -61,7 +61,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Add_RejectsACaseOnlyDuplicate()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
             design.Add("Sample1.raw", File(@"C:\Data\Sample1.raw"));
 
             // Rejected rather than silently keeping one of the two.
@@ -73,7 +73,7 @@ namespace Test.Omics.SampleInfo
         public void Add_PreservesChannelOrder()
         {
             const string path = @"C:\Data\tmt.raw";
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
             design.Add(path,
                 Channel(path, "126", 126.12776),
                 Channel(path, "127N", 127.12476),
@@ -89,7 +89,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Add_RejectsAnEmptySampleArray()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
 
             var ex = Assert.Throws<ArgumentException>(() => design.Add("run1.raw"));
             Assert.That(ex.Message, Does.Contain("no samples"));
@@ -98,7 +98,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Add_RejectsANullSample()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
 
             // A missing channel has to be described, not omitted -- omitting shifts every later channel.
             var ex = Assert.Throws<ArgumentException>(
@@ -109,7 +109,7 @@ namespace Test.Omics.SampleInfo
         [Test]
         public void Add_RejectsAnEmptyFileName()
         {
-            var design = new ExperimentalDesign();
+            var design = new SampleExperimentalDesign();
 
             Assert.Throws<ArgumentException>(() => design.Add("  ", File(@"C:\Data\run1.raw")));
         }
@@ -123,7 +123,7 @@ namespace Test.Omics.SampleInfo
                 File(@"C:\Data\b.raw", "Treated"),
             };
 
-            var design = ExperimentalDesign.LabelFree(files);
+            var design = SampleExperimentalDesign.LabelFree(files);
 
             Assert.Multiple(() =>
             {
@@ -143,7 +143,7 @@ namespace Test.Omics.SampleInfo
             };
 
             // Label-free measures a file once; a repeat is a caller mistake, not a second channel.
-            Assert.Throws<ArgumentException>(() => ExperimentalDesign.LabelFree(files));
+            Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.LabelFree(files));
         }
 
         [Test]
@@ -160,7 +160,7 @@ namespace Test.Omics.SampleInfo
                 Channel(file2, "127N", 127.12476),
             };
 
-            var design = ExperimentalDesign.FromSamples(samples);
+            var design = SampleExperimentalDesign.FromSamples(samples);
 
             Assert.Multiple(() =>
             {
@@ -181,7 +181,7 @@ namespace Test.Omics.SampleInfo
                 Channel(path, "127C", 127.13108),
             };
 
-            var design = ExperimentalDesign.FromSamples(samples);
+            var design = SampleExperimentalDesign.FromSamples(samples);
 
             Assert.That(design.FileNameSampleInfoDictionary["plex.raw"]
                     .Cast<IsobaricQuantSampleInfo>().Select(c => c.ChannelLabel),
@@ -197,7 +197,7 @@ namespace Test.Omics.SampleInfo
                 File(@"C:\Data\b.raw"),
             };
 
-            var design = ExperimentalDesign.FromSamples(samples);
+            var design = SampleExperimentalDesign.FromSamples(samples);
 
             Assert.Multiple(() =>
             {
@@ -211,26 +211,91 @@ namespace Test.Omics.SampleInfo
         {
             var samples = new ISampleInfo[] { File(string.Empty) };
 
-            var ex = Assert.Throws<ArgumentException>(() => ExperimentalDesign.FromSamples(samples));
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(samples));
             Assert.That(ex.Message, Does.Contain("names no file"));
         }
 
         [Test]
         public void FromSamples_RejectsNull()
         {
-            Assert.Throws<ArgumentNullException>(() => ExperimentalDesign.FromSamples(null));
+            Assert.Throws<ArgumentNullException>(() => SampleExperimentalDesign.FromSamples(null));
         }
 
         [Test]
         public void LabelFree_RejectsNull()
         {
-            Assert.Throws<ArgumentNullException>(() => ExperimentalDesign.LabelFree(null));
+            Assert.Throws<ArgumentNullException>(() => SampleExperimentalDesign.LabelFree(null));
+        }
+
+        [Test]
+        public void Add_RejectsANullSampleArray()
+        {
+            var design = new SampleExperimentalDesign();
+
+            // Distinct from passing no samples at all: params gives an empty array there, null here.
+            var ex = Assert.Throws<ArgumentException>(
+                () => design.Add("run1.raw", (ISampleInfo[])null));
+            Assert.That(ex.Message, Does.Contain("no samples"));
+        }
+
+        [Test]
+        public void Add_RejectsAPathWithNoFileNameComponent()
+        {
+            var design = new SampleExperimentalDesign();
+
+            // A directory is not a file, and Path.GetFileName gives back nothing to key on.
+            var ex = Assert.Throws<ArgumentException>(
+                () => design.Add(@"C:\Data\Experiment\", File(@"C:\Data\Experiment\run1.raw")));
+            Assert.That(ex.Message, Does.Contain("no file name component"));
+        }
+
+        [Test]
+        public void FromSamples_RejectsANullSampleInTheSequence()
+        {
+            var samples = new ISampleInfo[] { File(@"C:\Data\a.raw"), null };
+
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(samples));
+            Assert.That(ex.Message, Does.Contain("index 1"));
+        }
+
+        [Test]
+        public void LabelFree_RejectsANullFile()
+        {
+            var files = new[] { File(@"C:\Data\a.raw"), null };
+
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.LabelFree(files));
+            Assert.That(ex.Message, Does.Contain("null file"));
+        }
+
+        [Test]
+        public void LabelFree_RejectsAFileWithNoPath()
+        {
+            var files = new[] { File(string.Empty) };
+
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.LabelFree(files));
+            Assert.That(ex.Message, Does.Contain("no path"));
+        }
+
+        [Test]
+        public void FromSamples_IsCaseInsensitiveAcrossFiles()
+        {
+            // Two spellings of one file are one file, matching the lookup the engine will do.
+            var samples = new ISampleInfo[]
+            {
+                Channel(@"C:\Data\Plex.raw", "126", 126.12776),
+                Channel(@"C:\Data\plex.raw", "127N", 127.12476),
+            };
+
+            var design = SampleExperimentalDesign.FromSamples(samples);
+
+            Assert.That(design.FileNameSampleInfoDictionary, Has.Count.EqualTo(1));
+            Assert.That(design.FileNameSampleInfoDictionary["plex.raw"], Has.Length.EqualTo(2));
         }
 
         [Test]
         public void ImplementsIExperimentalDesign()
         {
-            IExperimentalDesign design = ExperimentalDesign.LabelFree(new[] { File(@"C:\Data\a.raw") });
+            IExperimentalDesign design = SampleExperimentalDesign.LabelFree(new[] { File(@"C:\Data\a.raw") });
 
             Assert.That(design.FileNameSampleInfoDictionary, Is.Not.Null);
         }
