@@ -154,6 +154,49 @@ namespace Test.Quantification
         }
 
         [Test]
+        public void NegativeValuesAreData_NotMissing()
+        {
+            var (matrix, _) = Matrix(
+                new[] { 10.0 },
+                new[] { -4.0 },
+                new[] { 0.0 },
+                new[] { 30.0 });
+
+            var target = new Key("protein");
+
+            Assert.Multiple(() =>
+            {
+                // Only the zero is dropped. Excluding the negative too would make this 40 and would
+                // mean summing was not, in fact, unaffected by the filter.
+                Assert.That(new SumRollUp().RollUp(matrix, MapAllRowsTo(target, 4)).GetRow(target)[0],
+                    Is.EqualTo(36.0));
+
+                // Median of the three observed values 10, -4, 30.
+                Assert.That(new MedianRollUp().RollUp(matrix, MapAllRowsTo(target, 4)).GetRow(target)[0],
+                    Is.EqualTo(10.0));
+            });
+        }
+
+        [Test]
+        public void GroupWithMoreIndicesThanTheMatrixHasRows_DoesNotOverrunTheBuffer()
+        {
+            var (matrix, _) = Matrix(
+                new[] { 10.0 },
+                new[] { 20.0 });
+
+            // The map is caller-supplied: a group may name an index more than once, so the staging
+            // buffer cannot be sized by row count. 40 entries against a 2-row matrix.
+            var target = new Key("protein");
+            var repeated = Enumerable.Range(0, 40).Select(i => i % 2).ToList();
+
+            var result = new SumRollUp().RollUp(
+                matrix, new Dictionary<Key, List<int>> { [target] = repeated });
+
+            // 20 x 10 + 20 x 20
+            Assert.That(result.GetRow(target)[0], Is.EqualTo(600.0));
+        }
+
+        [Test]
         public void NamesAreUnchanged()
         {
             Assert.Multiple(() =>
