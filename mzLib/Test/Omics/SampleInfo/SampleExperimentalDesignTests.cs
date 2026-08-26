@@ -293,6 +293,43 @@ namespace Test.Omics.SampleInfo
         }
 
         [Test]
+        public void FromSamples_RejectsTwoDifferentFilesWithTheSameName()
+        {
+            // Same basename, different directories. Grouping them would put one run's channels in the
+            // other run's row, and the design could not tell them apart afterwards.
+            var samples = new ISampleInfo[]
+            {
+                Channel(@"C:\Data\RunA\plex.raw", "126", 126.12776),
+                Channel(@"C:\Data\RunB\plex.raw", "127N", 127.12476),
+            };
+
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(samples));
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex.Message, Does.Contain("2 different files"));
+                Assert.That(ex.Message, Does.Contain("RunA"));
+                Assert.That(ex.Message, Does.Contain("RunB"));
+            });
+        }
+
+        [Test]
+        public void FromSamples_StillGroupsChannelsThatShareOnePath()
+        {
+            // The case the rejection must not catch: many channels, one file.
+            const string path = @"C:\Data\RunA\plex.raw";
+            var samples = new ISampleInfo[]
+            {
+                Channel(path, "126", 126.12776),
+                Channel(path, "127N", 127.12476),
+                Channel(path, "127C", 127.13108),
+            };
+
+            var design = SampleExperimentalDesign.FromSamples(samples);
+
+            Assert.That(design.FileNameSampleInfoDictionary["plex.raw"], Has.Length.EqualTo(3));
+        }
+
+        [Test]
         public void ImplementsIExperimentalDesign()
         {
             IExperimentalDesign design = SampleExperimentalDesign.LabelFree(new[] { File(@"C:\Data\a.raw") });

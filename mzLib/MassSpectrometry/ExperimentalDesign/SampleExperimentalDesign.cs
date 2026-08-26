@@ -105,8 +105,17 @@ namespace MassSpectrometry
         /// Order within a file is the order of the input sequence, and that is the order the engine will
         /// align intensities to — so pass isobaric channels already sorted the way the search writes
         /// them (ascending reporter m/z, for MetaMorpheus).
+        ///
+        /// Samples that share a file name but came from different directories are rejected rather than
+        /// grouped together. Isobaric channels sharing one file is the intended case; two different
+        /// files that merely happen to be called the same thing is not, and merging them would put one
+        /// run's channels in another run's row. The design cannot tell them apart afterwards either --
+        /// <see cref="IExperimentalDesign"/> is keyed by file name because that is what the engine looks
+        /// up -- so this is caught where the information still exists.
         /// </summary>
-        /// <exception cref="ArgumentException">A sample is null or names no file.</exception>
+        /// <exception cref="ArgumentException">
+        /// A sample is null, names no file, or shares a file name with a sample from a different path.
+        /// </exception>
         public static SampleExperimentalDesign FromSamples(IEnumerable<ISampleInfo> samples)
         {
             if (samples == null)
@@ -139,6 +148,23 @@ namespace MassSpectrometry
 
             foreach (var fileGroup in byFile)
             {
+                // Channels of one run share a path; two different paths reaching the same key are two
+                // different files whose samples would otherwise be silently interleaved into one row.
+                var distinctPaths = fileGroup
+                    .Select(t => t.sample.FullFilePathWithExtension)
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+
+                if (distinctPaths.Count > 1)
+                {
+                    throw new ArgumentException(
+                        $"'{fileGroup.Key}' names {distinctPaths.Count} different files: " +
+                        string.Join(", ", distinctPaths) +
+                        ". An experimental design is keyed by file name, so these cannot be told apart " +
+                        "once it is built.",
+                        nameof(samples));
+                }
+
                 design.Add(fileGroup.Key, fileGroup.Select(t => t.sample).ToArray());
             }
 
