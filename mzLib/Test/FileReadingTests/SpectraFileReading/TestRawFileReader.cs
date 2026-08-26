@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -378,7 +378,11 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
                 NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
                 NUnit.Framework.Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
-                NUnit.Framework.Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+                // Element-wise: `==` on double[,] is reference equality, so this held only because the
+                // two sides used to be one object. Across two readers it can only pass when both are
+                // null -- true today, since neither reader populates noise data -- and would go red on
+                // every scan the moment one of them starts, for no static-vs-dynamic reason.
+                AssertNoiseDataEqual(dynamicScan.NoiseData, staticScan.NoiseData);
 
                 NUnit.Framework.Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
@@ -390,7 +394,11 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
 
-                if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
+                // Same shape as IsolationWidth above. IsolationRange is null unless BOTH IsolationWidth
+                // and IsolationMz have values (MsDataScan.cs:143), so a one-sided null is reachable.
+                NUnit.Framework.Assert.That(dynamicScan.IsolationRange is null, Is.EqualTo(staticScan.IsolationRange is null),
+                    "static and dynamic disagree on whether IsolationRange is present");
+                if (dynamicScan.IsolationRange != null && staticScan.IsolationRange != null)
                 {
                     NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
                     NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
@@ -448,5 +456,30 @@ namespace Test.FileReadingTests.SpectraFileReading
         Assert.AreEqual(expected, availableCvValues); 
 
         }
+
+        /// <summary>
+        /// Compares two noise-data arrays by value. Null-safe, and tolerant of both being null, which
+        /// is the state today: neither the mzML nor the Thermo reader populates the field.
+        /// </summary>
+        private static void AssertNoiseDataEqual(double[,] dynamicNoise, double[,] staticNoise)
+        {
+            if (dynamicNoise is null || staticNoise is null)
+            {
+                NUnit.Framework.Assert.That(dynamicNoise is null, Is.EqualTo(staticNoise is null),
+                    "static and dynamic disagree on whether NoiseData is present");
+                return;
+            }
+
+            NUnit.Framework.Assert.That(dynamicNoise.GetLength(0), Is.EqualTo(staticNoise.GetLength(0)));
+            NUnit.Framework.Assert.That(dynamicNoise.GetLength(1), Is.EqualTo(staticNoise.GetLength(1)));
+            for (int i = 0; i < dynamicNoise.GetLength(0); i++)
+            {
+                for (int j = 0; j < dynamicNoise.GetLength(1); j++)
+                {
+                    NUnit.Framework.Assert.That(dynamicNoise[i, j], Is.EqualTo(staticNoise[i, j]));
+                }
+            }
+        }
+
     }
 }

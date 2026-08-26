@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -1519,7 +1519,11 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
                 NUnit.Framework.Assert.That(dynamicScan.TotalIonCurrent == staticScan.TotalIonCurrent);
                 NUnit.Framework.Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
-                NUnit.Framework.Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+                // Element-wise: `==` on double[,] is reference equality, so this held only because the
+                // two sides used to be one object. Across two readers it can only pass when both are
+                // null -- true today, since neither reader populates noise data -- and would go red on
+                // every scan the moment one of them starts, for no static-vs-dynamic reason.
+                AssertNoiseDataEqual(dynamicScan.NoiseData, staticScan.NoiseData);
 
                 NUnit.Framework.Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
@@ -1527,7 +1531,14 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
                 NUnit.Framework.Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
 
-                if (dynamicScan.IsolationWidth != null || staticScan.IsolationWidth != null)
+                // Assert agreement on null-ness FIRST, then && before dereferencing. With `||` a
+                // one-sided null enters the block and throws NullReferenceException, so the very
+                // divergence this assertion exists to catch would surface unlabelled. The two parsers
+                // really can disagree: the dynamic path sets isolation width only when msOrder > 1
+                // (Mzml.cs:793), and this was safe before only because both sides were one object.
+                NUnit.Framework.Assert.That(dynamicScan.IsolationWidth is null, Is.EqualTo(staticScan.IsolationWidth is null),
+                    "static and dynamic disagree on whether IsolationWidth is present");
+                if (dynamicScan.IsolationWidth != null && staticScan.IsolationWidth != null)
                 {
                     if (!double.IsNaN(dynamicScan.IsolationWidth.Value) || !double.IsNaN(staticScan.IsolationWidth.Value))
                     {
@@ -1539,7 +1550,11 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
 
-                if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
+                // Same shape as IsolationWidth above. IsolationRange is null unless BOTH IsolationWidth
+                // and IsolationMz have values (MsDataScan.cs:143), so a one-sided null is reachable.
+                NUnit.Framework.Assert.That(dynamicScan.IsolationRange is null, Is.EqualTo(staticScan.IsolationRange is null),
+                    "static and dynamic disagree on whether IsolationRange is present");
+                if (dynamicScan.IsolationRange != null && staticScan.IsolationRange != null)
                 {
                     NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
                     NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
@@ -1616,7 +1631,11 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
                 NUnit.Framework.Assert.That(dynamicScan.TotalIonCurrent == staticScan.TotalIonCurrent);
                 NUnit.Framework.Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
-                NUnit.Framework.Assert.That(dynamicScan.NoiseData == staticScan.NoiseData);
+                // Element-wise: `==` on double[,] is reference equality, so this held only because the
+                // two sides used to be one object. Across two readers it can only pass when both are
+                // null -- true today, since neither reader populates noise data -- and would go red on
+                // every scan the moment one of them starts, for no static-vs-dynamic reason.
+                AssertNoiseDataEqual(dynamicScan.NoiseData, staticScan.NoiseData);
 
                 NUnit.Framework.Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
@@ -1624,7 +1643,14 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
                 NUnit.Framework.Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
 
-                if (dynamicScan.IsolationWidth != null || staticScan.IsolationWidth != null)
+                // Assert agreement on null-ness FIRST, then && before dereferencing. With `||` a
+                // one-sided null enters the block and throws NullReferenceException, so the very
+                // divergence this assertion exists to catch would surface unlabelled. The two parsers
+                // really can disagree: the dynamic path sets isolation width only when msOrder > 1
+                // (Mzml.cs:793), and this was safe before only because both sides were one object.
+                NUnit.Framework.Assert.That(dynamicScan.IsolationWidth is null, Is.EqualTo(staticScan.IsolationWidth is null),
+                    "static and dynamic disagree on whether IsolationWidth is present");
+                if (dynamicScan.IsolationWidth != null && staticScan.IsolationWidth != null)
                 {
                     if (!double.IsNaN(dynamicScan.IsolationWidth.Value) || !double.IsNaN(staticScan.IsolationWidth.Value))
                     {
@@ -1636,7 +1662,11 @@ namespace Test.FileReadingTests.SpectraFileReading
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
                 NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
 
-                if (dynamicScan.IsolationRange != null || staticScan.IsolationRange != null)
+                // Same shape as IsolationWidth above. IsolationRange is null unless BOTH IsolationWidth
+                // and IsolationMz have values (MsDataScan.cs:143), so a one-sided null is reachable.
+                NUnit.Framework.Assert.That(dynamicScan.IsolationRange is null, Is.EqualTo(staticScan.IsolationRange is null),
+                    "static and dynamic disagree on whether IsolationRange is present");
+                if (dynamicScan.IsolationRange != null && staticScan.IsolationRange != null)
                 {
                     NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
                     NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
@@ -1697,6 +1727,16 @@ namespace Test.FileReadingTests.SpectraFileReading
                 MsDataScan staticScan2 = reader2.GetOneBasedScan(staticScan.OneBasedScanNumber);
                 MsDataScan dynamicScan1 = dynamicReader1.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
                 MsDataScan dynamicScan2 = dynamicReader2.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                // Its three siblings pair the ReferenceEquals guard with a null check; this one did not.
+                // ReferenceEquals(null, staticScan) is false, so a null dynamic read passed both guards
+                // and then threw NullReferenceException below. Null is reachable --
+                // Mzml.GetOneBasedScanFromDynamicConnection returns it for a scan absent from
+                // ScanNumberToByteOffset (Mzml.cs:468).
+                NUnit.Framework.Assert.That(dynamicScan1, Is.Not.Null,
+                    "The dynamic read returned null, so nothing below is being compared.");
+                NUnit.Framework.Assert.That(dynamicScan2, Is.Not.Null,
+                    "The dynamic read returned null, so nothing below is being compared.");
 
                 NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan1, staticScan), Is.False,
                     "The dynamic read returned the statically cached instance, so nothing below is being compared.");
@@ -2037,5 +2077,30 @@ namespace Test.FileReadingTests.SpectraFileReading
 
             return new MzSpectrum(isodist.Masses.ToArray(), isodist.Intensities.ToArray(), false);
         }
+
+        /// <summary>
+        /// Compares two noise-data arrays by value. Null-safe, and tolerant of both being null, which
+        /// is the state today: neither the mzML nor the Thermo reader populates the field.
+        /// </summary>
+        private static void AssertNoiseDataEqual(double[,] dynamicNoise, double[,] staticNoise)
+        {
+            if (dynamicNoise is null || staticNoise is null)
+            {
+                NUnit.Framework.Assert.That(dynamicNoise is null, Is.EqualTo(staticNoise is null),
+                    "static and dynamic disagree on whether NoiseData is present");
+                return;
+            }
+
+            NUnit.Framework.Assert.That(dynamicNoise.GetLength(0), Is.EqualTo(staticNoise.GetLength(0)));
+            NUnit.Framework.Assert.That(dynamicNoise.GetLength(1), Is.EqualTo(staticNoise.GetLength(1)));
+            for (int i = 0; i < dynamicNoise.GetLength(0); i++)
+            {
+                for (int j = 0; j < dynamicNoise.GetLength(1); j++)
+                {
+                    NUnit.Framework.Assert.That(dynamicNoise[i, j], Is.EqualTo(staticNoise[i, j]));
+                }
+            }
+        }
+
     }
 }
