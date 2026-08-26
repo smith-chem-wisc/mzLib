@@ -103,10 +103,17 @@ namespace FlashLFQ
                     group =>
                     {
                         // an identification that names no agent is unknown, not a conflicting agent -
-                        // it must not turn a file whose other identifications agree into an unknown one
+                        // it must not turn a file whose other identifications agree into an unknown one.
+                        // Blank counts as no agent for the same reason.
+                        //
+                        // Compared trimmed and case-insensitively: "Trypsin", "trypsin" and "trypsin "
+                        // are one agent, and treating them as three would make the file look mixed,
+                        // resolve it to unknown, and silently switch the restriction off - the failure
+                        // being invisible is what makes it worth normalising rather than trusting callers.
                         var agents = group.Select(id => id.DigestionAgentName)
-                            .Where(name => name != null)
-                            .Distinct()
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .Select(name => name.Trim())
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
                             .ToList();
                         return agents.Count == 1 ? agents[0] : null;
                     });
@@ -658,6 +665,12 @@ namespace FlashLFQ
         /// because filling in missing values across those is the point of match-between-runs.
         /// Unknown agent on either side means unrestricted, so callers that supply no agent are unaffected.
         ///
+        /// The restriction is file-granularity, deliberately. A file is assigned an agent only when every
+        /// identification in it that names one agrees; a file whose identifications disagree resolves to
+        /// unknown and is therefore unrestricted rather than being assigned its majority agent. That is
+        /// the permissive choice: a genuinely mixed file gets today's behaviour instead of having some of
+        /// its identifications quietly declared untransferable on the strength of a majority vote.
+        ///
         /// Scoped to the <see cref="QuantifyMatchBetweenRunsPeaks"/> path. IsoTracker borrows identifications
         /// across files of its own accord, in CollectChromPeakInRuns and QuantifyIsobaricPeaks, and does not
         /// come through here, so those transfers are still unrestricted by digestion agent.
@@ -667,7 +680,9 @@ namespace FlashLFQ
             string donorAgent = DigestionAgentOf(donorFile);
             string acceptorAgent = DigestionAgentOf(acceptorFile);
 
-            return donorAgent == null || acceptorAgent == null || donorAgent == acceptorAgent;
+            return donorAgent == null
+                || acceptorAgent == null
+                || string.Equals(donorAgent, acceptorAgent, StringComparison.OrdinalIgnoreCase);
         }
 
         /// <summary>

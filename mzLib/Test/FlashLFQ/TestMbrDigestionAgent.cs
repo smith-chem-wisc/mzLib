@@ -216,6 +216,54 @@ namespace Test.FlashLFQ
         }
 
         /// <summary>
+        /// Agent names that differ only in case or surrounding whitespace are one agent. Comparing them
+        /// raw made a file look like it had two, which resolves it to unknown -- and unknown means
+        /// unrestricted, so the restriction would switch itself off with nothing said.
+        /// </summary>
+        [Test]
+        public static void AgentNamesDifferingOnlyInCaseOrWhitespaceAreOneAgent()
+        {
+            var results = RunWithAgents("mbr_agent_case", "trypsin", " Trypsin ", "Glu-C");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(WasTransferredInto(results, "mbr_agent_case_2"), Is.True,
+                    "' Trypsin ' and 'trypsin' are the same agent, so the transfer must still happen");
+                Assert.That(WasTransferredInto(results, "mbr_agent_case_3"), Is.False,
+                    "and the Glu-C file must stay restricted -- the normalisation must not disable the rule");
+            });
+        }
+
+        /// <summary>
+        /// A file whose identifications name the same agent in different cases must not look mixed. If it
+        /// did, it would resolve to unknown, and every transfer into or out of it would be permitted.
+        /// </summary>
+        [Test]
+        public static void OneFileNamingItsAgentInconsistentlyIsNotTreatedAsMixed()
+        {
+            var file1 = new SpectraFileInfo(WriteMzml("mbr_agent_mixedcase_1"), "a", 0, 0, 0);
+            var file2 = new SpectraFileInfo(WriteMzml("mbr_agent_mixedcase_2"), "a", 1, 0, 0);
+
+            var identifications = new List<Identification>();
+
+            bool alternate = false;
+            foreach (string shared in PepSequences.Where(s => s != TransferredSequence))
+            {
+                // the same agent, spelled two ways within one file
+                identifications.Add(Id(file1, shared, alternate ? "Trypsin" : "trypsin"));
+                identifications.Add(Id(file2, shared, "Glu-C"));
+                alternate = !alternate;
+            }
+
+            identifications.Add(Id(file1, TransferredSequence, "trypsin"));
+
+            var results = new FlashLfqEngine(identifications, matchBetweenRuns: true, maxThreads: 1).Run();
+
+            Assert.That(WasTransferredInto(results, "mbr_agent_mixedcase_2"), Is.False,
+                "the tryptic file must stay known as tryptic, so Glu-C remains restricted");
+        }
+
+        /// <summary>
         /// Callers that supply no digestion agent must see the behaviour they saw before the agent was added.
         /// </summary>
         [Test]
