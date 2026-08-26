@@ -103,10 +103,19 @@ public class QuantificationEngine
         OverwriteSampleIntensities(peptideMatrix);
         OverwriteSampleIntensities(proteinMatrix);
 
+        // Report the matches the peptide map had to drop, so an unexpectedly small result set has a
+        // stated cause rather than being silently smaller than the search.
+        int ambiguousExcluded = SpectralMatches
+            .Count(sm => sm.Intensities != null && sm.GetIdentifiedBioPolymersWithSetMods().Take(2).Count() != 1);
+
         return new QuantificationResults
         {
-            Summary = "Quantification completed successfully.",
+            Summary = ambiguousExcluded == 0
+                ? "Quantification completed successfully."
+                : $"Quantification completed successfully. {ambiguousExcluded} spectral match(es) were " +
+                  "excluded because they did not identify exactly one biopolymer.",
             Success = true,
+            AmbiguousSpectralMatchesExcluded = ambiguousExcluded,
             Samples = proteinMatrix.ColumnKeys.ToList(),
             PeptideIntensities = BuildIntensityTable(peptideMatrix),
             ProteinIntensities = BuildIntensityTable(proteinMatrix),
@@ -491,8 +500,11 @@ public class QuantificationEngine
     /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
     /// spectral matches in the smMatrix
     /// </summary>
-    /// <remarks>The mapping assumes that each PM in the matrix is associated with a single, unambiguous
-    /// modified biopolymer. Biopolymers not present in the input list are ignored.</remarks>
+    /// <remarks>A spectral match is quantified only when it identifies exactly one modified biopolymer.
+    /// An ambiguous match -- one that identifies several -- is excluded rather than attributed to whichever
+    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
+    /// throwing. Biopolymers not present in the input list are ignored.
+    /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.</remarks>
     /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
     /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
     /// Only SMs corresponding to these bioPolymers are included in the result.</param>
@@ -508,7 +520,16 @@ public class QuantificationEngine
         for (int i = 0; i < smMatrix.RowKeys.Count; i++)
         {
             var sm = smMatrix.RowKeys[i];
-            var peptide = sm.GetIdentifiedBioPolymersWithSetMods().First(); // Assumes unambiguous mapping
+
+            // Only unambiguous matches are quantified. Take(2) is enough to tell "exactly one" from
+            // "more than one" without enumerating a long ambiguity list.
+            var identified = sm.GetIdentifiedBioPolymersWithSetMods().Take(2).ToList();
+            if (identified.Count != 1)
+            {
+                continue;
+            }
+
+            var peptide = identified[0];
             if (!peptideToPsmMap.ContainsKey(peptide))
             {
                 continue;
