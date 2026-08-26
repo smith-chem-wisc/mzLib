@@ -16,16 +16,28 @@ namespace Quantification.Strategies
     /// keeps <see cref="QuantificationParameters"/> readable as a full description of the processing:
     /// <see cref="SumRollUp"/> still means sum and nothing else.
     ///
+    /// Abstract, because there is no default way to combine intensities. A roll-up has to be named by
+    /// a concrete subclass -- <see cref="SumRollUp"/>, <see cref="MedianRollUp"/> -- so that reading
+    /// <see cref="QuantificationParameters"/> says what was actually done to compute the intensities.
+    /// Adding one is a two-line subclass naming its aggregation.
+    ///
     /// Zeros are excluded before aggregating. The matrix uses 0 for "not observed", so a row that was
     /// never measured in a sample should not pull a median down or a mean toward zero. Summing is
     /// unaffected by the exclusion, which is why <see cref="SumRollUp"/> and <see cref="MedianRollUp"/>
     /// both keep their previous results.
+    ///
+    /// Note that the exclusion is done HERE, by the roll-up, and not by the aggregation itself --
+    /// <see cref="IAggregationStrategy.Aggregate"/> is documented as including zeros and leaving that
+    /// choice to its caller. So the same aggregation passed to
+    /// <see cref="QuantificationParameters.CollapseAggregationStrategy"/> will see zeros, and behave
+    /// differently there. An aggregation whose meaning depends on zeros being excluded is therefore
+    /// not recommended as a collapse aggregation strategy.
     /// </summary>
-    public class AggregatingRollUp : IRollUpStrategy
+    public abstract class AggregatingRollUp : IRollUpStrategy
     {
         private readonly IAggregationStrategy _aggregation;
 
-        public AggregatingRollUp(IAggregationStrategy aggregation)
+        protected AggregatingRollUp(IAggregationStrategy aggregation)
         {
             _aggregation = aggregation ?? throw new ArgumentNullException(nameof(aggregation));
         }
