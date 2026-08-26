@@ -16,6 +16,13 @@ namespace Quantification.Strategies
     /// Fewer than three values average what is there, rather than dividing by three -- dividing by
     /// three would report a protein seen twice as smaller than the same protein seen three times,
     /// which is the bias Top3 exists to avoid. An empty span aggregates to 0.
+    ///
+    /// NOT recommended as a <see cref="QuantificationParameters.CollapseAggregationStrategy"/>. This
+    /// is an estimator of a protein's abundance from its peptides, so it only means anything when the
+    /// values being combined are peptides of one protein. Collapsing fractions or technical replicates
+    /// combines repeated measurements of the SAME thing, where taking the three largest is a bias, not
+    /// an estimate -- and the collapse path does not exclude zeros first, so unobserved samples would
+    /// count as values too. Use it through <see cref="Top3RollUp"/>.
     /// </summary>
     public class Top3Aggregation : IAggregationStrategy
     {
