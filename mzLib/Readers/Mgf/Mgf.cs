@@ -172,19 +172,28 @@ namespace Readers
 
                 if (char.IsDigit(line[0]) && sArray.Length == 1)
                 {
-                    TryParsePeakLine(line, mzs, intensities);
+                    AddPeakIfWellFormed(line, mzs, intensities);
                 }
                 else if (line.StartsWith("PEPMASS") && hasValue)
                 {
                     sArray = sArray[1].Split(' ');
-                    precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
-                    if (sArray.Length > 1)
-                        precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
-                    sawPrecursorMz = true;
+                    if (double.TryParse(sArray[0], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedPrecursorMz))
+                    {
+                        precursorMz = parsedPrecursorMz;
+                        sawPrecursorMz = true;
+                        if (sArray.Length > 1
+                            && double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedPrecursorIntensity))
+                        {
+                            precursorIntensity = parsedPrecursorIntensity;
+                        }
+                    }
                 }
-                else if (line.StartsWith("MSLEVEL"))
+                else if (line.StartsWith("MSLEVEL") && hasValue)
                 {
-                    msLevel = Convert.ToInt32(sArray[1], CultureInfo.InvariantCulture);
+                    if (int.TryParse(sArray[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedMsLevel))
+                    {
+                        msLevel = parsedMsLevel;
+                    }
                 }
                 else if (line.StartsWith("CHARGE") && hasValue && sArray[1].Length > 0)
                 {
@@ -195,20 +204,27 @@ namespace Readers
                     char sign = entry[entry.Length - 1];
                     bool signed = sign == '+' || sign == '-';
 
-                    charge = Convert.ToInt32(signed ? entry.Substring(0, entry.Length - 1) : entry);
-                    if (sign == '-')
+                    // "CHARGE=+" leaves Substring(0, 0) empty, so this needs TryParse too.
+                    string digits = signed ? entry.Substring(0, entry.Length - 1) : entry;
+                    if (int.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedCharge))
                     {
-                        charge *= -1;
+                        charge = sign == '-' ? -parsedCharge : parsedCharge;
+                        sawCharge = true;
                     }
-                    sawCharge = true;
                 }
                 else if (line.StartsWith("SCANS") && hasValue)
                 {
-                    scanNumber = Convert.ToInt32(sArray[1]);
+                    if (int.TryParse(sArray[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedScanNumber))
+                    {
+                        scanNumber = parsedScanNumber;
+                    }
                 }
                 else if (line.StartsWith("RTINSECONDS") && hasValue)
                 {
-                    rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1], CultureInfo.InvariantCulture) / 60.0;
+                    if (double.TryParse(sArray[sArray.Length - 1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedRt))
+                    {
+                        rtInMinutes = parsedRt / 60.0;
+                    }
                 }
                 else if (line.StartsWith("END IONS"))
                 {
@@ -290,20 +306,23 @@ namespace Readers
         /// the end of the split, which surfaced as an IndexOutOfRangeException out of the reader and
         /// took down the entire file.
         /// </summary>
-        private static bool TryParsePeakLine(string line, List<double> mzs, List<double> intensities)
+        private static void AddPeakIfWellFormed(string line, List<double> mzs, List<double> intensities)
         {
             string[] sArray = line.Split(new Char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 
+            // Float | AllowThousands, NOT NumberStyles.Any: Any adds AllowParentheses and
+            // AllowTrailingSign, so "(5000.0)" and "5000.0-" would parse as -5000 where
+            // Convert.ToDouble rejected them -- inventing a negative peak where the old code threw.
+            // This keeps the ACCEPTED set identical to before and changes only throw -> skip.
             if (sArray.Length < 2
-                || !double.TryParse(sArray[0], NumberStyles.Any, CultureInfo.InvariantCulture, out double mz)
-                || !double.TryParse(sArray[1], NumberStyles.Any, CultureInfo.InvariantCulture, out double intensity))
+                || !double.TryParse(sArray[0], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double mz)
+                || !double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double intensity))
             {
-                return false;
+                return;
             }
 
             mzs.Add(mz);
             intensities.Add(intensity);
-            return true;
         }
 
 

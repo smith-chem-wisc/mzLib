@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -454,7 +454,7 @@ namespace Test.FileReadingTests.SpectraFileReading
             NUnit.Framework.Assert.DoesNotThrow(() => reader.LoadAllStaticData(),
                 "one malformed line must not make the file unreadable");
 
-            NUnit.Framework.Assert.That(reader.NumSpectra, Is.EqualTo(4));
+            NUnit.Framework.Assert.That(reader.NumSpectra, Is.EqualTo(8));
 
             // scan 1: "202.456" has no intensity and is dropped; the two complete peaks remain
             var peakWithoutIntensity = reader.GetOneBasedScan(1);
@@ -477,6 +477,36 @@ namespace Test.FileReadingTests.SpectraFileReading
             var headersWithoutValues = reader.GetOneBasedScan(4);
             NUnit.Framework.Assert.That(headersWithoutValues.MassSpectrum.Size, Is.EqualTo(2));
             NUnit.Framework.Assert.That(headersWithoutValues.SelectedIonChargeStateGuess, Is.EqualTo(3));
+
+            // Scans 5-8 cover the header values that were PRESENT but unparseable. Guarding on the
+            // "=" alone only proved a value existed, so these still took the whole file down -- as
+            // FormatException instead of IndexOutOfRangeException, and MSLEVEL with no "=" was not
+            // guarded at all and still threw IndexOutOfRangeException, the exception this fixture
+            // exists to rule out.
+
+            // scan 5: "PEPMASS=" is empty
+            var emptyPepmass = reader.GetOneBasedScan(5);
+            NUnit.Framework.Assert.That(emptyPepmass.MassSpectrum.Size, Is.EqualTo(2));
+
+            // scan 6: non-numeric PEPMASS, RTINSECONDS and SCANS, and "CHARGE=+" whose sign strip
+            // leaves an empty string
+            var nonNumericHeaders = reader.GetOneBasedScan(6);
+            NUnit.Framework.Assert.That(nonNumericHeaders.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(nonNumericHeaders.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 701.5, 702.5 }).Within(1e-9));
+
+            // scan 7: bare "MSLEVEL" with no "=" -- the one site with no value guard at all
+            var mslevelWithoutEquals = reader.GetOneBasedScan(7);
+            NUnit.Framework.Assert.That(mslevelWithoutEquals.MassSpectrum.Size, Is.EqualTo(2));
+
+            // scan 8: "MSLEVEL=" is empty, and the peak list carries "(901.5)" and "1400.0-".
+            // Those two are REJECTED rather than read as negatives: NumberStyles.Any would have
+            // accepted both as -901.5 and -1400.0, inventing peaks the old code threw on.
+            var parenthesisedAndTrailingSign = reader.GetOneBasedScan(8);
+            NUnit.Framework.Assert.That(parenthesisedAndTrailingSign.MassSpectrum.Size, Is.EqualTo(1),
+                "a parenthesised m/z and a trailing-sign intensity must be skipped, not negated");
+            NUnit.Framework.Assert.That(parenthesisedAndTrailingSign.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 903.5 }).Within(1e-9));
         }
 
 
