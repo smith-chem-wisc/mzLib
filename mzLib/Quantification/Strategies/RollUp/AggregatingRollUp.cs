@@ -21,10 +21,16 @@ namespace Quantification.Strategies
     /// <see cref="QuantificationParameters"/> says what was actually done to compute the intensities.
     /// Adding one is a two-line subclass naming its aggregation.
     ///
-    /// Zeros are excluded before aggregating. The matrix uses 0 for "not observed", so a row that was
-    /// never measured in a sample should not pull a median down or a mean toward zero. Summing is
-    /// unaffected by the exclusion, which is why <see cref="SumRollUp"/> and <see cref="MedianRollUp"/>
-    /// both keep their previous results.
+    /// Zeros are excluded before aggregating -- exactly the zero sentinel, not everything that is not
+    /// positive. The matrix uses 0 for "not observed", so a row never measured in a sample should not
+    /// pull a median down or a mean toward zero; a negative value, by contrast, is data, and excluding
+    /// it would silently change a sum. Since adding zero changes nothing, <see cref="SumRollUp"/>
+    /// produces exactly what it always did, for any input.
+    ///
+    /// <see cref="MedianRollUp"/> keeps its results for non-negative input, which is what intensities
+    /// are. It differs from its previous implementation only where a value is negative: that used
+    /// <c>v &gt; 0</c> and so treated a negative as missing, which conflated "not measured" with
+    /// "measured, and less than zero".
     ///
     /// Note that the exclusion is done HERE, by the roll-up, and not by the aggregation itself --
     /// <see cref="IAggregationStrategy.Aggregate"/> is documented as including zeros and leaving that
@@ -35,6 +41,8 @@ namespace Quantification.Strategies
     /// </summary>
     public abstract class AggregatingRollUp : IRollUpStrategy
     {
+        private static readonly List<int> EmptyIndices = new List<int>();
+
         private readonly IAggregationStrategy _aggregation;
 
         protected AggregatingRollUp(IAggregationStrategy aggregation)
@@ -52,13 +60,26 @@ namespace Quantification.Strategies
 
             var pool = ArrayPool<double>.Shared;
             double[] aggregated = pool.Rent(matrix.ColumnCount);
-            double[] observed = pool.Rent(Math.Max(1, matrix.RowCount));
+
+            // Sized by the largest group, not by the row count. The map is caller-supplied, so a group
+            // may list an index more than once, and a list longer than the matrix has rows would run
+            // off the end of a row-count-sized buffer part way through a roll-up.
+            int largestGroup = 0;
+            foreach (var kvp in map)
+            {
+                if (kvp.Value != null && kvp.Value.Count > largestGroup)
+                {
+                    largestGroup = kvp.Value.Count;
+                }
+            }
+
+            double[] observed = pool.Rent(Math.Max(1, largestGroup));
 
             try
             {
                 foreach (var kvp in map)
                 {
-                    List<int> lowIndices = kvp.Value;
+                    List<int> lowIndices = kvp.Value ?? EmptyIndices;
 
                     for (int col = 0; col < matrix.ColumnCount; col++)
                     {
@@ -68,7 +89,11 @@ namespace Quantification.Strategies
                         foreach (int lowIndex in lowIndices)
                         {
                             double value = matrix.Matrix[lowIndex, col];
-                            if (value > 0)
+
+                            // Exactly the zero sentinel, not everything non-positive. A negative value
+                            // is data, not a marker for missing, and dropping it would silently change
+                            // a sum.
+                            if (value != 0)
                             {
                                 observed[observedCount++] = value;
                             }
