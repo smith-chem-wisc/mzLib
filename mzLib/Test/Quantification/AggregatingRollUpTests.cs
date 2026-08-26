@@ -31,6 +31,21 @@ namespace Test.Quantification
             }
         }
 
+        /// <summary>
+        /// A roll-up that mzLib does not ship, standing in for one a caller would add. Two lines is the
+        /// whole cost of a new estimator now, which is the point of the base class.
+        /// </summary>
+        private class MaxRollUp : AggregatingRollUp
+        {
+            public MaxRollUp() : base(new MaxAggregation()) { }
+        }
+
+        /// <summary>Exists only to reach the base constructor with null.</summary>
+        private class NullAggregationRollUp : AggregatingRollUp
+        {
+            public NullAggregationRollUp() : base(null) { }
+        }
+
         /// <summary>A row key that is just a name, so the tests are about arithmetic and nothing else.</summary>
         private class Key : IEquatable<Key>
         {
@@ -145,12 +160,12 @@ namespace Test.Quantification
             {
                 Assert.That(new SumRollUp().Name, Is.EqualTo("Sum Roll-Up"));
                 Assert.That(new MedianRollUp().Name, Is.EqualTo("Median Roll-Up"));
-                Assert.That(new AggregatingRollUp(new MaxAggregation()).Name, Is.EqualTo("Max Roll-Up"));
+                Assert.That(new MaxRollUp().Name, Is.EqualTo("Max Roll-Up"));
             });
         }
 
         [Test]
-        public void AnyAggregationCanNowBeUsedForRollUp()
+        public void ANewRollUpIsATwoLineSubclass()
         {
             var (matrix, _) = Matrix(
                 new[] { 10.0 },
@@ -158,10 +173,19 @@ namespace Test.Quantification
                 new[] { 30.0 });
 
             var target = new Key("protein");
-            var result = new AggregatingRollUp(new MaxAggregation()).RollUp(matrix, MapAllRowsTo(target, 3));
+            var result = new MaxRollUp().RollUp(matrix, MapAllRowsTo(target, 3));
 
-            // Previously this needed a whole new IRollUpStrategy implementation.
+            // MaxRollUp is defined at the top of this file and is the whole implementation.
+            // Previously this needed a full IRollUpStrategy with its own copy of the loop.
             Assert.That(result.GetRow(target)[0], Is.EqualTo(70.0));
+        }
+
+        [Test]
+        public void TheBaseClassCannotBeUsedDirectly()
+        {
+            // A roll-up has to be named by a concrete class, so that QuantificationParameters records
+            // what was actually done rather than "some aggregation".
+            Assert.That(typeof(AggregatingRollUp).IsAbstract, Is.True);
         }
 
         [Test]
@@ -217,7 +241,7 @@ namespace Test.Quantification
         [Test]
         public void NullAggregationIsRejected()
         {
-            Assert.Throws<ArgumentNullException>(() => new AggregatingRollUp(null));
+            Assert.Throws<ArgumentNullException>(() => new NullAggregationRollUp());
         }
     }
 }
