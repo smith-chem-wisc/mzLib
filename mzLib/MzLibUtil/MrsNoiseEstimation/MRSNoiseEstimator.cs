@@ -77,8 +77,8 @@ namespace MzLibUtil.NoiseEstimation
         /// <param name="noiseEstimate">The initial noise estimation of the signal.</param>
         /// <param name="noiseThreshold">A multiple of the noise estimate. noiseThreshold * noiseEstimate
         /// is the cutoff value determining whether or not a pixel is signal or noise.</param>
-        /// <returns>List<int[]>. Each element in the int[] is either a 0 or positive integer, representing a noise value (if 0)
-        /// or a signal value (if >9).</int></returns>
+        /// <returns>List of int[]. Each element in the int[] is either a 0 or positive integer, representing a noise value (if 0)
+        /// or a signal value (if &gt;0).</returns>
         private static List<int[]> BooleanizeLevels(ModWtOutput wtOutput, double noiseEstimate, double noiseThreshold)
         {
             List<int[]> booleanizedLevels = new();
@@ -146,10 +146,9 @@ namespace MzLibUtil.NoiseEstimation
         }
 
         /// <summary>
-        /// Computes the standard deviation of the noise pixels of a signal given the signal, the
-        /// output of the ModWt wavelet transform and the indexes generated from multi-resolution support. 
+        /// Computes the standard deviation of the noise pixels of a signal given the signal and the
+        /// indexes generated from multi-resolution support. 
         /// </summary>
-        /// <param name="wtOutput">The output of the mod wavelet transform.</param>
         /// <param name="signal">A signal that has been smoothed by subtracting the wavelet coefficients from the original signal.</param>
         /// <param name="noiseIndices">An array of noise indices with either a zero or a positive integer value.
         /// Zero represents a noise pixel; positive integer represents a non-noise pixel.</param>
