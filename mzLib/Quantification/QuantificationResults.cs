@@ -15,7 +15,7 @@ namespace Quantification
     /// knowledge of this class.
     ///
     /// Peptide-level values are carried here rather than written onto the peptide objects.
-    /// <see cref="Proteomics.ProteolyticDigestion.PeptideWithSetModifications"/> is
+    /// <c>Proteomics.ProteolyticDigestion.PeptideWithSetModifications</c> is
     /// <c>[Serializable]</c> and is serialized in bulk during indexing, so adding stored
     /// quantification state to it would enlarge every indexed peptide. A side table costs nothing
     /// when quantification is not run.
