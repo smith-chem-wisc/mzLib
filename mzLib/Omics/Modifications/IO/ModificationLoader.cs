@@ -425,14 +425,11 @@ public static class ModificationLoader
     }
 
     /// <summary>
-    /// Parse diagnostic ion and neutral loss strings
-    /// </summary>
-    /// <param name="oneEntry"></param>
-    /// <returns></returns>
-    /// <summary>
     /// Resolves the dissociation type named at the start of a diagnostic ion or neutral loss entry,
     /// or null when it names nothing recognised.
     /// </summary>
+    /// <param name="dissociationTypeName">The text before the colon in a diagnostic ion or neutral loss entry.</param>
+    /// <returns>The resolved type, or null for a null, empty or unrecognised name.</returns>
     /// <remarks>
     /// The two special cases are tested before the generic parse, and have to be. "MPD" is itself an
     /// enum member -- MS:1000435 photodissociation, the parent of MS:1000262 IRMPD -- so a generic parse
@@ -443,6 +440,7 @@ public static class ModificationLoader
     public static DissociationType? ParseDissociationType(string dissociationTypeName) =>
         dissociationTypeName switch
         {
+            null => null,
             _ when dissociationTypeName.Equals("Any", StringComparison.InvariantCultureIgnoreCase)
                 => DissociationType.AnyActivationType,
             _ when dissociationTypeName.Equals("MPD", StringComparison.InvariantCultureIgnoreCase)
@@ -450,6 +448,12 @@ public static class ModificationLoader
             _ => Enum.TryParse(dissociationTypeName, true, out DissociationType parsed) ? parsed : null
         };
 
+    /// <summary>
+    /// Parse diagnostic ion and neutral loss strings
+    /// </summary>
+    /// <param name="oneEntry">One diagnostic ion or neutral loss entry, whose alternatives are separated by " or ".</param>
+    /// <param name="dAndNDictionary">The dictionary to add the parsed values to.</param>
+    /// <returns>The dictionary with the entry's values added, or null if the entry could not be parsed.</returns>
     public static Dictionary<DissociationType, List<double>> DiagnosticIonsAndNeutralLosses(string oneEntry, Dictionary<DissociationType, List<double>> dAndNDictionary)
     {
         try
