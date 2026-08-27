@@ -103,10 +103,20 @@ public class QuantificationEngine
         OverwriteSampleIntensities(peptideMatrix);
         OverwriteSampleIntensities(proteinMatrix);
 
+        // Report the matches the peptide map had to drop, so an unexpectedly small result set has a
+        // stated cause rather than being silently smaller than the search.
+        // Same predicate the peptide map applies, so the count cannot drift from what was dropped.
+        int ambiguousExcluded = SpectralMatches
+            .Count(sm => sm.Intensities != null && SingleIdentifiedBioPolymerOrNull(sm) == null);
+
         return new QuantificationResults
         {
-            Summary = "Quantification completed successfully.",
+            Summary = ambiguousExcluded == 0
+                ? "Quantification completed successfully."
+                : $"Quantification completed successfully. {ambiguousExcluded} spectral match(es) were " +
+                  "excluded because they did not identify exactly one biopolymer.",
             Success = true,
+            AmbiguousSpectralMatchesExcluded = ambiguousExcluded,
             Samples = proteinMatrix.ColumnKeys.ToList(),
             PeptideIntensities = BuildIntensityTable(peptideMatrix),
             ProteinIntensities = BuildIntensityTable(proteinMatrix),
@@ -364,7 +374,7 @@ public class QuantificationEngine
 
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
-            ? GetAllPeptideToProteinMap(peptideMatrixNorm)
+            ? GetAllPeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups)
             : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
 
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
@@ -491,13 +501,44 @@ public class QuantificationEngine
     /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
     /// spectral matches in the smMatrix
     /// </summary>
-    /// <remarks>The mapping assumes that each PM in the matrix is associated with a single, unambiguous
-    /// modified biopolymer. Biopolymers not present in the input list are ignored.</remarks>
+    /// <remarks>A spectral match is quantified only when it identifies exactly one modified biopolymer.
+    /// An ambiguous match -- one that identifies several -- is excluded rather than attributed to whichever
+    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
+    /// throwing. Biopolymers not present in the input list are ignored.
+    /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.</remarks>
     /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
     /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
     /// Only SMs corresponding to these bioPolymers are included in the result.</param>
     /// <returns>A dictionary mapping each modified bioPolymer in the input list to a list of indices of PSMs in the matrix that
     /// are associated with it. If a bioPolymer has no corresponding PSMs, its list will be empty.</returns>
+    /// <summary>
+    /// The single biopolymer a spectral match identifies, or null when it identifies none or several.
+    /// This is the unambiguous filter, in one place, so that the quantified set and the count reported
+    /// as <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> cannot disagree.
+    /// </summary>
+    /// <remarks>
+    /// Distinct, not raw count. A match that names the same biopolymer more than once -- once per
+    /// protein it maps to, for instance -- identifies one peptide in substance, and dropping it as
+    /// ambiguous would discard a perfectly good measurement. Nulls are ignored for the same reason.
+    /// Take(2) still short-circuits, so a long ambiguity list is not enumerated.
+    /// </remarks>
+    internal static IBioPolymerWithSetMods SingleIdentifiedBioPolymerOrNull(ISpectralMatch spectralMatch)
+    {
+        var identified = spectralMatch.GetIdentifiedBioPolymersWithSetMods();
+        if (identified == null)
+        {
+            return null;
+        }
+
+        var distinct = identified
+            .Where(bp => bp != null)
+            .Distinct()
+            .Take(2)
+            .ToList();
+
+        return distinct.Count == 1 ? distinct[0] : null;
+    }
+
     public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers)
     {
         var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>();
@@ -508,7 +549,14 @@ public class QuantificationEngine
         for (int i = 0; i < smMatrix.RowKeys.Count; i++)
         {
             var sm = smMatrix.RowKeys[i];
-            var peptide = sm.GetIdentifiedBioPolymersWithSetMods().First(); // Assumes unambiguous mapping
+
+            // Only unambiguous matches are quantified.
+            var peptide = SingleIdentifiedBioPolymerOrNull(sm);
+            if (peptide == null)
+            {
+                continue;
+            }
+
             if (!peptideToPsmMap.ContainsKey(peptide))
             {
                 continue;
@@ -565,10 +613,52 @@ public class QuantificationEngine
         return proteinToPeptideMap;
     }
 
-    // TODO: Implement this method to that include all peptides (shared and unique) in the mapping
-    public Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
-        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix)
+    /// <summary>
+    /// Creates a mapping from each protein group to the list of row indices in the peptide matrix that correspond to
+    /// every peptide assigned to that group -- shared as well as unique.
+    /// </summary>
+    /// <remarks>A shared peptide belongs to more than one protein group, so its row index appears in more than one
+    /// list. That is the difference from <see cref="GetUniquePeptideToProteinMap"/>, where each index appears once:
+    /// a shared peptide's intensity contributes to every group it was assigned to. Indices are sorted, because
+    /// <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> is a HashSet and its enumeration order is not
+    /// guaranteed stable -- an unsorted list would make roll-up results depend on set ordering.</remarks>
+    /// <param name="peptideMatrix">A matrix containing peptides as row keys.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map. Groups with no peptide in the matrix get an empty list.</param>
+    /// <returns>A dictionary that maps each protein group to the sorted row indices of all of its peptides.</returns>
+    public static Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
+        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
     {
-        throw new NotImplementedException();
+        var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
+
+        // Initialize empty lists for each protein group
+        foreach (var protein in bioPolymerGroups)
+        {
+            proteinToPeptideMap[protein] = new List<int>();
+        }
+
+        // Index the matrix rows once, rather than scanning it per protein group
+        var rowIndexByPeptide = new Dictionary<IBioPolymerWithSetMods, int>();
+        for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
+        {
+            rowIndexByPeptide[peptideMatrix.RowKeys[i]] = i;
+        }
+
+        foreach (var proteinGroup in bioPolymerGroups)
+        {
+            var rowIndices = proteinToPeptideMap[proteinGroup];
+
+            foreach (var peptide in proteinGroup.AllBioPolymersWithSetMods)
+            {
+                // A peptide the caller did not pass to the engine has no row to contribute
+                if (rowIndexByPeptide.TryGetValue(peptide, out int rowIndex))
+                {
+                    rowIndices.Add(rowIndex);
+                }
+            }
+
+            rowIndices.Sort();
+        }
+
+        return proteinToPeptideMap;
     }
 }

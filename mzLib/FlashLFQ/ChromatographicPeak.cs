@@ -31,6 +31,12 @@ namespace FlashLFQ
         public double MassError { get; private set; }
         public bool DecoyPeptide => Identifications.First().IsDecoy;
 
+        /// <summary>
+        /// Full width at half maximum of the apex charge state's trace, in minutes. Recomputed on
+        /// access; cheap relative to peak finding, but cache it if you need it in a tight loop.
+        /// </summary>
+        public PeakWidth PeakWidth => PeakWidth.Measure(this);
+
         public ChromatographicPeak(Identification id, SpectraFileInfo fileInfo, DetectionType detectionType = DetectionType.MSMS) :
             this(new List<Identification>() { id }, fileInfo, detectionType) { }
 
@@ -152,6 +158,8 @@ namespace FlashLFQ
                 sb.Append("Peak RT Start" + "\t");
                 sb.Append("Peak RT Apex" + "\t");
                 sb.Append("Peak RT End" + "\t");
+                sb.Append("Peak FWHM" + "\t");
+                sb.Append("Peak FWHM Status" + "\t");
                 sb.Append("Peak MZ" + "\t");
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
@@ -217,6 +225,13 @@ namespace FlashLFQ
                 sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+
+                PeakWidth width = PeakWidth;
+                sb.Append((width.IsMeasured
+                    ? width.FullWidthAtHalfMaximum.ToString(CultureInfo.InvariantCulture)
+                    : "-") + "\t");
+                sb.Append(width.Status.ToString() + "\t");
+
                 sb.Append(Apex.IndexedPeak.M.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
@@ -225,6 +240,8 @@ namespace FlashLFQ
                 sb.Append("-" +"\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append(PeakWidthStatus.NoApex.ToString() + "\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
             }
