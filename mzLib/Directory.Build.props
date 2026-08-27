@@ -10,13 +10,13 @@
          consumers get tooltips for mzLib types in their IDE. Roughly 1,900 <summary> blocks already
          exist across the tree and none of them reached anyone outside this repository before now. -->
     <!-- Only for projects that ship. An XML documentation file for a test or benchmark assembly
-         serves nobody, and generating it there was surfacing 60 of the 103 doc-comment warnings in
+         serves nobody, and generating it there was surfacing 61 of the 95 doc-comment warnings in
          code no consumer ever sees. -->
     <GenerateDocumentationFile Condition="'$(MSBuildProjectName)' != 'Test' and '$(MSBuildProjectName)' != 'Development'">true</GenerateDocumentationFile>
 
-    <!-- Turning documentation generation on turns on seven doc-comment diagnostics. Two are
+    <!-- Turning documentation generation on turns on nine doc-comment diagnostics. Two are
          suppressed, on the line between "incomplete" and "wrong":
-           CS1591 missing XML comment for a public type or member - 248 of 930 public types have none,
+           CS1591 missing XML comment for a public type or member - 243 of 930 public types have none,
                   so this would bury every other warning. Worth filling in, not worth hiding the build.
            CS1573 a parameter has no matching param tag - partial documentation is still useful
                   documentation, and the tooltip renders.
