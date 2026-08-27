@@ -9,10 +9,17 @@ using MassSpectrometry;
 namespace FlashLFQ
 {
     /// <summary>
-    /// An integrated elution peak for one identified species in one spectra file: the isotopic envelopes
-    /// that were grouped together, the resulting intensity, and how the peak was found. Peaks whose
-    /// <see cref="DetectionType"/> is MBR were transferred from another file by match-between-runs rather
-    /// than identified in this one.
+    /// An elution peak for one identified species in one spectra file: the isotopic envelopes that were
+    /// grouped together, the resulting intensity, and how the peak was found.
+    ///
+    /// <see cref="Intensity"/> is the apex envelope's intensity, not an integrated area, unless the run
+    /// asked for integration — <c>FlashLfqParameters.Integrate</c> defaults to false and the engine
+    /// recommends leaving it there, so the integrated case is the exception rather than the rule.
+    ///
+    /// A <see cref="DetectionType"/> of MBR means the peak came from match-between-runs rather than from
+    /// an identification in this file, but it does not on its own mean a real transfer: the random
+    /// retention time decoys used to estimate MBR FDR carry it too. That is why callers pair the check
+    /// with <c>MbrChromatographicPeak.RandomRt</c>.
     /// </summary>
     public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
