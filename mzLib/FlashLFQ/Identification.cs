@@ -4,6 +4,11 @@ using MassSpectrometry;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// One identification handed to FlashLFQ as a starting point for quantification: a sequence observed
+    /// in a particular file at a particular retention time, mass and charge. FlashLFQ does not identify
+    /// anything itself - these come from a search engine - and it uses them as seeds for peak finding.
+    /// </summary>
     public class Identification
     {
         public readonly string BaseSequence;
