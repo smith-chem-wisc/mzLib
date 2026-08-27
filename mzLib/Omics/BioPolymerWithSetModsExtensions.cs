@@ -15,8 +15,6 @@ public static class BioPolymerWithSetModsExtensions
     /// N-terminal mas shifts are in brackets prior to the first amino acid and apparently missing the + sign
     /// </summary>
     /// <param name="withSetMods">The biopolymer to serialize.</param>
-    /// <param name="lookup">Optional modification lookup to resolve modifications that don't have mass information.</param>
-    /// <param name="decimalPlaces">Number of decimal places for mass values (default: 6).</param>
     /// <returns>The sequence with mass shifts in bracket notation.</returns>
     public static string FullSequenceWithMassShift(this IBioPolymerWithSetMods withSetMods)
     {
