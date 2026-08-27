@@ -374,7 +374,7 @@ public class QuantificationEngine
 
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
-            ? GetAllPeptideToProteinMap(peptideMatrixNorm)
+            ? GetAllPeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups)
             : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
 
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
@@ -613,10 +613,52 @@ public class QuantificationEngine
         return proteinToPeptideMap;
     }
 
-    // TODO: Implement this method to that include all peptides (shared and unique) in the mapping
-    public Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
-        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix)
+    /// <summary>
+    /// Creates a mapping from each protein group to the list of row indices in the peptide matrix that correspond to
+    /// every peptide assigned to that group -- shared as well as unique.
+    /// </summary>
+    /// <remarks>A shared peptide belongs to more than one protein group, so its row index appears in more than one
+    /// list. That is the difference from <see cref="GetUniquePeptideToProteinMap"/>, where each index appears once:
+    /// a shared peptide's intensity contributes to every group it was assigned to. Indices are sorted, because
+    /// <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> is a HashSet and its enumeration order is not
+    /// guaranteed stable -- an unsorted list would make roll-up results depend on set ordering.</remarks>
+    /// <param name="peptideMatrix">A matrix containing peptides as row keys.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map. Groups with no peptide in the matrix get an empty list.</param>
+    /// <returns>A dictionary that maps each protein group to the sorted row indices of all of its peptides.</returns>
+    public static Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
+        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
     {
-        throw new NotImplementedException();
+        var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
+
+        // Initialize empty lists for each protein group
+        foreach (var protein in bioPolymerGroups)
+        {
+            proteinToPeptideMap[protein] = new List<int>();
+        }
+
+        // Index the matrix rows once, rather than scanning it per protein group
+        var rowIndexByPeptide = new Dictionary<IBioPolymerWithSetMods, int>();
+        for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
+        {
+            rowIndexByPeptide[peptideMatrix.RowKeys[i]] = i;
+        }
+
+        foreach (var proteinGroup in bioPolymerGroups)
+        {
+            var rowIndices = proteinToPeptideMap[proteinGroup];
+
+            foreach (var peptide in proteinGroup.AllBioPolymersWithSetMods)
+            {
+                // A peptide the caller did not pass to the engine has no row to contribute
+                if (rowIndexByPeptide.TryGetValue(peptide, out int rowIndex))
+                {
+                    rowIndices.Add(rowIndex);
+                }
+            }
+
+            rowIndices.Sort();
+        }
+
+        return proteinToPeptideMap;
     }
 }
