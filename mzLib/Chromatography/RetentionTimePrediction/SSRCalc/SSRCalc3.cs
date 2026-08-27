@@ -1017,7 +1017,10 @@ public class SSRCalc3
             if (m == 'O' || m == 'U')
             {
                 where = i;
+                // dead while DUPLICATE_ORIGINAL_CODE is true; kept so flipping the const still works
+#pragma warning disable CS0162
                 if (!DUPLICATE_ORIGINAL_CODE) break;
+#pragma warning restore CS0162
             }
         }
         where += ix2;
