@@ -1,7 +1,13 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Annotations only, not warnings. Test code already writes `string?` in ~200 places and the
+         compiler was ignoring every one of them (CS8632). This makes those annotations mean what
+         they say without turning on the nullability warnings, which would add hundreds more. Safe
+         to do here and not in the shipping projects: nothing consumes this assembly, so the
+         nullability metadata it emits is nobody's contract. -->
+    <Nullable>annotations</Nullable>
     <IsPackable>false</IsPackable>
     <Platforms>x64</Platforms>
   </PropertyGroup>
@@ -578,6 +584,15 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="AveragingTests\TestData\TDYeastFractionMS1.mzML">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\negativeModeCharge.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\unsignedMultiDigitCharge.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\unsignedSingleDigitCharge.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\tester.mgf">
