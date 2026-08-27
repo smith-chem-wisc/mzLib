@@ -1154,7 +1154,6 @@ namespace FlashLFQ
                         double start = best.IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime);
                         double end = best.IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime);
 
-                        _results.Peaks[acceptorFile].Add(best);
                         foreach (ChromatographicPeak peak in peakHypotheses.Where(p => p.Apex.ChargeState != best.Apex.ChargeState))
                         {
                             if (peak.Apex.IndexedPeak.RetentionTime >= start
