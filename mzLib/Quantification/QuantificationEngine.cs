@@ -11,14 +11,14 @@ namespace Quantification;
 /// 1) Creates one SpectralMatchMatrix per file
 ///     1a) Normalize the SpectralMatch Matrix for each file
 /// 2) Roll up to peptides for each file
-///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
-///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
+///     2a) Map the PSMs to peptides, creating a Dictionary of IBioPolymerWithSetMods to List of int, mapping peptides to the indices of their PSMs in the QuantMatrix
+///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the map, and output a Peptide QuantMatrix
 ///     2c) Combine the per-file peptide matrices into a single matrix spanning all files, with missing values filled in as 0s
 /// 3) Normalize the peptide matrix
 /// 4) Collapse the peptide matrix, combining fractions and technical replicates
 /// * Writes peptide information (if enabled)
 /// 5) Roll up to proteins
-///     5a) Map the peptides to proteins, creating a Dictionary<IBioPolymerGroup, List<int>> Map mapping proteins to the indices of their peptides in the QuantMatrix
+///     5a) Map the peptides to proteins, creating a Dictionary of IBioPolymerGroup to List of int, mapping proteins to the indices of their peptides in the QuantMatrix
 ///     5b) Roll-up. The roll-up strategy will take in a QuantMatrix of peptides and the map, and output a Protein QuantMatrix
 /// 6) Normalize the protein matrix
 /// * Writes protein information (if enabled)
@@ -498,20 +498,6 @@ public class QuantificationEngine
     }
 
     /// <summary>
-    /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
-    /// spectral matches in the smMatrix
-    /// </summary>
-    /// <remarks>A spectral match is quantified only when it identifies exactly one modified biopolymer.
-    /// An ambiguous match -- one that identifies several -- is excluded rather than attributed to whichever
-    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
-    /// throwing. Biopolymers not present in the input list are ignored.
-    /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.</remarks>
-    /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
-    /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
-    /// Only SMs corresponding to these bioPolymers are included in the result.</param>
-    /// <returns>A dictionary mapping each modified bioPolymer in the input list to a list of indices of PSMs in the matrix that
-    /// are associated with it. If a bioPolymer has no corresponding PSMs, its list will be empty.</returns>
-    /// <summary>
     /// The single biopolymer a spectral match identifies, or null when it identifies none or several.
     /// This is the unambiguous filter, in one place, so that the quantified set and the count reported
     /// as <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> cannot disagree.
@@ -539,6 +525,20 @@ public class QuantificationEngine
         return distinct.Count == 1 ? distinct[0] : null;
     }
 
+    /// <summary>
+    /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
+    /// spectral matches in the smMatrix
+    /// </summary>
+    /// <remarks>A spectral match is quantified only when it identifies exactly one modified biopolymer.
+    /// An ambiguous match -- one that identifies several -- is excluded rather than attributed to whichever
+    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
+    /// throwing. Biopolymers not present in the input list are ignored.
+    /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.</remarks>
+    /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
+    /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
+    /// Only SMs corresponding to these bioPolymers are included in the result.</param>
+    /// <returns>A dictionary mapping each modified bioPolymer in the input list to a list of indices of PSMs in the matrix that
+    /// are associated with it. If a bioPolymer has no corresponding PSMs, its list will be empty.</returns>
     public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers)
     {
         var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>();
