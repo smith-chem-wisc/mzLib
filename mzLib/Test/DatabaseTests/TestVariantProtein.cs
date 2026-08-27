@@ -1342,6 +1342,56 @@ namespace Test.DatabaseTests
             Assert.AreEqual("V", firstDecoyVariation.VariantSequence);
         }
         /// <summary>
+        /// The two rules AreValid applies beyond position sanity: a variation has to be a real change,
+        /// and any variant-specific modification has to sit somewhere the edit leaves behind.
+        ///
+        /// Both matter to callers rather than being cosmetic. DecoyProteinGenerator filters generated
+        /// decoy variations through AreValid, and VariantApplication.GetVariantBioPolymers uses
+        /// All(v => v.AreValid()) to choose between combinatorial and genotype-aware application.
+        /// </summary>
+        [Test]
+        public static void AreValid_RejectsNoOpsAndImpossibleModPositions()
+        {
+            // A variation whose variant sequence equals its original describes no edit. Positions are
+            // fine, so the position-only predicate accepted it.
+            var noOp = new SequenceVariation(5, 7, "PEP", "PEP", "no-op");
+            Assert.That(noOp.AreValid(), Is.False, "a variation that changes nothing is not a valid variation");
+
+            // The same span carrying a variant modification is meaningful again: the residues are
+            // unchanged but the variation is what attaches the modification.
+            var noOpWithMod = new SequenceVariation(5, 7, "PEP", "PEP", "no-op with mod",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(noOpWithMod.AreValid(), Is.True, "a modification-only variation is a real change");
+
+            // A real substitution is unaffected.
+            Assert.That(new SequenceVariation(5, 7, "PEP", "AAA", "substitution").AreValid(), Is.True);
+
+            // A modification at a position the edit deletes cannot be placed. Here the original span is
+            // 5-7 but the variant is one residue, so the new span ends at 5 and position 7 is gone.
+            var modPastShortenedSpan = new SequenceVariation(5, 7, "PEP", "A", "shortening",
+                new Dictionary<int, List<Modification>> { { 7, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modPastShortenedSpan.AreValid(), Is.False,
+                "a modification beyond the end of the replacement sequence has no residue to sit on");
+
+            // The same modification inside the surviving span is fine.
+            var modInsideSpan = new SequenceVariation(5, 7, "PEP", "AAA", "same length",
+                new Dictionary<int, List<Modification>> { { 7, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modInsideSpan.AreValid(), Is.True);
+
+            // A stop gain removes everything from the begin position on, so any modification there is
+            // impossible regardless of the original span length.
+            var modOnTermination = new SequenceVariation(5, 7, "PEP", "*", "stop gain",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modOnTermination.AreValid(), Is.False,
+                "a termination leaves no residue at or after the begin position");
+
+            // A non-positive modification key is invalid whatever the edit is.
+            var modAtZero = new SequenceVariation(5, 7, "PEP", "AAA", "bad key",
+                new Dictionary<int, List<Modification>> { { 0, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modAtZero.AreValid(), Is.False, "modification positions are one-based");
+        }
+
+        /// <summary>
         /// CRITICAL: Tests the AreValid() validation logic for SequenceVariation.
         /// Comprehensively covers valid/invalid position combinations, different
         /// constructor behaviors, and edge cases with null/empty sequences.
@@ -1351,8 +1401,11 @@ namespace Test.DatabaseTests
         public void SequenceVariationIsValidTest()
         {
             // PURPOSE
-            // Validate the minimal, position-only "validity" rules implemented by SequenceVariation.AreValid():
-            //   AreValid() == (OneBasedBeginPosition > 0) && (OneBasedEndPosition >= OneBasedBeginPosition)
+            // Validates the POSITION rule of SequenceVariation.AreValid():
+            //   begin >= 1 and end >= begin
+            // AreValid also requires the variation to be a real change and its modifications to be
+            // positionally possible -- those two rules are covered by AreValid_RejectsNoOpsAndImpossibleModPositions
+            // below. Every construct here changes the sequence, so only the position rule is in play.
             //
             // We cover:
             // 1) Explicit begin/end ctor with typical point mutations → valid.
@@ -1361,7 +1414,7 @@ namespace Test.DatabaseTests
             // 4) One-position convenience ctor behavior for different originalSequence values (null, "", length > 0).
             //    - This ctor derives end as: end = (original == null) ? begin : begin + original.Length - 1.
             //    - Therefore, empty originalSequence "" makes end = begin - 1 → invalid by design.
-            // 5) Content fields (Original/Variant) and OneBasedModifications do NOT affect AreValid(), only positions do.
+            // 5) Every construct below changes the sequence, so it is the position rule being exercised.
             // 6) Optional sanity checks on derived fields (SimpleString and computed end position).
 
             // -----------------------------
@@ -1404,7 +1457,7 @@ namespace Test.DatabaseTests
 
             // -----------------------------
             // 3) Explicit begin/end edge-cases: insertion and deletion modeled by content only
-            //    NOTE: AreValid ignores Original/Variant content; only positions matter.
+            //    NOTE: these all change the sequence, so the position rule is what decides them.
             // -----------------------------
             // Insertion-like (explicit): original is empty (""), variant has content.
             // Valid because we explicitly supply begin == end (positions are valid).
@@ -1443,7 +1496,7 @@ namespace Test.DatabaseTests
             var svPosCtorLength3 = new SequenceVariation(
                 oneBasedPosition: 20,
                 originalSequence: "PEP",   // len = 3
-                variantSequence: "AAA",    // content irrelevant to AreValid
+                variantSequence: "AAA",    // differs from original, so it is a real change
                 description: "pos-ctor length 3");
             Assert.AreEqual(20, svPosCtorLength3.OneBasedBeginPosition);
             Assert.AreEqual(22, svPosCtorLength3.OneBasedEndPosition, "End should be begin + original.Length - 1");

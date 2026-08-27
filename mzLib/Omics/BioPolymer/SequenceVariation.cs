@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Omics.Modifications;
 
@@ -307,13 +308,101 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Validates positional consistency: begin must be &gt; 0 and end must be &gt;= begin.
-        /// This does not validate string/length consistency between <see cref="OriginalSequence"/> and <see cref="VariantSequence"/>.
+        /// Validates this variation. Three rules:
+        /// <list type="number">
+        /// <item>Coordinates must be sensible: begin &gt;= 1 and end &gt;= begin.</item>
+        /// <item>The variation must represent a real change — either the sequence differs
+        /// (insertion, deletion, substitution, stop, frameshift) or there are variant-specific
+        /// modifications. A no-op, where <see cref="OriginalSequence"/> equals
+        /// <see cref="VariantSequence"/> and no modifications are carried, is not valid.</item>
+        /// <item>Any variant-specific modifications must sit at positions the edit leaves in place
+        /// (see <see cref="GetInvalidModificationPositions"/>).</item>
+        /// </list>
         /// </summary>
-        /// <returns>True if positions are valid; otherwise false.</returns>
+        /// <remarks>
+        /// Rule 2 is a behaviour change from the position-only predicate this replaces, and it has a
+        /// consumer: <c>DecoyProteinGenerator</c> filters generated decoy variations through this
+        /// method, so a no-op decoy variation is now dropped rather than kept. See the pull request
+        /// for the measured effect on decoy counts.
+        /// </remarks>
+        /// <returns>True if this variation is a well-formed, meaningful edit; otherwise false.</returns>
         public bool AreValid()
         {
-            return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;
+            if (OneBasedBeginPosition <= 0 || OneBasedEndPosition < OneBasedBeginPosition)
+            {
+                return false;
+            }
+
+            bool noSequenceChange = string.Equals(OriginalSequence ?? string.Empty,
+                                                  VariantSequence ?? string.Empty,
+                                                  StringComparison.Ordinal);
+
+            bool hasMods = OneBasedModifications != null && OneBasedModifications.Count > 0;
+
+            if (noSequenceChange && !hasMods)
+            {
+                return false;
+            }
+
+            if (!hasMods)
+            {
+                return true;
+            }
+
+            return !GetInvalidModificationPositions().Any();
+        }
+
+        /// <summary>
+        /// Modification positions this edit cannot host, which is what makes rule 3 of
+        /// <see cref="AreValid"/> fail.
+        /// </summary>
+        /// <remarks>
+        /// Two cases. A termination or full deletion leaves no residues from
+        /// <see cref="OneBasedBeginPosition"/> onward, so any modification at or after the begin
+        /// position has nowhere to sit. Otherwise the variant sequence occupies
+        /// <c>OneBasedBeginPosition .. OneBasedBeginPosition + VariantSequence.Length - 1</c>, and a
+        /// modification inside the original span but beyond that new end is a position the edit
+        /// removed. Non-positive keys are invalid regardless.
+        /// </remarks>
+        private IEnumerable<int> GetInvalidModificationPositions()
+        {
+            if (OneBasedModifications == null || OneBasedModifications.Count == 0)
+            {
+                yield break;
+            }
+
+            bool isTermination = VariantSequence == "*" || VariantSequence.Length == 0;
+
+            if (isTermination)
+            {
+                foreach (var kvp in OneBasedModifications)
+                {
+                    if (kvp.Key >= OneBasedBeginPosition)
+                    {
+                        yield return kvp.Key;
+                    }
+                }
+                yield break;
+            }
+
+            int newSpanEnd = OneBasedBeginPosition + VariantSequence.Length - 1;
+
+            foreach (var kvp in OneBasedModifications)
+            {
+                int pos = kvp.Key;
+                if (pos <= 0)
+                {
+                    yield return pos;
+                    continue;
+                }
+
+                if (pos >= OneBasedBeginPosition
+                    && pos <= OneBasedEndPosition
+                    && pos > newSpanEnd)
+                {
+                    yield return pos;
+                }
+            }
         }
     }
 }
