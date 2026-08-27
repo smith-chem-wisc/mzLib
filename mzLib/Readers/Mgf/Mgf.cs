@@ -235,8 +235,12 @@ namespace Readers
 
             MzRange scanRange = new MzRange(mzArray[0], mzArray[mzArray.Length - 1]);
 
+            // MSLEVEL when the writer supplied one; otherwise a block with a precursor is MS2 and a
+            // block without one is MS1. Files predating MSLEVEL all carry PEPMASS, so they read as before.
+            int msnOrder = msLevel ?? (sawPrecursorMz ? 2 : 1);
+
             // peak filtering
-            if (filterParams != null && intensityArray.Length > 0 && filterParams.ApplyTrimmingToMsMs)
+            if (filterParams != null && intensityArray.Length > 0 && ShouldTrim(filterParams, msnOrder))
             {
                 WindowModeHelper.Run(ref intensityArray, ref mzArray, 
                     filterParams, scanRange.Minimum, scanRange.Maximum);
@@ -250,10 +254,6 @@ namespace Readers
             }
 
             scanNumbersAlreadyObserved.Add(scanNumber);
-
-            // MSLEVEL when the writer supplied one; otherwise a block with a precursor is MS2 and a
-            // block without one is MS1. Files predating MSLEVEL all carry PEPMASS, so they read as before.
-            int msnOrder = msLevel ?? (sawPrecursorMz ? 2 : 1);
 
             // MGF has no polarity field, so it is only inferrable from the sign of CHARGE. A block with
             // no CHARGE line reads as positive on both the static and dynamic paths -- inheriting it from
@@ -273,6 +273,16 @@ namespace Readers
                 intensities.Sum(), 0, null, null, precursorMz, charge,
                 precursorIntensity, precursorMz, null, DissociationType.Unknown,
                 null, precursorMz);
+        }
+
+        // Peak trimming must honor the per-MS-level FilteringParams flags, exactly as the mzML/Thermo/Bruker
+        // readers do. Trimming an MS1 precursor scan strips its isotope envelopes and precursor
+        // deconvolution then finds nothing.
+        private static bool ShouldTrim(IFilteringParams filterParams, int msnOrder)
+        {
+            return (filterParams.ApplyTrimmingToMs1 && msnOrder == 1)
+                   || (filterParams.ApplyTrimmingToMsMs && msnOrder == 2)
+                   || (filterParams.ApplyTrimmingToMsN && msnOrder > 2);
         }
 
         private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)

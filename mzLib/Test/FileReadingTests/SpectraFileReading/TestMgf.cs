@@ -302,6 +302,51 @@ namespace Test.FileReadingTests.SpectraFileReading
         }
 
         /// <summary>
+        /// Regression for the reader gating peak trimming on ApplyTrimmingToMsMs alone and applying it to
+        /// every block. Trimming an MS1 precursor scan strips its isotope envelopes, and a search reading
+        /// the file back then finds no precursors at all.
+        /// </summary>
+        [Test]
+        public void MgfReaderTrimsByMsLevelRatherThanTrimmingEveryBlock()
+        {
+            double[] mz = Enumerable.Range(0, 100).Select(i => 300.0 + i).ToArray();
+            double[] intensity = Enumerable.Range(0, 100).Select(i => 1000.0 + i).ToArray();
+
+            var ms2 = new MsDataScan(new MzSpectrum(mz, intensity, false),
+                oneBasedScanNumber: 2, msnOrder: 2, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.6, scanWindowRange: new MzRange(299, 400), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensity.Sum(), injectionTime: null,
+                noiseData: null, nativeId: "scan=2", selectedIonMz: 571.8,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfTrimByMsLevel.mgf");
+            new GenericMsDataFile(new[] { Ms1(1, mz, intensity, intensity.Sum()), ms2 }, null).ExportAsMgf(path);
+
+            try
+            {
+                var trimMsMsOnly = new FilteringParams(numberOfPeaksToKeepPerWindow: 5, numberOfWindows: 1,
+                    applyTrimmingToMs1: false, applyTrimmingToMsMs: true);
+                var read = MsDataFileReader.GetDataFile(path);
+                read.LoadAllStaticData(trimMsMsOnly);
+                var scans = read.GetAllScansList();
+
+                NUnit.Framework.Assert.That(scans[0].MassSpectrum.Size, Is.EqualTo(100), "MS1 must be untouched when ApplyTrimmingToMs1 is false");
+                NUnit.Framework.Assert.That(scans[1].MassSpectrum.Size, Is.EqualTo(5), "MS2 must still be trimmed");
+
+                var trimBoth = new FilteringParams(numberOfPeaksToKeepPerWindow: 5, numberOfWindows: 1,
+                    applyTrimmingToMs1: true, applyTrimmingToMsMs: true);
+                var readBoth = MsDataFileReader.GetDataFile(path);
+                readBoth.LoadAllStaticData(trimBoth);
+
+                NUnit.Framework.Assert.That(readBoth.GetAllScansList()[0].MassSpectrum.Size, Is.EqualTo(5), "MS1 must be trimmed when asked");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
         /// The Matrix Science specification requires no whitespace around '=', all parameters ahead of the
         /// fragment peaks, and '.' as the decimal separator regardless of machine locale. The culture is
         /// switched to one that uses ',' for decimals so a missing InvariantCulture would show up here.
