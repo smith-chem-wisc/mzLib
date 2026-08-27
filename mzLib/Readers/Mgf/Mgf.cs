@@ -148,6 +148,11 @@ namespace Readers
             double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
             int? msLevel = null; //from the MSLEVEL line when present
+            DissociationType? dissociationType = null; //from ACTIVATIONMETHOD, an mzLib extension header
+            int? precursorScanNumber = null;           //from PRECURSORSCAN, an mzLib extension header
+            double? isolationWidth = null;             //from ISOLATIONWIDTH, an mzLib extension header
+            double? isolationMz = null;                //from ISOLATIONMZ, an mzLib extension header
+            double? totalIonCurrent = null;            //from TIC, an mzLib extension header
             bool sawPrecursorMz = false;
             bool sawCharge = false;
 
@@ -204,6 +209,44 @@ namespace Readers
                 else if (line.StartsWith("RTINSECONDS"))
                 {
                     rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1], CultureInfo.InvariantCulture) / 60.0;
+                }
+                // mzLib extension headers -- see MgfMethods.WriteScan for why these exist. TryParse
+                // throughout: these come from files we did not necessarily write, and one unparseable
+                // value must not take the whole file down.
+                else if (line.StartsWith("TIC") && sArray.Length > 1)
+                {
+                    if (double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedTic))
+                    {
+                        totalIonCurrent = parsedTic;
+                    }
+                }
+                else if (line.StartsWith("ACTIVATIONMETHOD") && sArray.Length > 1)
+                {
+                    if (Enum.TryParse(sArray[1].Trim(), ignoreCase: true, out DissociationType parsedDissociation))
+                    {
+                        dissociationType = parsedDissociation;
+                    }
+                }
+                else if (line.StartsWith("PRECURSORSCAN") && sArray.Length > 1)
+                {
+                    if (int.TryParse(sArray[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedPrecursorScan))
+                    {
+                        precursorScanNumber = parsedPrecursorScan;
+                    }
+                }
+                else if (line.StartsWith("ISOLATIONMZ") && sArray.Length > 1)
+                {
+                    if (double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedIsolationMz))
+                    {
+                        isolationMz = parsedIsolationMz;
+                    }
+                }
+                else if (line.StartsWith("ISOLATIONWIDTH") && sArray.Length > 1)
+                {
+                    if (double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedIsolationWidth))
+                    {
+                        isolationWidth = parsedIsolationWidth;
+                    }
                 }
                 else if (line.StartsWith("END IONS"))
                 {
@@ -265,14 +308,15 @@ namespace Readers
             {
                 return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
                     rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                    intensities.Sum(), 0, null, null);
+                    totalIonCurrent ?? intensities.Sum(), 0, null, null);
             }
 
             return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
-                intensities.Sum(), 0, null, null, precursorMz, charge,
-                precursorIntensity, precursorMz, null, DissociationType.Unknown,
-                null, precursorMz);
+                totalIonCurrent ?? intensities.Sum(), 0, null, null, precursorMz, charge,
+                precursorIntensity, isolationMz ?? precursorMz, isolationWidth,
+                dissociationType ?? DissociationType.Unknown,
+                precursorScanNumber, precursorMz);
         }
 
         // Peak trimming must honor the per-MS-level FilteringParams flags, exactly as the mzML/Thermo/Bruker
