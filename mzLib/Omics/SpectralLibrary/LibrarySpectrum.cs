@@ -34,7 +34,6 @@ namespace Omics.SpectrumMatch
         /// <summary>
         /// This function enables the spectrum angle to be computed between an individual experimental spectrum and the loaded library spectrum within MetaDraw
         /// </summary>
-        /// <param name="librarySpectrum"></param>
         /// <returns></returns>
         public string CalculateSpectralAngleOnTheFly(List<MatchedFragmentIon> spectrumMatchFragments)
         {
