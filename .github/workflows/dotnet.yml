@@ -47,7 +47,7 @@ jobs:
       # runsettings file for why VSTest trait filtering and NUnit categories disagree here.
       run: cd mzLib && dotnet test --no-build --verbosity normal --settings ./Test/required.runsettings --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v7
       env:
         CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         verbose: true
