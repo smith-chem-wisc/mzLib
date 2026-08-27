@@ -25,7 +25,17 @@ namespace FlashLFQ
             Intensities = new Dictionary<SpectraFileInfo, double>();
             RetentionTimes = new Dictionary<SpectraFileInfo, double>();
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
-            this.ProteinGroups = proteinGroups;
+
+            // Copied, not aliased. Callers build a Peptide from the first Identification that carries a
+            // given modified sequence and then Add the protein groups of every later identification for
+            // that sequence -- and MergeResultsWith adds the other run's. Holding the caller's set means
+            // all of that writes back into that first Identification, which is attached to peaks and
+            // reported, so it ends up claiming protein groups it never observed. Identification itself
+            // already copies its input for the same reason.
+            this.ProteinGroups = proteinGroups == null
+                ? new HashSet<ProteinGroup>()
+                : new HashSet<ProteinGroup>(proteinGroups);
+
             this.UseForProteinQuant = useForProteinQuant;
         }
 
