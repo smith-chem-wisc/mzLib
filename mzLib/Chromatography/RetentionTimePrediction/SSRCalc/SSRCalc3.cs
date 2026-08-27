@@ -1176,7 +1176,7 @@ public class SSRCalc3
     /// <param name="acid">Central amino acid.</param>
     /// <param name="lp">Left-flanking amino acid.</param>
     /// <param name="rp">Right-flanking amino acid.</param>
-    /// <param name="ct">Connector type ("--", "<-", or "->").</param>
+    /// <param name="ct">Connector type ("--", "&lt;-", or "-&gt;").</param>
     /// <param name="far1">Far-left amino acid for offset patterns.</param>
     /// <param name="far2">Far-right amino acid for offset patterns.</param>
     /// <returns>Connection multiplier (0 = incompatible, >0 = compatible).</returns>

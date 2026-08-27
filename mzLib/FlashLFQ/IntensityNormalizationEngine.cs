@@ -318,10 +318,10 @@ namespace FlashLFQ
             }
         }
 
-        /// <summary>
-        /// This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
-        /// excessive computation time in normalization functions.
-        /// </summary>
+        // <summary>
+        // This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
+        // excessive computation time in normalization functions.
+        // </summary>
         //private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
         //{
         //    List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];
