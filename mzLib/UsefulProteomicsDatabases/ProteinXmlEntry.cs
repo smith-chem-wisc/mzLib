@@ -289,7 +289,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Handles the end of an XML element during protein database parsing and updates the internal state or finalizes objects as needed.
         /// Depending on the element name, this method processes and stores feature, subfeature, database reference, gene, and organism information.
-        /// When the end of an <entry> element is reached, it finalizes the parsing of the protein entry by:
+        /// When the end of an &lt;entry&gt; element is reached, it finalizes the parsing of the protein entry by:
         ///   - Sanitizing the sequence (replacing invalid amino acids with 'X').
         ///   - Pruning sequence variants whose coordinates exceed the sequence length.
         ///   - Resolving and attaching all annotated modifications, excluding specified types or unknowns.
@@ -297,7 +297,7 @@ namespace UsefulProteomicsDatabases
         ///   - Aggregating all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes)
         ///     into a new <see cref="Protein"/> instance.
         ///   - Clearing the internal state to prepare for the next entry.
-        /// Returns a constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, returns <c>null</c>.
+        /// Returns a constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present; otherwise, returns <c>null</c>.
         /// </summary>
         /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the current XML element.</param>
         /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
@@ -306,7 +306,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
         /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
         /// <returns>
-        /// A constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, <c>null</c>.
+        /// A constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present; otherwise, <c>null</c>.
         /// </returns>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
             bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
