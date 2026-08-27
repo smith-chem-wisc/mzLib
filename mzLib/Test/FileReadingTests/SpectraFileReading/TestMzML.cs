@@ -78,7 +78,6 @@ namespace Test.FileReadingTests.SpectraFileReading
         {
             string origDataFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "noScanNumber.mzML");
             FilteringParams filter = new(200, 0.01, 1, null, false, false, true);
-            bool lookForPrecursorScans = false;
             NUnit.Framework.Assert.Throws<AggregateException>(() => MsDataFileReader.GetDataFile(origDataFile).LoadAllStaticData(filter, 1), "Precursor scan number not define for scan=1");
         }
 
