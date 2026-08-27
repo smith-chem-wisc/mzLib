@@ -171,10 +171,11 @@ namespace Readers
                 }
                 else if (line.StartsWith("PEPMASS"))
                 {
-                    sArray = sArray[1].Split(' ');
+                    sArray = sArray[1].Split(' ', StringSplitOptions.RemoveEmptyEntries);
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
-                    if (sArray.Length > 1)
-                        precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
+                    precursorIntensity = sArray.Length > 1
+                        ? Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture)
+                        : 1;
                     sawPrecursorMz = true;
                 }
                 else if (line.StartsWith("MSLEVEL"))

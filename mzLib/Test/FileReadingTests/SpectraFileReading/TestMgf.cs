@@ -171,6 +171,28 @@ namespace Test.FileReadingTests.SpectraFileReading
             NUnit.Framework.Assert.That(scans[0].SelectedIonIntensity, Is.EqualTo(47641904.0).Within(0.00001));
         }
 
+        [Test]
+        public void DefaultsBlankPrecursorIntensityToOne()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "blankPepmassIntensity.mgf");
+            File.WriteAllLines(path, new[]
+            {
+                "BEGIN IONS",
+                "PEPMASS=678.5586751 ",
+                "CHARGE=2+",
+                "RTINSECONDS=215.437",
+                "110.030752706439 39.64286",
+                "END IONS"
+            });
+
+            var reader = MsDataFileReader.GetDataFile(path);
+            NUnit.Framework.Assert.DoesNotThrow(() => reader.LoadAllStaticData());
+
+            var scan = reader.GetOneBasedScan(1);
+            NUnit.Framework.Assert.That(scan.SelectedIonMZ, Is.EqualTo(678.5586751).Within(0.0000001));
+            NUnit.Framework.Assert.That(scan.SelectedIonIntensity, Is.EqualTo(1));
+        }
+
         /// <summary>
         /// Pins the sign parsed off the CHARGE line. The polarity assertions are not independent
         /// evidence -- MsDataScan's constructor normalizes the charge sign to the polarity, and Mgf
