@@ -150,13 +150,13 @@ jobs:
       # every mzLib PR (this integration job clones MetaMorpheus master and runs its suite).
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService"
     - name: Upload artifact (installer)
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: MetaMorpheusInstaller
         path: ./MetaMorpheus/MetaMorpheus/MetaMorpheusSetup/bin/Debug/MetaMorpheusInstaller.msi
         compression-level: 0
     - name: Upload artifact (GUI)
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: MetaMorpheusGUI
         # Globbed rather than pinned to a framework: this is MetaMorpheus's target framework,
