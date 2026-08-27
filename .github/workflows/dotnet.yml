@@ -16,7 +16,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
@@ -77,7 +77,7 @@ jobs:
     steps:
     - uses: actions/checkout@v5
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
@@ -98,7 +98,7 @@ jobs:
     # of MetaMorpheus's -- a net10.0-only package is NU1202-incompatible with a net8.0 consumer, which
     # no amount of installed SDKs fixes -- so mzLib retargets only after MetaMorpheus does.
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
