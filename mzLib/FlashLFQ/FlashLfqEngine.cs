@@ -2067,7 +2067,6 @@ namespace FlashLFQ
             {
                 double peakStart = sharedPeak.StartRT;
                 double PeakEnd = sharedPeak.EndRT;
-                bool isMBR = false;
                 DetectionType detectionType = DetectionType.IsoTrack_MSMS;
 
                 // Check is there any Id in the XIC within the time window.
