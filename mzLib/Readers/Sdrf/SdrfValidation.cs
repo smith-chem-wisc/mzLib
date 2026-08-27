@@ -35,7 +35,7 @@ namespace Readers
     /// </param>
     /// <param name="Message">Human-readable description, including the offending value.</param>
     /// <param name="RowIndex">
-    /// Zero-based index into <see cref="SdrfDocument.Results"/>, or null for a document-level
+    /// Zero-based index into <see cref="ResultFile{SdrfRow}.Results"/>, or null for a document-level
     /// finding. Note this is NOT the line number in the file: line number is RowIndex + 2, because
     /// the header occupies line 1 and file lines are 1-based.
     /// </param>
