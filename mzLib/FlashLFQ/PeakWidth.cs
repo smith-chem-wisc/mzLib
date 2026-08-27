@@ -55,7 +55,18 @@ namespace FlashLFQ
         /// <summary>Interpolated retention time of the falling half-maximum crossing, or NaN.</summary>
         public double HalfMaximumEnd { get; init; }
 
-        /// <summary>Time points on the apex charge state that the measurement was made over.</summary>
+        /// <summary>
+        /// Time points on the apex charge state's trace, in full -- not the number falling between
+        /// <see cref="HalfMaximumStart"/> and <see cref="HalfMaximumEnd"/>.
+        /// </summary>
+        /// <remarks>
+        /// The distinction matters for the duty-cycle question this type is partly meant to answer.
+        /// The usual criterion for a reliable area is a healthy number of MS1 points across the peak,
+        /// and "across the peak" conventionally means across the full width at half maximum rather
+        /// than across the full base -- so this count is the larger of the two and will read as
+        /// comfortably above a threshold that the points within the width would not clear. Count the
+        /// envelopes between the two crossings if that is the number you want.
+        /// </remarks>
         public int TimePointsOnApexCharge { get; init; }
 
         public bool IsMeasured => Status == PeakWidthStatus.Measured;
