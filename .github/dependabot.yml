@@ -19,3 +19,19 @@ updates:
     directory: "/"
     schedule:
       interval: "monthly"
+    groups:
+      # Minor and patch bumps travel together. They are the ones that need no changelog
+      # read, so one PR a month for all of them costs two approvals instead of two per
+      # action, and loses nothing.
+      #
+      # Majors are deliberately left out and still arrive one at a time. A major is where
+      # an action changes a default or drops an input -- actions/checkout v5 to v7 is two
+      # of them at once -- and that is exactly the change that should not be reviewed as
+      # one line inside a batch. The first run of this config opened three PRs and all
+      # three were majors, which is the case grouping must not hide.
+      actions-minor-and-patch:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
