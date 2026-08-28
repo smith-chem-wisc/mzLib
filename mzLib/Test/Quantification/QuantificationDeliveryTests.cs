@@ -702,4 +702,50 @@ public class QuantificationDeliveryTests
             Assert.That(unquantified.ToString().Split('\t'), Has.Length.EqualTo(header.Split('\t').Length));
         });
     }
+
+    /// <summary>
+    /// The rectangular table must not have been bought by inventing zeros. An unobserved sample gets
+    /// an empty cell; a sample observed at zero would get "0". Rectangularity is a field-count
+    /// property and this is a field-content one, so the tests above cannot see the difference -- a
+    /// change that wrote 0 into the absent cells would keep them all passing while claiming a
+    /// measurement that was never made.
+    /// </summary>
+    [Test]
+    public void RenderedRow_LeavesAnUnobservedSampleEmpty_RatherThanWritingZero()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+
+        string p002Peptide = peptides.Single(p => ((Protein)p.Parent).Accession == "P002").BaseSequence;
+        spectralMatches = spectralMatches
+            .Where(sm => !(sm.FullFilePath == File2 && sm.BaseSequence == p002Peptide))
+            .ToList();
+
+        new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        var p002 = proteinGroups.Single(g => g.BioPolymerGroupName.Contains("P002"));
+        var header = p002.GetTabSeparatedHeader().Split('	');
+        var row = p002.ToString().Split('	');
+
+        // The three file2 channels are unobserved for P002; the three file1 channels are not.
+        var absent = header
+            .Select((name, i) => (name, i))
+            .Where(x => x.name.StartsWith("Intensity_") && x.name.Contains(File2.Replace(".raw", "")))
+            .ToList();
+        var present = header
+            .Select((name, i) => (name, i))
+            .Where(x => x.name.StartsWith("Intensity_") && x.name.Contains(File1.Replace(".raw", "")))
+            .ToList();
+
+        Assert.That(absent, Is.Not.Empty, "the unobserved channels should still have columns");
+        Assert.That(present, Is.Not.Empty, "the observed channels should too");
+
+        Assert.Multiple(() =>
+        {
+            foreach (var (name, i) in absent)
+                Assert.That(row[i], Is.Empty,
+                    $"{name} was never observed, so its cell must be empty rather than a fabricated zero");
+            foreach (var (name, i) in present)
+                Assert.That(row[i], Is.Not.Empty, $"{name} was observed and must carry its value");
+        });
+    }
 }
