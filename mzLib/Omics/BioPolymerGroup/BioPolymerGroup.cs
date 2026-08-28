@@ -284,8 +284,15 @@ namespace Omics.BioPolymerGroup
         /// Returns a tab-separated header line for output files, matching the format of <see cref="ToString"/>.
         /// Header includes columns for biopolymer information, quantification, and statistical metrics.
         /// </summary>
+        /// <remarks>
+        /// Virtual because <see cref="ToString"/> is, and the two must be overridden together or a
+        /// writer pairs one type's header with another type's rows. A derived group that hides this
+        /// with <c>new</c> while overriding <see cref="ToString"/> is dispatched inconsistently: a
+        /// call through <see cref="IBioPolymerGroup"/> or a base reference gets this header and the
+        /// derived row. Overriding both keeps the pair together however the call is typed.
+        /// </remarks>
         /// <returns>Tab-separated header string suitable for TSV file output.</returns>
-        public string GetTabSeparatedHeader()
+        public virtual string GetTabSeparatedHeader()
         {
             var sb = new StringBuilder();
             sb.Append("BioPolymer Accession" + '\t');
