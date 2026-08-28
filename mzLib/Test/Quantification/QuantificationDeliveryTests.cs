@@ -681,9 +681,12 @@ public class QuantificationDeliveryTests
 
     /// <summary>
     /// An entity the engine never touched keeps the spectral-count-only shape. This is what
-    /// distinguishes "quantification did not run" from "it ran and found nothing", and it is why the
-    /// gate is <see cref="IHasSampleIntensities.SamplesForQuantification"/> rather than a per-group
-    /// flag: a run either quantified its groups or it did not, and every group in one run agrees.
+    /// distinguishes "quantification did not run" from "it ran and found nothing". The gate is both
+    /// <see cref="IHasSampleIntensities.SamplesForQuantification"/> being non-empty AND
+    /// <see cref="IHasSampleIntensities.IntensitiesBySample"/> being non-null, rather than a
+    /// per-group flag: a run either quantified its groups or it did not, and every group of one
+    /// quantified entity agrees. Both fields are needed because ConstructSubsetBioPolymerGroup can
+    /// leave an empty sample list beside a non-null dictionary.
     /// </summary>
     [Test]
     public void RenderedTable_OmitsIntensityColumnsEntirely_WhenNothingWasQuantified()
@@ -746,6 +749,43 @@ public class QuantificationDeliveryTests
                     $"{name} was never observed, so its cell must be empty rather than a fabricated zero");
             foreach (var (name, i) in present)
                 Assert.That(row[i], Is.Not.Empty, $"{name} was observed and must carry its value");
+        });
+    }
+
+    /// <summary>
+    /// A subset group built for a file that none of the parent's samples match gets an empty sample
+    /// list beside an empty-but-non-null intensity dictionary
+    /// (<see cref="BioPolymerGroup.ConstructSubsetBioPolymerGroup"/>). Gating the columns on the
+    /// dictionary alone would then advertise intensity columns that
+    /// <see cref="BioPolymerGroup.PopulateSampleGroupResults"/> can never fill, because with no
+    /// samples it falls back to grouping by spectral-match file path.
+    ///
+    /// So the gate requires a non-empty sample list as well. This pins that: the subset describes no
+    /// intensity columns rather than permanently empty ones.
+    /// </summary>
+    [Test]
+    public void SubsetGroupForAnUnmatchedFile_DoesNotAdvertiseIntensityColumnsItCannotFill()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        var parent = proteinGroups.First();
+        Assert.That(parent.SamplesForQuantification, Is.Not.Null.And.Not.Empty, "parent was quantified");
+
+        // The fixture's samples carry bare file names, so an absolute path matches none of them --
+        // the path/bare-name mismatch this repo's own fixtures produce.
+        var subset = parent.ConstructSubsetBioPolymerGroup(@"C:\somewhereile1.raw");
+
+        Assert.That(subset.SamplesForQuantification, Is.Empty, "no sample matched that path");
+        Assert.That(subset.IntensitiesBySample, Is.Not.Null.And.Empty,
+            "the subset still gets a dictionary, which is why the dictionary alone cannot be the gate");
+
+        string header = subset.GetTabSeparatedHeader();
+        Assert.Multiple(() =>
+        {
+            Assert.That(header, Does.Not.Contain("Intensity_"),
+                "nothing can fill these, so they must not be advertised");
+            Assert.That(subset.ToString().Split('	'), Has.Length.EqualTo(header.Split('	').Length));
         });
     }
 }

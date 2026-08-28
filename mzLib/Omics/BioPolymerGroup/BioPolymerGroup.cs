@@ -285,27 +285,6 @@ namespace Omics.BioPolymerGroup
         /// Header includes columns for biopolymer information, quantification, and statistical metrics.
         /// </summary>
         /// <returns>Tab-separated header string suitable for TSV file output.</returns>
-        /// <summary>
-        /// Whether this group was handed to a quantification engine at all, which is what decides
-        /// whether the intensity columns exist.
-        /// </summary>
-        /// <remarks>
-        /// Deliberately NOT <see cref="SampleGroupResult.HasIntensityData"/>. That answers a per-group
-        /// question -- did this sample group get a value -- and using it to choose columns made the
-        /// table ragged: a group whose samples were all unobserved emitted two columns per sample
-        /// group where its neighbour emitted four. The header is written once, from one group, while
-        /// every row writes its own, so every value after the disagreement landed under the wrong
-        /// column name.
-        ///
-        /// Quantification is a property of the run, not of one sample group: an engine either
-        /// populated this entity or it did not. <see cref="IHasSampleIntensities.IntensitiesBySample"/>
-        /// is assigned for every row of the matrix -- a dictionary, empty if nothing was observed --
-        /// so all groups in one run agree, the table is rectangular by construction, and an unobserved
-        /// sample yields an empty cell rather than a vanished column, which keeps absent
-        /// distinguishable from an observed zero. It stays null when no engine ran, which is what
-        /// omits the columns altogether.
-        /// </remarks>
-        private bool IsQuantified => IntensitiesBySample is not null;
         public string GetTabSeparatedHeader()
         {
             var sb = new StringBuilder();
@@ -327,7 +306,7 @@ namespace Omics.BioPolymerGroup
             #region Quantification Header Building
             if (SampleGroupResults is null) PopulateSampleGroupResults();
 
-            bool quantified = IsQuantified;
+            bool quantified = HasAssignedSampleIntensities;
             foreach (var group in SampleGroupResults!)
             {
                 sb.Append($"SpectralCount_{group.Label}\t");
@@ -348,6 +327,38 @@ namespace Omics.BioPolymerGroup
             sb.Append("Best Sequence Notch QValue");
             return sb.ToString();
         }
+
+        /// <summary>
+        /// Whether sample intensities have been assigned to this group -- a non-empty sample list
+        /// AND an assigned dictionary -- which is what decides whether the intensity columns exist.
+        /// Named for what it tests rather than for "was quantified": the setters are public and
+        /// non-coalescing, so an assignment is evidence that something populated this group, not
+        /// proof that an engine did.
+        /// Protected rather than private so a derived group can adopt the same predicate instead of
+        /// copying the expression.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately NOT <see cref="SampleGroupResult.HasIntensityData"/>. That answers a per-group
+        /// question -- did this sample group get a value -- and using it to choose columns made rows
+        /// disagree with the header: a group whose samples were all unobserved emitted two columns per
+        /// sample group where its neighbour emitted four, so every value after the disagreement was
+        /// written under the wrong column name.
+        ///
+        /// Both fields are required. <see cref="IHasSampleIntensities.IntensitiesBySample"/> alone is
+        /// not enough: <see cref="ConstructSubsetBioPolymerGroup"/> assigns an empty-but-non-null
+        /// dictionary alongside an empty sample list when no sample matches the requested file, and
+        /// gating on the dictionary alone would then advertise intensity columns that
+        /// <see cref="PopulateSampleGroupResults"/> can never fill.
+        ///
+        /// SCOPE, because this does not make every table rectangular. It makes the four columns per
+        /// sample group agree across the groups of one quantified run. When no engine has run,
+        /// <see cref="PopulateSampleGroupResults"/> builds one result per file in each group's OWN
+        /// spectral matches, so two groups covering different files still emit different column
+        /// counts -- a pre-existing defect on the unquantified path that no per-group flag can fix,
+        /// because a single group does not know the run's full file list.
+        /// </remarks>
+        protected bool HasAssignedSampleIntensities =>
+            SamplesForQuantification is { Count: > 0 } && IntensitiesBySample is not null;
 
         /// <summary>
         /// Returns a tab-separated string representation of this biopolymer group,
@@ -438,7 +449,7 @@ namespace Omics.BioPolymerGroup
                 : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
                 .ToList();
 
-            bool quantifiedRow = IsQuantified;
+            bool quantifiedRow = HasAssignedSampleIntensities;
             foreach (var group in SampleGroupResults!)
             {
                 sb.Append(group.SpectralCount);
@@ -446,8 +457,10 @@ namespace Omics.BioPolymerGroup
 
                 if (quantifiedRow)
                 {
-                    // Empty, not 0: this sample was never observed, and writing a zero
-                    // would claim a measurement that was not made.
+                    // Empty rather than 0, so the cell does not assert a measurement that was
+                    // not made. Note this does not make absent distinguishable from a measured zero
+                    // through the engine: QuantificationEngine.OverwriteSampleIntensities drops
+                    // zero-valued cells, so a genuine zero never reaches IntensitiesBySample either.
                     if (group.HasIntensityData)
                         sb.Append(group.Intensity);
                     sb.Append("\t");
