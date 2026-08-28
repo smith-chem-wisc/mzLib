@@ -18,6 +18,13 @@
     <None Remove="Resources\TMT.txt" />
   </ItemGroup>
 
+  <!--
+    This list is deliberately explicit rather than a Resources\* glob. Resources\ also holds
+    substitutions.txt and surfactants.txt, which are shipped in the NuGet package but NOT embedded:
+    nothing here loads them, and embedding them would silently widen the default set that
+    Mods.AllModsKnown exposes. Adding a file to Resources\ therefore does nothing until it is
+    listed below, which is the intended behaviour.
+  -->
   <ItemGroup>
     <EmbeddedResource Include="Resources\Mods.txt">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
