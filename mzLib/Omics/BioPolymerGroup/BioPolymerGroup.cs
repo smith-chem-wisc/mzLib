@@ -285,6 +285,27 @@ namespace Omics.BioPolymerGroup
         /// Header includes columns for biopolymer information, quantification, and statistical metrics.
         /// </summary>
         /// <returns>Tab-separated header string suitable for TSV file output.</returns>
+        /// <summary>
+        /// Whether this group was handed to a quantification engine at all, which is what decides
+        /// whether the intensity columns exist.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately NOT <see cref="SampleGroupResult.HasIntensityData"/>. That answers a per-group
+        /// question -- did this sample group get a value -- and using it to choose columns made the
+        /// table ragged: a group whose samples were all unobserved emitted two columns per sample
+        /// group where its neighbour emitted four. The header is written once, from one group, while
+        /// every row writes its own, so every value after the disagreement landed under the wrong
+        /// column name.
+        ///
+        /// Quantification is a property of the run, not of one sample group: an engine either
+        /// populated this entity or it did not. <see cref="IHasSampleIntensities.IntensitiesBySample"/>
+        /// is assigned for every row of the matrix -- a dictionary, empty if nothing was observed --
+        /// so all groups in one run agree, the table is rectangular by construction, and an unobserved
+        /// sample yields an empty cell rather than a vanished column, which keeps absent
+        /// distinguishable from an observed zero. It stays null when no engine ran, which is what
+        /// omits the columns altogether.
+        /// </remarks>
+        private bool IsQuantified => IntensitiesBySample is not null;
         public string GetTabSeparatedHeader()
         {
             var sb = new StringBuilder();
@@ -306,13 +327,14 @@ namespace Omics.BioPolymerGroup
             #region Quantification Header Building
             if (SampleGroupResults is null) PopulateSampleGroupResults();
 
+            bool quantified = IsQuantified;
             foreach (var group in SampleGroupResults!)
             {
                 sb.Append($"SpectralCount_{group.Label}\t");
-                if (group.HasIntensityData)
+                if (quantified)
                     sb.Append($"Intensity_{group.Label}\t");
                 sb.Append($"CountOccupancy_{group.Label}\t");
-                if (group.HasIntensityData)
+                if (quantified)
                     sb.Append($"IntensityOccupancy_{group.Label}\t");
             }
             #endregion
@@ -416,23 +438,28 @@ namespace Omics.BioPolymerGroup
                 : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
                 .ToList();
 
+            bool quantifiedRow = IsQuantified;
             foreach (var group in SampleGroupResults!)
             {
                 sb.Append(group.SpectralCount);
                 sb.Append("\t");
 
-                if (group.HasIntensityData)
+                if (quantifiedRow)
                 {
-                    sb.Append(group.Intensity);
+                    // Empty, not 0: this sample was never observed, and writing a zero
+                    // would claim a measurement that was not made.
+                    if (group.HasIntensityData)
+                        sb.Append(group.Intensity);
                     sb.Append("\t");
                 }
 
                 sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: false)));
                 sb.Append("\t");
 
-                if (group.HasIntensityData)
+                if (quantifiedRow)
                 {
-                    sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: true)));
+                    if (group.HasIntensityData)
+                        sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: true)));
                     sb.Append("\t");
                 }
             }
