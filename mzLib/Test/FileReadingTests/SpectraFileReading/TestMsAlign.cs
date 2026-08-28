@@ -429,7 +429,6 @@ namespace Test.FileReadingTests.SpectraFileReading
             msAlign.LoadAllStaticData();
 
             int firstScanNumber = 1366;
-            int lastScanNumber = 1398;
             int peakCount = 24;
             int ms2ScansPresent = 22;
 
