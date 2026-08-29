@@ -198,6 +198,33 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// The strategies every run needs, in the order the engine applies them, each paired with the name
+    /// to report when it is missing. <see cref="QuantificationParameters.CollapseAggregationStrategy"/>
+    /// is deliberately absent: it is needed only when the collapse strategy reads it, which is
+    /// <see cref="ValidateEngine"/>'s separate check.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="QuantificationParameters"/> leaves all of these null, and none has a defensible
+    /// default -- summing and taking a median are different answers, not different spellings of one.
+    /// So the only thing validation can do is say which are missing, and it is worth doing early: the
+    /// first dereference is in <see cref="RunPeptideQuant"/>, which <see cref="Run"/> reaches after it
+    /// has already started writing the raw matrix. Without this check the run leaves that file behind
+    /// and then throws a NullReferenceException naming nothing.
+    ///
+    /// Spelled out rather than reflected over, so that a strategy added to the parameters is a
+    /// deliberate addition here too, and the reported name comes from <c>nameof</c> either way.
+    /// </remarks>
+    private static readonly (string Name, Func<QuantificationParameters, object> Get)[] RequiredStrategies =
+    {
+        (nameof(QuantificationParameters.SpectralMatchNormalizationStrategy), p => p.SpectralMatchNormalizationStrategy),
+        (nameof(QuantificationParameters.SpectralMatchToPeptideRollUpStrategy), p => p.SpectralMatchToPeptideRollUpStrategy),
+        (nameof(QuantificationParameters.PeptideNormalizationStrategy), p => p.PeptideNormalizationStrategy),
+        (nameof(QuantificationParameters.CollapseStrategy), p => p.CollapseStrategy),
+        (nameof(QuantificationParameters.PeptideToProteinRollUpStrategy), p => p.PeptideToProteinRollUpStrategy),
+        (nameof(QuantificationParameters.ProteinNormalizationStrategy), p => p.ProteinNormalizationStrategy),
+    };
+
+    /// <summary>
     /// Checks Engine state for validity before running quantification.
     /// </summary>
     /// <param name="badResults"> Return quant results with descriptive Summary if problem was encountered; null otherwise</param>
@@ -205,6 +232,35 @@ public class QuantificationEngine
     internal bool ValidateEngine(out QuantificationResults badResults)
     {
         badResults = null;
+        if (Parameters == null)
+        {
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: Parameters are null.");
+            return false;
+        }
+        // Every strategy has to be present before anything runs, and they are reported together rather
+        // than one per run: a caller who reached here with one unset most likely reached here with
+        // several, and finding that out a run at a time is the slower way to learn it.
+        var missingStrategies = RequiredStrategies
+            .Where(strategy => strategy.Get(Parameters) == null)
+            .Select(strategy => strategy.Name)
+            .ToList();
+        // The aggregation strategy is required only when the collapse strategy reads it, so that a run
+        // that collapses nothing need not name a behaviour that never happens. Left unrequired, a
+        // collapsing run would still fail -- CollapseStrategyBase throws ArgumentNullException -- but
+        // from inside the run, after the raw matrix has been written.
+        if (Parameters.CollapseStrategy?.RequiresAggregation == true
+            && Parameters.CollapseAggregationStrategy == null)
+        {
+            missingStrategies.Add(nameof(QuantificationParameters.CollapseAggregationStrategy));
+        }
+        if (missingStrategies.Count > 0)
+        {
+            badResults = QuantificationResults.Failure(
+                $"QuantificationEngine Error: Required quantification strateg{(missingStrategies.Count == 1 ? "y is" : "ies are")} " +
+                $"not set: {string.Join(", ", missingStrategies)}. Every strategy on QuantificationParameters " +
+                "defaults to null, so each one has to be assigned before the engine runs.");
+            return false;
+        }
         if (ExperimentalDesign == null)
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: Experimental design is null.");
