@@ -80,6 +80,63 @@ namespace Test.KoinaTests
                 "with no error field, the raw body is the best description available");
         }
 
+        /// <summary>
+        /// The decision itself, which is the whole point of the type: a service fault becomes a
+        /// KoinaServiceException, and anything else stays the plain exception it always was. Tested
+        /// through the factory rather than through InferenceRequest, because provoking a live server
+        /// into failing on demand is not something a test can do.
+        /// </summary>
+        [Test]
+        public void AServiceFaultBecomesAKoinaServiceExceptionCarryingTheServerError()
+        {
+            var thrown = KoinaServiceException.ForFailedResponse(400, "Bad Request", RealCudaFault);
+
+            Assert.That(thrown, Is.InstanceOf<KoinaServiceException>());
+            Assert.That(((KoinaServiceException)thrown).ServerError,
+                Does.Contain("CUBLAS_STATUS_EXECUTION_FAILED"));
+            Assert.That(thrown.Message, Does.Contain("400").And.Contain("Bad Request"),
+                "the status still has to reach the reader");
+        }
+
+        [Test]
+        public void ARequestRejectionStaysAPlainHttpRequestException()
+        {
+            var thrown = KoinaServiceException.ForFailedResponse(
+                400, "Bad Request", "{\"error\":\"expected 2 inputs but got 1\"}");
+
+            Assert.That(thrown, Is.Not.InstanceOf<KoinaServiceException>(),
+                "our own malformed request must not be dressed up as the server's fault");
+            Assert.That(thrown, Is.InstanceOf<System.Net.Http.HttpRequestException>());
+        }
+
+        /// <summary>
+        /// A 500 with no body at all still has to produce something a caller can read. It is not a
+        /// service fault by this classifier -- nothing in the body says the model failed, because there
+        /// is no body -- and that is the safe direction.
+        /// </summary>
+        [Test]
+        public void AnEmptyBodyStillProducesAReadableFailure()
+        {
+            var thrown = KoinaServiceException.ForFailedResponse(500, "Internal Server Error", "");
+
+            Assert.That(thrown, Is.Not.InstanceOf<KoinaServiceException>());
+            Assert.That(thrown.Message, Does.Contain("500").And.Contain("Internal Server Error"));
+        }
+
+        /// <summary>
+        /// JSON that is well formed but not the shape Koina documents. Both of these parse, so the
+        /// JsonReaderException path does not catch them; the body itself is returned instead of a cast
+        /// blowing up on a token that is not a string.
+        /// </summary>
+        [TestCase("[{\"error\":\"CUDA error\"}]", Description = "a JSON array, not an object")]
+        [TestCase("{\"error\":{\"code\":500}}", Description = "an error field that is not a string")]
+        [TestCase("{\"detail\":\"CUDA error\"}", Description = "no error field at all")]
+        public void WellFormedJsonOfTheWrongShapeFallsBackToTheRawBody(string body)
+        {
+            Assert.That(() => KoinaServiceException.ExtractServerError(body), Throws.Nothing);
+            Assert.That(KoinaServiceException.ExtractServerError(body), Is.EqualTo(body));
+        }
+
         [Test]
         public void ExistingCatchClausesStillSeeItAsAnHttpRequestException()
         {

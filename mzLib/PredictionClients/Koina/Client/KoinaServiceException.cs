@@ -65,6 +65,24 @@ namespace PredictionClients.Koina.Client
         ];
 
         /// <summary>
+        /// The exception for a non-success Koina response: a <see cref="KoinaServiceException"/> when
+        /// the body describes the server failing to run the model, otherwise a plain
+        /// <see cref="HttpRequestException"/>.
+        /// </summary>
+        /// <remarks>
+        /// A factory rather than a branch inside the request method, so that the decision can be tested
+        /// without a server that can be made to fail on demand. Everything above it in
+        /// <see cref="HTTP.InferenceRequest"/> is then just reading the body.
+        /// </remarks>
+        public static HttpRequestException ForFailedResponse(int statusCode, string? reasonPhrase, string responseBody)
+        {
+            string message = $"Request failed with status {statusCode} {reasonPhrase}: {responseBody}";
+            return IsServiceFault(responseBody)
+                ? new KoinaServiceException(message, ExtractServerError(responseBody))
+                : new HttpRequestException(message);
+        }
+
+        /// <summary>
         /// True when <paramref name="responseBody"/> describes Koina failing to run the model, as
         /// opposed to rejecting the request.
         /// </summary>
@@ -87,9 +105,12 @@ namespace PredictionClients.Koina.Client
             try
             {
                 if (JToken.Parse(responseBody) is JObject body
-                    && body["error"]?.Type == JTokenType.String)
+                    && body["error"] is JValue { Type: JTokenType.String } error)
                 {
-                    return body["error"]!.Value<string>() ?? string.Empty;
+                    // Unguarded on purpose: the pattern above has already established that this token
+                    // is a JSON string, so Value<string>() cannot come back null. A fallback for it
+                    // would be a branch no test could reach.
+                    return error.Value<string>()!;
                 }
             }
             catch (Newtonsoft.Json.JsonReaderException)
