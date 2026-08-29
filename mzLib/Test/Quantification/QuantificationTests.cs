@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -558,6 +558,137 @@ namespace Test.Quantification
                 Assert.That(Directory.GetFiles(outputDirectory), Is.Empty,
                     "the raw matrix is written before the first strategy is read, so a run rejected here "
                     + "must not have started writing");
+            }
+            finally
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+
+        #endregion
+
+        #region Collapse reaches the peptide results
+
+        /// <summary>
+        /// A run whose collapse strategy actually groups columns. Two files at different fractions of
+        /// the same conditions, so collapsing fractions halves the column count -- which is what makes
+        /// a mismatch between the two tables visible at all. With NoCollapse every table is keyed the
+        /// same by construction and none of this can be observed.
+        /// </summary>
+        private static QuantificationResults RunCollapsingByFraction(out int uncollapsedSampleCount)
+        {
+            var experimentalDesign = CreateTestExperimentalDesign(2, 2, multipleFractions: true);
+            uncollapsedSampleCount = experimentalDesign.FileNameSampleInfoDictionary.Values.Sum(samples => samples.Length);
+
+            var proteinGroups = CreateTestProteins(out var peptides);
+            var parameters = QuantificationParameters.GetSimpleParameters();
+            parameters.CollapseStrategy = new CollapseFractions();
+            parameters.CollapseAggregationStrategy = new SumAggregation();
+
+            return new QuantificationEngine(
+                parameters,
+                experimentalDesign,
+                CreateTestSpectralMatches(peptides, 2, 2),
+                peptides.ToList(),
+                proteinGroups).Run();
+        }
+
+        /// <summary>
+        /// Samples is documented as the columns of BOTH intensity tables. It is assigned from the
+        /// protein matrix, and the peptide matrix the caller holds was never collapsed -- Run passes it
+        /// to RunProteinQuant by value, and the collapse there reassigns the parameter, which the caller
+        /// never sees. So with any collapse strategy that groups anything, the peptide table is keyed by
+        /// the uncollapsed samples while Samples and the protein table are keyed by the collapsed ones,
+        /// and a caller who joins the two on Samples silently gets nothing for the peptides.
+        /// </summary>
+        [Test]
+        public void SamplesKeysBothIntensityTables()
+        {
+            var results = RunCollapsingByFraction(out _);
+            Assert.That(results.Success, Is.True, results.Summary);
+
+            Assert.That(results.PeptideIntensities, Is.Not.Empty, "premise: there are peptide rows to key");
+            Assert.That(results.ProteinIntensities, Is.Not.Empty, "premise: there are protein rows to key");
+
+            foreach (var row in results.ProteinIntensities.Values)
+            {
+                Assert.That(row.Keys, Is.SubsetOf(results.Samples), "protein table");
+            }
+            foreach (var row in results.PeptideIntensities.Values)
+            {
+                Assert.That(row.Keys, Is.SubsetOf(results.Samples), "peptide table");
+            }
+        }
+
+        /// <summary>
+        /// The same defect seen from the other side, and the reason it is worth more than a doc fix: the
+        /// collapse never reaches the peptide results at all. The class summary numbers the pipeline
+        /// "4) Collapse the peptide matrix ... * Writes peptide information ... 5) Roll up to proteins",
+        /// so the written peptide file and the delivered peptide intensities are both supposed to be
+        /// collapsed. Today the protein numbers are collapsed and the peptide numbers are not, in the
+        /// same result object.
+        /// </summary>
+        [Test]
+        public void CollapseReachesThePeptideTableAndNotOnlyTheProteinTable()
+        {
+            var results = RunCollapsingByFraction(out int uncollapsedSampleCount);
+            Assert.That(results.Success, Is.True, results.Summary);
+            Assert.That(results.Samples.Count, Is.LessThan(uncollapsedSampleCount),
+                "premise: this collapse strategy really does group columns");
+
+            var peptideKeys = results.PeptideIntensities.Values
+                .SelectMany(row => row.Keys).Distinct().ToList();
+
+            Assert.That(peptideKeys, Is.EquivalentTo(results.Samples),
+                "the peptide table must be keyed by the collapsed samples the run reports, not by the "
+                + "uncollapsed ones it started from");
+        }
+
+        /// <summary>
+        /// The same claim at the file level, which is where a user meets it. The peptide and protein
+        /// files are written from two different matrices at two different points in Run, so agreement
+        /// between their headers is the end-to-end statement that one collapse governed both. Before the
+        /// fix these two headers named different samples, and nothing in the output said so.
+        /// </summary>
+        [Test]
+        public void TheWrittenPeptideAndProteinFilesShareOneSetOfSampleColumns()
+        {
+            string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "CollapsedPeptideFile");
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, true);
+            Directory.CreateDirectory(outputDirectory);
+
+            try
+            {
+                var experimentalDesign = CreateTestExperimentalDesign(2, 2, multipleFractions: true);
+                var proteinGroups = CreateTestProteins(out var peptides);
+                var parameters = QuantificationParameters.GetSimpleParameters();
+                parameters.CollapseStrategy = new CollapseFractions();
+                parameters.CollapseAggregationStrategy = new SumAggregation();
+                parameters.OutputDirectory = outputDirectory;
+                parameters.WritePeptideInformation = true;
+                parameters.WriteProteinInformation = true;
+
+                var results = new QuantificationEngine(
+                    parameters,
+                    experimentalDesign,
+                    CreateTestSpectralMatches(peptides, 2, 2),
+                    peptides.ToList(),
+                    proteinGroups).Run();
+
+                Assert.That(results.Success, Is.True, results.Summary);
+
+                string[] peptideColumns = File
+                    .ReadLines(Path.Combine(outputDirectory, QuantificationWriter.PeptideFileName))
+                    .First().Split('\t').Skip(1).ToArray();
+                string[] proteinColumns = File
+                    .ReadLines(Path.Combine(outputDirectory, QuantificationWriter.ProteinGroupFileName))
+                    .First().Split('\t').Skip(1).ToArray();
+
+                Assert.That(peptideColumns, Is.Not.Empty, "premise: the peptide file has sample columns");
+                Assert.That(peptideColumns, Is.EqualTo(proteinColumns),
+                    "one collapse governs the whole run, so both files name the same samples in the "
+                    + "same order");
+                Assert.That(peptideColumns.Length, Is.EqualTo(results.Samples.Count));
             }
             finally
             {
