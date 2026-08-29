@@ -420,14 +420,27 @@ public class QuantificationEngine
         // 5) Normalize combined peptide matrix
         peptideMatrixNorm = Parameters.PeptideNormalizationStrategy
             .NormalizeIntensities(combinedPeptideMatrix);
+
+        // 6) Collapse samples (fractions, technical replicates).
+        //
+        // This belongs here rather than in RunProteinQuant, where it used to sit. Run hands the peptide
+        // matrix on BY VALUE, so collapsing there reassigned a parameter the caller never saw again: the
+        // protein matrix came out collapsed while the caller's peptide matrix stayed uncollapsed, and the
+        // two were then reported side by side keyed differently. Doing it at the end of the peptide stage
+        // is also the order this class's summary already describes -- collapse, then write peptides, then
+        // roll up to proteins -- so the written peptide file now matches its own documentation.
+        peptideMatrixNorm = Parameters.CollapseStrategy
+            .CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
     }
 
+    /// <summary>
+    /// Rolls the peptide matrix up to protein groups and normalizes the result. The matrix arrives
+    /// already collapsed -- <see cref="RunPeptideQuant"/> does that, so the peptide results the caller
+    /// keeps and the protein results derived from them are keyed by the same samples.
+    /// </summary>
     internal void RunProteinQuant(QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm,
         out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
     {
-        // 6) Collapse samples (technical replicates, fractions)
-        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
-
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
             ? GetAllPeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups)
