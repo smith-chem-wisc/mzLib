@@ -5,6 +5,16 @@ using System.Text;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// One peptide sequence's quantification across every spectra file: its intensity per file, how that
+    /// intensity was obtained per file, and the protein groups it belongs to. This is what
+    /// QuantifiedPeptides.tsv is written from.
+    ///
+    /// The per-file intensity is the single highest-intensity qualifying <see cref="ChromatographicPeak"/>
+    /// for that sequence, not a sum over its peaks, so it will not reconcile against a total of
+    /// QuantifiedPeaks. Qualifying means unambiguous by full sequence, non-decoy, and for MBR peaks
+    /// within the q-value threshold and not a random retention time decoy.
+    /// </summary>
     public class Peptide
     {
         public readonly string Sequence;

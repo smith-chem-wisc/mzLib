@@ -15,7 +15,7 @@ namespace Quantification
     /// knowledge of this class.
     ///
     /// Peptide-level values are carried here rather than written onto the peptide objects.
-    /// <see cref="Proteomics.ProteolyticDigestion.PeptideWithSetModifications"/> is
+    /// <c>Proteomics.ProteolyticDigestion.PeptideWithSetModifications</c> is
     /// <c>[Serializable]</c> and is serialized in bulk during indexing, so adding stored
     /// quantification state to it would enlarge every indexed peptide. A side table costs nothing
     /// when quantification is not run.
@@ -39,6 +39,12 @@ namespace Quantification
         /// The samples that form the columns of <see cref="PeptideIntensities"/> and
         /// <see cref="ProteinIntensities"/>, in output order. Empty on failure.
         /// </summary>
+        /// <remarks>
+        /// One list covers both tables because the protein matrix is rolled up from the peptide matrix
+        /// after it has been collapsed, so the two carry the same columns by construction rather than by
+        /// agreement. That is worth stating: when the collapse ran on the protein side only, this list
+        /// described the protein table and silently did not match the peptide one.
+        /// </remarks>
         public IReadOnlyList<ISampleInfo> Samples { get; internal set; } = new List<ISampleInfo>();
 
         /// <summary>

@@ -14,9 +14,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
@@ -47,11 +47,19 @@ jobs:
       # runsettings file for why VSTest trait filtering and NUnit categories disagree here.
       run: cd mzLib && dotnet test --no-build --verbosity normal --settings ./Test/required.runsettings --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
-      env:
-        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        verbose: true
+      # token/files/verbose are action INPUTS and must sit under `with:`. They were previously under
+      # `env:`, where they became ordinary lowercase environment variables that the action never reads
+      # -- so this explicit glob was inert and coverage only uploaded because the action falls back to
+      # searching the workspace for report files.
+      #
+      # v7 rather than v5: v5 is a composite action but still pins actions/github-script@v7.0.1, which
+      # is node20, so it would keep emitting the deprecation warning. v6 is the first major to move
+      # that inner action to github-script@v8 (node24).
+      uses: codecov/codecov-action@v7
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+        verbose: true
   # Runs mzLib's live external-service tests (Koina). Intentionally NOT a required status check, so a
   # third-party outage never blocks a PR; the tests self-classify (outage -> Skipped, real break -> Fail).
   # Do NOT add this job to branch-protection required checks.
@@ -67,9 +75,9 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
@@ -82,7 +90,7 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 45
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v7
     # This job builds MetaMorpheus as well as mzLib, so it needs whatever SDK MetaMorpheus's
     # global.json asks for. setup-dotnet installs into a user-local dotnet root and the resolver then
     # sees ONLY what this step installed, so the runner's preinstalled SDKs do not count. Both repos
@@ -90,7 +98,7 @@ jobs:
     # of MetaMorpheus's -- a net10.0-only package is NU1202-incompatible with a net8.0 consumer, which
     # no amount of installed SDKs fixes -- so mzLib retargets only after MetaMorpheus does.
     - name: Set up .NET
-      uses: actions/setup-dotnet@v5
+      uses: actions/setup-dotnet@v6
       with:
         dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
@@ -112,7 +120,7 @@ jobs:
         dotnet nuget add source $currentFolder;
         dotnet nuget list source;
     - name: Clone MetaMorpheus
-      uses: actions/checkout@v5
+      uses: actions/checkout@v7
       with:
         path: ./MetaMorpheus
         repository: smith-chem-wisc/MetaMorpheus 
@@ -142,13 +150,13 @@ jobs:
       # every mzLib PR (this integration job clones MetaMorpheus master and runs its suite).
       run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService"
     - name: Upload artifact (installer)
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: MetaMorpheusInstaller
         path: ./MetaMorpheus/MetaMorpheus/MetaMorpheusSetup/bin/Debug/MetaMorpheusInstaller.msi
         compression-level: 0
     - name: Upload artifact (GUI)
-      uses: actions/upload-artifact@v6
+      uses: actions/upload-artifact@v7
       with:
         name: MetaMorpheusGUI
         # Globbed rather than pinned to a framework: this is MetaMorpheus's target framework,
