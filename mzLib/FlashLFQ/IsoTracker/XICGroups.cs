@@ -188,7 +188,7 @@ namespace FlashLFQ.IsoTracker
         /// Generate the shared extrema information (retention and intensity) in the reference XIC
         /// </summary>
         /// <param name="reference"></param>
-        /// <param name="sharedExtre"></param>
+        /// <param name="sharedExtrema"></param>
         public void ProjectExtremaInRef(XIC reference, List<Extremum> sharedExtrema)
         {
             ExtremaInRef = new Dictionary<double, double>();
