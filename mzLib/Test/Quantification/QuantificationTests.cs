@@ -1,8 +1,9 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using MassSpectrometry;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
@@ -13,6 +14,7 @@ using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Quantification;
+using Quantification.Interfaces;
 using Quantification.Strategies;
 using Test.Omics;
 using Omics.SpectralMatch;
@@ -388,6 +390,182 @@ namespace Test.Quantification
             var result4 = engine4.Run();
             Assert.That(result4.Summary, Does.Contain("No biopolymer groups"));
         }
+
+        #region Missing strategies
+
+        /// <summary>
+        /// Every strategy-typed property on <see cref="QuantificationParameters"/>, found by reflection
+        /// rather than listed, so that a strategy added later is covered by these tests without anyone
+        /// remembering to add it here.
+        /// </summary>
+        private static IEnumerable<string> StrategyPropertyNames() =>
+            typeof(QuantificationParameters).GetProperties()
+                .Where(p => p.PropertyType.IsInterface && p.PropertyType.Namespace == "Quantification.Interfaces")
+                .Select(p => p.Name);
+
+        /// <summary>
+        /// Parameters in which every strategy is genuinely required. GetSimpleParameters collapses
+        /// nothing, and a strategy that groups nothing never reads an aggregator, so a collapsing
+        /// strategy is substituted to put all of them on the same footing.
+        /// </summary>
+        private static QuantificationParameters AllStrategiesRequired()
+        {
+            var parameters = QuantificationParameters.GetSimpleParameters();
+            parameters.CollapseStrategy = new CollapseFractions();
+            return parameters;
+        }
+
+        private static QuantificationEngine EngineWith(QuantificationParameters parameters)
+        {
+            var proteinGroups = CreateTestProteins(out var peptides);
+            return new QuantificationEngine(
+                parameters,
+                CreateTestExperimentalDesign(1, 2),
+                CreateTestSpectralMatches(peptides, 1, 2),
+                peptides.ToList(),
+                proteinGroups);
+        }
+
+        /// <summary>
+        /// The strategies are all null on a freshly constructed <see cref="QuantificationParameters"/>,
+        /// and nothing before this check reads them: the first dereference is inside the run itself, so
+        /// an external caller who left one unset used to get a NullReferenceException naming nothing,
+        /// from a stack frame several steps removed from the property they forgot.
+        ///
+        /// Each is nulled in turn so that the message is shown to name the one that is actually missing,
+        /// rather than whichever the engine happens to check first.
+        /// </summary>
+        [Test]
+        [TestCaseSource(nameof(StrategyPropertyNames))]
+        public void MissingStrategyIsRejectedByName(string strategyName)
+        {
+            var parameters = AllStrategiesRequired();
+            var property = typeof(QuantificationParameters).GetProperty(strategyName);
+            Assert.That(property, Is.Not.Null, "premise: the property this case names still exists");
+            Assert.That(property.GetValue(parameters), Is.Not.Null,
+                "premise: these parameters set every strategy, so nulling it is what the case varies");
+            property.SetValue(parameters, null);
+
+            QuantificationResults results = null;
+            Assert.That(() => results = EngineWith(parameters).Run(), Throws.Nothing,
+                "a missing strategy has to be reported, not thrown");
+
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain(strategyName));
+        }
+
+        /// <summary>
+        /// The realistic shape of the bug is not one missing strategy but a caller who constructed the
+        /// parameters and set none of them. Reporting only the first would make that caller learn the
+        /// list one run at a time, so all of them are named at once.
+        ///
+        /// The aggregation strategy is the one exclusion, and not an oversight: with no collapse
+        /// strategy set there is nothing to ask whether an aggregator will be read, and demanding one
+        /// that may never be used would be guessing. It is reported once the collapse strategy is known
+        /// to want it, which <see cref="ACollapsingStrategyRequiresAnAggregationStrategy"/> covers.
+        /// </summary>
+        [Test]
+        public void ParametersWithNoStrategiesSetNameEveryStrategyTheRunNeeds()
+        {
+            var results = EngineWith(new QuantificationParameters()).Run();
+
+            Assert.That(results.Success, Is.False);
+            foreach (string strategyName in StrategyPropertyNames()
+                         .Where(name => name != nameof(QuantificationParameters.CollapseAggregationStrategy)))
+            {
+                Assert.That(results.Summary, Does.Contain(strategyName));
+            }
+        }
+
+        /// <summary>
+        /// A run that collapses nothing never reduces two values to one, so it has no aggregator to
+        /// name. Requiring one anyway would reject a configuration that works -- it is how the delivery
+        /// tests build their parameters -- so the requirement follows
+        /// <see cref="ICollapseStrategy.RequiresAggregation"/> rather than being unconditional.
+        /// </summary>
+        [Test]
+        public void NoCollapseNeedsNoAggregationStrategy()
+        {
+            var parameters = QuantificationParameters.GetSimpleParameters();
+            Assert.That(parameters.CollapseStrategy, Is.TypeOf<NoCollapse>(), "premise: this run collapses nothing");
+            parameters.CollapseAggregationStrategy = null;
+
+            var results = EngineWith(parameters).Run();
+
+            Assert.That(results.Success, Is.True, results.Summary);
+        }
+
+        /// <summary>
+        /// The other arm: once the collapse strategy does group columns, the aggregator decides what the
+        /// grouped values become and its absence is a configuration error. CollapseStrategyBase does
+        /// already throw ArgumentNullException for this, so what changes here is not the naming but the
+        /// timing -- that throw comes from inside the run, after the raw matrix has been written.
+        /// </summary>
+        [Test]
+        public void ACollapsingStrategyRequiresAnAggregationStrategy()
+        {
+            var parameters = AllStrategiesRequired();
+            parameters.CollapseAggregationStrategy = null;
+
+            QuantificationResults results = null;
+            Assert.That(() => results = EngineWith(parameters).Run(), Throws.Nothing);
+
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain(nameof(QuantificationParameters.CollapseAggregationStrategy)));
+        }
+
+        /// <summary>
+        /// Validation reads Parameters to reach the strategies, and the output-directory fallback reads
+        /// it again, so a null Parameters has to be caught before either -- otherwise the check meant to
+        /// replace a NullReferenceException throws one of its own.
+        /// </summary>
+        [Test]
+        public void NullParametersAreRejectedRatherThanDereferenced()
+        {
+            QuantificationResults results = null;
+            Assert.That(() => results = EngineWith(null).Run(), Throws.Nothing);
+
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain("Parameters are null"));
+        }
+
+        /// <summary>
+        /// Why this is worth validating rather than letting it throw: Run starts writing the raw matrix
+        /// before it reaches the first strategy, so the old failure left RawQuantification.tsv on disk
+        /// from a run that then died. Rejecting up front means a run that cannot finish also does not
+        /// start.
+        /// </summary>
+        [Test]
+        public void AMissingStrategyIsRejectedBeforeAnythingIsWritten()
+        {
+            string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "MissingStrategyNoWrite");
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, true);
+            Directory.CreateDirectory(outputDirectory);
+
+            try
+            {
+                var parameters = AllStrategiesRequired();
+                parameters.OutputDirectory = outputDirectory;
+                parameters.WriteRawInformation = true;
+                parameters.WritePeptideInformation = true;
+                parameters.WriteProteinInformation = true;
+                parameters.SpectralMatchNormalizationStrategy = null;
+
+                var results = EngineWith(parameters).Run();
+
+                Assert.That(results.Success, Is.False);
+                Assert.That(results.WrittenFiles, Is.Empty);
+                Assert.That(Directory.GetFiles(outputDirectory), Is.Empty,
+                    "the raw matrix is written before the first strategy is read, so a run rejected here "
+                    + "must not have started writing");
+            }
+            finally
+            {
+                Directory.Delete(outputDirectory, true);
+            }
+        }
+
+        #endregion
 
         #region Collapse reaches the peptide results
 
