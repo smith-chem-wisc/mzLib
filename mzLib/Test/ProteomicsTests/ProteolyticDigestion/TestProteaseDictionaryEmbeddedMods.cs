@@ -158,16 +158,16 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         /// <summary>
-        /// Verifies that the "Test on M" modification is loaded correctly.
+        /// Verifies that the "Homoserine lactone N-terminal on M" modification is loaded correctly.
         /// </summary>
         [Test]
-        public static void LoadEmbeddedProteaseMods_ContainsTestOnM()
+        public static void LoadEmbeddedProteaseMods_ContainsHomoserineLactoneNTerminal()
         {
             var mods = ProteaseDictionary.LoadEmbeddedProteaseMods();
-            var testMod = mods.FirstOrDefault(m => m.IdWithMotif == "Test on M");
+            var nTerminalMod = mods.FirstOrDefault(m => m.IdWithMotif == "Homoserine lactone N-terminal on M");
 
-            Assert.That(testMod, Is.Not.Null, "Should contain 'Test on M'");
-            Assert.That(testMod.Target?.ToString(), Is.EqualTo("M"));
+            Assert.That(nTerminalMod, Is.Not.Null, "Should contain 'Homoserine lactone N-terminal on M'");
+            Assert.That(nTerminalMod.Target?.ToString(), Is.EqualTo("M"));
         }
 
         /// <summary>
@@ -195,7 +195,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var mods = ProteaseDictionary.LoadEmbeddedProteaseMods();
 
             Assert.That(mods.Count, Is.EqualTo(2),
-                "Should have exactly 2 modifications (Homoserine lactone on M and Test on M)");
+                "Should have exactly 2 modifications (Homoserine lactone on M and Homoserine lactone N-terminal on M)");
             Assert.That(mods.All(m => !m.IdWithMotif.StartsWith("#")), Is.True,
                 "No modification ID should start with # (comment lines must be skipped)");
         }
@@ -222,10 +222,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             var mods = ProteaseDictionary.LoadEmbeddedProteaseMods();
             var homoserineMod = mods.FirstOrDefault(m => m.IdWithMotif == "Homoserine lactone on M");
-            var testMod = mods.FirstOrDefault(m => m.IdWithMotif == "Test on M");
+            var nTerminalMod = mods.FirstOrDefault(m => m.IdWithMotif == "Homoserine lactone N-terminal on M");
 
             Assert.That(homoserineMod?.LocationRestriction, Is.EqualTo("Peptide C-terminal."));
-            Assert.That(testMod?.LocationRestriction, Is.EqualTo("Peptide N-terminal."));
+            Assert.That(nTerminalMod?.LocationRestriction, Is.EqualTo("Peptide N-terminal."));
         }
 
         [Test]
@@ -294,11 +294,11 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void ParseModificationsFromString_NullDatabaseReference_WhenAbsent()
         {
             var mods = ProteaseDictionary.LoadEmbeddedProteaseMods();
-            var testMod = mods.FirstOrDefault(m => m.IdWithMotif == "Test on M");
+            var nTerminalMod = mods.FirstOrDefault(m => m.IdWithMotif == "Homoserine lactone N-terminal on M");
 
-            Assert.That(testMod, Is.Not.Null);
-            Assert.That(testMod.DatabaseReference, Is.Null,
-                "Test on M should NOT have a database reference");
+            Assert.That(nTerminalMod, Is.Not.Null);
+            Assert.That(nTerminalMod.DatabaseReference, Is.Null,
+                "Homoserine lactone N-terminal on M should NOT have a database reference");
         }
 
         [Test]
