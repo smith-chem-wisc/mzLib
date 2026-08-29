@@ -10,9 +10,13 @@ namespace Readers
         private MsDataFile _dataFile;
 
         private static readonly string MzMlExtension = SupportedFileType.MzML.GetFileExtension();
+        private static readonly string MgfExtension = SupportedFileType.Mgf.GetFileExtension();
 
         /// <summary>
-        /// Extensions of the spectra formats this adapter reads but cannot write. Named by enum member
+        /// Extensions of the spectra formats this adapter reads but cannot write. Mgf is deliberately
+        /// absent: #1165 added <c>ExportAsMgf</c>, so a caller asking for one now gets one.
+        ///
+        /// Named by enum member
         /// so the list stays greppable against the entries that resolve to this type in
         /// <see cref="SupportedFileTypeExtensions.GetResultFileType(SupportedFileType)"/>, but the
         /// extension strings themselves are pulled from
@@ -24,7 +28,6 @@ namespace Readers
             new[]
             {
                 SupportedFileType.ThermoRaw,
-                SupportedFileType.Mgf,
                 SupportedFileType.BrukerD,
                 SupportedFileType.BrukerTimsTof,
                 SupportedFileType.Ms1Align,
@@ -86,20 +89,49 @@ namespace Readers
         /// <exception cref="ArgumentException">
         /// <paramref name="outputPath"/> names a spectra format this adapter cannot write.
         /// </exception>
+        /// <summary>
+        /// Writes the spectra in the format the path's extension names.
+        /// </summary>
+        /// <remarks>
+        /// The extension chooses the writer rather than being overruled by it, which is the whole point
+        /// of #1181: the old guard asked "is this already .mzML" instead of "what did the caller ask
+        /// for", so <c>WriteResults("output.mgf")</c> produced <c>output.mgf.mzML</c> -- a file wearing
+        /// two extensions, in a format nobody chose.
+        ///
+        /// Three outcomes, and the middle one is the reason this is not simply
+        /// <c>Path.ChangeExtension</c>:
+        ///
+        ///   * a format this adapter can write (mzML, and MGF since #1165) is written as asked;
+        ///   * a spectra format it can only READ is refused, because silently handing back mzML under
+        ///     the caller's chosen name is worse than saying no; and
+        ///   * anything else has .mzML appended, which keeps a bare path working and also keeps a
+        ///     dotted sample name working -- Path.GetExtension("gradient_1.5uL") is ".5uL", and that is
+        ///     a naming habit, not a format request.
+        /// </remarks>
         public void WriteResults(string outputPath)
         {
-            if (!Path.GetExtension(outputPath).Equals(MzMlExtension, StringComparison.InvariantCultureIgnoreCase))
-            {
-                if (UnwritableSpectraExtensions.Contains(Path.GetExtension(outputPath)))
-                    throw new ArgumentException(
-                        $"This is an mzML writer, so it cannot write '{Path.GetFileName(outputPath)}'. Pass a path " +
-                        $"ending in {MzMlExtension}, or one with no extension and {MzMlExtension} will be appended.",
-                        nameof(outputPath));
+            string extension = Path.GetExtension(outputPath);
 
-                outputPath += MzMlExtension;
+            if (extension.Equals(MzMlExtension, StringComparison.InvariantCultureIgnoreCase))
+            {
+                _dataFile.ExportAsMzML(outputPath, true);
+                return;
             }
 
-            _dataFile.ExportAsMzML(outputPath, true);
+            if (extension.Equals(MgfExtension, StringComparison.InvariantCultureIgnoreCase))
+            {
+                _dataFile.ExportAsMgf(outputPath);
+                return;
+            }
+
+            if (UnwritableSpectraExtensions.Contains(extension))
+                throw new ArgumentException(
+                    $"This writer handles {MzMlExtension} and {MgfExtension}, so it cannot write " +
+                    $"'{Path.GetFileName(outputPath)}'. Pass a path ending in one of those, or one with " +
+                    $"no extension and {MzMlExtension} will be appended.",
+                    nameof(outputPath));
+
+            _dataFile.ExportAsMzML(outputPath + MzMlExtension, true);
         }
 
         #endregion
