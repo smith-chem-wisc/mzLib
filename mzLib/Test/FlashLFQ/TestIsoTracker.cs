@@ -21,6 +21,13 @@ namespace Test.FlashLFQ
     [ExcludeFromCodeCoverage]
     internal class TestIsoTracker
     {
+        /// <summary>
+        /// Detection type column in peaks.tsv, resolved from the header rather than hardcoded, so a
+        /// column added ahead of it does not silently point these assertions at a different field.
+        /// </summary>
+        private static readonly int DetectionTypeColumn =
+            Array.IndexOf(ChromatographicPeak.TabSeparatedHeader.Split('\t'), "Peak Detection Type");
+
         // Test the IsobaricPeptideGroup class
         [Test]
         public static void TestIsobaricPeptideGroup()
@@ -195,7 +202,6 @@ namespace Test.FlashLFQ
 
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
-            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
 
             List<Identification> ids = new List<Identification>();
@@ -1039,7 +1045,7 @@ namespace Test.FlashLFQ
             foreach (var peak in peaksList)
             {
                 var peakSeq = peak.Split('\t')[2].Split('|').ToList();
-                var detectionType = peak.Split('\t')[16];
+                var detectionType = peak.Split('\t')[DetectionTypeColumn];
                 Assert.AreEqual(peakSeq, expectedSequence);
                 CollectionAssert.AreEqual(detectionType, "IsoTrack_Ambiguous");
             }
@@ -1829,7 +1835,7 @@ namespace Test.FlashLFQ
                 var fullSeq = peak.Split('\t')[2];
                 if (fullSeq == "PEPTIDEA|PEPTIDEB")
                 {
-                    Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                    Assert.AreEqual(peak.Split('\t')[DetectionTypeColumn], "MSMSAmbiguousPeakfinding");
                 }
             }
 
@@ -1968,7 +1974,7 @@ namespace Test.FlashLFQ
                 {
                     if (retentionTime == "")
                     {
-                        Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                        Assert.AreEqual(peak.Split('\t')[DetectionTypeColumn], "MSMSAmbiguousPeakfinding");
                     }
                 }
             }
