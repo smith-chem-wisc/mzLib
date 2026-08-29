@@ -284,8 +284,15 @@ namespace Omics.BioPolymerGroup
         /// Returns a tab-separated header line for output files, matching the format of <see cref="ToString"/>.
         /// Header includes columns for biopolymer information, quantification, and statistical metrics.
         /// </summary>
+        /// <remarks>
+        /// Virtual because <see cref="ToString"/> is, and the two must be overridden together or a
+        /// writer pairs one type's header with another type's rows. A derived group that hides this
+        /// with <c>new</c> while overriding <see cref="ToString"/> is dispatched inconsistently: a
+        /// call through <see cref="IBioPolymerGroup"/> or a base reference gets this header and the
+        /// derived row. Overriding both keeps the pair together however the call is typed.
+        /// </remarks>
         /// <returns>Tab-separated header string suitable for TSV file output.</returns>
-        public string GetTabSeparatedHeader()
+        public virtual string GetTabSeparatedHeader()
         {
             var sb = new StringBuilder();
             sb.Append("BioPolymer Accession" + '\t');
@@ -306,13 +313,14 @@ namespace Omics.BioPolymerGroup
             #region Quantification Header Building
             if (SampleGroupResults is null) PopulateSampleGroupResults();
 
+            bool quantified = HasAssignedSampleIntensities;
             foreach (var group in SampleGroupResults!)
             {
                 sb.Append($"SpectralCount_{group.Label}\t");
-                if (group.HasIntensityData)
+                if (quantified)
                     sb.Append($"Intensity_{group.Label}\t");
                 sb.Append($"CountOccupancy_{group.Label}\t");
-                if (group.HasIntensityData)
+                if (quantified)
                     sb.Append($"IntensityOccupancy_{group.Label}\t");
             }
             #endregion
@@ -326,6 +334,38 @@ namespace Omics.BioPolymerGroup
             sb.Append("Best Sequence Notch QValue");
             return sb.ToString();
         }
+
+        /// <summary>
+        /// Whether sample intensities have been assigned to this group -- a non-empty sample list
+        /// AND an assigned dictionary -- which is what decides whether the intensity columns exist.
+        /// Named for what it tests rather than for "was quantified": the setters are public and
+        /// non-coalescing, so an assignment is evidence that something populated this group, not
+        /// proof that an engine did.
+        /// Protected rather than private so a derived group can adopt the same predicate instead of
+        /// copying the expression.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately NOT <see cref="SampleGroupResult.HasIntensityData"/>. That answers a per-group
+        /// question -- did this sample group get a value -- and using it to choose columns made rows
+        /// disagree with the header: a group whose samples were all unobserved emitted two columns per
+        /// sample group where its neighbour emitted four, so every value after the disagreement was
+        /// written under the wrong column name.
+        ///
+        /// Both fields are required. <see cref="IHasSampleIntensities.IntensitiesBySample"/> alone is
+        /// not enough: <see cref="ConstructSubsetBioPolymerGroup"/> assigns an empty-but-non-null
+        /// dictionary alongside an empty sample list when no sample matches the requested file, and
+        /// gating on the dictionary alone would then advertise intensity columns that
+        /// <see cref="PopulateSampleGroupResults"/> can never fill.
+        ///
+        /// SCOPE, because this does not make every table rectangular. It makes the four columns per
+        /// sample group agree across the groups of one quantified run. When no engine has run,
+        /// <see cref="PopulateSampleGroupResults"/> builds one result per file in each group's OWN
+        /// spectral matches, so two groups covering different files still emit different column
+        /// counts -- a pre-existing defect on the unquantified path that no per-group flag can fix,
+        /// because a single group does not know the run's full file list.
+        /// </remarks>
+        protected bool HasAssignedSampleIntensities =>
+            SamplesForQuantification is { Count: > 0 } && IntensitiesBySample is not null;
 
         /// <summary>
         /// Returns a tab-separated string representation of this biopolymer group,
@@ -416,23 +456,30 @@ namespace Omics.BioPolymerGroup
                 : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
                 .ToList();
 
+            bool quantifiedRow = HasAssignedSampleIntensities;
             foreach (var group in SampleGroupResults!)
             {
                 sb.Append(group.SpectralCount);
                 sb.Append("\t");
 
-                if (group.HasIntensityData)
+                if (quantifiedRow)
                 {
-                    sb.Append(group.Intensity);
+                    // Empty rather than 0, so the cell does not assert a measurement that was
+                    // not made. Note this does not make absent distinguishable from a measured zero
+                    // through the engine: QuantificationEngine.OverwriteSampleIntensities drops
+                    // zero-valued cells, so a genuine zero never reaches IntensitiesBySample either.
+                    if (group.HasIntensityData)
+                        sb.Append(group.Intensity);
                     sb.Append("\t");
                 }
 
                 sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: false)));
                 sb.Append("\t");
 
-                if (group.HasIntensityData)
+                if (quantifiedRow)
                 {
-                    sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: true)));
+                    if (group.HasIntensityData)
+                        sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: true)));
                     sb.Append("\t");
                 }
             }
