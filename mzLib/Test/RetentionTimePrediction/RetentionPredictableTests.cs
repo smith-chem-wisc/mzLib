@@ -143,9 +143,9 @@ namespace Test.RetentionTimePrediction
         {
             var mods = new Dictionary<string, Modification>
             {
-                { "Glu to PyroGlu on Q", ModificationConverter.AllModsKnown["Glu to PyroGlu on Q"] }
+                { "Gln to PyroGlu on Q", ModificationConverter.AllModsKnown["Gln to PyroGlu on Q"] }
             };
-            IRetentionPredictable peptide = new PeptideWithSetModifications("Q[Glu to PyroGlu on Q]PEPTIDE", mods);
+            IRetentionPredictable peptide = new PeptideWithSetModifications("Q[Gln to PyroGlu on Q]PEPTIDE", mods);
             
             var withMassShifts = peptide.FullSequenceWithMassShifts;
             

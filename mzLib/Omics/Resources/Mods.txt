@@ -177,7 +177,7 @@ NL   ETD:101.0239
 CF   C4 H4 O3
 DR   Unimod; 64.
 //
-ID   Glu to PyroGlu
+ID   Gln to PyroGlu
 TG   Q
 PP   N-terminal.
 MT   Common Biological
