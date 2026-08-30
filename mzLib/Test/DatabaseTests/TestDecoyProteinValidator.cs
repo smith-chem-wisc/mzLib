@@ -4,6 +4,7 @@ using Proteomics.ProteolyticDigestion;
 using Proteomics;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using MzLibUtil;
 using UsefulProteomicsDatabases;
 using Transcriptomics.Digestion;
@@ -215,4 +216,105 @@ public class DecoySequenceValidatorTests
         Assert.That("KEK", Is.EqualTo(scrambledDecoy.BaseSequence));
     }
 
+    #region Deterministic permutation (entrapment generation)
+
+    private static List<DigestionMotif> Trypsin => DigestionMotif.ParseDigestionMotifsFromString("K|,R|");
+
+    [Test]
+    public void PermutationSpaceSize_IsTheMultinomialOverFreePositions()
+    {
+        // No K or R, so all nine residues are free: T x6, P x2, A x1 -> 9!/(6!*2!*1!) = 252.
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize("TTTPAPTTT", Trypsin), Is.EqualTo(new BigInteger(252)));
+
+        // R is pinned and the six free residues are identical, so exactly one arrangement exists.
+        // This is not a collision -- it is arithmetic, and no amount of searching can help.
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize("SSSSSSR", Trypsin), Is.EqualTo(BigInteger.One));
+
+        // Seven distinct free residues with K pinned -> 7! = 5040.
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize("ACDEFGHK", Trypsin), Is.EqualTo(new BigInteger(5040)));
+    }
+
+    [Test]
+    public void UnrankPermutation_IsDeterministicAndEnumeratesTheSpaceExactly()
+    {
+        const string sequence = "TTTPAPTTT";
+        BigInteger size = DecoySequenceValidator.PermutationSpaceSize(sequence, Trypsin);
+        var distinct = new HashSet<string>();
+
+        for (BigInteger i = BigInteger.Zero; i < size; i++)
+        {
+            string once = DecoySequenceValidator.UnrankPermutation(sequence, Trypsin, i, out _);
+            string twice = DecoySequenceValidator.UnrankPermutation(sequence, Trypsin, i, out _);
+
+            Assert.That(twice, Is.EqualTo(once), "the same index must always give the same permutation");
+            Assert.That(string.Concat(once.OrderBy(c => c)), Is.EqualTo(string.Concat(sequence.OrderBy(c => c))),
+                "the permutation must be composition-preserving, hence isomeric with its target");
+            distinct.Add(once);
+        }
+
+        Assert.That(distinct.Count, Is.EqualTo(252), "every index must give a different permutation");
+    }
+
+    [Test]
+    public void UnrankPermutation_LeavesEveryCleavageSiteInPlace()
+    {
+        const string sequence = "ACDKEFGRHK";
+        BigInteger size = DecoySequenceValidator.PermutationSpaceSize(sequence, Trypsin);
+
+        for (BigInteger i = BigInteger.Zero; i < BigInteger.Min(size, 200); i++)
+        {
+            string permuted = DecoySequenceValidator.UnrankPermutation(sequence, Trypsin, i, out _);
+            Assert.That(permuted[3], Is.EqualTo('K'));
+            Assert.That(permuted[7], Is.EqualTo('R'));
+            Assert.That(permuted[9], Is.EqualTo('K'));
+        }
+    }
+
+    [Test]
+    public void UnrankPermutation_SwappedPositionArrayMapsOldIndexToNew()
+    {
+        // Same contract as ScrambleSequence's out parameter: previous position (index) -> new position (value).
+        const string sequence = "ACDEFGHK";
+        string permuted = DecoySequenceValidator.UnrankPermutation(sequence, Trypsin, new BigInteger(1234), out int[] swapped);
+
+        Assert.That(swapped.Length, Is.EqualTo(sequence.Length));
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            Assert.That(permuted[swapped[i]], Is.EqualTo(sequence[i]),
+                "the residue at old index " + i + " must be found at its mapped new index");
+        }
+    }
+
+    [Test]
+    public void UnrankPermutation_RejectsAnIndexOutsideTheSpace()
+    {
+        BigInteger size = DecoySequenceValidator.PermutationSpaceSize("TTTPAPTTT", Trypsin);
+        Assert.Throws<MzLibException>(() =>
+            DecoySequenceValidator.UnrankPermutation("TTTPAPTTT", Trypsin, size, out _));
+        Assert.Throws<MzLibException>(() =>
+            DecoySequenceValidator.UnrankPermutation("TTTPAPTTT", Trypsin, BigInteger.MinusOne, out _));
+    }
+
+    [Test]
+    public void CleavageSitePositions_PinTheFullMotifSpanNotJustItsFirstResidue()
+    {
+        // StcE's TX|T matches three residues. ScrambleSequence pins only the match location, so a
+        // scramble there can move the X and the trailing T -- destroying a real cleavage site and
+        // inventing others. The entrapment path must pin the whole span.
+        var stcE = DigestionMotif.ParseDigestionMotifsFromString("TX|T");
+        var pinned = DecoySequenceValidator.CleavageSitePositions("ATPTA", stcE);
+
+        Assert.That(pinned.OrderBy(p => p), Is.EqualTo(new[] { 1, 2, 3 }));
+    }
+
+    [Test]
+    public void CleavageSitePositions_HonourThePreventingResidue()
+    {
+        // trypsin|P must not pin the K in "AKP", because that K is not a cleavage site.
+        var trypsinP = DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|");
+        Assert.That(DecoySequenceValidator.CleavageSitePositions("AKPCR", trypsinP).OrderBy(p => p),
+            Is.EqualTo(new[] { 4 }));
+    }
+
+    #endregion
 }

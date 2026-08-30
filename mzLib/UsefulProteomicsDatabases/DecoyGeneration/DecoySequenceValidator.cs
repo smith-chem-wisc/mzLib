@@ -6,6 +6,7 @@ using Omics;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using Transcriptomics;
 
 namespace UsefulProteomicsDatabases;
@@ -177,6 +178,222 @@ public static class DecoySequenceValidator
         }
 
         return new string(sequenceArray);
+    }
+
+    /// <summary>
+    /// Every zero-based position that participates in a cleavage-motif match: the FULL span of each
+    /// match, not only the location at which it starts.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="ScrambleSequence"/> records only the match location. That is complete for a
+    /// single-residue motif ("K", "R", "E"), but not for a multi-residue one: StcE's "TX|T" matches
+    /// three residues, and leaving the trailing two free lets a rearrangement destroy that cleavage
+    /// site and invent others elsewhere. Rearrangements that must round-trip through digestion --
+    /// entrapment generation -- hold the whole span still, so they use this.
+    /// </remarks>
+    public static HashSet<int> CleavageSitePositions(string sequence, List<DigestionMotif> motifs)
+    {
+        HashSet<int> positions = new();
+        if (string.IsNullOrEmpty(sequence) || motifs is null)
+        {
+            return positions;
+        }
+
+        foreach (DigestionMotif motif in motifs)
+        {
+            int span = motif.InducingCleavage?.Length ?? 0;
+            if (span == 0)
+            {
+                continue;
+            }
+
+            for (int i = 0; i < sequence.Length; i++)
+            {
+                (bool fits, bool prevents) = motif.Fits(sequence, i);
+                if (!fits || prevents)
+                {
+                    continue;
+                }
+
+                for (int offset = 0; offset < span && i + offset < sequence.Length; offset++)
+                {
+                    positions.Add(i + offset);
+                }
+            }
+        }
+
+        return positions;
+    }
+
+    /// <summary>
+    /// The number of DISTINCT rearrangements of <paramref name="sequence"/> that leave every
+    /// cleavage-site residue in place: the multinomial over the free positions, in closed form.
+    /// Nothing is enumerated, so this is cheap even when the answer is astronomically large.
+    /// </summary>
+    /// <remarks>
+    /// Returns <see cref="BigInteger.One"/> when no rearrangement exists -- a homopolymeric tract
+    /// such as "SSSSSSR" has exactly one arrangement once its cleavage sites are pinned. That is
+    /// arithmetic rather than a collision, so no amount of searching or reseeding can improve it.
+    /// Intended for peptide-length sequences; the free-position count drives the cost.
+    /// </remarks>
+    public static BigInteger PermutationSpaceSize(string sequence, List<DigestionMotif> motifs)
+    {
+        if (string.IsNullOrEmpty(sequence))
+        {
+            return BigInteger.One;
+        }
+
+        SortedDictionary<char, int> counts = FreeResidueCounts(sequence, motifs, out int freeCount);
+        return Multinomial(counts, freeCount);
+    }
+
+    /// <summary>
+    /// The rearrangement of <paramref name="sequence"/> at <paramref name="index"/> in lexicographic
+    /// order over the distinct rearrangements of its free (non-cleavage-site) positions.
+    /// </summary>
+    /// <param name="swappedPositionArray">Maps the previous position (index) to the new position
+    /// (value), the same contract as <see cref="ScrambleSequence"/>, so modification remapping is
+    /// shared between the two.</param>
+    /// <remarks>
+    /// The result is composition-preserving, hence isomeric with the input: same residues, same
+    /// mass, different order. Unlike <see cref="ScrambleSequence"/> this consumes no random state,
+    /// so a given (sequence, index) always yields the same string -- across runs, threads, machines
+    /// and framework versions. Callers that need an unpredictable-but-reproducible choice derive
+    /// the index from a seed and the sequence rather than from a random number generator.
+    /// </remarks>
+    /// <exception cref="MzLibException"><paramref name="index"/> lies outside the space.</exception>
+    public static string UnrankPermutation(string sequence, List<DigestionMotif> motifs, BigInteger index,
+        out int[] swappedPositionArray)
+    {
+        swappedPositionArray = Enumerable.Range(0, sequence?.Length ?? 0).ToArray();
+        if (string.IsNullOrEmpty(sequence))
+        {
+            return sequence;
+        }
+
+        HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
+        List<int> freePositions = new();
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            if (!pinned.Contains(i))
+            {
+                freePositions.Add(i);
+            }
+        }
+
+        SortedDictionary<char, int> counts = new();
+        Dictionary<char, Queue<int>> origins = new();
+        foreach (int position in freePositions)
+        {
+            char residue = sequence[position];
+            counts.TryGetValue(residue, out int seen);
+            counts[residue] = seen + 1;
+
+            if (!origins.TryGetValue(residue, out Queue<int>? queue))
+            {
+                queue = new Queue<int>();
+                origins[residue] = queue;
+            }
+            queue.Enqueue(position);
+        }
+
+        BigInteger size = Multinomial(counts, freePositions.Count);
+        if (index < BigInteger.Zero || index >= size)
+        {
+            throw new MzLibException(
+                $"Permutation index {index} is outside the {size} distinct permutations of '{sequence}'.");
+        }
+
+        char[] rearranged = sequence.ToCharArray();
+        List<char> residues = counts.Keys.ToList();
+        BigInteger remainingPermutations = size;
+        int remainingPositions = freePositions.Count;
+        BigInteger rank = index;
+
+        foreach (int slot in freePositions)
+        {
+            foreach (char residue in residues)
+            {
+                if (counts[residue] == 0)
+                {
+                    continue;
+                }
+
+                // Permutations whose next residue is this one. Exact: the division cancels.
+                BigInteger branch = remainingPermutations * counts[residue] / remainingPositions;
+                if (rank < branch)
+                {
+                    rearranged[slot] = residue;
+                    swappedPositionArray[origins[residue].Dequeue()] = slot;
+                    counts[residue]--;
+                    remainingPermutations = branch;
+                    remainingPositions--;
+                    break;
+                }
+
+                rank -= branch;
+            }
+        }
+
+        return new string(rearranged);
+    }
+
+    /// <summary>Residue counts over the positions no cleavage motif holds in place.</summary>
+    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs,
+        out int freeCount)
+    {
+        HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
+        SortedDictionary<char, int> counts = new();
+        freeCount = 0;
+
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            if (pinned.Contains(i))
+            {
+                continue;
+            }
+
+            counts.TryGetValue(sequence[i], out int seen);
+            counts[sequence[i]] = seen + 1;
+            freeCount++;
+        }
+
+        return counts;
+    }
+
+    /// <summary>
+    /// n! / (m1! * m2! * ...), built from successive binomials so no factorial is ever materialised.
+    /// </summary>
+    private static BigInteger Multinomial(SortedDictionary<char, int> counts, int total)
+    {
+        BigInteger permutations = BigInteger.One;
+        int placed = 0;
+
+        foreach (int count in counts.Values)
+        {
+            placed += count;
+            permutations *= Binomial(placed, count);
+        }
+
+        return total == 0 ? BigInteger.One : permutations;
+    }
+
+    /// <summary>Binomial coefficient, computed incrementally so every intermediate stays exact.</summary>
+    private static BigInteger Binomial(int n, int k)
+    {
+        if (k < 0 || k > n)
+        {
+            return BigInteger.Zero;
+        }
+
+        k = Math.Min(k, n - k);
+        BigInteger result = BigInteger.One;
+        for (int i = 1; i <= k; i++)
+        {
+            result = result * (n - k + i) / i;
+        }
+
+        return result;
     }
 
     /// <summary>
