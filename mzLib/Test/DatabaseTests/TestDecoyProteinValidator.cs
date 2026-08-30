@@ -318,6 +318,17 @@ public class DecoySequenceValidatorTests
     }
 
     [Test]
+    public void PermutationOfANullSequenceIsWellDefined()
+    {
+        // The null guards are load-bearing, not decorative: without them the free-position scan
+        // dereferences the sequence. Covered here so a later tidy-up cannot quietly drop them.
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize(null!, Trypsin), Is.EqualTo(BigInteger.One));
+        Assert.That(DecoySequenceValidator.UnrankPermutation(null!, Trypsin, BigInteger.Zero, out int[] swapped),
+            Is.Null);
+        Assert.That(swapped, Is.Empty);
+    }
+
+    [Test]
     public void CleavageSitePositions_AreEmptyForAnEmptySequenceOrNoMotifs()
     {
         Assert.That(DecoySequenceValidator.CleavageSitePositions("", Trypsin), Is.Empty);
