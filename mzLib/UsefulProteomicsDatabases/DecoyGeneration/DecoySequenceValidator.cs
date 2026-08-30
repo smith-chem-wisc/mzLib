@@ -215,7 +215,8 @@ public static class DecoySequenceValidator
                     continue;
                 }
 
-                for (int offset = 0; offset < span && i + offset < sequence.Length; offset++)
+                // Fits() has already established that the whole span lies inside the sequence.
+                for (int offset = 0; offset < span; offset++)
                 {
                     positions.Add(i + offset);
                 }
@@ -243,8 +244,7 @@ public static class DecoySequenceValidator
             return BigInteger.One;
         }
 
-        SortedDictionary<char, int> counts = FreeResidueCounts(sequence, motifs, out int freeCount);
-        return Multinomial(counts, freeCount);
+        return Multinomial(FreeResidueCounts(sequence, motifs));
     }
 
     /// <summary>
@@ -297,7 +297,7 @@ public static class DecoySequenceValidator
             queue.Enqueue(position);
         }
 
-        BigInteger size = Multinomial(counts, freePositions.Count);
+        BigInteger size = Multinomial(counts);
         if (index < BigInteger.Zero || index >= size)
         {
             throw new MzLibException(
@@ -339,12 +339,10 @@ public static class DecoySequenceValidator
     }
 
     /// <summary>Residue counts over the positions no cleavage motif holds in place.</summary>
-    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs,
-        out int freeCount)
+    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs)
     {
         HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
         SortedDictionary<char, int> counts = new();
-        freeCount = 0;
 
         for (int i = 0; i < sequence.Length; i++)
         {
@@ -355,7 +353,6 @@ public static class DecoySequenceValidator
 
             counts.TryGetValue(sequence[i], out int seen);
             counts[sequence[i]] = seen + 1;
-            freeCount++;
         }
 
         return counts;
@@ -364,7 +361,7 @@ public static class DecoySequenceValidator
     /// <summary>
     /// n! / (m1! * m2! * ...), built from successive binomials so no factorial is ever materialised.
     /// </summary>
-    private static BigInteger Multinomial(SortedDictionary<char, int> counts, int total)
+    private static BigInteger Multinomial(SortedDictionary<char, int> counts)
     {
         BigInteger permutations = BigInteger.One;
         int placed = 0;
@@ -375,17 +372,14 @@ public static class DecoySequenceValidator
             permutations *= Binomial(placed, count);
         }
 
-        return total == 0 ? BigInteger.One : permutations;
+        // An empty multiset falls straight through: it has exactly one arrangement.
+        return permutations;
     }
 
     /// <summary>Binomial coefficient, computed incrementally so every intermediate stays exact.</summary>
+    /// <remarks>Only ever reached from <see cref="Multinomial"/>'s running totals, so 1 &lt;= k &lt;= n.</remarks>
     private static BigInteger Binomial(int n, int k)
     {
-        if (k < 0 || k > n)
-        {
-            return BigInteger.Zero;
-        }
-
         k = Math.Min(k, n - k);
         BigInteger result = BigInteger.One;
         for (int i = 1; i <= k; i++)

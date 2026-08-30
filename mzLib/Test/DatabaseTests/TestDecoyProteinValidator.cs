@@ -289,10 +289,55 @@ public class DecoySequenceValidatorTests
     public void UnrankPermutation_RejectsAnIndexOutsideTheSpace()
     {
         BigInteger size = DecoySequenceValidator.PermutationSpaceSize("TTTPAPTTT", Trypsin);
-        Assert.Throws<MzLibException>(() =>
+
+        // The message names the offending index and the size of the space; a caller probing for a
+        // free permutation reads it to tell "exhausted" from "asked for the wrong thing".
+        var toolarge = Assert.Throws<MzLibException>(() =>
             DecoySequenceValidator.UnrankPermutation("TTTPAPTTT", Trypsin, size, out _));
-        Assert.Throws<MzLibException>(() =>
+        Assert.That(toolarge!.Message, Does.Contain("252").And.Contain("TTTPAPTTT"));
+
+        var negative = Assert.Throws<MzLibException>(() =>
             DecoySequenceValidator.UnrankPermutation("TTTPAPTTT", Trypsin, BigInteger.MinusOne, out _));
+        Assert.That(negative!.Message, Does.Contain("-1"));
+    }
+
+    [Test]
+    public void PermutationOfAnEmptyOrUnmotifedSequenceIsWellDefined()
+    {
+        // An empty sequence has exactly one arrangement, not zero, and must not throw.
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize("", Trypsin), Is.EqualTo(BigInteger.One));
+        Assert.That(DecoySequenceValidator.UnrankPermutation("", Trypsin, BigInteger.Zero, out int[] swapped),
+            Is.EqualTo(""));
+        Assert.That(swapped, Is.Empty);
+
+        // No motifs at all -- a top-down "protease" -- pins nothing, so every residue is free.
+        var noMotifs = new List<DigestionMotif>();
+        Assert.That(DecoySequenceValidator.CleavageSitePositions("ACDEFGHK", noMotifs), Is.Empty);
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize("ACDEFGHK", noMotifs),
+            Is.EqualTo(new BigInteger(40320)));   // 8! -- the K is free now
+    }
+
+    [Test]
+    public void CleavageSitePositions_AreEmptyForAnEmptySequenceOrNoMotifs()
+    {
+        Assert.That(DecoySequenceValidator.CleavageSitePositions("", Trypsin), Is.Empty);
+        Assert.That(DecoySequenceValidator.CleavageSitePositions(null!, Trypsin), Is.Empty);
+        Assert.That(DecoySequenceValidator.CleavageSitePositions("ACDEFGHK", null!), Is.Empty);
+    }
+
+    [Test]
+    public void CleavageSitePositions_NeverReturnAnIndexOutsideTheSequence()
+    {
+        // A multi-residue motif matching at the very end must not run off the end of the sequence.
+        var stcE = DigestionMotif.ParseDigestionMotifsFromString("TX|T");
+        foreach (string sequence in new[] { "ATPT", "TPT", "TTTPAPTTT", "AAATPTGGGSQSCCC" })
+        {
+            foreach (int position in DecoySequenceValidator.CleavageSitePositions(sequence, stcE))
+            {
+                Assert.That(position, Is.InRange(0, sequence.Length - 1),
+                    "position " + position + " is outside '" + sequence + "'");
+            }
+        }
     }
 
     // Golden vectors. The properties asserted above -- exhaustive enumeration, preserved
