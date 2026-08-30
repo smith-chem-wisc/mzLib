@@ -295,6 +295,23 @@ public class DecoySequenceValidatorTests
             DecoySequenceValidator.UnrankPermutation("TTTPAPTTT", Trypsin, BigInteger.MinusOne, out _));
     }
 
+    // Golden vectors. The properties asserted above -- exhaustive enumeration, preserved
+    // composition, fixed cleavage sites -- all hold for ANY consistent ordering, so none of them
+    // would notice if the ordering itself changed. Entrapment pairing depends on a given index
+    // always yielding the same string, so the ordering is part of the contract and is pinned here.
+    // Expected values come from an independent implementation, not from a snapshot of this one.
+    [TestCase("ACDEFGHK", 0, "ACDEFGHK", TestName = "Unrank golden - first index is lexicographically smallest")]
+    [TestCase("ACDEFGHK", 1234, "CGDEHAFK", TestName = "Unrank golden - interior index")]
+    [TestCase("ACDEFGHK", 5039, "HGFEDCAK", TestName = "Unrank golden - last index is lexicographically largest")]
+    [TestCase("TTTPAPTTT", 0, "APPTTTTTT", TestName = "Unrank golden - repeated residues, first index")]
+    [TestCase("TTTPAPTTT", 251, "TTTTTTPPA", TestName = "Unrank golden - repeated residues, last index")]
+    [TestCase("ACDKEFGRHK", 0, "ACDKEFGRHK", TestName = "Unrank golden - interior cleavage sites stay put")]
+    public void UnrankPermutation_OrderingIsPartOfTheContract(string sequence, int index, string expected)
+    {
+        Assert.That(DecoySequenceValidator.UnrankPermutation(sequence, Trypsin, new BigInteger(index), out _),
+            Is.EqualTo(expected));
+    }
+
     [Test]
     public void CleavageSitePositions_PinTheFullMotifSpanNotJustItsFirstResidue()
     {
