@@ -164,14 +164,34 @@ public class EntrapmentPeptideGeneratorTests
         Assert.That(easy.ProbesUsed, Is.EqualTo(1), "an unforbidden space should answer on the first probe");
     }
 
+    // Each guard is asserted through its MESSAGE, not merely through the exception type. Several of
+    // these arguments are rejected by more than one guard, so a type-only assertion still passes
+    // when the guard under test is removed -- the message is what pins which one actually fired.
+    [Test]
+    public void Create_RejectsAnEmptySequence()
+    {
+        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentPeptideGenerator.Create("", Trypsin, NothingForbidden));
+        Assert.That(thrown!.Message, Does.Contain("empty"));
+    }
+
+    [Test]
+    public void Create_RejectsAFoldCountBelowOne()
+    {
+        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentPeptideGenerator.Create("ACDEFGHIK", Trypsin, NothingForbidden, fold: 0, foldCount: 0));
+        Assert.That(thrown!.Message, Does.Contain("Fold count").And.Contain("0"));
+    }
+
     [Test]
     public void Create_RejectsAFoldOutsideTheRequestedCount()
     {
-        Assert.Throws<MzLibUtil.MzLibException>(() =>
+        var tooHigh = Assert.Throws<MzLibUtil.MzLibException>(() =>
             EntrapmentPeptideGenerator.Create("ACDEFGHIK", Trypsin, NothingForbidden, fold: 3, foldCount: 3));
-        Assert.Throws<MzLibUtil.MzLibException>(() =>
+        Assert.That(tooHigh!.Message, Does.Contain("Fold 3").And.Contain("3 requested folds"));
+
+        var negative = Assert.Throws<MzLibUtil.MzLibException>(() =>
             EntrapmentPeptideGenerator.Create("ACDEFGHIK", Trypsin, NothingForbidden, fold: -1));
-        Assert.Throws<MzLibUtil.MzLibException>(() =>
-            EntrapmentPeptideGenerator.Create("ACDEFGHIK", Trypsin, NothingForbidden, fold: 0, foldCount: 0));
+        Assert.That(negative!.Message, Does.Contain("Fold -1"));
     }
 }
