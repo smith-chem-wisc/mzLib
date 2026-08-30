@@ -132,6 +132,54 @@ namespace Test.Omics.Modifications
         }
 
         [Test]
+        public static void TestStcEProtease()
+        {
+            // StcE recognizes S/T-X-S/T and cuts before the last residue of that motif.
+            // AAATPTGGGSQSCCC has two motifs: T-P-T at index 3 and S-Q-S at index 9.
+            var empty = new List<Modification>();
+            DigestionParams myDigestionParams = new DigestionParams("StcE", minPeptideLength: 1, maxMissedCleavages: 0);
+            Protein myProtein = new Protein("AAATPTGGGSQSCCC", "myAccession");
+
+            var myPeptides = myProtein.Digest(myDigestionParams, empty, empty).Select(p => p.ToString()).ToList();
+
+            CollectionAssert.AreEqual(new List<string> { "AAATP", "TGGGSQ", "SCCC" }, myPeptides);
+        }
+
+        [Test]
+        public static void TestStcEAgreesWithStcETrypsinAbsentLysineAndArginine()
+        {
+            // StcE-trypsin is StcE's motifs plus trypsin's. On a sequence carrying neither K nor R
+            // the two must digest identically -- this pins the new protease against the shipped one.
+            var empty = new List<Modification>();
+            Protein myProtein = new Protein("AAATPTGGGSQSCCC", "myAccession");
+
+            var stcE = myProtein
+                .Digest(new DigestionParams("StcE", minPeptideLength: 1, maxMissedCleavages: 0), empty, empty)
+                .Select(p => p.ToString()).ToList();
+            var stcETrypsin = myProtein
+                .Digest(new DigestionParams("StcE-trypsin", minPeptideLength: 1, maxMissedCleavages: 0), empty, empty)
+                .Select(p => p.ToString()).ToList();
+
+            CollectionAssert.AreEqual(stcETrypsin, stcE);
+        }
+
+        [Test]
+        public static void TestStcEDoesNotCleaveAtLysineOrArginine()
+        {
+            // The whole point of adding StcE alone: StcE-trypsin's tryptic cleavages destroy the
+            // long, site-dense peptides StcE is used to produce.
+            var empty = new List<Modification>();
+            Protein myProtein = new Protein("AAKTPTGGRSQSCCC", "myAccession");
+
+            var stcE = myProtein
+                .Digest(new DigestionParams("StcE", minPeptideLength: 1, maxMissedCleavages: 0), empty, empty)
+                .Select(p => p.ToString()).ToList();
+
+            Assert.IsFalse(stcE.Any(p => p.EndsWith("K") || p.EndsWith("R")),
+                "StcE must not cleave after K or R: " + string.Join(", ", stcE));
+        }
+
+        [Test]
         public static void TestNTerminusProtease()
         {
             var empty = new List<Modification>();
