@@ -22,7 +22,7 @@ namespace Test.KoinaTests
         /// The body that made #1240's CI red for its whole review, abbreviated only in the middle of
         /// the traceback.
         /// </summary>
-        private const string RealCudaFault =
+        internal const string RealCudaFault =
             "{\"error\":\"in ensemble 'Altimeter_2024_intensities', PyTorch execute failure: The "
             + "following operation failed in the TorchScript interpreter.\\nTraceback of TorchScript, "
             + "serialized code (most recent call last):\\n  File \\\"code/__torch__/models_spline.py\\\", "
@@ -42,7 +42,6 @@ namespace Test.KoinaTests
         [TestCase("{\"error\":\"PyTorch execute failure: something\"}")]
         [TestCase("{\"error\":\"RuntimeError: CUDA error: device-side assert triggered\"}")]
         [TestCase("{\"error\":\"failed to load model 'Prosit_2019_intensity'\"}")]
-        [TestCase("{\"error\":\"CUDA out of memory. Tried to allocate 2.00 GiB\"}")]
         public void ServerSideExecutionFailuresAreServiceFaults(string body)
         {
             Assert.That(KoinaServiceException.IsServiceFault(body), Is.True);
@@ -89,7 +88,8 @@ namespace Test.KoinaTests
         [Test]
         public void AServiceFaultBecomesAKoinaServiceExceptionCarryingTheServerError()
         {
-            var thrown = KoinaServiceException.ForFailedResponse(400, "Bad Request", RealCudaFault);
+            var thrown = KoinaServiceException.ForFailedResponse(
+                400, "Bad Request", TestKoinaServiceFaultClassification.RealCudaFault);
 
             Assert.That(thrown, Is.InstanceOf<KoinaServiceException>());
             Assert.That(((KoinaServiceException)thrown).ServerError,
@@ -137,6 +137,36 @@ namespace Test.KoinaTests
             Assert.That(KoinaServiceException.ExtractServerError(body), Is.EqualTo(body));
         }
 
+        /// <summary>
+        /// A GPU out-of-memory is NOT a service fault, because it is exactly what an oversized request
+        /// looks like from the server side -- too large a batch, too many peptides in one call, a
+        /// pathological sequence length. The body says out of memory and the fault is ours.
+        ///
+        /// That also makes it the plausible regression here: batch size gets tuned, Koina OOMs, and CI
+        /// would go green with a skip. Co-occurrence with a cuda marker does not separate the two,
+        /// since a request-induced OOM reports itself the same way.
+        /// </summary>
+        [TestCase("{\"error\":\"CUDA out of memory. Tried to allocate 2.00 GiB\"}")]
+        [TestCase("{\"error\":\"RuntimeError: CUDA out of memory\"}")]
+        public void AnOutOfMemoryIsOurProblemNotTheServersAndMustNotSkip(string body)
+        {
+            Assert.That(KoinaServiceException.IsServiceFault(body), Is.False,
+                "an oversized request OOMs the GPU too, so this has to fail rather than skip");
+        }
+
+        /// <summary>
+        /// Triton names the model in the middle -- "model 'X' is not ready" -- so a marker requiring
+        /// those four words adjacent would never fire.
+        /// </summary>
+        [Test]
+        public void AnUnreadyModelIsRecognisedWithTheModelNameInTheMiddle()
+        {
+            Assert.That(
+                KoinaServiceException.IsServiceFault(
+                    "{\"error\":\"model 'Altimeter_2024_intensities' is not ready\"}"),
+                Is.True);
+        }
+
         [Test]
         public void ExistingCatchClausesStillSeeItAsAnHttpRequestException()
         {
@@ -163,17 +193,44 @@ namespace Test.KoinaTests
     public class TestKoinaServiceFaultIsSkippedNotFailed : KoinaLiveTestFixture
     {
         /// <summary>
-        /// The base class's [OneTimeSetUp] probes the live server, which this fixture must not do.
+        /// Suppresses the base class's live probe, which this fixture must not perform.
         /// </summary>
+        /// <remarks>
+        /// `override`, not `new`. Hiding it leaves two [OneTimeSetUp] methods on the type and NUnit runs
+        /// BOTH, so the probe dialled out anyway -- and this fixture carries no [Category], so
+        /// `cat != ExternalService` selects it into the required job that #1140 exists to keep off the
+        /// network. Worse, EnsureReachable calls Assert.Ignore, so with Koina down the fixture proving
+        /// the guard works was itself skipped: the guard unproven, with nothing saying so.
+        /// </remarks>
         [OneTimeSetUp]
-        public new void EnsureKoinaReachable() { }
+        public override void EnsureKoinaReachable() { }
 
         [Test]
         public void AServiceFaultSkipsTheTest()
         {
-            throw new KoinaServiceException(
-                "Request failed with status 400 Bad Request",
-                "PyTorch execute failure: RuntimeError: CUDA error: CUBLAS_STATUS_EXECUTION_FAILED");
+            // Built through the factory rather than by hand, because the message shape matters: the
+            // guard now requires the recorded failure to carry a server fault in its TEXT, and it is
+            // ForFailedResponse that puts the response body there. Constructing the exception directly
+            // with a body-free message tested a shape production never produces.
+            throw KoinaServiceException.ForFailedResponse(
+                400, "Bad Request", TestKoinaServiceFaultClassification.RealCudaFault);
+        }
+
+        /// <summary>
+        /// The shape that motivated the PR. TestAltimeterChargeStateBoundaries wraps the live call in
+        /// Assert.DoesNotThrow with a user message, so the recorded failure begins "Expected: No
+        /// Exception to be thrown" and its FIRST line is the user message, not the server's.
+        ///
+        /// Reporting the first line lost the diagnostic exactly here: the skip read "(  Charge 1 should
+        /// be valid)" and cuBLAS appeared nowhere. The guard now reports the first line that names the
+        /// fault, so the log says what Koina actually did.
+        /// </summary>
+        [Test]
+        public void ADoesNotThrowFailureStillReportsTheServersError()
+        {
+            Assert.DoesNotThrow(() => throw KoinaServiceException.ForFailedResponse(
+                400, "Bad Request", TestKoinaServiceFaultClassification.RealCudaFault),
+                "Charge 1 should be valid");
         }
 
         /// <summary>
@@ -184,6 +241,46 @@ namespace Test.KoinaTests
         public void AnOrdinaryFailureStillFails()
         {
             Assert.That(1, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// A test that expected this exception and did not get one is a GENUINE failure and must stay
+        /// one. Its NUnit message names the type -- "Expected: &lt;...KoinaServiceException&gt;" -- so a
+        /// guard keyed on the type name alone would report it Skipped.
+        ///
+        /// Latent rather than live when this was written: every Throws in the live fixtures is
+        /// Assert.Throws&lt;ArgumentException&gt;. But this PR makes KoinaServiceException public, and
+        /// Assert.Throws&lt;KoinaServiceException&gt; against InferenceRequest is the next test someone
+        /// writes.
+        /// </summary>
+        [Test]
+        public void AFailedThrowsAssertionNamingTheExceptionIsStillAFailure()
+        {
+            var recorded = Assert.Throws<AssertionException>(() =>
+                Assert.That(() => { }, Throws.InstanceOf<KoinaServiceException>()));
+
+            Assert.That(recorded!.Message, Does.Contain(nameof(KoinaServiceException)),
+                "premise: the message names the type, which is what could mislead the guard");
+            Assert.That(KoinaServiceException.IsServiceFault(recorded.Message), Is.False,
+                "and it carries no server fault, which is what keeps the guard off it");
+        }
+
+        /// <summary>
+        /// Hiding the base [OneTimeSetUp] with `new` leaves TWO of them on the type and NUnit runs both,
+        /// so the live probe fired from a fixture documented as needing no network. Reflection is how
+        /// that is visible, and it is the same lookup NUnit does.
+        /// </summary>
+        [Test]
+        public void TheLiveProbeIsSuppressedRatherThanHidden()
+        {
+            var probes = typeof(TestKoinaServiceFaultIsSkippedNotFailed)
+                .GetMethods()
+                .Where(m => m.Name == nameof(KoinaLiveTestFixture.EnsureKoinaReachable))
+                .ToList();
+
+            Assert.That(probes, Has.Count.EqualTo(1),
+                "two of them means `new` rather than `override`, and NUnit would run the base probe too");
+            Assert.That(probes[0].DeclaringType, Is.EqualTo(typeof(TestKoinaServiceFaultIsSkippedNotFailed)));
         }
 
         /// <summary>
@@ -205,6 +302,15 @@ namespace Test.KoinaTests
             var ordinary = children.Single(c => c.Name == nameof(AnOrdinaryFailureStillFails));
             Assert.That(ordinary.ResultState.Status, Is.EqualTo(TestStatus.Passed),
                 "the guard must not touch anything that is not a Koina service fault");
+
+            var wrapped = children.Single(c => c.Name == nameof(ADoesNotThrowFailureStillReportsTheServersError));
+            Assert.That(wrapped.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
+            Assert.That(wrapped.Message, Does.Contain("PyTorch execute failure"),
+                "the server's own error has to reach the log, not the caller's user message");
+            Assert.That(wrapped.Message, Does.Not.Contain("Charge 1 should be valid"));
+
+            var throwsNothing = children.Single(c => c.Name == nameof(AFailedThrowsAssertionNamingTheExceptionIsStillAFailure));
+            Assert.That(throwsNothing.ResultState.Status, Is.EqualTo(TestStatus.Passed));
         }
     }
 }

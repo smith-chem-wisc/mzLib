@@ -50,6 +50,14 @@ namespace PredictionClients.Koina.Client
         /// genuine regression in how we build a request still fails the caller loudly. Widening this to
         /// something generic -- "error", "failed", "invalid" -- would silence exactly the failures a
         /// test suite exists to catch.
+        ///
+        /// "out of memory" was here and was removed. A GPU OOM is exactly what an oversized request
+        /// looks like from the server side -- too large a batch, too many peptides in one call, a
+        /// pathological sequence length -- so the body says out of memory and the fault is OURS. Batch
+        /// size is also the sort of thing that gets tuned, which makes that the plausible regression in
+        /// this area: someone raises it, Koina OOMs, and CI goes green with a skip. Co-occurrence with a
+        /// cuda marker does not separate the two either, since a request-induced OOM reports itself the
+        /// same way.
         /// </remarks>
         private static readonly string[] ServiceFaultMarkers =
         [
@@ -58,9 +66,11 @@ namespace PredictionClients.Koina.Client
             "cuda error",
             "cublas_",
             "cudnn_",
-            "out of memory",
             "failed to load model",
-            "model is not ready",
+            // Two words rather than four: Triton renders this as
+            // {"error":"model 'Altimeter_2024_intensities' is not ready"}, with the model name in the
+            // middle, so requiring "model is not ready" adjacent would never match.
+            "is not ready",
             "inference server is not live"
         ];
 

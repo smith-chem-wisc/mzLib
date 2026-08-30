@@ -32,8 +32,16 @@ namespace Test.KoinaTests
     {
         private const string KoinaReadyUrl = "https://koina.wilhelmlab.org:443/v2/health/ready";
 
+        /// <summary>
+        /// Probes the live server once per fixture and skips the whole fixture if it is unreachable.
+        /// </summary>
+        /// <remarks>
+        /// Virtual so that a fixture proving the guard works can suppress it. Hiding it with `new` does
+        /// NOT: NUnit finds [OneTimeSetUp] by reflection and a `new` method leaves two distinct methods
+        /// on the type, so BOTH run and the probe dials out anyway. An `override` leaves one.
+        /// </remarks>
         [OneTimeSetUp]
-        public void EnsureKoinaReachable()
+        public virtual void EnsureKoinaReachable()
         {
             ExternalServiceTestHelper.EnsureReachable("Koina", KoinaReadyUrl);
         }
@@ -57,25 +65,54 @@ namespace Test.KoinaTests
             var result = TestExecutionContext.CurrentContext.CurrentResult;
             if (result.ResultState.Status != TestStatus.Failed) return;
 
-            // The recorded message carries both the exception type name and the server's response
-            // body. Either alone identifies the fault; requiring the type name keeps this from firing
-            // on a test that merely mentions CUDA in an assertion message.
+            // BOTH conditions, and neither alone is enough.
+            //
+            // The type name alone rewrites any failure whose message merely mentions the type -- most
+            // obviously `Assert.Throws<KoinaServiceException>(...)` that threw nothing, which would be
+            // reported Skipped when it is a genuine failure. Making the exception public in this PR is
+            // what puts that test one keystroke away.
+            //
+            // The markers alone rewrite a test that quotes a CUDA error in an assertion message.
+            //
+            // Together they mean: the recorded failure names this exception AND carries a server fault
+            // in its text. A Throws-nothing failure names the type but has no body, so it still fails.
             string message = result.Message ?? string.Empty;
             if (!message.Contains(nameof(KoinaServiceException), StringComparison.Ordinal)) return;
+            if (!KoinaServiceException.IsServiceFault(message)) return;
 
             string skipped =
                 "Skipping external-service test: Koina failed to run the model "
-                + $"({FirstLine(KoinaServiceException.ExtractServerError(message))}). "
+                + $"({LineNamingTheFault(message)}). "
                 + "This is a third-party availability problem, not a code failure.";
             TestContext.Progress.WriteLine(skipped);
             result.SetResult(ResultState.Ignored, skipped);
         }
 
-        private static string FirstLine(string text)
+        /// <summary>
+        /// The first line of <paramref name="message"/> that actually names the fault.
+        /// </summary>
+        /// <remarks>
+        /// Taking the first line instead loses the diagnostic in exactly the case this exists for. An
+        /// NUnit failure message is never valid JSON -- it is prefixed with the type name, or with
+        /// "Expected: No Exception to be thrown" -- so ExtractServerError returns it unchanged, and its
+        /// first line for an Assert.DoesNotThrow is the caller's user message. For the failure that
+        /// motivated this PR that yielded "Charge 1 should be valid" and no mention of cuBLAS at all.
+        /// </remarks>
+        private static string LineNamingTheFault(string message)
         {
-            int newline = text.IndexOfAny(['\r', '\n']);
-            string line = newline < 0 ? text : text[..newline];
-            return line.Length <= 200 ? line : line[..200] + "...";
+            foreach (string line in message.Split('\n'))
+            {
+                if (KoinaServiceException.IsServiceFault(line))
+                {
+                    return Truncate(line.Trim());
+                }
+            }
+            return Truncate(message.Replace("\r", " ").Replace("\n", " ").Trim());
+        }
+
+        private static string Truncate(string text)
+        {
+            return text.Length <= 200 ? text : text[..200] + "...";
         }
     }
 }
