@@ -73,6 +73,27 @@ public class EntrapmentProteinTests
         Assert.That(fold, Is.EqualTo(3));
     }
 
+    [Test]
+    public void Accession_RefusesToFormatSomethingUnusable()
+    {
+        var noTarget = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentAccession.Format("", 0));
+        Assert.That(noTarget!.Message, Does.Contain("target accession"));
+
+        var negative = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentAccession.Format("P12345", -1));
+        Assert.That(negative!.Message, Does.Contain("negative"));
+    }
+
+    [TestCase("Random_P12345", TestName = "Accession parse - no fold marker")]
+    [TestCase("Random_P12345_f", TestName = "Accession parse - fold marker with no digits")]
+    [TestCase("Random_P12345_fX", TestName = "Accession parse - fold that is not a number")]
+    [TestCase("Random_P12345_f-1", TestName = "Accession parse - negative fold")]
+    [TestCase("Random__f1", TestName = "Accession parse - empty target accession")]
+    [TestCase("Random_f1", TestName = "Accession parse - marker but nothing before the fold")]
+    public void Accession_RefusesMalformedInput(string accession)
+    {
+        Assert.That(EntrapmentAccession.TryParse(accession, out _, out _), Is.False);
+    }
+
     // ---- protein generation ------------------------------------------------
 
     [Test]
@@ -147,6 +168,39 @@ public class EntrapmentProteinTests
         Assert.That(entrapments.Select(p => p.BaseSequence).Distinct().Count(), Is.EqualTo(4));
     }
 
+    [Test]
+    public void Create_RefusesANullTarget()
+    {
+        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentProteinGenerator.Create(null, Tryptic, NothingForbidden));
+        Assert.That(thrown!.Message, Does.Contain("null target"));
+    }
+
+    [Test]
+    public void Create_HandlesAProteinCarryingNoModifications()
+    {
+        var target = new Protein(Sequence, "P12345");
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications, Is.Empty);
+    }
+
+    [Test]
+    public void Create_KeepsAModificationThatLandsOnTheVeryFirstResidue()
+    {
+        // Position zero in the entrapment sequence is a real destination, not a "missing" marker.
+        // Only a negative maps to excised, and conflating the two would silently drop a
+        // modification whenever its residue happened to move to the front.
+        Modification phospho = Phospho();
+        var target = new Protein("TAAAAAAKGGVDTTPFAWENDR", "P12345", oneBasedModifications:
+            new Dictionary<int, List<Modification>> { { 1, new List<Modification> { phospho } } });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
+        int position = entrapment.OneBasedPossibleLocalizedModifications.Keys.Single();
+        Assert.That(entrapment.BaseSequence[position - 1], Is.EqualTo('T'));
+    }
+
     // ---- pairing -----------------------------------------------------------
 
     [Test]
@@ -196,6 +250,21 @@ public class EntrapmentProteinTests
         Assert.That(pairing.AmbiguousPeptides, Does.Contain("LIHTVGK"));
         Assert.That(pairing.TryResolve("LIHTVGK", out _), Is.False,
             "an ambiguous key must refuse to guess");
+    }
+
+    [Test]
+    public void Pairing_RefusesANullTarget()
+    {
+        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() => new EntrapmentPairing(null, Tryptic));
+        Assert.That(thrown!.Message, Does.Contain("target protein"));
+    }
+
+    [Test]
+    public void Pairing_RefusesAPeptideItHasNeverSeen()
+    {
+        var pairing = new EntrapmentPairing(new Protein(Sequence, "P12345"), Tryptic);
+        Assert.That(pairing.TryResolve("WWWWWWWW", out _), Is.False);
+        Assert.That(pairing.TryResolve("", out _), Is.False);
     }
 
     // ---- round trip --------------------------------------------------------

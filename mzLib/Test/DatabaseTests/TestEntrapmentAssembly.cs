@@ -73,7 +73,7 @@ public class EntrapmentAssemblyTests
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(target, Tryptic(), NothingForbidden);
 
         Assert.That(assembly.ExcisedCount, Is.Zero, "a sub-length piece must not be excised");
-        Assert.That(assembly.KeptVerbatimCount, Is.GreaterThan(0));
+        Assert.That(assembly.KeptVerbatimCount, Is.EqualTo(1), "exactly the \"AK\" piece");
         Assert.That(assembly.EntrapmentSequence, Does.StartWith("AK"));
         Assert.That(assembly.EntrapmentSequence.Length, Is.EqualTo(target.Length));
     }
@@ -158,6 +158,27 @@ public class EntrapmentAssemblyTests
 
         // The excised stretch, and only it, is unmapped.
         Assert.That(assembly.TargetToEntrapmentPosition.Count(p => p < 0), Is.EqualTo(7));
+    }
+
+    [Test]
+    public void Assemble_RejectsAnEmptySequence()
+    {
+        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble("", Tryptic(), NothingForbidden));
+        Assert.That(thrown!.Message, Does.Contain("empty"));
+    }
+
+    [Test]
+    public void Assemble_CountsBrokenRunsFromTheGapItself()
+    {
+        // Retained ordinals here are 0, 2, 3 -- the excised piece sits second rather than last.
+        // The run {2,3} is contiguous and must NOT count, which is what distinguishes a real
+        // difference of ordinals from any other arithmetic that happens to agree on [0,1,3].
+        const string target = "ALADQMNLLLSKSSSSSSRGGVDTTPFAWENDRQISTLGGYK";
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(target, Tryptic(), NothingForbidden);
+
+        Assert.That(assembly.ExcisedCount, Is.EqualTo(1));
+        Assert.That(assembly.MissedCleavagePeptidesSpanningAnExcision, Is.EqualTo(2));
     }
 
     [Test]

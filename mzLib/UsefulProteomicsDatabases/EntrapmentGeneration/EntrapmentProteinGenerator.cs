@@ -33,6 +33,19 @@ public static class EntrapmentProteinGenerator
     /// </remarks>
     public static Protein Create(Protein target, IDigestionParams digestionParams,
         IReadOnlySet<string> forbiddenSequences, int fold = 0, int foldCount = 1, int seed = 1,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier) =>
+        Create(target, digestionParams, forbiddenSequences, out _, fold, foldCount, seed, entrapmentIdentifier);
+
+    /// <summary>
+    /// The entrapment partner of <paramref name="target"/>, along with the record of how it was
+    /// built.
+    /// </summary>
+    /// <param name="assembly">What happened to each piece of the target: rearranged, kept because
+    /// it was too short to identify, or excised for want of a partner. Feed this to
+    /// <see cref="EntrapmentReportBuilder"/> rather than assembling a second time to find out.</param>
+    public static Protein Create(Protein target, IDigestionParams digestionParams,
+        IReadOnlySet<string> forbiddenSequences, out EntrapmentAssembly assembly,
+        int fold = 0, int foldCount = 1, int seed = 1,
         string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
     {
         if (target is null)
@@ -40,7 +53,7 @@ public static class EntrapmentProteinGenerator
             throw new MzLibException("Cannot build an entrapment protein from a null target.");
         }
 
-        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(target.BaseSequence, digestionParams,
+        assembly = EntrapmentAssembler.Assemble(target.BaseSequence, digestionParams,
             forbiddenSequences, fold, foldCount, seed);
 
         Dictionary<int, List<Modification>> movedMods =
