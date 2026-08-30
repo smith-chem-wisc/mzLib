@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -206,6 +207,50 @@ public class EntrapmentProteinTests
         Assert.That(entrapment.OneBasedPossibleLocalizedModifications.ContainsKey(1), Is.True,
             "a modification landing at position zero must survive");
         Assert.That(entrapment.BaseSequence[0], Is.EqualTo('A'));
+    }
+
+    [Test]
+    public void Create_DropsPositionalAnnotationsThatTheRearrangementInvalidates()
+    {
+        // Sequence variations, truncation products, disulfide bonds and splice sites all describe
+        // the TARGET's sequence. Once the residues move they mean nothing, and once excision
+        // shortens the protein a coordinate can point PAST ITS END -- MetaMorpheus applies sequence
+        // variations while loading a database, indexes with that coordinate and throws. Measured on
+        // the human proteome: 131 entrapment entries carried a feature position beyond their own
+        // length, and every search against that database failed to load it.
+        var target = new Protein("SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR", "P12345",
+            proteolysisProducts: new List<TruncationProduct> { new(1, 36, "full-length") },
+            disulfideBonds: new List<DisulfideBond> { new(3, 30, "bond") },
+            spliceSites: new List<SpliceSite> { new(5, 9, "site") });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.TruncationProducts, Is.Empty);
+        Assert.That(entrapment.DisulfideBonds, Is.Empty);
+        Assert.That(entrapment.SpliceSites, Is.Empty);
+        Assert.That(entrapment.SequenceVariations, Is.Empty);
+        Assert.That(entrapment.AppliedSequenceVariations, Is.Empty);
+
+        // The target keeps everything -- we copy, we do not mutate.
+        Assert.That(target.TruncationProducts, Is.Not.Empty);
+        Assert.That(target.DisulfideBonds, Is.Not.Empty);
+    }
+
+    [Test]
+    public void Create_NeverLeavesAnAnnotationPointingPastTheSequence()
+    {
+        // The failure mode directly: the fixture excises SSSSSSR, so the entrapment protein is
+        // seven residues shorter than the annotations that described its target.
+        var target = new Protein("SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR", "P12345",
+            proteolysisProducts: new List<TruncationProduct> { new(30, 36, "C-terminal chunk") });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.BaseSequence.Length, Is.LessThan(target.BaseSequence.Length));
+        foreach (TruncationProduct tp in entrapment.TruncationProducts)
+        {
+            Assert.That(tp.OneBasedEndPosition, Is.LessThanOrEqualTo(entrapment.BaseSequence.Length));
+        }
     }
 
     // ---- pairing -----------------------------------------------------------

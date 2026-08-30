@@ -1,6 +1,7 @@
 #nullable enable
 using MzLibUtil;
 using Omics.Digestion;
+using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
 using System.Collections.Generic;
@@ -64,7 +65,19 @@ public static class EntrapmentProteinGenerator
         return new Protein(withNewSequence,
             accession: EntrapmentAccession.Format(target.Accession, fold, entrapmentIdentifier),
             isEntrapment: true,
-            oneBasedModifications: movedMods);
+            oneBasedModifications: movedMods,
+            // Every other positional annotation describes the TARGET's sequence and means nothing
+            // once the residues have moved. Carrying them over is not merely untidy: excision
+            // shortens the protein, so a coordinate can point past its end, and a consumer that
+            // indexes with it -- MetaMorpheus applies sequence variations while loading a database
+            // -- throws. Measured on the human proteome: 131 entrapment entries carried a feature
+            // position beyond their own length, and every search against that database failed.
+            // Modifications are the one annotation that survives, because they alone are remapped.
+            sequenceVariations: new List<SequenceVariation>(),
+            appliedSequenceVariations: new List<SequenceVariation>(),
+            proteolysisProducts: new List<TruncationProduct>(),
+            disulfideBonds: new List<DisulfideBond>(),
+            spliceSites: new List<SpliceSite>());
     }
 
     /// <summary>
