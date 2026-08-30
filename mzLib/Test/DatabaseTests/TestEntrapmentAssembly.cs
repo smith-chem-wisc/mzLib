@@ -128,9 +128,12 @@ public class EntrapmentAssemblyTests
         const string target = "SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR";
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(target, Tryptic(), NothingForbidden);
 
+        // Pieces are SYK | ALADQMNLLLSK | SSSSSSR | GGVDTTPFAWENDR, and the third is excised, so the
+        // retained ordinals are 0, 1, 3. At two missed cleavages the runs that straddle that gap are
+        // {0,1,3} and {1,3} -- exactly two. An exact count, not "more than none": the arithmetic here
+        // is nested and off-by-one prone, and a loose assertion would not notice it drifting.
         Assert.That(assembly.ExcisedCount, Is.EqualTo(1));
-        Assert.That(assembly.MissedCleavagePeptidesSpanningAnExcision, Is.GreaterThan(0),
-            "an excision in the middle of a protein necessarily breaks the peptides that spanned it");
+        Assert.That(assembly.MissedCleavagePeptidesSpanningAnExcision, Is.EqualTo(2));
     }
 
     [Test]
