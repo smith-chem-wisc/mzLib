@@ -187,18 +187,25 @@ public class EntrapmentProteinTests
     [Test]
     public void Create_KeepsAModificationThatLandsOnTheVeryFirstResidue()
     {
-        // Position zero in the entrapment sequence is a real destination, not a "missing" marker.
-        // Only a negative maps to excised, and conflating the two would silently drop a
-        // modification whenever its residue happened to move to the front.
-        Modification phospho = Phospho();
-        var target = new Protein("TAAAAAAKGGVDTTPFAWENDR", "P12345", oneBasedModifications:
-            new Dictionary<int, List<Modification>> { { 1, new List<Modification> { phospho } } });
+        // Position zero is a real destination, not a "missing" marker -- only a negative means
+        // excised. Conflating them would silently drop a modification whenever its residue moved to
+        // the front. "AK" is below the minimum length and has no rearrangement, so it is kept
+        // verbatim with an identity map: its first residue is GUARANTEED to land at position zero,
+        // which an ordinary rearranged piece would only reach by luck.
+        ModificationMotif.TryGetMotif("A", out ModificationMotif motif);
+        var onFirstResidue = new Modification(_originalId: "Acetyl", _modificationType: "Common Biological",
+            _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 42.010565);
 
-        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        var target = new Protein("AKGGVDTTPFAWENDRQISTLGGYK", "P12345", oneBasedModifications:
+            new Dictionary<int, List<Modification>> { { 1, new List<Modification> { onFirstResidue } } });
 
-        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(1));
-        int position = entrapment.OneBasedPossibleLocalizedModifications.Keys.Single();
-        Assert.That(entrapment.BaseSequence[position - 1], Is.EqualTo('T'));
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+
+        Assert.That(assembly.TargetToEntrapmentPosition[0], Is.Zero, "the fixture must exercise position zero");
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.ContainsKey(1), Is.True,
+            "a modification landing at position zero must survive");
+        Assert.That(entrapment.BaseSequence[0], Is.EqualTo('A'));
     }
 
     // ---- pairing -----------------------------------------------------------

@@ -97,10 +97,12 @@ public class EntrapmentReportTests
         Assert.That(sixSites.UnpairableAllPermutationsTaken, Is.Zero);
         Assert.That(sixSites.UnpairableSpaceTooSmallForFoldCount, Is.Zero);
 
-        Assert.That(report.Total.Unpairable,
-            Is.EqualTo(report.Total.UnpairableNoPermutationExists
-                       + report.Total.UnpairableAllPermutationsTaken
-                       + report.Total.UnpairableSpaceTooSmallForFoldCount));
+        // Against a literal, not against the same expression the property computes -- restating
+        // the implementation proves only that it equals itself.
+        Assert.That(report.Total.UnpairableNoPermutationExists, Is.EqualTo(1));
+        Assert.That(report.Total.UnpairableAllPermutationsTaken, Is.Zero);
+        Assert.That(report.Total.UnpairableSpaceTooSmallForFoldCount, Is.Zero);
+        Assert.That(report.Total.Unpairable, Is.EqualTo(1));
     }
 
     [Test]
@@ -236,5 +238,123 @@ public class EntrapmentReportTests
         }
 
         Assert.That(builder.Build().Total.EntrapmentPeptides, Is.EqualTo(actualEntrapmentPeptides));
+    }
+
+    [Test]
+    public void Report_SeesTheOtherTwoFailureCauses()
+    {
+        // The fixtures above only ever produce "no permutation exists". These two paths need their
+        // own shapes: a space too small for the folds asked of it, and a space fully occupied.
+        IDigestionParams digestion = Tryptic;
+        // "EEEEEEQK" is one base piece (trypsin cuts after every K, so QEEEKKK would split into
+        // three) and its seven residues before the pinned K admit exactly seven arrangements.
+        const string sequence = "EEEEEEQKGGVDTTPFAWENDR";
+        var target = new Protein(sequence, "P1");
+
+        var tooSmall = new EntrapmentReportBuilder(digestion, foldCount: 9, seed: 1,
+            EntrapmentReport.CountResidues("ST"));
+        EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden,
+            out EntrapmentAssembly smallAssembly, fold: 0, foldCount: 9);
+        tooSmall.Add(target, 0, smallAssembly);
+        Assert.That(tooSmall.Build().Total.UnpairableSpaceTooSmallForFoldCount, Is.EqualTo(1));
+
+        var everyArrangement = new HashSet<string>();
+        System.Numerics.BigInteger size = UsefulProteomicsDatabases.DecoySequenceValidator
+            .PermutationSpaceSize("EEEEEEQK", digestion.DigestionAgent.DigestionMotifs);
+        for (System.Numerics.BigInteger i = 0; i < size; i++)
+        {
+            everyArrangement.Add(UsefulProteomicsDatabases.DecoySequenceValidator
+                .UnrankPermutation("EEEEEEQK", digestion.DigestionAgent.DigestionMotifs, i, out _));
+        }
+
+        var taken = new EntrapmentReportBuilder(digestion, foldCount: 1, seed: 1,
+            EntrapmentReport.CountResidues("ST"));
+        EntrapmentProteinGenerator.Create(target, digestion, everyArrangement,
+            out EntrapmentAssembly takenAssembly);
+        taken.Add(target, 0, takenAssembly);
+        Assert.That(taken.Build().Total.UnpairableAllPermutationsTaken, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void Report_TotalsAddUpFieldByField()
+    {
+        EntrapmentReport report = BuildReport(foldCount: 2);
+
+        // Every field, not just the peptide count: the total is accumulated field by field, so a
+        // slip in one of them would otherwise go unseen.
+        Assert.That(report.Total.EntrapmentPeptides, Is.EqualTo(report.Strata.Sum(s => s.EntrapmentPeptides)));
+        Assert.That(report.Total.UnpairableNoPermutationExists,
+            Is.EqualTo(report.Strata.Sum(s => s.UnpairableNoPermutationExists)));
+        Assert.That(report.Total.UnpairableAllPermutationsTaken,
+            Is.EqualTo(report.Strata.Sum(s => s.UnpairableAllPermutationsTaken)));
+        Assert.That(report.Total.UnpairableSpaceTooSmallForFoldCount,
+            Is.EqualTo(report.Strata.Sum(s => s.UnpairableSpaceTooSmallForFoldCount)));
+        Assert.That(report.Total.Ambiguous, Is.EqualTo(report.Strata.Sum(s => s.Ambiguous)));
+        Assert.That(report.Total.MissedCleavagePeptidesSpanningAnExcision,
+            Is.EqualTo(report.Strata.Sum(s => s.MissedCleavagePeptidesSpanningAnExcision)));
+        Assert.That(report.Total.EntrapmentPeptides, Is.GreaterThan(0), "the fixture must be non-trivial");
+    }
+
+    [Test]
+    public void Report_CountsAnAmbiguousPeptideOnceHoweverManyFoldsRun()
+    {
+        // Ambiguity is a property of the target protein, not of a fold, so it is worked out once per
+        // accession. Counting it again per fold would inflate it in step with the fold count.
+        var pairing = new EntrapmentPairing(
+            new Protein("LIHTGVKAAADEFGHIKLIHTVGKMMWWYYPPQQR", "P57071"), Tryptic);
+        Assert.That(pairing.AmbiguousPeptides.Count, Is.GreaterThan(0), "the fixture must be ambiguous");
+
+        int[] counts = new[] { 1, 4 }.Select(folds =>
+            BuildReport(foldCount: folds,
+                sequences: new[] { "LIHTGVKAAADEFGHIKLIHTVGKMMWWYYPPQQR" }).Total.Ambiguous).ToArray();
+
+        Assert.That(counts[0], Is.GreaterThan(0));
+        Assert.That(counts[1], Is.EqualTo(counts[0]), "four folds must not quadruple the ambiguity count");
+    }
+
+    [Test]
+    public void Report_HandlesHavingBeenGivenNothing()
+    {
+        EntrapmentReport empty = new EntrapmentReportBuilder(Tryptic, 1, 1).Build();
+
+        Assert.That(empty.Strata, Is.Empty);
+        Assert.That(empty.Total.TargetPeptides, Is.Zero);
+        Assert.That(empty.Total.AchievedFoldRatio, Is.Zero, "no targets means no ratio, not a divide by zero");
+        Assert.That(empty.ToTabSeparated(), Does.Contain("# enzyme"));
+    }
+
+    [Test]
+    public void ReportBuilder_RefusesIncompleteInput()
+    {
+        Assert.Throws<MzLibUtil.MzLibException>(() => new EntrapmentReportBuilder(null, 1, 1));
+
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        var target = new Protein(Proteins[0], "P1");
+        EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden, out EntrapmentAssembly assembly);
+
+        Assert.Throws<MzLibUtil.MzLibException>(() => builder.Add(null, 0, assembly));
+        Assert.Throws<MzLibUtil.MzLibException>(() => builder.Add(target, 0, null));
+    }
+
+    [Test]
+    public void Report_TableCarriesTheNumbersAndNotJustTheShape()
+    {
+        EntrapmentReport report = BuildReport();
+        string[] lines = report.ToTabSeparated()
+            .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
+
+        // Provenance values, not merely the presence of a label.
+        Assert.That(lines, Does.Contain("# enzyme\ttrypsin"));
+        Assert.That(lines, Does.Contain("# seed\t1"));
+        Assert.That(lines, Does.Contain("# maxMissedCleavages\t2"));
+        Assert.That(lines, Does.Contain("# minPeptideLength\t7"));
+
+        // And the total row's figures must match the object the table was rendered from.
+        string[] total = lines.Last().Split('\t');
+        Assert.That(total[0], Is.EqualTo("all"));
+        Assert.That(total[1], Is.EqualTo(report.Total.TargetPeptides.ToString()));
+        Assert.That(total[2], Is.EqualTo(report.Total.EntrapmentPeptides.ToString()));
+        Assert.That(total[4], Is.EqualTo(report.Total.UnpairableNoPermutationExists.ToString()));
+        Assert.That(total[7], Is.EqualTo(report.Total.Ambiguous.ToString()));
     }
 }
