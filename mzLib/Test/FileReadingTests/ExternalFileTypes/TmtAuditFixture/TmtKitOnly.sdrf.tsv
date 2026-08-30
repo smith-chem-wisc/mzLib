@@ -1,0 +1,3 @@
+source name	characteristics[organism]	characteristics[biological replicate]	assay name	technology type	comment[data file]	comment[technical replicate]	comment[fraction identifier]	comment[label]	characteristics[sample type]	comment[modification parameters]	comment[modification parameters]	factor value[disease]
+sampleA	homo sapiens	1	run 1	proteomic profiling by mass spectrometry	kit_run1.raw	1	1	NT=TMT10plex	not available	NT=Oxidation;AC=UNIMOD:35;MT=variable;TA=M		control
+sampleB	homo sapiens	2	run 2	proteomic profiling by mass spectrometry	kit_run2.raw	1	19b	TMT10Plex	not available	NT=Oxidation;AC=UNIMOD:35;MT=variable;TA=M		treated
