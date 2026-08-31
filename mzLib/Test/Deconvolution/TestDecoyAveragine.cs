@@ -361,9 +361,6 @@ namespace Test.Deconvolution
         private static MzSpectrum BuildSyntheticSpectrum(double monoMass, int charge,
             int numIsotopes = 8)
         {
-            const double proton = Constants.ProtonMass;
-            const double isoDelta = Constants.C13MinusC12;
-
             // Get realistic relative intensities from Averagine
             var averagine = new Averagine();
             int massIndex = averagine.GetMostIntenseMassIndex(monoMass);
