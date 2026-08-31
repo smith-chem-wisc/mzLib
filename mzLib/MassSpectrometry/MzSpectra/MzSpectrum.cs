@@ -1,4 +1,4 @@
-﻿// Copyright 2012, 2013, 2014 Derek J. Bailey
+// Copyright 2012, 2013, 2014 Derek J. Bailey
 // Modified work copyright 2016 Stefan Solntsev
 //
 // This file (MzSpectrum.cs) is part of MassSpectrometry.
@@ -840,79 +840,124 @@ namespace MassSpectrometry
             return new MzPeak(XArray[index], YArray[index]);
         }
         /// <summary>
-        /// This method smooths a mass spectrum by using a Kolmogorov–Zurbenko (KZ).
-        /// High quality spectral smoothing is the first step in my deconvolultion algorithm.
-        /// Algorithm employed is the Kolmogorov-Zurbenko algorithm originally written in C for R:
-        /// https://github.com/cran/kza/blob/master/src/kz.c
+        /// Smooths this spectrum's intensities with a Kolmogorov-Zurbenko (KZ) filter, returning the
+        /// result in the layout of <see cref="CopyTo2DArray()"/> -- row 0 the m/z values, row 1 the
+        /// smoothed intensities. The m/z values are copied through untouched.
         /// </summary>
-        public double[,] SmoothSpectrumKZ(int window, int iterations)
+        /// <param name="halfWindowSize">
+        /// Half-width of the averaging window in DATA POINTS, so each pass averages up to
+        /// 2 * <paramref name="halfWindowSize"/> + 1 of them. 2 to 5 is a reasonable starting range;
+        /// 0 leaves the intensities unchanged, and a window wider than the spectrum degenerates to the
+        /// mean of the whole scan.
+        /// </param>
+        /// <param name="iterations">
+        /// How many successive averaging passes to apply. Two or three are typical -- each pass widens
+        /// the effective kernel and moves its shape closer to a Gaussian. 0 leaves the intensities
+        /// unchanged.
+        /// </param>
+        /// <remarks>
+        /// Two properties decide whether this filter is the right one to reach for.
+        ///
+        /// It indexes by DATA POINT rather than by m/z, so it treats neighbouring array entries as
+        /// evenly spaced. That holds for profile spectra. It does not hold for centroided ones, where
+        /// consecutive peaks can be any distance apart and their mean describes nothing physical.
+        ///
+        /// It is an averaging filter, so it lowers peaks as it widens them. On a 10-point unit square
+        /// wave over 2 iterations the peak falls to 0.92 at a half-window of 3 and to 0.70 at 5. Where
+        /// peak height has to survive, a shape-preserving filter such as Savitzky-Golay is the better
+        /// choice.
+        ///
+        /// Total intensity is redistributed rather than conserved. It comes out exact while the smeared
+        /// signal stays clear of both ends of the array, and drifts once the window is clamped there,
+        /// because a clamped window averages fewer points: on that same square wave the total moves by
+        /// +0.24% at a half-window of 5 over 4 iterations, and by -0.70% with the signal pushed against
+        /// the left edge at a half-window of 5 over 2. Do not treat the output as quantitative near the
+        /// first or last few points.
+        /// </remarks>
+        public double[,] SmoothSpectrumKZ(int halfWindowSize, int iterations)
         {
-            double[] smoothedIntArray = KZ1D(YArray, window, iterations);
-            if(smoothedIntArray.Length < YArray.Length)
-            {
-                throw new ArgumentException("output length is unequal to input length"); 
-            }
-            return CopyTo2DArray(XArray, smoothedIntArray); 
+            return CopyTo2DArray(XArray, KZ1D(YArray, halfWindowSize, iterations));
         }
+
         /// <summary>
-        /// Implements the KZ filter for one-dimensional data. 
+        /// The KZ filter over one-dimensional data: <paramref name="iterations"/> successive moving
+        /// averages, each of half-width <paramref name="halfWindowSize"/>.
         /// </summary>
-        /// <param name="x"></param><summary>double array (double[]) of the intensity values.</summary>
-        /// <param name="window"></param><summary>The window size over which to perform the filtering.</summary>
-        /// <param name="iterations"></param><summary>The number of smoothering iterations to perform.</summary>
-        /// <returns></returns>
-        public static double[] KZ1D(double[] x, int window, int iterations)
+        /// <param name="intensities">The values to smooth. Left unmodified.</param>
+        /// <param name="halfWindowSize">Half-width of the window, in array positions.</param>
+        /// <param name="iterations">Number of passes. 0 returns an unsmoothed copy.</param>
+        /// <returns>A new array of the same length as <paramref name="intensities"/>.</returns>
+        /// <exception cref="MzLibException">
+        /// If <paramref name="intensities"/> is null, or either count is negative.
+        /// </exception>
+        /// <remarks>
+        /// Ported from cran/kza's
+        /// <see href="https://github.com/cran/kza/blob/master/src/kz.c">src/kz.c</see>, including how it
+        /// clamps at the array ends and how it treats non-finite values.
+        /// </remarks>
+        public static double[] KZ1D(double[] intensities, int halfWindowSize, int iterations)
         {
-            int m = 2 * window + 1;
-            int p = (m - 1) / 2;
-
-            // iterations are performed in this function. The result from the first iteration is
-            // copied and the next iteration is performed on the result of the first one.
-            // Note that the code I ported this function from was initially written in R,
-            // which intentionally doesn't use reference semantics. So I'm sure there's a way to
-            // optimize this procedure, and I'm open to suggestions.
-
-            double[] result = new double[x.Length];
-            double[] xCopy = new double[x.Length];
-            // remember that block copy requires the total number of bytes to copy as the
-            // last parameter.
-            Buffer.BlockCopy(x, 0, xCopy, 0, x.Length * sizeof(double));
-
-            for(int k = 0; k < iterations; k++)
+            if (intensities is null)
             {
-                for(int i = 0; i < x.Length; i++)
+                throw new MzLibException("KZ smoothing needs an array of intensities, but was given null.");
+            }
+            if (halfWindowSize < 0)
+            {
+                throw new MzLibException(
+                    $"KZ smoothing needs a half-window size of 0 or more, but was given {halfWindowSize}.");
+            }
+            if (iterations < 0)
+            {
+                throw new MzLibException(
+                    $"KZ smoothing needs an iteration count of 0 or more, but was given {iterations}.");
+            }
+
+            // The reference derives m = 2 * window + 1 and then p = (m - 1) / 2, which is window again.
+            double[] current = (double[])intensities.Clone();
+            for (int pass = 0; pass < iterations; pass++)
+            {
+                double[] next = new double[current.Length];
+                for (int i = 0; i < current.Length; i++)
                 {
-                    result[i] = Mavg1D(xCopy, i, p); 
+                    next[i] = MovingAverage(current, i, halfWindowSize);
                 }
-                Buffer.BlockCopy(result, 0, xCopy, 0, result.Length * sizeof(double));  
+                current = next;
             }
-            return result; 
+
+            return current;
         }
+
         /// <summary>
-        /// Computes the moving average for a given window. Used in conjuction with the KZ1D method. 
+        /// Mean of the finite values lying within <paramref name="halfWidth"/> positions of
+        /// <paramref name="centerIndex"/>, clamped at both ends of <paramref name="values"/>.
         /// </summary>
-        /// <param name="v"></param><summary>The source data array.</summary>
-        /// <param name="col"></param><summary>The starting index in the source data.</summary>
-        /// <param name="w"></param><summary>The length of the window over which to calculate the moving average.</summary>
-        /// <returns></returns>
-        private static double Mavg1D(double[] v, int col, int w)
+        /// <param name="values">The source data.</param>
+        /// <param name="centerIndex">Position the window is centred on.</param>
+        /// <param name="halfWidth">How far the window reaches to either side.</param>
+        /// <returns>
+        /// <see cref="double.NaN"/> when the window contains no finite value, which is what the
+        /// reference implementation returns for that case.
+        /// </returns>
+        private static double MovingAverage(double[] values, int centerIndex, int halfWidth)
         {
-            int startcol = col - w > 0 ? col - w : 0;
-            int endcol = col + w < v.Length - 1 ? col + w + 1 : v.Length - 1;
+            int start = Math.Max(centerIndex - halfWidth, 0);
+            int end = Math.Min(centerIndex + halfWidth + 1, values.Length); // exclusive
 
-            int z = 0;
-            double s = 0.0; 
+            int finiteCount = 0;
+            double sum = 0.0;
+            for (int i = start; i < end; i++)
+            {
+                // R_FINITE in the reference: a NaN or infinity is skipped rather than propagated.
+                if (!double.IsFinite(values[i]))
+                {
+                    continue;
+                }
 
-            for(int i = startcol; i < endcol; i++)
-            {
-                z++;
-                s += v[i];
+                finiteCount++;
+                sum += values[i];
             }
-            if (z == 0)
-            {
-                return double.NaN; 
-            }
-            return s / (double)z; 
+
+            return finiteCount == 0 ? double.NaN : sum / finiteCount;
         }
     }
 }
