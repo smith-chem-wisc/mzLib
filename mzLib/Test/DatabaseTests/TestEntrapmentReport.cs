@@ -443,4 +443,66 @@ public class EntrapmentReportTests
         Assert.That(guarded.UnrepairableRunCollisions, Is.EqualTo(1));
         Assert.That(builder.Build().Total.UnrepairableRunCollisions, Is.EqualTo(1));
     }
+
+    [Test]
+    public void ExclusionTableNamesTheUnrepairableCollisions()
+    {
+        // A count tells a consumer how much to distrust an entrapment total; only the sequences let
+        // it subtract them. This is the form the glyco project asked for.
+        IDigestionParams digestion = Tryptic;
+        const string target = "MSTQAEVDLNSGWKAAR";
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        string run = free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_;
+
+        var protein = new Protein(target, "P00001");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion,
+            new HashSet<string> { run }, out EntrapmentAssembly guarded);
+        builder.Add(protein, 0, guarded);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(guarded.UnrepairableRunCollisionPeptides, Is.EqualTo(new[] { run }),
+            "the offending peptide itself, not merely a tally");
+        Assert.That(report.UnrepairableRunCollisionsByAccession["P00001"], Does.Contain(run));
+
+        string[] lines = report.ExclusionsToTabSeparated()
+            .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
+        Assert.That(lines[0], Is.EqualTo("accession\tpeptide\treason"));
+        Assert.That(lines, Does.Contain("P00001\t" + run + "\tunrepairableRunCollision"));
+    }
+
+    [Test]
+    public void ExclusionTableNamesTheAmbiguousPeptides()
+    {
+        IDigestionParams digestion = Tryptic;
+        // P57071 really does contain LIHTGVK and LIHTVGK -- same composition, same pinned K, so the
+        // pairing key cannot tell them apart and both must be excluded rather than guessed between.
+        var protein = new Protein("MSTQAEVDLNSGWKLIHTGVKLIHTVGKALADQMNLLLSK", "P00002");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+
+        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        builder.Add(protein, 0, assembly);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.AmbiguousPeptidesByAccession.ContainsKey("P00002"), Is.True,
+            "fixture must actually produce an ambiguous pair, or it proves nothing");
+        Assert.That(report.AmbiguousPeptidesByAccession["P00002"],
+            Is.SupersetOf(new[] { "LIHTGVK", "LIHTVGK" }));
+
+        string table = report.ExclusionsToTabSeparated();
+        Assert.That(table, Does.Contain("P00002\tLIHTGVK\tambiguous"));
+        Assert.That(table, Does.Contain("P00002\tLIHTVGK\tambiguous"));
+    }
+
+    [Test]
+    public void ExclusionTableIsAHeaderWhenNothingIsExcluded()
+    {
+        // An empty answer is a real answer, and must not look like a missing file.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        string table = builder.Build().ExclusionsToTabSeparated();
+
+        Assert.That(table.Trim(), Is.EqualTo("accession\tpeptide\treason"));
+    }
 }

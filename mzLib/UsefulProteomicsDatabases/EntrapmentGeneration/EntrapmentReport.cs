@@ -129,11 +129,72 @@ public sealed class EntrapmentStratum
 public sealed class EntrapmentReport
 {
     internal EntrapmentReport(EntrapmentProvenance provenance, IReadOnlyList<EntrapmentStratum> strata,
-        EntrapmentStratum total)
+        EntrapmentStratum total,
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> ambiguousByAccession,
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> unrepairableByAccession)
     {
         Provenance = provenance;
         Strata = strata;
         Total = total;
+        AmbiguousPeptidesByAccession = ambiguousByAccession;
+        UnrepairableRunCollisionsByAccession = unrepairableByAccession;
+    }
+
+    /// <summary>
+    /// Target peptides that cannot be traced back to one target, by accession -- two peptides of the
+    /// same protein sharing a composition-and-pinning key.
+    /// </summary>
+    /// <remarks>
+    /// A consumer computing the paired FDP estimator has to exclude the <i>same</i> peptides this
+    /// generator excluded, or its <c>r = 1</c> assumption fails silently -- no error, just a wrong
+    /// number. That is only possible if it can see which ones they are, so the list is the
+    /// deliverable and the count is the summary.
+    /// </remarks>
+    public IReadOnlyDictionary<string, IReadOnlyCollection<string>> AmbiguousPeptidesByAccession { get; }
+
+    /// <summary>
+    /// Entrapment missed-cleavage peptides that are also real target peptides, by target accession.
+    /// </summary>
+    /// <remarks>
+    /// A search matching one of these counts a <i>true</i> peptide as an entrapment discovery. They
+    /// could not be permuted away because the run's final piece has only one arrangement, and this
+    /// project counts collisions rather than repairing them by backtracking or excising a good
+    /// piece. Excluding them is the consumer's call, and needs the sequences.
+    /// </remarks>
+    public IReadOnlyDictionary<string, IReadOnlyCollection<string>> UnrepairableRunCollisionsByAccession { get; }
+
+    /// <summary>
+    /// The two exclusion lists as a tab-separated table: <c>accession, peptide, reason</c>.
+    /// </summary>
+    /// <remarks>
+    /// A sidecar rather than more columns on the stratified table, because these are per-peptide
+    /// facts and that table is per-stratum. Empty but for its header when nothing is excluded, which
+    /// is a meaningful answer rather than a missing file.
+    /// </remarks>
+    public string ExclusionsToTabSeparated()
+    {
+        var text = new StringBuilder();
+        text.AppendLine(string.Join("\t", "accession", "peptide", "reason"));
+
+        foreach ((string accession, IReadOnlyCollection<string> peptides) in
+                 AmbiguousPeptidesByAccession.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
+            {
+                text.AppendLine(string.Join("\t", accession, peptide, "ambiguous"));
+            }
+        }
+
+        foreach ((string accession, IReadOnlyCollection<string> peptides) in
+                 UnrepairableRunCollisionsByAccession.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
+            {
+                text.AppendLine(string.Join("\t", accession, peptide, "unrepairableRunCollision"));
+            }
+        }
+
+        return text.ToString();
     }
 
     public EntrapmentProvenance Provenance { get; }
@@ -234,6 +295,7 @@ public sealed class EntrapmentReportBuilder
     private readonly Dictionary<int, EntrapmentStratum> _strata = new();
     private readonly HashSet<string> _countedTargetPieces = new();
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
+    private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
 
     /// <param name="siteCounter">What to stratify by, e.g.
     /// <see cref="EntrapmentReport.CountResidues"/>("ST"). Null puts everything in one stratum.</param>
@@ -313,6 +375,16 @@ public sealed class EntrapmentReportBuilder
         StratumFor(string.Empty).MissedCleavagePeptidesSpanningAnExcision +=
             assembly.MissedCleavagePeptidesSpanningAnExcision;
         StratumFor(string.Empty).UnrepairableRunCollisions += assembly.UnrepairableRunCollisions;
+        if (assembly.UnrepairableRunCollisionPeptides.Count > 0)
+        {
+            if (!_unrepairableByAccession.TryGetValue(target.Accession, out List<string>? collisions))
+            {
+                collisions = new List<string>();
+                _unrepairableByAccession[target.Accession] = collisions;
+            }
+
+            collisions.AddRange(assembly.UnrepairableRunCollisionPeptides);
+        }
     }
 
     /// <summary>The finished report.</summary>
@@ -343,7 +415,11 @@ public sealed class EntrapmentReportBuilder
 
         return new EntrapmentReport(provenance,
             _strata.Values.OrderBy(s => s.SiteCount).ToList(),
-            total);
+            total,
+            _ambiguousByAccession.Where(kv => kv.Value.Count > 0)
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
+            _unrepairableByAccession.Where(kv => kv.Value.Count > 0)
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value));
     }
 
     private EntrapmentStratum StratumFor(string peptide)

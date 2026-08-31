@@ -61,14 +61,15 @@ public sealed class EntrapmentAssembly
 {
     internal EntrapmentAssembly(string targetSequence, string entrapmentSequence,
         int[] targetToEntrapmentPosition, IReadOnlyList<EntrapmentPiece> pieces,
-        int missedCleavagePeptidesSpanningAnExcision, int unrepairableRunCollisions)
+        int missedCleavagePeptidesSpanningAnExcision,
+        IReadOnlyList<string> unrepairableRunCollisionPeptides)
     {
         TargetSequence = targetSequence;
         EntrapmentSequence = entrapmentSequence;
         TargetToEntrapmentPosition = targetToEntrapmentPosition;
         Pieces = pieces;
         MissedCleavagePeptidesSpanningAnExcision = missedCleavagePeptidesSpanningAnExcision;
-        UnrepairableRunCollisions = unrepairableRunCollisions;
+        UnrepairableRunCollisionPeptides = unrepairableRunCollisionPeptides;
     }
 
     public string TargetSequence { get; }
@@ -111,7 +112,18 @@ public sealed class EntrapmentAssembly
     /// searchable length of seven residues. A search that matches one counts a real peptide as an
     /// entrapment discovery, so anyone reading an entrapment count needs this number beside it.</para>
     /// </remarks>
-    public int UnrepairableRunCollisions { get; }
+    public int UnrepairableRunCollisions => UnrepairableRunCollisionPeptides.Count;
+
+    /// <summary>
+    /// The actual peptides behind <see cref="UnrepairableRunCollisions"/> -- entrapment
+    /// missed-cleavage peptides that are also real target peptides.
+    /// </summary>
+    /// <remarks>
+    /// A count tells a consumer how much to distrust an entrapment total; the sequences let it
+    /// subtract them. The glyco project asked for the list rather than the number for exactly that
+    /// reason, and a list is the only form in which "exclude these" is actionable.
+    /// </remarks>
+    public IReadOnlyList<string> UnrepairableRunCollisionPeptides { get; }
 
     public int ExcisedCount => Pieces.Count(p => p.Outcome == PieceOutcome.Excised);
 
@@ -164,7 +176,7 @@ public static class EntrapmentAssembler
         // The entrapment pieces already placed, in the order they appear in the entrapment
         // sequence, so a candidate can be tested against the runs it would complete.
         var placed = new List<string>(sites.Count - 1);
-        int unrepairable = 0;
+        var unrepairable = new List<string>();
         int[] map = Enumerable.Repeat(-1, targetSequence.Length).ToArray();
         var retainedTargetIndices = new List<int>(sites.Count - 1);
 
@@ -174,12 +186,12 @@ public static class EntrapmentAssembler
             int length = sites[index + 1] - start;
             string piece = targetSequence.Substring(start, length);
 
-            Func<string, bool>? completesAForbiddenRun =
+            Func<string, string?>? completesAForbiddenRun =
                 RejectRunCollisions(placed, digestionParams.MaxMissedCleavages, forbiddenSequences);
 
             EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(piece, motifs, forbiddenSequences,
                 fold, foldCount, seed, TerminalAnchors(index, sites.Count - 1, length),
-                completesAForbiddenRun);
+                completesAForbiddenRun is null ? null : c => completesAForbiddenRun(c) is not null);
 
             if (partner.Succeeded)
             {
@@ -200,10 +212,11 @@ public static class EntrapmentAssembler
                 AppendPiece(entrapment, map, start, piece, Identity(piece.Length));
                 placed.Add(piece);
                 // Kept verbatim because it has no alternative arrangement, so if it completes a
-                // forbidden run there is nothing to move to. Count it; do not repair it.
-                if (completesAForbiddenRun is not null && completesAForbiddenRun(piece))
+                // forbidden run there is nothing to move to. Name it; do not repair it.
+                string? collision = completesAForbiddenRun?.Invoke(piece);
+                if (collision is not null)
                 {
-                    unrepairable++;
+                    unrepairable.Add(collision);
                 }
                 pieces.Add(new EntrapmentPiece(index, piece, piece,
                     PieceOutcome.KeptVerbatimTooShort, partner.Failure));
@@ -286,7 +299,7 @@ public static class EntrapmentAssembler
     /// Determinism, parallel safety across proteins, and the composition-plus-pinning pairing key
     /// are all unaffected -- the piece is still a permutation of its target piece.</para>
     /// </remarks>
-    private static Func<string, bool>? RejectRunCollisions(List<string> placed,
+    private static Func<string, string?>? RejectRunCollisions(List<string> placed,
         int maxMissedCleavages, IReadOnlySet<string> forbiddenSequences)
     {
         if (maxMissedCleavages < 1 || placed.Count == 0)
@@ -303,17 +316,21 @@ public static class EntrapmentAssembler
             runs[back - 1] = builder.ToString();
         }
 
+        // Returns the offending run rather than a bare true, so a collision that cannot be
+        // repaired can be reported by sequence. A consumer excluding these needs to know which
+        // peptides they are; a count only tells it how much to distrust.
         return candidate =>
         {
             foreach (string run in runs)
             {
-                if (forbiddenSequences.Contains(run + candidate))
+                string whole = run + candidate;
+                if (forbiddenSequences.Contains(whole))
                 {
-                    return true;
+                    return whole;
                 }
             }
 
-            return false;
+            return null;
         };
     }
 
