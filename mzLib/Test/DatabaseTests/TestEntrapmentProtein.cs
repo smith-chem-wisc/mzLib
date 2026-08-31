@@ -515,4 +515,115 @@ public class EntrapmentProteinTests
 
         File.Delete(path);
     }
+
+    /// <summary>
+    /// A protein carrying sequence variants, expanded the way LoadProteinXML expands one: several
+    /// proteins sharing a single consensus. This is the shape a real XML database has, and the
+    /// shape a FASTA database never has -- which is why the defect below only ever showed on the
+    /// XML arm.
+    /// </summary>
+    private static List<Protein> ExpandedVariantProteins()
+    {
+        var insertion = new SequenceVariation(5, 5, "A", "AAA", "Insertion at 5");
+        var substitution = new SequenceVariation(10, 10, "G", "R", "Substitution at 10");
+        var consensus = new Protein("MAAAAGAAAAGKPEPTIDESAMPLERTESTPEPTIDEK", "P00001",
+            sequenceVariations: new List<SequenceVariation> { insertion, substitution });
+
+        return VariantApplication
+            .ApplyAllVariantCombinations(consensus, new List<SequenceVariation> { insertion, substitution },
+                maxCombinations: 10)
+            .Cast<Protein>()
+            .ToList();
+    }
+
+    [Test]
+    public void ExpandedVariantsShareOneConsensus()
+    {
+        // Guard on the fixture itself. A fixture that quietly stopped expanding would make every
+        // assertion below pass without exercising anything -- which is how a previous test in this
+        // suite came to cover a case it never reached.
+        List<Protein> targets = ExpandedVariantProteins();
+
+        Assert.That(targets.Count, Is.GreaterThan(1),
+            "fixture must expand into several proteins, or it does not exercise the case");
+        Assert.That(targets.Select(p => p.ConsensusVariant).Distinct().Count(), Is.EqualTo(1),
+            "the expanded proteins must share a single consensus");
+    }
+
+    [Test]
+    public void OneEntrapmentProteinPerEntryNotPerAppliedVariant()
+    {
+        List<Protein> targets = ExpandedVariantProteins();
+
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
+            targets, Tryptic, NothingForbidden);
+
+        // One per database ENTRY. The target list holds several proteins but the database holds one
+        // entry, because variants are annotations on a consensus rather than entries of their own.
+        Assert.That(entrapment.Count, Is.EqualTo(1));
+        Assert.That(entrapment[0].IsEntrapment, Is.True);
+        Assert.That(entrapment[0].Accession, Is.EqualTo("Random_P00001_f0"),
+            "the accession must name the consensus, not an applied variant");
+    }
+
+    [Test]
+    public void EntrapmentEntriesEqualTargetEntriesInTheWrittenDatabase()
+    {
+        // The assertion that matters, and the one no earlier test made: count what survives the
+        // WRITE. Everything the suite asserted about entrapment proteins was true of the in-memory
+        // list and still produced a database with 2.56 entrapment entries per target, because
+        // ProteinDbWriter persists one entry per consensus and entrapment proteins are each their
+        // own consensus.
+        List<Protein> targets = ExpandedVariantProteins();
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
+            targets, Tryptic, NothingForbidden);
+
+        string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "entrapment_entry_parity.xml");
+        ProteinDbWriter.WriteXmlDatabase(null, targets.Concat(entrapment).ToList(), path);
+
+        string written = File.ReadAllText(path);
+        int entries = System.Text.RegularExpressions.Regex.Matches(written, "<entry ").Count;
+        int entrapmentEntries = System.Text.RegularExpressions.Regex
+            .Matches(written, "<accession>Random_").Count;
+
+        Assert.That(entries, Is.EqualTo(2), "one target entry and one entrapment entry");
+        Assert.That(entrapmentEntries, Is.EqualTo(1));
+        Assert.That(entries - entrapmentEntries, Is.EqualTo(entrapmentEntries),
+            "the database must hold one entrapment entry per target entry");
+
+        File.Delete(path);
+    }
+
+    [Test]
+    public void EveryFoldGetsOneEntryPerTarget()
+    {
+        List<Protein> targets = ExpandedVariantProteins();
+
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
+            targets, Tryptic, NothingForbidden, foldCount: 3);
+
+        Assert.That(entrapment.Count, Is.EqualTo(3));
+        Assert.That(entrapment.Select(p => p.Accession).ToList(),
+            Is.EquivalentTo(new[] { "Random_P00001_f0", "Random_P00001_f1", "Random_P00001_f2" }));
+    }
+
+    [Test]
+    public void AFastaStyleListWithNoVariantsIsUnchangedByTheEntryRule()
+    {
+        // The FASTA path was always correct, and must stay that way: no consensus sharing, so every
+        // protein is its own entry and every one gets a partner.
+        var targets = new List<Protein>
+        {
+            new Protein(Sequence, "P00001"),
+            new Protein(Sequence, "P00002"),
+        };
+
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
+            targets, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.Count, Is.EqualTo(2));
+        Assert.That(entrapment.Select(p => p.Accession).ToList(),
+            Is.EquivalentTo(new[] { "Random_P00001_f0", "Random_P00002_f0" }));
+    }
 }

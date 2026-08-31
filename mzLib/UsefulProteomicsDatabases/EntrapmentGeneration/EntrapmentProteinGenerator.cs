@@ -17,6 +17,93 @@ namespace UsefulProteomicsDatabases.EntrapmentGeneration;
 public static class EntrapmentProteinGenerator
 {
     /// <summary>
+    /// The entrapment partners for a whole target database: one per database <b>entry</b>, per fold.
+    /// </summary>
+    /// <param name="targets">The target proteins, as a loader returns them.</param>
+    /// <param name="digestionParams">Supplies the cleavage sites, and the minimum peptide length
+    /// below which a piece is not identifiable on its own.</param>
+    /// <param name="forbiddenSequences">Sequences no partner peptide may equal, normally every
+    /// target peptide in the database.</param>
+    /// <param name="foldCount">Partners per target -- the <c>r</c> of an r-fold database.</param>
+    /// <param name="seed">Changes every choice reproducibly.</param>
+    /// <remarks>
+    /// <para><b>Why this exists, and why it is not a <c>foreach</c> over the list.</b> A protein
+    /// database is a list of entries, but a loader does not hand back a list of entries: it applies
+    /// each entry's sequence variations and hands back one protein per applied combination, all of
+    /// them sharing one <see cref="Protein.ConsensusVariant"/>. Loading the reviewed human XML gives
+    /// 52,337 proteins from 20,416 entries.</para>
+    /// <para>Generating a partner for each of those proteins produces 52,337 entrapment proteins,
+    /// and because each is constructed fresh it is its own consensus.
+    /// <see cref="ProteinDbWriter.WriteXmlDatabase"/> writes one entry per distinct consensus, so
+    /// the targets fold back to 20,416 entries and the entrapment proteins do not fold at all. The
+    /// database that reaches a search engine then holds <b>2.56 entrapment entries per target</b>,
+    /// while every FDP estimator reading it is told <c>r = 1</c>. Measured, not hypothetical: it is
+    /// what the human XML arm of this project's own experiment was searched against.</para>
+    /// <para>So the unit of entrapment is the entry. A sequence variant is an annotation on an
+    /// entry, not an entry of its own, and an entrapment partner for every point variant of a
+    /// protein is not something anyone asked for -- it is only what a naive loop produces. The
+    /// FASTA path is unaffected either way, because a FASTA has no variants and every protein is
+    /// already its own consensus.</para>
+    /// </remarks>
+    public static List<Protein> GenerateEntrapment(IEnumerable<Protein> targets,
+        IDigestionParams digestionParams, IReadOnlySet<string> forbiddenSequences,
+        int foldCount = 1, int seed = 1,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
+    {
+        if (targets is null)
+        {
+            throw new MzLibException("Cannot build entrapment proteins from a null target list.");
+        }
+
+        var entrapment = new List<Protein>();
+        foreach (Protein entry in DatabaseEntries(targets))
+        {
+            for (int fold = 0; fold < foldCount; fold++)
+            {
+                entrapment.Add(Create(entry, digestionParams, forbiddenSequences, fold, foldCount,
+                    seed, entrapmentIdentifier));
+            }
+        }
+
+        return entrapment;
+    }
+
+    /// <summary>
+    /// The entries behind a loaded protein list: each distinct consensus, once, in the order first
+    /// seen. This is the list an entrapment database is one-to-one with, and the list a database
+    /// writer will persist.
+    /// </summary>
+    /// <remarks>
+    /// <para>Public because <see cref="GenerateEntrapment"/> cannot serve every caller: building the
+    /// QC report needs the <see cref="EntrapmentAssembly"/> of each partner, which only the
+    /// per-protein <see cref="Create(Protein, IDigestionParams, IReadOnlySet{string}, out EntrapmentAssembly, int, int, int, string)"/>
+    /// overload returns. Such a caller must iterate the same entries, and should not have to
+    /// re-derive what an entry is.</para>
+    /// <para>Keyed by reference, not by value. <see cref="Protein"/> overrides <c>Equals</c>, and the
+    /// question here is which entry a protein came from -- object identity -- rather than whether
+    /// two proteins happen to look alike. <see cref="DecoyProteinGenerator"/> keys its own consensus
+    /// map the same way and for the same reason.</para>
+    /// </remarks>
+    public static IEnumerable<Protein> DatabaseEntries(IEnumerable<Protein> targets)
+    {
+        var seen = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        foreach (Protein target in targets)
+        {
+            if (target is null)
+            {
+                continue;
+            }
+
+            // A protein with no variants is its own consensus, so this is the protein itself.
+            Protein entry = target.ConsensusVariant as Protein ?? target;
+            if (seen.Add(entry))
+            {
+                yield return entry;
+            }
+        }
+    }
+
+    /// <summary>
     /// The entrapment partner of <paramref name="target"/> for one fold.
     /// </summary>
     /// <param name="target">The target protein.</param>
