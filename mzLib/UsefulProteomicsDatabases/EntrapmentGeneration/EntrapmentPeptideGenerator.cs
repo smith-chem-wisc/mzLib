@@ -120,9 +120,16 @@ public static class EntrapmentPeptideGenerator
     /// <param name="alsoHeldInPlace">Extra zero-based positions within this peptide to hold still
     /// on top of the cleavage sites. The assembler uses this to anchor a protein's termini, so a
     /// modification restricted to one of them survives the rearrangement.</param>
+    /// <param name="rejectInContext">An extra test a candidate must pass, on top of not being a
+    /// forbidden sequence itself. The assembler uses this to reject a candidate that would make a
+    /// *missed-cleavage* peptide equal to a real target peptide: this generator sees one base piece
+    /// at a time, and a missed-cleavage peptide is a run of adjacent pieces, so a concatenation can
+    /// collide even when none of its parts does. Measured before this existed: 2,094 peptides
+    /// (0.076%) appeared in both the target and entrapment sets, 2,090 of them with a missed
+    /// cleavage.</param>
     public static EntrapmentPeptide Create(string targetSequence, List<DigestionMotif> motifs,
         IReadOnlySet<string> forbiddenSequences, int fold = 0, int foldCount = 1, int seed = 1,
-        IReadOnlyCollection<int>? alsoHeldInPlace = null)
+        IReadOnlyCollection<int>? alsoHeldInPlace = null, Func<string, bool>? rejectInContext = null)
     {
         if (string.IsNullOrEmpty(targetSequence))
         {
@@ -163,7 +170,8 @@ public static class EntrapmentPeptideGenerator
             string candidate = DecoySequenceValidator.UnrankPermutation(targetSequence, motifs, index,
                 out int[] swapped, alsoHeldInPlace);
 
-            if (candidate != targetSequence && !forbiddenSequences.Contains(candidate))
+            if (candidate != targetSequence && !forbiddenSequences.Contains(candidate)
+                && (rejectInContext is null || !rejectInContext(candidate)))
             {
                 return new EntrapmentPeptide(targetSequence, candidate, swapped, fold, size,
                     (int)(step + BigInteger.One), EntrapmentFailure.None);

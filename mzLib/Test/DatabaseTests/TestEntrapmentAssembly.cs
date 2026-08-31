@@ -254,4 +254,117 @@ public class EntrapmentAssemblyTests
         Assert.That(sequences.All(s => Sorted(s) == Sorted(target)), Is.True,
             "every fold stays isomeric with the target");
     }
+
+    // The first piece must be long enough that anchoring the protein's first two positions still
+    // leaves a permutation space -- "SYK" has none once positions 0, 1 and the cleavage K are all
+    // held, and the assembler then keeps it verbatim instead of permuting it.
+    private const string FourPieces = "MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK";
+
+    /// <summary>
+    /// The concatenation of the first two entrapment pieces, built with nothing forbidden. Deriving
+    /// the fixture this way rather than hand-writing a sequence guarantees the collision case is
+    /// actually reached: whatever the generator produces, that exact run is what gets forbidden.
+    /// </summary>
+    private static (EntrapmentAssembly Free, string Run) FirstRun(IDigestionParams digestion)
+    {
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(FourPieces, digestion, NothingForbidden);
+        Assert.That(free.Pieces.Count, Is.GreaterThan(2), "fixture must have several base pieces");
+        Assert.That(free.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Permuted));
+        Assert.That(free.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.Permuted));
+        return (free, free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_);
+    }
+
+    [Test]
+    public void ARunThatWouldEqualARealPeptideIsRejected()
+    {
+        IDigestionParams digestion = Tryptic();
+        (EntrapmentAssembly free, string run) = FirstRun(digestion);
+
+        // Forbid exactly the missed-cleavage peptide the free build would have produced. Neither
+        // piece is forbidden on its own, so only a run-aware check can avoid it.
+        var forbidden = new HashSet<string> { run };
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(FourPieces, digestion, forbidden);
+
+        string guardedRun = guarded.Pieces[0].EntrapmentPiece_ + guarded.Pieces[1].EntrapmentPiece_;
+        Assert.That(guardedRun, Is.Not.EqualTo(run), "the forbidden run must not be emitted");
+        Assert.That(guarded.EntrapmentSequence, Does.Not.Contain(run));
+
+        // The first piece has nothing before it, so no run ends at it and it is free to stay put.
+        Assert.That(guarded.Pieces[0].EntrapmentPiece_, Is.EqualTo(free.Pieces[0].EntrapmentPiece_));
+
+        // Avoiding the collision must not cost isomerism: the replacement is still a rearrangement.
+        Assert.That(Sorted(guarded.Pieces[1].EntrapmentPiece_),
+            Is.EqualTo(Sorted(free.Pieces[1].EntrapmentPiece_)));
+        Assert.That(Sorted(guardedRun), Is.EqualTo(Sorted(run)));
+    }
+
+    [Test]
+    public void RunCheckingIsOffWhenTheDigestionAllowsNoMissedCleavages()
+    {
+        // With no missed cleavages there are no runs to collide, so forbidding a concatenation must
+        // change nothing -- otherwise the check is firing where it has no business.
+        IDigestionParams noMissed = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(FourPieces, noMissed, NothingForbidden);
+        string run = free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_;
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(FourPieces, noMissed,
+            new HashSet<string> { run });
+
+        Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence));
+    }
+
+    [Test]
+    public void RunCheckingKeepsTheConstructionDeterministic()
+    {
+        IDigestionParams digestion = Tryptic();
+        (_, string run) = FirstRun(digestion);
+        var forbidden = new HashSet<string> { run };
+
+        EntrapmentAssembly first = EntrapmentAssembler.Assemble(FourPieces, digestion, forbidden);
+        EntrapmentAssembly second = EntrapmentAssembler.Assemble(FourPieces, digestion, forbidden);
+
+        Assert.That(second.EntrapmentSequence, Is.EqualTo(first.EntrapmentSequence));
+    }
+
+    [Test]
+    public void ACollisionOnAPieceWithNoAlternativeIsCountedNotRepaired()
+    {
+        // "AAR" holds its R as a cleavage site and has two identical A's left, so it has exactly one
+        // arrangement. When a run ending there equals a real peptide there is no candidate to move
+        // to, and the project's rule is to count such a collision rather than repair it by
+        // backtracking or excising a good piece.
+        IDigestionParams digestion = Tryptic();
+        const string target = "MSTQAEVDLNSGWKAAR";
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        Assert.That(free.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooShort),
+            "fixture must end in a piece with no alternative arrangement");
+        Assert.That(free.UnrepairableRunCollisions, Is.Zero);
+
+        string run = free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_;
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(target, digestion,
+            new HashSet<string> { run });
+
+        Assert.That(guarded.UnrepairableRunCollisions, Is.EqualTo(1));
+        Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence),
+            "nothing is silently repaired -- the sequence is unchanged and the collision is reported");
+    }
+
+    [Test]
+    public void ARunSpanningThreePiecesIsCheckedToo()
+    {
+        // maxMissedCleavages = 2 means a peptide can span three base pieces, so the check must look
+        // back two, not one. Forbidding the three-piece run exercises the deeper lookback.
+        IDigestionParams digestion = Tryptic();
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(FourPieces, digestion, NothingForbidden);
+        string longRun = free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_
+                         + free.Pieces[2].EntrapmentPiece_;
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(FourPieces, digestion,
+            new HashSet<string> { longRun });
+
+        Assert.That(guarded.EntrapmentSequence, Does.Not.Contain(longRun));
+        Assert.That(Sorted(guarded.Pieces[2].EntrapmentPiece_),
+            Is.EqualTo(Sorted(free.Pieces[2].EntrapmentPiece_)));
+    }
 }
