@@ -11,6 +11,9 @@ namespace Quantification.Strategies
     {
         public string Name => "No Collapse";
 
+        /// <inheritdoc />
+        public bool RequiresAggregation => false;
+
         public QuantMatrix<T> CollapseSamples<T>(QuantMatrix<T> quantMatrix, IAggregationStrategy aggregation)
             where T : IEquatable<T>
         {
