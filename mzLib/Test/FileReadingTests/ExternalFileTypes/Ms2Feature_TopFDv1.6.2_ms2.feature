@@ -1,0 +1,6 @@
+Spec_ID	Fraction_ID	File_name	Scans	MS_one_ID	MS_one_scans	Precursor_mass	Precursor_intensity	Fraction_feature_ID	Fraction_feature_intensity	Fraction_feature_score	Fraction_feature_time_apex	Sample_feature_ID	Sample_feature_intensity
+0	0	D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML	614	612	613	6937.649520000001	145784.16	20141	141018972.3899998	-1000	1321.02	20141	141018972.3899998
+1	0	D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML	634	631	633	6936.649710000001	276694.37	20141	141018972.3899998	-1000	1321.02	20141	141018972.3899998
+2	0	D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML	650	646	649	6659.812930000001	6435654.67	456	1062336584.799999	42.0246937	1936.14	456	1062336584.799999
+2807	0	D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML	5552	2743	5550	11400.29949	92415.67	20443	5236414.149999998	-1000	5260.89	20443	5236414.149999998
+2808	0	D:/Averaging/Rep1CalibCentroidAverageCentroid/id_02-17-20_jurkat_td_rep1_fract2-calib-centroided-averaged-centroided.mzML	5555	2745	5554	11299.3603	117824.17	20402	10451720.37999999	-1000	5267.55	20402	10451720.37999999

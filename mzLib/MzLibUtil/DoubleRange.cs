@@ -16,6 +16,9 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
+using System.Collections.Generic;
+using System.Linq;
+
 namespace MzLibUtil
 {
     public class DoubleRange
@@ -79,12 +82,20 @@ namespace MzLibUtil
             return $"[{Minimum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)};{Maximum.ToString(format, System.Globalization.CultureInfo.InvariantCulture)}]";
         }
 
+        /// <summary>
+        /// Compares the DoubleRange to a double 'item' passed in.
+        /// If the 'item' falls below the range, 1 is returned (the range is greater than the item)
+        /// If the 'item' falls above the range, -1 is returned (the range is less than the item)
+        /// If the 'item' falls within the range, 0 is returned
+        /// </summary>
+        /// <param name="item"> A double the range will be compared against </param>
+        /// <returns> 1, 0, or -1 </returns>
         public int CompareTo(double item)
         {
             if (Minimum.CompareTo(item) > 0)
-                return -1;
-            if (Maximum.CompareTo(item) < 0)
                 return 1;
+            if (Maximum.CompareTo(item) < 0)
+                return -1;
             return 0;
         }
 
@@ -126,6 +137,16 @@ namespace MzLibUtil
         public bool Contains(double item)
         {
             return CompareTo(item).Equals(0);
+        }
+
+        /// <summary>
+        /// Determines if a majority of the items are within the range of values
+        /// </summary>
+        /// <param name="items"></param>
+        /// <returns></returns>
+        public bool ContainsMajority(IEnumerable<double> items)
+        {
+            return items.Count(Contains) > items.Count() / 2;
         }
     }
 }

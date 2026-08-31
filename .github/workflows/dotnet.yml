@@ -6,34 +6,160 @@ on:
   pull_request:
     branches: [ master ]
 
+env:
+  DOTNET_VERSION: 10.0.x
+
 jobs:
   build:
     runs-on: windows-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v7
     - name: Set up .NET
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v6
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: ${{ env.DOTNET_VERSION }}
     - name: Restore dependencies
       run: cd mzLib && dotnet restore
+    # Request the platform explicitly. The solution offers both x64 and Any CPU, and MSBuild silently
+    # prefers Any CPU as a solution's default, so an unqualified build would depend on that preference
+    # rather than on anything stated here. Any CPU is what the released package is built as.
     - name: Build
-      run: cd mzLib && dotnet build --no-restore
+      run: cd mzLib && dotnet build --no-restore /p:Platform="Any CPU"
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
-    - name: Build (TestFlashLFQ)
-      run: cd mzLib && dotnet build --no-restore ./TestFlashLFQ/TestFlashLFQ.csproj
+    # A '.' in a test name is spliced into the fully-qualified name, which Test Explorer / vstest
+    # split on '.' -- fragmenting the tree into phantom nodes that cannot be expanded or run.
+    # Runs before the suite so a naming regression fails in seconds rather than after the full run.
+    - name: Check test name hygiene
+      shell: pwsh
+      run: ./.github/scripts/Check-TestNameHygiene.ps1 -Project mzLib/Test/Test.csproj -NoBuild
     - name: Add coverlet collector (Test)
-      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector
-    - name: Add coverlet collector (TestFlashLFQ)
-      run: cd mzLib && dotnet add TestFlashLFQ/TestFlashLFQ.csproj package coverlet.collector
+      run: cd mzLib && dotnet add Test/Test.csproj package coverlet.collector -v 6.0.2
     - name: Test
-      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
-    - name: TestFlashLFQ
-      run: cd mzLib && dotnet test --no-build --verbosity normal --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./TestFlashLFQ/TestFlashLFQ.csproj
-    - name: Codecov
-      uses: codecov/codecov-action@v2
+      # Exclude live external-service tests (Koina, UniProt, PRIDE) from the required run; they run in
+      # the separate, non-blocking external-service job below.
+      #
+      # The exclusion lives in Test/required.runsettings as an NUnit Where clause, NOT as
+      # --filter "Category!=ExternalService". That filter did not actually exclude them: live UniProt
+      # tests were observed running in THIS job on 2026-08-21, and once the download grew a real
+      # inactivity deadline they cost minutes apiece and pushed the job past its budget. See the
+      # runsettings file for why VSTest trait filtering and NUnit categories disagree here.
+      run: cd mzLib && dotnet test --no-build --verbosity normal --settings ./Test/required.runsettings --collect:"XPlat Code Coverage" /p:CoverletOutputFormat=cobertura ./Test/Test.csproj
+    - name: Upload coverage to Codecov
+      # token/files/verbose are action INPUTS and must sit under `with:`. They were previously under
+      # `env:`, where they became ordinary lowercase environment variables that the action never reads
+      # -- so this explicit glob was inert and coverage only uploaded because the action falls back to
+      # searching the workspace for report files.
+      #
+      # v7 rather than v5: v5 is a composite action but still pins actions/github-script@v7.0.1, which
+      # is node20, so it would keep emitting the deprecation warning. v6 is the first major to move
+      # that inner action to github-script@v8 (node24).
+      uses: codecov/codecov-action@v7
       with:
-        verbose: true
+        token: ${{ secrets.CODECOV_TOKEN }}
         files: mzLib/Test*/TestResults/*/coverage.cobertura.xml
+        verbose: true
+  # Runs mzLib's live external-service tests (Koina). Intentionally NOT a required status check, so a
+  # third-party outage never blocks a PR; the tests self-classify (outage -> Skipped, real break -> Fail).
+  # Do NOT add this job to branch-protection required checks.
+  #
+  # Headroom, not a bound. What actually bounds a run now lives in ProteinDbRetriever: 2 minutes for a
+  # service to start responding, then a 2-minute inactivity deadline on the transfer itself. Before
+  # those existed a stalled download had no deadline at all, one live test spent 12m43s of the budget
+  # and the runner cancelled the job -- which reports as a red check on every open PR, exactly the
+  # "an outage blocks a PR" outcome the paragraph above exists to prevent. With the deadlines in place
+  # a hang is no longer possible, but a dozen live tests each waiting out a stall still add up, so the
+  # budget carries some slack above the ~15 minutes a healthy run takes.
+  external-service-tests:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+    - uses: actions/checkout@v7
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    - name: Build (Test)
+      run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
+    - name: Test (external services)
+      run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category=ExternalService" ./Test/Test.csproj
+  integration:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+    - uses: actions/checkout@v7
+    # This job builds MetaMorpheus as well as mzLib, so it needs whatever SDK MetaMorpheus's
+    # global.json asks for. setup-dotnet installs into a user-local dotnet root and the resolver then
+    # sees ONLY what this step installed, so the runner's preinstalled SDKs do not count. Both repos
+    # are on .NET 10, so one band. Note this job cannot pass while mzLib's target framework is ahead
+    # of MetaMorpheus's -- a net10.0-only package is NU1202-incompatible with a net8.0 consumer, which
+    # no amount of installed SDKs fixes -- so mzLib retargets only after MetaMorpheus does.
+    - name: Set up .NET
+      uses: actions/setup-dotnet@v6
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+    - name: Restore dependencies
+      run: cd mzLib && dotnet restore
+    # Any CPU is requested explicitly so this job's output lands in bin/Release, which is where
+    # mzLib.nuspec looks. Relying on MSBuild's implicit preference for Any CPU would make the pack step
+    # below depend on the ordering of a platform list rather than on an intent stated here.
+    - name: Build
+      run: cd mzLib && dotnet build --no-restore --configuration Release /p:Platform="Any CPU"
+    - name: Change mzLib version, pack, add source
+      run: |
+        cd mzLib;
+        (Get-Content mzLib.nuspec) -replace "\<version\>(.*)\</version\>", "<version>9.9.9</version>" | Set-Content mzLib.nuspec; 
+        $mzlibMatch = Select-String -Path mzLib.nuspec -Pattern "(?<=\<version\>)(.*)(?=\</version)";
+        $mzlibVersion = $mzlibMatch.Matches[0].Value;
+        echo "mzLib version number changed to: $mzlibVersion";
+        nuget pack;
+        $currentFolder = pwd;
+        dotnet nuget add source $currentFolder;
+        dotnet nuget list source;
+    - name: Clone MetaMorpheus
+      uses: actions/checkout@v7
+      with:
+        path: ./MetaMorpheus
+        repository: smith-chem-wisc/MetaMorpheus 
+        ref: master
+    - name: Change MetaMorpheus mzLib version and restore
+      run: |
+        cd ./MetaMorpheus/MetaMorpheus;
+        dotnet remove CMD/CMD.csproj package mzLib;
+        dotnet add CMD/CMD.csproj package mzLib -v 9.9.9;
+        dotnet remove GUI/GUI.csproj package mzLib;
+        dotnet add GUI/GUI.csproj package mzLib -v 9.9.9;
+        dotnet remove GuiFunctions/GuiFunctions.csproj package mzLib;
+        dotnet add GuiFunctions/GuiFunctions.csproj package mzLib -v 9.9.9;
+        dotnet remove EngineLayer/EngineLayer.csproj package mzLib;
+        dotnet add EngineLayer/EngineLayer.csproj package mzLib -v 9.9.9;
+        dotnet remove Test/Test.csproj package mzLib;
+        dotnet add Test/Test.csproj package mzLib -v 9.9.9;
+        dotnet remove TaskLayer/TaskLayer.csproj package mzLib;
+        dotnet add TaskLayer/TaskLayer.csproj package mzLib -v 9.9.9;
+        dotnet restore;
+    - name: Build MetaMorpheus
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet build --no-restore
+    - name: Test
+      # Exclude live external-service tests from the MetaMorpheus integration run: they gate on third-party
+      # services (UniProt, etc.), are not relevant to mzLib<->MetaMorpheus compatibility, and MetaMorpheus
+      # exercises them in its own non-blocking job. This is what keeps a UniProt outage from reddening
+      # every mzLib PR (this integration job clones MetaMorpheus master and runs its suite).
+      run: cd ./MetaMorpheus/MetaMorpheus && dotnet test --no-build --verbosity normal --filter "Category!=ExternalService"
+    - name: Upload artifact (installer)
+      uses: actions/upload-artifact@v7
+      with:
+        name: MetaMorpheusInstaller
+        path: ./MetaMorpheus/MetaMorpheus/MetaMorpheusSetup/bin/Debug/MetaMorpheusInstaller.msi
+        compression-level: 0
+    - name: Upload artifact (GUI)
+      uses: actions/upload-artifact@v7
+      with:
+        name: MetaMorpheusGUI
+        # Globbed rather than pinned to a framework: this is MetaMorpheus's target framework,
+        # not mzLib's, so the two repos can move independently.
+        path: ./MetaMorpheus/MetaMorpheus/GUI/bin/Debug/net*-windows/
+

@@ -20,14 +20,14 @@ using Chemistry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
 namespace MassSpectrometry
 {
-    public class MzSpectrum
+    public class MzSpectrum : IEquatable<MzSpectrum>
     {
         private const int numAveraginesToGenerate = 1500;
         private static readonly double[][] allMasses = new double[numAveraginesToGenerate][];
@@ -124,7 +124,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? FirstX
+        public virtual double? FirstX
         {
             get
             {
@@ -136,7 +136,7 @@ namespace MassSpectrometry
             }
         }
 
-        public double? LastX
+        public virtual double? LastX
         {
             get
             {
@@ -202,32 +202,7 @@ namespace MassSpectrometry
             }
         }
 
-        public static byte[] Get64Bitarray(IEnumerable<double> array)
-        {
-            var mem = new MemoryStream();
-            foreach (var okk in array)
-            {
-                byte[] ok = BitConverter.GetBytes(okk);
-                mem.Write(ok, 0, ok.Length);
-            }
-            mem.Position = 0;
-            return mem.ToArray();
-        }
-
-        public byte[] Get64BitYarray()
-        {
-            return Get64Bitarray(YArray);
-        }
-
-        public byte[] Get64BitXarray()
-        {
-            return Get64Bitarray(XArray);
-        }
-
-        public override string ToString()
-        {
-            return string.Format("{0} (Peaks {1})", Range, Size);
-        }
+        #region Obsolete Deconvolution Methods, now part of ClassicDeconv
 
         /// <summary>
         /// Shortreed's idea for top-down ms1 deconvolution (Jan. 6, 2020)
@@ -243,7 +218,9 @@ namespace MassSpectrometry
         //}
 
         // Mass tolerance must account for different isotope spacing!
-        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
+        public IEnumerable<IsotopicEnvelope> Deconvolute(MzRange theRange, int minAssumedChargeState,
+            int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit)
         {
             //if no peaks, stop
             if (Size == 0)
@@ -283,6 +260,14 @@ namespace MassSpectrometry
                         double deltaMass = XArray[i] - candidateForMostIntensePeakMz;
                         if (deltaMass < 1.1) //if we're past a Th spacing, we're no longer looking at the closest isotope
                         {
+                            // A duplicated m/z makes deltaMass exactly zero, so 1/deltaMass is infinite. The int
+                            // cast of that changed with .NET 9 - it used to wrap to int.MinValue and now saturates
+                            // to int.MaxValue - so guard rather than rely on either.
+                            if (deltaMass == 0)
+                            {
+                                continue;
+                            }
+
                             //get the lower bound charge state
                             int charge = (int)Math.Floor(1 / deltaMass); //e.g. deltaMass = 0.4 Th, charge is now 2 (but might be 3)
                             if (charge >= minAssumedChargeState && charge <= maxAssumedChargeState)
@@ -309,22 +294,10 @@ namespace MassSpectrometry
                         double testMostIntenseMass = candidateForMostIntensePeakMz.ToMass(chargeState);
 
                         //get the index of the theoretical isotopic envelope for an averagine model that's close in mass
-                        int massIndex = Array.BinarySearch(mostIntenseMasses, testMostIntenseMass);
-                        if (massIndex < 0)
-                        {
-                            massIndex = ~massIndex;
-                        }
-                        if (massIndex == mostIntenseMasses.Length)
-                        {
-                            break;
-                        }
-                        if (massIndex != 0 && mostIntenseMasses[massIndex] - testMostIntenseMass > testMostIntenseMass - mostIntenseMasses[massIndex - 1])
-                        {
-                            massIndex--;
-                        }
+                        int massIndex = mostIntenseMasses.GetClosestIndex(testMostIntenseMass);
 
                         //create a list for each isotopic peak from this envelope. This is used to fine tune the monoisotopic mass and is populated in "FindIsotopicEnvelope"
-                        List<double> monoisotopicMassPredictions = new List<double>(); 
+                        List<double> monoisotopicMassPredictions = new List<double>();
 
                         //Look for other isotopes using the assumed charge state
                         IsotopicEnvelope putativeIsotopicEnvelope = FindIsotopicEnvelope(massIndex, candidateForMostIntensePeakMz, candidateForMostIntensePeakIntensity,
@@ -367,6 +340,7 @@ namespace MassSpectrometry
             }
         }
 
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public IsotopicEnvelope FindIsotopicEnvelope(int massIndex, double candidateForMostIntensePeakMz, double candidateForMostIntensePeakIntensity, double testMostIntenseMass, int chargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
             double[] theoreticalMasses = allMasses[massIndex];
@@ -405,9 +379,10 @@ namespace MassSpectrometry
                 }
             }
 
-            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, Statistics.StandardDeviation(listOfRatios), massIndex);
+            return new IsotopicEnvelope(listOfObservedPeaks, monoisotopicMass, chargeState, totalIntensity, listOfRatios.StandardDeviation());
         }
 
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         public int ObserveAdjacentChargeStates(IsotopicEnvelope originalEnvelope, double mostIntensePeakMz, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, double minChargeToLookFor, double maxChargeToLookFor, List<double> monoisotopicMassPredictions)
         {
             //look for the higher and lower charge states using the proposed mass
@@ -443,6 +418,7 @@ namespace MassSpectrometry
             return numAdjacentChargeStatesObserved;
         }
 
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
         private bool FindChargeStateOfMass(IsotopicEnvelope originalEnvelope, int zToInvestigate, double mostAbundantNeutralIsotopeToInvestigate, int massIndex, double deconvolutionTolerancePpm, double intensityRatioLimit, List<double> monoisotopicMassPredictions)
         {
             //we know the mass and the charge that we're looking for, just see if the expected m/z and its isotopes are there or not
@@ -479,7 +455,68 @@ namespace MassSpectrometry
             }
         }
 
-        public void XCorrPrePreprocessing(double scanRangeMinMz, double scanRangeMaxMz, double precursorMz, double precursorDiscardRange = 1.5, double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
+        public (int start, int end) ExtractIndices(double minX, double maxX)
+        {
+            int start = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            if (XArray[start] <= maxX)
+            {
+                int end = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+                return (start, end);
+            }
+            else
+            {
+                return (1, 0);
+            }
+        }
+
+        [Obsolete("Deconvolution Has been moved to the Deconvoluter Object")]
+        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
+        {
+            var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
+
+            if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
+            {
+                return false;
+            }
+            return true;
+        }
+
+        #endregion
+
+        public static byte[] Get64Bitarray(IEnumerable<double> array)
+        {
+            using (var mem = new MemoryStream())
+            {
+                foreach (var okk in array)
+                {
+                    byte[] ok = BitConverter.GetBytes(okk);
+                    mem.Write(ok, 0, ok.Length);
+                }
+                mem.Position = 0;
+                var memory = mem.ToArray();
+                return memory;
+            }
+        }
+
+        public byte[] Get64BitYarray()
+        {
+            return Get64Bitarray(YArray);
+        }
+
+        public byte[] Get64BitXarray()
+        {
+            return Get64Bitarray(XArray);
+        }
+
+        public override string ToString()
+        {
+            return string.Format("{0} (Peaks {1})", Range, Size);
+        }
+
+        public void XCorrPrePreprocessing(double scanRangeMinMz, double scanRangeMaxMz,
+            double precursorMz, double precursorDiscardRange = 1.5,
+            double discreteMassBin = 1.0005079, double minimumAllowedIntensityRatioToBasePeak = 0.05)
         {
             //The discrete bin value 1.0005079 was from J. Proteome Res., 2018, 17 (11), pp 3644–3656
 
@@ -518,9 +555,13 @@ namespace MassSpectrometry
 
             //we've already filtered for when multiple mzs appear in a single nominal mass bin
             int nominalWindowWidthDaltons = (int)(Math.Round((scanRangeMaxMz - scanRangeMinMz) / 10d, 0));
-            FilteringParams secondFilter = new FilteringParams(null, minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null, true, false, false);
 
-            MsDataFile.WindowModeHelper(ref genericIntensityArray, ref genericMzArray, secondFilter, genericMzArray.Min(), genericMzArray.Max(), true);
+            FilteringParams secondFilter = new FilteringParams(null,
+                minimumAllowedIntensityRatioToBasePeak, nominalWindowWidthDaltons, null,
+                true, false, false);
+
+            WindowModeHelper.Run(ref genericIntensityArray, ref genericMzArray, secondFilter,
+                genericMzArray.Min(), genericMzArray.Max(), true);
 
             Array.Sort(genericMzArray, genericIntensityArray);
 
@@ -571,52 +612,29 @@ namespace MassSpectrometry
             XcorrProcessed = true;
         }
 
-        public (int start, int end) ExtractIndices(double minX, double maxX)
-        {
-            int ind = Array.BinarySearch(XArray, minX);
-            if (ind < 0)
-            {
-                ind = ~ind;
-            }
-            if (ind < Size && XArray[ind] <= maxX)
-            {
-                int start = ind;
-                while (ind < Size && XArray[ind] <= maxX)
-                {
-                    ind++;
-                }
-                ind--;
-                return (start, ind);
-            }
-            else
-            {
-                return (1, 0);
-            }
-        }
-
         public int GetClosestPeakIndex(double x)
         {
-            int index = Array.BinarySearch(XArray, x);
-            if (index >= 0)
-            {
-                return index;
-            }
-            index = ~index;
+            return XArray.GetClosestIndex(x);
+        }
 
-            if (index >= Size)
-            {
-                return index - 1;
-            }
-            if (index == 0)
-            {
-                return index;
-            }
+        public List<int> GetPeakIndicesWithinTolerance(double x, Tolerance tolerance)
+        {
+            if (XArray.Length == 0)
+                return [];
 
-            if (x - XArray[index - 1] > XArray[index] - x)
-            {
-                return index;
-            }
-            return index - 1;
+            // find min and max allowed
+            var minX = tolerance.GetMinimumValue(x);
+            var maxX = tolerance.GetMaximumValue(x);
+
+            // check if min and max are possible to find in this spectrum
+            if (XArray.First() > maxX || XArray.Last() < minX)
+                return [];
+
+            // find index closest to extrema
+            int startingIndex = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            int endIndex = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+
+            return Enumerable.Range(startingIndex, endIndex - startingIndex + 1).ToList();
         }
 
         public void ReplaceXbyApplyingFunction(Func<MzPeak, double> convertor)
@@ -651,31 +669,20 @@ namespace MassSpectrometry
             {
                 return null;
             }
-            return XArray[GetClosestPeakIndex(x)];
+            return XArray.GetClosestValue(x);
         }
 
+        /// <summary>
+        /// Reports the number of peaks between minX and maxX, inclusive
+        /// </summary>
         public int NumPeaksWithinRange(double minX, double maxX)
         {
-            int startingIndex = Array.BinarySearch(XArray, minX);
-            if (startingIndex < 0)
-            {
-                startingIndex = ~startingIndex;
-            }
-            if (startingIndex >= Size)
-            {
+            if (XArray.Last() < minX || XArray.First() > maxX)
                 return 0;
-            }
-            int endIndex = Array.BinarySearch(XArray, maxX);
-            if (endIndex < 0)
-            {
-                endIndex = ~endIndex;
-            }
-            if (endIndex == 0)
-            {
-                return 0;
-            }
 
-            return endIndex - startingIndex;
+            int startingIndex = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
+            int endIndex = XArray.GetClosestIndex(maxX, ArraySearchOption.Previous);
+            return endIndex - startingIndex + 1;
         }
 
         public IEnumerable<MzPeak> FilterByNumberOfMostIntense(int topNPeaks)
@@ -701,11 +708,7 @@ namespace MassSpectrometry
 
         public IEnumerable<MzPeak> Extract(double minX, double maxX)
         {
-            int ind = Array.BinarySearch(XArray, minX);
-            if (ind < 0)
-            {
-                ind = ~ind;
-            }
+            int ind = XArray.GetClosestIndex(minX, ArraySearchOption.Next);
             while (ind < Size && XArray[ind] <= maxX)
             {
                 yield return GetPeak(ind);
@@ -795,16 +798,28 @@ namespace MassSpectrometry
             return numerator / denominator;
         }
 
-        private bool Peak2satisfiesRatio(double peak1theorIntensity, double peak2theorIntensity, double peak1intensity, double peak2intensity, double intensityRatio)
+        public bool Equals(MzSpectrum? other)
         {
-            var comparedShouldBe = peak1intensity / peak1theorIntensity * peak2theorIntensity;
-
-            if (peak2intensity < comparedShouldBe / intensityRatio || peak2intensity > comparedShouldBe * intensityRatio)
-            {
-                return false;
-            }
-            return true;
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return (XArray.SequenceEqual(other.XArray) && YArray.SequenceEqual(other.YArray));
         }
+
+        public override bool Equals(object? spectrumToCompare)
+        {
+            if (ReferenceEquals(null, spectrumToCompare)) return false;
+            if (ReferenceEquals(this, spectrumToCompare)) return true;
+            if (spectrumToCompare.GetType() != this.GetType()) return false;
+            return Equals((MzSpectrum)spectrumToCompare);
+        }
+
+        public override int GetHashCode()
+        {
+            return ((IStructuralEquatable)XArray).GetHashCode(EqualityComparer<double>.Default) +
+                   ((IStructuralEquatable)YArray).GetHashCode(EqualityComparer<double>.Default) +
+                   XArray.Sum().GetHashCode() + YArray.Sum().GetHashCode();
+        }
+
 
         private MzPeak GetPeak(int index)
         {
@@ -815,7 +830,12 @@ namespace MassSpectrometry
             return peakList[index];
         }
 
-        private MzPeak GeneratePeak(int index)
+        /// <summary>
+        /// The source of all peaks which populate the peakList
+        /// </summary>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        protected virtual MzPeak GeneratePeak(int index)
         {
             return new MzPeak(XArray[index], YArray[index]);
         }

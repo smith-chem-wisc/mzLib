@@ -1,20 +1,33 @@
-﻿ using Chemistry;
+﻿using Chemistry;
+using Chromatography.RetentionTimePrediction;
 using MassSpectrometry;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Fragmentation.Peptide;
+using Omics.Modifications;
 using Proteomics.AminoAcidPolymer;
-using Proteomics.Fragmentation;
 using System;
 using System.Collections.Generic;
+using System.Data;
 using System.Linq;
 using System.Text;
+using MzLibUtil;
+using ClassExtensions = Chemistry.ClassExtensions;
 
 namespace Proteomics.ProteolyticDigestion
 {
     [Serializable]
-    public class PeptideWithSetModifications : ProteolyticPeptide
+    public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IRetentionPredictable,  IEquatable<PeptideWithSetModifications>
     {
-        public string FullSequence { get; private set; } //sequence with modifications
-        public readonly int NumFixedMods;
+        public string FullSequence { get; init; } //sequence with modifications
 
+        public int NumFixedMods { get; }
+        // Parameter to store the full sequence of the corresponding Target or Decoy peptide
+        // If the peptide in question is a decoy, this pairs it to the target it was generated from
+        // If the peptide in question is a target, this pairs it to its corresponding decoy 
+        public string PairedTargetDecoySequence { get; private set; }
         /// <summary>
         /// Dictionary of modifications on the peptide. The N terminus is index 1.
         /// The key indicates which residue modification is on (with 1 being N terminus).
@@ -26,34 +39,35 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private double? _mostAbundantMonoisotopicMass;
         [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
+        [NonSerialized, ThreadStatic] private static HashSet<double> _nTermNeutralLosses;
+        [NonSerialized, ThreadStatic] private static HashSet<double> _cTermNeutralLosses;
         private static readonly double WaterMonoisotopicMass = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass * 2 + PeriodicTable.GetElement("O").PrincipalIsotope.AtomicMass;
         private readonly string ProteinAccession; // used to get protein object after deserialization
-
-
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a protein. Used when a Protein is digested.
         /// </summary>
-        public PeptideWithSetModifications(Protein protein, DigestionParams digestionParams, int oneBasedStartResidueInProtein,
+        public PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
-           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null)
+           Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, string pairedTargetDecoySequence = null)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
-            _digestionParams = digestionParams;
-            DetermineFullSequence();
+            _digestionParams = digestionParams as DigestionParams;
+            FullSequence = this.DetermineFullSequence();
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
+            PairedTargetDecoySequence = pairedTargetDecoySequence;
         }
 
         /// <summary>
         /// Creates a PeptideWithSetModifications object from a sequence string.
         /// Useful for reading in MetaMorpheus search engine output into mzLib objects.
         /// </summary>
-        public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods, int numFixedMods = 0,
-            DigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
+        public PeptideWithSetModifications(string sequence, Dictionary<string, Modification> allKnownMods = null, int numFixedMods = 0,
+            IDigestionParams digestionParams = null, Protein p = null, int oneBasedStartResidueInProtein = int.MinValue,
             int oneBasedEndResidueInProtein = int.MinValue, int missedCleavages = int.MinValue,
-            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null)
+            CleavageSpecificity cleavageSpecificity = CleavageSpecificity.Full, string peptideDescription = null, string pairedTargetDecoySequence = null)
             : base(p, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription)
         {
             if (sequence.Contains("|"))
@@ -61,11 +75,12 @@ namespace Proteomics.ProteolyticDigestion
                 throw new MzLibUtil.MzLibException("Ambiguous peptide cannot be parsed from string: " + sequence);
             }
 
-            FullSequence = sequence;
-            _baseSequence = GetBaseSequenceFromFullSequence(sequence);
-            GetModsAfterDeserialization(allKnownMods);
+            _baseSequence = IBioPolymerWithSetMods.GetBaseSequenceFromFullSequence(sequence);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(sequence, allKnownMods ?? Mods.AllKnownProteinModsDictionary);
+            FullSequence = _allModsOneIsNterminus.ContainsKey(_baseSequence.Length + 2) ? this.DetermineFullSequence() : sequence;
             NumFixedMods = numFixedMods;
-            _digestionParams = digestionParams;
+            _digestionParams = digestionParams as DigestionParams;
+            PairedTargetDecoySequence = pairedTargetDecoySequence; 
 
             if (p != null)
             {
@@ -73,25 +88,13 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public DigestionParams DigestionParams
-        {
-            get { return _digestionParams; }
-        }
+        public IDigestionParams DigestionParams => _digestionParams;
 
-        public Dictionary<int, Modification> AllModsOneIsNterminus
-        {
-            get { return _allModsOneIsNterminus; }
-        }
+        public Dictionary<int, Modification> AllModsOneIsNterminus => _allModsOneIsNterminus;
 
-        public int NumMods
-        {
-            get { return AllModsOneIsNterminus.Count; }
-        }
+        public int NumMods => AllModsOneIsNterminus.Count;
 
-        public int NumVariableMods
-        {
-            get { return NumMods - NumFixedMods; }
-        }
+        public int NumVariableMods => NumMods - NumFixedMods;
 
         public double MonoisotopicMass
         {
@@ -113,7 +116,8 @@ namespace Proteomics.ProteolyticDigestion
             }
 
         }
-        
+
+        public ChemicalFormula ThisChemicalFormula => FullChemicalFormula;
         public ChemicalFormula FullChemicalFormula
         {
             get
@@ -121,7 +125,15 @@ namespace Proteomics.ProteolyticDigestion
                 ChemicalFormula fullChemicalFormula = new Proteomics.AminoAcidPolymer.Peptide(BaseSequence).GetChemicalFormula();
                 foreach (var mod in AllModsOneIsNterminus.Values)
                 {
-                    fullChemicalFormula.Add(mod.ChemicalFormula);
+                    if (mod.ChemicalFormula != null)
+                    {
+                        fullChemicalFormula.Add(mod.ChemicalFormula);
+                    }
+                    else
+                    {
+                        fullChemicalFormula = null;
+                        break;
+                    }
                 }
                 
                 _fullChemicalFormula = fullChemicalFormula;
@@ -137,7 +149,9 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     IsotopicDistribution dist = IsotopicDistribution.GetDistribution(this.FullChemicalFormula);
                     double maxIntensity = dist.Intensities.Max();
-                    _mostAbundantMonoisotopicMass = (double)ClassExtensions.RoundedDouble(dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
+                    _mostAbundantMonoisotopicMass =
+                        (double)ClassExtensions.RoundedDouble(
+                            dist.Masses.ToList()[dist.Intensities.ToList().IndexOf(maxIntensity)]);
                 }
                 return (double)ClassExtensions.RoundedDouble(_mostAbundantMonoisotopicMass.Value);
             }
@@ -188,7 +202,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (pep_c_term_variable_mod is Modification jj)
                         {
-                            subsequence.Append('[' + jj.ChemicalFormula.Formula + ']');
+                            subsequence.Append("-[" + jj.ChemicalFormula.Formula + ']');
                         }
                         else
                         {
@@ -202,11 +216,18 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
+        // Call the Extension method of IBioPolymerWithSetMods to get the sequence with mass shifts
+        private string? _fullSequenceWithMassShifts;
+        public string FullSequenceWithMassShifts => _fullSequenceWithMassShifts ??= this.FullSequenceWithMassShift();
+
+        public IBioPolymer Parent => Protein;
+
+
         /// <summary>
         /// Generates theoretical fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.
         /// </summary>
-        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products)
+        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             // This code is specifically written to be memory- and CPU -efficient because it is 
             // called millions of times for a typical search (i.e., at least once per peptide). 
@@ -217,6 +238,9 @@ namespace Proteomics.ProteolyticDigestion
             // memory issues).
 
             products.Clear();
+
+            if (fragmentationParams is { GenerateMIon: true})
+                products.AddRange(this.GetMIons(fragmentationParams));
 
             var massCaps = DissociationTypeCollection.GetNAndCTerminalMassShiftsForDissociationType(dissociationType);
 
@@ -242,12 +266,11 @@ namespace Proteomics.ProteolyticDigestion
             bool haveSeenCTermStarIon = false;
 
             // these two collections keep track of the neutral losses observed so far on the n-term or c-term.
-            // they are apparently necessary, but allocating memory for collections in this function results in
-            // inefficient memory usage and thus frequent garbage collection. 
-            // TODO: If you can think of a way to remove these collections and still maintain correct 
-            // fragmentation, please do so.
-            HashSet<double> nTermNeutralLosses = null;
-            HashSet<double> cTermNeutralLosses = null;
+            // ThreadStatic lists are reused across calls to avoid allocations and garbage collection.
+            var nTermNeutralLosses = _nTermNeutralLosses ??= new HashSet<double>();
+            nTermNeutralLosses.Clear();
+            var cTermNeutralLosses = _cTermNeutralLosses ??= new HashSet<double>();
+            cTermNeutralLosses.Clear();
 
             // n-terminus mod
             if (calculateNTermFragments)
@@ -257,7 +280,7 @@ namespace Proteomics.ProteolyticDigestion
                     nTermMass += mod.MonoisotopicMass.Value;
 
                     // n-term mod neutral loss
-                    nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                    AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
                 }
             }
 
@@ -269,7 +292,7 @@ namespace Proteomics.ProteolyticDigestion
                     cTermMass += mod.MonoisotopicMass.Value;
 
                     // c-term mod neutral loss
-                    cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                    AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
                 }
             }
 
@@ -321,12 +344,12 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bStar))
+                            if (!haveSeenNTermStarIon && (nTermProductTypes[i] == ProductType.aStar || nTermProductTypes[i] == ProductType.bAmmoniaLoss))
                             {
                                 continue;
                             }
 
-                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bDegree))
+                            if (!haveSeenNTermDegreeIon && (nTermProductTypes[i] == ProductType.aDegree || nTermProductTypes[i] == ProductType.bWaterLoss))
                             {
                                 continue;
                             }
@@ -340,9 +363,9 @@ namespace Proteomics.ProteolyticDigestion
                             r + 1,
                             0));
 
-                        nTermNeutralLosses = AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
+                        AddNeutralLossesFromMods(mod, nTermNeutralLosses, dissociationType);
 
-                        if (nTermNeutralLosses != null)
+                        if (nTermNeutralLosses.Count > 0)
                         {
                             foreach (double neutralLoss in nTermNeutralLosses)
                             {
@@ -407,12 +430,12 @@ namespace Proteomics.ProteolyticDigestion
 
                         if (dissociationType == DissociationType.LowCID)
                         {
-                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yStar)
+                            if (!haveSeenCTermStarIon && cTermProductTypes[i] == ProductType.yAmmoniaLoss)
                             {
                                 continue;
                             }
 
-                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yDegree)
+                            if (!haveSeenCTermDegreeIon && cTermProductTypes[i] == ProductType.yWaterLoss)
                             {
                                 continue;
                             }
@@ -426,9 +449,9 @@ namespace Proteomics.ProteolyticDigestion
                             BaseSequence.Length - r,
                             0));
 
-                        cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                        AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
 
-                        if (cTermNeutralLosses != null)
+                        if (cTermNeutralLosses.Count > 0)
                         {
                             foreach (double neutralLoss in cTermNeutralLosses)
                             {
@@ -474,9 +497,9 @@ namespace Proteomics.ProteolyticDigestion
                     1,
                     0));
 
-                cTermNeutralLosses = AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
+                AddNeutralLossesFromMods(mod, cTermNeutralLosses, dissociationType);
 
-                if (cTermNeutralLosses != null)
+                if (cTermNeutralLosses.Count > 0)
                 {
                     foreach (double neutralLoss in cTermNeutralLosses)
                     {
@@ -540,7 +563,7 @@ namespace Proteomics.ProteolyticDigestion
         /// TODO: Implement neutral losses (e.g. phospho)
         /// TODO: Implement Star/Degree ions from CID
         /// </summary>
-        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products)
+        public void FragmentInternally(DissociationType dissociationType, int minLengthOfFragments, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             products.Clear();
 
@@ -605,59 +628,17 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        public virtual string EssentialSequence(IReadOnlyDictionary<string, int> modstoWritePruned)
-        {
-            string essentialSequence = BaseSequence;
-            if (modstoWritePruned != null)
-            {
-                var sbsequence = new StringBuilder();
-
-                // variable modification on peptide N-terminus
-                if (AllModsOneIsNterminus.TryGetValue(1, out Modification pep_n_term_variable_mod))
-                {
-                    if (modstoWritePruned.ContainsKey(pep_n_term_variable_mod.ModificationType))
-                    {
-                        sbsequence.Append('[' + pep_n_term_variable_mod.ModificationType + ":" + pep_n_term_variable_mod.IdWithMotif + ']');
-                    }
-                }
-                for (int r = 0; r < Length; r++)
-                {
-                    sbsequence.Append(this[r]);
-                    // variable modification on this residue
-                    if (AllModsOneIsNterminus.TryGetValue(r + 2, out Modification residue_variable_mod))
-                    {
-                        if (modstoWritePruned.ContainsKey(residue_variable_mod.ModificationType))
-                        {
-                            sbsequence.Append('[' + residue_variable_mod.ModificationType + ":" + residue_variable_mod.IdWithMotif + ']');
-                        }
-                    }
-                }
-
-                // variable modification on peptide C-terminus
-                if (AllModsOneIsNterminus.TryGetValue(Length + 2, out Modification pep_c_term_variable_mod))
-                {
-                    if (modstoWritePruned.ContainsKey(pep_c_term_variable_mod.ModificationType))
-                    {
-                        sbsequence.Append('[' + pep_c_term_variable_mod.ModificationType + ":" + pep_c_term_variable_mod.IdWithMotif + ']');
-                    }
-                }
-
-                essentialSequence = sbsequence.ToString();
-            }
-            return essentialSequence;
-        }
-
-        public PeptideWithSetModifications Localize(int j, double massToLocalize)
+        public IBioPolymerWithSetMods Localize(int indexOfMass, double massToLocalize)
         {
             var dictWithLocalizedMass = new Dictionary<int, Modification>(AllModsOneIsNterminus);
             double massOfExistingMod = 0;
-            if (dictWithLocalizedMass.TryGetValue(j + 2, out Modification modToReplace))
+            if (dictWithLocalizedMass.TryGetValue(indexOfMass + 2, out Modification modToReplace))
             {
                 massOfExistingMod = (double)modToReplace.MonoisotopicMass;
-                dictWithLocalizedMass.Remove(j + 2);
+                dictWithLocalizedMass.Remove(indexOfMass + 2);
             }
 
-            dictWithLocalizedMass.Add(j + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
+            dictWithLocalizedMass.Add(indexOfMass + 2, new Modification(_locationRestriction: "Anywhere.", _monoisotopicMass: massToLocalize + massOfExistingMod));
 
             var peptideWithLocalizedMass = new PeptideWithSetModifications(Protein, _digestionParams, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein,
                 CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, dictWithLocalizedMass, NumFixedMods);
@@ -668,7 +649,6 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Determines whether a peptide includes a splice site
         /// </summary>
-        /// <param name="pep"></param>
         /// <param name="site"></param>
         /// <returns></returns>
         public bool IncludesSpliceSite(SpliceSite site)
@@ -681,7 +661,6 @@ namespace Proteomics.ProteolyticDigestion
         /// or not (ie if the variant causes a cleavage site generating the peptide). Returns a tuple with item 1 being a bool value
         /// representing if the varaint intersects the peptide and item 2 beign abool that represents if the variatn is identified.
         /// </summary>
-        /// <param name="pep"></param>
         /// <param name="appliedVariation"></param>
         /// <returns></returns>
         public (bool intersects, bool identifies) IntersectsAndIdentifiesVariation(SequenceVariation appliedVariation)
@@ -766,7 +745,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
 
                 //need to determine what the cleavage sites are for the protease used (will allow us to determine if new cleavage sites were made by variant)
-                List<DigestionMotif> proteasesCleavageSites = DigestionParams.Protease.DigestionMotifs;
+                List<DigestionMotif> proteasesCleavageSites = DigestionParams.DigestionAgent.DigestionMotifs;
                 //if the variant ends the AA before the peptide starts then it may have caused c-terminal cleavage
                 //see if the protease used for digestion has C-terminal cleavage sites
                 List<string> cTerminalResidue = proteasesCleavageSites.Where(dm => dm.CutIndex == 1).Select(d => d.InducingCleavage).ToList();
@@ -856,8 +835,6 @@ namespace Proteomics.ProteolyticDigestion
         /// takes in the variant as well as the bool value of wheter the peptid eintersects the variant. (this allows for identified
         /// variants that cause the cleavage site for the peptide.
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="d"></param>
         /// <returns></returns>
         public string SequenceVariantString(SequenceVariation applied, bool intersects)
         {
@@ -918,103 +895,76 @@ namespace Proteomics.ProteolyticDigestion
             return FullSequence + string.Join("\t", AllModsOneIsNterminus.Select(m => m.ToString()));
         }
 
+        #region IEquatable
+
+        /// <summary>
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
+        /// </summary>
         public override bool Equals(object obj)
         {
-            var q = obj as PeptideWithSetModifications;
-
-            if (Protein == null && q.Protein == null)
+            if (obj is PeptideWithSetModifications peptide)
             {
-                return q.FullSequence.Equals(this.FullSequence);
+                return Equals(peptide);
             }
+            return false;
+        }
 
-            return q != null
-                && q.FullSequence.Equals(this.FullSequence)
-                && q.OneBasedStartResidueInProtein == this.OneBasedStartResidueInProtein
-                && (q.Protein.Accession == null && this.Protein.Accession == null || q.Protein.Accession.Equals(this.Protein.Accession))
-                && q.DigestionParams.Protease.Equals(this.DigestionParams.Protease);
+        /// <summary>
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
+        /// </summary>
+        public bool Equals(IBioPolymerWithSetMods other) => Equals(other as PeptideWithSetModifications);
+
+        /// <summary>
+        /// Peptides are equal if they have the same full sequence, parent, and digestion agent
+        /// </summary>
+        public bool Equals(PeptideWithSetModifications other)
+        {
+            if (other is null) return false;
+            if (ReferenceEquals(this, other)) return true;
+            if (other.GetType() != GetType()) return false;
+
+            // for those constructed from sequence and mods only
+            if (Parent is null && other.Parent is null)
+                return FullSequence.Equals(other.FullSequence);
+
+            return FullSequence == other.FullSequence
+                   && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent)
+                   // These last two are important for parsimony in MetaMorpheus
+                   && OneBasedStartResidue == other!.OneBasedStartResidue
+                   && Equals(Parent?.Accession, other.Parent?.Accession); 
         }
 
         public override int GetHashCode()
         {
-            if (DigestionParams == null)
+            var hash = new HashCode();
+            hash.Add(FullSequence);
+            hash.Add(OneBasedStartResidue);
+            if (Parent?.Accession != null)
             {
-                return FullSequence.GetHashCode();
+                hash.Add(Parent.Accession);
             }
-            else
+            if (DigestionParams?.DigestionAgent != null)
             {
-                return FullSequence.GetHashCode() + DigestionParams.Protease.GetHashCode();
+                hash.Add(DigestionParams.DigestionAgent);
             }
+            return hash.ToHashCode();
         }
+
+        #endregion
 
         /// <summary>
         /// This should be run after deserialization of a PeptideWithSetModifications, in order to set its Protein and Modification objects, which were not serialized
         /// </summary>
         public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod, Dictionary<string, Protein> accessionToProtein, DigestionParams dp)
         {
-            GetModsAfterDeserialization(idToMod);
+            _allModsOneIsNterminus = IBioPolymerWithSetMods.GetModificationDictionaryFromFullSequence(FullSequence, idToMod);
             GetProteinAfterDeserialization(accessionToProtein);
             _digestionParams = dp;
         }
 
-        private void GetModsAfterDeserialization(Dictionary<string, Modification> idToMod)
-        {
-            _allModsOneIsNterminus = new Dictionary<int, Modification>();
-            int currentModStart = 0;
-            int currentModificationLocation = 1;
-            bool currentlyReadingMod = false;
-            int bracketCount = 0;
-
-            for (int r = 0; r < FullSequence.Length; r++)
-            {
-                char c = FullSequence[r];
-                if (c == '[')
-                {
-                    currentlyReadingMod = true;
-                    if (bracketCount == 0)
-                    {
-                        currentModStart = r + 1;
-                    }
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    string modId = null;
-                    bracketCount--;
-                    if (bracketCount == 0)
-                    {
-                        try
-                        {
-                            //remove the beginning section (e.g. "Fixed", "Variable", "Uniprot")
-                            string modString = FullSequence.Substring(currentModStart, r - currentModStart);
-                            int splitIndex = modString.IndexOf(':');
-                            string modType = modString.Substring(0, splitIndex);
-                            modId = modString.Substring(splitIndex + 1, modString.Length - splitIndex - 1);
-                        }
-                        catch (Exception e)
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Error while trying to parse string into peptide: " + e.Message);
-                        }
-                        if (!idToMod.TryGetValue(modId, out Modification mod))
-                        {
-                            throw new MzLibUtil.MzLibException(
-                                "Could not find modification while reading string: " + FullSequence);
-                        }
-                        if (mod.LocationRestriction.Contains("C-terminal.") && r == FullSequence.Length - 1)
-                        {
-                            currentModificationLocation = BaseSequence.Length + 2;
-                        }
-                        _allModsOneIsNterminus.Add(currentModificationLocation, mod);
-                        currentlyReadingMod = false;
-                    }
-                }
-                else if (!currentlyReadingMod)
-                {
-                    currentModificationLocation++;
-                }
-                //else do nothing
-            }
-        }
+        public void SetNonSerializedPeptideInfo(Dictionary<string, Modification> idToMod,
+            Dictionary<string, Protein> accessionToProtein, IDigestionParams dp) => 
+            SetNonSerializedPeptideInfo(idToMod, accessionToProtein, (DigestionParams)dp);
 
         private void GetProteinAfterDeserialization(Dictionary<string, Protein> idToProtein)
         {
@@ -1024,72 +974,25 @@ namespace Proteomics.ProteolyticDigestion
             {
                 throw new MzLibUtil.MzLibException("Could not find protein accession after deserialization! " + ProteinAccession);
             }
-
             Protein = protein;
-        }
-
-        public static string GetBaseSequenceFromFullSequence(string fullSequence)
-        {
-            StringBuilder sb = new StringBuilder();
-            int bracketCount = 0;
-            foreach (char c in fullSequence)
-            {
-                if (c == '[')
-                {
-                    bracketCount++;
-                }
-                else if (c == ']')
-                {
-                    bracketCount--;
-                }
-                else if (bracketCount == 0)
-                {
-                    sb.Append(c);
-                }
-            }
-            return sb.ToString();
-        }
-
-        private void DetermineFullSequence()
-        {
-            var subsequence = new StringBuilder();
-
-            // modification on peptide N-terminus
-            if (AllModsOneIsNterminus.TryGetValue(1, out Modification mod))
-            {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-
-            for (int r = 0; r < Length; r++)
-            {
-                subsequence.Append(this[r]);
-
-                // modification on this residue
-                if (AllModsOneIsNterminus.TryGetValue(r + 2, out mod))
-                {
-                    subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-                }
-            }
-
-            // modification on peptide C-terminus
-            if (AllModsOneIsNterminus.TryGetValue(Length + 2, out mod))
-            {
-                subsequence.Append('[' + mod.ModificationType + ":" + mod.IdWithMotif + ']');
-            }
-
-            FullSequence = subsequence.ToString();
         }
 
         private void UpdateCleavageSpecificity()
         {
             if (CleavageSpecificityForFdrCategory == CleavageSpecificity.Unknown)
             {
-                CleavageSpecificityForFdrCategory = DigestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, DigestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
+                CleavageSpecificityForFdrCategory = _digestionParams.SpecificProtease.GetCleavageSpecificity(Protein, OneBasedStartResidueInProtein, OneBasedEndResidueInProtein, _digestionParams.InitiatorMethionineBehavior == InitiatorMethionineBehavior.Retain);
                 PeptideDescription = CleavageSpecificityForFdrCategory.ToString();
             }
         }
-        
-        private HashSet<double> AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
+
+        /// <summary>
+        /// Modifies the allNeutralLossesSoFar list by adding any neutral losses from the given mod that are relevant to the given dissociation type.
+        /// </summary>
+        /// <param name="mod"></param>
+        /// <param name="allNeutralLossesSoFar"></param>
+        /// <param name="dissociationType"></param>
+        private static void AddNeutralLossesFromMods(Modification mod, HashSet<double> allNeutralLossesSoFar, DissociationType dissociationType)
         {
             // add neutral losses specific to this dissociation type
             if (mod != null
@@ -1098,11 +1001,6 @@ namespace Proteomics.ProteolyticDigestion
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    if (allNeutralLossesSoFar == null)
-                    {
-                        allNeutralLossesSoFar = new HashSet<double>();
-                    }
-
                     allNeutralLossesSoFar.Add(neutralLoss);
                 }
             }
@@ -1114,16 +1012,9 @@ namespace Proteomics.ProteolyticDigestion
             {
                 foreach (double neutralLoss in neutralLossesFromMod.Where(p => p != 0))
                 {
-                    if (allNeutralLossesSoFar == null)
-                    {
-                        allNeutralLossesSoFar = new HashSet<double>();
-                    }
-
                     allNeutralLossesSoFar.Add(neutralLoss);
                 }
             }
-
-            return allNeutralLossesSoFar;
         }
 
         //This function maintains the amino acids associated with the protease motif and reverses all other amino acids.
@@ -1132,6 +1023,11 @@ namespace Proteomics.ProteolyticDigestion
         //Occasionally, this process results in peptide with exactly the same sequence. Therefore, there is a stop-gap measure
         //the returns the mirror image of the original. N-terminal mods are preserved, but other mods are also reversed. 
         //this should yield a unique decoy for each target sequence.
+        //This function also adds a hash code to both the original PeptideWithSetModifications and the decoy 
+        //generated by this function pairing the two together by each other's FullSequence.
+        //The original taget peptide is given a hash code corresponding to the decoy's full sequence,
+        //and the decoy is given a hash code corresponding to the original target peptide's sequence.
+        //This hash code is stored in the PairedTargetDecoyHash parameter of PeptideWithSetModifications.
         public PeptideWithSetModifications GetReverseDecoyFromTarget(int[] revisedAminoAcidOrder)
         {
             Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
@@ -1143,7 +1039,7 @@ namespace Proteomics.ProteolyticDigestion
             char[] newBase = new char[this.BaseSequence.Length];
             Array.Fill(newBase, '0');
             char[] evaporatingBase = this.BaseSequence.ToCharArray();
-            List<DigestionMotif> motifs = this.DigestionParams.Protease.DigestionMotifs;
+            List<DigestionMotif> motifs = this.DigestionParams.DigestionAgent.DigestionMotifs;
             if (motifs != null && motifs.Count > 0)
             {
                 foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
@@ -1166,7 +1062,7 @@ namespace Proteomics.ProteolyticDigestion
                     foreach (int location in cleavageMotifLocations)
                     {
                         char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
-                        
+
                         for (int i = 0; i < cleavingMotif.Length; i++)
                         {
                             newBase[location + i] = motifArray[i];
@@ -1183,8 +1079,9 @@ namespace Proteomics.ProteolyticDigestion
                 }
             }
 
-            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
-            //Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            // We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            // Now we will fill the remaining open positions in the decoy with the reverse of amino acids from the target.
+            // Part to change to scramble
             int fillPosition = 0;
             int extractPosition = this.BaseSequence.Length - 1;
             while (fillPosition < this.BaseSequence.Length && extractPosition >= 0)
@@ -1214,23 +1111,248 @@ namespace Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
-            DigestionParams d = this.DigestionParams;
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true, 
+                uniProtEntryAttributes: this.Protein.UniProtEntryAttributes);
+            DigestionParams d = _digestionParams;
 
+            PeptideWithSetModifications decoyPeptide;
             //Make the "peptideDescription" store the corresponding target's sequence
             if (newBaseString != this.BaseSequence)
             {
-                return new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                // Sets PairedTargetDecoyHash of the original target peptie to the hash hode of the decoy sequence           
+                PairedTargetDecoySequence = decoyPeptide.FullSequence;
+                // Sets PairedTargetDecoyHash of the decoy peptide to the hash code of the target sequence
+                decoyPeptide.PairedTargetDecoySequence = this.FullSequence;
+                return decoyPeptide;
+
             }
             else
             {
                 //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
                 //we retrun the mirror image peptide.
-                return this.GetPeptideMirror(revisedAminoAcidOrder);
+                decoyPeptide = this.GetPeptideMirror(revisedAminoAcidOrder);       
+                PairedTargetDecoySequence = decoyPeptide.FullSequence;
+                decoyPeptide.PairedTargetDecoySequence = this.FullSequence;
+                return decoyPeptide;
             }
 
         }
+        /// <summary>
+        /// This function generates a decoy peptide from a target by scrambling the target peptide's amino acid sequence
+        /// This preserves any digestion motifs and keeps modifications with their amino acids
+        /// To help generate only high quality decoys, a homology cutoff of 30 % sequence similarity is used
+        /// If after 10 attempts no sufficient decoy is generated, the mirror sequence is returned
+        /// </summary>
+        /// <param name="revisedAminoAcidOrder">Array to store the new amino acid order in</param>
+        /// <param name="maximumHomology">Parameter specifying the homology cutoff to be used</param>
+        /// <returns></returns>
+        public PeptideWithSetModifications GetScrambledDecoyFromTarget(int[] revisedAminoAcidOrder, double maximumHomology = 0.3)
+        {
+            Dictionary<int, Modification> newModificationsDictionary = new Dictionary<int, Modification>();
+            //Copy N-terminal modifications from target dictionary to decoy dictionary.
+            if (this.AllModsOneIsNterminus.ContainsKey(1))
+            {
+                newModificationsDictionary.Add(1, this.AllModsOneIsNterminus[1]);
+            }
+            char[] newBase = new char[this.BaseSequence.Length];
+            Array.Fill(newBase, '0');
+            char[] evaporatingBase = this.BaseSequence.ToCharArray();
+            List<DigestionMotif> motifs = this.DigestionParams.DigestionAgent.DigestionMotifs;
+            if (motifs != null && motifs.Count > 0)
+            {
+                foreach (var motif in motifs.Where(m => m.InducingCleavage != ""))//check the empty "" for topdown
+                {
+                    string cleavingMotif = motif.InducingCleavage;
+                    List<int> cleavageMotifLocations = new List<int>();
 
+                    for (int i = 0; i < BaseSequence.Length; i++)
+                    {
+                        bool fits;
+                        bool prevents;
+                        (fits, prevents) = motif.Fits(BaseSequence, i);
+
+                        if (fits && !prevents)
+                        {
+                            cleavageMotifLocations.Add(i);
+                        }
+                    }
+
+                    foreach (int location in cleavageMotifLocations)
+                    {
+                        char[] motifArray = BaseSequence.Substring(location, cleavingMotif.Length).ToCharArray();
+                        
+                        for (int i = 0; i < cleavingMotif.Length; i++)
+                        {
+                            newBase[location + i] = motifArray[i];
+                            revisedAminoAcidOrder[location + i] = location + i;
+                            //directly copy mods that were on amino acids in the motif. Those amino acids don't change position.
+                            if (this.AllModsOneIsNterminus.ContainsKey(location + i + 2))
+                            {
+                                newModificationsDictionary.Add(location + i + 2, this.AllModsOneIsNterminus[location + i + 2]);
+                            }
+
+                            evaporatingBase[location + i] = '0';//can null a char so i use a number which doesnt' appear in peptide string
+                        }
+                    }
+                }
+            }
+
+            //We've kept amino acids in the digestion motif in the same position in the decoy peptide.
+            //Now we will fill the remaining open positions in the decoy with the scrambled amino acids from the target.
+            int extractPosition;
+            int fillPosition;
+            int residueNumsIndex;
+            // Specify seed to ensure that the same decoy sequence is always generated from the target
+            Random rand = new(56);
+            double percentIdentity = 1;
+            int scrambleAttempt = 0;
+            int maxScrambles = 10;
+            double maxIdentity = maximumHomology;
+            int characterCounter;
+
+            while(scrambleAttempt < maxScrambles && percentIdentity > maxIdentity)
+            {
+                // Copies the newModificationsDictionary for the scramble attempt
+                Dictionary<int, Modification> tempModificationsDictionary = new(newModificationsDictionary);
+                fillPosition = 0;
+                // residueNums is a list containing array indices for each element of evaporatingBase
+                // Once each amino acid is added, its index is removed from residueNums to prevent the same AA from being added 2x
+                var residueNums = Enumerable.Range(0, evaporatingBase.Length).ToList();                
+                characterCounter = 0;
+                char[] tempNewBase = new char[newBase.Length];
+                // Create a copy of the newBase character array for the scrambling attempt
+                Array.Copy(newBase, tempNewBase, newBase.Length);
+
+                // I am not sure why I need the second counter, but it always works when I have it
+                int seqLength = this.BaseSequence.Length;
+                while (fillPosition < seqLength && characterCounter < seqLength)
+                {
+                    residueNumsIndex = rand.Next(residueNums.Count);
+                    extractPosition = residueNums[residueNumsIndex];
+                    char targetAA = evaporatingBase[extractPosition];
+                    residueNums.RemoveAt(residueNumsIndex);
+                    if (targetAA != '0')
+                    {
+                        while (tempNewBase[fillPosition] != '0')
+                        {
+                            fillPosition++;
+                        }
+                        tempNewBase[fillPosition] = targetAA;
+                        revisedAminoAcidOrder[fillPosition] = extractPosition;
+                        if (this.AllModsOneIsNterminus.ContainsKey(extractPosition + 2))
+                        {
+                            tempModificationsDictionary.Add(fillPosition + 2, this.AllModsOneIsNterminus[extractPosition + 2]);
+                        }
+                        fillPosition++;
+                    }
+                    characterCounter ++;
+                }
+                scrambleAttempt++;
+                /* 
+                 * Any homology scoring mechanism can go here, percent identity is probably not the best
+                 * In terms of generating a decoy sequence that will have a different mass spectrum than
+                 * the original, it is far more important to vary the amino acids on the edges than 
+                 * those in the middle. Changes on the edges will offset the entire b and y sequences
+                 * leading to an effective decoy spectrum even if there is high identity in the middle of
+                 * the sequence. Additionally, for peptides with a large amount of a certain amino acid,
+                 * it will be very difficult to generate a low homology sequence.
+                 */
+                percentIdentity = GetPercentIdentity(tempNewBase, evaporatingBase, tempModificationsDictionary, this.AllModsOneIsNterminus);
+                // Check that the percent identity is below the maximum identity threshold and set actual values to the temporary values
+                if (percentIdentity < maxIdentity)
+                {
+                    newBase = tempNewBase;
+                    newModificationsDictionary = tempModificationsDictionary;
+                    // Code checking similarity between theoretical spectra could go here
+                }
+
+                // If max scrambles are reached, make the new sequence identical to the original to trigger mirroring
+                else if (scrambleAttempt == maxScrambles)
+                {
+                    for(int j = 0; j < newBase.Length; j++)
+                    {
+                        if (newBase[j] == '0')
+                        {
+                            newBase[j] = evaporatingBase[j];
+                        }
+                    }
+                }
+            }
+            
+
+            string newBaseString = new string(newBase);
+
+            var proteinSequence = this.Protein.BaseSequence;
+            var aStringBuilder = new StringBuilder(proteinSequence);
+            aStringBuilder.Remove(this.OneBasedStartResidueInProtein - 1, this.BaseSequence.Length);
+            aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
+            proteinSequence = aStringBuilder.ToString();
+
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true, 
+                uniProtEntryAttributes: this.Protein.UniProtEntryAttributes);
+            DigestionParams d = _digestionParams;
+            PeptideWithSetModifications decoyPeptide;
+            //Make the "peptideDescription" store the corresponding target's sequence
+            if (newBaseString != this.BaseSequence)
+            {
+                decoyPeptide = new PeptideWithSetModifications(decoyProtein, d, this.OneBasedStartResidueInProtein, this.OneBasedEndResidueInProtein, this.CleavageSpecificityForFdrCategory, this.FullSequence, this.MissedCleavages, newModificationsDictionary, this.NumFixedMods, newBaseString);
+                // Sets PairedTargetDecoyHash of the original target peptie to the hash hode of the decoy sequence           
+                PairedTargetDecoySequence = decoyPeptide.FullSequence;
+                // Sets PairedTargetDecoyHash of the decoy peptide to the hash code of the target sequence
+                decoyPeptide.PairedTargetDecoySequence = this.FullSequence;
+                return decoyPeptide;
+
+            }
+            else
+            {
+                //The reverse decoy procedure failed to create a PeptideWithSetModificatons with a different sequence. Therefore,
+                //we retrun the mirror image peptide.
+                decoyPeptide = this.GetPeptideMirror(revisedAminoAcidOrder);
+                PairedTargetDecoySequence = decoyPeptide.FullSequence;
+                decoyPeptide.PairedTargetDecoySequence = this.FullSequence;
+                return decoyPeptide;
+            }
+        }
+        
+        /// <summary>
+        /// Method to get the percent identity between two peptide sequences stored as char[]
+        /// </summary>
+        /// <param name="scrambledSequence">Character array of the scrambled sequence</param>
+        /// <param name="unscrambledSequence">Character array of the unscrambled sequence</param> 
+        /// <param name="scrambledMods">Dictionary containing the scrambled sequence's modifications</param>
+        /// <param name="unscrambledMods">Dictionary containing the unscrambled sequence's modifications</param>
+        /// <returns></returns>
+        private static double GetPercentIdentity(char[] scrambledSequence, char[] unscrambledSequence, Dictionary<int, Modification> scrambledMods, Dictionary<int, Modification> unscrambledMods)
+        {
+            double rawScore = 0;
+            int seqLength = scrambledSequence.Length;
+            for(int i = 0; i < seqLength; i++)
+            {
+                if (scrambledSequence[i] == unscrambledSequence[i] || unscrambledSequence[i] == '0')
+                {
+                    Modification scrambledMod;
+                    if (scrambledMods.TryGetValue(i + 2, out scrambledMod) && unscrambledSequence[i] != '0')
+                    {
+                        Modification unscrambledMod;
+                        if (unscrambledMods.TryGetValue(i + 2, out unscrambledMod))
+                        {
+                            if (scrambledMod == unscrambledMod)
+                            {
+                                rawScore += 1;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        rawScore += 1; 
+                    }
+                    
+                }
+            }
+            return rawScore / seqLength;
+        }
+        
         //Returns a PeptideWithSetModifications mirror image. Used when reverse decoy sequence is same as target sequence
         public PeptideWithSetModifications GetPeptideMirror(int[] revisedOrderNisOne)
         {
@@ -1259,8 +1381,10 @@ namespace Proteomics.ProteolyticDigestion
             aStringBuilder.Insert(this.OneBasedStartResidueInProtein - 1, newBaseString);
             proteinSequence = aStringBuilder.ToString();
 
-            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true);
-            DigestionParams d = this.DigestionParams;
+            Protein decoyProtein = new Protein(proteinSequence, "DECOY_" + this.Protein.Accession, null, new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>>(), null, null, null, true, 
+                uniProtEntryAttributes: this.Protein.UniProtEntryAttributes);
+
+            DigestionParams d = _digestionParams;
 
             //now fill in the revised amino acid order
             int oldStringPosition = this.BaseSequence.Length - 1;
