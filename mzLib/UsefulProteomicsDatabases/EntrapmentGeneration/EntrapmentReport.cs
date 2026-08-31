@@ -48,7 +48,24 @@ public sealed class EntrapmentStratum
     public int SiteCount { get; }
 
     /// <summary>Distinct target peptides in this stratum, counted once however many folds ran.</summary>
+    /// <remarks>
+    /// <b>Base pieces</b> -- the unit the generator permutes -- not what a search reports. For that,
+    /// see <see cref="SearchSpacePeptides"/>. The two differ by roughly five-fold at two missed
+    /// cleavages, so a rate computed against the wrong one is meaningless.
+    /// </remarks>
     public int TargetPeptides { get; internal set; }
+
+    /// <summary>
+    /// Distinct peptides in this stratum a search could report: runs of up to
+    /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds.
+    /// </summary>
+    /// <remarks>
+    /// This is the population an FDP estimator's <c>r</c> is over, and the denominator
+    /// <see cref="Ambiguous"/> belongs to -- <see cref="Ambiguous"/> is counted over missed-cleavage
+    /// peptides too, so dividing it by <see cref="TargetPeptides"/> divides two different
+    /// populations. On the reviewed human proteome that mistake turned 0.24% into "1.19%".
+    /// </remarks>
+    public int SearchSpacePeptides { get; internal set; }
 
     /// <summary>Entrapment peptides produced for them, across every fold.</summary>
     public int EntrapmentPeptides { get; internal set; }
@@ -73,6 +90,18 @@ public sealed class EntrapmentStratum
     /// have no isomeric counterpart. The only peptides in the database that break that invariant.
     /// </summary>
     public int MissedCleavagePeptidesSpanningAnExcision { get; internal set; }
+
+    /// <summary>
+    /// Missed-cleavage peptides of the entrapment database that equal a real target peptide and
+    /// could not be permuted away from it, because the run's final piece has only one arrangement.
+    /// </summary>
+    /// <remarks>
+    /// A search matching one of these counts a <i>true</i> peptide as an entrapment discovery,
+    /// inflating an FDP estimate directly. They are counted rather than repaired -- repair would
+    /// mean backtracking into a placed piece or excising a good one -- so a consumer that needs an
+    /// exact count must exclude them. See <see cref="EntrapmentAssembly.UnrepairableRunCollisions"/>.
+    /// </remarks>
+    public int UnrepairableRunCollisions { get; internal set; }
 
     public int Unpairable => UnpairableNoPermutationExists + UnpairableAllPermutationsTaken
                              + UnpairableSpaceTooSmallForFoldCount;
@@ -159,9 +188,14 @@ public sealed class EntrapmentReport
         text.AppendLine($"# maxMissedCleavages\t{Provenance.MaxMissedCleavages}");
         text.AppendLine($"# minPeptideLength\t{Provenance.MinPeptideLength}");
         text.AppendLine($"# maxPeptideLength\t{Provenance.MaxPeptideLength}");
+        // targetPeptides/entrapmentPeptides count BASE PIECES; searchSpacePeptides counts what a
+        // search reports, missed cleavages included. `ambiguous` belongs to the latter -- dividing
+        // it by the former divides two different populations, which is how 0.24% got written
+        // as "1.19%".
         text.AppendLine(string.Join("\t", "siteCount", "targetPeptides", "entrapmentPeptides",
             "achievedFoldRatio", "unpairableNoPermutationExists", "unpairableAllPermutationsTaken",
-            "unpairableSpaceTooSmallForFoldCount", "ambiguous", "mcSpanningAnExcision"));
+            "unpairableSpaceTooSmallForFoldCount", "searchSpacePeptides", "ambiguous",
+            "mcSpanningAnExcision", "unrepairableRunCollisions"));
 
         foreach (EntrapmentStratum stratum in Strata.Append(Total))
         {
@@ -173,8 +207,10 @@ public sealed class EntrapmentReport
                 stratum.UnpairableNoPermutationExists.ToString(CultureInfo.InvariantCulture),
                 stratum.UnpairableAllPermutationsTaken.ToString(CultureInfo.InvariantCulture),
                 stratum.UnpairableSpaceTooSmallForFoldCount.ToString(CultureInfo.InvariantCulture),
+                stratum.SearchSpacePeptides.ToString(CultureInfo.InvariantCulture),
                 stratum.Ambiguous.ToString(CultureInfo.InvariantCulture),
-                stratum.MissedCleavagePeptidesSpanningAnExcision.ToString(CultureInfo.InvariantCulture)));
+                stratum.MissedCleavagePeptidesSpanningAnExcision.ToString(CultureInfo.InvariantCulture),
+                stratum.UnrepairableRunCollisions.ToString(CultureInfo.InvariantCulture)));
         }
 
         return text.ToString();
@@ -225,13 +261,18 @@ public sealed class EntrapmentReportBuilder
 
         if (!_ambiguousByAccession.TryGetValue(target.Accession, out HashSet<string>? ambiguous))
         {
-            ambiguous = new EntrapmentPairing(target, _digestionParams).AmbiguousPeptides.ToHashSet();
+            var pairing = new EntrapmentPairing(target, _digestionParams);
+            ambiguous = pairing.AmbiguousPeptides.ToHashSet();
             _ambiguousByAccession[target.Accession] = ambiguous;
 
             foreach (string peptide in ambiguous)
             {
                 StratumFor(peptide).Ambiguous++;
             }
+
+            // Not attributable to a stratum: the count is over the protein's whole search space,
+            // and stratifying it would mean re-enumerating every run to classify each one.
+            StratumFor(string.Empty).SearchSpacePeptides += pairing.SearchablePeptideCount;
         }
 
         foreach (EntrapmentPiece piece in assembly.Pieces)
@@ -271,6 +312,7 @@ public sealed class EntrapmentReportBuilder
         // Not attributable to any one stratum: a broken run spans several peptides at once.
         StratumFor(string.Empty).MissedCleavagePeptidesSpanningAnExcision +=
             assembly.MissedCleavagePeptidesSpanningAnExcision;
+        StratumFor(string.Empty).UnrepairableRunCollisions += assembly.UnrepairableRunCollisions;
     }
 
     /// <summary>The finished report.</summary>
@@ -286,6 +328,8 @@ public sealed class EntrapmentReportBuilder
             total.UnpairableSpaceTooSmallForFoldCount += stratum.UnpairableSpaceTooSmallForFoldCount;
             total.Ambiguous += stratum.Ambiguous;
             total.MissedCleavagePeptidesSpanningAnExcision += stratum.MissedCleavagePeptidesSpanningAnExcision;
+            total.SearchSpacePeptides += stratum.SearchSpacePeptides;
+            total.UnrepairableRunCollisions += stratum.UnrepairableRunCollisions;
         }
 
         var provenance = new EntrapmentProvenance(

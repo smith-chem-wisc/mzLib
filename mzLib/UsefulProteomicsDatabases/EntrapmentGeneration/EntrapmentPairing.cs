@@ -50,12 +50,27 @@ public sealed class EntrapmentPairing
         // a run is isomeric with the run its partner was built from.
         int maxPieces = digestionParams.MaxMissedCleavages + 1;
 
+        // Only peptides a search could actually report. Without this the index holds every run
+        // however short, and short peptides collide constantly -- "AK" shares its key with every
+        // other "AK" -- which inflated the ambiguity count nearly tenfold with peptides nobody will
+        // ever see (6,889 against 736 on the reviewed human proteome). Filtering is safe as well as
+        // honest: a key begins with the peptide's length, so peptides of different lengths never
+        // collide and removing the short ones cannot change how a searchable peptide resolves.
+        int minLength = digestionParams.MinLength;
+        int maxLength = digestionParams.MaxLength;
+
         for (int first = 0; first < sites.Count - 1; first++)
         {
             for (int pieces = 1; pieces <= maxPieces && first + pieces < sites.Count; pieces++)
             {
                 int start = sites[first];
-                string peptide = target.BaseSequence.Substring(start, sites[first + pieces] - start);
+                int length = sites[first + pieces] - start;
+                if (length < minLength || length > maxLength)
+                {
+                    continue;
+                }
+
+                string peptide = target.BaseSequence.Substring(start, length);
                 string key = KeyOf(peptide);
 
                 if (_byKey.TryGetValue(key, out string? existing))
@@ -84,6 +99,15 @@ public sealed class EntrapmentPairing
     /// protein, and therefore not resolvable. Report these rather than pairing them.
     /// </summary>
     public IReadOnlyCollection<string> AmbiguousPeptides => _ambiguous;
+
+    /// <summary>
+    /// Distinct peptides of this protein a search could report -- runs of up to
+    /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds. This is the population
+    /// an FDP estimator's <c>r</c> is over, and the denominator an ambiguity rate needs: the
+    /// report's own peptide counts are over <i>base pieces</i>, which is a different and smaller
+    /// population, and dividing one by the other gives a rate of nothing.
+    /// </summary>
+    public int SearchablePeptideCount => _byKey.Count + _ambiguous.Count;
 
     /// <summary>The target peptide <paramref name="entrapmentPeptide"/> was built from.</summary>
     /// <returns>False when the peptide belongs to no target peptide of this protein, or when its

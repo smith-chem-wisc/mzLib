@@ -355,6 +355,92 @@ public class EntrapmentReportTests
         Assert.That(total[1], Is.EqualTo(report.Total.TargetPeptides.ToString()));
         Assert.That(total[2], Is.EqualTo(report.Total.EntrapmentPeptides.ToString()));
         Assert.That(total[4], Is.EqualTo(report.Total.UnpairableNoPermutationExists.ToString()));
-        Assert.That(total[7], Is.EqualTo(report.Total.Ambiguous.ToString()));
+        Assert.That(total[7], Is.EqualTo(report.Total.SearchSpacePeptides.ToString()));
+        Assert.That(total[8], Is.EqualTo(report.Total.Ambiguous.ToString()));
+        Assert.That(total[10], Is.EqualTo(report.Total.UnrepairableRunCollisions.ToString()));
+    }
+
+    /// <summary>
+    /// A protein whose short pieces collide by composition while its searchable peptides do not.
+    /// "AK" and "KA" cannot both occur, but two 2-residue pieces sharing a key are easy to build,
+    /// and before the length bound they were counted as ambiguous despite being unsearchable.
+    /// </summary>
+    private const string ShortPieceCollisions = "AKAKMSTQAEVDLNSGWKALADQMNLLLSK";
+
+    [Test]
+    public void PairingIgnoresPeptidesTooShortToBeReported()
+    {
+        // The index must hold only what a search could report. A key begins with the peptide's
+        // length, so short peptides never collide with long ones and dropping them cannot change
+        // how a searchable peptide resolves -- it only stops them being counted as ambiguous.
+        var lenient = new DigestionParams("trypsin", minPeptideLength: 1, maxMissedCleavages: 2);
+        var realistic = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+        var protein = new Protein(ShortPieceCollisions, "P00001");
+
+        var withShort = new EntrapmentPairing(protein, lenient);
+        var withoutShort = new EntrapmentPairing(protein, realistic);
+
+        Assert.That(withShort.SearchablePeptideCount, Is.GreaterThan(withoutShort.SearchablePeptideCount),
+            "the lenient bound must admit more peptides, or the fixture proves nothing");
+        Assert.That(withoutShort.AmbiguousPeptides.Any(pep => pep.Length < 7), Is.False,
+            "no peptide below the minimum length may be reported as ambiguous");
+    }
+
+    [Test]
+    public void SearchablePeptideCountSpansMissedCleavagesNotJustBasePieces()
+    {
+        // The denominator an ambiguity rate and an FDP estimator's r both need. It must exceed the
+        // base-piece count, because a run of adjacent pieces is a peptide a search reports too.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+        var protein = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P00001");
+
+        var pairing = new EntrapmentPairing(protein, digestion);
+
+        // four base pieces, all >= 7, plus runs of two and of three
+        Assert.That(pairing.SearchablePeptideCount, Is.EqualTo(4 + 3 + 2));
+    }
+
+    [Test]
+    public void ReportCarriesTheSearchSpaceDenominatorBesideTheBasePieceCounts()
+    {
+        var digestion = Tryptic;
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1, EntrapmentReport.CountResidues("ST"));
+        var protein = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P00001");
+
+        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        builder.Add(protein, 0, assembly);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.Total.SearchSpacePeptides, Is.EqualTo(9),
+            "runs of one, two and three base pieces");
+        Assert.That(report.Total.SearchSpacePeptides, Is.GreaterThan(report.Total.TargetPeptides),
+            "the search space must exceed the base pieces it is built from");
+
+        string tsv = report.ToTabSeparated();
+        Assert.That(tsv, Does.Contain("searchSpacePeptides"));
+        Assert.That(tsv, Does.Contain("unrepairableRunCollisions"));
+    }
+
+    [Test]
+    public void ReportCountsUnrepairableRunCollisions()
+    {
+        // A run ending in a piece with no alternative arrangement cannot be permuted away from a
+        // real peptide, so it is counted rather than repaired -- and the count has to reach the
+        // report, or a consumer cannot exclude the peptides it describes.
+        var digestion = Tryptic;
+        const string target = "MSTQAEVDLNSGWKAAR";
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        string run = free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_;
+
+        var protein = new Protein(target, "P00001");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion,
+            new HashSet<string> { run }, out EntrapmentAssembly guarded);
+        builder.Add(protein, 0, guarded);
+
+        Assert.That(guarded.UnrepairableRunCollisions, Is.EqualTo(1));
+        Assert.That(builder.Build().Total.UnrepairableRunCollisions, Is.EqualTo(1));
     }
 }
