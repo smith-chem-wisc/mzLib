@@ -4,5 +4,6 @@ public enum NormalizationType
 {
     NoNormalization,
     RelativeToTics,
-    AbsoluteToTic
+    AbsoluteToTic,
+    RelativeIntensity
 }

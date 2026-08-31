@@ -1,0 +1,1759 @@
+<?xml version="1.0" encoding="UTF-8"  standalone="no" ?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="1992-08-01" modified="2024-11-27" version="216" xmlns="http://uniprot.org/uniprot">
+  <accession>P26678</accession>
+  <name>PPLA_HUMAN</name>
+  <protein>
+    <recommendedName>
+      <fullName evidence="19 21">Phospholamban</fullName>
+      <shortName>PLB</shortName>
+    </recommendedName>
+  </protein>
+  <gene>
+    <name evidence="21" type="primary">PLN</name>
+    <name type="synonym">PLB</name>
+  </gene>
+  <organism>
+    <name type="scientific">Homo sapiens</name>
+    <name type="common">Human</name>
+    <dbReference type="NCBI Taxonomy" id="9606"/>
+    <lineage>
+      <taxon>Eukaryota</taxon>
+      <taxon>Metazoa</taxon>
+      <taxon>Chordata</taxon>
+      <taxon>Craniata</taxon>
+      <taxon>Vertebrata</taxon>
+      <taxon>Euteleostomi</taxon>
+      <taxon>Mammalia</taxon>
+      <taxon>Eutheria</taxon>
+      <taxon>Euarchontoglires</taxon>
+      <taxon>Primates</taxon>
+      <taxon>Haplorrhini</taxon>
+      <taxon>Catarrhini</taxon>
+      <taxon>Hominidae</taxon>
+      <taxon>Homo</taxon>
+    </lineage>
+  </organism>
+  <reference key="1">
+    <citation type="journal article" date="1991" name="J. Biol. Chem." volume="266" first="11669" last="11675">
+      <title>Structure of the rabbit phospholamban gene, cloning of the human cDNA, and assignment of the gene to human chromosome 6.</title>
+      <authorList>
+        <person name="Fujii J."/>
+        <person name="Zarain-Herzberg A."/>
+        <person name="Willard H.F."/>
+        <person name="Tada M."/>
+        <person name="Maclennan D.H."/>
+      </authorList>
+      <dbReference type="PubMed" id="1828805"/>
+      <dbReference type="DOI" id="10.1016/s0021-9258(18)99009-5"/>
+    </citation>
+    <scope>NUCLEOTIDE SEQUENCE [MRNA]</scope>
+  </reference>
+  <reference key="2">
+    <citation type="submission" date="1991-03" db="EMBL/GenBank/DDBJ databases">
+      <title>Cloning of human cardiac phospholamban.</title>
+      <authorList>
+        <person name="Salvatore C.A."/>
+        <person name="Jacobson M.A."/>
+      </authorList>
+    </citation>
+    <scope>NUCLEOTIDE SEQUENCE [MRNA]</scope>
+  </reference>
+  <reference key="3">
+    <citation type="journal article" date="1999" name="J. Mol. Cell. Cardiol." volume="31" first="679" last="692">
+      <title>The human phospholamban gene: structure and expression.</title>
+      <authorList>
+        <person name="McTiernan C.F."/>
+        <person name="Frye C.S."/>
+        <person name="Lemster B.H."/>
+        <person name="Kinder E.A."/>
+        <person name="Ogletree-Hughes M.L."/>
+        <person name="Moravec C.S."/>
+        <person name="Feldman A.M."/>
+      </authorList>
+      <dbReference type="PubMed" id="10198197"/>
+      <dbReference type="DOI" id="10.1006/jmcc.1998.0904"/>
+    </citation>
+    <scope>NUCLEOTIDE SEQUENCE [GENOMIC DNA]</scope>
+  </reference>
+  <reference key="4">
+    <citation type="journal article" date="2004" name="Genome Res." volume="14" first="2121" last="2127">
+      <title>The status, quality, and expansion of the NIH full-length cDNA project: the Mammalian Gene Collection (MGC).</title>
+      <authorList>
+        <consortium name="The MGC Project Team"/>
+      </authorList>
+      <dbReference type="PubMed" id="15489334"/>
+      <dbReference type="DOI" id="10.1101/gr.2596504"/>
+    </citation>
+    <scope>NUCLEOTIDE SEQUENCE [LARGE SCALE MRNA]</scope>
+    <source>
+      <tissue>Liver</tissue>
+    </source>
+  </reference>
+  <reference key="5">
+    <citation type="journal article" date="2003" name="Biochem. Biophys. Res. Commun." volume="304" first="1" last="4">
+      <title>Mutation of the phospholamban promoter associated with hypertrophic cardiomyopathy.</title>
+      <authorList>
+        <person name="Minamisawa S."/>
+        <person name="Sato Y."/>
+        <person name="Tatsuguchi Y."/>
+        <person name="Fujino T."/>
+        <person name="Imamura S."/>
+        <person name="Uetsuka Y."/>
+        <person name="Nakazawa M."/>
+        <person name="Matsuoka R."/>
+      </authorList>
+      <dbReference type="PubMed" id="12705874"/>
+      <dbReference type="DOI" id="10.1016/s0006-291x(03)00526-6"/>
+    </citation>
+    <scope>INVOLVEMENT IN CMH18</scope>
+  </reference>
+  <reference key="6">
+    <citation type="journal article" date="2003" name="Biochem. Biophys. Res. Commun." volume="306" first="550" last="557">
+      <title>Ca2+ -dependent interaction of S100A1 with the sarcoplasmic reticulum Ca2+ -ATPase2a and phospholamban in the human heart.</title>
+      <authorList>
+        <person name="Kiewitz R."/>
+        <person name="Acklin C."/>
+        <person name="Schaefer B.W."/>
+        <person name="Maco B."/>
+        <person name="Uhrik B."/>
+        <person name="Wuytack F."/>
+        <person name="Erne P."/>
+        <person name="Heizmann C.W."/>
+      </authorList>
+      <dbReference type="PubMed" id="12804600"/>
+      <dbReference type="DOI" id="10.1016/s0006-291x(03)00987-2"/>
+    </citation>
+    <scope>INTERACTION WITH S100A1</scope>
+    <scope>SUBCELLULAR LOCATION</scope>
+  </reference>
+  <reference key="7">
+    <citation type="journal article" date="2005" name="J. Biol. Chem." volume="280" first="8016" last="8021">
+      <title>Myotonic dystrophy protein kinase phosphorylates phospholamban and regulates calcium uptake in cardiomyocyte sarcoplasmic reticulum.</title>
+      <authorList>
+        <person name="Kaliman P."/>
+        <person name="Catalucci D."/>
+        <person name="Lam J.T."/>
+        <person name="Kondo R."/>
+        <person name="Gutierrez J.C."/>
+        <person name="Reddy S."/>
+        <person name="Palacin M."/>
+        <person name="Zorzano A."/>
+        <person name="Chien K.R."/>
+        <person name="Ruiz-Lozano P."/>
+      </authorList>
+      <dbReference type="PubMed" id="15598648"/>
+      <dbReference type="DOI" id="10.1074/jbc.m412845200"/>
+    </citation>
+    <scope>PHOSPHORYLATION AT SER-16 BY DMPK</scope>
+    <scope>SUBCELLULAR LOCATION</scope>
+  </reference>
+  <reference key="8">
+    <citation type="journal article" date="2006" name="J. Physiol. (Lond.)" volume="574" first="889" last="903">
+      <title>Ca2+-calmodulin-dependent protein kinase expression and signalling in skeletal muscle during exercise.</title>
+      <authorList>
+        <person name="Rose A.J."/>
+        <person name="Kiens B."/>
+        <person name="Richter E.A."/>
+      </authorList>
+      <dbReference type="PubMed" id="16690701"/>
+      <dbReference type="DOI" id="10.1113/jphysiol.2006.111757"/>
+    </citation>
+    <scope>PHOSPHORYLATION AT THR-17 BY CAMK2</scope>
+  </reference>
+  <reference key="9">
+    <citation type="journal article" date="2007" name="J. Mol. Biol." volume="367" first="65" last="79">
+      <title>Phospholamban interacts with HAX-1, a mitochondrial protein with anti-apoptotic function.</title>
+      <authorList>
+        <person name="Vafiadaki E."/>
+        <person name="Sanoudou D."/>
+        <person name="Arvanitis D.A."/>
+        <person name="Catino D.H."/>
+        <person name="Kranias E.G."/>
+        <person name="Kontrogianni-Konstantopoulos A."/>
+      </authorList>
+      <dbReference type="PubMed" id="17241641"/>
+      <dbReference type="DOI" id="10.1016/j.jmb.2006.10.057"/>
+    </citation>
+    <scope>INTERACTION WITH HAX1</scope>
+    <scope>SUBCELLULAR LOCATION</scope>
+    <scope>TISSUE SPECIFICITY</scope>
+  </reference>
+  <reference key="10">
+    <citation type="journal article" date="2012" name="J. Biol. Chem." volume="287" first="26596" last="26605">
+      <title>Lethal, hereditary mutants of phospholamban elude phosphorylation by protein kinase A.</title>
+      <authorList>
+        <person name="Ceholski D.K."/>
+        <person name="Trieber C.A."/>
+        <person name="Holmes C.F."/>
+        <person name="Young H.S."/>
+      </authorList>
+      <dbReference type="PubMed" id="22707725"/>
+      <dbReference type="DOI" id="10.1074/jbc.m112.382713"/>
+    </citation>
+    <scope>FUNCTION</scope>
+    <scope>CHARACTERIZATION OF VARIANTS CMD1P HIS-9; LEU-9; CYS-9 AND ARG-14 DEL</scope>
+    <scope>PHOSPHORYLATION AT SER-16</scope>
+    <scope>MUTAGENESIS OF ARG-13; ARG-14; SER-16 AND THR-17</scope>
+  </reference>
+  <reference key="11">
+    <citation type="journal article" date="2014" name="J. Proteomics" volume="96" first="253" last="262">
+      <title>An enzyme assisted RP-RPLC approach for in-depth analysis of human liver phosphoproteome.</title>
+      <authorList>
+        <person name="Bian Y."/>
+        <person name="Song C."/>
+        <person name="Cheng K."/>
+        <person name="Dong M."/>
+        <person name="Wang F."/>
+        <person name="Huang J."/>
+        <person name="Sun D."/>
+        <person name="Wang L."/>
+        <person name="Ye M."/>
+        <person name="Zou H."/>
+      </authorList>
+      <dbReference type="PubMed" id="24275569"/>
+      <dbReference type="DOI" id="10.1016/j.jprot.2013.11.014"/>
+    </citation>
+    <scope>IDENTIFICATION BY MASS SPECTROMETRY [LARGE SCALE ANALYSIS]</scope>
+    <source>
+      <tissue>Liver</tissue>
+    </source>
+  </reference>
+  <reference key="12">
+    <citation type="journal article" date="2017" name="Mol. Cell" volume="67" first="974.e6" last="989.e6">
+      <title>The ER-Localized Transmembrane Protein EPG-3/VMP1 Regulates SERCA Activity to Control ER-Isolation Membrane Contacts for Autophagosome Formation.</title>
+      <authorList>
+        <person name="Zhao Y.G."/>
+        <person name="Chen Y."/>
+        <person name="Miao G."/>
+        <person name="Zhao H."/>
+        <person name="Qu W."/>
+        <person name="Li D."/>
+        <person name="Wang Z."/>
+        <person name="Liu N."/>
+        <person name="Li L."/>
+        <person name="Chen S."/>
+        <person name="Liu P."/>
+        <person name="Feng D."/>
+        <person name="Zhang H."/>
+      </authorList>
+      <dbReference type="PubMed" id="28890335"/>
+      <dbReference type="DOI" id="10.1016/j.molcel.2017.08.005"/>
+    </citation>
+    <scope>FUNCTION</scope>
+    <scope>INTERACTION WITH ATP2A2 AND VMP1</scope>
+  </reference>
+  <reference key="13">
+    <citation type="journal article" date="2023" name="Biophys. J." volume="122" first="301" last="309">
+      <title>Micropeptide hetero-oligomerization adds complexity to the calcium pump regulatory network.</title>
+      <authorList>
+        <person name="Phillips T.A."/>
+        <person name="Hauck G.T."/>
+        <person name="Pribadi M.P."/>
+        <person name="Cho E.E."/>
+        <person name="Cleary S.R."/>
+        <person name="Robia S.L."/>
+      </authorList>
+      <dbReference type="PubMed" id="36523160"/>
+      <dbReference type="DOI" id="10.1016/j.bpj.2022.12.014"/>
+    </citation>
+    <scope>SUBUNIT</scope>
+    <scope>INTERACTION WITH ATP2A2</scope>
+  </reference>
+  <reference key="14">
+    <citation type="journal article" date="1995" name="Biochemistry" volume="34" first="7603" last="7613">
+      <title>Solution structure of the cytoplasmic domain of phospholamban: phosphorylation leads to a local perturbation in secondary structure.</title>
+      <authorList>
+        <person name="Mortishire-Smith R.J."/>
+        <person name="Pitzenberger S.M."/>
+        <person name="Burke C.J."/>
+        <person name="Middaugh C.R."/>
+        <person name="Garsky V.M."/>
+        <person name="Johnson R.G."/>
+      </authorList>
+      <dbReference type="PubMed" id="7779806"/>
+      <dbReference type="DOI" id="10.1021/bi00023a006"/>
+    </citation>
+    <scope>STRUCTURE BY NMR OF 1-25</scope>
+  </reference>
+  <reference key="15">
+    <citation type="journal article" date="1995" name="Nat. Struct. Biol." volume="2" first="154" last="162">
+      <title>Computational searching and mutagenesis suggest a structure for the pentameric transmembrane domain of phospholamban.</title>
+      <authorList>
+        <person name="Adams P.D."/>
+        <person name="Arkin I.T."/>
+        <person name="Engelman D.M."/>
+        <person name="Bruenger A.T."/>
+      </authorList>
+      <dbReference type="PubMed" id="7749920"/>
+      <dbReference type="DOI" id="10.1038/nsb0295-154"/>
+    </citation>
+    <scope>3D-STRUCTURE MODELING</scope>
+  </reference>
+  <reference key="16">
+    <citation type="journal article" date="1998" name="Biophys. J." volume="74" first="1203" last="1214">
+      <title>Using experimental information to produce a model of the transmembrane domain of the ion channel phospholamban.</title>
+      <authorList>
+        <person name="Herzyk P."/>
+        <person name="Hubbard R.E."/>
+      </authorList>
+      <dbReference type="PubMed" id="9512019"/>
+      <dbReference type="DOI" id="10.1016/s0006-3495(98)77835-x"/>
+    </citation>
+    <scope>3D-STRUCTURE MODELING</scope>
+  </reference>
+  <reference key="17">
+    <citation type="journal article" date="2005" name="Proc. Natl. Acad. Sci. U.S.A." volume="102" first="10870" last="10875">
+      <title>The structure of phospholamban pentamer reveals a channel-like architecture in membranes.</title>
+      <authorList>
+        <person name="Oxenoid K."/>
+        <person name="Chou J.J."/>
+      </authorList>
+      <dbReference type="PubMed" id="16043693"/>
+      <dbReference type="DOI" id="10.1073/pnas.0504920102"/>
+    </citation>
+    <scope>STRUCTURE BY NMR</scope>
+    <scope>SUBUNIT</scope>
+  </reference>
+  <reference key="18">
+    <citation type="journal article" date="2006" name="Proteins" volume="65" first="203" last="219">
+      <title>Structure determination of symmetric homo-oligomers by a complete search of symmetry configuration space, using NMR restraints and van der Waals packing.</title>
+      <authorList>
+        <person name="Potluri S."/>
+        <person name="Yan A.K."/>
+        <person name="Chou J.J."/>
+        <person name="Donald B.R."/>
+        <person name="Bailey-Kellogg C."/>
+      </authorList>
+      <dbReference type="PubMed" id="16897780"/>
+      <dbReference type="DOI" id="10.1002/prot.21091"/>
+    </citation>
+    <scope>STRUCTURE BY NMR</scope>
+    <scope>SUBUNIT</scope>
+  </reference>
+  <reference key="19">
+    <citation type="journal article" date="2003" name="Science" volume="299" first="1410" last="1413">
+      <title>Dilated cardiomyopathy and heart failure caused by a mutation in phospholamban.</title>
+      <authorList>
+        <person name="Schmitt J.P."/>
+        <person name="Kamisago M."/>
+        <person name="Asahi M."/>
+        <person name="Li G.H."/>
+        <person name="Ahmad F."/>
+        <person name="Mende U."/>
+        <person name="Kranias E.G."/>
+        <person name="MacLennan D.H."/>
+        <person name="Seidman J.G."/>
+        <person name="Seidman C.E."/>
+      </authorList>
+      <dbReference type="PubMed" id="12610310"/>
+      <dbReference type="DOI" id="10.1126/science.1081578"/>
+    </citation>
+    <scope>VARIANT CMD1P CYS-9</scope>
+    <scope>CHARACTERIZATION OF VARIANT CMD1P CYS-9</scope>
+  </reference>
+  <reference key="20">
+    <citation type="journal article" date="2006" name="Proc. Natl. Acad. Sci. U.S.A." volume="103" first="1388" last="1393">
+      <title>A mutation in the human phospholamban gene, deleting arginine 14, results in lethal, hereditary cardiomyopathy.</title>
+      <authorList>
+        <person name="Haghighi K."/>
+        <person name="Kolokathis F."/>
+        <person name="Gramolini A.O."/>
+        <person name="Waggoner J.R."/>
+        <person name="Pater L."/>
+        <person name="Lynch R.A."/>
+        <person name="Fan G.C."/>
+        <person name="Tsiapras D."/>
+        <person name="Parekh R.R."/>
+        <person name="Dorn G.W. II"/>
+        <person name="MacLennan D.H."/>
+        <person name="Kremastinos D.T."/>
+        <person name="Kranias E.G."/>
+      </authorList>
+      <dbReference type="PubMed" id="16432188"/>
+      <dbReference type="DOI" id="10.1073/pnas.0510519103"/>
+    </citation>
+    <scope>VARIANT CMD1P ARG-14 DEL</scope>
+    <scope>CHARACTERIZATION OF VARIANT CMD1P ARG-14 DEL</scope>
+  </reference>
+  <reference key="21">
+    <citation type="journal article" date="2011" name="Am. Heart J." volume="162" first="1088" last="1095">
+      <title>Mutations in the human phospholamban gene in patients with heart failure.</title>
+      <authorList>
+        <person name="Medeiros A."/>
+        <person name="Biagi D.G."/>
+        <person name="Sobreira T.J."/>
+        <person name="de Oliveira P.S."/>
+        <person name="Negrao C.E."/>
+        <person name="Mansur A.J."/>
+        <person name="Krieger J.E."/>
+        <person name="Brum P.C."/>
+        <person name="Pereira A.C."/>
+      </authorList>
+      <dbReference type="PubMed" id="22137083"/>
+      <dbReference type="DOI" id="10.1016/j.ahj.2011.07.028"/>
+    </citation>
+    <scope>VARIANTS CMD1P HIS-9 AND LEU-9</scope>
+  </reference>
+  <reference key="22">
+    <citation type="journal article" date="2012" name="J. Biol. Chem." volume="287" first="16521" last="16529">
+      <title>Hydrophobic imbalance in the cytoplasmic domain of phospholamban is a determinant for lethal dilated cardiomyopathy.</title>
+      <authorList>
+        <person name="Ceholski D.K."/>
+        <person name="Trieber C.A."/>
+        <person name="Young H.S."/>
+      </authorList>
+      <dbReference type="PubMed" id="22427649"/>
+      <dbReference type="DOI" id="10.1074/jbc.m112.360859"/>
+    </citation>
+    <scope>CHARACTERIZATION OF VARIANTS CMD1P CYS-9 AND ARG-14 DEL</scope>
+    <scope>FUNCTION</scope>
+    <scope>SUBCELLULAR LOCATION</scope>
+  </reference>
+  <comment type="function">
+    <text evidence="2 3 15 16 17">Reversibly inhibits the activity of ATP2A2/SERCA2 in cardiac sarcoplasmic reticulum by decreasing the apparent affinity of the ATPase for Ca(2+) (PubMed:28890335). Binds preferentially to the ATP-bound E1 conformational form of ATP2A2 which predominates at low Ca(2+) concentrations during the diastolic phase of the cardiac cycle (By similarity). Inhibits ATP2A2 Ca(2+) affinity by disrupting its allosteric activation by ATP (By similarity). Modulates the contractility of the heart muscle in response to physiological stimuli via its effects on ATP2A2. Modulates calcium re-uptake during muscle relaxation and plays an important role in calcium homeostasis in the heart muscle. The degree of ATP2A2 inhibition depends on the oligomeric state of PLN. ATP2A2 inhibition is alleviated by PLN phosphorylation (By similarity). Also inhibits the activity of ATP2A3/SERCA3 (By similarity). Controls intracellular Ca(2+) levels in elongated spermatids and may play a role in germ cell differentiation (By similarity). In the thalamic reticular nucleus of the brain, plays a role in the regulation of sleep patterns and executive functioning (By similarity).</text>
+  </comment>
+  <comment type="subunit">
+    <text evidence="3 7 9 12 13 17 18">Homopentamer (PubMed:16043693, PubMed:16897780). Can also form heterooligomers with other sarcoplasmic/endoplasmic reticulum calcium ATPase (SERCA) regulators ALN, SMIM6/ELN, SLN and STRIT1/DWORF (PubMed:36523160). Monomer (By similarity). Interacts with HAX1 (PubMed:17241641). Interacts as a monomer with ATP2A2; the interaction decreases ATP2A2 Ca(2+) affinity (PubMed:28890335, PubMed:36523160). Interacts with VMP1; VMP1 competes with PLN and SLN to prevent them from forming an inhibitory complex with ATP2A2 (PubMed:28890335). Interacts with S100A1 in a Ca(2+)-dependent manner (PubMed:12804600).</text>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11343438">
+      <id>Q3SXY8</id>
+      <label>ARL13B</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-12808270">
+      <id>P07307-3</id>
+      <label>ASGR2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-12935759">
+      <id>O15342</id>
+      <label>ATP6V0E1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-747430">
+      <id>Q9BXK5</id>
+      <label>BCL2L13</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>8</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-700794">
+      <id>Q13323</id>
+      <label>BIK</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-6657396">
+      <id>P19397</id>
+      <label>CD53</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-740744">
+      <id>O95471</id>
+      <label>CLDN7</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11749983">
+      <id>Q9UHP7-3</id>
+      <label>CLEC2D</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-18013275">
+      <id>Q7Z7G2</id>
+      <label>CPLX4</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-625022">
+      <id>O43889-2</id>
+      <label>CREB3</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-6942903">
+      <id>Q96BA8</id>
+      <label>CREB3L1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-692774">
+      <id>Q09013</id>
+      <label>DMPK</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>4</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-529425">
+      <id>Q92838</id>
+      <label>EDA</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>11</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-18535450">
+      <id>Q9GZR5</id>
+      <label>ELOVL4</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-18304435">
+      <id>Q5JX71</id>
+      <label>FAM209A</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-724839">
+      <id>Q14318</id>
+      <label>FKBP8</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-12142257">
+      <id>Q8TBE3</id>
+      <label>FNDC9</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-17458373">
+      <id>P48165</id>
+      <label>GJA8</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-13345167">
+      <id>Q8TDT2</id>
+      <label>GPR152</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-2927498">
+      <id>O60883</id>
+      <label>GPR37L1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11721746">
+      <id>Q8TED1</id>
+      <label>GPX8</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11427100">
+      <id>P31937</id>
+      <label>HIBADH</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-18053395">
+      <id>Q7Z5P4</id>
+      <label>HSD17B13</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-8632435">
+      <id>P43628</id>
+      <label>KIR2DL3</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-10173166">
+      <id>Q5T700</id>
+      <label>LDLRAD1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>4</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-10264855">
+      <id>Q8N112</id>
+      <label>LSMEM2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11956541">
+      <id>Q9GZY8-5</id>
+      <label>MFF</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-3920969">
+      <id>Q6N075</id>
+      <label>MFSD5</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11324706">
+      <id>Q99735</id>
+      <label>MGST2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-724754">
+      <id>O14880</id>
+      <label>MGST3</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-721391">
+      <id>Q9GZW8</id>
+      <label>MS4A7</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-3923617">
+      <id>Q9H2K0</id>
+      <label>MTIF3</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-17263240">
+      <id>P15941-11</id>
+      <label>MUC1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-18063495">
+      <id>Q8TBJ4</id>
+      <label>PLPPR1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11525735">
+      <id>O95197-3</id>
+      <label>RTN3</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-3920694">
+      <id>Q9NR31</id>
+      <label>SAR1A</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-10204280">
+      <id>A0A0S2Z4U3</id>
+      <label>SDC3</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-6977215">
+      <id>Q9Y3P8</id>
+      <label>SIT1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-1573290">
+      <id>Q15849</id>
+      <label>SLC14A2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-10262251">
+      <id>Q8IWU4</id>
+      <label>SLC30A8</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-12811757">
+      <id>O95436-2</id>
+      <label>SLC34A2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-17295964">
+      <id>Q9NQQ7-3</id>
+      <label>SLC35C2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-12898013">
+      <id>Q9NP94</id>
+      <label>SLC39A2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-17498703">
+      <id>Q9HBV2</id>
+      <label>SPACA1</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-10819434">
+      <id>Q9NPE6</id>
+      <label>SPAG4</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-712466">
+      <id>Q16623</id>
+      <label>STX1A</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11956649">
+      <id>P32856-2</id>
+      <label>STX2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-2821497">
+      <id>Q9BVX2</id>
+      <label>TMEM106C</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-11724423">
+      <id>Q7Z7N9</id>
+      <label>TMEM179B</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-6269551">
+      <id>Q6UW68</id>
+      <label>TMEM205</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-10823938">
+      <id>Q9NWC5</id>
+      <label>TMEM45A</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-3923061">
+      <id>Q96B21</id>
+      <label>TMEM45B</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-18178701">
+      <id>Q4KMG9</id>
+      <label>TMEM52B</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-2548832">
+      <id>Q8N661</id>
+      <label>TMEM86B</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="interaction">
+    <interactant intactId="EBI-692836">
+      <id>P26678</id>
+    </interactant>
+    <interactant intactId="EBI-12345267">
+      <id>O15393-2</id>
+      <label>TMPRSS2</label>
+    </interactant>
+    <organismsDiffer>false</organismsDiffer>
+    <experiments>3</experiments>
+  </comment>
+  <comment type="subcellular location">
+    <subcellularLocation>
+      <location evidence="13">Endoplasmic reticulum membrane</location>
+      <topology evidence="4">Single-pass membrane protein</topology>
+    </subcellularLocation>
+    <subcellularLocation>
+      <location evidence="7 8 15">Sarcoplasmic reticulum membrane</location>
+      <topology evidence="4">Single-pass membrane protein</topology>
+    </subcellularLocation>
+    <subcellularLocation>
+      <location evidence="1">Mitochondrion membrane</location>
+      <topology evidence="4">Single-pass membrane protein</topology>
+    </subcellularLocation>
+    <subcellularLocation>
+      <location evidence="3">Membrane</location>
+      <topology evidence="4">Single-pass membrane protein</topology>
+    </subcellularLocation>
+    <text evidence="8 13">Colocalizes with HAX1 at the endoplasmic reticulum (PubMed:17241641). Colocalizes with DMPK at the sarcoplasmic reticulum (PubMed:15598648).</text>
+  </comment>
+  <comment type="tissue specificity">
+    <text evidence="13">Heart muscle (at protein level).</text>
+  </comment>
+  <comment type="PTM">
+    <text evidence="8 11 16">Phosphorylation by PKA abolishes the inhibition of ATP2A2-mediated calcium uptake. Phosphorylated at Thr-17 by CaMK2, and in response to beta-adrenergic stimulation. Phosphorylation by DMPK may stimulate sarcoplasmic reticulum calcium uptake in cardiomyocytes.</text>
+  </comment>
+  <comment type="PTM">
+    <text evidence="3">Palmitoylated by ZDHHC16, promoting formation of the homopentamer.</text>
+  </comment>
+  <comment type="PTM">
+    <text evidence="3">In elongated spermatids, proteolytically cleaved by SPPL2C which modulates intracellular Ca(2+) homeostasis.</text>
+  </comment>
+  <comment type="disease" evidence="5 10 14 15 16">
+    <disease id="DI-00222">
+      <name>Cardiomyopathy, dilated, 1P</name>
+      <acronym>CMD1P</acronym>
+      <description>A disorder characterized by ventricular dilation and impaired systolic function, resulting in congestive heart failure and arrhythmia. Patients are at risk of premature death.</description>
+      <dbReference type="MIM" id="609909"/>
+    </disease>
+    <text>The disease is caused by variants affecting the gene represented in this entry.</text>
+  </comment>
+  <comment type="disease" evidence="6">
+    <disease id="DI-03039">
+      <name>Cardiomyopathy, familial hypertrophic, 18</name>
+      <acronym>CMH18</acronym>
+      <description>A hereditary heart disorder characterized by ventricular hypertrophy, which is usually asymmetric and often involves the interventricular septum. The symptoms include dyspnea, syncope, collapse, palpitations, and chest pain. They can be readily provoked by exercise. The disorder has inter- and intrafamilial variability ranging from benign to malignant forms with high risk of cardiac failure and sudden cardiac death.</description>
+      <dbReference type="MIM" id="613874"/>
+    </disease>
+    <text>The disease is caused by variants affecting the gene represented in this entry.</text>
+  </comment>
+  <comment type="miscellaneous">
+    <text>For practical reasons, PLN activity is most often studied with ATP2A1 instead of ATP2A2.</text>
+  </comment>
+  <comment type="similarity">
+    <text evidence="20">Belongs to the phospholamban family.</text>
+  </comment>
+  <dbReference type="EMBL" id="M63603">
+    <property type="protein sequence ID" value="AAA60083.1"/>
+    <property type="molecule type" value="mRNA"/>
+  </dbReference>
+  <dbReference type="EMBL" id="M60411">
+    <property type="protein sequence ID" value="AAA60109.1"/>
+    <property type="molecule type" value="mRNA"/>
+  </dbReference>
+  <dbReference type="EMBL" id="AF177764">
+    <property type="protein sequence ID" value="AAD55950.1"/>
+    <property type="molecule type" value="Genomic_DNA"/>
+  </dbReference>
+  <dbReference type="EMBL" id="BC005269">
+    <property type="protein sequence ID" value="AAH05269.1"/>
+    <property type="molecule type" value="mRNA"/>
+  </dbReference>
+  <dbReference type="CCDS" id="CCDS5120.1"/>
+  <dbReference type="PIR" id="A40424">
+    <property type="entry name" value="A40424"/>
+  </dbReference>
+  <dbReference type="RefSeq" id="NP_002658.1">
+    <property type="nucleotide sequence ID" value="NM_002667.4"/>
+  </dbReference>
+  <dbReference type="PDB" id="1PLP">
+    <property type="method" value="NMR"/>
+    <property type="chains" value="A=1-24"/>
+  </dbReference>
+  <dbReference type="PDB" id="1ZLL">
+    <property type="method" value="NMR"/>
+    <property type="chains" value="A/B/C/D/E=1-52"/>
+  </dbReference>
+  <dbReference type="PDB" id="2HYN">
+    <property type="method" value="NMR"/>
+    <property type="chains" value="A/B/C/D/E=1-52"/>
+  </dbReference>
+  <dbReference type="PDB" id="6Y40">
+    <property type="method" value="X-ray"/>
+    <property type="resolution" value="1.75 A"/>
+    <property type="chains" value="P=6-21"/>
+  </dbReference>
+  <dbReference type="PDB" id="7E0Z">
+    <property type="method" value="X-ray"/>
+    <property type="resolution" value="2.16 A"/>
+    <property type="chains" value="B=8-19"/>
+  </dbReference>
+  <dbReference type="PDB" id="7E11">
+    <property type="method" value="X-ray"/>
+    <property type="resolution" value="3.43 A"/>
+    <property type="chains" value="B=8-19"/>
+  </dbReference>
+  <dbReference type="PDB" id="7E12">
+    <property type="method" value="X-ray"/>
+    <property type="resolution" value="2.80 A"/>
+    <property type="chains" value="B=8-19"/>
+  </dbReference>
+  <dbReference type="PDBsum" id="1PLP"/>
+  <dbReference type="PDBsum" id="1ZLL"/>
+  <dbReference type="PDBsum" id="2HYN"/>
+  <dbReference type="PDBsum" id="6Y40"/>
+  <dbReference type="PDBsum" id="7E0Z"/>
+  <dbReference type="PDBsum" id="7E11"/>
+  <dbReference type="PDBsum" id="7E12"/>
+  <dbReference type="AlphaFoldDB" id="P26678"/>
+  <dbReference type="SMR" id="P26678"/>
+  <dbReference type="BioGRID" id="111365">
+    <property type="interactions" value="68"/>
+  </dbReference>
+  <dbReference type="ComplexPortal" id="CPX-51">
+    <property type="entry name" value="Cardiac phospholamban complex"/>
+  </dbReference>
+  <dbReference type="CORUM" id="P26678"/>
+  <dbReference type="DIP" id="DIP-33582N"/>
+  <dbReference type="ELM" id="P26678"/>
+  <dbReference type="IntAct" id="P26678">
+    <property type="interactions" value="59"/>
+  </dbReference>
+  <dbReference type="MINT" id="P26678"/>
+  <dbReference type="STRING" id="9606.ENSP00000350132"/>
+  <dbReference type="TCDB" id="1.A.50.1.1">
+    <property type="family name" value="the phospholamban (ca(2+)-channel and ca(2+)-atpase regulator) (plb) family"/>
+  </dbReference>
+  <dbReference type="iPTMnet" id="P26678"/>
+  <dbReference type="PhosphoSitePlus" id="P26678"/>
+  <dbReference type="SwissPalm" id="P26678"/>
+  <dbReference type="BioMuta" id="PLN"/>
+  <dbReference type="DMDM" id="130774"/>
+  <dbReference type="jPOST" id="P26678"/>
+  <dbReference type="MassIVE" id="P26678"/>
+  <dbReference type="PaxDb" id="9606-ENSP00000350132"/>
+  <dbReference type="PeptideAtlas" id="P26678"/>
+  <dbReference type="ProteomicsDB" id="54361"/>
+  <dbReference type="TopDownProteomics" id="P26678"/>
+  <dbReference type="ABCD" id="P26678">
+    <property type="antibodies" value="2 sequenced antibodies"/>
+  </dbReference>
+  <dbReference type="Antibodypedia" id="3353">
+    <property type="antibodies" value="495 antibodies from 38 providers"/>
+  </dbReference>
+  <dbReference type="DNASU" id="5350"/>
+  <dbReference type="Ensembl" id="ENST00000357525.6">
+    <property type="protein sequence ID" value="ENSP00000350132.5"/>
+    <property type="gene ID" value="ENSG00000198523.6"/>
+  </dbReference>
+  <dbReference type="GeneID" id="5350"/>
+  <dbReference type="KEGG" id="hsa:5350"/>
+  <dbReference type="MANE-Select" id="ENST00000357525.6">
+    <property type="protein sequence ID" value="ENSP00000350132.5"/>
+    <property type="RefSeq nucleotide sequence ID" value="NM_002667.5"/>
+    <property type="RefSeq protein sequence ID" value="NP_002658.1"/>
+  </dbReference>
+  <dbReference type="AGR" id="HGNC:9080"/>
+  <dbReference type="CTD" id="5350"/>
+  <dbReference type="DisGeNET" id="5350"/>
+  <dbReference type="GeneCards" id="PLN"/>
+  <dbReference type="GeneReviews" id="PLN"/>
+  <dbReference type="HGNC" id="HGNC:9080">
+    <property type="gene designation" value="PLN"/>
+  </dbReference>
+  <dbReference type="HPA" id="ENSG00000198523">
+    <property type="expression patterns" value="Group enriched (heart muscle, skeletal muscle)"/>
+  </dbReference>
+  <dbReference type="MalaCards" id="PLN"/>
+  <dbReference type="MIM" id="172405">
+    <property type="type" value="gene"/>
+  </dbReference>
+  <dbReference type="MIM" id="609909">
+    <property type="type" value="phenotype"/>
+  </dbReference>
+  <dbReference type="MIM" id="613874">
+    <property type="type" value="phenotype"/>
+  </dbReference>
+  <dbReference type="neXtProt" id="NX_P26678"/>
+  <dbReference type="OpenTargets" id="ENSG00000198523"/>
+  <dbReference type="Orphanet" id="154">
+    <property type="disease" value="Familial isolated dilated cardiomyopathy"/>
+  </dbReference>
+  <dbReference type="PharmGKB" id="PA272"/>
+  <dbReference type="VEuPathDB" id="HostDB:ENSG00000198523"/>
+  <dbReference type="eggNOG" id="ENOG502S97F">
+    <property type="taxonomic scope" value="Eukaryota"/>
+  </dbReference>
+  <dbReference type="GeneTree" id="ENSGT00390000002403"/>
+  <dbReference type="HOGENOM" id="CLU_214576_0_0_1"/>
+  <dbReference type="InParanoid" id="P26678"/>
+  <dbReference type="OMA" id="YITRSAM"/>
+  <dbReference type="PhylomeDB" id="P26678"/>
+  <dbReference type="TreeFam" id="TF330750"/>
+  <dbReference type="PathwayCommons" id="P26678"/>
+  <dbReference type="Reactome" id="R-HSA-5578775">
+    <property type="pathway name" value="Ion homeostasis"/>
+  </dbReference>
+  <dbReference type="Reactome" id="R-HSA-936837">
+    <property type="pathway name" value="Ion transport by P-type ATPases"/>
+  </dbReference>
+  <dbReference type="SignaLink" id="P26678"/>
+  <dbReference type="SIGNOR" id="P26678"/>
+  <dbReference type="BioGRID-ORCS" id="5350">
+    <property type="hits" value="12 hits in 653 CRISPR screens"/>
+  </dbReference>
+  <dbReference type="ChiTaRS" id="PLN">
+    <property type="organism name" value="human"/>
+  </dbReference>
+  <dbReference type="EvolutionaryTrace" id="P26678"/>
+  <dbReference type="GeneWiki" id="Phospholamban"/>
+  <dbReference type="GenomeRNAi" id="5350"/>
+  <dbReference type="Pharos" id="P26678">
+    <property type="development level" value="Tbio"/>
+  </dbReference>
+  <dbReference type="PRO" id="PR:P26678"/>
+  <dbReference type="Proteomes" id="UP000005640">
+    <property type="component" value="Chromosome 6"/>
+  </dbReference>
+  <dbReference type="RNAct" id="P26678">
+    <property type="molecule type" value="protein"/>
+  </dbReference>
+  <dbReference type="Bgee" id="ENSG00000198523">
+    <property type="expression patterns" value="Expressed in heart right ventricle and 177 other cell types or tissues"/>
+  </dbReference>
+  <dbReference type="ExpressionAtlas" id="P26678">
+    <property type="expression patterns" value="baseline and differential"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0090534">
+    <property type="term" value="C:calcium ion-transporting ATPase complex"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0005783">
+    <property type="term" value="C:endoplasmic reticulum"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0005789">
+    <property type="term" value="C:endoplasmic reticulum membrane"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0016020">
+    <property type="term" value="C:membrane"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0031966">
+    <property type="term" value="C:mitochondrial membrane"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="UniProtKB-SubCell"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0005739">
+    <property type="term" value="C:mitochondrion"/>
+    <property type="evidence" value="ECO:0007005"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0048471">
+    <property type="term" value="C:perinuclear region of cytoplasm"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0016529">
+    <property type="term" value="C:sarcoplasmic reticulum"/>
+    <property type="evidence" value="ECO:0000318"/>
+    <property type="project" value="GO_Central"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0033017">
+    <property type="term" value="C:sarcoplasmic reticulum membrane"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0051117">
+    <property type="term" value="F:ATPase binding"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0042030">
+    <property type="term" value="F:ATPase inhibitor activity"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0004857">
+    <property type="term" value="F:enzyme inhibitor activity"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0042802">
+    <property type="term" value="F:identical protein binding"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0042803">
+    <property type="term" value="F:protein homodimerization activity"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0001675">
+    <property type="term" value="P:acrosome assembly"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0086023">
+    <property type="term" value="P:adenylate cyclase-activating adrenergic receptor signaling pathway involved in heart process"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="Ensembl"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0008015">
+    <property type="term" value="P:blood circulation"/>
+    <property type="evidence" value="ECO:0000303"/>
+    <property type="project" value="ProtInc"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0048738">
+    <property type="term" value="P:cardiac muscle tissue development"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="Ensembl"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0050802">
+    <property type="term" value="P:circadian sleep/wake cycle, sleep"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0006874">
+    <property type="term" value="P:intracellular calcium ion homeostasis"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0045475">
+    <property type="term" value="P:locomotor rhythm"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0046716">
+    <property type="term" value="P:muscle cell cellular homeostasis"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="Ensembl"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0032780">
+    <property type="term" value="P:negative regulation of ATP-dependent activity"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:1901895">
+    <property type="term" value="P:negative regulation of ATPase-coupled calcium transmembrane transporter activity"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:1901877">
+    <property type="term" value="P:negative regulation of calcium ion binding"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0090281">
+    <property type="term" value="P:negative regulation of calcium ion import"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:1902081">
+    <property type="term" value="P:negative regulation of calcium ion import into sarcoplasmic reticulum"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:1901020">
+    <property type="term" value="P:negative regulation of calcium ion transmembrane transporter activity"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0051926">
+    <property type="term" value="P:negative regulation of calcium ion transport"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0043086">
+    <property type="term" value="P:negative regulation of catalytic activity"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0010459">
+    <property type="term" value="P:negative regulation of heart rate"/>
+    <property type="evidence" value="ECO:0000315"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0007219">
+    <property type="term" value="P:Notch signaling pathway"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="Ensembl"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:1901894">
+    <property type="term" value="P:regulation of ATPase-coupled calcium transmembrane transporter activity"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0051924">
+    <property type="term" value="P:regulation of calcium ion transport"/>
+    <property type="evidence" value="ECO:0000314"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0086004">
+    <property type="term" value="P:regulation of cardiac muscle cell contraction"/>
+    <property type="evidence" value="ECO:0000305"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0086036">
+    <property type="term" value="P:regulation of cardiac muscle cell membrane potential"/>
+    <property type="evidence" value="ECO:0000305"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0010881">
+    <property type="term" value="P:regulation of cardiac muscle contraction by regulation of the release of sequestered calcium ion"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="Ensembl"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0051480">
+    <property type="term" value="P:regulation of cytosolic calcium ion concentration"/>
+    <property type="evidence" value="ECO:0000305"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0008016">
+    <property type="term" value="P:regulation of heart contraction"/>
+    <property type="evidence" value="ECO:0000315"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:1901897">
+    <property type="term" value="P:regulation of relaxation of cardiac muscle"/>
+    <property type="evidence" value="ECO:0000305"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0002026">
+    <property type="term" value="P:regulation of the force of heart contraction"/>
+    <property type="evidence" value="ECO:0000305"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0086092">
+    <property type="term" value="P:regulation of the force of heart contraction by cardiac conduction"/>
+    <property type="evidence" value="ECO:0007669"/>
+    <property type="project" value="Ensembl"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0055119">
+    <property type="term" value="P:relaxation of cardiac muscle"/>
+    <property type="evidence" value="ECO:0000304"/>
+    <property type="project" value="BHF-UCL"/>
+  </dbReference>
+  <dbReference type="GO" id="GO:0008542">
+    <property type="term" value="P:visual learning"/>
+    <property type="evidence" value="ECO:0000250"/>
+    <property type="project" value="UniProtKB"/>
+  </dbReference>
+  <dbReference type="CDD" id="cd20250">
+    <property type="entry name" value="Phospholamban"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="FunFam" id="1.20.5.290:FF:000001">
+    <property type="entry name" value="Cardiac phospholamban"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="Gene3D" id="1.20.5.290">
+    <property type="entry name" value="Phospholamban"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="InterPro" id="IPR005984">
+    <property type="entry name" value="PLB"/>
+  </dbReference>
+  <dbReference type="NCBIfam" id="TIGR01294">
+    <property type="entry name" value="P_lamban"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="PANTHER" id="PTHR21194">
+    <property type="entry name" value="CARDIAC PHOSPHOLAMBAN"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="PANTHER" id="PTHR21194:SF1">
+    <property type="entry name" value="CARDIAC PHOSPHOLAMBAN"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="Pfam" id="PF04272">
+    <property type="entry name" value="Phospholamban"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <dbReference type="PIRSF" id="PIRSF001665">
+    <property type="entry name" value="PLB"/>
+    <property type="match status" value="1"/>
+  </dbReference>
+  <proteinExistence type="evidence at protein level"/>
+  <keyword id="KW-0002">3D-structure</keyword>
+  <keyword id="KW-0007">Acetylation</keyword>
+  <keyword id="KW-0122">Cardiomyopathy</keyword>
+  <keyword id="KW-0225">Disease variant</keyword>
+  <keyword id="KW-0256">Endoplasmic reticulum</keyword>
+  <keyword id="KW-0449">Lipoprotein</keyword>
+  <keyword id="KW-0472">Membrane</keyword>
+  <keyword id="KW-0496">Mitochondrion</keyword>
+  <keyword id="KW-0564">Palmitate</keyword>
+  <keyword id="KW-0597">Phosphoprotein</keyword>
+  <keyword id="KW-1267">Proteomics identification</keyword>
+  <keyword id="KW-1185">Reference proteome</keyword>
+  <keyword id="KW-0703">Sarcoplasmic reticulum</keyword>
+  <keyword id="KW-0812">Transmembrane</keyword>
+  <keyword id="KW-1133">Transmembrane helix</keyword>
+  <feature type="chain" id="PRO_0000191244" description="Phospholamban">
+    <location>
+      <begin position="1"/>
+      <end position="52"/>
+    </location>
+  </feature>
+  <feature type="topological domain" description="Cytoplasmic" evidence="20">
+    <location>
+      <begin position="1"/>
+      <end position="31"/>
+    </location>
+  </feature>
+  <feature type="transmembrane region" description="Helical" evidence="20">
+    <location>
+      <begin position="32"/>
+      <end position="52"/>
+    </location>
+  </feature>
+  <feature type="region of interest" description="Involved in HAX1 binding">
+    <location>
+      <begin position="16"/>
+      <end position="22"/>
+    </location>
+  </feature>
+  <feature type="modified residue" description="N-acetylmethionine" evidence="1">
+    <location>
+      <position position="1"/>
+    </location>
+  </feature>
+  <feature type="modified residue" description="Phosphoserine; by PKA and DMPK" evidence="8 16">
+    <location>
+      <position position="16"/>
+    </location>
+  </feature>
+  <feature type="modified residue" description="Phosphothreonine; by CaMK2" evidence="11">
+    <location>
+      <position position="17"/>
+    </location>
+  </feature>
+  <feature type="lipid moiety-binding region" description="S-palmitoyl cysteine" evidence="3">
+    <location>
+      <position position="36"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_025989" description="In CMD1P; impairs phosphorylation by PKA and inhibition of ATP2A1-mediated calcium uptake; dbSNP:rs111033559." evidence="5 15 16">
+    <original>R</original>
+    <variation>C</variation>
+    <location>
+      <position position="9"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072925" description="In CMD1P; impairs phosphorylation by PKA and inhibition of ATP2A1-mediated calcium uptake; dbSNP:rs754782171." evidence="14 16">
+    <original>R</original>
+    <variation>H</variation>
+    <location>
+      <position position="9"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_072926" description="In CMD1P; impairs phosphorylation by PKA and inhibition of ATP2A1-mediated calcium uptake." evidence="14 16">
+    <original>R</original>
+    <variation>L</variation>
+    <location>
+      <position position="9"/>
+    </location>
+  </feature>
+  <feature type="sequence variant" id="VAR_025990" description="In CMD1P; impairs phosphorylation by PKA, destabilizes the homopentamer and mildly reduces inhibition of ATP2A1-mediated calcium uptake; dbSNP:rs397516784." evidence="10 15 16">
+    <location>
+      <position position="14"/>
+    </location>
+  </feature>
+  <feature type="mutagenesis site" description="Abolishes phosphorylation by PKA." evidence="16">
+    <original>R</original>
+    <variation>A</variation>
+    <location>
+      <position position="13"/>
+    </location>
+  </feature>
+  <feature type="mutagenesis site" description="Abolishes phosphorylation by PKA." evidence="16">
+    <original>R</original>
+    <variation>A</variation>
+    <location>
+      <position position="14"/>
+    </location>
+  </feature>
+  <feature type="mutagenesis site" description="Abolishes phosphorylation by PKA." evidence="16">
+    <original>S</original>
+    <variation>A</variation>
+    <location>
+      <position position="16"/>
+    </location>
+  </feature>
+  <feature type="mutagenesis site" description="No effect on phosphorylation by PKA." evidence="16">
+    <original>T</original>
+    <variation>A</variation>
+    <location>
+      <position position="17"/>
+    </location>
+  </feature>
+  <feature type="helix" evidence="22">
+    <location>
+      <begin position="4"/>
+      <end position="14"/>
+    </location>
+  </feature>
+  <feature type="strand" evidence="22">
+    <location>
+      <begin position="18"/>
+      <end position="20"/>
+    </location>
+  </feature>
+  <feature type="helix" evidence="23">
+    <location>
+      <begin position="23"/>
+      <end position="50"/>
+    </location>
+  </feature>
+  <evidence type="ECO:0000250" key="1">
+    <source>
+      <dbReference type="UniProtKB" id="A4IFH6"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000250" key="2">
+    <source>
+      <dbReference type="UniProtKB" id="P61012"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000250" key="3">
+    <source>
+      <dbReference type="UniProtKB" id="P61014"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000255" key="4"/>
+  <evidence type="ECO:0000269" key="5">
+    <source>
+      <dbReference type="PubMed" id="12610310"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="6">
+    <source>
+      <dbReference type="PubMed" id="12705874"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="7">
+    <source>
+      <dbReference type="PubMed" id="12804600"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="8">
+    <source>
+      <dbReference type="PubMed" id="15598648"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="9">
+    <source>
+      <dbReference type="PubMed" id="16043693"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="10">
+    <source>
+      <dbReference type="PubMed" id="16432188"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="11">
+    <source>
+      <dbReference type="PubMed" id="16690701"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="12">
+    <source>
+      <dbReference type="PubMed" id="16897780"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="13">
+    <source>
+      <dbReference type="PubMed" id="17241641"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="14">
+    <source>
+      <dbReference type="PubMed" id="22137083"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="15">
+    <source>
+      <dbReference type="PubMed" id="22427649"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="16">
+    <source>
+      <dbReference type="PubMed" id="22707725"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="17">
+    <source>
+      <dbReference type="PubMed" id="28890335"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000269" key="18">
+    <source>
+      <dbReference type="PubMed" id="36523160"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000303" key="19">
+    <source>
+      <dbReference type="PubMed" id="1828805"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0000305" key="20"/>
+  <evidence type="ECO:0000312" key="21">
+    <source>
+      <dbReference type="HGNC" id="HGNC:9080"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0007829" key="22">
+    <source>
+      <dbReference type="PDB" id="1PLP"/>
+    </source>
+  </evidence>
+  <evidence type="ECO:0007829" key="23">
+    <source>
+      <dbReference type="PDB" id="1ZLL"/>
+    </source>
+  </evidence>
+  <sequence length="52" mass="6109" checksum="0766304A76A854D3" modified="1992-08-01" version="1">MEKVQYLTRSAIRRASTIEMPQQARQKLQNLFINFCLILICLLLICIIVMLL</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

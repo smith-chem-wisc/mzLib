@@ -29,8 +29,9 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
-using UsefulProteomicsDatabases.Generated;
+using Omics.Modifications;
 using TopDownProteomics.IO.Obo;
+using Omics.Modifications.IO;
 
 namespace UsefulProteomicsDatabases
 {
@@ -146,13 +147,7 @@ namespace UsefulProteomicsDatabases
             return oboParser.Parse(psiModOboLocation); 
         }
 
-        public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized)
-        {
-            var modsWithFormalCharges = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>()
-                .Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
-            Regex digitsOnly = new(@"[^\d]");
-            return modsWithFormalCharges.ToDictionary(b => "PSI-MOD; " + b.id, b => int.Parse(digitsOnly.Replace(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
-        }
+        public static Dictionary<string, int> GetFormalChargesDictionary(obo psiModDeserialized) => ModificationLoader.GetFormalChargesDictionary(psiModDeserialized);
 
         public static string GetFormalChargeString(this OboTagValuePair tvPair)
         {
@@ -189,59 +184,133 @@ namespace UsefulProteomicsDatabases
             return chargeMatch.Groups[1].Value;
         }
 
+        [Obsolete("This method is obsolete. It happens automatically on first call to periodic table in static constructor")]
         public static void LoadElements()
         {
-            // has the periodic table already been loaded?
-            if (PeriodicTable.GetElement(1) != null)
-            {
-                return;
-            }
 
-            // periodic table has not been loaded yet - load it
-            PeriodicTableLoader.Load();
         }
 
         public static IEnumerable<Modification> LoadUnimod(string unimodLocation)
         {
             if (!File.Exists(unimodLocation))
-            {
                 UpdateUnimod(unimodLocation);
-            }
-            return UnimodLoader.ReadMods(unimodLocation);
+            return ModificationLoader.ReadModsFromUnimod(unimodLocation);
         }
 
-        public static Generated.obo LoadPsiMod(string psimodLocation)
+        public static obo LoadPsiMod(string psimodLocation)
         {
-            var psimodSerializer = new XmlSerializer(typeof(Generated.obo));
-
             if (!File.Exists(psimodLocation))
-            {
                 UpdatePsiMod(psimodLocation);
-            }
-            using (FileStream stream = new FileStream(psimodLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
-            {
-                return psimodSerializer.Deserialize(stream) as Generated.obo;
-            }
+            return ModificationLoader.LoadPsiMod(psimodLocation);
         }
 
         public static IEnumerable<Modification> LoadUniprot(string uniprotLocation, Dictionary<string, int> formalChargesDictionary)
         {
             if (!File.Exists(uniprotLocation))
-            {
                 UpdateUniprot(uniprotLocation);
-            }
-            return PtmListLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _).OfType<Modification>();
+            return ModificationLoader.ReadModsFromFile(uniprotLocation, formalChargesDictionary, out var _);
         }
 
-        public static void DownloadContent(string url, string outputFile)
+        /// <summary>
+        /// Shared client for the ontology downloads below. One instance rather than one per call, which is
+        /// what <c>PredictionClients</c>' Koina client and <see cref="PrideArchiveClient"/> both do,
+        /// so repeated refreshes cannot exhaust sockets.
+        /// </summary>
+        /// <remarks>
+        /// The timeout is stated rather than left implicit. It happens to equal HttpClient's own default, but
+        /// relying on that default is what made an unreachable ontology host hang for 100 seconds per call
+        /// with nothing in the code saying so. 100 seconds is generous for files of this size (the largest is
+        /// a few MB) and matches the value <see cref="PrideArchiveClient"/> settled on; it is a backstop
+        /// against a stalled connection, not a latency budget.
+        /// </remarks>
+        private static readonly HttpClient DownloadClient = new() { Timeout = TimeSpan.FromSeconds(100) };
+
+        /// <summary>
+        /// Retrieves data using async/await
+        /// </summary>
+        /// <param name="url">path to retrieve data from</param>
+        /// <param name="cancellationToken">cancels the request; the client's timeout still applies</param>
+        /// <returns></returns>
+        public static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url, CancellationToken cancellationToken = default) =>
+            await AwaitAsync_GetSomeData(url, DownloadClient, cancellationToken).ConfigureAwait(false);
+
+        /// <summary>
+        /// <see cref="AwaitAsync_GetSomeData(string,CancellationToken)"/> over a caller-supplied
+        /// <see cref="HttpClient"/>, so tests can drive the response without a live service.
+        /// </summary>
+        internal static async Task<HttpResponseMessage> AwaitAsync_GetSomeData(string url, HttpClient httpClient,
+            CancellationToken cancellationToken = default)
         {
-            Uri uri = new(url);
-            HttpClient client = new();
-            HttpResponseMessage urlResponse = Task.Run(() => client.GetAsync(uri)).Result;
-            using (FileStream stream = new(outputFile, FileMode.CreateNew))
+            var response = await httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
+            return response;
+        }
+
+        /// <summary>
+        /// Downloads content from the web and saves it as a new file.
+        /// </summary>
+        /// <param name="url">path to retrieve data from</param>
+        /// <param name="outputFile">path to write data to</param>
+        /// <param name="cancellationToken">cancels the download</param>
+        /// <exception cref="HttpRequestException">
+        /// The server answered with a non-success status. Nothing is written in that case.
+        /// </exception>
+        /// <remarks>
+        /// The status check is the point of this method. Without it a 404 page or a 500 body was streamed to
+        /// disk, and because the callers below hash the result and move it into place, an outage could
+        /// install an error page as the PTM database — the failure being a corrupt ontology later rather than
+        /// a failed download now. A partially written file is removed for the same reason: the callers cannot
+        /// tell a truncated ontology from a short one.
+        /// </remarks>
+        public static void DownloadContent(string url, string outputFile, CancellationToken cancellationToken = default) =>
+            DownloadContent(url, outputFile, DownloadClient, cancellationToken);
+
+        /// <summary>
+        /// <see cref="DownloadContent(string,string,CancellationToken)"/> over a caller-supplied
+        /// <see cref="HttpClient"/>, so the status check and the partial-file cleanup can be driven without a
+        /// live host. The same seam, for the same reason, that <see cref="ProteinDbRetriever"/> exposes on
+        /// <c>RetrieveEntry</c>: both failure paths matter precisely when the network is misbehaving, which
+        /// is the one condition a live test cannot summon on demand.
+        /// </summary>
+        internal static void DownloadContent(string url, string outputFile, HttpClient httpClient,
+            CancellationToken cancellationToken = default)
+        {
+            using HttpResponseMessage httpResponseMessage =
+                AwaitAsync_GetSomeData(url, httpClient, cancellationToken).GetAwaiter().GetResult();
+
+            if (!httpResponseMessage.IsSuccessStatusCode)
             {
-                Task.Run(() => urlResponse.Content.CopyToAsync(stream)).Wait();
+                throw new HttpRequestException(
+                    $"Download failed with status {(int)httpResponseMessage.StatusCode} {httpResponseMessage.ReasonPhrase} for '{url}'.");
             }
+
+            try
+            {
+                using FileStream stream = new(outputFile, FileMode.CreateNew);
+                httpResponseMessage.Content.CopyToAsync(stream, cancellationToken).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                TryDeletePartialDownload(outputFile);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// Removes a half-written download so a later run does not mistake it for a complete file. A failure
+        /// to delete is swallowed deliberately: the caller is already throwing the reason the download failed,
+        /// and that is the more useful exception to surface.
+        /// </summary>
+        private static void TryDeletePartialDownload(string outputFile)
+        {
+            try
+            {
+                if (File.Exists(outputFile))
+                {
+                    File.Delete(outputFile);
+                }
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
         }
 
         private static bool FilesAreEqual_Hash(string first, string second)
@@ -282,7 +351,7 @@ namespace UsefulProteomicsDatabases
 
         private static void DownloadUniprot(string uniprotLocation)
         {
-            DownloadContent(@"http://legacy.uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
+            DownloadContent(@"http://uniprot.org/docs/ptmlist.txt", uniprotLocation + ".temp");
         }
     }
 }

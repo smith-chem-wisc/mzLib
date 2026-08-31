@@ -16,228 +16,79 @@
 // You should have received a copy of the GNU Lesser General Public
 // License along with MassSpectrometry. If not, see <http://www.gnu.org/licenses/>.
 
-using Chemistry;
-using MzLibUtil;
 using System;
-using System.Collections.Concurrent;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
     /// <summary>
     /// A class for interacting with data collected from a Mass Spectrometer, and stored in a file
     /// </summary>
-    public class MsDataFile
+    public abstract class MsDataFile : IEnumerable<MsDataScan>
     {
-        protected MsDataScan[] Scans;
-
-        public MsDataFile(int numSpectra, SourceFile sourceFile)
+        protected readonly object DynamicReadingLock = new();
+        public MsDataScan[] Scans { get; protected set; }
+        public SourceFile SourceFile { get; set; }
+        public int NumSpectra => Scans?.Length ?? 0;
+        public string FilePath { get; }
+        protected MsDataFile(int numSpectra, SourceFile sourceFile)
         {
             Scans = new MsDataScan[numSpectra];
             SourceFile = sourceFile;
         }
 
-        public MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
+        protected MsDataFile(MsDataScan[] scans, SourceFile sourceFile)
         {
             Scans = scans;
             SourceFile = sourceFile;
         }
 
-        public SourceFile SourceFile { get; }
-
-        public int NumSpectra
+        protected MsDataFile(string filePath)
         {
-            get
-            {
-                return Scans.Length;
-            }
+            FilePath = filePath;
+        }
+
+        public MsDataScan this[int index] => Scans[index];
+
+        #region Abstract members
+
+        // static connection
+        public abstract MsDataFile LoadAllStaticData(FilteringParams filteringParams = null, int maxThreads = 1);
+
+        public abstract SourceFile GetSourceFile();
+
+        // Dynamic Connection
+        public abstract MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber,
+            IFilteringParams filterParams = null);
+
+        public abstract void CloseDynamicConnection();
+        public abstract void InitiateDynamicConnection();
+
+        #endregion
+
+        #region Utilities
+
+        public virtual MsDataScan[] GetMsDataScans()
+        {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+            return Scans;
         }
 
         public virtual List<MsDataScan> GetAllScansList()
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
             return Scans.ToList();
-        }
-
-        /// <summary>
-        /// This method is designed to break a scan up into windows and take the top N peaks (by intensity)
-        /// from each window, then merge the results as the scan's new mass spectrum
-        /// </summary>
-        /// <param name="intensities"></param>
-        /// <param name="mArray"></param>
-        /// <param name="filteringParams"></param>
-        public static void WindowModeHelper(ref double[] intensities, ref double[] mArray, IFilteringParams filteringParams, double scanRangeMinMz, double scanRangeMaxMz, bool keepZeroPeaks = false)
-        {
-            Array.Sort(intensities, mArray);
-            double TIC = intensities.Sum();
-
-            //filter low intensites based on a percent for the whole spectrum.
-            if (filteringParams.MinimumAllowedIntensityRatioToBasePeakM.HasValue)
-            {
-                double maxIntensity = intensities.Max();
-                double cutOff = maxIntensity * filteringParams.MinimumAllowedIntensityRatioToBasePeakM.Value;
-                for (int i = 0; i < intensities.Length; i++)
-                {
-                    if (intensities[i] <= cutOff && intensities[i] > 0)
-                    {
-                        intensities[i] = 0;
-                    }
-                }
-            }
-
-            const double shiftToMakeRangeInclusive = 0.000000001;
-
-            Chemistry.ClassExtensions.TupleList<double, double> ranges = new Chemistry.ClassExtensions.TupleList<double, double>();
-
-            if (filteringParams.WindowWidthThomsons != null && filteringParams.WindowWidthThomsons > 0)
-            {
-                double scanRangeToUse = Math.Min(scanRangeMaxMz - scanRangeMinMz, filteringParams.WindowWidthThomsons.Value);
-
-                List<double> ends = new List<double>();
-                double end = 0;
-                bool first = true;
-                while (end < scanRangeMaxMz)
-                {
-                    if ((end + scanRangeToUse) > scanRangeMinMz)
-                    {
-                        if (first)
-                        {
-                            ends.Add(scanRangeMinMz - shiftToMakeRangeInclusive);
-                            first = false;
-                        }
-                        else
-                        {
-                            ends.Add(end);
-                        }
-                    }
-                    end += scanRangeToUse;
-                }
-
-                for (int i = 0; i < ends.Count; i++)
-                {
-                    if (i == 0)
-                    {
-                        ranges.Add(ends[i], ends[i + 1]);
-                    }
-                    else if (i != (ends.Count - 1))
-                    {
-                        ranges.Add(ends[i] + shiftToMakeRangeInclusive, ends[i + 1]);
-                    }
-                    else
-                    {
-                        ranges.Add(ends[i] + shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
-                    }
-                }
-            }
-            else if (filteringParams.NumberOfWindows != null && filteringParams.NumberOfWindows > 1)
-            {
-                double mzRangeInOneWindow = (scanRangeMaxMz - scanRangeMinMz) / filteringParams.NumberOfWindows.Value;
-
-                ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, (scanRangeMinMz + mzRangeInOneWindow));
-                scanRangeMinMz += mzRangeInOneWindow;
-
-                for (int i = 2; i < filteringParams.NumberOfWindows; i++)
-                {
-                    ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow));
-                    scanRangeMinMz += mzRangeInOneWindow;
-                }
-                ranges.Add(scanRangeMinMz, (scanRangeMinMz + mzRangeInOneWindow) + shiftToMakeRangeInclusive);
-                scanRangeMinMz += mzRangeInOneWindow;
-            }
-            else
-            {
-                ranges.Add(scanRangeMinMz - shiftToMakeRangeInclusive, scanRangeMaxMz + shiftToMakeRangeInclusive);
-            }
-
-            Dictionary<int, List<int>> mzInRange = new Dictionary<int, List<int>>(); //index of range and  list of index values in mArray
-            Dictionary<int, List<double>> mzRangeIntensities = new Dictionary<int, List<double>>(); //index of range and  list of index values in mArray
-            for (int i = 0; i < ranges.Count; i++)
-            {
-                mzInRange.Add(i, new List<int>());
-                mzRangeIntensities.Add(i, new List<double>());
-            }
-
-            //we're going to keep track of the array indicies b/c that's easier than the m/zs b/c rounding issues
-            //we're only keeping peaks with intensity greater than 1 (assuming those <= 1 has "zero" intensity)
-            for (int j = mArray.Length - 1; j >= 0; j--)
-            {
-                foreach (int rangeIndex in Enumerable.Range(0, ranges.Count))
-                {
-                    if (mArray[j] > ranges[rangeIndex].Item1 && mArray[j] <= ranges[rangeIndex].Item2 && (intensities[j] > 0.000000001 || keepZeroPeaks))
-                    {
-                        mzInRange[rangeIndex].Add(j);
-                        break;
-                    }
-                }
-            }
-
-            int countOfPeaksToKeepPerWindow = filteringParams.NumberOfPeaksToKeepPerWindow ?? int.MaxValue;
-
-            foreach (int rangeIndex in mzInRange.Keys)
-            {
-                List<double> tempIntList = new List<double>();
-                foreach (int arrayIndex in mzInRange[rangeIndex])
-                {
-                    tempIntList.Add(intensities[arrayIndex]);
-                }
-                mzRangeIntensities[rangeIndex] = tempIntList;
-            }
-
-            int countOfRangesWithIntensities = 0;
-            foreach (int range in mzRangeIntensities.Keys)
-            {
-                if (mzRangeIntensities[range].Sum() > 0)
-                {
-                    countOfRangesWithIntensities++;
-                }
-            }
-
-            List<double> reducedMzList = new List<double>();
-            List<double> reducedIntensityList = new List<double>();
-
-            foreach (int rangeIndex in mzInRange.Keys)
-            {
-                List<double> tempMzList = new List<double>();
-                foreach (int arrayIndex in mzInRange[rangeIndex])
-                {
-                    tempMzList.Add(mArray[arrayIndex]);
-                }
-                //There is no need to do any normalization unless there are multiple windows
-                if (filteringParams.NormalizePeaksAcrossAllWindows)
-                {
-
-                    double max = mzRangeIntensities[rangeIndex].Max();
-                    if (max == 0)
-                    {
-                        max = 1;
-                    }
-                    mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x / max * 50.0000).ToList();
-
-                    //Saving b/c I might want to put it back.
-
-                    //double sum = mzRangeIntensities[rangeIndex].Sum();
-                    //if (sum > 0)
-                    //{
-                    //    double normalizationFactor = TIC / sum / countOfRangesWithIntensities;
-                    //    mzRangeIntensities[rangeIndex] = mzRangeIntensities[rangeIndex].Select(x => x * normalizationFactor).ToList();
-                    //}
-                }
-
-                if (tempMzList.Count > 0 && mzRangeIntensities[rangeIndex].Count > 0)
-                {
-                    reducedMzList.AddRange(tempMzList.GetRange(0, Math.Min(tempMzList.Count, countOfPeaksToKeepPerWindow)));
-                    reducedIntensityList.AddRange(mzRangeIntensities[rangeIndex].GetRange(0, Math.Min(mzRangeIntensities[rangeIndex].Count, countOfPeaksToKeepPerWindow)));
-                }
-            }
-
-            intensities = reducedIntensityList.ToArray();
-            mArray = reducedMzList.ToArray();
-            Array.Sort(mArray, intensities);
         }
 
         public virtual IEnumerable<MsDataScan> GetMS1Scans()
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
             for (int i = 1; i <= NumSpectra; i++)
             {
                 var scan = GetOneBasedScan(i);
@@ -250,19 +101,30 @@ namespace MassSpectrometry
 
         public virtual MsDataScan GetOneBasedScan(int scanNumber)
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
             return Scans[scanNumber - 1];
         }
 
-        public IEnumerable<MsDataScan> GetMsScansInIndexRange(int FirstSpectrumNumber, int LastSpectrumNumber)
+        public virtual IEnumerable<MsDataScan> GetMsScansInIndexRange(int firstSpectrumNumber, int lastSpectrumNumber)
         {
-            for (int oneBasedSpectrumNumber = FirstSpectrumNumber; oneBasedSpectrumNumber <= LastSpectrumNumber; oneBasedSpectrumNumber++)
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
+            for (int oneBasedSpectrumNumber = firstSpectrumNumber;
+                 oneBasedSpectrumNumber <= lastSpectrumNumber;
+                 oneBasedSpectrumNumber++)
             {
                 yield return GetOneBasedScan(oneBasedSpectrumNumber);
             }
         }
 
-        public IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
+        public virtual IEnumerable<MsDataScan> GetMsScansInTimeRange(double firstRT, double lastRT)
         {
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
             int oneBasedSpectrumNumber = GetClosestOneBasedSpectrumNumber(firstRT);
             while (oneBasedSpectrumNumber <= NumSpectra)
             {
@@ -273,6 +135,7 @@ namespace MassSpectrometry
                     oneBasedSpectrumNumber++;
                     continue;
                 }
+
                 if (rt > lastRT)
                     yield break;
                 yield return scan;
@@ -280,120 +143,124 @@ namespace MassSpectrometry
             }
         }
 
+        /// <summary>
+        /// The one-based scan number whose retention time is closest to <paramref name="retentionTime"/>,
+        /// or 0 for a file with no scans. Where several scans share the closest retention time, the last of
+        /// them is returned.
+        /// </summary>
+        /// <remarks>
+        /// Assumes retention times ascend with scan order, which is what makes the search valid. Nothing
+        /// enforces that. Readers order scans by scan number rather than by retention time, RTINSECONDS is
+        /// optional in MGF so Mgf stores NaN when it is absent, and MsAlign stores DefaultErrorValue when
+        /// the field will not parse. Test/DataFiles/tester.mgf is such a file: three of its five scans have
+        /// no retention time, interleaved with the two that do rather than grouped at one end.
+        ///
+        /// For a file that breaks the assumption the result is unspecified, and the break is not detected,
+        /// because every comparison against NaN is false and the search simply converges somewhere. Tests
+        /// pin the current answers so that changing them has to be a deliberate edit rather than a silent
+        /// flip, but callers should not rely on them. See #1175.
+        /// </remarks>
         public virtual int GetClosestOneBasedSpectrumNumber(double retentionTime)
         {
-            // TODO need to convert this to a binary search of some sort. Or if the data is indexedMZML see if the indices work better.
-            double bestDiff = double.MaxValue;
-            for (int i = 0; i < NumSpectra; i++)
+            if (!CheckIfScansLoaded())
+                LoadAllStaticData();
+
+            if (NumSpectra == 0)
+                return 0;
+
+            // Binary search rather than a walk. Retention times ascending is not a new assumption: the
+            // linear version this replaces stopped as soon as a scan's distance to the target grew, so it
+            // never looked past the first local minimum either. Making it explicit turns O(n) into
+            // O(log n), which matters because callers such as GetMsScansInTimeRange start here.
+            //
+            // Indexes Scans rather than calling GetOneBasedScan. Mgf and MsAlign override that accessor to
+            // read a separate null-padded array sized to the largest scan number, so probing an arbitrary
+            // slot in [1, NumSpectra] throws on a file whose scan numbers have gaps. Scans is the array
+            // NumSpectra is measured from, so searching it directly cannot land on a hole those two readers
+            // introduced.
+            //
+            // The result is converted back through OneBasedScanNumber rather than returned as a position,
+            // because for those same two readers the two differ. Everywhere else they coincide: the base
+            // GetOneBasedScan is Scans[n - 1], and Mzml keeps that true even for an out-of-order file by
+            // rebuilding Scans indexed by scan number. So this changes no answer that was previously
+            // correct, and starts giving a usable one where the position was meaningless.
+            //
+            // Chemistry.ClassExtensions.GetClosestIndex is the existing helper for this shape of search and
+            // was considered. It does not fit: it takes a double[], so it would need a materialised array of
+            // retention times, which is O(n) per call unless cached on the file and invalidated on load; and
+            // Array.BinarySearch is documented as unspecified for duplicate keys, so it cannot reproduce the
+            // last-scan-of-an-equal-run answer below. Mslindex.BinarySearchLowerBound hand-rolls its loop for
+            // the same reason.
+            int low = 0;
+            int high = NumSpectra - 1;
+            while (low < high)
             {
-                double diff = Math.Abs(GetOneBasedScan(i + 1).RetentionTime - retentionTime);
-                if (diff > bestDiff)
-                    return i;
-                bestDiff = diff;
+                int mid = low + (high - low) / 2;
+                if (Scans[mid].RetentionTime < retentionTime)
+                    low = mid + 1;
+                else
+                    high = mid;
             }
-            return NumSpectra;
+
+            // low is now the first scan at or after retentionTime, so the closest is either it or its
+            // predecessor. Strict less-than keeps the previous behaviour of preferring the later scan
+            // when a target falls exactly between two of them. No run-advance is needed on this branch:
+            // the search has already landed past the run, so its predecessor is the last member.
+            if (low > 0)
+            {
+                double distanceAfter = Math.Abs(Scans[low].RetentionTime - retentionTime);
+                double distanceBefore = Math.Abs(Scans[low - 1].RetentionTime - retentionTime);
+                if (distanceBefore < distanceAfter)
+                    return Scans[low - 1].OneBasedScanNumber;
+            }
+
+            // Scans can share a retention time. The linear version kept walking while the distance stayed
+            // equal, so it came to rest on the last scan of such a run; binary search lands on the first.
+            // A second search for the end of the run keeps the answer identical to the previous
+            // implementation without reintroducing a linear step: the run is unbounded, because MsAlign
+            // assigns DefaultErrorValue to every scan whose retention time field fails to parse, which makes
+            // the whole file one run.
+            //
+            // The exact == is deliberate. The walk being reproduced continued only while the distance was
+            // not strictly greater than the best so far, which is itself an exact-equality test, so a
+            // tolerance here would merge scans a few ULPs apart that the old code kept separate.
+            double closestRetentionTime = Scans[low].RetentionTime;
+            int runEnd = low;
+            int runHigh = NumSpectra - 1;
+            while (runEnd < runHigh)
+            {
+                int mid = runEnd + (runHigh - runEnd + 1) / 2;
+                if (Scans[mid].RetentionTime == closestRetentionTime)
+                    runEnd = mid;
+                else
+                    runHigh = mid - 1;
+            }
+
+            return Scans[runEnd].OneBasedScanNumber;
+        }
+
+        public virtual int[] GetMsOrderByScanInDynamicConnection()
+        {
+            throw new NotImplementedException();
+        }
+
+        #endregion
+
+        public virtual bool CheckIfScansLoaded()
+        {
+            return (Scans != null && Scans.Length > 0);
         }
 
         public IEnumerator<MsDataScan> GetEnumerator()
         {
-            return GetMsScansInIndexRange(1, NumSpectra).GetEnumerator();
+            return Scans.Where(scan => scan is not null).GetEnumerator();
         }
 
-        public IEnumerable<DeconvolutionFeatureWithMassesAndScans> Deconvolute(int? minScan, int? maxScan, int minAssumedChargeState, int maxAssumedChargeState, double deconvolutionTolerancePpm, double intensityRatioLimit, double aggregationTolerancePpm, Func<MsDataScan, bool> scanFilterFunc, int maxThreads = -1)
+        IEnumerator IEnumerable.GetEnumerator()
         {
-            minScan = minScan ?? 1;
-            maxScan = maxScan ?? NumSpectra;
-
-            var allAggregateGroups = new List<IsotopicEnvelope>[maxScan.Value - minScan.Value + 1];
-            Parallel.ForEach(Partitioner.Create(minScan.Value, maxScan.Value + 1), new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, fff =>
-            {
-                for (int scanIndex = fff.Item1; scanIndex < fff.Item2; scanIndex++)
-                {
-                    var theScan = GetOneBasedScan(scanIndex);
-                    if (scanFilterFunc(theScan))
-                        allAggregateGroups[scanIndex - minScan.Value] = theScan.MassSpectrum.Deconvolute(new MzRange(0, double.PositiveInfinity), minAssumedChargeState, maxAssumedChargeState, deconvolutionTolerancePpm, intensityRatioLimit).ToList();
-                }
-            });
-
-            List<DeconvolutionFeatureWithMassesAndScans> currentListOfGroups = new List<DeconvolutionFeatureWithMassesAndScans>();
-            for (int scanIndex = minScan.Value; scanIndex <= maxScan.Value; scanIndex++)
-            {
-                if (allAggregateGroups[scanIndex - minScan.Value] == null)
-                    continue;
-                foreach (var isotopicEnvelope in allAggregateGroups[scanIndex - minScan.Value])
-                {
-                    DeconvolutionFeatureWithMassesAndScans matchingGroup = null;
-                    var mass = isotopicEnvelope.MonoisotopicMass;
-                    foreach (var possibleGroup in currentListOfGroups)
-                    {
-                        var possibleGroupMass = possibleGroup.Mass;
-                        if (Math.Abs(mass - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
-                            Math.Abs(mass + 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
-                            Math.Abs(mass + 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
-                            Math.Abs(mass + 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
-                            Math.Abs(mass - 1.002868314 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
-                            Math.Abs(mass - 2.005408917 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm ||
-                            Math.Abs(mass - 3.007841294 - possibleGroupMass) / possibleGroupMass * 1e6 <= aggregationTolerancePpm)
-                        {
-                            matchingGroup = possibleGroup;
-                            matchingGroup.AddEnvelope(isotopicEnvelope, scanIndex, GetOneBasedScan(scanIndex).RetentionTime);
-                            break;
-                        }
-                    }
-
-                    if (matchingGroup == null)
-                    {
-                        var newGroupScans = new DeconvolutionFeatureWithMassesAndScans();
-                        newGroupScans.AddEnvelope(isotopicEnvelope, scanIndex, GetOneBasedScan(scanIndex).RetentionTime);
-                        currentListOfGroups.Add(newGroupScans);
-                    }
-                }
-                foreach (var ok in currentListOfGroups.Where(b => b.MaxScanIndex < scanIndex))
-                    yield return ok;
-                currentListOfGroups.RemoveAll(b => b.MaxScanIndex < scanIndex);
-            }
-            foreach (var ok in currentListOfGroups)
-                yield return ok;
-        }
-
-        /// <summary>
-        /// Extracts an ion chromatogram from the spectra file, given a mass, charge, retention time, and mass tolerance.
-        /// </summary>
-        public ExtractedIonChromatogram ExtractIonChromatogram(double neutralMass, int charge, Tolerance massTolerance,
-            double retentionTimeInMinutes, int msOrder = 1, double retentionTimeWindowWidthInMinutes = 5)
-        {
-            double theorMz = neutralMass.ToMz(charge);
-            double startRt = retentionTimeInMinutes - retentionTimeWindowWidthInMinutes / 2;
-            double endRt = retentionTimeInMinutes + retentionTimeWindowWidthInMinutes / 2;
-            List<Datum> xicData = new List<Datum>();
-
-            IEnumerable<MsDataScan> scansInRtWindow = GetMsScansInTimeRange(startRt, endRt);
-
-            foreach (MsDataScan scan in scansInRtWindow.Where(p => p.MsnOrder == msOrder))
-            {
-                int ind = scan.MassSpectrum.GetClosestPeakIndex(theorMz);
-
-                double expMz = scan.MassSpectrum.XArray[ind];
-
-                if (massTolerance.Within(expMz.ToMass(charge), neutralMass))
-                {
-                    xicData.Add(new Datum(scan.RetentionTime, scan.MassSpectrum.YArray[ind]));
-                }
-                else
-                {
-                    xicData.Add(new Datum(scan.RetentionTime, 0));
-                }
-            }
-
-            return new ExtractedIonChromatogram(xicData);
-        }
-
-        protected class ReverseComparer : IComparer<double>
-        {
-            public int Compare(double x, double y)
-            {
-                return y.CompareTo(x);
-            }
+            return GetEnumerator();
         }
     }
+
+    
 }

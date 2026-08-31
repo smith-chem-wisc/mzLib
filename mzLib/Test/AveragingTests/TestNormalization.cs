@@ -35,11 +35,17 @@ namespace Test.AveragingTests
                     case NormalizationType.NoNormalization:
                         expected = yArr;
                         break;
+
                     case NormalizationType.RelativeToTics:
                         expected = yArr.Select(p => p.Select(m => m / p.Sum() * yArr.Average(n => n.Sum())).ToArray()).ToArray();
                         break;
+
                     case NormalizationType.AbsoluteToTic:
                         expected = yArr.Select(p => p.Select(m => m / p.Sum()).ToArray()).ToArray();
+                        break;
+
+                    case NormalizationType.RelativeIntensity:
+                        expected = yArr.Select(p => p.Select(m => m / p.Max()).ToArray()).ToArray();
                         break;
 
                     default:
@@ -73,16 +79,19 @@ namespace Test.AveragingTests
             new object[] { new TestCase(NormalizationType.NoNormalization, singleYArray) },
             new object[] { new TestCase(NormalizationType.RelativeToTics, singleYArray)},
             new object[] { new TestCase(NormalizationType.AbsoluteToTic, singleYArray) },
+            new object[] { new TestCase(NormalizationType.RelativeIntensity, singleYArray) },
 
             //// two y arrays
             new object[] { new TestCase(NormalizationType.NoNormalization, twoYArrays) },
             new object[] { new TestCase(NormalizationType.RelativeToTics, twoYArrays) },
             new object[] { new TestCase(NormalizationType.AbsoluteToTic, twoYArrays) },
+            new object[] { new TestCase(NormalizationType.RelativeIntensity, twoYArrays) },
 
             //// three y arrays
             new object[] { new TestCase(NormalizationType.NoNormalization, threeYArrays) },
             new object[] { new TestCase(NormalizationType.RelativeToTics, threeYArrays) },
             new object[] { new TestCase(NormalizationType.AbsoluteToTic, threeYArrays) },
+            new object[] { new TestCase(NormalizationType.RelativeIntensity, threeYArrays) },
         };
 
         #endregion

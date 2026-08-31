@@ -14,14 +14,16 @@ namespace FlashLFQ
         private readonly FlashLfqResults results;
         private readonly bool integrate;
         private readonly bool silent;
+        private readonly bool quantifyAmbiguousPeptides;
         private readonly int maxThreads;
 
-        public IntensityNormalizationEngine(FlashLfqResults results, bool integrate, bool silent, int maxThreads)
+        public IntensityNormalizationEngine(FlashLfqResults results, bool integrate, bool silent, int maxThreads, bool quantifyAmbiguousPeptides = false)
         {
             this.results = results;
             this.integrate = integrate;
             this.silent = silent;
             this.maxThreads = maxThreads;
+            this.quantifyAmbiguousPeptides = quantifyAmbiguousPeptides;
         }
 
         /// <summary>
@@ -29,7 +31,7 @@ namespace FlashLFQ
         /// </summary>
         public void NormalizeResults()
         {
-            results.CalculatePeptideResults();
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
 
             // run normalization functions, recalculating intensity between each function
             if (!silent)
@@ -37,21 +39,21 @@ namespace FlashLFQ
                 Console.WriteLine("Normalizing fractions");
             }
             NormalizeFractions();
-            results.CalculatePeptideResults();
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing bioreps and conditions");
             }
             NormalizeBioreps();
-            results.CalculatePeptideResults();
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
 
             if (!silent)
             {
                 Console.WriteLine("Normalizing techreps");
             }
             NormalizeTechreps();
-            results.CalculatePeptideResults();
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides);
         }
 
         /// <summary>
@@ -316,10 +318,10 @@ namespace FlashLFQ
             }
         }
 
-        /// <summary>
-        /// This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
-        /// excessive computation time in normalization functions.
-        /// </summary>
+        // <summary>
+        // This method takes a list of peptides and creates a subset list of peptides to normalize with, to avoid
+        // excessive computation time in normalization functions.
+        // </summary>
         //private List<Peptide> SubsetData(List<Peptide> initialList, List<SpectraFileInfo> spectraFiles)
         //{
         //    List<SpectraFileInfo>[] bothBioreps = new List<SpectraFileInfo>[2];

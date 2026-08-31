@@ -1,0 +1,46 @@
+<Project>
+
+  <PropertyGroup>
+    <!-- Audit transitive packages, not just direct ones. Redundant while everything targets
+         net10.0, since that is the default from net9.0 on; stated anyway so retargeting a project
+         downwards cannot quietly reduce auditing to direct dependencies only. -->
+    <NuGetAuditMode>all</NuGetAuditMode>
+
+    <!-- Emit the XML documentation file next to each assembly, and ship it in the package, so that
+         consumers get tooltips for mzLib types in their IDE. Roughly 1,900 <summary> blocks already
+         exist across the tree and none of them reached anyone outside this repository before now. -->
+    <!-- Only for projects that ship. An XML documentation file for a test or benchmark assembly
+         serves nobody, and generating it there was surfacing 61 of the 95 doc-comment warnings in
+         code no consumer ever sees. -->
+    <GenerateDocumentationFile Condition="'$(MSBuildProjectName)' != 'Test' and '$(MSBuildProjectName)' != 'Development'">true</GenerateDocumentationFile>
+
+    <!-- Turning documentation generation on turns on nine doc-comment diagnostics. Two are
+         suppressed, on the line between "incomplete" and "wrong":
+           CS1591 missing XML comment for a public type or member - 243 of 930 public types have none,
+                  so this would bury every other warning. Worth filling in, not worth hiding the build.
+           CS1573 a parameter has no matching param tag - partial documentation is still useful
+                  documentation, and the tooltip renders.
+         The rest are left visible, because each one means a comment renders wrongly or not at all,
+         which defeats the point of shipping the file:
+           CS1570 badly formed XML                CS1587 comment not on a valid language element
+           CS1572 param tag, no such parameter    CS1711 typeparam tag, no such type parameter
+           CS1734 paramref, no such parameter     CS1574 cref that does not resolve
+           CS0419 ambiguous cref
+         All are at 0 except CS0419, which sits at 24. Those do resolve, just to an unspecified
+         overload, so the link works and only the signature is arbitrary.
+         Counts come from a non-incremental build; an incremental one hides warnings from
+         dependency projects it did not rebuild. -->
+    <NoWarn>$(NoWarn);CS1591;CS1573</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Two moderate infinite-loop DoS advisories in OpenMcdf 2.x, unfixable while Thermo
+         CommonCore links 2.x: thermofisherlsms/RawFileReader#22. Suppressed rather than fixed
+         because the DoS needs a crafted CFB file and we read trusted local instrument files.
+         Here rather than in Readers.csproj because OpenMcdf reaches six projects transitively.
+         Watched by .github/workflows/check-thermo-rawfilereader.yml. -->
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-jxpf-xq2m-q525" />
+    <NuGetAuditSuppress Include="https://github.com/advisories/GHSA-5qwm-7pvp-w988" />
+  </ItemGroup>
+
+</Project>

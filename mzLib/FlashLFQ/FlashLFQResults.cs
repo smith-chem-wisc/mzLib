@@ -1,32 +1,49 @@
-﻿using MathNet.Numerics.Statistics;
+﻿using Easy.Common.Extensions;
+using MathNet.Numerics.Statistics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using MassSpectrometry;
+using FlashLFQ.IsoTracker;
 
 namespace FlashLFQ
 {
     public class FlashLfqResults
     {
+        public bool IsoTracker = false;
         public readonly List<SpectraFileInfo> SpectraFiles;
         public readonly Dictionary<string, Peptide> PeptideModifiedSequences;
         public readonly Dictionary<string, ProteinGroup> ProteinGroups;
         public readonly Dictionary<SpectraFileInfo, List<ChromatographicPeak>> Peaks;
+        private readonly HashSet<string> _peptideModifiedSequencesToQuantify;
+        public IDictionary<string, Dictionary<PeakRegion, List<ChromatographicPeak>>> IsobaricPeptideDict = null;
+        public string PepResultString { get; set; }
+        public double MbrQValueThreshold { get; set; }
 
-        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications)
+        public FlashLfqResults(List<SpectraFileInfo> spectraFiles, List<Identification> identifications, double mbrQValueThreshold = 0.05,
+            HashSet<string> peptideModifiedSequencesToQuantify = null, bool isIsoTracker = false)
         {
             SpectraFiles = spectraFiles;
             PeptideModifiedSequences = new Dictionary<string, Peptide>();
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
+            MbrQValueThreshold = mbrQValueThreshold;
+            // Copied, not aliased: MergeResultsWith unions into this set, and the caller keeps its own
+            // reference to the set it passed in (FlashLfqEngine hands over its own PeptideModifiedSequencesToQuantify).
+            _peptideModifiedSequencesToQuantify = peptideModifiedSequencesToQuantify != null
+                ? new HashSet<string>(peptideModifiedSequencesToQuantify)
+                : identifications.Where(id => !id.IsDecoy).Select(id => id.ModifiedSequence).ToHashSet();
+            IsoTracker = isIsoTracker;
 
             foreach (SpectraFileInfo file in spectraFiles)
             {
                 Peaks.Add(file, new List<ChromatographicPeak>());
             }
 
-            foreach (Identification id in identifications)
+            // Only quantify peptides within the set of valid peptide modified (full) sequences. This is done to enable pepitde-level FDR control of reported results
+            foreach (Identification id in identifications.Where(id => !id.IsDecoy & _peptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)))
             {
                 if (!PeptideModifiedSequences.TryGetValue(id.ModifiedSequence, out Peptide peptide))
                 {
@@ -50,9 +67,45 @@ namespace FlashLFQ
             }
         }
 
+        public void ReNormalizeResults(bool integrate = false, int maxThreads = 10, bool useSharedPeptides = false)
+        {
+            foreach(var peak in Peaks.SelectMany(p => p.Value))
+            {
+                peak.CalculateIntensityForThisFeature(integrate);
+            }
+            new IntensityNormalizationEngine(this, integrate, silent: true, maxThreads).NormalizeResults();
+            CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+            CalculateProteinResultsMedianPolish(useSharedPeptides: useSharedPeptides);
+        }
+
+        /// <summary>
+        /// Merges another set of results into this one, combining their spectra files, peptides,
+        /// protein groups and peaks.
+        /// </summary>
+        /// <param name="mergeFrom">The results to merge into this object.</param>
+        /// <remarks>
+        /// After merging:
+        /// <list type="bullet">
+        ///   <item><description>The set of peptides eligible for quantification contains the union of both
+        ///   results' sets, so a peptide identified only in <paramref name="mergeFrom"/> survives a later
+        ///   call to <see cref="CalculatePeptideResults"/></description></item>
+        ///   <item><description><see cref="SpectraFiles"/> contains both results' files, without deduplication</description></item>
+        ///   <item><description><see cref="PeptideModifiedSequences"/> and <see cref="ProteinGroups"/> contain
+        ///   both results' entries; where a key is present in both, <paramref name="mergeFrom"/>'s per-file
+        ///   intensities win</description></item>
+        ///   <item><description><see cref="Peaks"/> contains both results' peaks, concatenated per file</description></item>
+        ///   <item><description><see cref="IsoTracker"/>, <see cref="IsobaricPeptideDict"/>,
+        ///   <see cref="MbrQValueThreshold"/> and <see cref="PepResultString"/> are this object's, unchanged</description></item>
+        /// </list>
+        /// </remarks>
         public void MergeResultsWith(FlashLfqResults mergeFrom)
         {
             this.SpectraFiles.AddRange(mergeFrom.SpectraFiles);
+
+            // Peptides arriving from mergeFrom are quantifiable in their own right. Without this union
+            // CalculatePeptideResults would blank them along with everything else and then refuse to
+            // repopulate them, silently zeroing the merged-in half of the data.
+            this._peptideModifiedSequencesToQuantify.UnionWith(mergeFrom._peptideModifiedSequencesToQuantify);
 
             foreach (var pep in mergeFrom.PeptideModifiedSequences)
             {
@@ -65,6 +118,12 @@ namespace FlashLFQ
                     {
                         mergeToPep.SetIntensity(file, mergeFromPep.GetIntensity(file));
                         mergeToPep.SetDetectionType(file, mergeFromPep.GetDetectionType(file));
+                        mergeToPep.SetRetentionTime(file, mergeFromPep.GetRetentionTime(file));
+                    }
+
+                    foreach (ProteinGroup proteinGroup in mergeFromPep.ProteinGroups)
+                    {
+                        mergeToPep.ProteinGroups.Add(proteinGroup);
                     }
                 }
                 else
@@ -104,7 +163,7 @@ namespace FlashLFQ
             }
         }
 
-        public void CalculatePeptideResults()
+        public void CalculatePeptideResults(bool quantifyAmbiguousPeptides)
         {
             foreach (var sequence in PeptideModifiedSequences)
             {
@@ -112,30 +171,37 @@ namespace FlashLFQ
                 {
                     sequence.Value.SetDetectionType(file, DetectionType.NotDetected);
                     sequence.Value.SetIntensity(file, 0);
+                    sequence.Value.SetRetentionTime(file,0);
                 }
             }
 
+
             foreach (var filePeaks in Peaks)
             {
-                var groupedPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq == 1)
-                    .GroupBy(p => p.Identifications.First().ModifiedSequence).ToList();
+                var groupedPeaks = filePeaks.Value
+                    .Where(p => p.NumIdentificationsByFullSeq == 1)
+                    .Where(p => !p.Identifications.First().IsDecoy)
+                    .Where(p => p.DetectionType != DetectionType.MBR || (p is MbrChromatographicPeak m && m.MbrQValue < MbrQValueThreshold && !m.RandomRt))
+                    .GroupBy(p => p.Identifications.First().ModifiedSequence)
+                    .Where(group => _peptideModifiedSequencesToQuantify.Contains(group.Key))
+                    .ToDictionary(p => p.Key, p => p.ToList());
 
                 foreach (var sequenceWithPeaks in groupedPeaks)
                 {
                     string sequence = sequenceWithPeaks.Key;
-                    double intensity = sequenceWithPeaks.Max(p => p.Intensity);
-                    ChromatographicPeak bestPeak = sequenceWithPeaks.First(p => p.Intensity == intensity);
+                    double intensity = sequenceWithPeaks.Value.Max(p => p.Intensity);
+                    ChromatographicPeak bestPeak = sequenceWithPeaks.Value.First(p => p.Intensity == intensity);
                     DetectionType detectionType;
 
-                    if (bestPeak.IsMbrPeak && intensity > 0)
+                    if (bestPeak.DetectionType == DetectionType.MBR && intensity > 0)
                     {
                         detectionType = DetectionType.MBR;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity > 0)
+                    else if (bestPeak.DetectionType != DetectionType.MBR && intensity > 0)
                     {
                         detectionType = DetectionType.MSMS;
                     }
-                    else if (!bestPeak.IsMbrPeak && intensity == 0)
+                    else if (bestPeak.DetectionType != DetectionType.MBR && intensity == 0)
                     {
                         detectionType = DetectionType.MSMSIdentifiedButNotQuantified;
                     }
@@ -145,30 +211,63 @@ namespace FlashLFQ
                     }
 
                     PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, intensity);
+                    PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, bestPeak.ApexRetentionTime);
                     PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, detectionType);
                 }
 
                 // report ambiguous quantification
-                var ambiguousPeaks = filePeaks.Value.Where(p => p.NumIdentificationsByFullSeq > 1).ToList();
+                var ambiguousPeaks = filePeaks.Value
+                    .Where(p => p.NumIdentificationsByFullSeq > 1)
+                    .Where(p => !p.Identifications.First().IsDecoy)
+                    .Where(p => p.DetectionType != DetectionType.MBR || (p is MbrChromatographicPeak m && m.MbrQValue < MbrQValueThreshold && !m.RandomRt))
+                    .ToList();
                 foreach (ChromatographicPeak ambiguousPeak in ambiguousPeaks)
                 {
-                    foreach (Identification id in ambiguousPeak.Identifications)
+                    foreach (Identification id in ambiguousPeak.Identifications.Where(id => !id.IsDecoy))
                     {
+                        if (!_peptideModifiedSequencesToQuantify.Contains(id.ModifiedSequence)) continue; // Ignore the ids/sequences we don't want to quantify
+
                         string sequence = id.ModifiedSequence;
 
                         double alreadyRecordedIntensity = PeptideModifiedSequences[sequence].GetIntensity(filePeaks.Key);
                         double fractionAmbiguous = ambiguousPeak.Intensity / (alreadyRecordedIntensity + ambiguousPeak.Intensity);
 
-                        if (fractionAmbiguous > 0.3)
+                        if (quantifyAmbiguousPeptides)
                         {
-                            PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, 0);
+                            // If the peptide intensity hasn't been recorded, the intensity is set equal to the intensity of the ambiguous peak
+                            if (Math.Abs(alreadyRecordedIntensity) < 0.01)
+                            {
+                                PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                                PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, ambiguousPeak.ApexRetentionTime);
+                                PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, ambiguousPeak.Intensity);
+                            }
+                            // If the peptide intensity has already been recorded, that value is retained. 
+                            else if (fractionAmbiguous > 0.3)
+                            {
+                                PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                            }
+                        }
+                        else if (fractionAmbiguous > 0.3)
+                        {
                             PeptideModifiedSequences[sequence].SetDetectionType(filePeaks.Key, DetectionType.MSMSAmbiguousPeakfinding);
+                            PeptideModifiedSequences[sequence].SetIntensity(filePeaks.Key, 0);
+                            PeptideModifiedSequences[sequence].SetRetentionTime(filePeaks.Key, ambiguousPeak.ApexRetentionTime);
                         }
                     }
                 }
+                
             }
 
-            HandleAmbiguityInFractions();
+            if (IsoTracker && IsobaricPeptideDict != null)
+            {
+                // We view each Isobaric peak as an individual peptide, so we need to add them to the peptide list
+                RevisedModifiedPeptides();
+            }
+
+            if (!quantifyAmbiguousPeptides)
+            {
+                HandleAmbiguityInFractions();
+            }
         }
 
         private void HandleAmbiguityInFractions()
@@ -192,7 +291,8 @@ namespace FlashLFQ
 
                     foreach (SpectraFileInfo file in sample)
                     {
-                        foreach (ChromatographicPeak peak in Peaks[file])
+                        foreach (ChromatographicPeak peak in Peaks[file].Where(p => p.DetectionType != DetectionType.MBR 
+                            || (p is MbrChromatographicPeak m && m.MbrQValue < MbrQValueThreshold)))
                         {
                             foreach (Identification id in peak.Identifications)
                             {
@@ -347,16 +447,17 @@ namespace FlashLFQ
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
                     // set up peptide intensity table
-                    int numSamples = 0;
-                    foreach (var condition in SpectraFiles.GroupBy(p => p.Condition))
+                    // top row is the column effects, left column is the row effects
+                    // the other cells are peptide intensity measurements
+                    int numSamples = SpectraFiles.Select(p => p.Condition + p.BiologicalReplicate).Distinct().Count();
+                    double[][] peptideIntensityMatrix = new double[peptidesForThisProtein.Count + 1][];
+                    for (int i = 0; i < peptideIntensityMatrix.Length; i++)
                     {
-                        int conditionSamples = condition.Select(p => p.BiologicalReplicate).Distinct().Count();
-                        numSamples += conditionSamples;
+                        peptideIntensityMatrix[i] = new double[numSamples + 1];
                     }
 
-                    double[,] peptideIntensityMatrix = new double[peptidesForThisProtein.Count, numSamples];
-
                     // populate matrix w/ log2-transformed peptide intensities
+                    // if a value is missing, it will be filled with NaN
                     int sampleN = 0;
                     foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
@@ -398,23 +499,78 @@ namespace FlashLFQ
                                 }
 
                                 int sampleNumber = sample.Key;
-                                sampleIntensity = Math.Log(sampleIntensity, 2);
 
-                                if (double.IsInfinity(sampleIntensity))
+                                if (sampleIntensity == 0)
                                 {
                                     sampleIntensity = double.NaN;
                                 }
+                                else
+                                {
+                                    sampleIntensity = Math.Log(sampleIntensity, 2);
+                                }
 
-                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide), sampleN] = sampleIntensity;
+                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide) + 1][sampleN + 1] = sampleIntensity;
                             }
 
                             sampleN++;
                         }
                     }
 
+                    // if there are any peptides that have only one measurement, mark them as NaN
+                    // unless we have ONLY peptides with one measurement
+                    var peptidesWithMoreThanOneMmt = peptideIntensityMatrix.Skip(1).Count(row => row.Skip(1).Count(cell => !double.IsNaN(cell)) > 1);
+                    if (peptidesWithMoreThanOneMmt > 0)
+                    {
+                        for (int i = 1; i < peptideIntensityMatrix.Length; i++)
+                        {
+                            int validValueCount = peptideIntensityMatrix[i].Count(p => !double.IsNaN(p) && p != 0);
+
+                            if (validValueCount < 2 && numSamples >= 2)
+                            {
+                                for (int j = 1; j < peptideIntensityMatrix[0].Length; j++)
+                                {
+                                    peptideIntensityMatrix[i][j] = double.NaN;
+                                }
+                            }
+                        }
+                    }
+
                     // do median polish protein quantification
-                    MedianPolish(peptideIntensityMatrix, 10, 0.0001, out var rowEffects, out var columnEffects, out var overallEffect);
-                    double referenceProteinIntensity = Math.Pow(2, overallEffect);
+                    // row effects in a protein can be considered ~ relative ionization efficiency
+                    // column effects are differences between conditions
+                    MedianPolish(peptideIntensityMatrix);
+
+                    double overallEffect = peptideIntensityMatrix[0][0];
+                    double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
+                    double referenceProteinIntensity = Math.Pow(2, overallEffect) * peptidesForThisProtein.Count;
+
+                    // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
+                    // the protein is still not quantifiable because there are not peptides to compare across runs
+                    List<string> possibleUnquantifiableSample = new List<string>();
+                    sampleN = 0;
+                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
+                    {
+                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
+                        {
+                            bool isMissingValue = true;
+
+                            foreach (SpectraFileInfo spectraFile in sample)
+                            {
+                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
+                                {
+                                    isMissingValue = false;
+                                    break;
+                                }
+                            }
+
+                            if (!isMissingValue && columnEffects[sampleN] == 0)
+                            {
+                                possibleUnquantifiableSample.Add(group.Key + "_" + sample.Key);
+                            }
+
+                            sampleN++;
+                        }
+                    }
 
                     // set the sample protein intensities
                     sampleN = 0;
@@ -426,15 +582,16 @@ namespace FlashLFQ
                             // than an intensity, but unlike a fold-change it's not relative to a particular sample.
                             // by multiplying this value by the reference protein intensity calculated earlier, then we get 
                             // a protein intensity value
-                            double sampleProteinIntensity = Math.Pow(2, columnEffects[sampleN]) * referenceProteinIntensity;
+                            double columnEffect = columnEffects[sampleN];
+                            double sampleProteinIntensity = Math.Pow(2, columnEffect) * referenceProteinIntensity;
 
-                            // the column effect can be 0 in many cases. sometimes it's a valid value and sometimes it's not.
+                            // the column effect can be 0 in some cases. sometimes it's a valid value and sometimes it's not.
                             // so we need to check to see if it is actually a valid value
                             bool isMissingValue = true;
 
-                            foreach (var sampleNum in sample)
+                            foreach (SpectraFileInfo spectraFile in sample)
                             {
-                                if (peptidesForThisProtein.Any(p => p.GetIntensity(sampleNum) != 0))
+                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
                                 {
                                     isMissingValue = false;
                                     break;
@@ -443,12 +600,13 @@ namespace FlashLFQ
 
                             if (!isMissingValue)
                             {
-                                proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
-
-                                // TODO: this will fix cases where protein quantities are the identical as a result of a median polish issue
-                                if (columnEffects[sampleN] == 0)
+                                if (possibleUnquantifiableSample.Count > 1 && possibleUnquantifiableSample.Contains(group.Key + "_" + sample.Key))
                                 {
                                     proteinGroup.SetIntensity(sample.First(), double.NaN);
+                                }
+                                else
+                                {
+                                    proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
                                 }
                             }
 
@@ -485,11 +643,24 @@ namespace FlashLFQ
             {
                 using (StreamWriter output = new StreamWriter(modPeptideOutputPath))
                 {
-                    output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
-
-                    foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
+                    if (IsoTracker)
                     {
-                        output.WriteLine(peptide.Value.ToString(SpectraFiles));
+                        output.WriteLine(Peptide.TabSeparatedHeader_IsoTracker(SpectraFiles));
+                        // we want to output with same iso group index followed by peak order.
+                        foreach (var peptide in PeptideModifiedSequences
+                                     .OrderBy(p => p.Value.IsoGroupIndex ?? int.MaxValue)
+                                     .ThenBy(p => p.Value.PeakOrder ?? int.MinValue))
+                        {
+                            output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        }
+                    }
+                    else
+                    {
+                        output.WriteLine(Peptide.TabSeparatedHeader(SpectraFiles));
+                        foreach (var peptide in PeptideModifiedSequences.OrderBy(p => p.Key))
+                        {
+                            output.WriteLine(peptide.Value.ToString(SpectraFiles, IsoTracker));
+                        }
                     }
                 }
             }
@@ -576,168 +747,151 @@ namespace FlashLFQ
             }
         }
 
-        private static void MedianPolish(double[,] table, int maxIterations, double improvementCutoff, out double[] rowEffects, out double[] columnEffects, out double overallEffect)
+        public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
         {
-            overallEffect = 0;
-            rowEffects = new double[table.GetLength(0)];
-            columnEffects = new double[table.GetLength(1)];
-            List<double> values = new List<double>();
-            List<double> rowMedians = new List<double>();
-            List<double> columnMedians = new List<double>();
-            double lastIterationSumOfAbsoluteResiduals = 0;
+            // technically, this is weighted mean polish and not median polish.
+            // but it should give similar results while being more robust to issues
+            // arising from missing values.
+            // the weights are inverse square difference to median.
 
-            // compute overall effect
-            foreach (double value in table)
+            // subtract overall effect
+            List<double> allValues = table.SelectMany(p => p.Where(p => !double.IsNaN(p) && p != 0)).ToList();
+
+            if (allValues.Any())
             {
-                if (!double.IsNaN(value))
+                double overallEffect = allValues.Median();
+                table[0][0] += overallEffect;
+
+                for (int r = 1; r < table.Length; r++)
                 {
-                    values.Add(value);
+                    for (int c = 1; c < table[0].Length; c++)
+                    {
+                        table[r][c] -= overallEffect;
+                    }
                 }
             }
 
-            if (values.Any())
-            {
-                overallEffect += values.Median();
-            }
+            double sumAbsoluteResiduals = double.MaxValue;
 
-            // subtract overall effect from table
-            for (int j = 0; j < table.GetLength(0); j++)
-            {
-                for (int k = 0; k < table.GetLength(1); k++)
-                {
-                    table[j, k] -= overallEffect;
-                }
-            }
-
-            // compute sum of absolute residuals
-            foreach (double value in table)
-            {
-                if (!double.IsNaN(value))
-                {
-                    lastIterationSumOfAbsoluteResiduals += Math.Abs(value);
-                }
-            }
-
-            // iterate the median polish algorithm
             for (int i = 0; i < maxIterations; i++)
             {
-                rowMedians.Clear();
-                columnMedians.Clear();
-
-                // compute sum of absolute residuals
-                double thisIterationSumOfAbsoluteResiduals = 0;
-                foreach (double value in table)
+                // subtract row effects
+                for (int r = 0; r < table.Length; r++)
                 {
-                    if (!double.IsNaN(value))
+                    List<double> rowValues = table[r].Skip(1).Where(p => !double.IsNaN(p)).ToList();
+
+                    if (rowValues.Any())
                     {
-                        thisIterationSumOfAbsoluteResiduals += Math.Abs(value);
+                        double rowMedian = rowValues.Median();
+                        double[] weights = rowValues.Select(p => 1.0 / Math.Max(0.0001, Math.Pow(p - rowMedian, 2))).ToArray();
+                        double rowEffect = rowValues.Sum(p => p * weights[rowValues.IndexOf(p)]) / weights.Sum();
+                        table[r][0] += rowEffect;
+
+                        for (int c = 1; c < table[0].Length; c++)
+                        {
+                            table[r][c] -= rowEffect;
+                        }
                     }
                 }
 
-                if (Math.Abs((thisIterationSumOfAbsoluteResiduals - lastIterationSumOfAbsoluteResiduals) / lastIterationSumOfAbsoluteResiduals) < improvementCutoff && i > 0)
+                // subtract column effects
+                for (int c = 0; c < table[0].Length; c++)
+                {
+                    List<double> colValues = table.Skip(1).Select(p => p[c]).Where(p => !double.IsNaN(p)).ToList();
+
+                    if (colValues.Any())
+                    {
+                        double colMedian = colValues.Median();
+                        double[] weights = colValues.Select(p => 1.0 / Math.Max(0.0001, Math.Pow(p - colMedian, 2))).ToArray();
+                        double colEffect = colValues.Sum(p => p * weights[colValues.IndexOf(p)]) / weights.Sum();
+                        table[0][c] += colEffect;
+
+                        for (int r = 1; r < table.Length; r++)
+                        {
+                            table[r][c] -= colEffect;
+                        }
+                    }
+                }
+
+                // calculate sum of absolute residuals and end the algorithm if it is not improving
+                double iterationSumAbsoluteResiduals = table.Skip(1).SelectMany(p => p.Skip(1)).Where(p => !double.IsNaN(p)).Sum(p => Math.Abs(p));
+
+                if (Math.Abs((iterationSumAbsoluteResiduals - sumAbsoluteResiduals) / sumAbsoluteResiduals) < improvementCutoff)
                 {
                     break;
                 }
 
-                // compute row medians
-                double columnEffectMedian = columnEffects.Median();
+                sumAbsoluteResiduals = iterationSumAbsoluteResiduals;
+            }
+        }
 
-                for (int j = 0; j < table.GetLength(0); j++)
+        /// <summary>
+        /// This method is used to re-edit the peptide List by adding the isobaric peptides and remove the former peptide.
+        /// </summary>
+        internal void RevisedModifiedPeptides()
+        {
+            int isoGroupIndex = 1;
+            //If the isobaric peptide dictionary is not empty, then we need to revise the peptide list.
+            foreach (var isoPeptides in IsobaricPeptideDict.Where(p=>p.Value.Count != 0)) 
+            {
+                string peptideSequence = isoPeptides.Key;
+                Peptide originalPeptide = PeptideModifiedSequences[peptideSequence];
+
+                // Remove the formal peptide from the peptide list
+                var allIDs = isoPeptides.Value.Values
+                    .SelectMany(p => p)
+                    .Where(p => p != null)
+                    .SelectMany(p=>p.Identifications)
+                    .Where(p=>p.BaseSequence == originalPeptide.BaseSequence) // Avoid to remove any peptide with different base sequence
+                    .DistinctBy(p=>p.ModifiedSequence)
+                    .Select(p=>p.ModifiedSequence)
+                    .ToList();
+
+                foreach (var modSeq in allIDs)
                 {
-                    values.Clear();
-
-                    for (int k = 0; k < table.GetLength(1); k++)
+                    if (PeptideModifiedSequences.ContainsKey(modSeq))
                     {
-                        double value = table[j, k];
-
-                        if (!double.IsNaN(value))
-                        {
-                            values.Add(value);
-                        }
-                    }
-
-                    double rowMedian = 0;
-
-                    if (values.Any())
-                    {
-                        rowMedian = values.Median();
-                    }
-
-                    rowMedians.Add(rowMedian);
-                }
-
-                // add row medians to row effects
-                for (int j = 0; j < table.GetLength(0); j++)
-                {
-                    rowEffects[j] += rowMedians[j];
-                }
-
-                overallEffect += columnEffectMedian;
-
-                // subtract row effects from table
-                for (int j = 0; j < columnEffects.Length; j++)
-                {
-                    columnEffects[j] -= columnEffectMedian;
-                }
-
-                for (int j = 0; j < table.GetLength(0); j++)
-                {
-                    for (int k = 0; k < table.GetLength(1); k++)
-                    {
-                        table[j, k] -= rowMedians[j];
+                        PeptideModifiedSequences.Remove(modSeq);
                     }
                 }
 
-                // compute column medians
-                double rowEffectMedian = rowEffects.Median();
+                // Add the isobaric peptides to the peptide list
 
-                for (int k = 0; k < table.GetLength(1); k++)
+                //If there is only one peak for the isobaric peptides, then we don't view them as isobaric peptides.
+                if (isoPeptides.Value.Values.Count == 1)
                 {
-                    values.Clear();
-
-                    for (int j = 0; j < table.GetLength(0); j++)
+                    var isoPeptidePeaks = isoPeptides.Value.Values.First();
+                    var allSeq = isoPeptidePeaks
+                        .Where(p => p != null)
+                        .SelectMany(p => p.Identifications)
+                        .Where(p=>p.BaseSequence == originalPeptide.BaseSequence) // do not output the peptide with different base sequence in the peptide result
+                        .Select(p => p.ModifiedSequence)
+                        .Distinct()
+                        .ToList();
+                    Peptide peptide = new Peptide(string.Join(" | ", allSeq), originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups);
+                    peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time, intensity and detectionType will be set from the chromPeak automatically.
+                    PeptideModifiedSequences[peptide.Sequence] = peptide;
+                }
+                //If there are multiple peaks for the isobaric peptides, then we view them as isobaric peptides.
+                else
+                {
+                    int peakIndex = 1;
+                    foreach (var isoPeptidePeaks in isoPeptides.Value.Values.ToList())
                     {
-                        double value = table[j, k];
-
-                        if (!double.IsNaN(value))
-                        {
-                            values.Add(value);
-                        }
+                        var allSeq = isoPeptidePeaks
+                            .Where(p => p != null)
+                            .SelectMany(p => p.Identifications)
+                            .Where(p=>p.BaseSequence == originalPeptide.BaseSequence)// do not output the peptide with different base sequence that was merged in RunErrorCheck
+                            .Select(p => p.ModifiedSequence)
+                            .Distinct()
+                            .ToList();
+                        Peptide peptide = new Peptide(string.Join(" | ", allSeq) + " Isopeptide_peak" + peakIndex, originalPeptide.BaseSequence, originalPeptide.UseForProteinQuant, originalPeptide.ProteinGroups, isoGroupIndex, peakIndex);
+                        peptide.SetIsobaricPeptide(isoPeptidePeaks); //When we set the peptide as IsobaricPeptide, then the retention time, intensity and detectionType will be set from the chromPeak automatically.
+                        PeptideModifiedSequences[peptide.Sequence] = peptide;
+                        peakIndex++;
                     }
-
-                    double columnMedian = 0;
-
-                    if (values.Any())
-                    {
-                        columnMedian = values.Median();
-                    }
-
-                    columnMedians.Add(columnMedian);
+                    isoGroupIndex++;
                 }
-
-                // add column medians to column effects
-                for (int k = 0; k < table.GetLength(1); k++)
-                {
-                    columnEffects[k] += columnMedians[k];
-                }
-
-                overallEffect += rowEffectMedian;
-
-                // subtract column effects from table
-                for (int j = 0; j < rowEffects.Length; j++)
-                {
-                    rowEffects[j] -= rowEffectMedian;
-                }
-
-                for (int k = 0; k < table.GetLength(1); k++)
-                {
-                    for (int j = 0; j < table.GetLength(0); j++)
-                    {
-                        table[j, k] -= columnMedians[k];
-                    }
-                }
-
-                lastIterationSumOfAbsoluteResiduals = thisIterationSumOfAbsoluteResiduals;
             }
         }
     }

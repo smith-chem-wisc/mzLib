@@ -27,5 +27,6 @@ namespace MassSpectrometry
         bool NormalizePeaksAcrossAllWindows { get; }
         bool ApplyTrimmingToMs1 { get; }
         bool ApplyTrimmingToMsMs { get; }
+        bool ApplyTrimmingToMsN { get; }
     }
 }

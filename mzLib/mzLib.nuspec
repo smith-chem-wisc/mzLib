@@ -2,7 +2,7 @@
 <package>
   <metadata>
     <id>mzLib</id>
-    <version>5.0.538</version>
+    <version>1.0.574</version>
     <title>mzLib</title>
     <authors>Stef S.</authors>
     <owners>Stef S.</owners>
@@ -11,72 +11,169 @@
     <icon>images\mzLib.png</icon>
     <description>Library for mass spectrometry projects.</description>
     <tags>Chemistry Spectrometry</tags>
-    <dependencies>
-      <group targetFramework="net6.0">
-	<!--net6.0 target-->
-	<dependency id="Easy.Common" version="4.3.0"/>
-	<dependency id="MathNet.Numerics" version="5.0.0"/>
-	<dependency id="Microsoft.Win32.Registry" version="5.0.0"/>
-	<dependency id="NetSerializer" version="4.1.1"/>
-	<dependency id="OpenMcdf" version="2.2.1.3"/>
-	<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
-	<dependency id="SharpLearning.Optimization" version="0.28.0"/>
-      </group>
-      <group targetFramework="net6.0-windows7.0">
-	<!--net6.0-windows7.0 target with OxyPlot-->
-	<dependency id="Easy.Common" version="4.3.0"/>
-	<dependency id="MathNet.Numerics" version="5.0.0"/>
-	<dependency id="Microsoft.Win32.Registry" version="5.0.0"/>
-	<dependency id="NetSerializer" version="4.1.1"/>
-	<dependency id="OpenMcdf" version="2.2.1.3"/>
-	<dependency id="OpenMcdf.Extensions" version="2.2.1.3"/>
-	<dependency id="SharpLearning.Optimization" version="0.28.0"/>
-        <dependency id="OxyPlot.Wpf" version="2.0.0"/>
-      </group>
-    </dependencies>
+<dependencies>
+  <group targetFramework="net10.0">
+    <!--net10.0 target-->
+    <dependency id="Easy.Common" version="6.7.0" />
+    <dependency id="Google.Protobuf" version="3.28.3" />
+    <dependency id="MathNet.Numerics" version="5.0.0" />
+    <dependency id="Microsoft.ML" version="2.0.0" />
+    <dependency id="Microsoft.ML.FastTree" version="2.0.0" />
+    <dependency id="NetSerializer" version="4.1.1" />
+    <dependency id="OpenMcdf" version="2.3.1" />
+    <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="SharpLearning.Optimization" version="0.28.0" />
+    <dependency id="SharpZipLib" version="1.4.2" />
+    <dependency id="SkiaSharp" version="2.88.9" />
+    <dependency id="System.Data.SQLite.Core" version="1.0.118" />
+    <dependency id="CsvHelper" version="32.0.3" />
+    <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
+    <dependency id="TorchSharp" version="0.105.1" />
+    <dependency id="libtorch-cpu" version="2.5.1" />
+    <dependency id="Nett" version="0.15.0" />
+    <dependency id="Newtonsoft.Json" version="13.0.4" />
+    <dependency id="TopDownProteomics" version="0.0.299" />
+    <dependency id="ZstdSharp.Port" version="0.8.7" />
+  </group>
+  <group targetFramework="net10.0-windows7.0">
+    <!--net10.0 target with OxyPlot-->
+    <dependency id="Easy.Common" version="6.7.0" />
+    <dependency id="Google.Protobuf" version="3.28.3" />
+    <dependency id="MathNet.Numerics" version="5.0.0" />
+    <dependency id="Microsoft.ML" version="2.0.0" />
+    <dependency id="Microsoft.ML.FastTree" version="2.0.0" />
+    <dependency id="NetSerializer" version="4.1.1" />
+    <dependency id="OpenMcdf" version="2.3.1" />
+    <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="OxyPlot.Wpf" version="2.0.0" />
+    <dependency id="SharpLearning.Optimization" version="0.28.0" />
+    <dependency id="SharpZipLib" version="1.4.2" />
+    <dependency id="SkiaSharp" version="2.88.9" />
+    <dependency id="System.Data.SQLite.Core" version="1.0.118" />
+    <dependency id="CsvHelper" version="32.0.3" />
+    <dependency id="Microsoft.Extensions.ObjectPool" version="9.0.0" />
+    <dependency id="TorchSharp" version="0.105.1" />
+    <dependency id="libtorch-cpu" version="2.5.1" />
+    <dependency id="Nett" version="0.15.0" />
+    <dependency id="Newtonsoft.Json" version="13.0.4" />
+    <dependency id="TopDownProteomics" version="0.0.299" />
+    <dependency id="ZstdSharp.Port" version="0.8.7" />
+  </group>
+</dependencies>
   </metadata>
   <files>
     <file src="mzLib.png" target="images\" />
-    <!--net6.0 target-->
-    <file src="BayesianEstimation\bin\x64\Release\net6.0\BayesianEstimation.dll" target="lib\net6.0" />
-    <file src="Chemistry\bin\x64\Release\net6.0\Chemistry.dll" target="lib\net6.0" />
-    <file src="FlashLFQ\bin\x64\Release\net6.0\FlashLFQ.dll" target="lib\net6.0" />
-    <file src="MassSpectrometry\bin\x64\Release\net6.0\MassSpectrometry.dll" target="lib\net6.0" />
-    <file src="Mgf\bin\x64\Release\net6.0\Mgf.dll" target="lib\net6.0" />	
-    <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0" />
-    <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0" /> 
-    <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0" />
-    <file src="MzML\bin\x64\Release\net6.0\MzML.dll" target="lib\net6.0" />
-    <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0" /> 
-    <file src="Proteomics\bin\x64\Release\net6.0\Proteomics.dll" target="lib\net6.0" /> 
-    <file src="Proteomics\bin\x64\Release\net6.0\ProteolyticDigestion\proteases.tsv" target="lib\net6.0\ProteolyticDigestion" /> 
-    <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\net6.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoRawFileReader.dll" target="lib\net6.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net6.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.Data.dll" target="lib\net6.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net6.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net6.0" /> 
-    <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UsefulProteomicsDatabases.dll" target="lib\net6.0" /> 
-    <!--net6.0-windows target with mzPlot-->
-    <file src="mzPlot\bin\x64\Release\net6.0-windows\mzPlot.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="BayesianEstimation\bin\x64\Release\net6.0\BayesianEstimation.dll" target="lib\net6.0-windows7.0" />
-    <file src="Chemistry\bin\x64\Release\net6.0\Chemistry.dll" target="lib\net6.0-windows7.0" />
-    <file src="FlashLFQ\bin\x64\Release\net6.0\FlashLFQ.dll" target="lib\net6.0-windows7.0" />
-    <file src="MassSpectrometry\bin\x64\Release\net6.0\MassSpectrometry.dll" target="lib\net6.0-windows7.0" />
-    <file src="Mgf\bin\x64\Release\net6.0\Mgf.dll" target="lib\net6.0-windows7.0" />	
-    <file src="MzIdentML\bin\x64\Release\net6.0\MzIdentML.dll" target="lib\net6.0-windows7.0" />
-    <file src="SpectralAveraging\bin\x64\Release\net6.0\SpectralAveraging.dll" target="lib\net6.0-windows7.0" />
-    <file src="MzLibUtil\bin\x64\Release\net6.0\MzLibUtil.dll" target="lib\net6.0-windows7.0" />
-    <file src="MzML\bin\x64\Release\net6.0\MzML.dll" target="lib\net6.0-windows7.0" />
-    <file src="PepXML\bin\x64\Release\net6.0\PepXML.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="Proteomics\bin\x64\Release\net6.0\Proteomics.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="Proteomics\bin\x64\Release\net6.0\ProteolyticDigestion\proteases.tsv" target="lib\net6.0-windows7.0\ProteolyticDigestion" /> 
-    <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\net6.0-windows7.0" />
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoRawFileReader.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.Data.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.MassPrecisionEstimator.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="ThermoRawFileReader\bin\x64\Release\net6.0\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net6.0-windows7.0" /> 
-    <file src="UsefulProteomicsDatabases\bin\x64\Release\net6.0\UsefulProteomicsDatabases.dll" target="lib\net6.0-windows7.0" /> 
+    <!-- CC BY 4.0 attribution for the embedded PSI-MS and PRIDE vocabularies. Required to
+         reach NuGet consumers, who receive the assemblies rather than the repository. -->
+    <file src="..\THIRD-PARTY-NOTICES.md" target="" />
+    <!-- Modification data. Also embedded in Omics.dll; shipped as files as well so an
+         application can expose an editable Mods\ folder. Consumers opt in with
+         MzLibIncludeModificationData=true; see nuget\mzLib.targets. -->
+    <file src="nuget\mzLib.targets" target="build\mzLib.targets" />
+    <file src="Omics\Resources\Mods.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\RnaMods.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\TMT.txt" target="modificationData\Mods" />
+    <!-- Payload only, not embedded: mzLib does not load these itself today. -->
+    <file src="Omics\Resources\substitutions.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\surfactants.txt" target="modificationData\Mods" />
+    <file src="Omics\Resources\ptmlist.txt" target="modificationData\Data" />
+    <file src="Omics\Resources\PSI-MOD.obo.xml" target="modificationData\Data" />
+    <file src="Omics\Resources\unimod.xml" target="modificationData\Data" />
+    <!--net10.0 target-->
+    <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0" />
+    <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.xml" target="lib\net10.0" />
+    <file src="Chemistry\bin\Release\net10.0\Chemistry.dll" target="lib\net10.0" />
+    <file src="Chemistry\bin\Release\net10.0\Chemistry.xml" target="lib\net10.0" />
+    <file src="Chromatography\bin\Release\net10.0\Chromatography.dll" target="lib\net10.0" />
+    <file src="Chromatography\bin\Release\net10.0\Chromatography.xml" target="lib\net10.0" />
+    <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.dll" target="lib\net10.0" />
+    <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0" />
+    <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0" />
+    <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\libmmd.dll" target="lib\net10.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\svml_dispmd.dll" target="lib\net10.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\isogenmass.dll" target="lib\net10.0" />
+    <file src="MzIdentML\bin\Release\net10.0\MzIdentML.dll" target="lib\net10.0" />
+    <file src="MzIdentML\bin\Release\net10.0\MzIdentML.xml" target="lib\net10.0" />
+    <file src="SpectralAveraging\bin\Release\net10.0\SpectralAveraging.dll" target="lib\net10.0" />
+    <file src="SpectralAveraging\bin\Release\net10.0\SpectralAveraging.xml" target="lib\net10.0" />
+    <file src="MzLibUtil\bin\Release\net10.0\MzLibUtil.dll" target="lib\net10.0" />
+    <file src="MzLibUtil\bin\Release\net10.0\MzLibUtil.xml" target="lib\net10.0" />
+    <file src="Omics\bin\Release\net10.0\Omics.dll" target="lib\net10.0" />
+    <file src="Omics\bin\Release\net10.0\Omics.xml" target="lib\net10.0" />
+    <file src="PepXML\bin\Release\net10.0\PepXML.dll" target="lib\net10.0" />
+    <file src="PepXML\bin\Release\net10.0\PepXML.xml" target="lib\net10.0" />
+    <file src="PredictionClients\bin\Release\net10.0\PredictionClients.dll" target="lib\net10.0" />
+    <file src="PredictionClients\bin\Release\net10.0\PredictionClients.xml" target="lib\net10.0" />
+    <file src="Proteomics\bin\Release\net10.0\Proteomics.dll" target="lib\net10.0" />
+    <file src="Proteomics\bin\Release\net10.0\Proteomics.xml" target="lib\net10.0" />
+    <file src="UsefulProteomicsDatabases\bin\Release\net10.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\Readers.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\Readers.xml" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\timsdata.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\timsdata.lib" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\baf2sql_c.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\vcomp110.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\msvcp110.dll" target="lib\net10.0" />
+    <file src="Readers\bin\Release\net10.0\msvcr110.dll" target="lib\net10.0" />
+    <file src="UsefulProteomicsDatabases\bin\Release\net10.0\UsefulProteomicsDatabases.dll" target="lib\net10.0" />
+    <file src="UsefulProteomicsDatabases\bin\Release\net10.0\UsefulProteomicsDatabases.xml" target="lib\net10.0" />
+    <file src="Transcriptomics\bin\Release\net10.0\Transcriptomics.dll" target="lib\net10.0" />
+    <file src="Transcriptomics\bin\Release\net10.0\Transcriptomics.xml" target="lib\net10.0" />
+    <!--net10.0-windows target with mzPlot-->
+    <file src="mzPlot\bin\Release\net10.0-windows\mzPlot.dll" target="lib\net10.0-windows7.0" />
+    <file src="mzPlot\bin\Release\net10.0-windows\mzPlot.xml" target="lib\net10.0-windows7.0" />
+    <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0-windows7.0" />
+    <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.xml" target="lib\net10.0-windows7.0" />
+    <file src="Chemistry\bin\Release\net10.0\Chemistry.dll" target="lib\net10.0-windows7.0" />
+    <file src="Chemistry\bin\Release\net10.0\Chemistry.xml" target="lib\net10.0-windows7.0" />
+    <file src="Chromatography\bin\Release\net10.0\Chromatography.dll" target="lib\net10.0-windows7.0" />
+    <file src="Chromatography\bin\Release\net10.0\Chromatography.xml" target="lib\net10.0-windows7.0" />
+    <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.dll" target="lib\net10.0-windows7.0" />
+    <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0-windows7.0" />
+    <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0-windows7.0" />
+    <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0-windows7.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0-windows7.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0-windows7.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0-windows7.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\libmmd.dll" target="lib\net10.0-windows7.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\svml_dispmd.dll" target="lib\net10.0-windows7.0" />
+    <file src="MassSpectrometry\bin\Release\net10.0\isogenmass.dll" target="lib\net10.0-windows7.0" />
+    <file src="MzIdentML\bin\Release\net10.0\MzIdentML.dll" target="lib\net10.0-windows7.0" />
+    <file src="MzIdentML\bin\Release\net10.0\MzIdentML.xml" target="lib\net10.0-windows7.0" />
+    <file src="SpectralAveraging\bin\Release\net10.0\SpectralAveraging.dll" target="lib\net10.0-windows7.0" />
+    <file src="SpectralAveraging\bin\Release\net10.0\SpectralAveraging.xml" target="lib\net10.0-windows7.0" />
+    <file src="MzLibUtil\bin\Release\net10.0\MzLibUtil.dll" target="lib\net10.0-windows7.0" />
+    <file src="MzLibUtil\bin\Release\net10.0\MzLibUtil.xml" target="lib\net10.0-windows7.0" />
+    <file src="Omics\bin\Release\net10.0\Omics.dll" target="lib\net10.0-windows7.0" />
+    <file src="Omics\bin\Release\net10.0\Omics.xml" target="lib\net10.0-windows7.0" />
+    <file src="PepXML\bin\Release\net10.0\PepXML.dll" target="lib\net10.0-windows7.0" />
+    <file src="PepXML\bin\Release\net10.0\PepXML.xml" target="lib\net10.0-windows7.0" />
+    <file src="PredictionClients\bin\Release\net10.0\PredictionClients.dll" target="lib\net10.0-windows7.0" />
+    <file src="PredictionClients\bin\Release\net10.0\PredictionClients.xml" target="lib\net10.0-windows7.0" />
+    <file src="Proteomics\bin\Release\net10.0\Proteomics.dll" target="lib\net10.0-windows7.0" />
+    <file src="Proteomics\bin\Release\net10.0\Proteomics.xml" target="lib\net10.0-windows7.0" />
+    <file src="UsefulProteomicsDatabases\bin\Release\net10.0\UniProtKB_columnNamesForProgrammaticAccess.txt" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\Readers.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\Readers.xml" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.BackgroundSubtraction.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.Data.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\Thermo\ThermoFisher.CommonCore.RawFileReader.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\timsdata.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\timsdata.lib" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\baf2sql_c.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\vcomp110.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\msvcp110.dll" target="lib\net10.0-windows7.0" />
+    <file src="Readers\bin\Release\net10.0\msvcr110.dll" target="lib\net10.0-windows7.0" />
+    <file src="UsefulProteomicsDatabases\bin\Release\net10.0\UsefulProteomicsDatabases.dll" target="lib\net10.0-windows7.0" />
+    <file src="UsefulProteomicsDatabases\bin\Release\net10.0\UsefulProteomicsDatabases.xml" target="lib\net10.0-windows7.0" />
+    <file src="Transcriptomics\bin\Release\net10.0\Transcriptomics.dll" target="lib\net10.0-windows7.0" />
+    <file src="Transcriptomics\bin\Release\net10.0\Transcriptomics.xml" target="lib\net10.0-windows7.0" />
   </files>
 </package>

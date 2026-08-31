@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -45,6 +46,29 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// Whether a sample's column should be labelled with its file name rather than its
+        /// condition and biological replicate.
+        /// </summary>
+        /// <remarks>
+        /// A file name is the only meaningful label when no experimental design was supplied — every
+        /// condition is blank or "Default", so a condition label would read "Intensity__1". Once real
+        /// conditions exist, the condition and replicate identify the sample and the file name does
+        /// not. A file name is also meaningless for fractionated data, where one sample spans several
+        /// files and <c>sample.First()</c> names only one of them.
+        /// <para>
+        /// The header and the row must agree on this, so both call here rather than each recomputing
+        /// it.
+        /// </para>
+        /// </remarks>
+        private static bool LabelSamplesByFileName(List<SpectraFileInfo> spectraFiles)
+        {
+            bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
+            bool conditionsUndefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
+
+            return conditionsUndefined && unfractionated;
+        }
+
         public static string TabSeparatedHeader(List<SpectraFileInfo> spectraFiles)
         {
             var sb = new StringBuilder();
@@ -52,14 +76,13 @@ namespace FlashLFQ
             sb.Append("Gene Name" + "\t");
             sb.Append("Organism" + "\t");
 
-            bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
+            bool labelByFileName = LabelSamplesByFileName(spectraFiles);
 
             foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
                 foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                 {
-                    if (!conditionsDefined && unfractionated)
+                    if (labelByFileName)
                     {
                         sb.Append("Intensity_" + sample.First().FilenameWithoutExtension + "\t");
                     }
@@ -70,7 +93,7 @@ namespace FlashLFQ
                 }
             }
 
-            return sb.ToString();
+            return sb.ToString().TrimEnd('\t');
         }
 
         public string ToString(List<SpectraFileInfo> spectraFiles)
@@ -80,14 +103,13 @@ namespace FlashLFQ
             sb.Append(GeneName + "\t");
             sb.Append(Organism + "\t");
 
-            bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-            bool conditionsDefined = spectraFiles.All(p => p.Condition == "Default") || spectraFiles.All(p => string.IsNullOrWhiteSpace(p.Condition));
+            bool labelByFileName = LabelSamplesByFileName(spectraFiles);
 
             foreach (var sampleGroup in spectraFiles.GroupBy(p => p.Condition))
             {
                 foreach (var sample in sampleGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                 {
-                    if (!conditionsDefined && unfractionated)
+                    if (labelByFileName)
                     {
                         sb.Append(GetIntensity(sample.First()) + "\t");
                     }

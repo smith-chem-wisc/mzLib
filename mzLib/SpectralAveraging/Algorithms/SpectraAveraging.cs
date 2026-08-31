@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -39,8 +40,7 @@ public static class SpectraAveraging
     /// <param name="yArrays">yArrays of spectra to be averaged</param>
     /// <param name="parameters">how to perform the averaging</param>
     /// <returns></returns>
-    private static double[][] MzBinning(double[][] xArrays, double[][] yArrays,
-        SpectralAveragingParameters parameters)
+    private static double[][] MzBinning(double[][] xArrays, double[][] yArrays, SpectralAveragingParameters parameters)
     {
         // get tics 
         var tics = yArrays.Select(p => p.Sum()).ToArray();
@@ -56,20 +56,20 @@ public static class SpectraAveraging
         var weights = SpectralWeighting.CalculateSpectraWeights(xArrays, yArrays, parameters.SpectralWeightingType);
 
         // reject outliers and average bins
-        List<(double mz, double intensity)> averagedPeaks = new();
-        int maxThreadsPerFile = parameters.MaxThreadsToUsePerFile;
-        int[] threads = Enumerable.Range(0, maxThreadsPerFile).ToArray();
-        Parallel.ForEach(threads, (binIndex) =>
+        var binIncidences = bins.Keys.ToList();
+        (double mz, double intensity)[] averagedPeaks = new (double, double)[binIncidences.Count];
+        var partitioner = Partitioner.Create(0, binIncidences.Count);
+
+        Parallel.ForEach(partitioner, new ParallelOptions { MaxDegreeOfParallelism = parameters.MaxThreadsToUsePerFile }, (range, state) =>
         {
-            var keys = bins.Keys.ToList();
-            for (; binIndex < keys.Count; binIndex += maxThreadsPerFile)
+            for (int i = range.Item1; i < range.Item2; i++)
             {
-                bins[keys[binIndex]] = OutlierRejection.RejectOutliers(bins[keys[binIndex]], parameters);
-                lock (averagedPeaks)
-                {
-                    averagedPeaks.Add(AverageBin(bins[keys[binIndex]], weights));
-                }
-                
+                var peaksFromBin = bins[binIncidences[i]];
+
+                peaksFromBin = OutlierRejection.RejectOutliers(peaksFromBin, parameters);
+                if (!peaksFromBin.Any()) continue;
+
+                averagedPeaks[i] = AverageBin(peaksFromBin, weights);
             }
         });
 
@@ -84,7 +84,6 @@ public static class SpectraAveraging
                     : p.intensity).ToArray()
         };
     }
-
 
     #region Helpers
 

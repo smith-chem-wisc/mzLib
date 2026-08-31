@@ -1,0 +1,88 @@
+<?xml version='1.0' encoding='utf-8'?>
+<uniprot xmlns="http://uniprot.org/uniprot" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://uniprot.org/uniprot http://www.uniprot.org/support/docs/uniprot.xsd">
+<entry dataset="Swiss-Prot" created="1986-07-21" modified="2023-06-28" version="267">
+<accession>P04406</accession>
+<accession>E7EUT4</accession>
+<accession>P00354</accession>
+<accession>Q53X65</accession>
+<name>G3P_HUMAN</name>
+<protein>
+<recommendedName>
+<fullName evidence="29">Glyceraldehyde-3-phosphate dehydrogenase</fullName>
+<shortName evidence="28">GAPDH</shortName>
+<ecNumber evidence="25">1.2.1.12</ecNumber>
+</recommendedName>
+<alternativeName>
+<fullName evidence="30">Peptidyl-cysteine S-nitrosylase GAPDH</fullName>
+<ecNumber evidence="1">2.6.99.-</ecNumber>
+</alternativeName>
+</protein>
+<gene>
+<name evidence="28 36" type="primary">GAPDH</name>
+<name evidence="29" type="synonym">GAPD</name>
+<name type="ORF">CDABP0047</name>
+<name type="ORF">OK/SW-cl.12</name>
+</gene>
+<organism>
+<name type="scientific">Homo sapiens</name>
+<name type="common">Human</name>
+<dbReference type="NCBI Taxonomy" id="9606"/>
+<lineage>
+<taxon>Eukaryota</taxon>
+<taxon>Metazoa</taxon>
+<taxon>Chordata</taxon>
+<taxon>Craniata</taxon>
+<taxon>Vertebrata</taxon>
+<taxon>Euteleostomi</taxon>
+<taxon>Mammalia</taxon>
+<taxon>Eutheria</taxon>
+<taxon>Euarchontoglires</taxon>
+<taxon>Primates</taxon>
+<taxon>Haplorrhini</taxon>
+<taxon>Catarrhini</taxon>
+<taxon>Hominidae</taxon>
+<taxon>Homo</taxon>
+</lineage>
+</organism>
+<feature type="sequence variant" id="VAR_063740" description="In PNDM4; dbSNP:rs121908277." evidence="5">
+<original>G</original>
+<variation>C</variation>
+<location>
+<position position="2"/>
+</location>
+</feature>
+<feature type="sequence variant" id="VAR_063741" description="In PNDM4; dbSNP:rs80356672." evidence="4 5">
+<original>Y</original>
+<variation>C</variation>
+<location>
+<position position="346"/>
+</location>
+</feature>
+
+	<!-- Applies: sequence equals acc-1 -->
+	<feature type="sequence variant" id="VAR_MATCH_ACC_MINUS_1" description="Applies: sequence equals acc-1">
+		<original>G</original>
+		<variation>C</variation>
+		<location sequence="P04406-1">
+			<position position="2"/>
+		</location>
+	</feature>
+
+	<!-- Does not apply: different isoform -->
+	<feature type="sequence variant" id="VAR_DOES_NOT_APPLY" description="Does not apply: sequence is a different isoform">
+		<original>G</original>
+		<variation>C</variation>
+		<location sequence="P04406-2">
+			<position position="2"/>
+		</location>
+	</feature>
+	
+	
+<sequence length="335" mass="36053" checksum="C9C135E8AE3E8744" modified="2007-01-23" version="3">
+MGKVKVGVNGFGRIGRLVTRAAFNSGKVDIVAINDPFIDLNYMVYMFQYDSTHGKFHGTVKAENGKLVINGNPITIFQERDPSKIKWGDAGAEYVVESTGVFTTMEKAGAHLQGGAKRVIISAPSADAPMFVMGVNHEKYDNSLKIISNASCTTNCLAPLAKVIHDNFGIVEGLMTTVHAITATQKTVDGPSGKLWRDGRGALQNIIPASTGAAKAVGKVIPELNGKLTGMAFRVPTANVSVVDLTCRLEKPAKYDDIKKVVKQASEGPLKGILGYTEHQVVSSDFNSDTHSSTFDAGAGIALNDHFVKLISWYDNEFGYSNRVVDLMAHMASKE
+</sequence>
+</entry>
+<copyright>
+Copyrighted by the UniProt Consortium, see https://www.uniprot.org/terms Distributed under the Creative Commons Attribution (CC BY 4.0) License
+</copyright>
+</uniprot>

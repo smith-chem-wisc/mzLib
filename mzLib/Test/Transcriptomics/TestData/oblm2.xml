@@ -1,0 +1,27 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   Methylation on U
+TG   U
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+DR   Unimod; 34.
+//</modification>
+  <entry>
+    <accession>accession1</accession>
+    <gene />
+    <feature type="sequence variant" description="1\t50000000\t.\tA\tG\t.\tPASS\tANN=G||||||||||||||||\tGT:AD:DP\t1/1:30,30:30">
+      <original>A</original>
+      <variation>U</variation>
+      <location>
+        <position position="3" />
+      </location>
+      <subfeature type="modified residue" description="Methylation on U">
+      <location>
+        <subposition subposition="3" />
+      </location>
+      </subfeature>
+    </feature>
+    <sequence length="6">GUACUG</sequence>
+  </entry>
+</mzLibProteinDb>

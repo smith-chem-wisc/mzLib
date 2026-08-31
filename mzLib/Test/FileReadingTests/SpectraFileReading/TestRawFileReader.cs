@@ -1,0 +1,485 @@
+﻿using System;
+using System.Diagnostics;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using MassSpectrometry;
+using MzLibUtil;
+using NUnit.Framework;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using Readers;
+
+namespace Test.FileReadingTests.SpectraFileReading
+{
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public sealed class TestRawFileReader
+    {
+        [Test]
+        public void TestFileDoesntExist()
+        {
+            string fakePath = "fakePath.raw";
+            var reader = MsDataFileReader.GetDataFile(fakePath);
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
+            {
+                reader.InitiateDynamicConnection();
+            });
+        }
+
+        #region Testing Exceptions
+
+        [Test]
+        public void TestRawFileReaderFileNotFoundException()
+        {
+            var fakeRawFile = "asdasd.raw";
+
+            var ex = NUnit.Framework.Assert.Throws<FileNotFoundException>(() => MsDataFileReader.GetDataFile(fakeRawFile).LoadAllStaticData());
+
+            NUnit.Framework.Assert.That(ex.Message, Is.EqualTo(new FileNotFoundException().Message));
+        }
+
+        /// <summary>
+        /// The three accessor states that make a raw file unreadable cannot be provoked through Thermo's
+        /// static RawFileReaderFactory - there is no seam to hand it a failing accessor, and a
+        /// hand-corrupted .raw throws out of RawFileReaderAdapter.FileFactory before the guard is reached.
+        /// So the guard is driven directly. Each case pins the exact message, because callers
+        /// (MetaMorpheus surfaces it to the user) distinguish "this file is broken" from "this file is
+        /// still being acquired - wait and retry".
+        /// </summary>
+        [TestCase(true, true, false, "Error opening RAW file!")]
+        [TestCase(true, false, true, "Error opening RAW file!")]   // IsError wins over the other two
+        [TestCase(false, false, false, "Unable to access RAW file!")]
+        [TestCase(false, false, true, "Unable to access RAW file!")] // a closed handle wins over InAcquisition
+        [TestCase(false, true, true, "RAW file still being acquired!")]
+        public void ThrowIfNotReadable_BadAccessorState_ThrowsMzLibExceptionWithExactMessage(
+            bool isError, bool isOpen, bool inAcquisition, string expectedMessage)
+        {
+            NUnit.Framework.Assert.That(
+                () => ThermoRawFileReader.ThrowIfNotReadable(isError, isOpen, inAcquisition),
+                Throws.TypeOf<MzLibException>().With.Message.EqualTo(expectedMessage));
+        }
+
+        /// <summary>
+        /// The success path: a readable, opened, not-in-acquisition accessor is let through. Without this
+        /// case the guard would still pass its failure tests while rejecting every real file.
+        /// </summary>
+        [Test]
+        public void ThrowIfNotReadable_ReadableAccessor_DoesNotThrow()
+        {
+            NUnit.Framework.Assert.That(
+                () => ThermoRawFileReader.ThrowIfNotReadable(isError: false, isOpen: true, inAcquisition: false),
+                Throws.Nothing);
+        }
+
+        /// <summary>
+        /// LoadAllStaticData now hashes the file on a background task that runs alongside the scan loop.
+        /// If that hash throws, the exception must reach the caller unchanged, and the finally block must
+        /// still join the task - observing the fault so it cannot resurface later as an unobserved task
+        /// exception, and releasing the read handle so the caller can retry, move or delete the file.
+        /// GetSourceFile is overridden to throw because a real SHA-1 over a readable file has no failure
+        /// mode we can provoke from a test.
+        /// </summary>
+        [Test]
+        public void LoadAllStaticData_SourceFileHashThrows_PropagatesAndStillReleasesTheFile()
+        {
+            // Work against a private copy, not the shared DataFiles fixture: the handle assertion below
+            // is only meaningful if no other test in the run is holding the same file open.
+            string scratchDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "RawHashFailure_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(scratchDirectory);
+
+            try
+            {
+                string filePath = Path.Combine(scratchDirectory, "small.RAW");
+                File.Copy(Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.RAW"), filePath);
+
+                var reader = new HashFailingThermoRawFileReader(filePath);
+
+                NUnit.Framework.Assert.That(
+                    () => reader.LoadAllStaticData(),
+                    Throws.TypeOf<MzLibException>().With.Message.EqualTo("checksum failed"));
+
+                NUnit.Framework.Assert.That(reader.GetSourceFileCallCount, Is.EqualTo(1),
+                    "the hash must be started exactly once, on the background task");
+
+                // The file must be fully released once LoadAllStaticData has unwound - both the hash task's
+                // read handle and the reader's own. An exclusive open is the cheapest proof of that.
+                NUnit.Framework.Assert.That(
+                    () => new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.None).Dispose(),
+                    Throws.Nothing,
+                    "a failed load left a handle open on the raw file");
+            }
+            finally
+            {
+                Directory.Delete(scratchDirectory, recursive: true);
+            }
+        }
+
+        /// <summary>
+        /// Forces the background SHA-1 task in LoadAllStaticData to fault. GetSourceFile is a non-sealed
+        /// public override on a non-sealed class, so no production seam is needed for this.
+        /// </summary>
+        private sealed class HashFailingThermoRawFileReader : ThermoRawFileReader
+        {
+            private int _getSourceFileCallCount;
+
+            public HashFailingThermoRawFileReader(string path) : base(path) { }
+
+            public int GetSourceFileCallCount => Volatile.Read(ref _getSourceFileCallCount);
+
+            public override SourceFile GetSourceFile()
+            {
+                Interlocked.Increment(ref _getSourceFileCallCount);
+                throw new MzLibException("checksum failed");
+            }
+        }
+
+        #endregion
+
+
+        [Test]
+        public void TestScanDescription()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "ScanDescriptionTestData.raw");
+            var scans = MsDataFileReader.GetDataFile(filePath).GetAllScansList();
+            var ms1Scans = scans.Where(x => x.MsnOrder == 1).ToList();
+            var ms2Scans = scans.Where(x => x.MsnOrder == 2).ToList();
+
+            ms1Scans.ForEach(x => NUnit.Framework.Assert.That(x.ScanDescription, Is.EqualTo(null)));
+            ms2Scans.ForEach(x => NUnit.Framework.Assert.That(x.ScanDescription, Is.EqualTo("Testing2")));
+        }
+
+        /// <summary>
+        /// Tests LoadAllStaticData for ThermoRawFileReader
+        /// </summary>
+        /// <param name="infile"></param>
+        /// <param name="outfile1"></param>
+        /// <param name="outfile2"></param>
+        [Test]
+        [TestCase("testFileWMS2.raw", "a.mzML", "aa.mzML")]
+        [TestCase("small.raw", "a.mzML", "aa.mzML")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw", "a.mzML", "aa.mzML")]
+        public static void TestLoadAllStaticDataRawFileReader(string infile, string outfile1, string outfile2)
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
+            outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile1);
+            outfile2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfile2);
+
+            string dummyPath = "aaljienxmbelsiemxmbmeba.raw";
+            NUnit.Framework.Assert.Throws<FileNotFoundException>(() =>
+            {
+                var dummyReader = MsDataFileReader.GetDataFile(dummyPath);
+                dummyReader.LoadAllStaticData();
+            });
+
+            // testing load with multiple threads 
+            var parallelReader = MsDataFileReader.GetDataFile(path);
+            parallelReader.LoadAllStaticData(null, maxThreads: 4);
+
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData(null, maxThreads: 1);
+            reader.ExportAsMzML(outfile1, false);
+            reader.LoadAllStaticData();
+            reader.ExportAsMzML(outfile2, true);
+            var readerMzml = MsDataFileReader.GetDataFile(outfile2);
+            readerMzml.LoadAllStaticData();
+            Console.WriteLine($"Analysis time for TestLoadAllStaticDataRawFileReader({infile}): {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        [Test]
+        public void TestThermoGetSourceFile()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var reader = MsDataFileReader.GetDataFile(path);
+            SourceFile sf = reader.GetSourceFile();
+            NUnit.Framework.Assert.That(sf.NativeIdFormat, Is.EqualTo(@"Thermo nativeID format"));
+        }
+
+        /// <summary>
+        /// Tests the dynamic connection for thermorawfilereader
+        /// </summary>
+        [Test]
+        public static void TestDynamicConnectionRawFileReader()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var thermoDynamic1 = MsDataFileReader.GetDataFile(path1);
+            thermoDynamic1.InitiateDynamicConnection();
+
+            var path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
+            var thermoDynamic2 = MsDataFileReader.GetDataFile(path2);
+            thermoDynamic2.InitiateDynamicConnection();
+
+            var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection();
+            NUnit.Framework.Assert.That(msOrders != null && msOrders.Length > 0);
+
+            var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
+            NUnit.Framework.Assert.That(a != null);
+
+            var b = thermoDynamic2.GetOneBasedScanFromDynamicConnection(1);
+            NUnit.Framework.Assert.That(b != null);
+
+            NUnit.Framework.Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+
+            a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(10000);
+            thermoDynamic1.CloseDynamicConnection();
+            thermoDynamic2.CloseDynamicConnection();
+
+            Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            NUnit.Framework.Assert.That(a == null);
+        }
+
+        [Test]
+        public static void TestDynamicConnectionRawFileReader_AfterStaticLoading()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var path1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var thermoDynamic1 = MsDataFileReader.GetDataFile(path1).LoadAllStaticData();
+            thermoDynamic1.InitiateDynamicConnection();
+
+            var path2 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "testFileWMS2.raw");
+            var thermoDynamic2 = MsDataFileReader.GetDataFile(path2).LoadAllStaticData();
+            thermoDynamic2.InitiateDynamicConnection();
+
+            var msOrders = thermoDynamic1.GetMsOrderByScanInDynamicConnection();
+            NUnit.Framework.Assert.That(msOrders != null && msOrders.Length > 0);
+
+            var a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(1);
+            NUnit.Framework.Assert.That(a != null);
+
+            var b = thermoDynamic2.GetOneBasedScanFromDynamicConnection(1);
+            NUnit.Framework.Assert.That(b != null);
+
+            NUnit.Framework.Assert.That(a.MassSpectrum.XArray.Length != b.MassSpectrum.XArray.Length);
+
+            a = thermoDynamic1.GetOneBasedScanFromDynamicConnection(10000);
+            thermoDynamic1.CloseDynamicConnection();
+            thermoDynamic2.CloseDynamicConnection();
+
+            Console.WriteLine($"Analysis time for TestDynamicConnectionRawFileReader: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+            NUnit.Framework.Assert.That(a == null);
+        }
+
+        /// <summary>
+        /// Tests peak filtering for ThermoRawFileReader
+        /// </summary>
+        /// <param name="infile"></param>
+        [Test]
+        [TestCase("testFileWMS2.raw")]
+        [TestCase("small.raw")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw")]
+        public static void TestPeakFilteringRawFileReader(string infile)
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+            var filterParams = new FilteringParams(200, 0.01, 0, 1, false, true, true);
+
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", infile);
+            var reader = MsDataFileReader.GetDataFile(path);
+            reader.LoadAllStaticData(filterParams, maxThreads: 1);
+            var rawScans = reader.GetAllScansList();
+            foreach (var scan in rawScans)
+            {
+                NUnit.Framework.Assert.That(scan.MassSpectrum.XArray.Length <= 200);
+            }
+
+            string outfile1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", Path.GetFileNameWithoutExtension(infile) + ".mzML");
+            MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(reader, outfile1, false);
+            var mzml = MsDataFileReader.GetDataFile(outfile1);
+            mzml.LoadAllStaticData(filterParams, maxThreads: 1);
+
+            var mzmlScans = mzml.GetAllScansList();
+            for (int i = 0; i < mzmlScans.Count; i++)
+            {
+                var mzmlScan = mzmlScans[i];
+                var rawScan = rawScans[i];
+
+                for (int j = 0; j < mzmlScan.MassSpectrum.XArray.Length; j++)
+                {
+                    double roundedRawMz = Math.Round(rawScan.MassSpectrum.XArray[j], 4);
+                    double roundedMzmlMz = Math.Round(mzmlScan.MassSpectrum.XArray[j], 4);
+
+                    // XArray is rounded to the 4th digit during CreateAndWrite
+                    Assert.AreEqual(roundedMzmlMz, roundedRawMz);
+
+                    double roundedMzmlIntensity = Math.Round(mzmlScan.MassSpectrum.XArray[j], 0);
+                    double roundedRawIntensity = Math.Round(rawScan.MassSpectrum.XArray[j], 0);
+
+                    Assert.AreEqual(roundedMzmlIntensity, roundedRawIntensity);
+                }
+            }
+
+            Console.WriteLine($"Analysis time for TestPeakFilteringRawFileReader: {stopwatch.Elapsed.Hours}h " +
+                $"{stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        /// <summary>
+        /// Test Thermo License for ThermoRawFileReader
+        /// </summary>
+        [Test]
+        public static void TestThermoLicence()
+        {
+            Stopwatch stopwatch = new Stopwatch();
+            stopwatch.Start();
+
+            var licence = ThermoRawFileReaderLicence.ThermoLicenceText;
+            NUnit.Framework.Assert.That(licence.Length > 100);
+
+            Console.WriteLine($"Analysis time for TestThermoLicence: {stopwatch.Elapsed.Hours}h {stopwatch.Elapsed.Minutes}m {stopwatch.Elapsed.Seconds}s");
+        }
+
+        /// <summary>
+        /// Test that raw files can be opened dynamically in ThermoRawFileReader
+        /// </summary>
+        /// <param name="fileName"></param>
+        [Test]
+        [TestCase("small.RAW")]
+        [TestCase("testFileWMS2.raw")]
+        [TestCase("05-13-16_cali_MS_60K-res_MS.raw")]
+        public static void TestDynamicRaw(string fileName)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+
+            // Two readers, deliberately. GetOneBasedScanFromDynamicConnection short-circuits to the
+            // static cache when scans are already loaded, so a single reader that has called
+            // LoadAllStaticData hands back the very same MsDataScan instance and every comparison
+            // below is a scan against itself.
+            var staticRaw = MsDataFileReader.GetDataFile(filePath);
+            staticRaw.LoadAllStaticData();
+
+            var dynamicRaw = MsDataFileReader.GetDataFile(filePath);
+            dynamicRaw.InitiateDynamicConnection();
+
+            foreach (MsDataScan staticScan in staticRaw.GetAllScansList())
+            {
+                MsDataScan dynamicScan = dynamicRaw.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+
+                NUnit.Framework.Assert.That(dynamicScan, Is.Not.Null,
+                    $"No scan {staticScan.OneBasedScanNumber} came back from the dynamic connection.");
+                NUnit.Framework.Assert.That(ReferenceEquals(dynamicScan, staticScan), Is.False,
+                    "The dynamic read returned the statically cached instance, so nothing below is being compared.");
+
+                Assert.IsFalse(staticScan.MassSpectrum.YArray.Contains(0));
+                Assert.IsFalse(dynamicScan.MassSpectrum.YArray.Contains(0));
+                NUnit.Framework.Assert.That(dynamicScan.OneBasedScanNumber == staticScan.OneBasedScanNumber);
+                NUnit.Framework.Assert.That(dynamicScan.MsnOrder == staticScan.MsnOrder);
+                NUnit.Framework.Assert.That(dynamicScan.RetentionTime == staticScan.RetentionTime);
+                NUnit.Framework.Assert.That(dynamicScan.Polarity == staticScan.Polarity);
+                NUnit.Framework.Assert.That(dynamicScan.ScanWindowRange.Minimum == staticScan.ScanWindowRange.Minimum);
+                NUnit.Framework.Assert.That(dynamicScan.ScanWindowRange.Maximum == staticScan.ScanWindowRange.Maximum);
+                NUnit.Framework.Assert.That(dynamicScan.ScanFilter == staticScan.ScanFilter);
+                NUnit.Framework.Assert.That(dynamicScan.NativeId == staticScan.NativeId);
+                NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                NUnit.Framework.Assert.That(dynamicScan.IsCentroid == staticScan.IsCentroid);
+                NUnit.Framework.Assert.That(dynamicScan.InjectionTime == staticScan.InjectionTime);
+                // Element-wise: `==` on double[,] is reference equality, so this held only because the
+                // two sides used to be one object. Across two readers it can only pass when both are
+                // null -- true today, since neither reader populates noise data -- and would go red on
+                // every scan the moment one of them starts, for no static-vs-dynamic reason.
+                AssertNoiseDataEqual(dynamicScan.NoiseData, staticScan.NoiseData);
+
+                NUnit.Framework.Assert.That(dynamicScan.IsolationMz == staticScan.IsolationMz);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonChargeStateGuess == staticScan.SelectedIonChargeStateGuess);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonIntensity == staticScan.SelectedIonIntensity);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMZ == staticScan.SelectedIonMZ);
+                NUnit.Framework.Assert.That(dynamicScan.DissociationType == staticScan.DissociationType);
+                NUnit.Framework.Assert.That(dynamicScan.IsolationWidth == staticScan.IsolationWidth);
+                NUnit.Framework.Assert.That(dynamicScan.OneBasedPrecursorScanNumber == staticScan.OneBasedPrecursorScanNumber);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessIntensity == staticScan.SelectedIonMonoisotopicGuessIntensity);
+                NUnit.Framework.Assert.That(dynamicScan.SelectedIonMonoisotopicGuessMz == staticScan.SelectedIonMonoisotopicGuessMz);
+
+                // Same shape as IsolationWidth above. IsolationRange is null unless BOTH IsolationWidth
+                // and IsolationMz have values (MsDataScan.cs:143), so a one-sided null is reachable.
+                NUnit.Framework.Assert.That(dynamicScan.IsolationRange is null, Is.EqualTo(staticScan.IsolationRange is null),
+                    "static and dynamic disagree on whether IsolationRange is present");
+                if (dynamicScan.IsolationRange != null && staticScan.IsolationRange != null)
+                {
+                    NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Minimum == staticScan.IsolationRange.Minimum);
+                    NUnit.Framework.Assert.That(dynamicScan.IsolationRange.Maximum == staticScan.IsolationRange.Maximum);
+                }
+
+                NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.XArray.Length == staticScan.MassSpectrum.XArray.Length);
+                NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.YArray.Length == staticScan.MassSpectrum.YArray.Length);
+
+                for (int i = 0; i < staticScan.MassSpectrum.XArray.Length; i++)
+                {
+                    double staticMz = staticScan.MassSpectrum.XArray[i];
+                    double staticIntensity = staticScan.MassSpectrum.YArray[i];
+
+                    double dynamicMz = dynamicScan.MassSpectrum.XArray[i];
+                    double dynamicIntensity = dynamicScan.MassSpectrum.YArray[i];
+
+                    NUnit.Framework.Assert.That(dynamicMz == staticMz);
+                    NUnit.Framework.Assert.That(dynamicIntensity == staticIntensity);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Tests that you can read EtHCD files in ThermoRawFileReader
+        /// </summary>
+        [Test]
+        public static void TestEthcdReading()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "sliced_ethcd.raw");
+            var spectra = MsDataFileReader.GetDataFile(filePath);
+            spectra.LoadAllStaticData(null, 1);
+            var hcdScan = spectra.GetOneBasedScan(5);
+            NUnit.Framework.Assert.That(hcdScan.DissociationType == DissociationType.HCD);
+            NUnit.Framework.Assert.That(hcdScan.HcdEnergy, Is.EqualTo("36.00"));
+            var ethcdScan = spectra.GetOneBasedScan(6);
+            NUnit.Framework.Assert.That(ethcdScan.DissociationType == DissociationType.EThcD);
+            NUnit.Framework.Assert.That(ethcdScan.HcdEnergy, Is.EqualTo("25.00"));
+        }
+
+        [Test]
+        public static void TestCompensationVoltageReading()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "TestCompensationVoltageReading.raw");
+            var spectra = MsDataFileReader.GetDataFile(filePath);
+            spectra.LoadAllStaticData();
+            var availableCvValues = spectra
+                .GetAllScansList()
+                .Select(i => i.CompensationVoltage)
+                .Distinct()
+                .OrderByDescending(i => i)
+                .ToArray();
+            double?[] expected =  new double?[] {-45d, -60d}; 
+
+        Assert.AreEqual(expected, availableCvValues); 
+
+        }
+
+        /// <summary>
+        /// Compares two noise-data arrays by value. Null-safe, and tolerant of both being null, which
+        /// is the state today: neither the mzML nor the Thermo reader populates the field.
+        /// </summary>
+        private static void AssertNoiseDataEqual(double[,] dynamicNoise, double[,] staticNoise)
+        {
+            if (dynamicNoise is null || staticNoise is null)
+            {
+                NUnit.Framework.Assert.That(dynamicNoise is null, Is.EqualTo(staticNoise is null),
+                    "static and dynamic disagree on whether NoiseData is present");
+                return;
+            }
+
+            NUnit.Framework.Assert.That(dynamicNoise.GetLength(0), Is.EqualTo(staticNoise.GetLength(0)));
+            NUnit.Framework.Assert.That(dynamicNoise.GetLength(1), Is.EqualTo(staticNoise.GetLength(1)));
+            for (int i = 0; i < dynamicNoise.GetLength(0); i++)
+            {
+                for (int j = 0; j < dynamicNoise.GetLength(1); j++)
+                {
+                    NUnit.Framework.Assert.That(dynamicNoise[i, j], Is.EqualTo(staticNoise[i, j]));
+                }
+            }
+        }
+
+    }
+}

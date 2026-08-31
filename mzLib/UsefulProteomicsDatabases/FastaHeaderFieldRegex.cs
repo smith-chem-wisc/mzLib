@@ -19,5 +19,17 @@ namespace UsefulProteomicsDatabases
         public int Match { get; }
 
         public int Group { get; }
+
+        public string ApplyRegex(string input)
+        {
+            string? result = null;
+            var matches = Regex.Matches(input);
+            if (matches.Count > Match && matches[Match].Groups.Count > Group)
+            {
+                result = matches[Match].Groups[Group].Value;
+            }
+
+            return result!;
+        }
     }
 }

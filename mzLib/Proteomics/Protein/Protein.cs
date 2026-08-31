@@ -1,15 +1,24 @@
-﻿using Proteomics.Fragmentation;
-using Proteomics.ProteolyticDigestion;
+﻿using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Omics;
+using Omics.Digestion;
+using Omics.Fragmentation;
+using Omics.Modifications;
+using MzLibUtil;
+using Omics.BioPolymer;
+using System.Data;
+using Chemistry;
+using Easy.Common.Extensions;
+
 
 namespace Proteomics
 {
-    public class Protein
+    public class Protein : IBioPolymer, IEquatable<Protein>, IComparable<Protein>
     {
-        private List<ProteolysisProduct> _proteolysisProducts;
+        private List<TruncationProduct> _proteolysisProducts;
 
         /// <summary>
         /// Protein. Filters out modifications that do not match their amino acid target site.
@@ -24,20 +33,28 @@ namespace Proteomics
         /// <param name="fullName"></param>
         /// <param name="isDecoy"></param>
         /// <param name="isContaminant"></param>
+        /// <param name="isEntrapment"></param>
         /// <param name="databaseReferences"></param>
         /// <param name="sequenceVariations"></param>
         /// <param name="disulfideBonds"></param>
         /// <param name="spliceSites"></param>
         /// <param name="databaseFilePath"></param>
         public Protein(string sequence, string accession, string organism = null, List<Tuple<string, string>> geneNames = null,
-            IDictionary<int, List<Modification>> oneBasedModifications = null, List<ProteolysisProduct> proteolysisProducts = null,
-            string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false, List<DatabaseReference> databaseReferences = null,
+            IDictionary<int, List<Modification>> oneBasedModifications = null, List<TruncationProduct> proteolysisProducts = null,
+            string name = null, string fullName = null, bool isDecoy = false, bool isContaminant = false,
+            List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
-            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false)
+            List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
+            UniProtEntryAttributes uniProtEntryAttributes = null,
+            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
+            Protein nonVariantProtein = null)
         {
-            // Mandatory
             BaseSequence = sequence;
-            NonVariantProtein = this;
+            // Defaults to this, which is right for an entry that is its own consensus. A caller building an
+            // entry that carries applied variations - a decoy mirrored from a variant target, for instance -
+            // passes the consensus so that ConsensusVariant and NonVariantProtein point at it rather than at
+            // the variant entry itself.
+            NonVariantProtein = nonVariantProtein ?? this;
             Accession = accession;
 
             Name = name;
@@ -45,17 +62,18 @@ namespace Proteomics
             FullName = fullName;
             IsDecoy = isDecoy;
             IsContaminant = isContaminant;
+            IsEntrapment = isEntrapment;
             DatabaseFilePath = databaseFilePath;
             SampleNameForVariants = sampleNameForVariants;
 
             GeneNames = geneNames ?? new List<Tuple<string, string>>();
-            _proteolysisProducts = proteolysisProducts ?? new List<ProteolysisProduct>();
+            _proteolysisProducts = proteolysisProducts ?? new List<TruncationProduct>();
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
             {
-                OneBasedPossibleLocalizedModifications = SelectValidOneBaseMods(oneBasedModifications);
+                OneBasedPossibleLocalizedModifications = ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications);
             }
             else
             {
@@ -69,25 +87,27 @@ namespace Proteomics
             {
                 this.AddTruncations();
             }
+            UniProtEntryAttributes = uniProtEntryAttributes ?? new UniProtEntryAttributes();
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? new UniProtSequenceAttributes(Length, (int)Math.Round(new PeptideWithSetModifications(BaseSequence, new Dictionary<string,Modification>()).MonoisotopicMass), "unknown", DateTime.Now, -1);
         }
 
         /// <summary>
         /// Protein construction that clones a protein but assigns a different base sequence
-        /// For use in SILAC experiments
+        /// For use in SILAC experiments and in decoy construction
         /// </summary>
         /// <param name="originalProtein"></param>
-        /// <param name="silacSequence"></param>
-        /// <param name="silacAccession"></param>
-        public Protein(Protein originalProtein, string silacSequence)
+        /// <param name="newBaseSequence"></param>
+        public Protein(Protein originalProtein, string newBaseSequence)
         {
-            BaseSequence = silacSequence;
+            BaseSequence = newBaseSequence;
             Accession = originalProtein.Accession;
-            NonVariantProtein = originalProtein.NonVariantProtein;
+            NonVariantProtein = originalProtein.ConsensusVariant as Protein;
             Name = originalProtein.Name;
             Organism = originalProtein.Organism;
             FullName = originalProtein.FullName;
             IsDecoy = originalProtein.IsDecoy;
             IsContaminant = originalProtein.IsContaminant;
+            IsEntrapment = originalProtein.IsEntrapment;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             SampleNameForVariants = originalProtein.SampleNameForVariants;
             GeneNames = originalProtein.GeneNames;
@@ -100,6 +120,84 @@ namespace Proteomics
             DisulfideBonds = originalProtein.DisulfideBonds;
             SpliceSites = originalProtein.SpliceSites;
             DatabaseFilePath = originalProtein.DatabaseFilePath;
+            UniProtEntryAttributes = originalProtein.UniProtEntryAttributes;
+            UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
+        }
+
+        /// <summary>
+        /// Protein construction that clones a protein but allows the assignment of any
+        /// number of new properties. Each parameter defaults to the original protein's
+        /// value when null.
+        /// </summary>
+        /// <param name="originalProtein">The protein to clone.</param>
+        /// <param name="accession">New accession, or null to keep the original.</param>
+        /// <param name="proteinName">New name, or null to keep the original.</param>
+        /// <param name="proteinFullName">New full name, or null to keep the original.</param>
+        /// <param name="organism">New organism, or null to keep the original.</param>
+        /// <param name="databaseFilePath">New database file path, or null to keep the original.</param>
+        /// <param name="sampleNameForVariants">New sample name for variants, or null to keep the original.</param>
+        /// <param name="isDecoy">New isDecoy flag, or null to keep the original.</param>
+        /// <param name="isContaminant">New isContaminant flag, or null to keep the original.</param>
+        /// <param name="isEntrapment">New isEntrapment flag, or null to keep the original.</param>
+        /// <param name="geneNames">New gene names, or null to keep the original.</param>
+        /// <param name="oneBasedModifications">New modifications, or null to keep the original.</param>
+        /// <param name="proteolysisProducts">New truncation products, or null to keep the original.</param>
+        /// <param name="sequenceVariations">New sequence variations, or null to keep the original.</param>
+        /// <param name="appliedSequenceVariations">New applied sequence variations, or null to keep the original.</param>
+        /// <param name="databaseReferences">New database references, or null to keep the original.</param>
+        /// <param name="disulfideBonds">New disulfide bonds, or null to keep the original.</param>
+        /// <param name="spliceSites">New splice sites, or null to keep the original.</param>
+        /// <param name="uniProtEntryAttributes">New UniProt entry attributes, or null to keep the original.</param>
+        /// <param name="uniProtSequenceAttributes">New UniProt sequence attributes, or null to keep the original.</param>
+        /// <param name="nonVariantProtein">The non-variant protein reference, or null to set NonVariantProtein to this instance.</param>
+        public Protein(Protein originalProtein,
+            string? accession = null,
+            string? proteinName = null,
+            string? proteinFullName = null,
+            string? organism = null,
+            string? databaseFilePath = null,
+            string? sampleNameForVariants = null,
+            bool? isDecoy = null,
+            bool? isContaminant = null,
+            bool? isEntrapment = null,
+            List<Tuple<string, string>> geneNames = null,
+            IDictionary<int, List<Modification>> oneBasedModifications = null,
+            List<TruncationProduct> proteolysisProducts = null,
+            List<SequenceVariation> sequenceVariations = null,
+            List<SequenceVariation> appliedSequenceVariations = null,
+            List<DatabaseReference> databaseReferences = null,
+            List<DisulfideBond> disulfideBonds = null,
+            List<SpliceSite> spliceSites = null,
+            UniProtEntryAttributes uniProtEntryAttributes = null,
+            UniProtSequenceAttributes uniProtSequenceAttributes = null,
+            Protein nonVariantProtein = null)
+        {
+            BaseSequence = originalProtein.BaseSequence;
+            Accession = accession ?? originalProtein.Accession;
+            NonVariantProtein = nonVariantProtein ?? this;
+            Name = proteinName ?? originalProtein.Name;
+            Organism = organism ?? originalProtein.Organism;
+            FullName = proteinFullName ?? originalProtein.FullName;
+            IsDecoy = isDecoy ?? originalProtein.IsDecoy;
+            IsContaminant = isContaminant ?? originalProtein.IsContaminant;
+            IsEntrapment = isEntrapment ?? originalProtein.IsEntrapment;
+            DatabaseFilePath = databaseFilePath ?? originalProtein.DatabaseFilePath;
+            SampleNameForVariants = sampleNameForVariants ?? originalProtein.SampleNameForVariants;
+            GeneNames = geneNames ?? originalProtein.GeneNames;
+            _proteolysisProducts = proteolysisProducts ?? originalProtein._proteolysisProducts;
+            SequenceVariations = sequenceVariations ?? originalProtein.SequenceVariations;
+            AppliedSequenceVariations = appliedSequenceVariations ?? originalProtein.AppliedSequenceVariations;
+            OriginalNonVariantModifications = oneBasedModifications != null
+                ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value)
+                : originalProtein.OriginalNonVariantModifications;
+            OneBasedPossibleLocalizedModifications = oneBasedModifications != null
+                ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications)
+                : originalProtein.OneBasedPossibleLocalizedModifications;
+            DatabaseReferences = databaseReferences ?? originalProtein.DatabaseReferences;
+            DisulfideBonds = disulfideBonds ?? originalProtein.DisulfideBonds;
+            SpliceSites = spliceSites ?? originalProtein.SpliceSites;
+            UniProtEntryAttributes = uniProtEntryAttributes ?? originalProtein.UniProtEntryAttributes;
+            UniProtSequenceAttributes = uniProtSequenceAttributes ?? originalProtein.UniProtSequenceAttributes;
         }
 
         /// <summary>
@@ -112,25 +210,29 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<ProteolysisProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
-            : this(variantBaseSequence,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            : this(
+                  variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
                   organism: protein.Organism,
                   geneNames: new List<Tuple<string, string>>(protein.GeneNames),
                   oneBasedModifications: oneBasedModifications != null ? oneBasedModifications.ToDictionary(x => x.Key, x => x.Value) : new Dictionary<int, List<Modification>>(),
-                  proteolysisProducts: new List<ProteolysisProduct>(applicableProteolysisProducts ?? new List<ProteolysisProduct>()),
-                  name: GetName(appliedSequenceVariations, protein.Name),
-                  fullName: GetName(appliedSequenceVariations, protein.FullName),
+                  proteolysisProducts: new List<TruncationProduct>(applicableProteolysisProducts ?? new List<TruncationProduct>()),
+                  name: VariantApplication.GetVariantName(protein.Name, appliedSequenceVariations),
+                  fullName: VariantApplication.GetVariantName(protein.FullName, appliedSequenceVariations), 
                   isDecoy: protein.IsDecoy,
                   isContaminant: protein.IsContaminant,
+                  isEntrapment: protein.IsEntrapment,
                   databaseReferences: new List<DatabaseReference>(protein.DatabaseReferences),
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
-                  databaseFilePath: protein.DatabaseFilePath)
+                  databaseFilePath: protein.DatabaseFilePath,
+                  uniProtEntryAttributes: protein.UniProtEntryAttributes,
+                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
         {
-            NonVariantProtein = protein.NonVariantProtein;
-            OriginalNonVariantModifications = NonVariantProtein.OriginalNonVariantModifications;
+            NonVariantProtein = protein.ConsensusVariant as Protein;
+            OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
             AppliedSequenceVariations = (appliedSequenceVariations ?? new List<SequenceVariation>()).ToList();
             SampleNameForVariants = sampleNameForVariants;
         }
@@ -143,7 +245,7 @@ namespace Proteomics
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
         /// </summary>
-        public IEnumerable<Tuple<string, string>> GeneNames { get; }
+        public List<Tuple<string, string>> GeneNames { get; }
 
         /// <summary>
         /// Unique accession for this protein.
@@ -153,67 +255,65 @@ namespace Proteomics
         /// <summary>
         /// Base sequence, which may contain applied sequence variations.
         /// </summary>
-        public string BaseSequence { get; }
+        public string BaseSequence { get; private set; }
+
+        /// <summary>
+        /// The dbReference type UniProt uses for the NCBI taxonomy identifier, in both its XML
+        /// (&lt;dbReference type="NCBI Taxonomy" id="9606"/&gt;) and its FASTA headers (OX=9606).
+        /// Declared here rather than in the loader so that anything holding a Protein can find the
+        /// taxonomy without depending on how the protein was read.
+        /// </summary>
+        public const string NcbiTaxonomyDatabaseReferenceType = "NCBI Taxonomy";
+
+        /// <summary>
+        /// The NCBI taxonomy identifier for this protein's organism, or null if the database did
+        /// not supply one. The organism NAME is free text and ambiguous across databases; this is
+        /// the stable machine identifier.
+        /// </summary>
+        public string NcbiTaxonomyId => DatabaseReferences
+            ?.FirstOrDefault(r => r.Type == NcbiTaxonomyDatabaseReferenceType)?.Id;
 
         public string Organism { get; }
         public bool IsDecoy { get; }
-        public IEnumerable<SequenceVariation> SequenceVariations { get; }
-        public IEnumerable<DisulfideBond> DisulfideBonds { get; }
-        public IEnumerable<SpliceSite> SpliceSites { get; }
-
-        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the ProteolysisProducts parameter
-        public IEnumerable<ProteolysisProduct> ProteolysisProducts
-        { get { return _proteolysisProducts; } }
-
-        public IEnumerable<DatabaseReference> DatabaseReferences { get; }
-        public string DatabaseFilePath { get; }
-
-        /// <summary>
-        /// Protein before applying variations.
-        /// </summary>
-        public Protein NonVariantProtein { get; }
-
-        /// <summary>
-        /// Sequence variations that have been applied to the base sequence.
-        /// </summary>
-        public List<SequenceVariation> AppliedSequenceVariations { get; }
-
-        /// <summary>
-        /// Sample name from which applied variants came, e.g. tumor or normal.
-        /// </summary>
-        public string SampleNameForVariants { get; }
-
-        public double Probability { get; set; } // for protein pep project
-
-        public int Length
-        {
-            get
-            {
-                return BaseSequence.Length;
-            }
-        }
-
-        public string FullDescription
-        {
-            get
-            {
-                return Accession + "|" + Name + "|" + FullName;
-            }
-        }
-
+        public int Length => BaseSequence.Length;
+        public string FullDescription => Accession + "|" + Name + "|" + FullName;
         public string Name { get; }
         public string FullName { get; }
         public bool IsContaminant { get; }
-        internal IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+        public bool IsEntrapment { get; }
+        public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
-        public char this[int zeroBasedIndex]
-        {
-            get
-            {
-                return BaseSequence[zeroBasedIndex];
-            }
-        }
+        #region Database Handling and XML Parsed Fields
 
+        /// <summary>
+        /// Sequence Variants as defined in the parsed XML database
+        /// </summary>
+        public List<SequenceVariation> SequenceVariations { get; }
+
+        /// <summary>
+        /// Disulfide Bonds as defined in the parsed XML database
+        /// </summary>
+        public List<DisulfideBond> DisulfideBonds { get; }
+
+        /// <summary>
+        /// Splice Sites as defined in the parsed XML Database
+        /// </summary>
+        public List<SpliceSite> SpliceSites { get; }
+
+        //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete the TruncationProducts parameter
+        /// <summary>
+        /// Truncation products as defined in the parsed XML Database
+        /// </summary>
+        public List<TruncationProduct> TruncationProducts => _proteolysisProducts;
+
+        /// <summary>
+        /// The references for a protein in the parsed XML Database
+        /// </summary>
+        public List<DatabaseReference> DatabaseReferences { get; }
+
+        public string DatabaseFilePath { get; }
+        public UniProtEntryAttributes UniProtEntryAttributes { get; private set; }
+        public UniProtSequenceAttributes UniProtSequenceAttributes { get; private set; }
         /// <summary>
         /// Formats a string for a UniProt fasta header. See https://www.uniprot.org/help/fasta-headers.
         /// Note that the db field isn't very applicable here, so mz is placed in to denote written by mzLib.
@@ -222,7 +322,15 @@ namespace Proteomics
         {
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
-            return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
+
+            // OX= sits between OS= and GN=, matching real UniProt headers -- and matching
+            // ProteinDbLoader.UniprotOrganismRegex, which already treats OX= as a terminator for the
+            // organism name. Omitted entirely when unknown rather than written empty, so a header
+            // without taxonomy stays exactly as it was.
+            string taxonomy = NcbiTaxonomyId;
+            return string.IsNullOrEmpty(taxonomy)
+                ? string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName)
+                : string.Format("mz|{0}|{1} {2} OS={3} OX={4} GN={5}", Accession, Name, FullName, Organism, taxonomy, geneName);
         }
 
         /// <summary>
@@ -233,34 +341,55 @@ namespace Proteomics
             return string.Format("{0} {1}", Accession, FullName);
         }
 
+        #endregion
+
         /// <summary>
         /// Gets peptides for digestion of a protein
+        /// Legacy
         /// </summary>
-        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams, List<Modification> allKnownFixedModifications,
+        public IEnumerable<PeptideWithSetModifications> Digest(DigestionParams digestionParams,
+            List<Modification> allKnownFixedModifications, List<Modification> variableModifications,
+            List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null,
+            bool topDownTruncationSearch = false) =>
+            Digest((IDigestionParams)digestionParams, allKnownFixedModifications, variableModifications, silacLabels, turnoverLabels, topDownTruncationSearch)
+                .Cast<PeptideWithSetModifications>();
+
+        /// <summary>
+        /// Gets peptides for digestion of a protein
+        /// Implemented with interfaces to allow for use of both Proteomics and Omics classes
+        /// </summary>
+        public IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel> silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false)
         {
+
+            if (digestionParams is not DigestionParams digestionParameters)
+                throw new ArgumentException(
+                    "DigestionParameters must be of type DigestionParams for protein digestion");
+
+
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
             // add in any modifications that are caused by protease digestion
-            if (digestionParams.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParams.Protease.CleavageMod))
+            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
             {
-                allKnownFixedModifications.Add(digestionParams.Protease.CleavageMod);
+                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
             }
             variableModifications = variableModifications ?? new List<Modification>();
-            CleavageSpecificity searchModeType = digestionParams.SearchModeType;
+            CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
-            ProteinDigestion digestion = new(digestionParams, allKnownFixedModifications, variableModifications);
+            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
                 searchModeType == CleavageSpecificity.Semi ?
                 digestion.SpeedySemiSpecificDigestion(this) :
                     digestion.Digestion(this, topDownTruncationSearch);
 
-            if (digestionParams.KeepNGlycopeptide || digestionParams.KeepOGlycopeptide)
+            if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
-                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParams.KeepNGlycopeptide, digestionParams.KeepOGlycopeptide);
+                unmodifiedPeptides = GetGlycoPeptides(unmodifiedPeptides, digestionParameters.KeepNGlycopeptide, digestionParameters.KeepOGlycopeptide);
             }
 
-            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParams, variableModifications));
+            IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => 
+                peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParameters, variableModifications));
 
             //Remove terminal modifications (if needed)
             if (searchModeType == CleavageSpecificity.SingleN ||
@@ -273,7 +402,7 @@ namespace Proteomics
             //add silac labels (if needed)
             if (silacLabels != null)
             {
-                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParams.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
+                return GetSilacPeptides(modifiedPeptides, silacLabels, digestionParameters.GeneratehUnlabeledProteinsForSilac, turnoverLabels);
             }
 
             return modifiedPeptides;
@@ -533,59 +662,48 @@ namespace Proteomics
                     updatedBaseSequence = updatedBaseSequence.Replace(additionalLabel.OriginalAminoAcid, additionalLabel.AminoAcidLabel);
                 }
             }
-            return new Protein(this, updatedBaseSequence);
+            return CloneWithNewSequenceAndMods(updatedBaseSequence, null) as Protein;
         }
+
+        #region Sequence Variants
+
+        public IBioPolymer ConsensusVariant => NonVariantProtein;
 
         /// <summary>
-        /// Gets proteins with applied variants from this protein
+        /// Protein before applying variations.
         /// </summary>
-        public List<Protein> GetVariantProteins(int maxAllowedVariantsForCombinitorics = 4, int minAlleleDepth = 1)
-        {
-            return VariantApplication.ApplyVariants(this, SequenceVariations, maxAllowedVariantsForCombinitorics, minAlleleDepth);
-        }
+        public Protein NonVariantProtein { get; }
 
         /// <summary>
-        /// Restore all modifications that were read in, including those that did not match their target amino acid.
+        /// Sequence variations that have been applied to the base sequence.
         /// </summary>
-        public void RestoreUnfilteredModifications()
-        {
-            OneBasedPossibleLocalizedModifications = OriginalNonVariantModifications;
-        }
+        public List<SequenceVariation> AppliedSequenceVariations { get; }
 
         /// <summary>
-        /// Filters modifications that do not match their target amino acid.
+        /// Sample name from which applied variants came, e.g. tumor or normal.
         /// </summary>
-        /// <param name="dict"></param>
-        /// <returns></returns>
-        private IDictionary<int, List<Modification>> SelectValidOneBaseMods(IDictionary<int, List<Modification>> dict)
-        {
-            Dictionary<int, List<Modification>> validModDictionary = new Dictionary<int, List<Modification>>();
-            foreach (KeyValuePair<int, List<Modification>> entry in dict)
-            {
-                List<Modification> validMods = new List<Modification>();
-                foreach (Modification m in entry.Value)
-                {
-                    //mod must be valid mod and the motif of the mod must be present in the protein at the specified location
-                    if (m.ValidModification && ModificationLocalization.ModFits(m, BaseSequence, 0, BaseSequence.Length, entry.Key))
-                    {
-                        validMods.Add(m);
-                    }
-                }
+        public string SampleNameForVariants { get; }
 
-                if (validMods.Any())
-                {
-                    if (validModDictionary.Keys.Contains(entry.Key))
-                    {
-                        validModDictionary[entry.Key].AddRange(validMods);
-                    }
-                    else
-                    {
-                        validModDictionary.Add(entry.Key, validMods);
-                    }
-                }
-            }
-            return validModDictionary;
+        /// <summary>
+        /// Original modifications as defined in the Parsed XML database
+        /// </summary>
+        public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
+
+        public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            where TBioPolymerType : IHasSequenceVariants
+        {
+            if (original is not Protein originalProtein)
+                throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
+
+            var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
+                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+            return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
+        #endregion
+
+        #region Truncation Products
+
         /// <summary>
         /// Protein XML files contain annotated proteolysis products for many proteins (e.g. signal peptides, chain peptides).
         /// This method adds N- and C-terminal truncations to these products.
@@ -648,7 +766,7 @@ namespace Proteomics
                 int length = newEnd - fullProteinOneBasedBegin + 1;
                 if (length >= minProductBaseSequenceLength)
                 {
-                    _proteolysisProducts.Add(new ProteolysisProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
+                    _proteolysisProducts.Add(new TruncationProduct(fullProteinOneBasedBegin, newEnd, proteolyisisProductName));
                 }
             }
         }
@@ -664,14 +782,14 @@ namespace Proteomics
                 int length = fullProteinOneBasedEnd - newBegin + 1;
                 if (length >= minProductBaseSequenceLength)
                 {
-                    _proteolysisProducts.Add(new ProteolysisProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
+                    _proteolysisProducts.Add(new TruncationProduct(newBegin, fullProteinOneBasedEnd, proteolyisisProductName));
                 }
             }
         }
 
         /// <summary>
         /// This the main entry point for adding sequences in a top-down truncation search.
-        /// The way this is designed is such at all base sequences to be searched end up in the list Protein.ProteolysisProducts
+        /// The way this is designed is such at all base sequences to be searched end up in the list Protein.TruncationProducts
         /// This includes the intact protein. IT DOES NOT INCLUDE ANY DOUBLY (BOTH ENDS) DIGESTED PRODUCTS.
         /// The original proteolysis products (if any) are already in that list. These are annotated in protein.xml files.
         /// The options to keep in mind are present in the following variables
@@ -699,8 +817,8 @@ namespace Proteomics
 
             if (addForEachOrigninalProteolysisProduct) // this does not include the original intact proteoform
             {
-                List<ProteolysisProduct> existingProducts = ProteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
-                foreach (ProteolysisProduct product in existingProducts)
+                List<TruncationProduct> existingProducts = TruncationProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
+                foreach (TruncationProduct product in existingProducts)
                 {
                     if (product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
                     {
@@ -731,7 +849,7 @@ namespace Proteomics
         {
             if (BaseSequence.Length >= minProductBaseSequenceLength)
             {
-                _proteolysisProducts.Add(new ProteolysisProduct(1, BaseSequence.Length, "full-length proteoform"));
+                _proteolysisProducts.Add(new TruncationProduct(1, BaseSequence.Length, "full-length proteoform"));
             }
         }
 
@@ -743,7 +861,7 @@ namespace Proteomics
         public void CleaveOnceBetweenProteolysisProducts(int minimumProductLength = 7)
         {
             List<int> cleavagePostions = new();
-            List<ProteolysisProduct> localProducts = _proteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
+            List<TruncationProduct> localProducts = _proteolysisProducts.Where(p => !p.Type.Contains("truncation") && !p.Type.Contains("full-length proteoform")).ToList();
             List<int> proteolysisProductEndPositions = localProducts.Where(p => p.OneBasedEndPosition.HasValue).Select(p => p.OneBasedEndPosition.Value).ToList();
             if (proteolysisProductEndPositions.Count > 0)
             {
@@ -761,7 +879,7 @@ namespace Proteomics
                 if (position - 1 >= minimumProductLength)
                 {
                     string leftType = $"N-terminal Portion of Singly Cleaved Protein(1-{position})";
-                    ProteolysisProduct leftProduct = new(1, position, leftType);
+                    TruncationProduct leftProduct = new(1, position, leftType);
 
                     //here we're making sure a product with these begin/end positions isn't already present
                     if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == leftProduct.OneBasedBeginPosition && p.OneBasedEndPosition == leftProduct.OneBasedEndPosition))
@@ -773,7 +891,7 @@ namespace Proteomics
                 if (BaseSequence.Length - position - 1 >= minimumProductLength)
                 {
                     string rightType = $"C-terminal Portion of Singly Cleaved Protein({position + 1}-{BaseSequence.Length})";
-                    ProteolysisProduct rightProduct = new(position + 1, BaseSequence.Length, rightType);
+                    TruncationProduct rightProduct = new(position + 1, BaseSequence.Length, rightType);
 
                     //here we're making sure a product with these begin/end positions isn't already present
                     if (!_proteolysisProducts.Any(p => p.OneBasedBeginPosition == rightProduct.OneBasedBeginPosition && p.OneBasedEndPosition == rightProduct.OneBasedEndPosition))
@@ -784,18 +902,20 @@ namespace Proteomics
             }
         }
 
-        private static string GetName(IEnumerable<SequenceVariation> appliedVariations, string name)
+        #endregion
+
+        public IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods = null)
         {
-            bool emptyVars = appliedVariations == null || appliedVariations.Count() == 0;
-            if (name == null && emptyVars)
-            {
-                return null;
-            }
-            else
-            {
-                string variantTag = emptyVars ? "" : $" variant:{VariantApplication.CombineDescriptions(appliedVariations)}";
-                return name + variantTag;
-            }
+            // Create a new protein with the new base sequence and modifications
+            Protein newProtein = new Protein(this, newBaseSequence);
+            if (newMods.IsNullOrEmpty()) 
+                return newProtein;
+
+            // If new modifications are provided, use them
+            newProtein.OriginalNonVariantModifications = this.OriginalNonVariantModifications;
+            newProtein.OneBasedPossibleLocalizedModifications = ((IBioPolymer)newProtein).SelectValidOneBaseMods(newMods!);
+
+            return newProtein;
         }
 
         public int CompareTo(Protein other)
@@ -807,10 +927,18 @@ namespace Proteomics
         //not sure if we require any additional fields for equality
         public override bool Equals(object obj)
         {
-            Protein otherProtein = (Protein)obj;
-            return otherProtein != null && otherProtein.Accession.Equals(Accession) && otherProtein.BaseSequence.Equals(BaseSequence);
+            if (obj is Protein bioPol)
+            {
+                return Equals(bioPol);
+            }
+            return false;
         }
 
+        public bool Equals(Protein other)
+        {
+            return (this as IBioPolymer).Equals(other);   
+        }
+        
         /// <summary>
         /// The protein object uses the default hash code method for speed,
         /// but note that two protein objects with the same information will give two different hash codes.

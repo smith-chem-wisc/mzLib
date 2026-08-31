@@ -1,14 +1,28 @@
-﻿using System.Collections.Generic;
+﻿using MassSpectrometry;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// One peptide sequence's quantification across every spectra file: its intensity per file, how that
+    /// intensity was obtained per file, and the protein groups it belongs to. This is what
+    /// QuantifiedPeptides.tsv is written from.
+    ///
+    /// The per-file intensity is the single highest-intensity qualifying <see cref="ChromatographicPeak"/>
+    /// for that sequence, not a sum over its peaks, so it will not reconcile against a total of
+    /// QuantifiedPeaks. Qualifying means unambiguous by full sequence, non-decoy, and for MBR peaks
+    /// within the q-value threshold and not a random retention time decoy.
+    /// </summary>
     public class Peptide
     {
         public readonly string Sequence;
         public readonly string BaseSequence;
+        public readonly int? PeakOrder; // only used in IsoTracker mode
+        public readonly int? IsoGroupIndex; // only used in IsoTracker mode for output grouping
         private Dictionary<SpectraFileInfo, double> Intensities;
+        private Dictionary<SpectraFileInfo, double> RetentionTimes;
         private Dictionary<SpectraFileInfo, DetectionType> DetectionTypes;
         public readonly HashSet<ProteinGroup> ProteinGroups;
         public readonly bool UseForProteinQuant;
@@ -19,9 +33,36 @@ namespace FlashLFQ
             Sequence = sequence;
             BaseSequence = baseSequence;
             Intensities = new Dictionary<SpectraFileInfo, double>();
+            RetentionTimes = new Dictionary<SpectraFileInfo, double>();
             DetectionTypes = new Dictionary<SpectraFileInfo, DetectionType>();
-            this.ProteinGroups = proteinGroups;
+
+            // Copied, not aliased. Callers build a Peptide from the first Identification that carries a
+            // given modified sequence and then Add the protein groups of every later identification for
+            // that sequence -- and MergeResultsWith adds the other run's. Holding the caller's set means
+            // all of that writes back into that first Identification, which is attached to peaks and
+            // reported, so it ends up claiming protein groups it never observed. Identification itself
+            // already copies its input for the same reason.
+            this.ProteinGroups = proteinGroups == null
+                ? new HashSet<ProteinGroup>()
+                : new HashSet<ProteinGroup>(proteinGroups);
+
             this.UseForProteinQuant = useForProteinQuant;
+        }
+
+        /// <summary>
+        /// The constructor for IsoPeptide
+        /// </summary>
+        /// <param name="sequence"></param>
+        /// <param name="baseSequence"></param>
+        /// <param name="useForProteinQuant"></param>
+        /// <param name="proteinGroups"></param>
+        /// <param name="isoGroupIndex"></param>
+        /// <param name="peakOrder"></param>
+        public Peptide(string sequence, string baseSequence, bool useForProteinQuant, HashSet<ProteinGroup> proteinGroups, int isoGroupIndex,int peakOrder):
+            this(sequence, baseSequence, useForProteinQuant, proteinGroups)
+        {
+            IsoGroupIndex = isoGroupIndex;
+            PeakOrder = peakOrder;
         }
 
         public static string TabSeparatedHeader(List<SpectraFileInfo> rawFiles)
@@ -40,7 +81,31 @@ namespace FlashLFQ
             {
                 sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
             }
-            return sb.ToString();
+            return sb.ToString().TrimEnd('\t');
+        }
+
+        public static string TabSeparatedHeader_IsoTracker(List<SpectraFileInfo> rawFiles)
+        {
+            var sb = new StringBuilder();
+            sb.Append("Sequence" + "\t");
+            sb.Append("Base Sequence" + "\t");
+            sb.Append("Peak Order" + "\t");
+            sb.Append("Protein Groups" + "\t");
+            sb.Append("Gene Names" + "\t");
+            sb.Append("Organism" + "\t");
+            foreach (var rawfile in rawFiles)
+            {
+                sb.Append("Intensity_" + rawfile.FilenameWithoutExtension + "\t");
+            }
+            foreach (var rawfile in rawFiles)
+            {
+                sb.Append("RetentionTime (min)_" + rawfile.FilenameWithoutExtension + "\t");
+            }
+            foreach (var rawfile in rawFiles)
+            {
+                sb.Append("Detection Type_" + rawfile.FilenameWithoutExtension + "\t");
+            }
+            return sb.ToString().TrimEnd('\t');
         }
 
         public double GetIntensity(SpectraFileInfo fileInfo)
@@ -67,6 +132,29 @@ namespace FlashLFQ
             }
         }
 
+        public double GetRetentionTime(SpectraFileInfo fileInfo)
+        {
+            if (RetentionTimes.TryGetValue(fileInfo, out double retentionTime))
+            {
+                return retentionTime;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        public void SetRetentionTime(SpectraFileInfo fileInfo, double retentionTime) 
+        {
+            if (RetentionTimes.ContainsKey(fileInfo))
+            {
+                RetentionTimes[fileInfo] = retentionTime;
+            }
+            else
+            {
+                RetentionTimes.Add(fileInfo, retentionTime);
+            }
+        }
         public DetectionType GetDetectionType(SpectraFileInfo fileInfo)
         {
             if (DetectionTypes.TryGetValue(fileInfo, out DetectionType detectionType))
@@ -91,37 +179,121 @@ namespace FlashLFQ
             }
         }
 
-        public string ToString(List<SpectraFileInfo> rawFiles)
+        /// <summary>
+        /// Set the isobaric peptide intensities and detection types by iterating through the peak list.
+        /// </summary>
+        /// <param name="peakList"></param>
+        public void SetIsobaricPeptide(List<ChromatographicPeak> peakList)
         {
-            StringBuilder str = new StringBuilder();
-            str.Append(Sequence + "\t");
-            str.Append(BaseSequence + "\t");
-
-            var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
-
-            var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
-            var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
-            var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();
-
-            str.Append(proteinsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
-                orderedProteinGroups.Any() ? orderedProteinGroups.First().ProteinGroupName + "\t" : "\t");
-
-            str.Append(genesCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.GeneName)) + "\t" :
-                orderedProteinGroups.Any() ? orderedProteinGroups.First().GeneName + "\t" : "\t");
-
-            str.Append(organismsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.Organism)) + "\t" :
-                orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
-
-            foreach (var file in rawFiles)
+            foreach (var peak in peakList.Where(p=>p != null))
             {
-                str.Append(GetIntensity(file) + "\t");
+                if (peak.Identifications.Count > 1) // More than one id in this peak, the detectionType should be ambiguous and the intensity is set to 0
+                {
+                    RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
+                    Intensities[peak.SpectraFileInfo] = 0;
+                    if (peak.DetectionType != DetectionType.IsoTrack_Ambiguous) // If the detectionType is not IsoTrack_amb but with more than one id. That extra id must be added by RunErrorCheck
+                    {
+                        DetectionTypes[peak.SpectraFileInfo] = DetectionType.MSMSAmbiguousPeakfinding;
+                    }
+                    else
+                    {
+                        DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
+                    }
+
+                }
+                else 
+                {
+                    RetentionTimes[peak.SpectraFileInfo] = peak.ApexRetentionTime;
+                    //Some situation, the peak is merged in RunErrorCheck but still existed in IsoPeptideDict. In RunErrorCheck, we labeled it as ambiguous peak. At here, we set the intensity to 0!!
+                    Intensities[peak.SpectraFileInfo] = (peak.DetectionType == DetectionType.IsoTrack_Ambiguous || peak.DetectionType == DetectionType.MSMSAmbiguousPeakfinding)
+                                                        ? 0
+                                                        : peak.Apex.Intensity;
+                    DetectionTypes[peak.SpectraFileInfo] = peak.DetectionType;
+                }
             }
-            foreach (var file in rawFiles)
+        }
+
+
+
+        public string ToString(List<SpectraFileInfo> rawFiles, bool IsoTracker = false)
+        {
+            if (IsoTracker) // For IsoTracker mode, we add the retention time to the output
             {
-                str.Append(GetDetectionType(file) + "\t");
+                StringBuilder str = new StringBuilder();
+                str.Append(Sequence + "\t");
+                str.Append(BaseSequence + "\t");
+                str.Append(PeakOrder != null ? PeakOrder + "\t" : "" + "\t");
+
+                var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
+
+                var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
+                var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
+                var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();
+
+                str.Append(proteinsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
+                    orderedProteinGroups.Any() ? orderedProteinGroups.First().ProteinGroupName + "\t" : "\t");
+
+                str.Append(genesCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.GeneName)) + "\t" :
+                    orderedProteinGroups.Any() ? orderedProteinGroups.First().GeneName + "\t" : "\t");
+
+                str.Append(organismsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.Organism)) + "\t" :
+                    orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
+
+                foreach (var file in rawFiles)
+                {  
+                    double intensity = GetIntensity(file);
+                    str.Append(intensity + "\t");
+                }
+
+                foreach (var file in rawFiles)
+                {
+                    double Rt = GetRetentionTime(file);
+                    str.Append(Rt + "\t");
+                }
+
+                foreach (var file in rawFiles)
+                {
+                    DetectionType detectionType = GetDetectionType(file);
+                    str.Append(detectionType + "\t");
+                }
+
+                return str.ToString().TrimEnd('\t');
             }
 
-            return str.ToString().TrimEnd('\t');
+            else 
+            {
+                StringBuilder str = new StringBuilder();
+                str.Append(Sequence + "\t");
+                //str.Append("N/A" + "\t"); why we need this?
+                str.Append(BaseSequence + "\t");
+
+                var orderedProteinGroups = ProteinGroups.OrderBy(p => p.ProteinGroupName).ToList();
+
+                var proteinsCount = orderedProteinGroups.Select(p => p.ProteinGroupName).Distinct().Count();
+                var genesCount = orderedProteinGroups.Select(p => p.GeneName).Distinct().Count();
+                var organismsCount = orderedProteinGroups.Select(p => p.Organism).Distinct().Count();
+
+                str.Append(proteinsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.ProteinGroupName)) + "\t" :
+                    orderedProteinGroups.Any() ? orderedProteinGroups.First().ProteinGroupName + "\t" : "\t");
+
+                str.Append(genesCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.GeneName)) + "\t" :
+                    orderedProteinGroups.Any() ? orderedProteinGroups.First().GeneName + "\t" : "\t");
+
+                str.Append(organismsCount > 1 ? string.Join(";", orderedProteinGroups.Select(p => p.Organism)) + "\t" :
+                    orderedProteinGroups.Any() ? orderedProteinGroups.First().Organism + "\t" : "\t");
+
+                foreach (var file in rawFiles)
+                {
+                    str.Append(GetIntensity(file) + "\t");
+                }
+                foreach (var file in rawFiles)
+                {
+                    str.Append(GetDetectionType(file) + "\t");
+                }
+
+                return str.ToString().TrimEnd('\t');
+            }
+            
         }
 
         public override bool Equals(object obj)
