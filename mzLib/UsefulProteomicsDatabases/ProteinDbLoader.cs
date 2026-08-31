@@ -76,18 +76,18 @@ namespace UsefulProteomicsDatabases
         private static List<Modification> protein_xml_modlist_general = new List<Modification>();
 
         /// <summary>
+        /// Marks a protein as entrapment. A protein is treated as entrapment when its accession
+        /// contains this anywhere, and it is prepended when a caller flags entrapment without it.
+        /// </summary>
+        public const string DefaultEntrapmentIdentifier = "Random";
+
+        /// <summary>
         /// Load a mzLibProteinDb or UniProt XML file. Protein modifications may be specified before the protein entries (mzLibProteinDb format).
         /// If so, this modification list can be acquired with GetPtmListFromProteinXml after using this method.
         /// They may also be read in separately from a ptmlist text file, and then input as allKnownModifications.
         /// If protein modifications are specified both in the mzLibProteinDb XML file and in allKnownModifications, they are collapsed into a HashSet of Modifications before generating Protein entries.
         /// </summary>
         [SuppressMessage("Microsoft.Usage", "CA2202:Do not dispose objects multiple times")]
-        /// <summary>
-        /// Marks a protein as entrapment. A protein is treated as entrapment when its accession
-        /// contains this anywhere, and it is prepended when a caller flags entrapment without it.
-        /// </summary>
-        public const string DefaultEntrapmentIdentifier = "Random";
-
         public static List<Protein> LoadProteinXML(string proteinDbLocation, bool generateTargets, DecoyType decoyType, IEnumerable<Modification> allKnownModifications,
             bool isContaminant, IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications, int maxThreads = -1,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1, bool addTruncations = false, string decoyIdentifier = "DECOY",

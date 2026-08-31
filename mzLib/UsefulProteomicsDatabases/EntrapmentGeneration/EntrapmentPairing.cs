@@ -109,6 +109,27 @@ public sealed class EntrapmentPairing
     /// </summary>
     public int SearchablePeptideCount => _byKey.Count + _ambiguous.Count;
 
+    /// <summary>
+    /// The same count for a bare sequence, so the <b>entrapment</b> side of a database can be
+    /// measured on the same footing as the target side.
+    /// </summary>
+    /// <remarks>
+    /// Without this a consumer has only <c>entrapmentPeptides</c>, which counts base pieces, so the
+    /// achieved ratio is a base-piece ratio rather than the peptide-level <c>r</c> an FDP estimator
+    /// is over -- and excision means the two search spaces differ by more than a fold factor, so it
+    /// cannot be derived from the target side and a correction.
+    /// </remarks>
+    public static int CountSearchablePeptides(string sequence, IDigestionParams digestionParams)
+    {
+        if (string.IsNullOrEmpty(sequence))
+        {
+            return 0;
+        }
+
+        return new EntrapmentPairing(new Protein(sequence, "counting-only"), digestionParams)
+            .SearchablePeptideCount;
+    }
+
     /// <summary>The target peptide <paramref name="entrapmentPeptide"/> was built from.</summary>
     /// <returns>False when the peptide belongs to no target peptide of this protein, or when its
     /// key is ambiguous.</returns>

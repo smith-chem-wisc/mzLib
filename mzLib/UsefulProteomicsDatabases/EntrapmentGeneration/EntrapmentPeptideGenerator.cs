@@ -2,6 +2,7 @@
 using MzLibUtil;
 using Omics.Digestion;
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Numerics;
 using System.Security.Cryptography;
@@ -17,6 +18,19 @@ public enum EntrapmentFailure
 {
     /// <summary>A partner was produced.</summary>
     None,
+
+    /// <summary>
+    /// Every arrangement in this fold's stretch would have made a <b>missed-cleavage</b> peptide
+    /// equal to a real target peptide, so none could be used.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="AllPermutationsTaken"/> because the remedies differ, which is the
+    /// whole reason these causes are separate. A peptide whose own arrangements are spoken for wants
+    /// a different target database; a peptide defeated by the runs it would complete wants a
+    /// different seed, or different neighbours, and is a property of where it sits rather than of
+    /// what it is.
+    /// </remarks>
+    RunCollisionsExhaustedTheSpace,
 
     /// <summary>
     /// The sequence has exactly one arrangement once its cleavage sites are held in place -- a
@@ -164,22 +178,37 @@ public static class EntrapmentPeptideGenerator
         BigInteger start = fold * stretch;
         BigInteger offset = DeriveOffset(targetSequence, seed, stretch);
 
+        bool anyRejectedOnlyByContext = false;
+
         for (BigInteger step = BigInteger.Zero; step < stretch; step++)
         {
             BigInteger index = start + (offset + step) % stretch;
             string candidate = DecoySequenceValidator.UnrankPermutation(targetSequence, motifs, index,
                 out int[] swapped, alsoHeldInPlace);
 
-            if (candidate != targetSequence && !forbiddenSequences.Contains(candidate)
-                && (rejectInContext is null || !rejectInContext(candidate)))
+            if (candidate == targetSequence || forbiddenSequences.Contains(candidate))
             {
-                return new EntrapmentPeptide(targetSequence, candidate, swapped, fold, size,
-                    (int)(step + BigInteger.One), EntrapmentFailure.None);
+                continue;
             }
+
+            if (rejectInContext is not null && rejectInContext(candidate))
+            {
+                // Usable on its own merits, and refused only because of what it sits next to.
+                anyRejectedOnlyByContext = true;
+                continue;
+            }
+
+            return new EntrapmentPeptide(targetSequence, candidate, swapped, fold, size,
+                (int)(step + BigInteger.One), EntrapmentFailure.None);
         }
 
-        // The stretch was walked end to end, so this is a proof rather than an abandoned search.
-        return Failed(targetSequence, fold, size, EntrapmentFailure.AllPermutationsTaken);
+        // The stretch was walked end to end, so this is a proof rather than an abandoned search --
+        // and which proof it is depends on what did the refusing. Reporting a run collision as
+        // "all permutations taken" would send a caller after a different target database when the
+        // answer is a different seed.
+        return Failed(targetSequence, fold, size, anyRejectedOnlyByContext
+            ? EntrapmentFailure.RunCollisionsExhaustedTheSpace
+            : EntrapmentFailure.AllPermutationsTaken);
     }
 
     private static EntrapmentPeptide Failed(string targetSequence, int fold, BigInteger size,
@@ -196,7 +225,13 @@ public static class EntrapmentPeptideGenerator
     /// </remarks>
     private static BigInteger DeriveOffset(string sequence, int seed, BigInteger stretch)
     {
-        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes($"{seed}:{sequence}"));
+        // Format the seed invariantly. Interpolation uses the current culture, and a negative
+        // seed renders its sign as U+002D under en-US but U+2212 MINUS SIGN under sv-SE, fi-FI and
+        // lt-LT -- different bytes into SHA-256, so the same request would produce a different
+        // database on a differently-configured machine. The reproducibility this method exists for
+        // has to survive a culture change, not only a process restart.
+        string material = seed.ToString(CultureInfo.InvariantCulture) + ":" + sequence;
+        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(material));
 
         // Leading zero byte keeps BigInteger's two's-complement reading non-negative.
         byte[] unsigned = new byte[digest.Length + 1];

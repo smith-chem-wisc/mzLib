@@ -74,7 +74,7 @@ public static class EntrapmentAccession
         foreignAccession = string.Empty;
         string prefix = entrapmentIdentifier + "_" + ForeignMarker;
         if (string.IsNullOrEmpty(accession)
-            || !accession.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            || !accession.StartsWith(prefix, StringComparison.Ordinal))
         {
             return false;
         }
@@ -96,8 +96,11 @@ public static class EntrapmentAccession
         targetAccession = string.Empty;
         fold = 0;
 
+        // Ordinal throughout, matching what Format writes. Comparing the prefix case-insensitively
+        // while comparing the fold marker case-sensitively let "RANDOM_P12345_F0" pass the first
+        // test and fail the second, so it was neither accepted nor rejected consistently.
         string prefix = entrapmentIdentifier + "_";
-        if (string.IsNullOrEmpty(accession) || !accession.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(accession) || !accession.StartsWith(prefix, StringComparison.Ordinal))
         {
             return false;
         }
@@ -105,7 +108,7 @@ public static class EntrapmentAccession
         // A foreign entry has no target, and its own accession may well end in something that looks
         // like a fold marker -- "Random_foreign_ABC_f1" would otherwise parse as target "foreign_ABC".
         // Refusing on the marker rather than on the shape keeps that from ever being a guess.
-        if (accession.StartsWith(prefix + ForeignMarker, StringComparison.OrdinalIgnoreCase))
+        if (accession.StartsWith(prefix + ForeignMarker, StringComparison.Ordinal))
         {
             return false;
         }

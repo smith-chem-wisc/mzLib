@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -247,10 +248,40 @@ public class EntrapmentProteinTests
         Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
 
         Assert.That(entrapment.BaseSequence.Length, Is.LessThan(target.BaseSequence.Length));
-        foreach (TruncationProduct tp in entrapment.TruncationProducts)
-        {
-            Assert.That(tp.OneBasedEndPosition, Is.LessThanOrEqualTo(entrapment.BaseSequence.Length));
-        }
+
+        // Assert the contract directly rather than looping a collection the fix empties. The old
+        // form iterated TruncationProducts asserting each end position was in range, and this path
+        // clears that collection -- so the loop body never ran and the only live assertion was that
+        // the sequence got shorter. A test named for the fix could not observe it.
+        Assert.That(entrapment.TruncationProducts, Is.Empty,
+            "positional annotations describe the target's coordinates and are dropped, not remapped");
+        Assert.That(entrapment.SequenceVariations, Is.Empty);
+        Assert.That(entrapment.DisulfideBonds, Is.Empty);
+        Assert.That(entrapment.SpliceSites, Is.Empty);
+
+        // And the property that mattered, stated over everything the entry actually carries.
+        IEnumerable<int> everyPosition = entrapment.TruncationProducts
+            .Where(t => t.OneBasedEndPosition.HasValue).Select(t => t.OneBasedEndPosition.Value)
+            .Concat(entrapment.DisulfideBonds.Select(b => b.OneBasedEndPosition))
+            .Concat(entrapment.SpliceSites.Select(x => x.OneBasedEndPosition))
+            .Concat(entrapment.OneBasedPossibleLocalizedModifications.Keys);
+        Assert.That(everyPosition, Is.All.LessThanOrEqualTo(entrapment.BaseSequence.Length));
+    }
+
+    [Test]
+    public void Proteoform_CarriesTruncationProductsAndKeepsThemInRange()
+    {
+        // The same property where the collection is NOT empty, so the range assertion has something
+        // to bite on. Proteoform mode excises nothing, so the length never changes and the spans
+        // stay valid -- which is why that path can carry them at all.
+        var target = new Protein("MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYT", "P12345",
+            proteolysisProducts: new List<TruncationProduct> { new(2, 25, "chain") });
+
+        Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(entrapment.TruncationProducts, Is.Not.Empty, "or the assertion below is vacuous");
+        Assert.That(entrapment.TruncationProducts.Select(t => t.OneBasedEndPosition!.Value),
+            Is.All.LessThanOrEqualTo(entrapment.BaseSequence.Length));
     }
 
     // ---- terminal modifications --------------------------------------------
@@ -286,16 +317,23 @@ public class EntrapmentProteinTests
     {
         // Position 2 matters as much as position 1: a modification annotated after initiator
         // methionine cleavage lands on the second residue. Both are anchored.
-        var target = new Protein("MAAALGGDRKGGVDTTPFAWENDRQISTLGGYK", "P12345",
+        //
+        // The second residue must not be one of a run of identical residues, or the test passes
+        // whether or not anchoring works -- with "MAAA..." the unranking returns an A to slot 1
+        // anyway and the assertion cannot fail. Here the S is the only one in its piece, so it stays
+        // at position 2 only because it is held there.
+        var target = new Protein("MSAALGGDRKGGVDTTPFAWENDRQIATLGGYK", "P12345",
             oneBasedModifications: new Dictionary<int, List<Modification>>
             {
-                { 2, new List<Modification> { TerminalMod("A", "N-terminal.", "N-acetylalanine") } }
+                { 2, new List<Modification> { TerminalMod("S", "N-terminal.", "N-acetylserine") } }
             });
 
         Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
 
         Assert.That(entrapment.OneBasedPossibleLocalizedModifications.ContainsKey(2), Is.True);
-        Assert.That(entrapment.BaseSequence[1], Is.EqualTo('A'));
+        Assert.That(entrapment.BaseSequence[1], Is.EqualTo('S'));
+        Assert.That(entrapment.BaseSequence.Count(c => c == 'S'), Is.EqualTo(1),
+            "the fixture only discriminates while its second residue is unique in the sequence");
     }
 
     [Test]
@@ -628,6 +666,62 @@ public class EntrapmentProteinTests
     }
 
     private const string ForeignSequence = "MQVLGYTTPDNRAWEDSFLGKQPTMLNDVAHER";
+
+    [Test]
+    public void ANegativeSeedGivesTheSameDatabaseWhateverTheCulture()
+    {
+        // Interpolating the seed formats it through the current culture, and a negative one renders
+        // its sign as U+002D under en-US but U+2212 MINUS SIGN under sv-SE, fi-FI and lt-LT --
+        // different bytes into SHA-256, so the same request produced a different database on a
+        // differently-configured machine. The reproducibility this construction exists for has to
+        // survive a culture change, not only a process restart.
+        CultureInfo original = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = new CultureInfo("en-US");
+            string invariant = EntrapmentAssembler
+                .Assemble(Sequence, Tryptic, NothingForbidden, seed: -7).EntrapmentSequence;
+
+            foreach (string culture in new[] { "sv-SE", "fi-FI", "lt-LT" })
+            {
+                CultureInfo.CurrentCulture = new CultureInfo(culture);
+                Assert.That(EntrapmentAssembler.Assemble(Sequence, Tryptic, NothingForbidden, seed: -7)
+                    .EntrapmentSequence, Is.EqualTo(invariant), culture);
+            }
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = original;
+        }
+    }
+
+    [Test]
+    public void AnAgentWhoseSitesCannotBeHeldIsRefused()
+    {
+        // trypsin|P's K[P]| pins nothing: CleavageSitePositions skips a position where a motif fits
+        // but is prevented, so a rearrangement can move that P away and invent a cleavage site the
+        // target lacked. Five shipped agents carry preventing motifs. Refusing is the honest answer
+        // until pinning works across piece boundaries -- a database that digests differently from
+        // its target produces peptides that fail to pair, and it does so silently.
+        var preventing = new DigestionParams("trypsin|P", minPeptideLength: 7, maxMissedCleavages: 2);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble(Sequence, preventing, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("preventing-cleavage motif"));
+    }
+
+    [Test]
+    public void AMultiResidueAgentIsRefused()
+    {
+        // StcE's TX|T spans three residues and is cut by the piece boundary, so one piece ends "TX"
+        // and the next begins "T" -- neither fragment matches inside its own piece and nothing is
+        // held at the seam.
+        var multiResidue = new DigestionParams("StcE-trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble(Sequence, multiResidue, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("multi-residue motif"));
+    }
 
     [Test]
     public void AProteinWhoseEveryPieceIsExcisedIsNotEmitted()

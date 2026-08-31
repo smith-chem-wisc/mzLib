@@ -69,6 +69,7 @@ public static class EntrapmentProteinGenerator
         return new Protein(withNewSequence,
             accession: EntrapmentAccession.Format(target.Accession, fold, entrapmentIdentifier),
             isEntrapment: true,
+            uniProtSequenceAttributes: DescribeSequence(target, assembly.EntrapmentSequence),
             oneBasedModifications: movedMods,
             sequenceVariations: new List<SequenceVariation>(),
             appliedSequenceVariations: new List<SequenceVariation>(),
@@ -356,6 +357,7 @@ public static class EntrapmentProteinGenerator
         return new Protein(withNewSequence,
             accession: EntrapmentAccession.Format(target.Accession, fold, entrapmentIdentifier),
             isEntrapment: true,
+            uniProtSequenceAttributes: DescribeSequence(target, assembly.EntrapmentSequence),
             oneBasedModifications: movedMods,
             // Every other positional annotation describes the TARGET's sequence and means nothing
             // once the residues have moved. Carrying them over is not merely untidy: excision
@@ -369,6 +371,34 @@ public static class EntrapmentProteinGenerator
             proteolysisProducts: new List<TruncationProduct>(),
             disulfideBonds: new List<DisulfideBond>(),
             spliceSites: new List<SpliceSite>());
+    }
+
+    /// <summary>
+    /// Sequence attributes describing the entrapment sequence rather than the one it came from.
+    /// </summary>
+    /// <remarks>
+    /// The copy constructor carries the target's <c>UniProtSequenceAttributes</c> across, and
+    /// excision changes the length -- so a 15-residue partner was written as
+    /// <c>&lt;sequence length="30" mass="3114"&gt;</c>. <see cref="ProteinDbLoader.LoadProteinXML"/>
+    /// recomputes length on read, which is why a round trip through mzLib never noticed, but the file
+    /// on disk was self-inconsistent for anything else that reads it.
+    /// <para>Mass is recomputed too, though for a different reason: a rearrangement is isomeric, so
+    /// an unexcised partner has exactly its target's mass and only an excised one does not. Deriving
+    /// both from the sequence is right in either case and does not depend on knowing which.</para>
+    /// </remarks>
+    private static UniProtSequenceAttributes? DescribeSequence(Protein target, string entrapmentSequence)
+    {
+        UniProtSequenceAttributes? source = target.UniProtSequenceAttributes;
+        if (source is null)
+        {
+            return null;   // the target carried none, so inventing some would assert more than is known
+        }
+
+        var described = new UniProtSequenceAttributes(source.Length, source.Mass, source.Checksum,
+            source.EntryModified, source.SequenceVersion, source.IsPrecursor, source.Fragment);
+        described.UpdateLengthAttribute(entrapmentSequence);
+        described.UpdateMassAttribute(entrapmentSequence);
+        return described;
     }
 
     /// <summary>

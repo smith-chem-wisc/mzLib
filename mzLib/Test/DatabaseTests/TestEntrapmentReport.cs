@@ -290,9 +290,19 @@ public class EntrapmentReportTests
         Assert.That(report.Total.UnpairableSpaceTooSmallForFoldCount,
             Is.EqualTo(report.Strata.Sum(s => s.UnpairableSpaceTooSmallForFoldCount)));
         Assert.That(report.Total.Ambiguous, Is.EqualTo(report.Strata.Sum(s => s.Ambiguous)));
-        Assert.That(report.Total.MissedCleavagePeptidesSpanningAnExcision,
-            Is.EqualTo(report.Strata.Sum(s => s.MissedCleavagePeptidesSpanningAnExcision)));
         Assert.That(report.Total.EntrapmentPeptides, Is.GreaterThan(0), "the fixture must be non-trivial");
+
+        // Three columns describe the database rather than any candidate-site population, so they
+        // reach the total without passing through a stratum. Asserting the sum is ZERO is the point:
+        // publishing a whole-protein figure in a stratum row would make every other row read 0 for a
+        // column that is not zero, and a reader comparing rows would take it for a property of that
+        // stratum. StratumFor("") used to resolve to the real zero-site stratum, which is exactly
+        // how that happened.
+        Assert.That(report.Strata.Sum(s => s.MissedCleavagePeptidesSpanningAnExcision), Is.Zero);
+        Assert.That(report.Strata.Sum(s => s.SearchSpacePeptides), Is.Zero);
+        Assert.That(report.Strata.Sum(s => s.UnrepairableRunCollisions), Is.Zero);
+        Assert.That(report.Total.SearchSpacePeptides, Is.GreaterThan(0),
+            "and the total must still carry them, or they have simply been lost");
     }
 
     [Test]
@@ -356,8 +366,15 @@ public class EntrapmentReportTests
         Assert.That(total[2], Is.EqualTo(report.Total.EntrapmentPeptides.ToString()));
         Assert.That(total[4], Is.EqualTo(report.Total.UnpairableNoPermutationExists.ToString()));
         Assert.That(total[7], Is.EqualTo(report.Total.SearchSpacePeptides.ToString()));
-        Assert.That(total[8], Is.EqualTo(report.Total.Ambiguous.ToString()));
-        Assert.That(total[10], Is.EqualTo(report.Total.UnrepairableRunCollisions.ToString()));
+        Assert.That(total[8], Is.EqualTo(report.Total.EntrapmentSearchSpacePeptides.ToString()));
+        Assert.That(total[9], Is.EqualTo(report.Total.Ambiguous.ToString()));
+        Assert.That(total[11], Is.EqualTo(report.Total.UnrepairableRunCollisions.ToString()));
+
+        // Both halves of a peptide-level r, side by side. entrapmentPeptides counts base pieces, so
+        // a ratio built from that column is a base-piece ratio -- and excision makes the two search
+        // spaces differ by more than the fold factor, so the entrapment side cannot be derived from
+        // the target side and a correction.
+        Assert.That(report.Total.EntrapmentSearchSpacePeptides, Is.GreaterThan(0));
     }
 
     /// <summary>

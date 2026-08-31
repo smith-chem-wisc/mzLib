@@ -165,6 +165,7 @@ public static class EntrapmentAssembler
         }
 
         List<DigestionMotif> motifs = digestionParams.DigestionAgent.DigestionMotifs;
+        RefuseAgentsWhoseSitesCannotBeHeld(digestionParams.DigestionAgent.Name, motifs);
 
         // GetDigestionSiteIndices returns 0, every internal cleavage site, and the length -- a
         // complete partition. It comes back from a hash set, so it needs ordering.
@@ -186,12 +187,13 @@ public static class EntrapmentAssembler
             int length = sites[index + 1] - start;
             string piece = targetSequence.Substring(start, length);
 
-            Func<string, string?>? completesAForbiddenRun =
-                RejectRunCollisions(placed, digestionParams.MaxMissedCleavages, forbiddenSequences);
+            Func<string, IReadOnlyList<string>>? completesAForbiddenRun =
+                RejectRunCollisions(placed, digestionParams.MaxMissedCleavages, forbiddenSequences,
+                    digestionParams.MinLength, digestionParams.MaxLength);
 
             EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(piece, motifs, forbiddenSequences,
-                fold, foldCount, seed, TerminalAnchors(index, sites.Count - 1, length),
-                completesAForbiddenRun is null ? null : c => completesAForbiddenRun(c) is not null);
+                fold, foldCount, seed, TerminalAnchors(start, length, targetSequence.Length),
+                completesAForbiddenRun is null ? null : c => completesAForbiddenRun(c).Count > 0);
 
             if (partner.Succeeded)
             {
@@ -213,8 +215,10 @@ public static class EntrapmentAssembler
                 placed.Add(piece);
                 // Kept verbatim because it has no alternative arrangement, so if it completes a
                 // forbidden run there is nothing to move to. Name it; do not repair it.
-                string? collision = completesAForbiddenRun?.Invoke(piece);
-                if (collision is not null)
+                // Every run this piece completes, not merely the first: several can end here, and
+                // each is a distinct peptide a consumer has to exclude.
+                foreach (string collision in completesAForbiddenRun?.Invoke(piece)
+                                             ?? System.Array.Empty<string>())
                 {
                     unrepairable.Add(collision);
                 }
@@ -264,7 +268,7 @@ public static class EntrapmentAssembler
         var noMotifs = new List<DigestionMotif>();
         EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(targetSequence, noMotifs,
             forbiddenSequences, fold, foldCount, seed,
-            TerminalAnchors(0, 1, targetSequence.Length));
+            TerminalAnchors(0, targetSequence.Length, targetSequence.Length));
 
         var pieces = new List<EntrapmentPiece>(1);
         int[] map = Enumerable.Repeat(-1, targetSequence.Length).ToArray();
@@ -292,6 +296,55 @@ public static class EntrapmentAssembler
     }
 
     /// <summary>
+    /// Refuses a digestion agent whose cleavage sites this assembler cannot hold in place.
+    /// </summary>
+    /// <remarks>
+    /// <para>The class invariant is that the entrapment sequence digests into the same pieces as its
+    /// target. That rests on every cleavage site being pinned, and two kinds of motif escape the
+    /// pinning that <see cref="DecoySequenceValidator.CleavageSitePositions"/> performs.</para>
+    /// <para>A <b>preventing</b> motif pins nothing at all: <c>CleavageSitePositions</c> skips a
+    /// position where a motif fits but is prevented, so under <c>trypsin|P</c>'s <c>K[P]|</c> neither
+    /// the K nor the P after it is held. Moving that P away invents a cleavage site the target
+    /// lacked; moving another P next to another K destroys one. That is five shipped agents --
+    /// <c>chymotrypsin|P</c>, <c>elastase|P</c>, <c>Lys-C|P</c>, <c>trypsin|P</c> and
+    /// <c>subtilisin|P</c> -- and <c>trypsin|P</c> is an ordinary choice in real work.</para>
+    /// <para>A <b>multi-residue</b> motif has its span cut by the piece boundary: <c>TX|T</c> cuts
+    /// after the second of three residues, so one piece ends <c>…TX</c> and the next begins
+    /// <c>T…</c>, neither fragment matches inside its own piece, and nothing is held at the seam.
+    /// That covers <c>StcE</c> and <c>StcE-trypsin</c>.</para>
+    /// <para>The real fix is to pin across piece boundaries, which means this stops being a per-piece
+    /// loop. Until then, refusing is the honest answer: a database that digests differently from its
+    /// target produces peptides that then fail to pair, and it does so silently. Failing at the call
+    /// is better than a caller discovering it from a search result.</para>
+    /// </remarks>
+    /// <exception cref="MzLibException">The agent carries a preventing or multi-residue motif.</exception>
+    private static void RefuseAgentsWhoseSitesCannotBeHeld(string agentName, List<DigestionMotif> motifs)
+    {
+        foreach (DigestionMotif motif in motifs ?? new List<DigestionMotif>())
+        {
+            if (!string.IsNullOrEmpty(motif.PreventingCleavage))
+            {
+                throw new MzLibException(
+                    $"The digestion agent '{agentName}' has a preventing-cleavage motif "
+                    + $"('{motif.InducingCleavage}[{motif.PreventingCleavage}]'), whose residues this "
+                    + "assembler cannot hold in place. A rearrangement could then invent or destroy a "
+                    + "cleavage site, so the entrapment protein would not digest into the same pieces "
+                    + "as its target and its peptides would not pair. Use an agent without one.");
+            }
+
+            if ((motif.InducingCleavage?.Length ?? 0) > 1)
+            {
+                throw new MzLibException(
+                    $"The digestion agent '{agentName}' has a multi-residue motif "
+                    + $"('{motif.InducingCleavage}'), whose span is cut by the boundary between base "
+                    + "pieces, so neither fragment matches inside its own piece and nothing is held at "
+                    + "the seam. The entrapment protein would not digest into the same pieces as its "
+                    + "target. Use a single-residue agent.");
+            }
+        }
+    }
+
+    /// <summary>
     /// Positions within a piece that must not move because they are the PROTEIN's termini.
     /// </summary>
     /// <remarks>
@@ -308,30 +361,29 @@ public static class EntrapmentAssembler
     /// determinism the pairing rests on would quietly weaken. The cost is two or three positions per
     /// protein, against permutation spaces in the millions.</para>
     /// </remarks>
-    private static int[]? TerminalAnchors(int pieceIndex, int pieceCount, int pieceLength)
+    private static int[]? TerminalAnchors(int pieceStart, int pieceLength, int proteinLength)
     {
-        bool first = pieceIndex == 0;
-        bool last = pieceIndex == pieceCount - 1;
-        if (!first && !last)
-        {
-            return null;
-        }
+        // Protein coordinates, translated into piece coordinates -- not piece coordinates that
+        // happen to coincide. When the opening piece is a single residue the protein's second
+        // residue lives in the NEXT piece, and computing "the first two" per piece never held it, so
+        // an "N-terminal." modification annotated at position 2 could still move. Under trypsin that
+        // needs an entry beginning with K or R, which is rare rather than impossible, and the
+        // documentation promised to cover it either way.
+        int[] protein = proteinLength > 1
+            ? new[] { 0, 1, proteinLength - 1 }
+            : new[] { 0 };
 
-        var anchors = new List<int>(3);
-        if (first)
+        List<int>? anchors = null;
+        foreach (int position in protein)
         {
-            anchors.Add(0);
-            if (pieceLength > 1)
+            int within = position - pieceStart;
+            if (within >= 0 && within < pieceLength)
             {
-                anchors.Add(1);
+                (anchors ??= new List<int>(3)).Add(within);
             }
         }
-        if (last && pieceLength > 0)
-        {
-            anchors.Add(pieceLength - 1);
-        }
 
-        return anchors.ToArray();
+        return anchors?.ToArray();
     }
 
     /// <summary>
@@ -355,8 +407,9 @@ public static class EntrapmentAssembler
     /// Determinism, parallel safety across proteins, and the composition-plus-pinning pairing key
     /// are all unaffected -- the piece is still a permutation of its target piece.</para>
     /// </remarks>
-    private static Func<string, string?>? RejectRunCollisions(List<string> placed,
-        int maxMissedCleavages, IReadOnlySet<string> forbiddenSequences)
+    private static Func<string, IReadOnlyList<string>>? RejectRunCollisions(List<string> placed,
+        int maxMissedCleavages, IReadOnlySet<string> forbiddenSequences,
+        int minLength, int maxLength)
     {
         if (maxMissedCleavages < 1 || placed.Count == 0)
         {
@@ -372,21 +425,35 @@ public static class EntrapmentAssembler
             runs[back - 1] = builder.ToString();
         }
 
-        // Returns the offending run rather than a bare true, so a collision that cannot be
-        // repaired can be reported by sequence. A consumer excluding these needs to know which
-        // peptides they are; a count only tells it how much to distrust.
+        // Returns *every* offending run rather than the first, and only runs a search could report.
+        //
+        // Both halves were wrong in ways that pulled the count in opposite directions. Returning on
+        // the first match meant several colliding runs ending at one piece were reported as one, so
+        // a property documenting a count of peptides was really counting pieces. And with no length
+        // bound a concatenation shorter than MinLength -- six residues from "AAKAAR" under a minimum
+        // of seven -- still rejected candidates and still counted, while the pairing index that
+        // defines the searchable population had already excluded it. The assembler and the pairing
+        // have to agree about what a peptide is or the exclusion list is not on the same footing as
+        // the population it is meant to be subtracted from.
         return candidate =>
         {
+            List<string>? offending = null;
             foreach (string run in runs)
             {
+                int length = run.Length + candidate.Length;
+                if (length < minLength || length > maxLength)
+                {
+                    continue;
+                }
+
                 string whole = run + candidate;
                 if (forbiddenSequences.Contains(whole))
                 {
-                    return whole;
+                    (offending ??= new List<string>()).Add(whole);
                 }
             }
 
-            return null;
+            return (IReadOnlyList<string>)offending ?? System.Array.Empty<string>();
         };
     }
 
