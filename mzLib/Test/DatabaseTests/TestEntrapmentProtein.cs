@@ -728,4 +728,135 @@ public class EntrapmentProteinTests
         Assert.That(entrapment, Has.Count.EqualTo(1));
         Assert.That(shared, Is.Empty);
     }
+
+    private static string Sorted(string s) => string.Concat(s.OrderBy(c => c));
+
+    // Two cysteines, well apart, so a disulfide bond has somewhere to be mapped to.
+    private const string ProteoformSequence = "MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYT";
+
+    [Test]
+    public void AProteoformPartnerIsTheWholeProteinRearranged()
+    {
+        var target = new Protein(ProteoformSequence, "P00001");
+
+        Protein partner = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden,
+            out EntrapmentAssembly assembly);
+
+        Assert.That(partner, Is.Not.Null);
+        Assert.That(partner.BaseSequence, Is.Not.EqualTo(ProteoformSequence));
+        Assert.That(Sorted(partner.BaseSequence), Is.EqualTo(Sorted(ProteoformSequence)),
+            "isomeric with its target, as everywhere else");
+        Assert.That(partner.BaseSequence, Has.Length.EqualTo(ProteoformSequence.Length),
+            "nothing is excised in this mode, which is what makes annotations carryable");
+        Assert.That(partner.IsEntrapment, Is.True);
+        Assert.That(assembly.ExcisedCount, Is.Zero);
+
+        // The protein's own termini stay put, so terminal modifications survive.
+        Assert.That(partner.BaseSequence[0], Is.EqualTo(ProteoformSequence[0]));
+        Assert.That(partner.BaseSequence[^1], Is.EqualTo(ProteoformSequence[^1]));
+    }
+
+    [Test]
+    public void ProteoformModeIgnoresCleavageSites()
+    {
+        // The difference from the bottom-up path: top-down does not digest, so K and R are ordinary
+        // residues and are free to move. If they were still pinned this would be the same thing
+        // twice under two names.
+        var target = new Protein(ProteoformSequence, "P00001");
+
+        Protein partner = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        var targetKr = Enumerable.Range(0, ProteoformSequence.Length)
+            .Where(i => ProteoformSequence[i] is 'K' or 'R').ToList();
+        var partnerKr = Enumerable.Range(0, partner.BaseSequence.Length)
+            .Where(i => partner.BaseSequence[i] is 'K' or 'R').ToList();
+
+        Assert.That(partnerKr, Is.Not.EqualTo(targetKr),
+            "cleavage residues are not held in proteoform mode");
+    }
+
+    [Test]
+    public void ADisulfideBondStillJoinsTheSameTwoCysteines()
+    {
+        // The reason annotations are mapped rather than copied. Copying the coordinates would assert
+        // a bond between whatever residues happen to land there, which is simply false.
+        int first = ProteoformSequence.IndexOf('C') + 1;
+        int second = ProteoformSequence.LastIndexOf('C') + 1;
+        Assert.That(first, Is.LessThan(second), "fixture needs two cysteines");
+
+        var target = new Protein(ProteoformSequence, "P00001",
+            disulfideBonds: new List<DisulfideBond> { new(first, second, "test bond") });
+
+        Protein partner = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(partner.DisulfideBonds, Has.Count.EqualTo(1));
+        DisulfideBond bond = partner.DisulfideBonds.Single();
+        Assert.That(partner.BaseSequence[bond.OneBasedBeginPosition - 1], Is.EqualTo('C'));
+        Assert.That(partner.BaseSequence[bond.OneBasedEndPosition - 1], Is.EqualTo('C'));
+        Assert.That(bond.OneBasedBeginPosition, Is.LessThan(bond.OneBasedEndPosition),
+            "a rearrangement can put the later residue first, so the order must be restored");
+    }
+
+    [Test]
+    public void TruncationProductsKeepTheirSpans()
+    {
+        // A span has no contiguous image under a rearrangement, and the span is what defines a
+        // proteoform: the entrapment proteoform truncated at 25 is the counterpart of the target
+        // truncated at 25. Its residues differ, which is the entire point of an entrapment sequence.
+        var target = new Protein(ProteoformSequence, "P00001",
+            proteolysisProducts: new List<TruncationProduct> { new(2, 25, "chain") });
+
+        Protein partner = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(partner.TruncationProducts, Has.Count.EqualTo(1));
+        TruncationProduct product = partner.TruncationProducts.Single();
+        Assert.That(product.OneBasedBeginPosition, Is.EqualTo(2));
+        Assert.That(product.OneBasedEndPosition, Is.EqualTo(25));
+        Assert.That(product.OneBasedEndPosition, Is.LessThanOrEqualTo(partner.BaseSequence.Length),
+            "the coordinate must stay in range -- out-of-range features are what made an earlier "
+            + "generation of these databases unloadable");
+    }
+
+    [Test]
+    public void ProteoformModifsAreCarriedNotLost()
+    {
+        var mods = new Dictionary<int, List<Modification>>
+        {
+            // Phospho targets T, so it must sit on one -- a modification whose motif does not
+            // fit its position is invalid and mzLib drops it, which is correct and was what
+            // this fixture originally proved rather than what it meant to test.
+            { 10, new List<Modification> { Phospho() } },
+        };
+        var target = new Protein(ProteoformSequence, "P00001", oneBasedModifications: mods);
+
+        Protein partner = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        int carried = partner.OneBasedPossibleLocalizedModifications.Sum(kv => kv.Value.Count);
+        Assert.That(carried, Is.EqualTo(1), "nothing is excised, so no modification has anywhere to fall");
+    }
+
+    [Test]
+    public void AProteoformWithNoRearrangementIsDroppedWhole()
+    {
+        // Half a proteoform is not a proteoform. Where the bottom-up path excises one piece and
+        // keeps the rest, this returns nothing at all.
+        var target = new Protein("AAAAAAAA", "P00001");
+
+        Protein partner = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden,
+            out EntrapmentAssembly assembly);
+
+        Assert.That(partner, Is.Null);
+        Assert.That(assembly.ExcisedCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void ProteoformModeIsDeterministic()
+    {
+        var target = new Protein(ProteoformSequence, "P00001");
+
+        Protein first = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+        Protein second = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(second.BaseSequence, Is.EqualTo(first.BaseSequence));
+    }
 }

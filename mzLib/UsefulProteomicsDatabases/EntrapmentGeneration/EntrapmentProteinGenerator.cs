@@ -1,4 +1,5 @@
 #nullable enable
+using System;
 using MzLibUtil;
 using Omics.Digestion;
 using Omics.BioPolymer;
@@ -16,6 +17,109 @@ namespace UsefulProteomicsDatabases.EntrapmentGeneration;
 /// </summary>
 public static class EntrapmentProteinGenerator
 {
+    /// <summary>
+    /// The entrapment partner of a target <b>proteoform</b>: the whole protein rearranged as one
+    /// unit, with its modifications and positional annotations carried across.
+    /// </summary>
+    /// <param name="target">The target protein.</param>
+    /// <param name="forbiddenSequences">Sequences the partner may not equal.</param>
+    /// <param name="assembly">What happened to the protein.</param>
+    /// <returns>The partner, or null when the protein has no usable rearrangement.</returns>
+    /// <remarks>
+    /// <para><b>How this differs from the bottom-up path, and why.</b> Top-down does not digest, so
+    /// there are no cleavage sites to preserve and no pieces to assemble; the protein is the unit.
+    /// It is also why nothing is excised, and therefore why the annotations can be carried at all.
+    /// The bottom-up path had to drop every positional annotation because excising an unpairable
+    /// piece shortens the protein and leaves coordinates pointing past its end — the defect that made
+    /// every database it produced unsearchable. Here the length never changes.</para>
+    /// <para><b>Annotations are moved, not copied blindly.</b> Disulfide bonds and splice sites name
+    /// <i>residues</i>, so each endpoint is put through the position map: a bond between two
+    /// cysteines still joins the same two cysteines, wherever they moved to. Truncation products name
+    /// a <i>span</i>, which has no contiguous image under a rearrangement, so their coordinates are
+    /// kept unchanged — the span is what defines a proteoform, and the entrapment proteoform truncated
+    /// at 25 is the counterpart of the target truncated at 25. Its residues differ, which is the
+    /// point of an entrapment sequence.</para>
+    /// <para><b>Sequence variations are dropped</b>, as everywhere else: applying them expands one
+    /// entry into several, and the entrapment side is one entry per entry.</para>
+    /// </remarks>
+    public static Protein? CreateProteoform(Protein target, IReadOnlySet<string> forbiddenSequences,
+        out EntrapmentAssembly assembly, int fold = 0, int foldCount = 1, int seed = 1,
+        int minLength = 1,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
+    {
+        if (target is null)
+        {
+            throw new MzLibException("Cannot build an entrapment proteoform from a null target.");
+        }
+
+        assembly = EntrapmentAssembler.AssembleWholeProtein(target.BaseSequence, forbiddenSequences,
+            minLength, fold, foldCount, seed);
+
+        if (assembly.EntrapmentSequence.Length == 0)
+        {
+            return null;   // no rearrangement exists, and half a proteoform is not a proteoform
+        }
+
+        int[] map = assembly.TargetToEntrapmentPosition;
+        Dictionary<int, List<Modification>> movedMods =
+            MoveModifications(target.OneBasedPossibleLocalizedModifications, map);
+
+        var withNewSequence = (Protein)target.CloneWithNewSequenceAndMods(assembly.EntrapmentSequence, movedMods);
+
+        return new Protein(withNewSequence,
+            accession: EntrapmentAccession.Format(target.Accession, fold, entrapmentIdentifier),
+            isEntrapment: true,
+            oneBasedModifications: movedMods,
+            sequenceVariations: new List<SequenceVariation>(),
+            appliedSequenceVariations: new List<SequenceVariation>(),
+            proteolysisProducts: target.TruncationProducts.ToList(),
+            disulfideBonds: MoveResiduePairs(target.DisulfideBonds, map,
+                (b, e, d) => new DisulfideBond(b, e, d)),
+            spliceSites: MoveResiduePairs(target.SpliceSites, map,
+                (b, e, d) => new SpliceSite(b, e, d)));
+    }
+
+    /// <summary>
+    /// Puts both endpoints of a residue-naming annotation through the position map, dropping any
+    /// whose residues were not carried across.
+    /// </summary>
+    /// <remarks>
+    /// A disulfide bond joins two cysteines. Copying its coordinates onto a rearranged sequence
+    /// would assert a bond between whatever residues now sit there, which is false; mapping the
+    /// endpoints keeps the assertion true. The begin/end order is restored after mapping because a
+    /// rearrangement can put the later residue first.
+    /// </remarks>
+    private static List<T> MoveResiduePairs<T>(IEnumerable<T> annotations, int[] map,
+        Func<int, int, string, T> rebuild) where T : class
+    {
+        var moved = new List<T>();
+        foreach (T annotation in annotations ?? Enumerable.Empty<T>())
+        {
+            (int begin, int end, string description) = annotation switch
+            {
+                DisulfideBond b => (b.OneBasedBeginPosition, b.OneBasedEndPosition, b.Description),
+                SpliceSite s => (s.OneBasedBeginPosition, s.OneBasedEndPosition, s.Description),
+                _ => (0, 0, string.Empty),
+            };
+
+            if (begin < 1 || end < 1 || begin > map.Length || end > map.Length)
+            {
+                continue;
+            }
+
+            int newBegin = map[begin - 1];
+            int newEnd = map[end - 1];
+            if (newBegin < 0 || newEnd < 0)
+            {
+                continue;   // the residue was not carried across, so the annotation has no subject
+            }
+
+            moved.Add(rebuild(Math.Min(newBegin, newEnd) + 1, Math.Max(newBegin, newEnd) + 1, description));
+        }
+
+        return moved;
+    }
+
     /// <summary>
     /// Entrapment entries taken from a foreign proteome, and the peptides they share with the
     /// target database.

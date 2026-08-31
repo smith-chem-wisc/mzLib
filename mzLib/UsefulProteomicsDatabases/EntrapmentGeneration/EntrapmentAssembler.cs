@@ -236,6 +236,62 @@ public static class EntrapmentAssembler
     }
 
     /// <summary>
+    /// Rearranges a whole sequence as one unit, for top-down work.
+    /// </summary>
+    /// <param name="targetSequence">The target protein.</param>
+    /// <param name="forbiddenSequences">Sequences the partner may not equal.</param>
+    /// <param name="minLength">Below this the sequence is not identifiable, so it is kept verbatim
+    /// rather than dropped, exactly as a short base piece is.</param>
+    /// <remarks>
+    /// <para>Top-down does not digest, so there are no cleavage sites to hold and no pieces to
+    /// assemble: the unit <i>is</i> the protein. Passing no motifs leaves every position free but
+    /// the anchored termini, which is the whole difference between this and
+    /// <see cref="Assemble"/>.</para>
+    /// <para>Because nothing is excised, <b>the length is preserved</b>. That is what makes the
+    /// positional annotations carryable here when the bottom-up path had to drop them: an excision
+    /// shortens the protein and leaves coordinates pointing past its end, and there is no excision
+    /// in this mode. A protein with no usable rearrangement is dropped whole rather than partly.</para>
+    /// </remarks>
+    public static EntrapmentAssembly AssembleWholeProtein(string targetSequence,
+        IReadOnlySet<string> forbiddenSequences, int minLength = 1,
+        int fold = 0, int foldCount = 1, int seed = 1)
+    {
+        if (string.IsNullOrEmpty(targetSequence))
+        {
+            throw new MzLibException("Cannot assemble an entrapment proteoform from an empty sequence.");
+        }
+
+        var noMotifs = new List<DigestionMotif>();
+        EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(targetSequence, noMotifs,
+            forbiddenSequences, fold, foldCount, seed,
+            TerminalAnchors(0, 1, targetSequence.Length));
+
+        var pieces = new List<EntrapmentPiece>(1);
+        int[] map = Enumerable.Repeat(-1, targetSequence.Length).ToArray();
+        var entrapment = new StringBuilder(targetSequence.Length);
+
+        if (partner.Succeeded)
+        {
+            AppendPiece(entrapment, map, 0, partner.EntrapmentSequence!, partner.SwappedPositions!);
+            pieces.Add(new EntrapmentPiece(0, targetSequence, partner.EntrapmentSequence,
+                PieceOutcome.Permuted, EntrapmentFailure.None));
+        }
+        else if (targetSequence.Length < minLength)
+        {
+            AppendPiece(entrapment, map, 0, targetSequence, Identity(targetSequence.Length));
+            pieces.Add(new EntrapmentPiece(0, targetSequence, targetSequence,
+                PieceOutcome.KeptVerbatimTooShort, partner.Failure));
+        }
+        else
+        {
+            pieces.Add(new EntrapmentPiece(0, targetSequence, null, PieceOutcome.Excised, partner.Failure));
+        }
+
+        return new EntrapmentAssembly(targetSequence, entrapment.ToString(), map, pieces, 0,
+            new List<string>());
+    }
+
+    /// <summary>
     /// Positions within a piece that must not move because they are the PROTEIN's termini.
     /// </summary>
     /// <remarks>
