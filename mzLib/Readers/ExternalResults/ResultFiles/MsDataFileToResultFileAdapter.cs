@@ -68,28 +68,6 @@ namespace Readers
         }
 
         /// <summary>
-        /// Writes the loaded scans to <paramref name="outputPath"/> as mzML, whatever format was read.
-        /// </summary>
-        /// <remarks>
-        /// This adapter is a converter -- it reads every spectra format that maps to it in
-        /// <see cref="SupportedFileTypeExtensions.GetResultFileType(SupportedFileType)"/> and writes
-        /// only mzML -- so the extension it is handed and the format it emits can disagree. A path
-        /// with no extension, or one that is not a spectra format, still gets ".mzML" appended; that
-        /// is the long-standing behaviour and the reason a dotted sample name such as
-        /// "gradient_1.5uL" is not mistaken for a format request. A path that names a *different*
-        /// spectra format is refused instead: "output.mgf" used to become "output.mgf.mzML", an mzML
-        /// file wearing two extensions, neither of which the caller chose. Refusing states what the
-        /// silent rename only implied, and a caller who genuinely wants MGF can now call
-        /// <see cref="MsDataFileExtensions.ExportAsMgf"/> directly.
-        /// </remarks>
-        /// <param name="outputPath">
-        /// Destination path. Must end in ".mzML", or carry no spectra-format extension, in which case
-        /// ".mzML" is appended.
-        /// </param>
-        /// <exception cref="ArgumentException">
-        /// <paramref name="outputPath"/> names a spectra format this adapter cannot write.
-        /// </exception>
-        /// <summary>
         /// Writes the spectra in the format the path's extension names.
         /// </summary>
         /// <remarks>
@@ -108,6 +86,14 @@ namespace Readers
         ///     dotted sample name working -- Path.GetExtension("gradient_1.5uL") is ".5uL", and that is
         ///     a naming habit, not a format request.
         /// </remarks>
+        /// <param name="outputPath">
+        /// Destination path. Its extension chooses the writer: ".mzML" and ".mgf" are written as named,
+        /// a spectra format this adapter reads but cannot write is refused, and anything else has
+        /// ".mzML" appended.
+        /// </param>
+        /// <exception cref="ArgumentException">
+        /// <paramref name="outputPath"/> names a spectra format this adapter reads but cannot write.
+        /// </exception>
         public void WriteResults(string outputPath)
         {
             string extension = Path.GetExtension(outputPath);
