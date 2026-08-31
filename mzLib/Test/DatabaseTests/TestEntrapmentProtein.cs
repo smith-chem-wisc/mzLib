@@ -626,4 +626,106 @@ public class EntrapmentProteinTests
         Assert.That(entrapment.Select(p => p.Accession).ToList(),
             Is.EquivalentTo(new[] { "Random_P00001_f0", "Random_P00002_f0" }));
     }
+
+    private const string ForeignSequence = "MQVLGYTTPDNRAWEDSFLGKQPTMLNDVAHER";
+
+    [Test]
+    public void AForeignAccessionRoundTripsAndNamesNoTarget()
+    {
+        string accession = EntrapmentAccession.FormatForeign("Q9XYZ1");
+
+        Assert.That(accession, Is.EqualTo("Random_foreign_Q9XYZ1"));
+        Assert.That(EntrapmentAccession.TryParseForeign(accession, out string foreign), Is.True);
+        Assert.That(foreign, Is.EqualTo("Q9XYZ1"));
+
+        // It is entrapment, so a consumer scanning for the identifier must still find it -- missing
+        // one would count a foreign entry as a TARGET, which corrupts the estimate in the worst
+        // direction.
+        Assert.That(accession, Does.StartWith("Random_"));
+
+        // But there is no target to name, so the target parser must refuse rather than guess.
+        Assert.That(EntrapmentAccession.TryParse(accession, out _, out _), Is.False);
+    }
+
+    [Test]
+    public void TargetParsingRefusesAForeignAccessionThatLooksLikeAFold()
+    {
+        // The edge case the marker exists for: a foreign protein whose own accession ends in
+        // something shaped like a fold suffix. Refusing on the marker rather than the shape keeps
+        // "foreign_ABC" from ever being reported as a target accession.
+        string accession = EntrapmentAccession.FormatForeign("ABC_f1");
+
+        Assert.That(accession, Is.EqualTo("Random_foreign_ABC_f1"));
+        Assert.That(EntrapmentAccession.TryParse(accession, out string target, out _), Is.False,
+            "a foreign entry has no target, whatever its accession happens to end with");
+        Assert.That(target, Is.Empty);
+        Assert.That(EntrapmentAccession.TryParseForeign(accession, out string foreign), Is.True);
+        Assert.That(foreign, Is.EqualTo("ABC_f1"));
+    }
+
+    [Test]
+    public void AForeignEntryIsRelabelledNotRearranged()
+    {
+        // A foreign protein already is a sequence the sample cannot contain, so permuting it would
+        // buy nothing and lose the annotations that describe it.
+        var foreign = new Protein(ForeignSequence, "Q9XYZ1",
+            sequenceVariations: new List<SequenceVariation>
+            {
+                new SequenceVariation(5, 5, "G", "A", "irrelevant to entrapment"),
+            });
+
+        Protein entry = EntrapmentProteinGenerator.CreateForeign(foreign);
+
+        Assert.That(entry.BaseSequence, Is.EqualTo(ForeignSequence), "the sequence is not touched");
+        Assert.That(entry.IsEntrapment, Is.True);
+        Assert.That(entry.Accession, Is.EqualTo("Random_foreign_Q9XYZ1"));
+        Assert.That(entry.SequenceVariations, Is.Empty,
+            "applying variants would expand one entry into several, and the arm is one entry per entry");
+    }
+
+    [Test]
+    public void ForeignPeptidesSharedWithTheTargetAreReported()
+    {
+        // Homology is the hazard: a conserved protein shares peptides with its ortholog, and a
+        // shared peptide is a REAL target peptide sitting in the entrapment database. Nothing can be
+        // permuted away here, so it is counted.
+        IDigestionParams digestion = Tryptic;
+        var target = new Protein(Sequence, "P00001");
+
+        var targetPeptides = target.Digest(digestion, new List<Modification>(), new List<Modification>())
+            .Select(pep => pep.BaseSequence).ToHashSet();
+        string conserved = targetPeptides.First(pep => pep.Length >= 9);
+
+        // one foreign protein that shares a peptide, and one that does not
+        var foreign = new List<Protein>
+        {
+            new Protein("MQVLGYTTPDNR" + conserved + "AWEDSFLGK", "Q9SHARED"),
+            new Protein(ForeignSequence, "Q9CLEAN"),
+        };
+
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateForeignEntrapment(
+            foreign, digestion, targetPeptides, out var shared);
+
+        Assert.That(entrapment.Select(e => e.Accession),
+            Is.EquivalentTo(new[] { "Random_foreign_Q9SHARED", "Random_foreign_Q9CLEAN" }));
+        Assert.That(shared.ContainsKey("Q9SHARED"), Is.True,
+            "fixture must actually share a peptide, or it proves nothing");
+        Assert.That(shared["Q9SHARED"], Does.Contain(conserved));
+        Assert.That(shared.ContainsKey("Q9CLEAN"), Is.False);
+    }
+
+    [Test]
+    public void DisjointForeignProteomeSharesNothing()
+    {
+        IDigestionParams digestion = Tryptic;
+        var target = new Protein(Sequence, "P00001");
+        var targetPeptides = target.Digest(digestion, new List<Modification>(), new List<Modification>())
+            .Select(pep => pep.BaseSequence).ToHashSet();
+
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateForeignEntrapment(
+            new[] { new Protein(ForeignSequence, "Q9CLEAN") }, digestion, targetPeptides, out var shared);
+
+        Assert.That(entrapment, Has.Count.EqualTo(1));
+        Assert.That(shared, Is.Empty);
+    }
 }

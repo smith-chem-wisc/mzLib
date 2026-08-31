@@ -497,6 +497,38 @@ public class EntrapmentReportTests
     }
 
     [Test]
+    public void ForeignArmReachesTheReportAndItsExclusionTable()
+    {
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        var shared = new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["Q9SHARED"] = new[] { "LIHTGVKPEPTIDER" },
+        };
+
+        builder.AddForeign(2, shared);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.ForeignEntries, Is.EqualTo(2));
+        Assert.That(report.ExclusionsToTabSeparated(),
+            Does.Contain("Q9SHARED	LIHTGVKPEPTIDER	sharedWithTarget"));
+    }
+
+    [Test]
+    public void ForeignEntriesStayOutOfThePermutationRatios()
+    {
+        // A foreign entry was relabelled, not rearranged, so it was never at risk of failing to
+        // permute. Counting it in the achieved-fold ratio would make the arm look like it rescued
+        // peptides it never touched.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.AddForeign(5, null);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.ForeignEntries, Is.EqualTo(5));
+        Assert.That(report.Total.TargetPeptides, Is.Zero);
+        Assert.That(report.Total.EntrapmentPeptides, Is.Zero);
+    }
+
+    [Test]
     public void ExclusionTableIsAHeaderWhenNothingIsExcluded()
     {
         // An empty answer is a real answer, and must not look like a missing file.

@@ -164,6 +164,22 @@ public sealed class EntrapmentReport
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> UnrepairableRunCollisionsByAccession { get; }
 
     /// <summary>
+    /// Peptides of the foreign-species arm that are also target peptides, by the foreign protein's
+    /// own accession.
+    /// </summary>
+    /// <remarks>
+    /// Homology, not a defect. A conserved protein shares peptides with its ortholog, and a shared
+    /// peptide is a real target peptide sitting in the entrapment database. Nothing can be permuted
+    /// away -- the foreign sequence is what it is -- so the arm reports them and the caller decides
+    /// whether to exclude the peptides or drop the proteins.
+    /// </remarks>
+    public IReadOnlyDictionary<string, IReadOnlyCollection<string>> ForeignPeptidesSharedWithTarget { get; internal set; }
+        = new Dictionary<string, IReadOnlyCollection<string>>();
+
+    /// <summary>Entries contributed by the foreign-species arm.</summary>
+    public int ForeignEntries { get; internal set; }
+
+    /// <summary>
     /// The two exclusion lists as a tab-separated table: <c>accession, peptide, reason</c>.
     /// </summary>
     /// <remarks>
@@ -191,6 +207,15 @@ public sealed class EntrapmentReport
             foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
             {
                 text.AppendLine(string.Join("\t", accession, peptide, "unrepairableRunCollision"));
+            }
+        }
+
+        foreach ((string accession, IReadOnlyCollection<string> peptides) in
+                 ForeignPeptidesSharedWithTarget.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
+            {
+                text.AppendLine(string.Join("\t", accession, peptide, "sharedWithTarget"));
             }
         }
 
@@ -296,6 +321,8 @@ public sealed class EntrapmentReportBuilder
     private readonly HashSet<string> _countedTargetPieces = new();
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
     private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
+    private readonly Dictionary<string, IReadOnlyCollection<string>> _foreignShared = new();
+    private int _foreignEntries;
 
     /// <param name="siteCounter">What to stratify by, e.g.
     /// <see cref="EntrapmentReport.CountResidues"/>("ST"). Null puts everything in one stratum.</param>
@@ -387,6 +414,31 @@ public sealed class EntrapmentReportBuilder
         }
     }
 
+    /// <summary>
+    /// Records the foreign-species arm: how many entries it contributed, and which of its peptides
+    /// are also target peptides.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Add"/> because a foreign entry has no assembly and no target -- it
+    /// was relabelled, not rearranged -- so none of the per-stratum permutation figures apply to it.
+    /// Folding it into those would put entries in the ratio that were never at risk of failing.
+    /// </remarks>
+    public void AddForeign(int entryCount,
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> sharedWithTarget)
+    {
+        if (entryCount < 0)
+        {
+            throw new MzLibException($"Foreign entry count must not be negative, but was {entryCount}.");
+        }
+
+        _foreignEntries += entryCount;
+        foreach ((string accession, IReadOnlyCollection<string> peptides) in
+                 sharedWithTarget ?? new Dictionary<string, IReadOnlyCollection<string>>())
+        {
+            _foreignShared[accession] = peptides;
+        }
+    }
+
     /// <summary>The finished report.</summary>
     public EntrapmentReport Build()
     {
@@ -419,7 +471,11 @@ public sealed class EntrapmentReportBuilder
             _ambiguousByAccession.Where(kv => kv.Value.Count > 0)
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
             _unrepairableByAccession.Where(kv => kv.Value.Count > 0)
-                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value));
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value))
+        {
+            ForeignEntries = _foreignEntries,
+            ForeignPeptidesSharedWithTarget = _foreignShared,
+        };
     }
 
     private EntrapmentStratum StratumFor(string peptide)

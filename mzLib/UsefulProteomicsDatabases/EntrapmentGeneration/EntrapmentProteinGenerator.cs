@@ -17,6 +17,94 @@ namespace UsefulProteomicsDatabases.EntrapmentGeneration;
 public static class EntrapmentProteinGenerator
 {
     /// <summary>
+    /// Entrapment entries taken from a foreign proteome, and the peptides they share with the
+    /// target database.
+    /// </summary>
+    /// <param name="foreignProteins">Proteins of a species absent from the sample.</param>
+    /// <param name="digestionParams">Used to digest the foreign proteins for the sharing check.</param>
+    /// <param name="targetPeptides">Every peptide of the target database.</param>
+    /// <param name="sharedWithTarget">Foreign peptides that are also target peptides, by the
+    /// foreign protein's own accession. Empty when the two proteomes are disjoint.</param>
+    /// <remarks>
+    /// <para><b>Why this arm is required scope rather than a nicety.</b> If the entrapment sequences
+    /// and the decoy sequences are both shuffles of the target, they are the same construction, and
+    /// comparing one against the other demonstrates nothing about either -- the circularity Madej
+    /// and Lam describe. A foreign proteome is the one entrapment source that is not derived from
+    /// the target at all, so it is what makes that comparison mean something.</para>
+    /// <para><b>Nothing is rearranged.</b> A foreign protein already is a sequence the sample cannot
+    /// contain, so it is relabelled, not permuted; its own annotations describe its own sequence and
+    /// stay valid, unlike the permutation path where every positional annotation had to be dropped.
+    /// It has no target partner by construction, and <see cref="EntrapmentAccession.TryParse"/>
+    /// refuses its accession for that reason.</para>
+    /// <para><b>The hazard is homology, and it is counted rather than repaired.</b> A conserved
+    /// protein shares peptides with its ortholog, and a shared peptide is a <i>real target peptide</i>
+    /// sitting in the entrapment database -- a search matching it counts a true peptide as an
+    /// entrapment discovery. Nothing can be permuted away here: the sequence is what it is. So they
+    /// are reported, and the caller decides whether to exclude the peptides or drop the proteins.
+    /// That is the same rule this generator applies everywhere: flag and count, never silently
+    /// repair.</para>
+    /// </remarks>
+    public static List<Protein> GenerateForeignEntrapment(IEnumerable<Protein> foreignProteins,
+        IDigestionParams digestionParams, IReadOnlySet<string> targetPeptides,
+        out IReadOnlyDictionary<string, IReadOnlyCollection<string>> sharedWithTarget,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
+    {
+        if (foreignProteins is null)
+        {
+            throw new MzLibException("Cannot build a foreign-species arm from a null protein list.");
+        }
+        if (targetPeptides is null)
+        {
+            throw new MzLibException("The sharing check needs the target database's peptides.");
+        }
+
+        var shared = new Dictionary<string, IReadOnlyCollection<string>>();
+        var entrapment = new List<Protein>();
+        var noMods = new List<Modification>();
+
+        foreach (Protein foreign in DatabaseEntries(foreignProteins))
+        {
+            var collisions = new HashSet<string>();
+            foreach (var peptide in foreign.Digest(digestionParams, noMods, noMods))
+            {
+                if (targetPeptides.Contains(peptide.BaseSequence))
+                {
+                    collisions.Add(peptide.BaseSequence);
+                }
+            }
+
+            if (collisions.Count > 0)
+            {
+                shared[foreign.Accession] = collisions;
+            }
+
+            entrapment.Add(CreateForeign(foreign, entrapmentIdentifier));
+        }
+
+        sharedWithTarget = shared;
+        return entrapment;
+    }
+
+    /// <summary>One foreign protein, relabelled as an entrapment entry.</summary>
+    public static Protein CreateForeign(Protein foreign,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
+    {
+        if (foreign is null)
+        {
+            throw new MzLibException("Cannot build a foreign entrapment entry from a null protein.");
+        }
+
+        // The sequence is untouched, so unlike the permutation path the positional annotations still
+        // describe it and are kept. Sequence variations are the exception: applying them would
+        // expand one entry into several, and the entrapment side is one entry per entry.
+        return new Protein(foreign,
+            accession: EntrapmentAccession.FormatForeign(foreign.Accession, entrapmentIdentifier),
+            isEntrapment: true,
+            sequenceVariations: new List<SequenceVariation>(),
+            appliedSequenceVariations: new List<SequenceVariation>());
+    }
+
+    /// <summary>
     /// The entrapment partners for a whole target database: one per database <b>entry</b>, per fold.
     /// </summary>
     /// <param name="targets">The target proteins, as a loader returns them.</param>
