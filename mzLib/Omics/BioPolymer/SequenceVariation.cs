@@ -308,101 +308,33 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Validates this variation. Three rules:
-        /// <list type="number">
-        /// <item>Coordinates must be sensible: begin &gt;= 1 and end &gt;= begin.</item>
-        /// <item>The variation must represent a real change — either the sequence differs
-        /// (insertion, deletion, substitution, stop, frameshift) or there are variant-specific
-        /// modifications. A no-op, where <see cref="OriginalSequence"/> equals
-        /// <see cref="VariantSequence"/> and no modifications are carried, is not valid.</item>
-        /// <item>Any variant-specific modifications must sit at positions the edit leaves in place
-        /// (see <see cref="GetInvalidModificationPositions"/>).</item>
-        /// </list>
+        /// Validates this variation: coordinates must be sensible, begin &gt;= 1 and end &gt;= begin.
         /// </summary>
         /// <remarks>
-        /// Rule 2 is a behaviour change from the position-only predicate this replaces, and it has a
-        /// consumer: <c>DecoyProteinGenerator</c> filters generated decoy variations through this
-        /// method, so a no-op decoy variation is now dropped rather than kept. See the pull request
-        /// for the measured effect on decoy counts.
+        /// This asks whether the variation is well formed and applicable, not whether it is
+        /// interesting and not whether its modifications survive the edit.
+        ///
+        /// A no-op, where <see cref="OriginalSequence"/> equals <see cref="VariantSequence"/>, stays
+        /// valid. It applies cleanly, and two callers depend on that:
+        /// <c>VariantApplication.GetVariantBioPolymers</c> gates on <c>All(v => v.AreValid())</c>, so
+        /// calling one applicable variation invalid changes how *every* variation on that biopolymer is
+        /// applied; and reversing a start loss in <c>DecoyProteinGenerator</c> produces a no-op for
+        /// every initiator-methionine loss, which must keep its decoy or one-decoy-per-target breaks
+        /// for that whole variant class.
+        ///
+        /// Modification positions are deliberately not judged here.
+        /// <see cref="OneBasedModifications"/> is keyed in post-edit *variant-protein* coordinates, not
+        /// parent coordinates -- <c>VariantApplication.AdjustModificationIndices</c> shifts the parent
+        /// dictionary into the new frame and merges the variant dictionary with its keys untouched, and
+        /// a committed example spans 4..4 while carrying a modification at position 7. A key outside
+        /// the span is therefore normal. <c>IBioPolymer.SelectValidOneBaseMods</c> already drops
+        /// modifications that do not survive, against the real post-edit sequence and motif, where a
+        /// predicate here could only guess.
         /// </remarks>
-        /// <returns>True if this variation is a well-formed, meaningful edit; otherwise false.</returns>
+        /// <returns>True if the coordinates are sensible; otherwise false.</returns>
         public bool AreValid()
         {
-            if (OneBasedBeginPosition <= 0 || OneBasedEndPosition < OneBasedBeginPosition)
-            {
-                return false;
-            }
-
-            bool noSequenceChange = string.Equals(OriginalSequence ?? string.Empty,
-                                                  VariantSequence ?? string.Empty,
-                                                  StringComparison.Ordinal);
-
-            bool hasMods = OneBasedModifications != null && OneBasedModifications.Count > 0;
-
-            if (noSequenceChange && !hasMods)
-            {
-                return false;
-            }
-
-            if (!hasMods)
-            {
-                return true;
-            }
-
-            return !GetInvalidModificationPositions().Any();
-        }
-
-        /// <summary>
-        /// Modification positions this edit cannot host, which is what makes rule 3 of
-        /// <see cref="AreValid"/> fail.
-        /// </summary>
-        /// <remarks>
-        /// Two cases. A termination or full deletion leaves no residues from
-        /// <see cref="OneBasedBeginPosition"/> onward, so any modification at or after the begin
-        /// position has nowhere to sit. Otherwise the variant sequence occupies
-        /// <c>OneBasedBeginPosition .. OneBasedBeginPosition + VariantSequence.Length - 1</c>, and a
-        /// modification inside the original span but beyond that new end is a position the edit
-        /// removed. Non-positive keys are invalid regardless.
-        /// </remarks>
-        private IEnumerable<int> GetInvalidModificationPositions()
-        {
-            if (OneBasedModifications == null || OneBasedModifications.Count == 0)
-            {
-                yield break;
-            }
-
-            bool isTermination = VariantSequence == "*" || VariantSequence.Length == 0;
-
-            if (isTermination)
-            {
-                foreach (var kvp in OneBasedModifications)
-                {
-                    if (kvp.Key >= OneBasedBeginPosition)
-                    {
-                        yield return kvp.Key;
-                    }
-                }
-                yield break;
-            }
-
-            int newSpanEnd = OneBasedBeginPosition + VariantSequence.Length - 1;
-
-            foreach (var kvp in OneBasedModifications)
-            {
-                int pos = kvp.Key;
-                if (pos <= 0)
-                {
-                    yield return pos;
-                    continue;
-                }
-
-                if (pos >= OneBasedBeginPosition
-                    && pos <= OneBasedEndPosition
-                    && pos > newSpanEnd)
-                {
-                    yield return pos;
-                }
-            }
+            return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;
         }
     }
 }
