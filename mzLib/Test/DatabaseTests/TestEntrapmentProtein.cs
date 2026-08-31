@@ -668,6 +668,34 @@ public class EntrapmentProteinTests
     private const string ForeignSequence = "MQVLGYTTPDNRAWEDSFLGKQPTMLNDVAHER";
 
     [Test]
+    public void GenerateEntrapmentCanReportEveryAssemblyAsItGoes()
+    {
+        // One loop rather than two. A caller building a QC report used to walk DatabaseEntries and
+        // call Create itself, and those two loops had to agree about folds and about what an entry
+        // is -- until one compared its partner count against the loaded protein count instead of the
+        // entry count and failed silently for a day.
+        var targets = new List<Protein>
+        {
+            new Protein(Sequence, "P00001"),
+            new Protein("M" + new string('Q', 79), "Q156A1"),   // contributes no partner at all
+        };
+
+        var seen = new List<(string Accession, int Fold, bool Produced)>();
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
+            targets, Tryptic, NothingForbidden,
+            (entry, fold, assembly) => seen.Add((entry.Accession, fold, assembly.EntrapmentSequence.Length > 0)),
+            foldCount: 2);
+
+        Assert.That(seen.Select(x => x.Accession), Is.EquivalentTo(
+            new[] { "P00001", "P00001", "Q156A1", "Q156A1" }), "every entry, every fold");
+        Assert.That(seen.Where(x => x.Accession == "P00001").Select(x => x.Fold),
+            Is.EquivalentTo(new[] { 0, 1 }));
+        Assert.That(seen.Single(x => x.Accession == "Q156A1" && x.Fold == 0).Produced, Is.False,
+            "an entry that contributes nothing is still reported -- that is what a ratio needs");
+        Assert.That(entrapment, Has.Count.EqualTo(2), "and it is still absent from the output");
+    }
+
+    [Test]
     public void ANegativeSeedGivesTheSameDatabaseWhateverTheCulture()
     {
         // Interpolating the seed formats it through the current culture, and a negative one renders

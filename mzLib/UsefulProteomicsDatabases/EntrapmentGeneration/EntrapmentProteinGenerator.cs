@@ -242,6 +242,26 @@ public static class EntrapmentProteinGenerator
         IDigestionParams digestionParams, IReadOnlySet<string> forbiddenSequences,
         int foldCount = 1, int seed = 1,
         string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
+        => GenerateEntrapment(targets, digestionParams, forbiddenSequences, null, foldCount, seed,
+            entrapmentIdentifier);
+
+    /// <summary>
+    /// As above, reporting each partner's <see cref="EntrapmentAssembly"/> as it is produced.
+    /// </summary>
+    /// <param name="observe">Called with the entry, the fold, and how that partner was built.</param>
+    /// <remarks>
+    /// The parameterless overload discards the assembly, so a caller building a QC report had to
+    /// write its own <see cref="DatabaseEntries"/> plus per-protein <see cref="Create(Protein, IDigestionParams, IReadOnlySet{string}, out EntrapmentAssembly, int, int, int, string)"/>
+    /// loop -- two loops obliged to agree about folds and about what an entry is. They stopped
+    /// agreeing: one such caller compared its partner count against the <i>loaded</i> protein count
+    /// rather than the entry count and failed silently for a day. One loop cannot disagree with
+    /// itself.
+    /// </remarks>
+    public static List<Protein> GenerateEntrapment(IEnumerable<Protein> targets,
+        IDigestionParams digestionParams, IReadOnlySet<string> forbiddenSequences,
+        Action<Protein, int, EntrapmentAssembly>? observe,
+        int foldCount = 1, int seed = 1,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
     {
         if (targets is null)
         {
@@ -255,6 +275,11 @@ public static class EntrapmentProteinGenerator
             {
                 Protein partner = Create(entry, digestionParams, forbiddenSequences, out EntrapmentAssembly assembly,
                     fold, foldCount, seed, entrapmentIdentifier);
+
+                // Reported before the emptiness check, so a report still sees a protein that
+                // produced nothing. An entry that contributes no partner is exactly what a reader of
+                // the achieved ratio needs to know about.
+                observe?.Invoke(entry, fold, assembly);
 
                 // Every piece excised leaves nothing behind. A protein with an empty sequence is not
                 // a database entry: a loader warns and discards it, and its decoy with it, so writing
