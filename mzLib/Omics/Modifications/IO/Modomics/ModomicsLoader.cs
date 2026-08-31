@@ -18,17 +18,16 @@ public static class ModomicsLoader
     private static readonly object _cacheLock = new();
     private static ModomicsLoadResult? _cachedBaseResult;
 
-    // Bonded base and neutral nucleoside formulas per reference moiety, matching the canonical residues
-    // defined by Transcriptomics.Nucleotide (bonded base = free base less one H; nucleoside = base + ribose - H2O).
+    // Bonded base and neutral nucleoside formulas per reference moiety, from Chemistry.Formulas — the
+    // shared ground truth for residue chemistry, also consumed by Transcriptomics.Nucleotide.
     private static readonly Dictionary<string, ReferenceMoietyDefinition> ReferenceMoieties = new(StringComparer.Ordinal)
     {
-        { "A", new ReferenceMoietyDefinition("C5H4N5", "C10H13N5O4") },
-        { "C", new ReferenceMoietyDefinition("C4H4N3O1", "C9H13N3O5") },
-        { "G", new ReferenceMoietyDefinition("C5H4N5O1", "C10H13N5O5") },
-        { "U", new ReferenceMoietyDefinition("C4H3N2O2", "C9H12N2O6") },
+        { "A", new ReferenceMoietyDefinition(Formulas.AdenineBaseChemicalFormula, Formulas.AdenosineChemicalFormula) },
+        { "C", new ReferenceMoietyDefinition(Formulas.CytosineBaseChemicalFormula, Formulas.CytidineChemicalFormula) },
+        { "G", new ReferenceMoietyDefinition(Formulas.GuanineBaseChemicalFormula, Formulas.GuanosineChemicalFormula) },
+        { "U", new ReferenceMoietyDefinition(Formulas.UracilBaseChemicalFormula, Formulas.UridineChemicalFormula) },
+        { "Y", new ReferenceMoietyDefinition(Formulas.UracilBaseChemicalFormula, Formulas.UridineChemicalFormula) },
     };
-
-    private static readonly ChemicalFormula WaterChemicalFormula = ChemicalFormula.ParseFormula("H2O");
 
     /// <summary>
     /// Loads MODOMICS RNA modifications.
@@ -282,7 +281,7 @@ public static class ModomicsLoader
                 case "nucleotide" when isTerminalCap:
                     // Generic-"N" cap formulas embed a base-less ribose for the capped residue; removing only
                     // that ribose keeps the cap nucleoside and phosphate chain as the terminal mass shift.
-                    referenceFormulaToRemove = moietyDefinition.NucleosideChemicalFormula - moietyDefinition.BaseChemicalFormula - WaterChemicalFormula;
+                    referenceFormulaToRemove = moietyDefinition.NucleosideChemicalFormula - moietyDefinition.BaseChemicalFormula - Formulas.WaterChemicalFormula;
                     break;
                 case "nucleotide":
                     // Real-base nucleotide formulas are published as inconsistent phosphate anions (e.g. pm1G
@@ -377,12 +376,12 @@ public static class ModomicsLoader
         public ModomicsNotYetRepresentableEntry? NotYetRepresentableEntry { get; init; }
     }
 
-    private sealed class ReferenceMoietyDefinition(string baseFormula, string nucleosideFormula)
+    private sealed class ReferenceMoietyDefinition(ChemicalFormula baseFormula, ChemicalFormula nucleosideFormula)
     {
-        /// <summary>Bonded base formula (free base less one H), matching Transcriptomics.Nucleotide.BaseChemicalFormula.</summary>
-        public ChemicalFormula BaseChemicalFormula { get; } = ChemicalFormula.ParseFormula(baseFormula);
+        /// <summary>Bonded base formula (free base less one H), from Chemistry.Formulas.</summary>
+        public ChemicalFormula BaseChemicalFormula { get; } = baseFormula;
 
-        /// <summary>Neutral nucleoside formula (bonded base + ribose - H2O).</summary>
-        public ChemicalFormula NucleosideChemicalFormula { get; } = ChemicalFormula.ParseFormula(nucleosideFormula);
+        /// <summary>Neutral nucleoside formula (bonded base + ribose, condensed), from Chemistry.Formulas.</summary>
+        public ChemicalFormula NucleosideChemicalFormula { get; } = nucleosideFormula;
     }
 }
