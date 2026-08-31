@@ -319,8 +319,11 @@ public static class ModomicsLoader
 
     private static Modification CreateModification(ModomicsDto dto, ModificationMotif motif, bool isTerminalCap, ChemicalFormula chemicalFormula)
     {
+        var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
+
         return new Modification(
-            _originalId: dto.ShortName,
+            _originalId: dto.Name,
+            _accession: idString,
             _modificationType: isTerminalCap ? "5' Terminal Cap" : "Modomics",
             _target: motif,
             _locationRestriction: isTerminalCap ? "5'-terminal." : "Anywhere.",
@@ -328,7 +331,7 @@ public static class ModomicsLoader
             _monoisotopicMass: chemicalFormula.MonoisotopicMass,
             _databaseReference: new Dictionary<string, IList<string>>
             {
-                { "Modomics", new List<string> { dto.ShortName, dto.Name, dto.Id.ToString(CultureInfo.InvariantCulture) } },
+                { "Modomics", new List<string> { dto.ShortName, dto.Name, idString } },
             },
             _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name }
         );

@@ -37,7 +37,6 @@ namespace Test.Transcriptomics
             Assert.That(ReferenceEquals(firstLoad, secondLoad), Is.True);
         }
 
-
         [Test]
         public void LoadModomics_TracksNotYetRepresentableEntriesWithReasons()
         {
@@ -74,12 +73,12 @@ namespace Test.Transcriptomics
 
             // pm1G ("1N-methylguanosine-5'-monophosphate") is the anionic counterpart of m1G; it must not
             // load with the sugar-removal shift (~215 Da) that a naive nucleotide transform produces.
-            Assert.That(report.LoadedModifications.Any(m => m.IdWithMotif == "pm1G on G"), Is.False);
+            Assert.That(report.LoadedModifications.Any(m => m.IdWithMotif == "1N-methylguanosine-5'-monophosphate on G"), Is.False);
             Assert.That(report.NotYetRepresentableEntries.Any(e => e.ShortName == "pm1G"
                 && e.Reason == ModomicsRepresentationFailureReason.NucleotideProtonationAmbiguous), Is.True);
 
             // The neutral nucleoside twin carries the same chemistry.
-            var m1G = report.LoadedModifications.SingleOrDefault(m => m.IdWithMotif == "m1G on G");
+            var m1G = report.LoadedModifications.SingleOrDefault(m => m.IdWithMotif == "1-methylguanosine on G");
             Assert.That(m1G, Is.Not.Null);
             Assert.That(m1G!.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("CH2")), Is.True);
         }
@@ -95,7 +94,7 @@ namespace Test.Transcriptomics
 
             // Cap 0 (m7GpppN) is emitted once per reference moiety, mirroring the multi-target JSON data.
             var cap0Targets = report.TerminalModifications
-                .Where(m => m.OriginalId == "m7GpppN")
+                .Where(m => m.OriginalId == "N7-methyl-guanosine cap (cap 0)")
                 .Select(m => m.Target.ToString())
                 .OrderBy(t => t)
                 .ToList();
@@ -103,7 +102,7 @@ namespace Test.Transcriptomics
 
             // The cap shift keeps the cap nucleoside and phosphate chain: m7GpppN (C16H23N5O17P3) minus the
             // generic ribose (C5H7O3).
-            var cap0OnA = report.TerminalModifications.Single(m => m.IdWithMotif == "m7GpppN on A");
+            var cap0OnA = report.TerminalModifications.Single(m => m.IdWithMotif == "N7-methyl-guanosine cap (cap 0) on A");
             Assert.That(cap0OnA.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C11H16N5O14P3")), Is.True);
 
             // The terminal restriction is enforced by the existing localization semantics: the cap fits the
@@ -115,17 +114,18 @@ namespace Test.Transcriptomics
         [Test]
         public void ModomicsModsAreRegisteredAsASeparateCategoryAlongsideCuratedMods()
         {
-            // Same chemistry, two names: MODOMICS "Am" vs curated "2'-O-Methyladenosine" (both C1H2 on A).
-            Assert.That(Mods.ModomicsRnaModifications.Any(m => m.IdWithMotif == "Am on A"), Is.True);
+            // Same chemistry, two names: MODOMICS "2'-O-methyladenosine" vs curated "2'-O-Methyladenosine"
+            // (both C1H2 on A); the ids differ only in letter case, so both keys coexist.
+            Assert.That(Mods.ModomicsRnaModifications.Any(m => m.IdWithMotif == "2'-O-methyladenosine on A"), Is.True);
             Assert.That(Mods.MetaMorpheusRnaModifications.Any(m => m.IdWithMotif == "2'-O-Methyladenosine on A"), Is.True);
-            Assert.That(Mods.AllRnaModsList.Any(m => m.IdWithMotif == "Am on A"), Is.True);
+            Assert.That(Mods.AllRnaModsList.Any(m => m.IdWithMotif == "2'-O-methyladenosine on A"), Is.True);
             Assert.That(Mods.AllRnaModsList.Any(m => m.IdWithMotif == "2'-O-Methyladenosine on A"), Is.True);
-            Assert.That(Mods.AllKnownRnaModsDictionary.ContainsKey("Am on A"), Is.True);
+            Assert.That(Mods.AllKnownRnaModsDictionary.ContainsKey("2'-O-methyladenosine on A"), Is.True);
             Assert.That(Mods.AllKnownRnaModsDictionary.ContainsKey("2'-O-Methyladenosine on A"), Is.True);
             Assert.That(Mods.ModsByConvention[ModificationNamingConvention.Modomics], Is.Not.Empty);
 
             // The chemistry-equivalent overlap is reported without removing either entry.
-            var modomicsAm = Mods.ModomicsLoadReport.LoadedModifications.Single(m => m.IdWithMotif == "Am on A");
+            var modomicsAm = Mods.ModomicsLoadReport.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-methyladenosine on A");
             var duplicate = Mods.ModomicsLoadReport.DuplicateModifications.SingleOrDefault(d => d.ModomicsModification == modomicsAm);
             Assert.That(duplicate, Is.Not.Null);
             Assert.That(duplicate!.ExistingModifications.Any(m => m.IdWithMotif == "2'-O-Methyladenosine on A"), Is.True);
@@ -134,12 +134,15 @@ namespace Test.Transcriptomics
         [Test]
         public void AmbiguousRnaLookupDefaultsToMetaMorpheus()
         {
-            // For any id present in both conventions, the combined RNA dictionary must resolve to the
-            // curated (MetaMorpheus) entry, mirroring how protein conventions coexist.
+            // MODOMICS "N6-methyladenosine on A" shares its id exactly with the curated mod, so at least
+            // one real collision exists and the precedence rule is exercised, not vacuous.
             var collisions = Mods.ModomicsRnaModifications
                 .Where(m => Mods.MetaMorpheusRnaModifications.Any(c => c.IdWithMotif == m.IdWithMotif))
                 .ToList();
+            Assert.That(collisions, Is.Not.Empty);
 
+            // For any id present in both conventions, the combined RNA dictionary must resolve to the
+            // curated (MetaMorpheus) entry, mirroring how protein conventions coexist.
             foreach (var modomicsMod in collisions)
             {
                 var resolved = Mods.GetModification(modomicsMod.IdWithMotif, false, true);
@@ -152,7 +155,9 @@ namespace Test.Transcriptomics
         [Test]
         public void ConventionLookupRoutesEachNamingStyleToItsOwnMods()
         {
-            var modomicsMod = Mods.GetModification("m6A on A", ModificationNamingConvention.Modomics);
+            // "N6-methyladenosine on A" exists in both conventions; each convention bucket resolves it
+            // to its own entry.
+            var modomicsMod = Mods.GetModification("N6-methyladenosine on A", ModificationNamingConvention.Modomics);
             Assert.That(modomicsMod, Is.Not.Null);
             Assert.That(modomicsMod!.ModificationType, Is.EqualTo("Modomics"));
 
@@ -160,14 +165,15 @@ namespace Test.Transcriptomics
             Assert.That(curatedMod, Is.Not.Null);
             Assert.That(curatedMod!.ModificationType, Is.Not.EqualTo("Modomics"));
 
-            // "Closest to the input": each naming style resolves through the combined RNA dictionary too.
-            var byModomicsName = Mods.GetModification("m6A on A", false, true);
+            // The shared id resolves to the curated (MetaMorpheus) entry in the combined RNA dictionary.
+            var bySharedName = Mods.GetModification("N6-methyladenosine on A", false, true);
+            Assert.That(bySharedName, Is.Not.Null);
+            Assert.That(bySharedName!.ModificationType, Is.Not.EqualTo("Modomics"));
+
+            // "Closest to the input": an unambiguous MODOMICS name resolves through the combined dictionary.
+            var byModomicsName = Mods.GetModification("1-methyladenosine on A", false, true);
             Assert.That(byModomicsName, Is.Not.Null);
             Assert.That(byModomicsName!.ModificationType, Is.EqualTo("Modomics"));
-
-            var byCuratedName = Mods.GetModification("N6-methyladenosine on A", false, true);
-            Assert.That(byCuratedName, Is.Not.Null);
-            Assert.That(byCuratedName.ModificationType, Is.Not.EqualTo("Modomics"));
         }
 
         [Test]
@@ -177,16 +183,20 @@ namespace Test.Transcriptomics
                 .Where(p => !p.ModificationType.Contains("Cap"))
                 .ToList();
 
+            // Base methylations stated by full MODOMICS name (e.g. "1-methyladenosine", "N6-methyladenosine");
+            // excludes ribose methyls ("2'-O-methyl..."), inosine/pseudouridine base conversions, and compound
+            // names that merely contain "methyl" (methylthio, taurinomethyl, methyldihydrouridine, ...).
             var singleMethylMods = mods.Where(m =>
                     System.Text.RegularExpressions.Regex.IsMatch(
                         m.IdWithMotif,
-                        @"^m\d+[ACGU] on [ACGU]$"))
+                        @"^(N\d+-|\d+-)methyl(adenosine|cytidine|guanosine|uridine) on [ACGU]$"))
                     .ToList();
+            Assert.That(singleMethylMods, Is.Not.Empty, "Expected to find base-methylated nucleosides");
 
             // Exception to the normal CH2 rule: the 3-methylcytidine cation formula carries an additional proton.
-            var m3C = singleMethylMods.FirstOrDefault(m => m.IdWithMotif.StartsWith("m3C on C"));
-            Assert.That(m3C, Is.Not.Null, "Expected to find m3C modification");
-            Assert.That(m3C!.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C1H3")), Is.True, "m3C should have formula C1H3");
+            var m3C = singleMethylMods.FirstOrDefault(m => m.IdWithMotif.StartsWith("3-methylcytidine on C"));
+            Assert.That(m3C, Is.Not.Null, "Expected to find 3-methylcytidine");
+            Assert.That(m3C!.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C1H3")), Is.True, "3-methylcytidine should have formula C1H3");
             singleMethylMods.Remove(m3C);
 
             var expectedFormula = ChemicalFormula.ParseFormula("C1H2");
@@ -195,11 +205,14 @@ namespace Test.Transcriptomics
                 singleMethylMods.Select(p => p.ChemicalFormula)
             );
 
+            // Base + 2'-O ribose dimethylations (e.g. "N6,2'-O-dimethyladenosine"), excluding
+            // N,N-dimethyls and trimethyls.
             var diMethylMods = mods.Where(m =>
                     System.Text.RegularExpressions.Regex.IsMatch(
                         m.IdWithMotif,
-                        @"^m\d+[ACGU]m on [ACGU]$"))
+                        @"^(\d+|N\d+),2'-O-dimethyl(adenosine|cytidine|guanosine|uridine) on [ACGU]$"))
                     .ToList();
+            Assert.That(diMethylMods, Is.Not.Empty, "Expected to find base + ribose dimethylated nucleosides");
 
             expectedFormula = ChemicalFormula.ParseFormula("C2H4");
             CollectionAssert.AreEqual(
