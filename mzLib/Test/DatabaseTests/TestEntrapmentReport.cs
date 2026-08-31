@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -482,12 +482,25 @@ public class EntrapmentReportTests
 
         Assert.That(guarded.UnrepairableRunCollisionPeptides, Is.EqualTo(new[] { run }),
             "the offending peptide itself, not merely a tally");
-        Assert.That(report.UnrepairableRunCollisionsByAccession["P00001"], Does.Contain(run));
+
+        // Filed under the ENTRAPMENT protein's accession, which is what a search reports the peptide
+        // under. Keyed by the target it was rearranged from, `accession` meant one thing on these
+        // rows and another on the ambiguous rows, and a consumer filtering on (accession, peptide)
+        // matched the ambiguous ones and silently missed these.
+        string entrapmentAccession = EntrapmentAccession.Format("P00001", 0);
+        Assert.That(report.UnrepairableRunCollisionsByAccession.ContainsKey("P00001"), Is.False,
+            "the target accession does not name a protein this peptide is in");
+        Assert.That(report.UnrepairableRunCollisionsByAccession[entrapmentAccession], Does.Contain(run));
 
         string[] lines = report.ExclusionsToTabSeparated()
             .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
         Assert.That(lines[0], Is.EqualTo("accession\tpeptide\treason"));
-        Assert.That(lines, Does.Contain("P00001\t" + run + "\tunrepairableRunCollision"));
+        Assert.That(lines, Does.Contain(entrapmentAccession + "\t" + run + "\tunrepairableRunCollision"));
+
+        // The column and the sidecar are read together, so they count the same thing.
+        Assert.That(report.Total.UnrepairableRunCollisions,
+            Is.EqualTo(lines.Count(l => l.EndsWith("\tunrepairableRunCollision"))),
+            "the stratified column counts peptides, as the sidecar does, not placements");
     }
 
     [Test]
@@ -554,5 +567,93 @@ public class EntrapmentReportTests
         string table = builder.Build().ExclusionsToTabSeparated();
 
         Assert.That(table.Trim(), Is.EqualTo("accession\tpeptide\treason"));
+    }
+
+    [Test]
+    public void ProvenanceRowsDoNotDependOnTheAmbientCulture()
+    {
+        // These rows are what a consumer reads to regenerate a database. sv-SE's negative sign is
+        // U+2212, not ASCII hyphen, so a negative seed was written as a value no parser reading it
+        // back would accept -- while every numeric column further down was already invariant.
+        var previous = System.Threading.Thread.CurrentThread.CurrentCulture;
+        try
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture =
+                new System.Globalization.CultureInfo("sv-SE");
+            string table = new EntrapmentReportBuilder(Tryptic, foldCount: 1, seed: -7)
+                .Build().ToTabSeparated();
+            string seedRow = table.Split('\n').First(l => l.StartsWith("# seed"));
+
+            Assert.That(seedRow, Does.Contain("-7"));
+            Assert.That(seedRow, Does.Not.Contain("\u2212"));
+        }
+        finally
+        {
+            System.Threading.Thread.CurrentThread.CurrentCulture = previous;
+        }
+    }
+
+    [Test]
+    public void ForeignArmReachesTheProvenanceItOtherwiseLeavesOut()
+    {
+        // Without these rows the provenance describes only half a database that has a foreign arm,
+        // and the arm's r is not recoverable from the report at all.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        Assert.That(builder.Build().ToTabSeparated(), Does.Not.Contain("foreignEntries"),
+            "a bottom-up report is unchanged");
+
+        builder.AddForeign(12, new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["FOREIGN1"] = new[] { "PEPTIDEK" },
+        });
+        string table = builder.Build().ToTabSeparated();
+
+        Assert.That(table, Does.Contain("# foreignEntries" + "\t" + "12"));
+        Assert.That(table, Does.Contain("# foreignPeptidesSharedWithTarget" + "\t" + "1"));
+    }
+
+    [Test]
+    public void AddForeignMergesPeptidesRatherThanOverwritingThem()
+    {
+        // The entry count accumulates, so assigning the peptides meant two calls naming one
+        // accession counted both entries and kept only the second call's peptides -- the arm
+        // under-reporting exactly the peptides it exists to name.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.AddForeign(2, new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["FOREIGN1"] = new[] { "PEPTIDEK" },
+        });
+        builder.AddForeign(3, new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["FOREIGN1"] = new[] { "OTHERAAK" },
+        });
+
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.ForeignEntries, Is.EqualTo(5));
+        Assert.That(report.ForeignPeptidesSharedWithTarget["FOREIGN1"],
+            Is.EquivalentTo(new[] { "PEPTIDEK", "OTHERAAK" }));
+    }
+
+    [Test]
+    public void ABuiltReportDoesNotChangeWhenTheBuilderIsUsedAgain()
+    {
+        // Build() handed out the builder's live dictionary where the two beside it were snapshots,
+        // so a later AddForeign mutated a report that had already been built.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.AddForeign(1, new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["FOREIGN1"] = new[] { "PEPTIDEK" },
+        });
+        EntrapmentReport report = builder.Build();
+
+        builder.AddForeign(1, new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["FOREIGN2"] = new[] { "LATEADDK" },
+        });
+
+        Assert.That(report.ForeignPeptidesSharedWithTarget.ContainsKey("FOREIGN2"), Is.False,
+            "a built report is a snapshot, not a window onto the builder");
+        Assert.That(report.ForeignEntries, Is.EqualTo(1));
     }
 }

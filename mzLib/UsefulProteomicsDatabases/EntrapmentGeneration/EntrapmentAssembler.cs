@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using MzLibUtil;
 using Omics.Digestion;
@@ -311,14 +311,16 @@ public static class EntrapmentAssembler
     /// <para>A <b>multi-residue</b> motif has its span cut by the piece boundary: <c>TX|T</c> cuts
     /// after the second of three residues, so one piece ends <c>…TX</c> and the next begins
     /// <c>T…</c>, neither fragment matches inside its own piece, and nothing is held at the seam.
-    /// That covers <c>StcE</c> and <c>StcE-trypsin</c>.</para>
+    /// That covers <c>collagenase</c> (<c>GPX|GPX</c>) and <c>StcE-trypsin</c> -- seven shipped
+    /// agents in all. The guard keys on the motif rather than on the name, so it also refuses the
+    /// bare <c>StcE</c> that mzLib gains separately, without naming it here.</para>
     /// <para>The real fix is to pin across piece boundaries, which means this stops being a per-piece
     /// loop. Until then, refusing is the honest answer: a database that digests differently from its
     /// target produces peptides that then fail to pair, and it does so silently. Failing at the call
     /// is better than a caller discovering it from a search result.</para>
     /// </remarks>
     /// <exception cref="MzLibException">The agent carries a preventing or multi-residue motif.</exception>
-    private static void RefuseAgentsWhoseSitesCannotBeHeld(string agentName, List<DigestionMotif> motifs)
+    internal static void RefuseAgentsWhoseSitesCannotBeHeld(string agentName, List<DigestionMotif> motifs)
     {
         foreach (DigestionMotif motif in motifs ?? new List<DigestionMotif>())
         {

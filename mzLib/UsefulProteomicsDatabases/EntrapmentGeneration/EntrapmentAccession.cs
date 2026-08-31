@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using System.Globalization;
 
@@ -47,6 +47,18 @@ public static class EntrapmentAccession
         if (fold < 0)
         {
             throw new MzLibUtil.MzLibException($"Fold must not be negative, but was {fold}.");
+        }
+
+        // The two forms have to be disjoint, and only TryParse was enforcing it. A target accession
+        // beginning with the foreign marker minted "Random_foreign_ABC_f0", which TryParse then
+        // refused and TryParseForeign claimed as the foreign entry "ABC_f0" -- a partner that could
+        // never be paired back and would be counted as a foreign entry instead. Refusing here is
+        // what makes the comment on TryParse's own refusal true.
+        if (targetAccession.StartsWith(ForeignMarker, StringComparison.Ordinal))
+        {
+            throw new MzLibUtil.MzLibException(
+                $"A target accession must not begin with \"{ForeignMarker}\", which is reserved for "
+                + $"entries taken from a foreign proteome, but was \"{targetAccession}\".");
         }
 
         return $"{entrapmentIdentifier}_{targetAccession}{FoldMarker}{fold.ToString(CultureInfo.InvariantCulture)}";

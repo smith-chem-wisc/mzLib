@@ -1,10 +1,11 @@
-#nullable enable
+﻿#nullable enable
 using System;
 using MzLibUtil;
 using Omics.Digestion;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -268,6 +269,14 @@ public static class EntrapmentProteinGenerator
             throw new MzLibException("Cannot build entrapment proteins from a null target list.");
         }
 
+        // Refused here as well as inside the assembler. The assembler's copy fires on the first
+        // protein so nothing is wasted either way, but a throw from that depth reaches a GUI user
+        // as a crash part-way through a run rather than as "this agent cannot be used", and this
+        // is the call they actually made.
+        EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld(
+            digestionParams?.DigestionAgent?.Name ?? string.Empty,
+            digestionParams?.DigestionAgent?.DigestionMotifs ?? new List<DigestionMotif>());
+
         var entrapment = new List<Protein>();
         foreach (Protein entry in DatabaseEntries(targets))
         {
@@ -419,10 +428,28 @@ public static class EntrapmentProteinGenerator
             return null;   // the target carried none, so inventing some would assert more than is known
         }
 
-        var described = new UniProtSequenceAttributes(source.Length, source.Mass, source.Checksum,
-            source.EntryModified, source.SequenceVersion, source.IsPrecursor, source.Fragment);
+        // Checksum and sequence version describe the TARGET's sequence, and the partner's is a
+        // different one. Carrying them across wrote every entrapment entry with its target's CRC64
+        // -- a checksum that both ProteinXmlEntry parses and ProteinDbWriter writes, so it is read
+        // back as an assertion about a sequence it does not describe. "unknown" and an unset
+        // version say the true thing, and are what Protein's own constructor synthesizes when it is
+        // handed nothing.
+        var described = new UniProtSequenceAttributes(source.Length, source.Mass,
+            checkSum: "unknown", source.EntryModified, sequenceVersion: -1,
+            source.IsPrecursor, source.Fragment);
         described.UpdateLengthAttribute(entrapmentSequence);
-        described.UpdateMassAttribute(entrapmentSequence);
+
+        // MonoisotopicMass is NaN for a sequence holding X or B, and (int)Math.Round(NaN) is 0, so
+        // an entry whose target carried a real mass was written as mass="0". A rearrangement is
+        // isomeric, so the target's own mass is the right answer whenever the partner was not
+        // excised; where it was, an inherited mass is still closer to true than zero.
+        double mass = new PeptideWithSetModifications(entrapmentSequence,
+            new Dictionary<string, Modification>()).MonoisotopicMass;
+        if (double.IsFinite(mass))
+        {
+            described.UpdateMassAttribute(entrapmentSequence);
+        }
+
         return described;
     }
 

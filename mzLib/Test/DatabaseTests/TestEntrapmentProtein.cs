@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -242,8 +242,20 @@ public class EntrapmentProteinTests
     {
         // The failure mode directly: the fixture excises SSSSSSR, so the entrapment protein is
         // seven residues shorter than the annotations that described its target.
+        // Carries a modification so the range assertion at the end has something to bite on. Without
+        // one, every collection feeding `everyPosition` is empty -- the four above are asserted so --
+        // and `Is.All` over nothing passes whatever the fix does.
+        ModificationMotif.TryGetMotif("T", out ModificationMotif tMotif);
+        var onThreonine = new Modification(_originalId: "Phospho", _modificationType: "Common Biological",
+            _target: tMotif, _locationRestriction: "Anywhere.", _monoisotopicMass: 79.96633);
+
         var target = new Protein("SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR", "P12345",
-            proteolysisProducts: new List<TruncationProduct> { new(30, 36, "C-terminal chunk") });
+            proteolysisProducts: new List<TruncationProduct> { new(30, 36, "C-terminal chunk") },
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 27, new List<Modification> { onThreonine } },
+                { 28, new List<Modification> { onThreonine } },
+            });
 
         Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
 
@@ -260,11 +272,14 @@ public class EntrapmentProteinTests
         Assert.That(entrapment.SpliceSites, Is.Empty);
 
         // And the property that mattered, stated over everything the entry actually carries.
-        IEnumerable<int> everyPosition = entrapment.TruncationProducts
+        List<int> everyPosition = entrapment.TruncationProducts
             .Where(t => t.OneBasedEndPosition.HasValue).Select(t => t.OneBasedEndPosition.Value)
             .Concat(entrapment.DisulfideBonds.Select(b => b.OneBasedEndPosition))
             .Concat(entrapment.SpliceSites.Select(x => x.OneBasedEndPosition))
-            .Concat(entrapment.OneBasedPossibleLocalizedModifications.Keys);
+            .Concat(entrapment.OneBasedPossibleLocalizedModifications.Keys)
+            .ToList();
+        Assert.That(everyPosition, Is.Not.Empty,
+            "otherwise Is.All below asserts over an empty sequence and cannot fail");
         Assert.That(everyPosition, Is.All.LessThanOrEqualTo(entrapment.BaseSequence.Length));
     }
 
@@ -1013,5 +1028,56 @@ public class EntrapmentProteinTests
         Protein second = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
 
         Assert.That(second.BaseSequence, Is.EqualTo(first.BaseSequence));
+    }
+
+    [Test]
+    public void AForeignMarkerCannotBeMintedAsATargetAccession()
+    {
+        // The two accession forms have to be disjoint and only TryParse was enforcing it: a target
+        // beginning with the marker minted an accession TryParse then refused and TryParseForeign
+        // claimed, so the partner could never be paired back and counted as a foreign entry.
+        Assert.That(() => EntrapmentAccession.Format("foreign_ABC", 0),
+            Throws.TypeOf<MzLibUtil.MzLibException>());
+
+        // The ordinary case is untouched.
+        Assert.That(EntrapmentAccession.Format("P12345", 0), Is.EqualTo("Random_P12345_f0"));
+    }
+
+    [Test]
+    public void APartnerDoesNotInheritItsTargetChecksumOrSequenceVersion()
+    {
+        // The checksum is a CRC64 of the sequence and the partner's sequence is a different one, so
+        // carrying it across wrote every entry with a checksum that both ProteinXmlEntry parses and
+        // ProteinDbWriter writes -- an assertion about a sequence it does not describe.
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR", "P12345");
+        target.UniProtSequenceAttributes.UpdateMassAttribute(4321);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.UniProtSequenceAttributes, Is.Not.Null);
+        Assert.That(entrapment.UniProtSequenceAttributes.Checksum, Is.EqualTo("unknown"));
+        Assert.That(entrapment.UniProtSequenceAttributes.SequenceVersion, Is.EqualTo(-1));
+        Assert.That(entrapment.UniProtSequenceAttributes.Length,
+            Is.EqualTo(entrapment.BaseSequence.Length));
+    }
+
+    [Test]
+    public void AnUnknownResidueDoesNotWriteAZeroMass()
+    {
+        // MonoisotopicMass is NaN for a sequence holding X or B, and (int)Math.Round(NaN) is 0, so
+        // an entry whose target carried a real mass was written as mass="0". A rearrangement is
+        // isomeric, so the target's own mass is the right answer here.
+        // The mass is set explicitly, as a UniProt XML supplies it -- Protein's own constructor
+        // computes the same NaN and stores 0, so a target built from the sequence alone would not
+        // have a real mass to lose. That is mzLib core rather than this generator.
+        var target = new Protein("MSTQAEVDLNSGWKXALADQMNLLLSKGGVDTTPFAWENDR", "P12345");
+        target.UniProtSequenceAttributes.UpdateMassAttribute(4321);
+        int targetMass = target.UniProtSequenceAttributes.Mass;
+        Assert.That(targetMass, Is.GreaterThan(0), "the fixture must start from a real mass");
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.UniProtSequenceAttributes.Mass, Is.Not.Zero);
+        Assert.That(entrapment.UniProtSequenceAttributes.Mass, Is.EqualTo(targetMass));
     }
 }

@@ -1,4 +1,4 @@
-#nullable enable
+﻿#nullable enable
 using MzLibUtil;
 using Omics.Digestion;
 using Proteomics;
@@ -178,7 +178,9 @@ public sealed class EntrapmentReport
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> AmbiguousPeptidesByAccession { get; }
 
     /// <summary>
-    /// Entrapment missed-cleavage peptides that are also real target peptides, by target accession.
+    /// Entrapment missed-cleavage peptides that are also real target peptides, by the accession of
+    /// the ENTRAPMENT protein holding them (<c>Random_&lt;target&gt;_f&lt;fold&gt;</c>) -- the accession a
+    /// search reports them under, and so the one a consumer can filter on.
     /// </summary>
     /// <remarks>
     /// A search matching one of these counts a <i>true</i> peptide as an entrapment discovery. They
@@ -292,13 +294,26 @@ public sealed class EntrapmentReport
     public string ToTabSeparated()
     {
         var text = new StringBuilder();
+        // InvariantCulture, like every numeric column further down this method. These rows are
+        // what a consumer reads to regenerate a database, and a culture whose negative sign is
+        // not ASCII (sv-SE writes U+2212) wrote a seed no parser reading it back would accept.
         text.AppendLine($"# method\t{Provenance.Method}");
         text.AppendLine($"# enzyme\t{Provenance.Enzyme}");
-        text.AppendLine($"# seed\t{Provenance.Seed}");
-        text.AppendLine($"# foldCount\t{Provenance.FoldCount}");
-        text.AppendLine($"# maxMissedCleavages\t{Provenance.MaxMissedCleavages}");
-        text.AppendLine($"# minPeptideLength\t{Provenance.MinPeptideLength}");
-        text.AppendLine($"# maxPeptideLength\t{Provenance.MaxPeptideLength}");
+        text.AppendLine($"# seed\t{Provenance.Seed.ToString(CultureInfo.InvariantCulture)}");
+        text.AppendLine($"# foldCount\t{Provenance.FoldCount.ToString(CultureInfo.InvariantCulture)}");
+        text.AppendLine($"# maxMissedCleavages\t{Provenance.MaxMissedCleavages.ToString(CultureInfo.InvariantCulture)}");
+        text.AppendLine($"# minPeptideLength\t{Provenance.MinPeptideLength.ToString(CultureInfo.InvariantCulture)}");
+        text.AppendLine($"# maxPeptideLength\t{Provenance.MaxPeptideLength.ToString(CultureInfo.InvariantCulture)}");
+        // The foreign arm contributes entries that no permutation figure describes, so
+        // without these the provenance describes only half a database that has one, and the
+        // arm's r is not recoverable from the report at all. Emitted only when it was used,
+        // so a bottom-up report is byte-identical to before.
+        if (ForeignEntries > 0)
+        {
+            text.AppendLine($"# foreignEntries\t{ForeignEntries.ToString(CultureInfo.InvariantCulture)}");
+            text.AppendLine($"# foreignPeptidesSharedWithTarget\t"
+                + ForeignPeptidesSharedWithTarget.Sum(kv => kv.Value.Count).ToString(CultureInfo.InvariantCulture));
+        }
         // targetPeptides/entrapmentPeptides count BASE PIECES; searchSpacePeptides counts what a
         // search reports, missed cleavages included. `ambiguous` belongs to the latter -- dividing
         // it by the former divides two different populations, which is how 0.24% got written
@@ -350,7 +365,8 @@ public sealed class EntrapmentReportBuilder
     private readonly HashSet<string> _countedTargetPieces = new();
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
     private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
-    private readonly Dictionary<string, IReadOnlyCollection<string>> _foreignShared = new();
+    private readonly string _entrapmentIdentifier;
+    private readonly Dictionary<string, HashSet<string>> _foreignSharedByAccession = new();
 
     /// <summary>
     /// Figures that belong to the database rather than to any candidate-site stratum. Kept apart so
@@ -361,8 +377,11 @@ public sealed class EntrapmentReportBuilder
 
     /// <param name="siteCounter">What to stratify by, e.g.
     /// <see cref="EntrapmentReport.CountResidues"/>("ST"). Null puts everything in one stratum.</param>
+    /// <param name="entrapmentIdentifier">The accession prefix the partners were minted with. The
+    /// collision list is keyed by the entrapment accession, so it has to match the generator's.</param>
     public EntrapmentReportBuilder(IDigestionParams digestionParams, int foldCount, int seed,
-        Func<string, int>? siteCounter = null)
+        Func<string, int>? siteCounter = null,
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
     {
         if (digestionParams is null)
         {
@@ -373,6 +392,7 @@ public sealed class EntrapmentReportBuilder
         _foldCount = foldCount;
         _seed = seed;
         _siteCounter = siteCounter ?? (_ => 0);
+        _entrapmentIdentifier = entrapmentIdentifier;
     }
 
     /// <summary>Records one target protein's assembly for one fold.</summary>
@@ -445,15 +465,21 @@ public sealed class EntrapmentReportBuilder
         // attributable to one candidate-site count.
         _wholeProtein.MissedCleavagePeptidesSpanningAnExcision +=
             assembly.MissedCleavagePeptidesSpanningAnExcision;
-        _wholeProtein.UnrepairableRunCollisions += assembly.UnrepairableRunCollisions;
         _wholeProtein.EntrapmentSearchSpacePeptides +=
             EntrapmentPairing.CountSearchablePeptides(assembly.EntrapmentSequence, _digestionParams);
         if (assembly.UnrepairableRunCollisionPeptides.Count > 0)
         {
-            if (!_unrepairableByAccession.TryGetValue(target.Accession, out List<string>? collisions))
+            // Keyed by the accession a search will report the peptide under, not by the target it
+            // was rearranged from. These peptides belong to the ENTRAPMENT protein; filing them
+            // under the target made the two halves of one table mean different things by
+            // `accession`, and a consumer filtering on (accession, peptide) matched the ambiguous
+            // rows and silently missed these -- under-excluding, which inflates an FDP estimate.
+            string entrapmentAccession =
+                EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
+            if (!_unrepairableByAccession.TryGetValue(entrapmentAccession, out List<string>? collisions))
             {
                 collisions = new List<string>();
-                _unrepairableByAccession[target.Accession] = collisions;
+                _unrepairableByAccession[entrapmentAccession] = collisions;
             }
 
             // Distinct peptides, not placements. The same run can collide at two points in one
@@ -464,6 +490,11 @@ public sealed class EntrapmentReportBuilder
                 if (!collisions.Contains(collision))
                 {
                     collisions.Add(collision);
+                    // Incremented here rather than from assembly.UnrepairableRunCollisions, which
+                    // counts PLACEMENTS. The column and the sidecar are read together, so counting
+                    // one in placements and the other in peptides made them disagree -- 2,048
+                    // against 1,983 rows on the reviewed human database.
+                    _wholeProtein.UnrepairableRunCollisions++;
                 }
             }
         }
@@ -490,7 +521,20 @@ public sealed class EntrapmentReportBuilder
         foreach ((string accession, IReadOnlyCollection<string> peptides) in
                  sharedWithTarget ?? new Dictionary<string, IReadOnlyCollection<string>>())
         {
-            _foreignShared[accession] = peptides;
+            // Merge, because the entry count beside it accumulates. Assigning here while
+            // `_foreignEntries` added meant two calls naming one accession counted both entries and
+            // kept only the second call's peptides -- the arm silently under-reporting exactly the
+            // peptides it exists to name.
+            if (!_foreignSharedByAccession.TryGetValue(accession, out HashSet<string>? merged))
+            {
+                merged = new HashSet<string>(StringComparer.Ordinal);
+                _foreignSharedByAccession[accession] = merged;
+            }
+
+            foreach (string peptide in peptides ?? Array.Empty<string>())
+            {
+                merged.Add(peptide);
+            }
         }
     }
 
@@ -538,7 +582,11 @@ public sealed class EntrapmentReportBuilder
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value))
         {
             ForeignEntries = _foreignEntries,
-            ForeignPeptidesSharedWithTarget = _foreignShared,
+            // A snapshot, like the two dictionaries above it. Handing out the builder's live
+            // dictionary let a later AddForeign mutate a report that had already been built.
+            ForeignPeptidesSharedWithTarget = _foreignSharedByAccession
+                .Where(kv => kv.Value.Count > 0)
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value.ToList()),
         };
     }
 
