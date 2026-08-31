@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using MassSpectrometry;
 
 namespace Readers
 {
@@ -23,7 +24,7 @@ namespace Readers
     /// <item>
     ///     <description>
     ///     Mapping source file fields to the required interface properties:
-    ///     <see cref="ISingleChargeMs1Feature.MZ"/>,
+    ///     <see cref="ISingleChargeMs1Feature.Mz"/>,
     ///     <see cref="ISingleChargeMs1Feature.Charge"/>,
     ///     <see cref="ISingleChargeMs1Feature.RetentionTimeStart"/>,
     ///     <see cref="ISingleChargeMs1Feature.RetentionTimeEnd"/>,

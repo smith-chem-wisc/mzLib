@@ -36,7 +36,7 @@ namespace Transcriptomics
                 case RNA rna:
                 {
                     bool newIsDecoy = isDecoy ?? rna.IsDecoy;
-                    string accession = newIsDecoy ? $"{decoyIdentifier}_{rna.Accession}" : rna.Accession;
+                    string accession = newIsDecoy && !rna.Accession.StartsWith(decoyIdentifier) ? $"{decoyIdentifier}_{rna.Accession}" : rna.Accession;
                     List<TruncationProduct> newTruncs = truncationProducts ?? rna.TruncationProducts;
                     List<SequenceVariation> newVariations = sequenceVariations ?? rna.SequenceVariations;
                     List<SequenceVariation> newAppliedVariations = appliedSequenceVariations ?? rna.AppliedSequenceVariations;
@@ -44,21 +44,23 @@ namespace Transcriptomics
                         returnObj = new RNA(newSequence, accession, newModifications, rna.FivePrimeTerminus,
                         rna.ThreePrimeTerminus, rna.Name, rna.Organism, rna.DatabaseFilePath, rna.IsContaminant,
                         newIsDecoy, rna.GeneNames, rna.AdditionalDatabaseFields, newTruncs,
-                        newVariations, newAppliedVariations, rna.SampleNameForVariants, rna.FullName);
+                        newVariations, newAppliedVariations, rna.SampleNameForVariants, rna.FullName,
+                        rna.IsEntrapment);
                     break;
                 }
                 case OligoWithSetMods oligo:
                 {
                     var oldParent = oligo.Parent as RNA ?? throw new NullReferenceException();
                     bool newIsDecoy = isDecoy ?? oldParent.IsDecoy;
-                    string accession = newIsDecoy ? $"{decoyIdentifier}_{oldParent.Accession}" : oldParent.Accession;
+                    string accession = newIsDecoy && !oldParent.Accession.StartsWith(decoyIdentifier) ? $"{decoyIdentifier}_{oldParent.Accession}" : oldParent.Accession;
                     List<TruncationProduct> newTruncs = truncationProducts ?? oldParent.TruncationProducts;
                     List<SequenceVariation> newVariations = sequenceVariations ?? oldParent.SequenceVariations;
                     List<SequenceVariation> newAppliedVariations = appliedSequenceVariations ?? oldParent.AppliedSequenceVariations;
 
                     var newParent = new RNA(newSequence, accession, newModifications,oldParent.FivePrimeTerminus, oldParent.ThreePrimeTerminus, 
                     oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
-                    newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName);
+                    newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName,
+                    oldParent.IsEntrapment);
 
 
                     returnObj = new OligoWithSetMods(

@@ -1,9 +1,9 @@
-﻿using Omics.Digestion;
+using Omics.Digestion;
 using Omics.Fragmentation;
 
 namespace Transcriptomics.Digestion
 {
-    public class RnaDigestionParams : IDigestionParams
+    public class RnaDigestionParams : IDigestionParams, IEquatable<RnaDigestionParams>
     {
 
         // this parameterless constructor needs to exist to read the toml.
@@ -41,5 +41,42 @@ namespace Transcriptomics.Digestion
                 : new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
                     MaxModificationIsoforms, MaxMods, FragmentationTerminus);
         }
+
+        #region Equality
+
+        public override bool Equals(object? obj)
+            => obj is RnaDigestionParams rdp && Equals(rdp);
+
+        bool IEquatable<IDigestionParams>.Equals(IDigestionParams? other)
+            => other is RnaDigestionParams rdp && Equals(rdp);
+
+        public bool Equals(RnaDigestionParams? other)
+        {
+            if (other is null) return false;
+            return MaxMissedCleavages == other.MaxMissedCleavages
+                   && MinLength == other.MinLength
+                   && MaxLength == other.MaxLength
+                   && MaxModificationIsoforms == other.MaxModificationIsoforms
+                   && MaxMods == other.MaxMods
+                   && Rnase.Equals(other.Rnase)
+                   && FragmentationTerminus == other.FragmentationTerminus
+                   && SearchModeType == other.SearchModeType;
+        }
+
+        public override int GetHashCode()
+        {
+            var hash = new HashCode();
+            hash.Add(MaxMissedCleavages);
+            hash.Add(MinLength);
+            hash.Add(MaxLength);
+            hash.Add(MaxModificationIsoforms);
+            hash.Add(MaxMods);
+            hash.Add(Rnase);
+            hash.Add((int)FragmentationTerminus);
+            hash.Add((int)SearchModeType);
+            return hash.ToHashCode();
+        }
+
+        #endregion
     }
 }

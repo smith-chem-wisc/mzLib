@@ -15,19 +15,27 @@
         public const string PrecursorIntensity = "Precursor Intensity";
         public const string PrecursorMz = "Precursor MZ";
         public const string PrecursorMass = "Precursor Mass";
+        // Optional companion to PrecursorMass: the observed neutral mass of the most abundant (tallest)
+        // isotopologue of the precursor envelope, as opposed to its monoisotopic peak. Written only when a
+        // run used most-abundant precursor selection; the reader maps it by name and ignores it when absent.
+        // Pairs with MostAbundantMassDiffPpm, which reports the error against that same peak.
+        public const string PrecursorMostAbundantMass = "Precursor Most Abundant Mass";
         public const string OneOverK0 = "1/K0";
         public const string Score = "Score";
         public const string DeltaScore = "Delta Score";
         public const string Notch = "Notch";
+        public const string CollisionEnergy = "Collision Energy";
 
         // Sequence information
         public const string BaseSequence = "Base Sequence";
         public const string FullSequence = "Full Sequence";
+        public const string ProForma = "ProForma";
         public const string EssentialSequence = "Essential Sequence";
         public const string UniqueSequence = "Unique Sequence"; //Used for crosslinked peptides
         public const string AmbiguityLevel = "Ambiguity Level";
         public const string SpectrumMatchCount = "Spectrum Match Count";
         public const string Mods = "Mods";
+        public const string NumberOfMods = "Number of Mods";
         public const string ModsChemicalFormulas = "Mods Chemical Formulas";
         public const string ModsCombinedChemicalFormula = "Mods Combined Chemical Formula";
         public const string NumVariableMods = "Num Variable Mods";
@@ -35,6 +43,10 @@
         public const string MonoisotopicMass = "Monoisotopic Mass";
         public const string MassDiffDa = "Mass Diff (Da)";
         public const string MassDiffPpm = "Mass Diff (ppm)";
+        // Optional most-abundant-mode analogue of MassDiffPpm: the observed most-abundant isotopic peak
+        // vs the candidate's theoretical averagine-apex mass. Written only when a run used most-abundant
+        // precursor selection; the reader maps it by name and ignores it when absent.
+        public const string MostAbundantMassDiffPpm = "Most Abundant Mass Diff (ppm)";
         public const string Accession = "Accession";
 
         public const string Name = "Name";
@@ -45,10 +57,12 @@
         public const string SpliceSites = "Splice Sites";
         public const string Contaminant = "Contaminant";
         public const string Decoy = "Decoy";
+        public const string Entrapment = "Entrapment";
         public const string Description = "Description";
         public const string StartAndEndResiduesInFullSequence = "Start and End Residues In Full Sequence";
         public const string PreviousResidue = "Previous Residue";
         public const string NextResidue = "Next Residue";
+        public const string FlankingResidues = "Flanking Residues";
         public const string TheoreticalsSearched = "Theoreticals Searched";
         public const string DecoyContaminantTarget = "Decoy/Contaminant/Target";
         public const string MatchedIonSeries = "Matched Ion Series";
@@ -59,7 +73,7 @@
         public const string MatchedIonCounts = "Matched Ion Counts";
 
         // Scoring
-        public const string LocalizedScores = "Localized Scores";
+        public const string LocalizedScores = "Localization Score";
         public const string ImprovementPossible = "Improvement Possible";
         public const string CumulativeTarget = "Cumulative Target";
         public const string CumulativeDecoy = "Cumulative Decoy";
@@ -102,8 +116,30 @@
         public const string GlycanMass = "GlycanMass";
         public const string GlycanComposition = "Plausible GlycanComposition";
         public const string GlycanStructure = "Plausible GlycanStructure";
+        public const string NumberOfGlycan = "Plausible Number Of Glycans";
+        public const string TotalGlycanSite = "Total Glycosylation Sites";
         public const string GlycanLocalizationLevel = "GlycanLocalizationLevel";
-        public const string LocalizedGlycan = "Localized Glycans with Peptide Site Specific Probability";
+        public const string LocalizedGlycanInPeptide = "Localized Glycans with Peptide Site Specific Probability";
+        public const string LocalizedGlycanInProtein = "Localized Glycans with Protein Site Specific Probability";
+        public const string YionScore = "Yion Score";
+        public const string DiagonosticIonScore = "DiagonosticIon Score";
+        public const string NGlycanMotifCheck = "N-Glycan Motif Check";
+        public const string R138144 = "R138/144";
+        public const string AllPotentialGlycanLocalization = "All Potential Glycan Localizations";
+        public const string AllSiteSpecificLocalizationProbability = "All SiteSpecific Localization Probability";
+        public const string LocalizationScore = "Localization Score";
 
+        // Oligo
+        public const string FivePrimeTerminus = "5'-Terminus";
+        public const string ThreePrimeTerminus = "3'-Terminus";
+
+        // TMT/Isobaric reporter ion channels
+        public static readonly string[] TmtChannelNames = new[]
+        {
+            "126", "127N", "127C", "128N", "128C",
+            "129N", "129C", "130N", "130C", "131", // TMT 10
+            "131N", "131C", "132N", "132C", "133N", "133C", // TMT16+ channels
+            "134N", "134C", "135N", // TMTpro 18 channels
+        };
     }
 }

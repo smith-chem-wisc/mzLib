@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using MassSpectrometry;
 using FlashLFQ.IsoTracker;
 
 namespace FlashLFQ
@@ -29,7 +30,11 @@ namespace FlashLFQ
             ProteinGroups = new Dictionary<string, ProteinGroup>();
             Peaks = new Dictionary<SpectraFileInfo, List<ChromatographicPeak>>();
             MbrQValueThreshold = mbrQValueThreshold;
-            _peptideModifiedSequencesToQuantify = peptideModifiedSequencesToQuantify ?? identifications.Where(id => !id.IsDecoy).Select(id => id.ModifiedSequence).ToHashSet();
+            // Copied, not aliased: MergeResultsWith unions into this set, and the caller keeps its own
+            // reference to the set it passed in (FlashLfqEngine hands over its own PeptideModifiedSequencesToQuantify).
+            _peptideModifiedSequencesToQuantify = peptideModifiedSequencesToQuantify != null
+                ? new HashSet<string>(peptideModifiedSequencesToQuantify)
+                : identifications.Where(id => !id.IsDecoy).Select(id => id.ModifiedSequence).ToHashSet();
             IsoTracker = isIsoTracker;
 
             foreach (SpectraFileInfo file in spectraFiles)
@@ -73,9 +78,34 @@ namespace FlashLFQ
             CalculateProteinResultsMedianPolish(useSharedPeptides: useSharedPeptides);
         }
 
+        /// <summary>
+        /// Merges another set of results into this one, combining their spectra files, peptides,
+        /// protein groups and peaks.
+        /// </summary>
+        /// <param name="mergeFrom">The results to merge into this object.</param>
+        /// <remarks>
+        /// After merging:
+        /// <list type="bullet">
+        ///   <item><description>The set of peptides eligible for quantification contains the union of both
+        ///   results' sets, so a peptide identified only in <paramref name="mergeFrom"/> survives a later
+        ///   call to <see cref="CalculatePeptideResults"/></description></item>
+        ///   <item><description><see cref="SpectraFiles"/> contains both results' files, without deduplication</description></item>
+        ///   <item><description><see cref="PeptideModifiedSequences"/> and <see cref="ProteinGroups"/> contain
+        ///   both results' entries; where a key is present in both, <paramref name="mergeFrom"/>'s per-file
+        ///   intensities win</description></item>
+        ///   <item><description><see cref="Peaks"/> contains both results' peaks, concatenated per file</description></item>
+        ///   <item><description><see cref="IsoTracker"/>, <see cref="IsobaricPeptideDict"/>,
+        ///   <see cref="MbrQValueThreshold"/> and <see cref="PepResultString"/> are this object's, unchanged</description></item>
+        /// </list>
+        /// </remarks>
         public void MergeResultsWith(FlashLfqResults mergeFrom)
         {
             this.SpectraFiles.AddRange(mergeFrom.SpectraFiles);
+
+            // Peptides arriving from mergeFrom are quantifiable in their own right. Without this union
+            // CalculatePeptideResults would blank them along with everything else and then refuse to
+            // repopulate them, silently zeroing the merged-in half of the data.
+            this._peptideModifiedSequencesToQuantify.UnionWith(mergeFrom._peptideModifiedSequencesToQuantify);
 
             foreach (var pep in mergeFrom.PeptideModifiedSequences)
             {
@@ -88,6 +118,12 @@ namespace FlashLFQ
                     {
                         mergeToPep.SetIntensity(file, mergeFromPep.GetIntensity(file));
                         mergeToPep.SetDetectionType(file, mergeFromPep.GetDetectionType(file));
+                        mergeToPep.SetRetentionTime(file, mergeFromPep.GetRetentionTime(file));
+                    }
+
+                    foreach (ProteinGroup proteinGroup in mergeFromPep.ProteinGroups)
+                    {
+                        mergeToPep.ProteinGroups.Add(proteinGroup);
                     }
                 }
                 else

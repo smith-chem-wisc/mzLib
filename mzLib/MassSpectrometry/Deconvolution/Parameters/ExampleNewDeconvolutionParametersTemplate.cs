@@ -1,9 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MassSpectrometry
 {
@@ -15,6 +11,22 @@ namespace MassSpectrometry
             : base(minCharge, maxCharge, polarity)
         {
 
+        }
+
+        // This algorithm does not yet support decoy deconvolution.
+        public override DeconvolutionParameters? ToDecoyParameters() => null;
+
+        protected override bool EqualProperties(DeconvolutionParameters other) => true;
+
+        protected override void AddHashCodes(HashCode hash) { }
+
+        public override ExampleNewDeconvolutionParametersTemplate Clone()
+        {
+            return new ExampleNewDeconvolutionParametersTemplate(
+                MinAssumedChargeState, MaxAssumedChargeState, Polarity)
+            {
+                UseGenericScore = UseGenericScore
+            };
         }
     }
 }

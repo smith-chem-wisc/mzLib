@@ -1,8 +1,8 @@
-﻿using Omics.Fragmentation;
+using Omics.Fragmentation;
 
 namespace Omics.Digestion
 {
-    public interface IDigestionParams
+    public interface IDigestionParams : IEquatable<IDigestionParams>
     {
         int MaxMissedCleavages { get; set; }
         int MinLength { get; set; }

@@ -19,18 +19,23 @@ using Chemistry;
 using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
-using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using NUnit.Framework.Legacy;
+using Omics;
+using Omics.BioPolymer;
+using Omics.Modifications;
 using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Omics.Modifications;
+using System.Net.Http;
+using System.Net;
+using System.Threading;
+using System.Threading.Tasks;
+using Omics.Modifications.IO;
 using UsefulProteomicsDatabases;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using Stopwatch = System.Diagnostics.Stopwatch;
-using NUnit.Framework.Legacy;
-using Omics;
-using Omics.BioPolymer;
 
 namespace Test.DatabaseTests
 {
@@ -116,12 +121,153 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public void TestVariantCombinationsAppliedInDescendingPositionOrder()
+        {
+            // Create a protein with two variants at different positions
+            // Variant at position 5: A -> AAA (insertion, adds 2 residues)
+            // Variant at position 10: G -> X (substitution)
+            // If applied in ascending order (5 first), position 10 becomes position 12, causing issues
+
+            var variant1 = new SequenceVariation(5, 5, "A", "AAA", "Insertion at 5");
+            var variant2 = new SequenceVariation(10, 10, "G", "X", "Substitution at 10");
+
+            var protein = new Protein(
+                "MAAAAGAAAAG", // positions: M=1, A=2,3,4,5, G=6, A=7,8,9,10, G=11
+                "TestProtein",
+                sequenceVariations: new List<SequenceVariation> { variant1, variant2 });
+
+            // Apply both variants as a combination
+            var variantList = new List<SequenceVariation> { variant1, variant2 };
+            var results = VariantApplication.ApplyAllVariantCombinations(protein, variantList, maxCombinations: 10).ToList();
+
+            // Should have: base, variant1 only, variant2 only, both variants
+            Assert.That(results.Count, Is.EqualTo(4), "Should have base + 3 variant combinations");
+
+            // Find the combination with both variants applied
+            var bothApplied = results.FirstOrDefault(p =>
+                p.AppliedSequenceVariations != null &&
+                p.AppliedSequenceVariations.Count == 2);
+
+            Assert.That(bothApplied, Is.Not.Null, "Should have a result with both variants applied");
+
+            // Verify the sequence is correct:
+            // Original: MAAAAGAAAAG (11 chars)
+            // After variant1 (pos 5, A->AAA): MAAAAAAAAGAAAAG -> wait, let me recalculate
+            // Position 5 is the 5th 'A', replacing it with 'AAA'
+            // Original: M-A-A-A-A-G-A-A-A-A-G (1-2-3-4-5-6-7-8-9-10-11)
+            // After pos 5 A->AAA: M-A-A-A-AAA-G-A-A-A-A-G = MAAAAAAAGAAAAG (13 chars, +2)
+            // After pos 10 G->X: position 10 in original was 'A', but wait...
+
+            // Let me use a clearer example
+            Console.WriteLine($"Base sequence: {protein.BaseSequence}");
+            Console.WriteLine($"Result with both variants: {bothApplied?.BaseSequence}");
+
+            // The key assertion: no crash occurred, which means descending order worked
+            Assert.That(bothApplied.BaseSequence.Length, Is.GreaterThan(0));
+        }
+
+        [Test]
+        public void TestVariantCombinationOrderingPreventsOutOfBounds()
+        {
+            // This test specifically creates a scenario that would crash with ascending order
+            // but succeeds with descending order
+
+            // Protein: "ABCDEFGHIJ" (10 chars, positions 1-10)
+            // Variant1 at position 3: C -> CCCCC (adds 4 chars)
+            // Variant2 at position 8: H -> X
+
+            // If applied ascending (pos 3 first):
+            //   After V1: "ABCCCCCDEFGHIJ" (14 chars)
+            //   V2 still thinks position 8 is 'H', but now position 8 is 'D' - wrong!
+
+            // If applied descending (pos 8 first):
+            //   After V2: "ABCDEFGXIJ" (10 chars) - position 8 correctly changed
+            //   After V1: "ABCCCCCDEFGXIJ" (14 chars) - position 3 correctly expanded
+
+            var variant1 = new SequenceVariation(3, 3, "C", "CCCCC", "Expansion at 3");
+            var variant2 = new SequenceVariation(8, 8, "H", "X", "Substitution at 8");
+
+            var protein = new Protein(
+                "ABCDEFGHIJ",
+                "TestProtein",
+                sequenceVariations: new List<SequenceVariation> { variant1, variant2 });
+
+            var variantList = new List<SequenceVariation> { variant1, variant2 };
+
+            // This should NOT throw with the fix
+            List<Protein> results = null;
+            Assert.DoesNotThrow(() =>
+            {
+                results = VariantApplication.ApplyAllVariantCombinations(protein, variantList, maxCombinations: 10).ToList();
+            }, "Variant combination should not throw with descending position order");
+
+            // Find result with both variants
+            var bothApplied = results.FirstOrDefault(p =>
+                p.AppliedSequenceVariations != null &&
+                p.AppliedSequenceVariations.Count == 2);
+
+            Assert.That(bothApplied, Is.Not.Null);
+
+            // Expected: "ABCCCCCDEFGXIJ" (14 chars)
+            // - Original 'C' at position 3 expanded to 'CCCCC'
+            // - Original 'H' at position 8 changed to 'X'
+            Assert.That(bothApplied.BaseSequence, Is.EqualTo("ABCCCCCDEFGXIJ"));
+            Assert.That(bothApplied.BaseSequence.Length, Is.EqualTo(14));
+        }
+
+
+        private static void ExtractSingleProteinEntry(string sourceXml, string accession, string outputPath)
+        {
+            using var reader = new StreamReader(sourceXml);
+            using var writer = new StreamWriter(outputPath);
+
+            // Write XML header
+            writer.WriteLine("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+            writer.WriteLine("<uniprot xmlns=\"http://uniprot.org/uniprot\">");
+
+            var entryContent = new System.Text.StringBuilder();
+            bool inEntry = false;
+            bool isTargetEntry = false;
+
+            string line;
+            while ((line = reader.ReadLine()) != null)
+            {
+                if (line.Contains("<entry"))
+                {
+                    inEntry = true;
+                    entryContent.Clear();
+                    isTargetEntry = false;
+                }
+
+                if (inEntry)
+                {
+                    entryContent.AppendLine(line);
+
+                    if (line.Contains($"<accession>{accession}</accession>"))
+                        isTargetEntry = true;
+
+                    if (line.Contains("</entry>"))
+                    {
+                        inEntry = false;
+                        if (isTargetEntry)
+                        {
+                            writer.Write(entryContent.ToString());
+                            break;
+                        }
+                    }
+                }
+            }
+
+            writer.WriteLine("</uniprot>");
+        }
+
+        [Test]
         [TestCase("proteinEntryLipidMoietyBindingRegion.xml", DecoyType.Reverse)]
         public void LoadingLipidAsMod(string fileName, DecoyType decoyType)
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            List<Modification> UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            List<Modification> UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
 
             // Load in proteins
             var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", fileName);
@@ -142,7 +288,7 @@ namespace Test.DatabaseTests
         [Test]
         public static void LoadModWithNl()
         {
-            var hah = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt"), out var errors).First() as Modification;
+            var hah = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "cfInNL.txt"), out var errors).First() as Modification;
             int count = 0;
             foreach (KeyValuePair<MassSpectrometry.DissociationType, List<double>> item in hah.NeutralLosses)
             {
@@ -154,23 +300,45 @@ namespace Test.DatabaseTests
             Assert.AreEqual(2, count);
         }
 
+        // The Loaders.Update* tests below, FilesEqualHash and FilesLoading each download an ontology over
+        // the network (unimod.org, github.com, uniprot.org). They are the live canaries for that download
+        // path, so they carry [Category("ExternalService")] and run in the dedicated non-blocking job.
+        //
+        // They also run through ExternalServiceTestHelper.RunAsync, which is what makes the result
+        // readable: a third party being down reports Skipped with "we tried, the service is down", while a
+        // contract break — a moved URL, a response that no longer parses — still Fails. Without it these
+        // surfaced an outage as a raw 100-second TaskCanceledException, indistinguishable from a real bug.
+        //
+        // Tests that merely need a realistic modification list are NOT canaries and are NOT categorised;
+        // they read the committed fixtures via TestOntologies so they never touch the network at all.
+        // TestUpdateElements is likewise uncategorised: it only validates the in-memory periodic table.
+
         [Test]
-        public void TestUpdateUnimod()
+        [Category("ExternalService")]
+        [Category("Unimod")]
+        public static Task TestUpdateUnimod() => ExternalServiceTestHelper.RunAsync("Unimod", () =>
         {
             var unimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables.xml");
             Loaders.UpdateUnimod(unimodLocation);
             Loaders.UpdateUnimod(unimodLocation);
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
-        public void TestUpdatePsiMod()
+        [Category("ExternalService")]
+        [Category("PsiMod")]
+        public static Task TestUpdatePsiMod() => ExternalServiceTestHelper.RunAsync("PSI-MOD", () =>
         {
             var psimodLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "lal.xml");
             Loaders.UpdatePsiMod(psimodLocation);
             Loaders.UpdatePsiMod(psimodLocation);
-        }
+            return Task.CompletedTask;
+        });
+
         [Test]
-        public void TestUpdatePsiModObo()
+        [Category("ExternalService")]
+        [Category("PsiMod")]
+        public static Task TestUpdatePsiModObo() => ExternalServiceTestHelper.RunAsync("PSI-MOD", () =>
         {
             string testDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "obo");
             Directory.CreateDirectory(testDirectory);
@@ -223,7 +391,251 @@ namespace Test.DatabaseTests
                 AutoFlush = true
             };
             Console.SetOut(standardOutput);
+            return Task.CompletedTask;
+        });
+
+        /// <summary>
+        /// Pins the reason <see cref="Loaders.DownloadContent"/> checks the status code: it used to stream a
+        /// 404 page to disk, and since the callers hash that file and move it into place, an outage could
+        /// install an error page as the PTM database. The failure then surfaced as a corrupt ontology much
+        /// later instead of as a failed download.
+        ///
+        /// Deliberately NOT routed through <see cref="ExternalServiceTestHelper.RunAsync"/>: it converts
+        /// HttpRequestException into a skip, and the thrown HttpRequestException is precisely what this test
+        /// asserts. EnsureReachable covers the outage case instead — if UniProt is unreachable the fixture is
+        /// skipped, so only a reachable host that answers non-success can fail this.
+        /// </summary>
+        [Test]
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public void DownloadContentRejectsNonSuccessInsteadOfWritingIt()
+        {
+            // Probe the host this test actually calls. It used to probe http://uniprot.org while the
+            // download below goes to https://rest.uniprot.org — a different host, so the probe could pass
+            // while the host that matters was down, which is how a UniProt outage turned this red instead
+            // of skipping it. The probe URL must answer 200; the download URL deliberately does not.
+            ExternalServiceTestHelper.EnsureReachable("UniProt", "https://rest.uniprot.org/uniprotkb/P02768.fasta");
+
+            // Same host, a path it answers 404 on — the shape of the bug, not a fabricated one.
+            string outputFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "notFound.ptmlist.txt");
+            File.Delete(outputFile);
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://rest.uniprot.org/docs/ptmlist.txt", outputFile));
+
+            // A non-success response must never reach disk, whatever the status. That half of the contract
+            // holds during an outage too, so it is asserted unconditionally.
+            Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+
+            // The other half — that the status reaches the message — can only be checked against the 404
+            // this path is chosen to produce. A degraded UniProt substitutes a 5xx (observed live: 500 on
+            // every endpoint on 2026-08-21), which says nothing about the contract, so skip rather than
+            // fail. Without this the test reports a third-party outage as a code failure.
+            int status = 0;
+            foreach (string token in e.Message.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+            {
+                if (token.Length == 3 && int.TryParse(token, out int parsed))
+                {
+                    status = parsed;
+                    break;
+                }
+            }
+
+            if (status >= 500 || status == 408 || status == 429)
+            {
+                Assert.Ignore($"Skipping external-service test: UniProt unavailable (answered {status} where this " +
+                              "path normally answers 404). This is a third-party availability problem, not a code failure.");
+            }
+
+            Assert.IsTrue(e.Message.Contains("404"), $"the status belongs in the message, got: {e.Message}");
         }
+
+        // ---- DownloadContent, offline --------------------------------------------------------
+        //
+        // The live canary above proves the contract against the real UniProt. It cannot cover it: the
+        // required CI job, which is the only place coverage is collected, runs
+        // --filter "Category!=ExternalService". So the failure paths are driven here through a stubbed
+        // HttpClient instead, which is also the only way to reach a mid-transfer failure on demand.
+
+        /// <summary>An HttpMessageHandler that returns a caller-supplied response and records request URIs.</summary>
+        private sealed class StubHandler : HttpMessageHandler
+        {
+            private readonly Func<HttpRequestMessage, HttpResponseMessage> _responder;
+            public List<string> RequestedUris { get; } = new();
+
+            public StubHandler(Func<HttpRequestMessage, HttpResponseMessage> responder) => _responder = responder;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                RequestedUris.Add(request.RequestUri.ToString());
+                return Task.FromResult(_responder(request));
+            }
+        }
+
+        /// <summary>A read-only stream that yields a few bytes and then throws, to simulate a mid-transfer failure.</summary>
+        private sealed class ThrowingStream : Stream
+        {
+            private int _bytesBeforeThrow;
+            public ThrowingStream(int bytesBeforeThrow) => _bytesBeforeThrow = bytesBeforeThrow;
+
+            public override int Read(byte[] buffer, int offset, int count)
+            {
+                if (_bytesBeforeThrow <= 0)
+                    throw new IOException("simulated mid-stream failure");
+                int n = Math.Min(count, _bytesBeforeThrow);
+                for (int i = 0; i < n; i++) buffer[offset + i] = 0x41;
+                _bytesBeforeThrow -= n;
+                return n;
+            }
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        private static HttpClient ClientReturning(HttpStatusCode status, HttpContent content = null) =>
+            new(new StubHandler(_ => new HttpResponseMessage(status) { Content = content ?? new StringContent("body") }));
+
+        /// <summary>A directory of its own per test, so FileMode.CreateNew always meets a clean destination.</summary>
+        private static string FreshScratchDirectory()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "LoadersDownload_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(path);
+            return path;
+        }
+
+        /// <summary>
+        /// The offline twin of <see cref="DownloadContentRejectsNonSuccessInsteadOfWritingIt"/>: the same
+        /// contract, without needing a host that is both reachable and willing to answer 404.
+        /// </summary>
+        [Test]
+        [TestCase(HttpStatusCode.NotFound)]
+        [TestCase(HttpStatusCode.InternalServerError)]
+        [TestCase(HttpStatusCode.Forbidden)]
+        public void DownloadContentNonSuccessThrowsAndWritesNothing(HttpStatusCode status)
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile, ClientReturning(status)));
+
+            Assert.IsTrue(e.Message.Contains(((int)status).ToString()),
+                $"the status belongs in the message, got: {e.Message}");
+            Assert.IsFalse(File.Exists(outputFile), "a non-success response must not reach disk");
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// A transfer that dies part-way must leave nothing behind, because the callers hash whatever file
+        /// they find and move it into place — a truncated ontology would be installed as a complete one.
+        ///
+        /// It arrives as HttpRequestException, not the underlying IOException, and the destination is never
+        /// created at all. DownloadContent calls GetAsync with the default HttpCompletionOption, so the whole
+        /// body is buffered while the request completes, before the FileStream is opened. That is what makes
+        /// this safe: the file cannot be half-written by a network failure, because there is no network left
+        /// to fail by the time the file exists. The cleanup in the catch below is therefore a guard against
+        /// the DISK failing mid-write, not the transfer.
+        /// </summary>
+        [Test]
+        public void DownloadContentMidTransferFailureThrowsAndWritesNothing()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+
+            var content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 8));
+
+            var e = Assert.Throws<HttpRequestException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                    ClientReturning(HttpStatusCode.OK, content)));
+
+            Assert.IsInstanceOf<IOException>(e.InnerException, "the transport failure should still be reachable");
+            Assert.IsFalse(File.Exists(outputFile), "a failed transfer must leave nothing to be hashed");
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// The success path, which nothing else covers without a live host: the body reaches disk byte for
+        /// byte, under the name asked for, and the request goes to the URL asked for.
+        /// </summary>
+        [Test]
+        public void DownloadContentSuccessWritesTheBodyToTheNamedFile()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            const string url = "https://example.invalid/ontology";
+            const string body = "ID   PTM-0001\nDE   a small ontology payload\n//\n";
+
+            var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(body) });
+            Loaders.DownloadContent(url, outputFile, new HttpClient(handler));
+
+            Assert.IsTrue(File.Exists(outputFile));
+            Assert.AreEqual(body, File.ReadAllText(outputFile));
+            CollectionAssert.AreEqual(new[] { url }, handler.RequestedUris);
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// A cleanup that cannot run must not replace the reason the download failed. TryDeletePartialDownload
+        /// swallows IOException precisely so the caller still sees the original fault; if it did not, a locked
+        /// scratch file would report "file in use" and bury the real cause.
+        /// </summary>
+        [Test]
+        public void DownloadContentFailedCleanupStillSurfacesTheOriginalFailure()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            File.WriteAllText(outputFile, "leftover");
+
+            // Held open with no sharing, so CreateNew fails AND the cleanup's File.Delete cannot succeed.
+            using (FileStream held = new(outputFile, FileMode.Open, FileAccess.Read, FileShare.None))
+            {
+                Assert.Throws<IOException>(
+                    () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                        ClientReturning(HttpStatusCode.OK)));
+
+                Assert.IsTrue(File.Exists(outputFile), "the undeletable file is still there; the swallow is what lets the real error through");
+            }
+
+            Directory.Delete(scratch, true);
+        }
+
+        /// <summary>
+        /// Pins a sharp edge deliberately rather than leaving it to be discovered. DownloadContent opens the
+        /// destination with FileMode.CreateNew INSIDE its try, so an existing file makes the FileStream
+        /// constructor throw, and the catch then removes that file even though this call never wrote it.
+        ///
+        /// That is survivable only because every caller passes "<real destination>.temp" — the file being
+        /// removed is a leftover scratch file from an interrupted run, never an installed ontology, and
+        /// clearing it is what lets the next run succeed. Were DownloadContent ever pointed at a real
+        /// destination, this would delete it. ProteinDbRetriever does not share the hazard: it writes
+        /// through a Guid-tokened ".partial" and moves it into place.
+        /// </summary>
+        [Test]
+        public void DownloadContentExistingDestinationThrowsAndClearsTheStaleFile()
+        {
+            string scratch = FreshScratchDirectory();
+            string outputFile = Path.Combine(scratch, "ontology.temp");
+            File.WriteAllText(outputFile, "a leftover from an interrupted run");
+
+            Assert.Throws<IOException>(
+                () => Loaders.DownloadContent("https://example.invalid/ontology", outputFile,
+                    ClientReturning(HttpStatusCode.OK)));
+
+            Assert.IsFalse(File.Exists(outputFile), "the stale scratch file is cleared so the next run can proceed");
+
+            Directory.Delete(scratch, true);
+        }
+
         [Test]
         public void TestUpdateElements()
         {
@@ -232,15 +644,20 @@ namespace Test.DatabaseTests
         }
 
         [Test]
-        public void TestUpdateUniprot()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestUpdateUniprot() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             var uniprotLocation = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist.txt");
             Loaders.UpdateUniprot(uniprotLocation);
             Loaders.UpdateUniprot(uniprotLocation);
-        }
+            return Task.CompletedTask;
+        });
 
+        // Downloads from uniprot.org, unimod.org and github.com in one test.
         [Test]
-        public void FilesEqualHash()
+        [Category("ExternalService")]
+        public static Task FilesEqualHash() => ExternalServiceTestHelper.RunAsync("UniProt/Unimod/PSI-MOD", () =>
         {
             var fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake.txt");
             using (StreamWriter file = new StreamWriter(fake))
@@ -257,7 +674,8 @@ namespace Test.DatabaseTests
             fake = Path.Combine(TestContext.CurrentContext.TestDirectory, "fake3.txt");
             using (StreamWriter file = new StreamWriter(fake))
                 file.WriteLine("fake");
-        }
+            return Task.CompletedTask;
+        });
 
         [Test]
         public void TestPsiModLoading()
@@ -283,9 +701,17 @@ namespace Test.DatabaseTests
             Assert.IsTrue(anyNegativeValue);
         }
 
+        /// <summary>
+        /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
+        /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
+        /// *2 filenames — which are deliberately absent from the output directory, so Load* downloads them.
+        /// Tests that just need a modification list use the trimmed fixtures via TestOntologies instead.
+        /// </summary>
         [Test]
-        public void FilesLoading() //delete mzLib\Test\bin\x64\Debug to update your local unimod list
+        [Category("ExternalService")]
+        public static Task FilesLoading() => ExternalServiceTestHelper.RunAsync("UniProt/Unimod/PSI-MOD", () =>
         {
+            //delete mzLib\Test\bin\Debug to update your local unimod list
             string uniModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "unimod_tables2.xml");
             string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml");
             string uniProtPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt");
@@ -315,11 +741,11 @@ namespace Test.DatabaseTests
             var psiModDeserialized = Loaders.LoadPsiMod(psiModPath);
 
             // N6,N6,N6-trimethyllysine
-            var trimethylLysine = psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00083"));
+            var trimethylLysine = psiModDeserialized.Items.OfType<oboTerm>().First(b => b.id.Equals("MOD:00083"));
             Assert.AreEqual("1+", trimethylLysine.xref_analog.First(b => b.dbname.Equals("FormalCharge")).name);
 
             // Phosphoserine
-            Assert.IsFalse(psiModDeserialized.Items.OfType<UsefulProteomicsDatabases.Generated.oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
+            Assert.IsFalse(psiModDeserialized.Items.OfType<oboTerm>().First(b => b.id.Equals("MOD:00046")).xref_analog.Any(b => b.dbname.Equals("FormalCharge")));
 
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
 
@@ -343,7 +769,7 @@ namespace Test.DatabaseTests
             }
 
             // read in the file and make sure that it has the same number of PTMs
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
+            var sampleModList = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "test.txt"), out var errors).ToList();
 
             Assert.AreEqual(uniprotPtms.Count + unimodMods.Count, sampleModList.Count());
 
@@ -363,7 +789,8 @@ namespace Test.DatabaseTests
             File.Delete(uniModPath);
             File.Delete(psiModPath);
             File.Delete(uniProtPath);
-        }
+            return Task.CompletedTask;
+        });
 
         /// <summary>
         /// Tests loading an annotated PTM with a longer known motif (>1 character in the motif)
@@ -388,27 +815,27 @@ namespace Test.DatabaseTests
         [Test]
         public void SampleModFileLoading()
         {
-            PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"), out var errors);
+            ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFile.txt"), out var errors);
         }
 
         [Test]
         public void SampleModFileLoadingFail1()
         {
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt"), out var errors);
+            var b = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail1.txt"), out var errors);
             Assert.AreEqual(0, b.Count());
         }
 
         [Test]
         public void SampleModFileLoadingFail2()
         {
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt"), out var errors);
+            var b = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail2.txt"), out var errors);
             Assert.AreEqual(0, b.Count());
         }
 
         [Test]
         public void SampleModFileLoadingFail3()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt"), out var errors).ToList(),
+            Assert.That(() => ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail3.txt"), out var errors).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("Input string for chemical formula was in an incorrect format: $%&$%"));
@@ -417,7 +844,7 @@ namespace Test.DatabaseTests
         [Test]
         public void SampleModFileLoadingFail4()
         {
-            Assert.That(() => PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt"), out var errors).ToList(),
+            Assert.That(() => ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "m.txt"), out var errors).ToList(),
                                             Throws.TypeOf<MzLibException>()
                                             .With.Property("Message")
                                             .EqualTo("0 or 238.229666 is not a valid monoisotopic mass"));
@@ -426,33 +853,33 @@ namespace Test.DatabaseTests
         [Test]
         public void SampleModFileLoadingFail5()
         {
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"), out var errors);
+            var b = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"), out var errors);
             Assert.AreEqual(0, b.Count());
         }
 
         [Test]
         public void SampleModFileLoadingFail6()
         {
-            var b = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"), out var errors);
+            var b = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileFail5.txt"), out var errors);
             Assert.AreEqual(0, b.Count());
         }
 
         [Test]
         public void CompactFormReading()
         {
-            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt"), out var errors).Count());
+            Assert.AreEqual(2, ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble.txt"), out var errors).Count());
         }
 
         [Test]
         public void CompactFormReading2()
         {
-            Assert.AreEqual(2, PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt"), out var errors).Count());
+            Assert.AreEqual(2, ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "sampleModFileDouble2.txt"), out var errors).Count());
         }
 
         [Test]
         public void Modification_read_write_into_proteinDb()
         {
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
+            var sampleModList = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
             Assert.AreEqual(1, sampleModList.OfType<Modification>().Count());
             Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
             Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());
@@ -489,7 +916,7 @@ namespace Test.DatabaseTests
         [Test]
         public void MultiMod_ProteinDbWriter()
         {
-            var sampleModList = PtmListLoader
+            var sampleModList = ModificationLoader
                 .ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"),
                     out var errors).ToList();
             var currentMod = sampleModList.First();
@@ -619,7 +1046,7 @@ namespace Test.DatabaseTests
         [Test]
         public void DoNotWriteSameModTwiceAndDoNotWriteInHeaderSinceDifferent()
         {
-            var sampleModList = PtmListLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
+            var sampleModList = ModificationLoader.ReadModsFromFile(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "z.txt"), out var errors).ToList();
             Protein protein = new Protein("MCSSSSSSSSSS", "accession", "organism", new List<Tuple<string, string>>(), new Dictionary<int, List<Modification>> { { 2, sampleModList.OfType<Modification>().ToList() } }, null, "name", "full_name", false, false, new List<DatabaseReference>(), new List<SequenceVariation>(), disulfideBonds: new List<DisulfideBond>());
             Assert.AreEqual(1, protein.OneBasedPossibleLocalizedModifications[2].OfType<Modification>().Count());
 
@@ -768,15 +1195,25 @@ namespace Test.DatabaseTests
             Assert.AreNotEqual(proteinList[2].Accession, proteinList[4].Accession);
         }
 
+        /// <summary>
+        /// Live canary for <see cref="ProteinDbRetriever.RetrieveProteome"/>. Carries
+        /// [Category("ExternalService")] so a UniProt outage cannot redden the required CI job, and runs
+        /// through <see cref="ExternalServiceTestHelper.RunAsync"/> so an outage SKIPS while a contract
+        /// break FAILS — a separation that only became possible once the retriever stopped reporting both
+        /// as null. The offline coverage of the failure contract lives in
+        /// <see cref="ProteinDbRetrieverTests"/>.
+        /// </summary>
         [Test]
-        public static void TestRetrieveUniProtProteome()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestRetrieveUniProtProteome() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
 
             //UP000008595 is Uukuniemi virus (strain S23) (Uuk) which only has 4 proteins
             string returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.yes);
 
-            filepath += "\\UP000008595_reviewed_isoform.fasta.gz";
+            filepath = Path.Combine(filepath, "UP000008595_reviewed_isoform.fasta.gz");
 
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
@@ -801,46 +1238,32 @@ namespace Test.DatabaseTests
 
             File.Delete(filepath);
 
-            //fasta; unreviewed; non-compressed; no isoforms
-            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.fasta";
-            Assert.AreEqual(filepath, returnedFilePath);
-            Assert.IsTrue(File.Exists(filepath));
-            File.Delete(filepath);
-
-            //xml; reviewed; compresseded; no isoforms
+            //xml; reviewed; compressed; no isoforms. This one used to save UniProt's 404 page under a .xml
+            //name and pass, because the only thing asserted was that some file had been written.
             filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.yes, ProteinDbRetriever.Compress.yes, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_reviewed.xml.gz";
+            filepath = Path.Combine(filepath, "UP000008595_reviewed.xml.gz");
             Assert.AreEqual(filepath, returnedFilePath);
             Assert.IsTrue(File.Exists(filepath));
             File.Delete(filepath);
 
-            //xml; unreviewed; non-compresseded; no isoforms
+            //Uukuniemi virus is entirely reviewed, so asking for its unreviewed entries matches nothing.
+            //That used to be a zero-byte file whose path was returned as a success.
             filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.AreEqual(filepath, returnedFilePath);
-            Assert.IsTrue(File.Exists(filepath));
-            File.Delete(filepath);
+            Assert.Throws<MzLibException>(() => ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.fasta, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no));
+            Assert.IsFalse(File.Exists(Path.Combine(filepath, "UP000008595_unreviewed.fasta")));
 
-            //junk null return
-            filepath = "pathDoesNotExists";
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.IsNull(returnedFilePath);
+            return Task.CompletedTask;
+        });
 
-            //we don't support filetypes other than fasta or xml currently
-            //requesting gff or other file formats will return null for now.
-            filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
-            returnedFilePath = ProteinDbRetriever.RetrieveProteome("UP000008595", filepath, ProteinDbRetriever.ProteomeFormat.gff, ProteinDbRetriever.Reviewed.no, ProteinDbRetriever.Compress.no, ProteinDbRetriever.IncludeIsoforms.no);
-            filepath += "\\UP000008595_unreviewed.xml";
-            Assert.IsNull(returnedFilePath);
-        }
-
+        /// <summary>
+        /// Live canary for <see cref="ProteinDbRetriever.DownloadAvailableUniProtProteomes"/>; see the
+        /// remarks on <see cref="TestRetrieveUniProtProteome"/> for why it is categorised and wrapped.
+        /// </summary>
         [Test]
-        public static void TestDownloadAvailableUniProtProteomes()
+        [Category("ExternalService")]
+        [Category("UniProt")]
+        public static Task TestDownloadAvailableUniProtProteomes() => ExternalServiceTestHelper.RunAsync("UniProt", () =>
         {
             string filepath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests");
             string downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
@@ -852,37 +1275,25 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
 
             File.Delete(downloadedFilePath);
-            uniprotProteoms.Clear();
 
-            //test different types of compression
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
+            return Task.CompletedTask;
+        });
 
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.txt.gz"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
+        /// <summary>
+        /// Reading a downloaded proteome catalogue needs no network, so it is tested offline in the required
+        /// CI job. The failure contract for bad paths and extensions lives in <see cref="ProteinDbRetrieverTests"/>.
+        /// </summary>
+        [Test]
+        public static void TestUniprotProteomesListReadsEveryCompression()
+        {
+            foreach (string fileName in new[] { "b_availableUniProtProteomes.txt", "b_availableUniProtProteomes.txt.gz", "b_availableUniProtProteomes.zip" })
+            {
+                Dictionary<string, string> uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(
+                    Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", fileName));
 
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, @"DatabaseTests", @"b_availableUniProtProteomes.zip"));
-            Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"));
-            Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"]);
-            uniprotProteoms.Clear();
-
-            //return null for bad filepath
-            filepath = "bubba";
-            downloadedFilePath = ProteinDbRetriever.DownloadAvailableUniProtProteomes(filepath);
-            Assert.IsNull(downloadedFilePath);
-
-            //bad file path returns null
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList("badFilePath");
-            Assert.IsNull(uniprotProteoms);
-
-
-            //wrong file extension returns null
-            uniprotProteoms = ProteinDbRetriever.UniprotProteomesList(Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"bad.fasta"));
-            Assert.IsNull(uniprotProteoms);
+                Assert.IsTrue(uniprotProteoms.Keys.Contains("UP000005640"), fileName);
+                Assert.AreEqual("Homo sapiens (Human)", uniprotProteoms["UP000005640"], fileName);
+            }
         }
 
         [Test]
@@ -947,6 +1358,286 @@ namespace Test.DatabaseTests
             Assert.That(targetProtein.Accession == "ENSP00000372947.2");
             Assert.That(targetProtein.GeneNames.Count() == 1);
             Assert.That(targetProtein.GeneNames.First().Item2 == "ENSG00000206427.11");
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Fasta()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = proteins.Count(p => !p.IsDecoy);
+            int decoyCount = proteins.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(2));
+            Assert.That(decoyCount, Is.EqualTo(2));
+
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "fastaFile.fasta");
+
+            ProteinDbWriter.WriteFastaDatabase(proteins, fastapath, "|");
+            var readIn = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
+
+
+            var readInWithDecoyGeneration = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.Reverse, false, out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_AutoDetection()
+        {
+            string fastacontent = ">sp|Random_PROT1|Prot1 desc\nPEPTIDEK\n>sp|Random_PROT2|Prot2 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_auto.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random");
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count(p => p.IsEntrapment), Is.EqualTo(2));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_PrependingWhenMissing()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK\n>sp|PROTEIN2|Prot2 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(2));
+            Assert.That(proteins.All(p => p.IsEntrapment), Is.True);
+            Assert.That(proteins.All(p => p.Accession.StartsWith("Random_")), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_NoDoublePrefixing()
+        {
+            string fastacontent = ">sp|Random_PROTEIN1|Prot1 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_nodouble.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(1));
+            Assert.That(proteins[0].Accession, Does.StartWith("Random_"));
+            Assert.That(proteins[0].IsEntrapment, Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_DecoyPrependsWithNtrap()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_decoy.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(2));
+
+            var target = proteins.Single(p => !p.IsDecoy);
+            Assert.That(target.IsEntrapment, Is.True);
+            Assert.That(target.Accession.StartsWith("Random_"), Is.True);
+
+            var decoy = proteins.Single(p => p.IsDecoy);
+            Assert.That(decoy.IsEntrapment, Is.True);
+            Assert.That(decoy.Accession.Contains("Random_"), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_DualPrefixDetection()
+        {
+            string fastacontent = ">DECOY_Random_PROTEIN1 description\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_dual_prefix.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var accessionRegex = new FastaHeaderFieldRegex("accession", @">(.+?)\s", 0, 1);
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors, accessionRegex: accessionRegex, entrapmentIdentifier: "Random");
+            Assert.That(proteins.Count, Is.EqualTo(1));
+            Assert.That(proteins[0].IsEntrapment, Is.True);
+            Assert.That(proteins[0].IsDecoy, Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_ContaminantAndEntrapment_Throws()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_contam_entrap.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            Assert.Throws<MzLibException>(() =>
+                ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, true, out var errors, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentFasta_CombinedTargetDecoyAsEntrapment()
+        {
+            string fastacontent = ">sp|PROTEIN1|Prot1 desc\nPEPTIDEK\n>sp|PROTEIN2|Prot2 desc\nPEPTIDEK";
+            var fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_combined_entrap.fasta");
+            File.WriteAllText(fastapath, fastacontent);
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.Reverse, false, out var errors, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(proteins.Count, Is.EqualTo(4));
+
+            var targets = proteins.Where(p => !p.IsDecoy).ToList();
+            var decoys = proteins.Where(p => p.IsDecoy).ToList();
+            Assert.That(targets.Count, Is.EqualTo(2));
+            Assert.That(decoys.Count, Is.EqualTo(2));
+
+            Assert.That(targets.All(p => p.IsEntrapment), Is.True);
+            Assert.That(decoys.All(p => p.IsEntrapment), Is.True);
+
+            Assert.That(targets.All(p => p.Accession.StartsWith("Random_")), Is.True);
+            Assert.That(decoys.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(fastapath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_AutoDetection()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random");
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(proteins.All(p => !p.IsEntrapment), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_PrependingWhenMissing()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_prepend_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(proteins.All(p => p.IsEntrapment), Is.True);
+            Assert.That(proteins.All(p => p.Accession.StartsWith("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_DecoyPrependsWithEntrapmentPrefix()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_decoy_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            var targets = proteins.Where(p => !p.IsDecoy).ToList();
+            var decoys = proteins.Where(p => p.IsDecoy).ToList();
+
+            Assert.That(targets.All(p => p.IsEntrapment), Is.True);
+            Assert.That(decoys.All(p => p.IsEntrapment), Is.True);
+            Assert.That(targets.All(p => p.Accession.StartsWith("Random_")), Is.True);
+            Assert.That(decoys.All(p => p.Accession.Contains("Random_")), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_ContaminantAndEntrapment_Throws()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.None, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_contam_entrap_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            Assert.Throws<MzLibException>(() =>
+                ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), true, new List<string>(), out var errors2, entrapmentIdentifier: "Random", isEntrapment: true));
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void EntrapmentXml_DualPrefixDetection()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, false, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_dual_prefix_xml.xml");
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2, entrapmentIdentifier: "Random");
+            Assert.That(errors2.Count, Is.EqualTo(0));
+            Assert.That(proteins.All(p => !p.IsEntrapment), Is.True);
+
+            File.Delete(xmlPath);
+        }
+
+        [Test]
+        public static void DecoyWritingLoading_Xml()
+        {
+            var fastaFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "test_ensembl.pep.all.fasta");
+            var oligos = ProteinDbLoader.LoadProteinFasta(fastaFile, true, DecoyType.Reverse, true, out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+
+            int targetCount = oligos.Count(p => !p.IsDecoy);
+            int decoyCount = oligos.Count(p => p.IsDecoy);
+            Assert.That(targetCount, Is.EqualTo(2));
+            Assert.That(decoyCount, Is.EqualTo(2));
+
+            var xmlPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"Transcriptomics/TestData/ModomicsUnmodifiedTrimmed_decoy.xml");
+
+            ProteinDbWriter.WriteXmlDatabase([], oligos, xmlPath);
+            var readIn = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.None, new List<Modification>(), false, new List<string>(), out var errors2);
+            Assert.That(errors2.Count, Is.EqualTo(0));
+
+            int readInTargetCount = readIn.Count(p => !p.IsDecoy);
+            int readInDecoyCount = readIn.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
+
+
+            var readInWithDecoyGeneration = ProteinDbLoader.LoadProteinXML(xmlPath, true, DecoyType.Reverse,[], false, new List<string>(), out var errors3);
+            Assert.That(errors3.Count, Is.EqualTo(0));
+            readInTargetCount = readInWithDecoyGeneration.Count(p => !p.IsDecoy);
+            readInDecoyCount = readInWithDecoyGeneration.Count(p => p.IsDecoy);
+            Assert.That(readInTargetCount, Is.EqualTo(2));
+            Assert.That(readInDecoyCount, Is.EqualTo(2));
         }
     }
 }

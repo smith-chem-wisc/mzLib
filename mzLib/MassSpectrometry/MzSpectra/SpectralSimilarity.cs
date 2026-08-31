@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -51,7 +51,6 @@ namespace MassSpectrometry.MzSpectra
         private readonly double _localPpmTolerance;
         private readonly SpectrumNormalizationScheme _scheme;
         private readonly bool _allPeaks;
-        private readonly bool _keepAllTheoreticalPeaks;
 
         public List<(double, double)> IntensityPairs { get; } = new();
 
@@ -108,8 +107,7 @@ namespace MassSpectrometry.MzSpectra
         /// NOTE: ALL THEORETICAL MZ VALUES ARE USED TO CREATE AN INTENSITY PAIR. This prevents high similarity scores from
         /// only a handful of peaks.
         /// </summary>
-        /// <param name="keepAllExperimentalPeaks"></param>
-        /// <param name="keepAllTheoreticalPeaks"></param>
+        /// <param name="allPeaks"></param>
         /// <param name="experimentalYArray"></param>
         /// <param name="theoreticalYArray"></param>
         /// <returns></returns>
@@ -217,6 +215,63 @@ namespace MassSpectrometry.MzSpectra
         #endregion normalization
 
         #region similarityMethods
+
+        public enum SimilarityMeasures
+        {
+            CosineSimilarity,
+            SpectralContrastAngle,
+            EuclideanDistance,
+            BrayCurtis,
+            PearsonsCorrelation,
+            DotProduct,
+            SpectralEntropy,
+            KullbackLeiblerDivergence_P_Q,
+            SearleSimilarity
+        }
+
+        public double? GetSimilarityMeasure(SimilarityMeasures measure)
+        {
+            return measure switch
+            {
+                SimilarityMeasures.CosineSimilarity => CosineSimilarity(),
+                SimilarityMeasures.SpectralContrastAngle => SpectralContrastAngle(),
+                SimilarityMeasures.EuclideanDistance => EuclideanDistance(),
+                SimilarityMeasures.BrayCurtis => BrayCurtis(),
+                SimilarityMeasures.PearsonsCorrelation => PearsonsCorrelation(),
+                SimilarityMeasures.DotProduct => DotProduct(),
+                SimilarityMeasures.SpectralEntropy => SpectralEntropy(),
+                SimilarityMeasures.KullbackLeiblerDivergence_P_Q => KullbackLeiblerDivergence_P_Q(),
+                SimilarityMeasures.SearleSimilarity => SearleSimilarity(),
+                _ => null,
+            };
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetAllSimilarityMeasures()
+        {
+            foreach (SimilarityMeasures measure in Enum.GetValues(typeof(SimilarityMeasures)))
+            {
+                yield return (measure, GetSimilarityMeasure(measure));
+            }
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetAllSimilarityMeasuresExcept(params SimilarityMeasures[] measuresToExclude)
+        {
+            foreach (SimilarityMeasures measure in Enum.GetValues(typeof(SimilarityMeasures)))
+            {
+                if (!measuresToExclude.Contains(measure))
+                {
+                    yield return (measure, GetSimilarityMeasure(measure));
+                }
+            }
+        }
+
+        public IEnumerable<(SimilarityMeasures, double?)> GetSelectedSimilarityMeasures(params SimilarityMeasures[] measuresToInclude)
+        {
+            foreach (SimilarityMeasures measure in measuresToInclude)
+            {
+                yield return (measure, GetSimilarityMeasure(measure));
+            }
+        }
 
         //The cosine similarity returns values between 1 and -1 with 1 being closes and -1 being opposite and 0 being orthogonal
         public double? CosineSimilarity()
@@ -328,7 +383,7 @@ namespace MassSpectrometry.MzSpectra
         // This method should only be used when allPeaks is set to true
         public double? SpectralEntropy()
         {
-            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_allPeaks && !_keepAllTheoreticalPeaks)
+            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_allPeaks)
             {
                 return null;
             }
@@ -402,6 +457,43 @@ namespace MassSpectrometry.MzSpectra
                 squaredSumDifferences += Math.Pow((pair.Item1 - pair.Item2), 2);
             }
             return squaredSumDifferences > 0 ? Math.Log(Math.Pow(squaredSumDifferences, -1)) : double.MaxValue;
+        }
+
+        /// <summary>
+        /// Computes the cosine similarity between two pre-aligned intensity vectors of equal length.
+        /// Both vectors must be in the same positional order (index i of <paramref name="a"/> corresponds
+        /// to index i of <paramref name="b"/>). No peak matching is performed.
+        ///
+        /// Used by deconvolution scoring to compare an observed isotope intensity distribution
+        /// against a theoretical Averagine distribution after the two vectors have already been
+        /// aligned to the same isotope index grid.
+        /// </summary>
+        /// <param name="a">First intensity vector (e.g. observed isotope intensities).</param>
+        /// <param name="b">Second intensity vector (e.g. theoretical Averagine intensities).</param>
+        /// <returns>
+        /// Cosine similarity in [0, 1] for non-negative input vectors.
+        /// Returns 0 if either vector is all-zero or if the lengths differ.
+        /// </returns>
+        public static double CosineOfAlignedVectors(ReadOnlySpan<double> a, ReadOnlySpan<double> b)
+        {
+            if (a.Length != b.Length || a.Length == 0)
+                return 0.0;
+
+            double dot = 0.0;
+            double normA = 0.0;
+            double normB = 0.0;
+
+            for (int i = 0; i < a.Length; i++)
+            {
+                dot += a[i] * b[i];
+                normA += a[i] * a[i];
+                normB += b[i] * b[i];
+            }
+
+            if (normA <= 0.0 || normB <= 0.0)
+                return 0.0;
+
+            return dot / (Math.Sqrt(normA) * Math.Sqrt(normB));
         }
 
         #endregion similarityMethods

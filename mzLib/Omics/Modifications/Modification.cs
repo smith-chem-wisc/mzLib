@@ -34,7 +34,7 @@ namespace Omics.Modifications
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
-        public bool ValidModification
+        public virtual bool ValidModification
         {
             get
             {
@@ -102,6 +102,10 @@ namespace Omics.Modifications
         {
             switch (_locationRestriction)
             {
+                case "Protein core.":
+                case "Protein core":
+                    return "Anywhere.";
+
                 case "N-terminal.":
                 case "C-terminal.":
                 case "Peptide N-terminal.":
@@ -133,7 +137,8 @@ namespace Omics.Modifications
         {
             string id = IdWithMotif ?? OriginalId ?? string.Empty;
             string mt = ModificationType ?? string.Empty;
-            return id.GetHashCode() ^ mt.GetHashCode();
+            int cf = ChemicalFormula?.GetHashCode() ?? 1;
+            return id.GetHashCode() ^ mt.GetHashCode() ^ cf;
         }
 
         public override string ToString()

@@ -1,10 +1,34 @@
-﻿using Chemistry;
+using Chemistry;
 using Omics.Fragmentation;
+using System;
 
 namespace Transcriptomics;
 
-public class RnaFragmentationParams : FragmentationParams
+public class RnaFragmentationParams : IFragmentationParams, IEquatable<RnaFragmentationParams>
 {
+    public bool GenerateMIon { get; set; } = true;
+    public List<MIonLoss> MIonLosses { get; set; } = new();
+    public bool ModificationsCanSuppressBaseLossIons { get; set; } = false;
+
+    #region Equality
+
+    public override bool Equals(object? obj)
+        => obj is RnaFragmentationParams rna && Equals(rna);
+
+    bool IEquatable<IFragmentationParams>.Equals(IFragmentationParams? other)
+        => other is RnaFragmentationParams rna && Equals(rna);
+    public bool Equals(RnaFragmentationParams? other)
+    {
+        if (other is null) return false;
+        return GenerateMIon == other.GenerateMIon
+               && MIonListComparer.Instance.Equals(MIonLosses, other.MIonLosses)
+               && ModificationsCanSuppressBaseLossIons == other.ModificationsCanSuppressBaseLossIons;
+    }
+
+    public override int GetHashCode() => HashCode.Combine(GenerateMIon, MIonListComparer.Instance.GetHashCode(MIonLosses), ModificationsCanSuppressBaseLossIons);
+
+    #endregion
+
     static RnaFragmentationParams()
     {
         Default = new();
@@ -14,22 +38,22 @@ public class RnaFragmentationParams : FragmentationParams
         var waterLossFormula = MIonLoss.WaterLoss.ThisChemicalFormula;
 
         // Adenine Base Loss
-        var aLossFormula = Nucleotide.AdenineBase.BaseChemicalFormula - 2 * Nucleotide.AdenineBase.BaseChemicalFormula;
-        var aLoss = new MIonLoss("Adenine Base Loss", "-A", aLossFormula);
+        var aLossFormula =  Nucleotide.AdenineBase.BaseChemicalFormula;
+        var aLoss = new MIonLoss("Adenine Base Loss", "-A", Nucleotide.AdenineBase.BaseChemicalFormula);
         MIonLoss.AllMIonLosses.Add(aLoss.Annotation, aLoss);
 
         // Cytosine Base Loss
-        var cLossFormula = Nucleotide.CytosineBase.BaseChemicalFormula - 2 * Nucleotide.CytosineBase.BaseChemicalFormula;
+        var cLossFormula = Nucleotide.CytosineBase.BaseChemicalFormula;
         var cLoss = new MIonLoss("Cytosine Base Loss", "-C", cLossFormula);
         MIonLoss.AllMIonLosses.Add(cLoss.Annotation, cLoss);
 
         // Guanine Base Loss
-        var gLossFormula = Nucleotide.GuanineBase.BaseChemicalFormula - 2 * Nucleotide.GuanineBase.BaseChemicalFormula;
+        var gLossFormula = Nucleotide.GuanineBase.BaseChemicalFormula;
         var gLoss = new MIonLoss("Guanine Base Loss", "-G", gLossFormula);
         MIonLoss.AllMIonLosses.Add(gLoss.Annotation, gLoss);
 
         // Uracil Base Loss
-        var uLossFormula = Nucleotide.UracilBase.BaseChemicalFormula - 2 * Nucleotide.UracilBase.BaseChemicalFormula;
+        var uLossFormula = Nucleotide.UracilBase.BaseChemicalFormula;
         var uLoss = new MIonLoss("Uracil Base Loss", "-U", uLossFormula);
         MIonLoss.AllMIonLosses.Add(uLoss.Annotation, uLoss);
 
@@ -86,9 +110,4 @@ public class RnaFragmentationParams : FragmentationParams
     }
 
     public static readonly RnaFragmentationParams Default;
-    public RnaFragmentationParams()
-    {
-        GenerateMIon = true;
-        MIonLosses = new List<MIonLoss>();
-    }
 }

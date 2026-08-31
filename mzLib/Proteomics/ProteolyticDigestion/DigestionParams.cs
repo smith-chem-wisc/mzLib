@@ -1,9 +1,10 @@
-﻿using Omics.Digestion;
+using System;
+using Omics.Digestion;
 using Omics.Fragmentation;
 
 namespace Proteomics.ProteolyticDigestion 
 {
-    public class DigestionParams : IDigestionParams
+    public class DigestionParams : IDigestionParams, IEquatable<DigestionParams>
     {
         // this parameterless constructor needs to exist to read the toml.
         // if you can figure out a way to get rid of it, feel free...
@@ -70,31 +71,52 @@ namespace Proteomics.ProteolyticDigestion
 
         #endregion
 
-        public override bool Equals(object obj)
+        #region Equality
+
+        public override bool Equals(object? obj) 
+            => obj is DigestionParams dp && Equals(dp);
+
+        bool IEquatable<IDigestionParams>.Equals(IDigestionParams? other)
+            => other is DigestionParams dp && Equals(dp);
+
+        public bool Equals(DigestionParams? other)
         {
-            return obj is DigestionParams a
-                   && MaxMissedCleavages.Equals(a.MaxMissedCleavages)
-                   && MinLength.Equals(a.MinLength)
-                   && MaxLength.Equals(a.MaxLength)
-                   && InitiatorMethionineBehavior.Equals(a.InitiatorMethionineBehavior)
-                   && MaxModificationIsoforms.Equals(a.MaxModificationIsoforms)
-                   && MaxMods.Equals(a.MaxMods)
-                   && Protease.Equals(a.Protease)
-                   && SearchModeType.Equals(a.SearchModeType)
-                   && FragmentationTerminus.Equals(a.FragmentationTerminus)
-                   && GeneratehUnlabeledProteinsForSilac.Equals(a.GeneratehUnlabeledProteinsForSilac)
-                   && KeepNGlycopeptide.Equals(a.KeepNGlycopeptide)
-                   && KeepOGlycopeptide.Equals(a.KeepOGlycopeptide);
+            if (other is null) return false;
+            return MaxMissedCleavages == other.MaxMissedCleavages
+                   && MinLength == other.MinLength
+                   && MaxLength == other.MaxLength
+                   && InitiatorMethionineBehavior == other.InitiatorMethionineBehavior
+                   && MaxModificationIsoforms == other.MaxModificationIsoforms
+                   && MaxMods == other.MaxMods
+                   && Protease.Equals(other.Protease)
+                   && SearchModeType == other.SearchModeType
+                   && FragmentationTerminus == other.FragmentationTerminus
+                   && SpecificProtease.Equals(other.SpecificProtease)
+                   && GeneratehUnlabeledProteinsForSilac == other.GeneratehUnlabeledProteinsForSilac
+                   && KeepNGlycopeptide == other.KeepNGlycopeptide
+                   && KeepOGlycopeptide == other.KeepOGlycopeptide;
         }
 
         public override int GetHashCode()
         {
-            return
-                MaxMissedCleavages.GetHashCode()
-                ^ InitiatorMethionineBehavior.GetHashCode()
-                ^ MaxModificationIsoforms.GetHashCode()
-                ^ MaxMods.GetHashCode();
+            var hash = new HashCode();
+            hash.Add(MaxMissedCleavages);
+            hash.Add(MinLength);
+            hash.Add(MaxLength);
+            hash.Add(MaxModificationIsoforms);
+            hash.Add(MaxMods);
+            hash.Add((int)InitiatorMethionineBehavior);
+            hash.Add(Protease);
+            hash.Add((int)SearchModeType);
+            hash.Add((int)FragmentationTerminus);
+            hash.Add(SpecificProtease);
+            hash.Add(GeneratehUnlabeledProteinsForSilac);
+            hash.Add(KeepNGlycopeptide);
+            hash.Add(KeepOGlycopeptide);
+            return hash.ToHashCode();
         }
+
+        #endregion
 
         public override string ToString()
         {

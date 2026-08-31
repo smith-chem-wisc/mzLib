@@ -39,6 +39,12 @@ namespace Test.FlashLFQ
         public static void TearDown()
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+
+            // FlashLFQ's PEP engine used to drop a scratch "model.zip" into the input data folder
+            // (mzLib#1124). The fix routes it to a temp dir; clean up here as well so the test suite
+            // never accumulates that artifact — including any left behind by an older build.
+            string pepModelArtifact = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", "model.zip");
+            if (File.Exists(pepModelArtifact)) File.Delete(pepModelArtifact);
         }
 
         [Test]
@@ -485,6 +491,56 @@ namespace Test.FlashLFQ
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
 
+        /// <summary>
+        /// A peptide seen only in the merged-in results is added to PeptideModifiedSequences by the merge,
+        /// but it also has to join the set of sequences eligible for quantification. Otherwise the next
+        /// CalculatePeptideResults blanks every peptide and then refuses to repopulate that one, silently
+        /// zeroing the merged-in half of the data. The two runs must quantify DIFFERENT sequences for this
+        /// to prove anything - with a shared sequence the two sets are identical and the union is a no-op.
+        /// </summary>
+        [Test]
+        public static void TestFlashLfqMergeResultsKeepsMergedInPeptideQuantifiable()
+        {
+            FlashLfqResults resultsA = QuantifyOnePeptideInOneFile("peptideA", "a", out SpectraFileInfo fileA);
+            FlashLfqResults resultsB = QuantifyOnePeptideInOneFile("peptideB", "b", out SpectraFileInfo fileB);
+
+            Assert.That(resultsB.PeptideModifiedSequences["peptideB"].GetIntensity(fileB), Is.GreaterThan(0),
+                "the peptide must be quantified in the second run, or this test proves nothing");
+
+            resultsA.MergeResultsWith(resultsB);
+            resultsA.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+
+            Assert.That(resultsA.PeptideModifiedSequences["peptideB"].GetIntensity(fileB), Is.GreaterThan(0),
+                "a peptide seen only in the merged-in results must survive requantification");
+            Assert.That(resultsA.PeptideModifiedSequences["peptideB"].GetDetectionType(fileB),
+                Is.EqualTo(DetectionType.MSMS));
+
+            // the receiving run's own peptide was never at risk; it is here as a control
+            Assert.That(resultsA.PeptideModifiedSequences["peptideA"].GetIntensity(fileA), Is.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// Builds a single-file result quantifying one peptide, without touching the disk. The identification
+        /// is passed to the FlashLfqResults constructor so that the peptide lands in the set of sequences
+        /// eligible for quantification - an empty set there means "quantify nothing", not "quantify everything".
+        /// </summary>
+        private static FlashLfqResults QuantifyOnePeptideInOneFile(string sequence, string condition, out SpectraFileInfo file)
+        {
+            file = new SpectraFileInfo("", condition, 0, 0, 0);
+            Identification id = new Identification(file, sequence, sequence, 0, 0, 0, new List<ProteinGroup>());
+
+            ChromatographicPeak peak = new ChromatographicPeak(id, file);
+            peak.ResolveIdentifications();
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 1000, 1));
+            peak.CalculateIntensityForThisFeature(false);
+
+            FlashLfqResults results = new FlashLfqResults(new List<SpectraFileInfo> { file }, new List<Identification> { id });
+            results.Peaks[file].Add(peak);
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+
+            return results;
+        }
+
 
         /// <summary>
         /// This test MatchBetweenRuns by creating two fake mzML files and a list of fake IDs. 
@@ -868,8 +924,6 @@ namespace Test.FlashLFQ
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
-
             // generate mzml file
 
             // 1 MS1 scan per peptide
@@ -936,8 +990,6 @@ namespace Test.FlashLFQ
             string fileToWrite = "myMzml.mzML";
             string peptide = "PEPTIDE";
             double intensity = 1e6;
-
-            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -1500,6 +1552,11 @@ namespace Test.FlashLFQ
             var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.15, maxMbrWindow: 1);
             var results = engine.Run();
 
+            // REGRESSION (mzLib#1124): this data triggers the PEP path, which must write its scratch
+            // model.zip to a temp dir, NOT the input data folder. Assert before TearDown cleans up.
+            Assert.That(File.Exists(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", "model.zip")), Is.False,
+                "FlashLFQ left its PEP model.zip in the input data folder.");
+
             // Count the number of MBR results in each file
             var f1r1MbrResults = results
                 .PeptideModifiedSequences
@@ -1532,7 +1589,8 @@ namespace Test.FlashLFQ
 
             // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
             // has to be observed in a condition for match-between-runs
-            f1r1.Condition = "b";
+
+            f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r1_sliced_mbr.raw"), "b", 0, 0, 0);
             engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 5);
             results = engine.Run();
             var proteinsObservedInF1 = ids.Where(id => !id.IsDecoy).Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
@@ -1769,8 +1827,10 @@ namespace Test.FlashLFQ
         [Test]
         public static void TestAmbiguousFraction()
         {
+            //these two have the same filename...but are different fractions
             SpectraFileInfo fraction1 = new SpectraFileInfo("", "", 0, 0, fraction: 0);
             SpectraFileInfo fraction2 = new SpectraFileInfo("", "", 0, 0, fraction: 1);
+            
             Identification id1 = new Identification(fraction1, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
 
             Identification id2 = new Identification(fraction2, "peptide1", "peptide1", 0, 0, 0, new List<ProteinGroup>());
@@ -1918,6 +1978,61 @@ namespace Test.FlashLFQ
             Assert.That(double.Parse(protein2Results[6]) == 0);
 
             File.Delete(filepath);
+        }
+
+        /// <summary>
+        /// A sample's column is labelled by file name only when there is no experimental design to
+        /// label it with. The unfractionated cases were previously inverted: a run with real
+        /// conditions was labelled by file name, and a run with none produced the degenerate
+        /// "Intensity__1".
+        /// </summary>
+        [Test]
+        [TestCase("", "", "Intensity_run_1\tIntensity_run_2", TestName = "NoDesign_LabelsByFileName")]
+        [TestCase("Default", "Default", "Intensity_run_1\tIntensity_run_2", TestName = "DefaultCondition_LabelsByFileName")]
+        [TestCase("control", "treated", "Intensity_control_1\tIntensity_treated_2", TestName = "RealConditions_LabelBySample")]
+        public static void TestProteinGroupHeader_UnfractionatedLabelling(string condition1, string condition2, string expectedIntensityColumns)
+        {
+            var spectraFiles = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("run_1.mzML", condition1, biorep: 0, techrep: 0, fraction: 0),
+                new SpectraFileInfo("run_2.mzML", condition2, biorep: 1, techrep: 0, fraction: 0)
+            };
+
+            string header = ProteinGroup.TabSeparatedHeader(spectraFiles);
+
+            Assert.That(header, Is.EqualTo("Protein Groups\tGene Name\tOrganism\t" + expectedIntensityColumns));
+        }
+
+        /// <summary>
+        /// The header and the row are generated by separate methods that must make the same
+        /// labelling choice, or every intensity lands under the wrong column.
+        /// </summary>
+        [Test]
+        public static void TestProteinGroupHeaderAndRowAgreeOnColumnCount()
+        {
+            foreach (string[] conditions in new[] { new[] { "", "" }, new[] { "control", "treated" } })
+            {
+                foreach (int secondFraction in new[] { 0, 1 })
+                {
+                    var spectraFiles = new List<SpectraFileInfo>
+                    {
+                        new SpectraFileInfo("run_1.mzML", conditions[0], biorep: 0, techrep: 0, fraction: 0),
+                        new SpectraFileInfo("run_2.mzML", conditions[1], biorep: 1, techrep: 0, fraction: secondFraction)
+                    };
+
+                    var proteinGroup = new ProteinGroup("P1", "GENE", "Homo sapiens");
+                    foreach (SpectraFileInfo file in spectraFiles)
+                    {
+                        proteinGroup.SetIntensity(file, 1000);
+                    }
+
+                    int headerColumns = ProteinGroup.TabSeparatedHeader(spectraFiles).Split('\t').Length;
+                    int rowColumns = proteinGroup.ToString(spectraFiles).Split('\t').Length;
+
+                    Assert.That(rowColumns, Is.EqualTo(headerColumns),
+                        $"conditions=[{string.Join(",", conditions)}] secondFraction={secondFraction}");
+                }
+            }
         }
 
         [Test]

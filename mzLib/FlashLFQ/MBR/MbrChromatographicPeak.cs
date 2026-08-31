@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading.Tasks;
 using Chemistry;
 using System.Globalization;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -68,6 +69,13 @@ namespace FlashLFQ
                 sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+
+                PeakWidth width = PeakWidth;
+                sb.Append((width.IsMeasured
+                    ? width.FullWidthAtHalfMaximum.ToString(CultureInfo.InvariantCulture)
+                    : "-") + "\t");
+                sb.Append(width.Status.ToString() + "\t");
+
                 sb.Append(Apex.IndexedPeak.M.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
@@ -76,6 +84,8 @@ namespace FlashLFQ
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append(PeakWidthStatus.NoApex.ToString() + "\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
             }

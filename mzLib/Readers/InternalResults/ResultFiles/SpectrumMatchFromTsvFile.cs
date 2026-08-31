@@ -2,19 +2,26 @@
 
 public abstract class SpectrumMatchFromTsvFile<T> : ResultFile<T>, IQuantifiableResultFile where T: SpectrumMatchFromTsv
 {
+    protected SpectrumMatchParsingParameters? ParsingParams { get; }
     public override SupportedFileType FileType => FilePath.ParseFileType();
     public override Software Software { get; set; }
 
     /// <summary>
     /// Constructor used to initialize from the factory method
     /// </summary>
-    public SpectrumMatchFromTsvFile() : base() { }
+    protected SpectrumMatchFromTsvFile(SpectrumMatchParsingParameters? parsingParams = null) : base()
+    {
+        ParsingParams = parsingParams;
+    }
 
-    public SpectrumMatchFromTsvFile(string filePath) : base(filePath, Software.MetaMorpheus) { }
+    protected SpectrumMatchFromTsvFile(string filePath, SpectrumMatchParsingParameters? parsingParams = null) : base(filePath, Software.MetaMorpheus)
+    {
+        ParsingParams = parsingParams;
+    }
 
     public override void LoadResults()
     {
-        Results = SpectrumMatchTsvReader.ReadTsv<T>(FilePath, out List<string> warnings);
+        Results = SpectrumMatchTsvReader.ReadTsv<T>(FilePath, out List<string> warnings, ParsingParams);
     }
     public override void WriteResults(string outputPath) => throw new NotImplementedException();
     public IEnumerable<IQuantifiableRecord> GetQuantifiableResults() => Results;
