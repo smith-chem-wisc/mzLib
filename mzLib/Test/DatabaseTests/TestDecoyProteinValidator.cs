@@ -115,7 +115,6 @@ public class DecoySequenceValidatorTests
         var digestionParams = new RnaDigestionParams("RNase T1", maxMissedCleavages: 1, minLength: 5);
         var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
 
-        bool oneIsPalindromic = false;
         int palindromeCount = oligos.Count(p => DecoySequenceValidator.IsPalindromic(p.BaseSequence, out _));  
         Assert.That(palindromeCount, Is.GreaterThan(0));
 
@@ -174,7 +173,11 @@ public class DecoySequenceValidatorTests
         Assert.That(scrambledDecoy.OneBasedPossibleLocalizedModifications.Count, Is.EqualTo(2));
     }
 
+    // [Timeout] over [CancelAfter] deliberately: CancelAfter cannot enforce a budget on a
+    // non-cooperative synchronous test, so it would not catch the infinite loop this guards against.
+#pragma warning disable CS0618
     [Test, Timeout(5000)]
+#pragma warning restore CS0618
     public static void TestDecoyScramblerNoInfiniteLoops()
     {
         DigestionParams d = new DigestionParams(
