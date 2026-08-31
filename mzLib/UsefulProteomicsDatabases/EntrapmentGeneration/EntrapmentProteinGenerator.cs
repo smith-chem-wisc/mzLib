@@ -252,8 +252,20 @@ public static class EntrapmentProteinGenerator
         {
             for (int fold = 0; fold < foldCount; fold++)
             {
-                entrapment.Add(Create(entry, digestionParams, forbiddenSequences, fold, foldCount,
-                    seed, entrapmentIdentifier));
+                Protein partner = Create(entry, digestionParams, forbiddenSequences, out EntrapmentAssembly assembly,
+                    fold, foldCount, seed, entrapmentIdentifier);
+
+                // Every piece excised leaves nothing behind. A protein with an empty sequence is not
+                // a database entry: a loader warns and discards it, and its decoy with it, so writing
+                // one produces a database whose entrapment count is quietly short of its target count.
+                // Q156A1 is the real case -- a methionine followed by 79 glutamines, whose only base
+                // piece has exactly one arrangement once the termini are anchored.
+                if (assembly.EntrapmentSequence.Length == 0)
+                {
+                    continue;
+                }
+
+                entrapment.Add(partner);
             }
         }
 

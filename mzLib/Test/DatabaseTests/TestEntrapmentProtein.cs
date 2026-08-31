@@ -630,6 +630,39 @@ public class EntrapmentProteinTests
     private const string ForeignSequence = "MQVLGYTTPDNRAWEDSFLGKQPTMLNDVAHER";
 
     [Test]
+    public void AProteinWhoseEveryPieceIsExcisedIsNotEmitted()
+    {
+        // Q156A1 is the real case: a methionine followed by 79 glutamines. Its single base piece has
+        // exactly one arrangement once the termini are anchored, so it is excised and nothing
+        // remains. Writing an empty-sequence protein makes a loader warn and discard it -- and its
+        // decoy with it -- leaving a database whose entrapment count is quietly short of its target
+        // count, which is exactly how the off-by-one at entry level was noticed.
+        var homopolymer = new Protein("M" + new string('Q', 79), "Q156A1");
+        var ordinary = new Protein(Sequence, "P00001");
+
+        List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
+            new[] { homopolymer, ordinary }, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.Select(p => p.Accession), Is.EquivalentTo(new[] { "Random_P00001_f0" }),
+            "the homopolymer contributes no entry at all, rather than an empty one");
+        Assert.That(entrapment.All(p => p.BaseSequence.Length > 0), Is.True);
+    }
+
+    [Test]
+    public void TheHomopolymerReallyHasNoArrangement()
+    {
+        // Guard on the premise of the test above: if anchoring ever stopped freezing this sequence,
+        // that test would pass for the wrong reason.
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble("M" + new string('Q', 79),
+            Tryptic, NothingForbidden);
+
+        Assert.That(assembly.EntrapmentSequence, Is.Empty);
+        Assert.That(assembly.ExcisedCount, Is.EqualTo(1));
+        Assert.That(assembly.Pieces.Single().Failure,
+            Is.EqualTo(EntrapmentFailure.NoPermutationExists));
+    }
+
+    [Test]
     public void AForeignAccessionRoundTripsAndNamesNoTarget()
     {
         string accession = EntrapmentAccession.FormatForeign("Q9XYZ1");

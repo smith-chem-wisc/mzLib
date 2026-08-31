@@ -410,7 +410,16 @@ public sealed class EntrapmentReportBuilder
                 _unrepairableByAccession[target.Accession] = collisions;
             }
 
-            collisions.AddRange(assembly.UnrepairableRunCollisionPeptides);
+            // Distinct peptides, not placements. The same run can collide at two points in one
+            // low-complexity protein, and an exclusion list is read as "these peptides" -- a
+            // consumer subtracting a duplicate twice would over-correct.
+            foreach (string collision in assembly.UnrepairableRunCollisionPeptides)
+            {
+                if (!collisions.Contains(collision))
+                {
+                    collisions.Add(collision);
+                }
+            }
         }
     }
 
