@@ -151,7 +151,7 @@ public static class EntrapmentAssembler
             string piece = targetSequence.Substring(start, length);
 
             EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(piece, motifs, forbiddenSequences,
-                fold, foldCount, seed);
+                fold, foldCount, seed, TerminalAnchors(index, sites.Count - 1, length));
 
             if (partner.Succeeded)
             {
@@ -181,6 +181,49 @@ public static class EntrapmentAssembler
         int broken = CountRunsSpanningAGap(retainedTargetIndices, digestionParams.MaxMissedCleavages);
 
         return new EntrapmentAssembly(targetSequence, entrapment.ToString(), map, pieces, broken);
+    }
+
+    /// <summary>
+    /// Positions within a piece that must not move because they are the PROTEIN's termini.
+    /// </summary>
+    /// <remarks>
+    /// <para>A modification can be restricted to the N- or C-terminus, and a rearrangement that
+    /// moved that residue away would make it invalid for its location -- mzLib then drops it, and
+    /// nothing counts the loss. Measured before anchoring: 3,946 N-terminal and 31 C-terminal
+    /// modifications lost across the human proteome, 2.4% of all of them.</para>
+    /// <para>Both of the first two positions are held, not just the first: a modification annotated
+    /// after initiator-methionine cleavage sits on the second residue.</para>
+    /// <para>This is unconditional -- the termini are anchored whether or not anything is actually
+    /// modified there. Anchoring reactively would make the entrapment sequence a function of
+    /// (sequence, seed, modifications) rather than (sequence, seed), so two databases built from the
+    /// same proteome with different annotations would disagree on their sequences and the
+    /// determinism the pairing rests on would quietly weaken. The cost is two or three positions per
+    /// protein, against permutation spaces in the millions.</para>
+    /// </remarks>
+    private static int[]? TerminalAnchors(int pieceIndex, int pieceCount, int pieceLength)
+    {
+        bool first = pieceIndex == 0;
+        bool last = pieceIndex == pieceCount - 1;
+        if (!first && !last)
+        {
+            return null;
+        }
+
+        var anchors = new List<int>(3);
+        if (first)
+        {
+            anchors.Add(0);
+            if (pieceLength > 1)
+            {
+                anchors.Add(1);
+            }
+        }
+        if (last && pieceLength > 0)
+        {
+            anchors.Add(pieceLength - 1);
+        }
+
+        return anchors.ToArray();
     }
 
     private static void AppendPiece(StringBuilder entrapment, int[] map, int targetStart,

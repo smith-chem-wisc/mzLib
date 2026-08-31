@@ -237,14 +237,18 @@ public static class DecoySequenceValidator
     /// arithmetic rather than a collision, so no amount of searching or reseeding can improve it.
     /// Intended for peptide-length sequences; the free-position count drives the cost.
     /// </remarks>
-    public static BigInteger PermutationSpaceSize(string sequence, List<DigestionMotif> motifs)
+    /// <param name="alsoHeldInPlace">Extra zero-based positions to hold still on top of the
+    /// cleavage sites — used to anchor a protein's termini, so a modification restricted to one of
+    /// them stays valid. Null or empty pins nothing extra.</param>
+    public static BigInteger PermutationSpaceSize(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null)
     {
         if (string.IsNullOrEmpty(sequence))
         {
             return BigInteger.One;
         }
 
-        return Multinomial(FreeResidueCounts(sequence, motifs));
+        return Multinomial(FreeResidueCounts(sequence, motifs, alsoHeldInPlace));
     }
 
     /// <summary>
@@ -262,8 +266,11 @@ public static class DecoySequenceValidator
     /// the index from a seed and the sequence rather than from a random number generator.
     /// </remarks>
     /// <exception cref="MzLibException"><paramref name="index"/> lies outside the space.</exception>
+    /// <param name="alsoHeldInPlace">Extra zero-based positions to hold still on top of the
+    /// cleavage sites. Must match what was passed to <see cref="PermutationSpaceSize"/>, or the
+    /// index will not mean the same thing.</param>
     public static string UnrankPermutation(string sequence, List<DigestionMotif> motifs, BigInteger index,
-        out int[] swappedPositionArray)
+        out int[] swappedPositionArray, IReadOnlyCollection<int>? alsoHeldInPlace = null)
     {
         swappedPositionArray = Enumerable.Range(0, sequence?.Length ?? 0).ToArray();
         if (string.IsNullOrEmpty(sequence))
@@ -271,7 +278,7 @@ public static class DecoySequenceValidator
             return sequence;
         }
 
-        HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
+        HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
         List<int> freePositions = new();
         for (int i = 0; i < sequence.Length; i++)
         {
@@ -338,10 +345,32 @@ public static class DecoySequenceValidator
         return new string(rearranged);
     }
 
-    /// <summary>Residue counts over the positions no cleavage motif holds in place.</summary>
-    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs)
+    /// <summary>Every position held still: the cleavage sites, plus anything the caller anchored.</summary>
+    private static HashSet<int> HeldPositions(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace)
     {
-        HashSet<int> pinned = CleavageSitePositions(sequence, motifs);
+        HashSet<int> held = CleavageSitePositions(sequence, motifs);
+        if (alsoHeldInPlace is null)
+        {
+            return held;
+        }
+
+        foreach (int position in alsoHeldInPlace)
+        {
+            if (position >= 0 && position < sequence.Length)
+            {
+                held.Add(position);
+            }
+        }
+
+        return held;
+    }
+
+    /// <summary>Residue counts over the positions nothing holds in place.</summary>
+    private static SortedDictionary<char, int> FreeResidueCounts(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null)
+    {
+        HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
         SortedDictionary<char, int> counts = new();
 
         for (int i = 0; i < sequence.Length; i++)

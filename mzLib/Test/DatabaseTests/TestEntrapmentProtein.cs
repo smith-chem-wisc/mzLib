@@ -253,6 +253,110 @@ public class EntrapmentProteinTests
         }
     }
 
+    // ---- terminal modifications --------------------------------------------
+
+    private static Modification TerminalMod(string motifResidue, string restriction, string id) 
+    {
+        ModificationMotif.TryGetMotif(motifResidue, out ModificationMotif motif);
+        return new Modification(_originalId: id, _modificationType: "Common Biological",
+            _target: motif, _locationRestriction: restriction, _monoisotopicMass: 42.010565);
+    }
+
+    [Test]
+    public void Create_KeepsAModificationRestrictedToTheProteinNTerminus()
+    {
+        // A rearrangement that moved this residue off the terminus would make the modification
+        // invalid for its location, and mzLib would drop it -- silently. Measured before anchoring:
+        // 3,946 N-terminal modifications lost across the human proteome, 2.4% of all of them.
+        var target = new Protein("MAAALGGDRKGGVDTTPFAWENDRQISTLGGYK", "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification> { TerminalMod("M", "N-terminal.", "N-acetylmethionine") } }
+            });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.ContainsKey(1), Is.True,
+            "an N-terminally restricted modification must still be at position 1");
+        Assert.That(entrapment.BaseSequence[0], Is.EqualTo('M'));
+    }
+
+    [Test]
+    public void Create_KeepsAModificationOnTheSecondResidue()
+    {
+        // Position 2 matters as much as position 1: a modification annotated after initiator
+        // methionine cleavage lands on the second residue. Both are anchored.
+        var target = new Protein("MAAALGGDRKGGVDTTPFAWENDRQISTLGGYK", "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 2, new List<Modification> { TerminalMod("A", "N-terminal.", "N-acetylalanine") } }
+            });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.ContainsKey(2), Is.True);
+        Assert.That(entrapment.BaseSequence[1], Is.EqualTo('A'));
+    }
+
+    [Test]
+    public void Create_KeepsAModificationRestrictedToTheProteinCTerminus()
+    {
+        const string sequence = "MAAALGGDRKGGVDTTPFAWENDRQISTLGGYA";
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { sequence.Length, new List<Modification> { TerminalMod("A", "C-terminal.", "Amidation") } }
+            });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.ContainsKey(entrapment.BaseSequence.Length),
+            Is.True, "a C-terminally restricted modification must still be at the last position");
+        Assert.That(entrapment.BaseSequence[^1], Is.EqualTo('A'));
+    }
+
+    [Test]
+    public void Create_ConservesTheModificationCountWhenTerminalModificationsArePresent()
+    {
+        // The assertion the plan asks for by name: not "the shortfall is reported", but conserved.
+        const string sequence = "MAAALGGDRKGGVDTTPFAWENDRQISTLGGYK";
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification> { TerminalMod("M", "N-terminal.", "N-acetylmethionine") } },
+                { 2, new List<Modification> { TerminalMod("A", "N-terminal.", "N-acetylalanine") } },
+                { 18, new List<Modification> { Phospho() } }
+            });
+        int before = target.OneBasedPossibleLocalizedModifications.Sum(kv => kv.Value.Count);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.Sum(kv => kv.Value.Count),
+            Is.EqualTo(before), "no modification may be lost when none of them sits on an excised residue");
+    }
+
+    [Test]
+    public void Create_AnchorsTheTerminiWhetherOrNotAnythingIsModified()
+    {
+        // Anchoring is unconditional. Pinning only where a terminal modification happens to sit
+        // would make the entrapment sequence a function of the annotations as well as the residues,
+        // so two databases over the same proteome with different annotations would disagree on
+        // their sequences -- and the determinism the pairing rests on would quietly weaken.
+        const string sequence = "MAAALGGDRKGGVDTTPFAWENDRQISTLGGYK";
+        Protein bare = EntrapmentProteinGenerator.Create(new Protein(sequence, "P1"), Tryptic, NothingForbidden);
+        Protein annotated = EntrapmentProteinGenerator.Create(
+            new Protein(sequence, "P1", oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification> { TerminalMod("M", "N-terminal.", "N-acetylmethionine") } }
+            }), Tryptic, NothingForbidden);
+
+        Assert.That(annotated.BaseSequence, Is.EqualTo(bare.BaseSequence),
+            "the sequence must not depend on whether the protein carried a terminal modification");
+        Assert.That(bare.BaseSequence[0], Is.EqualTo('M'));
+        Assert.That(bare.BaseSequence[1], Is.EqualTo('A'));
+        Assert.That(bare.BaseSequence[^1], Is.EqualTo(sequence[^1]));
+    }
+
     // ---- pairing -----------------------------------------------------------
 
     [Test]

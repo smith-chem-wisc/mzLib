@@ -117,8 +117,12 @@ public static class EntrapmentPeptideGenerator
     /// <param name="foldCount">How many partners each target is to receive (the <c>r</c> of an
     /// r-fold entrapment database).</param>
     /// <param name="seed">Changes every choice reproducibly.</param>
+    /// <param name="alsoHeldInPlace">Extra zero-based positions within this peptide to hold still
+    /// on top of the cleavage sites. The assembler uses this to anchor a protein's termini, so a
+    /// modification restricted to one of them survives the rearrangement.</param>
     public static EntrapmentPeptide Create(string targetSequence, List<DigestionMotif> motifs,
-        IReadOnlySet<string> forbiddenSequences, int fold = 0, int foldCount = 1, int seed = 1)
+        IReadOnlySet<string> forbiddenSequences, int fold = 0, int foldCount = 1, int seed = 1,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null)
     {
         if (string.IsNullOrEmpty(targetSequence))
         {
@@ -133,7 +137,7 @@ public static class EntrapmentPeptideGenerator
             throw new MzLibException($"Fold {fold} is outside the {foldCount} requested folds.");
         }
 
-        BigInteger size = DecoySequenceValidator.PermutationSpaceSize(targetSequence, motifs);
+        BigInteger size = DecoySequenceValidator.PermutationSpaceSize(targetSequence, motifs, alsoHeldInPlace);
 
         // One arrangement means the identity and nothing else. No fold count and no seed can help.
         if (size <= BigInteger.One)
@@ -157,7 +161,7 @@ public static class EntrapmentPeptideGenerator
         {
             BigInteger index = start + (offset + step) % stretch;
             string candidate = DecoySequenceValidator.UnrankPermutation(targetSequence, motifs, index,
-                out int[] swapped);
+                out int[] swapped, alsoHeldInPlace);
 
             if (candidate != targetSequence && !forbiddenSequences.Contains(candidate))
             {
