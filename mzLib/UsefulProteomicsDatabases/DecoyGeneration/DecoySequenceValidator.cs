@@ -232,9 +232,14 @@ public static class DecoySequenceValidator
     /// Nothing is enumerated, so this is cheap even when the answer is astronomically large.
     /// </summary>
     /// <remarks>
-    /// Returns <see cref="BigInteger.One"/> when no rearrangement exists -- a homopolymeric tract
-    /// such as "SSSSSSR" has exactly one arrangement once its cleavage sites are pinned. That is
-    /// arithmetic rather than a collision, so no amount of searching or reseeding can improve it.
+    /// Returns <see cref="BigInteger.One"/> when no rearrangement exists. That is arithmetic rather
+    /// than a collision, so no amount of searching or reseeding can improve it, and the only
+    /// available "rearrangement" is the identity -- an entrapment sequence equal to its target.
+    /// <para>Two shapes reach it, and only one of them is exotic. A homopolymeric tract such as
+    /// <c>SSSSSSR</c> is the obvious one. The common one is <b>dense cleavage sites</b>:
+    /// <c>AKAKA</c> also returns 1, pinned by sites at 1 and 3 down to a single arrangement of three
+    /// identical free residues, and short tryptic peptides with several K or R are ordinary rather
+    /// than pathological. A caller will meet size 1 regularly, not only on degenerate input.</para>
     /// Intended for peptide-length sequences; the free-position count drives the cost.
     /// </remarks>
     /// <param name="alsoHeldInPlace">Extra zero-based positions to hold still on top of the
