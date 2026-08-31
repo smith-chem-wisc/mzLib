@@ -357,6 +357,47 @@ public class EntrapmentProteinTests
         Assert.That(bare.BaseSequence[^1], Is.EqualTo(sequence[^1]));
     }
 
+    [Test]
+    public void Create_AnchorsBothEndsOfASingleBasePieceProtein()
+    {
+        // A protein with no internal cleavage site is its own first AND last piece, so both
+        // anchoring branches fire at once. Nothing else in the fixtures exercises that.
+        const string sequence = "MAAALGGDQISTLGGYA";   // no K or R -- one piece
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 1, new List<Modification> { TerminalMod("M", "N-terminal.", "N-acetylmethionine") } },
+                { sequence.Length, new List<Modification> { TerminalMod("A", "C-terminal.", "Amidation") } }
+            });
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+
+        Assert.That(assembly.Pieces.Count, Is.EqualTo(1), "the fixture must actually be a single piece");
+        Assert.That(entrapment.BaseSequence[0], Is.EqualTo('M'));
+        Assert.That(entrapment.BaseSequence[1], Is.EqualTo('A'));
+        Assert.That(entrapment.BaseSequence[^1], Is.EqualTo('A'));
+        Assert.That(entrapment.BaseSequence, Is.Not.EqualTo(sequence), "the interior must still move");
+        Assert.That(entrapment.OneBasedPossibleLocalizedModifications.Sum(kv => kv.Value.Count),
+            Is.EqualTo(2), "both terminal modifications must survive");
+    }
+
+    [Test]
+    public void Create_AnchoringActuallyShrinksThePermutationSpace()
+    {
+        // If anchoring silently did nothing, every test above could still pass by luck on a short
+        // fixture. Hold the termini and the space must be strictly smaller.
+        var motifs = global::Omics.Digestion.DigestionMotif.ParseDigestionMotifsFromString("K|,R|");
+        const string piece = "MAAALGGDQISTLGGYA";
+
+        var free = global::UsefulProteomicsDatabases.DecoySequenceValidator.PermutationSpaceSize(piece, motifs);
+        var held = global::UsefulProteomicsDatabases.DecoySequenceValidator.PermutationSpaceSize(piece, motifs,
+            new[] { 0, 1, piece.Length - 1 });
+
+        Assert.That(held, Is.LessThan(free));
+        Assert.That(held, Is.GreaterThan(System.Numerics.BigInteger.One));
+    }
+
     // ---- pairing -----------------------------------------------------------
 
     [Test]
