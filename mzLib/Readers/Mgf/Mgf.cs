@@ -138,7 +138,7 @@ namespace Readers
         public static MsDataFile LoadAllStaticData(string filePath, FilteringParams filteringParams = null,
             int maxThreads = 1) => MsDataFileReader.GetDataFile(filePath).LoadAllStaticData(filteringParams, maxThreads);
 
-        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved, 
+        private static MsDataScan? GetNextMsDataOneBasedScanFromConnection(StreamReader sr, HashSet<int> scanNumbersAlreadyObserved,
             IFilteringParams filterParams = null, int? alreadyKnownScanNumber = null)
         {
             List<double> mzs = new List<double>();
@@ -147,6 +147,9 @@ namespace Readers
             double precursorMz = 0;
             double? precursorIntensity = null; //default when unknown
             double rtInMinutes = double.NaN; //default when unknown
+            int? msLevel = null; //from the MSLEVEL line when present
+            bool sawPrecursorMz = false;
+            bool sawCharge = false;
 
             int oldScanNumber = scanNumbersAlreadyObserved.Count > 0 ? scanNumbersAlreadyObserved.Max() : 0;
             int scanNumber = alreadyKnownScanNumber.HasValue ? alreadyKnownScanNumber.Value : 0;
@@ -172,15 +175,27 @@ namespace Readers
                     precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
                     if (sArray.Length > 1)
                         precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
+                    sawPrecursorMz = true;
+                }
+                else if (line.StartsWith("MSLEVEL"))
+                {
+                    msLevel = Convert.ToInt32(sArray[1], CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("CHARGE"))
                 {
+                    // The sign suffix is optional: "2+", "2-" and "2" are all valid charge states.
+                    // Strip it only when present -- stripping unconditionally drops a digit, so "12"
+                    // read as 1. Polarity is derived from the sign of this charge.
                     string entry = sArray[1];
-                    charge = Convert.ToInt32(entry.Substring(0, entry.Length - 1));
-                    if (entry[entry.Length - 1].Equals("-"))
+                    char sign = entry[entry.Length - 1];
+                    bool signed = sign == '+' || sign == '-';
+
+                    charge = Convert.ToInt32(signed ? entry.Substring(0, entry.Length - 1) : entry);
+                    if (sign == '-')
                     {
                         charge *= -1;
                     }
+                    sawCharge = true;
                 }
                 else if (line.StartsWith("SCANS"))
                 {
@@ -236,8 +251,24 @@ namespace Readers
 
             scanNumbersAlreadyObserved.Add(scanNumber);
 
-            return new MsDataScan(spectrum, scanNumber, 2, true,
-                charge > 0 ? Polarity.Positive : Polarity.Negative,
+            // MSLEVEL when the writer supplied one; otherwise a block with a precursor is MS2 and a
+            // block without one is MS1. Files predating MSLEVEL all carry PEPMASS, so they read as before.
+            int msnOrder = msLevel ?? (sawPrecursorMz ? 2 : 1);
+
+            // MGF has no polarity field, so it is only inferrable from the sign of CHARGE. A block with
+            // no CHARGE line reads as positive on both the static and dynamic paths -- inheriting it from
+            // a neighbouring block would make the two disagree, since a random-access read cannot see
+            // what preceded it.
+            Polarity polarity = charge > 0 ? Polarity.Positive : Polarity.Negative;
+
+            if (msnOrder == 1)
+            {
+                return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
+                    rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
+                    intensities.Sum(), 0, null, null);
+            }
+
+            return new MsDataScan(spectrum, scanNumber, msnOrder, true, polarity,
                 rtInMinutes, scanRange, null, MZAnalyzerType.Unknown,
                 intensities.Sum(), 0, null, null, precursorMz, charge,
                 precursorIntensity, precursorMz, null, DissociationType.Unknown,
