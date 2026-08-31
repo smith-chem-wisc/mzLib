@@ -34,7 +34,7 @@ namespace Transcriptomics
         /// <summary>
         /// A dictionary of all known residues, can be searched via one letter, three letter, or the name of the residue
         /// </summary>
-        public static readonly Dictionary<string, Nucleotide> AllKnownResidues;
+        internal static readonly Dictionary<string, Nucleotide> AllKnownResidues;
 
         internal static readonly Nucleotide[] ResiduesByLetter;
 
