@@ -656,4 +656,39 @@ public class EntrapmentReportTests
             "a built report is a snapshot, not a window onto the builder");
         Assert.That(report.ForeignEntries, Is.EqualTo(1));
     }
+
+    [Test]
+    public void AnEntryThatYieldsNoPartnerIsCounted()
+    {
+        // Not writing the empty protein is right -- a loader discarded it anyway -- but it removed
+        // the loader's "N empty entries ignored" warning, which was the only signal the arm was
+        // short. Q156A1 is the real case: a methionine then a run of glutamines, whose only base
+        // piece has one arrangement once the termini are anchored.
+        var target = new Protein("M" + new string('Q', 79), "Q156A1");
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+
+        Protein _ = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        Assert.That(assembly.EntrapmentSequence, Is.Empty, "the fixture must actually yield nothing");
+
+        builder.Add(target, 0, assembly);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.EntriesYieldingNoPartner, Is.EqualTo(1));
+        Assert.That(report.ToTabSeparated(), Does.Contain("# entriesYieldingNoPartner" + "\t" + "1"));
+    }
+
+    [Test]
+    public void ADatabaseWithEveryPartnerDeliveredSaysNothingAboutMissingOnes()
+    {
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR", "P12345");
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        Protein _ = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        builder.Add(target, 0, assembly);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.EntriesYieldingNoPartner, Is.Zero);
+        Assert.That(report.ToTabSeparated(), Does.Not.Contain("entriesYieldingNoPartner"));
+    }
 }

@@ -207,6 +207,21 @@ public sealed class EntrapmentReport
     public int ForeignEntries { get; internal set; }
 
     /// <summary>
+    /// Database entries that produced no entrapment partner at all, because every base piece was
+    /// excised and nothing was left to write.
+    /// </summary>
+    /// <remarks>
+    /// This replaces a signal that used to come from the loader. An empty protein was written and
+    /// <see cref="ProteinDbLoader"/> warned "N empty entries ignored" and discarded it; not writing
+    /// it is correct, but the warning was the only thing telling anyone the arm was short. Counting
+    /// it here says the same thing at the point it is decided -- short by construction, rather than
+    /// short and then reported by whatever happens to load the file. Q156A1 is the real case: a
+    /// methionine followed by 79 glutamines, whose only base piece has one arrangement once the
+    /// termini are anchored.
+    /// </remarks>
+    public int EntriesYieldingNoPartner { get; internal set; }
+
+    /// <summary>
     /// The two exclusion lists as a tab-separated table: <c>accession, peptide, reason</c>.
     /// </summary>
     /// <remarks>
@@ -304,6 +319,10 @@ public sealed class EntrapmentReport
         text.AppendLine($"# maxMissedCleavages\t{Provenance.MaxMissedCleavages.ToString(CultureInfo.InvariantCulture)}");
         text.AppendLine($"# minPeptideLength\t{Provenance.MinPeptideLength.ToString(CultureInfo.InvariantCulture)}");
         text.AppendLine($"# maxPeptideLength\t{Provenance.MaxPeptideLength.ToString(CultureInfo.InvariantCulture)}");
+        if (EntriesYieldingNoPartner > 0)
+        {
+            text.AppendLine($"# entriesYieldingNoPartner\t{EntriesYieldingNoPartner.ToString(CultureInfo.InvariantCulture)}");
+        }
         // The foreign arm contributes entries that no permutation figure describes, so
         // without these the provenance describes only half a database that has one, and the
         // arm's r is not recoverable from the report at all. Emitted only when it was used,
@@ -366,6 +385,7 @@ public sealed class EntrapmentReportBuilder
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
     private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
     private readonly string _entrapmentIdentifier;
+    private int _entriesYieldingNoPartner;
     private readonly Dictionary<string, HashSet<string>> _foreignSharedByAccession = new();
 
     /// <summary>
@@ -465,6 +485,11 @@ public sealed class EntrapmentReportBuilder
         // attributable to one candidate-site count.
         _wholeProtein.MissedCleavagePeptidesSpanningAnExcision +=
             assembly.MissedCleavagePeptidesSpanningAnExcision;
+        if (assembly.EntrapmentSequence.Length == 0)
+        {
+            _entriesYieldingNoPartner++;
+        }
+
         _wholeProtein.EntrapmentSearchSpacePeptides +=
             EntrapmentPairing.CountSearchablePeptides(assembly.EntrapmentSequence, _digestionParams);
         if (assembly.UnrepairableRunCollisionPeptides.Count > 0)
@@ -582,6 +607,7 @@ public sealed class EntrapmentReportBuilder
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value))
         {
             ForeignEntries = _foreignEntries,
+            EntriesYieldingNoPartner = _entriesYieldingNoPartner,
             // A snapshot, like the two dictionaries above it. Handing out the builder's live
             // dictionary let a later AddForeign mutate a report that had already been built.
             ForeignPeptidesSharedWithTarget = _foreignSharedByAccession

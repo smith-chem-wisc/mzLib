@@ -291,10 +291,16 @@ public static class EntrapmentProteinGenerator
                 observe?.Invoke(entry, fold, assembly);
 
                 // Every piece excised leaves nothing behind. A protein with an empty sequence is not
-                // a database entry: a loader warns and discards it, and its decoy with it, so writing
-                // one produces a database whose entrapment count is quietly short of its target count.
+                // a database entry: a loader warns and discards it, and its decoy with it.
                 // Q156A1 is the real case -- a methionine followed by 79 glutamines, whose only base
                 // piece has exactly one arrangement once the termini are anchored.
+                //
+                // The loaded database is unchanged by skipping it: the loader discarded it anyway,
+                // and the target, entrapment and decoy counts come out the same either way. What
+                // skipping it removes is the loader's "N empty entries ignored" warning, which was
+                // the only signal that the arm was short. EntrapmentReport.EntriesYieldingNoPartner
+                // carries that instead -- short by construction, said where it is decided, rather
+                // than short and then noticed by whatever happens to load the file.
                 if (assembly.EntrapmentSequence.Length == 0)
                 {
                     continue;
