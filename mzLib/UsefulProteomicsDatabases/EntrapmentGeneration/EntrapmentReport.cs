@@ -92,6 +92,19 @@ public sealed class EntrapmentStratum
     public int UnpairableSpaceTooSmallForFoldCount { get; internal set; }
 
     /// <summary>
+    /// Pieces excised because every arrangement would have completed a missed-cleavage peptide equal
+    /// to a real target peptide.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from <see cref="UnpairableAllPermutationsTaken"/> because the remedies differ,
+    /// which is the reason these causes are separate at all. A piece whose own arrangements are
+    /// spoken for wants a different target database; a piece defeated by the runs it would complete
+    /// wants a different seed or different neighbours, and is a property of where it sits rather
+    /// than of what it is. Folding the two together would send a reader after the wrong fix.
+    /// </remarks>
+    public int UnpairableRunCollisionsExhausted { get; internal set; }
+
+    /// <summary>
     /// Target peptides sharing a composition-and-pinning key with another peptide of the same
     /// protein, so a discovery cannot be traced back to one of them.
     /// </summary>
@@ -116,7 +129,7 @@ public sealed class EntrapmentStratum
     public int UnrepairableRunCollisions { get; internal set; }
 
     public int Unpairable => UnpairableNoPermutationExists + UnpairableAllPermutationsTaken
-                             + UnpairableSpaceTooSmallForFoldCount;
+                             + UnpairableSpaceTooSmallForFoldCount + UnpairableRunCollisionsExhausted;
 
     /// <summary>
     /// Partners actually delivered per target peptide. Compare against the requested fold count:
@@ -292,7 +305,8 @@ public sealed class EntrapmentReport
         // as "1.19%".
         text.AppendLine(string.Join("\t", "siteCount", "targetPeptides", "entrapmentPeptides",
             "achievedFoldRatio", "unpairableNoPermutationExists", "unpairableAllPermutationsTaken",
-            "unpairableSpaceTooSmallForFoldCount", "searchSpacePeptides",
+            "unpairableSpaceTooSmallForFoldCount", "unpairableRunCollisionsExhausted",
+            "searchSpacePeptides",
             "entrapmentSearchSpacePeptides", "ambiguous",
             "mcSpanningAnExcision", "unrepairableRunCollisions"));
 
@@ -306,6 +320,7 @@ public sealed class EntrapmentReport
                 stratum.UnpairableNoPermutationExists.ToString(CultureInfo.InvariantCulture),
                 stratum.UnpairableAllPermutationsTaken.ToString(CultureInfo.InvariantCulture),
                 stratum.UnpairableSpaceTooSmallForFoldCount.ToString(CultureInfo.InvariantCulture),
+                stratum.UnpairableRunCollisionsExhausted.ToString(CultureInfo.InvariantCulture),
                 stratum.SearchSpacePeptides.ToString(CultureInfo.InvariantCulture),
                 stratum.EntrapmentSearchSpacePeptides.ToString(CultureInfo.InvariantCulture),
                 stratum.Ambiguous.ToString(CultureInfo.InvariantCulture),
@@ -416,6 +431,9 @@ public sealed class EntrapmentReportBuilder
                 case PieceOutcome.Excised when piece.Failure == EntrapmentFailure.SpaceTooSmallForFoldCount:
                     stratum.UnpairableSpaceTooSmallForFoldCount++;
                     break;
+                case PieceOutcome.Excised when piece.Failure == EntrapmentFailure.RunCollisionsExhaustedTheSpace:
+                    stratum.UnpairableRunCollisionsExhausted++;
+                    break;
                 case PieceOutcome.Excised:
                     stratum.UnpairableAllPermutationsTaken++;
                     break;
@@ -487,6 +505,7 @@ public sealed class EntrapmentReportBuilder
             total.UnpairableNoPermutationExists += stratum.UnpairableNoPermutationExists;
             total.UnpairableAllPermutationsTaken += stratum.UnpairableAllPermutationsTaken;
             total.UnpairableSpaceTooSmallForFoldCount += stratum.UnpairableSpaceTooSmallForFoldCount;
+            total.UnpairableRunCollisionsExhausted += stratum.UnpairableRunCollisionsExhausted;
             total.Ambiguous += stratum.Ambiguous;
             total.MissedCleavagePeptidesSpanningAnExcision += stratum.MissedCleavagePeptidesSpanningAnExcision;
             total.SearchSpacePeptides += stratum.SearchSpacePeptides;

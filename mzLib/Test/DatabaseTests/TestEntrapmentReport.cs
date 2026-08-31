@@ -365,10 +365,11 @@ public class EntrapmentReportTests
         Assert.That(total[1], Is.EqualTo(report.Total.TargetPeptides.ToString()));
         Assert.That(total[2], Is.EqualTo(report.Total.EntrapmentPeptides.ToString()));
         Assert.That(total[4], Is.EqualTo(report.Total.UnpairableNoPermutationExists.ToString()));
-        Assert.That(total[7], Is.EqualTo(report.Total.SearchSpacePeptides.ToString()));
-        Assert.That(total[8], Is.EqualTo(report.Total.EntrapmentSearchSpacePeptides.ToString()));
-        Assert.That(total[9], Is.EqualTo(report.Total.Ambiguous.ToString()));
-        Assert.That(total[11], Is.EqualTo(report.Total.UnrepairableRunCollisions.ToString()));
+        Assert.That(total[7], Is.EqualTo(report.Total.UnpairableRunCollisionsExhausted.ToString()));
+        Assert.That(total[8], Is.EqualTo(report.Total.SearchSpacePeptides.ToString()));
+        Assert.That(total[9], Is.EqualTo(report.Total.EntrapmentSearchSpacePeptides.ToString()));
+        Assert.That(total[10], Is.EqualTo(report.Total.Ambiguous.ToString()));
+        Assert.That(total[12], Is.EqualTo(report.Total.UnrepairableRunCollisions.ToString()));
 
         // Both halves of a peptide-level r, side by side. entrapmentPeptides counts base pieces, so
         // a ratio built from that column is a base-piece ratio -- and excision makes the two search
