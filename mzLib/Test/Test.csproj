@@ -88,6 +88,9 @@
     <None Update="DatabaseTests\bad.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\ncbi_gi_legacy.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\bad3.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
