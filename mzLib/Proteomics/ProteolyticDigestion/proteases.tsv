@@ -30,7 +30,7 @@
 # ----------------------------------------------------------------------------					
 # Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
 # MyCustomProtease	K|,R|	full			
-# MyTrypsinNoProline	K|,R|	full	MS:1001313	Trypsin	
+# MyTrypsinNoProline	K|,R|	full	MS:1001313	Trypsin/P	
 # ----------------------------------------------------------------------------					
 # Both lines add new proteases. The second is a trypsin-like variant without proline restriction.					
 # (Note: The built-in trypsin already carries the proline restriction via the [P] in its motif,					
@@ -128,10 +128,10 @@ elastase	I[P]|,S[P]|,L[P]|,V[P]|,N[P]|,T[P]|,K[P]|,A[P]|,G[P]|,Y[P]|,Q[P]|,R[P]|
 Glu-C	E|	full			
 Glu-C (with asp)	E|,D|	full			
 Lys-C	K[P]|	full	MS:1001309	Lys-C	
-Lys-C/P	K|	full			
+Lys-C/P	K|	full	MS:1001310	Lys-C/P	
 Lys-N	|K	full			
-trypsin	K[P]|,R[P]|	full	MS:1001313	Trypsin	
-trypsin/P	K|,R|	full	MS:1001313	Trypsin	
+trypsin	K[P]|,R[P]|	full	MS:1001251	Trypsin	
+trypsin/P	K|,R|	full	MS:1001313	Trypsin/P	
 tryptophan oxidation	W|	full			
 non-specific	X|	full	MS:1001956	unspecific cleavage	
 top-down		none	MS:1001955	no cleavage	

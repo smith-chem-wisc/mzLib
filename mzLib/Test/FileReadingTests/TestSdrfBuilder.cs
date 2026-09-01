@@ -85,13 +85,13 @@ namespace Test.FileReadingTests
 
             Assert.That(row["characteristics[organism]"], Is.EqualTo("NT=Homo sapiens;AC=NCBITaxon:9606"));
             Assert.That(row["comment[instrument]"], Is.EqualTo("NT=Q Exactive;AC=MS:1001911"));
-            // MS:1001313 is "Trypsin/P", NOT plain Trypsin (MS:1001251). The builder is faithfully
-            // emitting what mzLib's embedded proteases.tsv says, and that row is wrong -- the same
-            // bug that makes every mzIdentML MetaMorpheus exports declare Trypsin/P for ordinary
-            // trypsin. Pinned deliberately so this test FAILS when the proteases.tsv fix lands,
-            // rather than quietly agreeing with whatever the data says.
-            Assert.That(row["comment[cleavage agent details]"], Does.Contain("AC=MS:1001313"),
-                "expected to change to MS:1001251 once the proteases.tsv trypsin row is corrected");
+            // MS:1001251 is plain Trypsin; MS:1001313 is "Trypsin/P". The proteases.tsv row for
+            // "trypsin" carries the Keil motif (no cleavage before proline), so MS:1001251 is the
+            // term that matches its own cleavage rule. Pinned so a regression back to MS:1001313
+            // -- which would again make every mzIdentML MetaMorpheus exports declare Trypsin/P for
+            // ordinary trypsin -- fails here rather than quietly shipping.
+            Assert.That(row["comment[cleavage agent details]"], Does.Contain("AC=MS:1001251"),
+                "the trypsin row must carry plain Trypsin, not Trypsin/P");
             Assert.That(row["comment[proteomics data acquisition method]"],
                 Is.EqualTo("NT=Data-dependent acquisition;AC=PRIDE:0000627"));
         }
