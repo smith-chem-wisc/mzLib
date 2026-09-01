@@ -15,41 +15,32 @@ NuGet packages are released here: https://www.nuget.org/packages/mzLib/
 
 GitHub release tags are recoreded here: https://github.com/smith-chem-wisc/mzLib/releases
 
-# Usage
-## Reading Spectra Files
-To read Thermo or mzML files, use
-```
-ThermoStaticData staticThermo = ThermoStaticData.LoadAllStaticData(@"spectra.raw");
-ThermoDynamicData dynamicThermo = ThermoDynamicData.InitiateDynamicConnection(@"spectra.raw")
-Mzml mzmlFile = Mzml.LoadAllStaticData(@"spectra.mzML");
-```
-Both filetypes implement the same interface that has all of the necessary functionality to interact with spectra files:
-```
-IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> thermoFile = new ThermoRawFile(@"spectra.RAW");
-IMsDataFile<IMsDataScan<IMzSpectrum<IMzPeak>>> mzmlFile = new Mzml(@"spectra.mzML");
-```
-## Loading Databases From Online Sources
-```
-Loaders.LoadElements("elements.dat"); // void, loads elements into static PeriodicTable class 
-IEnumerable<ModificationWithLocation> unimodMods = Loaders.LoadUnimod("unimod.dat");
-IEnumerable<ModificationWithLocation> uniprotMods = Loaders.LoadUniprot("uniprot.dat");
-```
-## Reading Protein Database Files
-To read .fasta, .xml, or .xml.gz files, use 
-```
-List<Protein> proteins = ProteinDbLoader.LoadProteinDb("proteins.xml", generateDecoys, allKnownModifications, IsContaminant, out unknownModifications);
-```
-The parameters are:
-* ```bool generateDecoys``` True if wish to generate decoy proteins.
-* ```IDictionary<string, IList<Modification>> allKnownModifications``` Dictionary of modifications with keys that correspond to modifications in the xml file.
-* ```bool IsContaminant``` True if it is a contaminant database
-* ```out Dictionary<string, Modification> unknownModifications``` An auxiliary output of modifications that were in the xml file but are not known.
+# Documentation
 
-## Reading Modification Files
-To load modifications from ptmlist formatted files use
-```
-IEnumerable<ModificationWithLocation> ptms = PtmListLoader.ReadMods("ptms.txt")
-```
+**The [mzLib wiki](https://github.com/smith-chem-wisc/mzLib/wiki) is the usage documentation, and it is
+kept current.** Among other things it covers:
+
+- [Reading mass spectrometry files](https://github.com/smith-chem-wisc/mzLib/wiki/File-Reading:-Mass-Spec)
+- [Reading search-result formats](https://github.com/smith-chem-wisc/mzLib/wiki/File-Reading:-Result-Formats)
+- [Reading sequence databases](https://github.com/smith-chem-wisc/mzLib/wiki/File-Reading:-Sequence-Databases)
+- [Chemistry](https://github.com/smith-chem-wisc/mzLib/wiki/Chemistry) and [Mass Spectrometry](https://github.com/smith-chem-wisc/mzLib/wiki/Mass-Spectrometry)
+- Omics: [base foundation](https://github.com/smith-chem-wisc/mzLib/wiki/Omics:-Base-Foundation), [digestion](https://github.com/smith-chem-wisc/mzLib/wiki/Omics:-Digestion), [modifications](https://github.com/smith-chem-wisc/mzLib/wiki/Omics:-Modifications), [fragmentation](https://github.com/smith-chem-wisc/mzLib/wiki/Omics:-Fragmentation), [decoy generation](https://github.com/smith-chem-wisc/mzLib/wiki/Omics:-Decoy-Generation), [proteomics](https://github.com/smith-chem-wisc/mzLib/wiki/Omics:-Proteomics)
+
+The package also ships XML documentation, so mzLib types and members have tooltips in your IDE.
+
+Usage examples used to live in this file. They were removed rather than rewritten because they had
+drifted out of date - one called a `ProteinDatabaseLoader` type that no longer exists - and a second
+copy of the documentation is a second thing to keep current. The wiki is the single place now.
+
+# Contributing
+
+Tests live in `mzLib/Test`. Run them with
+`dotnet test mzLib/Test/Test.csproj --filter "Category!=ExternalService"`; the `ExternalService`
+category covers tests that reach live services such as UniProt, and is deliberately kept out of the
+required build so that an outage elsewhere cannot fail a pull request.
+
 # License
-Code heavily borrowed from https://github.com/dbaileychess/CSMSL and distrubuted under the appropriate license, LGPL.
+Code heavily borrowed from https://github.com/dbaileychess/CSMSL and distributed under the appropriate license, LGPL.
 
+mzLib additionally redistributes third-party data files and native libraries whose licences are
+separate from its own; see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).

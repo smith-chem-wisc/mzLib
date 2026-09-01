@@ -1,0 +1,39 @@
+# SdrfQuantAuditor over the curated SDRF corpus -- bigbio/sdrf-annotated-datasets, the
+# `datasets` subtree only. The clone also carries a `sandbox` directory of further files that
+# are NOT part of the curated corpus; counting those is one way an earlier survey of this
+# corpus produced numbers nobody could reproduce.
+#
+# WHAT THIS FILE IS FOR. Three independent surveys of this corpus returned 49, 51 and 52
+# channel-level TMT files, and 31 versus 32 kit-only. The qualitative findings agreed; the
+# integers did not, and none of them was produced by code anyone could re-run. These counts are,
+# by ClassifiesTheEntireCorpusAgainstTheExpectationsTable.
+#
+# THE SPREAD WAS SCOPE, NOT ARITHMETIC. 51 channel-level and 31 kit-only is exactly right for
+# the TMT family alone, which is what those surveys were counting. iTRAQ adds 10 and 6, giving
+# the 61 and 37 below. Both are recorded so that a future disagreement is a scope question with
+# an answer rather than three integers and no way to choose between them.
+#
+# WHEN THIS FILE HAS TO CHANGE. The corpus is a living upstream repository, so it will grow.
+# A failing test here is not a bug by itself -- it says the corpus or the classifier moved.
+# Work out which, then update these counts IN THE SAME COMMIT as the change that moved them,
+# so the diff records what changed and why.
+#
+# Measured 2026-08-28 against corpus commit: see data/PROVENANCE.md in the QuantProject folder.
+#
+# key	count
+files	1236
+channel-level	61
+kit-only	37
+not-isobaric	1138
+channel-level, no isobaric modification	21
+channel-level, plex column present	1
+channel-level, duplicate (file, channel)	5
+channel-level, ragged rows	0
+channel-level, any accessioned label	7
+documents mixing label forms	1
+channel-level, non-canonical spelling	10
+unreadable	0
+channel-level, TMT family	51
+kit-only, TMT family	31
+channel-level, iTRAQ only	10
+kit-only, iTRAQ only	6

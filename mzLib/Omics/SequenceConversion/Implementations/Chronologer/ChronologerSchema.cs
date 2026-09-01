@@ -17,7 +17,7 @@ namespace Omics.SequenceConversion;
 /// Alphabet (52 + 2 positions):
 /// - Positions 1-20: Canonical amino acids (ACDEFGHIKLMNPQRSTVWY)
 /// - Positions 21-37: Modified residues (cmdestyabunopqrxz)
-/// - Positions 38-44: N/C terminus states (-^()&*_)
+/// - Positions 38-44: N/C terminus states (-^()&amp;*_)
 /// - Positions 45-54: User-defined slots (0123456789)
 /// 
 /// Modification encoding:
@@ -44,7 +44,7 @@ namespace Omics.SequenceConversion;
 /// - '^': N-terminal acetylation [+42.01]
 /// - ')': PyroGlu at N-terminus (from E)
 /// - '(': Cyclized CAM-Cys at N-terminus
-/// - '&': N-terminal GlyGly [+224.1]
+/// - '&amp;': N-terminal GlyGly [+224.1]
 /// - '*': N-terminal heavy GlyGly [+229.1]
 /// 
 /// C-terminus state:
