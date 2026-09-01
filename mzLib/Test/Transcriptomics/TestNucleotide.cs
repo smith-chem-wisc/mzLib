@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -88,6 +88,74 @@ namespace Test.Transcriptomics
                 Assert.Fail();
             else
                 Assert.Pass();
+        }
+
+        [Test]
+        public void TestPseudoUracilAlternatePsiLookup()
+        {
+            const char psi = '\u03A8';
+
+            Assert.That(Nucleotide.TryGetResidue(psi, out Nucleotide psiTide), Is.True);
+            Assert.That(psiTide, Is.EqualTo(Nucleotide.PseudoUracilBase));
+
+            Assert.That(Nucleotide.GetResidue(psi), Is.EqualTo(Nucleotide.PseudoUracilBase));
+            Assert.That(Nucleotide.GetResidue(psi.ToString()), Is.EqualTo(Nucleotide.PseudoUracilBase));
+
+            Assert.That(Nucleotide.PseudoUracilBase.Letter, Is.EqualTo('Y'));
+        }
+
+        [Test]
+        public void TestCustomResidueWithAlternateCodes()
+        {
+            string name = "FakeNucleotidePsi";
+            char oneLetter = 'Q';
+            string symbol = "Fkp";
+            string chemicalFormula = "C5H5N2O2";
+            char alternateChar = '\u03A9';
+            string alternateString = "FkpAlt";
+            var fakeNucleotide = new Nucleotide(name, oneLetter, symbol, ChemicalFormula.ParseFormula(chemicalFormula));
+
+            Nucleotide.AddResidue(name, oneLetter, symbol, chemicalFormula);
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(fakeNucleotide, alternateChar), Is.True);
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(fakeNucleotide, alternateString), Is.True);
+
+            Assert.That(Nucleotide.GetResidue(alternateChar), Is.EqualTo(fakeNucleotide));
+            Assert.That(Nucleotide.TryGetResidue(alternateChar, out Nucleotide outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(fakeNucleotide));
+            Assert.That(Nucleotide.GetResidue(alternateString), Is.EqualTo(fakeNucleotide));
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(fakeNucleotide, alternateChar), Is.True);
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(fakeNucleotide, alternateString), Is.True);
+
+            Assert.That(Nucleotide.GetResidue(oneLetter), Is.EqualTo(fakeNucleotide));
+            Assert.That(fakeNucleotide.Letter, Is.EqualTo(oneLetter));
+        }
+
+        [Test]
+        public void TestTryAddAlternativeRepresentationClash()
+        {
+            string name = "ClashNucleotide";
+            char oneLetter = 'R';
+            string symbol = "Cls";
+            string chemicalFormula = "C5H5N2O3";
+            var clashNucleotide = new Nucleotide(name, oneLetter, symbol, ChemicalFormula.ParseFormula(chemicalFormula));
+            Nucleotide.AddResidue(name, oneLetter, symbol, chemicalFormula);
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(clashNucleotide, "Psu"), Is.False);
+            Assert.That(Nucleotide.GetResidue("Psu"), Is.EqualTo(Nucleotide.PseudoUracilBase));
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(clashNucleotide, 'Y'), Is.False);
+            Assert.That(Nucleotide.GetResidue('Y'), Is.EqualTo(Nucleotide.PseudoUracilBase));
+        }
+
+        [Test]
+        public void TestPseudoUracilPsiSequenceRoundTrip()
+        {
+            const char psi = '\u03A8';
+            var rna = new RNA($"GU{psi}CUG", "");
+
+            Assert.That(rna.BaseSequence, Is.EqualTo("GUYCUG"));
         }
 
         [Test]
