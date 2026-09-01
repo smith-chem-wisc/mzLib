@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -505,6 +505,143 @@ namespace Test.FileReadingTests.SpectraFileReading
                 readBoth.LoadAllStaticData(trimBoth);
 
                 NUnit.Framework.Assert.That(readBoth.GetAllScansList()[0].MassSpectrum.Size, Is.EqualTo(5), "MS1 must be trimmed when asked");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// "Telekinesis" is the case Enum.TryParse already rejects, so it cannot fail against the bug that
+        /// matters. TryParse also accepts the NUMERIC form of an enum, and numeric activation codes are
+        /// exactly what turns up in files mzLib did not write.
+        ///
+        /// The two numeric cases fail differently and both need pinning. "999" parses to an undefined
+        /// DissociationType of 999, which no switch matches and every default arm swallows. "3" is the
+        /// dangerous one: it parses to SID, a real member -- not a skipped field but a confidently wrong
+        /// one, and Enum.IsDefined does NOT catch it, because SID is defined. Only rejecting the numeric
+        /// form does.
+        ///
+        /// "HCD,CID" is the third shape, and it defeats IsDefined for the same reason: TryParse accepts a
+        /// comma-separated list for any enum and ORs the members, and since CID is 0 the result is plain
+        /// HCD. A file naming two activations would be read as having named one.
+        /// </summary>
+        [Test]
+        [TestCase("999")]
+        [TestCase("3")]
+        [TestCase("-1")]
+        [TestCase("Telekinesis")]
+        [TestCase("HCD,CID")]
+        public void MgfReaderTreatsAnUnrecognisedActivationMethodAsUnknown(string activationMethod)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "mgfActivation" + activationMethod.Replace("-", "neg") + ".mgf");
+            File.WriteAllLines(path, new[]
+            {
+                "BEGIN IONS", "TITLE=junk", "MSLEVEL=2", "PEPMASS=571.8", "CHARGE=2+", "SCANS=1",
+                "ACTIVATIONMETHOD=" + activationMethod, "110.05 500", "END IONS"
+            });
+
+            try
+            {
+                var read = MsDataFileReader.GetDataFile(path);
+                read.LoadAllStaticData();
+
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].DissociationType,
+                    Is.EqualTo(DissociationType.Unknown),
+                    "an activation method we cannot read must be Unknown, never a value we half-recognised");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// A written PRECURSORSCAN may only name a block this file actually contains. WriteMgf filters
+        /// scansToWrite twice -- empty spectra, and includeMs1Scans -- and the header was emitted from the
+        /// scan alone, so it could point at a block that was dropped.
+        ///
+        /// Read back, that populates OneBasedPrecursorScanNumber where master left null, and
+        /// MsDataFile.GetOneBasedScan is a raw Scans[n - 1], so the missing slot returns null rather than
+        /// throwing and the failure surfaces far from the mgf that caused it.
+        ///
+        /// The assertion is on the file and on the round trip rather than on a downstream export, because
+        /// mgf-to-mzML export of an MS1-less file throws for a separate, pre-existing reason that has
+        /// nothing to do with this header.
+        /// </summary>
+        [Test]
+        public void MgfWriterOmitsPrecursorScanWhenThatScanWasNotWritten()
+        {
+            var file = new GenericMsDataFile(
+                new[] { Ms1(1, new[] { 300.1, 400.2 }, new[] { 1000.0, 2000.0 }, 3000.0),
+                        Ms2WithFullPrecursorMetadata(2, 1) }, null);
+
+            string ms2Only = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfDanglingPrecursor.mgf");
+            file.ExportAsMgf(ms2Only, includeMs1Scans: false);
+
+            try
+            {
+                NUnit.Framework.Assert.That(File.ReadAllLines(ms2Only).Any(l => l.StartsWith("PRECURSORSCAN=")), Is.False,
+                    "MS1 scan 1 was not written, so nothing may point at it");
+
+                var read = MsDataFileReader.GetDataFile(ms2Only);
+                read.LoadAllStaticData();
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].OneBasedPrecursorScanNumber, Is.Null,
+                    "a precursor pointer that resolves to nothing is worse than an absent one");
+
+                // The control: when the MS1 IS written, the pointer is written too and still round-trips.
+                string withMs1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfLivePrecursor.mgf");
+                file.ExportAsMgf(withMs1);
+                try
+                {
+                    var readBoth = MsDataFileReader.GetDataFile(withMs1);
+                    readBoth.LoadAllStaticData();
+                    NUnit.Framework.Assert.That(readBoth.GetAllScansList()[1].OneBasedPrecursorScanNumber, Is.EqualTo(1),
+                        "dropping the header entirely would be the wrong fix");
+                }
+                finally
+                {
+                    File.Delete(withMs1);
+                }
+            }
+            finally
+            {
+                File.Delete(ms2Only);
+            }
+        }
+
+        /// <summary>
+        /// The same dangling pointer without the new flag, which is why it had to be fixed at the source
+        /// rather than inside the includeMs1Scans branch: WriteMgf has always dropped scans with no peaks,
+        /// so a peakless MS1 leaves the MS2 pointing at a block that was never written, at default settings.
+        /// </summary>
+        [Test]
+        public void MgfWriterOmitsPrecursorScanWhenThePrecursorHadNoPeaks()
+        {
+            var peaklessMs1 = new MsDataScan(new MzSpectrum(new double[0], new double[0], false),
+                oneBasedScanNumber: 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.5, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 0.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1");
+
+            var file = new GenericMsDataFile(
+                new[] { peaklessMs1, Ms2WithFullPrecursorMetadata(2, 1) }, null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfPeaklessPrecursor.mgf");
+            file.ExportAsMgf(path);
+
+            try
+            {
+                NUnit.Framework.Assert.That(File.ReadAllLines(path).Count(l => l == "BEGIN IONS"), Is.EqualTo(1),
+                    "the peakless MS1 is dropped by the pre-existing empty-spectrum filter");
+                NUnit.Framework.Assert.That(File.ReadAllLines(path).Any(l => l.StartsWith("PRECURSORSCAN=")), Is.False,
+                    "so nothing may point at it, flag or no flag");
+
+                var read = MsDataFileReader.GetDataFile(path);
+                read.LoadAllStaticData();
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].OneBasedPrecursorScanNumber, Is.Null);
             }
             finally
             {

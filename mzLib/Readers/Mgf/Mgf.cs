@@ -222,7 +222,40 @@ namespace Readers
                 }
                 else if (line.StartsWith("ACTIVATIONMETHOD") && sArray.Length > 1)
                 {
-                    if (Enum.TryParse(sArray[1].Trim(), ignoreCase: true, out DissociationType parsedDissociation))
+                    // Enum.TryParse is more permissive than this contract wants, in two separate ways,
+                    // and the comment above says these arrive in files mzLib did not write -- which is
+                    // exactly where a numeric activation code turns up.
+                    //
+                    // It accepts the NUMERIC form of an enum: "999" produced a DissociationType of 999 that
+                    // no switch matches and every default arm swallows.
+                    //
+                    // It does NOT close "3", which parses to SID -- a real, defined member. That is not a
+                    // skipped field but a confidently wrong one, and no IsDefined check can catch it,
+                    // because there is nothing invalid about the result. Only refusing the numeric form
+                    // does, and a digit or sign is never the start of an activation NAME.
+                    // A third way it is too permissive, found while testing the first two: TryParse
+                    // accepts a COMMA-SEPARATED list for any enum, not just a [Flags] one, and ORs the
+                    // members together. Because CID is 0, "HCD,CID" ORs to plain HCD -- a defined member,
+                    // so IsDefined cannot reject it either, and the reader reports a single activation for
+                    // a file that named two. A combined activation is not hypothetical in mgf ("ETD,HCD"
+                    // is how some tools spell what mzLib calls EThcD), and silently collapsing it to one
+                    // component is the same confidently-wrong failure as the numeric case. Unknown is the
+                    // honest answer; mapping known combinations onto their own members would be a separate
+                    // change with its own evidence.
+                    string activationMethodName = sArray[1].Trim();
+                    bool namedRatherThanNumbered = activationMethodName.Length > 0
+                        && !char.IsDigit(activationMethodName[0])
+                        && activationMethodName[0] != '-'
+                        && activationMethodName[0] != '+'
+                        && activationMethodName.IndexOf(',') < 0;
+
+                    // No Enum.IsDefined check: with the numeric and comma forms already refused, TryParse
+                    // is matching a single name against the member list, so anything it accepts is defined
+                    // by construction. Removing the guard was verified rather than assumed -- with it gone
+                    // and the two above in place, no case in
+                    // MgfReaderTreatsAnUnrecognisedActivationMethodAsUnknown changes answer.
+                    if (namedRatherThanNumbered
+                        && Enum.TryParse(activationMethodName, ignoreCase: true, out DissociationType parsedDissociation))
                     {
                         dissociationType = parsedDissociation;
                     }

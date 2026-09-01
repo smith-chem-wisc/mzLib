@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
 
@@ -31,6 +32,17 @@ namespace Readers
     /// an MS1 has none, so such a file is out of spec. ProteoWizard and OpenMS read it anyway, but
     /// MSToolkit -- and therefore Comet -- calls exit(-12) on the first block without one. Pass
     /// includeMs1Scans: false to emit an MS2-only file that every reader accepts.
+    /// </para>
+    /// <para>
+    /// Why these are top-level keys and not TITLE tokens. mzLib's usual answer to "the format has
+    /// nowhere to put this" is the format's own free-text slot -- MSP packs extras into Comment, and
+    /// BuildTitle below already smuggles File and NativeID into TITLE, which is the ProteoWizard
+    /// convention. TITLE tokens are right for anything a third-party tool should merely preserve. These
+    /// five are different: TIC, PRECURSORSCAN, ISOLATIONMZ, ISOLATIONWIDTH and ACTIVATIONMETHOD are
+    /// consumed on read to reconstruct an MsDataScan, so they need a parse that does not depend on how
+    /// another tool rewrote a free-text field. MSLEVEL is the precedent for a new top-level key, and it
+    /// is defensible because SIRIUS, pyteomics and MsBackendMgf already emit it. The honest note is that
+    /// these five are mzLib-only, so an mgf we write round-trips with full fidelity only through us.
     /// </para>
     /// <para>
     /// Polarity does not survive a round trip for any scan without a charge state guess. MGF has no
@@ -81,14 +93,22 @@ namespace Readers
                     + "requires at least one fragment peak per block.");
             }
 
+            // PRECURSORSCAN may only name a block this file actually contains. scansToWrite has already
+            // been filtered twice -- empty spectra, and includeMs1Scans -- and a header pointing at a
+            // dropped scan is not merely stale: read back, it populates OneBasedPrecursorScanNumber where
+            // master left null, and MsDataFile.GetOneBasedScan is a raw Scans[n - 1], so the missing slot
+            // returns null rather than throwing. MzmlMethods then dereferences it unguarded and the failure
+            // surfaces as a NullReferenceException at mzML export, a long way from the mgf that caused it.
+            HashSet<int> writtenScanNumbers = new HashSet<int>(scansToWrite.Select(scan => scan.OneBasedScanNumber));
+
             using StreamWriter output = new StreamWriter(outputFile);
             foreach (MsDataScan scan in scansToWrite)
             {
-                WriteScan(output, scan, sourceName);
+                WriteScan(output, scan, sourceName, writtenScanNumbers);
             }
         }
 
-        private static void WriteScan(StreamWriter output, MsDataScan scan, string sourceName)
+        private static void WriteScan(StreamWriter output, MsDataScan scan, string sourceName, HashSet<int> writtenScanNumbers)
         {
             output.WriteLine("BEGIN IONS");
             output.WriteLine($"TITLE={BuildTitle(scan, sourceName)}");
@@ -147,7 +167,12 @@ namespace Readers
                     output.WriteLine($"ACTIVATIONMETHOD={scan.DissociationType.Value}");
                 }
 
-                if (scan.OneBasedPrecursorScanNumber.HasValue)
+                // Only when the precursor block is in this file. Absent beats wrong, the same rule the
+                // comment above argues for: a number that resolves to nothing is worse than no header, not
+                // better. This is not confined to includeMs1Scans -- the empty-spectrum skip above drops
+                // scans just as thoroughly, so a peakless MS1 dangles the pointer at the default setting.
+                if (scan.OneBasedPrecursorScanNumber.HasValue
+                    && writtenScanNumbers.Contains(scan.OneBasedPrecursorScanNumber.Value))
                 {
                     output.WriteLine($"PRECURSORSCAN={scan.OneBasedPrecursorScanNumber.Value.ToString(CultureInfo.InvariantCulture)}");
                 }
