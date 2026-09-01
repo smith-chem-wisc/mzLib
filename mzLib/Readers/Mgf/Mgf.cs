@@ -125,7 +125,20 @@ namespace Readers
             }
             _streamReader = new StreamReader(FilePath);
 
-            BuildIndex();
+            // BuildIndex can still throw -- a duplicate scan number is a genuine MzLibException, and this
+            // method is documented as leaving nothing open if it fails. Without this the reader was assigned
+            // and then abandoned, leaving the caller holding an open handle on the file with no way to close
+            // it: CloseDynamicConnection is the only route to the field and the caller never got that far.
+            try
+            {
+                BuildIndex();
+            }
+            catch
+            {
+                _streamReader.Dispose();
+                _streamReader = null;
+                throw;
+            }
         }
 
         /// <summary>
@@ -170,23 +183,37 @@ namespace Readers
                     continue;
                 }
 
+                // A header whose value is missing entirely -- "CHARGE" with no "=" -- is skipped rather
+                // than read, the same as any other unrecognised line. Indexing sArray[1] regardless is
+                // what made a stray header take down the whole file.
+                bool hasValue = sArray.Length > 1;
+
                 if (char.IsDigit(line[0]) && sArray.Length == 1)
                 {
-                    ParsePeakLine(line, mzs, intensities);
+                    AddPeakIfWellFormed(line, mzs, intensities);
                 }
-                else if (line.StartsWith("PEPMASS"))
+                else if (line.StartsWith("PEPMASS") && hasValue)
                 {
                     sArray = sArray[1].Split(' ');
-                    precursorMz = Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture);
-                    if (sArray.Length > 1)
-                        precursorIntensity = Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture);
-                    sawPrecursorMz = true;
+                    if (double.TryParse(sArray[0], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedPrecursorMz))
+                    {
+                        precursorMz = parsedPrecursorMz;
+                        sawPrecursorMz = true;
+                        if (sArray.Length > 1
+                            && double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedPrecursorIntensity))
+                        {
+                            precursorIntensity = parsedPrecursorIntensity;
+                        }
+                    }
                 }
-                else if (line.StartsWith("MSLEVEL"))
+                else if (line.StartsWith("MSLEVEL") && hasValue)
                 {
-                    msLevel = Convert.ToInt32(sArray[1], CultureInfo.InvariantCulture);
+                    if (int.TryParse(sArray[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedMsLevel))
+                    {
+                        msLevel = parsedMsLevel;
+                    }
                 }
-                else if (line.StartsWith("CHARGE"))
+                else if (line.StartsWith("CHARGE") && hasValue && sArray[1].Length > 0)
                 {
                     // The sign suffix is optional: "2+", "2-" and "2" are all valid charge states.
                     // Strip it only when present -- stripping unconditionally drops a digit, so "12"
@@ -195,20 +222,27 @@ namespace Readers
                     char sign = entry[entry.Length - 1];
                     bool signed = sign == '+' || sign == '-';
 
-                    charge = Convert.ToInt32(signed ? entry.Substring(0, entry.Length - 1) : entry);
-                    if (sign == '-')
+                    // "CHARGE=+" leaves Substring(0, 0) empty, so this needs TryParse too.
+                    string digits = signed ? entry.Substring(0, entry.Length - 1) : entry;
+                    if (int.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedCharge))
                     {
-                        charge *= -1;
+                        charge = sign == '-' ? -parsedCharge : parsedCharge;
+                        sawCharge = true;
                     }
-                    sawCharge = true;
                 }
-                else if (line.StartsWith("SCANS"))
+                else if (line.StartsWith("SCANS") && hasValue)
                 {
-                    scanNumber = Convert.ToInt32(sArray[1]);
+                    if (int.TryParse(sArray[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsedScanNumber))
+                    {
+                        scanNumber = parsedScanNumber;
+                    }
                 }
-                else if (line.StartsWith("RTINSECONDS"))
+                else if (line.StartsWith("RTINSECONDS") && hasValue)
                 {
-                    rtInMinutes = Convert.ToDouble(sArray[sArray.Length - 1], CultureInfo.InvariantCulture) / 60.0;
+                    if (double.TryParse(sArray[sArray.Length - 1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double parsedRt))
+                    {
+                        rtInMinutes = parsedRt / 60.0;
+                    }
                 }
                 // mzLib extension headers -- see MgfMethods.WriteScan for why these exist. TryParse
                 // throughout: these come from files we did not necessarily write, and one unparseable
@@ -362,12 +396,33 @@ namespace Readers
                    || (filterParams.ApplyTrimmingToMsN && msnOrder > 2);
         }
 
-        private static void ParsePeakLine(string line, List<double> mzs, List<double> intensities)
+        /// <summary>
+        /// Adds a peak to <paramref name="mzs"/> and <paramref name="intensities"/> when the line is a
+        /// well-formed peak, and does nothing when it is not.
+        ///
+        /// "Starts with a digit" is the only test that gets a line here, which is a weak classifier: a
+        /// stray line carrying one number, or a number followed by something that is not one, reaches
+        /// this method too. Those are skipped like any other unrecognised line instead of indexing past
+        /// the end of the split, which surfaced as an IndexOutOfRangeException out of the reader and
+        /// took down the entire file.
+        /// </summary>
+        private static void AddPeakIfWellFormed(string line, List<double> mzs, List<double> intensities)
         {
             string[] sArray = line.Split(new Char[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
 
-            mzs.Add(Convert.ToDouble(sArray[0], CultureInfo.InvariantCulture));
-            intensities.Add(Convert.ToDouble(sArray[1], CultureInfo.InvariantCulture));
+            // Float | AllowThousands, NOT NumberStyles.Any: Any adds AllowParentheses and
+            // AllowTrailingSign, so "(5000.0)" and "5000.0-" would parse as -5000 where
+            // Convert.ToDouble rejected them -- inventing a negative peak where the old code threw.
+            // This keeps the ACCEPTED set identical to before and changes only throw -> skip.
+            if (sArray.Length < 2
+                || !double.TryParse(sArray[0], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double mz)
+                || !double.TryParse(sArray[1], NumberStyles.Float | NumberStyles.AllowThousands, CultureInfo.InvariantCulture, out double intensity))
+            {
+                return;
+            }
+
+            mzs.Add(mz);
+            intensities.Add(intensity);
         }
 
 
@@ -396,11 +451,22 @@ namespace Readers
                 }
                 else if (line.StartsWith("SCANS=", StringComparison.InvariantCultureIgnoreCase))
                 {
-                    scanHasAScanNumber = true;
-
+                    // TryParse, not Parse. The regex is (^|\s)SCANS=(.*?)($|\D), whose lazy .*? yields
+                    // NOTHING on "SCANS=x" -- the \D consumes the x -- so group 2 is empty and Parse threw
+                    // FormatException out of InitiateDynamicConnection. "SCANS=" does the same. That left one
+                    // bad line making the file unreadable on the dynamic path, which is the very thing this
+                    // reader was changed to stop doing on the static one.
+                    //
+                    // An unusable value falls through to the sequential number the END IONS branch below
+                    // already assigns to a scan with no SCANS line at all, so the two read paths agree about
+                    // what this scan is called instead of one of them refusing to open the file.
                     Match result = _scanNumberparser.Match(line);
                     var scanString = result.Groups[2].Value;
-                    oneBasedScanNumber = int.Parse(scanString);
+                    scanHasAScanNumber = int.TryParse(scanString, out int parsedScanNumber);
+                    if (scanHasAScanNumber)
+                    {
+                        oneBasedScanNumber = parsedScanNumber;
+                    }
                 }
                 else if (line.StartsWith("END IONS", StringComparison.InvariantCultureIgnoreCase))
                 {

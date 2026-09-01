@@ -88,6 +88,9 @@
     <None Update="DatabaseTests\bad.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DatabaseTests\ncbi_gi_legacy.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\bad3.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -602,6 +605,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\Tab_separated_peak_list.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\malformedLines.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="AveragingTests\TestData\TDYeastFractionMMResult.psmtsv">

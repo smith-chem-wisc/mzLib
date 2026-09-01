@@ -850,6 +850,169 @@ namespace Test.FileReadingTests.SpectraFileReading
         }
 
 
+        /// <summary>
+        /// Regression for MetaMorpheus issue #2366: a malformed line threw IndexOutOfRangeException out
+        /// of the reader, so one bad line made the whole file unreadable rather than being skipped the
+        /// way tester_corrupt.mgf's unknown words already are.
+        ///
+        /// malformedLines.mgf carries one such line per scan: a peak with an m/z but no intensity, a
+        /// header with no "=", a header with "=" and nothing after it, and a line that starts with a
+        /// digit but is not a peak. Each scan's well-formed peaks must survive.
+        /// </summary>
+        [Test]
+        public static void TestLoadMgfWithMalformedLines()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "malformedLines.mgf");
+            var reader = MsDataFileReader.GetDataFile(path);
+
+            NUnit.Framework.Assert.DoesNotThrow(() => reader.LoadAllStaticData(),
+                "one malformed line must not make the file unreadable");
+
+            NUnit.Framework.Assert.That(reader.NumSpectra, Is.EqualTo(8));
+
+            // scan 1: "202.456" has no intensity and is dropped; the two complete peaks remain
+            var peakWithoutIntensity = reader.GetOneBasedScan(1);
+            NUnit.Framework.Assert.That(peakWithoutIntensity.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(peakWithoutIntensity.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 201.123, 203.789 }).Within(1e-9));
+
+            // scan 2: bare "CHARGE" carries no value, so the default charge stands
+            var chargeWithoutEquals = reader.GetOneBasedScan(2);
+            NUnit.Framework.Assert.That(chargeWithoutEquals.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(chargeWithoutEquals.SelectedIonChargeStateGuess, Is.EqualTo(2));
+
+            // scan 3: "CHARGE=" is empty, and "9notanumber here" starts with a digit but is not a peak
+            var emptyChargeAndNonNumericPeak = reader.GetOneBasedScan(3);
+            NUnit.Framework.Assert.That(emptyChargeAndNonNumericPeak.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(emptyChargeAndNonNumericPeak.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 401.5, 402.5 }).Within(1e-9));
+
+            // scan 4: valueless RTINSECONDS and SCANS leave their defaults rather than throwing
+            var headersWithoutValues = reader.GetOneBasedScan(4);
+            NUnit.Framework.Assert.That(headersWithoutValues.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(headersWithoutValues.SelectedIonChargeStateGuess, Is.EqualTo(3));
+
+            // Scans 5-8 cover the header values that were PRESENT but unparseable. Guarding on the
+            // "=" alone only proved a value existed, so these still took the whole file down -- as
+            // FormatException instead of IndexOutOfRangeException, and MSLEVEL with no "=" was not
+            // guarded at all and still threw IndexOutOfRangeException, the exception this fixture
+            // exists to rule out.
+
+            // scan 5: "PEPMASS=" is empty
+            var emptyPepmass = reader.GetOneBasedScan(5);
+            NUnit.Framework.Assert.That(emptyPepmass.MassSpectrum.Size, Is.EqualTo(2));
+
+            // An unparseable PEPMASS does more than drop a line: it leaves sawPrecursorMz false, so
+            // msnOrder = msLevel ?? (sawPrecursorMz ? 2 : 1) re-types the scan as MS1 and a downstream
+            // search sees a survey scan rather than an MS2. That is intended -- inventing a precursor
+            // would be worse, and absent beats invented -- but it is the most consequential behaviour in
+            // this fixture, and a size assertion alone would let a later change flip it silently.
+            NUnit.Framework.Assert.That(emptyPepmass.MsnOrder, Is.EqualTo(1),
+                "a scan with no usable precursor m/z is reported as MS1, not as an MS2 with a made-up precursor");
+            NUnit.Framework.Assert.That(emptyPepmass.SelectedIonMZ, Is.Null);
+
+            // scan 6: non-numeric PEPMASS, RTINSECONDS and SCANS, and "CHARGE=+" whose sign strip
+            // leaves an empty string
+            var nonNumericHeaders = reader.GetOneBasedScan(6);
+            NUnit.Framework.Assert.That(nonNumericHeaders.MassSpectrum.Size, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(nonNumericHeaders.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 701.5, 702.5 }).Within(1e-9));
+            NUnit.Framework.Assert.That(nonNumericHeaders.MsnOrder, Is.EqualTo(1));
+            NUnit.Framework.Assert.That(nonNumericHeaders.SelectedIonMZ, Is.Null);
+
+            // The control, so the two assertions above cannot pass by every scan collapsing to MS1: a
+            // well-formed PEPMASS still yields an MS2 carrying its precursor.
+            var wellFormedPrecursor = reader.GetOneBasedScan(1);
+            NUnit.Framework.Assert.That(wellFormedPrecursor.MsnOrder, Is.EqualTo(2));
+            NUnit.Framework.Assert.That(wellFormedPrecursor.SelectedIonMZ, Is.EqualTo(571.806916).Within(1e-9));
+
+            // scan 7: bare "MSLEVEL" with no "=" -- the one site with no value guard at all
+            var mslevelWithoutEquals = reader.GetOneBasedScan(7);
+            NUnit.Framework.Assert.That(mslevelWithoutEquals.MassSpectrum.Size, Is.EqualTo(2));
+
+            // scan 8: "MSLEVEL=" is empty, and the peak list carries "(901.5)" and "1400.0-".
+            // Those two are REJECTED rather than read as negatives: NumberStyles.Any would have
+            // accepted both as -901.5 and -1400.0, inventing peaks the old code threw on.
+            var parenthesisedAndTrailingSign = reader.GetOneBasedScan(8);
+            NUnit.Framework.Assert.That(parenthesisedAndTrailingSign.MassSpectrum.Size, Is.EqualTo(1),
+                "a parenthesised m/z and a trailing-sign intensity must be skipped, not negated");
+            NUnit.Framework.Assert.That(parenthesisedAndTrailingSign.MassSpectrum.XArray,
+                Is.EqualTo(new[] { 903.5 }).Within(1e-9));
+        }
+
+
+        /// <summary>
+        /// The static path is only half the claim. MetaMorpheus reads MGF both ways, and BuildIndex parsed
+        /// the SCANS value with a bare int.Parse -- so "SCANS=x" threw FormatException straight out of
+        /// InitiateDynamicConnection and one bad line still made the file unreadable, on the very fixture
+        /// added to prove it does not. The regex is (^|\s)SCANS=(.*?)($|\D): its lazy .*? yields nothing
+        /// because \D consumes the x, so the parsed string is empty.
+        ///
+        /// A scan whose SCANS value cannot be read falls back to the sequential number that a scan with no
+        /// SCANS line at all already gets, so the two read paths agree about what each scan is called.
+        /// </summary>
+        [Test]
+        public static void TestDynamicConnectionOnMgfWithMalformedLines()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "malformedLines.mgf");
+
+            var dynamicReader = MsDataFileReader.GetDataFile(path);
+            NUnit.Framework.Assert.DoesNotThrow(() => dynamicReader.InitiateDynamicConnection(),
+                "a malformed SCANS value must not make the file unreadable through the dynamic path either");
+
+            try
+            {
+                var staticReader = MsDataFileReader.GetDataFile(path);
+                staticReader.LoadAllStaticData();
+
+                // Every scan the static path produces must be reachable dynamically, with the same identity.
+                foreach (var staticScan in staticReader.GetAllScansList())
+                {
+                    var dynamicScan = dynamicReader.GetOneBasedScanFromDynamicConnection(staticScan.OneBasedScanNumber);
+                    NUnit.Framework.Assert.That(dynamicScan, Is.Not.Null,
+                        $"scan {staticScan.OneBasedScanNumber} is missing from the dynamic index");
+                    NUnit.Framework.Assert.That(dynamicScan.MsnOrder, Is.EqualTo(staticScan.MsnOrder));
+                    NUnit.Framework.Assert.That(dynamicScan.MassSpectrum.Size, Is.EqualTo(staticScan.MassSpectrum.Size));
+                }
+            }
+            finally
+            {
+                dynamicReader.CloseDynamicConnection();
+            }
+        }
+
+        /// <summary>
+        /// InitiateDynamicConnection assigns the reader before it builds the index, and BuildIndex can still
+        /// throw for a genuine reason -- a duplicate scan number. The stream was left open when it did, and
+        /// CloseDynamicConnection is the only route to that field, so a caller that caught the exception was
+        /// holding a handle it had no way to release. Asserted by trying to take the file exclusively.
+        /// </summary>
+        [Test]
+        public static void TestFailedDynamicConnectionDoesNotLeakTheFileHandle()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "duplicateScanNumbers.mgf");
+            File.WriteAllText(path,
+                "BEGIN IONS\nTITLE=dup.1.1.2\nPEPMASS=500.0\nCHARGE=2+\nSCANS=1\n100.0 200.0\nEND IONS\n" +
+                "BEGIN IONS\nTITLE=dup.1.1.2\nPEPMASS=600.0\nCHARGE=2+\nSCANS=1\n300.0 400.0\nEND IONS\n");
+
+            try
+            {
+                var reader = MsDataFileReader.GetDataFile(path);
+                NUnit.Framework.Assert.Throws<MzLibException>(() => reader.InitiateDynamicConnection(),
+                    "a duplicate scan number is still a real failure");
+
+                NUnit.Framework.Assert.DoesNotThrow(() =>
+                    {
+                        using var exclusive = new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    },
+                    "the stream must be disposed when BuildIndex throws, or the caller is left holding a handle it cannot close");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
         [Test]
         public static void TestLoadCorruptMgf()
         {
