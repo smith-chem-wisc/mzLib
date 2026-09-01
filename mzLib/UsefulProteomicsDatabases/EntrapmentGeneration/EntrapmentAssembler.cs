@@ -258,41 +258,143 @@ public static class EntrapmentAssembler
     /// </remarks>
     public static EntrapmentAssembly AssembleWholeProtein(string targetSequence,
         IReadOnlySet<string> forbiddenSequences, int minLength = 1,
-        int fold = 0, int foldCount = 1, int seed = 1)
+        int fold = 0, int foldCount = 1, int seed = 1,
+        IReadOnlyCollection<int>? spanBoundaries = null)
     {
         if (string.IsNullOrEmpty(targetSequence))
         {
             throw new MzLibException("Cannot assemble an entrapment proteoform from an empty sequence.");
         }
 
-        var noMotifs = new List<DigestionMotif>();
-        EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(targetSequence, noMotifs,
-            forbiddenSequences, fold, foldCount, seed,
-            TerminalAnchors(0, targetSequence.Length, targetSequence.Length));
+        // Cut at every truncation-span boundary, exactly as the bottom-up path cuts at every
+        // cleavage site. Rearranging the whole protein as one unit preserved ITS composition and
+        // nothing else: Protease yields intact truncation products as searched species, and a
+        // freely permuted span holds a different multiset than the one it stands opposite --
+        // measured on a signal peptide 1-25, target sorted AACDEHIIIKKKLNQQRTTVVVVWY against
+        // partner AAAAAAAACCCCCCCDDDDDDDDIV. Because every span is a union of whole segments,
+        // permuting within each segment keeps every span isomeric with the span it replaces,
+        // which is what preserving the candidate-site count actually requires.
+        List<int> cuts = SegmentCuts(targetSequence.Length, spanBoundaries);
 
-        var pieces = new List<EntrapmentPiece>(1);
+        var noMotifs = new List<DigestionMotif>();
+        var pieces = new List<EntrapmentPiece>(cuts.Count - 1);
         int[] map = Enumerable.Repeat(-1, targetSequence.Length).ToArray();
         var entrapment = new StringBuilder(targetSequence.Length);
 
-        if (partner.Succeeded)
+        for (int index = 0; index < cuts.Count - 1; index++)
         {
-            AppendPiece(entrapment, map, 0, partner.EntrapmentSequence!, partner.SwappedPositions!);
-            pieces.Add(new EntrapmentPiece(0, targetSequence, partner.EntrapmentSequence,
-                PieceOutcome.Permuted, EntrapmentFailure.None));
-        }
-        else if (targetSequence.Length < minLength)
-        {
-            AppendPiece(entrapment, map, 0, targetSequence, Identity(targetSequence.Length));
-            pieces.Add(new EntrapmentPiece(0, targetSequence, targetSequence,
-                PieceOutcome.KeptVerbatimTooShort, partner.Failure));
-        }
-        else
-        {
-            pieces.Add(new EntrapmentPiece(0, targetSequence, null, PieceOutcome.Excised, partner.Failure));
+            int start = cuts[index];
+            int length = cuts[index + 1] - start;
+            string segment = targetSequence.Substring(start, length);
+
+            EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(segment, noMotifs,
+                forbiddenSequences, fold, foldCount, seed,
+                TerminalAnchors(start, length, targetSequence.Length));
+
+            if (partner.Succeeded)
+            {
+                AppendPiece(entrapment, map, start, partner.EntrapmentSequence!, partner.SwappedPositions!);
+                pieces.Add(new EntrapmentPiece(index, segment, partner.EntrapmentSequence,
+                    PieceOutcome.Permuted, EntrapmentFailure.None));
+                continue;
+            }
+
+            // A segment is not searched on its own -- the spans are -- so one with no arrangement
+            // is kept rather than excised, which is what keeps the length preserved and the
+            // positional annotations carryable. Whether that leaves the PROTEIN unchanged is
+            // decided after the loop.
+            if (segment.Length < minLength || cuts.Count > 2)
+            {
+                AppendPiece(entrapment, map, start, segment, Identity(segment.Length));
+                pieces.Add(new EntrapmentPiece(index, segment, segment,
+                    PieceOutcome.KeptVerbatimTooShort, partner.Failure));
+                continue;
+            }
+
+            // One segment, no arrangement, long enough to be identified: drop the proteoform whole
+            // rather than hand back the target as its own entrapment.
+            pieces.Add(new EntrapmentPiece(index, segment, null, PieceOutcome.Excised, partner.Failure));
+            return new EntrapmentAssembly(targetSequence, string.Empty,
+                Enumerable.Repeat(-1, targetSequence.Length).ToArray(), pieces, 0, new List<string>());
         }
 
-        return new EntrapmentAssembly(targetSequence, entrapment.ToString(), map, pieces, 0,
-            new List<string>());
+        string assembled = entrapment.ToString();
+
+        // A partner identical to its target is not an entrapment sequence. Reachable now that
+        // segments are kept verbatim rather than the whole protein being excised, and reachable
+        // before whenever minLength exceeded the length -- which emitted the target itself as an
+        // entrapment entry, in the one mode where a short proteoform IS a searched species.
+        if (string.Equals(assembled, targetSequence, StringComparison.Ordinal))
+        {
+            return new EntrapmentAssembly(targetSequence, string.Empty,
+                Enumerable.Repeat(-1, targetSequence.Length).ToArray(), pieces, 0, new List<string>());
+        }
+
+        // The spans of the partner are searched species too, so a span that IS a real target
+        // sequence is the top-down counterpart of a run collision. Testing only the whole-sequence
+        // candidate against forbiddenSequences left these neither avoided nor counted, and both
+        // collision figures were passed as constants -- so a report over a proteoform database
+        // read zero however much it held.
+        List<string> collisions = SpansThatAreRealTargets(assembled, cuts, forbiddenSequences);
+
+        return new EntrapmentAssembly(targetSequence, assembled, map, pieces, 0, collisions);
+    }
+
+    /// <summary>
+    /// The segment boundaries a proteoform is rearranged within: 0, the protein length, and every
+    /// truncation-span endpoint between them.
+    /// </summary>
+    /// <remarks>
+    /// Every span is then a union of whole segments, so permuting within each segment preserves
+    /// each span composition as well as the whole protein one. Overlapping spans need no special
+    /// handling: their endpoints simply contribute more cuts.
+    /// </remarks>
+    private static List<int> SegmentCuts(int proteinLength, IReadOnlyCollection<int>? spanBoundaries)
+    {
+        var cuts = new SortedSet<int> { 0, proteinLength };
+        foreach (int boundary in spanBoundaries ?? System.Array.Empty<int>())
+        {
+            if (boundary > 0 && boundary < proteinLength)
+            {
+                cuts.Add(boundary);
+            }
+        }
+
+        return cuts.ToList();
+    }
+
+    /// <summary>
+    /// Segment-aligned spans of the assembled partner that are themselves real target sequences.
+    /// </summary>
+    private static List<string> SpansThatAreRealTargets(string assembled, List<int> cuts,
+        IReadOnlySet<string> forbiddenSequences)
+    {
+        var collisions = new List<string>();
+        if (forbiddenSequences is null || forbiddenSequences.Count == 0)
+        {
+            return collisions;
+        }
+
+        for (int from = 0; from < cuts.Count - 1; from++)
+        {
+            for (int to = from + 1; to < cuts.Count; to++)
+            {
+                // The whole sequence is guaranteed distinct by the generator already, so only
+                // proper spans are worth testing.
+                if (from == 0 && to == cuts.Count - 1)
+                {
+                    continue;
+                }
+
+                string span = assembled.Substring(cuts[from], cuts[to] - cuts[from]);
+                if (forbiddenSequences.Contains(span) && !collisions.Contains(span))
+                {
+                    collisions.Add(span);
+                }
+            }
+        }
+
+        return collisions;
     }
 
     /// <summary>

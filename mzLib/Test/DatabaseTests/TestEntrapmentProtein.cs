@@ -1080,4 +1080,108 @@ public class EntrapmentProteinTests
         Assert.That(entrapment.UniProtSequenceAttributes.Mass, Is.Not.Zero);
         Assert.That(entrapment.UniProtSequenceAttributes.Mass, Is.EqualTo(targetMass));
     }
+
+    [Test]
+    public void ProteoformKeepsEachTruncationSpanIsomericNotOnlyTheWholeProtein()
+    {
+        // Protease yields intact truncation products as searched species. Rearranging the whole
+        // protein as one unit preserved only ITS composition: a signal peptide 1-25 came back
+        // holding a different multiset, so the span was not isomeric with the one it replaced and
+        // the candidate-site count this mode exists to preserve had silently changed.
+        const string sequence = "MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYTKSSPQIVWEN";
+        var target = new Protein(sequence, "P12345",
+            proteolysisProducts: new List<TruncationProduct>
+            {
+                new(1, 25, "signal peptide"),
+                new(26, sequence.Length, "chain"),
+            });
+
+        Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(entrapment, Is.Not.Null);
+        Assert.That(entrapment.BaseSequence, Is.Not.EqualTo(sequence), "it must still be rearranged");
+        Assert.That(entrapment.BaseSequence.Length, Is.EqualTo(sequence.Length));
+
+        foreach (TruncationProduct span in entrapment.TruncationProducts)
+        {
+            int begin = span.OneBasedBeginPosition.Value - 1;
+            int length = span.OneBasedEndPosition.Value - begin;
+            string targetSpan = sequence.Substring(begin, length);
+            string entrapmentSpan = entrapment.BaseSequence.Substring(begin, length);
+
+            Assert.That(entrapmentSpan.OrderBy(c => c), Is.EqualTo(targetSpan.OrderBy(c => c)),
+                $"span {span.OneBasedBeginPosition}-{span.OneBasedEndPosition} must be isomeric");
+        }
+    }
+
+    [Test]
+    public void ProteoformCountsASpanThatIsARealTargetSequence()
+    {
+        // The top-down counterpart of a run collision. Only the whole-sequence candidate was tested
+        // against forbiddenSequences, and both collision figures were passed as constants, so a
+        // report over a proteoform database read zero however much it held.
+        const string sequence = "MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYTKSSPQIVWEN";
+        var target = new Protein(sequence, "P12345",
+            proteolysisProducts: new List<TruncationProduct>
+            {
+                new(1, 25, "signal peptide"),
+                new(26, sequence.Length, "chain"),
+            });
+
+        // Build once with nothing forbidden to learn what the first span actually becomes, then
+        // forbid exactly that and rebuild.
+        Protein unconstrained = EntrapmentProteinGenerator.CreateProteoform(
+            target, NothingForbidden, out _);
+        Assert.That(unconstrained, Is.Not.Null);
+        string firstSpan = unconstrained.BaseSequence.Substring(0, 25);
+
+        Protein rebuilt = EntrapmentProteinGenerator.CreateProteoform(target,
+            new HashSet<string> { firstSpan }, out EntrapmentAssembly assembly);
+
+        // The whole point: it may keep the span or move away from it, but it may not keep it
+        // SILENTLY. Before this, only the whole-sequence candidate was tested against
+        // forbiddenSequences and both collision figures were passed as constants, so a proteoform
+        // report read zero however much the database held.
+        bool kept = rebuilt is not null && rebuilt.BaseSequence.StartsWith(firstSpan, StringComparison.Ordinal);
+        if (kept)
+        {
+            Assert.That(assembly.UnrepairableRunCollisionPeptides, Does.Contain(firstSpan),
+                "a span kept despite being a real target sequence must be named, not passed over");
+        }
+        else
+        {
+            Assert.That(rebuilt, Is.Null.Or.Property("BaseSequence").Not.StartsWith(firstSpan),
+                "the forbidden span was avoided");
+        }
+    }
+
+    [Test]
+    public void ProteoformDoesNotHandBackTheTargetAsItsOwnEntrapment()
+    {
+        // A single residue has exactly one arrangement. Kept verbatim, it emitted the target itself
+        // as an entrapment entry -- defensible for a sub-MinLength base piece in bottom-up, but a
+        // short proteoform is a searched species in this mode.
+        var target = new Protein("M", "P12345");
+
+        Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden,
+            out EntrapmentAssembly assembly, minLength: 10);
+
+        Assert.That(assembly.EntrapmentSequence, Is.Empty);
+        Assert.That(entrapment, Is.Null, "a proteoform identical to its target is not an entrapment");
+    }
+
+    [Test]
+    public void ProteoformDropsSpliceSitesRatherThanAssertingNothing()
+    {
+        // A disulfide bond joins two residues, so mapping both endpoints keeps the assertion true.
+        // A splice site names the JUNCTION between adjacent residues, and once the two are mapped
+        // independently they are no longer adjacent, so the annotation asserts nothing.
+        const string sequence = "MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYTKSSPQIVWEN";
+        var target = new Protein(sequence, "P12345",
+            spliceSites: new List<SpliceSite> { new(10, 11, "junction") });
+
+        Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(entrapment.SpliceSites, Is.Empty);
+    }
 }

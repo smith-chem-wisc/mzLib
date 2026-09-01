@@ -53,8 +53,28 @@ public static class EntrapmentProteinGenerator
             throw new MzLibException("Cannot build an entrapment proteoform from a null target.");
         }
 
+        // Every truncation-span endpoint becomes a boundary the rearrangement is confined within,
+        // so each span keeps its own composition rather than only the whole protein keeping its.
+        // Protease yields intact truncation products as searched species, so a span that is not
+        // isomeric with the one it stands opposite has silently changed the candidate-site count
+        // this mode exists to preserve.
+        var spanBoundaries = new List<int>();
+        foreach (TruncationProduct product in target.TruncationProducts ?? Enumerable.Empty<TruncationProduct>())
+        {
+            // One-based, inclusive begin; the cut sits before that residue.
+            if (product.OneBasedBeginPosition.HasValue)
+            {
+                spanBoundaries.Add(product.OneBasedBeginPosition.Value - 1);
+            }
+
+            if (product.OneBasedEndPosition.HasValue)
+            {
+                spanBoundaries.Add(product.OneBasedEndPosition.Value);
+            }
+        }
+
         assembly = EntrapmentAssembler.AssembleWholeProtein(target.BaseSequence, forbiddenSequences,
-            minLength, fold, foldCount, seed);
+            minLength, fold, foldCount, seed, spanBoundaries);
 
         if (assembly.EntrapmentSequence.Length == 0)
         {
@@ -77,8 +97,12 @@ public static class EntrapmentProteinGenerator
             proteolysisProducts: target.TruncationProducts.ToList(),
             disulfideBonds: MoveResiduePairs(target.DisulfideBonds, map,
                 (b, e, d) => new DisulfideBond(b, e, d)),
-            spliceSites: MoveResiduePairs(target.SpliceSites, map,
-                (b, e, d) => new SpliceSite(b, e, d)));
+            // Splice sites are dropped, not mapped. A disulfide bond joins two residues and mapping
+            // both endpoints keeps that assertion true wherever they land. A splice site names the
+            // JUNCTION between adjacent residues -- ProteinXmlEntry takes its begin/end from the
+            // flanking pair -- so once the two are mapped independently they are no longer adjacent
+            // and the annotation asserts nothing at all. Dropping it says the true thing.
+            spliceSites: new List<SpliceSite>());
     }
 
     /// <summary>
