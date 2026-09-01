@@ -607,6 +607,9 @@
     <None Update="DataFiles\Tab_separated_peak_list.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\malformedLines.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="AveragingTests\TestData\TDYeastFractionMMResult.psmtsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
