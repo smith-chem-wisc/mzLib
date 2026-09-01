@@ -782,6 +782,38 @@ namespace Test.DatabaseTests
             return ModificationLoader.ReadModsFromFile(reader, formalCharges, out List<(Modification, string)> _).Single();
         }
 
+        private static Modification ReadSingleModificationThroughPtmListLoader(string ptmListText, Dictionary<string, int> formalCharges)
+        {
+            using StreamReader reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(ptmListText)));
+#pragma warning disable CS0618 // PtmListLoader is obsolete in favour of ModificationLoader; the point here is that it still agrees
+            return PtmListLoader.ReadModsFromFile(reader, formalCharges, out List<(Modification, string)> _).Single();
+#pragma warning restore CS0618
+        }
+
+        /// <summary>
+        /// The same invariant through the other public entry point. PtmListLoader is obsolete and is being
+        /// reduced to a forward onto ModificationLoader (#1182), which deletes a second copy of the
+        /// formal-charge arithmetic -- so the two have to agree on the one number where disagreeing would be
+        /// silent. Asserting equality alone would pass if BOTH went wrong together, so this pins the value.
+        /// </summary>
+        [Test]
+        public void TrimethylLysine_FormalChargeAdjustmentIsTheSameThroughPtmListLoader()
+        {
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModPath));
+
+            Modification viaModificationLoader = ReadSingleModification(TrimethylLysineEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(TrimethylLysineEntry, formalCharges);
+
+            double neutralIncrement = ChemicalFormula.ParseFormula("C3H6").MonoisotopicMass;
+
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "the obsolete entry point must reach the same neutral increment");
+            Assert.AreEqual("C3H6", viaPtmListLoader.ChemicalFormula.Formula);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(viaModificationLoader.MonoisotopicMass).Within(1e-9),
+                "the two loaders must not disagree about a mass");
+        }
+
         /// <summary>
         /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
         /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
