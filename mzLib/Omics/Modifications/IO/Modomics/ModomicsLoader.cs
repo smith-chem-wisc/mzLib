@@ -1,9 +1,9 @@
-using System.Globalization;
-using System.Text.Json;
-using Microsoft.VisualBasic.FileIO;
-
 using Chemistry;
 using MassSpectrometry;
+using Microsoft.VisualBasic.FileIO;
+using System.Globalization;
+using System.Text.Json;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Omics.Modifications.IO.Modomics;
 
@@ -342,9 +342,24 @@ public static class ModomicsLoader
                 continue;
             }
 
+            var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
             yield return new ModomicsConversionOutcome
             {
-                Modification = CreateModification(dto, motif, isTerminalCap, modFormula, diagnosticIons),
+                Modification = new Modification(
+                    _originalId: dto.Name,
+                    _accession: idString,
+                    _modificationType: isTerminalCap ? "5' Terminal Cap" : "Modomics",
+                    _target: motif,
+                    _locationRestriction: isTerminalCap ? "5'-terminal." : "Anywhere.",
+                    _chemicalFormula: modFormula,
+                    _monoisotopicMass: modFormula.MonoisotopicMass,
+                    _databaseReference: new Dictionary<string, IList<string>>
+                    {
+                        { "Modomics", new List<string> { dto.ShortName, dto.Name, idString } },
+                    },
+                    _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name },
+                    _diagnosticIons: diagnosticIons
+                )
             };
         }
     }
@@ -402,27 +417,6 @@ public static class ModomicsLoader
         baseIon.Add(TwoHydrogenChemicalFormula);
 
         return string.IsNullOrEmpty(baseIon.Formula) ? null : baseIon.MonoisotopicMass;
-    }
-
-    private static Modification CreateModification(ModomicsDto dto, ModificationMotif motif, bool isTerminalCap, ChemicalFormula chemicalFormula, Dictionary<DissociationType, List<double>>? diagnosticIons)
-    {
-        var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
-
-        return new Modification(
-            _originalId: dto.Name,
-            _accession: idString,
-            _modificationType: isTerminalCap ? "5' Terminal Cap" : "Modomics",
-            _target: motif,
-            _locationRestriction: isTerminalCap ? "5'-terminal." : "Anywhere.",
-            _chemicalFormula: chemicalFormula,
-            _monoisotopicMass: chemicalFormula.MonoisotopicMass,
-            _databaseReference: new Dictionary<string, IList<string>>
-            {
-                { "Modomics", new List<string> { dto.ShortName, dto.Name, idString } },
-            },
-            _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name },
-            _diagnosticIons: diagnosticIons
-        );
     }
 
     private static ModomicsConversionOutcome NotRepresentable(ModomicsDto dto, ModomicsRepresentationFailureReason reason, string? details = null)
