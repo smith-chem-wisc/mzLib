@@ -269,9 +269,9 @@ namespace Test.RetentionTimePrediction
         {
             var mods = new Dictionary<string, Modification>
             {
-                { "Gln to PyroGlu on Q", ModificationConverter.AllModsKnown["Gln to PyroGlu on Q"] }
+                { "Glu to PyroGlu on Q", ModificationConverter.AllModsKnown["Glu to PyroGlu on Q"] }
             };
-            var peptide = new PeptideWithSetModifications("Q[Gln to PyroGlu on Q]PEPTIDE", mods);
+            var peptide = new PeptideWithSetModifications("Q[Glu to PyroGlu on Q]PEPTIDE", mods);
             var massShiftSequence = peptide.FullSequenceWithMassShifts;
             
             Assert.That(massShiftSequence, Does.Contain("[-"));
