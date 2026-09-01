@@ -1,5 +1,6 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -273,8 +274,12 @@ namespace Test.KoinaTests
         [Test]
         public void TheLiveProbeIsSuppressedRatherThanHidden()
         {
+            // Flags rather than the parameterless GetMethods(), which sees public methods only: were the
+            // base probe ever narrowed to `protected virtual`, that overload would return zero and the
+            // count assertion below would fail with a message about `new` versus `override` describing
+            // something that did not happen.
             var probes = typeof(TestKoinaServiceFaultIsSkippedNotFailed)
-                .GetMethods()
+                .GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static)
                 .Where(m => m.Name == nameof(KoinaLiveTestFixture.EnsureKoinaReachable))
                 .ToList();
 
@@ -294,23 +299,42 @@ namespace Test.KoinaTests
         {
             var children = TestExecutionContext.CurrentContext.CurrentResult.Children.ToList();
 
-            var fault = children.Single(c => c.Name == nameof(AServiceFaultSkipsTheTest));
-            Assert.That(fault.ResultState.Status, Is.EqualTo(TestStatus.Skipped),
-                "a Koina service fault must be skipped, not failed -- the guard did not fire");
-            Assert.That(fault.Message, Does.Contain("third-party availability problem"));
+            // SingleOrDefault, not Single: a --filter that selects one test in this fixture still runs
+            // this [OneTimeTearDown], and a Single over an absent sibling would throw from the teardown.
+            // The person debugging one of these would then be shown a failure that is the observer's
+            // rather than theirs -- the same trap the doc comment above records this test falling into.
+            // Each assertion therefore runs only over the children the run actually produced.
+            ITestResult Child(string name) => children.SingleOrDefault(c => c.Name == name);
 
-            var ordinary = children.Single(c => c.Name == nameof(AnOrdinaryFailureStillFails));
-            Assert.That(ordinary.ResultState.Status, Is.EqualTo(TestStatus.Passed),
-                "the guard must not touch anything that is not a Koina service fault");
+            var fault = Child(nameof(AServiceFaultSkipsTheTest));
+            if (fault is not null)
+            {
+                Assert.That(fault.ResultState.Status, Is.EqualTo(TestStatus.Skipped),
+                    "a Koina service fault must be skipped, not failed -- the guard did not fire");
+                Assert.That(fault.Message, Does.Contain("third-party availability problem"));
+            }
 
-            var wrapped = children.Single(c => c.Name == nameof(ADoesNotThrowFailureStillReportsTheServersError));
-            Assert.That(wrapped.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
-            Assert.That(wrapped.Message, Does.Contain("PyTorch execute failure"),
-                "the server's own error has to reach the log, not the caller's user message");
-            Assert.That(wrapped.Message, Does.Not.Contain("Charge 1 should be valid"));
+            var ordinary = Child(nameof(AnOrdinaryFailureStillFails));
+            if (ordinary is not null)
+            {
+                Assert.That(ordinary.ResultState.Status, Is.EqualTo(TestStatus.Passed),
+                    "the guard must not touch anything that is not a Koina service fault");
+            }
 
-            var throwsNothing = children.Single(c => c.Name == nameof(AFailedThrowsAssertionNamingTheExceptionIsStillAFailure));
-            Assert.That(throwsNothing.ResultState.Status, Is.EqualTo(TestStatus.Passed));
+            var wrapped = Child(nameof(ADoesNotThrowFailureStillReportsTheServersError));
+            if (wrapped is not null)
+            {
+                Assert.That(wrapped.ResultState.Status, Is.EqualTo(TestStatus.Skipped));
+                Assert.That(wrapped.Message, Does.Contain("PyTorch execute failure"),
+                    "the server's own error has to reach the log, not the caller's user message");
+                Assert.That(wrapped.Message, Does.Not.Contain("Charge 1 should be valid"));
+            }
+
+            var throwsNothing = Child(nameof(AFailedThrowsAssertionNamingTheExceptionIsStillAFailure));
+            if (throwsNothing is not null)
+            {
+                Assert.That(throwsNothing.ResultState.Status, Is.EqualTo(TestStatus.Passed));
+            }
         }
     }
 }

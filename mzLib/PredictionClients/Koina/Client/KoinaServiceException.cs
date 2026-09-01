@@ -43,8 +43,10 @@ namespace PredictionClients.Koina.Client
         /// </summary>
         /// <remarks>
         /// Deliberately narrow, and it must stay that way. Everything here names the SERVER's execution
-        /// failing: a Torch interpreter fault, a CUDA or cuBLAS call failing, a model that would not
-        /// load, the GPU running out of memory. None of them can be provoked by a malformed request.
+        /// failing: a Torch interpreter fault, a CUDA or cuBLAS call failing, a model that would not load,
+        /// a model or server not yet serving. None of the eight is a plausible way for the server to
+        /// report a request we built badly -- which is precisely the test a marker has to pass to belong
+        /// here, and precisely the test "out of memory" fails (see below).
         ///
         /// The safe direction is to under-match. An unrecognised error is treated as our problem, so a
         /// genuine regression in how we build a request still fails the caller loudly. Widening this to
