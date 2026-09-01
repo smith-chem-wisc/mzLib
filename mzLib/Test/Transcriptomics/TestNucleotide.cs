@@ -159,6 +159,42 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public void TestNonAsciiUnknownCharLookup()
+        {
+            const char alpha = '\u03B1';
+
+            Assert.That(Nucleotide.TryGetResidue(alpha, out Nucleotide outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+
+            Assert.That(Nucleotide.TryGetResidue('&', out outTide), Is.False);
+            Assert.That(Nucleotide.TryGetResidue("Taco", out outTide), Is.False);
+
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue(alpha));
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue('&'));
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue("Taco"));
+        }
+
+        [Test]
+        public void TestTryAddAlternativeRepresentationAsciiChar()
+        {
+            string name = "AsciiAliasNucleotide";
+            char oneLetter = 'X';
+            string symbol = "Asl";
+            string chemicalFormula = "C5H5N2O4";
+            var asciiNucleotide = new Nucleotide(name, oneLetter, symbol, ChemicalFormula.ParseFormula(chemicalFormula));
+            Nucleotide.AddResidue(name, oneLetter, symbol, chemicalFormula);
+
+            char alias = 'W';
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(asciiNucleotide, alias), Is.True);
+            Assert.That(Nucleotide.GetResidue(alias), Is.EqualTo(asciiNucleotide));
+            Assert.That(Nucleotide.GetResidue(Char.ToLower(alias)), Is.EqualTo(asciiNucleotide));
+            Assert.That(Nucleotide.TryGetResidue(alias, out Nucleotide outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(asciiNucleotide));
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(asciiNucleotide, alias), Is.True);
+        }
+
+        [Test]
         public static void TestCustomResidue()
         {
             string name = "FakeNucleotide";
