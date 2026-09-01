@@ -1,5 +1,6 @@
 using System.Linq;
 using Chemistry;
+using MassSpectrometry;
 using NUnit.Framework;
 using NUnit.Framework.Legacy;
 using Omics.Modifications;
@@ -174,6 +175,43 @@ namespace Test.Transcriptomics
             var byModomicsName = Mods.GetModification("1-methyladenosine on A", false, true);
             Assert.That(byModomicsName, Is.Not.Null);
             Assert.That(byModomicsName!.ModificationType, Is.EqualTo("Modomics"));
+        }
+
+        [Test]
+        public void ProductIonsBecomeAnyActivationTypeDiagnosticIons()
+        {
+            var report = ModomicsLoader.LoadModomics();
+
+            // Diagnostic ions are attached only when the source lists them.
+            Assert.That(report.LoadedModifications.Count(m => m.DiagnosticIons is not null), Is.GreaterThan(50));
+
+            // The primary base ion is upgraded to computed monoisotopic m/z when it validates against the
+            // published nominal value: 1-methyladenosine lists "150"; [1-methyladenine]+ = 150.078.
+            var m1A = report.LoadedModifications.Single(m => m.IdWithMotif == "1-methyladenosine on A");
+            Assert.That(m1A.DiagnosticIons, Is.Not.Null);
+            Assert.That(m1A.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(150.078).Within(0.001));
+
+            // 5-methyl-2-thiouridine lists a single nominal ion, "143", upgraded to [5-methyl-2-thiouracil]+.
+            var m5s2U = report.LoadedModifications.Single(m => m.IdWithMotif == "5-methyl-2-thiouridine on U");
+            Assert.That(m5s2U.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(143.028).Within(0.001));
+
+            // Multi-ion entries upgrade only the primary ion; secondary neutral-loss fragments keep their
+            // published nominal values: 5-carboxymethyl-2-thiouridine lists "187/169/141".
+            var cm5s2U = report.LoadedModifications.Single(m => m.IdWithMotif == "5-carboxymethyl-2-thiouridine on U");
+            var cm5s2UIons = cm5s2U.DiagnosticIons![DissociationType.AnyActivationType];
+            Assert.That(cm5s2UIons, Has.Some.EqualTo(187.018).Within(0.001));
+            Assert.That(cm5s2UIons, Does.Contain(169.0));
+            Assert.That(cm5s2UIons, Does.Contain(141.0));
+
+            // The upgrade is refused when the listed ion is not the modified base: 2'-O-methyladenosine
+            // fragments to unmodified [adenine]+ (136), and 3-methylcytidine's cationic formula does not
+            // validate against its listed 126 — both keep their published nominal values verbatim.
+            var am = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-methyladenosine on A");
+            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Does.Contain(136.0));
+            Assert.That(am.DiagnosticIons[DissociationType.AnyActivationType], Has.None.EqualTo(150.078).Within(0.001));
+
+            var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
+            Assert.That(m3C.DiagnosticIons![DissociationType.AnyActivationType], Does.Contain(126.0));
         }
 
         [Test]

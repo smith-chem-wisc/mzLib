@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.VisualBasic.FileIO;
 
 using Chemistry;
+using MassSpectrometry;
 
 namespace Omics.Modifications.IO.Modomics;
 
@@ -26,8 +27,12 @@ public static class ModomicsLoader
         { "C", new ReferenceMoietyDefinition(Formulas.CytosineBaseChemicalFormula, Formulas.CytidineChemicalFormula) },
         { "G", new ReferenceMoietyDefinition(Formulas.GuanineBaseChemicalFormula, Formulas.GuanosineChemicalFormula) },
         { "U", new ReferenceMoietyDefinition(Formulas.UracilBaseChemicalFormula, Formulas.UridineChemicalFormula) },
-        { "Y", new ReferenceMoietyDefinition(Formulas.UracilBaseChemicalFormula, Formulas.UridineChemicalFormula) },
     };
+
+    // The ribose carried inside a nucleoside (nucleoside - bonded base), and the two hydrogens added when
+    // a nucleoside fragments to its protonated free-base product ion (de-glycosylation + protonation).
+    private static readonly ChemicalFormula NucleosideRiboseChemicalFormula = Formulas.AdenosineChemicalFormula - Formulas.AdenineBaseChemicalFormula;
+    private static readonly ChemicalFormula TwoHydrogenChemicalFormula = ChemicalFormula.ParseFormula("H2");
 
     /// <summary>
     /// Loads MODOMICS RNA modifications.
@@ -187,21 +192,46 @@ public static class ModomicsLoader
         {
             Id = id,
             Abbrev = modEntry.GetProperty("abbrev").GetString() ?? string.Empty,
-            Formula = (modEntry.GetProperty("formula").GetString() ?? string.Empty).Replace("+", string.Empty, StringComparison.Ordinal),
+            Formula = modEntry.GetProperty("formula").GetString() ?? string.Empty,
+            LcElutionComment = GetStringOrNull(modEntry, "lc_elution_comment"),
+            LcElutionTime = GetStringOrNull(modEntry, "lc_elution_time"),
+            MassAvg = GetDoubleOrNull(modEntry, "mass_avg"),
+            MassMonoiso = GetDoubleOrNull(modEntry, "mass_monoiso"),
+            MassProt = GetDoubleOrNull(modEntry, "mass_prot"),
             Name = modEntry.GetProperty("name").GetString() ?? string.Empty,
-            ReferenceMoiety = modEntry.GetProperty("reference_moiety")
+            ProductIons = GetStringOrNull(modEntry, "product_ions"),
+            ReferenceMoieties = modEntry.GetProperty("reference_moiety")
                 .EnumerateArray()
                 .Select(p => p.GetString())
                 .OfType<string>()
                 .ToList(),
             ShortName = shortName,
+            Smile = GetStringOrNull(modEntry, "smile"),
             MoietyType = moietyTypeByShortName.GetValueOrDefault(shortName, string.Empty),
         };
     }
 
+    private static string? GetStringOrNull(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+    }
+
+    private static double? GetDoubleOrNull(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetDouble(out var mass)
+            ? mass
+            : null;
+    }
+
     private static IEnumerable<ModomicsConversionOutcome> ConvertDto(ModomicsDto dto)
     {
-        if (string.IsNullOrWhiteSpace(dto.Formula))
+        var neutralFormulaText = dto.Formula.Replace("+", string.Empty, StringComparison.Ordinal);
+
+        if (string.IsNullOrWhiteSpace(neutralFormulaText))
         {
             yield return NotRepresentable(dto, ModomicsRepresentationFailureReason.EmptyFormula);
             yield break;
@@ -217,7 +247,7 @@ public static class ModomicsLoader
         string? invalidFormulaMessage = null;
         try
         {
-            fullFormula = ChemicalFormula.ParseFormula(dto.Formula);
+            fullFormula = ChemicalFormula.ParseFormula(neutralFormulaText);
         }
         catch (Exception ex)
         {
@@ -240,7 +270,7 @@ public static class ModomicsLoader
             yield break;
         }
 
-        if (!isTerminalCap && dto.ReferenceMoiety.Count > 1)
+        if (!isTerminalCap && dto.ReferenceMoieties.Count > 1)
         {
             // Generic-"N" structures (NAD/CoA-linked 5' cofactors) reference every base and describe a
             // terminal cofactor rather than a residue mass shift.
@@ -248,13 +278,15 @@ public static class ModomicsLoader
             yield break;
         }
 
-        if (dto.ReferenceMoiety.Count == 0)
+        if (dto.ReferenceMoieties.Count == 0)
         {
             yield return NotRepresentable(dto, ModomicsRepresentationFailureReason.UnsupportedReferenceMoiety, "X");
             yield break;
         }
 
-        foreach (var referenceMoiety in dto.ReferenceMoiety)
+        var diagnosticIons = BuildDiagnosticIons(dto, fullFormula);
+
+        foreach (var referenceMoiety in dto.ReferenceMoieties)
         {
             if (!ReferenceMoieties.TryGetValue(referenceMoiety, out var moietyDefinition))
             {
@@ -312,12 +344,67 @@ public static class ModomicsLoader
 
             yield return new ModomicsConversionOutcome
             {
-                Modification = CreateModification(dto, motif, isTerminalCap, modFormula),
+                Modification = CreateModification(dto, motif, isTerminalCap, modFormula, diagnosticIons),
             };
         }
     }
 
-    private static Modification CreateModification(ModomicsDto dto, ModificationMotif motif, bool isTerminalCap, ChemicalFormula chemicalFormula)
+    private static Dictionary<DissociationType, List<double>>? BuildDiagnosticIons(ModomicsDto dto, ChemicalFormula fullFormula)
+    {
+        if (string.IsNullOrWhiteSpace(dto.ProductIons))
+        {
+            return null;
+        }
+
+        var ions = dto.ProductIons
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(token => double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var mz) ? mz : (double?)null)
+            .OfType<double>()
+            .Distinct()
+            .ToList();
+
+        if (ions.Count == 0)
+        {
+            return null;
+        }
+
+        // MODOMICS publishes product ions as nominal integer m/z of protonated fragments from [M+H]+.
+        // Proteomics diagnostic ions carry monoisotopic precision, so the primary base ion is upgraded to
+        // its computed monoisotopic m/z whenever it validates against the published nominal value; ions we
+        // cannot derive (secondary neutral-loss fragments, unmodified base ions, protonation-ambiguous
+        // entries) keep their published nominal values.
+        if (dto.MoietyType == "nucleoside")
+        {
+            var protonatedBaseIonMass = ComputeProtonatedBaseIonMass(fullFormula);
+            if (protonatedBaseIonMass is not null)
+            {
+                var nominalBaseIon = (int)Math.Round(protonatedBaseIonMass.Value, MidpointRounding.AwayFromZero);
+                var ionIndex = ions.FindIndex(mz => (int)Math.Round(mz, MidpointRounding.AwayFromZero) == nominalBaseIon);
+                if (ionIndex >= 0)
+                {
+                    ions[ionIndex] = protonatedBaseIonMass.Value;
+                }
+            }
+        }
+
+        return new Dictionary<DissociationType, List<double>>
+        {
+            { DissociationType.AnyActivationType, ions },
+        };
+    }
+
+    private static double? ComputeProtonatedBaseIonMass(ChemicalFormula fullFormula)
+    {
+        var baseIon = new ChemicalFormula(fullFormula);
+        // The dominant nucleoside product ion is the protonated free base: remove the ribose carried in
+        // the nucleoside, then add the two hydrogens (de-glycosylation + protonation).
+        baseIon.Remove(NucleosideRiboseChemicalFormula);
+        baseIon.Add(TwoHydrogenChemicalFormula);
+
+        return string.IsNullOrEmpty(baseIon.Formula) ? null : baseIon.MonoisotopicMass;
+    }
+
+    private static Modification CreateModification(ModomicsDto dto, ModificationMotif motif, bool isTerminalCap, ChemicalFormula chemicalFormula, Dictionary<DissociationType, List<double>>? diagnosticIons)
     {
         var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
 
@@ -333,7 +420,8 @@ public static class ModomicsLoader
             {
                 { "Modomics", new List<string> { dto.ShortName, dto.Name, idString } },
             },
-            _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name }
+            _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name },
+            _diagnosticIons: diagnosticIons
         );
     }
 
@@ -348,7 +436,7 @@ public static class ModomicsLoader
                 Name = dto.Name,
                 Formula = dto.Formula,
                 MoietyType = dto.MoietyType,
-                ReferenceMoieties = dto.ReferenceMoiety,
+                ReferenceMoieties = dto.ReferenceMoieties,
                 Reason = reason,
                 Details = details,
             },
@@ -360,17 +448,6 @@ public static class ModomicsLoader
         return existingModification.Target?.ToString() == modomicsModification.Target?.ToString()
                && existingModification.LocationRestriction == modomicsModification.LocationRestriction
                && existingModification.ChemicalFormula?.Equals(modomicsModification.ChemicalFormula) == true;
-    }
-
-    private sealed class ModomicsDto
-    {
-        public int Id { get; init; }
-        public string Abbrev { get; init; } = string.Empty;
-        public string Formula { get; init; } = string.Empty;
-        public string Name { get; init; } = string.Empty;
-        public List<string> ReferenceMoiety { get; init; } = [];
-        public string ShortName { get; init; } = string.Empty;
-        public string MoietyType { get; init; } = string.Empty;
     }
 
     private sealed class ModomicsConversionOutcome
