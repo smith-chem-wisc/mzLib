@@ -113,8 +113,10 @@ namespace Readers
             if (UnwritableSpectraExtensions.Contains(extension))
                 throw new ArgumentException(
                     $"This writer handles {MzMlExtension} and {MgfExtension}, so it cannot write " +
-                    $"'{Path.GetFileName(outputPath)}'. Pass a path ending in one of those, or one with " +
-                    $"no extension and {MzMlExtension} will be appended.",
+                    $"'{Path.GetFileName(outputPath)}'. Pass a path ending in one of those, or one whose " +
+                    $"extension names no spectra format at all -- including no extension -- and " +
+                    $"{MzMlExtension} is appended to what you passed rather than replacing it, so " +
+                    $"'sample.txt' is written as 'sample.txt{MzMlExtension}'.",
                     nameof(outputPath));
 
             _dataFile.ExportAsMzML(outputPath + MzMlExtension, true);
