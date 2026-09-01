@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Omics.Digestion;
 using Omics.Modifications;
@@ -97,7 +97,7 @@ namespace Proteomics.ProteolyticDigestion
                         && digestionParams.SearchModeType == CleavageSpecificity.Full
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                         && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, digestionParams.MaxMissedCleavages,
-                            out reportedMissedCleavages))
+                            digestionParams.Protease, out reportedMissedCleavages))
                     {
                         continue;
                     }
@@ -147,21 +147,32 @@ namespace Proteomics.ProteolyticDigestion
         /// whose C-side bond is an internal missed cleavage (positions 1 .. peptideLength - 1) are
         /// keys 2 .. peptideLength.
         ///
-        /// Known approximation: a blocking modification on an internal residue is counted as covering
-        /// an internal cleavage site without re-deriving the protease's site list, so a modified K or R
-        /// that was never a site (trypsin's K|P rule, say) can discount a missed cleavage it did not
-        /// occupy. The count is clamped so it can never go negative, and case (1) -- the correctness
-        /// fix this is here for -- is exact.
+        /// The protease is consulted, so a modification only blocks a cleavage this protease would
+        /// have made: an acylated lysine counts under trypsin, Lys-C, elastase or subtilisin, and does
+        /// not under Glu-C, Asp-N, Lys-N or chymotrypsin, none of which cut after a lysine. A protease
+        /// that cuts N-TERMINAL to its recognition residue (Asp-N, Lys-N) is left inert rather than
+        /// half-corrected: there the blocked residue invalidates a peptide's N-terminus, which is the
+        /// mirror image of the drop below and is not modelled here.
+        ///
+        /// Known approximation, now narrowed to sequence context: cleavage sites are matched at the
+        /// residue level without re-deriving the protease's site list for this protein, so a modified
+        /// K or R whose site was prevented by surrounding sequence (trypsin|P's K[P] rule) can still
+        /// discount a missed cleavage it did not occupy. The count is clamped so it can never go
+        /// negative, and case (1) -- the correctness fix this is here for -- is exact.
         /// </remarks>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
-            int peptideLength, int maxMissedCleavagesAllowed, out int openMissedCleavages)
+            int peptideLength, int maxMissedCleavagesAllowed, DigestionAgent protease, out int openMissedCleavages)
         {
             bool cTerminalResidueBlocked = false;
             int blockedInternalSites = 0;
 
             foreach (KeyValuePair<int, Modification> positionAndMod in variableModPattern)
             {
-                if (positionAndMod.Value is null || !positionAndMod.Value.BlocksCleavage)
+                // BlocksCleavageBy, not BlocksCleavage: a modification blocks a cleavage only if this
+                // protease was going to make one there. An acetylated lysine abolishes a trypsin site
+                // and abolishes nothing in a Glu-C digest, where discounting it would hide a missed
+                // cleavage the peptide genuinely has.
+                if (!CleavageBlockingModifications.BlocksCleavageBy(positionAndMod.Value, protease))
                 {
                     continue;
                 }

@@ -410,5 +410,221 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(digest.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
                 "a methylated C-terminal K is a cleavage trypsin can still perform");
         }
+
+        /// <summary>
+        /// Review round 4 (acesnik). The acyl test has to run BEFORE any methyl exclusion, because
+        /// Unimod ships names carrying both chemistries on the same lysine. Testing "methyl" first
+        /// classified "Methyl+Acetyl:2H(3)" and "Methyl:2H(3)+Acetyl:2H(3)" -- both site K, position
+        /// Anywhere in unimod.xml -- as non-blocking, when the acetyl on the epsilon-amine is exactly
+        /// the chemistry this classifier exists for.
+        /// </summary>
+        [Test]
+        public static void AnAcylationIsBlocking_EvenWhenItsNameAlsoCarriesAMethyl()
+        {
+            Assert.IsTrue(MakeKModification("Methyl+Acetyl:2H(3)").BlocksCleavage,
+                "the acetyl on the epsilon-amine decides; the methyl in the name must not veto it");
+            Assert.IsTrue(MakeKModification("Methyl:2H(3)+Acetyl:2H(3)").BlocksCleavage);
+
+            // And the exclusion the reorder must not break: methylation with no acyl group is still
+            // non-blocking, because the epsilon-amine keeps its charge.
+            Assert.IsFalse(MakeKModification("Methyl").BlocksCleavage);
+            Assert.IsFalse(MakeKModification("Dimethyl").BlocksCleavage);
+            Assert.IsFalse(MakeKModification("Trimethyl").BlocksCleavage);
+        }
+
+        /// <summary>
+        /// Review round 4 (acesnik). Of the four members that had to carry the flag, ToString was the
+        /// one no test asserted -- Equals was covered only indirectly, through Clone's AreEqual. It
+        /// matters downstream: MetaMorpheus keys its fragment-index cache on IndexingEngine.ToString()
+        /// and SameSettings compares that string verbatim, so a flag missing from this stringification
+        /// would let a flag-off index be silently reused for a flag-on run.
+        /// </summary>
+        [Test]
+        public static void DigestionParams_DifferingOnlyInTheFlag_AreDistinguishableByEveryIdentityMember()
+        {
+            var off = new DigestionParams(protease: "trypsin", respectCleavageBlockingModifications: false);
+            var on = new DigestionParams(protease: "trypsin", respectCleavageBlockingModifications: true);
+
+            Assert.AreNotEqual(off.ToString(), on.ToString(),
+                "the fragment-index cache key must distinguish the two settings");
+            Assert.IsFalse(off.Equals(on), "params differing in the flag must not compare equal");
+            Assert.AreNotEqual(off.GetHashCode(), on.GetHashCode());
+
+            // The other direction, so the assertions above cannot pass by everything being unequal.
+            var offAgain = new DigestionParams(protease: "trypsin", respectCleavageBlockingModifications: false);
+            Assert.AreEqual(off.ToString(), offAgain.ToString());
+            Assert.IsTrue(off.Equals(offAgain));
+            Assert.AreEqual(off.GetHashCode(), offAgain.GetHashCode());
+        }
+
+        /// <summary>
+        /// Review round 4 (acesnik). The generation slack widens enumeration on every protein whenever
+        /// the flag and Full mode are set, and it was being paid in searches where no configured
+        /// modification could block anything -- at MetaMorpheus defaults, enumerating at 4 missed
+        /// cleavages instead of 2, roughly 1.7x the unmodified peptides before modification
+        /// combinatorics, and carrying into the fragment index.
+        ///
+        /// The cost is invisible in the finished digest, because the open-site filter trims the surplus
+        /// again on the way out: an output comparison passes either way and pins nothing. So this reads
+        /// the enumeration itself, through ProteinDigestion.Digestion, which is where the slack is spent.
+        /// </summary>
+        [Test]
+        public static void WithNoBlockingModificationConfigured_NoGenerationSlackIsPaid()
+        {
+            ModificationMotif.TryGetMotif("S", out ModificationMotif serine);
+            var phospho = new Modification(_originalId: "Phospho", _modificationType: "Test", _target: serine,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 79.96633);
+            var methyl = MakeKModification("N6-methyllysine", mass: 14.01565);
+            var succinyl = MakeKModification("N6-succinyllysine");
+
+            var protein = new Protein("AAAAKAAAAKAAAASAAAAKAAAAKAAAAR", "accession");
+
+            int Enumerated(bool respect, params Modification[] variableMods)
+            {
+                var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 5,
+                    respectCleavageBlockingModifications: respect);
+                return new ProteinDigestion(dp, new List<Modification>(), variableMods.ToList())
+                    .Digestion(protein).Count();
+            }
+
+            int baseline = Enumerated(respect: false, phospho, methyl);
+
+            Assert.That(Enumerated(respect: true, phospho, methyl), Is.EqualTo(baseline),
+                "nothing configured can block a trypsin cleavage, so no slack may be bought");
+
+            // The counterpart, so the gate cannot pass by disabling the slack outright: once a blocking
+            // modification IS configured, the slack is bought and enumeration widens.
+            Assert.That(Enumerated(respect: true, phospho, succinyl), Is.GreaterThan(baseline),
+                "a configured blocking modification must still buy the slack the read-through needs");
+        }
+
+        /// <summary>
+        /// And the finished digest is unchanged too -- the invariant a consumer sees, as distinct from
+        /// the enumeration cost pinned above.
+        /// </summary>
+        [Test]
+        public static void WithNoBlockingModificationConfigured_TheDigestIsUnchanged()
+        {
+            ModificationMotif.TryGetMotif("S", out ModificationMotif serine);
+            var phospho = new Modification(_originalId: "Phospho", _modificationType: "Test", _target: serine,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 79.96633);
+            var methyl = MakeKModification("N6-methyllysine", mass: 14.01565);
+
+            var protein = new Protein("PEPTIDEKAAASAAAR", "accession");
+
+            List<string> WholeDigest(bool respect) =>
+                protein.Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
+                        respectCleavageBlockingModifications: respect),
+                        new List<Modification>(), new List<Modification> { phospho, methyl })
+                    .Cast<PeptideWithSetModifications>()
+                    .Select(p => p.FullSequence + "|" + p.MissedCleavages).OrderBy(x => x).ToList();
+
+            CollectionAssert.AreEqual(WholeDigest(respect: false), WholeDigest(respect: true),
+                "no configured modification can block a trypsin cleavage, so the flag must change nothing");
+        }
+
+        /// <summary>
+        /// Whether a modification blocks a cleavage is a question about the PAIR, not about the
+        /// modification on its own. <see cref="DigestionAgent.CleavesCTerminalTo"/> is the protease half.
+        /// </summary>
+        [Test]
+        public static void CleavesCTerminalTo_ReadsTheProteasesOwnMotifs()
+        {
+            Assert.IsTrue(ProteaseDictionary.Dictionary["trypsin"].CleavesCTerminalTo('K'));
+            Assert.IsTrue(ProteaseDictionary.Dictionary["trypsin"].CleavesCTerminalTo('R'));
+            Assert.IsFalse(ProteaseDictionary.Dictionary["trypsin"].CleavesCTerminalTo('E'));
+
+            // Lys-C cuts after K only, Arg-C after R only -- each is blind to the other's blocking mod.
+            Assert.IsTrue(ProteaseDictionary.Dictionary["Lys-C|P"].CleavesCTerminalTo('K'));
+            Assert.IsFalse(ProteaseDictionary.Dictionary["Lys-C|P"].CleavesCTerminalTo('R'));
+            Assert.IsTrue(ProteaseDictionary.Dictionary["Arg-C"].CleavesCTerminalTo('R'));
+            Assert.IsFalse(ProteaseDictionary.Dictionary["Arg-C"].CleavesCTerminalTo('K'));
+
+            // Glu-C cuts after E and nowhere near a lysine.
+            Assert.IsTrue(ProteaseDictionary.Dictionary["Glu-C"].CleavesCTerminalTo('E'));
+            Assert.IsFalse(ProteaseDictionary.Dictionary["Glu-C"].CleavesCTerminalTo('K'));
+
+            // Direction: Asp-N and Lys-N cut N-terminal to their recognition residue, so they sever
+            // nothing C-terminal to it and report false for every residue -- which is what leaves the
+            // C-terminal-side correction inert for them rather than silently mirror-imaged.
+            Assert.IsFalse(ProteaseDictionary.Dictionary["Asp-N"].CleavesCTerminalTo('D'));
+            Assert.IsFalse(ProteaseDictionary.Dictionary["Lys-N"].CleavesCTerminalTo('K'));
+
+            // The wildcard is honoured through the same matcher digestion itself uses.
+            Assert.IsTrue(ProteaseDictionary.Dictionary["non-specific"].CleavesCTerminalTo('K'));
+        }
+
+        /// <summary>
+        /// The consequence for digestion, and the reason the protease half is not optional. Glu-C never
+        /// cleaves after a lysine, so an acylated lysine abolishes nothing in a Glu-C digest. Counting
+        /// it as blocked discounted a missed cleavage the peptide genuinely has -- both under-reporting
+        /// the count and letting an over-budget peptide through on the generation slack.
+        /// </summary>
+        [Test]
+        public static void AProteaseThatDoesNotCleaveAfterTheModifiedResidue_IsUnaffected(
+            [Values("Glu-C", "Arg-C")] string protease)
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein("AAAAAAAEAAKAAAAAEAAAAAAA", "accession");   // E8, K11, E17
+
+            List<string> WholeDigest(bool respect) =>
+                protein.Digest(new DigestionParams(protease: protease, maxMissedCleavages: 1, minPeptideLength: 7,
+                        respectCleavageBlockingModifications: respect),
+                        new List<Modification>(), new List<Modification> { succinyl })
+                    .Cast<PeptideWithSetModifications>()
+                    .Select(p => p.FullSequence + "|" + p.MissedCleavages).OrderBy(x => x).ToList();
+
+            CollectionAssert.AreEqual(WholeDigest(respect: false), WholeDigest(respect: true),
+                protease + " does not cleave after K, so a blocked K must not discount its missed cleavages");
+        }
+
+        /// <summary>
+        /// The positive control for the same gate: Lys-C does cleave after K, so the correction applies
+        /// there exactly as it does for trypsin. Without this, the protease gate could pass by simply
+        /// disabling the feature everywhere.
+        /// </summary>
+        [Test]
+        public static void AProteaseThatDoesCleaveAfterTheModifiedResidue_StillGetsTheCorrection()
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein("PEPTIDEKAAAAAAAK", "accession");   // Lys-C cuts after K8; K16 is the protein C-terminus
+            var dp = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 0, minPeptideLength: 7,
+                respectCleavageBlockingModifications: true);
+
+            var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { succinyl })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            Assert.That(digest.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.False,
+                "Lys-C cannot cleave after a succinylated K either, so the impossible form must be dropped");
+            Assert.That(digest.Any(p => p.BaseSequence == "PEPTIDEKAAAAAAAK" && p.AllModsOneIsNterminus.ContainsKey(9)), Is.True,
+                "and the read-through must replace it at zero missed cleavages");
+        }
+
+        /// <summary>
+        /// The same gate at residue granularity rather than protease granularity: Lys-C cleaves after K
+        /// but not after R, so a citrullinated arginine inside a Lys-C peptide blocks nothing and must
+        /// not discount that peptide's missed cleavage.
+        /// </summary>
+        [Test]
+        public static void ABlockingModOnAResidueThisProteaseIgnores_DoesNotDiscountAMissedCleavage()
+        {
+            ModificationMotif.TryGetMotif("R", out ModificationMotif arg);
+            var citrulline = new Modification(_originalId: "Citrulline", _modificationType: "Test", _target: arg,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 0.98402);
+
+            var protein = new Protein("AAAAAAAKAARAAAAAKAAAAAAA", "accession");   // K8, R11, K17
+            var dp = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 1, minPeptideLength: 7,
+                respectCleavageBlockingModifications: true);
+
+            var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { citrulline })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            // The span crossing K8 with a citrulline on R11 really does miss the cleavage at K8: Lys-C
+            // never had a site at R11 for the citrulline to abolish.
+            PeptideWithSetModifications readThrough = digest
+                .Single(p => p.BaseSequence == "AAAAAAAKAARAAAAAK" && p.AllModsOneIsNterminus.Count == 1);
+            Assert.That(readThrough.MissedCleavages, Is.EqualTo(1),
+                "citrulline on R blocks nothing under Lys-C, so the missed cleavage at K stands");
+        }
     }
 }

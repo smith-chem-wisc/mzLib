@@ -37,6 +37,29 @@ namespace Proteomics.ProteolyticDigestion
         public List<Modification> VariableModifications { get; set; }
 
         /// <summary>
+        /// True when at least one configured modification -- variable or fixed -- could abolish a
+        /// cleavage this protease would otherwise perform. False makes the whole cleavage-blocking
+        /// correction inert: no generation slack is bought and no peptidoform can be dropped, because
+        /// nothing in the search can block anything.
+        ///
+        /// Both modification lists are consulted, not just the variable one. Fixed modifications are
+        /// appended to the variable pattern before the drop is evaluated, so a fixed blocking
+        /// modification can trigger the drop and must therefore also be able to buy the slack that
+        /// replaces the dropped peptidoform.
+        /// </summary>
+        /// <remarks>
+        /// Not memoised, deliberately: <see cref="Protease"/>, <see cref="VariableModifications"/> and
+        /// <see cref="AllKnownFixedModifications"/> are all settable after construction, and a cached
+        /// answer would go stale behind a caller that changed one. The cost is a handful of memoised
+        /// <see cref="Modification.BlocksCleavage"/> reads against the motif list, per protein, and only
+        /// on the path where the flag is already on.
+        /// </remarks>
+        private bool AnyConfiguredModificationCanBlockCleavage =>
+            (VariableModifications ?? Enumerable.Empty<Modification>())
+                .Concat(AllKnownFixedModifications ?? Enumerable.Empty<Modification>())
+                .Any(modification => CleavageBlockingModifications.BlocksCleavageBy(modification, Protease));
+
+        /// <summary>
         /// Gets peptides for speedy semispecific digestion of a protein
         /// This generates specific peptides of maximum missed cleavages
         /// These peptides need to be digested post search to their actual sequences
@@ -246,8 +269,16 @@ namespace Proteomics.ProteolyticDigestion
             // can carry at most MaxMods variable modifications and therefore at most that many blocked
             // sites, so this reaches every variable-mod read-through no matter how many co-occur. (A fixed
             // blocking modification is unbounded and remains a documented limitation.)
+            //
+            // The slack is bought with enumeration, so it is only granted when it can actually be spent:
+            // a search whose configured modifications cannot block a cleavage of THIS protease pays
+            // nothing. That gate matters at MetaMorpheus defaults, where MaxMissedCleavages 2 plus
+            // MaxMods 2 enumerates at 4 -- roughly 1.7x the unmodified peptides before modification
+            // combinatorics, and it carries into the fragment index.
             int generationMaxMissedCleavages = MaximumMissedCleavages;
-            if (DigestionParams.RespectCleavageBlockingModifications && DigestionParams.SearchModeType == CleavageSpecificity.Full)
+            if (DigestionParams.RespectCleavageBlockingModifications
+                && DigestionParams.SearchModeType == CleavageSpecificity.Full
+                && AnyConfiguredModificationCanBlockCleavage)
                 generationMaxMissedCleavages += DigestionParams.MaxMods;
 
             return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
