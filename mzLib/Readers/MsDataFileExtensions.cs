@@ -5,7 +5,7 @@ namespace Readers
 {
     public static class MsDataFileExtensions
     {
-        // <summary>
+        /// <summary>
         /// Extracts an ion chromatogram from the spectra file, given a mass, charge, retention time, and mass tolerance.
         /// </summary>
         public static ExtractedIonChromatogram ExtractIonChromatogram(this MsDataFile file, double neutralMass, int charge, Tolerance massTolerance, double retentionTimeInMinutes, int msOrder = 1, double retentionTimeWindowWidthInMinutes = 5)
@@ -42,6 +42,16 @@ namespace Readers
         public static void ExportAsMzML(this MsDataFile file, string destinationPath, bool writeIndexed)
         {
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, destinationPath, writeIndexed);
+        }
+
+        /// <summary>
+        /// Writes the file as Mascot Generic Format. MGF carries a single precursor m/z per spectrum, so
+        /// the deconvoluted monoisotopic guess is preferred over the selected ion m/z where available.
+        /// Scans with no peaks are skipped. See <see cref="MgfMethods"/> for the field mapping.
+        /// </summary>
+        public static void ExportAsMgf(this MsDataFile file, string destinationPath)
+        {
+            MgfMethods.WriteMgf(file, destinationPath);
         }
 
         /// <summary>
