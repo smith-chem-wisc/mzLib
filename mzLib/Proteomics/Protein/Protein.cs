@@ -46,10 +46,15 @@ namespace Proteomics
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
             UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
+            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
+            Protein nonVariantProtein = null)
         {
             BaseSequence = sequence;
-            NonVariantProtein = this;
+            // Defaults to this, which is right for an entry that is its own consensus. A caller building an
+            // entry that carries applied variations - a decoy mirrored from a variant target, for instance -
+            // passes the consensus so that ConsensusVariant and NonVariantProtein point at it rather than at
+            // the variant entry itself.
+            NonVariantProtein = nonVariantProtein ?? this;
             Accession = accession;
 
             Name = name;
@@ -92,7 +97,6 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="newBaseSequence"></param>
-        /// <param name="silacAccession"></param>
         public Protein(Protein originalProtein, string newBaseSequence)
         {
             BaseSequence = newBaseSequence;

@@ -1,4 +1,4 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 using NUnit.Framework;
 using Omics;
 using Omics.BioPolymerGroup;
@@ -314,7 +314,8 @@ public class TmtSpikeInTests
             SpectralMatchNormalizationStrategy = new NoNormalization(),
             SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
             PeptideNormalizationStrategy = new NoNormalization(),
-            CollapseStrategy = new SumCollapse(),
+            CollapseStrategy = new CollapseFractionsAndTechnicalReplicates(),
+            CollapseAggregationStrategy = new SumAggregation(),
             PeptideToProteinRollUpStrategy = new SumRollUp(),
             ProteinNormalizationStrategy = new NoNormalization(),
             OutputDirectory = string.Empty,
@@ -475,7 +476,8 @@ public class TmtSpikeInTests
             SpectralMatchNormalizationStrategy = new NoNormalization(),
             SpectralMatchToPeptideRollUpStrategy = new SumRollUp(),
             PeptideNormalizationStrategy = new NoNormalization(),
-            CollapseStrategy = new MeanCollapse(),
+            CollapseStrategy = new CollapseFractionsAndTechnicalReplicates(),
+            CollapseAggregationStrategy = new MeanAggregation(),
             PeptideToProteinRollUpStrategy = new SumRollUp(),
             ProteinNormalizationStrategy = new NoNormalization(),
             OutputDirectory = string.Empty,

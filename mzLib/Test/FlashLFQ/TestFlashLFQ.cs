@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Test.FileReadingTests;
-using MassSpectrometry;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -492,6 +491,56 @@ namespace Test.FlashLFQ
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
 
+        /// <summary>
+        /// A peptide seen only in the merged-in results is added to PeptideModifiedSequences by the merge,
+        /// but it also has to join the set of sequences eligible for quantification. Otherwise the next
+        /// CalculatePeptideResults blanks every peptide and then refuses to repopulate that one, silently
+        /// zeroing the merged-in half of the data. The two runs must quantify DIFFERENT sequences for this
+        /// to prove anything - with a shared sequence the two sets are identical and the union is a no-op.
+        /// </summary>
+        [Test]
+        public static void TestFlashLfqMergeResultsKeepsMergedInPeptideQuantifiable()
+        {
+            FlashLfqResults resultsA = QuantifyOnePeptideInOneFile("peptideA", "a", out SpectraFileInfo fileA);
+            FlashLfqResults resultsB = QuantifyOnePeptideInOneFile("peptideB", "b", out SpectraFileInfo fileB);
+
+            Assert.That(resultsB.PeptideModifiedSequences["peptideB"].GetIntensity(fileB), Is.GreaterThan(0),
+                "the peptide must be quantified in the second run, or this test proves nothing");
+
+            resultsA.MergeResultsWith(resultsB);
+            resultsA.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+
+            Assert.That(resultsA.PeptideModifiedSequences["peptideB"].GetIntensity(fileB), Is.GreaterThan(0),
+                "a peptide seen only in the merged-in results must survive requantification");
+            Assert.That(resultsA.PeptideModifiedSequences["peptideB"].GetDetectionType(fileB),
+                Is.EqualTo(DetectionType.MSMS));
+
+            // the receiving run's own peptide was never at risk; it is here as a control
+            Assert.That(resultsA.PeptideModifiedSequences["peptideA"].GetIntensity(fileA), Is.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// Builds a single-file result quantifying one peptide, without touching the disk. The identification
+        /// is passed to the FlashLfqResults constructor so that the peptide lands in the set of sequences
+        /// eligible for quantification - an empty set there means "quantify nothing", not "quantify everything".
+        /// </summary>
+        private static FlashLfqResults QuantifyOnePeptideInOneFile(string sequence, string condition, out SpectraFileInfo file)
+        {
+            file = new SpectraFileInfo("", condition, 0, 0, 0);
+            Identification id = new Identification(file, sequence, sequence, 0, 0, 0, new List<ProteinGroup>());
+
+            ChromatographicPeak peak = new ChromatographicPeak(id, file);
+            peak.ResolveIdentifications();
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 1000, 1));
+            peak.CalculateIntensityForThisFeature(false);
+
+            FlashLfqResults results = new FlashLfqResults(new List<SpectraFileInfo> { file }, new List<Identification> { id });
+            results.Peaks[file].Add(peak);
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+
+            return results;
+        }
+
 
         /// <summary>
         /// This test MatchBetweenRuns by creating two fake mzML files and a list of fake IDs. 
@@ -875,8 +924,6 @@ namespace Test.FlashLFQ
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
-
             // generate mzml file
 
             // 1 MS1 scan per peptide
@@ -943,8 +990,6 @@ namespace Test.FlashLFQ
             string fileToWrite = "myMzml.mzML";
             string peptide = "PEPTIDE";
             double intensity = 1e6;
-
-            Loaders.LoadElements();
 
             // generate mzml file
 
