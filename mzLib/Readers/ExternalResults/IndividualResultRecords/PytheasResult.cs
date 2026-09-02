@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using MzLibUtil;
 
 namespace Readers.ExternalResults.IndividualResultRecords;
@@ -73,11 +75,49 @@ public class PytheasResult
     /// </summary>
     public string Ms2Matches { get; set; }
 
+    /// <summary>
+    /// The MS2 <see cref="Ms2Matches"/> tokens parsed into typed <see cref="PytheasMatchedIon"/> records.
+    /// Populated only when the tokens are requested; reading stays a single pass over the raw line.
+    /// </summary>
+    public List<PytheasMatchedIon> MatchedIons => _matchedIons ??= ParseMatchedIons();
+
+    private List<PytheasMatchedIon>? _matchedIons;
+
+    private List<PytheasMatchedIon> ParseMatchedIons()
+    {
+        if (string.IsNullOrWhiteSpace(Ms2Matches))
+            return new List<PytheasMatchedIon>();
+        return Ms2Matches.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(PytheasMatchedIon.Parse)
+            .ToList();
+    }
+
     /// <summary>The final SCORE token verbatim, e.g. "SCORE=0.239(sumI=227;n=5;...)".</summary>
     public string DetailedScore { get; set; }
 
     /// <summary>Numeric value extracted from the leading "SCORE=" part of <see cref="DetailedScore"/>.</summary>
     public double Score { get; set; }
+
+    #region Interpreted Fields
+
+    /// <summary>A match is a decoy when it has no genomic location, which Pytheas writes as "decoy".</summary>
+    public bool IsDecoy => string.Equals(MoleculeLocation, "decoy", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>The unmodified oligomer sequence, as printed in the sequence column.</summary>
+    public string BaseSequence => Sequence;
+
+    /// <summary>
+    /// The sequence with modification or ambiguity annotations. Pytheas puts the plain sequence in its
+    /// sequence column and the annotated form in sequence_mod; unmodified matches have a "-" placeholder.
+    /// </summary>
+    public string FullSequence => string.IsNullOrWhiteSpace(SequenceModification) || SequenceModification == "-"
+        ? Sequence
+        : SequenceModification;
+
+    /// <summary>The genomic location (or "decoy") of the matched oligomer.</summary>
+    public string Accession => MoleculeLocation;
+
+    #endregion
 
     /// <summary>
     /// Parses one match line. The first 16 space-delimited tokens are the fixed columns

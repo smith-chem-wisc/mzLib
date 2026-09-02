@@ -169,6 +169,12 @@ namespace Readers
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
 
+                    // Pytheas writes a match-output file that carries no standard name or extension, so
+                    // it is recognized by its header here, like the DIA-NN report. The first line is
+                    // always "#theoretical_digest <path>" regardless of how the file was renamed.
+                    if (firstLine.StartsWith("#theoretical_digest", StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.PytheasResult;
+
                     // DIA-NN's main report is conventionally named report.tsv, but the name is set by
                     // whoever ran the search and is routinely changed, so match on the header instead.
                     // File.Name is what separates the long-format report from the matrix reports

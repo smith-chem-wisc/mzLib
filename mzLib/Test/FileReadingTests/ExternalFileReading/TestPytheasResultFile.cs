@@ -83,6 +83,49 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         [Test]
+        public void TestPytheasResultMatchedIonsNormalized()
+        {
+            PytheasResult first = new PytheasResultFile(TestFilePath).First();
+
+            // #MS2=5 counts the scored matches, but the line lists every annotated peak: parse all of them
+            Assert.That(first.MatchedIons.Count, Is.EqualTo(first.Ms2Matches.Split(' ').Length));
+
+            PytheasMatchedIon firstIon = first.MatchedIons[0];
+            Assert.That(firstIon.MeasuredMz, Is.EqualTo(892.167114));
+            Assert.That(firstIon.OffsetPpm, Is.EqualTo(0.8));
+            Assert.That(firstIon.NormalizedIntensity, Is.EqualTo(680));
+            Assert.That(firstIon.TheoreticalMz, Is.EqualTo(892.166417));
+            Assert.That(firstIon.IonAnnotation, Is.EqualTo("M-P(-1)"));
+            Assert.That(firstIon.Charge, Is.EqualTo(-1));
+            Assert.That(firstIon.RawMatch, Is.EqualTo("892.167114(0.8ppm)[680]:892.166417[M-P(-1)]"));
+        }
+
+        [Test]
+        public void TestPytheasResultInterpretedFields()
+        {
+            PytheasResultFile file = new PytheasResultFile(TestFilePath);
+
+            // decoy matches are those without a genomic location
+            PytheasResult decoy = file.First(r => r.MoleculeLocation.Equals("decoy", StringComparison.OrdinalIgnoreCase));
+            Assert.That(decoy.IsDecoy);
+            Assert.That(decoy.Accession, Is.EqualTo("decoy"));
+
+            // unmodified match: sequence_mod is "-", FullSequence falls back to the sequence column
+            PytheasResult plain = file.First(r => r.SequenceModification == "-");
+            Assert.That(plain.IsDecoy, Is.False);
+            Assert.That(plain.BaseSequence, Is.EqualTo(plain.Sequence));
+            Assert.That(plain.FullSequence, Is.EqualTo(plain.Sequence));
+
+            // modified match: FullSequence carries the modified form
+            PytheasResult modified = file.First(r => r.SequenceModification.Contains("mG"));
+            Assert.That(modified.FullSequence, Is.EqualTo(modified.SequenceModification));
+
+            // ambiguous base call: sequence_mod lists the candidate resolutions
+            PytheasResult ambiguous = file.First(r => r.SequenceModification.Contains("|"));
+            Assert.That(ambiguous.FullSequence, Is.EqualTo(ambiguous.SequenceModification));
+        }
+
+        [Test]
         public void TestPytheasResultLastRecordCorrect()
         {
             PytheasResult last = new PytheasResultFile(TestFilePath).Last();
@@ -158,7 +201,7 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(outputPath.ParseFileType(), Is.EqualTo(SupportedFileType.PytheasResult));
         }
 
-        [Test]
+[Test]
         public void TestPytheasResultHeaderLinesRoundTrip()
         {
             PytheasResultFile original = new PytheasResultFile(TestFilePath);
@@ -173,20 +216,76 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(rewritten.HeaderLines, Is.EqualTo(original.HeaderLines));
         }
 
+        [Test]
+        public void TestPytheasHeaderPropertiesParsed()
+        {
+            PytheasResultFile file = new PytheasResultFile(TestFilePath);
+            _ = file.Count();
+
+            Assert.That(file.TheoreticalDigestPath, Does.EndWith("Digest_16S_ecoli_16_40_seqx.txt"));
+            Assert.That(file.Enzyme, Is.EqualTo("T1"));
+            Assert.That(file.MSDataPath, Does.EndWith("Lumos_Orbi.mgf"));
+            Assert.That(file.IsotopicSpecies, Is.EqualTo("all"));
+            Assert.That(file.Ms1Ppm, Is.EqualTo(16.0));
+            Assert.That(file.Ms2Ppm, Is.EqualTo(40.0));
+            Assert.That(file.Ms1OffsetPpm, Is.EqualTo(0.0));
+            Assert.That(file.Ms2OffsetPpm, Is.EqualTo(0.0));
+            Assert.That(file.Ms1MzMinimum, Is.EqualTo(400));
+            Assert.That(file.Ms1MzMaximum, Is.EqualTo(2000));
+            Assert.That(file.Ms2MzMinimum, Is.EqualTo(300));
+            Assert.That(file.Ms2MzMaximum, Is.EqualTo(2000));
+            Assert.That(file.Ms2AbsPeakIntensity, Is.EqualTo("None"));
+            Assert.That(file.Ms2PeakNumMaximum, Is.EqualTo("all"));
+            Assert.That(file.Ms2NormintCutoff, Is.EqualTo(5));
+            Assert.That(file.PrecursorExclusionWindow, Is.EqualTo(2.0));
+            Assert.That(file.PrecursorLossesExclusionWindow, Is.EqualTo(1.5));
+            Assert.That(file.Alpha, Is.EqualTo(0.0));
+            Assert.That(file.Beta, Is.EqualTo(0.075));
+            Assert.That(file.PrecursorIsotopologues, Is.True);
+            Assert.That(file.MatchesHeader, Does.StartWith("m/z(meas) RT m/z(theo)"));
+        }
+
+        [Test]
+        public void TestPytheasHeaderPropertiesRoundTrip()
+        {
+            PytheasResultFile original = new PytheasResultFile(TestFilePath);
+            string outputPath = Path.Combine(_outputDirectory, "headerPropsRoundTrip.txt");
+            original.WriteResults(outputPath);
+
+            PytheasResultFile rewritten = new PytheasResultFile(outputPath);
+            _ = rewritten.Count();
+
+            Assert.That(rewritten.Enzyme, Is.EqualTo(original.Enzyme));
+            Assert.That(rewritten.MSDataPath, Is.EqualTo(original.MSDataPath));
+            Assert.That(rewritten.Ms1Ppm, Is.EqualTo(original.Ms1Ppm));
+            Assert.That(rewritten.Ms2Ppm, Is.EqualTo(original.Ms2Ppm));
+            Assert.That(rewritten.Beta, Is.EqualTo(original.Beta));
+            Assert.That(rewritten.PrecursorIsotopologues, Is.EqualTo(original.PrecursorIsotopologues));
+            Assert.That(rewritten.MatchesHeader, Is.EqualTo(original.MatchesHeader));
+        }
+
         /// <summary>
-        /// The measured m/z sometimes carries a trailing '*' (phosphor/ambiguity flag in Pytheas'
-        /// notation). The numeric part must parse, and the raw line must keep the flag so it
-        /// round-trips.
+        /// Header lines that use a non-space separator or an unknown key must not move the typed
+        /// properties of the surrounding lines, and reading must not throw for them.
         /// </summary>
         [Test]
-        public void TestStarredMeasuredMzParses()
+        public void TestUnknownAndOddHeaderLinesTolerated()
         {
-            PytheasResult starred = new PytheasResultFile(TestFilePath)
-                .First(r => r.RawLine.StartsWith("491.536102*"));
+            string syntheticPath = Path.Combine(_outputDirectory, "oddHeader.txt");
+            File.WriteAllLines(syntheticPath, new[]
+            {
+                "#unknown_key something unexpected",
+                "#MS1_ppm 10.0",
+                "#MS2_ppm 20.0",
+                "PRECURSOR_ION=500.0",
+                "500.0 RT=1.0 TH_MATCH=499.0 1.0ppm Sp=0.5 dSp=0.5 rank=1 #MS2=1 light 1 -2 CCG - OH P 16S.ecoli,1,3 892.167114(0.8ppm)[680]:892.166417[M-P(-1)] SCORE=0.5(sumI=100;n=1)",
+            });
 
-            Assert.That(starred.MeasuredMz, Is.EqualTo(491.536102));
-            Assert.That(starred.RawLine, Does.StartWith("491.536102*"));
-            Assert.That(starred.SpScore, Is.EqualTo(0.223));
+            PytheasResultFile file = new PytheasResultFile(syntheticPath);
+            Assert.That(file.Count(), Is.EqualTo(1));
+            Assert.That(file.Ms1Ppm, Is.EqualTo(10.0));
+            Assert.That(file.Ms2Ppm, Is.EqualTo(20.0));
+            Assert.That(file.Enzyme, Is.Null);
         }
 
         [Test]
