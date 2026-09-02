@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -47,6 +47,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab", SupportedFileType.CasanovoMzTab);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv", SupportedFileType.DiaNnReport);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv", SupportedFileType.Sdrf);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\match_output_Lumos_Orbi.txt", SupportedFileType.PytheasResult);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();

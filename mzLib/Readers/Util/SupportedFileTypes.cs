@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Readers.ExternalResults.ResultFiles;
 
 namespace Readers
@@ -35,7 +35,8 @@ namespace Readers
         BrukerTimsTof,
         CasanovoMzTab,
         DiaNnReport,
-        Sdrf
+        Sdrf,
+        PytheasResult
     }
 
     public static class SupportedFileTypeExtensions
@@ -77,6 +78,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
+                SupportedFileType.PytheasResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 SupportedFileType.CasanovoMzTab => ".mztab",
                 // Unlike the other .tsv members, this is a conventional whole-name rather than a
@@ -167,6 +169,12 @@ namespace Readers
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
 
+                    // Pytheas writes a match-output file that carries no standard name or extension, so
+                    // it is recognized by its header here, like the DIA-NN report. The first line is
+                    // always "#theoretical_digest <path>" regardless of how the file was renamed.
+                    if (firstLine.StartsWith("#theoretical_digest", StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.PytheasResult;
+
                     // DIA-NN's main report is conventionally named report.tsv, but the name is set by
                     // whoever ran the search and is routinely changed, so match on the header instead.
                     // File.Name is what separates the long-format report from the matrix reports
@@ -182,6 +190,15 @@ namespace Readers
                 }
 
                 case ".txt":
+                    using (var reader = new StreamReader(filePath))
+                    {
+                        for (int i = 0; i < 5 && !reader.EndOfStream; i++)
+                        {
+                            var line = reader.ReadLine();
+                            if (line != null && line.StartsWith("#theoretical_digest", StringComparison.InvariantCultureIgnoreCase))
+                                return SupportedFileType.PytheasResult;
+                        }
+                    }
                     if (filePath.EndsWith(SupportedFileType.CruxResult.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.CruxResult;
                     throw new MzLibException("Txt file type not supported");
@@ -252,6 +269,7 @@ namespace Readers
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
                 SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
                 SupportedFileType.Sdrf => typeof(SdrfDocument),
+                SupportedFileType.PytheasResult => typeof(PytheasResultFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
