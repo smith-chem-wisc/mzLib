@@ -565,5 +565,31 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+
+        /// <summary>
+        /// MinAssumedChargeState and MaxAssumedChargeState are inclusive bounds, but no test had ever
+        /// deconvoluted at exactly either bound: the charge filter could be narrowed at both ends
+        /// without a single failure. This scan is known to contain a charge-2 envelope (see
+        /// CheckClassicGetMostAbundantObservedIsotopicMass), so pinning min == max == 2 means the
+        /// envelope survives only if both comparisons are inclusive.
+        /// </summary>
+        [Test]
+        public static void ClassicDeconvolutionChargeStateBoundsAreInclusive()
+        {
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "12-18-17_frac7_calib_ms1_663_665.mzML");
+            MzSpectrum spectrum = MsDataFileReader.GetDataFile(singleScan).LoadAllStaticData()
+                .GetAllScansList()[0].MassSpectrum;
+            MzRange range = new MzRange(spectrum.XArray.Min(), spectrum.XArray.Max());
+
+            DeconvolutionParameters parameters = new ClassicDeconvolutionParameters(2, 2, 20, 3);
+
+            List<IsotopicEnvelope> envelopes = Deconvoluter.Deconvolute(spectrum, parameters, range).ToList();
+
+            Assert.That(envelopes, Is.Not.Empty,
+                "charge 2 is present in this scan and must be found when it is both the min and the max bound");
+            Assert.That(envelopes.Select(e => e.Charge), Is.All.EqualTo(2));
+        }
+
     }
 }
