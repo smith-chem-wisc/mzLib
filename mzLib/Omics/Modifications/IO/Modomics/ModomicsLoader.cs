@@ -1,9 +1,10 @@
-using Chemistry;
-using MassSpectrometry;
-using Microsoft.VisualBasic.FileIO;
 using System.Globalization;
 using System.Text.Json;
-using static System.Runtime.InteropServices.JavaScript.JSType;
+using Microsoft.VisualBasic.FileIO;
+
+using Chemistry;
+using MassSpectrometry;
+using MzLibUtil;
 
 namespace Omics.Modifications.IO.Modomics;
 
@@ -11,6 +12,13 @@ namespace Omics.Modifications.IO.Modomics;
 /// Loads MODOMICS RNA modifications from the embedded database and converts whole-nucleoside/nucleotide
 /// formulas into mass shifts relative to the canonical base residues. Entries that cannot be represented
 /// as a residue mass shift are reported rather than silently dropped.
+/// For nucleoside entries with published product ions, the protonated base ion additionally derives
+/// <see cref="BaseModification"/> semantics: an ion matching the canonical base cation marks the
+/// modification as sugar-localized (Default), and an ion matching the canonical cation plus the
+/// modification shift marks it base-localized (Modified, departing with the base during base loss).
+/// Topologies that the product ions cannot validate (partial base localization, protonation-ambiguous
+/// entries, no published ions) keep the plain representation. The product ions are always retained as
+/// AnyActivationType diagnostic ions.
 /// </summary>
 public static class ModomicsLoader
 {
@@ -211,22 +219,6 @@ public static class ModomicsLoader
         };
     }
 
-    private static string? GetStringOrNull(JsonElement element, string propertyName)
-    {
-        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
-            ? value.GetString()
-            : null;
-    }
-
-    private static double? GetDoubleOrNull(JsonElement element, string propertyName)
-    {
-        return element.TryGetProperty(propertyName, out var value)
-            && value.ValueKind == JsonValueKind.Number
-            && value.TryGetDouble(out var mass)
-            ? mass
-            : null;
-    }
-
     private static IEnumerable<ModomicsConversionOutcome> ConvertDto(ModomicsDto dto)
     {
         var neutralFormulaText = dto.Formula.Replace("+", string.Empty, StringComparison.Ordinal);
@@ -284,7 +276,14 @@ public static class ModomicsLoader
             yield break;
         }
 
-        var diagnosticIons = BuildDiagnosticIons(dto, fullFormula);
+        var parsedProductIons = dto.ProductIons?
+            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(token => double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var mz) ? mz : (double?)null)
+            .OfType<double>()
+            .Distinct()
+            .ToList() ?? null;
+        var diagnosticIons = BuildDiagnosticIons(dto, parsedProductIons, fullFormula);
+        var computedBaseCationMass = dto.MoietyType == "nucleoside" ? ComputeProtonatedBaseIonMass(fullFormula) : null;
 
         foreach (var referenceMoiety in dto.ReferenceMoieties)
         {
@@ -342,46 +341,27 @@ public static class ModomicsLoader
                 continue;
             }
 
-            var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
+            (BaseLossBehavior Behavior, ChemicalFormula? BaseLossModification)? baseLoss = null;
+            if (parsedProductIons is not null && computedBaseCationMass is not null)
+            {
+                var canonicalBaseCationMass = (moietyDefinition.BaseChemicalFormula + TwoHydrogenChemicalFormula).MonoisotopicMass;
+                baseLoss = DeriveBaseLossBehavior(parsedProductIons, computedBaseCationMass.Value, canonicalBaseCationMass, modFormula);
+            }
+
             yield return new ModomicsConversionOutcome
             {
-                Modification = new Modification(
-                    _originalId: dto.Name,
-                    _accession: idString,
-                    _modificationType: isTerminalCap ? "5' Terminal Cap" : "Modomics",
-                    _target: motif,
-                    _locationRestriction: isTerminalCap ? "5'-terminal." : "Anywhere.",
-                    _chemicalFormula: modFormula,
-                    _monoisotopicMass: modFormula.MonoisotopicMass,
-                    _databaseReference: new Dictionary<string, IList<string>>
-                    {
-                        { "Modomics", new List<string> { dto.ShortName, dto.Name, idString } },
-                    },
-                    _keywords: new List<string> { dto.Abbrev, dto.ShortName, dto.Name },
-                    _diagnosticIons: diagnosticIons
-                )
+                Modification = CreateModification(dto, motif, isTerminalCap, modFormula, diagnosticIons, baseLoss),
             };
         }
     }
-
-    private static Dictionary<DissociationType, List<double>>? BuildDiagnosticIons(ModomicsDto dto, ChemicalFormula fullFormula)
+    private static Dictionary<DissociationType, List<double>>? BuildDiagnosticIons(ModomicsDto dto, List<double>? parsedProductIons, ChemicalFormula fullFormula)
     {
-        if (string.IsNullOrWhiteSpace(dto.ProductIons))
+        if (parsedProductIons is null || parsedProductIons.Count == 0)
         {
             return null;
         }
 
-        var ions = dto.ProductIons
-            .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
-            .Select(token => double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var mz) ? mz : (double?)null)
-            .OfType<double>()
-            .Distinct()
-            .ToList();
-
-        if (ions.Count == 0)
-        {
-            return null;
-        }
+        var ions = parsedProductIons.ToList();
 
         // MODOMICS publishes product ions as nominal integer m/z of protonated fragments from [M+H]+.
         // Proteomics diagnostic ions carry monoisotopic precision, so the primary base ion is upgraded to
@@ -408,6 +388,35 @@ public static class ModomicsLoader
         };
     }
 
+    private static (BaseLossBehavior Behavior, ChemicalFormula? BaseLossModification)? DeriveBaseLossBehavior(
+        List<double> parsedProductIons, double computedBaseCationMass, double canonicalBaseCationMass, ChemicalFormula modFormula)
+    {
+        if (parsedProductIons.Any(mz => SameNominalMz(mz, canonicalBaseCationMass)))
+        {
+            // The published base ion is the unmodified canonical base (e.g. 2'-O-methyladenosine fragments
+            // to [adenine]+): the modification is sugar-localized, so nothing extra leaves with the base.
+            return (BaseLossBehavior.Default, null);
+        }
+
+        if (parsedProductIons.Any(mz => SameNominalMz(mz, computedBaseCationMass)))
+        {
+            // The published base ion carries the full modification shift (e.g. [N6-methyladenine]+ for
+            // N6-methyladenosine, or [hypoxanthine]+ for inosine on adenine): the modification is
+            // base-localized and departs with the base during base loss.
+            return (BaseLossBehavior.Modified, modFormula);
+        }
+
+        // The published ions validate neither topology (secondary fragments only, partially base-localized
+        // modifications such as N6,2'-O-dimethyladenosine, or protonation-ambiguous entries such as m3C):
+        // keep the plain representation rather than guess.
+        return null;
+    }
+
+    private static bool SameNominalMz(double first, double second)
+    {
+        return (int)Math.Round(first, MidpointRounding.AwayFromZero) == (int)Math.Round(second, MidpointRounding.AwayFromZero);
+    }
+
     private static double? ComputeProtonatedBaseIonMass(ChemicalFormula fullFormula)
     {
         var baseIon = new ChemicalFormula(fullFormula);
@@ -417,6 +426,49 @@ public static class ModomicsLoader
         baseIon.Add(TwoHydrogenChemicalFormula);
 
         return string.IsNullOrEmpty(baseIon.Formula) ? null : baseIon.MonoisotopicMass;
+    }
+
+    private static Modification CreateModification(ModomicsDto dto, ModificationMotif motif, bool isTerminalCap,
+        ChemicalFormula chemicalFormula, Dictionary<DissociationType, List<double>>? diagnosticIons,
+        (BaseLossBehavior Behavior, ChemicalFormula? BaseLossModification)? baseLoss)
+    {
+        var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
+        var modificationType = isTerminalCap ? "5' Terminal Cap" : "Modomics";
+        var locationRestriction = isTerminalCap ? "5'-terminal." : "Anywhere.";
+        var databaseReference = new Dictionary<string, IList<string>>
+        {
+            { "Modomics", new List<string> { dto.ShortName, dto.Name, idString } },
+        };
+        var keywords = new List<string> { dto.Abbrev, dto.ShortName, dto.Name };
+
+        if (baseLoss is not null)
+        {
+            return new BaseModification(
+                _originalId: dto.Name,
+                _accession: idString,
+                _modificationType: modificationType,
+                _target: motif,
+                _locationRestriction: locationRestriction,
+                _chemicalFormula: chemicalFormula,
+                _monoisotopicMass: chemicalFormula.MonoisotopicMass,
+                _databaseReference: databaseReference,
+                _keywords: keywords,
+                _diagnosticIons: diagnosticIons,
+                baseLossType: baseLoss.Value.Behavior,
+                baseLossModification: baseLoss.Value.BaseLossModification);
+        }
+
+        return new Modification(
+            _originalId: dto.Name,
+            _accession: idString,
+            _modificationType: modificationType,
+            _target: motif,
+            _locationRestriction: locationRestriction,
+            _chemicalFormula: chemicalFormula,
+            _monoisotopicMass: chemicalFormula.MonoisotopicMass,
+            _databaseReference: databaseReference,
+            _keywords: keywords,
+            _diagnosticIons: diagnosticIons);
     }
 
     private static ModomicsConversionOutcome NotRepresentable(ModomicsDto dto, ModomicsRepresentationFailureReason reason, string? details = null)
@@ -442,6 +494,22 @@ public static class ModomicsLoader
         return existingModification.Target?.ToString() == modomicsModification.Target?.ToString()
                && existingModification.LocationRestriction == modomicsModification.LocationRestriction
                && existingModification.ChemicalFormula?.Equals(modomicsModification.ChemicalFormula) == true;
+    }
+
+    private static string? GetStringOrNull(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value) && value.ValueKind == JsonValueKind.String
+            ? value.GetString()
+            : null;
+    }
+
+    private static double? GetDoubleOrNull(JsonElement element, string propertyName)
+    {
+        return element.TryGetProperty(propertyName, out var value)
+            && value.ValueKind == JsonValueKind.Number
+            && value.TryGetDouble(out var mass)
+            ? mass
+            : null;
     }
 
     private sealed class ModomicsConversionOutcome

@@ -215,6 +215,48 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public void BaseLossBehaviorIsDerivedFromProductIons()
+        {
+            var report = ModomicsLoader.LoadModomics();
+
+            // Sugar-localized: 2'-O-methyladenosine fragments to unmodified [adenine]+ (136), so
+            // nothing extra leaves with the base; the diagnostic ion is retained alongside the
+            // derived behavior.
+            var am = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-methyladenosine on A");
+            var amBaseMod = am as BaseModification;
+            Assert.That(amBaseMod, Is.Not.Null);
+            Assert.That(amBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Default));
+            Assert.That(amBaseMod.BaseLossModification, Is.Null);
+            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Does.Contain(136.0));
+
+            // Base-localized: N6-methyladenosine fragments to [N6-methyladenine]+ (150 = [adenine]+ + CH2),
+            // so the modification departs with the base during base loss.
+            var m6A = report.LoadedModifications.Single(m => m.IdWithMotif == "N6-methyladenosine on A");
+            var m6ABaseMod = m6A as BaseModification;
+            Assert.That(m6ABaseMod, Is.Not.Null);
+            Assert.That(m6ABaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
+            Assert.That(m6ABaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
+            Assert.That(m6A.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(150.078).Within(0.001));
+
+            // Base conversion: inosine targets adenine and fragments to [hypoxanthine]+
+            // (137 = [adenine]+ + H-1N-1O1), so the full base difference leaves with the base.
+            var inosine = report.LoadedModifications.Single(m => m.IdWithMotif == "inosine on A");
+            var inosineBaseMod = inosine as BaseModification;
+            Assert.That(inosineBaseMod, Is.Not.Null);
+            Assert.That(inosineBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
+            Assert.That(inosineBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("H-1N-1O1")), Is.True);
+
+            // Underivable topologies stay plain: 3-methylcytidine's cationic formula is protonation-
+            // ambiguous (listed 126 matches neither [cytosine]+ at 112 nor the formula-derived 127),
+            // and N6,2'-O-dimethyladenosine is partially base-localized (listed 150 matches neither
+            // [adenine]+ at 136 nor the formula-derived 164).
+            var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
+            Assert.That(m3C, Is.Not.TypeOf<BaseModification>());
+            var m6Am = report.LoadedModifications.Single(m => m.IdWithMotif == "N6,2'-O-dimethyladenosine on A");
+            Assert.That(m6Am, Is.Not.TypeOf<BaseModification>());
+        }
+
+        [Test]
         public void MethylsHaveCorrectFormula()
         {
             var mods = ModomicsLoader.LoadModomics().LoadedModifications
