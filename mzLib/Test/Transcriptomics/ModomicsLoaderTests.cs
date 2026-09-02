@@ -203,15 +203,15 @@ namespace Test.Transcriptomics
             Assert.That(cm5s2UIons, Does.Contain(169.0));
             Assert.That(cm5s2UIons, Does.Contain(141.0));
 
-            // The upgrade is refused when the listed ion is not the modified base: 2'-O-methyladenosine
-            // fragments to unmodified [adenine]+ (136), and 3-methylcytidine's cationic formula does not
-            // validate against its listed 126 — both keep their published nominal values verbatim.
+            // The upgrade follows the measured topology rather than an all-on-base assumption:
+            // 2'-O-methyladenosine's base ion is unmodified [adenine]+ (136 -> 136.062), and
+            // 3-methylcytidine's base carries only the CH2 of its CH3 shift (126 -> 126.066).
             var am = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-methyladenosine on A");
-            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Does.Contain(136.0));
+            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(136.062).Within(0.001));
             Assert.That(am.DiagnosticIons[DissociationType.AnyActivationType], Has.None.EqualTo(150.078).Within(0.001));
 
             var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
-            Assert.That(m3C.DiagnosticIons![DissociationType.AnyActivationType], Does.Contain(126.0));
+            Assert.That(m3C.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(126.066).Within(0.001));
         }
 
         [Test]
@@ -227,7 +227,7 @@ namespace Test.Transcriptomics
             Assert.That(amBaseMod, Is.Not.Null);
             Assert.That(amBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Default));
             Assert.That(amBaseMod.BaseLossModification, Is.Null);
-            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Does.Contain(136.0));
+            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(136.062).Within(0.001));
 
             // Base-localized: N6-methyladenosine fragments to [N6-methyladenine]+ (150 = [adenine]+ + CH2),
             // so the modification departs with the base during base loss.
@@ -246,14 +246,27 @@ namespace Test.Transcriptomics
             Assert.That(inosineBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
             Assert.That(inosineBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("H-1N-1O1")), Is.True);
 
-            // Underivable topologies stay plain: 3-methylcytidine's cationic formula is protonation-
-            // ambiguous (listed 126 matches neither [cytosine]+ at 112 nor the formula-derived 127),
-            // and N6,2'-O-dimethyladenosine is partially base-localized (listed 150 matches neither
-            // [adenine]+ at 136 nor the formula-derived 164).
-            var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
-            Assert.That(m3C, Is.Not.TypeOf<BaseModification>());
+            // Partially base-localized: N6,2'-O-dimethyladenosine's base ion is [N6-methyladenine]+
+            // (150 = [adenine]+ + CH2), so only the N6 methyl departs with the base; C1H2 is the unique
+            // sub-formula of the C2H4 shift matching that measurement.
             var m6Am = report.LoadedModifications.Single(m => m.IdWithMotif == "N6,2'-O-dimethyladenosine on A");
-            Assert.That(m6Am, Is.Not.TypeOf<BaseModification>());
+            var m6AmBaseMod = m6Am as BaseModification;
+            Assert.That(m6AmBaseMod, Is.Not.Null);
+            Assert.That(m6AmBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
+            Assert.That(m6AmBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
+            Assert.That(m6Am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(150.078).Within(0.001));
+
+            // Protonation-ambiguous cations resolve through measurement too: 3-methylcytidine's full
+            // shift is CH3 (its cationic formula carries an extra proton), but its base ion 126 shows
+            // the base carries only CH2, so the derived base-loss formula is C1H2.
+            var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
+            var m3CBaseMod = m3C as BaseModification;
+            Assert.That(m3CBaseMod, Is.Not.Null);
+            Assert.That(m3CBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
+            Assert.That(m3CBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
+
+            // Entries without published ions keep the plain representation.
+            Assert.That(report.LoadedModifications.Any(m => m.DiagnosticIons is null), Is.True);
         }
 
         [Test]

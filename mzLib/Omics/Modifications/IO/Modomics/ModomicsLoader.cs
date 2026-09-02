@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using Microsoft.VisualBasic.FileIO;
 
 using Chemistry;
@@ -12,13 +13,11 @@ namespace Omics.Modifications.IO.Modomics;
 /// Loads MODOMICS RNA modifications from the embedded database and converts whole-nucleoside/nucleotide
 /// formulas into mass shifts relative to the canonical base residues. Entries that cannot be represented
 /// as a residue mass shift are reported rather than silently dropped.
-/// For nucleoside entries with published product ions, the protonated base ion additionally derives
-/// <see cref="BaseModification"/> semantics: an ion matching the canonical base cation marks the
-/// modification as sugar-localized (Default), and an ion matching the canonical cation plus the
-/// modification shift marks it base-localized (Modified, departing with the base during base loss).
-/// Topologies that the product ions cannot validate (partial base localization, protonation-ambiguous
-/// entries, no published ions) keep the plain representation. The product ions are always retained as
-/// AnyActivationType diagnostic ions.
+/// Every published product ion is retained as an AnyActivationType diagnostic ion. For nucleoside
+/// entries, the primary base cation (the largest published ion) additionally measures how much of the
+/// modification sits on the base, which yields <see cref="BaseModification"/> semantics: nothing on the
+/// base (a ribose methyl) gives Default; a partial or full portion gives Modified with that portion
+/// departing with the base. Ions that measure no unique answer keep the plain representation.
 /// </summary>
 public static class ModomicsLoader
 {
@@ -37,9 +36,8 @@ public static class ModomicsLoader
         { "U", new ReferenceMoietyDefinition(Formulas.UracilBaseChemicalFormula, Formulas.UridineChemicalFormula) },
     };
 
-    // The ribose carried inside a nucleoside (nucleoside - bonded base), and the two hydrogens added when
-    // a nucleoside fragments to its protonated free-base product ion (de-glycosylation + protonation).
-    private static readonly ChemicalFormula NucleosideRiboseChemicalFormula = Formulas.AdenosineChemicalFormula - Formulas.AdenineBaseChemicalFormula;
+    // The two hydrogens added when a nucleoside fragments to its protonated free-base product ion
+    // (de-glycosylation + protonation): [base+H]+ = bonded base + 2H.
     private static readonly ChemicalFormula TwoHydrogenChemicalFormula = ChemicalFormula.ParseFormula("H2");
 
     /// <summary>
@@ -276,14 +274,15 @@ public static class ModomicsLoader
             yield break;
         }
 
-        var parsedProductIons = dto.ProductIons?
+        var parsedProductIonCandidates = dto.ProductIons?
             .Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(token => double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out var mz) ? mz : (double?)null)
             .OfType<double>()
             .Distinct()
-            .ToList() ?? null;
-        var diagnosticIons = BuildDiagnosticIons(dto, parsedProductIons, fullFormula);
-        var computedBaseCationMass = dto.MoietyType == "nucleoside" ? ComputeProtonatedBaseIonMass(fullFormula) : null;
+            .ToList();
+
+        // A present-but-empty or unparsable product_ions field yields no usable ions.
+        var parsedProductIons = parsedProductIonCandidates is { Count: > 0 } ? parsedProductIonCandidates : null;
 
         foreach (var referenceMoiety in dto.ReferenceMoieties)
         {
@@ -341,75 +340,179 @@ public static class ModomicsLoader
                 continue;
             }
 
-            (BaseLossBehavior Behavior, ChemicalFormula? BaseLossModification)? baseLoss = null;
-            if (parsedProductIons is not null && computedBaseCationMass is not null)
-            {
-                var canonicalBaseCationMass = (moietyDefinition.BaseChemicalFormula + TwoHydrogenChemicalFormula).MonoisotopicMass;
-                baseLoss = DeriveBaseLossBehavior(parsedProductIons, computedBaseCationMass.Value, canonicalBaseCationMass, modFormula);
-            }
+            var productIonInterpretation = InterpretProductIons(parsedProductIons, dto.MoietyType, moietyDefinition, modFormula);
 
             yield return new ModomicsConversionOutcome
             {
-                Modification = CreateModification(dto, motif, isTerminalCap, modFormula, diagnosticIons, baseLoss),
+                Modification = CreateModification(dto, motif, isTerminalCap, modFormula, productIonInterpretation),
             };
         }
     }
-    private static Dictionary<DissociationType, List<double>>? BuildDiagnosticIons(ModomicsDto dto, List<double>? parsedProductIons, ChemicalFormula fullFormula)
+
+    /// <summary>
+    /// The loader's interpretation of a MODOMICS entry's published product ions: the ions to publish as
+    /// diagnostic ions, and the base-loss semantics the primary ion measures.
+    /// </summary>
+    private sealed record ProductIonInterpretation(
+        Dictionary<DissociationType, List<double>>? DiagnosticIons,
+        BaseLossBehavior? BaseLossType,
+        ChemicalFormula? BaseLossModification);
+
+    /// <summary>
+    /// Keeps every published ion as an AnyActivationType diagnostic ion. For nucleoside entries, the
+    /// primary ion (the base cation) additionally measures how much of the modification sits on the
+    /// base, which yields base-loss semantics and the primary ion's accurate monoisotopic m/z.
+    /// </summary>
+    private static ProductIonInterpretation? InterpretProductIons(
+        List<double>? productIons, string moietyType, ReferenceMoietyDefinition moiety, ChemicalFormula modificationFormula)
     {
-        if (parsedProductIons is null || parsedProductIons.Count == 0)
+        if (productIons is null)
         {
             return null;
         }
 
-        var ions = parsedProductIons.ToList();
-
-        // MODOMICS publishes product ions as nominal integer m/z of protonated fragments from [M+H]+.
-        // Proteomics diagnostic ions carry monoisotopic precision, so the primary base ion is upgraded to
-        // its computed monoisotopic m/z whenever it validates against the published nominal value; ions we
-        // cannot derive (secondary neutral-loss fragments, unmodified base ions, protonation-ambiguous
-        // entries) keep their published nominal values.
-        if (dto.MoietyType == "nucleoside")
-        {
-            var protonatedBaseIonMass = ComputeProtonatedBaseIonMass(fullFormula);
-            if (protonatedBaseIonMass is not null)
-            {
-                var nominalBaseIon = (int)Math.Round(protonatedBaseIonMass.Value, MidpointRounding.AwayFromZero);
-                var ionIndex = ions.FindIndex(mz => (int)Math.Round(mz, MidpointRounding.AwayFromZero) == nominalBaseIon);
-                if (ionIndex >= 0)
-                {
-                    ions[ionIndex] = protonatedBaseIonMass.Value;
-                }
-            }
-        }
-
-        return new Dictionary<DissociationType, List<double>>
+        // Every published ion becomes a diagnostic ion.
+        var ions = productIons.ToList();
+        var diagnosticIons = new Dictionary<DissociationType, List<double>>
         {
             { DissociationType.AnyActivationType, ions },
         };
+
+        var measured = moietyType == "nucleoside"
+            ? DeriveBaseLossModification(productIons, (moiety.BaseChemicalFormula + TwoHydrogenChemicalFormula).MonoisotopicMass, modificationFormula)
+            : null;
+
+        if (measured is null)
+        {
+            // Caps, and nucleosides whose ions do not measure a unique base-localized portion: keep
+            // every ion verbatim with plain base-loss semantics.
+            return new ProductIonInterpretation(diagnosticIons, BaseLossType: null, BaseLossModification: null);
+        }
+
+        // The measured topology gives the primary ion its accurate monoisotopic m/z.
+        var primaryIonIndex = ions.IndexOf(productIons.Max());
+        if (primaryIonIndex >= 0)
+        {
+            ions[primaryIonIndex] = measured.Value.AccurateBaseCationMass;
+        }
+
+        return new ProductIonInterpretation(
+            diagnosticIons,
+            measured.Value.Behavior,
+            measured.Value.Behavior == BaseLossBehavior.Default ? null : measured.Value.Formula);
     }
 
-    private static (BaseLossBehavior Behavior, ChemicalFormula? BaseLossModification)? DeriveBaseLossBehavior(
-        List<double> parsedProductIons, double computedBaseCationMass, double canonicalBaseCationMass, ChemicalFormula modFormula)
+    /// <summary>
+    /// The result of measuring how much of a modification sits on the base.
+    /// </summary>
+    /// <param name="Behavior">Default when nothing sits on the base; Modified otherwise.</param>
+    /// <param name="Formula">The base-localized portion (null for Default).</param>
+    /// <param name="AccurateBaseCationMass">The primary ion's accurate monoisotopic m/z: canonical base cation + portion.</param>
+    private readonly record struct DerivedBaseLoss(BaseLossBehavior Behavior, ChemicalFormula? Formula, double AccurateBaseCationMass);
+
+    /// <summary>
+    /// Measures how much of the modification sits on the base, using the primary product ion: the
+    /// largest published ion, which is the base cation (every other ion is that cation minus a small
+    /// neutral such as water or ammonia, or a smaller sugar fragment).
+    /// </summary>
+    /// <param name="productIons">The published product ions.</param>
+    /// <param name="canonicalBaseCationMass">[canonical free base + H]+, the unmodified residue's base cation.</param>
+    /// <param name="modificationFormula">The modification's mass shift relative to the residue.</param>
+    /// <returns>
+    /// The uniquely measured portion: none of it (Default) for ribose-localized modifications such as
+    /// 2'-O-methyls; a partial portion for split modifications such as N6,2'-O-dimethyladenosine
+    /// (C1H2 of C2H4); the entire shift for base-localized modifications such as N6-methyladenosine.
+    /// Null when the ions match no portion or two indistinguishable portions.
+    /// </returns>
+    private static DerivedBaseLoss? DeriveBaseLossModification(List<double> productIons, double canonicalBaseCationMass, ChemicalFormula modificationFormula)
     {
-        if (parsedProductIons.Any(mz => SameNominalMz(mz, canonicalBaseCationMass)))
+        var primaryIon = productIons.Max();
+
+        // A portion is consistent with the measurement when adding it to the canonical base cation
+        // reproduces the published ion at nominal precision.
+        var matchingPortions = GetModificationPortions(modificationFormula)
+            .Where(portion => SameNominalMz(canonicalBaseCationMass + portion.MonoisotopicMass, primaryIon))
+            .ToList();
+
+        if (matchingPortions.Count != 1)
         {
-            // The published base ion is the unmodified canonical base (e.g. 2'-O-methyladenosine fragments
-            // to [adenine]+): the modification is sugar-localized, so nothing extra leaves with the base.
-            return (BaseLossBehavior.Default, null);
+            // No portion matches, or two portions are isobaric at nominal precision: the ions do not
+            // measure a unique answer, so keep the plain representation rather than guess.
+            return null;
         }
 
-        if (parsedProductIons.Any(mz => SameNominalMz(mz, computedBaseCationMass)))
+        var baseLocalizedPortion = matchingPortions[0];
+        var isEntirelySugarLocalized = string.IsNullOrEmpty(baseLocalizedPortion.Formula);
+        return new DerivedBaseLoss(
+            isEntirelySugarLocalized ? BaseLossBehavior.Default : BaseLossBehavior.Modified,
+            isEntirelySugarLocalized ? null : baseLocalizedPortion,
+            canonicalBaseCationMass + baseLocalizedPortion.MonoisotopicMass);
+    }
+
+    /// <summary>
+    /// Every portion of the modification that could sit on the base: none of it, the entire shift, and —
+    /// when the shift's element counts are all non-negative — each sub-formula in between.
+    /// </summary>
+    private static IEnumerable<ChemicalFormula> GetModificationPortions(ChemicalFormula modificationFormula)
+    {
+        // "None of the modification is on the base" is always a candidate.
+        yield return new ChemicalFormula();
+
+        var elements = ParseElementCounts(modificationFormula.Formula);
+        var interiorIsEnumerable = elements.Count > 0
+            && elements.All(e => e.Count >= 0)
+            && elements.Aggregate(1L, (total, e) => total * (e.Count + 1)) <= 512;
+
+        if (!interiorIsEnumerable)
         {
-            // The published base ion carries the full modification shift (e.g. [N6-methyladenine]+ for
-            // N6-methyladenosine, or [hypoxanthine]+ for inosine on adenine): the modification is
-            // base-localized and departs with the base during base loss.
-            return (BaseLossBehavior.Modified, modFormula);
+            // Shifts with negative counts (base conversions such as inosine's H-1N-1O1) cannot be split
+            // into portions; for those, and for unusually large shifts, only the two extremes are
+            // candidates, which already covers all-or-nothing topologies.
+            yield return new ChemicalFormula(modificationFormula);
+            yield break;
         }
 
-        // The published ions validate neither topology (secondary fragments only, partially base-localized
-        // modifications such as N6,2'-O-dimethyladenosine, or protonation-ambiguous entries such as m3C):
-        // keep the plain representation rather than guess.
-        return null;
+        // For each element, a portion takes between zero and its full count in the modification.
+        foreach (var portion in EnumeratePortions(elements, elementIndex: 0, prefix: string.Empty))
+        {
+            yield return portion;
+        }
+    }
+
+    private static IEnumerable<ChemicalFormula> EnumeratePortions(List<(string Element, int Count)> elements, int elementIndex, string prefix)
+    {
+        if (elementIndex == elements.Count)
+        {
+            if (prefix.Length > 0)
+            {
+                yield return ChemicalFormula.ParseFormula(prefix);
+            }
+
+            yield break;
+        }
+
+        var (element, count) = elements[elementIndex];
+        for (var taken = 0; taken <= count; taken++)
+        {
+            var withThisElement = taken == 0 ? prefix : prefix + element + taken;
+            foreach (var portion in EnumeratePortions(elements, elementIndex + 1, withThisElement))
+            {
+                yield return portion;
+            }
+        }
+    }
+
+    private static List<(string Element, int Count)> ParseElementCounts(string formula)
+    {
+        // Hill notation: no spaces; counts of 1 are omitted; negative counts render as e.g. "H-1".
+        var counts = new List<(string Element, int Count)>();
+        foreach (Match match in Regex.Matches(formula, @"([A-Z][a-z]?)(-?\d+)?"))
+        {
+            var count = match.Groups[2].Success ? int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture) : 1;
+            counts.Add((match.Groups[1].Value, count));
+        }
+
+        return counts;
     }
 
     private static bool SameNominalMz(double first, double second)
@@ -417,20 +520,8 @@ public static class ModomicsLoader
         return (int)Math.Round(first, MidpointRounding.AwayFromZero) == (int)Math.Round(second, MidpointRounding.AwayFromZero);
     }
 
-    private static double? ComputeProtonatedBaseIonMass(ChemicalFormula fullFormula)
-    {
-        var baseIon = new ChemicalFormula(fullFormula);
-        // The dominant nucleoside product ion is the protonated free base: remove the ribose carried in
-        // the nucleoside, then add the two hydrogens (de-glycosylation + protonation).
-        baseIon.Remove(NucleosideRiboseChemicalFormula);
-        baseIon.Add(TwoHydrogenChemicalFormula);
-
-        return string.IsNullOrEmpty(baseIon.Formula) ? null : baseIon.MonoisotopicMass;
-    }
-
     private static Modification CreateModification(ModomicsDto dto, ModificationMotif motif, bool isTerminalCap,
-        ChemicalFormula chemicalFormula, Dictionary<DissociationType, List<double>>? diagnosticIons,
-        (BaseLossBehavior Behavior, ChemicalFormula? BaseLossModification)? baseLoss)
+        ChemicalFormula chemicalFormula, ProductIonInterpretation? productIonInterpretation)
     {
         var idString = dto.Id.ToString(CultureInfo.InvariantCulture);
         var modificationType = isTerminalCap ? "5' Terminal Cap" : "Modomics";
@@ -441,7 +532,7 @@ public static class ModomicsLoader
         };
         var keywords = new List<string> { dto.Abbrev, dto.ShortName, dto.Name };
 
-        if (baseLoss is not null)
+        if (productIonInterpretation?.BaseLossType is { } baseLossType)
         {
             return new BaseModification(
                 _originalId: dto.Name,
@@ -453,9 +544,9 @@ public static class ModomicsLoader
                 _monoisotopicMass: chemicalFormula.MonoisotopicMass,
                 _databaseReference: databaseReference,
                 _keywords: keywords,
-                _diagnosticIons: diagnosticIons,
-                baseLossType: baseLoss.Value.Behavior,
-                baseLossModification: baseLoss.Value.BaseLossModification);
+                _diagnosticIons: productIonInterpretation.DiagnosticIons,
+                baseLossType: baseLossType,
+                baseLossModification: productIonInterpretation.BaseLossModification);
         }
 
         return new Modification(
@@ -468,7 +559,7 @@ public static class ModomicsLoader
             _monoisotopicMass: chemicalFormula.MonoisotopicMass,
             _databaseReference: databaseReference,
             _keywords: keywords,
-            _diagnosticIons: diagnosticIons);
+            _diagnosticIons: productIonInterpretation?.DiagnosticIons);
     }
 
     private static ModomicsConversionOutcome NotRepresentable(ModomicsDto dto, ModomicsRepresentationFailureReason reason, string? details = null)
