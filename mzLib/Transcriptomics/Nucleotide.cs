@@ -64,6 +64,10 @@ namespace Transcriptomics
             DeoxyThymineBase = AddResidue("DeoxyThymine", 'V', "dThy", "C5H5N2O2");
         }
 
+        /// <summary>
+        /// Adds residue to static internal dictionary of all known residues
+        /// </summary>
+        /// <param name="residue"></param>
         private static void AddResidueToDictionary(Nucleotide residue)
         {
             AllKnownResidues.Add(residue.Letter.ToString(CultureInfo.InvariantCulture), residue);
@@ -175,6 +179,7 @@ namespace Transcriptomics
         /// </summary>
         /// <param name="letter"></param>
         /// <returns></returns>
+        /// <exception cref="KeyNotFoundException">Thrown when the nucleotide letter does not exist in the dictionary.</exception>
         public static Nucleotide GetResidue(char letter)
         {
             if (!TryGetResidue(letter, out Nucleotide residue))
