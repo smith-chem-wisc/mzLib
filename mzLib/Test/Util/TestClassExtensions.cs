@@ -138,5 +138,19 @@ namespace Test.Util
             double? result = input.ToNullableDouble();
             NUnit.Framework.Assert.That(result, Is.EqualTo(expected));
         }
+
+        /// <summary>
+        /// 3.75 is exactly equidistant from 3 and 4.5. No existing case landed on a midpoint, so which
+        /// neighbour an ArraySearchOption.Closest tie resolves to was unpinned. It resolves upward.
+        /// </summary>
+        [Test]
+        public static void TestGetClosestIndexTieResolvesUpward()
+        {
+            double[] sortedArray = { 1, 2, 3, 4.5, 5 };
+
+            Assert.AreEqual(3, sortedArray.GetClosestIndex(3.75));
+            Assert.AreEqual(4.5, sortedArray.GetClosestValue(3.75));
+        }
+
     }
 }
