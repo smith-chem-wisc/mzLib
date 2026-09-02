@@ -20,6 +20,7 @@ namespace Transcriptomics
         public static Nucleotide GuanineBase { get; private set; }
         public static Nucleotide UracilBase { get; private set; }
         public static Nucleotide PseudoUracilBase { get; private set; }
+        public static Nucleotide InosineBase { get; private set; }
 
         // DNA
         public static Nucleotide DeoxyAdenineBase { get; private set; }
@@ -53,6 +54,7 @@ namespace Transcriptomics
             CytosineBase = AddResidue("Cytosine", 'C', "Cyt", "C4H4N3O1");
             GuanineBase = AddResidue("Guanine", 'G', "Gua", "C5H4N5O1");
             UracilBase = AddResidue("Uracil", 'U', "Ura", "C4H3N2O2");
+            InosineBase = AddResidue("Inosine", 'I', "Ino", "C5H3N4O1");
             PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", "C4H3N2O2"); // Y was choosen for pseudouridine due to it commonly being represented by Psi
             TryAddAlternativeRepresentation(PseudoUracilBase, '\u03A8'); // uppercase Psi is accepted as an alternate one-letter representation
 
