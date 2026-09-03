@@ -94,6 +94,7 @@ namespace Test.Transcriptomics
         public void TestPseudoUracilAlternatePsiLookup()
         {
             const char psi = '\u03A8';
+            const char lowerPsi = '\u03C8';
 
             Assert.That(Nucleotide.TryGetResidue(psi, out Nucleotide psiTide), Is.True);
             Assert.That(psiTide, Is.EqualTo(Nucleotide.PseudoUracilBase));
@@ -101,7 +102,29 @@ namespace Test.Transcriptomics
             Assert.That(Nucleotide.GetResidue(psi), Is.EqualTo(Nucleotide.PseudoUracilBase));
             Assert.That(Nucleotide.GetResidue(psi.ToString()), Is.EqualTo(Nucleotide.PseudoUracilBase));
 
+            Assert.That(Nucleotide.TryGetResidue(lowerPsi, out Nucleotide outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+            Assert.That(Nucleotide.TryGetResidue(lowerPsi.ToString(), out outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue(lowerPsi));
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue(lowerPsi.ToString()));
+
             Assert.That(Nucleotide.PseudoUracilBase.Letter, Is.EqualTo('Y'));
+        }
+
+        [Test]
+        public void TestBuiltInResiduesAreExactCaseOnly()
+        {
+            Assert.That(Nucleotide.GetResidue('A'), Is.EqualTo(Nucleotide.AdenineBase));
+            Assert.That(Nucleotide.GetResidue("A"), Is.EqualTo(Nucleotide.AdenineBase));
+
+            Assert.That(Nucleotide.TryGetResidue('a', out Nucleotide outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+            Assert.That(Nucleotide.TryGetResidue("a", out outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue('a'));
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue("a"));
         }
 
         [Test]
@@ -150,6 +173,35 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public void TestTryAddAlternativeRepresentationAsciiCharClashLeavesLookupUnchanged()
+        {
+            string originalName = "ExistingAsciiAliasNucleotide";
+            char originalOneLetter = 'L';
+            string originalSymbol = "Eaa";
+            string originalChemicalFormula = "C5H5N2O5";
+            var existingNucleotide = new Nucleotide(originalName, originalOneLetter, originalSymbol,
+                ChemicalFormula.ParseFormula(originalChemicalFormula));
+            Nucleotide.AddResidue(originalName, originalOneLetter, originalSymbol, originalChemicalFormula);
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(existingNucleotide, "J"), Is.True);
+
+            string conflictingName = "ConflictingAsciiAliasNucleotide";
+            char conflictingOneLetter = 'M';
+            string conflictingSymbol = "Caa";
+            string conflictingChemicalFormula = "C5H5N2O6";
+            var conflictingNucleotide = new Nucleotide(conflictingName, conflictingOneLetter, conflictingSymbol,
+                ChemicalFormula.ParseFormula(conflictingChemicalFormula));
+            Nucleotide.AddResidue(conflictingName, conflictingOneLetter, conflictingSymbol, conflictingChemicalFormula);
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(conflictingNucleotide, 'J'), Is.False);
+            Assert.That(Nucleotide.GetResidue('J'), Is.EqualTo(existingNucleotide));
+            Assert.That(Nucleotide.GetResidue("J"), Is.EqualTo(existingNucleotide));
+            Assert.That(Nucleotide.TryGetResidue('J', out Nucleotide outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(existingNucleotide));
+            Assert.That(Nucleotide.TryGetResidue("J", out outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(existingNucleotide));
+        }
+
+        [Test]
         public void TestPseudoUracilPsiSequenceRoundTrip()
         {
             const char psi = '\u03A8';
@@ -187,11 +239,47 @@ namespace Test.Transcriptomics
             char alias = 'W';
             Assert.That(Nucleotide.TryAddAlternativeRepresentation(asciiNucleotide, alias), Is.True);
             Assert.That(Nucleotide.GetResidue(alias), Is.EqualTo(asciiNucleotide));
-            Assert.That(Nucleotide.GetResidue(Char.ToLower(alias)), Is.EqualTo(asciiNucleotide));
+            Assert.That(Nucleotide.GetResidue(alias.ToString()), Is.EqualTo(asciiNucleotide));
             Assert.That(Nucleotide.TryGetResidue(alias, out Nucleotide outTide), Is.True);
             Assert.That(outTide, Is.EqualTo(asciiNucleotide));
+            Assert.That(Nucleotide.TryGetResidue(alias.ToString(), out outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(asciiNucleotide));
+
+            Assert.That(Nucleotide.TryGetResidue('w', out outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+            Assert.That(Nucleotide.TryGetResidue("w", out outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue('w'));
+            Assert.Throws<KeyNotFoundException>(() => Nucleotide.GetResidue("w"));
 
             Assert.That(Nucleotide.TryAddAlternativeRepresentation(asciiNucleotide, alias), Is.True);
+        }
+
+        [Test]
+        public void TestTryAddAlternativeRepresentationSingleCharacterStringUsesExactCaseLookup()
+        {
+            string name = "SingleCharacterStringAliasNucleotide";
+            char oneLetter = 'N';
+            string symbol = "Sca";
+            string chemicalFormula = "C5H5N3O4";
+            var stringAliasNucleotide = new Nucleotide(name, oneLetter, symbol, ChemicalFormula.ParseFormula(chemicalFormula));
+            Nucleotide.AddResidue(name, oneLetter, symbol, chemicalFormula);
+
+            Assert.That(Nucleotide.TryAddAlternativeRepresentation(stringAliasNucleotide, "Z"), Is.True);
+            Assert.That(Nucleotide.TryGetResidue("Z", out Nucleotide outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(stringAliasNucleotide));
+            Assert.That(Nucleotide.TryGetResidue('Z', out outTide), Is.True);
+            Assert.That(outTide, Is.EqualTo(stringAliasNucleotide));
+            Assert.That(Nucleotide.GetResidue("Z"), Is.EqualTo(stringAliasNucleotide));
+            Assert.That(Nucleotide.GetResidue('Z'), Is.EqualTo(stringAliasNucleotide));
+
+            var rna = new RNA("GUZCUG", "");
+            Assert.That(rna.BaseSequence, Is.EqualTo("GUNCUG"));
+
+            Assert.That(Nucleotide.TryGetResidue("k", out outTide), Is.False);
+            Assert.That(outTide, Is.Null);
+            Assert.That(Nucleotide.TryGetResidue('k', out outTide), Is.False);
+            Assert.That(outTide, Is.Null);
         }
 
         [Test]

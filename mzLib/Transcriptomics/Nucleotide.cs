@@ -46,7 +46,7 @@ namespace Transcriptomics
         {
 
             AllKnownResidues = new Dictionary<string, Nucleotide>(66);
-            ResiduesByLetter = new Nucleotide['z' + 1]; //Make it big enough for all the Upper and Lower characters
+            ResiduesByLetter = new Nucleotide['z' + 1];
 
             // actual base chemical formula after bonding with the sugar
             // the sugar and phosphate has a chemical formula of C5H8O6P1
@@ -76,7 +76,6 @@ namespace Transcriptomics
             AllKnownResidues.Add(residue.Name, residue);
             AllKnownResidues.Add(residue.Symbol, residue);
             ResiduesByLetter[residue.Letter] = residue;
-            ResiduesByLetter[Char.ToLower(residue.Letter)] = residue;
         }
 
         #endregion
@@ -225,10 +224,10 @@ namespace Transcriptomics
         /// </summary>
         public static bool TryAddAlternativeRepresentation(Nucleotide residue, string alternative)
         {
-            if (AllKnownResidues.TryGetValue(alternative, out Nucleotide existing))
-                return existing.Equals(residue);
-            AllKnownResidues[alternative] = residue;
-            return true;
+            if (alternative.Length == 1)
+                return TryAddAlternativeRepresentation(residue, alternative[0]);
+
+            return TryAddAlternativeRepresentationCore(residue, alternative, addCharLookup: false);
         }
 
         /// <summary>
@@ -240,14 +239,22 @@ namespace Transcriptomics
         /// </summary>
         public static bool TryAddAlternativeRepresentation(Nucleotide residue, char alternative)
         {
-            if (alternative <= 'z')
-            {
-                if (ResiduesByLetter[alternative] is { } existing && !existing.Equals(residue))
-                    return false;
-                ResiduesByLetter[alternative] = residue;
-                ResiduesByLetter[Char.ToLower(alternative)] = residue;
-            }
-            return TryAddAlternativeRepresentation(residue, alternative.ToString(CultureInfo.InvariantCulture));
+            return TryAddAlternativeRepresentationCore(residue, alternative.ToString(CultureInfo.InvariantCulture), addCharLookup: alternative <= 'z');
+        }
+
+        private static bool TryAddAlternativeRepresentationCore(Nucleotide residue, string alternative, bool addCharLookup)
+        {
+            if (addCharLookup && ResiduesByLetter[alternative[0]] is { } existingByLetter && !existingByLetter.Equals(residue))
+                return false;
+
+            if (AllKnownResidues.TryGetValue(alternative, out Nucleotide existingBySymbol))
+                return existingBySymbol.Equals(residue);
+
+            if (addCharLookup)
+                ResiduesByLetter[alternative[0]] = residue;
+
+            AllKnownResidues[alternative] = residue;
+            return true;
         }
 
         #endregion
