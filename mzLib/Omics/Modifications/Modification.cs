@@ -40,6 +40,53 @@ namespace Omics.Modifications
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
+        /// <summary>
+        /// True when this modification sits on the side chain of a trypsin-family cleavage residue
+        /// (Lys/Arg) and neutralises or masks its charge enough that the protease would not cleave
+        /// after it -- N6-succinyllysine, N6-acetyllysine and the other epsilon-amine acylations.
+        ///
+        /// This is a property of the modification alone, and it is only the first of three questions.
+        /// Whether the configured PROTEASE cleaves after that residue at all is the second -- see
+        /// <see cref="CleavageBlockingModifications.BlocksCleavageBy"/>, which is what digestion
+        /// actually consults. Whether the modification invalidates a given peptidoform is the third, a
+        /// question of POSITION that digestion decides: an acylated residue that is the protein's own
+        /// C-terminus ends a perfectly real peptide, since no cleavage happens there.
+        ///
+        /// Curated classification; see <see cref="CleavageBlockingModifications"/> for what is in the
+        /// set and why the methyl series is excluded. Digestion consults this only when
+        /// DigestionParams.RespectCleavageBlockingModifications is set.
+        /// </summary>
+        public bool BlocksCleavage
+        {
+            get
+            {
+                // Classifying costs a lower-casing allocation and a scan of the acyl stems, and the
+                // digestion path asks per modification per peptidoform -- millions of times across a
+                // search -- so the answer is memoised. It is derived entirely from OriginalId, Target
+                // and LocationRestriction, which are set at construction and not changed afterwards.
+                //
+                // An int rather than a bool? because a torn read of a two-field Nullable is a real (if
+                // remote) hazard and a 32-bit aligned write is not. The race is benign either way: two
+                // threads racing here compute the same value from the same immutable inputs.
+                int cached = _blocksCleavageCache;
+                if (cached == BlocksCleavageNotYetClassified)
+                {
+                    cached = CleavageBlockingModifications.NeutralizesCleavageResidue(this)
+                        ? BlocksCleavageYes
+                        : BlocksCleavageNo;
+                    _blocksCleavageCache = cached;
+                }
+
+                return cached == BlocksCleavageYes;
+            }
+        }
+
+        private const int BlocksCleavageNotYetClassified = 0;
+        private const int BlocksCleavageNo = 1;
+        private const int BlocksCleavageYes = 2;
+
+        private int _blocksCleavageCache;
+
         public virtual bool ValidModification
         {
             get
