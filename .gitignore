@@ -263,4 +263,4 @@ ModelManifest.xml
 /AGENTS.md
 # BenchmarkDotNet artifacts - machine-specific, regenerated on every run
 **/BenchmarkDotNet.Artifacts/
-
+/mzLib/.omo
