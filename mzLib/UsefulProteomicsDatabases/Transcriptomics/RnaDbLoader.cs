@@ -1,4 +1,5 @@
 ﻿using Chemistry;
+using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
 using Proteomics;
@@ -28,6 +29,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     public enum SequenceTransformationOnRead
     {
         None,
+        ToUpper,
         ConvertAllTtoU
     }
 
@@ -128,25 +130,25 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
     #endregion
 
-/// <summary>
-/// Loads an RNA file from the specified location, optionally generating decoys and adding error tracking
-/// </summary>
-/// <param name="rnaDbLocation">The file path to the RNA FASTA database</param>
-/// <param name="generateTargets">Flag indicating whether to generate targets or not</param>
-/// <param name="decoyType">The type of decoy generation to apply</param>
-/// <param name="isContaminant">Indicates if the RNA sequence is a contaminant</param>
-/// <param name="errors">Outputs any errors encountered during the process</param>
-/// <param name="fivePrimeTerm">An optional 5' prime chemical modification term</param>
-/// <param name="threePrimeTerm">An optional 3' prime chemical modification term</param>
-/// <returns>A list of RNA sequences loaded from the FASTA database</returns>
-/// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
+        /// <summary>
+        /// Loads an RNA file from the specified location, optionally generating decoys and adding error tracking
+        /// </summary>
+        /// <param name="rnaDbLocation">The file path to the RNA FASTA database</param>
+        /// <param name="generateTargets">Flag indicating whether to generate targets or not</param>
+        /// <param name="decoyType">The type of decoy generation to apply</param>
+        /// <param name="isContaminant">Indicates if the RNA sequence is a contaminant</param>
+        /// <param name="errors">Outputs any errors encountered during the process</param>
+        /// <param name="fivePrimeTerm">An optional 5' prime chemical modification term</param>
+        /// <param name="threePrimeTerm">An optional 3' prime chemical modification term</param>
+        /// <returns>A list of RNA sequences loaded from the FASTA database</returns>
+        /// <exception cref="MzLibUtil.MzLibException">Thrown if the FASTA header format is unknown or other issues occur during loading.</exception>
 
-public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
+        public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
             int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false)
         {
             RnaFastaHeaderType? headerType = null;
-            SequenceTransformationOnRead sequenceTransformation = SequenceTransformationOnRead.None;
+            List<SequenceTransformationOnRead> sequenceTransformations = new();
             errors = new List<string>();
             List<RNA> targets = new List<RNA>();
             List<RNA> decoys = new List<RNA>();
@@ -170,6 +172,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
 
             using (var fastaFileStream = new FileStream(newDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
+                bool readFirstSequence = false;
                 StringBuilder sb = null;
                 StreamReader fasta = new StreamReader(fastaFileStream);
                 Dictionary<string, string> regexResults = new();
@@ -196,17 +199,17 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                                 case RnaFastaHeaderType.Ensembl:
                                     regexes = EnsemblFieldRegexes;
                                     identifierHeader = "Accession";
-                                    sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
+                                    sequenceTransformations.Add(SequenceTransformationOnRead.ConvertAllTtoU);
                                     break;
                                 case RnaFastaHeaderType.NcbiAssembly:
                                     regexes = NcbiAssemblyFieldRegexes;
                                     identifierHeader = "Accession";
-                                    sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
+                                    sequenceTransformations.Add(SequenceTransformationOnRead.ConvertAllTtoU);
                                     break;
                                 case RnaFastaHeaderType.NcbiRefSeq:
                                     regexes = NcbiRefSeqGeneFieldRegexes;
                                     identifierHeader = "Accession";
-                                    sequenceTransformation = SequenceTransformationOnRead.ConvertAllTtoU;
+                                    sequenceTransformations.Add(SequenceTransformationOnRead.ConvertAllTtoU);
                                     break;
                                 case RnaFastaHeaderType.MzLib:
                                     regexes = MzLibRegexes;
@@ -238,6 +241,13 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                         Dictionary<string, string> additonalDatabaseFields =
                             regexResults.ToDictionary(x => x.Key, x => x.Value);
 
+                        if (!readFirstSequence)
+                        {
+                            if (sb.ToString().IsAllLower())
+                                sequenceTransformations.Add(SequenceTransformationOnRead.ToUpper);
+                            readFirstSequence = true;
+                        }
+
                         List<Tuple<string, string>> geneNames = null!;
                         if (regexResults.ContainsKey("Gene"))
                         {
@@ -249,7 +259,7 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                             }
                         }
 
-                        var sequence = SanitizeAndTransform(sb.ToString(), sequenceTransformation);
+                        var sequence = SanitizeAndTransform(sb.ToString(), sequenceTransformations);
 
                         bool isDecoy = identifier.StartsWith(decoyIdentifier);
                         bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -348,6 +358,8 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                 decompressor.CopyTo(outputFileStream);
             }
 
+            bool readFirstSequence = false;
+            List<SequenceTransformationOnRead> transformsToApply = new();
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
@@ -364,7 +376,14 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment);
+                            if (block.Sequence != null && !readFirstSequence)
+                            {
+                                if (block.Sequence.IsAllLower())
+                                    transformsToApply.Add(SequenceTransformationOnRead.ToUpper);
+                                readFirstSequence = true;
+                            }
+
+                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment, transformsToApply);
                             if (newProtein != null)
                             {
                                 if (newProtein.IsDecoy)
@@ -463,19 +482,20 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
         }
 
         // TODO: Some oligo databases may have the reverse strand, this is currently not handled yet and this code assumes we are always reading in the strand to search against. 
-        public static string SanitizeAndTransform(string rawSequence, SequenceTransformationOnRead sequenceTransformation)
+        public static string SanitizeAndTransform(string rawSequence, IList<SequenceTransformationOnRead> sequenceTransformations)
         {
             var cleanedSequence = SubstituteWhitespace.Replace(rawSequence, "");
 
-            switch (sequenceTransformation)
-            {
-                case SequenceTransformationOnRead.ConvertAllTtoU:
-                    return cleanedSequence.Replace('T', 'U');
-                case SequenceTransformationOnRead.None:
-                    return cleanedSequence;
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(sequenceTransformation), sequenceTransformation, null);
-            }
+            if (sequenceTransformations.Count == 0)
+                return cleanedSequence;
+
+            if (sequenceTransformations.Contains(SequenceTransformationOnRead.ToUpper))
+                cleanedSequence = cleanedSequence.ToUpper();
+
+            if (sequenceTransformations.Contains(SequenceTransformationOnRead.ConvertAllTtoU))
+                cleanedSequence = cleanedSequence.Replace('T', 'U');
+
+            return cleanedSequence;
         }
     }
 }

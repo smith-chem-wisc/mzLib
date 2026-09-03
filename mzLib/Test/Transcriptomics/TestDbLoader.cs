@@ -266,6 +266,63 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        [TestCase(".fasta")]
+        [TestCase(".xml")]
+        public static void TestDbReadingDifferentExtensionsWithLowercaseSequence(string extension)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"lowercase_20mer1_{Guid.NewGuid():N}{extension}");
+
+            try
+            {
+                if (extension.Equals(".fasta", StringComparison.OrdinalIgnoreCase))
+                {
+                    File.WriteAllText(filePath,
+                        ">id:2|Name:20mer1|SOterm:20mer1|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard\n" +
+                        "guacugccucuagugaagca");
+
+                    var rna = RnaDbLoader.LoadRnaFasta(filePath, true, DecoyType.None, false, out var errors);
+
+                    Assert.That(errors.Count, Is.EqualTo(0));
+                    Assert.That(rna.Count, Is.EqualTo(1));
+                    Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+                }
+                else
+                {
+                    File.WriteAllText(filePath,
+                        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                        "<mzLibProteinDb>\n" +
+                        "  <entry>\n" +
+                        "    <accession>20mer1</accession>\n" +
+                        "    <name>20mer1</name>\n" +
+                        "    <protein>\n" +
+                        "      <recommendedName>\n" +
+                        "        <fullName>20mer1</fullName>\n" +
+                        "      </recommendedName>\n" +
+                        "    </protein>\n" +
+                        "    <gene />\n" +
+                        "    <organism>\n" +
+                        "      <name type=\"scientific\">standard</name>\n" +
+                        "    </organism>\n" +
+                        "    <sequence length=\"20\">guacugccucuagugaagca</sequence>\n" +
+                        "  </entry>\n" +
+                        "</mzLibProteinDb>");
+
+                    var rna = RnaDbLoader.LoadRnaXML(filePath, true, DecoyType.None, false,
+                        new List<Modification>(), new List<string>(), out _);
+
+                    Assert.That(rna.Count, Is.EqualTo(1));
+                    Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+                }
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
+        }
+
+        [Test]
         public static void TestEnsemblFastaParsing()
         {
             var dbPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics", "TestData", "TestDatabase_Ensembl.GRCh38.ncrna.fa");
