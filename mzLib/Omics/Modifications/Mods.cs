@@ -1,4 +1,5 @@
 ﻿using Omics.Modifications.IO;
+using Omics.Modifications.IO.Modomics;
 using System.Reflection;
 
 namespace Omics.Modifications;
@@ -8,6 +9,7 @@ public enum ModificationNamingConvention
     MetaMorpheus, 
     MetaMorpheus_Rna, 
     MetaMorpheus_Protein, 
+    Modomics,
     UniProt, 
     Unimod,
     Mixed
@@ -28,7 +30,7 @@ public static class Mods
             .ToDictionary(m => m.IdWithMotif);
 
         LoadAllRnaModifications();
-        AllRnaModsList = MetaMorpheusRnaModifications.ToList();
+        AllRnaModsList = MetaMorpheusRnaModifications.Concat(ModomicsRnaModifications).ToList();
         AllKnownRnaModsDictionary = AllRnaModsList
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
@@ -47,6 +49,7 @@ public static class Mods
             { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
             { ModificationNamingConvention.MetaMorpheus_Protein, MetaMorpheusProteinModifications},
             { ModificationNamingConvention.MetaMorpheus_Rna, MetaMorpheusRnaModifications },
+            { ModificationNamingConvention.Modomics, ModomicsRnaModifications },
             { ModificationNamingConvention.UniProt, UniprotModifications},
             { ModificationNamingConvention.Unimod, UnimodModifications },
             { ModificationNamingConvention.Mixed, AllKnownMods }
@@ -77,6 +80,8 @@ public static class Mods
 
 
     public static List<Modification> MetaMorpheusRnaModifications { get; private set; } = [];
+    public static List<Modification> ModomicsRnaModifications { get; private set; } = [];
+    public static ModomicsLoadResult ModomicsLoadReport { get; private set; } = new();
 
     /// <summary>
     /// All known RNA modifications indexed by IdWithMotif
@@ -163,6 +168,9 @@ public static class Mods
 
         using var rnaModsReader = new StreamReader(rnaModsStream!);
         MetaMorpheusRnaModifications = ModificationLoader.ReadModsFromFile(rnaModsReader, new Dictionary<string, int>(), out _).ToList();
+        
+        ModomicsLoadReport = ModomicsLoader.LoadModomics(MetaMorpheusRnaModifications);
+        ModomicsRnaModifications = ModomicsLoadReport.LoadedModifications;
     }
 
     #endregion

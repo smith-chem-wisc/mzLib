@@ -1,4 +1,4 @@
-﻿using Chemistry;
+using Chemistry;
 using System.Globalization;
 
 namespace Transcriptomics
@@ -49,18 +49,19 @@ namespace Transcriptomics
 
             // actual base chemical formula after bonding with the sugar
             // the sugar and phosphate has a chemical formula of C5H8O6P1
-            AdenineBase = AddResidue("Adenine", 'A', "Ade", "C5H4N5");
-            CytosineBase = AddResidue("Cytosine", 'C', "Cyt", "C4H4N3O1");
-            GuanineBase = AddResidue("Guanine", 'G', "Gua", "C5H4N5O1");
-            UracilBase = AddResidue("Uracil", 'U', "Ura", "C4H3N2O2");
-            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", "C4H3N2O2"); // Y was choosen for pseudouridine due to it commonly being represented by Psi
+            // bonded base formulas come from Chemistry.Formulas, the shared ground truth for residue chemistry
+            AdenineBase = AddResidue("Adenine", 'A', "Ade", Formulas.AdenineBaseChemicalFormula);
+            CytosineBase = AddResidue("Cytosine", 'C', "Cyt", Formulas.CytosineBaseChemicalFormula);
+            GuanineBase = AddResidue("Guanine", 'G', "Gua", Formulas.GuanineBaseChemicalFormula);
+            UracilBase = AddResidue("Uracil", 'U', "Ura", Formulas.UracilBaseChemicalFormula);
+            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", Formulas.UracilBaseChemicalFormula); // Y was choosen for pseudouridine due to it commonly being represented by Psi
 
             // DNA bases which have the same mass as the ones above
             // however, naming to deoxy- to distinguish DNA nucleotide mass calculation from RNA
-            DeoxyAdenineBase = AddResidue("DeoxyAdenine", 'B', "dAde", "C5H4N5");
-            DeoxyCytosineBase = AddResidue("DeoxyCytosine", 'D', "dCyt", "C4H4N3O1");
-            DeoxyGuanineBase = AddResidue("DeoxyGuanine", 'H', "dGua", "C5H4N5O1");
-            DeoxyThymineBase = AddResidue("DeoxyThymine", 'V', "dThy", "C5H5N2O2");
+            DeoxyAdenineBase = AddResidue("DeoxyAdenine", 'B', "dAde", Formulas.AdenineBaseChemicalFormula);
+            DeoxyCytosineBase = AddResidue("DeoxyCytosine", 'D', "dCyt", Formulas.CytosineBaseChemicalFormula);
+            DeoxyGuanineBase = AddResidue("DeoxyGuanine", 'H', "dGua", Formulas.GuanineBaseChemicalFormula);
+            DeoxyThymineBase = AddResidue("DeoxyThymine", 'V', "dThy", Formulas.ThymineBaseChemicalFormula);
         }
 
         /// <summary>
@@ -159,6 +160,21 @@ namespace Transcriptomics
         public static Nucleotide AddResidue(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, string chemicalFormula)
         {
             var residue = new Nucleotide(name, oneLetterAbbreviation, threeLetterAbbreviation, chemicalFormula);
+            AddResidueToDictionary(residue);
+            return residue;
+        }
+
+        /// <summary>
+        /// Adds residue to AllKnownResidues Dictionary
+        /// </summary>
+        /// <param name="name"></param>
+        /// <param name="oneLetterAbbreviation"></param>
+        /// <param name="threeLetterAbbreviation"></param>
+        /// <param name="baseChemicalFormula"></param>
+        /// <returns></returns>
+        public static Nucleotide AddResidue(string name, char oneLetterAbbreviation, string threeLetterAbbreviation, ChemicalFormula baseChemicalFormula)
+        {
+            var residue = new Nucleotide(name, oneLetterAbbreviation, threeLetterAbbreviation, baseChemicalFormula);
             AddResidueToDictionary(residue);
             return residue;
         }

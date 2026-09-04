@@ -11,11 +11,23 @@ namespace Omics.Modifications
     public class Modification : IComparable<Modification>
     {
         public string IdWithMotif { get; protected set; }
+
+        /// <summary>
+        /// The name of the Mod. This is what shows up in the full sequence. 
+        /// </summary>
         public string OriginalId { get; protected set; }
         public string Accession { get; protected set; }
+
+        /// <summary>
+        /// The group the modification belongs to. Determines grouping in MetaMorpheuse drop down selections. (Common Biological, Common Fixed)
+        /// </summary>
         public string ModificationType { get; protected set; }
         public string FeatureType { get; protected set; }
         public ModificationMotif Target { get; protected set; }
+
+        /// <summary>
+        /// Determines where a mod can be placed in an IBioPolymerWithSetMods during digestion. Fixed terminology is stored as strings and found at ModLocationOnPeptideOrProtein and is used throughout the codebase, bit of a mess.  
+        /// </summary>
         public string LocationRestriction { get; protected set; }
         public ChemicalFormula ChemicalFormula { get; protected set; }
         private double? monoisotopicMass = null;

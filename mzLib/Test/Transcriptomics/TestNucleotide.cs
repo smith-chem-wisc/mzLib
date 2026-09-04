@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -35,6 +35,27 @@ namespace Test.Transcriptomics
                 "dThy", ChemicalFormula.ParseFormula("C5H5N2O2"), 304.046041, ChemicalFormula.ParseFormula("C10H14N2O5"));
             yield return new NucleotideTestCase(Nucleotide.PseudoUracilBase, "PseudoUracil", 'Y',
                 "Psu", ChemicalFormula.ParseFormula("C4H3N2O2"), 306.025306, ChemicalFormula.ParseFormula("C9H12N2O6"));
+        }
+
+        [Test]
+        public void RnaNucleosideFormulasMatchSharedChemistryConstants()
+        {
+            // Transcriptomics derives nucleoside formulas from the polymer residue (base + sugar-phosphate,
+            // then removing the phospho), while Chemistry.Formulas states them directly as the shared ground
+            // truth for residue chemistry. Both routes must agree so that Nucleotide and the MODOMICS loader
+            // consume identical chemistry and can never drift apart.
+            Assert.That(Nucleotide.AdenineBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.AdenosineChemicalFormula));
+            Assert.That(Nucleotide.CytosineBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.CytidineChemicalFormula));
+            Assert.That(Nucleotide.GuanineBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.GuanosineChemicalFormula));
+            Assert.That(Nucleotide.UracilBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.UridineChemicalFormula));
+            Assert.That(Nucleotide.PseudoUracilBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.UridineChemicalFormula));
+
+            // The bonded bases the MODOMICS loader consumes are the same chemistry Nucleotide carries.
+            Assert.That(Nucleotide.AdenineBase.BaseChemicalFormula, Is.EqualTo(Formulas.AdenineBaseChemicalFormula));
+            Assert.That(Nucleotide.CytosineBase.BaseChemicalFormula, Is.EqualTo(Formulas.CytosineBaseChemicalFormula));
+            Assert.That(Nucleotide.GuanineBase.BaseChemicalFormula, Is.EqualTo(Formulas.GuanineBaseChemicalFormula));
+            Assert.That(Nucleotide.UracilBase.BaseChemicalFormula, Is.EqualTo(Formulas.UracilBaseChemicalFormula));
+            Assert.That(Nucleotide.DeoxyThymineBase.BaseChemicalFormula, Is.EqualTo(Formulas.ThymineBaseChemicalFormula));
         }
 
         [Test]
