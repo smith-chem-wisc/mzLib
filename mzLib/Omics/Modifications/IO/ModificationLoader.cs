@@ -424,10 +424,35 @@ public static class ModificationLoader
     }
 
     /// <summary>
+    /// Resolves the dissociation type named at the start of a diagnostic ion or neutral loss entry,
+    /// or null when it names nothing recognised.
+    /// </summary>
+    /// <param name="dissociationTypeName">The text before the colon in a diagnostic ion or neutral loss entry.</param>
+    /// <returns>The resolved type, or null for a null, empty or unrecognised name.</returns>
+    /// <remarks>
+    /// The two special cases are tested before the generic parse, and have to be. "MPD" is itself an
+    /// enum member -- MS:1000435 photodissociation, the parent of MS:1000262 IRMPD -- so a generic parse
+    /// succeeds and silently shadows the intended IRMPD mapping. "Any" has no member at all, since the
+    /// enum spells it AnyActivationType, so a generic parse resolves it to nothing and the entry is
+    /// dropped. Both spellings are what the mods file format has always accepted.
+    /// </remarks>
+    public static DissociationType? ParseDissociationType(string dissociationTypeName) =>
+        dissociationTypeName switch
+        {
+            null => null,
+            _ when dissociationTypeName.Equals("Any", StringComparison.InvariantCultureIgnoreCase)
+                => DissociationType.AnyActivationType,
+            _ when dissociationTypeName.Equals("MPD", StringComparison.InvariantCultureIgnoreCase)
+                => DissociationType.IRMPD,
+            _ => Enum.TryParse(dissociationTypeName, true, out DissociationType parsed) ? parsed : null
+        };
+
+    /// <summary>
     /// Parse diagnostic ion and neutral loss strings
     /// </summary>
-    /// <param name="oneEntry"></param>
-    /// <returns></returns>
+    /// <param name="oneEntry">One diagnostic ion or neutral loss entry, whose alternatives are separated by " or ".</param>
+    /// <param name="dAndNDictionary">The dictionary to add the parsed values to.</param>
+    /// <returns>The dictionary with the entry's values added, or null if the entry could not be parsed.</returns>
     public static Dictionary<DissociationType, List<double>> DiagnosticIonsAndNeutralLosses(string oneEntry, Dictionary<DissociationType, List<double>> dAndNDictionary)
     {
         try
@@ -460,10 +485,7 @@ public static class ModificationLoader
                 }
                 else if (entryKeyValue.Length == 2)  // an entry with two values is assumed to have a dissociation type and a neutral loss formula or mass
                 {
-                    DissociationType? dt = Enum.TryParse(entryKeyValue[0], true, out DissociationType parsedDt) ? parsedDt : null;
-
-                    if (dt is null && entryKeyValue[0].Equals("MPD", StringComparison.InvariantCultureIgnoreCase))
-                        dt = DissociationType.IRMPD;
+                    DissociationType? dt = ParseDissociationType(entryKeyValue[0]);
 
                     if (dt != null)
                     {

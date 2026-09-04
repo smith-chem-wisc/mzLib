@@ -1752,5 +1752,237 @@ namespace Test.DatabaseTests
             Assert.That(readInTargetCount, Is.EqualTo(2));
             Assert.That(readInDecoyCount, Is.EqualTo(2));
         }
+
+        /// <summary>
+        /// PtmListLoader forwards to ModificationLoader rather than carrying its own copy of the parser.
+        /// These pin the two together on every mods file mzLib ships, so a future change to one cannot
+        /// silently diverge from the other while the deprecated entry point is still public.
+        /// </summary>
+        [Test]
+        [TestCase("DataFiles", "Ontologies", "ptmlist.txt")]
+        [TestCase("ModificationTests", "", "ModsWithComments.txt")]
+        [TestCase("ModificationTests", "", "ProteaseMods.txt")]
+        [TestCase("Transcriptomics", "TestData", "RnaMods.txt")]
+        public static void DeprecatedPtmListLoaderMatchesModificationLoader(string folder, string subFolder, string modsFile)
+        {
+            string path = subFolder.Length == 0
+                ? Path.Combine(TestContext.CurrentContext.TestDirectory, folder, modsFile)
+                : Path.Combine(TestContext.CurrentContext.TestDirectory, folder, subFolder, modsFile);
+            Assert.That(File.Exists(path), Is.True, $"{modsFile} is missing from the test data");
+
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            var viaDeprecated = PtmListLoader.ReadModsFromFile(path, out var deprecatedWarnings).ToList();
+#pragma warning restore CS0618
+            var viaReplacement = ModificationLoader.ReadModsFromFile(path, out var replacementWarnings).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viaDeprecated.Select(Describe).OrderBy(s => s),
+                    Is.EqualTo(viaReplacement.Select(Describe).OrderBy(s => s)));
+                Assert.That(deprecatedWarnings, Has.Count.EqualTo(replacementWarnings.Count));
+            });
+        }
+
+        private static string Describe(Modification m) =>
+            $"{m.IdWithMotif}|{m.ModificationType}|{m.MonoisotopicMass}|{m.LocationRestriction}|"
+            + $"DI:{Flatten(m.DiagnosticIons)}|NL:{Flatten(m.NeutralLosses)}";
+
+        private static string Flatten(Dictionary<DissociationType, List<double>> byDissociationType) =>
+            byDissociationType == null
+                ? "-"
+                : string.Join(";", byDissociationType.OrderBy(k => k.Key)
+                    .Select(k => k.Key + "=" + string.Join(",", k.Value.OrderBy(v => v))));
+
+        /// <summary>
+        /// Two dissociation keys cannot be resolved by a plain Enum.TryParse and have to be special-cased
+        /// ahead of it. "MPD" is itself an enum member -- MS:1000435 photodissociation, the parent of
+        /// MS:1000262 IRMPD in the PSI-MS ontology -- so a generic parse succeeds and shadows the intended
+        /// IRMPD mapping. "Any" has no member at all, since the enum spells it AnyActivationType, so a
+        /// generic parse resolves it to nothing and the entry is dropped without warning.
+        /// </summary>
+        [Test]
+        [TestCase("Any", DissociationType.AnyActivationType)]
+        [TestCase("any", DissociationType.AnyActivationType)]
+        [TestCase("MPD", DissociationType.IRMPD)]
+        [TestCase("mpd", DissociationType.IRMPD)]
+        [TestCase("HCD", DissociationType.HCD)]
+        [TestCase("hcd", DissociationType.HCD)]
+        [TestCase("ETD", DissociationType.ETD)]
+        [TestCase("UVPD", DissociationType.UVPD)]
+        public static void DissociationKeysResolveAsIntended(string key, DissociationType expected)
+        {
+            var parsed = ModificationLoader.DiagnosticIonsAndNeutralLosses(
+                $"{key}:H2O", new Dictionary<DissociationType, List<double>>());
+
+            Assert.That(parsed.Keys, Is.EquivalentTo(new[] { expected }));
+        }
+
+        /// <summary>
+        /// An unrecognised dissociation type is not merely skipped: it throws internally, the surrounding
+        /// catch swallows it, and the whole dictionary is discarded, so the modification loses every
+        /// diagnostic ion and neutral loss it had. Pre-existing behaviour, pinned here because it is what
+        /// made the unresolvable "Any" spelling costly rather than harmless.
+        /// </summary>
+        [Test]
+        public static void UnrecognisedDissociationKeyDiscardsTheWholeEntry()
+        {
+            var started = new Dictionary<DissociationType, List<double>>
+            {
+                { DissociationType.HCD, new List<double> { 18.0 } }
+            };
+
+            var parsed = ModificationLoader.DiagnosticIonsAndNeutralLosses("NotADissociationType:H2O", started);
+
+            Assert.That(parsed, Is.Null);
+        }
+
+        /// <summary>
+        /// The deprecated ModDissociationType is a forward now, so it must give the same answer as the
+        /// method it forwards to for every key the old hand-written switch handled.
+        /// </summary>
+        [Test]
+        public static void DeprecatedModDissociationTypeAgreesWithItsReplacement()
+        {
+            foreach (string key in new[]
+                     { "Any", "CID", "MPD", "ECD", "PQD", "ETD", "HCD", "EThcD", "Custom", "NotADissociationType" })
+            {
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+                var viaDeprecated = PtmListLoader.ModDissociationType(key);
+#pragma warning restore CS0618
+                Assert.That(viaDeprecated, Is.EqualTo(ModificationLoader.ParseDissociationType(key)),
+                    $"the two disagreed on '{key}'");
+            }
+        }
+
+        /// <summary>
+        /// The formal-charge overload has to pass the dictionary through, not merely accept it. Comparing
+        /// the two entry points alone would not catch a forward that dropped the argument -- both would
+        /// return modifications and both would agree -- so this also pins the effect the dictionary has.
+        /// The probe carries an explicit MM line because the adjustment is only reached when the mass is
+        /// already set when the entry closes, which a CF-only modification is not.
+        /// </summary>
+        [Test]
+        public static void DeprecatedReadModsFromFileWithFormalChargesForwardsTheDictionary()
+        {
+            const string probe =
+                "ID   FormalChargeProbe\n" +
+                "MT   Test\n" +
+                "PP   Anywhere.\n" +
+                "TG   K\n" +
+                "MM   100\n" +
+                "DR   RESID; AA0441.\n" +
+                "//\n";
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "formalChargeProbe.txt");
+            File.WriteAllText(path, probe);
+
+            try
+            {
+                var formalCharges = new Dictionary<string, int> { { "RESID; AA0441", 1 } };
+
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+                var viaDeprecated = PtmListLoader.ReadModsFromFile(path, formalCharges, out var deprecatedWarnings).ToList();
+#pragma warning restore CS0618
+                var viaReplacement = ModificationLoader.ReadModsFromFile(path, formalCharges, out var replacementWarnings).ToList();
+                var withoutFormalCharges = ModificationLoader.ReadModsFromFile(path, out _).ToList();
+
+                Assert.Multiple(() =>
+                {
+                    Assert.That(viaDeprecated.Select(Describe), Is.EqualTo(viaReplacement.Select(Describe)));
+                    Assert.That(deprecatedWarnings, Has.Count.EqualTo(replacementWarnings.Count));
+                    Assert.That(withoutFormalCharges.Single().MonoisotopicMass.Value, Is.EqualTo(100).Within(1e-9));
+                    Assert.That(viaDeprecated.Single().MonoisotopicMass.Value,
+                        Is.EqualTo(100 - Constants.ProtonMass).Within(1e-9),
+                        "the formal charge dictionary did not reach the parser");
+                });
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// The StreamReader and string overloads forward too. Both are given the same file the reader
+        /// overload above uses, so a difference here is the forward rather than the input.
+        /// </summary>
+        [Test]
+        public static void DeprecatedStreamAndStringOverloadsAgreeWithTheirReplacements()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "ModificationTests", "ModsWithComments.txt");
+            var formalCharges = new Dictionary<string, int>();
+
+            List<Modification> viaDeprecatedStream;
+            using (var reader = new StreamReader(path))
+            {
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+                viaDeprecatedStream = PtmListLoader.ReadModsFromFile(reader, formalCharges, out _, path).ToList();
+#pragma warning restore CS0618
+            }
+
+            List<Modification> viaReplacementStream;
+            using (var reader = new StreamReader(path))
+            {
+                viaReplacementStream = ModificationLoader.ReadModsFromFile(reader, formalCharges, out _, path).ToList();
+            }
+
+            string fileText = File.ReadAllText(path);
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            var viaDeprecatedString = PtmListLoader.ReadModsFromString(fileText, out var deprecatedWarnings).ToList();
+#pragma warning restore CS0618
+            var viaReplacementString = ModificationLoader.ReadModsFromString(fileText, out var replacementWarnings).ToList();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(viaDeprecatedStream, Is.Not.Empty);
+                Assert.That(viaDeprecatedStream.Select(Describe), Is.EqualTo(viaReplacementStream.Select(Describe)));
+                Assert.That(viaDeprecatedString.Select(Describe), Is.EqualTo(viaReplacementString.Select(Describe)));
+                Assert.That(deprecatedWarnings, Has.Count.EqualTo(replacementWarnings.Count));
+
+                // the two routes into the same file agree, so neither overload is quietly parsing less
+                Assert.That(viaDeprecatedString.Select(Describe), Is.EqualTo(viaDeprecatedStream.Select(Describe)));
+            });
+        }
+
+        /// <summary>
+        /// The last forwarding member. The entry carries two dissociation types so the comparison is over
+        /// something with structure rather than a single key.
+        /// </summary>
+        [Test]
+        public static void DeprecatedDiagnosticIonsAndNeutralLossesAgreesWithItsReplacement()
+        {
+            const string entry = "HCD:H2O or ETD:NH3 or MPD:18.010565";
+
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            var viaDeprecated = PtmListLoader.DiagnosticIonsAndNeutralLosses(entry, new Dictionary<DissociationType, List<double>>());
+#pragma warning restore CS0618
+            var viaReplacement = ModificationLoader.DiagnosticIonsAndNeutralLosses(entry, new Dictionary<DissociationType, List<double>>());
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(Flatten(viaDeprecated), Is.EqualTo(Flatten(viaReplacement)));
+                Assert.That(viaDeprecated.Keys, Is.EquivalentTo(new[]
+                    { DissociationType.HCD, DissociationType.ETD, DissociationType.IRMPD }));
+            });
+        }
+
+        /// <summary>
+        /// ParseDissociationType tests its argument before dereferencing it. Its contract is "or null when
+        /// it names nothing recognised", and a null name recognises nothing, so it returns null rather
+        /// than throwing -- which matters now that it is a public helper rather than inline code.
+        /// </summary>
+        [Test]
+        [TestCase(null)]
+        [TestCase("")]
+        [TestCase("   ")]
+        [TestCase("NotADissociationType")]
+        public static void ParseDissociationTypeReturnsNullRatherThanThrowing(string key)
+        {
+            Assert.That(ModificationLoader.ParseDissociationType(key), Is.Null);
+#pragma warning disable CS0618 // deliberately exercising the deprecated entry point
+            Assert.That(PtmListLoader.ModDissociationType(key), Is.Null);
+#pragma warning restore CS0618
+        }
+
     }
 }
