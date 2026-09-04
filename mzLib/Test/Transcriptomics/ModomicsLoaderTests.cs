@@ -233,13 +233,12 @@ namespace Test.Transcriptomics
         {
             var report = ModomicsLoader.LoadModomics();
 
-            // Sugar-localized: 2'-O-methyladenosine fragments to unmodified [adenine]+ (136), so
-            // nothing extra leaves with the base; the diagnostic ion is retained alongside the
-            // derived behavior.
+            // Explicitly confirmed 2'-O chemistry: the ion shows no base-carried portion, and the loader
+            // promotes this named ribose-localized entry to Suppressed to match the curated RNA mods.
             var am = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-methyladenosine on A");
             var amBaseMod = am as BaseModification;
             Assert.That(amBaseMod, Is.Not.Null);
-            Assert.That(amBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Default));
+            Assert.That(amBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Suppressed));
             Assert.That(amBaseMod.BaseLossModification, Is.Null);
             Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(135.055).Within(0.001));
 
@@ -260,13 +259,12 @@ namespace Test.Transcriptomics
             Assert.That(inosineBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
             Assert.That(inosineBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("H-1N-1O1")), Is.True);
 
-            // Partially base-localized: N6,2'-O-dimethyladenosine's base ion is [N6-methyladenine]+
-            // (150 = [adenine]+ + CH2), so only the N6 methyl departs with the base; C1H2 is the unique
-            // sub-formula of the C2H4 shift matching that measurement.
+            // Explicitly confirmed mixed 2'-O chemistry: the ion still measures the N6 methyl as the
+            // base-carried portion, but the named 2'-O entry keeps Suppressed base-loss semantics.
             var m6Am = report.LoadedModifications.Single(m => m.IdWithMotif == "N6,2'-O-dimethyladenosine on A");
             var m6AmBaseMod = m6Am as BaseModification;
             Assert.That(m6AmBaseMod, Is.Not.Null);
-            Assert.That(m6AmBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
+            Assert.That(m6AmBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Suppressed));
             Assert.That(m6AmBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
             Assert.That(m6Am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(149.07).Within(0.001));
 

@@ -340,7 +340,7 @@ public static class ModomicsLoader
                 continue;
             }
 
-            var productIonInterpretation = InterpretProductIons(parsedProductIons, dto.MoietyType, moietyDefinition, modFormula);
+            var productIonInterpretation = InterpretProductIons(dto.Name, parsedProductIons, dto.MoietyType, moietyDefinition, modFormula);
 
             yield return new ModomicsConversionOutcome
             {
@@ -364,7 +364,7 @@ public static class ModomicsLoader
     /// base, which yields base-loss semantics and the primary ion's accurate monoisotopic m/z.
     /// </summary>
     private static ProductIonInterpretation? InterpretProductIons(
-        List<double>? productIons, string moietyType, ReferenceMoietyDefinition moiety, ChemicalFormula modificationFormula)
+        string modomicsName, List<double>? productIons, string moietyType, ReferenceMoietyDefinition moiety, ChemicalFormula modificationFormula)
     {
         if (productIons is null)
         {
@@ -396,10 +396,14 @@ public static class ModomicsLoader
             ions[primaryIonIndex] = measured.Value.AccurateBaseNeutralMass;
         }
 
+        var baseLossBehavior = IsExplicitlyConfirmedSuppressedBaseLoss(modomicsName)
+            ? BaseLossBehavior.Suppressed
+            : measured.Value.Behavior;
+
         return new ProductIonInterpretation(
             diagnosticIons,
-            measured.Value.Behavior,
-            measured.Value.Behavior == BaseLossBehavior.Default ? null : measured.Value.Formula);
+            baseLossBehavior,
+            baseLossBehavior == BaseLossBehavior.Default ? null : measured.Value.Formula);
     }
 
     /// <summary>
@@ -419,8 +423,8 @@ public static class ModomicsLoader
     /// <param name="canonicalBaseNeutralMass">The neutral free-base mass of the unmodified residue.</param>
     /// <param name="modificationFormula">The modification's mass shift relative to the residue.</param>
     /// <returns>
-    /// The uniquely measured portion: none of it (Default) for ribose-localized modifications such as
-    /// 2'-O-methyls; a partial portion for split modifications such as N6,2'-O-dimethyladenosine
+    /// The uniquely measured portion: none of it (Default) when nothing measurable sits on the base;
+    /// a partial portion for split modifications such as N6,2'-O-dimethyladenosine
     /// (C1H2 of C2H4); the entire shift for base-localized modifications such as N6-methyladenosine.
     /// Null when the ions match no portion or two indistinguishable portions.
     /// </returns>
@@ -447,6 +451,15 @@ public static class ModomicsLoader
             isEntirelySugarLocalized ? BaseLossBehavior.Default : BaseLossBehavior.Modified,
             isEntirelySugarLocalized ? null : baseLocalizedPortion,
             canonicalBaseNeutralMass + baseLocalizedPortion.MonoisotopicMass);
+    }
+
+    private static bool IsExplicitlyConfirmedSuppressedBaseLoss(string modomicsName)
+    {
+        // The product ions only tell us how much of the shift remains on the base. They do not generally
+        // prove whether base loss is suppressed. For now we only emit Suppressed for the explicit 2'-O
+        // entries whose behavior is already confirmed by the curated RNA mod definitions; broader mapping
+        // should be expanded deliberately as more cases are validated.
+        return modomicsName.Contains("2'-O-", StringComparison.InvariantCultureIgnoreCase);
     }
 
     private static ChemicalFormula NeutralizePublishedFormula(ModomicsDto dto, ChemicalFormula parsedFormula, bool isTerminalCap)
