@@ -285,7 +285,7 @@ namespace FlashLFQ
                         // However, changing this now would change MBR scores in all existing tests that use MBR
                         // I'm not sure what the overall effect of fixing this is, and plan to carefully evaluate it 
                         // in the near future and then fix this issue.
-                        rtPredictionErrorDist = new Normal(medianRtError, 1);
+                        rtPredictionErrorDist = new Normal(medianRtError, sigma);
                     }
                 }
             }
