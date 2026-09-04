@@ -44,7 +44,7 @@ namespace Omics.BioPolymer
             }
 
             // Otherwise, do genotype/allele-depth-aware application with combinatorics limited for heterozygous sites
-            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinitorics: maxAllowedVariantsForCombinatorics, minAlleleDepth);
+            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics: maxAllowedVariantsForCombinatorics, minAlleleDepth);
         }
 
         /// <summary>
@@ -107,19 +107,19 @@ namespace Omics.BioPolymer
 
         /// <summary>
         /// Applies a set of sequence variations in a genotype- and allele-depth-aware fashion for all individuals found in the VCF payloads.
-        /// Heterozygous sites can produce combinatorial branches up to <paramref name="maxAllowedVariantsForCombinitorics"/> per individual.
+        /// Heterozygous sites can produce combinatorial branches up to <paramref name="maxAllowedVariantsForCombinatorics"/> per individual.
         /// Results are deduplicated by final base sequence.
         /// </summary>
         /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
         /// <param name="protein">The base biopolymer to which variations will be applied.</param>
         /// <param name="sequenceVariations">Candidate variations. Duplicates by effect are collapsed using <see cref="SequenceVariation.SimpleString"/>.</param>
-        /// <param name="maxAllowedVariantsForCombinitorics">
+        /// <param name="maxAllowedVariantsForCombinatorics">
         /// Upper cap for heterozygous combinatorial branching. If an individual has more heterozygous variants than this number,
         /// the algorithm limits branching to control explosion.
         /// </param>
         /// <param name="minAlleleDepth">Minimum AD (Allele Depth) per sample for an allele to be considered in application.</param>
         /// <returns>A list of concrete variant biopolymers across all individuals encoded in the VCF payloads.</returns>
-        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinatorics, int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             // Remove duplicate effects (by SimpleString), require variants with genotype data, apply from higher to lower positions
@@ -149,7 +149,7 @@ namespace Omics.BioPolymer
                 newVariantProteins.Add(proteinCopy);
 
                 // Whether to limit combinatorial branching for this individual
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.VariantCallFormatDataString.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.VariantCallFormatDataString.Heterozygous[individual]) > maxAllowedVariantsForCombinatorics;
 
                 foreach (var variant in uniqueEffectsToApply)
                 {
@@ -175,17 +175,17 @@ namespace Omics.BioPolymer
                         // Limit branching: either keep ref, take alt, or update second branch if already present
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
-                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinitorics > 0)
+                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 TBioPolymerType variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
                                 newVariantProteins.Add(variantProtein);
                             }
-                            else if (maxAllowedVariantsForCombinitorics > 0)
+                            else if (maxAllowedVariantsForCombinatorics > 0)
                             {
                                 newVariantProteins[1] = ApplySingleVariant(variant, newVariantProteins[1], individual);
                             }
                         }
-                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                         {
                             newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                         }
@@ -197,7 +197,7 @@ namespace Omics.BioPolymer
 
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
+                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0 && isDeepReferenceAllele)
                             {
                                 if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
                                 {
@@ -205,7 +205,7 @@ namespace Omics.BioPolymer
                                 }
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual)); // alternate branch
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
                             }

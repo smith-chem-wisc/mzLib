@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Omics.Modifications;
 
@@ -307,10 +308,30 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Validates positional consistency: begin must be &gt; 0 and end must be &gt;= begin.
-        /// This does not validate string/length consistency between <see cref="OriginalSequence"/> and <see cref="VariantSequence"/>.
+        /// Validates this variation: coordinates must be sensible, begin &gt;= 1 and end &gt;= begin.
         /// </summary>
-        /// <returns>True if positions are valid; otherwise false.</returns>
+        /// <remarks>
+        /// This asks whether the variation is well formed and applicable, not whether it is
+        /// interesting and not whether its modifications survive the edit.
+        ///
+        /// A no-op, where <see cref="OriginalSequence"/> equals <see cref="VariantSequence"/>, stays
+        /// valid. It applies cleanly, and two callers depend on that:
+        /// <c>VariantApplication.GetVariantBioPolymers</c> gates on <c>All(v => v.AreValid())</c>, so
+        /// calling one applicable variation invalid changes how *every* variation on that biopolymer is
+        /// applied; and reversing a start loss in <c>DecoyProteinGenerator</c> produces a no-op for
+        /// every initiator-methionine loss, which must keep its decoy or one-decoy-per-target breaks
+        /// for that whole variant class.
+        ///
+        /// Modification positions are deliberately not judged here.
+        /// <see cref="OneBasedModifications"/> is keyed in post-edit *variant-protein* coordinates, not
+        /// parent coordinates -- <c>VariantApplication.AdjustModificationIndices</c> shifts the parent
+        /// dictionary into the new frame and merges the variant dictionary with its keys untouched, and
+        /// a committed example spans 4..4 while carrying a modification at position 7. A key outside
+        /// the span is therefore normal. <c>IBioPolymer.SelectValidOneBaseMods</c> already drops
+        /// modifications that do not survive, against the real post-edit sequence and motif, where a
+        /// predicate here could only guess.
+        /// </remarks>
+        /// <returns>True if the coordinates are sensible; otherwise false.</returns>
         public bool AreValid()
         {
             return OneBasedBeginPosition > 0 && OneBasedEndPosition >= OneBasedBeginPosition;

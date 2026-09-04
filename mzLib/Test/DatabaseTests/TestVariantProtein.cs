@@ -1342,6 +1342,51 @@ namespace Test.DatabaseTests
             Assert.AreEqual("V", firstDecoyVariation.VariantSequence);
         }
         /// <summary>
+        /// AreValid judges coordinates and nothing else. This pins the two things it deliberately does
+        /// NOT judge, because an earlier revision of this method judged both and was wrong about both.
+        ///
+        /// It does not require the variation to be a real change. GetVariantBioPolymers gates on
+        /// All(v => v.AreValid()), so calling one applicable variation invalid changes how every
+        /// variation on that biopolymer is applied; and reversing a start loss produces a no-op for
+        /// every initiator-methionine loss, whose decoy must survive or one-decoy-per-target breaks for
+        /// that whole variant class.
+        ///
+        /// It does not judge modification positions. OneBasedModifications is keyed in post-edit
+        /// variant-protein coordinates, so a key outside the span is normal -- see the span-4..4,
+        /// modification-at-7 example in TestProteinProperties. IBioPolymer.SelectValidOneBaseMods drops
+        /// modifications that do not survive, against the real post-edit sequence.
+        /// </summary>
+        [Test]
+        public static void AreValidJudgesCoordinatesOnly()
+        {
+            // A no-op applies cleanly, so it is well formed.
+            Assert.That(new SequenceVariation(5, 7, "PEP", "PEP", "no-op").AreValid(), Is.True);
+
+            // The shape DecoyProteinGenerator produces when it reverses an initiator-methionine loss.
+            Assert.That(new SequenceVariation(10, 10, "A", "A", "reversed start loss").AreValid(), Is.True);
+
+            // A real substitution, for contrast.
+            Assert.That(new SequenceVariation(5, 7, "PEP", "AAA", "substitution").AreValid(), Is.True);
+
+            // A modification keyed outside the original span is in the variant frame, not the parent
+            // frame, and is legitimate. Judging it here rejected committed data.
+            var modOutsideSpan = new SequenceVariation(4, 4, "P", "PPP", "insertion",
+                new Dictionary<int, List<Modification>> { { 7, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modOutsideSpan.AreValid(), Is.True,
+                "modification keys are variant-frame; a key past the original span is expected");
+
+            // A deletion is not a termination: residues after it survive, so a modification is placeable.
+            var modAfterDeletion = new SequenceVariation(4, 6, "PTI", "", "deletion",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modAfterDeletion.AreValid(), Is.True,
+                "an empty variant sequence is a deletion, not a stop gain");
+
+            // Coordinates are still checked.
+            Assert.That(new SequenceVariation(0, 7, "PEP", "AAA", "bad begin").AreValid(), Is.False);
+            Assert.That(new SequenceVariation(7, 5, "PEP", "AAA", "end before begin").AreValid(), Is.False);
+        }
+
+        /// <summary>
         /// CRITICAL: Tests the AreValid() validation logic for SequenceVariation.
         /// Comprehensively covers valid/invalid position combinations, different
         /// constructor behaviors, and edge cases with null/empty sequences.
@@ -1351,8 +1396,10 @@ namespace Test.DatabaseTests
         public void SequenceVariationIsValidTest()
         {
             // PURPOSE
-            // Validate the minimal, position-only "validity" rules implemented by SequenceVariation.AreValid():
-            //   AreValid() == (OneBasedBeginPosition > 0) && (OneBasedEndPosition >= OneBasedBeginPosition)
+            // Validates the POSITION rule of SequenceVariation.AreValid():
+            //   begin >= 1 and end >= begin
+            // AreValid also requires the variation to be a real change and its modifications to be
+            // positionally possible -- neither is AreValid's job; see AreValidJudgesCoordinatesOnly above. Every construct here changes the sequence, so only the position rule is in play.
             //
             // We cover:
             // 1) Explicit begin/end ctor with typical point mutations → valid.
@@ -1361,7 +1408,7 @@ namespace Test.DatabaseTests
             // 4) One-position convenience ctor behavior for different originalSequence values (null, "", length > 0).
             //    - This ctor derives end as: end = (original == null) ? begin : begin + original.Length - 1.
             //    - Therefore, empty originalSequence "" makes end = begin - 1 → invalid by design.
-            // 5) Content fields (Original/Variant) and OneBasedModifications do NOT affect AreValid(), only positions do.
+            // 5) Every construct below changes the sequence, so it is the position rule being exercised.
             // 6) Optional sanity checks on derived fields (SimpleString and computed end position).
 
             // -----------------------------
@@ -1404,7 +1451,7 @@ namespace Test.DatabaseTests
 
             // -----------------------------
             // 3) Explicit begin/end edge-cases: insertion and deletion modeled by content only
-            //    NOTE: AreValid ignores Original/Variant content; only positions matter.
+            //    NOTE: these all change the sequence, so the position rule is what decides them.
             // -----------------------------
             // Insertion-like (explicit): original is empty (""), variant has content.
             // Valid because we explicitly supply begin == end (positions are valid).
@@ -1443,7 +1490,7 @@ namespace Test.DatabaseTests
             var svPosCtorLength3 = new SequenceVariation(
                 oneBasedPosition: 20,
                 originalSequence: "PEP",   // len = 3
-                variantSequence: "AAA",    // content irrelevant to AreValid
+                variantSequence: "AAA",    // differs from original, so it is a real change
                 description: "pos-ctor length 3");
             Assert.AreEqual(20, svPosCtorLength3.OneBasedBeginPosition);
             Assert.AreEqual(22, svPosCtorLength3.OneBasedEndPosition, "End should be begin + original.Length - 1");
