@@ -42,16 +42,27 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// This factory method returns an IndexingEngine instance where the peaks in all MS1 scans have been indexed. 
+        /// This factory method returns an IndexingEngine instance where the peaks in all MS1 scans have been indexed.
         /// This method ignores MS2 scans when indexing
         /// </summary>
         public static PeakIndexingEngine? InitializeIndexingEngine(MsDataFile dataFile)
         {
-            var scanArray = dataFile.GetMS1Scans()
-                .Where(i => i != null && i.MsnOrder == 1)
-                .OrderBy(i => i.OneBasedScanNumber)
-                .ToArray();
-            return InitializeIndexingEngine(scanArray);
+            return InitializeIndexingEngine(GetScansToIndex(dataFile));
+        }
+
+        /// <summary>
+        /// The scans of a file in the order the index numbers them: the ZeroBasedScanIndex of every indexed peak,
+        /// and the ScanInfoArray built alongside them, both address this array. Anything that needs to translate
+        /// those indices back onto the file has to select and order the scans identically, so it goes through here
+        /// rather than repeating the selection - two copies of an alignment invariant drift silently, and the
+        /// symptom is every scan number in the dependent output being wrong.
+        ///
+        /// GetMS1Scans already yields only MsnOrder 1, in ascending scan number order, so no filtering or sorting
+        /// is applied on top of it.
+        /// </summary>
+        public static MsDataScan[] GetScansToIndex(MsDataFile dataFile)
+        {
+            return dataFile.GetMS1Scans().ToArray();
         }
 
         /// <summary>
