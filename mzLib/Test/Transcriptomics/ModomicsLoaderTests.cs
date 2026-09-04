@@ -101,10 +101,19 @@ namespace Test.Transcriptomics
                 .ToList();
             CollectionAssert.AreEqual(new[] { "A", "C", "G", "U" }, cap0Targets);
 
-            // The cap shift keeps the cap nucleoside and phosphate chain: m7GpppN (C16H23N5O17P3) minus the
-            // generic ribose (C5H7O3).
+            // The cap shift keeps the cap nucleoside and phosphate chain: m7GpppN is published as an anion,
+            // so it must be neutralized first and then have only the base-less ribose scaffold removed.
             var cap0OnA = report.TerminalModifications.Single(m => m.IdWithMotif == "N7-methyl-guanosine cap (cap 0) on A");
-            Assert.That(cap0OnA.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C11H16N5O14P3")), Is.True);
+            Assert.That(cap0OnA.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C11H16N5O13P3")), Is.True);
+
+            var methylTriphosphateCap = report.TerminalModifications.Single(m => m.IdWithMotif == "gamma-methyltriphosphate 5' cap on A");
+            Assert.That(methylTriphosphateCap.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("CH5O9P3")), Is.True);
+
+            var methylMonophosphateCap = report.TerminalModifications.Single(m => m.IdWithMotif == "alpha-methylmonophosphate 5' cap on A");
+            Assert.That(methylMonophosphateCap.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("CH3O3P")), Is.True);
+
+            var dimethylMonophosphateCap = report.TerminalModifications.Single(m => m.IdWithMotif == "alpha-dimethylmonophosphate 5' cap on A");
+            Assert.That(dimethylMonophosphateCap.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C2H5O3P")), Is.True);
 
             // The terminal restriction is enforced by the existing localization semantics: the cap fits the
             // first residue of the polymer, not an interior residue with a matching motif.
@@ -130,6 +139,11 @@ namespace Test.Transcriptomics
             var duplicate = Mods.ModomicsLoadReport.DuplicateModifications.SingleOrDefault(d => d.ModomicsModification == modomicsAm);
             Assert.That(duplicate, Is.Not.Null);
             Assert.That(duplicate!.ExistingModifications.Any(m => m.IdWithMotif == "2'-O-Methyladenosine on A"), Is.True);
+
+            // 3-methylcytidine has no curated RnaMods.txt twin, so the Modomics registry itself is the second
+            // surface that must preserve the neutral CH2 shift.
+            var modomicsM3C = Mods.ModomicsRnaModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
+            Assert.That(modomicsM3C.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
         }
 
         [Test]
@@ -185,33 +199,33 @@ namespace Test.Transcriptomics
             // Diagnostic ions are attached only when the source lists them.
             Assert.That(report.LoadedModifications.Count(m => m.DiagnosticIons is not null), Is.GreaterThan(50));
 
-            // The primary base ion is upgraded to computed monoisotopic m/z when it validates against the
-            // published nominal value: 1-methyladenosine lists "150"; [1-methyladenine]+ = 150.078.
+            // The primary base ion is upgraded to the accurate neutral mass implied by the published nominal m/z:
+            // 1-methyladenosine lists "150"; [1-methyladenine]+ = 150.078, so the stored neutral mass is 149.0707.
             var m1A = report.LoadedModifications.Single(m => m.IdWithMotif == "1-methyladenosine on A");
             Assert.That(m1A.DiagnosticIons, Is.Not.Null);
-            Assert.That(m1A.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(150.078).Within(0.001));
+            Assert.That(m1A.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(149.07).Within(0.001));
 
-            // 5-methyl-2-thiouridine lists a single nominal ion, "143", upgraded to [5-methyl-2-thiouracil]+.
+            // 5-methyl-2-thiouridine lists a single nominal ion, "143", stored as the corresponding neutral mass.
             var m5s2U = report.LoadedModifications.Single(m => m.IdWithMotif == "5-methyl-2-thiouridine on U");
-            Assert.That(m5s2U.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(143.028).Within(0.001));
+            Assert.That(m5s2U.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(142.021).Within(0.001));
 
-            // Multi-ion entries upgrade only the primary ion; secondary neutral-loss fragments keep their
-            // published nominal values: 5-carboxymethyl-2-thiouridine lists "187/169/141".
+            // Multi-ion entries upgrade only the primary ion; secondary fragments keep the published nominal
+            // m/z values converted to neutral mass: 5-carboxymethyl-2-thiouridine lists "187/169/141".
             var cm5s2U = report.LoadedModifications.Single(m => m.IdWithMotif == "5-carboxymethyl-2-thiouridine on U");
             var cm5s2UIons = cm5s2U.DiagnosticIons![DissociationType.AnyActivationType];
-            Assert.That(cm5s2UIons, Has.Some.EqualTo(187.018).Within(0.001));
-            Assert.That(cm5s2UIons, Does.Contain(169.0));
-            Assert.That(cm5s2UIons, Does.Contain(141.0));
+            Assert.That(cm5s2UIons, Has.Some.EqualTo(186.01).Within(0.001));
+            Assert.That(cm5s2UIons, Has.Some.EqualTo(167.993).Within(0.001));
+            Assert.That(cm5s2UIons, Has.Some.EqualTo(139.993).Within(0.001));
 
             // The upgrade follows the measured topology rather than an all-on-base assumption:
-            // 2'-O-methyladenosine's base ion is unmodified [adenine]+ (136 -> 136.062), and
-            // 3-methylcytidine's base carries only the CH2 of its CH3 shift (126 -> 126.066).
+            // 2'-O-methyladenosine's base ion is unmodified [adenine]+ (136 -> neutral 135.055), and
+            // 3-methylcytidine's base carries only the CH2 of its neutral C1H2 shift (126 -> neutral 125.059).
             var am = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-methyladenosine on A");
-            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(136.062).Within(0.001));
-            Assert.That(am.DiagnosticIons[DissociationType.AnyActivationType], Has.None.EqualTo(150.078).Within(0.001));
+            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(135.055).Within(0.001));
+            Assert.That(am.DiagnosticIons[DissociationType.AnyActivationType], Has.None.EqualTo(149.07).Within(0.001));
 
             var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
-            Assert.That(m3C.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(126.066).Within(0.001));
+            Assert.That(m3C.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(125.059).Within(0.001));
         }
 
         [Test]
@@ -227,7 +241,7 @@ namespace Test.Transcriptomics
             Assert.That(amBaseMod, Is.Not.Null);
             Assert.That(amBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Default));
             Assert.That(amBaseMod.BaseLossModification, Is.Null);
-            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(136.062).Within(0.001));
+            Assert.That(am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(135.055).Within(0.001));
 
             // Base-localized: N6-methyladenosine fragments to [N6-methyladenine]+ (150 = [adenine]+ + CH2),
             // so the modification departs with the base during base loss.
@@ -236,7 +250,7 @@ namespace Test.Transcriptomics
             Assert.That(m6ABaseMod, Is.Not.Null);
             Assert.That(m6ABaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
             Assert.That(m6ABaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
-            Assert.That(m6A.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(150.078).Within(0.001));
+            Assert.That(m6A.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(149.07).Within(0.001));
 
             // Base conversion: inosine targets adenine and fragments to [hypoxanthine]+
             // (137 = [adenine]+ + H-1N-1O1), so the full base difference leaves with the base.
@@ -254,19 +268,31 @@ namespace Test.Transcriptomics
             Assert.That(m6AmBaseMod, Is.Not.Null);
             Assert.That(m6AmBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
             Assert.That(m6AmBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
-            Assert.That(m6Am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(150.078).Within(0.001));
+            Assert.That(m6Am.DiagnosticIons![DissociationType.AnyActivationType], Has.Some.EqualTo(149.07).Within(0.001));
 
-            // Protonation-ambiguous cations resolve through measurement too: 3-methylcytidine's full
-            // shift is CH3 (its cationic formula carries an extra proton), but its base ion 126 shows
-            // the base carries only CH2, so the derived base-loss formula is C1H2.
+            // Protonation-ambiguous cations resolve through measurement too: 3-methylcytidine's source
+            // formula is cationic, but both its neutral shift and its base-localized portion are C1H2.
             var m3C = report.LoadedModifications.Single(m => m.IdWithMotif == "3-methylcytidine on C");
             var m3CBaseMod = m3C as BaseModification;
             Assert.That(m3CBaseMod, Is.Not.Null);
             Assert.That(m3CBaseMod!.BaseLossType, Is.EqualTo(BaseLossBehavior.Modified));
             Assert.That(m3CBaseMod.BaseLossModification!.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
+            Assert.That(m3C.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C1H2")), Is.True);
 
             // Entries without published ions keep the plain representation.
             Assert.That(report.LoadedModifications.Any(m => m.DiagnosticIons is null), Is.True);
+        }
+
+        [Test]
+        public void NucleosidePhosphateAnionsAreNeutralizedBeforeResidueShiftDerivation()
+        {
+            var report = ModomicsLoader.LoadModomics();
+
+            var arP = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-ribosyladenosine (phosphate) on A");
+            Assert.That(arP.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C5H9O7P")), Is.True);
+
+            var grP = report.LoadedModifications.Single(m => m.IdWithMotif == "2'-O-ribosylguanosine (phosphate) on G");
+            Assert.That(grP.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C5H9O7P")), Is.True);
         }
 
         [Test]
@@ -285,12 +311,6 @@ namespace Test.Transcriptomics
                         @"^(N\d+-|\d+-)methyl(adenosine|cytidine|guanosine|uridine) on [ACGU]$"))
                     .ToList();
             Assert.That(singleMethylMods, Is.Not.Empty, "Expected to find base-methylated nucleosides");
-
-            // Exception to the normal CH2 rule: the 3-methylcytidine cation formula carries an additional proton.
-            var m3C = singleMethylMods.FirstOrDefault(m => m.IdWithMotif.StartsWith("3-methylcytidine on C"));
-            Assert.That(m3C, Is.Not.Null, "Expected to find 3-methylcytidine");
-            Assert.That(m3C!.ChemicalFormula.Equals(ChemicalFormula.ParseFormula("C1H3")), Is.True, "3-methylcytidine should have formula C1H3");
-            singleMethylMods.Remove(m3C);
 
             var expectedFormula = ChemicalFormula.ParseFormula("C1H2");
             CollectionAssert.AreEqual(

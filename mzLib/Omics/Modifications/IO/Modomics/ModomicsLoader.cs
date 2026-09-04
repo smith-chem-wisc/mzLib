@@ -36,9 +36,8 @@ public static class ModomicsLoader
         { "U", new ReferenceMoietyDefinition(Formulas.UracilBaseChemicalFormula, Formulas.UridineChemicalFormula) },
     };
 
-    // The two hydrogens added when a nucleoside fragments to its protonated free-base product ion
-    // (de-glycosylation + protonation): [base+H]+ = bonded base + 2H.
-    private static readonly ChemicalFormula TwoHydrogenChemicalFormula = ChemicalFormula.ParseFormula("H2");
+    // One hydrogen restores the bonded base to the neutral free base.
+    private static readonly ChemicalFormula HydrogenChemicalFormula = ChemicalFormula.ParseFormula("H");
 
     /// <summary>
     /// Loads MODOMICS RNA modifications.
@@ -219,6 +218,7 @@ public static class ModomicsLoader
 
     private static IEnumerable<ModomicsConversionOutcome> ConvertDto(ModomicsDto dto)
     {
+        var isTerminalCap = dto.Name.Contains(" cap", StringComparison.InvariantCultureIgnoreCase);
         var neutralFormulaText = dto.Formula.Replace("+", string.Empty, StringComparison.Ordinal);
 
         if (string.IsNullOrWhiteSpace(neutralFormulaText))
@@ -249,8 +249,6 @@ public static class ModomicsLoader
             yield return NotRepresentable(dto, ModomicsRepresentationFailureReason.InvalidFormula, invalidFormulaMessage);
             yield break;
         }
-
-        var isTerminalCap = dto.Name.Contains(" cap", StringComparison.InvariantCultureIgnoreCase);
 
         if (dto.Name.Contains(" end", StringComparison.InvariantCultureIgnoreCase))
         {
@@ -284,6 +282,8 @@ public static class ModomicsLoader
         // A present-but-empty or unparsable product_ions field yields no usable ions.
         var parsedProductIons = parsedProductIonCandidates is { Count: > 0 } ? parsedProductIonCandidates : null;
 
+        fullFormula = NeutralizePublishedFormula(dto, fullFormula, isTerminalCap);
+
         foreach (var referenceMoiety in dto.ReferenceMoieties)
         {
             if (!ReferenceMoieties.TryGetValue(referenceMoiety, out var moietyDefinition))
@@ -310,8 +310,8 @@ public static class ModomicsLoader
                     break;
                 case "nucleotide" when isTerminalCap:
                     // Generic-"N" cap formulas embed a base-less ribose for the capped residue; removing only
-                    // that ribose keeps the cap nucleoside and phosphate chain as the terminal mass shift.
-                    referenceFormulaToRemove = moietyDefinition.NucleosideChemicalFormula - moietyDefinition.BaseChemicalFormula - Formulas.WaterChemicalFormula;
+                    // that base-less ribose keeps the cap nucleoside and phosphate chain as the terminal mass shift.
+                    referenceFormulaToRemove = moietyDefinition.NucleosideChemicalFormula - moietyDefinition.BaseChemicalFormula;
                     break;
                 case "nucleotide":
                     // Real-base nucleotide formulas are published as inconsistent phosphate anions (e.g. pm1G
@@ -371,15 +371,15 @@ public static class ModomicsLoader
             return null;
         }
 
-        // Every published ion becomes a diagnostic ion.
-        var ions = productIons.ToList();
+        // Every published protonated ion becomes a neutral diagnostic mass.
+        var ions = productIons.Select(p => p.ToMass(1)).ToList();
         var diagnosticIons = new Dictionary<DissociationType, List<double>>
         {
             { DissociationType.AnyActivationType, ions },
         };
 
         var measured = moietyType == "nucleoside"
-            ? DeriveBaseLossModification(productIons, (moiety.BaseChemicalFormula + TwoHydrogenChemicalFormula).MonoisotopicMass, modificationFormula)
+            ? DeriveBaseLossModification(productIons, (moiety.BaseChemicalFormula + HydrogenChemicalFormula).MonoisotopicMass, modificationFormula)
             : null;
 
         if (measured is null)
@@ -389,11 +389,11 @@ public static class ModomicsLoader
             return new ProductIonInterpretation(diagnosticIons, BaseLossType: null, BaseLossModification: null);
         }
 
-        // The measured topology gives the primary ion its accurate monoisotopic m/z.
-        var primaryIonIndex = ions.IndexOf(productIons.Max());
+        // The measured topology gives the primary ion its accurate neutral mass.
+        var primaryIonIndex = productIons.IndexOf(productIons.Max());
         if (primaryIonIndex >= 0)
         {
-            ions[primaryIonIndex] = measured.Value.AccurateBaseCationMass;
+            ions[primaryIonIndex] = measured.Value.AccurateBaseNeutralMass;
         }
 
         return new ProductIonInterpretation(
@@ -407,8 +407,8 @@ public static class ModomicsLoader
     /// </summary>
     /// <param name="Behavior">Default when nothing sits on the base; Modified otherwise.</param>
     /// <param name="Formula">The base-localized portion (null for Default).</param>
-    /// <param name="AccurateBaseCationMass">The primary ion's accurate monoisotopic m/z: canonical base cation + portion.</param>
-    private readonly record struct DerivedBaseLoss(BaseLossBehavior Behavior, ChemicalFormula? Formula, double AccurateBaseCationMass);
+    /// <param name="AccurateBaseNeutralMass">The primary ion's accurate neutral mass: canonical free base + portion.</param>
+    private readonly record struct DerivedBaseLoss(BaseLossBehavior Behavior, ChemicalFormula? Formula, double AccurateBaseNeutralMass);
 
     /// <summary>
     /// Measures how much of the modification sits on the base, using the primary product ion: the
@@ -416,7 +416,7 @@ public static class ModomicsLoader
     /// neutral such as water or ammonia, or a smaller sugar fragment).
     /// </summary>
     /// <param name="productIons">The published product ions.</param>
-    /// <param name="canonicalBaseCationMass">[canonical free base + H]+, the unmodified residue's base cation.</param>
+    /// <param name="canonicalBaseNeutralMass">The neutral free-base mass of the unmodified residue.</param>
     /// <param name="modificationFormula">The modification's mass shift relative to the residue.</param>
     /// <returns>
     /// The uniquely measured portion: none of it (Default) for ribose-localized modifications such as
@@ -424,14 +424,14 @@ public static class ModomicsLoader
     /// (C1H2 of C2H4); the entire shift for base-localized modifications such as N6-methyladenosine.
     /// Null when the ions match no portion or two indistinguishable portions.
     /// </returns>
-    private static DerivedBaseLoss? DeriveBaseLossModification(List<double> productIons, double canonicalBaseCationMass, ChemicalFormula modificationFormula)
+    private static DerivedBaseLoss? DeriveBaseLossModification(List<double> productIons, double canonicalBaseNeutralMass, ChemicalFormula modificationFormula)
     {
         var primaryIon = productIons.Max();
 
-        // A portion is consistent with the measurement when adding it to the canonical base cation
-        // reproduces the published ion at nominal precision.
+        // A portion is consistent with the measurement when its neutral mass reproduces the published
+        // protonated ion at nominal precision.
         var matchingPortions = GetModificationPortions(modificationFormula)
-            .Where(portion => SameNominalMz(canonicalBaseCationMass + portion.MonoisotopicMass, primaryIon))
+            .Where(portion => SameNominalMz((canonicalBaseNeutralMass + portion.MonoisotopicMass).ToMz(1), primaryIon))
             .ToList();
 
         if (matchingPortions.Count != 1)
@@ -446,7 +446,66 @@ public static class ModomicsLoader
         return new DerivedBaseLoss(
             isEntirelySugarLocalized ? BaseLossBehavior.Default : BaseLossBehavior.Modified,
             isEntirelySugarLocalized ? null : baseLocalizedPortion,
-            canonicalBaseCationMass + baseLocalizedPortion.MonoisotopicMass);
+            canonicalBaseNeutralMass + baseLocalizedPortion.MonoisotopicMass);
+    }
+
+    private static ChemicalFormula NeutralizePublishedFormula(ModomicsDto dto, ChemicalFormula parsedFormula, bool isTerminalCap)
+    {
+        var netCharge = GetNetChargeFromSmile(dto.Smile);
+        if (netCharge == 0)
+        {
+            return parsedFormula;
+        }
+
+        var chargeNeutralizedFormula = new ChemicalFormula(parsedFormula);
+        var hydrogen = PeriodicTable.GetElement("H");
+        if (netCharge > 0)
+        {
+            chargeNeutralizedFormula.Remove(hydrogen, netCharge);
+        }
+        else
+        {
+            chargeNeutralizedFormula.Add(hydrogen, -netCharge);
+        }
+
+        if (netCharge < 0 || isTerminalCap)
+        {
+            return chargeNeutralizedFormula;
+        }
+
+        if (dto.MoietyType == "nucleoside" && dto.MassMonoiso.HasValue)
+        {
+            var parsedDelta = Math.Abs(parsedFormula.MonoisotopicMass - dto.MassMonoiso.Value);
+            var neutralizedDelta = Math.Abs(chargeNeutralizedFormula.MonoisotopicMass - dto.MassMonoiso.Value);
+            if (neutralizedDelta + 0.01 < parsedDelta)
+            {
+                return chargeNeutralizedFormula;
+            }
+        }
+
+        return parsedFormula;
+    }
+
+    private static int GetNetChargeFromSmile(string? smile)
+    {
+        if (string.IsNullOrWhiteSpace(smile))
+        {
+            return 0;
+        }
+
+        var netCharge = 0;
+        foreach (Match bracketedAtom in Regex.Matches(smile, @"\[(?<content>[^\]]+)\]"))
+        {
+            foreach (Match chargeToken in Regex.Matches(bracketedAtom.Groups["content"].Value, @"(?<sign>[+-])(?<count>\d*)"))
+            {
+                var magnitude = chargeToken.Groups["count"].Success && !string.IsNullOrEmpty(chargeToken.Groups["count"].Value)
+                    ? int.Parse(chargeToken.Groups["count"].Value, CultureInfo.InvariantCulture)
+                    : 1;
+                netCharge += chargeToken.Groups["sign"].Value == "+" ? magnitude : -magnitude;
+            }
+        }
+
+        return netCharge;
     }
 
     /// <summary>
