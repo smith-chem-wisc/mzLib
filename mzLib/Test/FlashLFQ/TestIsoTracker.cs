@@ -1992,6 +1992,75 @@ namespace Test.FlashLFQ
             }
 
         }
+
+        /// <summary>
+        /// Extremum.Equals(object) used to call the static object.Equals(object, object), which comes
+        /// back through the virtual Equals and recursed until the stack ran out. Only non-generic
+        /// callers reached it -- Dictionary and LINQ resolve IEquatable&lt;Extremum&gt; -- but
+        /// ClassicAssert.AreEqual is one of them, so a test comparing two Extrema took the host down
+        /// rather than failing.
+        /// </summary>
+        [Test]
+        public static void ExtremumEqualsObjectDoesNotRecurse()
+        {
+            var apex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var equalApex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var laterApex = new Extremum(100.0, 20.0, ExtremumType.Maximum);
+
+            NUnit.Framework.Assert.Multiple(() =>
+            {
+                NUnit.Framework.Assert.That(((object)apex).Equals(equalApex), Is.True);
+                NUnit.Framework.Assert.That(((object)apex).Equals(laterApex), Is.False);
+                NUnit.Framework.Assert.That(((object)apex).Equals(null), Is.False);
+
+                // previously an InvalidCastException from the (Extremum) cast
+                NUnit.Framework.Assert.That(((object)apex).Equals("not an extremum"), Is.False);
+
+                // the typed overload is unchanged
+                NUnit.Framework.Assert.That(apex.Equals(equalApex), Is.True);
+
+                // the typed overload is the one every generic caller reaches, and it used to
+                // dereference its argument before checking it
+                NUnit.Framework.Assert.That(apex.Equals((Extremum)null), Is.False);
+            });
+        }
+
+        /// <summary>
+        /// Extremum overrides Equals but had no GetHashCode, so it inherited object's reference hash.
+        /// XICGroups.SortExtrema keys a Dictionary&lt;Extremum, List&lt;Extremum&gt;&gt; on it: equal Extrema
+        /// bucketed apart and never met, which made the ContainsKey guard there unreachable.
+        /// </summary>
+        [Test]
+        public static void ExtremumEqualExtremaShareAHashCodeAndADictionarySlot()
+        {
+            var apex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var equalApex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            // equal under the 0.006 tolerance, so it must hash the same as well
+            var withinTolerance = new Extremum(100.0, 10.005, ExtremumType.Maximum);
+
+            NUnit.Framework.Assert.Multiple(() =>
+            {
+                NUnit.Framework.Assert.That(apex.Equals(equalApex), Is.True);
+                NUnit.Framework.Assert.That(apex.GetHashCode(), Is.EqualTo(equalApex.GetHashCode()));
+
+                NUnit.Framework.Assert.That(apex.Equals(withinTolerance), Is.True);
+                NUnit.Framework.Assert.That(apex.GetHashCode(), Is.EqualTo(withinTolerance.GetHashCode()));
+
+                var dictionary = new Dictionary<Extremum, string> { { apex, "first" } };
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(equalApex), Is.True);
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(withinTolerance), Is.True);
+
+                // RetentionTime is excluded from the hash, so an unequal Extremum may still collide --
+                // allowed, and the typed Equals separates them
+                var laterApex = new Extremum(100.0, 20.0, ExtremumType.Maximum);
+                NUnit.Framework.Assert.That(apex.Equals(laterApex), Is.False);
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(laterApex), Is.False);
+
+                // differing on either field the hash does cover
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(new Extremum(101.0, 10.0, ExtremumType.Maximum)), Is.False);
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(new Extremum(100.0, 10.0, ExtremumType.Minimum)), Is.False);
+            });
+        }
     }
 
 }
