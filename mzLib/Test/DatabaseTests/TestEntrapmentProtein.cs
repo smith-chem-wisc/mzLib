@@ -936,4 +936,109 @@ public class EntrapmentProteinTests
         Assert.That(entrapment.UniProtSequenceAttributes.Mass, Is.EqualTo(targetMass));
     }
 
+    // ---- peptide-terminal modifications ------------------------------------
+    //
+    // A restriction that is satisfied per DIGESTION PRODUCT rather than once per entry, and the
+    // reason a piece's own termini are anchored. It is the quietest failure in this class: while a
+    // protein is being built, ModFits is called with the digestion-product index set to zero, so
+    // "Peptide N-terminal." falls through to "fits" and the annotation is transported and written.
+    // It is judged for real only at digestion. So the modification count in equals the count out,
+    // nothing is dropped, no counter moves -- and the entrapment peptide has silently lost a
+    // peptidoform hypothesis its target still has.
+    //
+    // These assert through DIGESTION for that reason. Asserting on the protein object passes
+    // whether or not the anchor exists, which is precisely how this went unnoticed.
+
+    /// <summary>Digestion products of <paramref name="protein"/> carrying <paramref name="id"/>.</summary>
+    private static int PeptidoformsCarrying(Protein protein, IDigestionParams digestion, string id)
+    {
+        var none = new List<Modification>();
+        return protein.Digest(digestion, none, none)
+            .Count(peptide => peptide.AllModsOneIsNterminus.Values.Any(m => m.IdWithMotif == id));
+    }
+
+    [Test]
+    public void Create_KeepsAPeptideNTerminalModificationUsableAfterDigestion()
+    {
+        // The modification sits on the first residue of an INTERIOR piece, which is where the
+        // protein-level anchors do not reach. Under trypsin the last residue of a piece is its
+        // cleavage residue and is pinned already, so the first is the exposed one -- measured at
+        // 69.00% of Arg-C pieces and 65.42% of Glu-C pieces moving it.
+        //
+        // The S is the only one in its piece on purpose. If the piece held several, the unranking
+        // could return an S to position 1 regardless and the test would pass without the anchor.
+        const string sequence = "MAAALGGDRSGGVDTTPFAWENDRQITTLGGYK";
+        var mod = TerminalMod("S", "Peptide N-terminal.", "Water Loss");
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 10, new List<Modification> { mod } }
+            });
+        Assert.That(sequence[9], Is.EqualTo('S'), "fixture: the annotation must sit on the S");
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(PeptidoformsCarrying(target, Tryptic, mod.IdWithMotif), Is.GreaterThan(0),
+            "fixture must actually produce a modified target peptidoform");
+        Assert.That(PeptidoformsCarrying(entrapment, Tryptic, mod.IdWithMotif),
+            Is.EqualTo(PeptidoformsCarrying(target, Tryptic, mod.IdWithMotif)),
+            "the companion must offer the same modified peptidoforms as its target");
+        Assert.That(entrapment.BaseSequence.Substring(9, 1), Is.EqualTo("S"),
+            "the annotated residue must still open its piece");
+    }
+
+    [Test]
+    public void APeptideCTerminalAnnotationNeverSurvivesProteinConstructionAtAll()
+    {
+        // The mirror case cannot be asserted through digestion, because mzLib never lets it get
+        // that far -- and that is worth pinning rather than working around.
+        //
+        // Protein construction validates annotations with ModFits called as
+        // ModFits(mod, sequence, digestionProductOneBasedIndex: 0, digestionProductLength: length, position),
+        // and the two peptide-level cases are not symmetric in the face of that zero:
+        //
+        //     "Peptide N-terminal." when digestionProductOneBasedIndex > 1    ->  0 > 1 is false, survives
+        //     "Peptide C-terminal." when digestionProductOneBasedIndex < length -> 0 < length is true, dropped
+        //
+        // So an XML "Peptide N-terminal." annotation is carried into the protein and judged later at
+        // digestion -- which is the silent failure the piece anchor exists for -- while a
+        // "Peptide C-terminal." one is discarded at construction and can never reach any peptide,
+        // target or entrapment. Anchoring a piece's last residue therefore buys nothing TODAY; it is
+        // done anyway because it is symmetric, because the measured cost is twenty pieces per
+        // proteome arm, and because the day that asymmetry is fixed the anchor is already right.
+        const string sequence = "MAAAGGKSTPFAWENRQDQISTLGGYKCDLLNGGVTTPWE";
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 28, new List<Modification> { TerminalMod("C", "Peptide C-terminal.", "Amidation") } }
+            });
+        Assert.That(sequence[27], Is.EqualTo('C'), "fixture: the annotation must sit on the C");
+
+        Assert.That(target.OneBasedPossibleLocalizedModifications, Is.Empty,
+            "if this ever holds the annotation, the C-terminal half of the anchor becomes testable "
+            + "through digestion and this test should be replaced by that one");
+    }
+
+    [Test]
+    public void Create_HoldsThePieceTerminiWhateverTheProteaseCutsBefore()
+    {
+        // Asp-N cleaves BEFORE D, so every piece opens on a pinned D and it is the LAST residue that
+        // is free -- the mirror of trypsin, where the last residue is the cleavage residue. Measured
+        // on the reviewed human proteome before this anchor: 72.68% of Asp-N pieces moved their last
+        // residue, against 0.00% of Arg-C and Glu-C pieces. Asserted structurally because the
+        // annotation route above is closed.
+        IDigestionParams aspN = new DigestionParams("Asp-N", minPeptideLength: 7, maxMissedCleavages: 0);
+        const string sequence = "MAAAGGKSTPFAWENRQDQISTLGGYKCDLLNGGVTTPWE";
+        var target = new Protein(sequence, "P12345");
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, aspN, NothingForbidden);
+
+        Assert.That(entrapment.BaseSequence, Is.Not.EqualTo(sequence), "it must actually rearrange");
+        Assert.That(entrapment.BaseSequence[27], Is.EqualTo('C'),
+            "the last residue of the middle piece must not move");
+        Assert.That(entrapment.BaseSequence[17], Is.EqualTo('D'),
+            "the cleavage residue opening that piece is pinned as before");
+        Assert.That(entrapment.BaseSequence[39], Is.EqualTo('E'),
+            "the protein's own C-terminus was already anchored and stays so");
+    }
 }

@@ -20,8 +20,10 @@ public enum EntrapmentFailure
     None,
 
     /// <summary>
-    /// Every arrangement in this fold's stretch would have made a <b>missed-cleavage</b> peptide
-    /// equal to a real target peptide, so none could be used.
+    /// Every arrangement in this fold's stretch was refused for something outside the piece itself:
+    /// it would have made a <b>missed-cleavage</b> peptide equal to a real target peptide, or -- for
+    /// the piece that opens a protein -- its <b>initiator-methionine-stripped</b> form would have
+    /// been one.
     /// </summary>
     /// <remarks>
     /// Kept apart from <see cref="AllPermutationsTaken"/> because the remedies differ, which is the

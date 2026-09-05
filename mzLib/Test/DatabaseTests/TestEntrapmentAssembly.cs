@@ -73,9 +73,19 @@ public class EntrapmentAssemblyTests
         EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(target, Tryptic(), NothingForbidden);
 
         Assert.That(assembly.ExcisedCount, Is.Zero, "a sub-length piece must not be excised");
-        Assert.That(assembly.KeptVerbatimCount, Is.EqualTo(1), "exactly the \"AK\" piece");
+        Assert.That(assembly.Pieces[0].TargetPiece, Is.EqualTo("AK"), "fixture must open with \"AK\"");
+        Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooShort));
         Assert.That(assembly.EntrapmentSequence, Does.StartWith("AK"));
         Assert.That(assembly.EntrapmentSequence.Length, Is.EqualTo(target.Length));
+
+        // Named per piece rather than as a count, because "SYK" reaches the same outcome by a
+        // different route once a piece's own termini are anchored: S at position 0 and K at position
+        // 2 are both held, so a single free residue is left and there is no second arrangement.
+        // Asserting a count of one hid which pieces were meant, and would have been satisfied by the
+        // wrong piece being kept.
+        Assert.That(assembly.Pieces[1].TargetPiece, Is.EqualTo("SYK"));
+        Assert.That(assembly.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooShort));
+        Assert.That(assembly.KeptVerbatimCount, Is.EqualTo(2));
     }
 
     [Test]
@@ -366,5 +376,97 @@ public class EntrapmentAssemblyTests
         Assert.That(guarded.EntrapmentSequence, Does.Not.Contain(longRun));
         Assert.That(Sorted(guarded.Pieces[2].EntrapmentPiece_),
             Is.EqualTo(Sorted(free.Pieces[2].EntrapmentPiece_)));
+    }
+
+    // ---- piece termini and the initiator methionine -------------------------
+
+    [Test]
+    public void Assemble_HoldsEachPiecesOwnTerminiNotOnlyTheProteins()
+    {
+        // The structural form of the two peptide-terminal tests in TestEntrapmentProtein: whatever
+        // the annotations are, a piece's first and last residues must land on its first and last
+        // positions, because that is what makes a peptide-level location restriction survive.
+        const string target = "MAAALGGDRSGGVDTTPFAWENDRQITTLGGYKELMNPQWVR";
+        IDigestionParams digestion = Tryptic();
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+
+        List<int> sites = digestion.DigestionAgent.GetDigestionSiteIndices(target);
+        sites.Sort();
+        int cursor = 0;
+        foreach (EntrapmentPiece piece in assembly.Pieces)
+        {
+            Assert.That(piece.Outcome, Is.Not.EqualTo(PieceOutcome.Excised),
+                "fixture must not need excision, or the position map has gaps");
+            int start = sites[piece.Index];
+            int end = start + piece.TargetPiece.Length - 1;
+            Assert.That(assembly.TargetToEntrapmentPosition[start], Is.EqualTo(cursor),
+                "piece " + piece.Index + " must keep its first residue first");
+            Assert.That(assembly.TargetToEntrapmentPosition[end],
+                Is.EqualTo(cursor + piece.EntrapmentPiece_.Length - 1),
+                "piece " + piece.Index + " must keep its last residue last");
+            cursor += piece.EntrapmentPiece_.Length;
+        }
+
+        Assert.That(assembly.Pieces.Count, Is.GreaterThan(2),
+            "fixture must contain an interior piece, which is where the protein anchors do not reach");
+    }
+
+    [Test]
+    public void Assemble_RefusesACandidateWhoseInitiatorMethionineStrippedFormIsATargetPeptide()
+    {
+        // A search digests the opening piece twice, with and without the initiator methionine, so a
+        // piece distinct from every target peptide can still have an M-stripped form that is not.
+        // This is the only route left at MaxMissedCleavages = 0, and before the check existed it put
+        // four real target peptides into the human entrapment set -- in no exclusion list, because a
+        // run collision was the only reason the sidecar could name.
+        const string target = "MSTQAEVDLNSGWKGGVDTTPFAWENDR";
+        IDigestionParams digestion = Tryptic();
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        string opening = free.Pieces[0].EntrapmentPiece_;
+        Assert.That(opening, Does.StartWith("M"), "fixture must open with the initiator methionine");
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(target, digestion,
+            new HashSet<string> { opening.Substring(1) });
+
+        Assert.That(guarded.Pieces[0].EntrapmentPiece_, Is.Not.EqualTo(opening),
+            "the candidate whose stripped form is a target peptide must be refused");
+        Assert.That(Sorted(guarded.Pieces[0].EntrapmentPiece_), Is.EqualTo(Sorted(free.Pieces[0].TargetPiece)),
+            "refusing one candidate must not cost isomerism");
+        Assert.That(guarded.InitiatorMethionineCollisions, Is.Zero,
+            "another arrangement existed, so nothing is left to report");
+    }
+
+    [Test]
+    public void Assemble_ChecksTheStrippedFormOnlyForThePieceThatOpensTheProtein()
+    {
+        // Every other piece is fully covered by testing the candidate itself, and testing them all
+        // would reject arrangements over sequences no search ever emits. Forbidding an interior
+        // piece's own M-stripped form must therefore change nothing.
+        const string target = "GGVDTTPFAWENDRMSTQAEVDLNSGWKQITTLGGYK";
+        IDigestionParams digestion = Tryptic();
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        string interior = free.Pieces[1].EntrapmentPiece_;
+        Assert.That(free.Pieces[1].TargetPiece, Does.StartWith("M"),
+            "fixture needs an interior piece beginning with methionine");
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(target, digestion,
+            new HashSet<string> { interior.Substring(1) });
+
+        Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence));
+        Assert.That(guarded.InitiatorMethionineCollisions, Is.Zero);
+    }
+
+    [Test]
+    public void Assemble_ReportsNoInitiatorMethionineCollisionWhenThereIsNothingToReport()
+    {
+        // Zero because the check ran, not because there is no column. The distinction is the whole
+        // reason this is counted separately from the run collisions, which at MC = 0 are zero
+        // because the machinery producing them is switched off.
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(FourPieces, Tryptic(), NothingForbidden);
+
+        Assert.That(assembly.InitiatorMethionineCollisions, Is.Zero);
+        Assert.That(assembly.InitiatorMethionineCollisionPeptides, Is.Empty);
     }
 }

@@ -128,6 +128,19 @@ public sealed class EntrapmentStratum
     /// </remarks>
     public int UnrepairableRunCollisions { get; internal set; }
 
+    /// <summary>
+    /// Entrapment peptides that are a real target peptide only once a search removes the entrapment
+    /// protein's initiator methionine, and that no arrangement of the opening piece avoided.
+    /// </summary>
+    /// <remarks>
+    /// The one route by which a real target peptide reaches the entrapment set at
+    /// <c>MaxMissedCleavages = 0</c>, where the run route does not exist. Reported separately from
+    /// <see cref="UnrepairableRunCollisions"/> because a consumer excluding them needs to know which
+    /// construction produced them, and because at MC = 0 this column reading zero and that one
+    /// reading zero mean different things.
+    /// </remarks>
+    public int InitiatorMethionineCollisions { get; internal set; }
+
     public int Unpairable => UnpairableNoPermutationExists + UnpairableAllPermutationsTaken
                              + UnpairableSpaceTooSmallForFoldCount + UnpairableRunCollisionsExhausted;
 
@@ -156,13 +169,15 @@ public sealed class EntrapmentReport
     internal EntrapmentReport(EntrapmentProvenance provenance, IReadOnlyList<EntrapmentStratum> strata,
         EntrapmentStratum total,
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> ambiguousByAccession,
-        IReadOnlyDictionary<string, IReadOnlyCollection<string>> unrepairableByAccession)
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> unrepairableByAccession,
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> initiatorMethionineByAccession)
     {
         Provenance = provenance;
         Strata = strata;
         Total = total;
         AmbiguousPeptidesByAccession = ambiguousByAccession;
         UnrepairableRunCollisionsByAccession = unrepairableByAccession;
+        InitiatorMethionineCollisionsByAccession = initiatorMethionineByAccession;
     }
 
     /// <summary>
@@ -189,6 +204,20 @@ public sealed class EntrapmentReport
     /// piece. Excluding them is the consumer's call, and needs the sequences.
     /// </remarks>
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> UnrepairableRunCollisionsByAccession { get; }
+
+    /// <summary>
+    /// Entrapment peptides that a search would read as real target peptides after removing the
+    /// entrapment protein's initiator methionine, by the ENTRAPMENT accession holding them.
+    /// </summary>
+    /// <remarks>
+    /// Digestion emits the opening piece with and without its initiator methionine, so a piece
+    /// distinct from every target peptide can still have an M-stripped form that is not. Measured on
+    /// the reviewed human proteome before the check existed: two peptides under Arg-C and two under
+    /// Glu-C at MC = 0. They appeared in no exclusion list, because a run collision was the only
+    /// reason this sidecar could name -- which is why this list is separate rather than folded into
+    /// that one.
+    /// </remarks>
+    public IReadOnlyDictionary<string, IReadOnlyCollection<string>> InitiatorMethionineCollisionsByAccession { get; }
 
     /// <summary>
     /// Peptides of the foreign-species arm that are also target peptides, by the foreign protein's
@@ -249,6 +278,15 @@ public sealed class EntrapmentReport
             foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
             {
                 text.AppendLine(string.Join("\t", accession, peptide, "unrepairableRunCollision"));
+            }
+        }
+
+        foreach ((string accession, IReadOnlyCollection<string> peptides) in
+                 InitiatorMethionineCollisionsByAccession.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        {
+            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
+            {
+                text.AppendLine(string.Join("\t", accession, peptide, "initiatorMethionineCollision"));
             }
         }
 
@@ -342,7 +380,7 @@ public sealed class EntrapmentReport
             "unpairableSpaceTooSmallForFoldCount", "unpairableRunCollisionsExhausted",
             "searchSpacePeptides",
             "entrapmentSearchSpacePeptides", "ambiguous",
-            "mcSpanningAnExcision", "unrepairableRunCollisions"));
+            "mcSpanningAnExcision", "unrepairableRunCollisions", "initiatorMethionineCollisions"));
 
         foreach (EntrapmentStratum stratum in Strata.Append(Total))
         {
@@ -359,7 +397,8 @@ public sealed class EntrapmentReport
                 stratum.EntrapmentSearchSpacePeptides.ToString(CultureInfo.InvariantCulture),
                 stratum.Ambiguous.ToString(CultureInfo.InvariantCulture),
                 stratum.MissedCleavagePeptidesSpanningAnExcision.ToString(CultureInfo.InvariantCulture),
-                stratum.UnrepairableRunCollisions.ToString(CultureInfo.InvariantCulture)));
+                stratum.UnrepairableRunCollisions.ToString(CultureInfo.InvariantCulture),
+                stratum.InitiatorMethionineCollisions.ToString(CultureInfo.InvariantCulture)));
         }
 
         return text.ToString();
@@ -384,6 +423,7 @@ public sealed class EntrapmentReportBuilder
     private readonly HashSet<string> _countedTargetPieces = new();
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
     private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
+    private readonly Dictionary<string, List<string>> _initiatorMethionineByAccession = new();
     private readonly string _entrapmentIdentifier;
     private int _entriesYieldingNoPartner;
     private readonly Dictionary<string, HashSet<string>> _foreignSharedByAccession = new();
@@ -523,6 +563,30 @@ public sealed class EntrapmentReportBuilder
                 }
             }
         }
+
+        // The same shape, deliberately: same accession, same distinct-peptide rule, same reason for
+        // both. Kept as a second list rather than a second reason on the first because the two are
+        // produced by different constructions, and at MaxMissedCleavages = 0 the run list is empty
+        // by definition while this one is empty only if the check ran and found nothing.
+        if (assembly.InitiatorMethionineCollisionPeptides.Count > 0)
+        {
+            string entrapmentAccession =
+                EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
+            if (!_initiatorMethionineByAccession.TryGetValue(entrapmentAccession, out List<string>? stripped))
+            {
+                stripped = new List<string>();
+                _initiatorMethionineByAccession[entrapmentAccession] = stripped;
+            }
+
+            foreach (string collision in assembly.InitiatorMethionineCollisionPeptides)
+            {
+                if (!stripped.Contains(collision))
+                {
+                    stripped.Add(collision);
+                    _wholeProtein.InitiatorMethionineCollisions++;
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -579,6 +643,7 @@ public sealed class EntrapmentReportBuilder
             total.MissedCleavagePeptidesSpanningAnExcision += stratum.MissedCleavagePeptidesSpanningAnExcision;
             total.SearchSpacePeptides += stratum.SearchSpacePeptides;
             total.UnrepairableRunCollisions += stratum.UnrepairableRunCollisions;
+            total.InitiatorMethionineCollisions += stratum.InitiatorMethionineCollisions;
         }
 
         // The whole-database figures join the total and no stratum, so every stratum row reads 0 for
@@ -586,6 +651,7 @@ public sealed class EntrapmentReportBuilder
         total.SearchSpacePeptides += _wholeProtein.SearchSpacePeptides;
         total.EntrapmentSearchSpacePeptides += _wholeProtein.EntrapmentSearchSpacePeptides;
         total.UnrepairableRunCollisions += _wholeProtein.UnrepairableRunCollisions;
+        total.InitiatorMethionineCollisions += _wholeProtein.InitiatorMethionineCollisions;
         total.MissedCleavagePeptidesSpanningAnExcision +=
             _wholeProtein.MissedCleavagePeptidesSpanningAnExcision;
 
@@ -604,6 +670,8 @@ public sealed class EntrapmentReportBuilder
             _ambiguousByAccession.Where(kv => kv.Value.Count > 0)
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
             _unrepairableByAccession.Where(kv => kv.Value.Count > 0)
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
+            _initiatorMethionineByAccession.Where(kv => kv.Value.Count > 0)
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value))
         {
             ForeignEntries = _foreignEntries,

@@ -62,7 +62,8 @@ public sealed class EntrapmentAssembly
     internal EntrapmentAssembly(string targetSequence, string entrapmentSequence,
         int[] targetToEntrapmentPosition, IReadOnlyList<EntrapmentPiece> pieces,
         int missedCleavagePeptidesSpanningAnExcision,
-        IReadOnlyList<string> unrepairableRunCollisionPeptides)
+        IReadOnlyList<string> unrepairableRunCollisionPeptides,
+        IReadOnlyList<string> initiatorMethionineCollisionPeptides)
     {
         TargetSequence = targetSequence;
         EntrapmentSequence = entrapmentSequence;
@@ -70,6 +71,7 @@ public sealed class EntrapmentAssembly
         Pieces = pieces;
         MissedCleavagePeptidesSpanningAnExcision = missedCleavagePeptidesSpanningAnExcision;
         UnrepairableRunCollisionPeptides = unrepairableRunCollisionPeptides;
+        InitiatorMethionineCollisionPeptides = initiatorMethionineCollisionPeptides;
     }
 
     public string TargetSequence { get; }
@@ -125,6 +127,27 @@ public sealed class EntrapmentAssembly
     /// </remarks>
     public IReadOnlyList<string> UnrepairableRunCollisionPeptides { get; }
 
+    /// <summary>
+    /// Peptides that are a real target peptide because a search removes the entrapment sequence's
+    /// INITIATOR METHIONINE, and no arrangement of the opening piece avoided it.
+    /// </summary>
+    /// <remarks>
+    /// <para>Digestion emits the opening piece twice, with and without the initiator methionine, so
+    /// a piece that is distinct from every target peptide can still have an M-stripped form that is
+    /// not. Every other piece is checked as itself and that is enough; this one is checked as itself
+    /// and as itself minus a residue.</para>
+    /// <para>The route survives a build at <c>MaxMissedCleavages = 0</c>, which deletes the run
+    /// route entirely, so it is the only way a real target peptide reaches the entrapment set there.
+    /// Measured on the reviewed human proteome before this check existed: two peptides under Arg-C
+    /// and two under Glu-C, none under Asp-N -- 0.0005% -- and, because a run collision was the only
+    /// reason the exclusion sidecar could name, they appeared in no list at all. A count of zero
+    /// here is the statement that the check ran, which an absent column is not.</para>
+    /// </remarks>
+    public IReadOnlyList<string> InitiatorMethionineCollisionPeptides { get; }
+
+    /// <summary>How many of <see cref="InitiatorMethionineCollisionPeptides"/> there are.</summary>
+    public int InitiatorMethionineCollisions => InitiatorMethionineCollisionPeptides.Count;
+
     public int ExcisedCount => Pieces.Count(p => p.Outcome == PieceOutcome.Excised);
 
     public int KeptVerbatimCount => Pieces.Count(p => p.Outcome == PieceOutcome.KeptVerbatimTooShort);
@@ -178,6 +201,7 @@ public static class EntrapmentAssembler
         // sequence, so a candidate can be tested against the runs it would complete.
         var placed = new List<string>(sites.Count - 1);
         var unrepairable = new List<string>();
+        var initiatorMethionineCollisions = new List<string>();
         int[] map = Enumerable.Repeat(-1, targetSequence.Length).ToArray();
         var retainedTargetIndices = new List<int>(sites.Count - 1);
 
@@ -191,9 +215,17 @@ public static class EntrapmentAssembler
                 RejectRunCollisions(placed, digestionParams.MaxMissedCleavages, forbiddenSequences,
                     digestionParams.MinLength, digestionParams.MaxLength);
 
+            // Keyed on what has actually been placed rather than on the piece's ordinal, because an
+            // excised opening piece promotes the next one -- the entrapment protein then begins
+            // wherever the first surviving piece begins, and that is the residue a search would
+            // treat as an initiator methionine.
+            Func<string, string?>? strippedOfInitiatorMethionine =
+                RejectInitiatorMethionineCollisions(entrapment.Length == 0, forbiddenSequences,
+                    digestionParams.MinLength, digestionParams.MaxLength);
+
             EntrapmentPeptide partner = EntrapmentPeptideGenerator.Create(piece, motifs, forbiddenSequences,
                 fold, foldCount, seed, TerminalAnchors(start, length, targetSequence.Length),
-                completesAForbiddenRun is null ? null : c => completesAForbiddenRun(c).Count > 0);
+                Reject(completesAForbiddenRun, strippedOfInitiatorMethionine));
 
             if (partner.Succeeded)
             {
@@ -222,6 +254,16 @@ public static class EntrapmentAssembler
                 {
                     unrepairable.Add(collision);
                 }
+                // Same rule for the initiator-methionine route, and for the same reason: a piece
+                // kept verbatim has no alternative to move to, so the collision is named rather than
+                // repaired. It cannot fire while MinLength is respected -- the stripped form is one
+                // residue shorter than a piece that was already too short -- and it is written
+                // because "cannot fire" is a claim the count is entitled to check.
+                string? strippedCollision = strippedOfInitiatorMethionine?.Invoke(piece);
+                if (strippedCollision is not null)
+                {
+                    initiatorMethionineCollisions.Add(strippedCollision);
+                }
                 pieces.Add(new EntrapmentPiece(index, piece, piece,
                     PieceOutcome.KeptVerbatimTooShort, partner.Failure));
                 retainedTargetIndices.Add(index);
@@ -236,7 +278,69 @@ public static class EntrapmentAssembler
         int broken = CountRunsSpanningAGap(retainedTargetIndices, digestionParams.MaxMissedCleavages);
 
         return new EntrapmentAssembly(targetSequence, entrapment.ToString(), map, pieces, broken,
-            unrepairable);
+            unrepairable, initiatorMethionineCollisions);
+    }
+
+    /// <summary>
+    /// The two per-candidate tests as one, or null when neither applies.
+    /// </summary>
+    /// <remarks>
+    /// Composed rather than chained inside the generator so that the generator keeps seeing a single
+    /// "is this candidate acceptable in context" predicate. Both tests are about what a candidate
+    /// becomes once something else is taken into account -- its neighbours, or a residue a search
+    /// removes -- and neither is a property of the candidate alone.
+    /// </remarks>
+    private static Func<string, bool>? Reject(Func<string, IReadOnlyList<string>>? completesAForbiddenRun,
+        Func<string, string?>? strippedOfInitiatorMethionine)
+    {
+        if (completesAForbiddenRun is null && strippedOfInitiatorMethionine is null)
+        {
+            return null;
+        }
+
+        return candidate =>
+            (completesAForbiddenRun is not null && completesAForbiddenRun(candidate).Count > 0)
+            || (strippedOfInitiatorMethionine is not null && strippedOfInitiatorMethionine(candidate) is not null);
+    }
+
+    /// <summary>
+    /// A test returning the real target peptide a candidate would become once a search removes its
+    /// initiator methionine, or null if it would become none.
+    /// </summary>
+    /// <remarks>
+    /// <para>Applies only to the piece that will OPEN the entrapment protein, and only when that
+    /// piece begins with methionine, because those are the only conditions under which a search
+    /// emits a shortened form at all (<c>InitiatorMethionineBehavior.Variable</c>, the default).
+    /// Every other piece is fully covered by testing the candidate itself.</para>
+    /// <para>The length bound is the same one <see cref="RejectRunCollisions"/> applies, and for the
+    /// same reason: the pairing index counts a peptide as searchable only within
+    /// <c>[MinLength, MaxLength]</c>, so testing outside that range would reject candidates over
+    /// sequences no search can report and put the exclusion list on different footing from the
+    /// population it is meant to be subtracted from.</para>
+    /// </remarks>
+    private static Func<string, string?>? RejectInitiatorMethionineCollisions(bool willOpenTheProtein,
+        IReadOnlySet<string> forbiddenSequences, int minLength, int maxLength)
+    {
+        if (!willOpenTheProtein)
+        {
+            return null;
+        }
+
+        return candidate =>
+        {
+            if (candidate.Length == 0 || candidate[0] != 'M')
+            {
+                return null;
+            }
+
+            string stripped = candidate.Substring(1);
+            if (stripped.Length < minLength || stripped.Length > maxLength)
+            {
+                return null;
+            }
+
+            return forbiddenSequences.Contains(stripped) ? stripped : null;
+        };
     }
 
     /// <summary>
@@ -291,24 +395,43 @@ public static class EntrapmentAssembler
     }
 
     /// <summary>
-    /// Positions within a piece that must not move because they are the PROTEIN's termini.
+    /// Positions within a piece that must not move: the PROTEIN's termini, and the PIECE's own.
     /// </summary>
     /// <remarks>
-    /// <para>A modification can be restricted to the N- or C-terminus, and a rearrangement that
-    /// moved that residue away would make it invalid for its location -- mzLib then drops it, and
-    /// nothing counts the loss. Measured before anchoring: 3,946 N-terminal and 31 C-terminal
-    /// modifications lost across the human proteome, 2.4% of all of them.</para>
-    /// <para>Both of the first two positions are held, not just the first: a modification annotated
-    /// after initiator-methionine cleavage sits on the second residue.</para>
+    /// <para>A modification can be restricted to a terminus, and a rearrangement that moved that
+    /// residue away makes it invalid for its location. Measured before protein anchoring: 3,946
+    /// "N-terminal." and 31 "C-terminal." modifications lost across the human proteome, 2.4% of all
+    /// of them. Both of the protein's first two positions are held, not just the first: a
+    /// modification annotated after initiator-methionine cleavage sits on the second residue.</para>
+    /// <para><b>The piece's own termini are held for a restriction that is not protein-level:
+    /// "Peptide N-terminal." and "Peptide C-terminal.", which are satisfied per digestion product
+    /// rather than once per entry.</b> That case fails far more quietly than the protein one, and in
+    /// both directions at once. <c>ModificationLocalization.ModFits</c> is called with the
+    /// digestion-product index set to zero while a protein is being built, so a peptide-level
+    /// restriction falls through to "fits" and the annotation is transported and written; it is
+    /// evaluated for real only at digestion, where the modification no longer fits its new position
+    /// and the peptidoform hypothesis simply does not exist. The in-count equals the out-count, no
+    /// counter moves, and the entrapment peptide has silently lost a hypothesis its target still
+    /// has. Measured on the reviewed human proteome at MaxMissedCleavages 0: without this anchor
+    /// 69.00% of Arg-C pieces and 65.42% of Glu-C pieces move their first residue, and 72.68% of
+    /// Asp-N pieces move their last -- complementary, because for a C-terminal cutter the last
+    /// residue IS the pinned cleavage residue and for an N-terminal cutter the first one is.</para>
+    /// <para>The cost was measured before it was paid, because the obvious guess is that holding two
+    /// more positions on every piece is much dearer than holding three per protein. It is not:
+    /// pieces with no rearrangement at all rise from 32 to 52 (Arg-C), 36 to 56 (Glu-C) and 54 to 72
+    /// (Asp-N) out of roughly 400,000 searchable pieces -- 0.0075% to 0.012% -- and the mean natural
+    /// log of the permutation space falls by about two, from 37-51.</para>
     /// <para>This is unconditional -- the termini are anchored whether or not anything is actually
     /// modified there. Anchoring reactively would make the entrapment sequence a function of
     /// (sequence, seed, modifications) rather than (sequence, seed), so two databases built from the
     /// same proteome with different annotations would disagree on their sequences and the
-    /// determinism the pairing rests on would quietly weaken. The cost is two or three positions per
-    /// protein, against permutation spaces in the millions.</para>
+    /// determinism the pairing rests on would quietly weaken.</para>
     /// </remarks>
     private static int[]? TerminalAnchors(int pieceStart, int pieceLength, int proteinLength)
     {
+        // The piece's own termini, in piece coordinates already.
+        var anchors = new HashSet<int> { 0, pieceLength - 1 };
+
         // Protein coordinates, translated into piece coordinates -- not piece coordinates that
         // happen to coincide. When the opening piece is a single residue the protein's second
         // residue lives in the NEXT piece, and computing "the first two" per piece never held it, so
@@ -319,17 +442,20 @@ public static class EntrapmentAssembler
             ? new[] { 0, 1, proteinLength - 1 }
             : new[] { 0 };
 
-        List<int>? anchors = null;
         foreach (int position in protein)
         {
             int within = position - pieceStart;
             if (within >= 0 && within < pieceLength)
             {
-                (anchors ??= new List<int>(3)).Add(within);
+                anchors.Add(within);
             }
         }
 
-        return anchors?.ToArray();
+        // Ordered, because this becomes part of the pinned-position pattern that the pairing key
+        // compares and a set's enumeration order is not a contract.
+        int[] ordered = anchors.ToArray();
+        Array.Sort(ordered);
+        return ordered;
     }
 
     /// <summary>
