@@ -33,13 +33,15 @@ public enum PieceOutcome
 public sealed class EntrapmentPiece
 {
     internal EntrapmentPiece(int index, string targetPiece, string? entrapmentPiece,
-        PieceOutcome outcome, EntrapmentFailure failure)
+        PieceOutcome outcome, EntrapmentFailure failure, int targetStart, int entrapmentStart)
     {
         Index = index;
         TargetPiece = targetPiece;
         EntrapmentPiece_ = entrapmentPiece;
         Outcome = outcome;
         Failure = failure;
+        TargetStart = targetStart;
+        EntrapmentStart = entrapmentStart;
     }
 
     /// <summary>Ordinal of this piece within the target, counted before anything was excised.</summary>
@@ -51,6 +53,21 @@ public sealed class EntrapmentPiece
     public string? EntrapmentPiece_ { get; }
 
     public PieceOutcome Outcome { get; }
+
+    /// <summary>Zero-based offset of this piece in the TARGET sequence.</summary>
+    public int TargetStart { get; }
+
+    /// <summary>
+    /// Zero-based offset of this piece in the ENTRAPMENT sequence, or -1 when it was excised.
+    /// </summary>
+    /// <remarks>
+    /// Not the same as <see cref="TargetStart"/> once anything earlier has been excised, and not
+    /// recoverable from <see cref="Index"/> either. Carried because every caller that wants to look
+    /// at a piece in its protein's coordinates -- to ask whether a modification still fits at its
+    /// position within the peptide, say -- otherwise has to re-derive it by re-running the digestion
+    /// and accumulating lengths, which two separate analysis harnesses did before this existed.
+    /// </remarks>
+    public int EntrapmentStart { get; }
 
     /// <summary>Why no partner was found, when <see cref="Outcome"/> is not <see cref="PieceOutcome.Permuted"/>.</summary>
     public EntrapmentFailure Failure { get; }
@@ -210,6 +227,9 @@ public static class EntrapmentAssembler
             int start = sites[index];
             int length = sites[index + 1] - start;
             string piece = targetSequence.Substring(start, length);
+            // Read before anything is appended, so it is where this piece WILL start rather than
+            // where the next one will.
+            int entrapmentStart = entrapment.Length;
 
             Func<string, IReadOnlyList<string>>? completesAForbiddenRun =
                 RejectRunCollisions(placed, digestionParams.MaxMissedCleavages, forbiddenSequences,
@@ -234,7 +254,7 @@ public static class EntrapmentAssembler
                 // A permuted piece was chosen with the run test applied, so this cannot fire -- it is
                 // asserted rather than assumed only because the count below must mean one thing.
                 pieces.Add(new EntrapmentPiece(index, piece, partner.EntrapmentSequence,
-                    PieceOutcome.Permuted, EntrapmentFailure.None));
+                    PieceOutcome.Permuted, EntrapmentFailure.None, start, entrapmentStart));
                 retainedTargetIndices.Add(index);
                 continue;
             }
@@ -265,14 +285,15 @@ public static class EntrapmentAssembler
                     initiatorMethionineCollisions.Add(strippedCollision);
                 }
                 pieces.Add(new EntrapmentPiece(index, piece, piece,
-                    PieceOutcome.KeptVerbatimTooShort, partner.Failure));
+                    PieceOutcome.KeptVerbatimTooShort, partner.Failure, start, entrapmentStart));
                 retainedTargetIndices.Add(index);
                 continue;
             }
 
             // Long enough to be identified, and no partner exists: drop it. Its positions stay
             // unmapped, which is what marks them excised.
-            pieces.Add(new EntrapmentPiece(index, piece, null, PieceOutcome.Excised, partner.Failure));
+            pieces.Add(new EntrapmentPiece(index, piece, null, PieceOutcome.Excised, partner.Failure,
+                start, -1));
         }
 
         int broken = CountRunsSpanningAGap(retainedTargetIndices, digestionParams.MaxMissedCleavages);

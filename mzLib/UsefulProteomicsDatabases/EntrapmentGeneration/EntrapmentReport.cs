@@ -170,7 +170,8 @@ public sealed class EntrapmentReport
         EntrapmentStratum total,
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> ambiguousByAccession,
         IReadOnlyDictionary<string, IReadOnlyCollection<string>> unrepairableByAccession,
-        IReadOnlyDictionary<string, IReadOnlyCollection<string>> initiatorMethionineByAccession)
+        IReadOnlyDictionary<string, IReadOnlyCollection<string>> initiatorMethionineByAccession,
+        MassGroupComparison? massGroups)
     {
         Provenance = provenance;
         Strata = strata;
@@ -178,7 +179,18 @@ public sealed class EntrapmentReport
         AmbiguousPeptidesByAccession = ambiguousByAccession;
         UnrepairableRunCollisionsByAccession = unrepairableByAccession;
         InitiatorMethionineCollisionsByAccession = initiatorMethionineByAccession;
+        MassGroups = massGroups;
     }
+
+    /// <summary>
+    /// The per-(peptide, mass group) invariant, or null when the builder was not given mass groups.
+    /// </summary>
+    /// <remarks>
+    /// A sidecar rather than columns on the stratified table, because the two partition the same
+    /// peptides along different axes -- that one by candidate-site count, this one by mass shift --
+    /// and crossing them would multiply rows without answering either question.
+    /// </remarks>
+    public MassGroupComparison? MassGroups { get; }
 
     /// <summary>
     /// Target peptides that cannot be traced back to one target, by accession -- two peptides of the
@@ -424,6 +436,7 @@ public sealed class EntrapmentReportBuilder
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
     private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
     private readonly Dictionary<string, List<string>> _initiatorMethionineByAccession = new();
+    private readonly MassGroupComparison? _massGroups;
     private readonly string _entrapmentIdentifier;
     private int _entriesYieldingNoPartner;
     private readonly Dictionary<string, HashSet<string>> _foreignSharedByAccession = new();
@@ -439,9 +452,14 @@ public sealed class EntrapmentReportBuilder
     /// <see cref="EntrapmentReport.CountResidues"/>("ST"). Null puts everything in one stratum.</param>
     /// <param name="entrapmentIdentifier">The accession prefix the partners were minted with. The
     /// collision list is keyed by the entrapment accession, so it has to match the generator's.</param>
+    /// <param name="massGroups">Mass groups to check the per-(peptide, mass group) invariant
+    /// against, or null to leave that section out. Supplying it also requires the companion protein
+    /// to be handed to <see cref="Add(Protein, int, EntrapmentAssembly, Protein)"/>; the invariant is
+    /// about what the companion offers, so it cannot be computed from the target alone.</param>
     public EntrapmentReportBuilder(IDigestionParams digestionParams, int foldCount, int seed,
         Func<string, int>? siteCounter = null,
-        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
+        string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier,
+        MassGroupIndex? massGroups = null)
     {
         if (digestionParams is null)
         {
@@ -453,15 +471,27 @@ public sealed class EntrapmentReportBuilder
         _seed = seed;
         _siteCounter = siteCounter ?? (_ => 0);
         _entrapmentIdentifier = entrapmentIdentifier;
+        _massGroups = massGroups is null ? null : new MassGroupComparison(massGroups);
     }
 
     /// <summary>Records one target protein's assembly for one fold.</summary>
-    public void Add(Protein target, int fold, EntrapmentAssembly assembly)
+    /// <param name="companion">The entrapment partner. Optional, and needed only when the builder
+    /// was given mass groups: the per-(peptide, mass group) invariant is a statement about what the
+    /// companion offers a search, so nothing about it can be recovered from the target alone.</param>
+    public void Add(Protein target, int fold, EntrapmentAssembly assembly, Protein? companion = null)
     {
         if (target is null || assembly is null)
         {
             throw new MzLibException("A report entry needs both a target protein and its assembly.");
         }
+        if (_massGroups is not null && companion is null)
+        {
+            throw new MzLibException(
+                "This report was asked for the mass-group invariant, which compares a target against "
+                + "its companion, so the companion protein has to be supplied to Add.");
+        }
+
+        _massGroups?.Add(target, companion!, assembly, _digestionParams.MinLength);
 
         if (!_ambiguousByAccession.TryGetValue(target.Accession, out HashSet<string>? ambiguous))
         {
@@ -672,7 +702,8 @@ public sealed class EntrapmentReportBuilder
             _unrepairableByAccession.Where(kv => kv.Value.Count > 0)
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
             _initiatorMethionineByAccession.Where(kv => kv.Value.Count > 0)
-                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value))
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
+            _massGroups)
         {
             ForeignEntries = _foreignEntries,
             EntriesYieldingNoPartner = _entriesYieldingNoPartner,
