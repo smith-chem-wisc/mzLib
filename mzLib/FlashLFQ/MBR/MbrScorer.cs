@@ -27,7 +27,7 @@ namespace FlashLFQ
         private double _ppmStdDevRaw;
 
         // Set a floor on the minimum StdDev for RtErrorDistributions and add a default StdDev for when a donor file has no anchor peptides. This prevents degenerate distributions from being created and allows MBR scoring to proceed.
-        public readonly double RtStandardDeviationMin = 0.005;
+        public readonly double RtStandardDeviationMin = 0.0167; // 0.0167 minutes = 1 second
         public readonly double RtStandardDeviationDefault = 1;
 
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
