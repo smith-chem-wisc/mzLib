@@ -1611,6 +1611,195 @@ namespace Test.FlashLFQ
             CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
         }
 
+        /// <summary>
+        /// Uses the same real MBR test data as <see cref="RealDataMbrTest"/>, but instead of checking
+        /// intensity correlations it inspects the score distributions of target vs. decoy MBR transfers.
+        /// After a run, results.Peaks retains every scored MBR peak — real targets plus two flavors of
+        /// decoy: random-retention-time decoys (RandomRt) and decoy-peptide transfers (DecoyPeptide).
+        /// For each score component (the overall MbrScore and the five sub-scores that compose it) we
+        /// report how well targets separate from decoys using a rank-based AUC (the probability that a
+        /// randomly chosen target outscores a randomly chosen decoy; 0.5 = no separation, 1 = perfect).
+        /// This makes it easy to see which individual score components actually discriminate.
+        /// </summary>
+        [Test]
+        public static void MbrTargetDecoyScoreDistributionTest()
+        {
+            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"PSMsForMbrTest.psmtsv");
+
+            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
+            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
+
+            List<Identification> ids = LoadMbrIdentifications(psmFile, f1r1, f1r2);
+
+            // Same config as RealDataMbrTest's first run. This crosses the thresholds (>100 MBR peaks,
+            // >20 random-RT decoys) that trigger the PEP path, so the scorer is fully exercised.
+            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.15, maxMbrWindow: 1);
+            var results = engine.Run();
+
+            // Gather every scored MBR peak across both acceptor files. The MbrQValue threshold only
+            // affects which peaks are quantified into PeptideModifiedSequences; results.Peaks still holds
+            // the full target+decoy population that the scorer produced.
+            List<MbrChromatographicPeak> mbrPeaks = results.Peaks
+                .SelectMany(kvp => kvp.Value)
+                .OfType<MbrChromatographicPeak>()
+                .ToList();
+
+            // Four categories, per the FDR model in CalculateFdrForMbrPeaks:
+            //   (DecoyPeptide, RandomRt) => target / decoy-peptide / random-RT decoy / double decoy
+            var targets = mbrPeaks.Where(p => !p.DecoyPeptide && !p.RandomRt).ToList();
+            var randomRtDecoys = mbrPeaks.Where(p => !p.DecoyPeptide && p.RandomRt).ToList();
+            var decoyPeptides = mbrPeaks.Where(p => p.DecoyPeptide && !p.RandomRt).ToList();
+            var doubleDecoys = mbrPeaks.Where(p => p.DecoyPeptide && p.RandomRt).ToList();
+            var allDecoys = mbrPeaks.Where(p => p.DecoyPeptide || p.RandomRt).ToList();
+
+            Console.WriteLine($"Total MBR peaks: {mbrPeaks.Count}");
+            Console.WriteLine($"  Targets:            {targets.Count}");
+            Console.WriteLine($"  Random-RT decoys:   {randomRtDecoys.Count}");
+            Console.WriteLine($"  Decoy peptides:     {decoyPeptides.Count}");
+            Console.WriteLine($"  Double decoys:      {doubleDecoys.Count}");
+            Console.WriteLine($"  All decoys:         {allDecoys.Count}");
+
+            // Need a meaningful population of each class for the comparison to mean anything. The decoy
+            // count is modest because results.Peaks is heavily deduplicated after scoring, so keep the
+            // floor low enough to survive run-to-run ML.NET variability in the PEP path.
+            Assert.That(targets.Count, Is.GreaterThan(50), "Not enough target MBR transfers to compare distributions.");
+            Assert.That(allDecoys.Count, Is.GreaterThan(10), "Not enough decoy MBR transfers to compare distributions.");
+
+            var scoreComponents = new (string Name, Func<MbrChromatographicPeak, double> Selector)[]
+            {
+                ("MbrScore (overall)",        p => p.MbrScore),
+                ("IntensityScore",            p => p.IntensityScore),
+                ("RtScore",                   p => p.RtScore),
+                ("PpmScore",                  p => p.PpmScore),
+                ("ScanCountScore",            p => p.ScanCountScore),
+                ("IsotopicDistributionScore", p => p.IsotopicDistributionScore),
+            };
+
+            Console.WriteLine();
+            Console.WriteLine($"{"Score component",-28}{"targetMed",12}{"decoyMed",12}{"rtDecoyMed",12}{"pepDecoyMed",12}{"AUC(t>d)",10}");
+
+            double overallScoreAuc = double.NaN;
+            foreach (var (name, selector) in scoreComponents)
+            {
+                List<double> targetScores = targets.Select(selector).ToList();
+                List<double> decoyScores = allDecoys.Select(selector).ToList();
+
+                double targetMedian = targetScores.Median();
+                double decoyMedian = decoyScores.Median();
+                double rtDecoyMedian = randomRtDecoys.Count > 0 ? randomRtDecoys.Select(selector).Median() : double.NaN;
+                double pepDecoyMedian = decoyPeptides.Count > 0 ? decoyPeptides.Select(selector).Median() : double.NaN;
+                double auc = RankSumAuc(targetScores, decoyScores);
+
+                Console.WriteLine($"{name,-28}{targetMedian,12:F4}{decoyMedian,12:F4}{rtDecoyMedian,12:F4}{pepDecoyMedian,12:F4}{auc,10:F3}");
+
+                if (name.StartsWith("MbrScore"))
+                    overallScoreAuc = auc;
+            }
+
+            // The composite MBR score is the discriminant the FDR model relies on, so at minimum it must
+            // rank targets above decoys. (AUC > 0.5 means a random target beats a random decoy more often
+            // than not.) Individual sub-scores are reported above for inspection but not asserted, since
+            // the point of this test is to observe which components separate and which don't.
+            Assert.That(overallScoreAuc, Is.GreaterThan(0.5),
+                "Targets did not rank above decoys on the overall MBR score.");
+        }
+
+        /// <summary>
+        /// Loads the Identifications used by the real-data MBR tests from a MetaMorpheus psmtsv file,
+        /// assigning each PSM to its acceptor file by name and preserving the target/decoy flag.
+        /// </summary>
+        private static List<Identification> LoadMbrIdentifications(string psmFile, SpectraFileInfo f1r1, SpectraFileInfo f1r2)
+        {
+            List<Identification> ids = new List<Identification>();
+            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
+            foreach (string line in File.ReadAllLines(psmFile))
+            {
+                var split = line.Split(new char[] { '\t' });
+
+                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
+                {
+                    continue;
+                }
+
+                SpectraFileInfo file = null;
+
+                if (split[0].Contains("f1r1"))
+                {
+                    file = f1r1;
+                }
+                else if (split[0].Contains("f1r2"))
+                {
+                    file = f1r2;
+                }
+
+                string baseSequence = split[12];
+                string fullSequence = split[13];
+                double monoMass = double.Parse(split[21]);
+                double rt = double.Parse(split[2]);
+                int z = (int)double.Parse(split[6]);
+                var proteins = split[24].Split(new char[] { '|' });
+                bool decoyPeptide = split[39].Equals("D");
+                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
+                foreach (var protein in proteins)
+                {
+                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
+                    {
+                        proteinGroups.Add(proteinGroup);
+                    }
+                    else
+                    {
+                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
+                        proteinGroups.Add(allProteinGroups[protein]);
+                    }
+                }
+
+                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups, decoy: decoyPeptide);
+                ids.Add(id);
+            }
+
+            return ids;
+        }
+
+        /// <summary>
+        /// Rank-based AUC: the probability that a randomly chosen target score exceeds a randomly chosen
+        /// decoy score (ties count as half). 0.5 means the two distributions are indistinguishable, 1.0
+        /// means perfect separation with targets on top. Equivalent to the normalized Mann-Whitney U.
+        /// </summary>
+        private static double RankSumAuc(IReadOnlyList<double> targetScores, IReadOnlyList<double> decoyScores)
+        {
+            if (targetScores.Count == 0 || decoyScores.Count == 0)
+                return double.NaN;
+
+            // Pool the scores, sort ascending, and assign fractional (average) ranks to ties.
+            var pooled = targetScores.Select(s => (score: s, isTarget: true))
+                .Concat(decoyScores.Select(s => (score: s, isTarget: false)))
+                .OrderBy(x => x.score)
+                .ToList();
+
+            double[] ranks = new double[pooled.Count];
+            int i = 0;
+            while (i < pooled.Count)
+            {
+                int j = i;
+                while (j + 1 < pooled.Count && pooled[j + 1].score == pooled[i].score)
+                    j++;
+                double averageRank = ((i + 1) + (j + 1)) / 2.0; // ranks are 1-based
+                for (int k = i; k <= j; k++)
+                    ranks[k] = averageRank;
+                i = j + 1;
+            }
+
+            double targetRankSum = 0;
+            for (int k = 0; k < pooled.Count; k++)
+                if (pooled[k].isTarget)
+                    targetRankSum += ranks[k];
+
+            int nTarget = targetScores.Count;
+            int nDecoy = decoyScores.Count;
+            double u = targetRankSum - (double)nTarget * (nTarget + 1) / 2.0;
+            return u / ((double)nTarget * nDecoy);
+        }
+
         [Test]
         public static void ProteoformPeakfindingTest()
         {
