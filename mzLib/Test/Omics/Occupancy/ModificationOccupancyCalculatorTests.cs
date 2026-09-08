@@ -16,6 +16,31 @@ public class ModificationOccupancyCalculatorTests
     #region CalculateProteinLevelOccupancy Tests
 
     [Test]
+    public void DigestionProductLevelAcceptsPsmsThatCompareEqual()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        ModificationMotif.TryGetMotif("D", out var motif);
+        var mod = new Modification("Phosphorylation", null, "Biological", null, motif, "Anywhere.", null, 79.966);
+
+        var form = new MockBioPolymerWithSetMods("ACDEF", "ACD[Phosphorylation]EF", protein, 1, 5,
+            new Dictionary<int, Modification> { { 4, mod } });
+
+        // BaseSpectralMatch compares on (FullFilePath, OneBasedScanNumber, FullSequence), so these two
+        // are equal without being the same object. A chimeric search produces exactly this.
+        var first = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [form]);
+        var second = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [form]);
+        Assert.That(first, Is.EqualTo(second), "precondition: the two matches compare equal");
+
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(
+            new List<ISpectralMatch> { first, second });
+
+        Assert.That(result.ContainsKey(4), Is.True);
+        Assert.That(result[4][0].ModifiedCount, Is.EqualTo(2));
+        Assert.That(result[4][0].TotalCount, Is.EqualTo(2));
+    }
+
+
+    [Test]
     public void ProteinLevelWithSingleModOnSinglePeptide()
     {
         var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
