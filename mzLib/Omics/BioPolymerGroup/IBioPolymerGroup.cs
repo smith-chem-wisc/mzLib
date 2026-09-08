@@ -10,7 +10,8 @@ namespace Omics.BioPolymerGroup
     /// during protein/gene inference when multiple biopolymers share all their identified sequences.
     /// 
     /// Supports both label-free and isobaric (TMT/iTRAQ) quantification methods.
-    /// Implementations provide scoring, FDR estimation, sequence coverage, and output formatting.
+    /// Implementations provide scoring, FDR estimation, and sequence coverage. Rendering a group to
+    /// a results file is handled separately by a TSV schema and writer, not by the group itself.
     /// Per-sample quantification values are carried via <see cref="IHasSampleIntensities"/>, which a
     /// quantification engine populates.
     /// </summary>
@@ -95,17 +96,9 @@ namespace Omics.BioPolymerGroup
         /// Per-sample-group quantification and modification occupancy results.
         /// Each entry represents one (Condition × BiologicalReplicate) group for label-free data,
         /// one (File × Channel) for isobaric data, or one file for count-only results.
-        /// Built by PopulateSampleGroupResults, consumed by ToString and GetTabSeparatedHeader.
+        /// Built by PopulateSampleGroupResults, consumed by the group's TSV schema.
         /// </summary>
         List<SampleGroupResult>? SampleGroupResults { get; set; }
-
-        /// <summary>
-        /// Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy. <see cref="BioPolymerGroupType.Parent"/> uses
-        /// parent-level positions; <see cref="BioPolymerGroupType.DigestionProduct"/> uses 
-        /// digestion-product-local positions.
-        /// </summary>
-        BioPolymerGroupType GroupType { get; }
 
         /// <summary>
         /// Cumulative count of target groups at or above this group's rank, used for FDR calculation.
@@ -128,13 +121,6 @@ namespace Omics.BioPolymerGroup
         /// in <see cref="AllPsmsBelowOnePercentFDR"/>.
         /// </summary>
         void CalculateSequenceCoverage();
-
-        /// <summary>
-        /// Returns a tab-separated header line for output files.
-        /// The format matches the output of <see cref="object.ToString"/>.
-        /// </summary>
-        /// <returns>Tab-separated header string suitable for TSV file output.</returns>
-        string GetTabSeparatedHeader();
 
         /// <summary>
         /// Merges another biopolymer group into this one, combining members, PSMs, sequences, 

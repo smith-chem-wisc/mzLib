@@ -18,27 +18,24 @@ namespace Omics.BioPolymerGroup
     ///   <item><description>Quantification support for label-free (spectral counting) and isobaric (TMT/iTRAQ) methods</description></item>
     ///   <item><description>Modification occupancy statistics</description></item>
     ///   <item><description>FDR calculation support via cumulative target/decoy counting</description></item>
-    ///   <item><description>Tab-separated output formatting for results files</description></item>
     /// </list>
-    /// 
+    ///
+    /// This class holds data only; rendering it to a results file is the job of
+    /// <see cref="BioPolymerGroupTsvSchema"/> together with <see cref="TsvWriter"/>.
+    /// A row depends on the whole dataset — the quantification columns come from every group being
+    /// written — so no single group can render itself.
+    ///
+    /// Note for anyone migrating a caller: this type no longer overrides <c>ToString</c>, and there
+    /// is no compile-time guard against forgetting that. Writing a group directly
+    /// (<c>writer.WriteLine(group)</c>, <c>$"{group}"</c>) still compiles and silently emits the type
+    /// name instead of a data row. Marking an override <c>[Obsolete(error: true)]</c> does not help:
+    /// those calls bind to <see cref="object.ToString"/>, so the attribute is never consulted.
+    /// Build a schema and go through <see cref="TsvWriter"/> instead.
+    ///
     /// Fragment-level coverage is only calculated when PSMs implement <see cref="IHasSequenceCoverageFromFragments"/>.
     /// </summary>
     public class BioPolymerGroup : IBioPolymerGroup
     {
-        /// <summary>
-        /// Maximum length for string fields in output. Strings exceeding this length will be truncated.
-        /// 
-        /// Default is 32,000 characters, which is slightly below Excel's cell limit of 32,767 characters.
-        /// This ensures output files can be opened in Excel without data truncation or corruption.
-        /// Set to 0 or negative to disable truncation (useful for programmatic processing where 
-        /// Excel compatibility is not required).
-        /// </summary>
-        /// <remarks>
-        /// Excel specification: A cell can contain up to 32,767 characters.
-        /// See: https://support.microsoft.com/en-us/office/excel-specifications-and-limits
-        /// </remarks>
-        public static int MaxStringLength { get; set; } = 32000;
-
         /// <summary>
         /// Creates a new biopolymer group from the specified biopolymers and identified sequences.
         /// </summary>
@@ -48,13 +45,8 @@ namespace Omics.BioPolymerGroup
         /// including sequences shared with other groups.</param>
         /// <param name="uniqueBioPolymersWithSetMods">Sequences with modifications that are unique to this group
         /// and not shared with any other biopolymer group.</param>
-        /// <param name="groupType">Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
-        /// <see cref="BioPolymerGroupType.Parent"/> uses parent(typically protein)-level coordinates;
-        /// <see cref="BioPolymerGroupType.DigestionProduct"/> uses
-        /// digestion-product-local coordinates (typically peptide positions).</param>
         public BioPolymerGroup(HashSet<IBioPolymer> bioPolymers, HashSet<IBioPolymerWithSetMods> bioPolymersWithSetMods,
-            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods, BioPolymerGroupType groupType = BioPolymerGroupType.Parent)
+            HashSet<IBioPolymerWithSetMods> uniqueBioPolymersWithSetMods)
         {
             BioPolymers = bioPolymers;
             ListOfBioPolymersOrderedByAccession = BioPolymers.OrderBy(p => p.Accession).ToList();
@@ -68,7 +60,6 @@ namespace Omics.BioPolymerGroup
             IsDecoy = false;
             IsContaminant = false;
             IsEntrapment = false;
-            GroupType = groupType;
 
             // if any of the biopolymers in the group are decoys, the group is a decoy
             foreach (var bioPolymer in bioPolymers)
@@ -117,7 +108,7 @@ namespace Omics.BioPolymerGroup
         /// List of samples that contribute quantification data for this group.
         /// Supports both <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ).
         /// Setting this property invalidates <see cref="SampleGroupResults"/>, which will be 
-        /// re-populated on the next call to <see cref="GetTabSeparatedHeader"/> or <see cref="ToString"/>.
+        /// re-populated on the next call to <see cref="PopulateSampleGroupResults"/>.
         /// </summary>
         private List<ISampleInfo>? _samplesForQuantification;
         public List<ISampleInfo>? SamplesForQuantification
@@ -134,7 +125,7 @@ namespace Omics.BioPolymerGroup
         /// Dictionary mapping sample identifiers to measured intensity values for this group.
         /// Supports both <see cref="SpectraFileInfo"/> (label-free) and <see cref="IsobaricQuantSampleInfo"/> (TMT/iTRAQ) as keys.
         /// Setting this property invalidates <see cref="SampleGroupResults"/>, which will be
-        /// re-populated on the next call to <see cref="GetTabSeparatedHeader"/> or <see cref="ToString"/>.
+        /// re-populated on the next call to <see cref="PopulateSampleGroupResults"/>.
         /// </summary>
         private Dictionary<ISampleInfo, double>? _intensitiesBySample;
         public Dictionary<ISampleInfo, double>? IntensitiesBySample
@@ -227,7 +218,7 @@ namespace Omics.BioPolymerGroup
         /// or one (File × Channel) for isobaric data.
         /// Built by <see cref="PopulateSampleGroupResults"/> from <see cref="SamplesForQuantification"/>,
         /// <see cref="IntensitiesBySample"/>, and <see cref="AllPsmsBelowOnePercentFDR"/>.
-        /// Consumed by <see cref="ToString"/> and <see cref="GetTabSeparatedHeader"/> for per-group output columns.
+        /// Consumed by <see cref="BioPolymerGroupTsvSchema"/> to build the per-sample output columns.
         /// </summary>
         public List<SampleGroupResult>? SampleGroupResults { get; set; }
 
@@ -255,14 +246,6 @@ namespace Omics.BioPolymerGroup
         public bool DisplayModsOnPeptides { get; set; }
 
         /// <summary>
-        /// Identifies the type of biopolymer in this group, which determines the modification
-        /// occupancy calculation strategy used by <see cref="PopulateSampleGroupResults"/>.
-        /// <see cref="BioPolymerGroupType.Parent"/> uses protein-level coordinates;
-        /// <see cref="BioPolymerGroupType.DigestionProduct"/> use digestion-product-local coordinates.
-        /// </summary>
-        public BioPolymerGroupType GroupType { get; }
-
-        /// <summary>
         /// Cached sequence coverage results from <see cref="CalculateSequenceCoverage"/>.
         /// Null until coverage is calculated. Invalidated when <see cref="MergeWith"/> is called.
         /// </summary>
@@ -276,278 +259,17 @@ namespace Omics.BioPolymerGroup
                 return _coverageResult!;
             }
         }
+
+        /// <summary>
+        /// True once <see cref="CalculateSequenceCoverage"/> has run and its result is still valid.
+        /// Lets a caller read <see cref="CoverageResult"/> only when it is already available, since
+        /// reading it otherwise triggers the calculation.
+        /// </summary>
+        public bool IsSequenceCoverageCalculated => _coverageResult is not null;
+
         #endregion
 
         #region Methods
-
-        /// <summary>
-        /// Returns a tab-separated header line for output files, matching the format of <see cref="ToString"/>.
-        /// Header includes columns for biopolymer information, quantification, and statistical metrics.
-        /// </summary>
-        /// <remarks>
-        /// Virtual because <see cref="ToString"/> is, and the two must be overridden together or a
-        /// writer pairs one type's header with another type's rows. A derived group that hides this
-        /// with <c>new</c> while overriding <see cref="ToString"/> is dispatched inconsistently: a
-        /// call through <see cref="IBioPolymerGroup"/> or a base reference gets this header and the
-        /// derived row. Overriding both keeps the pair together however the call is typed.
-        /// </remarks>
-        /// <returns>Tab-separated header string suitable for TSV file output.</returns>
-        public virtual string GetTabSeparatedHeader()
-        {
-            var sb = new StringBuilder();
-            sb.Append("BioPolymer Accession" + '\t');
-            sb.Append("Gene" + '\t');
-            sb.Append("Organism" + '\t');
-            sb.Append("BioPolymer Full Name" + '\t');
-            sb.Append("BioPolymer Unmodified Mass" + '\t');
-            sb.Append("Number of BioPolymers in Group" + '\t');
-            sb.Append("Unique Sequences" + '\t');
-            sb.Append("Shared Sequences" + '\t');
-            sb.Append("Number of Sequences" + '\t');
-            sb.Append("Number of Unique Sequences" + '\t');
-            sb.Append("Sequence Coverage Fraction" + '\t');
-            sb.Append("Sequence Coverage" + '\t');
-            sb.Append("Sequence Coverage with Mods" + '\t');
-            sb.Append("Fragment Sequence Coverage" + '\t');
-
-            #region Quantification Header Building
-            if (SampleGroupResults is null) PopulateSampleGroupResults();
-
-            bool quantified = HasAssignedSampleIntensities;
-            foreach (var group in SampleGroupResults!)
-            {
-                sb.Append($"SpectralCount_{group.Label}\t");
-                if (quantified)
-                    sb.Append($"Intensity_{group.Label}\t");
-                sb.Append($"CountOccupancy_{group.Label}\t");
-                if (quantified)
-                    sb.Append($"IntensityOccupancy_{group.Label}\t");
-            }
-            #endregion
-
-            sb.Append("Number of PSMs" + '\t');
-            sb.Append("BioPolymer Decoy/Contaminant/Target" + '\t');
-            sb.Append("BioPolymer Cumulative Target" + '\t');
-            sb.Append("BioPolymer Cumulative Decoy" + '\t');
-            sb.Append("BioPolymer QValue" + '\t');
-            sb.Append("Best Sequence Score" + '\t');
-            sb.Append("Best Sequence Notch QValue");
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Whether sample intensities have been assigned to this group -- a non-empty sample list
-        /// AND an assigned dictionary -- which is what decides whether the intensity columns exist.
-        /// Named for what it tests rather than for "was quantified": the setters are public and
-        /// non-coalescing, so an assignment is evidence that something populated this group, not
-        /// proof that an engine did.
-        /// Protected rather than private so a derived group can adopt the same predicate instead of
-        /// copying the expression.
-        /// </summary>
-        /// <remarks>
-        /// Deliberately NOT <see cref="SampleGroupResult.HasIntensityData"/>. That answers a per-group
-        /// question -- did this sample group get a value -- and using it to choose columns made rows
-        /// disagree with the header: a group whose samples were all unobserved emitted two columns per
-        /// sample group where its neighbour emitted four, so every value after the disagreement was
-        /// written under the wrong column name.
-        ///
-        /// Both fields are required. <see cref="IHasSampleIntensities.IntensitiesBySample"/> alone is
-        /// not enough: <see cref="ConstructSubsetBioPolymerGroup"/> assigns an empty-but-non-null
-        /// dictionary alongside an empty sample list when no sample matches the requested file, and
-        /// gating on the dictionary alone would then advertise intensity columns that
-        /// <see cref="PopulateSampleGroupResults"/> can never fill.
-        ///
-        /// SCOPE, because this does not make every table rectangular. It makes the four columns per
-        /// sample group agree across the groups of one quantified run. When no engine has run,
-        /// <see cref="PopulateSampleGroupResults"/> builds one result per file in each group's OWN
-        /// spectral matches, so two groups covering different files still emit different column
-        /// counts -- a pre-existing defect on the unquantified path that no per-group flag can fix,
-        /// because a single group does not know the run's full file list.
-        /// </remarks>
-        protected bool HasAssignedSampleIntensities =>
-            SamplesForQuantification is { Count: > 0 } && IntensitiesBySample is not null;
-
-        /// <summary>
-        /// Returns a tab-separated string representation of this biopolymer group,
-        /// including all identification, quantification, and statistical information.
-        /// Format matches the header returned by <see cref="GetTabSeparatedHeader"/>.
-        /// </summary>
-        /// <returns>Tab-separated string suitable for TSV file output.</returns>
-        public override string ToString()
-        {
-            var sb = new StringBuilder();
-
-            sb.Append(BioPolymerGroupName);
-            sb.Append("\t");
-
-            sb.Append(TruncateString(string.Join("|",
-                ListOfBioPolymersOrderedByAccession.Select(p => p.GeneNames.Select(x => x.Item2).FirstOrDefault()))));
-            sb.Append("\t");
-
-            sb.Append(TruncateString(string.Join("|",
-                ListOfBioPolymersOrderedByAccession.Select(p => p.Organism).Distinct())));
-            sb.Append("\t");
-
-            sb.Append(TruncateString(string.Join("|",
-                ListOfBioPolymersOrderedByAccession.Select(p => p.FullName).Distinct())));
-            sb.Append("\t");
-
-            var sequences = ListOfBioPolymersOrderedByAccession.Select(p => p.BaseSequence).Distinct();
-            var masses = sequences.Select(sequence =>
-                AllBioPolymersWithSetMods.FirstOrDefault(bpws => bpws.BaseSequence == sequence)?.MonoisotopicMass ?? double.NaN);
-
-            sb.Append(TruncateString(string.Join("|", masses)));
-            sb.Append("\t");
-
-            sb.Append("" + BioPolymers.Count);
-            sb.Append("\t");
-
-            // Compute unique and shared sequences directly
-            var (uniqueSeqOutput, sharedSeqOutput) = GetIdentifiedSequencesOutput();
-            sb.Append(TruncateString(uniqueSeqOutput));
-            sb.Append("\t");
-            sb.Append(TruncateString(sharedSeqOutput));
-            sb.Append("\t");
-
-            if (!DisplayModsOnPeptides)
-            {
-                sb.Append("" + AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().Count());
-            }
-            else
-            {
-                sb.Append("" + AllBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct().Count());
-            }
-            sb.Append("\t");
-
-            if (!DisplayModsOnPeptides)
-            {
-                sb.Append("" + UniqueBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().Count());
-            }
-            else
-            {
-                sb.Append("" + UniqueBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct().Count());
-            }
-            sb.Append("\t");
-
-            // Use cached coverage results (empty if not yet calculated)
-            var coverage = _coverageResult ?? new SequenceCoverageResult();
-
-            sb.Append(TruncateString(string.Join("|",
-                coverage.SequenceCoverageFraction.Select(p => string.Format("{0:0.#####}", p)))));
-            sb.Append("\t");
-
-            sb.Append(TruncateString(string.Join("|", coverage.SequenceCoverageDisplayList)));
-            sb.Append("\t");
-
-            sb.Append(TruncateString(string.Join("|", coverage.SequenceCoverageDisplayListWithMods)));
-            sb.Append("\t");
-
-            sb.Append(TruncateString(string.Join("|", coverage.FragmentSequenceCoverageDisplayList)));
-            sb.Append("\t");
-
-            #region Quantification Column Writing
-            // Output per-group quantification and occupancy
-            if (SampleGroupResults is null) PopulateSampleGroupResults();
-
-            bool isParentLevel = GroupType == BioPolymerGroupType.Parent;
-
-            List<string> orderedKeys = (isParentLevel
-                ? ListOfBioPolymersOrderedByAccession.Select(p => p.Accession)
-                : AllBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct().OrderBy(s => s))
-                .ToList();
-
-            bool quantifiedRow = HasAssignedSampleIntensities;
-            foreach (var group in SampleGroupResults!)
-            {
-                sb.Append(group.SpectralCount);
-                sb.Append("\t");
-
-                if (quantifiedRow)
-                {
-                    // Empty rather than 0, so the cell does not assert a measurement that was
-                    // not made. Note this does not make absent distinguishable from a measured zero
-                    // through the engine: QuantificationEngine.OverwriteSampleIntensities drops
-                    // zero-valued cells, so a genuine zero never reaches IntensitiesBySample either.
-                    if (group.HasIntensityData)
-                        sb.Append(group.Intensity);
-                    sb.Append("\t");
-                }
-
-                sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: false)));
-                sb.Append("\t");
-
-                if (quantifiedRow)
-                {
-                    if (group.HasIntensityData)
-                        sb.Append(TruncateString(group.FormatOccupancy(orderedKeys, isParentLevel, intensityBased: true)));
-                    sb.Append("\t");
-                }
-            }
-            #endregion
-
-            sb.Append("" + AllPsmsBelowOnePercentFDR.Count);
-            sb.Append("\t");
-
-            if (IsEntrapment && IsDecoy)
-            {
-                sb.Append("ED");
-            }
-            else if (IsEntrapment)
-            {
-                sb.Append("ET");
-            }
-            else if (IsDecoy)
-            {
-                sb.Append("D");
-            }
-            else if (IsContaminant)
-            {
-                sb.Append("C");
-            }
-            else
-            {
-                sb.Append("T");
-            }
-
-            sb.Append("\t");
-            sb.Append(CumulativeTarget);
-            sb.Append("\t");
-            sb.Append(CumulativeDecoy);
-            sb.Append("\t");
-            sb.Append(QValue);
-            sb.Append("\t");
-            sb.Append(BestBioPolymerWithSetModsScore);
-            sb.Append("\t");
-            sb.Append(BestBioPolymerWithSetModsQValue);
-
-            return sb.ToString();
-        }
-
-        /// <summary>
-        /// Computes pipe-delimited output strings for unique and shared sequences identified in this group.
-        /// Uses <see cref="DisplayModsOnPeptides"/> to determine whether to include modification annotations.
-        /// </summary>
-        /// <returns>Tuple of (uniqueSequences, sharedSequences) pipe-delimited output strings.</returns>
-        private (string UniqueSequences, string SharedSequences) GetIdentifiedSequencesOutput()
-        {
-            var sharedSequences = AllBioPolymersWithSetMods.Except(UniqueBioPolymersWithSetMods);
-
-            string uniqueOutput;
-            string sharedOutput;
-
-            if (!DisplayModsOnPeptides)
-            {
-                uniqueOutput = string.Join("|", UniqueBioPolymersWithSetMods.Select(p => p.BaseSequence).Distinct());
-                sharedOutput = string.Join("|", sharedSequences.Select(p => p.BaseSequence).Distinct());
-            }
-            else
-            {
-                uniqueOutput = string.Join("|", UniqueBioPolymersWithSetMods.Select(p => p.FullSequence).Distinct());
-                sharedOutput = string.Join("|", sharedSequences.Select(p => p.FullSequence).Distinct());
-            }
-
-            return (uniqueOutput, sharedOutput);
-        }
 
         /// <summary>
         /// Builds <see cref="SampleGroupResults"/> from the existing <see cref="SamplesForQuantification"/>,
@@ -559,168 +281,37 @@ namespace Omics.BioPolymerGroup
         /// </summary>
         /// <remarks>
         /// Must be called after <see cref="AllPsmsBelowOnePercentFDR"/> has been populated.
-        /// Invoked on the next call to <see cref="GetTabSeparatedHeader"/> or
-        /// <see cref="ToString"/> whenever <see cref="SampleGroupResults"/> is null — which
-        /// occurs after construction or after setting <see cref="SamplesForQuantification"/>,
-        /// <see cref="IntensitiesBySample"/>, or <see cref="AllPsmsBelowOnePercentFDR"/>.
+        /// Invoked by <see cref="BioPolymerGroupTsvSchema"/> whenever <see cref="SampleGroupResults"/>
+        /// is null — which occurs after construction or after setting
+        /// <see cref="SamplesForQuantification"/>, <see cref="IntensitiesBySample"/>,
+        /// or <see cref="AllPsmsBelowOnePercentFDR"/>.
         /// </remarks>
         public void PopulateSampleGroupResults()
         {
-            var results = new List<SampleGroupResult>();
-
-            var spectraFiles = SamplesForQuantification?.OfType<SpectraFileInfo>().ToList() ?? [];
-            var isobaricSamples = SamplesForQuantification?.OfType<IsobaricQuantSampleInfo>().ToList() ?? [];
-
-            if (spectraFiles.Count > 0)
-            {
-                bool unfractionated = spectraFiles.Select(p => p.Fraction).Distinct().Count() == 1;
-                bool conditionsUndefined = spectraFiles.All(p => string.IsNullOrEmpty(p.Condition));
-                bool silacExperimentalDesign = spectraFiles.Any(p => !File.Exists(p.FullFilePathWithExtension));
-
-                foreach (var conditionGroup in spectraFiles.GroupBy(p => p.Condition))
-                {
-                    foreach (var bioRepGroup in conditionGroup.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
-                    {
-                        var filesInGroup = bioRepGroup.ToList();
-                        string label = (conditionsUndefined && unfractionated) || silacExperimentalDesign
-                            ? filesInGroup.First().FilenameWithoutExtension
-                            : $"{conditionGroup.Key}_{bioRepGroup.Key + 1}";
-
-                        var filePaths = new HashSet<string>(filesInGroup.Select(f => f.FullFilePathWithExtension));
-                        var psmsInGroup = AllPsmsBelowOnePercentFDR
-                            .Where(p => filePaths.Contains(p.FullFilePath))
-                            .ToList();
-
-                        // Create SampleGroupResult with per-sample intensities if available.
-                        // Otherwise, create with empty intensities (HasIntensityData = false) for spectral counting.
-                        var intensitiesBySample = new Dictionary<string, double>();
-                        SampleGroupResult result;
-                        if (IntensitiesBySample != null)
-                        {
-                            foreach (var file in filesInGroup)
-                            {
-                                if (IntensitiesBySample.TryGetValue(file, out var fileIntensity))
-                                    intensitiesBySample[file.FilenameWithoutExtension] = fileIntensity;
-                            }
-
-                            result = new SampleGroupResult(conditionGroup.Key, bioRepGroup.Key)
-                            {
-                                Label = label,
-                                SpectralCount = psmsInGroup.Count,
-                                FilesInGroup = filesInGroup.ToDictionary(kvp => kvp.FilenameWithoutExtension, kvp => (ISampleInfo)kvp),
-                                IntensitiesBySample = intensitiesBySample
-                            };
-                        }
-                        else 
-                        {
-                            result = new SampleGroupResult(conditionGroup.Key, bioRepGroup.Key)
-                            {
-                                Label = label,
-                                SpectralCount = psmsInGroup.Count,
-                                FilesInGroup = filesInGroup.ToDictionary(kvp => kvp.FilenameWithoutExtension, kvp => (ISampleInfo)kvp)
-                                // IntensitiesBySample left empty → HasIntensityData = false
-                            };
-                        }
-
-                        PopulateOccupancy(result, psmsInGroup);
-                        results.Add(result);
-                    }
-                }
-            }
-            else if (isobaricSamples.Count > 0)
-            {
-                foreach (var fileGroup in isobaricSamples.GroupBy(p => p.FullFilePathWithExtension).OrderBy(g => g.Key))
-                {
-                    var psmsInFile = AllPsmsBelowOnePercentFDR
-                        .Where(p => p.FullFilePath.Equals(fileGroup.Key))
-                        .ToList();
-
-                    foreach (var sample in fileGroup.OrderBy(p => p.ChannelLabel))
-                    {
-                        string label = $"{Path.GetFileNameWithoutExtension(sample.FullFilePathWithExtension)}_{sample.ChannelLabel}";
-
-                        // Build per-channel intensity lookup for this result
-                        SampleGroupResult result;
-                        if (IntensitiesBySample != null && IntensitiesBySample.TryGetValue(sample, out var channelIntensity))
-                        {
-
-                            result = new SampleGroupResult(sample.Condition, sample.BiologicalReplicate)
-                            {
-                                Label = label,
-                                SpectralCount = psmsInFile.Count,
-                                FilesInGroup = new Dictionary<string, ISampleInfo> { { label, sample } },
-                                IntensitiesBySample = new Dictionary<string, double> { { label, channelIntensity } }
-                            };
-                        }
-                        else
-                        {
-                            result = new SampleGroupResult(sample.Condition, sample.BiologicalReplicate)
-                            {
-                                Label = label,
-                                SpectralCount = psmsInFile.Count,
-                                FilesInGroup = new Dictionary<string, ISampleInfo> { { label, sample } }
-                                // IntensitiesBySample left empty → HasIntensityData = false
-                            };
-                        }
-
-                        PopulateOccupancy(result, psmsInFile);
-                        results.Add(result);
-                    }
-                }
-            }
-            else
-            {
-                // No experimental design — group PSMs by source file for count-only results
-                foreach (var fileGroup in AllPsmsBelowOnePercentFDR.GroupBy(p => p.FullFilePath).OrderBy(g => g.Key))
-                {
-                    var psmsInFile = fileGroup.ToList();
-                    string label = Path.GetFileNameWithoutExtension(fileGroup.Key);
-
-                    var result = new SampleGroupResult(string.Empty, 0)
-                    {
-                        Label = label,
-                        SpectralCount = psmsInFile.Count
-                        // FilesInGroup and IntensitiesByFile left empty → HasIntensityData = false
-                    };
-
-                    PopulateOccupancy(result, psmsInFile);
-                    results.Add(result);
-                }
-            }
-
-            SampleGroupResults = results;
+            SampleGroupResults = SampleGroupBuilder.Build(
+                SamplesForQuantification,
+                IntensitiesBySample,
+                AllPsmsBelowOnePercentFDR,
+                PopulateOccupancy);
         }
 
         /// <summary>
-        /// Populates protein-level and peptide-level modification occupancy on a <see cref="SampleGroupResult"/>
-        /// using the specified PSMs. PSM grouping, form filtering, TotalCount derivation, and intensity
+        /// Populates parent-level modification occupancy on a <see cref="SampleGroupResult"/> using
+        /// the specified PSMs. PSM grouping, form filtering, TotalCount derivation, and intensity
         /// lookup are all handled internally by <see cref="ModificationOccupancyCalculator"/>.
+        ///
+        /// Occupancy is reported in each parent biopolymer's coordinates. For digestion-product-local
+        /// positions, use <see cref="BioPolymerWithSetModsGroup"/> instead.
         /// </summary>
         private void PopulateOccupancy(SampleGroupResult result, List<ISpectralMatch> psms)
         {
-            if (GroupType == BioPolymerGroupType.Parent)
+            foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
             {
-                foreach (var bioPolymer in ListOfBioPolymersOrderedByAccession)
-                {
-                    var occupancy = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
-                        bioPolymer, psms);
+                var occupancy = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
+                    bioPolymer, psms);
 
-                    if (occupancy.Count > 0)
-                        result.ParentOccupancy[bioPolymer.Accession] = occupancy;
-                }
-            }
-            else
-            {
-                var psmsGroupedByBaseSequence = psms.GroupBy(p => p.BaseSequence);
-                foreach (var baseSeqGroup in psmsGroupedByBaseSequence)
-                { 
-                    var occupancy = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(baseSeqGroup.ToList());
-
-                    if (occupancy.Count > 0)
-                    {
-                        result.DigestionProductOccupancy[baseSeqGroup.Key] = occupancy;
-                    }
-                }
+                if (occupancy.Count > 0)
+                    result.ParentOccupancy[bioPolymer.Accession] = occupancy;
             }
         }
 
@@ -798,12 +389,10 @@ namespace Omics.BioPolymerGroup
             var allUniqueSequencesForThisFile =
                 new HashSet<IBioPolymerWithSetMods>(UniqueBioPolymersWithSetMods.Intersect(allSequencesForThisFile));
 
-            // ConstructSubsetBioPolymerGroup passes it through the constructor instead of object initializer
             BioPolymerGroup subsetGroup = new BioPolymerGroup(
                 BioPolymers,
                 allSequencesForThisFile,
-                allUniqueSequencesForThisFile,
-                GroupType)
+                allUniqueSequencesForThisFile)
             {
                 AllPsmsBelowOnePercentFDR = allPsmsForThisFile,
                 DisplayModsOnPeptides = DisplayModsOnPeptides
@@ -846,7 +435,7 @@ namespace Omics.BioPolymerGroup
         /// Results are cached and invalidated by <see cref="MergeWith"/> or reassignment of
         /// <see cref="AllPsmsBelowOnePercentFDR"/>.
         /// </remarks>
-        public void CalculateSequenceCoverage()
+        public virtual void CalculateSequenceCoverage()
         {
             var result = new SequenceCoverageResult();
 
@@ -1063,23 +652,6 @@ namespace Omics.BioPolymerGroup
         #endregion
 
         #region Private Helpers
-
-        /// <summary>
-        /// Truncates a string to <see cref="MaxStringLength"/> if it exceeds that length.
-        /// Used to ensure output compatibility with Excel's cell character limits.
-        /// </summary>
-        /// <param name="input">The string to truncate.</param>
-        /// <returns>Truncated string, original string if within limits, or empty string if input is null/empty.</returns>
-        private static string TruncateString(string? input)
-        {
-            if (string.IsNullOrEmpty(input))
-                return string.Empty;
-
-            if (MaxStringLength <= 0 || input.Length <= MaxStringLength)
-                return input;
-
-            return input.Substring(0, MaxStringLength);
-        }
 
         /// <summary>
         /// Holds cached sequence coverage calculation results from <see cref="CalculateSequenceCoverage"/>.

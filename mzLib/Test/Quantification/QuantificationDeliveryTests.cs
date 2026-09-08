@@ -1,4 +1,4 @@
-﻿using MassSpectrometry;
+using MassSpectrometry;
 using NUnit.Framework;
 using Omics;
 using Omics.BioPolymerGroup;
@@ -14,6 +14,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using Test.Omics;
+using Test.Omics.BioPolymerGroupTests;
 
 namespace Test.Quantification;
 
@@ -617,8 +618,8 @@ public class QuantificationDeliveryTests
 
         // Render the table the way a writer does: one header, taken from the first group, then a row
         // per group from its own ToString().
-        string header = proteinGroups.First().GetTabSeparatedHeader();
-        var rows = proteinGroups.Select(g => g.ToString()).ToList();
+        string header = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToList().ToArray());
+        var rows = proteinGroups.Cast<BioPolymerGroup>().ToList().Select(g => GroupTsv.RowInDataset(g, proteinGroups.Cast<BioPolymerGroup>().ToList())).ToList();
 
         int headerFields = header.Split('\t').Length;
         Assert.Multiple(() =>
@@ -663,19 +664,19 @@ public class QuantificationDeliveryTests
         Assert.That(p003.IntensitiesBySample, Is.Empty,
             "nothing was observed for it, so no sample carries a value");
 
-        string header = proteinGroups.First().GetTabSeparatedHeader();
+        string header = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToList().ToArray());
         int headerFields = header.Split('\t').Length;
 
         Assert.Multiple(() =>
         {
             foreach (var group in proteinGroups)
-                Assert.That(group.ToString().Split('\t'), Has.Length.EqualTo(headerFields),
+                Assert.That(GroupTsv.RowInDataset((BioPolymerGroup)group, proteinGroups.Cast<BioPolymerGroup>().ToList()).Split('\t'), Has.Length.EqualTo(headerFields),
                     $"{group.BioPolymerGroupName} does not line up with the header");
         });
 
         // And the header must be the same whichever group happens to be first -- the writer takes it
         // from proteinGroups.First(), which is not necessarily a quantified one.
-        Assert.That(p003.GetTabSeparatedHeader(), Is.EqualTo(header),
+        Assert.That(GroupTsv.Header((BioPolymerGroup)p003), Is.EqualTo(header),
             "an unquantified group must describe the same columns as a quantified one");
     }
 
@@ -696,13 +697,13 @@ public class QuantificationDeliveryTests
         var unquantified = proteinGroups.First();
         Assert.That(unquantified.SamplesForQuantification, Is.Null, "fixture starts unquantified");
 
-        string header = unquantified.GetTabSeparatedHeader();
+        string header = GroupTsv.Header((BioPolymerGroup)unquantified);
         Assert.Multiple(() =>
         {
             Assert.That(header, Does.Not.Contain("Intensity_"),
                 "no quantification ran, so there is nothing for an intensity column to hold");
             Assert.That(header, Does.Not.Contain("IntensityOccupancy_"));
-            Assert.That(unquantified.ToString().Split('\t'), Has.Length.EqualTo(header.Split('\t').Length));
+            Assert.That(GroupTsv.Row((BioPolymerGroup)unquantified).Split('\t'), Has.Length.EqualTo(header.Split('\t').Length));
         });
     }
 
@@ -726,8 +727,8 @@ public class QuantificationDeliveryTests
         new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
 
         var p002 = proteinGroups.Single(g => g.BioPolymerGroupName.Contains("P002"));
-        var header = p002.GetTabSeparatedHeader().Split('	');
-        var row = p002.ToString().Split('	');
+        var header = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToList().ToArray()).Split('	');
+        var row = GroupTsv.RowInDataset((BioPolymerGroup)p002, proteinGroups.Cast<BioPolymerGroup>().ToList()).Split('	');
 
         // The three file2 channels are unobserved for P002; the three file1 channels are not.
         var absent = header
@@ -780,12 +781,12 @@ public class QuantificationDeliveryTests
         Assert.That(subset.IntensitiesBySample, Is.Not.Null.And.Empty,
             "the subset still gets a dictionary, which is why the dictionary alone cannot be the gate");
 
-        string header = subset.GetTabSeparatedHeader();
+        string header = GroupTsv.Header((BioPolymerGroup)subset);
         Assert.Multiple(() =>
         {
             Assert.That(header, Does.Not.Contain("Intensity_"),
                 "nothing can fill these, so they must not be advertised");
-            Assert.That(subset.ToString().Split('	'), Has.Length.EqualTo(header.Split('	').Length));
+            Assert.That(GroupTsv.Row((BioPolymerGroup)subset).Split('	'), Has.Length.EqualTo(header.Split('	').Length));
         });
     }
 }
