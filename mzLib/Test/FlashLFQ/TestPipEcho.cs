@@ -67,6 +67,14 @@ namespace Test.FlashLFQ
             Assert.That(decoyPeakCounts.Max() - decoyPeakCounts.Min(), Is.LessThanOrEqualTo(numGroups - 1));
         }
 
+        private class MockRtCalibDataPoint : RetentionTimeCalibDataPoint
+        {
+            public MockRtCalibDataPoint(double rtDiff) : base(null, null)
+            {
+                RtDiff = rtDiff;
+            }
+        }
+
         [Test]
         public static void TestMbrScorer()
         {
@@ -120,7 +128,16 @@ namespace Test.FlashLFQ
             peakList = new List<ChromatographicPeak> { peak1, peak2, peak3 };
             scorer = MbrScorerFactory.BuildMbrScorer(peakList, new FlashLfqParameters(), out tol);
 
-            scorer.AddRtPredErrorDistribution(fakeDonorFile, new List<double> { 0.5, 0.6, 0.5, 0.6, 0.5, 0.6, 0.5 }, 2);
+            scorer.AddRtPredErrorDistribution(fakeDonorFile, new RetentionTimeCalibDataPoint[]
+            {
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5)
+            }, 2);
 
             acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, predictedRt: 25.1);
 

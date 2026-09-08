@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 
 namespace FlashLFQ
 {
@@ -6,7 +7,7 @@ namespace FlashLFQ
     {
         public readonly ChromatographicPeak DonorFilePeak;
         public readonly ChromatographicPeak AcceptorFilePeak;
-        public readonly double RtDiff;
+        public double RtDiff { get; protected set; }
 
         public RetentionTimeCalibDataPoint(ChromatographicPeak donorFilePeak, ChromatographicPeak acceptorFilePeak)
         {
@@ -15,7 +16,7 @@ namespace FlashLFQ
 
             if (donorFilePeak != null && acceptorFilePeak != null)
             {
-                RtDiff = acceptorFilePeak.Apex.IndexedPeak.RetentionTime - donorFilePeak.Apex.IndexedPeak.RetentionTime;
+                RtDiff = donorFilePeak.Apex.IndexedPeak.RetentionTime - acceptorFilePeak.Apex.IndexedPeak.RetentionTime;
             }
             else
             {
@@ -36,6 +37,16 @@ namespace FlashLFQ
             return "DonorRT: " + DonorFilePeak.Apex.IndexedPeak.RetentionTime.ToString("F3")
                  + " AcceptorRT: " + AcceptorFilePeak.Apex.IndexedPeak.RetentionTime.ToString("F3")
                  + " Diff: " + RtDiff.ToString("F3");
+        }
+    }
+
+    public class RetentionTimeCalibrationCurve
+    {
+        public readonly RetentionTimeCalibDataPoint[] DataPoints;
+        public RetentionTimeCalibrationCurve(RetentionTimeCalibDataPoint[] dataPoints)
+        {
+            dataPoints.Order();
+            DataPoints = dataPoints;
         }
     }
 }

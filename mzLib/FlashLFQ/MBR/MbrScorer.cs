@@ -25,6 +25,10 @@ namespace FlashLFQ
         private double _ppmMedianRaw;
         private double _ppmStdDevRaw;
 
+        // Set a floor on the minimum StdDev for RtErrorDistributions and add a default StdDev for when a donor file has no anchor peptides. This prevents degenerate distributions from being created and allows MBR scoring to proceed.
+        public readonly double RtStandardDeviationMin = 0.005;
+        public readonly double RtStandardDeviationDefault = 1;
+
         // The logFcDistributions and rtDifference distributions are unique to each donor file - acceptor file pair
         private readonly Dictionary<SpectraFileInfo, Normal> _logFcDistributionDictionary;
         private readonly Dictionary<SpectraFileInfo, Normal> _rtPredictionErrorDistributionDictionary;
@@ -238,31 +242,32 @@ namespace FlashLFQ
         /// match-between-runs for the specified donor file
         /// </summary>
         /// <param name="anchorPeptideRtDiffs">List of retention time differences (doubles) calculated as donor file RT - acceptor file RT</param>
-        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, List<double> anchorPeptideRtDiffs, int numberOfAnchorPeptides)
+        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, RetentionTimeCalibDataPoint[] calibrationDataPoints, int numberOfAnchorPeptides)
         {
             // Default distribution: safe, non-degenerate
             Normal rtPredictionErrorDist = new Normal(0, 1);
+            RetentionTimeCalibDataPoint[] validCalibrationDataPoints = calibrationDataPoints.Where(x => !double.IsNaN(x.RtDiff)).ToArray();
 
             // in MBR, we use anchor peptides on either side of the donor to predict the retention time
-            // here, we're going to repeat the same process, using neighboring anchor peptides to predicte the Rt shift for each
+            // here, we're going to repeat the same process, using neighboring anchor peptides to predict the Rt shift for each
             // individual anchor peptide 
             // then, we'll check how close our predicted rt shift was to the observed rt shift
             // and build a distribution based on the predicted v actual rt diffs
-            if (anchorPeptideRtDiffs != null && numberOfAnchorPeptides >= 0 && anchorPeptideRtDiffs.Count >= (2 * numberOfAnchorPeptides + 1))
+            if (validCalibrationDataPoints != null && numberOfAnchorPeptides >= 0 && validCalibrationDataPoints.Length >= (2 * numberOfAnchorPeptides + 1))
             {
-                double cumSumRtDiffs;
                 List<double> rtPredictionErrors = new();
+                List<double> rtDiffs = new(2*numberOfAnchorPeptides);
 
-                for (int i = numberOfAnchorPeptides; i < (anchorPeptideRtDiffs.Count - numberOfAnchorPeptides); i++)
+                for (int i = numberOfAnchorPeptides; i < (validCalibrationDataPoints.Length - numberOfAnchorPeptides); i++)
                 {
-                    cumSumRtDiffs = 0;
+                    rtDiffs.Clear();
                     for (int j = 1; j <= numberOfAnchorPeptides; j++)
                     {
-                        cumSumRtDiffs += anchorPeptideRtDiffs[i - j];
-                        cumSumRtDiffs += anchorPeptideRtDiffs[i + j];
+                        rtDiffs.Add(validCalibrationDataPoints[i - j].RtDiff);
+                        rtDiffs.Add(validCalibrationDataPoints[i + j].RtDiff);
                     }
-                    double avgDiff = cumSumRtDiffs / (2 * numberOfAnchorPeptides);
-                    double err = avgDiff - anchorPeptideRtDiffs[i];
+                    double avgDiff = rtDiffs.Average();
+                    double err = avgDiff - validCalibrationDataPoints[i].RtDiff;
                     if (!double.IsNaN(err) && !double.IsInfinity(err))
                     {
                         rtPredictionErrors.Add(err);
@@ -272,20 +277,17 @@ namespace FlashLFQ
                 if (rtPredictionErrors.Count >= 2)
                 {
                     double medianRtError = rtPredictionErrors.Median();
-                    double stdDevRtError = rtPredictionErrors.StandardDeviation();
+                    double stdDevRtError = rtPredictionErrors.MedianAbsoluteDeviation() * 1.4826; // Use MAD to estimate stddev for robustness
+
 
                     if (!double.IsNaN(medianRtError))
                     {
-                        double sigma = (double.IsNaN(stdDevRtError) || stdDevRtError <= 0 || !Normal.IsValidParameterSet(medianRtError, stdDevRtError))
-                            ? 1.0
-                            : stdDevRtError;
-
-                        //TODO: This distribution should use the calculated sigma value, not 1 for all cases
-                        // apparently, this is a long-standing bug that was introduced in PR #802
-                        // However, changing this now would change MBR scores in all existing tests that use MBR
-                        // I'm not sure what the overall effect of fixing this is, and plan to carefully evaluate it 
-                        // in the near future and then fix this issue.
-                        rtPredictionErrorDist = new Normal(medianRtError, sigma);
+                        if(double.IsNaN(stdDevRtError))
+                            stdDevRtError = RtStandardDeviationDefault;
+                        if(stdDevRtError < RtStandardDeviationMin)
+                            stdDevRtError = RtStandardDeviationMin;
+                        if(Normal.IsValidParameterSet(medianRtError, stdDevRtError))
+                           rtPredictionErrorDist = new Normal(medianRtError, stdDevRtError);
                     }
                 }
             }
