@@ -360,6 +360,65 @@ namespace Test.ChemistryTests
             Assert.AreEqual("" + n, "N");
         }
 
+        /// <summary>
+        /// The explicit-isotope mass correction in IsotopicDistribution.GetDistribution was previously
+        /// exercised only by a call that asserted nothing, so both the sign of the correction and the
+        /// multiplication by the isotope count were unobserved. Aluminium is mono-isotopic, so the whole
+        /// envelope here is determined by the two explicit oxygen-16 atoms.
+        /// </summary>
+        [Test]
+        public static void TestIsotopicDistributionAddsExplicitIsotopeMass()
+        {
+            ChemicalFormula formula = ChemicalFormula.ParseFormula("AlO{16}2");
+
+            IsotopicDistribution distribution = IsotopicDistribution.GetDistribution(formula);
+            double[] masses = distribution.Masses.ToArray();
+            double[] intensities = distribution.Intensities.ToArray();
+            double mostAbundantMass = masses[Array.IndexOf(intensities, intensities.Max())];
+
+            Assert.AreEqual(formula.MonoisotopicMass, mostAbundantMass, 1e-6);
+            Assert.IsTrue(masses.All(mass => mass > 0));
+        }
+
+        /// <summary>
+        /// Hill notation writes the count suffix for an isotope only when that count is not 1. Every
+        /// isotope carrying a count in the test corpus was a carbon isotope, so the equivalent suffix on
+        /// hydrogen isotopes, and on the isotopes of every other element, was never read back.
+        /// </summary>
+        [Test]
+        public static void TestHillNotationPreservesIsotopeCounts()
+        {
+            ChemicalFormula formula = ChemicalFormula.ParseFormula("H{2}2O{18}3");
+
+            Assert.AreEqual("H{2}2O{18}3", formula.Formula);
+            Assert.AreEqual(formula.MonoisotopicMass, ChemicalFormula.ParseFormula(formula.Formula).MonoisotopicMass, 1e-9);
+        }
+
+        /// <summary>
+        /// AverageMass, NeutronCount and NumberOfUniqueElementsByAtomicNumber each multiply or walk a
+        /// per-entry count. They were previously asserted only on an empty formula and on formulas whose
+        /// every count was 1, where multiplying by the count and dividing by it agree.
+        /// </summary>
+        [Test]
+        public static void TestCountSensitivePropertiesOfFormulas()
+        {
+            ChemicalFormula water = ChemicalFormula.ParseFormula("H2O");
+            Assert.AreEqual(
+                2 * PeriodicTable.GetElement("H").AverageMass + PeriodicTable.GetElement("O").AverageMass,
+                water.AverageMass,
+                1e-9);
+
+            ChemicalFormula heavyWater = ChemicalFormula.ParseFormula("H{2}2O{16}");
+            Assert.AreEqual(
+                2 * PeriodicTable.GetElement("H")[2].AtomicMass + PeriodicTable.GetElement("O")[16].AtomicMass,
+                heavyWater.AverageMass,
+                1e-9);
+
+            // deuterium carries one neutron each, oxygen-16 carries eight
+            Assert.AreEqual(10, heavyWater.NeutronCount());
+            Assert.AreEqual(2, heavyWater.NumberOfUniqueElementsByAtomicNumber);
+        }
+
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
             public PhysicalObjectWithChemicalFormula(string v)
