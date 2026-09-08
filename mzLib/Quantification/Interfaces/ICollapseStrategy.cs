@@ -18,6 +18,21 @@ namespace Quantification.Interfaces
         string Name { get; }
 
         /// <summary>
+        /// Whether <see cref="CollapseSamples{T}"/> reads the aggregation strategy it is handed.
+        /// </summary>
+        /// <remarks>
+        /// A strategy that groups nothing never reduces two values to one, so it has no use for an
+        /// aggregator -- and requiring the caller to supply one anyway would mean naming a behaviour
+        /// that does not happen. <see cref="QuantificationEngine"/> reads this to decide whether a null
+        /// <see cref="QuantificationParameters.CollapseAggregationStrategy"/> is a configuration error
+        /// or simply unused.
+        ///
+        /// Defaults to true, which is the safe answer: an implementation that does aggregate gets the
+        /// check without opting in, and only a genuine no-op has to say so.
+        /// </remarks>
+        bool RequiresAggregation => true;
+
+        /// <summary>
         /// Combines the columns this strategy groups together, reducing each group to a single column
         /// with <paramref name="aggregation"/>.
         /// </summary>

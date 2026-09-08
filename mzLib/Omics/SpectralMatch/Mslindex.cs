@@ -378,8 +378,8 @@ public sealed class MslIndex : IDisposable
 	/// <summary>
 	/// Delegate that loads a full <see cref="MslLibraryEntry"/> by its zero-based
 	/// precursor index. Supplied at construction time; typically backed by
-	/// <see cref="MslLibrary.Entries"/> for full-load mode or
-	/// <see cref="MslLibrary.LoadFragmentsOnDemand"/> for index-only mode.
+	/// <c>MslLibrary.Entries</c> for full-load mode or
+	/// <c>MslLibrary.LoadFragmentsOnDemand</c> for index-only mode.
 	/// May return null for out-of-range indices.
 	/// </summary>
 	private readonly Func<int, MslLibraryEntry?> _entryLoader;
@@ -535,7 +535,7 @@ public sealed class MslIndex : IDisposable
 	/// <summary>
 	/// Builds an <see cref="MslIndex"/> directly from a list of
 	/// <see cref="MslLibraryEntry"/> objects. Typically called by
-	/// <see cref="MslLibrary"/> after a full or index-only load.
+	/// <c>MslLibrary</c> after a full or index-only load.
 	/// <para>
 	/// Each entry is converted to an <see cref="MslPrecursorIndexEntry"/> struct using
 	/// the entry's own fields; the loader delegate is wired to the list so that
@@ -543,8 +543,8 @@ public sealed class MslIndex : IDisposable
 	/// </para>
 	/// </summary>
 	/// <param name="entries">
-	/// The ordered list of library entries as returned by <see cref="MslReader.Load"/>
-	/// or <see cref="MslReader.LoadIndexOnly"/>. Must not be null; may be empty.
+	/// The ordered list of library entries as returned by <c>MslReader.Load</c>
+	/// or <c>MslReader.LoadIndexOnly</c>. Must not be null; may be empty.
 	/// </param>
 	/// <param name="loader">
 	/// Delegate used by <see cref="GetEntry"/> for LRU-cached full-entry access.

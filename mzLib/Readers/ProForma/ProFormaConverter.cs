@@ -46,7 +46,7 @@ namespace Readers.ProForma
         private static readonly string[] PrefixPreference = { "UNIMOD", "MOD", "RESID" };
 
         /// <summary>
-        /// Caches the accession index per <paramref name="allModsKnown"/> instance so the full
+        /// Caches the accession index per <c>allModsKnown</c> instance so the full
         /// O(mods × references) build runs once per mod set rather than once per converted term.
         /// </summary>
         private static readonly ConditionalWeakTable<Dictionary<string, Modification>, Dictionary<string, List<Modification>>>

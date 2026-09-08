@@ -16,7 +16,7 @@ MT   Protease
 CF   C-1 H-4 S-1
 DR   Unimod; 10.
 //
-ID   Test on M
+ID   Homoserine lactone N-terminal on M
 TG   M
 PP   Peptide N-terminal.
 MT   Protease

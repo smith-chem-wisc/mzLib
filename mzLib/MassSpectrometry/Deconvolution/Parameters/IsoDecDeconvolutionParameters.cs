@@ -206,7 +206,7 @@ public class IsoDecDeconvolutionParameters : DeconvolutionParameters
         float cssThreshold = (float)0.7,
         float matchTolerance = (float)5,
         int maxShift = 3,
-        float[] mzWindow = null,
+        float[]? mzWindow = null,
         int knockdownRounds = 5,
         float minAreaCovered = (float)0.20,
         float relativeDataThreshold = (float)0.05,

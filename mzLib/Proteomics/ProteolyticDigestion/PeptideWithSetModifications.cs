@@ -649,7 +649,6 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Determines whether a peptide includes a splice site
         /// </summary>
-        /// <param name="pep"></param>
         /// <param name="site"></param>
         /// <returns></returns>
         public bool IncludesSpliceSite(SpliceSite site)
@@ -662,7 +661,6 @@ namespace Proteomics.ProteolyticDigestion
         /// or not (ie if the variant causes a cleavage site generating the peptide). Returns a tuple with item 1 being a bool value
         /// representing if the varaint intersects the peptide and item 2 beign abool that represents if the variatn is identified.
         /// </summary>
-        /// <param name="pep"></param>
         /// <param name="appliedVariation"></param>
         /// <returns></returns>
         public (bool intersects, bool identifies) IntersectsAndIdentifiesVariation(SequenceVariation appliedVariation)
@@ -837,8 +835,6 @@ namespace Proteomics.ProteolyticDigestion
         /// takes in the variant as well as the bool value of wheter the peptid eintersects the variant. (this allows for identified
         /// variants that cause the cleavage site for the peptide.
         /// </summary>
-        /// <param name="p"></param>
-        /// <param name="d"></param>
         /// <returns></returns>
         public string SequenceVariantString(SequenceVariation applied, bool intersects)
         {

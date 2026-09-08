@@ -458,5 +458,31 @@ namespace Test.Util
                 NUnit.Framework.Assert.That(tol.Within(baseValue + 1e-6, baseValue), Is.False, "Zero tolerance should not match offset");
             }
         }
+
+        /// <summary>
+        /// IsSuperRange, IsSubRange and IsOverlapping are all documented as inclusive, and all three are
+        /// a conjunction of two comparisons. No existing case put two ranges on a shared endpoint, and
+        /// none had exactly one conjunct false, so neither the inclusivity nor the "and" was pinned.
+        /// </summary>
+        [Test]
+        public static void TestRangeComparisonsAreInclusiveAtSharedEndpoints()
+        {
+            DoubleRange range = new DoubleRange(10, 20);
+
+            // a shared endpoint still counts, in both directions
+            Assert.IsTrue(range.IsSuperRange(new DoubleRange(10, 20)));
+            Assert.IsTrue(range.IsSubRange(new DoubleRange(10, 20)));
+            Assert.IsTrue(range.IsOverlapping(new DoubleRange(20, 30)));
+            Assert.IsTrue(range.IsOverlapping(new DoubleRange(0, 10)));
+
+            // one comparison false at a time, so the conjunction cannot be a disjunction
+            Assert.IsFalse(range.IsSuperRange(new DoubleRange(5, 20)));
+            Assert.IsFalse(range.IsSuperRange(new DoubleRange(10, 25)));
+            Assert.IsFalse(range.IsSubRange(new DoubleRange(12, 20)));
+            Assert.IsFalse(range.IsSubRange(new DoubleRange(10, 18)));
+            Assert.IsFalse(range.IsOverlapping(new DoubleRange(21, 30)));
+            Assert.IsFalse(range.IsOverlapping(new DoubleRange(0, 9)));
+        }
+
     }
 }

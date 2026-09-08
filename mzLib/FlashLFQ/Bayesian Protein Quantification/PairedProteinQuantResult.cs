@@ -101,9 +101,9 @@ namespace FlashLFQ
             //        "False Discovery Rate" + "\t\t";
         }
 
-        /// <summary>
-        /// Computes a list of fold-change measurements between the constituent peptides of this protein between the control and treatment condition.
-        /// </summary>
+        // <summary>
+        // Computes a list of fold-change measurements between the constituent peptides of this protein between the control and treatment condition.
+        // </summary>
         //private List<(Peptide peptide, List<double> foldChanges)> GetPeptideFoldChanges(bool useSharedPeptides, FlashLfqResults flashLfqResults,
         //    Dictionary<(Peptide, string, int), (double, DetectionType)> PeptideToSampleQuantity)
         //{
@@ -141,10 +141,10 @@ namespace FlashLFQ
         //    return allPeptideFoldChanges;
         //}
 
-        /// <summary>
-        /// Computes the log-fold change between two intensities. If there is an error (e.g., one of the intensities is zero), 
-        /// null is returned.
-        /// </summary>
+        // <summary>
+        // Computes the log-fold change between two intensities. If there is an error (e.g., one of the intensities is zero), 
+        // null is returned.
+        // </summary>
         //private double? GetLogFoldChange(double intensity1, double intensity2)
         //{
         //    double logFoldChange = Math.Log(intensity2, 2) - Math.Log(intensity1, 2);

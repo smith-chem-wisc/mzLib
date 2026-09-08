@@ -11,14 +11,14 @@ namespace Quantification;
 /// 1) Creates one SpectralMatchMatrix per file
 ///     1a) Normalize the SpectralMatch Matrix for each file
 /// 2) Roll up to peptides for each file
-///     2a) Map the PSMs to peptides, creating a Dictionary<IBioPolymerWithSetMods, List<int>> Map mapping peptides to the indices of their PSMs in the QuantMatrix
-///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the > map, and output a Peptide QuantMatrix
+///     2a) Map the PSMs to peptides, creating a Dictionary of IBioPolymerWithSetMods to List of int, mapping peptides to the indices of their PSMs in the QuantMatrix
+///     2b) Roll-up. The roll-up strategy will take in a QuantMatrix of PSMs and the map, and output a Peptide QuantMatrix
 ///     2c) Combine the per-file peptide matrices into a single matrix spanning all files, with missing values filled in as 0s
 /// 3) Normalize the peptide matrix
 /// 4) Collapse the peptide matrix, combining fractions and technical replicates
 /// * Writes peptide information (if enabled)
 /// 5) Roll up to proteins
-///     5a) Map the peptides to proteins, creating a Dictionary<IBioPolymerGroup, List<int>> Map mapping proteins to the indices of their peptides in the QuantMatrix
+///     5a) Map the peptides to proteins, creating a Dictionary of IBioPolymerGroup to List of int, mapping proteins to the indices of their peptides in the QuantMatrix
 ///     5b) Roll-up. The roll-up strategy will take in a QuantMatrix of peptides and the map, and output a Protein QuantMatrix
 /// 6) Normalize the protein matrix
 /// * Writes protein information (if enabled)
@@ -103,10 +103,20 @@ public class QuantificationEngine
         OverwriteSampleIntensities(peptideMatrix);
         OverwriteSampleIntensities(proteinMatrix);
 
+        // Report the matches the peptide map had to drop, so an unexpectedly small result set has a
+        // stated cause rather than being silently smaller than the search.
+        // Same predicate the peptide map applies, so the count cannot drift from what was dropped.
+        int ambiguousExcluded = SpectralMatches
+            .Count(sm => sm.Intensities != null && SingleIdentifiedBioPolymerOrNull(sm) == null);
+
         return new QuantificationResults
         {
-            Summary = "Quantification completed successfully.",
+            Summary = ambiguousExcluded == 0
+                ? "Quantification completed successfully."
+                : $"Quantification completed successfully. {ambiguousExcluded} spectral match(es) were " +
+                  "excluded because they did not identify exactly one biopolymer.",
             Success = true,
+            AmbiguousSpectralMatchesExcluded = ambiguousExcluded,
             Samples = proteinMatrix.ColumnKeys.ToList(),
             PeptideIntensities = BuildIntensityTable(peptideMatrix),
             ProteinIntensities = BuildIntensityTable(proteinMatrix),
@@ -188,6 +198,33 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// The strategies every run needs, in the order the engine applies them, each paired with the name
+    /// to report when it is missing. <see cref="QuantificationParameters.CollapseAggregationStrategy"/>
+    /// is deliberately absent: it is needed only when the collapse strategy reads it, which is
+    /// <see cref="ValidateEngine"/>'s separate check.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="QuantificationParameters"/> leaves all of these null, and none has a defensible
+    /// default -- summing and taking a median are different answers, not different spellings of one.
+    /// So the only thing validation can do is say which are missing, and it is worth doing early: the
+    /// first dereference is in <see cref="RunPeptideQuant"/>, which <see cref="Run"/> reaches after it
+    /// has already started writing the raw matrix. Without this check the run leaves that file behind
+    /// and then throws a NullReferenceException naming nothing.
+    ///
+    /// Spelled out rather than reflected over, so that a strategy added to the parameters is a
+    /// deliberate addition here too, and the reported name comes from <c>nameof</c> either way.
+    /// </remarks>
+    private static readonly (string Name, Func<QuantificationParameters, object> Get)[] RequiredStrategies =
+    {
+        (nameof(QuantificationParameters.SpectralMatchNormalizationStrategy), p => p.SpectralMatchNormalizationStrategy),
+        (nameof(QuantificationParameters.SpectralMatchToPeptideRollUpStrategy), p => p.SpectralMatchToPeptideRollUpStrategy),
+        (nameof(QuantificationParameters.PeptideNormalizationStrategy), p => p.PeptideNormalizationStrategy),
+        (nameof(QuantificationParameters.CollapseStrategy), p => p.CollapseStrategy),
+        (nameof(QuantificationParameters.PeptideToProteinRollUpStrategy), p => p.PeptideToProteinRollUpStrategy),
+        (nameof(QuantificationParameters.ProteinNormalizationStrategy), p => p.ProteinNormalizationStrategy),
+    };
+
+    /// <summary>
     /// Checks Engine state for validity before running quantification.
     /// </summary>
     /// <param name="badResults"> Return quant results with descriptive Summary if problem was encountered; null otherwise</param>
@@ -195,6 +232,35 @@ public class QuantificationEngine
     internal bool ValidateEngine(out QuantificationResults badResults)
     {
         badResults = null;
+        if (Parameters == null)
+        {
+            badResults = QuantificationResults.Failure("QuantificationEngine Error: Parameters are null.");
+            return false;
+        }
+        // Every strategy has to be present before anything runs, and they are reported together rather
+        // than one per run: a caller who reached here with one unset most likely reached here with
+        // several, and finding that out a run at a time is the slower way to learn it.
+        var missingStrategies = RequiredStrategies
+            .Where(strategy => strategy.Get(Parameters) == null)
+            .Select(strategy => strategy.Name)
+            .ToList();
+        // The aggregation strategy is required only when the collapse strategy reads it, so that a run
+        // that collapses nothing need not name a behaviour that never happens. Left unrequired, a
+        // collapsing run would still fail -- CollapseStrategyBase throws ArgumentNullException -- but
+        // from inside the run, after the raw matrix has been written.
+        if (Parameters.CollapseStrategy?.RequiresAggregation == true
+            && Parameters.CollapseAggregationStrategy == null)
+        {
+            missingStrategies.Add(nameof(QuantificationParameters.CollapseAggregationStrategy));
+        }
+        if (missingStrategies.Count > 0)
+        {
+            badResults = QuantificationResults.Failure(
+                $"QuantificationEngine Error: Required quantification strateg{(missingStrategies.Count == 1 ? "y is" : "ies are")} " +
+                $"not set: {string.Join(", ", missingStrategies)}. Every strategy on QuantificationParameters " +
+                "defaults to null, so each one has to be assigned before the engine runs.");
+            return false;
+        }
         if (ExperimentalDesign == null)
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: Experimental design is null.");
@@ -354,17 +420,30 @@ public class QuantificationEngine
         // 5) Normalize combined peptide matrix
         peptideMatrixNorm = Parameters.PeptideNormalizationStrategy
             .NormalizeIntensities(combinedPeptideMatrix);
+
+        // 6) Collapse samples (fractions, technical replicates).
+        //
+        // This belongs here rather than in RunProteinQuant, where it used to sit. Run hands the peptide
+        // matrix on BY VALUE, so collapsing there reassigned a parameter the caller never saw again: the
+        // protein matrix came out collapsed while the caller's peptide matrix stayed uncollapsed, and the
+        // two were then reported side by side keyed differently. Doing it at the end of the peptide stage
+        // is also the order this class's summary already describes -- collapse, then write peptides, then
+        // roll up to proteins -- so the written peptide file now matches its own documentation.
+        peptideMatrixNorm = Parameters.CollapseStrategy
+            .CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
     }
 
+    /// <summary>
+    /// Rolls the peptide matrix up to protein groups and normalizes the result. The matrix arrives
+    /// already collapsed -- <see cref="RunPeptideQuant"/> does that, so the peptide results the caller
+    /// keeps and the protein results derived from them are keyed by the same samples.
+    /// </summary>
     internal void RunProteinQuant(QuantMatrix<IBioPolymerWithSetMods> peptideMatrixNorm,
         out QuantMatrix<IBioPolymerGroup> proteinMatrixNorm)
     {
-        // 6) Collapse samples (technical replicates, fractions)
-        peptideMatrixNorm = Parameters.CollapseStrategy.CollapseSamples(peptideMatrixNorm, Parameters.CollapseAggregationStrategy);
-
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
-            ? GetAllPeptideToProteinMap(peptideMatrixNorm)
+            ? GetAllPeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups)
             : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
 
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
@@ -488,11 +567,42 @@ public class QuantificationEngine
     }
 
     /// <summary>
+    /// The single biopolymer a spectral match identifies, or null when it identifies none or several.
+    /// This is the unambiguous filter, in one place, so that the quantified set and the count reported
+    /// as <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> cannot disagree.
+    /// </summary>
+    /// <remarks>
+    /// Distinct, not raw count. A match that names the same biopolymer more than once -- once per
+    /// protein it maps to, for instance -- identifies one peptide in substance, and dropping it as
+    /// ambiguous would discard a perfectly good measurement. Nulls are ignored for the same reason.
+    /// Take(2) still short-circuits, so a long ambiguity list is not enumerated.
+    /// </remarks>
+    internal static IBioPolymerWithSetMods SingleIdentifiedBioPolymerOrNull(ISpectralMatch spectralMatch)
+    {
+        var identified = spectralMatch.GetIdentifiedBioPolymersWithSetMods();
+        if (identified == null)
+        {
+            return null;
+        }
+
+        var distinct = identified
+            .Where(bp => bp != null)
+            .Distinct()
+            .Take(2)
+            .ToList();
+
+        return distinct.Count == 1 ? distinct[0] : null;
+    }
+
+    /// <summary>
     /// Creates a mapping from each specified modified biopolymer to a list of indices that identify the position of corresponding
     /// spectral matches in the smMatrix
     /// </summary>
-    /// <remarks>The mapping assumes that each PM in the matrix is associated with a single, unambiguous
-    /// modified biopolymer. Biopolymers not present in the input list are ignored.</remarks>
+    /// <remarks>A spectral match is quantified only when it identifies exactly one modified biopolymer.
+    /// An ambiguous match -- one that identifies several -- is excluded rather than attributed to whichever
+    /// biopolymer happens to be enumerated first, and a match that identifies none is excluded rather than
+    /// throwing. Biopolymers not present in the input list are ignored.
+    /// <see cref="QuantificationResults.AmbiguousSpectralMatchesExcluded"/> reports how many were dropped.</remarks>
     /// <param name="smMatrix">The matrix containing spectrum matches to be mapped to their corresponding modified bioPolymer.</param>
     /// <param name="modifiedBioPolymers">The list of modified bioPolymers for which to generate the mapping.
     /// Only SMs corresponding to these bioPolymers are included in the result.</param>
@@ -508,7 +618,14 @@ public class QuantificationEngine
         for (int i = 0; i < smMatrix.RowKeys.Count; i++)
         {
             var sm = smMatrix.RowKeys[i];
-            var peptide = sm.GetIdentifiedBioPolymersWithSetMods().First(); // Assumes unambiguous mapping
+
+            // Only unambiguous matches are quantified.
+            var peptide = SingleIdentifiedBioPolymerOrNull(sm);
+            if (peptide == null)
+            {
+                continue;
+            }
+
             if (!peptideToPsmMap.ContainsKey(peptide))
             {
                 continue;
@@ -565,10 +682,52 @@ public class QuantificationEngine
         return proteinToPeptideMap;
     }
 
-    // TODO: Implement this method to that include all peptides (shared and unique) in the mapping
-    public Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
-        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix)
+    /// <summary>
+    /// Creates a mapping from each protein group to the list of row indices in the peptide matrix that correspond to
+    /// every peptide assigned to that group -- shared as well as unique.
+    /// </summary>
+    /// <remarks>A shared peptide belongs to more than one protein group, so its row index appears in more than one
+    /// list. That is the difference from <see cref="GetUniquePeptideToProteinMap"/>, where each index appears once:
+    /// a shared peptide's intensity contributes to every group it was assigned to. Indices are sorted, because
+    /// <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> is a HashSet and its enumeration order is not
+    /// guaranteed stable -- an unsorted list would make roll-up results depend on set ordering.</remarks>
+    /// <param name="peptideMatrix">A matrix containing peptides as row keys.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map. Groups with no peptide in the matrix get an empty list.</param>
+    /// <returns>A dictionary that maps each protein group to the sorted row indices of all of its peptides.</returns>
+    public static Dictionary<IBioPolymerGroup, List<int>> GetAllPeptideToProteinMap(
+        QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
     {
-        throw new NotImplementedException();
+        var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
+
+        // Initialize empty lists for each protein group
+        foreach (var protein in bioPolymerGroups)
+        {
+            proteinToPeptideMap[protein] = new List<int>();
+        }
+
+        // Index the matrix rows once, rather than scanning it per protein group
+        var rowIndexByPeptide = new Dictionary<IBioPolymerWithSetMods, int>();
+        for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
+        {
+            rowIndexByPeptide[peptideMatrix.RowKeys[i]] = i;
+        }
+
+        foreach (var proteinGroup in bioPolymerGroups)
+        {
+            var rowIndices = proteinToPeptideMap[proteinGroup];
+
+            foreach (var peptide in proteinGroup.AllBioPolymersWithSetMods)
+            {
+                // A peptide the caller did not pass to the engine has no row to contribute
+                if (rowIndexByPeptide.TryGetValue(peptide, out int rowIndex))
+                {
+                    rowIndices.Add(rowIndex);
+                }
+            }
+
+            rowIndices.Sort();
+        }
+
+        return proteinToPeptideMap;
     }
 }

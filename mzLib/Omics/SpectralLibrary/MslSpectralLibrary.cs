@@ -276,7 +276,7 @@ public static class MslFormat
 	/// [int64 UncompressedFragmentSize]  byte count after full decompression
 	/// </code>
 	/// <para>
-	/// Index-only load (<see cref="MslLibrary.LoadIndexOnly"/>) is <b>not available</b> for
+	/// Index-only load (<c>MslLibrary.LoadIndexOnly</c>) is <b>not available</b> for
 	/// compressed files; the reader always performs full decompression regardless of which
 	/// load method was called, and <c>MslLibrary.IsIndexOnly</c> returns <c>false</c>.
 	/// </para>

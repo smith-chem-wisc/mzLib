@@ -16,8 +16,6 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <param name="proteins"></param>
         /// <param name="decoyType"></param>
-        /// <param name="digestionParams"></param>
-        /// <param name="randomSeed">Used when decoy type is shuffle for shuffling the peptides</param>
         /// <returns></returns>
         public static List<Protein> GenerateDecoys(List<Protein> proteins, DecoyType decoyType, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
@@ -33,7 +31,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Generates a reverse decoy sequence
         /// </summary>
-        /// <param name="protein"></param>
+        /// <param name="proteins"></param>
         /// <returns></returns>
         private static List<Protein> GenerateReverseDecoys(List<Protein> proteins, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {
@@ -357,7 +355,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Generates a "slided" decoy sequence
         /// </summary>
-        /// <param name="protein"></param>
+        /// <param name="proteins"></param>
         /// <returns></returns>
         private static List<Protein> GenerateSlideDecoys(List<Protein> proteins, int maxThreads = -1, string decoyIdentifier = "DECOY")
         {

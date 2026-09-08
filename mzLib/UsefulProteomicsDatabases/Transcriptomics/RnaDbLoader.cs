@@ -439,8 +439,6 @@ public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets,
 
                 Dictionary<int, List<Modification>> modDict2 = modDict.ToDictionary(kv => kv.Key, kv => kv.Value.ToList());
 
-                static string FirstOrDefaultOrEmpty(HashSet<string> set) => set.Count > 0 ? set.First() : "";
-
                 var firstNa = rnas.Value[0];
 
                 // TODO: Handle applied variants. 

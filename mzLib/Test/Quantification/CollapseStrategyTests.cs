@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 
 namespace Test.Quantification;
 
@@ -37,7 +38,60 @@ public class CollapseStrategyTests
 
     private static double[] SingleRow<T>(QuantMatrix<T> matrix) where T : IEquatable<T> => matrix.GetRow(0);
 
+    /// <summary>Every concrete collapse strategy shipped in the Quantification assembly.</summary>
+    private static IEnumerable<ICollapseStrategy> EveryCollapseStrategy() =>
+        typeof(NoCollapse).Assembly.GetTypes()
+            .Where(t => typeof(ICollapseStrategy).IsAssignableFrom(t) && !t.IsAbstract && !t.IsInterface)
+            .Where(t => t.GetConstructor(Type.EmptyTypes) != null)
+            .Select(t => (ICollapseStrategy)Activator.CreateInstance(t));
+
     #endregion
+
+    /// <summary>
+    /// <see cref="ICollapseStrategy.RequiresAggregation"/> is a second representation of a fact the
+    /// method body already carries -- whether <see cref="ICollapseStrategy.CollapseSamples{T}"/> reads
+    /// the aggregator it is handed. QuantificationEngine.ValidateEngine trusts it: a strategy that
+    /// answers false is allowed to run with a null aggregation strategy. If the two ever disagree, the
+    /// NullReferenceException that validation exists to prevent comes straight back, from a strategy
+    /// that declared it could not happen.
+    ///
+    /// So the declaration is checked against the behaviour for every strategy in the assembly, in both
+    /// directions, rather than trusting each implementer to keep them in step. This is the plan's
+    /// standing rule -- a milestone that introduces a second representation ships the cross-check with
+    /// it -- applied to the representation mzLib #1242 introduced.
+    /// </summary>
+    [Test]
+    public void RequiresAggregationMatchesWhetherTheStrategyActuallyReadsIt()
+    {
+        var columns = new List<ISampleInfo>
+        {
+            Lfq("cond", biorep: 1, techrep: 1, fraction: 1),
+            Lfq("cond", biorep: 1, techrep: 1, fraction: 2),
+        };
+
+        var strategies = EveryCollapseStrategy().ToList();
+        Assert.That(strategies, Is.Not.Empty, "premise: the reflection finds the strategies at all");
+
+        foreach (var strategy in strategies)
+        {
+            // A fresh matrix per strategy: a collapsing one consumes the columns it is given.
+            var matrix = Matrix(columns, 1.0, 2.0);
+
+            if (strategy.RequiresAggregation)
+            {
+                Assert.That(() => strategy.CollapseSamples(matrix, null),
+                    Throws.TypeOf<ArgumentNullException>(),
+                    $"{strategy.GetType().Name} declares it needs an aggregator, so it must reject a null "
+                    + "one rather than dereference it");
+            }
+            else
+            {
+                Assert.That(() => strategy.CollapseSamples(matrix, null), Throws.Nothing,
+                    $"{strategy.GetType().Name} declares it needs no aggregator, and the engine lets a run "
+                    + "with none through on the strength of that -- so it must genuinely not read one");
+            }
+        }
+    }
 
     /// <summary>
     /// Collapsing fractions must leave technical replicates standing. This is the distinction the

@@ -57,7 +57,6 @@ namespace MzLibUtil.PositionFrequencyAnalysis
         /// </summary>
         /// <param name="fullSeq"></param>
         /// <param name="intensity"></param>
-        /// <param name="modPattern"></param>
         /// <exception cref="Exception"></exception>
         public void AddFullSequence(string fullSeq, double intensity = 0)
         {

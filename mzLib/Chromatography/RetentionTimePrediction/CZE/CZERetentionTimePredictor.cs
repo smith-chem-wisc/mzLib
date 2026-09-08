@@ -20,7 +20,7 @@ public class CZERetentionTimePredictor : RetentionTimePredictor
     /// <summary>
     /// Initializes a new CZE predictor with custom instrument parameters
     /// </summary>
-    /// <param name="modHandlingMode">How to handle modifications (CZE uses mass, so this mainly affects which sequence to use)</param>
+    /// <param name="sequenceHandlingMode">How to handle modifications (CZE uses mass, so this mainly affects which sequence to use)</param>
     /// <param name="columnLengthMeters">Total capillary length in meters (default: 1.0m)</param>
     /// <param name="voltsPerMeter">Applied voltage gradient in V/m (default: 300,000 V/m)</param>
     public CZERetentionTimePredictor(

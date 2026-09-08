@@ -21,6 +21,13 @@ namespace Test.FlashLFQ
     [ExcludeFromCodeCoverage]
     internal class TestIsoTracker
     {
+        /// <summary>
+        /// Detection type column in peaks.tsv, resolved from the header rather than hardcoded, so a
+        /// column added ahead of it does not silently point these assertions at a different field.
+        /// </summary>
+        private static readonly int DetectionTypeColumn =
+            Array.IndexOf(ChromatographicPeak.TabSeparatedHeader.Split('\t'), "Peak Detection Type");
+
         // Test the IsobaricPeptideGroup class
         [Test]
         public static void TestIsobaricPeptideGroup()
@@ -195,7 +202,6 @@ namespace Test.FlashLFQ
 
             string testDataDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ/XICData");
             string file1 = "20100604_Velos1_TaGe_SA_A549_3_first_noRt";
-            string file2 = "20100604_Velos1_TaGe_SA_A549_3_second_noRt";
             SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(testDataDirectory, file1 + ".mzML"), "one", 1, 1, 1);
 
             List<Identification> ids = new List<Identification>();
@@ -1039,7 +1045,7 @@ namespace Test.FlashLFQ
             foreach (var peak in peaksList)
             {
                 var peakSeq = peak.Split('\t')[2].Split('|').ToList();
-                var detectionType = peak.Split('\t')[16];
+                var detectionType = peak.Split('\t')[DetectionTypeColumn];
                 Assert.AreEqual(peakSeq, expectedSequence);
                 CollectionAssert.AreEqual(detectionType, "IsoTrack_Ambiguous");
             }
@@ -1829,7 +1835,7 @@ namespace Test.FlashLFQ
                 var fullSeq = peak.Split('\t')[2];
                 if (fullSeq == "PEPTIDEA|PEPTIDEB")
                 {
-                    Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                    Assert.AreEqual(peak.Split('\t')[DetectionTypeColumn], "MSMSAmbiguousPeakfinding");
                 }
             }
 
@@ -1968,7 +1974,7 @@ namespace Test.FlashLFQ
                 {
                     if (retentionTime == "")
                     {
-                        Assert.AreEqual(peak.Split('\t')[16], "MSMSAmbiguousPeakfinding");
+                        Assert.AreEqual(peak.Split('\t')[DetectionTypeColumn], "MSMSAmbiguousPeakfinding");
                     }
                 }
             }
@@ -1985,6 +1991,75 @@ namespace Test.FlashLFQ
                 Assert.AreEqual(detectionType_File2, "MSMSAmbiguousPeakfinding");
             }
 
+        }
+
+        /// <summary>
+        /// Extremum.Equals(object) used to call the static object.Equals(object, object), which comes
+        /// back through the virtual Equals and recursed until the stack ran out. Only non-generic
+        /// callers reached it -- Dictionary and LINQ resolve IEquatable&lt;Extremum&gt; -- but
+        /// ClassicAssert.AreEqual is one of them, so a test comparing two Extrema took the host down
+        /// rather than failing.
+        /// </summary>
+        [Test]
+        public static void ExtremumEqualsObjectDoesNotRecurse()
+        {
+            var apex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var equalApex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var laterApex = new Extremum(100.0, 20.0, ExtremumType.Maximum);
+
+            NUnit.Framework.Assert.Multiple(() =>
+            {
+                NUnit.Framework.Assert.That(((object)apex).Equals(equalApex), Is.True);
+                NUnit.Framework.Assert.That(((object)apex).Equals(laterApex), Is.False);
+                NUnit.Framework.Assert.That(((object)apex).Equals(null), Is.False);
+
+                // previously an InvalidCastException from the (Extremum) cast
+                NUnit.Framework.Assert.That(((object)apex).Equals("not an extremum"), Is.False);
+
+                // the typed overload is unchanged
+                NUnit.Framework.Assert.That(apex.Equals(equalApex), Is.True);
+
+                // the typed overload is the one every generic caller reaches, and it used to
+                // dereference its argument before checking it
+                NUnit.Framework.Assert.That(apex.Equals((Extremum)null), Is.False);
+            });
+        }
+
+        /// <summary>
+        /// Extremum overrides Equals but had no GetHashCode, so it inherited object's reference hash.
+        /// XICGroups.SortExtrema keys a Dictionary&lt;Extremum, List&lt;Extremum&gt;&gt; on it: equal Extrema
+        /// bucketed apart and never met, which made the ContainsKey guard there unreachable.
+        /// </summary>
+        [Test]
+        public static void ExtremumEqualExtremaShareAHashCodeAndADictionarySlot()
+        {
+            var apex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            var equalApex = new Extremum(100.0, 10.0, ExtremumType.Maximum);
+            // equal under the 0.006 tolerance, so it must hash the same as well
+            var withinTolerance = new Extremum(100.0, 10.005, ExtremumType.Maximum);
+
+            NUnit.Framework.Assert.Multiple(() =>
+            {
+                NUnit.Framework.Assert.That(apex.Equals(equalApex), Is.True);
+                NUnit.Framework.Assert.That(apex.GetHashCode(), Is.EqualTo(equalApex.GetHashCode()));
+
+                NUnit.Framework.Assert.That(apex.Equals(withinTolerance), Is.True);
+                NUnit.Framework.Assert.That(apex.GetHashCode(), Is.EqualTo(withinTolerance.GetHashCode()));
+
+                var dictionary = new Dictionary<Extremum, string> { { apex, "first" } };
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(equalApex), Is.True);
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(withinTolerance), Is.True);
+
+                // RetentionTime is excluded from the hash, so an unequal Extremum may still collide --
+                // allowed, and the typed Equals separates them
+                var laterApex = new Extremum(100.0, 20.0, ExtremumType.Maximum);
+                NUnit.Framework.Assert.That(apex.Equals(laterApex), Is.False);
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(laterApex), Is.False);
+
+                // differing on either field the hash does cover
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(new Extremum(101.0, 10.0, ExtremumType.Maximum)), Is.False);
+                NUnit.Framework.Assert.That(dictionary.ContainsKey(new Extremum(100.0, 10.0, ExtremumType.Minimum)), Is.False);
+            });
         }
     }
 

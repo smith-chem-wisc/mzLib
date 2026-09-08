@@ -8,6 +8,19 @@ using MassSpectrometry;
 
 namespace FlashLFQ
 {
+    /// <summary>
+    /// An elution peak for one identified species in one spectra file: the isotopic envelopes that were
+    /// grouped together, the resulting intensity, and how the peak was found.
+    ///
+    /// <see cref="Intensity"/> is the apex envelope's intensity, not an integrated area, unless the run
+    /// asked for integration — <c>FlashLfqParameters.Integrate</c> defaults to false and the engine
+    /// recommends leaving it there, so the integrated case is the exception rather than the rule.
+    ///
+    /// A <see cref="DetectionType"/> of MBR means the peak came from match-between-runs rather than from
+    /// an identification in this file, but it does not on its own mean a real transfer: the random
+    /// retention time decoys used to estimate MBR FDR carry it too. That is why callers pair the check
+    /// with <c>MbrChromatographicPeak.RandomRt</c>.
+    /// </summary>
     public class ChromatographicPeak : IEquatable<ChromatographicPeak>
     {
         public double Intensity { get; private set; }
@@ -31,6 +44,12 @@ namespace FlashLFQ
         public double MassError { get; private set; }
         public bool DecoyPeptide => Identifications.First().IsDecoy;
 
+        /// <summary>
+        /// Full width at half maximum of the apex charge state's trace, in minutes. Recomputed on
+        /// access; cheap relative to peak finding, but cache it if you need it in a tight loop.
+        /// </summary>
+        public PeakWidth PeakWidth => PeakWidth.Measure(this);
+
         public ChromatographicPeak(Identification id, SpectraFileInfo fileInfo, DetectionType detectionType = DetectionType.MSMS) :
             this(new List<Identification>() { id }, fileInfo, detectionType) { }
 
@@ -38,9 +57,7 @@ namespace FlashLFQ
         /// overloaded constructor for Isobaric_ambiguity peaks. In this case, the peak is identified by multiple identifications
         /// </summary>
         /// <param name="ids"></param>
-        /// <param name="isMbrPeak"></param>
         /// <param name="fileInfo"></param>
-        /// <param name="randomRt"></param>
         public ChromatographicPeak(List<Identification> ids, SpectraFileInfo fileInfo, DetectionType detectionType)
         { 
             SplitRT = 0;
@@ -152,6 +169,8 @@ namespace FlashLFQ
                 sb.Append("Peak RT Start" + "\t");
                 sb.Append("Peak RT Apex" + "\t");
                 sb.Append("Peak RT End" + "\t");
+                sb.Append("Peak FWHM" + "\t");
+                sb.Append("Peak FWHM Status" + "\t");
                 sb.Append("Peak MZ" + "\t");
                 sb.Append("Peak Charge" + "\t");
                 sb.Append("Num Charge States Observed" + "\t");
@@ -217,6 +236,13 @@ namespace FlashLFQ
                 sb.Append(IsotopicEnvelopes.Min(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.IndexedPeak.RetentionTime.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(IsotopicEnvelopes.Max(p => p.IndexedPeak.RetentionTime).ToString(CultureInfo.InvariantCulture) + "\t");
+
+                PeakWidth width = PeakWidth;
+                sb.Append((width.IsMeasured
+                    ? width.FullWidthAtHalfMaximum.ToString(CultureInfo.InvariantCulture)
+                    : "-") + "\t");
+                sb.Append(width.Status.ToString() + "\t");
+
                 sb.Append(Apex.IndexedPeak.M.ToString(CultureInfo.InvariantCulture) + "\t");
                 sb.Append(Apex.ChargeState.ToString(CultureInfo.InvariantCulture) + "\t");
             }
@@ -225,6 +251,8 @@ namespace FlashLFQ
                 sb.Append("-" +"\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
+                sb.Append("-" + "\t");
+                sb.Append(PeakWidthStatus.NoApex.ToString() + "\t");
                 sb.Append("-" + "\t");
                 sb.Append("-" + "\t");
             }

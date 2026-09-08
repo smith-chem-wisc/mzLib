@@ -56,7 +56,7 @@ namespace Omics.BioPolymer
         public enum Zygosity { Unknown, Homozygous, Heterozygous }
 
         /// <summary>
-        /// True when the provided line was truncated (< 10 VCF columns). In this case:
+        /// True when the provided line was truncated (&lt; 10 VCF columns). In this case:
         /// - ReferenceAlleleString / AlternateAlleleString are null
         /// - AlleleIndex = -1
         /// - Info is a safe empty annotation (never null)

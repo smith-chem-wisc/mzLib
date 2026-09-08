@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Test.FileReadingTests;
-using MassSpectrometry;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -925,8 +924,6 @@ namespace Test.FlashLFQ
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
-
             // generate mzml file
 
             // 1 MS1 scan per peptide
@@ -993,8 +990,6 @@ namespace Test.FlashLFQ
             string fileToWrite = "myMzml.mzML";
             string peptide = "PEPTIDE";
             double intensity = 1e6;
-
-            Loaders.LoadElements();
 
             // generate mzml file
 

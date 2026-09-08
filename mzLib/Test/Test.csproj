@@ -1,7 +1,13 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0-windows</TargetFramework>
+    <!-- Annotations only, not warnings. Test code already writes `string?` in ~200 places and the
+         compiler was ignoring every one of them (CS8632). This makes those annotations mean what
+         they say without turning on the nullability warnings, which would add hundreds more. Safe
+         to do here and not in the shipping projects: nothing consumes this assembly, so the
+         nullability metadata it emits is nobody's contract. -->
+    <Nullable>annotations</Nullable>
     <IsPackable>false</IsPackable>
     <Platforms>x64</Platforms>
   </PropertyGroup>
@@ -43,6 +49,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Architecture-stamped input for TestNoArchitectureSpecificAssemblyReferences. Test data, not a
+         dependency: pinned here rather than read from Readers\Thermo\ so that updating the vendored
+         Thermo binaries cannot leave the positive control with nothing to assert. See the README beside it. -->
+    <None Update="FileReadingTests\ArchitectureGuard\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="AveragingTests\TestData\FAIMS_snip_10665-11578.mzML">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -71,6 +86,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\bad.fasta">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DatabaseTests\ncbi_gi_legacy.fasta">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DatabaseTests\bad3.fasta">
@@ -340,6 +358,18 @@
     <None Update="DataFiles\SmallCalibratible_Yeast.mzID">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\noncovalently_assoc_1_3_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\multiple_spectra_per_id_1_3_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\OpenxQuest_example_1_2_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\mzidLib_xtandem_fdr_1_2_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\TestParentTolerance.mzid">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
      </None>
@@ -368,6 +398,18 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\TmtChannelLevel.sdrf.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\TmtKitOnly.sdrf.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\SdrfQuantAuditCorpusExpectations.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\data\plexA_fr1.raw">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv">
@@ -563,6 +605,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="DataFiles\Tab_separated_peak_list.mgf">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\malformedLines.mgf">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="AveragingTests\TestData\TDYeastFractionMMResult.psmtsv">

@@ -37,7 +37,7 @@ namespace Readers
     ///   checking. Ranking it anyway costs nothing, since ColumnNameCase reports the casing
     ///   separately.
     /// </summary>
-    internal static class SdrfValidator
+    public static class SdrfValidator
     {
         /// <summary>
         /// Columns present in EVERY one of the 1,236 curated corpus files, so demanding them

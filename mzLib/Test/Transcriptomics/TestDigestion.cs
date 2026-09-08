@@ -149,8 +149,12 @@ namespace Test.Transcriptomics
         [Test]
         public void TestRnase_UnmodifiedOligos_Exception()
         {
-            Rnase rnase = new Rnase("Bad", CleavageSpecificity.SingleC, new List<DigestionMotif>());
-            Assert.Throws<ArgumentException>(() => { rnase.GetUnmodifiedOligos(new RNA("GUACUG"), 0, 1, 6); });
+            // SingleN and SingleC are supported now; Semi is the remaining unsupported specificity.
+            // The rnases.tsv header still lists semi as a valid value, so a custom RNase can be loaded
+            // with it -- this pins that digestion refuses it rather than doing something silently wrong.
+            Rnase rnase = new Rnase("Bad", CleavageSpecificity.Semi, new List<DigestionMotif>());
+            var ex = Assert.Throws<ArgumentException>(() => { rnase.GetUnmodifiedOligos(new RNA("GUACUG"), 0, 1, 6); });
+            Assert.That(ex.Message, Does.Contain("Full, None, SingleN and SingleC"));
         }
 
         #endregion

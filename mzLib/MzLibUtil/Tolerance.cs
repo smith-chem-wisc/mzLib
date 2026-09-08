@@ -36,9 +36,8 @@ namespace MzLibUtil
         private static readonly Regex StringRegex = new Regex(@"(\+-|-\+|±)?\s*([\d.]+)\s*(PPM|Absolute)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         /// <summary>
-        /// Creates a new tolerance given a unit, value, and whether the tolerance is ±
+        /// Creates a new tolerance given a value
         /// </summary>
-        /// <param name="unit">The units for this tolerance</param>
         /// <param name="value">The numerical value of the tolerance</param>
         protected Tolerance(double value)
         {
