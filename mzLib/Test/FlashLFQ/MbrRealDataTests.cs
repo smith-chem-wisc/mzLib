@@ -206,12 +206,14 @@ namespace Test.FlashLFQ
                     overallScoreAuc = auc;
             }
 
-            // The composite MBR score is the discriminant the FDR model relies on, so at minimum it must
-            // rank targets above decoys. (AUC > 0.5 means a random target beats a random decoy more often
-            // than not.) Individual sub-scores are reported above for inspection but not asserted, since
-            // the point of this test is to observe which components separate and which don't.
-            Assert.That(overallScoreAuc, Is.GreaterThan(0.5),
-                "Targets did not rank above decoys on the overall MBR score.");
+            // The composite MBR score is the discriminant the FDR model relies on, so it must rank targets
+            // well above decoys. The measured AUC on this data is ~0.82; asserting > 0.7 (rather than a bare
+            // "better than a coin flip" > 0.5) leaves headroom for run-to-run ML.NET variability in the PEP
+            // path while still failing if the separation genuinely regresses. Individual sub-scores are
+            // reported above for inspection but not asserted, since the point of this test is to observe
+            // which components separate and which don't.
+            Assert.That(overallScoreAuc, Is.GreaterThan(0.7),
+                "Targets did not rank well above decoys on the overall MBR score.");
         }
 
         /// <summary>

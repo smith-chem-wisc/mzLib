@@ -67,14 +67,6 @@ namespace Test.FlashLFQ
             Assert.That(decoyPeakCounts.Max() - decoyPeakCounts.Min(), Is.LessThanOrEqualTo(numGroups - 1));
         }
 
-        private class MockRtCalibDataPoint : RetentionTimeCalibDataPoint
-        {
-            public MockRtCalibDataPoint(double rtDiff) : base(null, null)
-            {
-                RtDiff = rtDiff;
-            }
-        }
-
         /// <summary>
         /// Builds a calibration data point whose donor peak apexes at <paramref name="donorRt"/> and whose
         /// acceptor peak apexes at <paramref name="acceptorRt"/>. The curve orders points by the donor apex RT.
@@ -146,10 +138,10 @@ namespace Test.FlashLFQ
             // equal, so a stable order must leave them in the sequence they were supplied.
             var points = new RetentionTimeCalibDataPoint[]
             {
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.6),
-                new MockRtCalibDataPoint(0.7),
-                new MockRtCalibDataPoint(0.8),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.7),
+                new RetentionTimeCalibDataPoint(0.8),
             };
 
             var curve = new RetentionTimeCalibrationCurve(points);
@@ -202,13 +194,13 @@ namespace Test.FlashLFQ
         {
             // A point with a real donor peak (apex RT present) vs. a point with no donor peak (null apex).
             RetentionTimeCalibDataPoint withDonor = MakeCalibDataPoint(donorRt: 12.0, acceptorRt: 11.8);
-            RetentionTimeCalibDataPoint withoutDonor = new MockRtCalibDataPoint(0.2); // DonorFilePeak == null
+            RetentionTimeCalibDataPoint withoutDonor = new RetentionTimeCalibDataPoint(0.2); // DonorFilePeak == null
 
             // Nullable.Compare sorts the point lacking a donor apex before the one that has one.
             Assert.That(withoutDonor.CompareTo(withDonor), Is.LessThan(0));
             Assert.That(withDonor.CompareTo(withoutDonor), Is.GreaterThan(0));
             // Two points that both lack a donor apex compare equal.
-            Assert.That(withoutDonor.CompareTo(new MockRtCalibDataPoint(0.9)), Is.EqualTo(0));
+            Assert.That(withoutDonor.CompareTo(new RetentionTimeCalibDataPoint(0.9)), Is.EqualTo(0));
         }
 
         [Test]
@@ -221,9 +213,9 @@ namespace Test.FlashLFQ
             // fewer leaves the safe, non-degenerate default distribution (mean 0, std-dev 1) in place.
             var curve = new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
             {
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.6),
-                new MockRtCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5),
             });
 
             scorer.AddRtPredErrorDistribution(donorFile, curve, numberOfAnchorPeptides: 2);
@@ -245,13 +237,13 @@ namespace Test.FlashLFQ
             // floor rather than producing a degenerate (zero std-dev) distribution.
             var curve = new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
             {
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(double.PositiveInfinity),
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(double.PositiveInfinity),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.5),
             });
 
             scorer.AddRtPredErrorDistribution(donorFile, curve, numberOfAnchorPeptides: 1);
@@ -259,6 +251,41 @@ namespace Test.FlashLFQ
             Normal dist = GetStoredRtDistribution(scorer, donorFile);
             Assert.That(dist.Mean, Is.EqualTo(0).Within(1e-9));
             Assert.That(dist.StdDev, Is.EqualTo(scorer.RtStandardDeviationMin).Within(1e-9));
+        }
+
+        [Test]
+        public static void TestAddRtPredErrorDistributionFloorsSigmaForTightlyAlignedAnchors()
+        {
+            // This is the load-bearing behavior of the PR: when donor and acceptor peaks are very tightly
+            // aligned, the raw prediction-error spread collapses toward zero. Left unfloored, that yields a
+            // needle-thin RT distribution that scores every real acceptor peak at the minimum (~3e-7) and
+            // stops RtScore discriminating between candidates. RtStandardDeviationMin holds sigma at 1 second
+            // so RtScore stays meaningful. If the floor is removed, both assertions below fail.
+            MbrScorer scorer = new MbrScorer(null, null);
+            SpectraFileInfo donorFile = new SpectraFileInfo("donor", "A", 1, 1, 1);
+
+            // Anchor RT diffs agreeing to within ~1e-4 min -> raw sigma ~2e-4 (a valid, non-zero value well
+            // below the floor), which the floor raises to RtStandardDeviationMin.
+            var tightAnchors = new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
+            {
+                new RetentionTimeCalibDataPoint(0.5000),
+                new RetentionTimeCalibDataPoint(0.5001),
+                new RetentionTimeCalibDataPoint(0.4999),
+                new RetentionTimeCalibDataPoint(0.5000),
+                new RetentionTimeCalibDataPoint(0.5001),
+                new RetentionTimeCalibDataPoint(0.4999),
+                new RetentionTimeCalibDataPoint(0.5000),
+            });
+
+            scorer.AddRtPredErrorDistribution(donorFile, tightAnchors, numberOfAnchorPeptides: 1);
+
+            Normal rtDist = GetStoredRtDistribution(scorer, donorFile);
+            Assert.That(rtDist.StdDev, Is.EqualTo(scorer.RtStandardDeviationMin).Within(1e-9));
+
+            // A 0.01 min (0.6 s) RT prediction error scores ~0.55 with the floor in place, versus ~3e-7
+            // without it (a five-order-of-magnitude margin, so the assertion is not flaky).
+            double rtScore = scorer.CalculateScore(rtDist, 0.01);
+            Assert.That(rtScore, Is.GreaterThan(0.1));
         }
 
         [Test]
@@ -347,18 +374,18 @@ namespace Test.FlashLFQ
 
             scorer.AddRtPredErrorDistribution(fakeDonorFile, new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
             {
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.6),
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.6),
-                new MockRtCalibDataPoint(0.5),
-                new MockRtCalibDataPoint(0.6),
-                new MockRtCalibDataPoint(0.5)
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5),
+                new RetentionTimeCalibDataPoint(0.6),
+                new RetentionTimeCalibDataPoint(0.5)
             }), 2);
 
             acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, predictedRt: 25.1);
 
-            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(62.5).Within(0.1));
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(62.4).Within(0.1));
             Assert.That(acceptorPeak.PpmScore, Is.EqualTo(1).Within(0.01));
             Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.46).Within(0.01));
             Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.42).Within(0.01));
@@ -770,11 +797,11 @@ namespace Test.FlashLFQ
             // Add RT prediction distribution with too few anchor points -> will fallback to default (0,0) distribution
             scorer.AddRtPredErrorDistribution(donorFile, new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
             {
-                new MockRtCalibDataPoint(0.2),
-                new MockRtCalibDataPoint(0.21),
-                new MockRtCalibDataPoint(0.19),
-                new MockRtCalibDataPoint(0.2),
-                new MockRtCalibDataPoint(0.22)
+                new RetentionTimeCalibDataPoint(0.2),
+                new RetentionTimeCalibDataPoint(0.21),
+                new RetentionTimeCalibDataPoint(0.19),
+                new RetentionTimeCalibDataPoint(0.2),
+                new RetentionTimeCalibDataPoint(0.22)
             }), 2);
 
             var donorPeak = peaks[0];

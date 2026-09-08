@@ -594,8 +594,7 @@ namespace FlashLFQ
         {
             Dictionary<string, ChromatographicPeak> donorFileBestMsmsPeaks = new();
             Dictionary<string, ChromatographicPeak> acceptorFileBestMsmsPeaks = new();
-            List<RetentionTimeCalibDataPoint> calibrationDataPoints = new();
-            List<double> anchorPeptideRtDiffs = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
+            List<RetentionTimeCalibDataPoint> calibrationDataPoints = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
 
             Dictionary<string, List<ChromatographicPeak>> donorFileAllMsmsPeaks = _results.Peaks[donor]
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
@@ -647,10 +646,6 @@ namespace FlashLFQ
                 if (donorFileBestMsmsPeaks.TryGetValue(peak.Key, out ChromatographicPeak donorFilePeak))
                 {
                     calibrationDataPoints.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
-                    if (donorFilePeak.ApexRetentionTime > 0 && acceptorFilePeak.ApexRetentionTime > 0)
-                    {
-                        anchorPeptideRtDiffs.Add(donorFilePeak.ApexRetentionTime - acceptorFilePeak.ApexRetentionTime);
-                    }
                 }
             }
 
@@ -865,9 +860,11 @@ namespace FlashLFQ
                 return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime, width: 0.25);
             }
 
-            // calculate difference between acceptor and donor RTs for these RT region
+            // calculate difference between donor and acceptor RTs for this RT region. RtDiff is defined as
+            // donor apex RT - acceptor apex RT (see RetentionTimeCalibDataPoint), and every nearby point here
+            // has both a donor and an acceptor peak, so this is exactly that stored value.
             List<double> rtDiffs = nearbyCalibrationPoints
-                .Select(p => p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
+                .Select(p => p.RtDiff)
                 .ToList();
 
             double medianRtDiff = rtDiffs.Median();

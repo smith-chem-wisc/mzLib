@@ -1,5 +1,4 @@
 ﻿using Easy.Common.EasyComparer;
-using Easy.Common.Extensions;
 using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
@@ -238,15 +237,18 @@ namespace FlashLFQ
         }
 
         /// <summary>
-        /// Takes in a list of retention time differences for anchor peptides (donor RT - acceptor RT) and uses
-        /// this list to calculate the distribution of prediction errors of the local RT alignment strategy employed by
-        /// match-between-runs for the specified donor file
+        /// Uses the anchor peptides shared between the donor and acceptor files to calculate the distribution
+        /// of prediction errors of the local RT alignment strategy employed by match-between-runs for the
+        /// specified donor file. The curve carries its own donor-RT ordering, which the local alignment below
+        /// relies on, so callers do not have to sort before passing it in.
         /// </summary>
-        /// <param name="anchorPeptideRtDiffs">List of retention time differences (doubles) calculated as donor file RT - acceptor file RT</param>
+        /// <param name="calibrationCurve">The anchor peptides shared between the donor and acceptor files, ordered by donor apex retention time</param>
+        /// <param name="numberOfAnchorPeptides">The number of neighboring anchor peptides used on either side to predict each anchor's RT shift</param>
         internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, RetentionTimeCalibrationCurve calibrationCurve, int numberOfAnchorPeptides)
         {
-            // Default distribution: safe, non-degenerate
-            Normal rtPredictionErrorDist = new Normal(0, 1);
+            // Default distribution: safe, non-degenerate. Also the distribution used when a donor file has too
+            // few anchor peptides to estimate a prediction-error spread.
+            Normal rtPredictionErrorDist = new Normal(0, RtStandardDeviationDefault);
             RetentionTimeCalibDataPoint[] validCalibrationDataPoints = calibrationCurve.DataPoints.Where(x => !double.IsNaN(x.RtDiff)).ToArray();
 
             // in MBR, we use anchor peptides on either side of the donor to predict the retention time
@@ -278,12 +280,10 @@ namespace FlashLFQ
                 if (rtPredictionErrors.Count >= 2)
                 {
                     double medianRtError = rtPredictionErrors.Median();
-                    double stdDevRtError = rtPredictionErrors.InterquartileRange() / 1.35; // Use IQR to estimate stddev for robustness. IQR/1.35 is a robust estimator of stddev for normal distributions, and is less sensitive to outliers than the standard deviation.
+                    double stdDevRtError = rtPredictionErrors.InterquartileRange() / 1.36; // Use IQR to estimate stddev for robustness. IQR/1.36 is a robust estimator of stddev for normal distributions, and is less sensitive to outliers than the standard deviation.
 
                     if (!double.IsNaN(medianRtError))
                     {
-                        if(double.IsNaN(stdDevRtError))
-                            stdDevRtError = RtStandardDeviationDefault;
                         if(stdDevRtError < RtStandardDeviationMin)
                             stdDevRtError = RtStandardDeviationMin;
                         if(Normal.IsValidParameterSet(medianRtError, stdDevRtError))
@@ -309,7 +309,7 @@ namespace FlashLFQ
             // Use a safe default RT distribution if none was computed for this donor file
             if (!_rtPredictionErrorDistributionDictionary.TryGetValue(donorPeak.SpectraFileInfo, out var rtDist) || rtDist == null)
             {
-                rtDist = new Normal(0, 1);
+                rtDist = new Normal(0, RtStandardDeviationDefault);
             }
 
             acceptorPeak.RtScore = CalculateScore(rtDist, acceptorPeak.RtPredictionError);

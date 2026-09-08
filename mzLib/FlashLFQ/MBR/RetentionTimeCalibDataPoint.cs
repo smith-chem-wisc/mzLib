@@ -8,7 +8,7 @@ namespace FlashLFQ
     {
         public readonly ChromatographicPeak DonorFilePeak;
         public readonly ChromatographicPeak AcceptorFilePeak;
-        public double RtDiff { get; protected set; }
+        public readonly double RtDiff;
 
         public RetentionTimeCalibDataPoint(ChromatographicPeak donorFilePeak, ChromatographicPeak acceptorFilePeak)
         {
@@ -23,6 +23,17 @@ namespace FlashLFQ
             {
                 RtDiff = double.NaN;
             }
+        }
+
+        /// <summary>
+        /// Test seam: builds a data point carrying only an <see cref="RtDiff"/>, with no underlying peaks.
+        /// Lets tests exercise the prediction-error math in <see cref="MbrScorer.AddRtPredErrorDistribution"/>
+        /// without constructing full chromatographic peaks. Points built this way have a null donor peak, so
+        /// they sort before points that have one (see <see cref="CompareTo"/>).
+        /// </summary>
+        internal RetentionTimeCalibDataPoint(double rtDiff)
+        {
+            RtDiff = rtDiff;
         }
 
         /// <summary>
