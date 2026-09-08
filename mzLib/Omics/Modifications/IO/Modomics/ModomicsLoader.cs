@@ -366,17 +366,49 @@ public static class ModomicsLoader
     private static ProductIonInterpretation? InterpretProductIons(
         string modomicsName, List<double>? productIons, string moietyType, ReferenceMoietyDefinition moiety, ChemicalFormula modificationFormula)
     {
-        if (productIons is null)
+        // Every published protonated ion becomes a neutral diagnostic mass.
+        var ions = productIons?.Select(p => p.ToMass(1)).ToList();
+        var diagnosticIons = ions is null
+            ? null
+            : new Dictionary<DissociationType, List<double>>
+            {
+                { DissociationType.AnyActivationType, ions },
+            };
+
+        // The explicitly confirmed 2'-O- suppression rule is evaluated independently of both the
+        // ion-derived measurement and the presence of published ions. A name-marked entry with no
+        // ions, or with ions that measure no base-localized portion, still keeps Suppressed
+        // semantics rather than falling back to the plain representation.
+        if (IsExplicitlyConfirmedSuppressedBaseLoss(modomicsName))
+        {
+            if (productIons is null)
+            {
+                return new ProductIonInterpretation(diagnosticIons, BaseLossType: BaseLossBehavior.Suppressed, BaseLossModification: null);
+            }
+
+            var measuredOrNull = moietyType == "nucleoside"
+                ? DeriveBaseLossModification(productIons, (moiety.BaseChemicalFormula + HydrogenChemicalFormula).MonoisotopicMass, modificationFormula)
+                : null;
+
+            if (ions is not null && measuredOrNull is not null)
+            {
+                var primaryIonIndex = productIons.IndexOf(productIons.Max());
+                if (primaryIonIndex >= 0)
+                {
+                    ions[primaryIonIndex] = measuredOrNull.Value.AccurateBaseNeutralMass;
+                }
+            }
+
+            return new ProductIonInterpretation(
+                diagnosticIons,
+                BaseLossType: BaseLossBehavior.Suppressed,
+                BaseLossModification: measuredOrNull?.Formula);
+        }
+
+        if (productIons is null || ions is null)
         {
             return null;
         }
-
-        // Every published protonated ion becomes a neutral diagnostic mass.
-        var ions = productIons.Select(p => p.ToMass(1)).ToList();
-        var diagnosticIons = new Dictionary<DissociationType, List<double>>
-        {
-            { DissociationType.AnyActivationType, ions },
-        };
 
         var measured = moietyType == "nucleoside"
             ? DeriveBaseLossModification(productIons, (moiety.BaseChemicalFormula + HydrogenChemicalFormula).MonoisotopicMass, modificationFormula)
@@ -390,20 +422,16 @@ public static class ModomicsLoader
         }
 
         // The measured topology gives the primary ion its accurate neutral mass.
-        var primaryIonIndex = productIons.IndexOf(productIons.Max());
-        if (primaryIonIndex >= 0)
+        var primaryIonIndex2 = productIons.IndexOf(productIons.Max());
+        if (primaryIonIndex2 >= 0)
         {
-            ions[primaryIonIndex] = measured.Value.AccurateBaseNeutralMass;
+            ions[primaryIonIndex2] = measured.Value.AccurateBaseNeutralMass;
         }
-
-        var baseLossBehavior = IsExplicitlyConfirmedSuppressedBaseLoss(modomicsName)
-            ? BaseLossBehavior.Suppressed
-            : measured.Value.Behavior;
 
         return new ProductIonInterpretation(
             diagnosticIons,
-            baseLossBehavior,
-            baseLossBehavior == BaseLossBehavior.Default ? null : measured.Value.Formula);
+            measured.Value.Behavior,
+            measured.Value.Behavior == BaseLossBehavior.Default ? null : measured.Value.Formula);
     }
 
     /// <summary>

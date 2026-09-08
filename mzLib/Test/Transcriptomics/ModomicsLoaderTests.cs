@@ -27,7 +27,17 @@ namespace Test.Transcriptomics
         {
             var report = ModomicsLoader.LoadModomics();
 
+            // The loader only ever emits recognised motifs (A/C/G/U). Pinning the generic-purine
+            // stand-in xX (Modomics id 98) lets this assertion fail if the unknown-base handling
+            // regresses: it must be tracked in NotYetRepresentableEntries (referencing "X"), never
+            // loaded as a modification, and never surfaced with an "on X" IdWithMotif.
             Assert.That(report.LoadedModifications.Any(m => m.IdWithMotif.Contains("on X")), Is.False);
+            Assert.That(report.LoadedModifications.Any(m => m.OriginalId == "unknown modification"), Is.False);
+
+            var genericPurineEntry = report.NotYetRepresentableEntries.SingleOrDefault(e => e.ShortName == "xX");
+            Assert.That(genericPurineEntry, Is.Not.Null, "xX is the generic-purine stand-in entry");
+            Assert.That(genericPurineEntry!.Reason, Is.EqualTo(ModomicsRepresentationFailureReason.EmptyFormula));
+            Assert.That(genericPurineEntry!.ReferenceMoieties, Does.Contain("X"));
         }
 
         [Test]

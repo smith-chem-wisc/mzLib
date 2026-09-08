@@ -35,9 +35,14 @@ public static class Mods
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
 
-        // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts
+        // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts.
+        // MODOMICS RNA mods stay out of the combined candidate set: folding them in changes what a
+        // residue-less mass-only lookup resolves for protein modifications (the shortest-OriginalId
+        // tie-break in ModificationLookupBase makes "inosine" beat "Asn->Asp" for the deamidation
+        // formula). They remain fully addressable via the RNA-scoped collections and the Modomics
+        // naming convention.
         MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(MetaMorpheusRnaModifications).ToList();
-        AllKnownMods = AllProteinModsList.Concat(AllRnaModsList).ToList();
+        AllKnownMods = AllProteinModsList.Concat(MetaMorpheusRnaModifications).ToList();
         AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
         foreach (var kvp in AllKnownProteinModsDictionary)
         {
