@@ -157,14 +157,6 @@ public static class ModificationOccupancyCalculator
             throw new ArgumentException("All PSMs must have the same BaseSequence for peptide-level occupancy calculation.");
         }
 
-        // Map each PSM to the single form that owns its intensity: matching FullSequence + Accession.
-        // Ambiguous forms (psms without a full sequence match) are filtered out and do not contribute to occupancy.
-        var psmToForm = psmsWithBaseSeq
-            .ToDictionary(
-                p => p,
-                p => p.GetIdentifiedBioPolymersWithSetMods()
-                    .FirstOrDefault(s => s.FullSequence == p.FullSequence));
-
         var totalCount = psmsWithBaseSeq.Count;
         var totalIntensity = psmsWithBaseSeq
             .Where(p => p.Intensities is { Length: 1 })
@@ -173,7 +165,11 @@ public static class ModificationOccupancyCalculator
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
         foreach (var psm in psmsWithBaseSeq)
         {
-            var form = psmToForm[psm];
+            // The form carrying this PSM's modifications. A PSM whose full sequence matches no
+            // identified form is ambiguous: it counts toward the denominator but marks no site.
+            var form = psm.GetIdentifiedBioPolymersWithSetMods()
+                .FirstOrDefault(s => s.FullSequence == psm.FullSequence);
+
             if (form is null)
                 continue;
 
