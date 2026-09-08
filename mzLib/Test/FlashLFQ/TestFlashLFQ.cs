@@ -1571,7 +1571,7 @@ namespace Test.FlashLFQ
             // Any change to ML.NET or the PEP Analysis engine will cause these to change.
             Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
             Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
-            Assert.AreEqual(141, f1r1MbrResults.Count);
+            Assert.AreEqual(142, f1r1MbrResults.Count);
             Assert.AreEqual(77, f1r2MbrResults.Count);
 
             // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 

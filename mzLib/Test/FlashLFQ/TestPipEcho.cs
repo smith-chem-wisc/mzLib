@@ -75,6 +75,89 @@ namespace Test.FlashLFQ
             }
         }
 
+        /// <summary>
+        /// Builds a calibration data point whose donor peak apexes at <paramref name="donorRt"/> and whose
+        /// acceptor peak apexes at <paramref name="acceptorRt"/>. The curve orders points by the donor apex RT.
+        /// </summary>
+        private static RetentionTimeCalibDataPoint MakeCalibDataPoint(double donorRt, double acceptorRt)
+        {
+            SpectraFileInfo donorFile = new SpectraFileInfo("donor", "A", 1, 1, 1);
+            SpectraFileInfo acceptorFile = new SpectraFileInfo("acceptor", "A", 1, 1, 1);
+            const double mass = 669.4173;
+
+            ChromatographicPeak BuildPeak(SpectraFileInfo file, double rt)
+            {
+                Identification id = new Identification(file, "KPVGAAK", "KPVGAAK", mass, rt, 2,
+                    new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+                id.PeakfindingMass = mass;
+                ChromatographicPeak peak = new ChromatographicPeak(id, file);
+                peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(
+                    new IndexedMassSpectralPeak(mass.ToMz(1), 1.0, 1, rt), 1, 1.0, 1.0));
+                peak.CalculateIntensityForThisFeature(false);
+                return peak;
+            }
+
+            return new RetentionTimeCalibDataPoint(BuildPeak(donorFile, donorRt), BuildPeak(acceptorFile, acceptorRt));
+        }
+
+        [Test]
+        public static void TestRetentionTimeCalibrationCurveOrdersByDonorRt()
+        {
+            // Data points are supplied out of donor-RT order on purpose.
+            var unordered = new[]
+            {
+                MakeCalibDataPoint(donorRt: 30.0, acceptorRt: 29.5),
+                MakeCalibDataPoint(donorRt: 10.0, acceptorRt: 10.2),
+                MakeCalibDataPoint(donorRt: 20.0, acceptorRt: 19.7),
+                MakeCalibDataPoint(donorRt: 5.0, acceptorRt: 5.1),
+                MakeCalibDataPoint(donorRt: 25.0, acceptorRt: 24.6),
+            };
+
+            var curve = new RetentionTimeCalibrationCurve(unordered);
+
+            // The curve exposes exactly the points it was given...
+            Assert.That(curve.Count, Is.EqualTo(unordered.Length));
+            Assert.That(curve.DataPoints.Length, Is.EqualTo(unordered.Length));
+
+            // ...ordered ascending by the donor peak's apex retention time.
+            var donorRts = curve.DataPoints.Select(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToList();
+            Assert.That(donorRts, Is.EqualTo(new[] { 5.0, 10.0, 20.0, 25.0, 30.0 }));
+            Assert.That(donorRts, Is.Ordered);
+
+            // Each data point keeps its own RtDiff (donor RT - acceptor RT); ordering must not scramble pairs.
+            foreach (var point in curve.DataPoints)
+            {
+                double expectedDiff = point.DonorFilePeak.Apex.IndexedPeak.RetentionTime
+                                      - point.AcceptorFilePeak.Apex.IndexedPeak.RetentionTime;
+                Assert.That(point.RtDiff, Is.EqualTo(expectedDiff).Within(1e-9));
+            }
+
+            // The ordering enables the binary search PredictRetentionTime relies on.
+            var probe = new RetentionTimeCalibDataPoint(
+                curve.DataPoints[2].DonorFilePeak, null); // donor RT 20.0
+            int index = System.Array.BinarySearch(curve.DataPoints, probe);
+            Assert.That(index, Is.EqualTo(2));
+        }
+
+        [Test]
+        public static void TestRetentionTimeCalibrationCurvePreservesOrderOfDegeneratePoints()
+        {
+            // Points without a donor apex RT (e.g. the mock points used to exercise the scorer) compare
+            // equal, so a stable order must leave them in the sequence they were supplied.
+            var points = new RetentionTimeCalibDataPoint[]
+            {
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.6),
+                new MockRtCalibDataPoint(0.7),
+                new MockRtCalibDataPoint(0.8),
+            };
+
+            var curve = new RetentionTimeCalibrationCurve(points);
+
+            Assert.That(curve.DataPoints.Select(p => p.RtDiff).ToList(),
+                Is.EqualTo(new[] { 0.5, 0.6, 0.7, 0.8 }));
+        }
+
         [Test]
         public static void TestMbrScorer()
         {
@@ -128,23 +211,23 @@ namespace Test.FlashLFQ
             peakList = new List<ChromatographicPeak> { peak1, peak2, peak3 };
             scorer = MbrScorerFactory.BuildMbrScorer(peakList, new FlashLfqParameters(), out tol);
 
-            scorer.AddRtPredErrorDistribution(fakeDonorFile, new RetentionTimeCalibDataPoint[]
+            scorer.AddRtPredErrorDistribution(fakeDonorFile, new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
             {
-                new RetentionTimeCalibDataPoint(0.5),
-                new RetentionTimeCalibDataPoint(0.6),
-                new RetentionTimeCalibDataPoint(0.5),
-                new RetentionTimeCalibDataPoint(0.6),
-                new RetentionTimeCalibDataPoint(0.5),
-                new RetentionTimeCalibDataPoint(0.6),
-                new RetentionTimeCalibDataPoint(0.5)
-            }, 2);
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.6),
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.6),
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.6),
+                new MockRtCalibDataPoint(0.5)
+            }), 2);
 
             acceptorPeak.MbrScore = scorer.ScoreMbr(acceptorPeak, donorPeak, predictedRt: 25.1);
 
-            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(61.5).Within(0.1));
+            Assert.That(acceptorPeak.MbrScore, Is.EqualTo(62.5).Within(0.1));
             Assert.That(acceptorPeak.PpmScore, Is.EqualTo(1).Within(0.01));
             Assert.That(acceptorPeak.IntensityScore, Is.EqualTo(0.46).Within(0.01));
-            Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.39).Within(0.01));
+            Assert.That(acceptorPeak.RtScore, Is.EqualTo(0.42).Within(0.01));
             Assert.That(acceptorPeak.ScanCountScore, Is.EqualTo(0.59).Within(0.01));
             Assert.That(acceptorPeak.IsotopicDistributionScore, Is.EqualTo(0.83).Within(0.01));
 
@@ -551,7 +634,14 @@ namespace Test.FlashLFQ
             Assert.That(scorer, Is.Not.Null);
 
             // Add RT prediction distribution with too few anchor points -> will fallback to default (0,0) distribution
-            scorer.AddRtPredErrorDistribution(donorFile, new List<double> { 0.2, 0.21, 0.19, 0.2, 0.22 }, 2);
+            scorer.AddRtPredErrorDistribution(donorFile, new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
+            {
+                new MockRtCalibDataPoint(0.2),
+                new MockRtCalibDataPoint(0.21),
+                new MockRtCalibDataPoint(0.19),
+                new MockRtCalibDataPoint(0.2),
+                new MockRtCalibDataPoint(0.22)
+            }), 2);
 
             var donorPeak = peaks[0];
             var acceptor = new MbrChromatographicPeak(peaks[1].Identifications.First(), acceptorFile, peaks[1].ApexRetentionTime, false);

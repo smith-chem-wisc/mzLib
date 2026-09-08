@@ -589,12 +589,12 @@ namespace FlashLFQ
         /// Used by the match-between-runs algorithm to determine systematic retention time drifts between
         /// chromatographic runs.
         /// </summary>
-        private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, MbrScorer scorer,
+        private RetentionTimeCalibrationCurve GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, MbrScorer scorer,
             out List<ChromatographicPeak> donorFileBestMsmsPeaksOrderedByMass)
         {
             Dictionary<string, ChromatographicPeak> donorFileBestMsmsPeaks = new();
             Dictionary<string, ChromatographicPeak> acceptorFileBestMsmsPeaks = new();
-            List<RetentionTimeCalibDataPoint> rtCalibrationCurve = new();
+            List<RetentionTimeCalibDataPoint> calibrationDataPoints = new();
             List<double> anchorPeptideRtDiffs = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
 
             Dictionary<string, List<ChromatographicPeak>> donorFileAllMsmsPeaks = _results.Peaks[donor]
@@ -646,7 +646,7 @@ namespace FlashLFQ
 
                 if (donorFileBestMsmsPeaks.TryGetValue(peak.Key, out ChromatographicPeak donorFilePeak))
                 {
-                    rtCalibrationCurve.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
+                    calibrationDataPoints.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
                     if (donorFilePeak.ApexRetentionTime > 0 && acceptorFilePeak.ApexRetentionTime > 0)
                     {
                         anchorPeptideRtDiffs.Add(donorFilePeak.ApexRetentionTime - acceptorFilePeak.ApexRetentionTime);
@@ -654,12 +654,14 @@ namespace FlashLFQ
                 }
             }
 
-            var orderedRtCalibrationCurve = rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
+            // The curve orders its data points by the donor peak's apex retention time, which both the
+            // error distribution and the per-peak prediction below rely on.
+            var rtCalibrationCurve = new RetentionTimeCalibrationCurve(calibrationDataPoints);
 
-            scorer.AddRtPredErrorDistribution(donor, orderedRtCalibrationCurve, NumberOfAnchorPeptidesForMbr);
+            scorer.AddRtPredErrorDistribution(donor, rtCalibrationCurve, NumberOfAnchorPeptidesForMbr);
             donorFileBestMsmsPeaksOrderedByMass = donorFileBestMsmsPeaks.Select(kvp => kvp.Value).OrderBy(p => p.Identifications.First().PeakfindingMass).ToList();
 
-            return orderedRtCalibrationCurve;
+            return rtCalibrationCurve;
         }
 
         private string DigestionAgentOf(SpectraFileInfo file) => _fileToDigestionAgent.GetValueOrDefault(file);
@@ -779,15 +781,16 @@ namespace FlashLFQ
         /// where all peaks within 30 seconds of the donor peak are matched to peaks with the same associated peptide in the acceptor file,
         /// if such a peak exists.
         /// </summary>
-        /// <param name="rtCalibrationCurve">Array of all shared peaks between the donor and the acceptor file</param>
+        /// <param name="rtCalibrationCurve">The shared peaks between the donor and the acceptor file, ordered by donor apex retention time</param>
         /// <returns> RtInfo object containing the predicted retention time of the acceptor peak and the width of the predicted retention time window </returns>
         internal RtInfo PredictRetentionTime(
-            RetentionTimeCalibDataPoint[] rtCalibrationCurve,
+            RetentionTimeCalibrationCurve rtCalibrationCurve,
             ChromatographicPeak donorPeak,
             SpectraFileInfo acceptorFile,
             bool acceptorSampleIsFractionated,
             bool donorSampleIsFractionated)
         {
+            RetentionTimeCalibDataPoint[] calibrationPoints = rtCalibrationCurve.DataPoints;
             var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>(); // The number of anchor peptides to be used for local alignment (on either side of the donor peptide)
 
             // only compare +- 1 fraction
@@ -804,30 +807,30 @@ namespace FlashLFQ
 
             // binary search for this donor peak in the retention time calibration spline
             RetentionTimeCalibDataPoint testPoint = new RetentionTimeCalibDataPoint(donorPeak, null);
-            int index = Array.BinarySearch(rtCalibrationCurve, testPoint);
+            int index = Array.BinarySearch(calibrationPoints, testPoint);
 
             if (index < 0)
             {
                 index = ~index;
             }
-            if (index >= rtCalibrationCurve.Length && index >= 1)
+            if (index >= calibrationPoints.Length && index >= 1)
             {
-                index = rtCalibrationCurve.Length - 1;
+                index = calibrationPoints.Length - 1;
             }
 
             int numberOfForwardAnchors = 0;
             // gather nearby data points
-            for (int r = index + 1; r < rtCalibrationCurve.Length; r++)
+            for (int r = index + 1; r < calibrationPoints.Length; r++)
             {
-                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
-                if (rtCalibrationCurve[r].AcceptorFilePeak != null
-                    && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
+                double rtDiff = calibrationPoints[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
+                if (calibrationPoints[r].AcceptorFilePeak != null
+                    && calibrationPoints[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
                     if (Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
-                    nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
+                    nearbyCalibrationPoints.Add(calibrationPoints[r]);
                     numberOfForwardAnchors++;
                     if (numberOfForwardAnchors >= NumberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
@@ -839,15 +842,15 @@ namespace FlashLFQ
             int numberOfBackwardsAnchors = 0;
             for (int r = index - 1; r >= 0; r--)
             {
-                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
-                if (rtCalibrationCurve[r].AcceptorFilePeak != null
-                    && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
+                double rtDiff = calibrationPoints[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
+                if (calibrationPoints[r].AcceptorFilePeak != null
+                    && calibrationPoints[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
                     if (Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
-                    nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
+                    nearbyCalibrationPoints.Add(calibrationPoints[r]);
                     numberOfBackwardsAnchors++;
                     if (numberOfBackwardsAnchors >= NumberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
@@ -1018,7 +1021,7 @@ namespace FlashLFQ
                 }
 
                 // generate RT calibration curve
-                RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, acceptorFile, scorer, out var donorPeaksMassOrdered);
+                RetentionTimeCalibrationCurve rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, acceptorFile, scorer, out var donorPeaksMassOrdered);
 
                 // break if MBR transfers can't be scored
                 if (!scorer.IsValid(donorFilePeakListKvp.Key)) continue;

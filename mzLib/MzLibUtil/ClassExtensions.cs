@@ -64,26 +64,6 @@ namespace MzLibUtil
         }
 
         /// <summary>
-        /// Calculates the median absolute deviation (MAD): the median of the absolute deviations of
-        /// each value from the collection's median. It is a robust measure of spread — unlike the
-        /// standard deviation, a handful of outliers do not inflate it. For normally distributed data,
-        /// multiply the result by 1.4826 to obtain a consistent estimator of the standard deviation.
-        /// </summary>
-        /// <param name="values">The values to evaluate.</param>
-        /// <returns>The (unscaled) median absolute deviation, or <see cref="double.NaN"/> if the sequence is empty.</returns>
-        public static double MedianAbsoluteDeviation(this IEnumerable<double> values)
-        {
-            // Materialize once: the median is needed before the deviations can be taken, so the
-            // sequence must be enumerated twice, and we must not re-run any upstream query.
-            double[] array = values as double[] ?? values.ToArray();
-            if (array.Length == 0)
-                return double.NaN;
-
-            double median = array.Median();
-            return array.Select(value => Math.Abs(value - median)).Median();
-        }
-
-        /// <summary>
         /// Returns a subarray of the input array.
         /// </summary>
         /// <typeparam name="T">The type of the array elements.</typeparam>

@@ -1,4 +1,5 @@
 ﻿using Easy.Common.EasyComparer;
+using Easy.Common.Extensions;
 using MassSpectrometry;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Statistics;
@@ -242,11 +243,11 @@ namespace FlashLFQ
         /// match-between-runs for the specified donor file
         /// </summary>
         /// <param name="anchorPeptideRtDiffs">List of retention time differences (doubles) calculated as donor file RT - acceptor file RT</param>
-        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, RetentionTimeCalibDataPoint[] calibrationDataPoints, int numberOfAnchorPeptides)
+        internal void AddRtPredErrorDistribution(SpectraFileInfo donorFile, RetentionTimeCalibrationCurve calibrationCurve, int numberOfAnchorPeptides)
         {
             // Default distribution: safe, non-degenerate
             Normal rtPredictionErrorDist = new Normal(0, 1);
-            RetentionTimeCalibDataPoint[] validCalibrationDataPoints = calibrationDataPoints.Where(x => !double.IsNaN(x.RtDiff)).ToArray();
+            RetentionTimeCalibDataPoint[] validCalibrationDataPoints = calibrationCurve.DataPoints.Where(x => !double.IsNaN(x.RtDiff)).ToArray();
 
             // in MBR, we use anchor peptides on either side of the donor to predict the retention time
             // here, we're going to repeat the same process, using neighboring anchor peptides to predict the Rt shift for each
@@ -277,8 +278,7 @@ namespace FlashLFQ
                 if (rtPredictionErrors.Count >= 2)
                 {
                     double medianRtError = rtPredictionErrors.Median();
-                    double stdDevRtError = rtPredictionErrors.MedianAbsoluteDeviation() * 1.4826; // Use MAD to estimate stddev for robustness
-
+                    double stdDevRtError = rtPredictionErrors.InterquartileRange() / 1.35; // Use IQR to estimate stddev for robustness. IQR/1.35 is a robust estimator of stddev for normal distributions, and is less sensitive to outliers than the standard deviation.
 
                     if (!double.IsNaN(medianRtError))
                     {
