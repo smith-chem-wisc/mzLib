@@ -158,6 +158,140 @@ namespace Test.FlashLFQ
                 Is.EqualTo(new[] { 0.5, 0.6, 0.7, 0.8 }));
         }
 
+        /// <summary>
+        /// Builds a single-peptide ChromatographicPeak apexing at <paramref name="rt"/>. Used to assemble
+        /// calibration data points (and donor peaks) for the RT-prediction tests below.
+        /// </summary>
+        private static ChromatographicPeak BuildCalibPeak(SpectraFileInfo file, double rt)
+        {
+            const double mass = 669.4173;
+            Identification id = new Identification(file, "KPVGAAK", "KPVGAAK", mass, rt, 2,
+                new List<ProteinGroup> { new ProteinGroup("P16403", "H12", "HUMAN") });
+            id.PeakfindingMass = mass;
+            ChromatographicPeak peak = new ChromatographicPeak(id, file);
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(
+                new IndexedMassSpectralPeak(mass.ToMz(1), 1.0, 1, rt), 1, 1.0, 1.0));
+            peak.CalculateIntensityForThisFeature(false);
+            return peak;
+        }
+
+        // Reads the RT prediction-error distribution the scorer stored for a donor file, so the branches of
+        // AddRtPredErrorDistribution can be asserted directly rather than only through a downstream MBR score.
+        private static Normal GetStoredRtDistribution(MbrScorer scorer, SpectraFileInfo donorFile)
+        {
+            var field = typeof(MbrScorer).GetField("_rtPredictionErrorDistributionDictionary",
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            var dict = (Dictionary<SpectraFileInfo, Normal>)field.GetValue(scorer);
+            return dict[donorFile];
+        }
+
+        [Test]
+        public static void TestRetentionTimeCalibDataPointToString()
+        {
+            var point = MakeCalibDataPoint(donorRt: 20.0, acceptorRt: 19.7);
+
+            // ToString is a debugging aid; make sure it emits the donor/acceptor RTs and their difference.
+            string text = point.ToString();
+            Assert.That(text, Does.Contain("DonorRT: 20.000"));
+            Assert.That(text, Does.Contain("AcceptorRT: 19.700"));
+            Assert.That(text, Does.Contain("Diff: 0.300"));
+        }
+
+        [Test]
+        public static void TestRetentionTimeCalibDataPointCompareToWithNullDonorPeak()
+        {
+            // A point with a real donor peak (apex RT present) vs. a point with no donor peak (null apex).
+            RetentionTimeCalibDataPoint withDonor = MakeCalibDataPoint(donorRt: 12.0, acceptorRt: 11.8);
+            RetentionTimeCalibDataPoint withoutDonor = new MockRtCalibDataPoint(0.2); // DonorFilePeak == null
+
+            // Nullable.Compare sorts the point lacking a donor apex before the one that has one.
+            Assert.That(withoutDonor.CompareTo(withDonor), Is.LessThan(0));
+            Assert.That(withDonor.CompareTo(withoutDonor), Is.GreaterThan(0));
+            // Two points that both lack a donor apex compare equal.
+            Assert.That(withoutDonor.CompareTo(new MockRtCalibDataPoint(0.9)), Is.EqualTo(0));
+        }
+
+        [Test]
+        public static void TestAddRtPredErrorDistributionWithTooFewPointsUsesDefault()
+        {
+            MbrScorer scorer = new MbrScorer(null, null);
+            SpectraFileInfo donorFile = new SpectraFileInfo("donor", "A", 1, 1, 1);
+
+            // With numberOfAnchorPeptides = 2, at least 2*2 + 1 = 5 valid points are required. Supplying
+            // fewer leaves the safe, non-degenerate default distribution (mean 0, std-dev 1) in place.
+            var curve = new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
+            {
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.6),
+                new MockRtCalibDataPoint(0.5),
+            });
+
+            scorer.AddRtPredErrorDistribution(donorFile, curve, numberOfAnchorPeptides: 2);
+
+            Normal dist = GetStoredRtDistribution(scorer, donorFile);
+            Assert.That(dist.Mean, Is.EqualTo(0).Within(1e-9));
+            Assert.That(dist.StdDev, Is.EqualTo(1).Within(1e-9));
+        }
+
+        [Test]
+        public static void TestAddRtPredErrorDistributionSkipsNonFiniteErrorsAndFloorsStdDev()
+        {
+            MbrScorer scorer = new MbrScorer(null, null);
+            SpectraFileInfo donorFile = new SpectraFileInfo("donor", "A", 1, 1, 1);
+
+            // One anchor has an infinite RtDiff. The prediction error it produces (and the errors of the
+            // neighbors that average it in) are non-finite and must be discarded. The remaining finite
+            // errors are all identical, giving a zero spread that is raised to the RtStandardDeviationMin
+            // floor rather than producing a degenerate (zero std-dev) distribution.
+            var curve = new RetentionTimeCalibrationCurve(new RetentionTimeCalibDataPoint[]
+            {
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(double.PositiveInfinity),
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.5),
+                new MockRtCalibDataPoint(0.5),
+            });
+
+            scorer.AddRtPredErrorDistribution(donorFile, curve, numberOfAnchorPeptides: 1);
+
+            Normal dist = GetStoredRtDistribution(scorer, donorFile);
+            Assert.That(dist.Mean, Is.EqualTo(0).Within(1e-9));
+            Assert.That(dist.StdDev, Is.EqualTo(scorer.RtStandardDeviationMin).Within(1e-9));
+        }
+
+        [Test]
+        public static void TestPredictRetentionTimeSkipsAnchorsWithoutAcceptorPeaks()
+        {
+            SpectraFileInfo donorFile = new SpectraFileInfo("donor", "A", 1, 1, 1);
+            SpectraFileInfo acceptorFile = new SpectraFileInfo("acceptor", "A", 1, 1, 1);
+
+            ChromatographicPeak donorPeak = BuildCalibPeak(donorFile, 20.0);
+
+            // The anchors immediately on either side of the donor peak have no acceptor peak. Local
+            // alignment must skip those (the AcceptorFilePeak != null guard in both scan directions) and
+            // keep reaching outward to the anchors that do carry an acceptor peak.
+            var curve = new RetentionTimeCalibrationCurve(new[]
+            {
+                new RetentionTimeCalibDataPoint(BuildCalibPeak(donorFile, 19.6), BuildCalibPeak(acceptorFile, 19.5)),
+                new RetentionTimeCalibDataPoint(BuildCalibPeak(donorFile, 19.8), null), // no acceptor -> skipped (backward scan)
+                new RetentionTimeCalibDataPoint(BuildCalibPeak(donorFile, 20.0), BuildCalibPeak(acceptorFile, 20.0)),
+                new RetentionTimeCalibDataPoint(BuildCalibPeak(donorFile, 20.2), null), // no acceptor -> skipped (forward scan)
+                new RetentionTimeCalibDataPoint(BuildCalibPeak(donorFile, 20.4), BuildCalibPeak(acceptorFile, 20.3)),
+            });
+
+            var engine = new FlashLfqEngine(new List<Identification> { donorPeak.Identifications.First() });
+
+            RtInfo rtInfo = engine.PredictRetentionTime(curve, donorPeak, acceptorFile,
+                acceptorSampleIsFractionated: false, donorSampleIsFractionated: false);
+
+            Assert.That(rtInfo, Is.Not.Null);
+            // The two usable anchors (19.6/19.5 and 20.4/20.3) each have a donor-minus-acceptor RT diff of
+            // 0.1, so the predicted acceptor RT is the donor apex (20.0) minus that median diff = 19.9.
+            Assert.That(rtInfo.PredictedRt, Is.EqualTo(19.9).Within(1e-6));
+        }
+
         [Test]
         public static void TestMbrScorer()
         {
