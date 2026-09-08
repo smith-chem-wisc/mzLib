@@ -405,5 +405,63 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 $"Spectrum-aware scorer must produce different scores for clean vs noisy spectra of the same envelope. " +
                 $"Clean: {directCleanScore:F6}, Noisy: {directNoisyScore:F6}");
         }
+
+        // ── Degenerate inputs to the local signal-to-noise calculation ────────
+
+        /// <summary>
+        /// An envelope peak with no intensity is skipped rather than contributing a zero to the
+        /// per-peak signal-to-noise list. Both envelopes are scored against the same spectrum, so
+        /// the only difference is the dead peak in the envelope's own peak list; if the guard were
+        /// removed the extra zero would drag the median down.
+        /// </summary>
+        [Test]
+        public void LocalSignalToNoise_IgnoresZeroIntensityEnvelopePeaks()
+        {
+            var baseline = BuildPerfectEnvelope();
+
+            double deadMz = baseline.Peaks.Max(p => p.mz) + 10.0;
+            var peaksWithDead = baseline.Peaks.ToList();
+            peaksWithDead.Add((deadMz, 0.0));
+            var withDeadPeak = new IsotopicEnvelope(peaksWithDead, baseline.MonoisotopicMass,
+                baseline.Charge, baseline.TotalIntensity, 0.0);
+
+            // one spectrum for both envelopes: real peaks, real noise, and the dead m/z
+            var extras = baseline.Peaks.Select(p => (p.mz + 0.5, p.intensity * 0.01)).ToList();
+            extras.Add((deadMz, 0.0));
+            extras.Add((deadMz + 0.5, 100.0));
+            var spectrum = SpectrumFromEnvelope(baseline, extras);
+
+            double baselineSnr = DeconvolutionScorer.ComputeFeatures(baseline, Model, spectrum).LocalSignalToNoise;
+            double withDeadSnr = DeconvolutionScorer.ComputeFeatures(withDeadPeak, Model, spectrum).LocalSignalToNoise;
+
+            Assert.That(baselineSnr, Is.GreaterThan(0.0));
+            Assert.That(withDeadSnr, Is.EqualTo(baselineSnr).Within(1e-9));
+        }
+
+        /// <summary>
+        /// When every non-envelope point inside a peak's window has zero intensity the median noise
+        /// is exactly zero, and that window is skipped. Without the guard the division would produce
+        /// infinity and propagate into the score.
+        /// </summary>
+        [Test]
+        public void LocalSignalToNoise_StaysFiniteWhenWindowNoiseIsAllZero()
+        {
+            var env = BuildPerfectEnvelope();
+
+            var deadNoise = new List<(double mz, double intensity)>();
+            foreach (var (mz, _) in env.Peaks)
+            {
+                deadNoise.Add((mz + 0.31, 0.0));
+                deadNoise.Add((mz + 0.62, 0.0));
+            }
+            var spectrum = SpectrumFromEnvelope(env, deadNoise);
+
+            var features = DeconvolutionScorer.ComputeFeatures(env, Model, spectrum);
+
+            Assert.That(double.IsFinite(features.LocalSignalToNoise), Is.True,
+                "zero median noise must be skipped, not divided by");
+            Assert.That(features.LocalSignalToNoise, Is.EqualTo(0.0));
+        }
+
     }
 }
