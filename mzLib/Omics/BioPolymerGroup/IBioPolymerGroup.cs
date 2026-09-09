@@ -11,7 +11,8 @@ namespace Omics.BioPolymerGroup
     /// 
     /// Supports both label-free and isobaric (TMT/iTRAQ) quantification methods.
     /// Implementations provide scoring, FDR estimation, and sequence coverage. Rendering a group to
-    /// a results file is handled separately by a TSV schema and writer, not by the group itself.
+    /// a results file is handled by a TSV schema and writer rather than by the group itself; the
+    /// header member below remains only so existing implementations still compile, and delegates.
     /// Per-sample quantification values are carried via <see cref="IHasSampleIntensities"/>, which a
     /// quantification engine populates.
     /// </summary>
@@ -37,6 +38,16 @@ namespace Omics.BioPolymerGroup
         /// These biopolymers are indistinguishable based on the identified sequences.
         /// </summary>
         HashSet<IBioPolymer> BioPolymers { get; set; }
+
+        /// <summary>
+        /// Returns a tab-separated header line describing this group's columns, matching the row
+        /// returned by <see cref="object.ToString"/>.
+        ///
+        /// Retained on the interface because MetaMorpheus's ProteinGroup implements it. Rendering
+        /// itself has moved to the TSV schema and writer; this delegates there rather than
+        /// duplicating it, and comes out once every implementation has switched.
+        /// </summary>
+        string GetTabSeparatedHeader();
 
         /// <summary>
         /// Display name for the group, typically a pipe-delimited concatenation of member accessions.
