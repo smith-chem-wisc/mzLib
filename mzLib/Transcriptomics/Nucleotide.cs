@@ -46,10 +46,11 @@ namespace Transcriptomics
         {
 
             AllKnownResidues = new Dictionary<string, Nucleotide>(66);
-            ResiduesByLetter = new Nucleotide['z' + 1];
+            ResiduesByLetter = new Nucleotide['z' + 1]; //Make it big enough for all the Upper and Lower characters
 
             // actual base chemical formula after bonding with the sugar
             // the sugar and phosphate has a chemical formula of C5H8O6P1
+            // bonded base formulas come from Chemistry.Formulas, the shared ground truth for residue chemistry
             AdenineBase = AddResidue("Adenine", 'A', "Ade", Formulas.AdenineBaseChemicalFormula);
             CytosineBase = AddResidue("Cytosine", 'C', "Cyt", Formulas.CytosineBaseChemicalFormula);
             GuanineBase = AddResidue("Guanine", 'G', "Gua", Formulas.GuanineBaseChemicalFormula);
