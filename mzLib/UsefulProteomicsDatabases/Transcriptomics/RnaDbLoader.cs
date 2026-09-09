@@ -383,11 +383,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             if (block.Sequence != null && block.Sequence.IsAllLower())
                                 transformsForThisEntry.Add(SequenceTransformationOnRead.ToUpper);
 
-                            var sequence = SanitizeAndTransform(block.Sequence, transformsForThisEntry);
-                            transformPool.Return(transformsForThisEntry);
-
-
                             RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment, transformsForThisEntry);
+                            transformPool.Return(transformsForThisEntry);
                             if (newProtein != null)
                             {
                                 if (newProtein.IsDecoy)
