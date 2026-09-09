@@ -3,8 +3,10 @@ using Omics.Modifications;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
@@ -400,6 +402,36 @@ namespace Test.Transcriptomics
             {
                 if (File.Exists(filePath))
                     File.Delete(filePath);
+            }
+        }
+
+        /// <summary>
+        /// The lowercase-to-uppercase normalization must not be culture-sensitive. Under tr-TR/az-AZ a
+        /// culture-sensitive ToUpper maps 'i' to 'İ' (U+0130) rather than 'I', which no residue table
+        /// knows -- so a lowercase sequence containing inosine would abort the whole database read.
+        /// </summary>
+        [Test]
+        [TestCase("tr-TR")]
+        [TestCase("az-AZ")]
+        [TestCase("en-US")]
+        public static void TestLowercaseSequenceNormalizationIsCultureInvariant(string cultureName)
+        {
+            var originalCulture = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo(cultureName);
+
+                var transforms = new List<SequenceTransformationOnRead> { SequenceTransformationOnRead.ToUpper };
+
+                // 'i' is the inosine residue added alongside this normalization, and the only ASCII
+                // letter whose uppercase mapping depends on the current culture.
+                Assert.That(RnaDbLoader.SanitizeAndTransform("guacigccucuagugaagca", transforms),
+                    Is.EqualTo("GUACIGCCUCUAGUGAAGCA"));
+                Assert.That(RnaDbLoader.SanitizeAndTransform("i", transforms), Is.EqualTo("I"));
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = originalCulture;
             }
         }
 
