@@ -21,6 +21,9 @@ namespace Test.Transcriptomics
         public static string ModomicsUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
 
+        public static string TRNAdbUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "Transcriptomics/TestData/TRNAdbUnmodifiedTrimmed.fasta");
+
         /// <summary>
         /// Detect the headertype of the test cases
         /// </summary>
@@ -30,6 +33,7 @@ namespace Test.Transcriptomics
                 (Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "DoubleProtease.tsv"), RnaFastaHeaderType.Unknown),
                 (ModomicsUnmodifedFastaPath, RnaFastaHeaderType.Modomics),
                 (Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta"), RnaFastaHeaderType.Modomics),
+                (TRNAdbUnmodifedFastaPath, RnaFastaHeaderType.TRNAdb),
                 
             };
 
@@ -76,6 +80,38 @@ namespace Test.Transcriptomics
             Assert.That(oligos.First().AdditionalDatabaseFields!["Subtype"], Is.EqualTo("Ala"));
             Assert.That(oligos.First().AdditionalDatabaseFields!["Feature"], Is.EqualTo("VGC"));
             Assert.That(oligos.First().AdditionalDatabaseFields!["Cellular Localization"], Is.EqualTo("prokaryotic cytosol"));
+        }
+
+        [Test]
+        public static void TestTRNAdbUnmodifiedFasta()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(TRNAdbUnmodifedFastaPath, true, DecoyType.None, false,
+                out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(oligos.Count, Is.EqualTo(11));
+
+            // bare tRNAdb headers carry only an accession, so it is used as both the identifier and the name
+            Assert.That(oligos.All(p => p.Accession == p.Name), Is.True);
+
+            var first = oligos.First(p => p.Accession == "tdbR00000016");
+            Assert.That(first.Accession, Is.EqualTo("tdbR00000016"));
+            Assert.That(first.Name, Is.EqualTo("tdbR00000016"));
+            Assert.That(first.BaseSequence,
+                Is.EqualTo("GGGGGAUUAGCUCAAAUGGUAGAGCGCUCGCUUAGCAUGCGAGAGGUAGCGGGAUCGAUGCCCGCAUCCUCCACCA"));
+
+            // tRNAdb entries may contain lowercase letters for unconserved residues; these are uppercased on read
+            var pdb010 = oligos.Single(p => p.Accession == "tdbPDB000010");
+            Assert.That(pdb010.BaseSequence,
+                Is.EqualTo("GGCCCGGAUAGCUCAGUCGGUAGAGCAUCAGACUUUUAAUCUGAGGGUCCAGGGUUCAAGUCCCUGUUCGGGCGCCA"));
+            var pdb025 = oligos.Single(p => p.Accession == "tdbPDB000025");
+            Assert.That(pdb025.BaseSequence,
+                Is.EqualTo("GACCUCGUGGCGCAAUGGUAGCGCGUCUGACUCCAGAUCAGAAGGUUGCGUGUUCGAAUCACGUCGGGGUCACCA"));
+
+            Assert.That(first.Organism, Is.EqualTo(""));
+            Assert.That(first.DatabaseFilePath, Is.EqualTo(TRNAdbUnmodifedFastaPath));
+            Assert.That(first.IsContaminant, Is.False);
+            Assert.That(first.IsDecoy, Is.False);
+            Assert.That(first.AdditionalDatabaseFields!.Count, Is.EqualTo(0));
         }
 
         [Test]

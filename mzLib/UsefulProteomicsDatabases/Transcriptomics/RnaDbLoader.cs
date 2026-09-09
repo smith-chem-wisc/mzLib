@@ -23,6 +23,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         NcbiRefSeq,
         NcbiAssembly,
         MzLib,
+        TRNAdb,
         Unknown,
     }
 
@@ -57,6 +58,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 return RnaFastaHeaderType.MzLib;
             if (line.StartsWith(">ENST"))
                 return RnaFastaHeaderType.Ensembl;
+            if (line.StartsWith(">tdb"))
+                return RnaFastaHeaderType.TRNAdb;
             if (_ncbiAssemblyHeaderRegex.IsMatch(line))
                 return RnaFastaHeaderType.NcbiAssembly;
             if (_ncbiRefSeqGeneHeaderRegex.IsMatch(line))
@@ -126,6 +129,15 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 { "FullName", new FastaHeaderFieldRegex("FullName", @"^>mz\|[^|]+\|[^\s]+ ([^O]+) OS=", 0, 1) },
                 { "Organism", new FastaHeaderFieldRegex("Organism", @"OS=([^ ]+)", 0, 1) },
                 { "Gene", new FastaHeaderFieldRegex("Gene", @"GN=([^\s]*)", 0, 1) },
+            };
+
+        public static readonly Dictionary<string, FastaHeaderFieldRegex> TRNAdbFieldRegexes =
+            new()
+            {
+                // >tdbR00000016 — tRNAdb accessions; the bare header's single identifier serves as both accession and name
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(\S+)", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>(\S+)", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"(?!.)", 0, 1) },
             };
 
     #endregion
@@ -214,6 +226,14 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                                 case RnaFastaHeaderType.MzLib:
                                     regexes = MzLibRegexes;
                                     identifierHeader = "Accession";
+                                    break;
+                                case RnaFastaHeaderType.TRNAdb:
+                                    regexes = TRNAdbFieldRegexes;
+                                    identifierHeader = "Accession";
+
+                                    // TDB sequences somethimes throw in a lowercase for unconserved modificaitons.
+                                    // A future implementation could encode sequence variants, for now we just convert. 
+                                    sequenceTransformations.Add(SequenceTransformationOnRead.ToUpper);
                                     break;
                                 default:
                                     throw new MzLibUtil.MzLibException("Unknown fasta header format: " + line);
