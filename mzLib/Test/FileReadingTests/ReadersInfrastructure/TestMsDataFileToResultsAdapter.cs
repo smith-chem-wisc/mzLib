@@ -158,5 +158,119 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             Assert.That(File.Exists(outfile + ".mzML"));
             File.Delete(outfile + ".mzML");
         }
+
+        /// <summary>
+        /// The adapter is the IResultFile type for every spectra format in
+        /// <see cref="SupportedFileTypeExtensions.GetResultFileType(SupportedFileType)"/> but can write
+        /// only mzML and MGF, so it used to append a second extension to any of the others' names:
+        /// "output.raw" produced "output.raw.mzML". Derived from GetResultFileType rather than a
+        /// literal list, so a format added to the adapter later is covered here without anyone
+        /// remembering to add it -- and a format that becomes WRITABLE later has to be excluded here,
+        /// which is what happened to MGF.
+        /// </summary>
+        [Test]
+        public void TestWritingRefusesTheOtherSpectraFormatsItReads()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var dataFile = FileReader.ReadFile<MsDataFileToResultFileAdapter>(path);
+            dataFile.LoadResults();
+
+            var formatsItReadsButCannotWrite = Enum.GetValues<SupportedFileType>()
+                .Where(type => type != SupportedFileType.MzML && type != SupportedFileType.Mgf)
+                .Where(type => ResultFileTypeOrNull(type) == typeof(MsDataFileToResultFileAdapter))
+                .ToList();
+            Assert.That(formatsItReadsButCannotWrite, Is.Not.Empty, "the adapter should serve more than mzML");
+
+            foreach (var format in formatsItReadsButCannotWrite)
+            {
+                var outfile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                    "refused" + format.GetFileExtension());
+
+                // The DataFiles output directory is shared and not cleaned between runs, so clear both
+                // candidate names first -- otherwise this asserts on somebody else's leftovers.
+                foreach (var stale in new[] { outfile, outfile + ".mzML" })
+                    if (File.Exists(stale))
+                        File.Delete(stale);
+
+                Assert.Throws<ArgumentException>(() => dataFile.WriteResults(outfile), $"{format} was not refused");
+
+                // Refusing has to mean nothing was written -- neither under the name asked for nor
+                // under the doubled name this issue is about.
+                Assert.That(File.Exists(outfile), Is.False, $"{format} left a file behind");
+                Assert.That(File.Exists(outfile + ".mzML"), Is.False, $"{format} still doubled the extension");
+            }
+        }
+
+        /// <summary>
+        /// The other half of the same rule: an extension the adapter CAN write is honoured, not
+        /// overruled. This is the case @nbollis asked for in review -- refusing ".mgf" was the right
+        /// answer only while there was no MGF writer, and #1165 added one, so a caller asking for MGF
+        /// now gets MGF rather than a refusal or a doubled extension.
+        /// </summary>
+        [Test]
+        public void TestWritingMgfWritesMgfRatherThanMzml()
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var outfile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "adapterOut.mgf");
+            var dataFile = FileReader.ReadFile<MsDataFileToResultFileAdapter>(path);
+            dataFile.LoadResults();
+
+            foreach (var stale in new[] { outfile, outfile + ".mzML" })
+                if (File.Exists(stale))
+                    File.Delete(stale);
+
+            dataFile.WriteResults(outfile);
+
+            Assert.That(File.Exists(outfile), "the caller's chosen name is what should exist");
+            Assert.That(File.Exists(outfile + ".mzML"), Is.False, "and the extension must not have doubled");
+
+            // Written in the format the name asked for, not mzML under an MGF name. BEGIN IONS is the
+            // MGF spectrum header; an mzML file would start with an XML declaration.
+            Assert.That(File.ReadAllText(outfile), Does.Contain("BEGIN IONS"));
+
+            File.Delete(outfile);
+        }
+
+        /// <summary>
+        /// Appending is still right for a name that merely contains a dot. "gradient_1.5uL" has a
+        /// Path.GetExtension of ".5uL", which is not a format request, and refusing it would break the
+        /// bare-path behaviour <see cref="TestWritingNoExtension"/> pins for anyone whose sample names
+        /// carry a decimal.
+        /// </summary>
+        [Test]
+        [TestCase("gradient_1.5uL")]
+        [TestCase("notes.txt")]
+        public void TestWritingAppendsToNamesThatAreNotSpectraFormats(string outfileName)
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "small.raw");
+            var outfile = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", outfileName);
+            var dataFile = FileReader.ReadFile<MsDataFileToResultFileAdapter>(path);
+            dataFile.LoadResults();
+
+            if (File.Exists(outfile + ".mzML"))
+                File.Delete(outfile + ".mzML");
+
+            dataFile.WriteResults(outfile);
+
+            Assert.That(File.Exists(outfile + ".mzML"));
+            Assert.That(File.Exists(outfile), Is.False);
+            File.Delete(outfile + ".mzML");
+        }
+
+        /// <summary>
+        /// GetResultFileType throws for the enum members that are not IResultFile types, which is not
+        /// what this fixture is asking about.
+        /// </summary>
+        private static Type ResultFileTypeOrNull(SupportedFileType type)
+        {
+            try
+            {
+                return type.GetResultFileType();
+            }
+            catch (MzLibException)
+            {
+                return null;
+            }
+        }
     }
 }
