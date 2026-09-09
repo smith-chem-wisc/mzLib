@@ -148,9 +148,16 @@ public static class ModificationOccupancyCalculator
         IEnumerable<ISpectralMatch> psms)
     {
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
-        var result = new Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>>();
 
-        var psmsWithBaseSeq = psmList.Where(p => p.BaseSequence != null).ToList();
+        // Unresolved has two spellings: an implementation may leave BaseSequence null - MetaMorpheus
+        // does, for a PSM ambiguous across base sequences - while BaseSpectralMatch coerces that null
+        // to empty. Both mean the same thing here, and an empty one left in trips the check below.
+        var psmsWithBaseSeq = psmList.Where(p => !string.IsNullOrEmpty(p.BaseSequence)).ToList();
+
+        // Nothing resolved means nothing to attribute a modification to, which is not an error.
+        // Returning here also keeps AllSame() off an empty sequence, where its First() would throw.
+        if (psmsWithBaseSeq.Count == 0)
+            return new Dictionary<int, List<SiteSpecificModificationOccupancy>>();
 
         if (!psmsWithBaseSeq.Select(p => p.BaseSequence).AllSame())
         {
