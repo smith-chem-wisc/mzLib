@@ -38,6 +38,27 @@ namespace Test.Transcriptomics
         }
 
         [Test]
+        public void RnaNucleosideFormulasMatchSharedChemistryConstants()
+        {
+            // Transcriptomics derives nucleoside formulas from the polymer residue (base + sugar-phosphate,
+            // then removing the phospho), while Chemistry.Formulas states them directly as the shared ground
+            // truth for residue chemistry. Both routes must agree so that Nucleotide and the MODOMICS loader
+            // consume identical chemistry and can never drift apart.
+            Assert.That(Nucleotide.AdenineBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.AdenosineChemicalFormula));
+            Assert.That(Nucleotide.CytosineBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.CytidineChemicalFormula));
+            Assert.That(Nucleotide.GuanineBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.GuanosineChemicalFormula));
+            Assert.That(Nucleotide.UracilBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.UridineChemicalFormula));
+            Assert.That(Nucleotide.PseudoUracilBase.NucleosideChemicalFormula, Is.EqualTo(Formulas.UridineChemicalFormula));
+
+            // The bonded bases the MODOMICS loader consumes are the same chemistry Nucleotide carries.
+            Assert.That(Nucleotide.AdenineBase.BaseChemicalFormula, Is.EqualTo(Formulas.AdenineBaseChemicalFormula));
+            Assert.That(Nucleotide.CytosineBase.BaseChemicalFormula, Is.EqualTo(Formulas.CytosineBaseChemicalFormula));
+            Assert.That(Nucleotide.GuanineBase.BaseChemicalFormula, Is.EqualTo(Formulas.GuanineBaseChemicalFormula));
+            Assert.That(Nucleotide.UracilBase.BaseChemicalFormula, Is.EqualTo(Formulas.UracilBaseChemicalFormula));
+            Assert.That(Nucleotide.DeoxyThymineBase.BaseChemicalFormula, Is.EqualTo(Formulas.ThymineBaseChemicalFormula));
+        }
+
+        [Test]
         [TestCaseSource(nameof(GetNucleotideTestCases))]
         public void TestCommonNucleotides(NucleotideTestCase testCase)
         {
