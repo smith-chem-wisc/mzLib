@@ -49,6 +49,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         private static readonly Regex _ncbiAssemblyHeaderRegex = new Regex(@"^>NM_\d+\.\d+ ", RegexOptions.Compiled);
         private static readonly Regex _ncbiRefSeqGeneHeaderRegex = new Regex(@"^>NC_\d+\.\d+:", RegexOptions.Compiled);
 
+        private static readonly ListPool<SequenceTransformationOnRead> transformPool = new(4);
 
         public static RnaFastaHeaderType DetectRnaFastaHeaderType(string line)
         {
@@ -157,10 +158,10 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
         public static List<RNA> LoadRnaFasta(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, out List<string> errors, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null, 
-            int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false)
+            int maxThreads = 1, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false, List<SequenceTransformationOnRead>? sequenceTransformations = null)
         {
             RnaFastaHeaderType? headerType = null;
-            List<SequenceTransformationOnRead> sequenceTransformations = new();
+            sequenceTransformations ??= new List<SequenceTransformationOnRead>();
             errors = new List<string>();
             List<RNA> targets = new List<RNA>();
             List<RNA> decoys = new List<RNA>();
@@ -184,7 +185,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
             using (var fastaFileStream = new FileStream(newDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
-                bool readFirstSequence = false;
                 StringBuilder sb = null;
                 StreamReader fasta = new StreamReader(fastaFileStream);
                 Dictionary<string, string> regexResults = new();
@@ -261,13 +261,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                         Dictionary<string, string> additonalDatabaseFields =
                             regexResults.ToDictionary(x => x.Key, x => x.Value);
 
-                        if (!readFirstSequence)
-                        {
-                            if (sb.ToString().IsAllLower())
-                                sequenceTransformations.Add(SequenceTransformationOnRead.ToUpper);
-                            readFirstSequence = true;
-                        }
-
                         List<Tuple<string, string>> geneNames = null!;
                         if (regexResults.ContainsKey("Gene"))
                         {
@@ -279,7 +272,15 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             }
                         }
 
-                        var sequence = SanitizeAndTransform(sb.ToString(), sequenceTransformations);
+                        string rawSequence = sb.ToString();
+                        var transformsForThisSequence = transformPool.Get();
+                        transformsForThisSequence.AddRange(sequenceTransformations);
+
+                        if (rawSequence.IsAllLower())
+                            transformsForThisSequence.Add(SequenceTransformationOnRead.ToUpper);
+
+                        var sequence = SanitizeAndTransform(rawSequence, transformsForThisSequence);
+                        transformPool.Return(transformsForThisSequence);
 
                         bool isDecoy = identifier.StartsWith(decoyIdentifier);
                         bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -350,11 +351,13 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
             int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false)
+            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false, 
+            List<SequenceTransformationOnRead>? sequenceTransformations = null)
         {
             var prespecified = ProteinDbLoader.GetPtmListFromProteinXml(rnaDbLocation);
             allKnownModifications = allKnownModifications ?? new List<Modification>();
             modTypesToExclude = modTypesToExclude ?? new List<string>();
+            sequenceTransformations ??= new List<SequenceTransformationOnRead>();
 
             if (prespecified.Count > 0 || allKnownModifications.Count() > 0)
             {
@@ -378,8 +381,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 decompressor.CopyTo(outputFileStream);
             }
 
-            bool readFirstSequence = false;
-            List<SequenceTransformationOnRead> transformsToApply = new();
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
                 Regex substituteWhitespace = new Regex(@"\s+");
@@ -396,14 +397,14 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                         }
                         if (xml.NodeType == XmlNodeType.EndElement || xml.IsEmptyElement)
                         {
-                            if (block.Sequence != null && !readFirstSequence)
-                            {
-                                if (block.Sequence.IsAllLower())
-                                    transformsToApply.Add(SequenceTransformationOnRead.ToUpper);
-                                readFirstSequence = true;
-                            }
+                            var transformsForThisEntry = transformPool.Get();
+                            transformsForThisEntry.AddRange(sequenceTransformations);
 
-                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment, transformsToApply);
+                            if (block.Sequence != null && block.Sequence.IsAllLower())
+                                transformsForThisEntry.Add(SequenceTransformationOnRead.ToUpper);
+
+                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment, transformsForThisEntry);
+                            transformPool.Return(transformsForThisEntry);
                             if (newProtein != null)
                             {
                                 if (newProtein.IsDecoy)

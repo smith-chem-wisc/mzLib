@@ -46,16 +46,17 @@ namespace Transcriptomics
         {
 
             AllKnownResidues = new Dictionary<string, Nucleotide>(66);
-            ResiduesByLetter = new Nucleotide['z' + 1];
+            ResiduesByLetter = new Nucleotide['z' + 1]; //Make it big enough for all the Upper and Lower characters
 
             // actual base chemical formula after bonding with the sugar
             // the sugar and phosphate has a chemical formula of C5H8O6P1
-            AdenineBase = AddResidue("Adenine", 'A', "Ade", "C5H4N5");
-            CytosineBase = AddResidue("Cytosine", 'C', "Cyt", "C4H4N3O1");
-            GuanineBase = AddResidue("Guanine", 'G', "Gua", "C5H4N5O1");
-            UracilBase = AddResidue("Uracil", 'U', "Ura", "C4H3N2O2");
-            InosineBase = AddResidue("Inosine", 'I', "Ino", "C5H3N4O1");
-            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", "C4H3N2O2"); // Y was choosen for pseudouridine due to it commonly being represented by Psi
+            // bonded base formulas come from Chemistry.Formulas, the shared ground truth for residue chemistry
+            AdenineBase = AddResidue("Adenine", 'A', "Ade", Formulas.AdenineBaseChemicalFormula);
+            CytosineBase = AddResidue("Cytosine", 'C', "Cyt", Formulas.CytosineBaseChemicalFormula);
+            GuanineBase = AddResidue("Guanine", 'G', "Gua", Formulas.GuanineBaseChemicalFormula);
+            UracilBase = AddResidue("Uracil", 'U', "Ura", Formulas.UracilBaseChemicalFormula);
+            InosineBase = AddResidue("Inosine", 'I', "Ino", Formulas.InosineBaseChemicalFormula);
+            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", Formulas.UracilBaseChemicalFormula); // Y was choosen for pseudouridine due to it commonly being represented by Psi
             TryAddAlternativeRepresentation(PseudoUracilBase, '\u03A8'); // uppercase Psi is accepted as an alternate one-letter representation
 
             // DNA bases which have the same mass as the ones above
