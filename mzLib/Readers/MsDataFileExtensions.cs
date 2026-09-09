@@ -47,11 +47,12 @@ namespace Readers
         /// <summary>
         /// Writes the file as Mascot Generic Format. MGF carries a single precursor m/z per spectrum, so
         /// the deconvoluted monoisotopic guess is preferred over the selected ion m/z where available.
-        /// Scans with no peaks are skipped. See <see cref="MgfMethods"/> for the field mapping.
+        /// Scans with no peaks are skipped. See <see cref="MgfMethods"/> for the field mapping, and for
+        /// why <paramref name="includeMs1Scans"/> trades portability against precursor fidelity.
         /// </summary>
-        public static void ExportAsMgf(this MsDataFile file, string destinationPath)
+        public static void ExportAsMgf(this MsDataFile file, string destinationPath, bool includeMs1Scans = true)
         {
-            MgfMethods.WriteMgf(file, destinationPath);
+            MgfMethods.WriteMgf(file, destinationPath, includeMs1Scans);
         }
 
         /// <summary>

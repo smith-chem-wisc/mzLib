@@ -16,6 +16,66 @@ public class ModificationOccupancyCalculatorTests
     #region CalculateProteinLevelOccupancy Tests
 
     [Test]
+    public void DigestionProductLevelAcceptsPsmsThatCompareEqual()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        ModificationMotif.TryGetMotif("D", out var motif);
+        var mod = new Modification("Phosphorylation", null, "Biological", null, motif, "Anywhere.", null, 79.966);
+
+        var form = new MockBioPolymerWithSetMods("ACDEF", "ACD[Phosphorylation]EF", protein, 1, 5,
+            new Dictionary<int, Modification> { { 4, mod } });
+
+        // BaseSpectralMatch compares on (FullFilePath, OneBasedScanNumber, FullSequence), so these two
+        // are equal without being the same object. Keying a dictionary on ISpectralMatch cannot assume
+        // otherwise: MetaMorpheus's implementation uses reference equality, this one does not.
+        var first = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [form]);
+        var second = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [form]);
+        Assert.That(first, Is.EqualTo(second), "precondition: the two matches compare equal");
+
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(
+            new List<ISpectralMatch> { first, second });
+
+        Assert.That(result.ContainsKey(4), Is.True);
+        Assert.That(result[4][0].ModifiedCount, Is.EqualTo(2));
+        Assert.That(result[4][0].TotalCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void DigestionProductLevelReturnsEmptyWhenNoBaseSequenceResolved()
+    {
+        // MetaMorpheus leaves BaseSequence null for a PSM ambiguous across base sequences. Filtering
+        // those out empties the list, and AllSame() opens with First().
+        var psms = new List<ISpectralMatch>
+        {
+            new UnresolvedSpectralMatch("test.raw", 1),
+            new UnresolvedSpectralMatch("test.raw", 2)
+        };
+
+        Assert.That(ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(psms), Is.Empty);
+    }
+
+    [Test]
+    public void DigestionProductLevelSkipsUnresolvedPsmWithoutInflatingDenominator()
+    {
+        var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
+        ModificationMotif.TryGetMotif("D", out var motif);
+        var mod = new Modification("Phosphorylation", null, "Biological", null, motif, "Anywhere.", null, 79.966);
+
+        var form = new MockBioPolymerWithSetMods("ACDEF", "ACD[Phosphorylation]EF", protein, 1, 5,
+            new Dictionary<int, Modification> { { 4, mod } });
+
+        var resolved = new MockSpectralMatch("test.raw", "ACD[Phosphorylation]EF", "ACDEF", 1.0, 1, [form]);
+        var unresolved = new MockSpectralMatch("test.raw", null, null, 1.0, 2);
+        Assert.That(unresolved.BaseSequence, Is.Empty, "precondition: the base class coerces null to empty");
+
+        var result = ModificationOccupancyCalculator.CalculateDigestionProductLevelOccupancy(
+            new List<ISpectralMatch> { resolved, unresolved });
+
+        Assert.That(result[4][0].ModifiedCount, Is.EqualTo(1));
+        Assert.That(result[4][0].TotalCount, Is.EqualTo(1), "the unresolved PSM is not evidence either way");
+    }
+
+    [Test]
     public void ProteinLevelWithSingleModOnSinglePeptide()
     {
         var protein = new MockBioPolymer("ACDEFGHIK", "P00001");
