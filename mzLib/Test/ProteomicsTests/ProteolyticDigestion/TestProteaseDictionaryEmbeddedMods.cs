@@ -287,7 +287,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(homoserineMod.DatabaseReference, Is.Not.Null,
                 "Homoserine lactone should have a database reference");
             Assert.That(homoserineMod.DatabaseReference.ContainsKey("Unimod"), Is.True);
-            Assert.That(homoserineMod.DatabaseReference["Unimod"], Contains.Item("10"));
+            Assert.That(homoserineMod.DatabaseReference["Unimod"], Contains.Item("11"));
         }
 
         [Test]

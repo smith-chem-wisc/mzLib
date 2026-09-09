@@ -534,7 +534,7 @@ TG   D or E
 PP   Anywhere.
 MT   Less Common
 CF   H-2 C-1 O-1
-DR   Unimod; 914.
+DR   Unimod; 1915.
 //
 ID   Reduction
 TG   D or S or T
