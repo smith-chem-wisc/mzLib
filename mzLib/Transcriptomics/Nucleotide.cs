@@ -20,6 +20,7 @@ namespace Transcriptomics
         public static Nucleotide GuanineBase { get; private set; }
         public static Nucleotide UracilBase { get; private set; }
         public static Nucleotide PseudoUracilBase { get; private set; }
+        public static Nucleotide InosineBase { get; private set; }
 
         // DNA
         public static Nucleotide DeoxyAdenineBase { get; private set; }
@@ -45,16 +46,17 @@ namespace Transcriptomics
         {
 
             AllKnownResidues = new Dictionary<string, Nucleotide>(66);
-            ResiduesByLetter = new Nucleotide['z' + 1]; //Make it big enough for all the Upper and Lower characters
+            ResiduesByLetter = new Nucleotide['z' + 1];
 
             // actual base chemical formula after bonding with the sugar
             // the sugar and phosphate has a chemical formula of C5H8O6P1
-            // bonded base formulas come from Chemistry.Formulas, the shared ground truth for residue chemistry
-            AdenineBase = AddResidue("Adenine", 'A', "Ade", Formulas.AdenineBaseChemicalFormula);
-            CytosineBase = AddResidue("Cytosine", 'C', "Cyt", Formulas.CytosineBaseChemicalFormula);
-            GuanineBase = AddResidue("Guanine", 'G', "Gua", Formulas.GuanineBaseChemicalFormula);
-            UracilBase = AddResidue("Uracil", 'U', "Ura", Formulas.UracilBaseChemicalFormula);
-            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", Formulas.UracilBaseChemicalFormula); // Y was choosen for pseudouridine due to it commonly being represented by Psi
+            AdenineBase = AddResidue("Adenine", 'A', "Ade", "C5H4N5");
+            CytosineBase = AddResidue("Cytosine", 'C', "Cyt", "C4H4N3O1");
+            GuanineBase = AddResidue("Guanine", 'G', "Gua", "C5H4N5O1");
+            UracilBase = AddResidue("Uracil", 'U', "Ura", "C4H3N2O2");
+            InosineBase = AddResidue("Inosine", 'I', "Ino", "C5H3N4O1");
+            PseudoUracilBase = AddResidue("PseudoUracil", 'Y', "Psu", "C4H3N2O2"); // Y was choosen for pseudouridine due to it commonly being represented by Psi
+            TryAddAlternativeRepresentation(PseudoUracilBase, '\u03A8'); // uppercase Psi is accepted as an alternate one-letter representation
 
             // DNA bases which have the same mass as the ones above
             // however, naming to deoxy- to distinguish DNA nucleotide mass calculation from RNA
@@ -74,7 +76,6 @@ namespace Transcriptomics
             AllKnownResidues.Add(residue.Name, residue);
             AllKnownResidues.Add(residue.Symbol, residue);
             ResiduesByLetter[residue.Letter] = residue;
-            ResiduesByLetter[Char.ToLower(residue.Letter)] = residue;
         }
 
         #endregion
@@ -186,7 +187,7 @@ namespace Transcriptomics
         /// <returns></returns>
         public static Nucleotide GetResidue(string symbol)
         {
-            return symbol.Length == 1 ? ResiduesByLetter[symbol[0]] : AllKnownResidues[symbol];
+            return symbol.Length == 1 ? GetResidue(symbol[0]) : AllKnownResidues[symbol];
         }
 
         /// <summary>
@@ -194,9 +195,12 @@ namespace Transcriptomics
         /// </summary>
         /// <param name="letter"></param>
         /// <returns></returns>
+        /// <exception cref="KeyNotFoundException">Thrown when the nucleotide letter does not exist in the dictionary.</exception>
         public static Nucleotide GetResidue(char letter)
         {
-            return ResiduesByLetter[letter];
+            if (!TryGetResidue(letter, out Nucleotide residue))
+                throw new KeyNotFoundException($"Nucleotide letter '{letter}' does not exist in the Nucleotide Dictionary.");
+            return residue;
         }
 
         /// <summary>
@@ -208,10 +212,13 @@ namespace Transcriptomics
         public static bool TryGetResidue(char letter, out Nucleotide residue)
         {
             residue = null;
-            if (letter > 'z' || letter < 0)
-                return false;
-            residue = ResiduesByLetter[letter];
-            return residue != null;
+            if (letter <= 'z')
+            {
+                residue = ResiduesByLetter[letter];
+                return residue != null;
+            }
+
+            return AllKnownResidues.TryGetValue(letter.ToString(CultureInfo.InvariantCulture), out residue);
         }
 
         /// <summary>
@@ -223,6 +230,46 @@ namespace Transcriptomics
         public static bool TryGetResidue(string symbol, out Nucleotide residue)
         {
             return AllKnownResidues.TryGetValue(symbol, out residue);
+        }
+
+        /// <summary>
+        /// Registers an additional string representation that resolves to the given residue.
+        /// Returns true if the representation was added or already mapped to an equivalent residue;
+        /// returns false if it maps to a different residue (leaving it unchanged).
+        /// </summary>
+        public static bool TryAddAlternativeRepresentation(Nucleotide residue, string alternative)
+        {
+            if (alternative.Length == 1)
+                return TryAddAlternativeRepresentation(residue, alternative[0]);
+
+            return TryAddAlternativeRepresentationCore(residue, alternative, addCharLookup: false);
+        }
+
+        /// <summary>
+        /// Registers an additional single-character representation that resolves to the given residue.
+        /// ASCII characters are added to both the fast char lookup table and the string-keyed dictionary;
+        /// non-ASCII characters only to the string-keyed dictionary.
+        /// Returns true if the representation was added or already mapped to an equivalent residue;
+        /// returns false if it maps to a different residue (leaving it unchanged).
+        /// </summary>
+        public static bool TryAddAlternativeRepresentation(Nucleotide residue, char alternative)
+        {
+            return TryAddAlternativeRepresentationCore(residue, alternative.ToString(CultureInfo.InvariantCulture), addCharLookup: alternative <= 'z');
+        }
+
+        private static bool TryAddAlternativeRepresentationCore(Nucleotide residue, string alternative, bool addCharLookup)
+        {
+            if (addCharLookup && ResiduesByLetter[alternative[0]] is { } existingByLetter && !existingByLetter.Equals(residue))
+                return false;
+
+            if (AllKnownResidues.TryGetValue(alternative, out Nucleotide existingBySymbol))
+                return existingBySymbol.Equals(residue);
+
+            if (addCharLookup)
+                ResiduesByLetter[alternative[0]] = residue;
+
+            AllKnownResidues[alternative] = residue;
+            return true;
         }
 
         #endregion
