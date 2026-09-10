@@ -37,7 +37,8 @@ namespace Readers
         CasanovoMzTab,
         DiaNnReport,
         Sdrf,
-        MaSSSimulatorPeptides
+        MaSSSimulatorPeptides,
+        MaSSSimulatorSpectra
     }
 
     public static class SupportedFileTypeExtensions
@@ -89,6 +90,7 @@ namespace Readers
                 SupportedFileType.DiaNnReport => "report.tsv",
                 SupportedFileType.Sdrf => ".sdrf.tsv",
                 SupportedFileType.MaSSSimulatorPeptides => ".masssim.peptides",
+                SupportedFileType.MaSSSimulatorSpectra => ".masssim.spectra",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -96,6 +98,8 @@ namespace Readers
         {
             if (filePath.EndsWith(SupportedFileType.MaSSSimulatorPeptides.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                 return SupportedFileType.MaSSSimulatorPeptides;
+            if (filePath.EndsWith(SupportedFileType.MaSSSimulatorSpectra.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                return SupportedFileType.MaSSSimulatorSpectra;
 
             switch (Path.GetExtension(filePath).ToLower())
             {
@@ -259,6 +263,7 @@ namespace Readers
                 SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
                 SupportedFileType.Sdrf => typeof(SdrfDocument),
                 SupportedFileType.MaSSSimulatorPeptides => typeof(MaSSSimulatorPeptideFile),
+                SupportedFileType.MaSSSimulatorSpectra => typeof(MaSSSimulatorSpectrumFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
