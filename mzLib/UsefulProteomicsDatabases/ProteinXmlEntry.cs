@@ -360,7 +360,7 @@ namespace UsefulProteomicsDatabases
         /// </returns>
         internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
+            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false, IList<SequenceTransformationOnRead>? transformationsToApply = null)
         {
             RNA result = null;
             if (xml.Name == "feature")
@@ -385,7 +385,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier, entrapmentIdentifier, isEntrapmentDb);
+                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier, entrapmentIdentifier, isEntrapmentDb, transformationsToApply);
             }
             return result;
         }
@@ -479,16 +479,15 @@ namespace UsefulProteomicsDatabases
         /// or <c>null</c> if the entry is incomplete.
         /// </returns>
         internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
-            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false, IList<SequenceTransformationOnRead>? transformationsToApply = null)
         {
             RNA result = null;
             bool isDecoy = false;
             bool isEntrapment = false;
             if (Accession != null && Sequence != null)
             {
-                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
-                // sometimes strange characters get added by RNA sequencing software, etc.
-                Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+                // sanitize the sequence 
+                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence, transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>());
                 // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
