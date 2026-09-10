@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -88,9 +89,10 @@ namespace Test.FileReadingTests.ExternalFileReading
             PytheasResult first = new PytheasResultFile(TestFilePath).First();
 
             // #MS2=5 counts the scored matches, but the line lists every annotated peak: parse all of them
-            Assert.That(first.MatchedIons.Count, Is.EqualTo(first.Ms2Matches.Split(' ').Length));
+            Assert.That(first.GetMatchedIons().Count, Is.EqualTo(first.Ms2Matches.Split(' ').Length));
+            Assert.That(first.UnparseableMs2Matches, Is.Empty);
 
-            PytheasMatchedIon firstIon = first.MatchedIons[0];
+            PytheasMatchedIon firstIon = first.GetMatchedIons()[0];
             Assert.That(firstIon.MeasuredMz, Is.EqualTo(892.167114));
             Assert.That(firstIon.OffsetPpm, Is.EqualTo(0.8));
             Assert.That(firstIon.NormalizedIntensity, Is.EqualTo(680));
@@ -98,6 +100,23 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(firstIon.IonAnnotation, Is.EqualTo("M-P(-1)"));
             Assert.That(firstIon.Charge, Is.EqualTo(-1));
             Assert.That(firstIon.RawMatch, Is.EqualTo("892.167114(0.8ppm)[680]:892.166417[M-P(-1)]"));
+        }
+
+        [Test]
+        public void TestPytheasResultGetMatchedIonsCollectsUnparseableTokens()
+        {
+            const string unparseable = "not-a-match-token";
+            var result = new PytheasResult
+            {
+                PrecursorIon = "500.0",
+                Ms2Matches = "892.167114(0.8ppm)[680]:892.166417[M-P(-1)] " + unparseable,
+            };
+
+            var ions = result.GetMatchedIons();
+
+            Assert.That(ions, Has.Count.EqualTo(1));
+            Assert.That(ions[0].RawMatch, Is.EqualTo("892.167114(0.8ppm)[680]:892.166417[M-P(-1)]"));
+            Assert.That(result.UnparseableMs2Matches, Is.EqualTo(new[] { unparseable }));
         }
 
         [Test]
@@ -201,6 +220,17 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(outputPath.ParseFileType(), Is.EqualTo(SupportedFileType.PytheasResult));
         }
 
+        [Test]
+        public void TestPytheasResultReadWriteByteRoundTrip()
+        {
+            PytheasResultFile original = new PytheasResultFile(TestFilePath);
+            string outputPath = Path.Combine(_outputDirectory, "byteRoundTrip.txt");
+
+            original.WriteResults(outputPath);
+
+            Assert.That(File.ReadAllBytes(outputPath), Is.EqualTo(File.ReadAllBytes(TestFilePath)));
+        }
+
 [Test]
         public void TestPytheasResultHeaderLinesRoundTrip()
         {
@@ -243,6 +273,30 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.That(file.Beta, Is.EqualTo(0.075));
             Assert.That(file.PrecursorIsotopologues, Is.True);
             Assert.That(file.MatchesHeader, Does.StartWith("m/z(meas) RT m/z(theo)"));
+        }
+
+        [Test]
+        public void TestPytheasHeaderPropertiesAvailableWithoutTouchingResults()
+        {
+            PytheasResultFile file = new PytheasResultFile(TestFilePath);
+
+            // The header getters must force the lazy load themselves; no Results/Count() access first.
+            Assert.That(file.HeaderLines, Has.Count.EqualTo(21));
+            Assert.That(file.Enzyme, Is.EqualTo("T1"));
+            Assert.That(file.Ms1Ppm, Is.EqualTo(16.0));
+            Assert.That(file.PrecursorIsotopologues, Is.True);
+            Assert.That(file.MatchesHeader, Does.StartWith("m/z(meas) RT m/z(theo)"));
+        }
+
+        [Test]
+        public void TestPytheasResultHeaderLinesDoNotDuplicateOnReload()
+        {
+            PytheasResultFile file = new PytheasResultFile(TestFilePath);
+            Assert.That(file.HeaderLines, Has.Count.EqualTo(21));
+
+            file.LoadResults();
+
+            Assert.That(file.HeaderLines, Has.Count.EqualTo(21));
         }
 
         [Test]

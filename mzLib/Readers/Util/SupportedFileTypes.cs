@@ -190,8 +190,11 @@ namespace Readers
                 }
 
                 case ".txt":
-                    using (var reader = new StreamReader(filePath))
+                    // Probe for the Pytheas header only when the file is readable; a missing or unreadable path
+                    if (File.Exists(filePath))
                     {
+                        using var reader = new StreamReader(
+                            new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
                         for (int i = 0; i < 5 && !reader.EndOfStream; i++)
                         {
                             var line = reader.ReadLine();

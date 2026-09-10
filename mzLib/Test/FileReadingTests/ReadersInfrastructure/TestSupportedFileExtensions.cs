@@ -171,6 +171,15 @@ namespace Test.FileReadingTests.ReadersInfrastructure
         }
 
         [Test]
+        public static void TestParseFileTypeMissingTxtFallsThroughToCrux()
+        {
+            string missingTxt = Path.Combine(TestContext.CurrentContext.TestDirectory, "definitely_missing_file_xyz.txt");
+            Assert.That(File.Exists(missingTxt), Is.False);
+
+            Assert.That(missingTxt.ParseFileType(), Is.EqualTo(SupportedFileType.CruxResult));
+        }
+
+        [Test]
         public static void TestGetFileExtension_Errors()
         {
             Exception e = Assert.Throws<MzLibException>(() => ((SupportedFileType)100).GetFileExtension());

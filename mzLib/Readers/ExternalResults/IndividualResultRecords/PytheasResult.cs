@@ -77,19 +77,44 @@ public class PytheasResult
 
     /// <summary>
     /// The MS2 <see cref="Ms2Matches"/> tokens parsed into typed <see cref="PytheasMatchedIon"/> records.
-    /// Populated only when the tokens are requested; reading stays a single pass over the raw line.
+    /// Parsing is deferred until this is called; reading stays a single pass over the raw line. Tokens that do
+    /// not match the expected layout are skipped and collected in <see cref="UnparseableMs2Matches"/> rather
+    /// than throwing, so malformed input cannot raise from a type accessor.
     /// </summary>
-    public List<PytheasMatchedIon> MatchedIons => _matchedIons ??= ParseMatchedIons();
+    public List<PytheasMatchedIon> GetMatchedIons()
+    {
+        if (_matchedIons == null)
+            _matchedIons = ParseMatchedIons();
+        return _matchedIons;
+    }
+
+    /// <summary>
+    /// Raw MS2 tokens from the most recent <see cref="GetMatchedIons"/> parse that did not match the expected
+    /// layout, in the order they appear. Empty unless a malformed token was encountered.
+    /// </summary>
+    public List<string> UnparseableMs2Matches { get; } = new();
 
     private List<PytheasMatchedIon>? _matchedIons;
 
     private List<PytheasMatchedIon> ParseMatchedIons()
     {
-        if (string.IsNullOrWhiteSpace(Ms2Matches))
-            return new List<PytheasMatchedIon>();
-        return Ms2Matches.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries)
-            .Select(PytheasMatchedIon.Parse)
-            .ToList();
+        var ions = new List<PytheasMatchedIon>();
+        UnparseableMs2Matches.Clear();
+        if (!string.IsNullOrWhiteSpace(Ms2Matches))
+        {
+            foreach (string token in Ms2Matches.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries))
+            {
+                try
+                {
+                    ions.Add(PytheasMatchedIon.Parse(token));
+                }
+                catch (MzLibException)
+                {
+                    UnparseableMs2Matches.Add(token);
+                }
+            }
+        }
+        return ions;
     }
 
     /// <summary>The final SCORE token verbatim, e.g. "SCORE=0.239(sumI=227;n=5;...)".</summary>
