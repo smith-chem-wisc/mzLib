@@ -510,8 +510,11 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             if (sequenceTransformations.Count == 0)
                 return cleanedSequence;
 
+            // ToUpperInvariant, not ToUpper: residue letters are a fixed ASCII alphabet, and under
+            // tr-TR/az-AZ a culture-sensitive ToUpper maps 'i' to 'İ' (U+0130), which no residue
+            // table knows -- that would abort the read of any lowercase sequence containing inosine.
             if (sequenceTransformations.Contains(SequenceTransformationOnRead.ToUpper))
-                cleanedSequence = cleanedSequence.ToUpper();
+                cleanedSequence = cleanedSequence.ToUpperInvariant();
 
             if (sequenceTransformations.Contains(SequenceTransformationOnRead.ConvertAllTtoU))
                 cleanedSequence = cleanedSequence.Replace('T', 'U');
