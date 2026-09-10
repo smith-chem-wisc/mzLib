@@ -1,5 +1,6 @@
 ﻿using MzLibUtil;
 using Readers.ExternalResults.ResultFiles;
+using Readers.MaSSSimulator;
 
 namespace Readers
 {
@@ -35,7 +36,8 @@ namespace Readers
         BrukerTimsTof,
         CasanovoMzTab,
         DiaNnReport,
-        Sdrf
+        Sdrf,
+        MaSSSimulatorPeptides
     }
 
     public static class SupportedFileTypeExtensions
@@ -86,6 +88,7 @@ namespace Readers
                 // appends when naming an output file.
                 SupportedFileType.DiaNnReport => "report.tsv",
                 SupportedFileType.Sdrf => ".sdrf.tsv",
+                SupportedFileType.MaSSSimulatorPeptides => ".masssim.peptides",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -252,6 +255,7 @@ namespace Readers
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
                 SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
                 SupportedFileType.Sdrf => typeof(SdrfDocument),
+                SupportedFileType.MaSSSimulatorPeptides => typeof(MaSSSimulatorPeptideFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }

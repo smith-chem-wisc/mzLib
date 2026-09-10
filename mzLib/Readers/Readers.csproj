@@ -23,6 +23,7 @@
 		<ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
 		<ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
 		<ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
+		<ProjectReference Include="..\Omics\Omics.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
