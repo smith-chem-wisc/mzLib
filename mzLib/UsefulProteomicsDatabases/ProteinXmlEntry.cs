@@ -677,9 +677,9 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Clear this object's properties
+        /// Clear this object's properties. Internal so the RNA loader can reset state after a skipped entry.
         /// </summary>
-        private void Clear()
+        internal void Clear()
         {
             EntryAttributes = null;
             Accession = null;

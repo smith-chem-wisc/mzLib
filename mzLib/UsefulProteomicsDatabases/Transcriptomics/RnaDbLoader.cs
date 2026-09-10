@@ -48,6 +48,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         private static readonly Regex SubstituteWhitespace = new Regex(@"\s+");
         private static readonly Regex _ncbiAssemblyHeaderRegex = new Regex(@"^>NM_\d+\.\d+ ", RegexOptions.Compiled);
         private static readonly Regex _ncbiRefSeqGeneHeaderRegex = new Regex(@"^>NC_\d+\.\d+:", RegexOptions.Compiled);
+        private static readonly Regex _trnaDbHeaderRegex = new Regex(@"^>tdb[A-Z]+\d+", RegexOptions.Compiled);
 
         private static readonly ListPool<SequenceTransformationOnRead> transformPool = new(4);
 
@@ -59,7 +60,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 return RnaFastaHeaderType.MzLib;
             if (line.StartsWith(">ENST"))
                 return RnaFastaHeaderType.Ensembl;
-            if (line.StartsWith(">tdb"))
+            if (_trnaDbHeaderRegex.IsMatch(line))
                 return RnaFastaHeaderType.TRNAdb;
             if (_ncbiAssemblyHeaderRegex.IsMatch(line))
                 return RnaFastaHeaderType.NcbiAssembly;
@@ -135,10 +136,12 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         public static readonly Dictionary<string, FastaHeaderFieldRegex> TRNAdbFieldRegexes =
             new()
             {
-                // >tdbR00000016 — tRNAdb accessions; the bare header's single identifier serves as both accession and name
-                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(\S+)", 0, 1) },
-                { "Name", new FastaHeaderFieldRegex("Name", @"^>(\S+)", 0, 1) },
-                { "Organism", new FastaHeaderFieldRegex("Organism", @"(?!.)", 0, 1) },
+                // Bare tRNAdb headers are just ">tdbR00000016" — a single tRNAdb accession that serves as both
+                // the accession and the name. The header carries no organism, so Organism is always empty:
+                // the pattern matches the zero-width start of the header and captures nothing.
+                { "Accession", new FastaHeaderFieldRegex("Accession", @"^>(tdb[A-Z]+\d+)", 0, 1) },
+                { "Name", new FastaHeaderFieldRegex("Name", @"^>(tdb[A-Z]+\d+)", 0, 1) },
+                { "Organism", new FastaHeaderFieldRegex("Organism", @"(?<Organism>^)", 0, 1) },
             };
 
     #endregion
@@ -231,8 +234,9 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                                     regexes = TRNAdbFieldRegexes;
                                     identifierHeader = "Accession";
 
-                                    // TDB sequences somethimes throw in a lowercase for unconserved modificaitons.
-                                    // A future implementation could encode sequence variants, for now we just convert. 
+                                    // TDB sequences sometimes carry a lowercase base for an unconserved residue.
+                                    // A future implementation could encode those as sequence variants; for now we
+                                    // just convert them to uppercase.
                                     sequenceTransformations.Add(SequenceTransformationOnRead.ToUpper);
                                     break;
                                 default:
@@ -279,30 +283,44 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                         if (rawSequence.IsAllLower())
                             transformsForThisSequence.Add(SequenceTransformationOnRead.ToUpper);
 
-                        var sequence = SanitizeAndTransform(rawSequence, transformsForThisSequence);
-                        transformPool.Return(transformsForThisSequence);
-
-                        bool isDecoy = identifier.StartsWith(decoyIdentifier);
-                        bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
-                        if (rnaIsEntrapment && isContaminant)
-                            throw new MzLibUtil.MzLibException($"RNA accession '{identifier}' cannot be both a contaminant and an entrapment sequence.",
-                                new ArgumentException("isContaminant and isEntrapment cannot both be true"));
-                        // Prepend entrapment identifier if accession doesn't already contain it
-                        if (rnaIsEntrapment && identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                        try
                         {
-                            if (isDecoy)
-                                identifier = decoyIdentifier + "_" + entrapmentIdentifier + "_" + identifier.Substring(decoyIdentifier.Length).TrimStart('_');
+                            var sequence = SanitizeAndTransform(rawSequence, transformsForThisSequence);
+
+                            bool isDecoy = identifier.StartsWith(decoyIdentifier);
+                            bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                            if (rnaIsEntrapment && isContaminant)
+                                throw new MzLibUtil.MzLibException($"RNA accession '{identifier}' cannot be both a contaminant and an entrapment sequence.",
+                                    new ArgumentException("isContaminant and isEntrapment cannot both be true"));
+                            // Prepend entrapment identifier if accession doesn't already contain it
+                            if (rnaIsEntrapment && identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                            {
+                                if (isDecoy)
+                                    identifier = decoyIdentifier + "_" + entrapmentIdentifier + "_" + identifier.Substring(decoyIdentifier.Length).TrimStart('_');
+                                else
+                                    identifier = entrapmentIdentifier + "_" + identifier;
+                            }
+
+                            RNA rna = new RNA(sequence, identifier,
+                                null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields, isEntrapment: rnaIsEntrapment);
+                            if (rna.Length == 0)
+                                errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
+                            else if (rna.IsDecoy)
+                                decoys.Add(rna);
                             else
-                                identifier = entrapmentIdentifier + "_" + identifier;
+                                targets.Add(rna);
                         }
-                        RNA rna = new RNA(sequence, identifier,
-                            null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields, isEntrapment: rnaIsEntrapment);
-                        if (rna.Length == 0)
-                            errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
-                        else if (rna.IsDecoy)
-                            decoys.Add(rna);
-                        else
-                            targets.Add(rna);
+                        // A letter the residue table does not know (e.g. tRNAdb's '_', meaning an unalignable
+                        // residue at that slot) throws out of the RNA constructor. Skip just this record so the
+                        // load degrades instead of failing the whole database, and surface it through `errors`.
+                        catch (ArgumentException e)
+                        {
+                            errors.Add($"RNA accession '{identifier}' was skipped from database: {rnaDbLocation} ({e.Message})");
+                        }
+                        finally
+                        {
+                            transformPool.Return(transformsForThisSequence);
+                        }
 
                         name = null;
                         organism = null;
@@ -349,7 +367,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
             bool isContaminant, IEnumerable<Modification> allKnownModifications,
             IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
-            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
+            out List<string> errors, int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
             int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
             string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false, 
             List<SequenceTransformationOnRead>? sequenceTransformations = null)
@@ -368,6 +386,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             List<RNA> targets = new List<RNA>();
             List<RNA> decoys = new List<RNA>();
             unknownModifications = new Dictionary<string, Modification>();
+            errors = new List<string>();
 
             string newProteinDbLocation = rnaDbLocation;
 
@@ -403,14 +422,28 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             if (block.Sequence != null && block.Sequence.IsAllLower())
                                 transformsForThisEntry.Add(SequenceTransformationOnRead.ToUpper);
 
-                            RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment, transformsForThisEntry);
-                            transformPool.Return(transformsForThisEntry);
-                            if (newProtein != null)
+                            try
                             {
-                                if (newProtein.IsDecoy)
-                                    decoys.Add(newProtein);
-                                else
-                                    targets.Add(newProtein);
+                                RNA newProtein = block.ParseRnaEndElement(xml, modTypesToExclude, unknownModifications, isContaminant, rnaDbLocation, decoyIdentifier, entrapmentIdentifier, isEntrapment, transformsForThisEntry);
+                                if (newProtein != null)
+                                {
+                                    if (newProtein.IsDecoy)
+                                        decoys.Add(newProtein);
+                                    else
+                                        targets.Add(newProtein);
+                                }
+                            }
+                            // A letter the residue table does not know throws out of the RNA constructor. Skip just
+                            // this entry so the load degrades instead of failing the whole database, clear the entry
+                            // state so the next entry parses cleanly, and surface the skip through `errors`.
+                            catch (ArgumentException e)
+                            {
+                                errors.Add($"RNA accession '{block.Accession ?? "<none>"}' was skipped from database: {rnaDbLocation} ({e.Message})");
+                                block.Clear();
+                            }
+                            finally
+                            {
+                                transformPool.Return(transformsForThisEntry);
                             }
                         }
                     }
@@ -425,6 +458,24 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             IEnumerable<RNA> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
             var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
             return Merge(toReturn).ToList();
+        }
+
+        /// <summary>
+        /// Loads RNA from an XML database. Backwards-compatible overload that discards the per-record skip
+        /// messages; use the overload with <c>out List&lt;string&gt; errors</c> to receive them.
+        /// </summary>
+        public static List<RNA> LoadRnaXML(string rnaDbLocation, bool generateTargets, DecoyType decoyType,
+            bool isContaminant, IEnumerable<Modification> allKnownModifications,
+            IEnumerable<string> modTypesToExclude, out Dictionary<string, Modification> unknownModifications,
+            int maxHeterozygousVariants = 4, int minAlleleDepth = 1,
+            int maxThreads = 1, IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapment = false,
+            List<SequenceTransformationOnRead>? sequenceTransformations = null)
+        {
+            return LoadRnaXML(rnaDbLocation, generateTargets, decoyType, isContaminant, allKnownModifications,
+                modTypesToExclude, out unknownModifications, out _, maxHeterozygousVariants, minAlleleDepth,
+                maxThreads, fivePrimeTerm, threePrimeTerm, decoyIdentifier, entrapmentIdentifier, isEntrapment,
+                sequenceTransformations);
         }
 
         public static IEnumerable<RNA> Merge(IEnumerable<RNA> mergeThese)

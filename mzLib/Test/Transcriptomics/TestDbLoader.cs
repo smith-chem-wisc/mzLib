@@ -110,10 +110,121 @@ namespace Test.Transcriptomics
                 Is.EqualTo("GACCUCGUGGCGCAAUGGUAGCGCGUCUGACUCCAGAUCAGAAGGUUGCGUGUUCGAAUCACGUCGGGGUCACCA"));
 
             Assert.That(first.Organism, Is.EqualTo(""));
+            Assert.That(oligos.All(p => p.Organism == ""), Is.True);
             Assert.That(first.DatabaseFilePath, Is.EqualTo(TRNAdbUnmodifedFastaPath));
             Assert.That(first.IsContaminant, Is.False);
             Assert.That(first.IsDecoy, Is.False);
             Assert.That(first.AdditionalDatabaseFields!.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public static void TestTRNAdbHeaderDetectionIsAnchored()
+        {
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdbR00000016"), Is.EqualTo(RnaFastaHeaderType.TRNAdb));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdbPDB000010"), Is.EqualTo(RnaFastaHeaderType.TRNAdb));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdb"), Is.EqualTo(RnaFastaHeaderType.Unknown));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdbanything"), Is.EqualTo(RnaFastaHeaderType.Unknown));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">TDBR00000016"), Is.EqualTo(RnaFastaHeaderType.Unknown));
+        }
+
+        [Test]
+        public static void TestTRNAdbUnsupportedLetterSkipsRecordAndReportsError()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"unsupported_letter_{Guid.NewGuid():N}.fasta");
+
+            try
+            {
+                File.WriteAllText(filePath,
+                    ">tdbR00000016\n" +
+                    "GGGGGAUUAGCUCAAAUGGUAGAGCGCUCGCUUAGCAUGCGAGAGGUAGCGGGAUCGAUGCCCGCAUCCUCCACCA\n" +
+                    ">tdbR00000832\n" +
+                    "CCUUCG_AUAGCUCAGCUGGUAGAGCGGAGGACUGUAGAUCCUUAGGUCGCUGGUUCGAAUCCGGCUCGGAGGACCA\n" +
+                    ">tdbR00000984\n" +
+                    "ACUUUUAAAGGAUAACAGCUAUCCAUUGGUCUUAGGCCCCAAAAAUUUUGGUGCAACUCCAAAUAAAAGUACCA\n");
+
+                var oligos = RnaDbLoader.LoadRnaFasta(filePath, true, DecoyType.None, false, out var errors);
+
+                // the record containing the unsupported '_' letter is skipped and reported, the others still load
+                Assert.That(errors.Count, Is.EqualTo(1));
+                Assert.That(errors[0], Does.Contain("tdbR00000832"));
+                Assert.That(oligos.Select(o => o.Accession), Is.EquivalentTo(new[] { "tdbR00000016", "tdbR00000984" }));
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
+        }
+
+        [Test]
+        public static void TestRnaXmlUnsupportedLetterSkipsRecordAndReportsError()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"unsupported_letter_{Guid.NewGuid():N}.xml");
+
+            try
+            {
+                File.WriteAllText(filePath,
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                    "<mzLibProteinDb>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer1</accession>\n" +
+                    "    <name>20mer1</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer1</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAGUGAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer_bad</accession>\n" +
+                    "    <name>20mer_bad</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer_bad</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAG_GAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer3</accession>\n" +
+                    "    <name>20mer3</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer3</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAGUGAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "</mzLibProteinDb>");
+
+                var rna = RnaDbLoader.LoadRnaXML(filePath, true, DecoyType.None, false,
+                    new List<Modification>(), new List<string>(), out var unknownMods, out var errors);
+
+                // the entry containing the unsupported '_' letter is skipped and reported, the others still load
+                Assert.That(errors.Count, Is.EqualTo(1));
+                Assert.That(errors[0], Does.Contain("20mer_bad"));
+                Assert.That(rna.Select(o => o.Accession), Is.EquivalentTo(new[] { "20mer1", "20mer3" }));
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
         }
 
         [Test]
