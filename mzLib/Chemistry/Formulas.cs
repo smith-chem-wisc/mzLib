@@ -25,6 +25,8 @@ public static class Formulas
     /// <summary>Uracil, bonded form (free base less one H). Also the base carried by pseudouridine (Y).</summary>
     public static ChemicalFormula UracilBaseChemicalFormula => ChemicalFormula.ParseFormula("C4H3N2O2");
 
+    public static ChemicalFormula InosineBaseChemicalFormula => ChemicalFormula.ParseFormula("C5H3N4O1");
+
     /// <summary>Thymine, bonded form (free base less one H).</summary>
     public static ChemicalFormula ThymineBaseChemicalFormula => ChemicalFormula.ParseFormula("C5H5N2O2");
 
