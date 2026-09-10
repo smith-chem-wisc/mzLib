@@ -230,6 +230,52 @@ namespace Omics.BioPolymerGroup
 
         #endregion
 
+        #region Rendering
+
+        /// <summary>
+        /// Tab-separated header line describing this group's own columns, matching the row returned
+        /// by <see cref="ToString"/>.
+        ///
+        /// Kept on the type, delegating to <see cref="BioPolymerGroupTsvSchema"/>, so there is one
+        /// implementation of how a column is produced while the member stays where its callers
+        /// expect it. MetaMorpheus's ProteinGroup overrides this and reads
+        /// <see cref="HasAssignedSampleIntensities"/>, so removing either in the same release that
+        /// introduces the schema would make that release one MetaMorpheus cannot adopt.
+        ///
+        /// A writer rendering a whole file should build the schema once from every group
+        /// (<see cref="BioPolymerGroupTsvSchema.For"/>) rather than taking the header from one group
+        /// and rows from the rest -- deriving header and rows from separate groups is what made the
+        /// table ragged before, and the dataset-wide schema is what fixes it.
+        /// </summary>
+        public virtual string GetTabSeparatedHeader() =>
+            TsvWriter.HeaderLine(BioPolymerGroupTsvSchema.For(new[] { this }));
+
+        /// <summary>
+        /// This group rendered as one tab-separated row, aligned with
+        /// <see cref="GetTabSeparatedHeader"/>.
+        /// </summary>
+        public override string ToString() =>
+            TsvWriter.RowLine(BioPolymerGroupTsvSchema.For(new[] { this }), this);
+
+        /// <summary>
+        /// Whether an engine assigned quantification to this group, and therefore whether its
+        /// intensity columns exist at all.
+        ///
+        /// Deliberately NOT <see cref="SampleGroupResult.HasIntensityData"/>. That answers a
+        /// per-sample-group question -- "did this sample group receive a value" -- and using it to
+        /// choose columns made a group whose samples were all unobserved describe a narrower table
+        /// than its neighbour. Both fields are required: an intensity dictionary without samples has
+        /// nothing to label, and samples without a dictionary have nothing to report.
+        ///
+        /// This is the same predicate <see cref="BioPolymerGroupTsvSchema.For"/> applies across a
+        /// dataset, evaluated over this group alone -- so the single-group schema above reproduces
+        /// exactly what this member used to gate, and no rendered output changes.
+        /// </summary>
+        protected bool HasAssignedSampleIntensities =>
+            SamplesForQuantification is { Count: > 0 } && IntensitiesBySample is not null;
+
+        #endregion
+
         #region Additional Properties
 
         /// <summary>
