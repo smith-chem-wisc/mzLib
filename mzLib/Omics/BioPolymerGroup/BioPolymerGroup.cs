@@ -20,17 +20,11 @@ namespace Omics.BioPolymerGroup
     ///   <item><description>FDR calculation support via cumulative target/decoy counting</description></item>
     /// </list>
     ///
-    /// This class holds data only; rendering it to a results file is the job of
-    /// <see cref="BioPolymerGroupTsvSchema"/> together with <see cref="TsvWriter"/>.
-    /// A row depends on the whole dataset — the quantification columns come from every group being
-    /// written — so no single group can render itself.
-    ///
-    /// Note for anyone migrating a caller: this type no longer overrides <c>ToString</c>, and there
-    /// is no compile-time guard against forgetting that. Writing a group directly
-    /// (<c>writer.WriteLine(group)</c>, <c>$"{group}"</c>) still compiles and silently emits the type
-    /// name instead of a data row. Marking an override <c>[Obsolete(error: true)]</c> does not help:
-    /// those calls bind to <see cref="object.ToString"/>, so the attribute is never consulted.
-    /// Build a schema and go through <see cref="TsvWriter"/> instead.
+    /// TSV output is defined by <see cref="BioPolymerGroupTsvSchema"/> and rendered by
+    /// <see cref="TsvWriter"/>. The compatibility members <see cref="GetTabSeparatedHeader"/> and
+    /// <see cref="ToString"/> delegate to a schema built from this group alone. A writer rendering a
+    /// whole file should instead build one schema from every group, because the quantification
+    /// columns depend on the complete dataset and every row must use the same schema.
     ///
     /// Fragment-level coverage is only calculated when PSMs implement <see cref="IHasSequenceCoverageFromFragments"/>.
     /// </summary>
