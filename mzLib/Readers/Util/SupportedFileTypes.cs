@@ -1,5 +1,6 @@
 ﻿using MzLibUtil;
 using Readers.ExternalResults.ResultFiles;
+using Readers.MaSSSimulator;
 
 namespace Readers
 {
@@ -35,7 +36,9 @@ namespace Readers
         BrukerTimsTof,
         CasanovoMzTab,
         DiaNnReport,
-        Sdrf
+        Sdrf,
+        MaSSSimulatorPeptides,
+        MaSSSimulatorSpectra
     }
 
     public static class SupportedFileTypeExtensions
@@ -86,11 +89,18 @@ namespace Readers
                 // appends when naming an output file.
                 SupportedFileType.DiaNnReport => "report.tsv",
                 SupportedFileType.Sdrf => ".sdrf.tsv",
+                SupportedFileType.MaSSSimulatorPeptides => ".masssim.peptides",
+                SupportedFileType.MaSSSimulatorSpectra => ".masssim.spectra",
                 _ => throw new MzLibException("File type not supported")
             };
         }
         public static SupportedFileType ParseFileType(this string filePath)
         {
+            if (filePath.EndsWith(SupportedFileType.MaSSSimulatorPeptides.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                return SupportedFileType.MaSSSimulatorPeptides;
+            if (filePath.EndsWith(SupportedFileType.MaSSSimulatorSpectra.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                return SupportedFileType.MaSSSimulatorSpectra;
+
             switch (Path.GetExtension(filePath).ToLower())
             {
                 case ".raw": return SupportedFileType.ThermoRaw;
@@ -252,6 +262,8 @@ namespace Readers
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
                 SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
                 SupportedFileType.Sdrf => typeof(SdrfDocument),
+                SupportedFileType.MaSSSimulatorPeptides => typeof(MaSSSimulatorPeptideFile),
+                SupportedFileType.MaSSSimulatorSpectra => typeof(MaSSSimulatorSpectrumFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
