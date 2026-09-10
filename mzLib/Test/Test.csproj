@@ -49,6 +49,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="FileReadingTests\ExternalFileTypes\MaSSSimulator_test.masssim.peptides">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <!-- Architecture-stamped input for TestNoArchitectureSpecificAssemblyReferences. Test data, not a
          dependency: pinned here rather than read from Readers\Thermo\ so that updating the vendored
          Thermo binaries cannot leave the positive control with nothing to assert. See the README beside it. -->

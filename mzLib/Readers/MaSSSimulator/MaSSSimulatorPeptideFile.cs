@@ -16,6 +16,7 @@ public sealed class MaSSSimulatorPeptideFile : ResultFile<MaSSSimulatorPeptide>
     public override Software Software { get; set; } = Software.Unspecified;
 
     public MaSSSimulatorPeptideFile(string filePath) : base(filePath) { }
+    public MaSSSimulatorPeptideFile() : base() { }
     public MaSSSimulatorPeptideFile(IEnumerable<MaSSSimulatorPeptide> peptides) : base() => Results = peptides.ToList();
 
     public override void LoadResults()

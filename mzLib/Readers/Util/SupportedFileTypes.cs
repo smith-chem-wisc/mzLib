@@ -94,6 +94,9 @@ namespace Readers
         }
         public static SupportedFileType ParseFileType(this string filePath)
         {
+            if (filePath.EndsWith(SupportedFileType.MaSSSimulatorPeptides.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                return SupportedFileType.MaSSSimulatorPeptides;
+
             switch (Path.GetExtension(filePath).ToLower())
             {
                 case ".raw": return SupportedFileType.ThermoRaw;
