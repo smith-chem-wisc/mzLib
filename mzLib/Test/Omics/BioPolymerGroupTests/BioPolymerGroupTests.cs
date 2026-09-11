@@ -538,6 +538,42 @@ namespace Test.Omics.BioPolymerGroupTests
         }
 
         /// <summary>
+        /// Every channel of a file reports the same count, which is what lets one column report it.
+        ///
+        /// The schema answers a count section from whichever of its results it indexed first, so
+        /// that is only sound while they agree. They do, by construction -- SampleGroupBuilder
+        /// computes psmsInFile once per file and hands that same list to each channel's
+        /// SpectralCount and to each channel's occupancy callback -- and this pins the agreement so
+        /// a later change that gave channels their own PSM lists cannot quietly make the rendered
+        /// count depend on indexing order.
+        /// </summary>
+        [Test]
+        public void SampleGroupResults_ChannelsOfOneFile_AgreeOnTheCountTheyReport()
+        {
+            var channel126 = new IsobaricQuantSampleInfo(@"C:\agree.raw", "Control", 1, 1, 0, 1, "126", 126.127, false);
+            var channel127N = new IsobaricQuantSampleInfo(@"C:\agree.raw", "Control", 1, 1, 0, 1, "127N", 127.124, false);
+            var channel127C = new IsobaricQuantSampleInfo(@"C:\agree.raw", "Control", 1, 1, 0, 1, "127C", 127.131, false);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { channel126, channel127N, channel127C };
+            _bioPolymerGroup.PopulateSampleGroupResults();
+
+            var results = _bioPolymerGroup.SampleGroupResults;
+
+            Assert.That(results, Has.Count.EqualTo(3), "one result per channel");
+
+            foreach (var section in results.GroupBy(r => r.CountIdentity))
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(section.Select(r => r.SpectralCount).Distinct().Count(), Is.EqualTo(1),
+                        $"channels of {section.Key} disagree on SpectralCount, so one count column cannot speak for them");
+                    Assert.That(section.Select(r => r.FormatOccupancy(new[] { "P12345" })).Distinct().Count(), Is.EqualTo(1),
+                        $"channels of {section.Key} disagree on count-based occupancy");
+                });
+            }
+        }
+
+        /// <summary>
         /// A run that quantified but measured nothing still advertises its intensity columns, empty.
         ///
         /// This is mzLib #1240's property stated as behaviour rather than as row width, and it is

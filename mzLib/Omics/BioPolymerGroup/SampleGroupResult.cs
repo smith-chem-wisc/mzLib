@@ -65,30 +65,26 @@ public sealed class SampleGroupResult
     /// strings, three of which sit beside a blank intensity while claiming <c>fraction=1.00(1/1)</c>.
     ///
     /// So the two spaces are declared separately and the schema is told which is which, rather than
-    /// inferring one from the other. Defaults to <see cref="Identity"/>, which is correct wherever
-    /// the two coincide: a label-free sample group and a design-less file are each their own count
-    /// section, and neither their columns nor their values move.
+    /// inferring one from the other.
     /// </summary>
-    public string CountIdentity
-    {
-        get => _countIdentity ?? Identity;
-        init => _countIdentity = value;
-    }
+    /// <remarks>
+    /// Null when this result is its own count section, which is the case for every design where the
+    /// two spaces coincide -- a label-free sample group and a design-less file each count only
+    /// themselves. The reader resolves null to <see cref="Identity"/>, so those designs keep their
+    /// column names and their order unchanged.
+    /// </remarks>
+    public string? CountIdentity { get; init; }
 
     /// <summary>
-    /// Display label for the count section, defaulting to <see cref="Label"/>. Like
-    /// <see cref="Label"/> it is not unique and is disambiguated before it reaches a column name,
-    /// widened with <see cref="LabelSourcePath"/> -- there is no separate path for the count
-    /// section, because the section a result counts under is always a file the result came from.
+    /// Display label for the count section, or null alongside a null <see cref="CountIdentity"/>,
+    /// where the reader resolves it to <see cref="Label"/>.
     /// </summary>
-    public string CountLabel
-    {
-        get => _countLabel ?? Label;
-        init => _countLabel = value;
-    }
-
-    private readonly string? _countIdentity;
-    private readonly string? _countLabel;
+    /// <remarks>
+    /// Like <see cref="Label"/> it is not unique, and is disambiguated before it reaches a column
+    /// name -- widened with <see cref="LabelSourcePath"/>, since there is no separate path for the
+    /// count section: the section a result counts under is always a file that result came from.
+    /// </remarks>
+    public string? CountLabel { get; init; }
 
     #endregion
 

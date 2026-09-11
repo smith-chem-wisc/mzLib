@@ -114,18 +114,23 @@ public static class BioPolymerGroupTsvSchema
         {
             foreach (var result in group.SampleGroupResults!)
             {
-                if (!countLabelByIdentity.ContainsKey(result.CountIdentity))
+                // A null CountIdentity means the result is its own count section, which is every
+                // design but the isobaric one. Resolved here rather than behind the property so the
+                // absent case reads the same way LabelSourcePath's does.
+                string countIdentity = result.CountIdentity ?? result.Identity;
+
+                if (!countLabelByIdentity.ContainsKey(countIdentity))
                 {
-                    countIdentities.Add(result.CountIdentity);
-                    countLabelByIdentity[result.CountIdentity] = (result.CountLabel, result.LabelSourcePath);
-                    samplesInCountSection[result.CountIdentity] = [];
+                    countIdentities.Add(countIdentity);
+                    countLabelByIdentity[countIdentity] = (result.CountLabel ?? result.Label, result.LabelSourcePath);
+                    samplesInCountSection[countIdentity] = [];
                 }
 
                 if (seen.Add(result.Identity))
                 {
                     identities.Add(result.Identity);
                     labelByIdentity[result.Identity] = (result.Label, result.LabelSourcePath);
-                    samplesInCountSection[result.CountIdentity].Add(result.Identity);
+                    samplesInCountSection[countIdentity].Add(result.Identity);
                 }
             }
         }
@@ -234,7 +239,7 @@ public static class BioPolymerGroupTsvSchema
                 foreach (var result in results)
                 {
                     _byIdentity.TryAdd(result.Identity, result);
-                    _byCountIdentity.TryAdd(result.CountIdentity, result);
+                    _byCountIdentity.TryAdd(result.CountIdentity ?? result.Identity, result);
                 }
             }
 
