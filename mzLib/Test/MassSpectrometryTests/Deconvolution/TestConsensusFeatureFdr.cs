@@ -236,6 +236,51 @@ namespace Test.MassSpectrometryTests.Deconvolution
                 "a fixed seed must reproduce the decoys and therefore the q-values");
         }
 
+        // ── D: thresholding a feature file on the q-value ─────────────────────
+
+        [Test]
+        public void D1_ThresholdKeepsPassingRowsAndDropsFailingOnes()
+        {
+            string path = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"fdr_thresh_{Guid.NewGuid():N}_ms1.feature");
+            try
+            {
+                System.IO.File.WriteAllLines(path, new[]
+                {
+                    "Sample_ID	ID	Mass	Intensity	Time_begin	Time_end	Time_apex	Apex_intensity	Minimum_charge_state	Maximum_charge_state	Minimum_fraction_id	Maximum_fraction_id	Q_value",
+                    "0	1	5000.0	1000	10.0	10.2	10.1	900	5	5	0	0	0.01",
+                    "0	2	6000.0	1000	10.0	10.2	10.1	900	5	5	0	0	0.90",
+                });
+                var file = new Readers.Ms1FeatureFile(path);
+                Assert.That(file.GetMs1Features(null).Count(), Is.EqualTo(2), "null keeps everything");
+                Assert.That(file.GetMs1Features(0.05).Count(), Is.EqualTo(1), "0.90 should be dropped");
+                Assert.That(file.GetMs1Features(0.95).Count(), Is.EqualTo(2));
+            }
+            finally { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); }
+        }
+
+        [Test]
+        public void D2_RowsWithoutAQValueSurviveAnyThreshold()
+        {
+            // An external TopFD or FLASHDeconv file carries no q-value. Treating absent as failing
+            // would silently return nothing the moment a caller set a threshold, which is the worst
+            // possible failure: a search would run on an empty precursor list and simply find less.
+            string path = System.IO.Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"fdr_noq_{Guid.NewGuid():N}_ms1.feature");
+            try
+            {
+                System.IO.File.WriteAllLines(path, new[]
+                {
+                    "Sample_ID	ID	Mass	Intensity	Time_begin	Time_end	Time_apex	Apex_intensity	Minimum_charge_state	Maximum_charge_state	Minimum_fraction_id	Maximum_fraction_id",
+                    "0	1	5000.0	1000	10.0	10.2	10.1	900	5	5	0	0",
+                });
+                var file = new Readers.Ms1FeatureFile(path);
+                Assert.That(file.GetMs1Features(0.001).Count(), Is.EqualTo(1),
+                    "a file with no q-values must not be emptied by a threshold");
+            }
+            finally { if (System.IO.File.Exists(path)) System.IO.File.Delete(path); }
+        }
+
         [Test]
         public void C5_EmptyInputIsHandled()
         {

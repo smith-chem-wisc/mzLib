@@ -18,6 +18,18 @@ namespace Readers
 
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() => Results.SelectMany(r => r.GetSingleChargeFeatures());
 
+        /// <summary>
+        /// Features at or below a q-value threshold. Rows with no q-value are KEPT: an absent
+        /// q-value means the producing tool did not estimate one, not that the feature failed the
+        /// threshold. Dropping them would silently discard every externally-produced TopFD or
+        /// FLASHDeconv feature the moment a threshold was supplied.
+        /// </summary>
+        public IEnumerable<ISingleChargeMs1Feature> GetMs1Features(double? maxQValue)
+            => maxQValue is null
+                ? GetMs1Features()
+                : Results.Where(r => r.QValue is null || r.QValue <= maxQValue.Value)
+                         .SelectMany(r => r.GetSingleChargeFeatures());
+
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
             deconSoftware)
         {
