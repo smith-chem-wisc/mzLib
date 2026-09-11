@@ -59,11 +59,37 @@ namespace MassSpectrometry;
 /// var decoys = Deconvoluter.Deconvolute(spectrum, decoyParams);
 /// </code>
 ///
+/// <para><b>Measured behaviour — read this before choosing a decoy</b></para>
 /// <para>
-/// Which decoy is stronger is an empirical question and is expected to depend on the regime;
-/// this class exists so the comparison can be made rather than assumed. Nothing here changes
-/// the default: <see cref="DecoyAveragine"/> remains what
-/// <see cref="DeconvolutionParameters.ToDecoyParameters"/> produces.
+/// Benchmarked over 14.4M envelopes from 20 Jurkat top-down files and 6 Velos bottom-up files
+/// (target vs decoy ROC-AUC on <c>GenericScore</c>, deconvolution at 4 ppm, z 1–60):
+/// </para>
+/// <list type="bullet">
+///   <item>This model is <b>charge-invariant, as designed</b>: mean AUC 0.592 at z ≤ 4 and 0.583
+///   at z ≥ 10, a degradation of 0.009. <see cref="DecoyAveragine"/> over the same range falls
+///   from 1.000 to 0.762, a degradation of 0.238, and its AUC correlates with its own predicted
+///   1/z tooth displacement at r = +0.747.</item>
+///   <item>But its <b>absolute separation is poor</b>: AUC 0.593 (top-down) and 0.700 (bottom-up),
+///   against 0.999 and 1.000 for the shifted model. Shuffled decoys score a median 0.916 where
+///   targets score 0.948 — the current scorer largely cannot tell a shape-falsified envelope from
+///   a real one, because it rewards finding peaks at predicted <i>positions</i> and this model
+///   does not move any.</item>
+///   <item>The two cross over at roughly <b>z ≈ 18–20</b>. Above it this model is the better decoy
+///   (z = 25: 0.607 vs 0.472; z = 30: 0.708 vs 0.555 — note the shifted model drops below 0.5,
+///   meaning its decoys outscore real envelopes). Below it the shifted model is far better.</item>
+/// </list>
+/// <para>
+/// So this is <b>not</b> a drop-in replacement. Shape falsification is only as strong as the
+/// scorer's sensitivity to shape, and the present envelope score saturates: it returns above 0.9
+/// for 55% of shuffled decoys. Pairing this model with a scorer that measures fit to the observed
+/// intensity pattern is what would make it work; on its own it trades a decoy that fails at high
+/// charge for one that is mediocre everywhere.
+/// </para>
+/// <para>
+/// Nothing here changes the default: <see cref="DecoyAveragine"/> remains what
+/// <see cref="DeconvolutionParameters.ToDecoyParameters"/> produces. This class is provided so the
+/// comparison can be made, and so a caller working at very high charge has an alternative whose
+/// failure mode is known.
 /// </para>
 /// </summary>
 public sealed class ShuffledAveragine : AverageResidue
