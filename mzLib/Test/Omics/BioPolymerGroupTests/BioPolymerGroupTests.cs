@@ -262,8 +262,8 @@ namespace Test.Omics.BioPolymerGroupTests
         [Test]
         public void ToStringAndHeader_HaveMatchingColumnCounts()
         {
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
-            var row = _bioPolymerGroup.ToString();
+            var header = GroupTsv.Header(_bioPolymerGroup);
+            var row = GroupTsv.Row(_bioPolymerGroup);
 
             var headerColumns = header.Split('\t').Length;
             var rowColumns = row.Split('\t').Length;
@@ -287,7 +287,7 @@ namespace Test.Omics.BioPolymerGroupTests
                 isDecoy: isDecoy, isContaminant: isContaminant, isEntrapment: isEntrapment);
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
-            var result = bg.ToString();
+            var result = GroupTsv.Row(bg);
 
             Assert.That(result, Does.Contain(expectedMarker));
         }
@@ -324,7 +324,7 @@ namespace Test.Omics.BioPolymerGroupTests
             });
 
             // Verify ToString doesn't throw with mixed types
-            Assert.DoesNotThrow(() => _bioPolymerGroup.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(_bioPolymerGroup));
         }
 
         /// <summary>
@@ -344,7 +344,7 @@ namespace Test.Omics.BioPolymerGroupTests
                 { sample127, 2222.0 }
             };
 
-            var result = _bioPolymerGroup.ToString();
+            var result = GroupTsv.Row(_bioPolymerGroup);
             var index1111 = result.IndexOf("1111");
             var index2222 = result.IndexOf("2222");
 
@@ -366,7 +366,7 @@ namespace Test.Omics.BioPolymerGroupTests
             var bioPolymer = new MockBioPolymer("SEQ", "BP00001", fullName: longName);
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
-            var result = bg.ToString();
+            var result = GroupTsv.Row(bg);
 
             Assert.That(result.Length, Is.LessThan(longName.Length));
         }
@@ -381,8 +381,8 @@ namespace Test.Omics.BioPolymerGroupTests
             _bioPolymerGroup.SamplesForQuantification = null;
             _bioPolymerGroup.IntensitiesBySample = null;
 
-            Assert.DoesNotThrow(() => _bioPolymerGroup.ToString());
-            Assert.DoesNotThrow(() => _bioPolymerGroup.GetTabSeparatedHeader());
+            Assert.DoesNotThrow(() => GroupTsv.Row(_bioPolymerGroup));
+            Assert.DoesNotThrow(() => GroupTsv.Header(_bioPolymerGroup));
             Assert.DoesNotThrow(() => _bioPolymerGroup.ConstructSubsetBioPolymerGroup(@"C:\test.raw"));
         }
 
@@ -405,7 +405,7 @@ namespace Test.Omics.BioPolymerGroupTests
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             // Without IntensitiesBySample, intensity columns should not appear
             Assert.That(header, Does.Not.Contain("Intensity_test1"));
@@ -427,7 +427,7 @@ namespace Test.Omics.BioPolymerGroupTests
             };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
             Assert.That(header, Does.Contain("Intensity_test1"));
             Assert.That(header, Does.Contain("Intensity_test2"));
         }
@@ -445,7 +445,7 @@ namespace Test.Omics.BioPolymerGroupTests
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             Assert.That(header, Does.Not.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Not.Contain("Intensity_sample_B"));
@@ -465,7 +465,7 @@ namespace Test.Omics.BioPolymerGroupTests
             };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             Assert.That(header, Does.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Contain("Intensity_sample_B"));
@@ -484,7 +484,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { sample127, sample126, sample128 };
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             // Channels should be ordered by file path first, then by channel label
             var index126 = header.IndexOf("fileA_126");
@@ -530,7 +530,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // N-terminal mods should appear as [ModName]- prefix
             Assert.That(output, Does.Contain("[Acetyl on P]-"));
         }
@@ -565,7 +565,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // C-terminal mods should appear as -[ModName] suffix
             Assert.That(output, Does.Contain("-[Amidated on E]"));
         }
@@ -604,7 +604,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // N-terminal mod occupancy should report position as aa1
             Assert.That(output, Does.Contain("pos0["));
             Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
@@ -638,7 +638,7 @@ namespace Test.Omics.BioPolymerGroupTests
             var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK-[Amidated on K]", "PEPTIDEK", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // C-terminal mod occupancy should report position as aa10 (protein length + 2)
             Assert.That(output, Does.Contain("pos9["));
             Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
@@ -675,7 +675,7 @@ namespace Test.Omics.BioPolymerGroupTests
             // Should not throw
             Assert.DoesNotThrow(() => group.CalculateSequenceCoverage());
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // Unknown location restriction mods should not appear in occupancy info
             Assert.That(output, Does.Not.Contain("UnknownMod"));
         }
@@ -751,7 +751,7 @@ namespace Test.Omics.BioPolymerGroupTests
             // Enable modification display
             group.DisplayModsOnPeptides = true;
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
 
             // Unique sequences column should contain the full modified sequence
             Assert.That(output, Does.Contain("PEP[Phospho]TIDE"));
@@ -792,7 +792,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // The modification should appear after the T (4th residue)
             Assert.That(output, Does.Contain("[Phospho on T]"));
         }
@@ -808,29 +808,29 @@ namespace Test.Omics.BioPolymerGroupTests
         [Test]
         public void MaxStringLength_ControlsTruncation()
         {
-            var originalMax = BioPolymerGroup.MaxStringLength;
+            var originalMax = BioPolymerGroupTsvSchema.MaxStringLength;
             try
             {
                 // Test with custom limit
-                BioPolymerGroup.MaxStringLength = 100;
+                BioPolymerGroupTsvSchema.MaxStringLength = 100;
                 var longName = new string('X', 200);
                 var bioPolymer = new MockBioPolymer("SEQ", "P00001", fullName: longName);
                 var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
-                var result = bg.ToString();
+                var result = GroupTsv.Row(bg);
 
                 // Full name column should be truncated
                 Assert.That(result, Does.Not.Contain(longName));
                 Assert.That(result.Contains(new string('X', 100)), Is.True);
 
                 // Test disabling truncation (0 or negative)
-                BioPolymerGroup.MaxStringLength = 0;
-                var result2 = bg.ToString();
+                BioPolymerGroupTsvSchema.MaxStringLength = 0;
+                var result2 = GroupTsv.Row(bg);
                 Assert.That(result2, Does.Contain(longName), "MaxStringLength=0 should disable truncation");
             }
             finally
             {
-                BioPolymerGroup.MaxStringLength = originalMax;
+                BioPolymerGroupTsvSchema.MaxStringLength = originalMax;
             }
         }
 
@@ -845,13 +845,13 @@ namespace Test.Omics.BioPolymerGroupTests
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
             // Should not throw with null fullName
-            Assert.DoesNotThrow(() => bg.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(bg));
 
             var bioPolymer2 = new MockBioPolymer("SEQ", "P00002", fullName: "");
             var bg2 = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer2 }, _allSequences, _uniqueSequences);
 
             // Should not throw with empty fullName
-            Assert.DoesNotThrow(() => bg2.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(bg2));
         }
 
         #endregion
