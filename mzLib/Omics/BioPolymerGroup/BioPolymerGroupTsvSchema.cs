@@ -117,7 +117,7 @@ public static class BioPolymerGroupTsvSchema
                 if (!countLabelByIdentity.ContainsKey(result.CountIdentity))
                 {
                     countIdentities.Add(result.CountIdentity);
-                    countLabelByIdentity[result.CountIdentity] = (result.CountLabel, result.CountLabelSourcePath);
+                    countLabelByIdentity[result.CountIdentity] = (result.CountLabel, result.LabelSourcePath);
                     samplesInCountSection[result.CountIdentity] = [];
                 }
 

@@ -77,7 +77,9 @@ public sealed class SampleGroupResult
 
     /// <summary>
     /// Display label for the count section, defaulting to <see cref="Label"/>. Like
-    /// <see cref="Label"/> it is not unique and is disambiguated before it reaches a column name.
+    /// <see cref="Label"/> it is not unique and is disambiguated before it reaches a column name,
+    /// widened with <see cref="LabelSourcePath"/> -- there is no separate path for the count
+    /// section, because the section a result counts under is always a file the result came from.
     /// </summary>
     public string CountLabel
     {
@@ -85,19 +87,8 @@ public sealed class SampleGroupResult
         init => _countLabel = value;
     }
 
-    /// <summary>
-    /// The file path <see cref="CountLabel"/> was derived from, for widening a colliding count
-    /// column name. Defaults to <see cref="LabelSourcePath"/>.
-    /// </summary>
-    public string? CountLabelSourcePath
-    {
-        get => _countLabelSourcePath ?? LabelSourcePath;
-        init => _countLabelSourcePath = value;
-    }
-
     private readonly string? _countIdentity;
     private readonly string? _countLabel;
-    private readonly string? _countLabelSourcePath;
 
     #endregion
 

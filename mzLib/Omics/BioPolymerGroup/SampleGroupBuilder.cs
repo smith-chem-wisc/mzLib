@@ -98,11 +98,21 @@ public static class SampleGroupBuilder
             {
                 var psmsInFile = psms.Where(p => p.FullFilePath.Equals(fileGroup.Key)).ToList();
 
-                // Ascending reporter-ion m/z, which is the order the channels are acquired in and
-                // the canonical one for an isobaric plex. Ordering by ChannelLabel instead sorts
-                // "127C" before "127N" in every N/C pair, because C precedes N in an ordinal
-                // comparison but the C reporter is the heavier of the two. Label is the tiebreak so
-                // the order stays deterministic if a design gives two channels the same m/z.
+                // Ascending reporter-ion m/z, which is the order mzLib already declares canonical:
+                // SampleExperimentalDesign.FromSamples says to "pass isobaric channels already
+                // sorted the way the search writes them (ascending reporter m/z, for MetaMorpheus)",
+                // and QuantificationWriter's positional Reporter_n columns follow that same design
+                // array. Ordering by ChannelLabel instead sorts "127C" before "127N" in every N/C
+                // pair -- C precedes N ordinally, but the C reporter is the heavier ion -- so the
+                // grouped table disagreed with the raw one about which 127 came first.
+                //
+                // Sorting on an explicit key rather than OrderBy(p => p): IsobaricQuantSampleInfo's
+                // CompareTo does not look at ChannelLabel or ReporterIonMz at all, and returns 1 in
+                // both directions for two channels of one file, which is not a total order.
+                //
+                // Label is the tiebreak so the order stays deterministic when a design leaves
+                // ReporterIonMz at its default -- nothing validates it -- rather than permuting
+                // arbitrarily.
                 foreach (var sample in fileGroup.OrderBy(p => p.ReporterIonMz)
                                                 .ThenBy(p => p.ChannelLabel, StringComparer.Ordinal))
                 {
@@ -125,7 +135,6 @@ public static class SampleGroupBuilder
                         // once per file instead of once per channel.
                         CountIdentity = fileGroup.Key,
                         CountLabel = Path.GetFileNameWithoutExtension(fileGroup.Key),
-                        CountLabelSourcePath = fileGroup.Key,
 
                         SpectralCount = psmsInFile.Count,
                         FilesInGroup = new Dictionary<string, ISampleInfo> { { label, sample } },
