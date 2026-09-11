@@ -36,6 +36,32 @@ namespace Omics.Digestion
         }
 
         /// <summary>
+        /// True when this agent cleaves the bond C-TERMINAL to <paramref name="residue"/>, under any of
+        /// its motifs. Trypsin reports true for K and R; Glu-C reports true for E alone; Asp-N and Lys-N
+        /// report false for every residue, because they cut N-terminal to their recognition residue.
+        ///
+        /// This is what makes a cleavage-blocking modification a question about the PAIR rather than
+        /// about the modification alone: an acetylated lysine abolishes a trypsin site and abolishes
+        /// nothing at all in a Glu-C digest.
+        /// </summary>
+        /// <remarks>
+        /// Residue-level, context-free -- see <see cref="DigestionMotif.CleavesCTerminalTo"/> for what
+        /// that does and does not take into account.
+        /// </remarks>
+        public bool CleavesCTerminalTo(char residue)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif.CleavesCTerminalTo(residue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Is length of given peptide okay, given minimum and maximum?
         /// </summary>
         /// <param name="length"></param>
