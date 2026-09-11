@@ -1,6 +1,10 @@
+using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using NUnit.Framework;
 using NUnit.Framework.Interfaces;
 using NUnit.Framework.Internal;
@@ -267,6 +271,49 @@ namespace Test.KoinaTests
         }
 
         /// <summary>
+        /// The shape the AlphaPeptDeep_ccs_generic stall took: Koina accepted the request and never
+        /// answered, so the session deadline expired and the call was cut off mid-flight. There is no
+        /// response body, so nothing about it reaches <see cref="KoinaServiceException"/>: the failure
+        /// arrives as a bare TaskCanceledException, and used to be reported Failed.
+        /// </summary>
+        /// <remarks>
+        /// Reproduced by handing the real client a token that has already expired, which is exactly
+        /// what the session CancellationTokenSource does to it when the deadline passes. No network: an
+        /// already-cancelled token is observed before the socket is, which matters because this fixture
+        /// carries no [Category] and therefore runs in the required job.
+        /// </remarks>
+        [Test]
+        public void AStalledKoinaCallSkipsTheTest()
+        {
+            using var deadlineAlreadyPassed = new CancellationTokenSource();
+            deadlineAlreadyPassed.Cancel();
+
+            HTTP.InferenceRequest("AlphaPeptDeep_ccs_generic",
+                    new Dictionary<string, object>(), deadlineAlreadyPassed.Token)
+                .GetAwaiter().GetResult();
+        }
+
+        /// <summary>
+        /// The other half, and the one that keeps the new branch honest. A test that expected a
+        /// cancellation and did not get one names TaskCanceledException in its message just as loudly
+        /// as a real abort does, so a guard keyed on the type name alone would report it Skipped.
+        ///
+        /// What separates them is the stack: this failure is recorded against the assertion, and never
+        /// enters PredictionClients.Koina.
+        /// </summary>
+        [Test]
+        public void AFailedThrowsAssertionNamingACancellationIsStillAFailure()
+        {
+            var recorded = Assert.Throws<AssertionException>(() =>
+                Assert.That(() => { }, Throws.InstanceOf<TaskCanceledException>()));
+
+            Assert.That(recorded!.Message, Does.Contain(nameof(TaskCanceledException)),
+                "premise: the message names the type, which is what could mislead the guard");
+            Assert.That(recorded.StackTrace ?? string.Empty, Does.Not.Contain("PredictionClients.Koina"),
+                "and it never entered the Koina client, which is what keeps the guard off it");
+        }
+
+        /// <summary>
         /// Hiding the base [OneTimeSetUp] with `new` leaves TWO of them on the type and NUnit runs both,
         /// so the live probe fired from a fixture documented as needing no network. Reflection is how
         /// that is visible, and it is the same lookup NUnit does.
@@ -334,6 +381,21 @@ namespace Test.KoinaTests
             if (throwsNothing is not null)
             {
                 Assert.That(throwsNothing.ResultState.Status, Is.EqualTo(TestStatus.Passed));
+            }
+
+            var stalled = Child(nameof(AStalledKoinaCallSkipsTheTest));
+            if (stalled is not null)
+            {
+                Assert.That(stalled.ResultState.Status, Is.EqualTo(TestStatus.Skipped),
+                    "a Koina call that was cut off before any answer must be skipped, not failed");
+                Assert.That(stalled.Message, Does.Contain("never answered it"));
+                Assert.That(stalled.Message, Does.Contain("third-party availability problem"));
+            }
+
+            var cancellationAssertion = Child(nameof(AFailedThrowsAssertionNamingACancellationIsStillAFailure));
+            if (cancellationAssertion is not null)
+            {
+                Assert.That(cancellationAssertion.ResultState.Status, Is.EqualTo(TestStatus.Passed));
             }
         }
     }
