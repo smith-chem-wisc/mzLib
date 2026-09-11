@@ -1,7 +1,9 @@
 ﻿using NUnit.Framework;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using Proteomics.ProteolyticDigestion;
+using Transcriptomics;
 using Transcriptomics.Digestion;
 
 namespace Test.Transcriptomics
@@ -18,7 +20,32 @@ namespace Test.Transcriptomics
             // Verify expected RNases are present
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase T1"));
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase A"));
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase 4"));
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("top-down"));
+        }
+
+        [Test]
+        public void TestRnase4_CleavesAfterUridineOnlyBeforePurines()
+        {
+            var rnase4 = RnaseDictionary.Dictionary["RNase 4"];
+
+            var products = rnase4.GetUnmodifiedOligos(new RNA("AUGCUGA"), 0, 1, int.MaxValue)
+                .Select(p => p.BaseSequence)
+                .ToArray();
+
+            Assert.That(products, Is.EqualTo(new[] { "AU", "GCU", "GA" }));
+        }
+
+        [Test]
+        public void TestRnase4_DoesNotCleaveAfterUridineBeforePyrimidinesOrUridine()
+        {
+            var rnase4 = RnaseDictionary.Dictionary["RNase 4"];
+
+            var products = rnase4.GetUnmodifiedOligos(new RNA("AUUCUGA"), 0, 1, int.MaxValue)
+                .Select(p => p.BaseSequence)
+                .ToArray();
+
+            Assert.That(products, Is.EqualTo(new[] { "AUUCU", "GA" }));
         }
 
         [Test]
