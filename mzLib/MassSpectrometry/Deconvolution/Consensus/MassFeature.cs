@@ -69,6 +69,22 @@ namespace MassSpectrometry.Deconvolution.Consensus
         public double SummedIntensity;
 
         /// <summary>
+        /// Intensity-weighted mean quality score over every scored envelope in the feature,
+        /// and the best single envelope score. Both are <see cref="double.NaN"/> when the
+        /// traces were built without a scorer.
+        ///
+        /// Weighting by intensity rather than taking a plain mean keeps a long tail of faint,
+        /// poorly-resolved observations from dragging down a feature whose abundant envelopes
+        /// are clean; the maximum is reported alongside because a feature with one excellent
+        /// envelope and many mediocre ones is a different object from one that is uniformly
+        /// mediocre, and the mean alone cannot distinguish them.
+        /// </summary>
+        public double QualityScore = double.NaN;
+
+        /// <inheritdoc cref="QualityScore"/>
+        public double MaxEnvelopeScore = double.NaN;
+
+        /// <summary>
         /// Populate derived fields from the current <see cref="Traces"/>
         /// list. Idempotent; safe to re-run after the trace list changes.
         /// <see cref="ConsensusMass"/> is the intensity-weighted mean of
@@ -91,6 +107,24 @@ namespace MassSpectrometry.Deconvolution.Consensus
             ConsensusMass = w == 0
                 ? Traces.Average(t => t.ConsensusMass)
                 : Traces.Sum(t => t.ConsensusMass * t.TotalIntensity) / w;
+
+            // Unscored envelopes carry NaN and are excluded rather than treated as zero.
+            var scored = Traces.SelectMany(t => t.Envelopes)
+                               .Where(e => !double.IsNaN(e.Score))
+                               .ToList();
+            if (scored.Count == 0)
+            {
+                QualityScore = double.NaN;
+                MaxEnvelopeScore = double.NaN;
+            }
+            else
+            {
+                double sw = scored.Sum(e => e.Intensity);
+                QualityScore = sw == 0
+                    ? scored.Average(e => e.Score)
+                    : scored.Sum(e => e.Score * e.Intensity) / sw;
+                MaxEnvelopeScore = scored.Max(e => e.Score);
+            }
         }
     }
 }
