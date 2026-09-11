@@ -156,6 +156,7 @@ namespace Readers
             AutoMap(Ms1Feature.CsvConfiguration);
             Map(m => m.QualityScore).Ignore();
             Map(m => m.MaxEnvelopeScore).Ignore();
+            Map(m => m.QValue).Ignore();
         }
     }
 }

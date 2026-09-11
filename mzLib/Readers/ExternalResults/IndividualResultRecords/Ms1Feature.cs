@@ -91,6 +91,14 @@ namespace Readers
         public double? MaxEnvelopeScore { get; set; }
 
         /// <summary>
+        /// Feature-level target-decoy q-value. Like the score columns this is an mzLib extension
+        /// outside the TopFD / FLASHDeconv schema and is written only on request.
+        /// </summary>
+        [Name("Q_value")]
+        [Optional]
+        public double? QValue { get; set; }
+
+        /// <summary>
         /// Expands this row into one <see cref="ISingleChargeMs1Feature"/> per charge in
         /// [<see cref="ChargeStateMin"/>, <see cref="ChargeStateMax"/>]. The per-charge
         /// <c>Intensity</c> is taken from <see cref="IntensityApex"/> (the apex intensity),

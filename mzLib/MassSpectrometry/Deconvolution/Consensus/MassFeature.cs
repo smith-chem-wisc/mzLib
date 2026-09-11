@@ -85,6 +85,14 @@ namespace MassSpectrometry.Deconvolution.Consensus
         public double MaxEnvelopeScore = double.NaN;
 
         /// <summary>
+        /// Target-decoy q-value from <see cref="ConsensusFeatureFdr"/>, or
+        /// <see cref="double.NaN"/> when FDR was not estimated. It estimates the fraction of
+        /// surviving features that are not real isotope envelopes, not the fraction that fail to
+        /// correspond to an identifiable molecule.
+        /// </summary>
+        public double QValue = double.NaN;
+
+        /// <summary>
         /// Populate derived fields from the current <see cref="Traces"/>
         /// list. Idempotent; safe to re-run after the trace list changes.
         /// <see cref="ConsensusMass"/> is the intensity-weighted mean of

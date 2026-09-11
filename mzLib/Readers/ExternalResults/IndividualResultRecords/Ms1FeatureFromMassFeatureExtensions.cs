@@ -131,6 +131,7 @@ namespace Readers
                 // charge run. NaN becomes null so the column is empty rather than "NaN".
                 QualityScore = double.IsNaN(feature.QualityScore) ? null : feature.QualityScore,
                 MaxEnvelopeScore = double.IsNaN(feature.MaxEnvelopeScore) ? null : feature.MaxEnvelopeScore,
+                QValue = double.IsNaN(feature.QValue) ? null : feature.QValue,
             };
     }
 }
