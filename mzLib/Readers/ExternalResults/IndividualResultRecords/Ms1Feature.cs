@@ -71,6 +71,26 @@ namespace Readers
         public int FractionIdMax { get; set; }
 
         /// <summary>
+        /// Deconvolution quality of the feature this row came from: the intensity-weighted mean
+        /// envelope score, and the best single envelope score. Null when the producer did not
+        /// score its features, which is the case for any externally-generated TopFD or
+        /// FLASHDeconv file.
+        ///
+        /// These columns are NOT part of the TopFD / FLASHDeconv <c>_ms1.feature</c> schema. They
+        /// are read when present and are written only when a caller asks for them
+        /// (<see cref="ResultFiles.Ms1FeatureFile.WriteResults(string, bool)"/>), so the default
+        /// output stays byte-compatible with tools that expect the original column set.
+        /// </summary>
+        [Name("Quality_score")]
+        [Optional]
+        public double? QualityScore { get; set; }
+
+        /// <inheritdoc cref="QualityScore"/>
+        [Name("Max_envelope_score")]
+        [Optional]
+        public double? MaxEnvelopeScore { get; set; }
+
+        /// <summary>
         /// Expands this row into one <see cref="ISingleChargeMs1Feature"/> per charge in
         /// [<see cref="ChargeStateMin"/>, <see cref="ChargeStateMax"/>]. The per-charge
         /// <c>Intensity</c> is taken from <see cref="IntensityApex"/> (the apex intensity),
