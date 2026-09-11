@@ -126,6 +126,12 @@ namespace Readers
                 ChargeStateMax = chargeMax,
                 FractionIdMin = fractionId,
                 FractionIdMax = fractionId,
+                // A feature split across several contiguous-charge rows carries the same
+                // feature-level score on each row: the score describes the species, not the
+                // charge run. NaN becomes null so the column is empty rather than "NaN".
+                QualityScore = double.IsNaN(feature.QualityScore) ? null : feature.QualityScore,
+                MaxEnvelopeScore = double.IsNaN(feature.MaxEnvelopeScore) ? null : feature.MaxEnvelopeScore,
+                QValue = double.IsNaN(feature.QValue) ? null : feature.QValue,
             };
     }
 }
