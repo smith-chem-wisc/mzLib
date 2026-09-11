@@ -14,6 +14,11 @@ public static class SampleGroupBuilder
     /// <summary>
     /// Groups by (Condition × BiologicalReplicate) for label-free samples, by (File × Channel)
     /// for isobaric samples, and by PSM source file when no experimental design is supplied.
+    ///
+    /// Isobaric results additionally declare a <see cref="SampleGroupResult.CountIdentity"/> of the
+    /// file they came from, because a spectral count is a property of the acquired file while an
+    /// intensity is a property of the channel. The other two designs leave it at its default, where
+    /// the two spaces coincide.
     /// </summary>
     /// <param name="samples">Samples contributing quantification, or null when no design exists.</param>
     /// <param name="intensitiesBySample">Measured intensities keyed by sample, or null when unavailable.
@@ -93,7 +98,13 @@ public static class SampleGroupBuilder
             {
                 var psmsInFile = psms.Where(p => p.FullFilePath.Equals(fileGroup.Key)).ToList();
 
-                foreach (var sample in fileGroup.OrderBy(p => p.ChannelLabel))
+                // Ascending reporter-ion m/z, which is the order the channels are acquired in and
+                // the canonical one for an isobaric plex. Ordering by ChannelLabel instead sorts
+                // "127C" before "127N" in every N/C pair, because C precedes N in an ordinal
+                // comparison but the C reporter is the heavier of the two. Label is the tiebreak so
+                // the order stays deterministic if a design gives two channels the same m/z.
+                foreach (var sample in fileGroup.OrderBy(p => p.ReporterIonMz)
+                                                .ThenBy(p => p.ChannelLabel, StringComparer.Ordinal))
                 {
                     string label = $"{Path.GetFileNameWithoutExtension(sample.FullFilePathWithExtension)}_{sample.ChannelLabel}";
 
@@ -106,6 +117,16 @@ public static class SampleGroupBuilder
                         Label = label,
                         Identity = $"{sample.FullFilePathWithExtension}|{sample.ChannelLabel}",
                         LabelSourcePath = sample.FullFilePathWithExtension,
+
+                        // The count belongs to the file, not to the channel: psmsInFile is one
+                        // file's PSMs and every channel of that file is handed the same list. Each
+                        // channel result still carries the value, because a result is what a column
+                        // reads from, but they all carry the SAME value and the schema renders it
+                        // once per file instead of once per channel.
+                        CountIdentity = fileGroup.Key,
+                        CountLabel = Path.GetFileNameWithoutExtension(fileGroup.Key),
+                        CountLabelSourcePath = fileGroup.Key,
+
                         SpectralCount = psmsInFile.Count,
                         FilesInGroup = new Dictionary<string, ISampleInfo> { { label, sample } },
                         IntensitiesBySample = channelIntensities

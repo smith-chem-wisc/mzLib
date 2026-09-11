@@ -1,4 +1,4 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 
 namespace Omics.BioPolymerGroup;
 
@@ -52,6 +52,52 @@ public sealed class SampleGroupResult
     /// groups in a dataset would otherwise present the same column name.
     /// </summary>
     public string? LabelSourcePath { get; init; }
+
+    /// <summary>
+    /// Identity of the section this result's <see cref="SpectralCount"/> and count-based occupancy
+    /// belong to, which is not always the section its intensity belongs to.
+    ///
+    /// A spectral count answers "how many spectra were acquired", so it is a property of the
+    /// acquired FILE. An intensity answers "how much was in this sample", so for an isobaric
+    /// experiment it is a property of the CHANNEL, and one file carries many. Reporting a count per
+    /// channel restates the file's count once per channel: an 11-plex protein row carries eleven
+    /// identical <c>SpectralCount_</c> values and eleven byte-identical <c>CountOccupancy_</c>
+    /// strings, three of which sit beside a blank intensity while claiming <c>fraction=1.00(1/1)</c>.
+    ///
+    /// So the two spaces are declared separately and the schema is told which is which, rather than
+    /// inferring one from the other. Defaults to <see cref="Identity"/>, which is correct wherever
+    /// the two coincide: a label-free sample group and a design-less file are each their own count
+    /// section, and neither their columns nor their values move.
+    /// </summary>
+    public string CountIdentity
+    {
+        get => _countIdentity ?? Identity;
+        init => _countIdentity = value;
+    }
+
+    /// <summary>
+    /// Display label for the count section, defaulting to <see cref="Label"/>. Like
+    /// <see cref="Label"/> it is not unique and is disambiguated before it reaches a column name.
+    /// </summary>
+    public string CountLabel
+    {
+        get => _countLabel ?? Label;
+        init => _countLabel = value;
+    }
+
+    /// <summary>
+    /// The file path <see cref="CountLabel"/> was derived from, for widening a colliding count
+    /// column name. Defaults to <see cref="LabelSourcePath"/>.
+    /// </summary>
+    public string? CountLabelSourcePath
+    {
+        get => _countLabelSourcePath ?? LabelSourcePath;
+        init => _countLabelSourcePath = value;
+    }
+
+    private readonly string? _countIdentity;
+    private readonly string? _countLabel;
+    private readonly string? _countLabelSourcePath;
 
     #endregion
 
