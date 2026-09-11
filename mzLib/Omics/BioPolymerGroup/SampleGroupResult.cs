@@ -25,7 +25,33 @@ public sealed class SampleGroupResult
     /// Display label for column headers (e.g., "Control_1" or a filename).
     /// Set by the caller based on experimental design context.
     /// </summary>
+    /// <remarks>
+    /// Not unique. Whenever the label is derived from a file name, two files with the same name in
+    /// different directories produce the same label. Use <see cref="Identity"/> to tell sample
+    /// groups apart; a label is for display only.
+    /// </remarks>
     public string Label { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Stable identifier for this sample group, unique within a dataset. What identifies a sample
+    /// group differs by experimental design: (condition, replicate) for label-free, (file, channel)
+    /// for isobaric, and the source file when there is no design at all.
+    /// </summary>
+    /// <remarks>
+    /// Matching a sample group across the records of a dataset must key on this, never on
+    /// <see cref="Label"/> (not unique) nor on position within a record's list (a record only has
+    /// sample groups for the files it was actually observed in, so the same index means different
+    /// files for different records — which silently files one record's counts under another
+    /// record's column).
+    /// </remarks>
+    public string Identity { get; init; } = string.Empty;
+
+    /// <summary>
+    /// The file path <see cref="Label"/> was derived from, or null when the label came from the
+    /// experimental design instead. Used to widen a label with parent directories when two sample
+    /// groups in a dataset would otherwise present the same column name.
+    /// </summary>
+    public string? LabelSourcePath { get; init; }
 
     #endregion
 
@@ -98,16 +124,26 @@ public sealed class SampleGroupResult
     public string FormatOccupancy(IEnumerable<string> orderedKeys, bool proteinLevel = true, bool intensityBased = false)
     {
         var occupancy = proteinLevel ? ParentOccupancy : DigestionProductOccupancy;
-        return FormatOccupancy(occupancy, orderedKeys, o => o.ToModInfoString(intensityBased));
+
+        // A site with no measured intensity has no stoichiometry to report. Formatting it anyway
+        // prints "fraction=0.0000(0/0)", which reads as a measured zero rather than as absent data —
+        // and does so in rows whose Intensity cell is blank, so the two disagree. Count-based
+        // occupancy needs no such filter: its denominator is the observation count, always real.
+        Func<SiteSpecificModificationOccupancy, bool> hasEvidence = intensityBased
+            ? site => site.TotalIntensity > 0
+            : _ => true;
+
+        return FormatOccupancy(occupancy, orderedKeys, hasEvidence, o => o.ToModInfoString(intensityBased));
     }
 
     /// <summary>
     /// Core formatting helper. Iterates ordered keys, formats each entity's modifications,
     /// and joins with the standard separators (; within entity, | between entities).
-    /// </summary>s
+    /// </summary>
     private static string FormatOccupancy(
         Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>> occupancy,
         IEnumerable<string> orderedKeys,
+        Func<SiteSpecificModificationOccupancy, bool> include,
         Func<SiteSpecificModificationOccupancy, string> formatter)
     {
         var parts = new List<string>();
@@ -120,6 +156,7 @@ public sealed class SampleGroupResult
             string entityString = string.Join(";",
                 positions.OrderBy(kvp => kvp.Key)
                     .SelectMany(kvp => kvp.Value)
+                    .Where(include)
                     .Select(formatter));
 
             if (!string.IsNullOrEmpty(entityString))
