@@ -21,12 +21,35 @@ using System;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Xml;
 using System.Xml.Serialization;
 
 namespace MzIdentML
 {
     public class MzidIdentifications : IIdentifications
     {
+        /// <summary>
+        /// Reports the legacy ".../mzIdentML/1.1.0" namespace as the schema's ".../mzIdentML/1.1", so a
+        /// document mzLib wrote before that was corrected deserializes with the generated 1.1.0 types.
+        /// </summary>
+        /// <remarks>
+        /// An <see cref="XmlRootAttribute"/> override is NOT sufficient and is actively worse than
+        /// failing: it renames only the root, so the root deserializes while every child element stays
+        /// bound to ".../1.1" and is silently dropped. Measured on a legacy document -- id came through,
+        /// cvList and AnalysisSoftwareList came back null. Remapping in the reader fixes all depths.
+        /// A compliant ".../1.1" document passes through untouched, so this is safe either way.
+        /// </remarks>
+        private sealed class LegacyMzidNamespaceReader : XmlTextReader
+        {
+            private const string LegacyNamespace = "http://psidev.info/psi/pi/mzIdentML/1.1.0";
+            private const string SchemaNamespace = "http://psidev.info/psi/pi/mzIdentML/1.1";
+
+            public LegacyMzidNamespaceReader(Stream stream) : base(stream) { }
+
+            public override string NamespaceURI =>
+                base.NamespaceURI == LegacyNamespace ? SchemaNamespace : base.NamespaceURI;
+        }
+
 
         private readonly mzIdentML110.Generated.MzIdentMLType110 dd110;
         private readonly mzIdentML111.Generated.MzIdentMLType111 dd111;
@@ -70,11 +93,30 @@ namespace MzIdentML
                     }
                     catch
                     {
-                        using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        try
                         {
-                            XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML130.Generated.MzIdentMLType130));
-                            // Read the XML file into the variable
-                            dd130 = _indexedSerializer.Deserialize(stream) as mzIdentML130.Generated.MzIdentMLType130;
+                            using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            {
+                                XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML130.Generated.MzIdentMLType130));
+                                // Read the XML file into the variable
+                                dd130 = _indexedSerializer.Deserialize(stream) as mzIdentML130.Generated.MzIdentMLType130;
+                            }
+                        }
+                        catch
+                        {
+                            // Last arm: an mzIdentML 1.1.0 document declaring the namespace mzLib itself
+                            // used to write, ".../mzIdentML/1.1.0", instead of the schema's
+                            // ".../mzIdentML/1.1". Every .mzID this library produced before that was
+                            // corrected is in the old namespace, and XmlSerializer matches namespaces
+                            // exactly, so without this arm every attempt above fails and the constructor
+                            // throws on files we wrote. It is last because a legacy-namespace rewrite
+                            // should never pre-empt a document that parses as a real format version.
+                            using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            using (LegacyMzidNamespaceReader reader = new LegacyMzidNamespaceReader(stream))
+                            {
+                                XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType110));
+                                dd110 = _indexedSerializer.Deserialize(reader) as mzIdentML110.Generated.MzIdentMLType110;
+                            }
                         }
                     }
                 }
