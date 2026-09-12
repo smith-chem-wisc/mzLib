@@ -1,10 +1,12 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using Omics.Modifications;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using UsefulProteomicsDatabases.Transcriptomics;
 using UsefulProteomicsDatabases;
 using Transcriptomics;
@@ -21,6 +23,9 @@ namespace Test.Transcriptomics
         public static string ModomicsUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
 
+        public static string TRNAdbUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "Transcriptomics/TestData/TRNAdbUnmodifiedTrimmed.fasta");
+
         /// <summary>
         /// Detect the headertype of the test cases
         /// </summary>
@@ -30,6 +35,7 @@ namespace Test.Transcriptomics
                 (Path.Combine(TestContext.CurrentContext.TestDirectory, "ProteomicsTests", "ProteaseFilesForLoadingTests", "DoubleProtease.tsv"), RnaFastaHeaderType.Unknown),
                 (ModomicsUnmodifedFastaPath, RnaFastaHeaderType.Modomics),
                 (Path.Combine(TestContext.CurrentContext.TestDirectory, "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta"), RnaFastaHeaderType.Modomics),
+                (TRNAdbUnmodifedFastaPath, RnaFastaHeaderType.TRNAdb),
                 
             };
 
@@ -76,6 +82,149 @@ namespace Test.Transcriptomics
             Assert.That(oligos.First().AdditionalDatabaseFields!["Subtype"], Is.EqualTo("Ala"));
             Assert.That(oligos.First().AdditionalDatabaseFields!["Feature"], Is.EqualTo("VGC"));
             Assert.That(oligos.First().AdditionalDatabaseFields!["Cellular Localization"], Is.EqualTo("prokaryotic cytosol"));
+        }
+
+        [Test]
+        public static void TestTRNAdbUnmodifiedFasta()
+        {
+            var oligos = RnaDbLoader.LoadRnaFasta(TRNAdbUnmodifedFastaPath, true, DecoyType.None, false,
+                out var errors);
+            Assert.That(errors.Count, Is.EqualTo(0));
+            Assert.That(oligos.Count, Is.EqualTo(11));
+
+            // bare tRNAdb headers carry only an accession, so it is used as both the identifier and the name
+            Assert.That(oligos.All(p => p.Accession == p.Name), Is.True);
+
+            var first = oligos.First(p => p.Accession == "tdbR00000016");
+            Assert.That(first.Accession, Is.EqualTo("tdbR00000016"));
+            Assert.That(first.Name, Is.EqualTo("tdbR00000016"));
+            Assert.That(first.BaseSequence,
+                Is.EqualTo("GGGGGAUUAGCUCAAAUGGUAGAGCGCUCGCUUAGCAUGCGAGAGGUAGCGGGAUCGAUGCCCGCAUCCUCCACCA"));
+
+            // tRNAdb entries may contain lowercase letters for unconserved residues; these are uppercased on read
+            var pdb010 = oligos.Single(p => p.Accession == "tdbPDB000010");
+            Assert.That(pdb010.BaseSequence,
+                Is.EqualTo("GGCCCGGAUAGCUCAGUCGGUAGAGCAUCAGACUUUUAAUCUGAGGGUCCAGGGUUCAAGUCCCUGUUCGGGCGCCA"));
+            var pdb025 = oligos.Single(p => p.Accession == "tdbPDB000025");
+            Assert.That(pdb025.BaseSequence,
+                Is.EqualTo("GACCUCGUGGCGCAAUGGUAGCGCGUCUGACUCCAGAUCAGAAGGUUGCGUGUUCGAAUCACGUCGGGGUCACCA"));
+
+            Assert.That(first.Organism, Is.EqualTo(""));
+            Assert.That(oligos.All(p => p.Organism == ""), Is.True);
+            Assert.That(first.DatabaseFilePath, Is.EqualTo(TRNAdbUnmodifedFastaPath));
+            Assert.That(first.IsContaminant, Is.False);
+            Assert.That(first.IsDecoy, Is.False);
+            Assert.That(first.AdditionalDatabaseFields!.Count, Is.EqualTo(0));
+        }
+
+        [Test]
+        public static void TestTRNAdbHeaderDetectionIsAnchored()
+        {
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdbR00000016"), Is.EqualTo(RnaFastaHeaderType.TRNAdb));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdbPDB000010"), Is.EqualTo(RnaFastaHeaderType.TRNAdb));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdb"), Is.EqualTo(RnaFastaHeaderType.Unknown));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">tdbanything"), Is.EqualTo(RnaFastaHeaderType.Unknown));
+            Assert.That(RnaDbLoader.DetectRnaFastaHeaderType(">TDBR00000016"), Is.EqualTo(RnaFastaHeaderType.Unknown));
+        }
+
+        [Test]
+        public static void TestTRNAdbUnsupportedLetterSkipsRecordAndReportsError()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"unsupported_letter_{Guid.NewGuid():N}.fasta");
+
+            try
+            {
+                File.WriteAllText(filePath,
+                    ">tdbR00000016\n" +
+                    "GGGGGAUUAGCUCAAAUGGUAGAGCGCUCGCUUAGCAUGCGAGAGGUAGCGGGAUCGAUGCCCGCAUCCUCCACCA\n" +
+                    ">tdbR00000832\n" +
+                    "CCUUCG_AUAGCUCAGCUGGUAGAGCGGAGGACUGUAGAUCCUUAGGUCGCUGGUUCGAAUCCGGCUCGGAGGACCA\n" +
+                    ">tdbR00000984\n" +
+                    "ACUUUUAAAGGAUAACAGCUAUCCAUUGGUCUUAGGCCCCAAAAAUUUUGGUGCAACUCCAAAUAAAAGUACCA\n");
+
+                var oligos = RnaDbLoader.LoadRnaFasta(filePath, true, DecoyType.None, false, out var errors);
+
+                // the record containing the unsupported '_' letter is skipped and reported, the others still load
+                Assert.That(errors.Count, Is.EqualTo(1));
+                Assert.That(errors[0], Does.Contain("tdbR00000832"));
+                Assert.That(oligos.Select(o => o.Accession), Is.EquivalentTo(new[] { "tdbR00000016", "tdbR00000984" }));
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
+        }
+
+        [Test]
+        public static void TestRnaXmlUnsupportedLetterSkipsRecordAndReportsError()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"unsupported_letter_{Guid.NewGuid():N}.xml");
+
+            try
+            {
+                File.WriteAllText(filePath,
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                    "<mzLibProteinDb>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer1</accession>\n" +
+                    "    <name>20mer1</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer1</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAGUGAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer_bad</accession>\n" +
+                    "    <name>20mer_bad</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer_bad</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAG_GAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer3</accession>\n" +
+                    "    <name>20mer3</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer3</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAGUGAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "</mzLibProteinDb>");
+
+                var rna = RnaDbLoader.LoadRnaXML(filePath, true, DecoyType.None, false,
+                    new List<Modification>(), new List<string>(), out var unknownMods, out var errors);
+
+                // the entry containing the unsupported '_' letter is skipped and reported, the others still load
+                Assert.That(errors.Count, Is.EqualTo(1));
+                Assert.That(errors[0], Does.Contain("20mer_bad"));
+                Assert.That(rna.Select(o => o.Accession), Is.EquivalentTo(new[] { "20mer1", "20mer3" }));
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
         }
 
         [Test]
@@ -263,6 +412,174 @@ namespace Test.Transcriptomics
             
             Assert.That(rna.Count, Is.EqualTo(1));
             Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+        }
+
+        [Test]
+        [TestCase(".fasta")]
+        [TestCase(".xml")]
+        public static void TestDbReadingDifferentExtensionsWithLowercaseSequence(string extension)
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"lowercase_20mer1_{Guid.NewGuid():N}{extension}");
+
+            try
+            {
+                if (extension.Equals(".fasta", StringComparison.OrdinalIgnoreCase))
+                {
+                    File.WriteAllText(filePath,
+                        ">id:2|Name:20mer1|SOterm:20mer1|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard\n" +
+                        "guacugccucuagugaagca");
+
+                    var rna = RnaDbLoader.LoadRnaFasta(filePath, true, DecoyType.None, false, out var errors);
+
+                    Assert.That(errors.Count, Is.EqualTo(0));
+                    Assert.That(rna.Count, Is.EqualTo(1));
+                    Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+                }
+                else
+                {
+                    File.WriteAllText(filePath,
+                        "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                        "<mzLibProteinDb>\n" +
+                        "  <entry>\n" +
+                        "    <accession>20mer1</accession>\n" +
+                        "    <name>20mer1</name>\n" +
+                        "    <protein>\n" +
+                        "      <recommendedName>\n" +
+                        "        <fullName>20mer1</fullName>\n" +
+                        "      </recommendedName>\n" +
+                        "    </protein>\n" +
+                        "    <gene />\n" +
+                        "    <organism>\n" +
+                        "      <name type=\"scientific\">standard</name>\n" +
+                        "    </organism>\n" +
+                        "    <sequence length=\"20\">guacugccucuagugaagca</sequence>\n" +
+                        "  </entry>\n" +
+                        "</mzLibProteinDb>");
+
+                    var rna = RnaDbLoader.LoadRnaXML(filePath, true, DecoyType.None, false,
+                        new List<Modification>(), new List<string>(), out _);
+
+                    Assert.That(rna.Count, Is.EqualTo(1));
+                    Assert.That(rna.First().BaseSequence, Is.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+                }
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
+        }
+
+        [Test]
+        public static void TestRnaFastaSecondRecordLowercaseIsNormalizedIndependently()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"case_varying_20mers_{Guid.NewGuid():N}.fasta");
+
+            try
+            {
+                File.WriteAllText(filePath,
+                    ">id:2|Name:20mer1|SOterm:20mer1|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard\n" +
+                    "GUACUGCCUCUAGUGAAGCA\n" +
+                    ">id:3|Name:20mer2|SOterm:20mer2|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard\n" +
+                    "guacugccucuagugaagca");
+
+                var rna = RnaDbLoader.LoadRnaFasta(filePath, true, DecoyType.None, false, out var errors);
+
+                Assert.That(errors.Count, Is.EqualTo(0));
+                Assert.That(rna.Count, Is.EqualTo(2));
+                Assert.That(rna.Select(o => o.BaseSequence), Is.All.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
+        }
+
+        [Test]
+        public static void TestRnaXmlSecondEntryLowercaseIsNormalizedIndependently()
+        {
+            string filePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"case_varying_xml_{Guid.NewGuid():N}.xml");
+
+            try
+            {
+                File.WriteAllText(filePath,
+                    "<?xml version=\"1.0\" encoding=\"utf-8\"?>\n" +
+                    "<mzLibProteinDb>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer1</accession>\n" +
+                    "    <name>20mer1</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer1</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">GUACUGCCUCUAGUGAAGCA</sequence>\n" +
+                    "  </entry>\n" +
+                    "  <entry>\n" +
+                    "    <accession>20mer2</accession>\n" +
+                    "    <name>20mer2</name>\n" +
+                    "    <protein>\n" +
+                    "      <recommendedName>\n" +
+                    "        <fullName>20mer2</fullName>\n" +
+                    "      </recommendedName>\n" +
+                    "    </protein>\n" +
+                    "    <gene />\n" +
+                    "    <organism>\n" +
+                    "      <name type=\"scientific\">standard</name>\n" +
+                    "    </organism>\n" +
+                    "    <sequence length=\"20\">guacugccucuagugaagca</sequence>\n" +
+                    "  </entry>\n" +
+                    "</mzLibProteinDb>");
+
+                var rna = RnaDbLoader.LoadRnaXML(filePath, true, DecoyType.None, false,
+                    new List<Modification>(), new List<string>(), out _);
+
+                Assert.That(rna.Count, Is.EqualTo(2));
+                Assert.That(rna.Select(o => o.BaseSequence), Is.All.EqualTo("GUACUGCCUCUAGUGAAGCA"));
+            }
+            finally
+            {
+                if (File.Exists(filePath))
+                    File.Delete(filePath);
+            }
+        }
+
+        /// <summary>
+        /// The lowercase-to-uppercase normalization must not be culture-sensitive. Under tr-TR/az-AZ a
+        /// culture-sensitive ToUpper maps 'i' to 'İ' (U+0130) rather than 'I', which no residue table
+        /// knows -- so a lowercase sequence containing inosine would abort the whole database read.
+        /// </summary>
+        [Test]
+        [TestCase("tr-TR")]
+        [TestCase("az-AZ")]
+        [TestCase("en-US")]
+        public static void TestLowercaseSequenceNormalizationIsCultureInvariant(string cultureName)
+        {
+            var originalCulture = Thread.CurrentThread.CurrentCulture;
+            try
+            {
+                Thread.CurrentThread.CurrentCulture = new CultureInfo(cultureName);
+
+                var transforms = new List<SequenceTransformationOnRead> { SequenceTransformationOnRead.ToUpper };
+
+                // 'i' is the inosine residue added alongside this normalization, and the only ASCII
+                // letter whose uppercase mapping depends on the current culture.
+                Assert.That(RnaDbLoader.SanitizeAndTransform("guacigccucuagugaagca", transforms),
+                    Is.EqualTo("GUACIGCCUCUAGUGAAGCA"));
+                Assert.That(RnaDbLoader.SanitizeAndTransform("i", transforms), Is.EqualTo("I"));
+            }
+            finally
+            {
+                Thread.CurrentThread.CurrentCulture = originalCulture;
+            }
         }
 
         [Test]

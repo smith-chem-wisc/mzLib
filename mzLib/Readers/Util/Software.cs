@@ -22,6 +22,7 @@
         ProsightPD,
         Chimerys,
         DiaNn,     // files tested were from DIA-NN 1.8/1.9 long-format report.tsv
+        Pytheas,
 
         // Quantification
         FlashLFQ,

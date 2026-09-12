@@ -1,4 +1,5 @@
 ﻿using Omics.Modifications.IO;
+using Omics.Modifications.IO.Modomics;
 using System.Reflection;
 
 namespace Omics.Modifications;
@@ -8,6 +9,7 @@ public enum ModificationNamingConvention
     MetaMorpheus, 
     MetaMorpheus_Rna, 
     MetaMorpheus_Protein, 
+    Modomics,
     UniProt, 
     Unimod,
     Mixed
@@ -28,14 +30,22 @@ public static class Mods
             .ToDictionary(m => m.IdWithMotif);
 
         LoadAllRnaModifications();
-        AllRnaModsList = MetaMorpheusRnaModifications.ToList();
+        AllRnaModsList = MetaMorpheusRnaModifications.Concat(ModomicsRnaModifications).ToList();
         AllKnownRnaModsDictionary = AllRnaModsList
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
 
-        // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts
-        MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(MetaMorpheusRnaModifications).ToList();
-        AllKnownMods = AllProteinModsList.Concat(AllRnaModsList).ToList();
+        // Combine protein and RNA mods, with Protein mods taking precedence in case of conflicts.
+        // MODOMICS RNA mods stay out of the combined candidate set: folding them in changes what a
+        // residue-less mass-only lookup resolves for protein modifications (the shortest-OriginalId
+        // tie-break in ModificationLookupBase makes "inosine" beat "Asn->Asp" for the deamidation
+        // formula). They remain fully addressable via the RNA-scoped collections and the Modomics
+        // naming convention.
+        var rnaModsForCombinedSets = MetaMorpheusRnaModifications
+            .Where(m => !ShouldExcludeFromAllKnownMods(m))
+            .ToList();
+        MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(rnaModsForCombinedSets).ToList();
+        AllKnownMods = AllProteinModsList.Concat(rnaModsForCombinedSets).ToList();
         AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
         foreach (var kvp in AllKnownProteinModsDictionary)
         {
@@ -47,6 +57,7 @@ public static class Mods
             { ModificationNamingConvention.MetaMorpheus, MetaMorpheusModifications},
             { ModificationNamingConvention.MetaMorpheus_Protein, MetaMorpheusProteinModifications},
             { ModificationNamingConvention.MetaMorpheus_Rna, MetaMorpheusRnaModifications },
+            { ModificationNamingConvention.Modomics, ModomicsRnaModifications },
             { ModificationNamingConvention.UniProt, UniprotModifications},
             { ModificationNamingConvention.Unimod, UnimodModifications },
             { ModificationNamingConvention.Mixed, AllKnownMods }
@@ -77,6 +88,8 @@ public static class Mods
 
 
     public static List<Modification> MetaMorpheusRnaModifications { get; private set; } = [];
+    public static List<Modification> ModomicsRnaModifications { get; private set; } = [];
+    public static ModomicsLoadResult ModomicsLoadReport { get; private set; } = new();
 
     /// <summary>
     /// All known RNA modifications indexed by IdWithMotif
@@ -163,6 +176,9 @@ public static class Mods
 
         using var rnaModsReader = new StreamReader(rnaModsStream!);
         MetaMorpheusRnaModifications = ModificationLoader.ReadModsFromFile(rnaModsReader, new Dictionary<string, int>(), out _).ToList();
+        
+        ModomicsLoadReport = ModomicsLoader.LoadModomics(MetaMorpheusRnaModifications);
+        ModomicsRnaModifications = ModomicsLoadReport.LoadedModifications;
     }
 
     #endregion
@@ -266,6 +282,14 @@ public static class Mods
             }
         }
     }
+
+    // The MetaMorpheus "A->I" inosine base-conversion mod is deamidation-mass-degenerate with
+    // the protein "Asn->Asp" mod (formula H-1N-1O, +0.984 Da), so it is excluded from the combined
+    // candidate sets for the same reason; the RNA-scoped collections (AllRnaModsList,
+    // MetaMorpheusRnaModifications, AllKnownRnaModsDictionary) retain it for base-conversion
+    // discovery and RNA sequence parsing.
+    private static bool ShouldExcludeFromAllKnownMods(Modification mod) =>
+        mod != null && (mod.OriginalId == "A->I" || mod.IdWithMotif == "A->I on A");
 
     #endregion
 }
