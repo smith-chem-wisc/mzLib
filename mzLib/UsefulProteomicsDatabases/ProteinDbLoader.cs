@@ -103,17 +103,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".xml");
+            string newProteinDbLocation = database.Location;
 
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -155,11 +146,6 @@ namespace UsefulProteomicsDatabases
 
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             // Expand the targets first, then mirror each expanded entry, so that every generated decoy is the
@@ -262,17 +248,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".fasta");
+            string newProteinDbLocation = database.Location;
 
             using (var fastaFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -419,11 +396,6 @@ namespace UsefulProteomicsDatabases
                         break;
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             if (!targets.Any())
