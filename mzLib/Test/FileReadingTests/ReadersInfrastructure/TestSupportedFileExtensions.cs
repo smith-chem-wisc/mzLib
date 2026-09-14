@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -49,6 +49,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv", SupportedFileType.Sdrf);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MaSSSimulator_test.masssim.spectra", SupportedFileType.MaSSSimulatorSpectra);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MaSSSimulator_test.masssim.peptides", SupportedFileType.MaSSSimulatorPeptides);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\match_output_Lumos_Orbi.txt", SupportedFileType.PytheasResult);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();
@@ -169,6 +170,15 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             {
                 _ = value.GetFileExtension();
             }
+        }
+
+        [Test]
+        public static void TestParseFileTypeMissingTxtFallsThroughToCrux()
+        {
+            string missingTxt = Path.Combine(TestContext.CurrentContext.TestDirectory, "definitely_missing_file_xyz.txt");
+            Assert.That(File.Exists(missingTxt), Is.False);
+
+            Assert.That(missingTxt.ParseFileType(), Is.EqualTo(SupportedFileType.CruxResult));
         }
 
         [Test]
