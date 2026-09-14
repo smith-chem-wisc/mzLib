@@ -815,6 +815,64 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
+        /// PSI-MOD writes a formal charge as magnitude then sign ("1+", "2-"). The XML reader used to keep
+        /// only the digits, so every negative charge came back positive. The dictionary drives the proton
+        /// correction in the ptmlist loaders, so a flipped sign moves an anionic modification by two
+        /// protons in the wrong direction: it loses a hydrogen it should have gained. TestPsiModLoading
+        /// already guards the OBO-text reader, which had its sign fixed separately; this pins the XML
+        /// reader, which is the one MetaMorpheus calls.
+        /// </summary>
+        [Test]
+        public void PsiModXml_FormalChargesKeepTheirSign()
+        {
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.LoadPsiMod(TestOntologies.PsiModXml));
+
+            Assert.AreEqual(1, formalCharges["PSI-MOD; MOD:00083"], "N6,N6,N6-trimethyllysine is 1+");
+            Assert.AreEqual(-1, formalCharges["PSI-MOD; MOD:01701"], "deprotonated residue is 1-");
+            Assert.AreEqual(-2, formalCharges["PSI-MOD; MOD:00145"], "tetrakis-L-cysteinyl iron is 2-");
+            Assert.AreEqual(-3, formalCharges["PSI-MOD; MOD:00147"], "hexakis-L-cysteinyl triiron trisulfide is 3-");
+            Assert.That(formalCharges.Values, Has.None.EqualTo(0));
+
+            // The OBO-text reader parses the same ontology; the two must not disagree about a sign.
+            string psiModOboPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> fromObo = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModOboPath));
+            foreach (var (accession, charge) in formalCharges)
+            {
+                if (fromObo.TryGetValue(accession, out int oboCharge))
+                    Assert.AreEqual(oboCharge, charge, accession);
+            }
+        }
+
+        /// <summary>
+        /// The other half of the sign: a negative formal charge has to ADD a proton to the MM line and a
+        /// hydrogen to the formula, mirroring the trimethyllysine case above. The entry is synthetic, a
+        /// carboxylate written as the anion, because no current ptmlist entry cross-references a negatively
+        /// charged PSI-MOD term; that is why the flipped sign has so far been silent.
+        /// </summary>
+        [Test]
+        public void NegativeFormalCharge_AdjustmentAddsAProton()
+        {
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.LoadPsiMod(TestOntologies.PsiModXml));
+            const string anionEntry =
+                "ID   Test carboxylate anion\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Glycine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "CF   C2 H3 O2\r\n" +
+                "MM   59.013853\r\n" +
+                "DR   PSI-MOD; MOD:01701.\r\n" +
+                "//";
+
+            Modification adjusted = ReadSingleModification(anionEntry, formalCharges);
+            Modification unadjusted = ReadSingleModification(anionEntry, new Dictionary<string, int>());
+
+            Assert.That(adjusted.MonoisotopicMass - unadjusted.MonoisotopicMass,
+                Is.EqualTo(Constants.ProtonMass).Within(1e-9), "a 1- charge puts a proton back on the MM line");
+            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "and a hydrogen back on the formula");
+        }
+
+        /// <summary>
         /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
         /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
         /// *2 filenames — which are deliberately absent from the output directory, so Load* downloads them.
