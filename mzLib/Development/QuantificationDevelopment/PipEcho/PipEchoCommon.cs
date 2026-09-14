@@ -37,6 +37,18 @@ public static class PipEchoCommon
     public const string EcoliSpectraDirDefault =
         @"D:\PIP_ECHO_PRIDE\EcoliDataset\Ecoli_CalibratedFiles-MetaMorpheus";
 
+    // The censored search: 500 confidently-identified human PSMs were removed from each of the 10
+    // pure-human runs (ground truth in CensoredPsms.psmtsv, with true RT), forcing MBR to transfer
+    // them back — this is what lets us measure NATIVE peak recovery / mis-localization. The same
+    // search DB concatenates E. coli onto human, so E. coli in a pure-human run is a false
+    // (entrapment) identification, which lets us measure PROPAGATED false-ID transfers.
+    public const string CensoredEntrapmentPsmtsvDefault =
+        @"D:\PIP_ECHO_PRIDE\EcoliDataset\Ecoli_SearchResults-MetaMorpheus\MM_ConcatenatedHumanDb_Search_CensoredFiles\Task1-SearchTask\AllPSMs.psmtsv";
+    public const string CensoredSpectraDirDefault =
+        @"D:\PIP_ECHO_PRIDE\EcoliDataset\Ecoli_CalibratedFiles-MetaMorpheus";
+    public const string CensoredGroundTruthDefault =
+        @"D:\PIP_ECHO_PRIDE\EcoliDataset\Ecoli_CensoredFiles-MetaMorpheus\CensoredPsms.psmtsv";
+
     public static string Env(string key, string fallback)
     {
         string? v = Environment.GetEnvironmentVariable(key);
@@ -221,6 +233,48 @@ public static class PipEchoCommon
                 map[key] = species;
             }
         }
+    }
+
+    /// <summary>A censored ground-truth identification: the peptide WAS confidently MS2-identified in
+    /// this file at this retention time, but its PSM was removed from the search so MBR must recover it.</summary>
+    public sealed record CensoredPsm(string FileNoExt, string FullSequence, double RetentionTime);
+
+    /// <summary>
+    /// Loads the CensoredPsms.psmtsv ground truth. This file uses slightly different column headers than
+    /// AllPSMs.psmtsv ("Retention Time" rather than "Scan Retention Time"), so column lookup is tolerant.
+    /// "File Name" is already stored without an extension, matching SpectraFileInfo.FilenameWithoutExtension.
+    /// </summary>
+    public static List<CensoredPsm> LoadCensoredGroundTruth(string path)
+    {
+        var list = new List<CensoredPsm>();
+        using var reader = new StreamReader(path);
+        string? header = reader.ReadLine();
+        if (header == null) return list;
+
+        var cols = header.Split('\t');
+        int Idx(params string[] names)
+        {
+            foreach (var n in names) { int i = Array.IndexOf(cols, n); if (i >= 0) return i; }
+            return -1;
+        }
+        int cFile = Idx("File Name");
+        int cFull = Idx("Full Sequence");
+        int cRt = Idx("Retention Time", "Scan Retention Time");
+        if (cFile < 0 || cFull < 0 || cRt < 0)
+            throw new InvalidOperationException($"Censored ground-truth is missing File Name / Full Sequence / Retention Time in {path}");
+        int maxIdx = Math.Max(cFile, Math.Max(cFull, cRt));
+
+        string? line;
+        while ((line = reader.ReadLine()) != null)
+        {
+            var f = line.Split('\t');
+            if (f.Length <= maxIdx) continue;
+            if (string.IsNullOrEmpty(f[cFull])) continue;
+            if (f[cFull].Contains('|')) continue; // ambiguous
+            if (!double.TryParse(f[cRt], NumberStyles.Any, CultureInfo.InvariantCulture, out double rt)) continue;
+            list.Add(new CensoredPsm(f[cFile], f[cFull], rt));
+        }
+        return list;
     }
 
     public static double Median(IReadOnlyList<double> values)
