@@ -19,22 +19,20 @@ public static class SampleGroupLabels
     /// here, so the grouped protein table and the quantification matrices cannot drift into naming
     /// the same channel two ways.
     ///
-    /// An isobaric channel is labelled <c>{sample}_{file}_{channel}</c>, by the name the design gives
-    /// it. When the design names no sample it falls back to <c>{condition}_{biorep}_{file}_{channel}</c>,
-    /// and when it gives no condition either — a channel nobody annotated — to <c>{file}_{channel}</c>.
-    /// The file stays in every form: the fractions of one plex share their sample, condition and
-    /// replicate and differ only by file, so a label without it would name six fractions alike and
-    /// leave <see cref="Disambiguate"/> nothing to separate them by but ordinals.
+    /// An isobaric channel is labelled <c>{sample}_{file}_{channel}</c> when the design names the
+    /// sample in it, and <c>{file}_{channel}</c> otherwise. The file stays in both forms: the fractions
+    /// of one plex share their sample and differ only by file, so a label without it would name six
+    /// fractions alike and leave <see cref="Disambiguate"/> nothing to separate them by but ordinals.
     ///
     /// A label-free sample is labelled by its file name when <paramref name="labelFreeByFileName"/>
     /// is set and <c>{condition}_{biorep + 1}</c> otherwise.
     /// </summary>
     /// <remarks>
-    /// The two replicate forms differ on purpose, because the designs number replicates differently.
-    /// <see cref="SpectraFileInfo"/> holds a zero-based replicate that label-free output has always
-    /// shown one-based, while an isobaric design supplies the number a person wrote — MetaMorpheus's
-    /// TMT design requires it to be at least 1 — so it is shown as given. Adding one to it would
-    /// label replicate 1 as 2.
+    /// An unnamed channel keeps exactly the label it had before sample names existed, rather than
+    /// falling back to its condition and replicate. That is what makes adding the name additive: a
+    /// caller that does not yet supply <see cref="IsobaricQuantSampleInfo.SampleName"/> sees no
+    /// column change at all, so it can adopt this release first and opt into the new labels when it
+    /// starts passing names.
     /// </remarks>
     /// <param name="sample">The sample to label.</param>
     /// <param name="labelFreeByFileName">For a label-free sample, whether to label it by file name
@@ -45,13 +43,9 @@ public static class SampleGroupLabels
         {
             string fileAndChannel = $"{Path.GetFileNameWithoutExtension(isobaric.FullFilePathWithExtension)}_{isobaric.ChannelLabel}";
 
-            if (!string.IsNullOrWhiteSpace(isobaric.SampleName))
-                return $"{isobaric.SampleName}_{fileAndChannel}";
-
-            if (!string.IsNullOrWhiteSpace(isobaric.Condition))
-                return $"{isobaric.Condition}_{isobaric.BiologicalReplicate}_{fileAndChannel}";
-
-            return fileAndChannel;
+            return string.IsNullOrWhiteSpace(isobaric.SampleName)
+                ? fileAndChannel
+                : $"{isobaric.SampleName}_{fileAndChannel}";
         }
 
         return labelFreeByFileName

@@ -207,9 +207,9 @@ namespace Test.Omics.BioPolymerGroupTests
         /// to 24.
         ///
         /// Channel columns are named by <see cref="SampleGroupLabels.ForSample"/>: 126 by the sample
-        /// the design names in it, 127N — which the design leaves unnamed — by its condition and
-        /// replicate. Both keep the file, and neither was <c>goldenA_126</c> any longer. The counting
-        /// columns belong to the file and are still named by it alone.
+        /// the design names in it, then its file and channel; 127N, which the design leaves unnamed,
+        /// keeps the file-and-channel name it always had. The counting columns belong to the file and
+        /// are still named by it alone.
         /// </summary>
         [Test]
         public void Isobaric_CountsAreOncePerFileAndIntensitiesOncePerChannel()
@@ -217,9 +217,9 @@ namespace Test.Omics.BioPolymerGroupTests
             AssertTsv(BuildIsobaricGroup(),
                 Compose([
                     "SpectralCount_goldenA",
-                    "Intensity_Patient7_goldenA_126", "Intensity_Control_1_goldenA_127N",
+                    "Intensity_Patient7_goldenA_126", "Intensity_goldenA_127N",
                     "CountOccupancy_goldenA",
-                    "IntensityOccupancy_Patient7_goldenA_126", "IntensityOccupancy_Control_1_goldenA_127N"
+                    "IntensityOccupancy_Patient7_goldenA_126", "IntensityOccupancy_goldenA_127N"
                 ]),
                 ComposeRow([
                     "3",

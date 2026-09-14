@@ -557,8 +557,8 @@ public class QuantificationDeliveryTests
 
         Assert.That(labels, Has.Count.EqualTo(3));
         Assert.That(labels.Distinct().Count(), Is.EqualTo(3));
-        Assert.That(labels[0], Is.EqualTo("C_1_a_126"));
-        Assert.That(labels[1], Is.EqualTo("C_1_a_126_2"));
+        Assert.That(labels[0], Is.EqualTo("a_126"));
+        Assert.That(labels[1], Is.EqualTo("a_126_2"));
     }
 
     /// <summary>
