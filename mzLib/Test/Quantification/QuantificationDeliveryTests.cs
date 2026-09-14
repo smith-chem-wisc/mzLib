@@ -465,6 +465,31 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
+    /// A design that lists one channel of a file twice is refused by the engine, whatever type the
+    /// design is.
+    ///
+    /// SampleExperimentalDesign already refuses this as it is built, but IExperimentalDesign is the
+    /// seam outside code implements -- MetaMorpheus has its own -- so the engine is the only place
+    /// every design passes. Without the check the second entry silently takes the first one's column.
+    /// </summary>
+    [Test]
+    public void Run_WithADesignThatRepeatsAChannel_ReturnsFailureNamingIt()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        var samples = design.FileNameSampleInfoDictionary[File1];
+        samples[1] = new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, false);
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain($"channel {Channels[0]} of '{File1}' is listed 2 times"));
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+    }
+
+    /// <summary>
     /// With all three write flags on, the engine writes three files, reports their paths, and the
     /// protein file's contents match the matrix it was built from.
     /// </summary>

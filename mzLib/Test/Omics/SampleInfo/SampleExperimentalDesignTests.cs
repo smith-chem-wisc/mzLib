@@ -86,6 +86,63 @@ namespace Test.Omics.SampleInfo
                 Is.EqualTo(new[] { "126", "127N", "127C" }));
         }
 
+        /// <summary>
+        /// One channel of one file listed twice is refused, naming the channel and both samples.
+        ///
+        /// The shape is PXD040455's, a public TMT × SILAC SDRF that lists a light and a heavy sample
+        /// under one reporter channel 551 times. Quantification indexes columns by sample, and a sample
+        /// name takes no part in equality, so the two would merge into one column carrying one of the
+        /// names over both. Refusing here is what makes leaving the name out of equality safe.
+        /// </summary>
+        [Test]
+        public void Add_RejectsOneChannelListedTwice_NamingBothSamples()
+        {
+            const string path = @"C:\Data\Chip1_F2.raw";
+            var light = new IsobaricQuantSampleInfo(path, "Control", 1, 1, 0, 1, "127N", 127.12476, false) { SampleName = "Chip1_F2_TMT127N_light" };
+            var heavy = new IsobaricQuantSampleInfo(path, "Control", 1, 1, 0, 1, "127N", 127.12476, false) { SampleName = "Chip1_F2_TMT127N_heavy" };
+
+            var ex = Assert.Throws<ArgumentException>(() => new SampleExperimentalDesign().Add(path, light, heavy));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex.Message, Does.Contain("channel 127N"));
+                Assert.That(ex.Message, Does.Contain("'Chip1_F2_TMT127N_light'"));
+                Assert.That(ex.Message, Does.Contain("'Chip1_F2_TMT127N_heavy'"));
+            });
+        }
+
+        /// <summary>
+        /// FromSamples — the entry point a design projected from SDRF will use — refuses it too.
+        /// </summary>
+        [Test]
+        public void FromSamples_RejectsOneChannelListedTwice()
+        {
+            const string path = @"C:\Data\tmt.raw";
+            var samples = new ISampleInfo[] { Channel(path, "126", 126.12776), Channel(path, "126", 126.12776) };
+
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(samples));
+            Assert.That(ex.Message, Does.Contain("channel 126 of 'tmt.raw' is listed 2 times"));
+        }
+
+        /// <summary>
+        /// One sample on the same channel of every plex is a bridge design, not a repeat, and must be
+        /// accepted. PXD008841 puts a sample named "pool" in 131N of every plex; the channels are in
+        /// different files, so they are different samples however they are named.
+        /// </summary>
+        [Test]
+        public void FromSamples_AcceptsOneNamedSampleOnTheSameChannelOfEveryPlex()
+        {
+            var samples = new ISampleInfo[]
+            {
+                new IsobaricQuantSampleInfo(@"C:\Data\TMTpool1_fr01.raw", "Pool", 1, 1, 1, 1, "131N", 131.13, true) { SampleName = "pool" },
+                new IsobaricQuantSampleInfo(@"C:\Data\TMTpool2_fr01.raw", "Pool", 1, 1, 1, 2, "131N", 131.13, true) { SampleName = "pool" }
+            };
+
+            var design = SampleExperimentalDesign.FromSamples(samples);
+
+            Assert.That(design.FileNameSampleInfoDictionary, Has.Count.EqualTo(2));
+        }
+
         [Test]
         public void Add_RejectsAnEmptySampleArray()
         {

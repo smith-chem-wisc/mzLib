@@ -266,6 +266,20 @@ public class QuantificationEngine
             badResults = QuantificationResults.Failure("QuantificationEngine Error: Experimental design is null.");
             return false;
         }
+        // A file that lists one sample twice would lose a column silently: the matrices index columns by
+        // sample, so the second entry takes the first one's place. SampleExperimentalDesign refuses this
+        // as it is built, but any IExperimentalDesign can arrive here.
+        foreach (var (fileName, samples) in ExperimentalDesign.FileNameSampleInfoDictionary ?? new())
+        {
+            string? repeated = samples == null ? null : SampleExperimentalDesign.DescribeRepeatedSample(samples);
+            if (repeated != null)
+            {
+                badResults = QuantificationResults.Failure(
+                    $"QuantificationEngine Error: The experimental design for '{fileName}' repeats a sample: {repeated}. " +
+                    "Quantification indexes columns by sample, so the repeats would merge into one column.");
+                return false;
+            }
+        }
         if(SpectralMatches.IsNullOrEmpty())
         {
             badResults = QuantificationResults.Failure("QuantificationEngine Error: No spectral matches provided for quantification.");
