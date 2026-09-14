@@ -219,8 +219,8 @@ public class CollapseStrategyTests
     {
         var columns = new List<ISampleInfo>
         {
-            new IsobaricQuantSampleInfo("f1.raw", "Reference", 1, 1, 1, 3, "126", 126.127, true),
-            new IsobaricQuantSampleInfo("f2.raw", "Reference", 1, 2, 1, 3, "126", 126.127, true)
+            new IsobaricQuantSampleInfo("f1.raw", "Reference", 1, 1, 1, 3, "126", 126.127, true) { SampleName = "Pool" },
+            new IsobaricQuantSampleInfo("f2.raw", "Reference", 1, 2, 1, 3, "126", 126.127, true) { SampleName = "Pool" }
         };
 
         var collapsed = new CollapseTechnicalReplicates()
@@ -236,6 +236,7 @@ public class CollapseStrategyTests
             Assert.That(isobaric.ReporterIonMz, Is.EqualTo(126.127).Within(1e-9));
             Assert.That(isobaric.PlexId, Is.EqualTo(3));
             Assert.That(isobaric.IsReferenceChannel, Is.True);
+            Assert.That(isobaric.SampleName, Is.EqualTo("Pool"), "the column is still named by its sample after collapse");
             Assert.That(isobaric.TechnicalReplicate, Is.EqualTo(0), "the collapsed dimension is zeroed");
             Assert.That(isobaric.Fraction, Is.EqualTo(1), "other dimensions survive");
         });

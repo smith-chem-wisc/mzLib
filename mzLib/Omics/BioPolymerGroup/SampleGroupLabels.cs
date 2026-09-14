@@ -1,7 +1,10 @@
+using MassSpectrometry;
+
 namespace Omics.BioPolymerGroup;
 
 /// <summary>
-/// Turns sample group labels into column names that are unique within one output file.
+/// Builds the label a sample's quantification columns are named by, and turns those labels into
+/// column names that are unique within one output file.
 ///
 /// A label is only a display name and is not unique — <see cref="SampleGroupBuilder"/> names a
 /// sample group after its file whenever there is no experimental design to name it by, so
@@ -11,6 +14,51 @@ namespace Omics.BioPolymerGroup;
 /// </summary>
 public static class SampleGroupLabels
 {
+    /// <summary>
+    /// The label for one sample's columns. Every writer that names a column after a sample asks
+    /// here, so the grouped protein table and the quantification matrices cannot drift into naming
+    /// the same channel two ways.
+    ///
+    /// An isobaric channel is labelled <c>{sample}_{file}_{channel}</c>, by the name the design gives
+    /// it. When the design names no sample it falls back to <c>{condition}_{biorep}_{file}_{channel}</c>,
+    /// and when it gives no condition either — a channel nobody annotated — to <c>{file}_{channel}</c>.
+    /// The file stays in every form: the fractions of one plex share their sample, condition and
+    /// replicate and differ only by file, so a label without it would name six fractions alike and
+    /// leave <see cref="Disambiguate"/> nothing to separate them by but ordinals.
+    ///
+    /// A label-free sample is labelled by its file name when <paramref name="labelFreeByFileName"/>
+    /// is set and <c>{condition}_{biorep + 1}</c> otherwise.
+    /// </summary>
+    /// <remarks>
+    /// The two replicate forms differ on purpose, because the designs number replicates differently.
+    /// <see cref="SpectraFileInfo"/> holds a zero-based replicate that label-free output has always
+    /// shown one-based, while an isobaric design supplies the number a person wrote — MetaMorpheus's
+    /// TMT design requires it to be at least 1 — so it is shown as given. Adding one to it would
+    /// label replicate 1 as 2.
+    /// </remarks>
+    /// <param name="sample">The sample to label.</param>
+    /// <param name="labelFreeByFileName">For a label-free sample, whether to label it by file name
+    /// rather than by condition and replicate. Ignored for an isobaric sample.</param>
+    public static string ForSample(ISampleInfo sample, bool labelFreeByFileName = false)
+    {
+        if (sample is IsobaricQuantSampleInfo isobaric)
+        {
+            string fileAndChannel = $"{Path.GetFileNameWithoutExtension(isobaric.FullFilePathWithExtension)}_{isobaric.ChannelLabel}";
+
+            if (!string.IsNullOrWhiteSpace(isobaric.SampleName))
+                return $"{isobaric.SampleName}_{fileAndChannel}";
+
+            if (!string.IsNullOrWhiteSpace(isobaric.Condition))
+                return $"{isobaric.Condition}_{isobaric.BiologicalReplicate}_{fileAndChannel}";
+
+            return fileAndChannel;
+        }
+
+        return labelFreeByFileName
+            ? sample.FilenameWithoutExtension
+            : $"{sample.Condition}_{sample.BiologicalReplicate + 1}";
+    }
+
     /// <summary>
     /// Maps each sample group identity to a column name unique across <paramref name="identities"/>.
     /// Labels that do not collide are returned unchanged, so output is unaffected for the datasets

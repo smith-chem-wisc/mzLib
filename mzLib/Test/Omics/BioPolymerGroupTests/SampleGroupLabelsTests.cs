@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using MassSpectrometry;
 using NUnit.Framework;
 using Omics.BioPolymerGroup;
 
@@ -192,6 +193,62 @@ namespace Test.Omics.BioPolymerGroupTests
             {
                 Assert.That(result.Values, Is.EquivalentTo(new[] { "sample", "sample_2" }));
                 Assert.That(result.Values, Has.None.StartsWith("_"), "no empty path segment is prefixed");
+            });
+        }
+
+        private static IsobaricQuantSampleInfo Channel(string condition, int biologicalReplicate, string? sampleName) =>
+            new(@"C:\data\plex1.raw", condition, biologicalReplicate, 1, 0, 1, "126", 126.127, false) { SampleName = sampleName };
+
+        /// <summary>
+        /// A channel the design names is labelled by that name, then its file, then its channel.
+        /// </summary>
+        [Test]
+        public void ForSample_IsobaricChannelTheDesignNames_IsSampleFileAndChannel()
+        {
+            Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, "Patient7")), Is.EqualTo("Patient7_plex1_126"));
+        }
+
+        /// <summary>
+        /// A channel with no sample name falls back to condition and replicate, keeping the file.
+        ///
+        /// The replicate is shown as the design gave it. Label-free output adds one because
+        /// SpectraFileInfo stores its replicate zero-based; an isobaric design does not, so copying
+        /// that adjustment here would label replicate 1 as 2. A whitespace-only name counts as no name.
+        /// </summary>
+        [Test]
+        public void ForSample_IsobaricChannelWithNoSampleName_IsConditionReplicateFileAndChannel()
+        {
+            Assert.Multiple(() =>
+            {
+                Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, null)), Is.EqualTo("Control_1_plex1_126"));
+                Assert.That(SampleGroupLabels.ForSample(Channel("Control", 1, "  ")), Is.EqualTo("Control_1_plex1_126"));
+            });
+        }
+
+        /// <summary>
+        /// A channel the design left entirely unannotated — no name and no condition — keeps the
+        /// file-and-channel label it had before sample names existed, rather than a leading
+        /// <c>_0_</c> made of an empty condition and a default replicate.
+        /// </summary>
+        [Test]
+        public void ForSample_IsobaricChannelWithNoAnnotation_IsFileAndChannel()
+        {
+            Assert.That(SampleGroupLabels.ForSample(Channel(string.Empty, 0, null)), Is.EqualTo("plex1_126"));
+        }
+
+        /// <summary>
+        /// Label-free samples keep the two labels they had: the file name when the caller asks for
+        /// it, and one-based condition and replicate otherwise.
+        /// </summary>
+        [Test]
+        public void ForSample_LabelFree_IsFileNameOrOneBasedConditionAndReplicate()
+        {
+            var file = new SpectraFileInfo(@"C:\data\run7.raw", "Control", 0, 0, 0);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(SampleGroupLabels.ForSample(file, labelFreeByFileName: true), Is.EqualTo("run7"));
+                Assert.That(SampleGroupLabels.ForSample(file), Is.EqualTo("Control_1"));
             });
         }
     }

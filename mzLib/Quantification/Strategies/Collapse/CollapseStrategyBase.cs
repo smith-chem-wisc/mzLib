@@ -101,8 +101,8 @@ namespace Quantification.Strategies
         /// </summary>
         /// <remarks>
         /// An <see cref="IsobaricQuantSampleInfo"/> collapses to another
-        /// <see cref="IsobaricQuantSampleInfo"/> so that the channel label, plex, reporter m/z and
-        /// reference-channel flag survive. Returning a plain <see cref="SpectraFileInfo"/> would
+        /// <see cref="IsobaricQuantSampleInfo"/> so that the channel label, plex, reporter m/z,
+        /// reference-channel flag and sample name survive. Returning a plain <see cref="SpectraFileInfo"/> would
         /// silently disable <see cref="ReferenceChannelNormalization"/> for everything downstream.
         /// </remarks>
         internal ISampleInfo CollapsedSampleInfo(ISampleInfo source)
@@ -124,7 +124,10 @@ namespace Quantification.Strategies
                     plexId: isobaric.PlexId,
                     channelLabel: isobaric.ChannelLabel,
                     reporterIonMz: isobaric.ReporterIonMz,
-                    isReferenceChannel: isobaric.IsReferenceChannel);
+                    isReferenceChannel: isobaric.IsReferenceChannel)
+                {
+                    SampleName = isobaric.SampleName
+                };
             }
 
             return new SpectraFileInfo(

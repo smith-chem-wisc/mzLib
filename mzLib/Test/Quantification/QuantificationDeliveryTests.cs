@@ -557,8 +557,32 @@ public class QuantificationDeliveryTests
 
         Assert.That(labels, Has.Count.EqualTo(3));
         Assert.That(labels.Distinct().Count(), Is.EqualTo(3));
-        Assert.That(labels[0], Is.EqualTo("a_126"));
-        Assert.That(labels[1], Is.EqualTo("a_126_2"));
+        Assert.That(labels[0], Is.EqualTo("C_1_a_126"));
+        Assert.That(labels[1], Is.EqualTo("C_1_a_126_2"));
+    }
+
+    /// <summary>
+    /// The quantification matrices and the grouped protein table name an isobaric channel the same
+    /// way, because both ask <see cref="SampleGroupLabels.ForSample"/>.
+    ///
+    /// They are two writers of one fact. Before, the matrix header came from
+    /// IsobaricQuantSampleInfo.ToString() and the protein table built its own string, so they agreed
+    /// only because both happened to spell <c>{file}_{channel}</c>. Point either back at its own
+    /// spelling and this goes red on the named channel, where the sample name is the part only one
+    /// of them knows.
+    /// </summary>
+    [Test]
+    public void SampleColumnLabel_Isobaric_NamesTheChannelAsTheProteinTableDoes()
+    {
+        var named = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "Control", 1, 1, 0, 0, "126", 126.0, false) { SampleName = "Patient7" };
+        var unnamed = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "Control", 2, 1, 0, 0, "127N", 127.0, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(QuantificationWriter.SampleColumnLabel(named), Is.EqualTo("Patient7_plex1_126"));
+            Assert.That(QuantificationWriter.SampleColumnLabel(named), Is.EqualTo(SampleGroupLabels.ForSample(named)));
+            Assert.That(QuantificationWriter.SampleColumnLabel(unnamed), Is.EqualTo(SampleGroupLabels.ForSample(unnamed)));
+        });
     }
 
     /// <summary>
