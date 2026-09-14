@@ -243,6 +243,41 @@ public class CollapseStrategyTests
         Assert.That(SingleRow(collapsed)[0], Is.EqualTo(400.0).Within(1e-9));
     }
 
+    /// <summary>
+    /// A collapsed column keeps a sample name only when every column merged into it carries that
+    /// same name.
+    ///
+    /// Collapse groups on condition and the replicate dimensions it keeps, never on file, channel or
+    /// sample, so one group can hold different samples -- collapsing biological replicates merges
+    /// different biological samples by definition. The sample name labels the column, so taking it
+    /// from the first member, as every other field is taken, would present two patients' summed values
+    /// under one patient's name. Revert SharedSampleName to the first member's name and the first
+    /// assertion goes red.
+    /// </summary>
+    [Test]
+    public void CollapsingSamplesThatDoNotShareAName_LeavesTheCollapsedColumnUnnamed()
+    {
+        IsobaricQuantSampleInfo Channel(int biorep, string label, string sampleName) =>
+            new("f1.raw", "Treated", biorep, 1, 1, 3, label, 126.127, false) { SampleName = sampleName };
+
+        var differentSamples = new CollapseBiologicalReplicates().CollapseSamples(
+            Matrix(new List<ISampleInfo> { Channel(1, "126", "Patient7"), Channel(2, "127N", "Patient8") }, 100, 300),
+            new SumAggregation());
+
+        var oneNamedOneNot = new CollapseBiologicalReplicates().CollapseSamples(
+            Matrix(new List<ISampleInfo> { Channel(1, "126", "Patient7"), Channel(2, "127N", null) }, 100, 300),
+            new SumAggregation());
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(differentSamples.ColumnCount, Is.EqualTo(1), "the two biological replicates merge into one column");
+            Assert.That(((IsobaricQuantSampleInfo)differentSamples.ColumnKeys[0]).SampleName, Is.Null,
+                "a column holding two patients must not be named after one of them");
+            Assert.That(((IsobaricQuantSampleInfo)oneNamedOneNot.ColumnKeys[0]).SampleName, Is.Null,
+                "an unnamed member is a disagreement too, not a vote for the named one");
+        });
+    }
+
     [Test]
     public void CollapsingLabelFreeSamples_YieldsSpectraFileInfo()
     {

@@ -33,7 +33,7 @@ namespace Quantification.Strategies
 
             var collapsedMatrix = new QuantMatrix<T>(
                 quantMatrix.RowKeys,
-                groups.Select(g => CollapsedSampleInfo(g[0].Column)).ToList(),
+                groups.Select(g => CollapsedSampleInfo(g.Select(member => member.Column).ToList())).ToList(),
                 quantMatrix.ExperimentalDesign);
 
             int widestGroup = groups.Count == 0 ? 1 : groups.Max(g => g.Count);
@@ -97,16 +97,28 @@ namespace Quantification.Strategies
 
         /// <summary>
         /// The <see cref="ISampleInfo"/> standing for a collapsed group: the dimensions this strategy
-        /// collapsed are zeroed, and everything else is taken from the group's first member.
+        /// collapsed are zeroed, and everything else is taken from the group's first member — except
+        /// the sample name, which is kept only when every member agrees on it.
         /// </summary>
         /// <remarks>
         /// An <see cref="IsobaricQuantSampleInfo"/> collapses to another
-        /// <see cref="IsobaricQuantSampleInfo"/> so that the channel label, plex, reporter m/z,
-        /// reference-channel flag and sample name survive. Returning a plain <see cref="SpectraFileInfo"/> would
+        /// <see cref="IsobaricQuantSampleInfo"/> so that the channel label, plex, reporter m/z and
+        /// reference-channel flag survive. Returning a plain <see cref="SpectraFileInfo"/> would
         /// silently disable <see cref="ReferenceChannelNormalization"/> for everything downstream.
+        ///
+        /// The sample name is the exception to taking the first member's values, because it names the
+        /// column. Groups are keyed on condition and the kept replicate dimensions only, never on file,
+        /// channel or sample, so a group can hold different samples: collapsing biological replicates
+        /// merges different biological samples by definition, and two channels sharing a condition and
+        /// replicate can hold differently-named samples under any collapse. Naming the merged column
+        /// after the first of them would label several samples' values as one. A name every member
+        /// shares is still the right name, as when fractions of one sample collapse.
         /// </remarks>
-        internal ISampleInfo CollapsedSampleInfo(ISampleInfo source)
+        /// <param name="members">The group's columns, in order; the first supplies every value but the name.</param>
+        internal ISampleInfo CollapsedSampleInfo(IReadOnlyList<ISampleInfo> members)
         {
+            var source = members[0];
+
             int biorep = CollapsesBiologicalReplicate ? 0 : source.BiologicalReplicate;
             int fraction = CollapsesFraction ? 0 : source.Fraction;
             int techrep = CollapsesTechnicalReplicate ? 0 : source.TechnicalReplicate;
@@ -126,7 +138,7 @@ namespace Quantification.Strategies
                     reporterIonMz: isobaric.ReporterIonMz,
                     isReferenceChannel: isobaric.IsReferenceChannel)
                 {
-                    SampleName = isobaric.SampleName
+                    SampleName = SharedSampleName(members)
                 };
             }
 
@@ -136,6 +148,20 @@ namespace Quantification.Strategies
                 biorep: biorep,
                 techrep: techrep,
                 fraction: fraction);
+        }
+
+        /// <summary>
+        /// The sample name every member carries, or null when any member is unnamed, is not isobaric,
+        /// or names a different sample.
+        /// </summary>
+        private static string? SharedSampleName(IReadOnlyList<ISampleInfo> members)
+        {
+            var names = members
+                .Select(member => (member as IsobaricQuantSampleInfo)?.SampleName)
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+
+            return names.Count == 1 ? names[0] : null;
         }
     }
 }
