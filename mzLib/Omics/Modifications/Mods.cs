@@ -41,8 +41,11 @@ public static class Mods
         // tie-break in ModificationLookupBase makes "inosine" beat "Asn->Asp" for the deamidation
         // formula). They remain fully addressable via the RNA-scoped collections and the Modomics
         // naming convention.
-        MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(MetaMorpheusRnaModifications).ToList();
-        AllKnownMods = AllProteinModsList.Concat(MetaMorpheusRnaModifications).ToList();
+        var rnaModsForCombinedSets = MetaMorpheusRnaModifications
+            .Where(m => !ShouldExcludeFromAllKnownMods(m))
+            .ToList();
+        MetaMorpheusModifications = MetaMorpheusProteinModifications.Concat(rnaModsForCombinedSets).ToList();
+        AllKnownMods = AllProteinModsList.Concat(rnaModsForCombinedSets).ToList();
         AllModsKnownDictionary = new Dictionary<string, Modification>(AllKnownRnaModsDictionary);
         foreach (var kvp in AllKnownProteinModsDictionary)
         {
@@ -279,6 +282,14 @@ public static class Mods
             }
         }
     }
+
+    // The MetaMorpheus "A->I" inosine base-conversion mod is deamidation-mass-degenerate with
+    // the protein "Asn->Asp" mod (formula H-1N-1O, +0.984 Da), so it is excluded from the combined
+    // candidate sets for the same reason; the RNA-scoped collections (AllRnaModsList,
+    // MetaMorpheusRnaModifications, AllKnownRnaModsDictionary) retain it for base-conversion
+    // discovery and RNA sequence parsing.
+    private static bool ShouldExcludeFromAllKnownMods(Modification mod) =>
+        mod != null && (mod.OriginalId == "A->I" || mod.IdWithMotif == "A->I on A");
 
     #endregion
 }
