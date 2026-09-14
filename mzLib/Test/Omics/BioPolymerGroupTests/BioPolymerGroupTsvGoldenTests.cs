@@ -160,6 +160,9 @@ namespace Test.Omics.BioPolymerGroupTests
         /// <summary>
         /// No experimental design: PSMs are grouped by their own file path and only spectral
         /// count and count-based occupancy are emitted (no intensity columns).
+        ///
+        /// Unchanged by the per-section split, for the same reason as the label-free case: with no
+        /// design, a file is both the count section and the sample.
         /// </summary>
         [Test]
         public void NoExperimentalDesign_HeaderAndRowAreUnchanged()
@@ -172,6 +175,10 @@ namespace Test.Omics.BioPolymerGroupTests
         /// <summary>
         /// Label-free with two conditions and intensities: four columns per sample group.
         /// goldenB's occupancy fields are empty because its only PSM carries no modification.
+        ///
+        /// Unchanged by the per-section split, and required to stay so: a label-free sample group is
+        /// its own count section, so the two key spaces coincide and every column keeps its name and
+        /// its position.
         /// </summary>
         [Test]
         public void LabelFreeWithIntensities_HeaderAndRowAreUnchanged()
@@ -188,20 +195,31 @@ namespace Test.Omics.BioPolymerGroupTests
         }
 
         /// <summary>
-        /// Isobaric (TMT/iTRAQ): one four-column block per channel, ordered by file then channel label.
-        /// Spectral count is per file, so both channels report all three PSMs.
+        /// Isobaric (TMT/iTRAQ): the counting columns are emitted once for the acquired file and the
+        /// intensity columns once per channel within it.
+        ///
+        /// This is the one table the per-section split changes, and the change is the point of it.
+        /// Before, each channel carried its own <c>SpectralCount_</c> and <c>CountOccupancy_</c>
+        /// — but a spectral count belongs to the file, and every channel of a file is handed the
+        /// same PSM list, so an n-plex row restated one count n times and one occupancy string n
+        /// times. Here that is 8 quantification columns reduced to 6; on an 11-plex it is 44 reduced
+        /// to 24.
         /// </summary>
         [Test]
-        public void Isobaric_HeaderAndRowAreUnchanged()
+        public void Isobaric_CountsAreOncePerFileAndIntensitiesOncePerChannel()
         {
             AssertTsv(BuildIsobaricGroup(),
                 Compose([
-                    "SpectralCount_goldenA_126", "Intensity_goldenA_126", "CountOccupancy_goldenA_126", "IntensityOccupancy_goldenA_126",
-                    "SpectralCount_goldenA_127N", "Intensity_goldenA_127N", "CountOccupancy_goldenA_127N", "IntensityOccupancy_goldenA_127N"
+                    "SpectralCount_goldenA",
+                    "Intensity_goldenA_126", "Intensity_goldenA_127N",
+                    "CountOccupancy_goldenA",
+                    "IntensityOccupancy_goldenA_126", "IntensityOccupancy_goldenA_127N"
                 ]),
                 ComposeRow([
-                    "3", "500", CountOccupancy, IntensityOccupancy,
-                    "3", "750", CountOccupancy, IntensityOccupancy
+                    "3",
+                    "500", "750",
+                    CountOccupancy,
+                    IntensityOccupancy, IntensityOccupancy
                 ]));
         }
 
