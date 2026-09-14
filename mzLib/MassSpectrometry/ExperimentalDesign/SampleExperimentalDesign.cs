@@ -141,7 +141,7 @@ namespace MassSpectrometry
             if (repeated.Key is IsobaricQuantSampleInfo channel)
             {
                 var names = repeated
-                    .Cast<IsobaricQuantSampleInfo>()
+                    .OfType<IsobaricQuantSampleInfo>()
                     .Select(c => c.SampleName)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .Distinct(StringComparer.Ordinal)

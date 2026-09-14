@@ -125,12 +125,17 @@ namespace Test.Omics.SampleInfo
         }
 
         /// <summary>
-        /// One sample on the same channel of every plex is a bridge design, not a repeat, and must be
-        /// accepted. PXD008841 puts a sample named "pool" in 131N of every plex; the channels are in
-        /// different files, so they are different samples however they are named.
+        /// One sample on the same channel of every plex is a bridge design, not a repeat. PXD008841 puts
+        /// a sample named "pool" in 131N of every plex; the channels are in different files, so they are
+        /// different samples however they are named.
+        ///
+        /// Asked of the rule directly, not through FromSamples. FromSamples groups by file before the
+        /// rule ever runs, so two plexes' pool channels never meet there and a rule that ignored the
+        /// file entirely would still pass that way. The engine hands the rule one file at a time too;
+        /// this is the only place the file's part in "the same sample" can be seen to matter.
         /// </summary>
         [Test]
-        public void FromSamples_AcceptsOneNamedSampleOnTheSameChannelOfEveryPlex()
+        public void DescribeRepeatedSample_OneSampleOnTheSameChannelOfEveryPlex_IsNotARepeat()
         {
             var samples = new ISampleInfo[]
             {
@@ -138,9 +143,7 @@ namespace Test.Omics.SampleInfo
                 new IsobaricQuantSampleInfo(@"C:\Data\TMTpool2_fr01.raw", "Pool", 1, 1, 1, 2, "131N", 131.13, true) { SampleName = "pool" }
             };
 
-            var design = SampleExperimentalDesign.FromSamples(samples);
-
-            Assert.That(design.FileNameSampleInfoDictionary, Has.Count.EqualTo(2));
+            Assert.That(SampleExperimentalDesign.DescribeRepeatedSample(samples), Is.Null);
         }
 
         [Test]
