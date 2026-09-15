@@ -27,11 +27,14 @@ namespace Development.QuantificationDevelopment.PipEcho;
 ///      run, but MBR quantified the wrong feature). The two-proteome foreign test assumes all native
 ///      transfers are correct, so it is blind to exactly this.
 ///
-///  (2) PROPAGATED FALSE-ID transfers — measurable with the E. coli entrapment DB.
-///      The search DB concatenates E. coli onto human. E. coli is absent from a pure-human sample, so
-///      an E. coli identification in a pure-human run is a false PSM by construction (entrapment), and
-///      an E. coli peptide that MBR transfers into a pure-human run is a propagated false transfer.
-///      We report the entrapment rate both at the ID level and after MBR.
+///  (2) PROPAGATED FALSE-ID transfers — measurable with the concatenated entrapment DB.
+///      Every human protein in the search DB is paired with an entrapment sequence, so a peptide whose
+///      base sequence is in the entrapment list is a false identification by construction. Entrapment
+///      peptides are LABELLED "Homo sapiens" in the psmtsv, so they are recognised only by sequence.
+///      Entrapment peptides that MBR transfers are propagated false-ID transfers; a better method should
+///      not increase them. We report the entrapment fraction at the ID level and after MBR. (E. coli
+///      transferred into pure-human runs is reported too, but as a DISTINCT cross-proteome-contamination
+///      metric — E. coli is real in the mixed donors, so it is not the entrapment.)
 ///
 /// Run before/after an MBR change: a better method recovers more censored peptides ON the correct peak
 /// (higher recovery, lower RT error, lower mis-localization), while not increasing propagated entrapment.
@@ -53,12 +56,17 @@ public class CensoredEntrapmentEvaluationTest
         string psmtsv = PipEchoCommon.Env("MZLIB_PIPECHO_CENS_PSMTSV", PipEchoCommon.CensoredEntrapmentPsmtsvDefault);
         string spectraDir = PipEchoCommon.Env("MZLIB_PIPECHO_CENS_SPECTRA", PipEchoCommon.CensoredSpectraDirDefault);
         string truthPath = PipEchoCommon.Env("MZLIB_PIPECHO_CENS_TRUTH", PipEchoCommon.CensoredGroundTruthDefault);
+        string entrapmentPath = PipEchoCommon.Env("MZLIB_PIPECHO_ENTRAPMENT", PipEchoCommon.EntrapmentPeptidesDefault);
         double mbrFdr = PipEchoCommon.EnvDouble("MZLIB_PIPECHO_MBR_FDR", 0.01);
         double rtTol = PipEchoCommon.EnvDouble("MZLIB_PIPECHO_RT_TOL", 0.5); // minutes
 
         Assert.That(File.Exists(psmtsv), Is.True, $"psmtsv not found: {psmtsv}");
         Assert.That(Directory.Exists(spectraDir), Is.True, $"spectra dir not found: {spectraDir}");
         Assert.That(File.Exists(truthPath), Is.True, $"censored ground truth not found: {truthPath}");
+        Assert.That(File.Exists(entrapmentPath), Is.True, $"entrapment sequence list not found: {entrapmentPath}");
+
+        var entrapment = PipEchoCommon.LoadEntrapmentSequences(entrapmentPath);
+        TestContext.WriteLine($"Loaded {entrapment.Count} entrapment peptide base sequences from {Path.GetFileName(entrapmentPath)}.");
 
         int maxPerGroup = PipEchoCommon.EnvInt("MZLIB_PIPECHO_MAX_PERGROUP", int.MaxValue);
         var fileInfoByName = BuildFileInfos(spectraDir, maxPerGroup, out var pureFiles, out var mixedFiles);
@@ -85,8 +93,8 @@ public class CensoredEntrapmentEvaluationTest
         sw.Stop();
         TestContext.WriteLine($"FlashLFQ MBR finished in {sw.Elapsed}.");
 
-        EvaluateNativeRecovery(results, pureSet, truthPath, mbrFdr, rtTol, psmtsv);
-        EvaluatePropagatedEntrapment(load, results, pureFiles, psmtsv);
+        EvaluateNativeRecovery(results, pureSet, truthPath, mbrFdr, rtTol, entrapment, psmtsv);
+        EvaluateEntrapmentPropagation(load, results, pureFiles, entrapment, psmtsv);
 
         // Sanity: MBR must have recovered at least some censored peptides on-peak.
         // (assertions live inside the helpers via the returned summary)
@@ -95,7 +103,7 @@ public class CensoredEntrapmentEvaluationTest
     // ── (1) Native peak recovery / mis-localization ───────────────────────────────────────────────
     private static void EvaluateNativeRecovery(
         FlashLfqResults results, HashSet<SpectraFileInfo> pureFiles, string truthPath,
-        double mbrFdr, double rtTol, string psmtsvPath)
+        double mbrFdr, double rtTol, HashSet<string> entrapment, string psmtsvPath)
     {
         // For each pure file, index peaks by peptide: whether an MS2 peak exists (censoring incomplete)
         // and the best non-decoy MBR peak (highest MbrScore).
@@ -122,9 +130,13 @@ public class CensoredEntrapmentEvaluationTest
         }
 
         var pureNames = new HashSet<string>(pureFiles.Select(f => f.FilenameWithoutExtension));
-        var truth = PipEchoCommon.LoadCensoredGroundTruth(truthPath)
+        var allTruth = PipEchoCommon.LoadCensoredGroundTruth(truthPath)
             .Where(t => pureNames.Contains(t.FileNoExt)) // only files we actually loaded
             .ToList();
+        // Exclude entrapment sequences from the ground truth: "recovering" a false peptide on its
+        // (false) MS2 retention time is not a meaningful localization test.
+        int nEntrapTruth = allTruth.Count(t => entrapment.Contains(t.BaseSequence));
+        var truth = allTruth.Where(t => !entrapment.Contains(t.BaseSequence)).ToList();
 
         int nStillMsms = 0, nNoPeak = 0, nMbrNoApex = 0, nRecovered = 0, nAcceptedFdr = 0;
         var apexErrors = new List<double>();       // signed apexRT - trueRT for recovered peaks
@@ -161,7 +173,8 @@ public class CensoredEntrapmentEvaluationTest
         var absPred = predErrors.Select(Math.Abs).ToList();
 
         TestContext.WriteLine("\n=== (1) NATIVE peak recovery of censored human peptides in pure-human runs ===");
-        TestContext.WriteLine($"  censored ground-truth peptides (in loaded files): {truth.Count}");
+        TestContext.WriteLine($"  censored ground-truth peptides (in loaded files): {truth.Count} " +
+            $"(excluded {nEntrapTruth} entrapment-sequence ground-truth peptides)");
         TestContext.WriteLine($"  excluded (still MS2-identified, not a clean MBR test): {nStillMsms}  -> eligible {nEligible}");
         TestContext.WriteLine($"  recovered on an MBR peak: {nRecovered}  (recovery {recoveryRate:P1})");
         TestContext.WriteLine($"    of which accepted at MBR FDR {mbrFdr:P1}: {nAcceptedFdr}");
@@ -184,52 +197,85 @@ public class CensoredEntrapmentEvaluationTest
     }
 
     // ── (2) Propagated false-ID (entrapment) transfers ────────────────────────────────────────────
-    private static void EvaluatePropagatedEntrapment(
+    private static void EvaluateEntrapmentPropagation(
         PipEchoCommon.LoadResult load, FlashLfqResults results,
-        List<SpectraFileInfo> pureFiles, string psmtsvPath)
+        List<SpectraFileInfo> pureFiles, HashSet<string> entrapment, string psmtsvPath)
     {
-        // ID-level: E. coli target identifications appearing in pure-human runs are false by construction.
-        var pureSet = new HashSet<SpectraFileInfo>(pureFiles);
-        int idEcoli = 0, idHuman = 0;
+        // Entrapment peptides (base sequence in the entrapment list) are false by construction and false
+        // in EVERY run. ID-level: entrapment among target PSMs. MBR-level: entrapment among the transfers
+        // MBR produced anywhere — these are the PROPAGATED false-ID transfers.
+        int idEntrap = 0, idReal = 0;
         foreach (var id in load.Identifications)
         {
-            if (id.IsDecoy || !pureSet.Contains(id.FileInfo)) continue;
-            switch (load.PeptideSpecies.GetValueOrDefault(id.ModifiedSequence, Species.Other))
+            if (id.IsDecoy) continue;
+            if (entrapment.Contains(id.BaseSequence)) idEntrap++; else idReal++;
+        }
+        int idTotal = idEntrap + idReal;
+        double idFrac = idTotal > 0 ? (double)idEntrap / idTotal : double.NaN;
+
+        int mbrEntrap = 0, mbrReal = 0;
+        var entrapRows = new List<(string file, string seq, double mbrScore, double? pep)>();
+        foreach (var (file, peaks) in results.Peaks)
+        {
+            foreach (var peak in peaks.OfType<MbrChromatographicPeak>().Where(p => !p.RandomRt && !p.DecoyPeptide))
             {
-                case Species.Ecoli: idEcoli++; break;
-                case Species.Human: idHuman++; break;
+                var id0 = peak.Identifications.First();
+                if (entrapment.Contains(id0.BaseSequence))
+                {
+                    mbrEntrap++;
+                    entrapRows.Add((file.FilenameWithoutExtension, id0.ModifiedSequence, peak.MbrScore, peak.MbrPep));
+                }
+                else mbrReal++;
             }
         }
-        int idAssignable = idEcoli + idHuman;
-        double idFdp = idAssignable > 0 ? (double)idEcoli / idAssignable : double.NaN;
+        int mbrTotal = mbrEntrap + mbrReal;
+        double mbrFrac = mbrTotal > 0 ? (double)mbrEntrap / mbrTotal : double.NaN;
 
-        // MBR-level: E. coli peptides transferred into pure-human runs are propagated false transfers.
-        int mbrEcoli = 0, mbrHuman = 0, mbrOther = 0;
+        TestContext.WriteLine("\n=== (2) ENTRAPMENT propagation (false peptide SEQUENCES, labelled human) ===");
+        TestContext.WriteLine($"  ID level (target PSMs, q<{PipEchoCommon.QValueCutoff}):");
+        TestContext.WriteLine($"    real={idReal}  entrapment(false)={idEntrap}  entrapment fraction={idFrac:P3}");
+        TestContext.WriteLine($"  MBR level (all transfers produced, pre-FDR) — propagated false-ID:");
+        TestContext.WriteLine($"    real={mbrReal}  entrapment(false)={mbrEntrap}  entrapment fraction={mbrFrac:P3}");
+
+        WriteEntrapmentCsv(entrapRows, psmtsvPath);
+
+        // Secondary, DISTINCT from entrapment: E. coli transferred into pure-human runs is cross-proteome
+        // contamination (E. coli is real in the mixed donors, wrong in a pure-human acceptor).
+        int mbrEcoli = 0, mbrHuman = 0;
         foreach (var pure in pureFiles)
         {
             if (!results.Peaks.TryGetValue(pure, out var peaks)) continue;
             foreach (var peak in peaks.OfType<MbrChromatographicPeak>().Where(p => !p.RandomRt && !p.DecoyPeptide))
             {
-                string seq = peak.Identifications.First().ModifiedSequence;
-                switch (load.PeptideSpecies.GetValueOrDefault(seq, Species.Other))
+                switch (load.PeptideSpecies.GetValueOrDefault(peak.Identifications.First().ModifiedSequence, Species.Other))
                 {
                     case Species.Ecoli: mbrEcoli++; break;
                     case Species.Human: mbrHuman++; break;
-                    default: mbrOther++; break;
                 }
             }
         }
-        int mbrAssignable = mbrEcoli + mbrHuman;
-        double mbrFdp = mbrAssignable > 0 ? (double)mbrEcoli / mbrAssignable : double.NaN;
+        int ecoliAssignable = mbrEcoli + mbrHuman;
+        double ecoliFdp = ecoliAssignable > 0 ? (double)mbrEcoli / ecoliAssignable : double.NaN;
+        TestContext.WriteLine($"  [secondary] E. coli cross-proteome transfers into pure-human runs: " +
+            $"human={mbrHuman}  E.coli={mbrEcoli}  foreign FDP={ecoliFdp:P3}");
 
-        TestContext.WriteLine("\n=== (2) PROPAGATED false-ID (E. coli entrapment) into pure-human runs ===");
-        TestContext.WriteLine($"  ID level (MS2 PSMs in pure runs, q<{PipEchoCommon.QValueCutoff}):");
-        TestContext.WriteLine($"    human={idHuman}  E.coli(false)={idEcoli}  entrapment ID FDP={idFdp:P3}");
-        TestContext.WriteLine($"  MBR level (transfers produced into pure runs, pre-FDR):");
-        TestContext.WriteLine($"    human={mbrHuman}  E.coli(false)={mbrEcoli}  unassignable={mbrOther}  " +
-            $"propagated foreign FDP={mbrFdp:P3}");
+        Assert.That(mbrTotal, Is.GreaterThan(0), "MBR produced no transfers.");
+    }
 
-        Assert.That(mbrAssignable, Is.GreaterThan(0), "MBR produced no species-assignable transfers into pure runs.");
+    private static void WriteEntrapmentCsv(
+        List<(string file, string seq, double mbrScore, double? pep)> rows, string psmtsvPath)
+    {
+        Directory.CreateDirectory(PipEchoCommon.OutputDir);
+        string path = Path.Combine(PipEchoCommon.OutputDir,
+            $"EntrapmentTransfers_{DateTime.Now:yyyyMMdd_HHmmss}.csv");
+        var sb = new StringBuilder();
+        sb.AppendLine("File,EntrapmentPeptide,MbrScore,MbrPep");
+        foreach (var r in rows.OrderBy(r => r.file).ThenBy(r => r.seq))
+            sb.AppendLine(string.Join(",", r.file, r.seq,
+                r.mbrScore.ToString("G17", CultureInfo.InvariantCulture),
+                r.pep is double p ? p.ToString("G17", CultureInfo.InvariantCulture) : ""));
+        File.WriteAllText(path, sb.ToString());
+        TestContext.WriteLine($"\nEntrapment (false) MBR transfers written to: {path}");
     }
 
     private static SpectraFileInfo FirstFileByName(HashSet<SpectraFileInfo> files, string nameNoExt)

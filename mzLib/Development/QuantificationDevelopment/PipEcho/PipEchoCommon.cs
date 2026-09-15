@@ -49,6 +49,13 @@ public static class PipEchoCommon
     public const string CensoredGroundTruthDefault =
         @"D:\PIP_ECHO_PRIDE\EcoliDataset\Ecoli_CensoredFiles-MetaMorpheus\CensoredPsms.psmtsv";
 
+    // Entrapment: every human protein in the search DB was concatenated with an entrapment sequence, so
+    // an entrapment peptide is a false identification by construction. Entrapment peptides are LABELLED
+    // "Homo sapiens" in the psmtsv (they can't be found by organism) — they are recognised only by their
+    // base sequence appearing in this list of entrapment peptide sequences (one per line).
+    public const string EntrapmentPeptidesDefault =
+        @"D:\PIP_ECHO_PRIDE\Proteomes\EntrapmentProteinPeptideSequences_50percent.txt";
+
     public static string Env(string key, string fallback)
     {
         string? v = Environment.GetEnvironmentVariable(key);
@@ -237,7 +244,22 @@ public static class PipEchoCommon
 
     /// <summary>A censored ground-truth identification: the peptide WAS confidently MS2-identified in
     /// this file at this retention time, but its PSM was removed from the search so MBR must recover it.</summary>
-    public sealed record CensoredPsm(string FileNoExt, string FullSequence, double RetentionTime);
+    public sealed record CensoredPsm(string FileNoExt, string BaseSequence, string FullSequence, double RetentionTime);
+
+    /// <summary>
+    /// Loads the entrapment peptide base sequences (one per line) into a set for O(1) membership tests.
+    /// A target identification whose base sequence is in this set is a false ID by construction.
+    /// </summary>
+    public static HashSet<string> LoadEntrapmentSequences(string path)
+    {
+        var set = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var line in File.ReadLines(path))
+        {
+            string s = line.Trim();
+            if (s.Length > 0) set.Add(s);
+        }
+        return set;
+    }
 
     /// <summary>
     /// Loads the CensoredPsms.psmtsv ground truth. This file uses slightly different column headers than
@@ -258,11 +280,12 @@ public static class PipEchoCommon
             return -1;
         }
         int cFile = Idx("File Name");
+        int cBase = Idx("Base Sequence");
         int cFull = Idx("Full Sequence");
         int cRt = Idx("Retention Time", "Scan Retention Time");
-        if (cFile < 0 || cFull < 0 || cRt < 0)
-            throw new InvalidOperationException($"Censored ground-truth is missing File Name / Full Sequence / Retention Time in {path}");
-        int maxIdx = Math.Max(cFile, Math.Max(cFull, cRt));
+        if (cFile < 0 || cBase < 0 || cFull < 0 || cRt < 0)
+            throw new InvalidOperationException($"Censored ground-truth is missing File Name / Base Sequence / Full Sequence / Retention Time in {path}");
+        int maxIdx = Math.Max(Math.Max(cFile, cBase), Math.Max(cFull, cRt));
 
         string? line;
         while ((line = reader.ReadLine()) != null)
@@ -272,7 +295,7 @@ public static class PipEchoCommon
             if (string.IsNullOrEmpty(f[cFull])) continue;
             if (f[cFull].Contains('|')) continue; // ambiguous
             if (!double.TryParse(f[cRt], NumberStyles.Any, CultureInfo.InvariantCulture, out double rt)) continue;
-            list.Add(new CensoredPsm(f[cFile], f[cFull], rt));
+            list.Add(new CensoredPsm(f[cFile], f[cBase], f[cFull], rt));
         }
         return list;
     }
