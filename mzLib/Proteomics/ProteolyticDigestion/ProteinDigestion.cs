@@ -37,11 +37,19 @@ namespace Proteomics.ProteolyticDigestion
         public List<Modification> VariableModifications { get; set; }
 
         /// <summary>
-        /// Gets peptides for speedy semispecific digestion of a protein
-        /// This generates specific peptides of maximum missed cleavages
-        /// These peptides need to be digested post search to their actual sequences
-        /// semi-specific search enters here...
+        /// Gets the fixed-terminus "seed" peptides that MetaMorpheus's non-specific search engine uses for a fast
+        /// semi-specific search. These are NOT the semi-specific peptides; use <see cref="SemiSpecificDigestion"/> for those.
         /// </summary>
+        /// <remarks>
+        /// With <see cref="DigestionParams.FragmentationTerminus"/> = N, each seed starts at a specific N-terminus and runs
+        /// as far as the missed cleavages allow (or MaxPeptideLength, whichever is shorter). Every semi-specific peptide with
+        /// that N-terminus is a prefix of the seed, and they all share its N-terminal fragment ions, so the engine scores the
+        /// seed once with N-terminal ions and trims it to the length the precursor mass supports. FragmentationTerminus = C is
+        /// the mirror image. A complete semi-specific search therefore needs both an N pass and a C pass.
+        /// <para>Only call this with N or C. <see cref="Protein.Digest(Omics.Digestion.IDigestionParams, System.Collections.Generic.List{Omics.Modifications.Modification}, System.Collections.Generic.List{Omics.Modifications.Modification}, System.Collections.Generic.List{Proteomics.ProteolyticDigestion.SilacLabel}, ValueTuple{Proteomics.ProteolyticDigestion.SilacLabel, Proteomics.ProteolyticDigestion.SilacLabel}?, bool)"/>
+        /// routes every other terminus to <see cref="SemiSpecificDigestion"/> (see <see cref="WantsSemiSpecificSeeds"/>); below, any
+        /// terminus other than N is treated as C.</para>
+        /// </remarks>
         /// <param name="protein"></param>
         /// <returns></returns>
         public IEnumerable<ProteolyticPeptide> SpeedySemiSpecificDigestion(Protein protein) //We are only getting fully specific peptides of the maximum cleaved residues here
@@ -69,7 +77,7 @@ namespace Proteomics.ProteolyticDigestion
                             int startIndex = oneBasedIndicesToCleaveAfter[i];
                             peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, startIndex + MaxPeptideLength, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
-                        else //It has to be FragmentationTerminus.C //make something with the maximum length and fixed C
+                        else // FragmentationTerminus.C (Protein.Digest only sends N or C here) //make something with the maximum length and fixed C
                         {
                             int endIndex = oneBasedIndicesToCleaveAfter[i + maximumMissedCleavagesIndexShift];
                             peptides.Add(new ProteolyticPeptide(protein, endIndex - MaxPeptideLength + 1, endIndex, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
@@ -91,7 +99,7 @@ namespace Proteomics.ProteolyticDigestion
                         {
                             peptides.Add(new ProteolyticPeptide(protein, 2, 2 + MaxPeptideLength - 1, MaximumMissedCleavages, CleavageSpecificity.Semi, "semi"));
                         }
-                        else //It has to be FragmentationTerminus.C //make something with the maximum length and fixed C
+                        else // FragmentationTerminus.C (Protein.Digest only sends N or C here) //make something with the maximum length and fixed C
                         {
                             //kinda tricky, because we'll be creating a duplication if cleavage is variable
                             if (!Protease.Retain(i, InitiatorMethionineBehavior, protein[0])) //only if cleave, because then not made earlier during retain
@@ -266,6 +274,42 @@ namespace Proteomics.ProteolyticDigestion
             }
 
             return peptides;
+        }
+
+        /// <summary>
+        /// Gets every semi-specific peptide of a protein: every peptide with at least one terminus made by the protease
+        /// (or a protein terminus, or a removed initiator methionine), within the missed-cleavage and length limits.
+        /// Fully specific peptides are included and labelled <see cref="CleavageSpecificity.Full"/>; the rest are
+        /// labelled <see cref="CleavageSpecificity.Semi"/>.
+        /// </summary>
+        /// <remarks>
+        /// This is what <see cref="DigestionParams.SearchModeType"/> = <see cref="CleavageSpecificity.Semi"/> asks for
+        /// when the caller does not want fixed-terminus seeds (see <see cref="WantsSemiSpecificSeeds"/>). It produces the
+        /// same peptides as a protease whose own specificity is Semi, because both go through the protease's
+        /// semi-specific enumeration with this protease's cleavage motifs.
+        /// </remarks>
+        public IEnumerable<ProteolyticPeptide> SemiSpecificDigestion(Protein protein)
+        {
+            return Protease.GetSemiSpecificUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength);
+        }
+
+        /// <summary>
+        /// True when a Semi search mode is asking for <see cref="SpeedySemiSpecificDigestion"/>'s fixed-terminus seeds
+        /// rather than for the semi-specific peptides themselves.
+        /// </summary>
+        /// <remarks>
+        /// Seeds exist for MetaMorpheus's non-specific search engine, which fixes one terminus per pass, scores ions from
+        /// that terminus only, and trims each seed to the length the precursor mass supports. That engine always asks
+        /// with <see cref="FragmentationTerminus.N"/> or <see cref="FragmentationTerminus.C"/>, so those two values mean
+        /// "seeds". Every other terminus (Both, the default) means "the semi-specific peptides", because nothing trims
+        /// them afterwards. Proteases that have no cleavage motifs to be semi-specific about (top-down, singleN, singleC)
+        /// keep the seed path they have always taken.
+        /// </remarks>
+        public static bool WantsSemiSpecificSeeds(DigestionParams digestionParams)
+        {
+            bool fixedTerminusRequested = digestionParams.FragmentationTerminus is FragmentationTerminus.N or FragmentationTerminus.C;
+            bool proteaseCanBeSemiSpecific = digestionParams.Protease.CleavageSpecificity is CleavageSpecificity.Full or CleavageSpecificity.Semi;
+            return fixedTerminusRequested || !proteaseCanBeSemiSpecific;
         }
 
         /// <summary>

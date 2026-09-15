@@ -477,6 +477,138 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
         #endregion
 
+        #region C. SearchModeType = Semi with FragmentationTerminus = Both must enumerate real semi peptides
+
+        /// <summary>
+        /// A fully specific protease with SearchModeType Semi and FragmentationTerminus Both must return the
+        /// reference's semi-specific set. This is how MetaMorpheus Classic, Modern and Glyco searches ask for a
+        /// semi-specific digest; they have no post-search trimming, so seeds are wrong for them.
+        /// </summary>
+        [Test]
+        [TestCaseSource(nameof(ProteinNames))]
+        public static void SemiSearchModeBothTermini_ReturnsExactlyTheReferencePeptides(string proteinName)
+        {
+            using var proteases = new TestProteaseRegistration();
+            var protein = new Protein(Proteins[proteinName], proteinName);
+            var failures = new List<string>();
+
+            foreach (DigestionSettings settings in AllSettings())
+            {
+                var expected = EnumerateReferencePeptides(protein.BaseSequence, settings).Select(p => (p.Start, p.End)).ToList();
+                var actual = Digest(protein, Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.Both));
+                failures.AddRange(CompareSets("trypsin + SearchModeType Semi + Both vs reference", proteinName, settings, expected, actual));
+            }
+
+            AssertNoFailures(failures, "SearchModeType Semi with FragmentationTerminus Both must enumerate every semi-specific peptide (it used to return only C-terminal seeds).");
+        }
+
+        /// <summary>
+        /// The Semi search mode and a Semi protease are two ways of asking for the same digest, so their
+        /// labels and missed-cleavage counts must also agree with the reference.
+        /// </summary>
+        [Test]
+        [TestCaseSource(nameof(ProteinNames))]
+        public static void SemiSearchModeBothTermini_LabelsAndMissedCleavagesMatchReference(string proteinName)
+        {
+            using var proteases = new TestProteaseRegistration();
+            var protein = new Protein(Proteins[proteinName], proteinName);
+            AssertNoFailures(CompareLabelsAndMissedCleavages(protein, proteinName, settings => Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.Both)),
+                "Labels and missed cleavages from SearchModeType Semi + Both must match the reference.");
+        }
+
+        /// <summary>
+        /// FragmentationTerminus defaults to Both. A settings file or GUI that sets only SearchModeType = Semi
+        /// must therefore get the full semi-specific digest, not seeds.
+        /// </summary>
+        [Test]
+        public static void SemiSearchMode_DefaultTerminus_EnumeratesSemiPeptides()
+        {
+            using var proteases = new TestProteaseRegistration();
+            var settings = new DigestionSettings(2, 7, int.MaxValue, InitiatorMethionineBehavior.Variable);
+            var digestionParams = new DigestionParams(TestFullTrypsinName, settings.MaxMissedCleavages, settings.MinLength, settings.MaxLength,
+                initiatorMethionineBehavior: settings.InitiatorMethionine, searchModeType: CleavageSpecificity.Semi);
+
+            Assert.That(digestionParams.FragmentationTerminus, Is.EqualTo(FragmentationTerminus.Both), "the default terminus this test relies on changed");
+            var protein = new Protein(AmbpSequence, "P02760");
+            var expected = EnumerateReferencePeptides(AmbpSequence, settings).Select(p => (p.Start, p.End)).ToList();
+            AssertNoFailures(CompareSets("default terminus", "RealProteinAmbp", settings, expected, Digest(protein, digestionParams)),
+                "Leaving FragmentationTerminus at its default must give the semi-specific digest.");
+        }
+
+        /// <summary>
+        /// The regression that started this work, with the real embedded trypsin and real numbers: AMBP at 2
+        /// missed cleavages, length 7 or more, Variable initiator Met has 1,726 semi-tryptic peptides.
+        /// SearchModeType Semi + Both used to return 38 (the C-terminal seeds).
+        /// </summary>
+        /// <remarks>
+        /// AMBP has no K or R followed by P, so the count is the same whether embedded "trypsin" applies the
+        /// proline rule or not (open PR #1186 changes that naming). The first assertion guards that.
+        /// </remarks>
+        [Test]
+        public static void SemiSearchMode_EmbeddedTrypsinOnAmbp_Returns1726PeptidesNotTheSeeds()
+        {
+            Assert.That(AmbpSequence.Contains("KP") || AmbpSequence.Contains("RP"), Is.False, "AMBP must contain no KP/RP for this pinned count to be naming-independent");
+
+            var settings = new DigestionSettings(2, 7, int.MaxValue, InitiatorMethionineBehavior.Variable);
+            var protein = new Protein(AmbpSequence, "P02760");
+            var semiDigest = Digest(protein, Params("trypsin", settings, CleavageSpecificity.Semi, FragmentationTerminus.Both));
+
+            Assert.That(EnumerateReferencePeptides(AmbpSequence, settings), Has.Count.EqualTo(1726));
+            Assert.That(semiDigest.Select(p => (p.Start, p.End)).Distinct().Count(), Is.EqualTo(1726),
+                "trypsin + SearchModeType Semi on AMBP must give all 1,726 semi-tryptic peptides (it used to give 38 C-terminal seeds)");
+            Assert.That(semiDigest, Has.Count.EqualTo(1726), "no duplicates");
+        }
+
+        /// <summary>
+        /// Variable modifications must be applied to semi peptides exactly as they are through the classic
+        /// path: same modified peptides, same count. Guards that the Semi search mode reaches modification
+        /// decoration by the same route and is not, for example, decorating seeds.
+        /// </summary>
+        [Test]
+        public static void SemiSearchModeBothTermini_WithVariableOxidation_MatchesClassicSemiProtease()
+        {
+            using var proteases = new TestProteaseRegistration();
+            ModificationMotif.TryGetMotif("M", out ModificationMotif methionine);
+            var oxidation = new Modification(_originalId: "Oxidation", _modificationType: "Common Variable", _target: methionine,
+                _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("O"));
+            var settings = new DigestionSettings(2, 7, 30, InitiatorMethionineBehavior.Variable);
+            var protein = new Protein(AmbpSequence, "P02760");
+
+            List<string> FullSequences(DigestionParams dp) =>
+                protein.Digest(dp, new List<Modification>(), new List<Modification> { oxidation }).Select(p => p.FullSequence).ToList();
+
+            List<string> classic = FullSequences(Params(TestSemiTrypsinName, settings));
+            List<string> searchMode = FullSequences(Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.Both));
+
+            Assert.That(classic.Any(s => s.Contains("Oxidation")), Is.True, "the test needs oxidised peptides to be meaningful");
+            Assert.That(searchMode, Is.EquivalentTo(classic));
+        }
+
+        /// <summary>
+        /// Glycoproteomics: with KeepOGlycopeptide the semi digest must keep exactly the semi-specific peptides
+        /// that contain Ser or Thr. This is the O-glyco search's digest, on a real mucin stretch.
+        /// </summary>
+        [Test]
+        public static void SemiSearchModeBothTermini_KeepOGlycopeptide_KeepsEverySerThrSemiPeptide()
+        {
+            using var proteases = new TestProteaseRegistration();
+            var protein = new Protein(Psgl1MucinFragment, "Q14242-mucin-fragment");
+            var failures = new List<string>();
+
+            foreach (DigestionSettings settings in AllSettings())
+            {
+                var expected = EnumerateReferencePeptides(Psgl1MucinFragment, settings)
+                    .Where(p => Psgl1MucinFragment.Substring(p.Start - 1, p.End - p.Start + 1).IndexOfAny(new[] { 'S', 'T' }) >= 0)
+                    .Select(p => (p.Start, p.End)).ToList();
+                var actual = Digest(protein, Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.Both, keepOGlycopeptide: true));
+                failures.AddRange(CompareSets("O-glycopeptide semi digest", "MucinFragmentPsgl1", settings, expected, actual));
+            }
+
+            AssertNoFailures(failures, "An O-glyco semi-specific digest must keep every semi peptide containing S or T.");
+        }
+
+        #endregion
+
         #region D. SearchModeType = Semi with FragmentationTerminus N or C returns seeds for the trimming engine
 
         /// <summary>
@@ -567,6 +699,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// </summary>
         [Test]
         [TestCase(TestSemiTrypsinName, CleavageSpecificity.Full)]
+        [TestCase(TestFullTrypsinName, CleavageSpecificity.Semi)]
         public static void SemiDigestion_WithTruncationProduct_OnlyAddsPeptidesOnTheProductBoundary(string protease, CleavageSpecificity searchModeType)
         {
             using var proteases = new TestProteaseRegistration();

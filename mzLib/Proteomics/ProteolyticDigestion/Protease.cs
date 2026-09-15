@@ -100,6 +100,18 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
+        /// Gets every semi-specific peptide this protease's cleavage motifs allow, whatever this protease's own
+        /// <see cref="DigestionAgent.CleavageSpecificity"/> is. Used when a fully specific protease is combined with
+        /// <see cref="DigestionParams.SearchModeType"/> = <see cref="CleavageSpecificity.Semi"/>, so that asking for a
+        /// semi-specific digest through the search mode and through a Semi protease gives identical peptides.
+        /// </summary>
+        internal IEnumerable<ProteolyticPeptide> GetSemiSpecificUnmodifiedPeptides(Protein protein, int maximumMissedCleavages,
+            InitiatorMethionineBehavior initiatorMethionineBehavior, int minPeptideLength, int maxPeptideLength)
+        {
+            return SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength);
+        }
+
+        /// <summary>
         /// Retain N-terminal residue?
         /// </summary>
         /// <param name="oneBasedCleaveAfter"></param>
