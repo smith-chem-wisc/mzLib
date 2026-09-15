@@ -102,6 +102,152 @@ namespace Test.Transcriptomics
                 "C followed by C should not be cleaved");
         }
 
+        #region RNase U2 (G|, A| — cleaves after purines)
+
+        [Test]
+        public void TestRnaseU2_CleaveAfterPurines()
+        {
+            var rnaseU2 = RnaseDictionary.Dictionary["RNase U2"];
+
+            // Cleavage after G(1), A(2), A(4), G(6) → 4 fragments
+            var products = rnaseU2.GetUnmodifiedOligos(new RNA("GAUACG"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "G", "A", "UA", "CG" }));
+        }
+
+        [Test]
+        public void TestRnaseU2_DoesNotCleaveAfterPyrimidines()
+        {
+            var rnaseU2 = RnaseDictionary.Dictionary["RNase U2"];
+
+            // No purines → no internal cleavage sites → single intact fragment
+            var products = rnaseU2.GetUnmodifiedOligos(new RNA("UCUC"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "UCUC" }));
+        }
+
+        #endregion
+
+        #region RNase PhyM (A|,U| and A|,U|,G|)
+
+        [Test]
+        public void TestRnasePhyM_HighUrea_CleaveAfterAAndU()
+        {
+            var phym = RnaseDictionary.Dictionary["RNase PhyM (>= 7M urea)"];
+
+            // "CAUGCU": cleaves after A(2) and both U(3), U(6) → CA, U, GCU
+            // G is NOT a cleavage site at high urea
+            var products = phym.GetUnmodifiedOligos(new RNA("CAUGCU"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "CA", "U", "GCU" }));
+        }
+
+        [Test]
+        public void TestRnasePhyM_LowUrea_AlsoCleaveAfterG()
+        {
+            var phym = RnaseDictionary.Dictionary["RNase PhyM (< 7M urea)"];
+
+            // Same sequence: G(4) is now also a cleavage site, splitting GCU → G + CU
+            var products = phym.GetUnmodifiedOligos(new RNA("CAUGCU"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "CA", "U", "G", "CU" }));
+        }
+
+        [Test]
+        public void TestRnasePhyM_LowUrea_DoesNotCleaveAfterC()
+        {
+            var phym = RnaseDictionary.Dictionary["RNase PhyM (< 7M urea)"];
+
+            // Only cytidines → nothing to cleave
+            var products = phym.GetUnmodifiedOligos(new RNA("CCCC"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "CCCC" }));
+        }
+
+        #endregion
+
+        #region colicin_E5 (G|U — GU dinucleotide specific)
+
+        [Test]
+        public void TestColicinE5_CleaveAtGUDinucleotide()
+        {
+            var colicin = RnaseDictionary.Dictionary["colicin_E5"];
+
+            // G(4)→U(5) is the only GU pair; G(1) is followed by A
+            var products = colicin.GetUnmodifiedOligos(new RNA("GAUGUC"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "GAUG", "UC" }));
+        }
+
+        [Test]
+        public void TestColicinE5_DoesNotCleaveWithoutGUDinucleotide()
+        {
+            var colicin = RnaseDictionary.Dictionary["colicin_E5"];
+
+            // G is present but never followed by U → no cleavage
+            var products = colicin.GetUnmodifiedOligos(new RNA("GAUGAC"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "GAUGAC" }));
+        }
+
+        #endregion
+
+        #region RNase_MC1 ([G]|U — cleaves before U, except at GU)
+
+        /// <summary>
+        /// RNase_MC1 motif [G]|U: intended to cleave before U only when NOT preceded by G.
+        /// NOTE: The [bracket] prevention for CutIndex=0 motifs has an off-by-one in
+        /// DigestionMotif.Fits — it checks sequence[location] (the U itself) rather than
+        /// sequence[location-1] (the preceding residue), so the G-prevention never fires.
+        /// These tests document the CURRENT behavior (cleave before all U) rather than
+        /// the biochemically intended behavior (skip G|U positions).
+        /// </summary>
+        [Test]
+        public void TestRnaseMC1_CleaveBeforeUridine_CurrentBehavior()
+        {
+            var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
+
+            // "AAGUAU": U at pos 4 is preceded by G (should be skipped — but isn't due to bug)
+            //           U at pos 6 is preceded by A (should cleave — does cleave)
+            // Intended fragments: AAGUA, U  (2 fragments, bug-free)
+            // Actual fragments:   AAG, UA, U (3 fragments, bug present)
+            var products = mc1.GetUnmodifiedOligos(new RNA("AAGUAU"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "AAG", "UA", "U" }),
+                "MC1 currently cleaves before all U — including GU which should be prevented");
+        }
+
+        [Test]
+        public void TestRnaseMC1_MultipleTerminiPerFragment()
+        {
+            var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
+
+            // MC1 has two 3' terminus options (H2O4P and O3P); verify each base sequence
+            // gets a unique set of (ThreePrime, FivePrime) combinations — no duplicates.
+            var products = mc1.GetUnmodifiedOligos(new RNA("AAUGAU"), 0, 1, int.MaxValue).ToArray();
+
+            var grouped = products
+                .GroupBy(p => p.BaseSequence)
+                .ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
+
+            foreach (var group in grouped)
+            {
+                var distinctCombos = group.Value.Distinct().ToArray();
+                Assert.That(distinctCombos.Length, Is.EqualTo(group.Value.Count()),
+                    $"Base sequence {group.Key} has duplicate terminus combinations");
+            }
+        }
+
+        #endregion
+
         [Test]
         public void TestRnaseDictionaryCustomLoadAndMerge()
         {
