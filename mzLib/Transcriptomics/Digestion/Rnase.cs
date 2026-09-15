@@ -160,9 +160,6 @@ namespace Transcriptomics.Digestion
                     if (truncation.OneBasedBeginPosition == 1 && truncation.OneBasedEndPosition == nucleicAcid.Length)
                         continue;
 
-                    foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncation.OneBasedBeginPosition,
-                        truncation.OneBasedEndPosition, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-                    {
                         int cleavageIndexWithinTruncation = 0;
                         //get the first cleavage index after the start of the truncation
                         while (oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation] < truncation.OneBasedBeginPosition)
@@ -177,8 +174,11 @@ namespace Transcriptomics.Digestion
                                 && ValidLength(oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation + missedCleavages] - truncation.OneBasedBeginPosition.Value + 1, minLength, maxLength); //and it's the correct size
                         if (startPeptide)
                         {
-                            yield return new NucleolyticOligo(nucleicAcid, truncation.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation + missedCleavages],
+                            foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncation.OneBasedBeginPosition, truncation.OneBasedEndPosition, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
+                            {
+                                yield return new NucleolyticOligo(nucleicAcid, truncation.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation + missedCleavages],
                                 missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncation.Type + " start");
+                            }
                         }
 
                         //get the cleavage index before the end of the proteolysis product
@@ -194,11 +194,13 @@ namespace Transcriptomics.Digestion
                                           && ValidLength(truncation.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation - missedCleavages - 1] + 1 - 1, minLength, maxLength); //and it's the correct size
                         if (endPeptide)
                         {
-                            yield return new NucleolyticOligo(nucleicAcid, oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation - missedCleavages - 1] + 1, truncation.OneBasedEndPosition.Value,
-                                missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncation.Type + " end");
+                            foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncation.OneBasedBeginPosition, truncation.OneBasedEndPosition, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
+                            {
+                                yield return new NucleolyticOligo(nucleicAcid, oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation - missedCleavages - 1] + 1, truncation.OneBasedEndPosition.Value,
+                                    missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncation.Type + " end");
+                            }
                         }
                     }
-                } 
             }
 
             //add intact truncation (if acceptable)
