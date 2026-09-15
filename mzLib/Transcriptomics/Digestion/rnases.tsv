@@ -88,6 +88,7 @@ RNase A	C|,U|	full
 top-down		none
 RNase 1	G|,C|,A|,U|	full
 RNase PhyM	A|,U|	full
+RNase 4	U|A,U|G	full
 RNase U2	G|,A|	full
 Cusativin	C|	full
 RNase_MC1	|U	full
