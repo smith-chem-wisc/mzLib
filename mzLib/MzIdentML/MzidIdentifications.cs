@@ -44,7 +44,14 @@ namespace MzIdentML
             private const string LegacyNamespace = "http://psidev.info/psi/pi/mzIdentML/1.1.0";
             private const string SchemaNamespace = "http://psidev.info/psi/pi/mzIdentML/1.1";
 
-            public LegacyMzidNamespaceReader(Stream stream) : base(stream) { }
+            // XmlTextReader defaults to DtdProcessing.Parse, whereas the reader XmlSerializer builds for
+            // the Stream overload used by every other arm prohibits DTDs. Without this, a document the
+            // other arms refuse for its DTD falls through to this one and is accepted -- in either
+            // namespace, since the remap is a no-op for ".../1.1".
+            public LegacyMzidNamespaceReader(Stream stream) : base(stream)
+            {
+                DtdProcessing = DtdProcessing.Prohibit;
+            }
 
             public override string NamespaceURI =>
                 base.NamespaceURI == LegacyNamespace ? SchemaNamespace : base.NamespaceURI;

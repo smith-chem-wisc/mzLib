@@ -108,5 +108,31 @@ namespace Test.MzIdentML
                 if (File.Exists(path)) File.Delete(path);
             }
         }
+
+        /// <summary>
+        /// The 1.1.1, 1.2.0 and 1.3.0 arms hand XmlSerializer a Stream, and the reader it builds for
+        /// that prohibits DTDs. The legacy arm hands it its own XmlTextReader, whose DtdProcessing
+        /// defaults to Parse, so without an explicit Prohibit a document carrying an internal DTD subset
+        /// was refused in the compliant namespace and accepted in the legacy one. A real .mzID has no
+        /// DTD; this pins the two namespaces to the same answer.
+        /// </summary>
+        [Test]
+        [TestCase(SchemaNamespace)]
+        [TestCase(LegacyNamespace)]
+        public void ADocumentTypeDeclarationIsRejectedInEitherNamespace(string ns)
+        {
+            string withDtd = Document(ns).Replace("?>", @"?><!DOCTYPE MzIdentML [ <!ENTITY sample ""x""> ]>");
+            string path = WriteTemp(withDtd, "dtd.mzid");
+
+            try
+            {
+                Assert.That(() => new MzidIdentifications(path), Throws.Exception,
+                    $"a document in {ns} carrying a DTD was accepted");
+            }
+            finally
+            {
+                if (File.Exists(path)) File.Delete(path);
+            }
+        }
     }
 }
