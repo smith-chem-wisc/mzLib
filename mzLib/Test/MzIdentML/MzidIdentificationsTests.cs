@@ -92,6 +92,10 @@ namespace Test.MzIdentML
         [TestCase("mzidLib_xtandem_fdr_1_2_0.mzid", 5, 0, 0)]
         [TestCase("multiple_spectra_per_id_1_3_0.mzid", 2, 0, 0)]
         [TestCase("noncovalently_assoc_1_3_0.mzid", 2, 0, 0)]
+        [TestCase("PXD078927_msgf_1_1_0.mzid", 12, 6, 0)]
+        [TestCase("PXD000783_scaffold_1_1_0.mzid", 3, 0, 0)]
+        [TestCase("PXD019591_mascotparser_1_1_0.mzid", 7, 0, 0)]
+        [TestCase("PXD019733_proteomediscoverer_1_1_0.mzid", 3, 0, 0)]
         public void EveryPsmIsReadable(string fileName, int psms, int decoys, int withQValue)
         {
             var swept = ReadEveryPsm(Read(fileName));
@@ -102,6 +106,61 @@ namespace Test.MzIdentML
                 Assert.That(swept.Decoys, Is.EqualTo(decoys));
                 Assert.That(swept.WithQValue, Is.EqualTo(withQValue));
             });
+        }
+
+        /// <summary>
+        /// The PXD fixtures are real files downloaded from PRIDE Archive, each cut down to its first
+        /// few SpectrumIdentificationResults plus the DBSequence, Peptide and PeptideEvidence entries
+        /// those results reference. Every kept line is byte-for-byte from the published file; the only
+        /// text not in the original is the closing tags after the last kept result (the ProteinDetectionList
+        /// is dropped). They pin what the published, synthetic examples above cannot: the CV names real
+        /// writers use.
+        ///
+        /// Ms2SpectrumID decides between spectrumID and the spectrum title from SpectraData's FileFormat.
+        /// It matched that term by display name only, and two of the four writers spell it differently
+        /// from the PSI-MS name while carrying the same accession:
+        ///
+        /// - MS-GF+ (PXD078927) writes "mzML file" for MS:1000584, so the mzML branch was skipped and
+        ///   the method returned null for every result.
+        /// - Scaffold (PXD000783) writes "Mascot MGF file" for MS:1001062, with the same null outcome.
+        ///
+        /// And the MGF branch read the result's FIRST cvParam as the title. Scaffold happens to write the
+        /// title first; Mascot Parser (PXD019591) writes "Mascot:identity threshold" first, so the method
+        /// returned the identity threshold ("17") instead of the title, with no error.
+        ///
+        /// Proteome Discoverer (PXD019733) names the mzML format exactly and was already right; it is
+        /// here to pin that the match widening does not disturb an exact-name file.
+        ///
+        /// xiFDR (PXD070193, mzIdentML 1.2.0, cut to two results) writes no spectrum title at all, only
+        /// "peak list scans", so it takes the fallback to the first cvParam -- the value that was returned
+        /// before -- rather than changing what a title-less file reports.
+        /// </summary>
+        [TestCase("PXD078927_msgf_1_1_0.mzid", 0, "controllerType=0 controllerNumber=1 scan=14316")]
+        [TestCase("PXD078927_msgf_1_1_0.mzid", 2, "controllerType=0 controllerNumber=1 scan=14164")]
+        [TestCase("PXD000783_scaffold_1_1_0.mzid", 0, "Locus:1.1.1.3846.2 File:\"20130114-cw15-HILIC-polyMAC-biorep2-F6.wiff\"")]
+        [TestCase("PXD019591_mascotparser_1_1_0.mzid", 0, @"16333: Scan 22014 (rt=62.2092) [\\qmcr.qmul.ac.uk\rfs\HAEMONC\Pedro's Lab\Mass Spec\PharmacoDB\RAW\TP\QE2_PharmacoDB_TP_Sample_16B.raw]")]
+        [TestCase("PXD019591_mascotparser_1_1_0.mzid", 2, @"3735: Scan 7629 (rt=31.44) [\\qmcr.qmul.ac.uk\rfs\HAEMONC\Pedro's Lab\Mass Spec\PharmacoDB\RAW\TP\QE2_PharmacoDB_TP_Sample_16B.raw]")]
+        [TestCase("PXD019733_proteomediscoverer_1_1_0.mzid", 0, "scan=81409 file=454")]
+        [TestCase("PXD070193_xifdr_1_2_0.mzid", 1, "8426")]
+        public void Ms2SpectrumID_RealWriters_RecogniseTheFormatByAccessionAndReadTheTitleByAccession(
+            string fileName, int sirIndex, string expected)
+        {
+            Assert.That(Read(fileName).Ms2SpectrumID(sirIndex), Is.EqualTo(expected));
+        }
+
+        /// <summary>
+        /// Proteome Discoverer (PXD019733) scores each SpectrumIdentificationItem with a userParam and no
+        /// cvParam at all, so the item's cvParam array deserializes as null. QValue filtered that array
+        /// for MS:1002354 without a null check and threw ArgumentNullException for every PSM in the file
+        /// -- 861,250 of them in the published original. An item with no cvParams has no q-value, which
+        /// is the -1 the method already returns when the term is absent.
+        /// </summary>
+        [Test]
+        public void QValue_ItemWithNoCvParams_IsAbsentRatherThanAThrow()
+        {
+            var pd = Read("PXD019733_proteomediscoverer_1_1_0.mzid");
+
+            Assert.That(pd.QValue(0, 0), Is.EqualTo(-1).Within(1e-9));
         }
 
         /// <summary>
