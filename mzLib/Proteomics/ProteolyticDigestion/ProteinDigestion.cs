@@ -106,9 +106,23 @@ namespace Proteomics.ProteolyticDigestion
 
             //wrap up the termini that weren't hit earlier
             int lastIndex = oneBasedIndicesToCleaveAfter.Count - 1; //last cleavage index (the c-terminus)
-            int maxIndexDifference = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex; //the number of index differences allowed. 
+            int maxIndexDifference = MaximumMissedCleavages < lastIndex ? MaximumMissedCleavages : lastIndex; //the number of index differences allowed.
             //If the protein has fewer cleavage sites than allowed missed cleavages, just use the number of cleavage sites (lastIndex)
             bool nTerminusFragmentation = DigestionParams.FragmentationTerminus == FragmentationTerminus.N;
+
+            // The initiator-methionine rules the main loop applies at i == 0 (Protease.Retain / Protease.Cleave). They
+            // matter in this loop whenever a seed starts at the protein N-terminus (startIndex == 0):
+            //  - EVERY C seed made here starts there. With InitiatorMethionineBehavior.Cleave the Met is not in the sample,
+            //    so the seed must start after it; a seed that keeps the Met lets post-search trimming produce peptides
+            //    that cannot exist. (A C seed that keeps a Met that MAY be removed is fine: trimming reaches residue 2.)
+            //  - An N seed starts there only when the protein has no more cleavage sites than the missed cleavages
+            //    allowed. Then, if the Met may be removed, a second N seed must start at residue 2, or no peptide starting
+            //    at residue 2 is reachable at all (an N seed is only ever trimmed at its C-terminus).
+            // The residue-2 seed is not needed when residue 1 is itself a cleavage site: a window already starts there.
+            bool metMayBeRemoved = Protease.Cleave(0, InitiatorMethionineBehavior, protein[0]);
+            bool metMustBeRemoved = !Protease.Retain(0, InitiatorMethionineBehavior, protein[0]);
+            bool residueOneIsCleavageSite = oneBasedIndicesToCleaveAfter.Count > 1 && oneBasedIndicesToCleaveAfter[1] == 1;
+
             for (int i = 1; i <= maxIndexDifference; i++) //i is the difference (in indexes) between indexes (cleavages), so it needs to start at 1, or the peptide would have length = 0
             {
                 int startIndex = nTerminusFragmentation ?
@@ -117,26 +131,50 @@ namespace Proteomics.ProteolyticDigestion
                 int endIndex = nTerminusFragmentation ?
                     oneBasedIndicesToCleaveAfter[lastIndex] :
                     oneBasedIndicesToCleaveAfter[i];
+                bool startsAtProteinNTerminus = startIndex == 0;
 
-                int peptideLength = endIndex - startIndex;
-                if (peptideLength >= MinPeptideLength)
+                if (nTerminusFragmentation)
                 {
-                    if (peptideLength <= MaxPeptideLength) //if okay length, add it up to the terminus
+                    if (!startsAtProteinNTerminus || !metMustBeRemoved)
                     {
-                        peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, endIndex, i - 1, CleavageSpecificity.Full, "full"));
+                        AddWrapUpSeed(startIndex, endIndex, i, "");
                     }
-                    else //update so that not the end of terminus
+                    if (startsAtProteinNTerminus && metMayBeRemoved && !residueOneIsCleavageSite)
                     {
-                        if (nTerminusFragmentation)
-                        {
-                            endIndex = startIndex + MaxPeptideLength;
-                        }
-                        else
-                        {
-                            startIndex = endIndex - MaxPeptideLength;
-                        }
-                        peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, endIndex, i - 1, CleavageSpecificity.Semi, "semi"));
+                        AddWrapUpSeed(1, endIndex, i, ":M cleaved");
                     }
+                }
+                else
+                {
+                    AddWrapUpSeed(startsAtProteinNTerminus && metMustBeRemoved && !residueOneIsCleavageSite ? 1 : startIndex, endIndex, i, "");
+                }
+            }
+
+            // Adds the seed that starts after residue residueBeforeSeed and ends at endIndex, shortened to MaxPeptideLength
+            // from its fixed terminus when it is too long.
+            void AddWrapUpSeed(int residueBeforeSeed, int endIndex, int i, string descriptionSuffix)
+            {
+                int peptideLength = endIndex - residueBeforeSeed;
+                if (peptideLength < 1 || peptideLength < MinPeptideLength)
+                {
+                    return;
+                }
+                if (peptideLength <= MaxPeptideLength) //if okay length, add it up to the terminus
+                {
+                    peptides.Add(new ProteolyticPeptide(protein, residueBeforeSeed + 1, endIndex, i - 1, CleavageSpecificity.Full, "full" + descriptionSuffix));
+                }
+                else //update so that not the end of terminus
+                {
+                    int startIndex = residueBeforeSeed;
+                    if (nTerminusFragmentation)
+                    {
+                        endIndex = startIndex + MaxPeptideLength;
+                    }
+                    else
+                    {
+                        startIndex = endIndex - MaxPeptideLength;
+                    }
+                    peptides.Add(new ProteolyticPeptide(protein, startIndex + 1, endIndex, i - 1, CleavageSpecificity.Semi, "semi" + descriptionSuffix));
                 }
             }
 

@@ -477,6 +477,85 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
         #endregion
 
+        #region D. SearchModeType = Semi with FragmentationTerminus N or C returns seeds for the trimming engine
+
+        /// <summary>
+        /// Coverage: every semi-specific peptide must be reachable by trimming a seed, from the side the seed
+        /// keeps. A peptide whose only specific end is its N-terminus must be a prefix of an N seed (same
+        /// start, end no later); one whose only specific end is its C-terminus must be a suffix of a C seed
+        /// (same end, start no earlier); a fully specific peptide may come from either. If a peptide is not
+        /// reachable, MetaMorpheus's non-specific search can never identify it.
+        /// </summary>
+        /// <remarks>
+        /// The seed generator used to miss the Met-removed N seeds of proteins with fewer internal cleavage
+        /// sites than MaxMissedCleavages (FewerSitesThanMissedCleavages, NoCleavageSites).
+        /// </remarks>
+        [Test]
+        [TestCaseSource(nameof(ProteinNames))]
+        public static void SemiSearchModeSeeds_EverySemiPeptideIsReachableByTrimming(string proteinName)
+        {
+            using var proteases = new TestProteaseRegistration();
+            var protein = new Protein(Proteins[proteinName], proteinName);
+            var failures = new List<string>();
+
+            foreach (DigestionSettings settings in AllSettings())
+            {
+                var nSeeds = Digest(protein, Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.N));
+                var cSeeds = Digest(protein, Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.C));
+                bool ReachableFromN(ReferencePeptide p) => nSeeds.Any(seed => seed.Start == p.Start && seed.End >= p.End);
+                bool ReachableFromC(ReferencePeptide p) => cSeeds.Any(seed => seed.End == p.End && seed.Start <= p.Start);
+
+                var unreachable = EnumerateReferencePeptides(protein.BaseSequence, settings).Where(p =>
+                        p.FullySpecific ? !(ReachableFromN(p) || ReachableFromC(p))
+                        : p.NTerminusSpecific ? !ReachableFromN(p)
+                        : !ReachableFromC(p))
+                    .ToList();
+
+                if (unreachable.Count > 0)
+                    failures.Add($"{proteinName} | {settings}: {unreachable.Count} semi peptides no seed can be trimmed to, e.g. {string.Join(" ", unreachable.Take(8))}");
+            }
+
+            AssertNoFailures(failures, "Every semi-specific peptide must be reachable from an N seed (specific N-terminus) or a C seed (specific C-terminus).");
+        }
+
+        /// <summary>
+        /// Tightness: a seed must itself be a legal peptide from its fixed side. An N seed must start on a
+        /// specific N-terminus and a C seed must end on a specific C-terminus; both must respect the missed
+        /// cleavage and length limits, and with initiator Met Cleave neither may include residue 1's Met.
+        /// A seed that breaks these would let trimming produce peptides that cannot exist in the sample.
+        /// </summary>
+        [Test]
+        [TestCaseSource(nameof(ProteinNames))]
+        public static void SemiSearchModeSeeds_EverySeedIsALegalPeptideFromItsFixedTerminus(string proteinName)
+        {
+            using var proteases = new TestProteaseRegistration();
+            var protein = new Protein(Proteins[proteinName], proteinName);
+            string sequence = protein.BaseSequence;
+            var failures = new List<string>();
+
+            foreach (DigestionSettings settings in AllSettings())
+            {
+                // Every peptide the reference allows, regardless of which end is specific, keyed by position.
+                var legal = EnumerateReferencePeptides(sequence, settings).ToDictionary(p => (p.Start, p.End));
+                var wrong = new List<string>();
+
+                foreach (DigestedPeptide seed in Digest(protein, Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.N)))
+                    if (!legal.TryGetValue((seed.Start, seed.End), out ReferencePeptide r) || !r.NTerminusSpecific)
+                        wrong.Add($"N seed {seed} is not a peptide with a specific N-terminus within the limits");
+
+                foreach (DigestedPeptide seed in Digest(protein, Params(TestFullTrypsinName, settings, CleavageSpecificity.Semi, FragmentationTerminus.C)))
+                    if (!legal.TryGetValue((seed.Start, seed.End), out ReferencePeptide r) || !r.CTerminusSpecific)
+                        wrong.Add($"C seed {seed} is not a peptide with a specific C-terminus within the limits");
+
+                if (wrong.Count > 0)
+                    failures.Add($"{proteinName} | {settings}: {string.Join("; ", wrong.Take(5))}");
+            }
+
+            AssertNoFailures(failures, "Seeds must be legal peptides from their fixed terminus.");
+        }
+
+        #endregion
+
         #region E. Truncation products only ever add peptides at their own boundaries
 
         /// <summary>
