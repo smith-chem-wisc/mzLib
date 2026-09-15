@@ -126,7 +126,9 @@ namespace Proteomics.ProteolyticDigestion
             //  - An N seed starts there only when the protein has no more cleavage sites than the missed cleavages
             //    allowed. Then, if the Met may be removed, a second N seed must start at residue 2, or no peptide starting
             //    at residue 2 is reachable at all (an N seed is only ever trimmed at its C-terminus).
-            // The residue-2 seed is not needed when residue 1 is itself a cleavage site: a window already starts there.
+            // That extra residue-2 N seed is not needed when residue 1 is itself a cleavage site: a window already starts
+            // there. Being a cleavage site does NOT let a C seed keep a Met that must be removed; the C seed still starts
+            // at residue 2 (a protease that cleaves after M, such as CNBr, would otherwise emit C seeds that keep it).
             bool metMayBeRemoved = Protease.Cleave(0, InitiatorMethionineBehavior, protein[0]);
             bool metMustBeRemoved = !Protease.Retain(0, InitiatorMethionineBehavior, protein[0]);
             bool residueOneIsCleavageSite = oneBasedIndicesToCleaveAfter.Count > 1 && oneBasedIndicesToCleaveAfter[1] == 1;
@@ -154,7 +156,7 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 else
                 {
-                    AddWrapUpSeed(startsAtProteinNTerminus && metMustBeRemoved && !residueOneIsCleavageSite ? 1 : startIndex, endIndex, i, "");
+                    AddWrapUpSeed(startsAtProteinNTerminus && metMustBeRemoved ? 1 : startIndex, endIndex, i, "");
                 }
             }
 
