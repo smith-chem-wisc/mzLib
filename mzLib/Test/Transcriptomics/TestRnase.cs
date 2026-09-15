@@ -62,6 +62,46 @@ namespace Test.Transcriptomics
             }
         }
 
+        /// <summary>
+        /// Cusativin motif C[C]|, U|A, X|U produces three cleavage sites in GUACUG:
+        ///   X|U fires after G (pos 1)
+        ///   U|A fires after U (pos 2)
+        ///   C[C]| and X|U both fire after C (pos 4)
+        /// Resulting in four distinct base fragments: G, U, AC, UG.
+        /// </summary>
+        [Test]
+        public void TestCusativin_CleavagePattern()
+        {
+            var cusativin = RnaseDictionary.Dictionary["Cusativin"];
+
+            var products = cusativin.GetUnmodifiedOligos(new RNA("GUACUG"), 0, 1, int.MaxValue)
+                .ToArray();
+
+            var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "G", "U", "AC", "UG" }));
+        }
+
+        /// <summary>
+        /// Cusativin does not cleave C when followed by C (C[C]| motif prevention).
+        /// </summary>
+        [Test]
+        public void TestCusativin_DoesNotCleaveBeforeCytidine()
+        {
+            var cusativin = RnaseDictionary.Dictionary["Cusativin"];
+
+            var products = cusativin.GetUnmodifiedOligos(new RNA("GCCUGA"), 0, 1, int.MaxValue)
+                .ToArray();
+
+            // C at pos 2 is followed by C at pos 3 → no cleavage there
+            // X|U fires after C (pos 3) → pos 3→4, C→U
+            // U|A is absent (no U followed by A)
+            // C[C]| fires after C at pos 3 is NOT followed by C - wait, pos3=C, pos4=U → C[C]| fires after pos 3
+            // Actually pos2=C followed by pos3=C → C[C]| does NOT fire (C followed by C = prevented)
+            var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinctBaseSequences, Does.Not.Contain("GC"),
+                "C followed by C should not be cleaved");
+        }
+
         [Test]
         public void TestRnaseDictionaryCustomLoadAndMerge()
         {
