@@ -16,7 +16,6 @@ namespace Readers
     {
         internal static readonly XmlSerializer indexedSerializer = new XmlSerializer(typeof(Generated.indexedmzML));
         internal static readonly XmlSerializer mzmlSerializer = new XmlSerializer(typeof(Generated.mzMLType));
-        private static readonly string NewLine = "\n";
 
         private static readonly Dictionary<DissociationType, string> DissociationTypeAccessions = Mzml.DissociationDictionary.ToDictionary(p => p.Value, p => p.Key);
 
@@ -1201,42 +1200,79 @@ namespace Readers
             }
         }
 
+        /// <summary>
+        /// SHA-1 of the raw bytes of <paramref name="filePath"/> from the first byte of the file
+        /// through the closing '&gt;' of the &lt;fileChecksum&gt; open tag, per the indexedmzML schema:
+        /// "SHA-1 checksum from beginning of file to end of 'fileChecksum' open tag."
+        /// If the tag is absent the whole file is hashed.
+        /// </summary>
         public static SHA1 GetSHA1Hash(string filePath)
         {
+            // Hash raw bytes: decoding to text drops the byte-order mark XmlWriter emits,
+            // and re-encoding normalizes line endings.
+            byte[] openTag = Encoding.UTF8.GetBytes("<fileChecksum>");
+            int overlap = openTag.Length - 1;
             SHA1 sha1hash = SHA1.Create();
 
-            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.SequentialScan))
+            using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, 65536, FileOptions.SequentialScan))
             {
-                using (StreamReader reader = new StreamReader(stream, bufferSize: 4096))
+                byte[] buffer = new byte[65536 + overlap];
+                int pending = 0;
+
+                while (true)
                 {
-                    string line;
-                    byte[] buffer = new byte[10000000]; //write mzML method will crash is line.Length exceeds this value.
-                    bool foundChecksumField = false;
+                    int bytesRead = stream.Read(buffer, pending, buffer.Length - pending);
+                    pending += bytesRead;
 
-                    while (reader.Peek() > 0 && !foundChecksumField)
+                    int bytesThroughOpenTag = IndexPastSequence(buffer, pending, openTag);
+
+                    if (bytesThroughOpenTag >= 0)
                     {
-                        line = reader.ReadLine() + NewLine;
-
-                        if (line.Trim().StartsWith("<fileChecksum>", StringComparison.InvariantCultureIgnoreCase))
-                        {
-                            int f = line.IndexOf('>');
-                            line = line.Substring(0, f + 1);
-                            foundChecksumField = true;
-                        }
-
-                        int bytesRead = Encoding.UTF8.GetBytes(line, 0, line.Length, buffer, 0);
-
-                        if (bytesRead != 0)
-                        {
-                            sha1hash.TransformBlock(buffer, 0, bytesRead, buffer, 0);
-                        }
+                        sha1hash.TransformFinalBlock(buffer, 0, bytesThroughOpenTag);
+                        return sha1hash;
                     }
 
-                    sha1hash.TransformFinalBlock(buffer, 0, 0);
+                    if (bytesRead == 0)
+                    {
+                        sha1hash.TransformFinalBlock(buffer, 0, pending);
+                        return sha1hash;
+                    }
+
+                    // Hold back the last (openTag.Length - 1) bytes; the tag may straddle two reads.
+                    int hashable = Math.Max(pending - overlap, 0);
+
+                    if (hashable > 0)
+                    {
+                        sha1hash.TransformBlock(buffer, 0, hashable, null, 0);
+                        Buffer.BlockCopy(buffer, hashable, buffer, 0, pending - hashable);
+                        pending -= hashable;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Index one past the last byte of the first occurrence of <paramref name="sequence"/> in the
+        /// first <paramref name="count"/> bytes of <paramref name="buffer"/>, or -1 if not present.
+        /// </summary>
+        private static int IndexPastSequence(byte[] buffer, int count, byte[] sequence)
+        {
+            for (int i = 0; i <= count - sequence.Length; i++)
+            {
+                int j = 0;
+
+                while (j < sequence.Length && buffer[i + j] == sequence[j])
+                {
+                    j++;
+                }
+
+                if (j == sequence.Length)
+                {
+                    return i + sequence.Length;
                 }
             }
 
-            return sha1hash;
+            return -1;
         }
 
         private static string GetIdFromLine(string line)
