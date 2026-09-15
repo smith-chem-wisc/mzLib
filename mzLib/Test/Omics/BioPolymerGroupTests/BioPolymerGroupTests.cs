@@ -478,25 +478,38 @@ namespace Test.Omics.BioPolymerGroupTests
         /// Every channel of a file is handed that file's whole PSM list, so a per-channel count
         /// restates one number n times. Files keep their order; the channels within a file no longer
         /// each open a counting column of their own.
+        ///
+        /// A "no such column" assertion passes vacuously for a label the header never uses, so each
+        /// channel's label is first shown to be in the header, on its intensity column. 126 is named and
+        /// 127N is not, so both label forms are covered.
         /// </summary>
         [Test]
         public void GetTabSeparatedHeader_Isobaric_CountColumnsAreOnePerFile()
         {
-            var sample126 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var sample126 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "126", 126.0, false) { SampleName = "Patient7" };
             var sample127 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "127N", 127.0, false);
             var sample128 = new IsobaricQuantSampleInfo(@"C:\fileB.raw", "Control", 1, 1, 0, 1, "128C", 128.0, false);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { sample127, sample126, sample128 };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { sample126, 1.0 },
+                { sample127, 2.0 },
+                { sample128, 3.0 }
+            };
 
             var header = GroupTsv.Header(_bioPolymerGroup);
+            var columns = header.Split('\t');
+
+            Assert.That(new[] { sample126, sample127 }.Select(s => $"Intensity_{SampleGroupLabels.ForSample(s)}"),
+                Is.SubsetOf(columns),
+                "the channel labels must be in this header for their absence as count columns to mean anything");
 
             Assert.Multiple(() =>
             {
                 Assert.That(header, Does.Contain("SpectralCount_fileA"), "fileA needs a count column");
                 Assert.That(header, Does.Contain("SpectralCount_fileB"), "fileB needs a count column");
 
-                // Built from the channel's own label rather than spelled out, so these cannot pass
-                // vacuously by naming a label no channel carries any more.
                 Assert.That(header, Does.Not.Contain($"SpectralCount_{SampleGroupLabels.ForSample(sample126)}"),
                     "a count belongs to the file, so no channel may open one of its own");
                 Assert.That(header, Does.Not.Contain($"SpectralCount_{SampleGroupLabels.ForSample(sample127)}"),

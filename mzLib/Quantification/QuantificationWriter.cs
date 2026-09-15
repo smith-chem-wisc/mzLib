@@ -158,17 +158,15 @@ namespace Quantification
         }
 
         /// <summary>
-        /// The column header for one sample. Isobaric samples take the label
-        /// <see cref="SampleGroupLabels.ForSample"/> gives them, which is the label the grouped protein
-        /// table uses for the same channel; label-free samples are labelled by file name. Falls back to
-        /// <see cref="object.ToString"/> for other <see cref="ISampleInfo"/> implementations.
+        /// The column header for one sample, before <see cref="UniqueColumnLabels"/> makes repeats
+        /// distinct. Every sample takes the label <see cref="SampleGroupLabels.ForSample"/> gives it:
+        /// an isobaric channel the label the grouped protein table starts from for the same channel, and
+        /// a label-free sample its file name. Falls back to <see cref="object.ToString"/> when a sample
+        /// has no file name.
         /// </summary>
         internal static string SampleColumnLabel(ISampleInfo sample)
         {
-            if (sample is IsobaricQuantSampleInfo)
-                return SampleGroupLabels.ForSample(sample);
-
-            string name = sample.FilenameWithoutExtension;
+            string name = SampleGroupLabels.ForSample(sample, labelFreeByFileName: true);
             return string.IsNullOrEmpty(name) ? sample.ToString() : name;
         }
 

@@ -15,9 +15,14 @@ namespace Omics.BioPolymerGroup;
 public static class SampleGroupLabels
 {
     /// <summary>
-    /// The label for one sample's columns. Every writer that names a column after a sample asks
-    /// here, so the grouped protein table and the quantification matrices cannot drift into naming
-    /// the same channel two ways.
+    /// The label for one sample's columns. The grouped protein table and the quantification matrices
+    /// both start from it, so a channel whose label is unique within its output is named the same way
+    /// in both.
+    ///
+    /// Labels that collide are still made unique by each writer separately, and not alike: the grouped
+    /// table widens them with <see cref="Disambiguate"/> (directory, then ordinals), while
+    /// <c>QuantificationWriter.UniqueColumnLabels</c> only appends ordinals. A collided channel can
+    /// therefore carry a different header in each file.
     ///
     /// An isobaric channel is labelled <c>{sample}_{file}_{channel}</c> when the design names the
     /// sample in it, and <c>{file}_{channel}</c> otherwise. The file stays in both forms: the fractions
@@ -33,6 +38,13 @@ public static class SampleGroupLabels
     /// caller that does not yet supply <see cref="IsobaricQuantSampleInfo.SampleName"/> sees no
     /// column change at all, so it can adopt this release first and opt into the new labels when it
     /// starts passing names.
+    ///
+    /// The parts are joined with <c>_</c>, which a sample name or file stem may itself contain, so
+    /// different channels can share a label: <c>S_1</c> in <c>run.raw</c> and <c>S</c> in
+    /// <c>1_run.raw</c> both give <c>S_1_run_126</c>, and a channel named <c>plex1</c> in <c>x.raw</c>
+    /// takes the label of the same, unnamed channel of <c>plex1_x.raw</c>. Such labels collide and are
+    /// made unique as above. Values stay on their own channels, because columns are keyed on the
+    /// sample, never on its label.
     /// </remarks>
     /// <param name="sample">The sample to label.</param>
     /// <param name="labelFreeByFileName">For a label-free sample, whether to label it by file name

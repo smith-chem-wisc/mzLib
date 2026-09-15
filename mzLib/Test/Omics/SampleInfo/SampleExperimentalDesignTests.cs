@@ -125,14 +125,69 @@ namespace Test.Omics.SampleInfo
         }
 
         /// <summary>
+        /// The rule is not isobaric-only: one label-free sample listed twice for its file is refused
+        /// the same way, by Add and by FromSamples, and named by its file. Master accepted both, and the
+        /// second entry took the first one's column.
+        /// </summary>
+        [Test]
+        public void Add_AndFromSamples_RejectOneLabelFreeSampleListedTwice()
+        {
+            const string path = @"C:\Data\run7.raw";
+
+            var fromAdd = Assert.Throws<ArgumentException>(() => new SampleExperimentalDesign().Add(path, File(path), File(path)));
+            var fromSamples = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(new ISampleInfo[] { File(path), File(path) }));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fromAdd.Message, Does.Contain("sample 'run7.raw' is listed 2 times"));
+                Assert.That(fromAdd.ParamName, Is.EqualTo("samples"));
+                Assert.That(fromSamples.Message, Does.Contain("sample 'run7.raw' is listed 2 times"));
+            });
+        }
+
+        /// <summary>
+        /// An input that breaks an older rule as well as the repeat rule keeps the older rule's message.
+        /// The repeat check runs last in Add, so a file added twice is still reported as already in the
+        /// design, against the file parameter, even when its second samples also repeat.
+        /// </summary>
+        [Test]
+        public void Add_ReportsAnAlreadyAddedFileBeforeARepeatedSample()
+        {
+            const string path = @"C:\Data\tmt.raw";
+            var design = new SampleExperimentalDesign();
+            design.Add(path, Channel(path, "126", 126.12776));
+
+            var ex = Assert.Throws<ArgumentException>(
+                () => design.Add(path, Channel(path, "126", 126.12776), Channel(path, "126", 126.12776)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex.Message, Does.Contain("already in this design"));
+                Assert.That(ex.ParamName, Is.EqualTo("fileNameOrPath"));
+            });
+        }
+
+        /// <summary>
+        /// Null entries are skipped rather than counted as one sample repeated. Add refuses nulls before
+        /// asking, but the engine asks the rule of any design, whose arrays may hold them.
+        /// </summary>
+        [Test]
+        public void DescribeRepeatedSample_IgnoresNullEntries()
+        {
+            Assert.That(SampleExperimentalDesign.DescribeRepeatedSample(new ISampleInfo[] { null, Channel(@"C:\Data\tmt.raw", "126", 126.12776), null }),
+                Is.Null);
+        }
+
+        /// <summary>
         /// One sample on the same channel of every plex is a bridge design, not a repeat. PXD008841 puts
         /// a sample named "pool" in 131N of every plex; the channels are in different files, so they are
         /// different samples however they are named.
         ///
         /// Asked of the rule directly, not through FromSamples. FromSamples groups by file before the
         /// rule ever runs, so two plexes' pool channels never meet there and a rule that ignored the
-        /// file entirely would still pass that way. The engine hands the rule one file at a time too;
-        /// this is the only place the file's part in "the same sample" can be seen to matter.
+        /// file entirely would still pass that way. The engine does hand the rule every file's samples
+        /// at once, and its fixture repeats each channel label in both files, so every successful engine
+        /// run is the same case end to end.
         /// </summary>
         [Test]
         public void DescribeRepeatedSample_OneSampleOnTheSameChannelOfEveryPlex_IsNotARepeat()

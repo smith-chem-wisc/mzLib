@@ -490,6 +490,112 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
+    /// The same channel listed under two different file keys is refused as well.
+    ///
+    /// The engine combines every file's columns into one matrix keyed by sample, so a channel of one
+    /// file appearing under two keys collides there exactly as a channel listed twice under one key
+    /// does -- the run would succeed with one key's values overwritten and shown under the other's
+    /// name. Asking the rule one key at a time cannot see it.
+    /// </summary>
+    [Test]
+    public void Run_WithTwoDesignKeysHoldingOneChannel_ReturnsFailureNamingIt()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary[File1][0] =
+            new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, true) { SampleName = "Pt1" };
+        design.FileNameSampleInfoDictionary[File2][1] =
+            new IsobaricQuantSampleInfo(File1, "Cond1", 1, 1, 0, 0, Channels[0], 126.0, false) { SampleName = "Pt3" };
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain($"channel {Channels[0]} of '{File1}' is listed 2 times, as 'Pt1' and 'Pt3'"));
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// The repeat check tolerates the nulls an outside <see cref="IExperimentalDesign"/> can hand it --
+    /// a null dictionary, a null sample array, null entries -- rather than throwing, and does not count
+    /// two nulls as one sample listed twice. Whether such a design can run is for the later stages to
+    /// say; the files here are ones no spectral match names.
+    /// </summary>
+    [Test]
+    public void ValidateEngine_WithNullsInTheDesign_ReportsNoRepeat()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary["absent.raw"] = null;
+        design.FileNameSampleInfoDictionary["holes.raw"] = new ISampleInfo[] { null, null };
+
+        var withNulls = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups);
+        var withNoDictionary = new QuantificationEngine(SimpleParameters(),
+            new TestExperimentalDesign { FileNameSampleInfoDictionary = null }, spectralMatches, peptides, proteinGroups);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withNulls.ValidateEngine(out var bad), Is.True, bad?.Summary);
+            Assert.DoesNotThrow(() => withNoDictionary.ValidateEngine(out _));
+        });
+    }
+
+    /// <summary>
+    /// A design that names its samples reaches both kinds of output under the same column names: the
+    /// quantification matrices written by <see cref="QuantificationWriter"/> and the grouped protein
+    /// table rendered from the entities the engine wrote back. One channel is named and the rest are
+    /// not, so both label forms travel the whole path.
+    ///
+    /// The unit test on <see cref="QuantificationWriter.SampleColumnLabel"/> shows the two writers ask
+    /// one function; this shows the name actually survives the design, the engine and both writers.
+    /// </summary>
+    [Test]
+    public void Run_WithANamedDesign_NamesChannelsAlikeInTheMatricesAndTheGroupedTable()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary[File1][0] =
+            new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, true) { SampleName = "Patient7" };
+
+        string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantNamedDesign_" + TestContext.CurrentContext.Test.ID);
+        try
+        {
+            var parameters = SimpleParameters(outputDirectory);
+            parameters.WritePeptideInformation = true;
+            parameters.WriteProteinInformation = true;
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+            Assert.That(results.Success, Is.True, results.Summary);
+
+            string[] MatrixSampleColumns(string fileName) =>
+                File.ReadLines(Path.Combine(outputDirectory, fileName)).First().Split('\t').Skip(1).ToArray();
+
+            var groupedIntensityColumns = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToArray())
+                .Split('\t')
+                .Where(column => column.StartsWith("Intensity_", StringComparison.Ordinal))
+                .Select(column => column.Substring("Intensity_".Length))
+                .ToArray();
+
+            string[] expected =
+            {
+                "Patient7_file1_126", "file1_127N", "file1_127C",
+                "file2_126", "file2_127N", "file2_127C"
+            };
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(MatrixSampleColumns(QuantificationWriter.ProteinGroupFileName), Is.EquivalentTo(expected));
+                Assert.That(MatrixSampleColumns(QuantificationWriter.PeptideFileName), Is.EquivalentTo(expected));
+                Assert.That(groupedIntensityColumns, Is.EquivalentTo(expected));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// With all three write flags on, the engine writes three files, reports their paths, and the
     /// protein file's contents match the matrix it was built from.
     /// </summary>
