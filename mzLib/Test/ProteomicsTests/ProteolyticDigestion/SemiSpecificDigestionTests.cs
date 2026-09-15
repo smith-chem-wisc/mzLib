@@ -231,13 +231,14 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         private const string TestSemiTrypsinName = "SemiSpecificDigestionTests-trypsin-semi-no-proline-rule";
 
         // Also cleaves after Met, so a protein's initiator Met is itself a cleavage site. The K/R proteases
-        // above can never produce that case.
+        // above can never produce that case. A Full and a Semi version, like the trypsins.
         private const string TestAfterLysineArginineOrMethionineName = "SemiSpecificDigestionTests-cleave-after-K-R-or-M";
+        private const string TestSemiAfterLysineArginineOrMethionineName = "SemiSpecificDigestionTests-semi-cleave-after-K-R-or-M";
 
         /// <summary>
         /// Registers this fixture's own Full and Semi trypsin (cleave after K or R, no proline rule), and a Full
-        /// protease that cleaves after K, R or M, for the lifetime of a <c>using</c> block, and removes them
-        /// afterwards. <see cref="DigestionParams"/> looks proteases up by name in the static
+        /// and a Semi protease that cleave after K, R or M, for the lifetime of a <c>using</c> block, and removes
+        /// them afterwards. <see cref="DigestionParams"/> looks proteases up by name in the static
         /// <see cref="ProteaseDictionary.Dictionary"/>, so a test protease has to be registered there; removing
         /// it in Dispose keeps other fixtures unaffected.
         /// </summary>
@@ -246,10 +247,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             public TestProteaseRegistration()
             {
                 List<DigestionMotif> afterLysineOrArginine = DigestionMotif.ParseDigestionMotifsFromString("K|,R|");
+                List<DigestionMotif> afterLysineArginineOrMethionine = DigestionMotif.ParseDigestionMotifsFromString("K|,R|,M|");
                 ProteaseDictionary.Dictionary[TestFullTrypsinName] = new Protease(TestFullTrypsinName, CleavageSpecificity.Full, null, null, afterLysineOrArginine);
                 ProteaseDictionary.Dictionary[TestSemiTrypsinName] = new Protease(TestSemiTrypsinName, CleavageSpecificity.Semi, null, null, afterLysineOrArginine);
                 ProteaseDictionary.Dictionary[TestAfterLysineArginineOrMethionineName] = new Protease(TestAfterLysineArginineOrMethionineName, CleavageSpecificity.Full, null, null,
-                    DigestionMotif.ParseDigestionMotifsFromString("K|,R|,M|"));
+                    afterLysineArginineOrMethionine);
+                ProteaseDictionary.Dictionary[TestSemiAfterLysineArginineOrMethionineName] = new Protease(TestSemiAfterLysineArginineOrMethionineName, CleavageSpecificity.Semi, null, null,
+                    afterLysineArginineOrMethionine);
             }
 
             public void Dispose()
@@ -257,6 +261,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 ProteaseDictionary.Dictionary.Remove(TestFullTrypsinName);
                 ProteaseDictionary.Dictionary.Remove(TestSemiTrypsinName);
                 ProteaseDictionary.Dictionary.Remove(TestAfterLysineArginineOrMethionineName);
+                ProteaseDictionary.Dictionary.Remove(TestSemiAfterLysineArginineOrMethionineName);
             }
         }
 
@@ -461,12 +466,12 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// Peptides missing from the result are reported by the set tests, not here.
         /// </summary>
         private static List<string> CompareLabelsAndMissedCleavages(Protein protein, string proteinName, Func<DigestionSettings, DigestionParams> makeParams,
-            bool checkLabels = true, bool checkMissedCleavages = true)
+            bool checkLabels = true, bool checkMissedCleavages = true, string cleavageResidues = "KR")
         {
             var failures = new List<string>();
             foreach (DigestionSettings settings in AllSettings())
             {
-                var reference = EnumerateReferencePeptides(protein.BaseSequence, settings).ToDictionary(p => (p.Start, p.End));
+                var reference = EnumerateReferencePeptides(protein.BaseSequence, settings, cleavageResidues).ToDictionary(p => (p.Start, p.End));
                 var wrong = new List<string>();
                 foreach (DigestedPeptide peptide in Digest(protein, makeParams(settings)))
                 {
@@ -729,6 +734,63 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var failures = SeedTightnessFailures(TestAfterLysineArginineOrMethionineName, "KRM", proteinName);
             failures.AddRange(SeedCoverageFailures(TestAfterLysineArginineOrMethionineName, "KRM", proteinName));
             AssertNoFailures(failures, "With a protease that cleaves after the initiator Met, seeds must still be legal peptides and must still reach every semi-specific peptide.");
+        }
+
+        /// <summary>
+        /// The two ways of asking for real semi-specific peptides (not seeds): a protease whose own specificity is
+        /// Semi, and a fully specific protease with SearchModeType Semi and FragmentationTerminus Both.
+        /// </summary>
+        public enum SemiSpecificRequest
+        {
+            SemiProtease,
+            SemiSearchModeBothTermini,
+        }
+
+        private static IEnumerable<TestCaseData> ProteinsStartingWithMetForEachSemiSpecificRequest() =>
+            from proteinName in ProteinsStartingWithMet
+            from request in new[] { SemiSpecificRequest.SemiProtease, SemiSpecificRequest.SemiSearchModeBothTermini }
+            select new TestCaseData(proteinName, request);
+
+        /// <summary>
+        /// The semi-specific peptides themselves (groups B and C), for a protease that also cleaves after Met, on
+        /// every protein that starts with Met: exact peptide set, labels and missed cleavages. This is the
+        /// non-seed counterpart of the seed test above.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>The bug this guards.</b> With <see cref="InitiatorMethionineBehavior.Cleave"/>, a protein
+        /// starting with Met, and a protease that cleaves after M (CNBr, or any protease table entry with an
+        /// <c>M|</c> motif), <c>Protease.SemiProteolyticDigestion</c> dropped the semi-specific peptides that
+        /// end at the first cleavage window's C-terminal site and start somewhere ragged inside it. For
+        /// MPEPTIDEPEPTIDE with one missed cleavage, 13 of the 14 such peptides were missing. No error was
+        /// reported; a search simply could not identify them.</para>
+        /// <para><b>Why.</b> In the main loop's first window the digestion turns off its Met-cleaved start,
+        /// because residue 1 being a cleavage site means the NEXT window already starts at residue 2 (otherwise
+        /// those peptides would be made twice), and <c>Cleave</c> turns off its Met-retaining start, because the
+        /// Met is not in the sample. With both off, the first window made nothing at all, including the
+        /// ragged-start peptides that no other window or end loop makes.</para>
+        /// <para>The K/R test proteases can never make residue 1 a cleavage site, which is why groups B and C
+        /// did not catch it; the same blind spot was found in the seed path during review of mzLib #1303.</para>
+        /// </remarks>
+        [Test]
+        [TestCaseSource(nameof(ProteinsStartingWithMetForEachSemiSpecificRequest))]
+        public static void SemiDigestion_ProteaseThatCleavesAfterTheInitiatorMet_ReturnsExactlyTheReferencePeptides(string proteinName, SemiSpecificRequest request)
+        {
+            using var proteases = new TestProteaseRegistration();
+            var protein = new Protein(Proteins[proteinName], proteinName);
+
+            DigestionParams MakeParams(DigestionSettings settings) => request == SemiSpecificRequest.SemiProtease
+                ? Params(TestSemiAfterLysineArginineOrMethionineName, settings)
+                : Params(TestAfterLysineArginineOrMethionineName, settings, CleavageSpecificity.Semi, FragmentationTerminus.Both);
+
+            var failures = new List<string>();
+            foreach (DigestionSettings settings in AllSettings())
+            {
+                var expected = EnumerateReferencePeptides(protein.BaseSequence, settings, "KRM").Select(p => (p.Start, p.End)).ToList();
+                failures.AddRange(CompareSets(request.ToString(), proteinName, settings, expected, Digest(protein, MakeParams(settings))));
+            }
+            failures.AddRange(CompareLabelsAndMissedCleavages(protein, proteinName, MakeParams, cleavageResidues: "KRM"));
+
+            AssertNoFailures(failures, "With a protease that cleaves after the initiator Met, semi-specific digestion must still return every semi-specific peptide, once, correctly labelled and counted.");
         }
 
         #endregion

@@ -46,7 +46,14 @@ namespace Proteomics.ProteolyticDigestion
         /// that N-terminus is a prefix of the seed, and they all share its N-terminal fragment ions, so the engine scores the
         /// seed once with N-terminal ions and trims it to the length the precursor mass supports. FragmentationTerminus = C is
         /// the mirror image. A complete semi-specific search therefore needs both an N pass and a C pass.
-        /// <para>Only call this with N or C. <see cref="Protein.Digest(Omics.Digestion.IDigestionParams, System.Collections.Generic.List{Omics.Modifications.Modification}, System.Collections.Generic.List{Omics.Modifications.Modification}, System.Collections.Generic.List{Proteomics.ProteolyticDigestion.SilacLabel}, ValueTuple{Proteomics.ProteolyticDigestion.SilacLabel, Proteomics.ProteolyticDigestion.SilacLabel}?, bool)"/>
+        /// <para><b>Why only a trimming engine can use seeds.</b> Trimming works because the precursor mass leaves one
+        /// unknown, where the peptide ends: the engine adds residue masses along the seed until they match the precursor.
+        /// An engine that has another unknown cannot do that. A glyco search, for example, takes precursor mass minus
+        /// peptide mass as the glycan mass, which is undefined for a seed, and localizes glycans with fragment ions from
+        /// both termini. Those engines need the peptides themselves, which <see cref="SemiSpecificDigestion"/> gives them
+        /// (FragmentationTerminus Both). Asking for seeds where peptides were needed is the silent failure fixed in #1303:
+        /// glyco searches lost most of their identifications with no error.</para>
+        /// <para>Only call this with N or C. <c>Protein.Digest</c>
         /// routes every other terminus to <see cref="SemiSpecificDigestion"/> (see <see cref="WantsSemiSpecificSeeds"/>); below, any
         /// terminus other than N is treated as C.</para>
         /// </remarks>
