@@ -86,9 +86,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(dict, Is.Not.Null, "Static Dictionary should be initialized");
             Assert.That(dict.Count, Is.GreaterThan(10), "Should contain many proteases from embedded resource");
 
-            Assert.That(dict.ContainsKey("trypsin|P"), Is.True);
             Assert.That(dict.ContainsKey("trypsin"), Is.True);
-            Assert.That(dict.ContainsKey("Lys-C|P"), Is.True);
+            Assert.That(dict.ContainsKey("trypsin"), Is.True);
+            Assert.That(dict.ContainsKey("Lys-C"), Is.True);
             Assert.That(dict.ContainsKey("Asp-N"), Is.True);
             Assert.That(dict.ContainsKey("CNBr"), Is.True);
         }
@@ -116,7 +116,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void StaticDictionary_TrypsinHasNoCleavageMod()
         {
-            var trypsin = ProteaseDictionary.Dictionary["trypsin|P"];
+            var trypsin = ProteaseDictionary.Dictionary["trypsin"];
 
             Assert.That(trypsin, Is.Not.Null);
             Assert.That(trypsin.CleavageMod, Is.Null,
@@ -507,9 +507,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void Integration_MetaMorpheusStyle_NoExternalFilesNeeded()
         {
-            var trypsin = ProteaseDictionary.GetProtease("trypsin|P");
+            var trypsin = ProteaseDictionary.GetProtease("trypsin");
             var cnbr = ProteaseDictionary.GetProtease("CNBr");
-            var lysC = ProteaseDictionary.GetProtease("Lys-C|P");
+            var lysC = ProteaseDictionary.GetProtease("Lys-C");
 
             Assert.That(trypsin, Is.Not.Null);
             Assert.That(cnbr, Is.Not.Null);

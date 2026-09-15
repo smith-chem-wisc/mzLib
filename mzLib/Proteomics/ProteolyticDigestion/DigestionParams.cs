@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using Omics.Digestion;
 using Omics.Fragmentation;
 
@@ -17,7 +17,10 @@ namespace Proteomics.ProteolyticDigestion
             int maxModsForPeptides = 2, CleavageSpecificity searchModeType = CleavageSpecificity.Full, FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
             bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false)
         {
-            Protease = ProteaseDictionary.Dictionary[protease];
+            // GetProtease, not the raw indexer: it applies NormalizeProteaseName, which is what
+            // lets settings saved under the historical "|P" and "(don't cleave before proline)"
+            // spellings keep resolving to the same enzyme they always did.
+            Protease = ProteaseDictionary.GetProtease(protease);
             MaxMissedCleavages = maxMissedCleavages;
             MinLength = minPeptideLength;
             MaxLength = maxPeptideLength;

@@ -43,7 +43,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Protein myProtein = new Protein("SEQUENCEK", "accession");
 
             DigestionParams digest1 = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
-            DigestionParams digest2 = new DigestionParams(protease: "Lys-C|P", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digest2 = new DigestionParams(protease: "Lys-C", maxMissedCleavages: 0, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             PeptideWithSetModifications pep1 = myProtein.Digest(digest1, new List<Modification>(), new List<Modification>()).First();
             PeptideWithSetModifications pep2 = myProtein.Digest(digest2, new List<Modification>(), new List<Modification>()).First();

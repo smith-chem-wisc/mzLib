@@ -167,24 +167,24 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(dictionary, Is.Not.Null);
             Assert.That(dictionary.Count, Is.GreaterThan(0));
 
-            Assert.That(dictionary.ContainsKey("trypsin|P"), Is.True);
-            Assert.That(dictionary["trypsin|P"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
-            Assert.That(dictionary["trypsin|P"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
+            Assert.That(dictionary.ContainsKey("trypsin"), Is.True);
+            Assert.That(dictionary["trypsin"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
+            Assert.That(dictionary["trypsin"].DigestionMotifs.Count, Is.EqualTo(2)); // K[P]| and R[P]|
         }
 
         /// <summary>
         /// Tests backward compatibility for old-style protease names.
         /// Names like "chymotrypsin (don't cleave before proline)" should automatically
-        /// resolve to "chymotrypsin|P" via NormalizeProteaseName.
+        /// resolve to "chymotrypsin" via NormalizeProteaseName.
         /// </summary>
         [Test]
         public static void GetProtease_OldStyleName_ResolvesToNewFormat()
         {
             var testCases = new[]
             {
-                ("chymotrypsin (don't cleave before proline)", "chymotrypsin|P"),
-                ("trypsin (don't cleave before proline)",      "trypsin|P"),
-                ("Lys-C (don't cleave before proline)",        "Lys-C|P"),
+                ("chymotrypsin (don't cleave before proline)", "chymotrypsin"),
+                ("trypsin (don't cleave before proline)",      "trypsin"),
+                ("Lys-C (don't cleave before proline)",        "Lys-C"),
             };
 
             foreach (var (oldName, expectedNewName) in testCases)
@@ -210,13 +210,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void GetProtease_NewStyleName_WorksDirectly()
         {
-            var protease = ProteaseDictionary.GetProtease("trypsin|P");
+            var protease = ProteaseDictionary.GetProtease("trypsin");
             Assert.That(protease, Is.Not.Null);
-            Assert.That(protease.Name, Is.EqualTo("trypsin|P"));
+            Assert.That(protease.Name, Is.EqualTo("trypsin"));
 
-            bool found = ProteaseDictionary.TryGetProtease("chymotrypsin|P", out var protease2);
+            bool found = ProteaseDictionary.TryGetProtease("chymotrypsin", out var protease2);
             Assert.That(found, Is.True);
-            Assert.That(protease2.Name, Is.EqualTo("chymotrypsin|P"));
+            Assert.That(protease2.Name, Is.EqualTo("chymotrypsin"));
         }
 
         /// <summary>
@@ -240,7 +240,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         public static void NormalizeProteaseName_NoMatch_ReturnsOriginal()
         {
             Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
-            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin|P"), Is.EqualTo("trypsin|P"));
+            Assert.That(ProteaseDictionary.NormalizeProteaseName("trypsin"), Is.EqualTo("trypsin"));
             Assert.That(ProteaseDictionary.NormalizeProteaseName("custom protease"), Is.EqualTo("custom protease"));
             Assert.That(ProteaseDictionary.NormalizeProteaseName(""), Is.EqualTo(""));
             Assert.That(ProteaseDictionary.NormalizeProteaseName(null), Is.Null);
@@ -592,13 +592,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             var prot = new Protein("MNNNKQQQQMNNNKQQQQ", null);
 
-            DigestionParams digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye1 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 1, maxPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1, maxPeptideLength: 5, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye2 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
-            digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 0, minPeptideLength: 5, maxPeptideLength: 8, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 5, maxPeptideLength: 8, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             var ye3 = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
             Assert.AreEqual(3, ye.Count);
             Assert.AreEqual(2, ye1.Count);
@@ -630,7 +630,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void TestDigestionOfSameProteinFromDifferentXmls()
         {
-            DigestionParams digestionParams = new DigestionParams("trypsin|P", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+            DigestionParams digestionParams = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
             ModificationMotif.TryGetMotif("C", out ModificationMotif motif);
             Modification carbamidomethylOnC = new Modification(_originalId: "Carbamidomethyl on C", _modificationType: "Common Fixed", _target: motif, _locationRestriction: "Anywhere.", _chemicalFormula: ChemicalFormula.ParseFormula("C2H3NO"));
             var fixedModifications = new List<Modification> { carbamidomethylOnC };
@@ -942,27 +942,27 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         {
             int initialCount = ProteaseDictionary.Dictionary.Count;
 
-            // "trypsin|P" exists in embedded resource → must be skipped
+            // "trypsin" exists in embedded resource → must be skipped
             // "MyLabProtease" is genuinely new → must be added
             string customProteaseFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_custom_proteases.tsv");
             string[] lines =
             {
                 "Name\tMotif\tSpecificity\tPSI-MS Accession\tPSI-MS Name\tCleavage Modification",
-                "trypsin|P\tL[P]|\tfull\tMS:1001313\tTrypsin\t",
+                "trypsin\tL[P]|\tfull\tMS:1001313\tTrypsin\t",
                 "MyLabProtease\tE|\tfull\t\tCustom Glu-C variant\t"
             };
             File.WriteAllLines(customProteaseFile, lines);
 
             try
             {
-                var originalTrypsin = ProteaseDictionary.Dictionary["trypsin|P"];
+                var originalTrypsin = ProteaseDictionary.Dictionary["trypsin"];
 
                 var result = ProteaseDictionary.LoadAndMergeCustomProteases(customProteaseFile);
 
-                // trypsin|P must be skipped, not added
-                Assert.That(result.Skipped, Contains.Item("trypsin|P"),
+                // trypsin must be skipped, not added
+                Assert.That(result.Skipped, Contains.Item("trypsin"),
                     "Embedded protease name must appear in Skipped");
-                Assert.That(result.Added, Does.Not.Contain("trypsin|P"),
+                Assert.That(result.Added, Does.Not.Contain("trypsin"),
                     "Embedded protease name must not appear in Added");
 
                 // MyLabProtease must be added
@@ -973,11 +973,11 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 // Dictionary count increases by exactly 1 (only MyLabProtease added)
                 Assert.That(ProteaseDictionary.Dictionary.Count, Is.EqualTo(initialCount + 1));
 
-                // Embedded trypsin|P definition must be unchanged
-                Assert.That(ReferenceEquals(ProteaseDictionary.Dictionary["trypsin|P"], originalTrypsin), Is.True,
-                    "The embedded trypsin|P object must not have been replaced");
-                Assert.That(ProteaseDictionary.Dictionary["trypsin|P"].DigestionMotifs.Count, Is.EqualTo(2),
-                    "Embedded trypsin|P should still have its original 2 motifs");
+                // Embedded trypsin definition must be unchanged
+                Assert.That(ReferenceEquals(ProteaseDictionary.Dictionary["trypsin"], originalTrypsin), Is.True,
+                    "The embedded trypsin object must not have been replaced");
+                Assert.That(ProteaseDictionary.Dictionary["trypsin"].DigestionMotifs.Count, Is.EqualTo(2),
+                    "Embedded trypsin should still have its original 2 motifs");
 
                 // MyLabProtease should work for digestion
                 var protein = new Protein("PEPTIDEEPEPTIDER", null);
@@ -1001,24 +1001,24 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void TestSubtilisinP_DigestsCorrectlyAndRespectsProlineRestriction()
         {
-            // Verify subtilisin|P is loaded from the embedded resource
-            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|P"),
-                "subtilisin|P must be present in the embedded protease dictionary");
+            // Verify subtilisin is loaded from the embedded resource
+            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin"),
+                "subtilisin must be present in the embedded protease dictionary");
 
-            var subtilisin = ProteaseDictionary.Dictionary["subtilisin|P"];
+            var subtilisin = ProteaseDictionary.Dictionary["subtilisin"];
             Assert.That(subtilisin.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
 
             // Basic digestion: ANKTIDE should be cut after A, N, K, T, I, D → several fragments
             var prot = new Protein("ANKTIDE", null);
             var digestionParams = new DigestionParams(
-                protease: "subtilisin|P", maxMissedCleavages: 0, minPeptideLength: 1,
+                protease: "subtilisin", maxMissedCleavages: 0, minPeptideLength: 1,
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
 
             var peptides = prot.Digest(digestionParams, new List<Modification>(), new List<Modification>()).ToList();
 
             // Every residue except the last is a cleavage site → 7 single-AA fragments
             Assert.That(peptides.Count, Is.EqualTo(7),
-                "subtilisin|P should cleave after every residue in ANKTIDE (no prolines present)");
+                "subtilisin should cleave after every residue in ANKTIDE (no prolines present)");
             CollectionAssert.AreEquivalent(
                 new[] { "A", "N", "K", "T", "I", "D", "E" },
                 peptides.Select(p => p.BaseSequence).ToList());
@@ -1036,12 +1036,12 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void LoadProteaseDictionary_SubtilisinP_HasProlineRestrictedMotifs()
         {
-            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin|P"), Is.True);
-            var subtilisinP = ProteaseDictionary.Dictionary["subtilisin|P"];
+            Assert.That(ProteaseDictionary.Dictionary.ContainsKey("subtilisin"), Is.True);
+            var subtilisinP = ProteaseDictionary.Dictionary["subtilisin"];
 
             Assert.That(subtilisinP.CleavageSpecificity, Is.EqualTo(CleavageSpecificity.Full));
             Assert.That(subtilisinP.DigestionMotifs.All(m => m.PreventingCleavage == "P"), Is.True,
-                "All subtilisin|P motifs should prevent cleavage before proline");
+                "All subtilisin motifs should prevent cleavage before proline");
         }
     }
 }
