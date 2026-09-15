@@ -30,10 +30,17 @@ namespace Test.Transcriptomics
             var rnase4 = RnaseDictionary.Dictionary["RNase 4"];
 
             var products = rnase4.GetUnmodifiedOligos(new RNA("AUGCUGA"), 0, 1, int.MaxValue)
-                .Select(p => p.BaseSequence)
                 .ToArray();
 
-            Assert.That(products, Is.EqualTo(new[] { "AU", "GCU", "GA" }));
+            var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "AU", "GCU", "GA" }));
+
+            var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
+            foreach (var group in grouped)
+            {
+                var distinctBaseSeqs = group.Value.Select(v => v).Distinct().ToArray();
+                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has multiple distinct termini: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
+            }
         }
 
         [Test]
@@ -42,10 +49,17 @@ namespace Test.Transcriptomics
             var rnase4 = RnaseDictionary.Dictionary["RNase 4"];
 
             var products = rnase4.GetUnmodifiedOligos(new RNA("AUUCUGA"), 0, 1, int.MaxValue)
-                .Select(p => p.BaseSequence)
                 .ToArray();
 
-            Assert.That(products, Is.EqualTo(new[] { "AUUCU", "GA" }));
+            var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "AUUCU", "GA" }));
+
+            var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
+            foreach (var group in grouped)
+            {
+                var distinctBaseSeqs = group.Value.Select(v => v).Distinct().ToArray();
+                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has multiple distinct termini: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
+            }
         }
 
         [Test]
