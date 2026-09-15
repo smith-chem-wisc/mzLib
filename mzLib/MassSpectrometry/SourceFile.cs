@@ -23,6 +23,19 @@ namespace MassSpectrometry
 {
     public class SourceFile
     {
+        /// <summary>
+        /// Written to mzML's <c>sourceFile/@location</c> when no usable <see cref="Uri"/> is available,
+        /// and used by the mzML reader for the same case. The attribute is <c>use="required"</c> in the
+        /// schema, so it cannot simply be omitted. Shared so the two sides cannot drift apart.
+        /// </summary>
+        public const string UnknownLocation = "file:///unknown-source";
+
+        /// <summary>
+        /// Written to mzML's <c>sourceFile/@name</c> when <see cref="FileName"/> is null. Also
+        /// <c>use="required"</c>, and omitting it produced a schema-invalid file.
+        /// </summary>
+        public const string UnknownName = "unknown-source";
+
         public SourceFile(string nativeIdFormat, string massSpectrometerFileFormat, string checkSum, string fileChecksumType, string id)
         {
             NativeIdFormat = nativeIdFormat;
