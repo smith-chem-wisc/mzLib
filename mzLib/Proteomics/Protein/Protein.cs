@@ -378,10 +378,18 @@ namespace Proteomics
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
             ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
+
+            // SearchModeType Semi means two different things depending on FragmentationTerminus:
+            //  - N or C: the caller is MetaMorpheus's non-specific search engine, which wants "seed" peptides fixed at that
+            //    terminus and trims them after the search (see ProteinDigestion.SpeedySemiSpecificDigestion).
+            //  - anything else (Both is the default): the caller wants the semi-specific peptides themselves. Classic,
+            //    Modern, Glyco and crosslink searches do no trimming, so they must get every peptide with at least one
+            //    specific terminus. This used to fall through to the seed path as well, where Both silently behaved as C,
+            //    and those searches lost most semi-specific peptides without any error.
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                searchModeType == CleavageSpecificity.Semi ?
-                digestion.SpeedySemiSpecificDigestion(this) :
-                    digestion.Digestion(this, topDownTruncationSearch);
+                searchModeType != CleavageSpecificity.Semi ? digestion.Digestion(this, topDownTruncationSearch)
+                : ProteinDigestion.WantsSemiSpecificSeeds(digestionParameters) ? digestion.SpeedySemiSpecificDigestion(this)
+                : digestion.SemiSpecificDigestion(this);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
