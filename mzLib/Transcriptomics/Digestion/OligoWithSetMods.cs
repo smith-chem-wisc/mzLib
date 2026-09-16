@@ -70,24 +70,24 @@ namespace Transcriptomics.Digestion
 
         public string FullSequence { get; private set; }
         public IDigestionParams DigestionParams => _digestionParams;
-        public IHasChemicalFormula FivePrimeTerminus
+        public new IHasChemicalFormula FivePrimeTerminus
         {
-            get => _fivePrimeTerminus;
+            get => base.FivePrimeTerminus;
             set
             {
-                _fivePrimeTerminus = value;
+                base.FivePrimeTerminus = value;
                 _monoisotopicMass = null;
                 _thisChemicalFormula = null;
                 _mostAbundantMonoisotopicMass = null;
             }
         }
 
-        public IHasChemicalFormula ThreePrimeTerminus
+        public new IHasChemicalFormula ThreePrimeTerminus
         {
-            get => _threePrimeTerminus;
+            get => base.ThreePrimeTerminus;
             set
             {
-                _threePrimeTerminus = value;
+                base.ThreePrimeTerminus = value;
                 _monoisotopicMass = null;
                 _thisChemicalFormula = null;
                 _mostAbundantMonoisotopicMass = null;
@@ -264,8 +264,8 @@ namespace Transcriptomics.Digestion
 
             return FullSequence == other.FullSequence
                    && Equals(DigestionParams?.DigestionAgent, other.DigestionParams?.DigestionAgent)
-                   && _fivePrimeTerminus.Equals(other._fivePrimeTerminus)
-                   && _threePrimeTerminus.Equals(other._threePrimeTerminus)
+                   && FivePrimeTerminus.Equals(other.FivePrimeTerminus)
+                   && ThreePrimeTerminus.Equals(other.ThreePrimeTerminus)
                    // These last two are important for parsimony in MetaMorpheus
                    && OneBasedStartResidue == other!.OneBasedStartResidue
                    && Equals(Parent?.Accession, other.Parent?.Accession);

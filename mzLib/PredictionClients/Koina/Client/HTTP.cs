@@ -28,9 +28,12 @@ namespace PredictionClients.Koina.Client
 
             if (!response.IsSuccessStatusCode)
             {
+                // Koina answers 400 both for a request it will never accept and for a model it failed
+                // to run, putting the difference only in the body. ForFailedResponse draws it, so this
+                // method does nothing but read the body and throw what it is handed.
                 var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
-                throw new HttpRequestException(
-                    $"Request failed with status {(int)response.StatusCode} {response.ReasonPhrase}: {errorContent}");
+                throw KoinaServiceException.ForFailedResponse(
+                    (int)response.StatusCode, response.ReasonPhrase, errorContent);
             }
 
             // Stream instead of buffering

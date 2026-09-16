@@ -100,6 +100,18 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
+        /// Gets every semi-specific peptide this protease's cleavage motifs allow, whatever this protease's own
+        /// <see cref="DigestionAgent.CleavageSpecificity"/> is. Used when a fully specific protease is combined with
+        /// <see cref="DigestionParams.SearchModeType"/> = <see cref="CleavageSpecificity.Semi"/>, so that asking for a
+        /// semi-specific digest through the search mode and through a Semi protease gives identical peptides.
+        /// </summary>
+        internal IEnumerable<ProteolyticPeptide> GetSemiSpecificUnmodifiedPeptides(Protein protein, int maximumMissedCleavages,
+            InitiatorMethionineBehavior initiatorMethionineBehavior, int minPeptideLength, int maxPeptideLength)
+        {
+            return SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength);
+        }
+
+        /// <summary>
         /// Retain N-terminal residue?
         /// </summary>
         /// <param name="oneBasedCleaveAfter"></param>
@@ -295,6 +307,12 @@ namespace Proteomics.ProteolyticDigestion
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
 
+            // Every peptide below reports its missed cleavages from this table: the protease's own cleavage sites that
+            // fall inside the peptide. They used to be reported as a residue distance (effectively the peptide length),
+            // which is neither this protease's count nor even the non-specific convention of length - 1, and which
+            // disagreed with fully specific digestion for the very same peptide. See CountCleavageSitesBefore.
+            int[] cleavageSitesBefore = CountCleavageSitesBefore(oneBasedIndicesToCleaveAfter, protein.Length);
+
             // It's possible not to go through this loop (maxMissedCleavages+1>number of indexes), and that's okay. It will get digested in the next loops (finish C/N termini)
             for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1; i++)
             {
@@ -308,19 +326,51 @@ namespace Proteomics.ProteolyticDigestion
                 }
                 if (retain)
                 {
-                    intervals.AddRange(FixedTermini(oneBasedIndicesToCleaveAfter[i], cTerminusProtein, protein, cleave, retain, minPeptideLength, maxPeptideLength, localOneBasedIndicesToCleaveAfter));
+                    intervals.AddRange(FixedTermini(oneBasedIndicesToCleaveAfter[i], cTerminusProtein, protein, cleave, retain, minPeptideLength, maxPeptideLength, localOneBasedIndicesToCleaveAfter, cleavageSitesBefore));
                 }
 
                 if (cleave)
                 {
-                    intervals.AddRange(FixedTermini(1, cTerminusProtein, protein, cleave, retain, minPeptideLength, maxPeptideLength, localOneBasedIndicesToCleaveAfter));
+                    intervals.AddRange(FixedTermini(1, cTerminusProtein, protein, cleave, retain, minPeptideLength, maxPeptideLength, localOneBasedIndicesToCleaveAfter, cleavageSitesBefore));
+                }
+
+                // The first window, when the initiator Met must be removed (InitiatorMethionineBehavior.Cleave) and residue 1
+                // is itself a cleavage site (a protease that cleaves after M, such as CNBr). Then neither branch above runs:
+                // `retain` is off because the Met is not in the sample, and `cleave` is off because the peptides starting at
+                // residue 2 come from the next window, which starts at that site. But the peptides that end at THIS window's
+                // C-terminus with a ragged N-terminus come from no other window or end loop, so add them here. Their starts
+                // run from residue 3; a start directly after one of this window's sites is fully specific and made elsewhere.
+                // Without this, those semi-specific peptides were silently missing (13 of 14 for MPEPTIDEPEPTIDE with one
+                // missed cleavage). See SemiDigestion_ProteaseThatCleavesAfterTheInitiatorMet_ReturnsExactlyTheReferencePeptides.
+                if (i == 0 && !retain && oneBasedIndicesToCleaveAfter[1] == 1)
+                {
+                    for (int j = 2; j < cTerminusProtein; j++)
+                    {
+                        if (!localOneBasedIndicesToCleaveAfter.Contains(j) && ValidLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength))
+                        {
+                            intervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein,
+                                cleavageSitesBefore[cTerminusProtein] - cleavageSitesBefore[j + 1], CleavageSpecificity.Semi, "semi"));
+                        }
+                    }
                 }
             }
 
             // Finish C-term of protein caused by loop being "i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1"
             int last = oneBasedIndicesToCleaveAfter.Count - 1;
             int maxIndexSemi = maximumMissedCleavages < last ? maximumMissedCleavages : last;
-            // Fringe C-term peptides
+
+            // The initiator-methionine rules the main loop applies at the protein N-terminus. The fringe loops below must
+            // apply the same rules, because when a protein has no more cleavage sites than the missed cleavages allowed,
+            // the main loop never runs and the fringe loops are the only place those peptides come from.
+            //   metMayBeRemoved:  residue 1 is Met and InitiatorMethionineBehavior is Variable or Cleave, so a peptide
+            //                     starting at residue 2 has a specific N-terminus.
+            //   metMustBeRemoved: residue 1 is Met and InitiatorMethionineBehavior is Cleave, so no peptide may start at
+            //                     residue 1 at all.
+            bool metMayBeRemoved = Cleave(0, initiatorMethionineBehavior, protein[0]);
+            bool metMustBeRemoved = !Retain(0, initiatorMethionineBehavior, protein[0]);
+
+            // Fringe C-term peptides: a specific N-terminus in one of the last cleavage windows, with every C-terminus up
+            // to the end of the protein.
             for (int i = 1; i <= maxIndexSemi; i++)
             {
                 // FixedN
@@ -331,23 +381,45 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     localOneBasedIndicesToCleaveAfter.Add(oneBasedIndicesToCleaveAfter[last - j]);
                 }
-                for (int j = cTerminusProtein; j > nTerminusProtein; j--)//We are hitting the c-terminus here
+
+                // nTerminusProtein is 0 only when this window starts at the protein N-terminus, which (see above) only
+                // happens when the main loop did not run. Apply the initiator-Met rules there: skip residue 1 when the Met
+                // must be removed, and also start at residue 2 when it may be removed. The residue-2 start is not added
+                // when residue 1 is itself a cleavage site, because window last - i == 1 already starts there.
+                bool startsAtProteinNTerminus = nTerminusProtein == 0;
+                if (!startsAtProteinNTerminus || !metMustBeRemoved)
                 {
-                    if (ValidLength(j - nTerminusProtein, minPeptideLength, maxPeptideLength))
+                    AddFixedNTerminusPeptides(nTerminusProtein, "");
+                }
+                if (startsAtProteinNTerminus && metMayBeRemoved && oneBasedIndicesToCleaveAfter[1] != 1)
+                {
+                    AddFixedNTerminusPeptides(1, ":M cleaved");
+                }
+
+                void AddFixedNTerminusPeptides(int residueBeforePeptide, string descriptionSuffix)
+                {
+                    for (int j = cTerminusProtein; j > residueBeforePeptide; j--)//We are hitting the c-terminus here
                     {
-                        intervals.Add(localOneBasedIndicesToCleaveAfter.Contains(j) ?
-                            new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Full, "full") :
-                            new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Semi, "semi"));
+                        if (ValidLength(j - residueBeforePeptide, minPeptideLength, maxPeptideLength))
+                        {
+                            int missedCleavages = cleavageSitesBefore[j] - cleavageSitesBefore[residueBeforePeptide + 1];
+                            intervals.Add(localOneBasedIndicesToCleaveAfter.Contains(j) ?
+                                new ProteolyticPeptide(protein, residueBeforePeptide + 1, j, missedCleavages, CleavageSpecificity.Full, "full" + descriptionSuffix) :
+                                new ProteolyticPeptide(protein, residueBeforePeptide + 1, j, missedCleavages, CleavageSpecificity.Semi, "semi" + descriptionSuffix));
+                        }
                     }
                 }
             }
 
-            // Fringe N-term peptides
+            // Fringe N-term peptides: a specific C-terminus at one of the first cleavage sites, with a start that is not a
+            // cleavage site. Starts that ARE specific come from the loops above and are skipped here: residue 1 (the
+            // protein N-terminus) always, and residue 2 when an initiator Met may be removed. Residue 2 used to be skipped
+            // whenever InitiatorMethionineBehavior was not Retain, even for a protein that does not start with Met, which
+            // dropped every semi peptide starting at residue 2 of such proteins.
             for (int i = 1; i <= maxIndexSemi; i++)
             {
-                bool retain = initiatorMethionineBehavior == InitiatorMethionineBehavior.Retain;
                 // FixedC
-                int nTerminusProtein = retain ? oneBasedIndicesToCleaveAfter[0] : oneBasedIndicesToCleaveAfter[0] + 1; // +1 start after M (since already covered earlier)
+                int nTerminusProtein = metMayBeRemoved ? oneBasedIndicesToCleaveAfter[0] + 1 : oneBasedIndicesToCleaveAfter[0]; // +1 start after M (since already covered earlier)
                 int cTerminusProtein = oneBasedIndicesToCleaveAfter[i];
                 HashSet<int> localOneBasedIndicesToCleaveAfter = new HashSet<int>();
                 for (int j = 1; j < i; j++)//j starts at 1, because zero is n terminus
@@ -360,7 +432,7 @@ namespace Proteomics.ProteolyticDigestion
                     if (ValidLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength)
                     && !localOneBasedIndicesToCleaveAfter.Contains(j))
                     {
-                        intervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, cTerminusProtein - j, CleavageSpecificity.Semi, "semi"));
+                        intervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, cleavageSitesBefore[cTerminusProtein] - cleavageSitesBefore[j + 1], CleavageSpecificity.Semi, "semi"));
                     }
                 }
             }
@@ -385,7 +457,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (ValidLength(j - start + 1, minPeptideLength, maxPeptideLength))
                         {
-                            intervals.Add(new ProteolyticPeptide(protein, start, j, j - start, CleavageSpecificity.Full, proteolysisProduct.Type + " start"));
+                            intervals.Add(new ProteolyticPeptide(protein, start, j, cleavageSitesBefore[j] - cleavageSitesBefore[start], CleavageSpecificity.Full, proteolysisProduct.Type + " start"));
                         }
                     }
                     while (oneBasedIndicesToCleaveAfter[i] < end) //"<" to prevent additions if same index as residues, since i-- is below
@@ -410,7 +482,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (ValidLength(end - j + 1, minPeptideLength, maxPeptideLength))
                         {
-                            intervals.Add(new ProteolyticPeptide(protein, j, end, end - j, CleavageSpecificity.Full, proteolysisProduct.Type + " end"));
+                            intervals.Add(new ProteolyticPeptide(protein, j, end, cleavageSitesBefore[end] - cleavageSitesBefore[j], CleavageSpecificity.Full, proteolysisProduct.Type + " end"));
                         }
                     }
                 }
@@ -428,15 +500,20 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="cleave"></param>
         /// <param name="minPeptideLength"></param>
         /// <param name="maxPeptideLength"></param>
+        /// <param name="cleavageSitesBefore">The table from <see cref="CountCleavageSitesBefore"/> for this protein, used to
+        /// report each peptide's true missed cleavages.</param>
         /// <returns></returns>
-        private static IEnumerable<ProteolyticPeptide> FixedTermini(int nTerminusProtein, int cTerminusProtein, Protein protein, bool cleave, bool retain, int minPeptideLength, int maxPeptideLength, HashSet<int> localOneBasedIndicesToCleaveAfter)
+        private static IEnumerable<ProteolyticPeptide> FixedTermini(int nTerminusProtein, int cTerminusProtein, Protein protein, bool cleave, bool retain, int minPeptideLength, int maxPeptideLength, HashSet<int> localOneBasedIndicesToCleaveAfter, int[] cleavageSitesBefore)
         {
+            // Missed cleavages of the peptide from oneBasedStart to oneBasedEnd: this protease's sites inside it.
+            int MissedCleavages(int oneBasedStart, int oneBasedEnd) => cleavageSitesBefore[oneBasedEnd] - cleavageSitesBefore[oneBasedStart];
+
             bool preventMethionineFromBeingDuplicated = nTerminusProtein == 1 && cleave && retain; //prevents duplicate sequences containing N-terminal methionine
             List<ProteolyticPeptide> intervals = new List<ProteolyticPeptide>();
             if (!preventMethionineFromBeingDuplicated && ValidLength(cTerminusProtein - nTerminusProtein, minPeptideLength, maxPeptideLength)) //adds the full length maximum cleavages, no semi
             {
                 intervals.Add(new ProteolyticPeptide(protein, nTerminusProtein + 1, cTerminusProtein,
-                    cTerminusProtein - nTerminusProtein, CleavageSpecificity.Full, "full" + (cleave ? ":M cleaved" : ""))); // Maximum sequence length
+                    MissedCleavages(nTerminusProtein + 1, cTerminusProtein), CleavageSpecificity.Full, "full" + (cleave ? ":M cleaved" : ""))); // Maximum sequence length
             }
 
             // Fixed termini at each internal index
@@ -452,13 +529,13 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         if (j == 1 && cleave) //check we're not doubling it up
                         {
-                            fixedCTermIntervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, cTerminusProtein - j, CleavageSpecificity.Full, "full:M cleaved"));
+                            fixedCTermIntervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, MissedCleavages(j + 1, cTerminusProtein), CleavageSpecificity.Full, "full:M cleaved"));
                         }
                         //else //don't allow full unless cleaved, since they're covered by Cterm
                     }
                     else //record it as a semi
                     {
-                        fixedCTermIntervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, cTerminusProtein - j, CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
+                        fixedCTermIntervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein, MissedCleavages(j + 1, cTerminusProtein), CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
                     }
                 }
             }
@@ -466,10 +543,47 @@ namespace Proteomics.ProteolyticDigestion
                 internalIndices
                 .Where(j => ValidLength(j - nTerminusProtein, minPeptideLength, maxPeptideLength))
                 .Select(j => localOneBasedIndicesToCleaveAfter.Contains(j) ?
-                new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Full, "full" + (cleave ? ":M cleaved" : "")) :
-                new ProteolyticPeptide(protein, nTerminusProtein + 1, j, j - nTerminusProtein, CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
+                new ProteolyticPeptide(protein, nTerminusProtein + 1, j, MissedCleavages(nTerminusProtein + 1, j), CleavageSpecificity.Full, "full" + (cleave ? ":M cleaved" : "")) :
+                new ProteolyticPeptide(protein, nTerminusProtein + 1, j, MissedCleavages(nTerminusProtein + 1, j), CleavageSpecificity.Semi, "semi" + (cleave ? ":M cleaved" : "")));
 
             return intervals.Concat(fixedCTermIntervals).Concat(fixedNTermIntervals);
+        }
+
+        /// <summary>
+        /// Builds a lookup that turns "how many missed cleavages does this peptide have?" into one subtraction.
+        /// </summary>
+        /// <remarks>
+        /// A peptide's missed cleavages are this protease's cleavage sites that fall INSIDE it: a site after residue
+        /// <c>k</c> with <c>start &lt;= k &lt; end</c>. The site after the peptide's own last residue is where it was cut,
+        /// not a missed cleavage, and the protein's start and end (indices 0 and length) are never inside a peptide.
+        /// <para>Element <c>x</c> of the returned array is the number of sites after residues <c>1..x-1</c>, so the
+        /// peptide from <c>start</c> to <c>end</c> (one-based, inclusive) has
+        /// <c>table[end] - table[start]</c> missed cleavages. This is the same count fully specific digestion reports,
+        /// so a peptide gets the same number whichever digestion produced it.</para>
+        /// <para>For the non-specific protease every residue is a site, which gives <c>length - 1</c>; for trypsin it
+        /// is the number of internal K/R. Building the table once per protein keeps semi-specific digestion, which makes
+        /// many peptides per protein, from walking the site list for each one; it also does not assume that
+        /// <paramref name="oneBasedIndicesToCleaveAfter"/> is sorted.</para>
+        /// </remarks>
+        /// <param name="oneBasedIndicesToCleaveAfter">Cleavage sites from <see cref="DigestionAgent.GetDigestionSiteIndices"/>.</param>
+        /// <param name="proteinLength">Number of residues in the protein.</param>
+        internal static int[] CountCleavageSitesBefore(List<int> oneBasedIndicesToCleaveAfter, int proteinLength)
+        {
+            var isSiteAfterResidue = new bool[proteinLength + 1];
+            foreach (int site in oneBasedIndicesToCleaveAfter)
+            {
+                if (site >= 1 && site < proteinLength)
+                {
+                    isSiteAfterResidue[site] = true;
+                }
+            }
+
+            var sitesBefore = new int[proteinLength + 1];
+            for (int x = 1; x <= proteinLength; x++)
+            {
+                sitesBefore[x] = sitesBefore[x - 1] + (x - 1 >= 1 && isSiteAfterResidue[x - 1] ? 1 : 0);
+            }
+            return sitesBefore;
         }
 
         /// <summary>
