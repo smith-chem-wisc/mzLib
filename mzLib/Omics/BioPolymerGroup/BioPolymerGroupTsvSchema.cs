@@ -71,9 +71,20 @@ public static class BioPolymerGroupTsvSchema
     }
 
     /// <summary>
-    /// One block of columns per sample group in the dataset: spectral count and count-based
-    /// occupancy always, plus intensity and intensity-based occupancy for any sample group that
-    /// carries intensity data in at least one of the groups being written.
+    /// The quantification block, emitted as two declared lists rather than one.
+    ///
+    /// A spectral count and its count-based occupancy describe an acquired FILE; an intensity and
+    /// its intensity-based occupancy describe a SAMPLE — which for an isobaric run is a channel,
+    /// and one file carries many. Each sample group result declares which count section it belongs
+    /// to (<see cref="SampleGroupResult.CountIdentity"/>), so the counting columns are emitted once
+    /// per section and the intensity columns once per sample within it, instead of every column
+    /// family being replicated across one shared key space.
+    ///
+    /// For a label-free design and for no design at all the two spaces coincide — a sample group
+    /// is its own count section — so each section holds exactly one sample and the emitted columns
+    /// are identical to before, name for name and in the same order. Only an isobaric table changes,
+    /// and it changes by losing the eleven identical <c>SpectralCount_</c> values and eleven
+    /// byte-identical <c>CountOccupancy_</c> strings an 11-plex row used to carry.
     /// </summary>
     private static IEnumerable<TsvColumn<BioPolymerGroup>> QuantificationColumns(
         IReadOnlyCollection<BioPolymerGroup> groups)
@@ -84,13 +95,17 @@ public static class BioPolymerGroupTsvSchema
                 group.PopulateSampleGroupResults();
         }
 
-        // Union of the dataset's sample groups, in first-seen order. 
+        // Union of the dataset's count sections and of its sample groups, each in first-seen order.
         //
-        // Sample groups are matched across records by Identity — the files they cover — never by
-        // Label and never by position. Labels are not unique (SampleGroupBuilder names a sample
-        // group after its first file whenever conditions are undefined or a file is missing from
-        // disk, so same-named files in different directories collide), and position is not stable
-        // across records because a record only has sample groups for the files it appears in.
+        // Both are matched across records by identity — never by Label and never by position.
+        // Labels are not unique (SampleGroupBuilder names a sample group after its first file
+        // whenever conditions are undefined or a file is missing from disk, so same-named files in
+        // different directories collide), and position is not stable across records because a record
+        // only has sample groups for the files it appears in.
+        var countIdentities = new List<string>();
+        var countLabelByIdentity = new Dictionary<string, (string Label, string? LabelSourcePath)>();
+        var samplesInCountSection = new Dictionary<string, List<string>>();
+
         var identities = new List<string>();
         var seen = new HashSet<string>();
         var labelByIdentity = new Dictionary<string, (string Label, string? LabelSourcePath)>();
@@ -99,12 +114,24 @@ public static class BioPolymerGroupTsvSchema
         {
             foreach (var result in group.SampleGroupResults!)
             {
+                // A null CountIdentity means the result is its own count section, which is every
+                // design but the isobaric one. Resolved here rather than behind the property so the
+                // absent case reads the same way LabelSourcePath's does.
+                string countIdentity = result.CountIdentity ?? result.Identity;
+
+                if (!countLabelByIdentity.ContainsKey(countIdentity))
+                {
+                    countIdentities.Add(countIdentity);
+                    countLabelByIdentity[countIdentity] = (result.CountLabel ?? result.Label, result.LabelSourcePath);
+                    samplesInCountSection[countIdentity] = [];
+                }
+
                 if (seen.Add(result.Identity))
                 {
                     identities.Add(result.Identity);
                     labelByIdentity[result.Identity] = (result.Label, result.LabelSourcePath);
+                    samplesInCountSection[countIdentity].Add(result.Identity);
                 }
-
             }
         }
 
@@ -117,29 +144,42 @@ public static class BioPolymerGroupTsvSchema
         bool quantified = groups.Any(g => g.SamplesForQuantification is { Count: > 0 }
                                        && g.IntensitiesBySample is not null);
 
+        // Disambiguated independently, because a count section and a sample group are different
+        // things with different names: two files called sample.raw in different directories collide
+        // as count sections even though their channel labels already separate them as samples.
+        var countDisplayLabels = SampleGroupLabels.Disambiguate(countIdentities, countLabelByIdentity);
         var displayLabels = SampleGroupLabels.Disambiguate(identities, labelByIdentity);
 
         var index = new SampleGroupIndex();
         var columns = new List<TsvColumn<BioPolymerGroup>>();
 
-        foreach (var identity in identities)
+        foreach (var countIdentity in countIdentities)
         {
-            string thisIdentity = identity;
-            string display = displayLabels[thisIdentity];
+            string thisCountIdentity = countIdentity;
+            string countDisplay = countDisplayLabels[thisCountIdentity];
+            var samples = samplesInCountSection[thisCountIdentity];
 
-            columns.Add(new TsvColumn<BioPolymerGroup>($"SpectralCount_{display}",
-                g => index.ResultFor(g, thisIdentity)?.SpectralCount.ToString() ?? string.Empty));
-
-            if (quantified)
-                columns.Add(new TsvColumn<BioPolymerGroup>($"Intensity_{display}",
-                    g => index.ResultFor(g, thisIdentity) is { HasIntensityData: true } r ? r.Intensity.ToString() : string.Empty));
-
-            columns.Add(new TsvColumn<BioPolymerGroup>($"CountOccupancy_{display}",
-                g => Truncate(index.ResultFor(g, thisIdentity)?.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: false))));
+            columns.Add(new TsvColumn<BioPolymerGroup>($"SpectralCount_{countDisplay}",
+                g => index.ResultForCountSection(g, thisCountIdentity)?.SpectralCount.ToString() ?? string.Empty));
 
             if (quantified)
-                columns.Add(new TsvColumn<BioPolymerGroup>($"IntensityOccupancy_{display}",
-                    g => Truncate(index.ResultFor(g, thisIdentity)?.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: true))));
+                foreach (var identity in samples)
+                {
+                    string thisIdentity = identity;
+                    columns.Add(new TsvColumn<BioPolymerGroup>($"Intensity_{displayLabels[thisIdentity]}",
+                        g => index.ResultFor(g, thisIdentity) is { HasIntensityData: true } r ? r.Intensity.ToString() : string.Empty));
+                }
+
+            columns.Add(new TsvColumn<BioPolymerGroup>($"CountOccupancy_{countDisplay}",
+                g => Truncate(index.ResultForCountSection(g, thisCountIdentity)?.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: false))));
+
+            if (quantified)
+                foreach (var identity in samples)
+                {
+                    string thisIdentity = identity;
+                    columns.Add(new TsvColumn<BioPolymerGroup>($"IntensityOccupancy_{displayLabels[thisIdentity]}",
+                        g => Truncate(index.ResultFor(g, thisIdentity)?.FormatOccupancy(OccupancyKeys(g), IsParentLevel(g), intensityBased: true))));
+                }
         }
 
         return columns;
@@ -165,8 +205,22 @@ public static class BioPolymerGroupTsvSchema
     {
         private List<SampleGroupResult>? _source;
         private Dictionary<string, SampleGroupResult> _byIdentity = [];
+        private Dictionary<string, SampleGroupResult> _byCountIdentity = [];
 
         public SampleGroupResult? ResultFor(BioPolymerGroup group, string identity)
+            => Index(group)._byIdentity.GetValueOrDefault(identity);
+
+        /// <summary>
+        /// Any one result from a count section. Every result in a section reports the same
+        /// <see cref="SampleGroupResult.SpectralCount"/> and the same count-based occupancy by
+        /// construction — <see cref="SampleGroupBuilder"/> derives both from one file's PSM list and
+        /// hands that same list to each of the file's channels — so which one answers does not
+        /// matter, only that the section is reported once rather than once per channel.
+        /// </summary>
+        public SampleGroupResult? ResultForCountSection(BioPolymerGroup group, string countIdentity)
+            => Index(group)._byCountIdentity.GetValueOrDefault(countIdentity);
+
+        private SampleGroupIndex Index(BioPolymerGroup group)
         {
             if (group.SampleGroupResults is null)
                 group.PopulateSampleGroupResults();
@@ -177,14 +231,19 @@ public static class BioPolymerGroupTsvSchema
             {
                 _source = results;
                 _byIdentity = new Dictionary<string, SampleGroupResult>(results.Count);
+                _byCountIdentity = new Dictionary<string, SampleGroupResult>(results.Count);
 
                 // First wins, matching the FirstOrDefault this replaces — identities are unique
                 // within a group by construction, but TryAdd keeps a hand-built list from throwing.
+                // Count identities are deliberately NOT unique: a plex's channels share one.
                 foreach (var result in results)
+                {
                     _byIdentity.TryAdd(result.Identity, result);
+                    _byCountIdentity.TryAdd(result.CountIdentity ?? result.Identity, result);
+                }
             }
 
-            return _byIdentity.GetValueOrDefault(identity);
+            return this;
         }
     }
 
