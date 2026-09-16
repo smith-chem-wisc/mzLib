@@ -432,6 +432,23 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
             int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
 
+            // An anchored indel keeps some residues unchanged (T -> TAG keeps the leading T; P -> AGP keeps the
+            // trailing P). Those residues are not edited, so their mods survive. Count the unchanged prefix first,
+            // then the unchanged suffix of what remains, so no residue is counted twice.
+            string original = variant.OriginalSequence;
+            string alternate = variant.VariantSequence;
+            int keptPrefix = 0;
+            while (keptPrefix < original.Length && keptPrefix < alternate.Length && original[keptPrefix] == alternate[keptPrefix])
+            {
+                keptPrefix++;
+            }
+            int keptSuffix = 0;
+            while (keptSuffix < original.Length - keptPrefix && keptSuffix < alternate.Length - keptPrefix
+                   && original[original.Length - 1 - keptSuffix] == alternate[alternate.Length - 1 - keptSuffix])
+            {
+                keptSuffix++;
+            }
+
             // Re-base original modifications
             if (modificationDictionary != null)
             {
@@ -441,13 +458,13 @@ namespace Omics.BioPolymer
                     {
                         continue; // drop if beyond new end
                     }
-                    else if (kv.Key < variant.OneBasedBeginPosition)
+                    else if (kv.Key < variant.OneBasedBeginPosition + keptPrefix)
                     {
-                        mods.Add(kv.Key, kv.Value); // unaffected positions
+                        mods.Add(kv.Key, kv.Value); // before the edit, or on a residue the variant keeps at its start
                     }
-                    else if (variant.OneBasedEndPosition < kv.Key && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
+                    else if (variant.OneBasedEndPosition - keptSuffix < kv.Key && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
                     {
-                        mods.Add(kv.Key + sequenceLengthChange, kv.Value); // shift after the edit
+                        mods.Add(kv.Key + sequenceLengthChange, kv.Value); // after the edit, or on a residue the variant keeps at its end
                     }
                 }
             }
