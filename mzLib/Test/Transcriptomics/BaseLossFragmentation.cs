@@ -294,4 +294,49 @@ public static class BaseLossFragmentation
         var deltaMass = Math.Abs(dimethylBaseLoss.NeutralMass - nSixBaseLoss.NeutralMass);
         Assert.That(deltaMass, Is.EqualTo(modMass / 2).Within(1E-6));
     }
+
+    [Test]
+    public static void InosineBase_HasSamePrecursorAndFragmentMasses_AsAdenosineWithAtoIBaseConversion()
+    {
+        var inosineOligo = new OligoWithSetMods("GUICUG");
+        var modifiedAdenosineOligo = new OligoWithSetMods("GUA[Base Conversion:A->I on A]CUG");
+
+        Assert.That(inosineOligo.MonoisotopicMass, Is.EqualTo(modifiedAdenosineOligo.MonoisotopicMass).Within(1E-6));
+
+        var inosineProducts = new List<Product>();
+        var modifiedAdenosineProducts = new List<Product>();
+
+        inosineOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, inosineProducts);
+        modifiedAdenosineOligo.Fragment(DissociationType.CID, FragmentationTerminus.Both, modifiedAdenosineProducts);
+
+        var orderedInosineProducts = inosineProducts
+            .OrderBy(p => p.ProductType)
+            .ThenBy(p => p.FragmentNumber)
+            .ThenBy(p => p.ResiduePosition)
+            .ThenBy(p => p.Terminus)
+            .ThenBy(p => p.Annotation)
+            .ToList();
+        var orderedModifiedAdenosineProducts = modifiedAdenosineProducts
+            .OrderBy(p => p.ProductType)
+            .ThenBy(p => p.FragmentNumber)
+            .ThenBy(p => p.ResiduePosition)
+            .ThenBy(p => p.Terminus)
+            .ThenBy(p => p.Annotation)
+            .ToList();
+
+        Assert.That(orderedInosineProducts.Count, Is.EqualTo(orderedModifiedAdenosineProducts.Count));
+
+        for (int i = 0; i < orderedInosineProducts.Count; i++)
+        {
+            var inosineProduct = orderedInosineProducts[i];
+            var modifiedAdenosineProduct = orderedModifiedAdenosineProducts[i];
+
+            Assert.That(inosineProduct.ProductType, Is.EqualTo(modifiedAdenosineProduct.ProductType));
+            Assert.That(inosineProduct.FragmentNumber, Is.EqualTo(modifiedAdenosineProduct.FragmentNumber));
+            Assert.That(inosineProduct.ResiduePosition, Is.EqualTo(modifiedAdenosineProduct.ResiduePosition));
+            Assert.That(inosineProduct.Terminus, Is.EqualTo(modifiedAdenosineProduct.Terminus));
+            Assert.That(inosineProduct.Annotation, Is.EqualTo(modifiedAdenosineProduct.Annotation));
+            Assert.That(inosineProduct.NeutralMass, Is.EqualTo(modifiedAdenosineProduct.NeutralMass).Within(1E-6));
+        }
+    }
 }
