@@ -148,22 +148,21 @@ public static class ModificationOccupancyCalculator
         IEnumerable<ISpectralMatch> psms)
     {
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
-        var result = new Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>>();
 
-        var psmsWithBaseSeq = psmList.Where(p => p.BaseSequence != null).ToList();
+        // Unresolved has two spellings: an implementation may leave BaseSequence null - MetaMorpheus
+        // does, for a PSM ambiguous across base sequences - while BaseSpectralMatch coerces that null
+        // to empty. Both mean the same thing here, and an empty one left in trips the check below.
+        var psmsWithBaseSeq = psmList.Where(p => !string.IsNullOrEmpty(p.BaseSequence)).ToList();
+
+        // Nothing resolved means nothing to attribute a modification to, which is not an error.
+        // Returning here also keeps AllSame() off an empty sequence, where its First() would throw.
+        if (psmsWithBaseSeq.Count == 0)
+            return new Dictionary<int, List<SiteSpecificModificationOccupancy>>();
 
         if (!psmsWithBaseSeq.Select(p => p.BaseSequence).AllSame())
         {
             throw new ArgumentException("All PSMs must have the same BaseSequence for peptide-level occupancy calculation.");
         }
-
-        // Map each PSM to the single form that owns its intensity: matching FullSequence + Accession.
-        // Ambiguous forms (psms without a full sequence match) are filtered out and do not contribute to occupancy.
-        var psmToForm = psmsWithBaseSeq
-            .ToDictionary(
-                p => p,
-                p => p.GetIdentifiedBioPolymersWithSetMods()
-                    .FirstOrDefault(s => s.FullSequence == p.FullSequence));
 
         var totalCount = psmsWithBaseSeq.Count;
         var totalIntensity = psmsWithBaseSeq
@@ -173,7 +172,11 @@ public static class ModificationOccupancyCalculator
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
         foreach (var psm in psmsWithBaseSeq)
         {
-            var form = psmToForm[psm];
+            // The form carrying this PSM's modifications. A PSM whose full sequence matches no
+            // identified form is ambiguous: it counts toward the denominator but marks no site.
+            var form = psm.GetIdentifiedBioPolymersWithSetMods()
+                .FirstOrDefault(s => s.FullSequence == psm.FullSequence);
+
             if (form is null)
                 continue;
 
