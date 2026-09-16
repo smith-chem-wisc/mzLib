@@ -55,7 +55,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var fraction = double.Parse(GetCoverageFraction(group.ToString()));
+            var fraction = double.Parse(GetCoverageFraction(GroupTsv.Row(group)));
             Assert.That(fraction, Is.EqualTo(0.25).Within(0.001));
         }
 
@@ -73,7 +73,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var display = GetCoverageDisplay(group.ToString());
+            var display = GetCoverageDisplay(GroupTsv.Row(group));
             Assert.That(display, Is.EqualTo("acDEFghik"));
         }
 
@@ -100,7 +100,7 @@ namespace Test.Omics.BioPolymerGroupTests
             group.CalculateSequenceCoverage();
 
             // Combined coverage: 1-6 = 6 residues out of 9
-            var fraction = double.Parse(GetCoverageFraction(group.ToString()));
+            var fraction = double.Parse(GetCoverageFraction(GroupTsv.Row(group)));
             Assert.That(fraction, Is.EqualTo(6.0 / 9.0).Within(0.001));
         }
 
@@ -124,7 +124,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var fraction = GetCoverageFraction(group.ToString());
+            var fraction = GetCoverageFraction(GroupTsv.Row(group));
             Assert.That(fraction, Is.EqualTo("0"));
         }
 
@@ -150,7 +150,7 @@ namespace Test.Omics.BioPolymerGroupTests
             Assert.DoesNotThrow(() => group.CalculateSequenceCoverage());
 
             // Only valid PSM should contribute
-            var fraction = double.Parse(GetCoverageFraction(group.ToString()));
+            var fraction = double.Parse(GetCoverageFraction(GroupTsv.Row(group)));
             Assert.That(fraction, Is.EqualTo(5.0 / 9.0).Within(0.001));
         }
 
@@ -176,7 +176,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var fraction = GetCoverageFraction(group.ToString());
+            var fraction = GetCoverageFraction(GroupTsv.Row(group));
             Assert.That(fraction, Is.EqualTo("0")); // protein1 has no coverage
         }
 
@@ -284,7 +284,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             var coverageWithMods = output.Split('\t').ElementAtOrDefault(12) ?? "";
             Assert.That(coverageWithMods, Does.Not.Contain("[Oxidation"));
         }
