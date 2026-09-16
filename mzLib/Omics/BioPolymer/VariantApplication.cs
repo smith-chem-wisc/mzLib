@@ -197,7 +197,9 @@ namespace Omics.BioPolymer
 
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0 && isDeepReferenceAllele)
+                            // The alternate allele is deep (branch guard), and the cap is at least 1: this variant is
+                            // heterozygous, so the heterozygous count is >= 1 and, not being too many, <= the cap.
+                            if (isDeepReferenceAllele)
                             {
                                 if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
                                 {
@@ -205,13 +207,9 @@ namespace Omics.BioPolymer
                                 }
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual)); // alternate branch
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
+                            else
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
-                            }
-                            else if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
-                            {
-                                combinitoricProteins.Add(ppp);
                             }
                         }
                         newVariantProteins = combinitoricProteins;
