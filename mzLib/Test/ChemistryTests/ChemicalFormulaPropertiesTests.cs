@@ -363,8 +363,9 @@ namespace Test.ChemistryTests
         /// <summary>
         /// The explicit-isotope mass correction in IsotopicDistribution.GetDistribution was previously
         /// exercised only by a call that asserted nothing, so both the sign of the correction and the
-        /// multiplication by the isotope count were unobserved. Aluminium is mono-isotopic, so the whole
-        /// envelope here is determined by the two explicit oxygen-16 atoms.
+        /// multiplication by the isotope count were unobserved. Explicit isotopes bypass the envelope
+        /// calculation and are added to every peak as a constant mass, and aluminium is mono-isotopic,
+        /// so the distribution is a single peak at the monoisotopic mass.
         /// </summary>
         [Test]
         public static void TestIsotopicDistributionAddsExplicitIsotopeMass()
@@ -377,21 +378,22 @@ namespace Test.ChemistryTests
             double mostAbundantMass = masses[Array.IndexOf(intensities, intensities.Max())];
 
             Assert.AreEqual(formula.MonoisotopicMass, mostAbundantMass, 1e-6);
-            Assert.IsTrue(masses.All(mass => mass > 0));
+            Assert.That(masses.Length, Is.EqualTo(1));
         }
 
         /// <summary>
         /// Hill notation writes the count suffix for an isotope only when that count is not 1. Every
-        /// isotope carrying a count in the test corpus was a carbon isotope, so the equivalent suffix on
-        /// hydrogen isotopes, and on the isotopes of every other element, was never read back.
+        /// isotope with a count was ever round-tripped through Hill notation.
         /// </summary>
         [Test]
         public static void TestHillNotationPreservesIsotopeCounts()
         {
-            ChemicalFormula formula = ChemicalFormula.ParseFormula("H{2}2O{18}3");
+            ChemicalFormula formula = new ChemicalFormula();
+            formula.Add(PeriodicTable.GetElement("H")[2], 2);
+            formula.Add(PeriodicTable.GetElement("O")[18], 3);
 
             Assert.AreEqual("H{2}2O{18}3", formula.Formula);
-            Assert.AreEqual(formula.MonoisotopicMass, ChemicalFormula.ParseFormula(formula.Formula).MonoisotopicMass, 1e-9);
+            Assert.AreEqual(formula, ChemicalFormula.ParseFormula(formula.Formula));
         }
 
         /// <summary>

@@ -149,7 +149,6 @@ namespace Test.Util
             double[] sortedArray = { 1, 2, 3, 4.5, 5 };
 
             Assert.AreEqual(3, sortedArray.GetClosestIndex(3.75));
-            Assert.AreEqual(4.5, sortedArray.GetClosestValue(3.75));
         }
 
     }

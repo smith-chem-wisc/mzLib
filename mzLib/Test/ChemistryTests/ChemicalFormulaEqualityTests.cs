@@ -255,8 +255,9 @@ namespace Test.ChemistryTests
         }
 
         /// <summary>
-        /// The isotope half of IsSupersetOf was reached by no test at all: every existing superset and
-        /// subset case was built from elements with unspecified isotopes.
+        /// The count comparison in the isotope half of IsSupersetOf was never reached. The one existing
+        /// case with isotopes (IsSuperSetOf) enters that loop but exits on a missing isotope, which
+        /// short-circuits before the counts are compared.
         /// </summary>
         [Test]
         public static void TestIsSupersetOfWithIsotopes()
