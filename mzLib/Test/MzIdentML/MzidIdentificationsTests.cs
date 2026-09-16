@@ -163,6 +163,108 @@ namespace Test.MzIdentML
             Assert.That(pd.QValue(0, 0), Is.EqualTo(-1).Within(1e-9));
         }
 
+        private const string Mzid110 = "http://psidev.info/psi/pi/mzIdentML/1.1";
+        private const string Mzid111 = "http://psidev.info/psi/pi/mzIdentML/1.1.1";
+        private const string Mzid120 = "http://psidev.info/psi/pi/mzIdentML/1.2";
+        private const string Mzid130 = "http://psidev.info/psi/pi/mzIdentML/1.3";
+
+        /// <summary>
+        /// SYNTHETIC, not a capture: the smallest document that reaches Ms2SpectrumID and QValue. Every
+        /// accessor fix in this file is repeated once per schema version, and the real PRIDE fixtures are
+        /// all 1.1.0 or 1.2.0, so the other version arms need a document no writer we have produced.
+        /// The one result carries <paramref name="resultCvParams"/> verbatim (empty for none) and its one
+        /// item carries no cvParam at all, which is the Proteome Discoverer shape.
+        /// </summary>
+        private static string SyntheticDocument(string ns, string formatAccession, string formatName, string resultCvParams) =>
+            $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<MzIdentML xmlns=""{ns}"" id=""synthetic"" version=""1.1.0"">
+  <DataCollection>
+    <Inputs>
+      <SpectraData id=""SD_1"" location=""spectra"">
+        <FileFormat>
+          <cvParam cvRef=""PSI-MS"" accession=""{formatAccession}"" name=""{formatName}"" />
+        </FileFormat>
+      </SpectraData>
+    </Inputs>
+    <AnalysisData>
+      <SpectrumIdentificationList id=""SIL_1"">
+        <SpectrumIdentificationResult id=""SIR_1"" spectrumID=""index=7"" spectraData_ref=""SD_1"">
+          <SpectrumIdentificationItem id=""SII_1"" chargeState=""2"" experimentalMassToCharge=""500.5"" rank=""1"" passThreshold=""true"">
+            <userParam name=""Percolator q-Value"" value=""0.001"" />
+          </SpectrumIdentificationItem>{resultCvParams}
+        </SpectrumIdentificationResult>
+      </SpectrumIdentificationList>
+    </AnalysisData>
+  </DataCollection>
+</MzIdentML>";
+
+        private static MzidIdentifications ReadSynthetic(string contents, string fileName)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, fileName);
+            File.WriteAllText(path, contents);
+            try
+            {
+                return new MzidIdentifications(path);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// The null guard on the item's cvParam array was added to every version arm, but the Proteome
+        /// Discoverer capture only reaches the 1.1.0 one. Without the guard each of these throws
+        /// ArgumentNullException instead of reporting the q-value as absent.
+        /// </summary>
+        [TestCase(Mzid111)]
+        [TestCase(Mzid120)]
+        [TestCase(Mzid130)]
+        public void QValue_ItemWithNoCvParams_IsAbsentInEveryVersion(string ns)
+        {
+            var ids = ReadSynthetic(SyntheticDocument(ns, "MS:1000584", "mzML format", ""), "synthetic_qvalue.mzid");
+
+            Assert.That(ids.QValue(0, 0), Is.EqualTo(-1).Within(1e-9));
+        }
+
+        /// <summary>
+        /// An MGF-backed result with no cvParam has no title to return. Reading position 0 of a null
+        /// array threw; the method now reports the ID as missing, in every version arm.
+        /// </summary>
+        [TestCase(Mzid110)]
+        [TestCase(Mzid111)]
+        [TestCase(Mzid120)]
+        [TestCase(Mzid130)]
+        public void Ms2SpectrumID_MgfResultWithNoCvParams_IsNullRatherThanAThrow(string ns)
+        {
+            var ids = ReadSynthetic(SyntheticDocument(ns, "MS:1001062", "Mascot MGF format", ""), "synthetic_notitle.mzid");
+
+            string id = "not read";
+            Assert.That(() => id = ids.Ms2SpectrumID(0), Throws.Nothing);
+            Assert.That(id, Is.Null);
+        }
+
+        /// <summary>
+        /// The 1.1.1 arm is reached only by SmallCalibratible_Yeast, which names the mzML format exactly.
+        /// These pin that arm's own copies of both fixes: a format recognised by accession under a
+        /// writer's display name, and a title found by accession when another term precedes it.
+        /// The spectrumID is "index=7" and the leading term is the identity threshold, so reading the
+        /// wrong branch or the first cvParam gives a different answer.
+        /// </summary>
+        [TestCase("MS:1000563", "Thermo RAW file", "index=7")]
+        [TestCase("MS:1000584", "mzML file", "index=7")]
+        [TestCase("MS:1001062", "Mascot MGF file", "title of spectrum 7")]
+        public void Ms2SpectrumID_MzIdentML111_RecognisesTheFormatAndTitleByAccession(
+            string formatAccession, string formatName, string expected)
+        {
+            const string cvParams = @"
+          <cvParam cvRef=""PSI-MS"" accession=""MS:1001371"" name=""Mascot:identity threshold"" value=""17"" />
+          <cvParam cvRef=""PSI-MS"" accession=""MS:1000796"" name=""spectrum title"" value=""title of spectrum 7"" />";
+            var ids = ReadSynthetic(SyntheticDocument(Mzid111, formatAccession, formatName, cvParams), "synthetic_111.mzid");
+
+            Assert.That(ids.Ms2SpectrumID(0), Is.EqualTo(expected));
+        }
+
         /// <summary>
         /// There was no 1.2.0 fixture, so the 1.2.0 level of every cascade was only ever reached as the
         /// null dereference that falls through to 1.3.0. This is
