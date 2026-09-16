@@ -1,4 +1,4 @@
-﻿using NUnit.Framework;
+using NUnit.Framework;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -38,8 +38,8 @@ namespace Test.Transcriptomics
             var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
             foreach (var group in grouped)
             {
-                var distinctBaseSeqs = group.Value.Select(v => v).Distinct().ToArray();
-                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has multiple distinct termini: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
+                var distinctBaseSeqs = group.Value.Distinct().ToArray();
+                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has duplicate terminus combinations: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
             }
         }
 
@@ -57,16 +57,15 @@ namespace Test.Transcriptomics
             var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
             foreach (var group in grouped)
             {
-                var distinctBaseSeqs = group.Value.Select(v => v).Distinct().ToArray();
-                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has multiple distinct termini: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
+                var distinctBaseSeqs = group.Value.Distinct().ToArray();
+                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has duplicate terminus combinations: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
             }
         }
 
         /// <summary>
-        /// Cusativin motif C[C]|, U|A, X|U produces three cleavage sites in GUACUG:
-        ///   X|U fires after G (pos 1)
+        /// Cusativin motif C[C]|, U|A, X|U produces cuts after positions 1, 2, and 4 in GUACUG:
+        ///   X|U fires after G (pos 1) and after C (pos 4)
         ///   U|A fires after U (pos 2)
-        ///   C[C]| and X|U both fire after C (pos 4)
         /// Resulting in four distinct base fragments: G, U, AC, UG.
         /// </summary>
         [Test]
@@ -82,7 +81,7 @@ namespace Test.Transcriptomics
         }
 
         /// <summary>
-        /// Cusativin does not cleave C when followed by C (C[C]| motif prevention).
+        /// Cusativin cleaves C when followed by U (C|U), so GC in GCCUGA is not a cleavage site.
         /// </summary>
         [Test]
         public void TestCusativin_DoesNotCleaveBeforeCytidine()
@@ -92,14 +91,9 @@ namespace Test.Transcriptomics
             var products = cusativin.GetUnmodifiedOligos(new RNA("GCCUGA"), 0, 1, int.MaxValue)
                 .ToArray();
 
-            // C at pos 2 is followed by C at pos 3 → no cleavage there
-            // X|U fires after C (pos 3) → pos 3→4, C→U
-            // U|A is absent (no U followed by A)
-            // C[C]| fires after C at pos 3 is NOT followed by C - wait, pos3=C, pos4=U → C[C]| fires after pos 3
-            // Actually pos2=C followed by pos3=C → C[C]| does NOT fire (C followed by C = prevented)
             var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinctBaseSequences, Does.Not.Contain("GC"),
-                "C followed by C should not be cleaved");
+                "Cusativin should not produce a GC fragment");
         }
 
         #region RNase U2 (G|, A| — cleaves after purines)
@@ -202,27 +196,20 @@ namespace Test.Transcriptomics
         #region RNase_MC1 ([G]|U — cleaves before U, except at GU)
 
         /// <summary>
-        /// RNase_MC1 motif [G]|U: intended to cleave before U only when NOT preceded by G.
-        /// NOTE: The [bracket] prevention for CutIndex=0 motifs has an off-by-one in
-        /// DigestionMotif.Fits — it checks sequence[location] (the U itself) rather than
-        /// sequence[location-1] (the preceding residue), so the G-prevention never fires.
-        /// These tests document the CURRENT behavior (cleave before all U) rather than
-        /// the biochemically intended behavior (skip G|U positions).
+        /// RNase_MC1 motif [G]|U: cleaves before U only when NOT preceded by G.
         /// </summary>
         [Test]
-        public void TestRnaseMC1_CleaveBeforeUridine_CurrentBehavior()
+        public void TestRnaseMC1_CleaveBeforeUridine()
         {
             var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
 
-            // "AAGUAU": U at pos 4 is preceded by G (should be skipped — but isn't due to bug)
-            //           U at pos 6 is preceded by A (should cleave — does cleave)
-            // Intended fragments: AAGUA, U  (2 fragments, bug-free)
-            // Actual fragments:   AAG, UA, U (3 fragments, bug present)
+            // "AAGUAU": U at pos 4 is preceded by G (prevented)
+            //           U at pos 6 is preceded by A (cleaves)
             var products = mc1.GetUnmodifiedOligos(new RNA("AAGUAU"), 0, 1, int.MaxValue).ToArray();
 
             var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
-            Assert.That(distinct, Is.EqualTo(new[] { "AAG", "UA", "U" }),
-                "MC1 currently cleaves before all U — including GU which should be prevented");
+            Assert.That(distinct, Is.EqualTo(new[] { "AAGUA", "U" }),
+                "MC1 should skip GU positions");
         }
 
         [Test]
