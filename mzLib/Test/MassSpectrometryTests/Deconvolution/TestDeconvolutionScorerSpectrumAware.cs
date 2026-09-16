@@ -436,6 +436,15 @@ namespace Test.MassSpectrometryTests.Deconvolution
 
             Assert.That(baselineSnr, Is.GreaterThan(0.0));
             Assert.That(withDeadSnr, Is.EqualTo(baselineSnr).Within(1e-9));
+
+            // the same peak alive must move the SNR, or the dead peak's window yields no noise sample
+            // and the intensity guard is never what keeps it out
+            var peaksWithLive = baseline.Peaks.ToList();
+            peaksWithLive.Add((deadMz, 1.0));
+            var withLivePeak = new IsotopicEnvelope(peaksWithLive, baseline.MonoisotopicMass,
+                baseline.Charge, baseline.TotalIntensity, 0.0);
+            Assert.That(DeconvolutionScorer.ComputeFeatures(withLivePeak, Model, spectrum).LocalSignalToNoise,
+                Is.Not.EqualTo(baselineSnr).Within(1e-9));
         }
 
         /// <summary>
