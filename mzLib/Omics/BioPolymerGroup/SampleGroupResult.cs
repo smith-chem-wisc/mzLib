@@ -1,4 +1,4 @@
-using MassSpectrometry;
+﻿using MassSpectrometry;
 
 namespace Omics.BioPolymerGroup;
 
@@ -52,6 +52,39 @@ public sealed class SampleGroupResult
     /// groups in a dataset would otherwise present the same column name.
     /// </summary>
     public string? LabelSourcePath { get; init; }
+
+    /// <summary>
+    /// Identity of the section this result's <see cref="SpectralCount"/> and count-based occupancy
+    /// belong to, which is not always the section its intensity belongs to.
+    ///
+    /// A spectral count answers "how many spectra were acquired", so it is a property of the
+    /// acquired FILE. An intensity answers "how much was in this sample", so for an isobaric
+    /// experiment it is a property of the CHANNEL, and one file carries many. Reporting a count per
+    /// channel restates the file's count once per channel: an 11-plex protein row carries eleven
+    /// identical <c>SpectralCount_</c> values and eleven byte-identical <c>CountOccupancy_</c>
+    /// strings, three of which sit beside a blank intensity while claiming <c>fraction=1.00(1/1)</c>.
+    ///
+    /// So the two spaces are declared separately and the schema is told which is which, rather than
+    /// inferring one from the other.
+    /// </summary>
+    /// <remarks>
+    /// Null when this result is its own count section, which is the case for every design where the
+    /// two spaces coincide -- a label-free sample group and a design-less file each count only
+    /// themselves. The reader resolves null to <see cref="Identity"/>, so those designs keep their
+    /// column names and their order unchanged.
+    /// </remarks>
+    public string? CountIdentity { get; init; }
+
+    /// <summary>
+    /// Display label for the count section, or null alongside a null <see cref="CountIdentity"/>,
+    /// where the reader resolves it to <see cref="Label"/>.
+    /// </summary>
+    /// <remarks>
+    /// Like <see cref="Label"/> it is not unique, and is disambiguated before it reaches a column
+    /// name -- widened with <see cref="LabelSourcePath"/>, since there is no separate path for the
+    /// count section: the section a result counts under is always a file that result came from.
+    /// </remarks>
+    public string? CountLabel { get; init; }
 
     #endregion
 
