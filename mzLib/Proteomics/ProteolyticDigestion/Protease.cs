@@ -333,6 +333,26 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     intervals.AddRange(FixedTermini(1, cTerminusProtein, protein, cleave, retain, minPeptideLength, maxPeptideLength, localOneBasedIndicesToCleaveAfter, cleavageSitesBefore));
                 }
+
+                // The first window, when the initiator Met must be removed (InitiatorMethionineBehavior.Cleave) and residue 1
+                // is itself a cleavage site (a protease that cleaves after M, such as CNBr). Then neither branch above runs:
+                // `retain` is off because the Met is not in the sample, and `cleave` is off because the peptides starting at
+                // residue 2 come from the next window, which starts at that site. But the peptides that end at THIS window's
+                // C-terminus with a ragged N-terminus come from no other window or end loop, so add them here. Their starts
+                // run from residue 3; a start directly after one of this window's sites is fully specific and made elsewhere.
+                // Without this, those semi-specific peptides were silently missing (13 of 14 for MPEPTIDEPEPTIDE with one
+                // missed cleavage). See SemiDigestion_ProteaseThatCleavesAfterTheInitiatorMet_ReturnsExactlyTheReferencePeptides.
+                if (i == 0 && !retain && oneBasedIndicesToCleaveAfter[1] == 1)
+                {
+                    for (int j = 2; j < cTerminusProtein; j++)
+                    {
+                        if (!localOneBasedIndicesToCleaveAfter.Contains(j) && ValidLength(cTerminusProtein - j, minPeptideLength, maxPeptideLength))
+                        {
+                            intervals.Add(new ProteolyticPeptide(protein, j + 1, cTerminusProtein,
+                                cleavageSitesBefore[cTerminusProtein] - cleavageSitesBefore[j + 1], CleavageSpecificity.Semi, "semi"));
+                        }
+                    }
+                }
             }
 
             // Finish C-term of protein caused by loop being "i < oneBasedIndicesToCleaveAfter.Count - maximumMissedCleavages - 1"
