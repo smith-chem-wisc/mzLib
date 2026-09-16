@@ -1387,6 +1387,77 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
+        /// A heterozygous A->alt substitution for one sample, with the given REF/ALT allele depths.
+        /// </summary>
+        private static SequenceVariation HeterozygousSubstitution(int position, string alt, int refDepth, int altDepth)
+        {
+            string vcf = $"1\t{position}\t.\tA\t{alt}\t.\tPASS\tANN={alt}||||||||||||||||\tGT:AD:DP\t0/1:{refDepth},{altDepth}:{refDepth + altDepth}";
+            return new SequenceVariation(position, position, "A", alt, "het " + position, vcf);
+        }
+
+        private static List<string> ApplyToMAAAAA(int maxAllowedVariantsForCombinatorics, params SequenceVariation[] variants)
+        {
+            return VariantApplication.ApplyVariants(new Protein("MAAAAA", "acc"), variants, maxAllowedVariantsForCombinatorics, minAlleleDepth: 10)
+                .Select(p => p.BaseSequence).OrderBy(s => s).ToList();
+        }
+
+        /// <summary>
+        /// More heterozygous sites than the cap: branching collapses to the reference plus ONE alternate
+        /// branch that accumulates every deeply covered alternate allele.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_TooManyHeterozygous_DeepRefAndAlt_AccumulateOnSecondBranch()
+        {
+            var result = ApplyToMAAAAA(1,
+                HeterozygousSubstitution(2, "C", 30, 30),
+                HeterozygousSubstitution(4, "D", 30, 30));
+
+            Assert.That(result, Is.EqualTo(new[] { "MAAAAA", "MCADAA" }));
+        }
+
+        /// <summary>
+        /// Past the cap, a site with a shallow reference allele is taken as alternate on every branch,
+        /// and a site with a shallow alternate allele is not applied at all.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_TooManyHeterozygous_ShallowRef_AppliesAltToEveryBranch()
+        {
+            var result = ApplyToMAAAAA(1,
+                HeterozygousSubstitution(2, "C", 1, 30),
+                HeterozygousSubstitution(4, "D", 1, 30),
+                HeterozygousSubstitution(6, "E", 30, 1));
+
+            Assert.That(result, Is.EqualTo(new[] { "MCADAA" }));
+        }
+
+        /// <summary>
+        /// A cap of zero disables heterozygous application entirely, whatever the depths.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_ZeroCap_AppliesNoHeterozygousVariant()
+        {
+            var result = ApplyToMAAAAA(0,
+                HeterozygousSubstitution(2, "C", 1, 30),
+                HeterozygousSubstitution(4, "D", 30, 30));
+
+            Assert.That(result, Is.EqualTo(new[] { "MAAAAA" }));
+        }
+
+        /// <summary>
+        /// Under the cap, a deep-reference site branches (ref and alt both kept) while a shallow-reference
+        /// site is taken as alternate without keeping the reference branch.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_UnderCap_ShallowRefDropsReferenceBranch()
+        {
+            var result = ApplyToMAAAAA(4,
+                HeterozygousSubstitution(2, "C", 30, 30),
+                HeterozygousSubstitution(4, "D", 1, 30));
+
+            Assert.That(result, Is.EqualTo(new[] { "MAADAA", "MCADAA" }));
+        }
+
+        /// <summary>
         /// CRITICAL: Tests the AreValid() validation logic for SequenceVariation.
         /// Comprehensively covers valid/invalid position combinations, different
         /// constructor behaviors, and edge cases with null/empty sequences.
