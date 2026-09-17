@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Chemistry;
@@ -646,6 +646,54 @@ public class ModificationLookupBaseTests
         Assert.That(hyphenated.Any(v => v.Contains("TMTplex", StringComparison.OrdinalIgnoreCase)), Is.True);
         Assert.That(hyphenated.Any(v => v.Equals("TMT", StringComparison.OrdinalIgnoreCase)), Is.True);
         Assert.That(plain.Any(v => v.Contains("-plex", StringComparison.OrdinalIgnoreCase)), Is.True);
+    }
+
+    // The eight terminal LocationRestriction strings mzLib accepts (Modification.ModificationLocation),
+    // covering protein and peptide termini as well as oligo 5'/3' ends. The narrowing matches them by
+    // substring, so these cases pin that every one of them is seen as terminal.
+    [TestCase("N-terminal.", 'A')]
+    [TestCase("Peptide N-terminal.", 'A')]
+    [TestCase("5'-terminal.", 'G')]
+    [TestCase("Oligo 5'-terminal.", 'G')]
+    public void TryResolve_NTerminalUnimodId_PrefersTheTerminalEntryForEveryTerminalRestriction(string location, char residue)
+    {
+        var onResidue = CreateUnimodModification("Terminal", residue, "99");
+        var onTerminus = CreateUnimodModification("Terminal", 'X', "99", location: location);
+        var lookup = new TestLookup(new[] { onResidue, onTerminus });
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:99", targetResidue: residue, unimodId: 99);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(onTerminus), location);
+    }
+
+    [TestCase("C-terminal.", 'A')]
+    [TestCase("Peptide C-terminal.", 'A')]
+    [TestCase("3'-terminal.", 'G')]
+    [TestCase("Oligo 3'-terminal.", 'G')]
+    public void TryResolve_CTerminalUnimodId_PrefersTheTerminalEntryForEveryTerminalRestriction(string location, char residue)
+    {
+        var onResidue = CreateUnimodModification("Terminal", residue, "99");
+        var onTerminus = CreateUnimodModification("Terminal", 'X', "99", location: location);
+        var lookup = new TestLookup(new[] { onResidue, onTerminus });
+        var mod = CanonicalModification.AtCTerminus("UNIMOD:99", targetResidue: residue, unimodId: 99);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(onTerminus), location);
+    }
+
+    [TestCase("C-terminal.", 'A')]
+    [TestCase("Peptide C-terminal.", 'A')]
+    [TestCase("3'-terminal.", 'G')]
+    [TestCase("Oligo 3'-terminal.", 'G')]
+    public void TryResolve_NTerminalUnimodId_NeverTakesTheOppositeTerminusForEveryTerminalRestriction(string location, char residue)
+    {
+        var onTerminus = CreateUnimodModification("Terminal", 'X', "99", location: location);
+        var lookup = new TestLookup(new[] { onTerminus });
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:99", targetResidue: residue, unimodId: 99);
+
+        Assert.That(lookup.TryResolve(mod), Is.Null, location);
     }
 
     private static Modification CreateModification(
