@@ -382,8 +382,8 @@ namespace Test.ChemistryTests
         }
 
         /// <summary>
-        /// Hill notation writes the count suffix for an isotope only when that count is not 1. Every
-        /// isotope with a count was ever round-tripped through Hill notation.
+        /// Hill notation writes the count suffix for an isotope only when that count is not 1. No
+        /// non-carbon isotope with a count was ever round-tripped through Hill notation.
         /// </summary>
         [Test]
         public static void TestHillNotationPreservesIsotopeCounts()
