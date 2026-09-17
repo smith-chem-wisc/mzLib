@@ -267,7 +267,8 @@ namespace Test.DatabaseTests.VariantCorpus
             // I00-I02 walk a two-residue insertion past a PTM at both boundaries: anchored immediately before the
             // modified residue, ON it (the modified residue is the retained anchor), and immediately after it.
             // I03-I04 put the insertion at the protein's start and end; I05-I06 are the VCF depth-cutoff twins;
-            // I07 moves the trypsin knife; I08 carries a variant-borne mod; MI00-MI01 are indel pairs.
+            // I07 moves the trypsin knife; I08 carries a variant-borne mod; I09 anchors on the right with the PTM on the
+            // kept anchor; MI00-MI01 are indel pairs.
 
             // I00 — insertion immediately BEFORE the PTM residue. Phospho@T4; P3->PAG inserts AG between P3 and T4.
             // T slides 4->6 and the phospho follows it (installment 3). Consensus{0,1} + PEPAGTIDE{0,1} = 4 forms.
@@ -323,6 +324,18 @@ namespace Test.DatabaseTests.VariantCorpus
                 ExpectedCount: 4, Verdict: "applied",
                 Reason: "C-terminal insertion (E7->EAG) extends the protein past its consensus length; the anchor is the last residue so nothing shifts and the phospho stays at T4. Consensus{0,1} + PEPTIDEAG{0,1} = 4. End boundary of the insertion axis (mirror of S04; contrast D06, where end > length is pruned).",
                 ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTIDEAG", "PEPT[Biological:Phosphorylation on T]IDEAG" });
+
+            // I09 — insertion anchored on the RIGHT, with the PTM on the kept anchor. Phospho@T4; T4->AGT puts AG in
+            // front of T4 and keeps T as the variant's last residue, so T moves 4->6 and its phospho moves with it
+            // (invariant 2). Same forms as I00, reached through the right-anchored encoding, which puts the modified
+            // residue inside [begin,end]. This is the kept-SUFFIX half of the I01 rule: the old code dropped the mod.
+            yield return new CorpusCase(
+                Id: "I09", Layer: "L1-int", Tests: "ins-right-anchored-on-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=AGT POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "T4->AGT keeps T as its trailing residue and inserts AG before it, so the T and its phospho shift 4->6 rather than being dropped. Consensus{0,1} + PEPAGTIDE{0,1} = 4, the same forms as I00. Kept-suffix half of the I01 retained-anchor rule (I01 and D09 are kept-prefix).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPAGTIDE", "PEPAGT[Biological:Phosphorylation on T]IDE" });
 
             // I05 — VCF insertion PASSING the depth cutoff. VCF anchors on the reference base: REF=E ALT=EAG at 2
             // inserts AG after E2 -> PEAGPTIDE. Het 0/1, alt AD=6 >= minAlleleDepth 5 -> keep consensus AND apply

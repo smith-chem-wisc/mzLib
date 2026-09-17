@@ -81,19 +81,28 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Determines if a specific 1-based position in the variant biopolymer lies within a particular variation's range.
+        /// Determines if a specific 1-based position in the variant biopolymer lies on a residue the variation actually edits.
+        /// Residues an anchored indel keeps unchanged (the T of T -> TAG, the P of P -> AGP) are not edited, so a mod there
+        /// belongs to the biopolymer, not the variation; this matches how <see cref="AdjustModificationIndices"/> carries them over.
         /// </summary>
         /// <param name="appliedVariant">The variation of interest; may be null.</param>
         /// <param name="variantProteinIndex">1-based position in the current (possibly already-edited) variant sequence.</param>
-        /// <returns>True if the position is included by the variation; otherwise false.</returns>
+        /// <returns>True if the position is on an edited residue of the variation; otherwise false.</returns>
         public static bool IsSequenceVariantModification(SequenceVariation? appliedVariant, int variantProteinIndex)
         {
-            return appliedVariant != null && appliedVariant.Includes(variantProteinIndex);
+            if (appliedVariant == null)
+            {
+                return false;
+            }
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(appliedVariant);
+            return appliedVariant.OneBasedBeginPosition + keptPrefix <= variantProteinIndex
+                && variantProteinIndex <= appliedVariant.OneBasedEndPosition - keptSuffix;
         }
 
         /// <summary>
         /// Maps a modification index from the edited (variant) sequence back to the original consensus index by subtracting the
-        /// net length changes of all applied variations that ended before the queried position.
+        /// net length changes of all applied variations that ended before the queried position. A position on a residue an
+        /// anchored indel keeps at its end (the P of P -> AGP) counts as after that variation.
         /// </summary>
         /// <param name="protein">The variant-capable biopolymer containing applied variations.</param>
         /// <param name="variantProteinModificationIndex">1-based index in the variant sequence.</param>
@@ -101,7 +110,7 @@ namespace Omics.BioPolymer
         public static int RestoreModificationIndex(IHasSequenceVariants protein, int variantProteinModificationIndex)
         {
             return variantProteinModificationIndex - protein.AppliedSequenceVariations
-                .Where(v => v.OneBasedEndPosition < variantProteinModificationIndex)
+                .Where(v => v.OneBasedEndPosition - CountKeptFlanks(v).KeptSuffix < variantProteinModificationIndex)
                 .Sum(v => v.VariantSequence.Length - v.OriginalSequence.Length);
         }
 
@@ -435,19 +444,7 @@ namespace Omics.BioPolymer
             // An anchored indel keeps some residues unchanged (T -> TAG keeps the leading T; P -> AGP keeps the
             // trailing P). Those residues are not edited, so their mods survive. Count the unchanged prefix first,
             // then the unchanged suffix of what remains, so no residue is counted twice.
-            string original = variant.OriginalSequence;
-            string alternate = variant.VariantSequence;
-            int keptPrefix = 0;
-            while (keptPrefix < original.Length && keptPrefix < alternate.Length && original[keptPrefix] == alternate[keptPrefix])
-            {
-                keptPrefix++;
-            }
-            int keptSuffix = 0;
-            while (keptSuffix < original.Length - keptPrefix && keptSuffix < alternate.Length - keptPrefix
-                   && original[original.Length - 1 - keptSuffix] == alternate[alternate.Length - 1 - keptSuffix])
-            {
-                keptSuffix++;
-            }
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
 
             // Re-base original modifications
             if (modificationDictionary != null)
@@ -460,11 +457,11 @@ namespace Omics.BioPolymer
                     }
                     else if (kv.Key < variant.OneBasedBeginPosition + keptPrefix)
                     {
-                        mods.Add(kv.Key, kv.Value); // before the edit, or on a residue the variant keeps at its start
+                        mods.Add(kv.Key, new List<Modification>(kv.Value)); // before the edit, or on a residue the variant keeps at its start
                     }
                     else if (variant.OneBasedEndPosition - keptSuffix < kv.Key && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
                     {
-                        mods.Add(kv.Key + sequenceLengthChange, kv.Value); // after the edit, or on a residue the variant keeps at its end
+                        mods.Add(kv.Key + sequenceLengthChange, new List<Modification>(kv.Value)); // after the edit, or on a residue the variant keeps at its end
                     }
                 }
             }
@@ -480,12 +477,34 @@ namespace Omics.BioPolymer
                     }
                     else
                     {
-                        mods.Add(kv.Key, kv.Value);
+                        mods.Add(kv.Key, new List<Modification>(kv.Value));
                     }
                 }
             }
 
             return mods;
+        }
+
+        /// <summary>
+        /// Counts the residues an indel leaves unchanged at its start and then at its end (T -> TAG keeps one at the start,
+        /// P -> AGP one at the end). The suffix is counted only over what the prefix left, so no residue is counted twice.
+        /// </summary>
+        private static (int KeptPrefix, int KeptSuffix) CountKeptFlanks(SequenceVariation variant)
+        {
+            string original = variant.OriginalSequence;
+            string alternate = variant.VariantSequence;
+            int keptPrefix = 0;
+            while (keptPrefix < original.Length && keptPrefix < alternate.Length && original[keptPrefix] == alternate[keptPrefix])
+            {
+                keptPrefix++;
+            }
+            int keptSuffix = 0;
+            while (keptSuffix < original.Length - keptPrefix && keptSuffix < alternate.Length - keptPrefix
+                   && original[original.Length - 1 - keptSuffix] == alternate[alternate.Length - 1 - keptSuffix])
+            {
+                keptSuffix++;
+            }
+            return (keptPrefix, keptSuffix);
         }
 
         /// <summary>
