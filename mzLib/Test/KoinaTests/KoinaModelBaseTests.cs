@@ -191,6 +191,47 @@ public class KoinaModelBaseTests
         Assert.That(warning!.Message, Does.Contain("serialize failed"));
     }
 
+    [TestCase("[UNIMOD:1]-PEPTIDE")]
+    [TestCase("PEPTIDE-[UNIMOD:2]")]
+    [TestCase("[UNIMOD:1]-PEPTIDE-[UNIMOD:2]")]
+    [TestCase("[UNIMOD:1][UNIMOD:34]-PEPTIDE")]
+    public void TryCleanSequence_ProFormaTerminalModification_ReachesTheConverter(string proForma)
+    {
+        // The raw base-sequence check used to strip only the brackets, leaving "-PEPTIDE", which the amino-acid
+        // pattern rejects before the converter is ever asked. Under ReturnNull that failure was silent.
+        string? parsed = null;
+        var converter = new FakeSequenceConverter(
+            parse: s => { parsed = s; return CanonicalSequence.Unmodified("PEPTIDE", "fake"); },
+            serialize: _ => proForma);
+        var model = new KoinaModelHarness(converter);
+
+        var result = model.TryClean(proForma, out var apiSequence, out var warning);
+
+        Assert.That(parsed, Is.EqualTo(proForma));
+        Assert.That(result, Is.Not.Null);
+        Assert.That(apiSequence, Is.EqualTo(proForma));
+        Assert.That(warning, Is.Null);
+    }
+
+    [TestCase("-PEPTIDE")]
+    [TestCase("PEPTIDE-")]
+    [TestCase("[UNIMOD:1]-PEP*TIDE")]
+    [TestCase("PEP-[UNIMOD:1]TIDE")]
+    public void TryCleanSequence_TerminalSeparatorWithoutValidTerminalGroup_StillRejectedBeforeParsing(string sequence)
+    {
+        bool parseCalled = false;
+        var converter = new FakeSequenceConverter(
+            parse: _ => { parseCalled = true; return CanonicalSequence.Unmodified("PEPTIDE", "fake"); },
+            serialize: _ => "PEPTIDE");
+        var model = new KoinaModelHarness(converter);
+
+        var result = model.TryClean(sequence, out var apiSequence, out _);
+
+        Assert.That(parseCalled, Is.False);
+        Assert.That(result, Is.Null);
+        Assert.That(apiSequence, Is.Null);
+    }
+
     [Test]
     public void TryCleanSequence_AcceptAllConverter_SerializesKnownModification()
     {
