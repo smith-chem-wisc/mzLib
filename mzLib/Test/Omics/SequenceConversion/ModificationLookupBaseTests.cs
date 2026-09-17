@@ -117,6 +117,154 @@ public class ModificationLookupBaseTests
     }
 
     [Test]
+    public void FilterByUnimodId_MatchesTheWholeIdNotADigitOfAnotherId()
+    {
+        var acetyl = CreateUnimodModification("Acetyl", 'K', "1");
+        var phospho = CreateUnimodModification("Phospho", 'K', "21");
+        var gg = CreateUnimodModification("GG", 'K', "121");
+        var prefixed = CreateUnimodModification("Prefixed", 'K', "UNIMOD:1");
+        var byAccession = new Modification(
+            _originalId: "Met->Hse",
+            _accession: "UNIMOD:10",
+            _modificationType: "Test",
+            _target: GetMotif('M'),
+            _locationRestriction: "Anywhere.",
+            _monoisotopicMass: -29.992806);
+        var lookup = new TestLookup(new[] { acetyl, phospho, gg, prefixed, byAccession });
+
+        var matches = lookup.FilterByUnimodIdPublic(null, 1).ToList();
+
+        Assert.That(matches, Is.EquivalentTo(new[] { acetyl, prefixed }));
+    }
+
+    [Test]
+    public void TryResolve_NTerminalUnimodId_PrefersTheTerminalModOverAResidueMatch()
+    {
+        var onLysine = CreateUnimodModification("Acetyl", 'K', "1");
+        var onNTerminus = CreateUnimodModification("Acetyl", 'X', "1", location: "Peptide N-terminal.");
+        var lookup = new TestLookup(new[] { onLysine, onNTerminus });
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:1", targetResidue: 'K', unimodId: 1);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(onNTerminus));
+    }
+
+    [Test]
+    public void TryResolve_CTerminalUnimodId_PrefersTheTerminalModOverAResidueMatch()
+    {
+        var onLysine = CreateUnimodModification("Methyl", 'K', "34");
+        var onNTerminus = CreateUnimodModification("Methyl", 'X', "34", location: "N-terminal.");
+        var onCTerminus = CreateUnimodModification("Methyl", 'X', "34", location: "Peptide C-terminal.");
+        var lookup = new TestLookup(new[] { onLysine, onNTerminus, onCTerminus });
+        var mod = CanonicalModification.AtCTerminus("UNIMOD:34", targetResidue: 'K', unimodId: 34);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(onCTerminus));
+    }
+
+    [Test]
+    public void TryResolve_TerminalUnimodId_KeepsAnExactResidueAmongTerminalMods()
+    {
+        var onAnyNTerminus = CreateUnimodModification("Dimethyl", 'X', "36", location: "N-terminal.");
+        var onProlineNTerminus = CreateUnimodModification("Dimethyl", 'P', "36", location: "N-terminal.");
+        var onProline = CreateUnimodModification("Dimethyl", 'P', "36");
+        var lookup = new TestLookup(new[] { onAnyNTerminus, onProlineNTerminus, onProline });
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:36", targetResidue: 'P', unimodId: 36);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(onProlineNTerminus));
+    }
+
+    [Test]
+    public void TryResolve_TerminalUnimodId_FallsBackToAnAnywhereModWhenNoTerminalModExists()
+    {
+        var onSerine = CreateUnimodModification("Phospho", 'S', "21");
+        var lookup = new TestLookup(new[] { onSerine });
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:21", targetResidue: 'S', unimodId: 21);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(onSerine));
+    }
+
+    [Test]
+    public void TryResolve_TerminalUnimodId_NeverResolvesToTheOppositeTerminus()
+    {
+        var onCTerminus = CreateUnimodModification("Amidated", 'X', "2", location: "Peptide C-terminal.");
+        var lookup = new TestLookup(new[] { onCTerminus });
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:2", targetResidue: 'K', unimodId: 2);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Null);
+    }
+
+    [Test]
+    public void TryResolve_TerminalUnimodId_TreatsAModWithNoRestrictionAsAllowedAnywhere()
+    {
+        var unrestricted = new UnrestrictedModification("Acetyl", GetMotif('K'), "1");
+        var onNTerminus = CreateUnimodModification("Acetyl", 'X', "1", location: "N-terminal.");
+        var mod = CanonicalModification.AtNTerminus("UNIMOD:1", targetResidue: 'K', unimodId: 1);
+
+        var preferred = new TestLookup(new Modification[] { unrestricted, onNTerminus }).TryResolve(mod);
+        var fallback = new TestLookup(new Modification[] { unrestricted }).TryResolve(mod);
+
+        Assert.That(preferred!.Value.MzLibModification, Is.SameAs(onNTerminus));
+        Assert.That(fallback!.Value.MzLibModification, Is.SameAs(unrestricted));
+    }
+
+    [Test]
+    public void TryResolve_UnimodIdWithoutResidue_IsAmbiguousAcrossResiduesThatShareAFormula()
+    {
+        var formula = ChemicalFormula.ParseFormula("HO3P");
+        var onSerine = new Modification(
+            _originalId: "Phospho",
+            _modificationType: "Test",
+            _target: GetMotif('S'),
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: formula,
+            _databaseReference: new Dictionary<string, IList<string>> { ["Unimod"] = new List<string> { "21" } });
+        var onThreonine = new Modification(
+            _originalId: "Phospho",
+            _modificationType: "Test",
+            _target: GetMotif('T'),
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: formula,
+            _databaseReference: new Dictionary<string, IList<string>> { ["Unimod"] = new List<string> { "21" } });
+        var untargeted = new Modification(
+            _originalId: "Phospho",
+            _modificationType: "Test",
+            _locationRestriction: "Anywhere.",
+            _chemicalFormula: formula,
+            _databaseReference: new Dictionary<string, IList<string>> { ["Unimod"] = new List<string> { "21" } });
+        var lookup = new TestLookup(new[] { onSerine, onThreonine, untargeted });
+        var mod = new CanonicalModification(ModificationPositionType.Residue, 3, null, "UNIMOD:21", UnimodId: 21);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Null);
+    }
+
+    [Test]
+    public void TryResolve_ResidueUnimodId_DoesNotResolveToAModWhoseIdOnlyContainsIt()
+    {
+        var metToHse = CreateUnimodModification("Met->Hse", 'M', "10");
+        var lookup = new TestLookup(new[] { metToHse });
+        var mod = CanonicalModification.AtResidue(0, 'M', "UNIMOD:1", unimodId: 1);
+
+        var resolved = lookup.TryResolve(mod);
+
+        Assert.That(resolved, Is.Null);
+    }
+
+    [Test]
     public void BuildCacheKey_CombinesAllKeyAttributes()
     {
         var lookup = new TestLookup(Array.Empty<Modification>());
@@ -517,6 +665,25 @@ public class ModificationLookupBaseTests
             _monoisotopicMass: monoisotopicMass);
     }
 
+    private static Modification CreateUnimodModification(
+        string originalId,
+        char residue,
+        string unimodReference,
+        string location = "Anywhere.",
+        double? monoisotopicMass = 42.0101)
+    {
+        return new Modification(
+            _originalId: originalId,
+            _modificationType: "Test",
+            _target: GetMotif(residue),
+            _locationRestriction: location,
+            _monoisotopicMass: monoisotopicMass,
+            _databaseReference: new Dictionary<string, IList<string>>
+            {
+                ["Unimod"] = new List<string> { unimodReference }
+            });
+    }
+
     private static ModificationMotif GetMotif(char residue)
     {
         if (!ModificationMotif.TryGetMotif(residue.ToString(), out var motif))
@@ -532,6 +699,26 @@ public class ModificationLookupBaseTests
         foreach (var modification in modifications)
         {
             yield return modification;
+        }
+    }
+
+    /// <summary>
+    /// The Modification constructor never leaves LocationRestriction null, but a derived type can.
+    /// </summary>
+    private sealed class UnrestrictedModification : Modification
+    {
+        public UnrestrictedModification(string originalId, ModificationMotif target, string unimodReference)
+            : base(
+                _originalId: originalId,
+                _modificationType: "Test",
+                _target: target,
+                _monoisotopicMass: 42.0101,
+                _databaseReference: new Dictionary<string, IList<string>>
+                {
+                    ["Unimod"] = new List<string> { unimodReference }
+                })
+        {
+            LocationRestriction = null;
         }
     }
 
