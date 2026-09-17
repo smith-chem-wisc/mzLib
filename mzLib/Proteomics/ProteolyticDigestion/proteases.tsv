@@ -28,7 +28,7 @@
 #					
 # Example custom proteases file:					
 # ----------------------------------------------------------------------------					
-# Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+# Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification	Cleavage Requirement
 # MyCustomProtease	K|,R|	full			
 # MyTrypsinNoProline	K|,R|	full	MS:1001313	Trypsin	
 # ----------------------------------------------------------------------------					
@@ -95,7 +95,7 @@
 # ============================================================================					
 # PROTEASE DEFINITIONS					
 # ============================================================================					
-Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification
+Name	Motif	Specificity	PSI-MS Accession	PSI-MS Name	Cleavage Modification	Cleavage Requirement
 Arg-C	R|	full	MS:1001303	Arg-C	
 Asp-N	|D	full	MS:1001304	Asp-N	
 chymotrypsin|P	F[P]|,W[P]|,Y[P]|,L[P]|	full	MS:1001306	Chymotrypsin	
@@ -117,22 +117,74 @@ collagenase	GPX|GPX	full
 # ----------------------------------------------------------------------------
 # O-GLYCOPROTEASES (mucinases)
 # ----------------------------------------------------------------------------
-# StcE recognizes S/T-X-S/T and cleaves before the last residue of that motif,
-# but ONLY when the FIRST S/T is O-GLYCOSYLATED. Activity is abolished by
-# deglycosylation. Malaker et al., PNAS 2019 (doi:10.1073/pnas.1813020116).
+# A GLYCOPROTEASE is any protease whose cleavage depends on the presence of
+# glycosylation; MUCINASES are the subset selected for densely O-glycosylated
+# mucin domains. Their rule has two halves -- a sequence motif AND a glycan
+# required at a named Schechter-Berger subsite -- and until now this file could
+# only express the first half.
 #
-# WARNING: the motif syntax below matches SEQUENCE ONLY. It cannot express the
-# glycan requirement, so both StcE entries OVER-DIGEST relative to the real
-# enzyme -- their peptides are a superset of true StcE peptides.
+# The optional "Cleavage Requirement" column carries the second half. It is
+# written the way the literature writes a subsite: P<n> for the non-prime side,
+# P<n>' for the prime side, then the modification class. So StcE is P2:O-glycan
+# and the OgpA family is P1':O-glycan. The column is OPTIONAL and aliased -- a
+# proteases.tsv written before it existed still loads, and its proteases simply
+# declare no requirement.
 #
-# Other mucinases (SmE, OgpA/OpeRATOR, IMPa) are deliberately NOT listed. All
-# three cleave N-terminal to a glycosylated S/T and differ only in glycan
-# tolerance, which is invisible to a sequence motif, so they would be identical
-# '|S,|T' entries under three different names. '|S,|T' also cuts at every S and
-# T, leaving at most one candidate glycosite per peptide, which is not what any
-# of those enzymes does. Modelling them needs glycosylation-aware digestion.
-StcE	TX|T,TX|S,SX|T,SX|S	full		StcE	
-StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin	
+# The requirement is honoured only when DigestionParams.
+# RespectCleavagePromotingModifications is set, which defaults to FALSE. With it
+# off these entries digest exactly as they always have, on sequence alone, so
+# nothing about an existing search changes.
+#
+# StcE, from enterohemorrhagic E. coli O157:H7 (MEROPS M66), cleaves in an
+# S/T-X-S/T motif, severing the bond before the last residue, but ONLY when the
+# FIRST S/T carries an alpha-O-GalNAc-initiated glycan -- that residue is P2.
+# Activity is abolished by deglycosylation, and the requirement is specific to
+# mucin-type glycans: the same peptide backbone carrying beta-O-GlcNAc instead of
+# alpha-O-GalNAc is not cleaved, nor are O-mannosylated peptides. A glycan at P1'
+# is permitted but NEVER required, which is why the motif below marks only P2.
+#   Malaker et al., PNAS 2019, doi:10.1073/pnas.1813020116
+#
+# StcE is NOT an indiscriminate over-digester of glycoproteins: it does not
+# cleave BSA, and it does not cleave several glycosylated non-mucins. Its
+# selectivity for mucins is not a glycan-DENSITY rule, though -- a single
+# glycosylated motif on a free 9-mer is cleaved -- but a consequence of the
+# conformation dense O-glycosylation imposes, plus a separable C-terminal
+# binding module. So a per-bond rule is the right model, and it will over-generate
+# on folded non-mucin glycoproteins. That is a known and accepted limit.
+#
+# OpeRATOR (OgpA, Akkermansia muciniphila, MEROPS M11), IMPa (Pseudomonas
+# aeruginosa, MEROPS M88) and SmE (Serratia marcescens, peptidase_M60/PF13402)
+# all cleave N-terminal to a glycosylated Ser/Thr -- the glycan is at P1'. They
+# were previously left out of this file because that rule could not be written;
+# it can now. They still differ in ways this column cannot yet express, because a
+# Modification carries no monosaccharide composition:
+#   OpeRATOR  optimal on core 1; NOT cleaved on the Tn antigen; blocked by
+#             alpha-2,6-sialylation and by core 2; alpha-2,3-sialyl core 1 is
+#             turned over ~170x slower. Sialidase co-treatment is standard.
+#             Trastoy et al., Nat Commun 2020, doi:10.1038/s41467-020-18696-y
+#   IMPa      broad: sialylated and asialylated glycans alike, no sialidase
+#             needed. Will not cleave when P1 is aspartate, nor between two
+#             adjacent O-glycosites (a glycan at P1 forbids the cut). Isoleucine
+#             and arginine at P1 are strong efficiency penalties (8% and 38%
+#             completion), not refusals.
+#             Vainauskas et al., Anal Chem 2022, doi:10.1021/acs.analchem.1c04055
+#   SmE       broadest glycan tolerance of the three, and unlike IMPa it DOES
+#             cleave between two adjacent glycosites.
+#             Chongsaritsinsuk et al., Nat Commun 2023, doi:10.1038/s41467-023-41756-y
+#
+# Those structure-level and P1-residue rules are deliberately NOT encoded here.
+# A class-level requirement admits glycoforms the real enzyme would refuse, which
+# costs search space and never an identification; inventing a syntax for rules
+# the Modification model cannot yet support would be worse.
+#
+# In a composite entry the requirement attaches only to the motifs that have the
+# named subsite, so StcE-trypsin carries the glycan rule on its four StcE motifs
+# and none on K| or R|. A tryptic cut in a mixed digest is a tryptic cut.
+StcE	TX|T,TX|S,SX|T,SX|S	full		StcE		P2:O-glycan
+StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin		P2:O-glycan
+OpeRATOR	|T,|S	full		OpeRATOR		P1':O-glycan
+IMPa	|T,|S	full		IMPa		P1':O-glycan
+SmE	|T,|S	full		SmE		P1':O-glycan
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Homoserine lactone N-terminal on M
 ProAlanase	P|,A|	full			

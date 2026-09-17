@@ -51,7 +51,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     {
         /// <summary>Enzymes mzLib can actually digest with today. Everything else is not modelled yet.</summary>
         private static readonly HashSet<string> ModelledEnzymes =
-            new(StringComparer.OrdinalIgnoreCase) { "StcE", "StcE-trypsin", "trypsin", "trypsin|P" };
+            new(StringComparer.OrdinalIgnoreCase)
+            {
+                "StcE", "StcE-trypsin", "trypsin", "trypsin|P", "OpeRATOR", "IMPa", "SmE",
+            };
 
         /// <summary>One row of the truth set.</summary>
         public class TruthCase
@@ -128,23 +131,79 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             LoadTruthSet().Select(c => new TestCaseData(c)
                 .SetName(("TruthSet_" + c.CaseId + "_" + c.Enzyme + "_" + c.Substrate).Replace('.', '_')));
 
-        /// <summary>The glycan markers are stripped: with no glycan-aware digestion only base sequences compare.</summary>
+        /// <summary>The glycan markers are stripped: products are compared as base sequences.</summary>
         private static string StripGlycanMarkers(string product) => product.Replace("*", string.Empty);
+
+        /// <summary>
+        /// Builds the substrate with its glycans placed as localized modifications, from the truth set's
+        /// <c>glycosites</c> column (<c>pos:glycan</c>, one-based, semicolon separated).
+        /// </summary>
+        /// <remarks>
+        /// Every glycan in the corpus is placed with ModificationType "O-linked glycosylation", including
+        /// the O-GlcNAc and O-mannose cases, because that is what a real modification database says about
+        /// them -- they ARE O-linked. The digester's requirement is resolved at CLASS level, so it cannot
+        /// tell alpha-O-GalNAc from beta-O-GlcNAc and will cleave both. That is a documented limit of the
+        /// current model rather than a bug in the fixture, and STCE-02 stays flagged as a known gap
+        /// because of it. Encoding O-GlcNAc as something other than O-linked here would hide the limit
+        /// by mis-describing the chemistry.
+        /// </remarks>
+        private static Protein BuildProtein(TruthCase c)
+        {
+            var localized = new Dictionary<int, List<Modification>>();
+
+            if (!string.IsNullOrWhiteSpace(c.Glycosites) && c.Glycosites != "-")
+            {
+                foreach (string site in c.Glycosites.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    string[] parts = site.Split(':');
+                    if (parts.Length != 2 || !int.TryParse(parts[0], out int position))
+                        continue;
+                    if (position < 1 || position > c.Sequence.Length)
+                        continue;
+
+                    string residue = c.Sequence[position - 1].ToString();
+                    if (!ModificationMotif.TryGetMotif(residue, out ModificationMotif motif))
+                        continue;
+
+                    var glycan = new Modification(_originalId: parts[1],
+                        _modificationType: "O-linked glycosylation", _target: motif,
+                        _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373);
+
+                    if (!localized.TryGetValue(position, out List<Modification> atSite))
+                    {
+                        atSite = new List<Modification>();
+                        localized[position] = atSite;
+                    }
+
+                    atSite.Add(glycan);
+                }
+            }
+
+            return localized.Count == 0
+                ? new Protein(c.Sequence, "TRUTHSET_" + c.CaseId)
+                : new Protein(c.Sequence, "TRUTHSET_" + c.CaseId, oneBasedModifications: localized);
+        }
 
         private static List<string> Digest(TruthCase c)
         {
-            var protein = new Protein(c.Sequence, "TRUTHSET_" + c.CaseId);
+            Protein protein = BuildProtein(c);
 
             // minPeptideLength 1 because real products here are short (AASAA gives "AA"), and
             // maxMissedCleavages 0 because the truth set states the COMPLETE digest, not a partial one.
+            // RespectCleavagePromotingModifications is ON here, because the truth set records what the
+            // REAL enzyme does and that is what these cases assert. With it off the glycoproteases fall
+            // back to their sequence motif and over-digest, which is the behaviour the negative cases
+            // exist to catch.
             var parameters = new DigestionParams(
                 protease: c.Enzyme,
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
-                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                respectCleavagePromotingModifications: true);
 
             return protein.Digest(parameters, new List<Modification>(), new List<Modification>())
                 .Select(p => p.BaseSequence)
+                .Distinct()
                 .OrderBy(s => s, StringComparer.Ordinal)
                 .ToList();
         }

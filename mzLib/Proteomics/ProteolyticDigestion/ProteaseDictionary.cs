@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -497,6 +497,13 @@ namespace Proteomics.ProteolyticDigestion
             string[] psiMsNameAliases = { "psi-ms name" };
             string[] cleavageModAliases = { "cleavage modification", "cleavage mass shifts" };
 
+            // OPTIONAL and aliased, on purpose. A new REQUIRED column would break every custom
+            // proteases.tsv already in the wild, because those files were written before this column
+            // existed and have no value for it. Read through GetFieldValue, which returns empty for a
+            // column the file does not have, so an older file keeps loading unchanged and its proteases
+            // simply declare no requirement.
+            string[] cleavageRequirementAliases = { "cleavage requirement", "required modification" };
+
             foreach (string line in lines)
             {
                 string trimmedLine = line.Trim().TrimStart('\uFEFF');
@@ -540,8 +547,22 @@ namespace Proteomics.ProteolyticDigestion
                 string psiMsAccessionNumber = GetFieldValue(fields, columnIndices, psiMsAccessionAliases);
                 string psiMsName = GetFieldValue(fields, columnIndices, psiMsNameAliases);
                 string proteaseModDetails = GetFieldValue(fields, columnIndices, cleavageModAliases);
+                string cleavageRequirementField = GetFieldValue(fields, columnIndices, cleavageRequirementAliases);
+
+                CleavageRequirement cleavageRequirement = CleavageRequirementParser.Parse(cleavageRequirementField);
 
                 var motifList = DigestionMotif.ParseDigestionMotifsFromString(motifField);
+
+                // The requirement is declared once per protease and applies to every motif that protease
+                // has, which is what the enzymology describes: StcE's four motifs (TXT, TXS, SXT, SXS)
+                // are one rule written four ways, and all four need the glycan at P2. A composite entry
+                // like StcE-trypsin is the case that makes this worth stating -- there the tryptic motifs
+                // must NOT inherit it, which is handled below by only attaching it to motifs whose
+                // recognition sequence can actually carry the constrained residue.
+                if (cleavageRequirement is not null)
+                {
+                    motifList = AttachCleavageRequirement(motifList, cleavageRequirement);
+                }
                 var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), specificityField, true);
 
                 Protease protease = CreateProtease(
@@ -607,6 +628,44 @@ namespace Proteomics.ProteolyticDigestion
                     return fields[index].Trim();
             }
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Returns the motifs with <paramref name="requirement"/> attached to those that can actually
+        /// carry it, and the rest untouched.
+        /// </summary>
+        /// <remarks>
+        /// A motif can carry the requirement only when the constrained subsite falls INSIDE its own
+        /// recognition sequence. That single test does the right thing for both shapes that matter:
+        ///
+        /// StcE's "TXT" with CutIndex 2 has a P2, so a P2 requirement attaches. Trypsin's "K" with
+        /// CutIndex 1 does not -- P2 lies before the motif begins -- so the same requirement does not
+        /// attach, and a composite entry like StcE-trypsin ends up with the glycan rule on its four StcE
+        /// motifs and none on K| or R|. That is the behaviour the enzymology describes: a tryptic cut in
+        /// a mixed digest is a tryptic cut and needs no glycan.
+        ///
+        /// Attaching a requirement to a motif that cannot express it would be worse than useless. The
+        /// subsite lookup would return the null character, no residue could ever satisfy it, and every
+        /// cut that motif makes would be discarded -- silently turning trypsin off inside a composite.
+        /// </remarks>
+        private static List<DigestionMotif> AttachCleavageRequirement(List<DigestionMotif> motifs,
+            CleavageRequirement requirement)
+        {
+            var withRequirement = new List<DigestionMotif>(motifs.Count);
+
+            foreach (DigestionMotif motif in motifs)
+            {
+                char constrainedSubsite = requirement.IsPrimeSide
+                    ? motif.PrimeSubsite(requirement.Subsite)
+                    : motif.NonPrimeSubsite(requirement.Subsite);
+
+                withRequirement.Add(constrainedSubsite == ' '
+                    ? motif
+                    : new DigestionMotif(motif.InducingCleavage, motif.PreventingCleavage, motif.CutIndex,
+                        motif.ExcludeFromWildcard, requirement));
+            }
+
+            return withRequirement;
         }
 
         private static Protease CreateProtease(
