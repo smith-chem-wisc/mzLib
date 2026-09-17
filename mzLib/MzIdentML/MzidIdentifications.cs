@@ -18,6 +18,7 @@
 using MassSpectrometry;
 using MzLibUtil;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -360,31 +361,36 @@ namespace MzIdentML
             }
         }
 
+        // -1 is "absent", and a q-value term with no value (the attribute is optional) is absent too.
+        // Convert.ToDouble reads a null string as 0, which is indistinguishable from a perfect q-value.
+        private static double QValueOf(string value) =>
+            string.IsNullOrWhiteSpace(value) ? -1 : Convert.ToDouble(value, CultureInfo.InvariantCulture);
+
         public double QValue(int sirIndex, int siiIndex)
         {
             if (dd110 != null)
             {
-                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
             else if (dd111 != null)
             {
-                var cvParam = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                var cvParam = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
             else if (dd120 != null)
             {
-                var cvParam = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                var cvParam = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
             else
             {
-                var cvParam = dd130.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam.
+                var cvParam = dd130.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
         }
 
@@ -990,56 +996,102 @@ namespace MzIdentML
             return s;
         }
 
+        // FileFormat terms are recognised by accession as well as by name. Writers carry the PSI-MS
+        // accession but not always its display name -- MS-GF+ writes "mzML file" and Scaffold writes
+        // "Mascot MGF file" -- and matching the name alone returned null for every result in their files.
+        private const string ThermoRawFormatAccession = "MS:1000563";
+        private const string MzmlFormatAccession = "MS:1000584";
+        private const string MascotMgfFormatAccession = "MS:1001062";
+        private const string SpectrumTitleAccession = "MS:1000796";
+
+        // The obsolete "spectrum title", replaced_by MS:1000796, which files written against an older CV carry
+        private const string ObsoleteSpectrumTitleAccession = "MS:1001416";
+
+        private static bool IsFileFormat(string accession, string name, string expectedAccession, string expectedName) =>
+            accession == expectedAccession || name == expectedName;
+
+        /// <summary>
+        /// The spectrum title among a SpectrumIdentificationResult's cvParams, found by accession. Falls back
+        /// to the first cvParam, which is what was read before, only when no title term is present: Mascot
+        /// Parser writes "Mascot:identity threshold" first, so reading position 0 returned the threshold.
+        /// A title term that is present but has no value (the attribute is optional) is a missing title and
+        /// returns null. It does not take the fallback, which would hand back that same threshold.
+        /// </summary>
+        private static string SpectrumTitle(IEnumerable<(string Accession, string Value)> cvParams)
+        {
+            if (cvParams == null)
+            {
+                return null;
+            }
+
+            var all = cvParams.ToList();
+            int title = all.FindIndex(cv => cv.Accession == SpectrumTitleAccession || cv.Accession == ObsoleteSpectrumTitleAccession);
+            if (title < 0)
+            {
+                return all.Select(cv => cv.Value).FirstOrDefault();
+            }
+
+            return string.IsNullOrEmpty(all[title].Value) ? null : all[title].Value;
+        }
+
         public string Ms2SpectrumID(int sirIndex)
         {
             string ms2id = null;
             if (dd110 != null)
             {
-                if (dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
-                || dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
+                var format = dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam;
+                var result = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex];
+                if (IsFileFormat(format.accession, format.name, ThermoRawFormatAccession, "Thermo RAW format")
+                    || IsFileFormat(format.accession, format.name, MzmlFormatAccession, "mzML format"))
                 {
-                    ms2id = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
+                    ms2id = result.spectrumID;
                 }
-                else if (dd110.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
+                else if (IsFileFormat(format.accession, format.name, MascotMgfFormatAccession, "Mascot MGF format"))
                 {
-                    ms2id = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
+                    ms2id = SpectrumTitle(result.cvParam?.Select(cv => (cv.accession, cv.value)));
                 }
             }
             else if (dd111 != null)
             {
-                             if (dd111.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
-                || dd111.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
-                             {
-                                 ms2id = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
-                             }
-                             else if (dd111.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
-                             {
-                                 ms2id = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
-                             }
+                var format = dd111.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam;
+                var result = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex];
+                if (IsFileFormat(format.accession, format.name, ThermoRawFormatAccession, "Thermo RAW format")
+                    || IsFileFormat(format.accession, format.name, MzmlFormatAccession, "mzML format"))
+                {
+                    ms2id = result.spectrumID;
+                }
+                else if (IsFileFormat(format.accession, format.name, MascotMgfFormatAccession, "Mascot MGF format"))
+                {
+                    ms2id = SpectrumTitle(result.cvParam?.Select(cv => (cv.accession, cv.value)));
+                }
             }
             else if (dd120 != null)
             {
-                             if (dd120.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
-                || dd120.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
-                             {
-                                 ms2id = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
-                             }
-                             else if (dd120.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
-                             {
-                                 ms2id = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
-                             }
+                var format = dd120.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam;
+                var result = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex];
+                if (IsFileFormat(format.accession, format.name, ThermoRawFormatAccession, "Thermo RAW format")
+                    || IsFileFormat(format.accession, format.name, MzmlFormatAccession, "mzML format"))
+                {
+                    ms2id = result.spectrumID;
+                }
+                else if (IsFileFormat(format.accession, format.name, MascotMgfFormatAccession, "Mascot MGF format"))
+                {
+                    ms2id = SpectrumTitle(result.cvParam?.Select(cv => (cv.accession, cv.value)));
+                }
             }
             else
             {
-                             if (dd130.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Thermo RAW format")
-                || dd130.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("mzML format"))
-                             {
-                                 ms2id = dd130.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].spectrumID;
-                             }
-                             else if (dd130.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam.name.Equals("Mascot MGF format"))
-                             {
-                                 ms2id = dd130.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].cvParam[0].value;
-                             }
+                var format = dd130.DataCollection.Inputs.SpectraData[0].FileFormat.cvParam;
+                var result = dd130.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex];
+                if (IsFileFormat(format.accession, format.name, ThermoRawFormatAccession, "Thermo RAW format")
+                    || IsFileFormat(format.accession, format.name, MzmlFormatAccession, "mzML format"))
+                {
+                    ms2id = result.spectrumID;
+                }
+                else if (IsFileFormat(format.accession, format.name, MascotMgfFormatAccession, "Mascot MGF format"))
+                {
+                    ms2id = SpectrumTitle(result.cvParam?.Select(cv => (cv.accession, cv.value)));
+                }
             }
             return ms2id;
         }
