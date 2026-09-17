@@ -1,4 +1,6 @@
-﻿using System.IO;
+﻿using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using MzIdentML;
 using MzLibUtil;
 using NUnit.Framework;
@@ -92,10 +94,14 @@ namespace Test.MzIdentML
         [TestCase("mzidLib_xtandem_fdr_1_2_0.mzid", 5, 0, 0)]
         [TestCase("multiple_spectra_per_id_1_3_0.mzid", 2, 0, 0)]
         [TestCase("noncovalently_assoc_1_3_0.mzid", 2, 0, 0)]
+        // MS-GF+ does report a q-value on all 12 PSMs, as MS:1002054 "MS-GF:QValue". That term is_a
+        // MS:1002354, but QValue matches only the parent accession, so the reader sees none of them.
+        // 0 pins the current behaviour; it does not mean the file has no q-values.
         [TestCase("PXD078927_msgf_1_1_0.mzid", 12, 6, 0)]
         [TestCase("PXD000783_scaffold_1_1_0.mzid", 3, 0, 0)]
         [TestCase("PXD019591_mascotparser_1_1_0.mzid", 7, 0, 0)]
         [TestCase("PXD019733_proteomediscoverer_1_1_0.mzid", 3, 0, 0)]
+        [TestCase("PXD070193_xifdr_1_2_0.mzid", 4, 0, 0)]
         public void EveryPsmIsReadable(string fileName, int psms, int decoys, int withQValue)
         {
             var swept = ReadEveryPsm(Read(fileName));
@@ -112,9 +118,9 @@ namespace Test.MzIdentML
         /// The PXD fixtures are real files downloaded from PRIDE Archive, each cut down to its first
         /// few SpectrumIdentificationResults plus the DBSequence, Peptide and PeptideEvidence entries
         /// those results reference. Every kept line is byte-for-byte from the published file; the only
-        /// text not in the original is the closing tags after the last kept result (the ProteinDetectionList
-        /// is dropped). They pin what the published, synthetic examples above cannot: the CV names real
-        /// writers use.
+        /// text not in the original is the closing tags after the last kept result. Sources, checksums
+        /// and the full trim rule are in DataFiles/PRIDE_MZID_PROVENANCE.md. They pin what the published,
+        /// synthetic examples above cannot: the CV names real writers use.
         ///
         /// Ms2SpectrumID decides between spectrumID and the spectrum title from SpectraData's FileFormat.
         /// It matched that term by display name only, and two of the four writers spell it differently
@@ -173,9 +179,11 @@ namespace Test.MzIdentML
         /// accessor fix in this file is repeated once per schema version, and the real PRIDE fixtures are
         /// all 1.1.0 or 1.2.0, so the other version arms need a document no writer we have produced.
         /// The one result carries <paramref name="resultCvParams"/> verbatim (empty for none) and its one
-        /// item carries no cvParam at all, which is the Proteome Discoverer shape.
+        /// item carries <paramref name="itemCvParams"/>; by default none at all, which is the Proteome
+        /// Discoverer shape.
         /// </summary>
-        private static string SyntheticDocument(string ns, string formatAccession, string formatName, string resultCvParams) =>
+        private static string SyntheticDocument(string ns, string formatAccession, string formatName, string resultCvParams,
+            string itemCvParams = "") =>
             $@"<?xml version=""1.0"" encoding=""utf-8""?>
 <MzIdentML xmlns=""{ns}"" id=""synthetic"" version=""1.1.0"">
   <DataCollection>
@@ -190,6 +198,7 @@ namespace Test.MzIdentML
       <SpectrumIdentificationList id=""SIL_1"">
         <SpectrumIdentificationResult id=""SIR_1"" spectrumID=""index=7"" spectraData_ref=""SD_1"">
           <SpectrumIdentificationItem id=""SII_1"" chargeState=""2"" experimentalMassToCharge=""500.5"" rank=""1"" passThreshold=""true"">
+{itemCvParams}
             <userParam name=""Percolator q-Value"" value=""0.001"" />
           </SpectrumIdentificationItem>{resultCvParams}
         </SpectrumIdentificationResult>
@@ -244,25 +253,85 @@ namespace Test.MzIdentML
             Assert.That(id, Is.Null);
         }
 
+        private static readonly string[] EveryNamespace = { Mzid110, Mzid111, Mzid120, Mzid130 };
+
+        private static readonly (string Accession, string Name, string Expected)[] FormatsUnderWritersNames =
+        {
+            ("MS:1000563", "Thermo RAW file", "index=7"),
+            ("MS:1000584", "mzML file", "index=7"),
+            ("MS:1001062", "Mascot MGF file", "title of spectrum 7"),
+        };
+
+        private static IEnumerable<TestCaseData> FormatsUnderWritersNamesInEveryVersion() =>
+            from ns in EveryNamespace
+            from format in FormatsUnderWritersNames
+            select new TestCaseData(ns, format.Accession, format.Name, format.Expected);
+
         /// <summary>
-        /// The 1.1.1 arm is reached only by SmallCalibratible_Yeast, which names the mzML format exactly.
-        /// These pin that arm's own copies of both fixes: a format recognised by accession under a
-        /// writer's display name, and a title found by accession when another term precedes it.
-        /// The spectrumID is "index=7" and the leading term is the identity threshold, so reading the
-        /// wrong branch or the first cvParam gives a different answer.
+        /// Every version arm carries its own copy of both Ms2SpectrumID fixes, and IsFileFormat is one
+        /// shared static, so line coverage reads 100% whether or not each call site is right. Only the
+        /// 1.1.0 arm is reached by a real writer's display name, so each arm is driven here: a format
+        /// recognised by accession under a writer's name, and a title found by accession when another
+        /// term precedes it. The spectrumID is "index=7" and the leading term is the identity threshold,
+        /// so reading the wrong branch or the first cvParam gives a different answer.
         /// </summary>
-        [TestCase("MS:1000563", "Thermo RAW file", "index=7")]
-        [TestCase("MS:1000584", "mzML file", "index=7")]
-        [TestCase("MS:1001062", "Mascot MGF file", "title of spectrum 7")]
-        public void Ms2SpectrumID_MzIdentML111_RecognisesTheFormatAndTitleByAccession(
-            string formatAccession, string formatName, string expected)
+        [TestCaseSource(nameof(FormatsUnderWritersNamesInEveryVersion))]
+        public void Ms2SpectrumID_EveryVersion_RecognisesTheFormatAndTitleByAccession(
+            string ns, string formatAccession, string formatName, string expected)
         {
             const string cvParams = @"
           <cvParam cvRef=""PSI-MS"" accession=""MS:1001371"" name=""Mascot:identity threshold"" value=""17"" />
           <cvParam cvRef=""PSI-MS"" accession=""MS:1000796"" name=""spectrum title"" value=""title of spectrum 7"" />";
-            var ids = ReadSynthetic(SyntheticDocument(Mzid111, formatAccession, formatName, cvParams), "synthetic_111.mzid");
+            var ids = ReadSynthetic(SyntheticDocument(ns, formatAccession, formatName, cvParams), "synthetic_formats.mzid");
 
             Assert.That(ids.Ms2SpectrumID(0), Is.EqualTo(expected));
+        }
+
+        /// <summary>
+        /// A title term that is present but unusable is a missing title. The fallback to the first cvParam
+        /// is only for results that carry no title term at all; taking it here returns the identity
+        /// threshold, which is the defect the title lookup exists to fix. The value attribute is optional
+        /// on every cvParam, and PXD019591 already carries a valueless one on an item.
+        /// </summary>
+        [TestCase(@"<cvParam cvRef=""PSI-MS"" accession=""MS:1000796"" name=""spectrum title"" />", null)]
+        [TestCase(@"<cvParam cvRef=""PSI-MS"" accession=""MS:1000796"" name=""spectrum title"" value="""" />", null)]
+        [TestCase(@"<cvParam cvRef=""PSI-MS"" accession=""MS:1001416"" name=""spectrum title"" value=""title of spectrum 7"" />", "title of spectrum 7")]
+        public void Ms2SpectrumID_TitleTermIsNotConfusedWithTheFirstCvParam(string titleTerm, string expected)
+        {
+            string cvParams = @"
+          <cvParam cvRef=""PSI-MS"" accession=""MS:1001371"" name=""Mascot:identity threshold"" value=""17"" />
+          " + titleTerm;
+            var ids = ReadSynthetic(SyntheticDocument(Mzid110, "MS:1001062", "Mascot MGF file", cvParams), "synthetic_title.mzid");
+
+            Assert.That(ids.Ms2SpectrumID(0), Is.EqualTo(expected));
+        }
+
+        /// <summary>
+        /// A q-value term with no value is absent, not 0: Convert.ToDouble reads a null string as 0, which
+        /// is indistinguishable from the most confident q-value there is. The value parse is shared, but
+        /// each version arm passes its own term into it, so all four are driven.
+        /// </summary>
+        [TestCaseSource(nameof(EveryNamespace))]
+        public void QValue_TermWithNoValue_IsAbsentRatherThanZero(string ns)
+        {
+            const string itemCvParams = @"
+            <cvParam cvRef=""PSI-MS"" accession=""MS:1002354"" name=""PSM-level q-value"" />";
+            var ids = ReadSynthetic(SyntheticDocument(ns, "MS:1000584", "mzML format", "", itemCvParams), "synthetic_novalue.mzid");
+
+            Assert.That(ids.QValue(0, 0), Is.EqualTo(-1).Within(1e-9));
+        }
+
+        /// <summary>
+        /// Control for the test above, so it cannot pass by never reading the term.
+        /// </summary>
+        [Test]
+        public void QValue_TermWithValue_IsRead()
+        {
+            const string itemCvParams = @"
+            <cvParam cvRef=""PSI-MS"" accession=""MS:1002354"" name=""PSM-level q-value"" value=""0.0125"" />";
+            var ids = ReadSynthetic(SyntheticDocument(Mzid130, "MS:1000584", "mzML format", "", itemCvParams), "synthetic_value.mzid");
+
+            Assert.That(ids.QValue(0, 0), Is.EqualTo(0.0125).Within(1e-9));
         }
 
         /// <summary>
@@ -327,8 +396,8 @@ namespace Test.MzIdentML
         /// OpenxQuest does not:
         ///
         /// - both tolerances are in daltons, so they read back as AbsoluteTolerance, not PpmTolerance
-        /// - its SpectraData is Mascot MGF, so Ms2SpectrumID falls through to the SpectrumIdentification-
-        ///   Result's first cvParam instead of reading spectrumID
+        /// - its SpectraData is Mascot MGF, so Ms2SpectrumID reads the SpectrumIdentificationResult's
+        ///   spectrum title (MS:1000796) instead of spectrumID
         /// - its peptides map to up to 29 PeptideEvidence entries, so the accessors that concatenate
         ///   across shared proteins actually concatenate
         /// </summary>
@@ -347,7 +416,7 @@ namespace Test.MzIdentML
                 Assert.That(mzid120.Count, Is.EqualTo(5));
                 Assert.That(mzid120.NumPSMsFromScan(0), Is.EqualTo(1));
 
-                // the first cvParam happens to be the spectrum title; spectrumID is "index=12"
+                // the MS:1000796 spectrum title, found by accession; spectrumID is "index=12"
                 Assert.That(mzid120.Ms2SpectrumID(0), Is.EqualTo("Locus:11.1.1.4652.4 File:\"R1 p450 iTRAQ QS CEX11.wiff\""));
 
                 Assert.That(mzid120.PeptideSequenceWithoutModifications(0, 0), Is.EqualTo("MPYTNAVIHEVQR"));

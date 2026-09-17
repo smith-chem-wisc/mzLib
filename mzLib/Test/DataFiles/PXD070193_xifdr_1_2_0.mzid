@@ -74,40 +74,8 @@
   <PeptideEvidence dBSequence_ref="dbseq_Mcm4" peptide_ref="17520132194_QITDQDLAKIR_17520134410_VSDKR_9_4_BS3_p1" start="469" end="473" isDecoy="false" id="pepevid_pep_17520134410_VSDKR_protMcm4_469_pepkey_1_17520132194_QITDQDLAKIR_17520134410_VSDKR_9_4_BS3_p0_17520132194_QITDQDLAKIR_17520134410_VSDKR_9_4_BS3_p1"></PeptideEvidence>
   <PeptideEvidence dBSequence_ref="dbseq_Mcm4" peptide_ref="17520132194_QITDQDLAKIR_17520134410_VSDKR_9_4_BS3_p0" start="500" end="510" isDecoy="false" id="pepevid_pep_17520132194_QITDQDLAKIR_protMcm4_500_pepkey_0_17520132194_QITDQDLAKIR_17520134410_VSDKR_9_4_BS3_p0_17520132194_QITDQDLAKIR_17520134410_VSDKR_9_4_BS3_p1"></PeptideEvidence>
 </SequenceCollection><AnalysisCollection xmlns="http://psidev.info/psi/pi/mzIdentML/1.2">
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221010_03_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf8-1.mgf" id="SpecIdent__17804_recal_B221010_03_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf8-1.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221010_03_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf8-1.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221018_07_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf5.mgf" id="SpecIdent__17804_recal_B221018_07_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf5.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221018_07_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf5.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221010_02_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf7.mgf" id="SpecIdent__17804_recal_B221010_02_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf7.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221010_02_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf7.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221018_05_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf10-1.mgf" id="SpecIdent__17804_recal_B221018_05_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf10-1.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221018_05_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf10-1.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221010_04_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf8-2.mgf" id="SpecIdent__17804_recal_B221010_04_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf8-2.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221010_04_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf8-2.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
   <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221018_06_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf10-2.mgf" id="SpecIdent__17804_recal_B221018_06_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf10-2.mgf">
     <InputSpectra spectraData_ref="SD_17804_recal_B221018_06_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf10-2.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221010_01_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf6.mgf" id="SpecIdent__17804_recal_B221010_01_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf6.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221010_01_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf6.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221018_02_Lumos_ZC_CO_140_MCM2-7_Sld37_SECF9-1.mgf" id="SpecIdent__17804_recal_B221018_02_Lumos_ZC_CO_140_MCM2-7_Sld37_SECF9-1.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221018_02_Lumos_ZC_CO_140_MCM2-7_Sld37_SECF9-1.mgf"></InputSpectra>
-    <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
-  </SpectrumIdentification>
-  <SpectrumIdentification spectrumIdentificationProtocol_ref="SearchProtocol_1_17804" spectrumIdentificationList_ref="SII_LIST_1_1_17804_recal_B221018_03_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf9-2.mgf" id="SpecIdent__17804_recal_B221018_03_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf9-2.mgf">
-    <InputSpectra spectraData_ref="SD_17804_recal_B221018_03_Lumos_ZC_CO_140_MCM2-7_Sld37_SECf9-2.mgf"></InputSpectra>
     <SearchDatabaseRef searchDatabase_ref="SDB_17804_2311"></SearchDatabaseRef>
   </SpectrumIdentification>
 </AnalysisCollection><AnalysisProtocolCollection xmlns="http://psidev.info/psi/pi/mzIdentML/1.2">

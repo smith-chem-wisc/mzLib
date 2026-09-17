@@ -361,31 +361,36 @@ namespace MzIdentML
             }
         }
 
+        // -1 is "absent", and a q-value term with no value (the attribute is optional) is absent too.
+        // Convert.ToDouble reads a null string as 0, which is indistinguishable from a perfect q-value.
+        private static double QValueOf(string value) =>
+            string.IsNullOrWhiteSpace(value) ? -1 : Convert.ToDouble(value, CultureInfo.InvariantCulture);
+
         public double QValue(int sirIndex, int siiIndex)
         {
             if (dd110 != null)
             {
                 var cvParam = dd110.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
             else if (dd111 != null)
             {
                 var cvParam = dd111.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
             else if (dd120 != null)
             {
                 var cvParam = dd120.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
             else
             {
                 var cvParam = dd130.DataCollection.AnalysisData.SpectrumIdentificationList[0].SpectrumIdentificationResult[sirIndex].SpectrumIdentificationItem[siiIndex].cvParam?.
                     Where(cv => cv.accession == "MS:1002354").FirstOrDefault();
-                return cvParam == null ? -1 : Convert.ToDouble(cvParam.value, CultureInfo.InvariantCulture);
+                return QValueOf(cvParam?.value);
             }
         }
 
@@ -999,6 +1004,9 @@ namespace MzIdentML
         private const string MascotMgfFormatAccession = "MS:1001062";
         private const string SpectrumTitleAccession = "MS:1000796";
 
+        // The obsolete "spectrum title", replaced_by MS:1000796, which files written against an older CV carry
+        private const string ObsoleteSpectrumTitleAccession = "MS:1001416";
+
         private static bool IsFileFormat(string accession, string name, string expectedAccession, string expectedName) =>
             accession == expectedAccession || name == expectedName;
 
@@ -1006,6 +1014,8 @@ namespace MzIdentML
         /// The spectrum title among a SpectrumIdentificationResult's cvParams, found by accession. Falls back
         /// to the first cvParam, which is what was read before, only when no title term is present: Mascot
         /// Parser writes "Mascot:identity threshold" first, so reading position 0 returned the threshold.
+        /// A title term that is present but has no value (the attribute is optional) is a missing title and
+        /// returns null. It does not take the fallback, which would hand back that same threshold.
         /// </summary>
         private static string SpectrumTitle(IEnumerable<(string Accession, string Value)> cvParams)
         {
@@ -1015,8 +1025,13 @@ namespace MzIdentML
             }
 
             var all = cvParams.ToList();
-            return all.FirstOrDefault(cv => cv.Accession == SpectrumTitleAccession).Value
-                ?? all.Select(cv => cv.Value).FirstOrDefault();
+            int title = all.FindIndex(cv => cv.Accession == SpectrumTitleAccession || cv.Accession == ObsoleteSpectrumTitleAccession);
+            if (title < 0)
+            {
+                return all.Select(cv => cv.Value).FirstOrDefault();
+            }
+
+            return string.IsNullOrEmpty(all[title].Value) ? null : all[title].Value;
         }
 
         public string Ms2SpectrumID(int sirIndex)

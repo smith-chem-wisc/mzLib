@@ -119,9 +119,6 @@
 			<InputSpectra spectraData_ref="SD_1"/>
 			<SearchDatabaseRef searchDatabase_ref="SDB_SwissProt"/>
 		</SpectrumIdentification>
-		<ProteinDetection id="PD_1" proteinDetectionProtocol_ref="PDP_MascotParser_1" proteinDetectionList_ref="PDL_1" activityDate="2019-08-28T19:48:01">
-			<InputSpectrumIdentifications spectrumIdentificationList_ref="SIL_1"/>
-		</ProteinDetection>
 	</AnalysisCollection>
 	<AnalysisProtocolCollection>
 		<SpectrumIdentificationProtocol id="SIP" analysisSoftware_ref="AS_mascot_server">

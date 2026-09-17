@@ -53,9 +53,6 @@
 			<SearchDatabaseRef searchDatabase_ref="Chlamy_phytozome.fasta"/>
 			<SearchDatabaseRef searchDatabase_ref="unreferenced database"/>
 		</SpectrumIdentification>
-		<ProteinDetection id="Scaffold_Protein_ID" proteinDetectionProtocol_ref="Scaffold_Protein_ID_Protocol" proteinDetectionList_ref="Scaffold_Protein_ID_List" activityDate="2014-02-14T11:58:03">
-			<InputSpectrumIdentifications spectrumIdentificationList_ref="Scaffold_Spectrum_ID_List_mascot_daemon_merge (F008897)"/>
-		</ProteinDetection>
 	</AnalysisCollection>
 	<AnalysisProtocolCollection>
 		<SpectrumIdentificationProtocol id="Scaffold_Spectrum_ID_Protocol_mascot_daemon_merge (F008897)" analysisSoftware_ref="Scaffold">
