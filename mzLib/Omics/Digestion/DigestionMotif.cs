@@ -14,12 +14,29 @@ namespace Omics.Digestion
         public readonly int CutIndex;
         public readonly string ExcludeFromWildcard;
 
-        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard)
+        /// <summary>
+        /// A modification this motif REQUIRES at one subsite before it will sever its bond, or null when
+        /// the motif is satisfied by sequence alone -- which is every motif that ships today. See
+        /// <see cref="CleavageRequirement"/> for why the requirement carries a subsite address rather
+        /// than a flag.
+        /// </summary>
+        /// <remarks>
+        /// Readonly and constructor-set, like the four fields above it: a motif is immutable once built,
+        /// and a requirement that could be changed afterwards would let a digestion agent's rule drift
+        /// out from under a cached digest. The constructor parameter is optional so that the four-argument
+        /// form every existing call site uses -- <see cref="ParseDigestionMotifsFromString"/>,
+        /// ProteaseDictionary, RnaseDictionary and the test fixtures -- keeps compiling unchanged.
+        /// </remarks>
+        public readonly CleavageRequirement CleavageRequirement;
+
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            CleavageRequirement cleavageRequirement = null)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
             this.ExcludeFromWildcard = excludeFromWildcard;
+            this.CleavageRequirement = cleavageRequirement;
         }
 
         // parsing cleavage rules syntax

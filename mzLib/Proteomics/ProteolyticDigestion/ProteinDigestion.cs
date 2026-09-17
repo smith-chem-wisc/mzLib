@@ -372,7 +372,17 @@ namespace Proteomics.ProteolyticDigestion
                 && AnyConfiguredModificationCanBlockCleavage)
                 generationMaxMissedCleavages += DigestionParams.MaxMods;
 
-            return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
+            // The promoting correction is the mirror of the blocking one above, and needs the opposite
+            // treatment. Blocking REMOVES a site the sequence had, so the replacement peptide is LONGER
+            // and has to be bought with generation slack. Promoting removes a site the sequence never
+            // really had, so the replacement is just the ordinary peptide between the sites that remain --
+            // no slack, provided the impossible sites never enter the enumeration. That is what the
+            // feasibility filter inside FullDigestion does, and why this is a flag rather than a budget.
+            bool respectCleavageRequirements = DigestionParams.RespectCleavagePromotingModifications
+                && DigestionParams.SearchModeType == CleavageSpecificity.Full
+                && Protease.HasCleavageRequirement;
+
+            return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch, respectCleavageRequirements);
         }
     }
 }

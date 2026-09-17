@@ -39,6 +39,169 @@ namespace Omics.Digestion
         public int Length => BaseSequence.Length; //how many residues long the peptide is
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
+        #region Cleavage Requirement Discharge
+
+        /// <summary>
+        /// True when this peptidoform describes a digestion <paramref name="agent"/> could NOT have
+        /// performed, because a modification one of its motifs REQUIRES is absent from the subsite that
+        /// motif names. The mirror of a cleavage-blocking drop: that one removes a peptidoform the agent
+        /// could not produce BECAUSE of a modification, this one removes a peptidoform it could not
+        /// produce WITHOUT one.
+        /// </summary>
+        /// <param name="variableModPattern">
+        /// The modifications this peptidoform carries, in the two-based key scheme the pattern generator
+        /// mints: key 1 is the N-terminus, key 2 the FIRST residue, key <paramref name="productLength"/>
+        /// + 1 the LAST residue, key + 2 the C-terminus. The parent residue behind key k is therefore
+        /// <c>OneBasedStartResidue + k - 2</c>.
+        /// </param>
+        /// <param name="productLength">
+        /// Passed rather than read from <see cref="Length"/>, because the concrete callers already hold
+        /// the cheap arithmetic form while <see cref="Length"/> walks a substring of the parent.
+        /// </param>
+        /// <remarks>
+        /// <para><b>Each cut is answered by exactly one of the two products that touch it.</b> A subsite
+        /// on the non-prime side lies in the product ENDING at the cut; one on the prime side lies in the
+        /// product STARTING at it. So StcE (P2) is discharged by the peptide whose C-terminus is the cut,
+        /// and the OgpA family (P1') by the peptide whose N-terminus is. Across a whole digest every
+        /// internal cut is therefore checked once, from the side that can see it.</para>
+        ///
+        /// <para><b>The far end is checked for feasibility, not occupancy.</b> A product still has to
+        /// answer for the cut at its other terminus, whose constrained residue lies in the neighbouring
+        /// product and is not in this pattern -- the pattern generator discards modifications outside the
+        /// product outright. There the parent's list of possible localized modifications decides: if no
+        /// modification of the required class can EVER sit at that residue, the cut is impossible and the
+        /// peptidoform goes; if one can, the peptidoform is kept even though it may not itself carry one.
+        /// That is deliberately one-sided. It never drops a real peptide and it leaves some impossible
+        /// ones standing, which is the safe direction to be wrong in.</para>
+        ///
+        /// <para><b>A cut is justified if ANY motif justifies it.</b> An agent may mix motifs that carry a
+        /// requirement with motifs that do not -- StcE-trypsin is exactly that -- so a tryptic cut is
+        /// answered by the tryptic motif and needs no glycan, while a cut only the StcE motif explains
+        /// does. Each motif is re-matched against the parent sequence at the cut, so a motif that does not
+        /// fit there cannot vouch for it.</para>
+        ///
+        /// <para>Protein termini are not cuts and are never checked: a peptide starting at residue 1, or
+        /// ending at the last residue, got that terminus from the sequence ending, not from the agent.</para>
+        /// </remarks>
+        protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
+            int productLength, DigestionAgent agent)
+        {
+            // Nothing configured can require anything, so nothing can be unreachable. This gate is what
+            // keeps an ordinary tryptic digest from paying for a feature it cannot use.
+            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
+            {
+                return false;
+            }
+
+            string parentSequence = Parent.BaseSequence;
+
+            // A cut severs the bond AFTER the residue that names it, so the cut at this peptide's
+            // N-terminus falls after the residue preceding it.
+            if (OneBasedStartResidue > 1
+                && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, productLength, agent))
+            {
+                return true;
+            }
+
+            if (OneBasedEndResidue < parentSequence.Length
+                && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, productLength, agent))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when at least one of the agent's motifs both MATCHES the parent sequence at this cut and
+        /// has its modification requirement met there. A motif carrying no requirement justifies any cut
+        /// it matches.
+        /// </summary>
+        /// <param name="cutAfterOneBasedResidue">
+        /// The parent residue whose C-side bond is severed. The motif's recognition sequence therefore
+        /// begins <see cref="DigestionMotif.CutIndex"/> residues earlier.
+        /// </param>
+        private bool AnyMotifJustifies(int cutAfterOneBasedResidue, string parentSequence,
+            Dictionary<int, Modification> variableModPattern, int productLength, DigestionAgent agent)
+        {
+            foreach (DigestionMotif motif in agent.DigestionMotifs)
+            {
+                if (motif is null)
+                {
+                    continue;
+                }
+
+                // Where the motif's recognition sequence would have to start for its cut to land here.
+                // Fits takes a ZERO-based index into the sequence it is handed, and that sequence is the
+                // PARENT here -- the same API is used against a peptide's own sequence elsewhere in the
+                // library, so the coordinate space has to be stated rather than assumed.
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0
+                    || motifStartZeroBased + motif.InducingCleavage.Length > parentSequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(parentSequence, motifStartZeroBased);
+                if (!fits || prevented)
+                {
+                    continue;
+                }
+
+                if (motif.CleavageRequirement is null
+                    || RequirementIsMet(motif.CleavageRequirement, cutAfterOneBasedResidue, variableModPattern, productLength))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when the residue this requirement constrains carries -- or, where it lies outside this
+        /// product, could carry -- a modification of the required class.
+        /// </summary>
+        private bool RequirementIsMet(CleavageRequirement requirement, int cutAfterOneBasedResidue,
+            Dictionary<int, Modification> variableModPattern, int productLength)
+        {
+            // Subsites count outward from the severed bond: P1 is the residue before it, P1' the one
+            // after. The bond falls after cutAfterOneBasedResidue, so Pk is (cut - k + 1) and Pk' is
+            // (cut + k), both one-based in the parent.
+            int constrainedResidue = requirement.IsPrimeSide
+                ? cutAfterOneBasedResidue + requirement.Subsite
+                : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+            if (constrainedResidue < 1 || constrainedResidue > Parent.BaseSequence.Length)
+            {
+                return false;
+            }
+
+            // Inside this product, the pattern is authoritative: it says what this peptidoform carries.
+            if (constrainedResidue >= OneBasedStartResidue && constrainedResidue <= OneBasedEndResidue)
+            {
+                int key = constrainedResidue - OneBasedStartResidue + 2;
+                if (key < 2 || key > productLength + 1)
+                {
+                    return false;
+                }
+
+                return variableModPattern is not null
+                    && variableModPattern.TryGetValue(key, out Modification placed)
+                    && requirement.IsSatisfiedBy(placed);
+            }
+
+            // Outside this product, in a neighbour: fall back to whether the parent could ever carry a
+            // satisfying modification there. See the caller's remarks for why this is feasibility rather
+            // than occupancy.
+            return Parent.OneBasedPossibleLocalizedModifications is not null
+                && Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
+                && candidates is not null
+                && candidates.Any(requirement.IsSatisfiedBy);
+        }
+
+        #endregion
+
         #region Digestion Helper Methods
 
         /// <summary>

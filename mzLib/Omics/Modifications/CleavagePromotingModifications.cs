@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System.Linq;
+using Omics.Digestion;
 
 namespace Omics.Modifications
 {
@@ -157,5 +158,40 @@ namespace Omics.Modifications
         /// </summary>
         public static bool Satisfies(Modification modification, GlycosylationClass required) =>
             required != GlycosylationClass.None && ClassifyGlycosylation(modification) == required;
+
+        /// <summary>
+        /// True when <paramref name="modification"/> could satisfy a cleavage requirement that
+        /// <paramref name="agent"/> actually has -- the chemistry matches (see <see cref="Satisfies"/>)
+        /// AND at least one of the agent's motifs demands that class at some subsite. This is the
+        /// predicate digestion consults, and both halves are needed: an O-glycan enables nothing in a
+        /// trypsin digest, which requires no modification at all, and treating it as relevant there
+        /// would buy generation slack no peptidoform can spend.
+        /// </summary>
+        /// <remarks>
+        /// The mirror of <see cref="CleavageBlockingModifications.BlocksCleavageBy"/>, and deliberately
+        /// shaped the same way: a static pair predicate taking the modification first and the agent
+        /// second, matching <see cref="ModificationLocalization.ModFits"/> and the rest of
+        /// <c>Omics.Modifications</c>. Null-guarded and returning false rather than throwing, because a
+        /// predicate on the digestion path must not be the thing that fails a run.
+        ///
+        /// This answers "is this modification relevant to this agent at all", NOT "is this particular
+        /// cut justified". The second question needs a position as well as a class, and is answered by
+        /// <see cref="Digestion.DigestionProduct"/> when it discharges a generated peptidoform.
+        /// </remarks>
+        public static bool SatisfiesCleavageRequirementOf(Modification modification, DigestionAgent agent)
+        {
+            if (modification is null || agent?.DigestionMotifs is null)
+                return false;
+
+            foreach (DigestionMotif motif in agent.DigestionMotifs)
+            {
+                if (motif?.CleavageRequirement is not null && motif.CleavageRequirement.IsSatisfiedBy(modification))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 }

@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Omics.Modifications;
 
 namespace Omics.Digestion
@@ -48,6 +48,150 @@ namespace Omics.Digestion
         /// Residue-level, context-free -- see <see cref="DigestionMotif.CleavesCTerminalTo"/> for what
         /// that does and does not take into account.
         /// </remarks>
+        /// <summary>
+        /// True when at least one of this agent's motifs will not cleave unless a modification is present
+        /// at one of its subsites -- that is, when this is a glycoprotease rather than an ordinary
+        /// sequence-directed protease. False for every agent that ships today.
+        /// </summary>
+        /// <remarks>
+        /// The inertness gate for the whole cleavage-promoting correction, and the counterpart of
+        /// ProteinDigestion's AnyConfiguredModificationCanBlockCleavage. It matters because the discharge
+        /// runs once per generated peptidoform, in the same loop as
+        /// <see cref="Modifications.ModificationLocalization.ModFits"/> -- roughly 8.8 billion calls in a
+        /// bottom-up run -- so a digest with no glycoprotease must pay nothing at all for a feature it
+        /// cannot use.
+        /// </remarks>
+        public bool HasCleavageRequirement
+        {
+            get
+            {
+                if (DigestionMotifs is null)
+                {
+                    return false;
+                }
+
+                foreach (DigestionMotif motif in DigestionMotifs)
+                {
+                    if (motif?.CleavageRequirement is not null)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Removes from <paramref name="oneBasedIndicesToCleaveAfter"/> every internal site that no motif
+        /// can justify, because the modification a motif REQUIRES at one of its subsites cannot be
+        /// present there at all. Returns the list unchanged when this agent requires nothing.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Why the filter belongs here and not after digestion.</b> A site that is not a site
+        /// must never enter the enumeration in the first place. Dropping the peptidoforms afterwards
+        /// removes the two fragments either side of a bad cut but does NOT produce the read-through
+        /// peptide that replaces them -- that peptide carries one more missed cleavage and, at
+        /// MaxMissedCleavages = 0, was never generated. Filtering here instead means peptide spans,
+        /// missed-cleavage counts and read-throughs all come out right with no generation slack at all.</para>
+        ///
+        /// <para><b>Feasibility, not occupancy.</b> This asks whether the parent COULD carry a satisfying
+        /// modification at the constrained residue, using the localized modifications the database
+        /// declares. It cannot ask whether a particular peptidoform DOES carry one, because peptidoforms
+        /// do not exist yet. A site kept here may still be refused per-peptidoform later; a site dropped
+        /// here could never have been real. Being wrong in that direction only ever keeps peptides.</para>
+        ///
+        /// <para>The first and last entries are the sequence's own termini rather than cleavage sites, so
+        /// they are always kept: removing them would discard the peptide that runs to the end of the
+        /// protein.</para>
+        /// </remarks>
+        public List<int> FilterToFeasibleCleavageSites(List<int> oneBasedIndicesToCleaveAfter, IBioPolymer parent)
+        {
+            if (!HasCleavageRequirement || oneBasedIndicesToCleaveAfter is null || parent is null)
+            {
+                return oneBasedIndicesToCleaveAfter;
+            }
+
+            string sequence = parent.BaseSequence;
+            var feasible = new List<int>(oneBasedIndicesToCleaveAfter.Count);
+
+            for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count; i++)
+            {
+                int site = oneBasedIndicesToCleaveAfter[i];
+
+                // The injected termini are not cleavage events and are never filtered.
+                if (i == 0 || i == oneBasedIndicesToCleaveAfter.Count - 1 || site <= 0 || site >= sequence.Length)
+                {
+                    feasible.Add(site);
+                    continue;
+                }
+
+                if (AnyMotifCouldJustify(site, sequence, parent))
+                {
+                    feasible.Add(site);
+                }
+            }
+
+            return feasible;
+        }
+
+        /// <summary>
+        /// True when some motif both matches the sequence at this cut and could have its requirement met
+        /// there. A motif carrying no requirement justifies any cut it matches, which is what lets a
+        /// composite agent keep cutting at its ordinary sequence motifs.
+        /// </summary>
+        private bool AnyMotifCouldJustify(int cutAfterOneBasedResidue, string sequence, IBioPolymer parent)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif is null)
+                {
+                    continue;
+                }
+
+                // Fits takes a ZERO-based index into the sequence handed to it, and the motif's
+                // recognition sequence begins CutIndex residues before the bond it severs.
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0 || motifStartZeroBased + motif.InducingCleavage.Length > sequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(sequence, motifStartZeroBased);
+                if (!fits || prevented)
+                {
+                    continue;
+                }
+
+                if (motif.CleavageRequirement is null)
+                {
+                    return true;
+                }
+
+                // Subsites count outward from the bond, which falls after cutAfterOneBasedResidue:
+                // Pk is (cut - k + 1) and Pk' is (cut + k), both one-based in the parent.
+                CleavageRequirement requirement = motif.CleavageRequirement;
+                int constrainedResidue = requirement.IsPrimeSide
+                    ? cutAfterOneBasedResidue + requirement.Subsite
+                    : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+                if (constrainedResidue < 1 || constrainedResidue > sequence.Length)
+                {
+                    continue;
+                }
+
+                if (parent.OneBasedPossibleLocalizedModifications is not null
+                    && parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
+                    && candidates is not null
+                    && candidates.Any(requirement.IsSatisfiedBy))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         public bool CleavesCTerminalTo(char residue)
         {
             foreach (DigestionMotif motif in DigestionMotifs)

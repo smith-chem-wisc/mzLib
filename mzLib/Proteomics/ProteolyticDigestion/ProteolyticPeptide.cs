@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Omics.Digestion;
 using Omics.Modifications;
@@ -97,6 +97,39 @@ namespace Proteomics.ProteolyticDigestion
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                         && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, digestionParams.MaxMissedCleavages,
                             digestionParams.Protease, out reportedMissedCleavages))
+                    {
+                        continue;
+                    }
+
+                    // The mirror gate: a protease whose motif REQUIRES a modification at one of its
+                    // subsites cannot have made a cut where that modification is absent. Skip the
+                    // peptidoforms it could not have produced.
+                    //
+                    // Gated exactly like the blocking drop above, and for the same reason on the second
+                    // clause: CleavageSpecificityForFdrCategory == Full restricts this to peptides whose
+                    // termini are protease cuts at all, since for a semi or single-terminus peptide a
+                    // terminus is a length-driven truncation and no glycan can be expected to justify it.
+                    //
+                    // This drop refines OCCUPANCY, and it is the second half of a two-stage correction.
+                    // ProteinDigestion has already removed, from the site list itself, every site where
+                    // the required modification could not be -- so the read-through across an impossible
+                    // site is an ordinary peptide here and needed no slack to reach. What survives that
+                    // filter is a site that COULD carry the modification; this gate removes the
+                    // peptidoforms in which it does not.
+                    //
+                    // KNOWN LIMITATION, stated rather than hidden: unlike the feasibility filter, this
+                    // drop has no read-through to replace what it removes. A peptidoform whose cut is
+                    // feasible but unoccupied is dropped, and the peptide spanning that site carries one
+                    // more missed cleavage than the caller may have allowed. Blocking solves the same
+                    // problem with generation slack (see ProteinDigestion.Digestion); doing the same here
+                    // needs a bound on how many feasible-but-unoccupied sites a peptidoform can contain,
+                    // which is follow-up work. Until then this gate is exact when the required glycan is
+                    // localized in the database and conservative when it is variable.
+                    if (digestionParams.RespectCleavagePromotingModifications
+                        && digestionParams.SearchModeType == CleavageSpecificity.Full
+                        && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
+                        && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
+                            digestionParams.DigestionAgent))
                     {
                         continue;
                     }

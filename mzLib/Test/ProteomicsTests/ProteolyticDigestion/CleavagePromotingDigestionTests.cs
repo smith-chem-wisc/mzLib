@@ -1,0 +1,296 @@
+using NUnit.Framework;
+using Omics.Digestion;
+using Omics.Modifications;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
+using System.Collections.Generic;
+using System.Linq;
+using Assert = NUnit.Framework.Legacy.ClassicAssert;
+
+namespace Test.ProteomicsTests.ProteolyticDigestion
+{
+    /// <summary>
+    /// End-to-end digestion tests for a protease whose motif REQUIRES a modification at one of its
+    /// subsites. Slice 1 classified the chemistry and slice 2 acts on it: these are the first tests in
+    /// which a glycan actually decides whether a peptide bond is severed.
+    /// </summary>
+    /// <remarks>
+    /// <para>The substrates are the published ones from the truth set
+    /// (<c>TestData/digestion-truth-set.tsv</c>), so the expectations come from the enzymology rather
+    /// than from the implementation. StcE on <c>RPPIT*QSSL</c> is the canonical case: Malaker et al.
+    /// report it "converting RPPIT*QSSL to RPPIT*Q", and report that the same backbone carrying
+    /// beta-O-GlcNAc instead of alpha-O-GalNAc is not cleaved at all.</para>
+    ///
+    /// <para>No protease in <c>proteases.tsv</c> declares a requirement yet -- that is slice 3 -- so
+    /// these fixtures build one in code. That is deliberate: it keeps the mechanism under test separate
+    /// from the data file that will eventually configure it, and it lets the requirement be varied
+    /// (P2 vs P1', class, subsite number) in ways a shipped entry never would be.</para>
+    /// </remarks>
+    [TestFixture]
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
+    public static class CleavagePromotingDigestionTests
+    {
+        /// <summary>An O-linked glycan on Ser/Thr, classified through the ModificationType MetaMorpheus sets.</summary>
+        private static Modification OGlycan(string residue = "T") =>
+            Mod("H1N1", residue, "O-linked glycosylation");
+
+        /// <summary>An O-GlcNAc-like modification: chemically NOT mucin-type, so it must not satisfy the requirement.</summary>
+        private static Modification NonGlycan(string residue = "T") => Mod("Phospho", residue, "Test");
+
+        private static Modification Mod(string originalId, string motif, string modificationType)
+        {
+            Assert.IsTrue(ModificationMotif.TryGetMotif(motif, out ModificationMotif parsedMotif),
+                $"test setup: '{motif}' is not a legal modification motif");
+            return new Modification(_originalId: originalId, _modificationType: modificationType,
+                _target: parsedMotif, _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373);
+        }
+
+        /// <summary>
+        /// StcE as the enzymology describes it: S/T-X-S/T, cut before the last residue, with an O-glycan
+        /// REQUIRED at P2. Registered under a test-only name so the shipped sequence-only StcE entry is
+        /// left alone.
+        /// </summary>
+        private static Protease GlycanAwareStcE(string name)
+        {
+            var requirement = CleavageRequirement.NonPrime(2, GlycosylationClass.OLinked);
+            var motifs = new List<DigestionMotif>
+            {
+                new("TXT", null, 2, null, requirement),
+                new("TXS", null, 2, null, requirement),
+                new("SXT", null, 2, null, requirement),
+                new("SXS", null, 2, null, requirement),
+            };
+
+            var protease = new Protease(name, CleavageSpecificity.Full, null, null, motifs);
+            ProteaseDictionary.Dictionary[name] = protease;
+            return protease;
+        }
+
+        /// <summary>An OgpA-family protease: cut N-terminal to a glycosylated Ser/Thr, glycan REQUIRED at P1'.</summary>
+        private static Protease GlycanAwareOgpA(string name)
+        {
+            var requirement = CleavageRequirement.Prime(1, GlycosylationClass.OLinked);
+            var motifs = new List<DigestionMotif>
+            {
+                new("T", null, 0, null, requirement),
+                new("S", null, 0, null, requirement),
+            };
+
+            var protease = new Protease(name, CleavageSpecificity.Full, null, null, motifs);
+            ProteaseDictionary.Dictionary[name] = protease;
+            return protease;
+        }
+
+        private static List<string> Digest(string sequence, string proteaseName, bool respectPromoting,
+            IDictionary<int, List<Modification>> localizedMods = null)
+        {
+            var protein = localizedMods is null
+                ? new Protein(sequence, "TEST")
+                : new Protein(sequence, "TEST", oneBasedModifications: localizedMods.ToDictionary(kv => kv.Key, kv => kv.Value));
+
+            var parameters = new DigestionParams(
+                protease: proteaseName,
+                maxMissedCleavages: 0,
+                minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                respectCleavagePromotingModifications: respectPromoting);
+
+            // DISTINCT BASE sequences, not full sequences. A localized modification makes the generator
+            // emit the same peptide twice, once carrying it and once not, so counting peptidoforms would
+            // conflate "the protease made a second cut" with "the same peptide has two glycoforms" --
+            // and those are the two things these tests exist to tell apart.
+            return protein.Digest(parameters, new List<Modification>(), new List<Modification>())
+                .Select(p => p.BaseSequence)
+                .Distinct()
+                .OrderBy(s => s, System.StringComparer.Ordinal)
+                .ToList();
+        }
+
+        // ---------------------------------------------------------------------------------------
+        // The flag is off by default, and off means historically identical
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void TheFlagDefaultsToOff()
+        {
+            Assert.IsFalse(new DigestionParams().RespectCleavagePromotingModifications,
+                "the flag must default to off, so that adding this feature changes no existing search");
+        }
+
+        [Test]
+        public static void WithTheFlagOff_ARequiringProteaseDigestsExactlyAsTheSequenceMotifAlone()
+        {
+            GlycanAwareStcE("StcE-req-off");
+
+            // No glycan anywhere, so the real enzyme would not cut at all -- but with the flag off the
+            // sequence motif governs, and it does, exactly as the shipped StcE entry does today.
+            List<string> products = Digest("RPPITQSSL", "StcE-req-off", respectPromoting: false);
+
+            Assert.AreEqual(2, products.Count, "flag off must reproduce the modification-blind digestion");
+        }
+
+        // ---------------------------------------------------------------------------------------
+        // The requirement gates the cut: StcE at P2
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void WithTheFlagOn_TheCutIsDroppedWhenTheRequiredGlycanIsAbsent()
+        {
+            GlycanAwareStcE("StcE-req-absent");
+
+            List<string> products = Digest("RPPITQSSL", "StcE-req-absent", respectPromoting: true);
+
+            // STCE-03 in the truth set: "Deglycosylation abolishes activity."
+            Assert.AreEqual(1, products.Count,
+                "with no glycan at P2 the protease could not have cut, so the only product is the whole peptide");
+            Assert.AreEqual("RPPITQSSL", products[0]);
+        }
+
+        [Test]
+        public static void WithTheFlagOn_TheCutSurvivesWhenTheRequiredGlycanIsPresentAtP2()
+        {
+            GlycanAwareStcE("StcE-req-present");
+
+            // RPPITQSSL: the motif is T5-Q6-S7, so P2 is Thr5 and the bond falls before Ser7.
+            var mods = new Dictionary<int, List<Modification>> { { 5, new List<Modification> { OGlycan("T") } } };
+
+            List<string> products = Digest("RPPITQSSL", "StcE-req-present", respectPromoting: true, mods);
+
+            // STCE-01: "converting RPPIT*QSSL to RPPIT*Q".
+            Assert.AreEqual(2, products.Count, "with the glycan at P2 the cut is justified and must be made");
+            Assert.IsTrue(products.Any(p => p.StartsWith("RPPIT", System.StringComparison.Ordinal)),
+                "expected the N-terminal product RPPIT*Q; got " + string.Join(" | ", products));
+        }
+
+        [Test]
+        public static void WithTheFlagOn_AModificationOfTheWrongClassDoesNotJustifyTheCut()
+        {
+            GlycanAwareStcE("StcE-req-wrongclass");
+
+            // STCE-02: the same backbone carrying a non-mucin-type modification is NOT cleaved. This is
+            // the sharpest case in the truth set -- identical sequence, identical position, one sugar
+            // swapped -- and it is the one a sequence-only motif cannot possibly get right.
+            var mods = new Dictionary<int, List<Modification>> { { 5, new List<Modification> { NonGlycan("T") } } };
+
+            List<string> products = Digest("RPPITQSSL", "StcE-req-wrongclass", respectPromoting: true, mods);
+
+            Assert.AreEqual(1, products.Count,
+                "a modification that is not of the required glycosylation class must not justify the cut");
+        }
+
+        [Test]
+        public static void WithTheFlagOn_AGlycanAtTheWrongSubsiteDoesNotJustifyTheCut()
+        {
+            GlycanAwareStcE("StcE-req-wrongsite");
+
+            // Glycan on Ser7, which is P1' of the T5-Q6|S7 cut, not P2. P1' is permitted but never
+            // required, and crucially it cannot stand in for the P2 requirement.
+            var mods = new Dictionary<int, List<Modification>> { { 7, new List<Modification> { OGlycan("S") } } };
+
+            List<string> products = Digest("RPPITQSSL", "StcE-req-wrongsite", respectPromoting: true, mods);
+
+            Assert.AreEqual(1, products.Count,
+                "the requirement names P2; a glycan at P1' is not a substitute, which is exactly the "
+                + "distinction a sequence motif cannot express");
+        }
+
+        // ---------------------------------------------------------------------------------------
+        // The requirement gates the cut: OgpA family at P1'
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void APrimeSideRequirementIsDischargedByThePeptideStartingAtTheCut()
+        {
+            GlycanAwareOgpA("OgpA-req-present");
+
+            // AHGVTSAPDTRK with the glycan on Thr5: OpeRATOR cuts N-terminal to it, so the products are
+            // AHGV and T*SAPDTRK. The constrained residue is the FIRST residue of the second product --
+            // the opposite side from StcE, which is the whole reason the requirement carries a side.
+            var mods = new Dictionary<int, List<Modification>> { { 5, new List<Modification> { OGlycan("T") } } };
+
+            List<string> products = Digest("AHGVTSAPDTRK", "OgpA-req-present", respectPromoting: true, mods);
+
+            Assert.IsTrue(products.Any(p => p.StartsWith("AHGV", System.StringComparison.Ordinal)),
+                "expected the N-terminal product AHGV; got " + string.Join(" | ", products));
+            Assert.Greater(products.Count, 1, "the glycosylated Thr justifies the cut before it");
+        }
+
+        [Test]
+        public static void APrimeSideRequirementDropsEveryCutWhenNoGlycanIsPresent()
+        {
+            GlycanAwareOgpA("OgpA-req-absent");
+
+            List<string> products = Digest("AHGVTSAPDTRK", "OgpA-req-absent", respectPromoting: true);
+
+            // Every Ser and Thr is a sequence match, so the modification-blind motif shatters this
+            // peptide; with the requirement honoured, none of those cuts is justified.
+            Assert.AreEqual(1, products.Count,
+                "no glycan anywhere means no cut is justified, so the whole peptide survives intact");
+            Assert.AreEqual("AHGVTSAPDTRK", products[0]);
+        }
+
+        [Test]
+        public static void APrimeSideRequirementCutsOnlyWhereTheGlycanIs()
+        {
+            GlycanAwareOgpA("OgpA-req-selective");
+
+            // The discriminating case for a glycoprotease: the sequence offers four Ser/Thr sites and
+            // only one carries a glycan, so exactly one of the four candidate bonds may be severed.
+            var mods = new Dictionary<int, List<Modification>> { { 5, new List<Modification> { OGlycan("T") } } };
+
+            List<string> withRequirement = Digest("AHGVTSAPDTRK", "OgpA-req-selective", respectPromoting: true, mods);
+            List<string> withoutRequirement = Digest("AHGVTSAPDTRK", "OgpA-req-selective", respectPromoting: false, mods);
+
+            Assert.Less(withRequirement.Count, withoutRequirement.Count,
+                "honouring the requirement must produce FEWER peptides than the sequence motif alone -- "
+                + "the promoting correction only ever removes peptidoforms, never adds them");
+        }
+
+        // ---------------------------------------------------------------------------------------
+        // Mixed motifs: a requirement must not leak onto motifs that do not carry one
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void AMotifWithoutARequirementStillCutsWhenAnotherMotifHasOne()
+        {
+            // StcE-trypsin in miniature: glycan-requiring StcE motifs beside plain tryptic ones. A
+            // tryptic cut is answered by the tryptic motif and needs no glycan; only the cuts that
+            // nothing but an StcE motif explains have to be justified.
+            var requirement = CleavageRequirement.NonPrime(2, GlycosylationClass.OLinked);
+            var motifs = new List<DigestionMotif>
+            {
+                new("TXS", null, 2, null, requirement),
+                new("K", null, 1, null),
+                new("R", null, 1, null),
+            };
+            var protease = new Protease("StcE-trypsin-req", CleavageSpecificity.Full, null, null, motifs);
+            ProteaseDictionary.Dictionary[protease.Name] = protease;
+
+            // AAKAA: no glycan anywhere, but the tryptic motif matches after Lys3 and carries no
+            // requirement, so that cut must still be made.
+            List<string> products = Digest("AAKAA", "StcE-trypsin-req", respectPromoting: true);
+
+            Assert.AreEqual(2, products.Count,
+                "a motif with no requirement must keep cutting even when a sibling motif has one");
+        }
+
+        // ---------------------------------------------------------------------------------------
+        // Protein termini are not cuts
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void ProteinTerminiAreNeverTreatedAsUnjustifiedCuts()
+        {
+            GlycanAwareOgpA("OgpA-req-termini");
+
+            // The full-length peptide's termini are the protein's own, produced by the sequence ending
+            // rather than by the protease, so they need no glycan to justify them. If they were checked
+            // the whole protein would vanish from the digest.
+            List<string> products = Digest("AHGVTSAPDTRK", "OgpA-req-termini", respectPromoting: true);
+
+            Assert.AreEqual(1, products.Count);
+            Assert.AreEqual("AHGVTSAPDTRK", products[0],
+                "the intact protein must survive: neither of its termini is a protease cut");
+        }
+    }
+}
