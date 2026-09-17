@@ -25,49 +25,6 @@ namespace Proteomics.ProteolyticDigestion
         }
 
         /// <summary>
-        /// This method is used to determine cleavage specificity if the cleavage specificity is unknown
-        /// This occurs in the speedy nonspecific/semispecific searches when digesting post-search
-        /// </summary>
-        /// <param name="protein"></param>
-        /// <param name="startIndex"></param>
-        /// <param name="endIndex"></param>
-        /// <param name="retainMethionine"></param>
-        /// <returns></returns>
-        public CleavageSpecificity GetCleavageSpecificity(Protein protein, int startIndex, int endIndex, bool retainMethionine)
-        {
-            int cleavableMatches = 0;
-            if (CleavageSpecificity != CleavageSpecificity.SingleN && CleavageSpecificity != CleavageSpecificity.SingleC) //if it's single protease, don't bother
-            {
-                List<int> indicesToCleave = GetDigestionSiteIndices(protein.BaseSequence);
-                //if the start index is a cleavable index (-1 because one based) OR if the start index is after a cleavable methionine
-                if (indicesToCleave.Contains(startIndex - 1) ||
-                    (startIndex == 2 && protein.BaseSequence[0] == 'M' && !retainMethionine) ||
-                    protein.TruncationProducts.Any(x => x.OneBasedBeginPosition == startIndex))
-                {
-                    cleavableMatches++;
-                }
-                //if the end index is a cleavable index
-                if (indicesToCleave.Contains(endIndex) ||
-                    protein.TruncationProducts.Any(x => x.OneBasedEndPosition == endIndex))
-                {
-                    cleavableMatches++;
-                }
-            }
-            if (cleavableMatches == 0) //if neither were cleavable, (or it's singleN/C) then it's nonspecific
-            {
-                return CleavageSpecificity.None;
-            }
-            else if (cleavableMatches == 1) //if one index was cleavable, then it's semi specific
-            {
-                return CleavageSpecificity.Semi;
-            }
-            else //2 if both, then it's fully speific
-            {
-                return CleavageSpecificity.Full;
-            }
-        }
-
-        /// <summary>
         /// Gets intervals of a protein sequence that will result from digestion by this protease.
         /// </summary>
         /// <param name="protein"></param>
