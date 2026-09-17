@@ -301,6 +301,420 @@ namespace Test.FileReadingTests.SpectraFileReading
             }
         }
 
+        private static MsDataScan Ms1(int scanNumber, double[] mz, double[] intensity, double tic) =>
+            new MsDataScan(new MzSpectrum(mz, intensity, false),
+                oneBasedScanNumber: scanNumber, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.5, scanWindowRange: new MzRange(mz[0] - 1, mz[^1] + 1), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: tic, injectionTime: null,
+                noiseData: null, nativeId: "scan=" + scanNumber);
+
+        private static MsDataScan Ms2WithFullPrecursorMetadata(int scanNumber, int precursorScanNumber) =>
+            new MsDataScan(new MzSpectrum(new[] { 110.05, 220.11 }, new[] { 500.0, 750.0 }, false),
+                oneBasedScanNumber: scanNumber, msnOrder: 2, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.6, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 1250.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=" + scanNumber, selectedIonMz: 571.8069,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: 999999.0,
+                isolationMZ: 572.0, isolationWidth: 3.0, dissociationType: DissociationType.HCD,
+                oneBasedPrecursorScanNumber: precursorScanNumber, selectedIonMonoisotopicGuessMz: 571.8069);
+
+        /// <summary>
+        /// The five fields the format has no standard home for. Without them a search reading the file back
+        /// cannot deconvolute a precursor, because IsolationRange stays null and there is no MS1 to point at.
+        /// </summary>
+        [Test]
+        public void MgfRoundTripPreservesTheExtensionHeaders()
+        {
+            var file = new GenericMsDataFile(
+                new[] { Ms1(1, new[] { 300.1, 400.2 }, new[] { 1000.0, 2000.0 }, 6000.0),
+                        Ms2WithFullPrecursorMetadata(2, 1) }, null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfExtensionHeaders.mgf");
+            file.ExportAsMgf(path);
+
+            try
+            {
+                var reread = MsDataFileReader.GetDataFile(path);
+                reread.LoadAllStaticData();
+                var readMs2 = reread.GetAllScansList()[1];
+
+                NUnit.Framework.Assert.That(readMs2.DissociationType, Is.EqualTo(DissociationType.HCD));
+                NUnit.Framework.Assert.That(readMs2.OneBasedPrecursorScanNumber, Is.EqualTo(1));
+                NUnit.Framework.Assert.That(readMs2.IsolationWidth, Is.EqualTo(3.0).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs2.IsolationMz, Is.EqualTo(572.0).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs2.TotalIonCurrent, Is.EqualTo(1250.0).Within(1e-9));
+
+                // the point of all four precursor headers: without them this is null and deconvolution
+                // returns nothing
+                NUnit.Framework.Assert.That(readMs2.IsolationRange, Is.Not.Null);
+                NUnit.Framework.Assert.That(readMs2.IsolationRange.Minimum, Is.EqualTo(570.5).Within(1e-9));
+                NUnit.Framework.Assert.That(readMs2.IsolationRange.Maximum, Is.EqualTo(573.5).Within(1e-9));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// An empty header is worse than an absent one, because a reader cannot tell "unknown" from "zero".
+        /// TIC is the exception: every scan has one, so it is written for MS1 blocks too.
+        /// </summary>
+        [Test]
+        public void MgfWriterOmitsPrecursorHeadersItHasNoValueFor()
+        {
+            var bare = new MsDataScan(new MzSpectrum(new[] { 110.05 }, new[] { 500.0 }, false),
+                oneBasedScanNumber: 2, msnOrder: 2, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.6, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 500.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=2", selectedIonMz: 571.8069,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfAbsentHeaders.mgf");
+            new GenericMsDataFile(new[] { Ms1(1, new[] { 300.1 }, new[] { 1000.0 }, 1000.0), bare }, null)
+                .ExportAsMgf(path);
+
+            try
+            {
+                string[] lines = File.ReadAllLines(path);
+
+                foreach (string key in new[] { "ACTIVATIONMETHOD", "PRECURSORSCAN", "ISOLATIONWIDTH", "ISOLATIONMZ" })
+                {
+                    NUnit.Framework.Assert.That(lines.Any(l => l.StartsWith(key)), Is.False, key + " should be absent, not empty");
+                }
+
+                // the precursor headers describe a precursor, so they never appear on an MS1 block --
+                // but TIC does
+                int ms1Start = Array.IndexOf(lines, "BEGIN IONS");
+                int ms1End = Array.IndexOf(lines, "END IONS");
+                string[] ms1Block = lines[ms1Start..ms1End];
+                NUnit.Framework.Assert.That(ms1Block, Has.Member("TIC=1000"));
+                NUnit.Framework.Assert.That(ms1Block.Any(l => l.StartsWith("PEPMASS")), Is.False);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// The recorded TIC is not the sum of the written peaks -- it predates centroiding and thresholding.
+        /// A file without the header must still produce a usable value, which is what every mgf written
+        /// before this header existed relies on.
+        /// </summary>
+        [Test]
+        public void MgfReaderPrefersTheTicHeaderAndFallsBackToThePeakSum()
+        {
+            // TIC deliberately unequal to 500 + 750, so the two sources are distinguishable
+            var scan = new MsDataScan(new MzSpectrum(new[] { 110.05, 220.11 }, new[] { 500.0, 750.0 }, false),
+                oneBasedScanNumber: 1, msnOrder: 2, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.6, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 99999.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1", selectedIonMz: 571.8, selectedIonChargeStateGuess: 2,
+                selectedIonIntensity: null);
+
+            string withTic = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfWithTic.mgf");
+            string withoutTic = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfWithoutTic.mgf");
+            new GenericMsDataFile(new[] { scan }, null).ExportAsMgf(withTic);
+            File.WriteAllLines(withoutTic, File.ReadAllLines(withTic).Where(l => !l.StartsWith("TIC=")));
+
+            try
+            {
+                var read = MsDataFileReader.GetDataFile(withTic);
+                read.LoadAllStaticData();
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].TotalIonCurrent, Is.EqualTo(99999.0).Within(1e-9));
+
+                var readLegacy = MsDataFileReader.GetDataFile(withoutTic);
+                readLegacy.LoadAllStaticData();
+                NUnit.Framework.Assert.That(readLegacy.GetAllScansList()[0].TotalIonCurrent, Is.EqualTo(1250.0).Within(1e-9));
+            }
+            finally
+            {
+                File.Delete(withTic);
+                File.Delete(withoutTic);
+            }
+        }
+
+        /// <summary>
+        /// These come from files mzLib did not necessarily write, so one unparseable value must leave the
+        /// field unset rather than take the whole file down.
+        /// </summary>
+        [Test]
+        public void MgfReaderIgnoresUnparseableExtensionHeaders()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfGarbageHeaders.mgf");
+            File.WriteAllLines(path, new[]
+            {
+                "BEGIN IONS", "TITLE=junk", "MSLEVEL=2", "PEPMASS=571.8", "CHARGE=2+", "SCANS=1",
+                "TIC=not-a-number", "ACTIVATIONMETHOD=Telekinesis", "PRECURSORSCAN=three",
+                "ISOLATIONWIDTH=wide", "ISOLATIONMZ=", "110.05 500", "END IONS"
+            });
+
+            try
+            {
+                var read = MsDataFileReader.GetDataFile(path);
+                NUnit.Framework.Assert.DoesNotThrow(() => read.LoadAllStaticData());
+                var scan = read.GetAllScansList()[0];
+
+                NUnit.Framework.Assert.That(scan.DissociationType, Is.EqualTo(DissociationType.Unknown));
+                NUnit.Framework.Assert.That(scan.OneBasedPrecursorScanNumber, Is.Null);
+                NUnit.Framework.Assert.That(scan.IsolationWidth, Is.Null);
+                NUnit.Framework.Assert.That(scan.TotalIonCurrent, Is.EqualTo(500.0).Within(1e-9));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// Regression for the reader gating peak trimming on ApplyTrimmingToMsMs alone and applying it to
+        /// every block. Trimming an MS1 precursor scan strips its isotope envelopes, and a search reading
+        /// the file back then finds no precursors at all.
+        /// </summary>
+        [Test]
+        public void MgfReaderTrimsByMsLevelRatherThanTrimmingEveryBlock()
+        {
+            double[] mz = Enumerable.Range(0, 100).Select(i => 300.0 + i).ToArray();
+            double[] intensity = Enumerable.Range(0, 100).Select(i => 1000.0 + i).ToArray();
+
+            var ms2 = new MsDataScan(new MzSpectrum(mz, intensity, false),
+                oneBasedScanNumber: 2, msnOrder: 2, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.6, scanWindowRange: new MzRange(299, 400), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: intensity.Sum(), injectionTime: null,
+                noiseData: null, nativeId: "scan=2", selectedIonMz: 571.8,
+                selectedIonChargeStateGuess: 2, selectedIonIntensity: null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfTrimByMsLevel.mgf");
+            new GenericMsDataFile(new[] { Ms1(1, mz, intensity, intensity.Sum()), ms2 }, null).ExportAsMgf(path);
+
+            try
+            {
+                var trimMsMsOnly = new FilteringParams(numberOfPeaksToKeepPerWindow: 5, numberOfWindows: 1,
+                    applyTrimmingToMs1: false, applyTrimmingToMsMs: true);
+                var read = MsDataFileReader.GetDataFile(path);
+                read.LoadAllStaticData(trimMsMsOnly);
+                var scans = read.GetAllScansList();
+
+                NUnit.Framework.Assert.That(scans[0].MassSpectrum.Size, Is.EqualTo(100), "MS1 must be untouched when ApplyTrimmingToMs1 is false");
+                NUnit.Framework.Assert.That(scans[1].MassSpectrum.Size, Is.EqualTo(5), "MS2 must still be trimmed");
+
+                var trimBoth = new FilteringParams(numberOfPeaksToKeepPerWindow: 5, numberOfWindows: 1,
+                    applyTrimmingToMs1: true, applyTrimmingToMsMs: true);
+                var readBoth = MsDataFileReader.GetDataFile(path);
+                readBoth.LoadAllStaticData(trimBoth);
+
+                NUnit.Framework.Assert.That(readBoth.GetAllScansList()[0].MassSpectrum.Size, Is.EqualTo(5), "MS1 must be trimmed when asked");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// "Telekinesis" is the case Enum.TryParse already rejects, so it cannot fail against the bug that
+        /// matters. TryParse also accepts the NUMERIC form of an enum, and numeric activation codes are
+        /// exactly what turns up in files mzLib did not write.
+        ///
+        /// The two numeric cases fail differently and both need pinning. "999" parses to an undefined
+        /// DissociationType of 999, which no switch matches and every default arm swallows. "3" is the
+        /// dangerous one: it parses to SID, a real member -- not a skipped field but a confidently wrong
+        /// one, and Enum.IsDefined does NOT catch it, because SID is defined. Only rejecting the numeric
+        /// form does.
+        ///
+        /// "HCD,CID" is the third shape, and it defeats IsDefined for the same reason: TryParse accepts a
+        /// comma-separated list for any enum and ORs the members, and since CID is 0 the result is plain
+        /// HCD. A file naming two activations would be read as having named one.
+        /// </summary>
+        [Test]
+        [TestCase("999")]
+        [TestCase("3")]
+        [TestCase("-1")]
+        [TestCase("Telekinesis")]
+        [TestCase("HCD,CID")]
+        public void MgfReaderTreatsAnUnrecognisedActivationMethodAsUnknown(string activationMethod)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "mgfActivation" + activationMethod.Replace("-", "neg") + ".mgf");
+            File.WriteAllLines(path, new[]
+            {
+                "BEGIN IONS", "TITLE=junk", "MSLEVEL=2", "PEPMASS=571.8", "CHARGE=2+", "SCANS=1",
+                "ACTIVATIONMETHOD=" + activationMethod, "110.05 500", "END IONS"
+            });
+
+            try
+            {
+                var read = MsDataFileReader.GetDataFile(path);
+                read.LoadAllStaticData();
+
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].DissociationType,
+                    Is.EqualTo(DissociationType.Unknown),
+                    "an activation method we cannot read must be Unknown, never a value we half-recognised");
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// A written PRECURSORSCAN may only name a block this file actually contains. WriteMgf filters
+        /// scansToWrite twice -- empty spectra, and includeMs1Scans -- and the header was emitted from the
+        /// scan alone, so it could point at a block that was dropped.
+        ///
+        /// Read back, that populates OneBasedPrecursorScanNumber where master left null, and
+        /// MsDataFile.GetOneBasedScan is a raw Scans[n - 1], so the missing slot returns null rather than
+        /// throwing and the failure surfaces far from the mgf that caused it.
+        ///
+        /// The assertion is on the file and on the round trip rather than on a downstream export, because
+        /// mgf-to-mzML export of an MS1-less file throws for a separate, pre-existing reason that has
+        /// nothing to do with this header.
+        /// </summary>
+        [Test]
+        public void MgfWriterOmitsPrecursorScanWhenThatScanWasNotWritten()
+        {
+            var file = new GenericMsDataFile(
+                new[] { Ms1(1, new[] { 300.1, 400.2 }, new[] { 1000.0, 2000.0 }, 3000.0),
+                        Ms2WithFullPrecursorMetadata(2, 1) }, null);
+
+            string ms2Only = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfDanglingPrecursor.mgf");
+            file.ExportAsMgf(ms2Only, includeMs1Scans: false);
+
+            try
+            {
+                NUnit.Framework.Assert.That(File.ReadAllLines(ms2Only).Any(l => l.StartsWith("PRECURSORSCAN=")), Is.False,
+                    "MS1 scan 1 was not written, so nothing may point at it");
+
+                var read = MsDataFileReader.GetDataFile(ms2Only);
+                read.LoadAllStaticData();
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].OneBasedPrecursorScanNumber, Is.Null,
+                    "a precursor pointer that resolves to nothing is worse than an absent one");
+
+                // The control: when the MS1 IS written, the pointer is written too and still round-trips.
+                string withMs1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfLivePrecursor.mgf");
+                file.ExportAsMgf(withMs1);
+                try
+                {
+                    var readBoth = MsDataFileReader.GetDataFile(withMs1);
+                    readBoth.LoadAllStaticData();
+                    NUnit.Framework.Assert.That(readBoth.GetAllScansList()[1].OneBasedPrecursorScanNumber, Is.EqualTo(1),
+                        "dropping the header entirely would be the wrong fix");
+                }
+                finally
+                {
+                    File.Delete(withMs1);
+                }
+            }
+            finally
+            {
+                File.Delete(ms2Only);
+            }
+        }
+
+        /// <summary>
+        /// The same dangling pointer without the new flag, which is why it had to be fixed at the source
+        /// rather than inside the includeMs1Scans branch: WriteMgf has always dropped scans with no peaks,
+        /// so a peakless MS1 leaves the MS2 pointing at a block that was never written, at default settings.
+        /// </summary>
+        [Test]
+        public void MgfWriterOmitsPrecursorScanWhenThePrecursorHadNoPeaks()
+        {
+            var peaklessMs1 = new MsDataScan(new MzSpectrum(new double[0], new double[0], false),
+                oneBasedScanNumber: 1, msnOrder: 1, isCentroid: true, polarity: Polarity.Positive,
+                retentionTime: 1.5, scanWindowRange: new MzRange(100, 250), scanFilter: null,
+                mzAnalyzer: MZAnalyzerType.Orbitrap, totalIonCurrent: 0.0, injectionTime: null,
+                noiseData: null, nativeId: "scan=1");
+
+            var file = new GenericMsDataFile(
+                new[] { peaklessMs1, Ms2WithFullPrecursorMetadata(2, 1) }, null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfPeaklessPrecursor.mgf");
+            file.ExportAsMgf(path);
+
+            try
+            {
+                NUnit.Framework.Assert.That(File.ReadAllLines(path).Count(l => l == "BEGIN IONS"), Is.EqualTo(1),
+                    "the peakless MS1 is dropped by the pre-existing empty-spectrum filter");
+                NUnit.Framework.Assert.That(File.ReadAllLines(path).Any(l => l.StartsWith("PRECURSORSCAN=")), Is.False,
+                    "so nothing may point at it, flag or no flag");
+
+                var read = MsDataFileReader.GetDataFile(path);
+                read.LoadAllStaticData();
+                NUnit.Framework.Assert.That(read.GetAllScansList()[0].OneBasedPrecursorScanNumber, Is.Null);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
+        /// <summary>
+        /// The specification requires a PEPMASS in every block and an MS1 has none, so a file containing
+        /// MS1 blocks is out of spec -- MSToolkit, and therefore Comet, exits on the first one.
+        /// </summary>
+        [Test]
+        public void MgfWriterCanOmitMs1ScansToStayWithinTheSpecification()
+        {
+            var file = new GenericMsDataFile(
+                new[] { Ms1(1, new[] { 300.1, 400.2 }, new[] { 1000.0, 2000.0 }, 3000.0),
+                        Ms2WithFullPrecursorMetadata(2, 1) }, null);
+
+            string withMs1 = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfWithMs1.mgf");
+            string ms2Only = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfMs2Only.mgf");
+            file.ExportAsMgf(withMs1);
+            file.ExportAsMgf(ms2Only, includeMs1Scans: false);
+
+            try
+            {
+                // default is unchanged: MS1 present, and it is the block that has no PEPMASS
+                var readDefault = MsDataFileReader.GetDataFile(withMs1);
+                readDefault.LoadAllStaticData();
+                NUnit.Framework.Assert.That(readDefault.GetAllScansList().Count, Is.EqualTo(2));
+                NUnit.Framework.Assert.That(File.ReadAllLines(withMs1).Count(l => l == "BEGIN IONS"), Is.EqualTo(2));
+
+                var readMs2Only = MsDataFileReader.GetDataFile(ms2Only);
+                readMs2Only.LoadAllStaticData();
+                var scans = readMs2Only.GetAllScansList();
+                NUnit.Framework.Assert.That(scans.Count, Is.EqualTo(1));
+                NUnit.Framework.Assert.That(scans[0].MsnOrder, Is.EqualTo(2));
+
+                // the whole point: every block carries the mandatory PEPMASS
+                string[] lines = File.ReadAllLines(ms2Only);
+                NUnit.Framework.Assert.That(lines.Count(l => l == "BEGIN IONS"),
+                    Is.EqualTo(lines.Count(l => l.StartsWith("PEPMASS="))));
+            }
+            finally
+            {
+                File.Delete(withMs1);
+                File.Delete(ms2Only);
+            }
+        }
+
+        /// <summary>
+        /// Dropping the MS1 scans can empty the file, and a blockless mgf is one the reader cannot load.
+        /// </summary>
+        [Test]
+        public void MgfWriterRefusesToWriteWhenOmittingMs1LeavesNothing()
+        {
+            var ms1Only = new GenericMsDataFile(
+                new[] { Ms1(1, new[] { 300.1, 400.2 }, new[] { 1000.0, 2000.0 }, 3000.0) }, null);
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "mgfNothingLeft.mgf");
+
+            try
+            {
+                var ex = NUnit.Framework.Assert.Throws<MzLibException>(
+                    () => ms1Only.ExportAsMgf(path, includeMs1Scans: false));
+                NUnit.Framework.Assert.That(ex.Message, Does.Contain("no spectra"));
+                NUnit.Framework.Assert.That(File.Exists(path), Is.False);
+            }
+            finally
+            {
+                if (File.Exists(path)) { File.Delete(path); }
+            }
+        }
+
         /// <summary>
         /// The Matrix Science specification requires no whitespace around '=', all parameters ahead of the
         /// fragment peaks, and '.' as the decimal separator regardless of machine locale. The culture is

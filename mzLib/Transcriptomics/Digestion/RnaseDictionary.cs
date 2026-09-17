@@ -1,4 +1,5 @@
-﻿using MzLibUtil;
+﻿using Chemistry;
+using MzLibUtil;
 using Omics.Digestion;
 
 namespace Transcriptomics.Digestion
@@ -266,6 +267,8 @@ namespace Transcriptomics.Digestion
             string[] nameAliases = { "name" };
             string[] motifAliases = { "motif", "sequences inducing cleavage" };
             string[] specificityAliases = { "specificity", "cleavage specificity" };
+            string[] threePrimeAliases = { "threeprimeterminusremainder", "three prime terminus remainder" };
+            string[] fivePrimeAliases = { "fiveprimeterminusremainder", "five prime terminus remainder" };
 
             foreach (string line in lines)
             {
@@ -288,6 +291,8 @@ namespace Transcriptomics.Digestion
                 string name = GetFieldValue(fields, columnIndices, nameAliases);
                 string motifField = GetFieldValue(fields, columnIndices, motifAliases);
                 string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
+                string threePrimeField = GetFieldValue(fields, columnIndices, threePrimeAliases);
+                string fivePrimeField = GetFieldValue(fields, columnIndices, fivePrimeAliases);
 
                 if (string.IsNullOrWhiteSpace(name))
                     continue; // skip lines without a name
@@ -301,7 +306,12 @@ namespace Transcriptomics.Digestion
                         typeof(CleavageSpecificity), specificityField, true);
                 }
 
-                var rnase = new Rnase(name, cleavageSpecificity, motifList);
+                IList<IHasChemicalFormula> threePrimeTermini = ParseTerminusFormulas(threePrimeField);
+                IList<IHasChemicalFormula> fivePrimeTermini = ParseTerminusFormulas(fivePrimeField);
+
+                var rnase = new Rnase(name, cleavageSpecificity, motifList,
+                    threePrimeTerminusRemainder: threePrimeTermini,
+                    fivePrimeTerminusRemainder: fivePrimeTermini);
 
                 if (dict.ContainsKey(rnase.Name))
                 {
@@ -361,6 +371,22 @@ namespace Transcriptomics.Digestion
                     return fields[index].Trim();
             }
             return string.Empty;
+        }
+
+        /// <summary>
+        /// Parses a comma-separated list of chemical formula strings into terminus remainders.
+        /// Returns null when the field is blank so the <see cref="Rnase"/> constructor applies its defaults.
+        /// </summary>
+        private static IList<IHasChemicalFormula>? ParseTerminusFormulas(string field)
+        {
+            if (string.IsNullOrWhiteSpace(field))
+                return null;
+
+            return field.Split(',')
+                .Select(f => f.Trim())
+                .Where(f => !string.IsNullOrEmpty(f))
+                .Select(f => (IHasChemicalFormula)ChemicalFormula.ParseFormula(f))
+                .ToList();
         }
 
         #endregion
