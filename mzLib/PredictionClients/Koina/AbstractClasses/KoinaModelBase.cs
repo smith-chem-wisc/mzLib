@@ -12,6 +12,13 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 {
     protected static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
 
+    /// <summary>
+    /// ProForma terminal modification groups, e.g. the "[UNIMOD:1]-" in "[UNIMOD:1]-MSKP" and the "-[UNIMOD:2]"
+    /// in "PEPTIDE-[UNIMOD:2]". They are removed together with their separator before the raw base-sequence
+    /// check, because <see cref="BaseStripper"/> removes only the brackets and would leave the "-" behind.
+    /// </summary>
+    protected static readonly Regex TerminalModStripper = new(@"^(?:\[[^\]]+\])+-|-(?:\[[^\]]+\])+$", RegexOptions.Compiled);
+
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
         SequenceConverter = sequenceConverter ?? throw new ArgumentNullException(nameof(sequenceConverter));
@@ -175,7 +182,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         apiSequence = null;
         warning = null;
 
-        var rawBase = BaseStripper.Replace(sequence, string.Empty);
+        var rawBase = BaseStripper.Replace(TerminalModStripper.Replace(sequence, string.Empty), string.Empty);
         if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
         {
             HandleFailure(ModHandlingMode, "Invalid base sequence.");
