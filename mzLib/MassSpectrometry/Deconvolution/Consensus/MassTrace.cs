@@ -26,8 +26,15 @@ namespace MassSpectrometry.Deconvolution.Consensus
         /// </summary>
         public double AnchorMass;
 
-        public List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity)> Envelopes
-            = new();
+        /// <summary>
+        /// One entry per observation of this species. <c>Score</c> is the deconvolution
+        /// quality score of the envelope that produced the entry, or <see cref="double.NaN"/>
+        /// when the trace was built without a scorer. NaN rather than 0 so that "not scored"
+        /// is distinguishable from "scored badly"; every consumer must treat it as missing
+        /// rather than as a low score.
+        /// </summary>
+        public List<(int ScanIndex, int ScanNumber, double RT, double Mass, double Intensity,
+                     double Score)> Envelopes = new();
 
         public int LastScanIndex => Envelopes[^1].ScanIndex;
         public double MinMass => Envelopes.Min(e => e.Mass);

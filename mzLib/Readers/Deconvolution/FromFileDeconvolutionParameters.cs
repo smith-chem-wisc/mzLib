@@ -70,7 +70,7 @@ namespace Readers
                     "Expected an Ms1Feature (.ms1.feature) or Dinosaur (.feature.tsv) file.");
 
             resultFile.LoadResults();
-            return BuildFeatureCache(NormaliseRetentionTimes(featureFile.GetMs1Features()));
+            return BuildFeatureCache(NormaliseRetentionTimes(featureFile.GetMs1Features(MaxFeatureQValue)));
         }
 
         private static FeatureCache BuildFeatureCache(IEnumerable<ISingleChargeMs1Feature> features)
@@ -109,6 +109,17 @@ namespace Readers
         /// surface that a unit conversion happened instead of it being silent.
         /// </summary>
         public bool RetentionTimeNormalizedFromSeconds { get; private set; }
+
+        /// <summary>
+        /// Optional feature-level q-value cutoff applied when the file is loaded. Null keeps every
+        /// feature, which is the behaviour for any file whose producer did not estimate q-values.
+        ///
+        /// Set this when consuming a feature list that carries error rates and you want the search
+        /// to see only the features that pass: an unfiltered consensus list runs to roughly 10^6
+        /// features per file, most corresponding to no real species, and while target-decoy FDR at
+        /// the peptide level absorbs them, everything else that reads the file does not.
+        /// </summary>
+        public double? MaxFeatureQValue { get; set; }
 
         /// <summary>
         /// Constructs from a feature-file path. Reader is auto-detected from the
@@ -208,12 +219,17 @@ namespace Readers
         protected override bool EqualProperties(DeconvolutionParameters other)
         {
             var o = (FromFileDeconvolutionParameters)other;
-            return string.Equals(FilePath, o.FilePath, StringComparison.Ordinal);
+            // The threshold is part of the identity: two parameter sets over the same file that
+            // admit different feature subsets are not interchangeable, and treating them as equal
+            // would let a cached or deduplicated instance serve the wrong feature list.
+            return string.Equals(FilePath, o.FilePath, StringComparison.Ordinal)
+                   && Nullable.Equals(MaxFeatureQValue, o.MaxFeatureQValue);
         }
 
         protected override void AddHashCodes(HashCode hash)
         {
             hash.Add(FilePath);
+            hash.Add(MaxFeatureQValue);
         }
 
         #endregion
@@ -227,6 +243,7 @@ namespace Readers
             clone.UseGenericScore = UseGenericScore;
             clone.ExpectedIsotopeSpacing = ExpectedIsotopeSpacing;
             clone.AverageResidueModel = AverageResidueModel;
+            clone.MaxFeatureQValue = MaxFeatureQValue;
             return clone;
         }
 
