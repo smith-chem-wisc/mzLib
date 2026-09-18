@@ -36,7 +36,9 @@ namespace Readers
         CasanovoMzTab,
         DiaNnReport,
         Sdrf,
-        PytheasResult
+        PytheasResult,
+        MzIdentML,
+        MzIdentMLGz
     }
 
     public static class SupportedFileTypeExtensions
@@ -88,6 +90,8 @@ namespace Readers
                 // appends when naming an output file.
                 SupportedFileType.DiaNnReport => "report.tsv",
                 SupportedFileType.Sdrf => ".sdrf.tsv",
+                SupportedFileType.MzIdentML => ".mzid",
+                SupportedFileType.MzIdentMLGz => ".mzid.gz",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -213,6 +217,16 @@ namespace Readers
                         return SupportedFileType.Ms2Align;
                     throw new MzLibException("MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2");
 
+                case ".mzid":
+                    return SupportedFileType.MzIdentML;
+
+                case ".gz":
+                    // Path.GetExtension only sees the last extension, so compressed files are told apart by
+                    // what precedes it. PRIDE serves most mzIdentML compressed.
+                    if (filePath.EndsWith(SupportedFileType.MzIdentMLGz.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MzIdentMLGz;
+                    throw new MzLibException("Gz file type not supported");
+
                 case ".mztab":
                     using (var reader = new StreamReader(filePath))
                     {
@@ -273,6 +287,8 @@ namespace Readers
                 SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
                 SupportedFileType.Sdrf => typeof(SdrfDocument),
                 SupportedFileType.PytheasResult => typeof(PytheasResultFile),
+                SupportedFileType.MzIdentML => typeof(MzIdentMLResultFile),
+                SupportedFileType.MzIdentMLGz => typeof(MzIdentMLResultFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
