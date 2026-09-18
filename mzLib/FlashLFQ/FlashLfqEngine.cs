@@ -16,6 +16,8 @@ using FlashLFQ.IsoTracker;
 using System.Threading;
 using FlashLFQ.Interfaces;
 using MassSpectrometry;
+using Transcriptomics.Digestion;
+using Omics.SequenceConversion;
 
 [assembly: InternalsVisibleTo("Test")]
 
@@ -416,7 +418,7 @@ namespace FlashLFQ
                     if (SequenceResiduesAreValid(id.BaseSequence))
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
-                        formula = GetChemicalFormulaFromSequence(id.BaseSequence);
+                        formula = GetChemicalFormulaFromIdentification(id);
                         double massDiff = id.MonoisotopicMass;
                         massDiff -= formula.MonoisotopicMass;
 
@@ -503,11 +505,11 @@ namespace FlashLFQ
         /// Converts a (validated) base sequence into a chemical formula using the amino acid polymer
         /// in peptide mode or the RNA polymer in <see cref="FlashLfqParameters.RnaMode"/>.
         /// </summary>
-        private ChemicalFormula GetChemicalFormulaFromSequence(string baseSequence)
+        private ChemicalFormula GetChemicalFormulaFromIdentification(Identification id)
         {
             return FlashParams.RnaMode
-                ? new Transcriptomics.RNA(baseSequence).GetChemicalFormula()
-                : new Proteomics.AminoAcidPolymer.Peptide(baseSequence).GetChemicalFormula();
+                ? new OligoWithSetMods(id.ModifiedSequence).ThisChemicalFormula
+                : new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
         }
 
         /// <summary>
