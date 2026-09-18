@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using MzLibUtil;
 using NUnit.Framework;
+using Omics;
 using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Fragmentation;
@@ -644,14 +645,6 @@ namespace Test.Omics.Modifications
 
             digestionParams.MaxModsForPeptide = 3;
             Assert.That(digestionParams.MaxMods, Is.EqualTo(digestionParams.MaxModsForPeptide));
-        }
-
-        private class TestDigestionAgent : DigestionAgent
-        {
-            public TestDigestionAgent(string name, CleavageSpecificity cleavageSpecificity, List<DigestionMotif> motifList, Modification cleavageMod)
-                : base(name, cleavageSpecificity, motifList, cleavageMod)
-            {
-            }
         }
 
         [Test]
