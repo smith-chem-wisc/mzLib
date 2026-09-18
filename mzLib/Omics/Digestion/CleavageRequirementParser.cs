@@ -111,18 +111,36 @@ namespace Omics.Digestion
                 classText = classText.Substring(1);
             }
 
+            // ">=" adds a composition floor, so the condition is about a KIND of glycan rather than any
+            // glycan of the class: "O-glycan>=Hex1HexNAc1" is core 1 or larger, which the Tn antigen's
+            // lone HexNAc does not reach.
+            MonosaccharideComposition minimumComposition = null;
+            int floor = classText.IndexOf(">=", StringComparison.Ordinal);
+            if (floor >= 0)
+            {
+                string compositionText = classText.Substring(floor + 2);
+                classText = classText.Substring(0, floor);
+
+                if (!MonosaccharideComposition.TryParse(compositionText, out minimumComposition))
+                {
+                    throw new MzLibException("Unrecognized glycan composition '" + compositionText
+                        + "' in cleavage requirement '" + text + "'. Write it as monosaccharide-and-count "
+                        + "pairs, for example P1':O-glycan>=Hex1HexNAc1.");
+                }
+            }
+
             GlycosylationClass requiredClass = ParseClass(classText, text);
 
             if (isForbidden)
             {
                 return isPrimeSide
-                    ? CleavageRequirement.PrimeForbidden(subsite, requiredClass)
-                    : CleavageRequirement.NonPrimeForbidden(subsite, requiredClass);
+                    ? CleavageRequirement.PrimeForbidden(subsite, requiredClass, minimumComposition)
+                    : CleavageRequirement.NonPrimeForbidden(subsite, requiredClass, minimumComposition);
             }
 
             return isPrimeSide
-                ? CleavageRequirement.Prime(subsite, requiredClass)
-                : CleavageRequirement.NonPrime(subsite, requiredClass);
+                ? CleavageRequirement.Prime(subsite, requiredClass, minimumComposition)
+                : CleavageRequirement.NonPrime(subsite, requiredClass, minimumComposition);
         }
 
         private static GlycosylationClass ParseClass(string classText, string wholeText) =>
@@ -133,7 +151,7 @@ namespace Omics.Digestion
                 _ => throw new MzLibException("Unrecognized modification class '" + classText
                     + "' in cleavage requirement '" + wholeText + "'. Supported values are O-glycan and "
                     + "N-glycan. Structure-level requirements (core 1, Tn) cannot be expressed yet, "
-                    + "because a Modification does not carry a monosaccharide composition."),
+                    + "because it turns on linkage or anomeric configuration, which a composition cannot express."),
             };
     }
 }

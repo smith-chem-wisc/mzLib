@@ -183,7 +183,7 @@ collagenase	GPX|GPX	full
 StcE	TX|T,TX|S,SX|T,SX|S	full		StcE		P2:O-glycan
 StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin		P2:O-glycan
 StcE-trypsin|P	TX|T,TX|S,SX|T,SX|S,K[P]|,R[P]|	full		StcE/Trypsin		P2:O-glycan
-OpeRATOR	|T,|S	full		OpeRATOR		P1':O-glycan
+OpeRATOR	|T,|S	full		OpeRATOR		P1':O-glycan>=Hex1HexNAc1;P1':!O-glycan>=HexNAc2
 IMPa	[D]|T,[D]|S	full		IMPa		P1':O-glycan;P1:!O-glycan
 SmE	|T,|S	full		SmE		P1':O-glycan
 CNBr_old	M|	full	MS:1001307	CNBr	

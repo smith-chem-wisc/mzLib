@@ -49,6 +49,23 @@ namespace Omics.Modifications
         public List<string> Keywords { get; protected set; }
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; protected set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; protected set; }
+        /// <summary>
+        /// What this glycan is built from, when it is a glycan and the source said. Null for every
+        /// ordinary modification, and null for a glycan whose source only gave a mass.
+        /// </summary>
+        /// <remarks>
+        /// Null means UNKNOWN, never "no sugars", and every rule written against it must read it that
+        /// way: a cleavage rule that cannot see a composition has to let the cleavage through rather than
+        /// refuse it, or adding this property would silently change results for every glycan database
+        /// that does not populate it.
+        ///
+        /// Safe to add because modifications are NOT serialized into MetaMorpheus's peptide index --
+        /// PeptideWithSetModifications marks its modification dictionary [NonSerialized] and rebuilds it
+        /// from the full sequence against the run's known modifications -- so this changes no on-disk
+        /// layout and cannot corrupt a cached index.
+        /// </remarks>
+        public MonosaccharideComposition MonosaccharideComposition { get; protected set; }
+
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
 
@@ -118,8 +135,10 @@ namespace Omics.Modifications
             double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null,
             Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null,
             Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
-            string _fileOrigin = null)
+            string _fileOrigin = null, MonosaccharideComposition _monosaccharideComposition = null)
         {
+            this.MonosaccharideComposition = _monosaccharideComposition;
+
             if (_originalId != null)
             {
                 if (_originalId.Contains(" on "))
@@ -316,6 +335,18 @@ namespace Omics.Modifications
                 {
                     sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
                 }
+            }
+
+            // GC, for the monosaccharide composition. Emitted so the field survives a database round
+            // trip: ProteinDbWriter stores a modification as this very string (ProteinDbWriter.cs:95 and
+            // :360) and ProteinDbLoader reads it back through ModificationLoader (ProteinDbLoader.cs:217),
+            // so a field absent here is silently gone after any write-then-read and the cleavage rule that
+            // depends on it quietly weakens. The format is key-prefixed and order-insensitive -- the
+            // reader dispatches on the first two characters and ignores keys it does not know -- so this
+            // may sit anywhere in the record, and an older mzLib simply drops it rather than failing.
+            if (this.MonosaccharideComposition != null)
+            {
+                sb.AppendLine("GC   " + this.MonosaccharideComposition);
             }
 
             return sb.ToString();

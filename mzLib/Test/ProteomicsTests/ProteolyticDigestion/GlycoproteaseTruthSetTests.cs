@@ -181,7 +181,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
                     var glycan = new Modification(_originalId: parts[1],
                         _modificationType: "O-linked glycosylation", _target: motif,
-                        _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373);
+                        _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373,
+                        _monosaccharideComposition: CompositionOf(parts[1]));
 
                     if (!localized.TryGetValue(position, out List<Modification> atSite))
                     {
@@ -253,6 +254,31 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 .ToList();
         }
 
+        /// <summary>
+        /// The monosaccharide composition behind each glycan shorthand the truth set uses, or null when
+        /// the shorthand names something a composition cannot express.
+        /// </summary>
+        /// <remarks>
+        /// Two pairs in this table are deliberately IDENTICAL, and they are why composition closes some
+        /// cases and not others. 3SC1 and 6SC1 differ only in whether the sialic acid is alpha-2,3 or
+        /// alpha-2,6 linked -- OpeRATOR tolerates the first and is blocked outright by the second -- and
+        /// Tn and OGlcNAc are both a single HexNAc differing in sugar and anomer, which StcE cares about
+        /// and this cannot see. Those stay gaps by construction, not by oversight.
+        /// </remarks>
+        private static MonosaccharideComposition CompositionOf(string glycanShorthand) =>
+            glycanShorthand switch
+            {
+                "Tn" => MonosaccharideComposition.Parse("HexNAc1"),
+                "OGlcNAc" => MonosaccharideComposition.Parse("HexNAc1"),
+                "T/core1" => MonosaccharideComposition.Parse("Hex1HexNAc1"),
+                "core2" => MonosaccharideComposition.Parse("Hex1HexNAc2"),
+                "sT" => MonosaccharideComposition.Parse("NeuAc1Hex1HexNAc1"),
+                "3SC1" => MonosaccharideComposition.Parse("NeuAc1Hex1HexNAc1"),
+                "6SC1" => MonosaccharideComposition.Parse("NeuAc1Hex1HexNAc1"),
+                "dsC2" => MonosaccharideComposition.Parse("NeuAc2Hex1HexNAc2"),
+                _ => null,
+            };
+
         private static Protein BareProtein(TruthCase c) => new Protein(c.Sequence, "TRUTHSET_" + c.CaseId);
 
         /// <summary>
@@ -312,7 +338,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
                 fixedGlycans.Add(new Modification(_originalId: pair.Value,
                     _modificationType: "O-linked glycosylation", _target: motif,
-                    _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373));
+                    _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373,
+                    _monosaccharideComposition: CompositionOf(pair.Value)));
             }
 
             return fixedGlycans;

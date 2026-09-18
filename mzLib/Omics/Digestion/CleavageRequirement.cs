@@ -47,13 +47,34 @@ namespace Omics.Digestion
     /// </remarks>
     public sealed class CleavageRequirement
     {
-        private CleavageRequirement(bool isPrimeSide, int subsite, GlycosylationClass requiredClass, bool isForbidden)
+        private CleavageRequirement(bool isPrimeSide, int subsite, GlycosylationClass requiredClass, bool isForbidden,
+            MonosaccharideComposition minimumComposition = null)
         {
             IsPrimeSide = isPrimeSide;
             Subsite = subsite;
             RequiredClass = requiredClass;
             IsForbidden = isForbidden;
+            MinimumComposition = minimumComposition;
         }
+
+        /// <summary>
+        /// The smallest glycan this condition recognises, component by component, or null when any glycan
+        /// of the right class counts.
+        /// </summary>
+        /// <remarks>
+        /// <para>What makes a condition about a KIND of glycan rather than merely about a glycan. OpeRATOR
+        /// needs both senses at once: it requires at least core 1 (Hex1HexNAc1), so the Tn antigen's lone
+        /// HexNAc does not satisfy it, and it is forbidden by a second HexNAc, which is what core 2 adds.
+        /// Two conditions on the same subsite, one required and one forbidden, each with its own
+        /// floor.</para>
+        ///
+        /// <para>A modification whose composition is UNKNOWN is given whichever answer leaves the
+        /// cleavage as it was before the floor existed -- satisfied for a required condition, unmatched
+        /// for a forbidden one. A glycan database that records no composition therefore digests exactly
+        /// as it did before. See MatchesComposition for why resolving it uniformly would switch OpeRATOR
+        /// off entirely.</para>
+        /// </remarks>
+        public MonosaccharideComposition MinimumComposition { get; }
 
         /// <summary>
         /// True when the constrained residue lies AFTER the severed bond (P1', P2', ...), false when it
@@ -91,23 +112,27 @@ namespace Omics.Digestion
         /// </remarks>
         public bool IsForbidden { get; }
 
-        public static CleavageRequirement NonPrime(int subsite, GlycosylationClass requiredClass) =>
-            new(isPrimeSide: false, subsite, requiredClass, isForbidden: false);
+        public static CleavageRequirement NonPrime(int subsite, GlycosylationClass requiredClass,
+            MonosaccharideComposition minimumComposition = null) =>
+            new(isPrimeSide: false, subsite, requiredClass, isForbidden: false, minimumComposition);
 
         /// <summary>A modification of this class at the non-prime subsite ABOLISHES the cleavage.</summary>
-        public static CleavageRequirement NonPrimeForbidden(int subsite, GlycosylationClass forbiddenClass) =>
-            new(isPrimeSide: false, subsite, forbiddenClass, isForbidden: true);
+        public static CleavageRequirement NonPrimeForbidden(int subsite, GlycosylationClass forbiddenClass,
+            MonosaccharideComposition minimumComposition = null) =>
+            new(isPrimeSide: false, subsite, forbiddenClass, isForbidden: true, minimumComposition);
 
         /// <summary>A modification of this class at the prime subsite ABOLISHES the cleavage.</summary>
-        public static CleavageRequirement PrimeForbidden(int subsite, GlycosylationClass forbiddenClass) =>
-            new(isPrimeSide: true, subsite, forbiddenClass, isForbidden: true);
+        public static CleavageRequirement PrimeForbidden(int subsite, GlycosylationClass forbiddenClass,
+            MonosaccharideComposition minimumComposition = null) =>
+            new(isPrimeSide: true, subsite, forbiddenClass, isForbidden: true, minimumComposition);
 
         /// <summary>
         /// A requirement on the PRIME side, after the bond. <c>Prime(1, OLinked)</c> is the OgpA family's:
         /// an O-glycan on the residue the cut exposes as a new N-terminus.
         /// </summary>
-        public static CleavageRequirement Prime(int subsite, GlycosylationClass requiredClass) =>
-            new(isPrimeSide: true, subsite, requiredClass, isForbidden: false);
+        public static CleavageRequirement Prime(int subsite, GlycosylationClass requiredClass,
+            MonosaccharideComposition minimumComposition = null) =>
+            new(isPrimeSide: true, subsite, requiredClass, isForbidden: false, minimumComposition);
 
         /// <summary>
         /// Whether this condition is met, given whether the subsite it addresses carries a modification
@@ -128,7 +153,35 @@ namespace Omics.Digestion
         public bool IsSatisfiedBy(Modification modification) =>
             modification is not null
             && modification.ModificationType != ProteaseModificationType
-            && CleavagePromotingModifications.Satisfies(modification, RequiredClass);
+            && CleavagePromotingModifications.Satisfies(modification, RequiredClass)
+            && MatchesComposition(modification);
+
+        /// <summary>
+        /// Whether the modification is at least as large as this condition's floor.
+        /// </summary>
+        /// <remarks>
+        /// <para>An UNKNOWN composition is not evidence, and the two polarities need opposite benefit of
+        /// the doubt to say so. A required condition treats it as satisfied and a forbidden one treats it
+        /// as not matching, which in both cases is the answer this condition would have given before it
+        /// named a floor at all.</para>
+        ///
+        /// <para>That asymmetry is load-bearing, not tidiness. Resolve it either way uniformly and adding
+        /// a floor changes results for every glycan database that records no composition -- which today
+        /// is all of them, since nothing populates it yet. Read uniformly as "no composition, so no
+        /// match", OpeRATOR would simply stop cleaving: its own required floor would never be met, and
+        /// the enzyme would silently digest nothing at all.</para>
+        /// </remarks>
+        private bool MatchesComposition(Modification modification)
+        {
+            if (MinimumComposition is null)
+            {
+                return true;
+            }
+
+            return modification.MonosaccharideComposition is null
+                ? !IsForbidden
+                : modification.MonosaccharideComposition.IsSupersetOf(MinimumComposition);
+        }
 
         /// <summary>
         /// The <see cref="Modification.ModificationType"/> that marks a protease-associated cleavage
@@ -138,6 +191,7 @@ namespace Omics.Digestion
 
         public override string ToString() =>
             "P" + Subsite + (IsPrimeSide ? "'" : string.Empty)
-            + (IsForbidden ? " forbids " : " requires ") + RequiredClass;
+            + (IsForbidden ? " forbids " : " requires ") + RequiredClass
+            + (MinimumComposition is null ? string.Empty : " >= " + MinimumComposition);
     }
 }
