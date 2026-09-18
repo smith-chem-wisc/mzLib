@@ -373,6 +373,21 @@
     <None Update="DataFiles\TestParentTolerance.mzid">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
      </None>
+    <None Update="DataFiles\PXD078927_msgf_1_1_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\PXD000783_scaffold_1_1_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\PXD019591_mascotparser_1_1_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\PXD019733_proteomediscoverer_1_1_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="DataFiles\PXD070193_xifdr_1_2_0.mzid">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DataFiles\timsTOF_DIA.d\analysis.tdf">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

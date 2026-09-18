@@ -6,7 +6,6 @@ using Proteomics;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -174,17 +173,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             string organism = null;
             string identifier = null;
 
-            string newDbLocation = rnaDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (rnaDbLocation.EndsWith(".gz"))
-            {
-                newDbLocation = Path.Combine(Path.GetDirectoryName(rnaDbLocation), "temp.fasta");
-                using var stream = new FileStream(rnaDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(rnaDbLocation, ".fasta");
+            string newDbLocation = database.Location;
 
             using (var fastaFileStream = new FileStream(newDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -336,9 +326,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 }
             }
 
-            if (newDbLocation != rnaDbLocation)
-                File.Delete(newDbLocation);
-
             if (!targets.Any())
                 errors.Add("No targets were loaded from database: " + rnaDbLocation);
             decoys.AddRange(RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
@@ -388,17 +375,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
             unknownModifications = new Dictionary<string, Modification>();
             errors = new List<string>();
 
-            string newProteinDbLocation = rnaDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (rnaDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(rnaDbLocation), "temp.xml");
-                using var stream = new FileStream(rnaDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(rnaDbLocation, ".xml");
+            string newProteinDbLocation = database.Location;
 
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -448,10 +426,6 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                         }
                     }
                 }
-            }
-            if (newProteinDbLocation != rnaDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             decoys.AddRange(RnaDecoyGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
