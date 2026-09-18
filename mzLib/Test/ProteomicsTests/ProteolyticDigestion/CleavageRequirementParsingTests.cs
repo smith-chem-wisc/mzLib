@@ -1,4 +1,4 @@
-using MzLibUtil;
+﻿using MzLibUtil;
 using NUnit.Framework;
 using Omics.Digestion;
 using Omics.Modifications;
@@ -81,7 +81,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Assert.IsTrue(protease.HasCleavageRequirement, name + " must declare a cleavage requirement");
 
                 CleavageRequirement requirement = protease.DigestionMotifs
-                    .Select(m => m.CleavageRequirement).First(r => r is not null);
+                    .SelectMany(m => m.CleavageRequirements).First(r => !r.IsForbidden);
 
                 Assert.AreEqual(prime, requirement.IsPrimeSide, name + " subsite side");
                 Assert.AreEqual(subsite, requirement.Subsite, name + " subsite number");
@@ -97,8 +97,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             // trypsin would effectively be switched off inside the composite.
             Protease composite = ProteaseDictionary.Dictionary["StcE-trypsin"];
 
-            var withRequirement = composite.DigestionMotifs.Where(m => m.CleavageRequirement is not null).ToList();
-            var withoutRequirement = composite.DigestionMotifs.Where(m => m.CleavageRequirement is null).ToList();
+            var withRequirement = composite.DigestionMotifs.Where(m => m.HasCleavageRequirement).ToList();
+            var withoutRequirement = composite.DigestionMotifs.Where(m => !m.HasCleavageRequirement).ToList();
 
             Assert.AreEqual(4, withRequirement.Count, "the four StcE motifs must carry the requirement");
             Assert.AreEqual(2, withoutRequirement.Count, "the two tryptic motifs must not");
@@ -130,7 +130,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Protease protease = loaded["legacy-no-requirement-column"];
                 Assert.IsFalse(protease.HasCleavageRequirement,
                     "a file with no requirement column must produce proteases that require nothing");
-                Assert.IsTrue(protease.DigestionMotifs.All(m => m.CleavageRequirement is null));
+                Assert.IsTrue(protease.DigestionMotifs.All(m => !m.HasCleavageRequirement));
             }
             finally
             {

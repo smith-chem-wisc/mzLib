@@ -1,4 +1,4 @@
-using System.Linq;
+﻿using System.Linq;
 using Omics.Digestion;
 
 namespace Omics.Modifications
@@ -185,9 +185,20 @@ namespace Omics.Modifications
 
             foreach (DigestionMotif motif in agent.DigestionMotifs)
             {
-                if (motif?.CleavageRequirement is not null && motif.CleavageRequirement.IsSatisfiedBy(modification))
+                if (motif is null)
                 {
-                    return true;
+                    continue;
+                }
+
+                foreach (CleavageRequirement requirement in motif.CleavageRequirements)
+                {
+                    // A FORBIDDEN condition names a modification that ABOLISHES the cleavage, so a
+                    // modification matching it is the opposite of cleavage-promoting and must not be
+                    // reported as satisfying this agent's requirement.
+                    if (!requirement.IsForbidden && requirement.IsSatisfiedBy(modification))
+                    {
+                        return true;
+                    }
                 }
             }
 

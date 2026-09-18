@@ -1,6 +1,7 @@
 ﻿using MzLibUtil;
 using Omics.Modifications;
 using System;
+using System.Collections.Generic;
 
 namespace Omics.Digestion
 {
@@ -37,6 +38,36 @@ namespace Omics.Digestion
         /// glycoprotease digest as if it had none, which is the over-digestion this feature exists to
         /// stop, so a typo has to be loud.
         /// </exception>
+        /// <summary>
+        /// Every condition in a "Cleavage Requirement" cell, which may name more than one, separated by
+        /// semicolons. An empty cell yields an empty list, which is the common case.
+        /// </summary>
+        /// <remarks>
+        /// IMPa is why this is a list: <c>P1':O-glycan;P1:!O-glycan</c> says it cleaves N-terminal to a
+        /// glycosylated Ser/Thr but not when the residue before the bond is itself glycosylated. Those are
+        /// two conditions on two residues, and both must hold. The <c>!</c> marks the forbidding one.
+        /// </remarks>
+        public static List<CleavageRequirement> ParseAll(string text)
+        {
+            var requirements = new List<CleavageRequirement>();
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return requirements;
+            }
+
+            foreach (string clause in text.Split(';'))
+            {
+                if (string.IsNullOrWhiteSpace(clause))
+                {
+                    continue;
+                }
+
+                requirements.Add(Parse(clause));
+            }
+
+            return requirements;
+        }
+
         public static CleavageRequirement Parse(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -73,7 +104,21 @@ namespace Omics.Digestion
                     + "'. Subsites are numbered outward from the severed bond starting at 1.");
             }
 
+            // A leading '!' forbids the class at this subsite instead of requiring it.
+            bool isForbidden = classText.StartsWith("!", StringComparison.Ordinal);
+            if (isForbidden)
+            {
+                classText = classText.Substring(1);
+            }
+
             GlycosylationClass requiredClass = ParseClass(classText, text);
+
+            if (isForbidden)
+            {
+                return isPrimeSide
+                    ? CleavageRequirement.PrimeForbidden(subsite, requiredClass)
+                    : CleavageRequirement.NonPrimeForbidden(subsite, requiredClass);
+            }
 
             return isPrimeSide
                 ? CleavageRequirement.Prime(subsite, requiredClass)

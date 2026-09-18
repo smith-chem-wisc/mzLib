@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -549,7 +549,7 @@ namespace Proteomics.ProteolyticDigestion
                 string proteaseModDetails = GetFieldValue(fields, columnIndices, cleavageModAliases);
                 string cleavageRequirementField = GetFieldValue(fields, columnIndices, cleavageRequirementAliases);
 
-                CleavageRequirement cleavageRequirement = CleavageRequirementParser.Parse(cleavageRequirementField);
+                List<CleavageRequirement> cleavageRequirements = CleavageRequirementParser.ParseAll(cleavageRequirementField);
 
                 var motifList = DigestionMotif.ParseDigestionMotifsFromString(motifField);
 
@@ -559,9 +559,9 @@ namespace Proteomics.ProteolyticDigestion
                 // like StcE-trypsin is the case that makes this worth stating -- there the tryptic motifs
                 // must NOT inherit it, which is handled below by only attaching it to motifs whose
                 // recognition sequence can actually carry the constrained residue.
-                if (cleavageRequirement is not null)
+                if (cleavageRequirements.Count > 0)
                 {
-                    motifList = AttachCleavageRequirement(motifList, cleavageRequirement);
+                    motifList = AttachCleavageRequirements(motifList, cleavageRequirements);
                 }
                 var cleavageSpecificity = (CleavageSpecificity)Enum.Parse(typeof(CleavageSpecificity), specificityField, true);
 
@@ -648,24 +648,62 @@ namespace Proteomics.ProteolyticDigestion
         /// subsite lookup would return the null character, no residue could ever satisfy it, and every
         /// cut that motif makes would be discarded -- silently turning trypsin off inside a composite.
         /// </remarks>
-        private static List<DigestionMotif> AttachCleavageRequirement(List<DigestionMotif> motifs,
-            CleavageRequirement requirement)
+        /// <summary>
+        /// Gives each motif the conditions the protease declares, skipping the motifs a composite entry
+        /// means to leave alone.
+        /// </summary>
+        /// <remarks>
+        /// <para>The file declares conditions once per protease, with no syntax saying which motif each
+        /// belongs to, so which motifs they apply to is inferred from whether a motif's recognition
+        /// sequence REACHES the subsite named. That is what keeps a composite honest: StcE-trypsin's four
+        /// StcE motifs (TXT, TXS, SXT, SXS) span P2 and take the glycan rule, while its two tryptic motifs
+        /// (K, R) do not span it and are left untouched -- if they inherited it, trypsin would need a
+        /// glycan and would be switched off inside the composite.</para>
+        ///
+        /// <para>A condition can legitimately address a subsite OUTSIDE the recognition sequence: IMPa's
+        /// "no glycan at P1" constrains the residue before a motif that is only "T". So once a motif is
+        /// known to be governed -- it reaches at least one declared subsite -- it takes ALL the declared
+        /// conditions, which is what keeps IMPa's required-P1' and forbidden-P1 rules together.</para>
+        ///
+        /// <para>If NO motif reaches any declared subsite the protease is not a composite and the rules
+        /// simply apply to all of it. Without that fallback a protease whose only condition addresses a
+        /// residue outside every motif -- "cleave after K unless P1' is glycosylated" -- would silently
+        /// lose its rule and over-digest, which is the failure this whole feature exists to prevent.</para>
+        /// </remarks>
+        private static List<DigestionMotif> AttachCleavageRequirements(List<DigestionMotif> motifs,
+            List<CleavageRequirement> requirements)
         {
-            var withRequirement = new List<DigestionMotif>(motifs.Count);
+            var governed = new bool[motifs.Count];
+            bool anyMotifGoverned = false;
 
-            foreach (DigestionMotif motif in motifs)
+            for (int i = 0; i < motifs.Count; i++)
             {
-                char constrainedSubsite = requirement.IsPrimeSide
-                    ? motif.PrimeSubsite(requirement.Subsite)
-                    : motif.NonPrimeSubsite(requirement.Subsite);
+                foreach (CleavageRequirement requirement in requirements)
+                {
+                    char constrainedSubsite = requirement.IsPrimeSide
+                        ? motifs[i].PrimeSubsite(requirement.Subsite)
+                        : motifs[i].NonPrimeSubsite(requirement.Subsite);
 
-                withRequirement.Add(constrainedSubsite == ' '
-                    ? motif
-                    : new DigestionMotif(motif.InducingCleavage, motif.PreventingCleavage, motif.CutIndex,
-                        motif.ExcludeFromWildcard, requirement));
+                    if (constrainedSubsite != '\0')
+                    {
+                        governed[i] = true;
+                        anyMotifGoverned = true;
+                        break;
+                    }
+                }
             }
 
-            return withRequirement;
+            var withRequirements = new List<DigestionMotif>(motifs.Count);
+            for (int i = 0; i < motifs.Count; i++)
+            {
+                DigestionMotif motif = motifs[i];
+                withRequirements.Add(governed[i] || !anyMotifGoverned
+                    ? new DigestionMotif(motif.InducingCleavage, motif.PreventingCleavage, motif.CutIndex,
+                        motif.ExcludeFromWildcard, requirements)
+                    : motif);
+            }
+
+            return withRequirements;
         }
 
         private static Protease CreateProtease(

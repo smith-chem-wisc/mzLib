@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Omics.Digestion;
@@ -150,8 +150,8 @@ namespace Proteomics.ProteolyticDigestion
                     int promotingMissedCleavages = reportedMissedCleavages;
                     if (respectCleavageRequirements
                         && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
-                            digestionParams.DigestionAgent, configuredModifications, internalFeasibleSites,
-                            digestionParams.MaxMissedCleavages, out promotingMissedCleavages))
+                            digestionParams.DigestionAgent, configuredModifications, allKnownFixedModifications,
+                            internalFeasibleSites, digestionParams.MaxMissedCleavages, out promotingMissedCleavages))
                     {
                         continue;
                     }

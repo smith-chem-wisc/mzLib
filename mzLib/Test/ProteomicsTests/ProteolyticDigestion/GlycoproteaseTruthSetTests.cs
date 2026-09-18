@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 // Imported rather than written out at the use site: this file sits in namespace Test.*, where the
 // qualified name Omics.Modifications binds to Test.Omics.Modifications, which has no Modification.
 using Omics.Modifications;
@@ -50,11 +50,14 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     public static class GlycoproteaseTruthSetTests
     {
         /// <summary>Enzymes mzLib can actually digest with today. Everything else is not modelled yet.</summary>
-        private static readonly HashSet<string> ModelledEnzymes =
-            new(StringComparer.OrdinalIgnoreCase)
-            {
-                "StcE", "StcE-trypsin", "trypsin", "trypsin|P", "OpeRATOR", "IMPa", "SmE",
-            };
+        /// <summary>
+        /// Whether proteases.tsv actually ships this enzyme. Asked of the dictionary rather than held in
+        /// a list here: a hand-maintained allowlist drifts silently the moment an enzyme is added, and it
+        /// did -- StcE-trypsin|P was shipped and its two cases kept reporting "not modelled" instead of
+        /// being tested.
+        /// </summary>
+        private static bool IsModelled(string enzyme) =>
+            !string.IsNullOrWhiteSpace(enzyme) && ProteaseDictionary.Dictionary.ContainsKey(enzyme);
 
         /// <summary>One row of the truth set.</summary>
         public class TruthCase
@@ -212,8 +215,20 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
                 respectCleavagePromotingModifications: true);
 
-            IEnumerable<PeptideWithSetModifications> products =
-                protein.Digest(parameters, new List<Modification>(), new List<Modification>());
+            // A homogeneously glycosylated substrate is best modelled with FIXED modifications, not
+            // localized ones. mzLib enumerates a localized modification both ways, which is right for a
+            // search and wrong for a synthetic peptide -- and, more than a nuisance, it makes one rule
+            // unjudgeable: a FORBIDDEN condition on the non-prime side constrains a residue that lies in
+            // the NEIGHBOURING peptide, where no peptidoform can speak for it. Fixed settles that, because
+            // fixed means every copy carries it.
+            //
+            // Only safe when every occurrence of a residue letter in this sequence is a declared
+            // glycosite; otherwise a fixed modification would glycosylate residues the paper says are
+            // bare, so those cases keep the localized-plus-filter path.
+            List<Modification> fixedGlycans = FixedGlycansIfUnambiguous(c);
+            IEnumerable<PeptideWithSetModifications> products = fixedGlycans is null
+                ? protein.Digest(parameters, new List<Modification>(), new List<Modification>())
+                : BareProtein(c).Digest(parameters, fixedGlycans, new List<Modification>());
 
             // OCCUPANCY. mzLib enumerates a localized modification BOTH ways -- one peptidoform carrying
             // it and one without -- because in a real search a database glycosite is a site that MAY be
@@ -226,7 +241,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             // "variable" and is left alone -- and it is precisely the read-through that distinguishes it
             // from STCE-01, which is the SAME substrate with the SAME glycosite. Those two cases are the
             // corpus's sharpest statement that occupancy, not sequence, decides the digest.
-            if (!c.IsMixedPopulation)
+            if (!c.IsMixedPopulation && fixedGlycans is null)
             {
                 products = products.Where(p => EveryGlycositeInsideIsOccupied(p, c));
             }
@@ -236,6 +251,71 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 .Distinct()
                 .OrderBy(s => s, StringComparer.Ordinal)
                 .ToList();
+        }
+
+        private static Protein BareProtein(TruthCase c) => new Protein(c.Sequence, "TRUTHSET_" + c.CaseId);
+
+        /// <summary>
+        /// The declared glycans as FIXED modifications, or null when that would misrepresent the
+        /// substrate. Only for a homogeneously glycosylated case, and only when every occurrence of each
+        /// glycosylated residue letter is itself a declared glycosite -- otherwise a fixed modification
+        /// would decorate residues the source says are bare.
+        /// </summary>
+        private static List<Modification> FixedGlycansIfUnambiguous(TruthCase c)
+        {
+            if (c.IsMixedPopulation || string.IsNullOrWhiteSpace(c.Glycosites) || c.Glycosites == "-")
+            {
+                return null;
+            }
+
+            var glycanByResidue = new SortedDictionary<char, string>();
+            var declaredPositions = new HashSet<int>();
+
+            foreach (string site in c.Glycosites.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] parts = site.Split(':');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out int position)
+                    || position < 1 || position > c.Sequence.Length)
+                {
+                    return null;
+                }
+
+                declaredPositions.Add(position);
+                char residue = c.Sequence[position - 1];
+                if (glycanByResidue.TryGetValue(residue, out string already) && already != parts[1])
+                {
+                    // Two different glycans on the same residue letter cannot both be fixed.
+                    return null;
+                }
+
+                glycanByResidue[residue] = parts[1];
+            }
+
+            foreach (char residue in glycanByResidue.Keys)
+            {
+                for (int i = 0; i < c.Sequence.Length; i++)
+                {
+                    if (c.Sequence[i] == residue && !declaredPositions.Contains(i + 1))
+                    {
+                        return null;
+                    }
+                }
+            }
+
+            var fixedGlycans = new List<Modification>();
+            foreach (var pair in glycanByResidue)
+            {
+                if (!ModificationMotif.TryGetMotif(pair.Key.ToString(), out ModificationMotif motif))
+                {
+                    return null;
+                }
+
+                fixedGlycans.Add(new Modification(_originalId: pair.Value,
+                    _modificationType: "O-linked glycosylation", _target: motif,
+                    _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373));
+            }
+
+            return fixedGlycans;
         }
 
         /// <summary>
@@ -280,7 +360,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 Assert.Inconclusive(c.CaseId + ": the source names the substrate but not an exact bond, so no "
                     + "product list is defensible yet. " + c.Note);
 
-            if (!ModelledEnzymes.Contains(c.Enzyme))
+            if (!IsModelled(c.Enzyme))
                 Assert.Inconclusive(c.CaseId + ": " + c.Enzyme + " has no proteases.tsv entry -- it was left out "
                     + "deliberately because modelling it needs glycosylation-aware digestion. Nothing to be wrong "
                     + "about until that exists. Source: " + c.Source);
@@ -331,7 +411,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     continue;
                 }
 
-                if (!ModelledEnzymes.Contains(c.Enzyme))
+                if (!IsModelled(c.Enzyme))
                 {
                     notModelled++;
                     report.AppendLine($"{c.CaseId,-10} {c.Enzyme,-13} not-modelled");

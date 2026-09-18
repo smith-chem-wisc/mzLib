@@ -1,4 +1,4 @@
-# ============================================================================					
+﻿# ============================================================================					
 # PROTEASE DEFINITIONS FILE					
 # ============================================================================					
 # Lines starting with '#' are comments and will be ignored by the parser.					
@@ -182,8 +182,9 @@ collagenase	GPX|GPX	full
 # and none on K| or R|. A tryptic cut in a mixed digest is a tryptic cut.
 StcE	TX|T,TX|S,SX|T,SX|S	full		StcE		P2:O-glycan
 StcE-trypsin	TX|T,TX|S,SX|T,SX|S,K|,R|	full		StcE/Trypsin		P2:O-glycan
+StcE-trypsin|P	TX|T,TX|S,SX|T,SX|S,K[P]|,R[P]|	full		StcE/Trypsin		P2:O-glycan
 OpeRATOR	|T,|S	full		OpeRATOR		P1':O-glycan
-IMPa	|T,|S	full		IMPa		P1':O-glycan
+IMPa	[D]|T,[D]|S	full		IMPa		P1':O-glycan;P1:!O-glycan
 SmE	|T,|S	full		SmE		P1':O-glycan
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Homoserine lactone N-terminal on M

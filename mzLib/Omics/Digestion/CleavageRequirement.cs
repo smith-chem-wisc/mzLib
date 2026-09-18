@@ -47,11 +47,12 @@ namespace Omics.Digestion
     /// </remarks>
     public sealed class CleavageRequirement
     {
-        private CleavageRequirement(bool isPrimeSide, int subsite, GlycosylationClass requiredClass)
+        private CleavageRequirement(bool isPrimeSide, int subsite, GlycosylationClass requiredClass, bool isForbidden)
         {
             IsPrimeSide = isPrimeSide;
             Subsite = subsite;
             RequiredClass = requiredClass;
+            IsForbidden = isForbidden;
         }
 
         /// <summary>
@@ -74,15 +75,46 @@ namespace Omics.Digestion
         /// A requirement on the NON-PRIME side, before the bond. <c>NonPrime(2, OLinked)</c> is StcE's:
         /// an O-glycan two residues before the cut.
         /// </summary>
+        /// <summary>
+        /// True when this condition FORBIDS the modification at its subsite rather than requiring it.
+        /// </summary>
+        /// <remarks>
+        /// <para>The two polarities are not redundant, and IMPa needs both at once: it cleaves N-terminal
+        /// to a glycosylated Ser/Thr (glycan REQUIRED at P1') but will not cut between two adjacent
+        /// glycosites (glycan FORBIDDEN at P1). A single protease-wide "this modification blocks this
+        /// enzyme" flag cannot say that -- it would block the very thing the enzyme requires -- which is
+        /// why the polarity lives on the subsite address rather than on the modification.</para>
+        ///
+        /// <para>This is also what separates IMPa from SmE on identical substrate: SmE cleaves
+        /// N-terminal to EVERY glycosylated Ser/Thr, IMPa refuses the bond whose P1 is itself
+        /// glycosylated. Truth-set IMPA-10 and SME-02 are that pair.</para>
+        /// </remarks>
+        public bool IsForbidden { get; }
+
         public static CleavageRequirement NonPrime(int subsite, GlycosylationClass requiredClass) =>
-            new(isPrimeSide: false, subsite, requiredClass);
+            new(isPrimeSide: false, subsite, requiredClass, isForbidden: false);
+
+        /// <summary>A modification of this class at the non-prime subsite ABOLISHES the cleavage.</summary>
+        public static CleavageRequirement NonPrimeForbidden(int subsite, GlycosylationClass forbiddenClass) =>
+            new(isPrimeSide: false, subsite, forbiddenClass, isForbidden: true);
+
+        /// <summary>A modification of this class at the prime subsite ABOLISHES the cleavage.</summary>
+        public static CleavageRequirement PrimeForbidden(int subsite, GlycosylationClass forbiddenClass) =>
+            new(isPrimeSide: true, subsite, forbiddenClass, isForbidden: true);
 
         /// <summary>
         /// A requirement on the PRIME side, after the bond. <c>Prime(1, OLinked)</c> is the OgpA family's:
         /// an O-glycan on the residue the cut exposes as a new N-terminus.
         /// </summary>
         public static CleavageRequirement Prime(int subsite, GlycosylationClass requiredClass) =>
-            new(isPrimeSide: true, subsite, requiredClass);
+            new(isPrimeSide: true, subsite, requiredClass, isForbidden: false);
+
+        /// <summary>
+        /// Whether this condition is met, given whether the subsite it addresses carries a modification
+        /// this condition recognises. A required condition needs one present; a forbidden one needs none.
+        /// </summary>
+        public bool IsConditionMet(bool subsiteCarriesMatchingModification) =>
+            IsForbidden ? !subsiteCarriesMatchingModification : subsiteCarriesMatchingModification;
 
         /// <summary>
         /// True when <paramref name="modification"/> is a glycan of the class this requirement demands.
@@ -105,6 +137,7 @@ namespace Omics.Digestion
         internal const string ProteaseModificationType = "Protease";
 
         public override string ToString() =>
-            "P" + Subsite + (IsPrimeSide ? "'" : string.Empty) + " requires " + RequiredClass;
+            "P" + Subsite + (IsPrimeSide ? "'" : string.Empty)
+            + (IsForbidden ? " forbids " : " requires ") + RequiredClass;
     }
 }

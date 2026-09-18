@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using MzLibUtil;
 
 namespace Omics.Digestion
@@ -27,16 +27,34 @@ namespace Omics.Digestion
         /// form every existing call site uses -- <see cref="ParseDigestionMotifsFromString"/>,
         /// ProteaseDictionary, RnaseDictionary and the test fixtures -- keeps compiling unchanged.
         /// </remarks>
-        public readonly CleavageRequirement CleavageRequirement;
+        public readonly IReadOnlyList<CleavageRequirement> CleavageRequirements;
+
+        /// <summary>True when this motif is satisfied by sequence alone, as every shipped motif but the
+        /// glycoproteases is.</summary>
+        public bool HasCleavageRequirement => CleavageRequirements is { Count: > 0 };
+
+        private static readonly CleavageRequirement[] NoRequirements = new CleavageRequirement[0];
 
         public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
             CleavageRequirement cleavageRequirement = null)
+            : this(inducingCleavage, preventingCleavage, cutIndex, excludeFromWildcard,
+                cleavageRequirement is null ? null : new[] { cleavageRequirement })
+        {
+        }
+
+        /// <param name="cleavageRequirements">
+        /// Every subsite condition this motif imposes, ALL of which must hold before the bond is severed.
+        /// A motif can need more than one: IMPa requires a glycan at P1' and forbids one at P1, and those
+        /// are two conditions on two different residues, not one rule with a sign.
+        /// </param>
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            IReadOnlyList<CleavageRequirement> cleavageRequirements)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
             this.ExcludeFromWildcard = excludeFromWildcard;
-            this.CleavageRequirement = cleavageRequirement;
+            this.CleavageRequirements = cleavageRequirements ?? NoRequirements;
         }
 
         // parsing cleavage rules syntax
@@ -156,13 +174,22 @@ namespace Omics.Digestion
                 prevents = true;
                 for (int n = 0; n < PreventingCleavage.Length && prevents; n++)
                 {
-                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + n < 0)
+                    // Only the index actually read may be bounds-checked. Checking both, as this did,
+                    // silently abandons the prevention whenever the OTHER end of the sequence is near --
+                    // so a cut-after motif at position 0 never prevented anything, and shipped trypsin|P
+                    // digested RPAAAAK into "R" + "PAAAAK", making the very R|P cut it exists to forbid.
+                    // A cut-before motif has the mirror hazard at the C-terminus.
+                    int preventingIndex = CutIndex != 0
+                        ? location + m + n
+                        : location - PreventingCleavage.Length + n;
+
+                    if (preventingIndex < 0 || preventingIndex >= sequence.Length)
                     {
                         prevents = false;
                     }
                     else
                     {
-                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + n];
+                        currentResidue = sequence[preventingIndex];
                         if (!MotifMatches(PreventingCleavage[n], currentResidue))
                         {
                             prevents = false;

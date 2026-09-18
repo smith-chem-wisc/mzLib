@@ -1,4 +1,4 @@
-using MzLibUtil;
+﻿using MzLibUtil;
 using Omics.Modifications;
 
 namespace Omics.Digestion
@@ -72,7 +72,7 @@ namespace Omics.Digestion
 
                 foreach (DigestionMotif motif in DigestionMotifs)
                 {
-                    if (motif?.CleavageRequirement is not null)
+                    if (motif is not null && motif.HasCleavageRequirement)
                     {
                         return true;
                     }
@@ -165,24 +165,35 @@ namespace Omics.Digestion
                     continue;
                 }
 
-                if (motif.CleavageRequirement is null)
+                // EVERY condition this motif imposes has to be satisfiable at once. A motif with none is
+                // satisfied by sequence alone and justifies the cut outright.
+                bool everyConditionCouldHold = true;
+                foreach (CleavageRequirement requirement in motif.CleavageRequirements)
                 {
-                    return true;
+                    // A FORBIDDEN condition is always satisfiable at site-finding time: the residue can
+                    // simply be unoccupied, and whether it is in a particular peptidoform is an occupancy
+                    // question that belongs downstream. Treating it as infeasible here would delete the
+                    // site outright and with it every peptide either side of it.
+                    if (requirement.IsForbidden)
+                    {
+                        continue;
+                    }
+
+                    // Subsites count outward from the bond, which falls after cutAfterOneBasedResidue:
+                    // Pk is (cut - k + 1) and Pk' is (cut + k), both one-based in the parent.
+                    int constrainedResidue = requirement.IsPrimeSide
+                        ? cutAfterOneBasedResidue + requirement.Subsite
+                        : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+                    if (constrainedResidue < 1 || constrainedResidue > sequence.Length
+                        || !CouldCarrySatisfyingModification(requirement, constrainedResidue, sequence, parent, configuredModifications))
+                    {
+                        everyConditionCouldHold = false;
+                        break;
+                    }
                 }
 
-                // Subsites count outward from the bond, which falls after cutAfterOneBasedResidue:
-                // Pk is (cut - k + 1) and Pk' is (cut + k), both one-based in the parent.
-                CleavageRequirement requirement = motif.CleavageRequirement;
-                int constrainedResidue = requirement.IsPrimeSide
-                    ? cutAfterOneBasedResidue + requirement.Subsite
-                    : cutAfterOneBasedResidue - requirement.Subsite + 1;
-
-                if (constrainedResidue < 1 || constrainedResidue > sequence.Length)
-                {
-                    continue;
-                }
-
-                if (CouldCarrySatisfyingModification(requirement, constrainedResidue, sequence, parent, configuredModifications))
+                if (everyConditionCouldHold)
                 {
                     return true;
                 }
