@@ -49,6 +49,69 @@ namespace Test.FlashLFQ
         }
 
         [Test]
+        public static void TestRnaModeTheoreticalIsotopeDistribution()
+        {
+            // RNA is quantified in negative mode with negative charge states. With RnaMode on, the
+            // theoretical isotope distribution must be built from the ribonucleotide formula, not the
+            // amino-acid one, and the peak-finding (most abundant) mass must be set accordingly.
+            var rna = new global::Transcriptomics.RNA("GUACGUACGUAC");
+            double monoMass = rna.MonoisotopicMass;
+
+            SpectraFileInfo file = new SpectraFileInfo("rna.mzML", "a", 0, 0, 0);
+            var id = new Identification(file, "GUACGUACGUAC", "GUACGUACGUAC", monoMass, 5.0, -3,
+                new List<ProteinGroup>());
+
+            var rnaParams = new FlashLfqParameters { RnaMode = true, MaxThreads = 1 };
+            var engine = new FlashLfqEngine(rnaParams, new List<Identification> { id });
+            engine.CalculateTheoreticalIsotopeDistributions();
+
+            // distribution was built and contains the normalized (most abundant) isotope
+            Assert.IsTrue(engine.ModifiedSequenceToIsotopicDistribution.ContainsKey("GUACGUACGUAC"));
+            var distribution = engine.ModifiedSequenceToIsotopicDistribution["GUACGUACGUAC"];
+            Assert.IsTrue(distribution.Any(p => p.normalizedAbundance == 1.0));
+
+            // the peak-finding mass equals mono mass plus the most-abundant-isotope shift computed from
+            // the RNA formula's true isotopic envelope
+            double mostAbundantShift = distribution.First(p => p.normalizedAbundance == 1.0).massShift;
+            Assert.AreEqual(monoMass + mostAbundantShift, id.PeakfindingMass, 1e-6);
+
+            var trueEnvelope = IsotopicDistribution.GetDistribution(rna.GetChemicalFormula(), 0.125, 1e-8);
+            double trueMostAbundantMass = trueEnvelope.Masses
+                .Zip(trueEnvelope.Intensities, (m, i) => (m, i))
+                .OrderByDescending(x => x.i).First().m;
+            Assert.AreEqual(trueMostAbundantMass, id.PeakfindingMass, 0.02);
+        }
+
+        [Test]
+        public static void TestRnaAveraginePathForUnparsableSequence()
+        {
+            // A sequence that is not valid RNA falls back to the ribonucleotide averagine. The
+            // distribution must still be built without throwing (RNA construction would throw here).
+            SpectraFileInfo file = new SpectraFileInfo("rna.mzML", "a", 0, 0, 0);
+            var id = new Identification(file, "ZZZZ", "ZZZZ", 3800.5, 5.0, -4, new List<ProteinGroup>());
+
+            var rnaParams = new FlashLfqParameters { RnaMode = true, MaxThreads = 1 };
+            var engine = new FlashLfqEngine(rnaParams, new List<Identification> { id });
+
+            Assert.DoesNotThrow(() => engine.CalculateTheoreticalIsotopeDistributions());
+            Assert.IsTrue(engine.ModifiedSequenceToIsotopicDistribution["ZZZZ"].Any(p => p.normalizedAbundance == 1.0));
+            Assert.Greater(id.PeakfindingMass, 0);
+        }
+
+        [Test]
+        public static void TestIsotopicEnvelopeNegativeChargeYieldsPositiveIntensity()
+        {
+            // Dividing the summed intensity by a negative charge state used to produce a negative
+            // intensity for RNA. The magnitude of the charge must be used instead.
+            var peak = new IndexedMassSpectralPeak(500, 1000, 0, 5.0);
+            var envelope = new IsotopicEnvelope(peak, -3, 3000, 0.99);
+
+            Assert.Greater(envelope.Intensity, 0);
+            Assert.AreEqual(1000, envelope.Intensity, 1e-9);
+            Assert.AreEqual(-3, envelope.ChargeState);
+        }
+
+        [Test]
         public static void TestFlashLfq()
         {
             // get the raw file paths

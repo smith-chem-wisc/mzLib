@@ -148,7 +148,10 @@ namespace FlashLFQ
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
-            int? randomSeed = null) :
+            int? randomSeed = null,
+
+            // RNA settings
+            bool rnaMode = false) :
             this(
                 new FlashLfqParameters()
                 {
@@ -160,6 +163,7 @@ namespace FlashLFQ
                     QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides,
                     Silent = silent,
                     MaxThreads = maxThreads,
+                    RnaMode = rnaMode,
                     Normalize = normalize,
                     IsoTracker = isoTracker,
                     IsoTrackerIdFilter = new IsoTrackerIdFilter(motifsList),
@@ -352,19 +356,14 @@ namespace FlashLFQ
         {
             ModifiedSequenceToIsotopicDistribution = new Dictionary<string, List<(double, double)>>();
 
-            // calculate averagine (used for isotopic distributions for unknown modifications)
-            double averageC = 4.9384;
-            double averageH = 7.7583;
-            double averageO = 1.4773;
-            double averageN = 1.3577;
-            double averageS = 0.0417;
-
-            double averagineMass =
-                PeriodicTable.GetElement("C").AverageMass * averageC +
-                PeriodicTable.GetElement("H").AverageMass * averageH +
-                PeriodicTable.GetElement("O").AverageMass * averageO +
-                PeriodicTable.GetElement("N").AverageMass * averageN +
-                PeriodicTable.GetElement("S").AverageMass * averageS;
+            // Reuse the shared averagine models rather than hardcoding compositions here: the amino-acid
+            // averagine for peptides, the ribonucleotide averagine for RNA. The per-residue composition is
+            // scaled by mass to approximate a chemical formula when the exact formula/sequence is missing.
+            Dictionary<char, double> averagineComposition = FlashParams.RnaMode
+                ? new OxyriboAveragine().GetAverageChemicalFormula()
+                : new Averagine().GetAverageChemicalFormula();
+            double averagineMass = averagineComposition
+                .Sum(kvp => PeriodicTable.GetElement(kvp.Key.ToString()).AverageMass * kvp.Value);
 
             // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
@@ -381,33 +380,21 @@ namespace FlashLFQ
                 if(formula is null)
                 {
                     formula = new ChemicalFormula();
-                    if (id.BaseSequence.AllSequenceResiduesAreValid())
+                    if (SequenceResiduesAreValid(id.BaseSequence))
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
-                        formula = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
+                        formula = GetChemicalFormulaFromSequence(id.BaseSequence);
                         double massDiff = id.MonoisotopicMass;
                         massDiff -= formula.MonoisotopicMass;
 
                         if (Math.Abs(massDiff) > 20)
                         {
-                            double averagines = massDiff / averagineMass;
-
-                            formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                            formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                            formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                            formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                            formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                            AddAveragineToFormula(formula, massDiff, averagineComposition, averagineMass);
                         }
                     }
                     else
                     {
-                        double averagines = id.MonoisotopicMass / averagineMass;
-
-                        formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                        formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                        formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                        formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                        formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                        AddAveragineToFormula(formula, id.MonoisotopicMass, averagineComposition, averagineMass);
                     }
                 }
 
@@ -457,6 +444,52 @@ namespace FlashLFQ
                 {
                     identification.PeakfindingMass = identification.MonoisotopicMass + mostAbundantIsotopeShift;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Checks whether every residue in a base sequence is a known amino acid (peptide mode) or
+        /// nucleotide (RNA mode), so that it can be converted to a chemical formula without throwing.
+        /// </summary>
+        private bool SequenceResiduesAreValid(string baseSequence)
+        {
+            if (string.IsNullOrEmpty(baseSequence))
+            {
+                return false;
+            }
+
+            if (FlashParams.RnaMode)
+            {
+                return baseSequence.All(c => Transcriptomics.Nucleotide.TryGetResidue(c, out _));
+            }
+
+            return baseSequence.AllSequenceResiduesAreValid();
+        }
+
+        /// <summary>
+        /// Converts a (validated) base sequence into a chemical formula using the amino acid polymer
+        /// in peptide mode or the RNA polymer in <see cref="FlashLfqParameters.RnaMode"/>.
+        /// </summary>
+        private ChemicalFormula GetChemicalFormulaFromSequence(string baseSequence)
+        {
+            return FlashParams.RnaMode
+                ? new Transcriptomics.RNA(baseSequence).GetChemicalFormula()
+                : new Proteomics.AminoAcidPolymer.Peptide(baseSequence).GetChemicalFormula();
+        }
+
+        /// <summary>
+        /// Approximates <paramref name="mass"/> daltons of an unknown species by adding averagine atoms
+        /// to <paramref name="formula"/>, scaling the per-residue <paramref name="averagineComposition"/>
+        /// (from <see cref="Averagine"/> / <see cref="OxyriboAveragine"/>) by the number of averagine
+        /// residues that make up the mass and rounding each element to the nearest whole atom.
+        /// </summary>
+        private static void AddAveragineToFormula(ChemicalFormula formula, double mass,
+            Dictionary<char, double> averagineComposition, double averagineMass)
+        {
+            double averagines = mass / averagineMass;
+            foreach (var (element, countPerAveragine) in averagineComposition)
+            {
+                formula.Add(element.ToString(), (int)Math.Round(averagines * countPerAveragine, 0));
             }
         }
 
