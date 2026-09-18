@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Omics.Digestion;
 using Omics.Modifications;
 
@@ -54,6 +55,20 @@ namespace Proteomics.ProteolyticDigestion
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
+
+            // Hoisted out of the pattern loop: none of these can change between peptidoforms of the same
+            // peptide, and the loop below is the ~8.8-billion-call hot path.
+            //
+            // There is deliberately no "can anything satisfy the requirement" gate -- see ProteinDigestion
+            // for why the promoting correction must NOT go inert when nothing configured can satisfy it.
+            List<Modification> configuredModifications = (variableModifications ?? Enumerable.Empty<Modification>())
+                .Concat(allKnownFixedModifications ?? Enumerable.Empty<Modification>())
+                .ToList();
+            bool respectCleavageRequirements = digestionParams.RespectCleavagePromotingModifications
+                && digestionParams.SearchModeType == CleavageSpecificity.Full
+                && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
+                && digestionParams.DigestionAgent is not null
+                && digestionParams.DigestionAgent.HasCleavageRequirement;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
@@ -125,11 +140,9 @@ namespace Proteomics.ProteolyticDigestion
                     // needs a bound on how many feasible-but-unoccupied sites a peptidoform can contain,
                     // which is follow-up work. Until then this gate is exact when the required glycan is
                     // localized in the database and conservative when it is variable.
-                    if (digestionParams.RespectCleavagePromotingModifications
-                        && digestionParams.SearchModeType == CleavageSpecificity.Full
-                        && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
+                    if (respectCleavageRequirements
                         && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
-                            digestionParams.DigestionAgent))
+                            digestionParams.DigestionAgent, configuredModifications))
                     {
                         continue;
                     }

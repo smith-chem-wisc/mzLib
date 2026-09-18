@@ -84,7 +84,7 @@ namespace Omics.Digestion
         /// ending at the last residue, got that terminus from the sequence ending, not from the agent.</para>
         /// </remarks>
         protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
-            int productLength, DigestionAgent agent)
+            int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications = null)
         {
             // Nothing configured can require anything, so nothing can be unreachable. This gate is what
             // keeps an ordinary tryptic digest from paying for a feature it cannot use.
@@ -95,16 +95,28 @@ namespace Omics.Digestion
 
             string parentSequence = Parent.BaseSequence;
 
+            // Removing the initiator methionine is not a proteolytic cut, so the N-terminus of a peptide
+            // that starts at residue 2 of a sequence beginning with Met was not produced by the agent and
+            // must not be asked to justify itself. Without this exemption every initiator-cleaved form is
+            // deleted -- for a glycoprotease that is HALF of all N-terminal peptidoforms, dropped silently
+            // and with no read-through to replace them.
+            bool startedAtInitiatorMethionineRemoval = OneBasedStartResidue == 2
+                && parentSequence.Length > 0
+                && parentSequence[0] == 'M';
+
             // A cut severs the bond AFTER the residue that names it, so the cut at this peptide's
             // N-terminus falls after the residue preceding it.
             if (OneBasedStartResidue > 1
-                && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, productLength, agent))
+                && !startedAtInitiatorMethionineRemoval
+                && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, productLength, agent,
+                    configuredModifications))
             {
                 return true;
             }
 
             if (OneBasedEndResidue < parentSequence.Length
-                && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, productLength, agent))
+                && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, productLength, agent,
+                    configuredModifications))
             {
                 return true;
             }
@@ -122,7 +134,8 @@ namespace Omics.Digestion
         /// begins <see cref="DigestionMotif.CutIndex"/> residues earlier.
         /// </param>
         private bool AnyMotifJustifies(int cutAfterOneBasedResidue, string parentSequence,
-            Dictionary<int, Modification> variableModPattern, int productLength, DigestionAgent agent)
+            Dictionary<int, Modification> variableModPattern, int productLength, DigestionAgent agent,
+            IEnumerable<Modification> configuredModifications)
         {
             foreach (DigestionMotif motif in agent.DigestionMotifs)
             {
@@ -149,7 +162,8 @@ namespace Omics.Digestion
                 }
 
                 if (motif.CleavageRequirement is null
-                    || RequirementIsMet(motif.CleavageRequirement, cutAfterOneBasedResidue, variableModPattern, productLength))
+                    || RequirementIsMet(motif.CleavageRequirement, cutAfterOneBasedResidue, variableModPattern, productLength,
+                        configuredModifications))
                 {
                     return true;
                 }
@@ -163,7 +177,8 @@ namespace Omics.Digestion
         /// product, could carry -- a modification of the required class.
         /// </summary>
         private bool RequirementIsMet(CleavageRequirement requirement, int cutAfterOneBasedResidue,
-            Dictionary<int, Modification> variableModPattern, int productLength)
+            Dictionary<int, Modification> variableModPattern, int productLength,
+            IEnumerable<Modification> configuredModifications)
         {
             // Subsites count outward from the severed bond: P1 is the residue before it, P1' the one
             // after. The bond falls after cutAfterOneBasedResidue, so Pk is (cut - k + 1) and Pk' is
@@ -194,10 +209,37 @@ namespace Omics.Digestion
             // Outside this product, in a neighbour: fall back to whether the parent could ever carry a
             // satisfying modification there. See the caller's remarks for why this is feasibility rather
             // than occupancy.
-            return Parent.OneBasedPossibleLocalizedModifications is not null
+            //
+            // BOTH sources are consulted, for the same reason the site-list filter consults both. A search
+            // supplying the glycan as a variable modification against an unannotated database has nothing
+            // in OneBasedPossibleLocalizedModifications, so an annotation-only test answers "impossible"
+            // for every cut whose constrained residue sits in the neighbouring product -- and silently
+            // deletes every peptide lying C-terminal to a glycan-justified cut.
+            if (Parent.OneBasedPossibleLocalizedModifications is not null
                 && Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
                 && candidates is not null
-                && candidates.Any(requirement.IsSatisfiedBy);
+                && candidates.Any(requirement.IsSatisfiedBy))
+            {
+                return true;
+            }
+
+            if (configuredModifications is null)
+            {
+                return false;
+            }
+
+            string parentSequence = Parent.BaseSequence;
+            foreach (Modification configured in configuredModifications)
+            {
+                if (requirement.IsSatisfiedBy(configured)
+                    && ModificationLocalization.ModFits(configured, parentSequence, constrainedResidue,
+                        parentSequence.Length, constrainedResidue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         #endregion

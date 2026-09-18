@@ -54,6 +54,15 @@ namespace Proteomics.ProteolyticDigestion
         /// <see cref="Modification.BlocksCleavage"/> reads against the motif list, per protein, and only
         /// on the path where the flag is already on.
         /// </remarks>
+        /// <summary>
+        /// Every modification this digestion could place: the variable list and the fixed list together.
+        /// Materialised once per call because the feasibility filter walks it per candidate site.
+        /// </summary>
+        private List<Modification> ConfiguredModifications =>
+            (VariableModifications ?? Enumerable.Empty<Modification>())
+                .Concat(AllKnownFixedModifications ?? Enumerable.Empty<Modification>())
+                .ToList();
+
         private bool AnyConfiguredModificationCanBlockCleavage =>
             (VariableModifications ?? Enumerable.Empty<Modification>())
                 .Concat(AllKnownFixedModifications ?? Enumerable.Empty<Modification>())
@@ -378,11 +387,21 @@ namespace Proteomics.ProteolyticDigestion
             // really had, so the replacement is just the ordinary peptide between the sites that remain --
             // no slack, provided the impossible sites never enter the enumeration. That is what the
             // feasibility filter inside FullDigestion does, and why this is a flag rather than a budget.
+            //
+            // There is deliberately NO "can anything satisfy the requirement" gate here, and the absence
+            // is load-bearing. It would be the natural mirror of the blocking gate above, but the two
+            // corrections are not symmetric: a blocking modification that is not configured cannot remove
+            // a site the sequence really has, whereas a promoting requirement that nothing can satisfy
+            // means the protease genuinely has no site to cut. Adding the gate makes a glycoprotease
+            // digest a bare protein, which is exactly what the published unglycosylated controls say does
+            // not happen (truth-set STCE-03, IMPA-12, OGPA-07). Returning almost nothing is the correct
+            // enzymology; see RespectCleavagePromotingModifications for the precondition that implies.
+            var configuredModifications = ConfiguredModifications;
             bool respectCleavageRequirements = DigestionParams.RespectCleavagePromotingModifications
                 && DigestionParams.SearchModeType == CleavageSpecificity.Full
                 && Protease.HasCleavageRequirement;
 
-            return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch, respectCleavageRequirements);
+            return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch, respectCleavageRequirements, configuredModifications);
         }
     }
 }

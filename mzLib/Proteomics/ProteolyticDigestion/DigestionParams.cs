@@ -128,13 +128,34 @@ namespace Proteomics.ProteolyticDigestion
         /// reproduces the historical (modification-blind) digestion exactly.
         /// </summary>
         /// <remarks>
-        /// The mirror of <see cref="RespectCleavageBlockingModifications"/>, and gated the same way:
+        /// <para><b>PRECONDITION: the glycan must be somewhere digestion can see it.</b> The requirement
+        /// is evaluated against the modifications available at digestion time -- those the database
+        /// annotates on the protein, and those the search configures as fixed or variable. Either source
+        /// will do, and they are both consulted. But if NEITHER carries a modification that can satisfy
+        /// the requirement, then no cut anywhere is justified and the protein comes back essentially
+        /// undigested.</para>
+        ///
+        /// <para>That is the correct answer, not a defect: StcE, OpeRATOR and IMPa demonstrably do not
+        /// cleave unglycosylated substrate, and returning the intact substrate is what the published
+        /// unglycosylated controls describe. It does mean the flag must not be set by a workflow that
+        /// resolves the glycan AFTER identification rather than placing it at digestion -- a glyco search,
+        /// where the glycan enters as a precursor-mass offset and is localized against fragment ions, has
+        /// no glycan in the digestion's view at all and would simply lose its peptides. For that workflow
+        /// the requirement has to constrain localization instead, which this flag does not do.</para>
+        ///
+        /// <para>The mirror of <see cref="RespectCleavageBlockingModifications"/>, and gated the same way:
         /// full-specificity searches only. The two corrections move in opposite directions. Blocking
         /// removes a site the bare sequence had, so it needs generation SLACK to reach the read-through
-        /// peptide that replaces what it drops. Promoting removes a site the bare sequence never really
-        /// had, so it needs no slack at all -- the peptides it keeps are a SUBSET of the ones the
-        /// sequence-only motif already generated. That asymmetry is why this flag can be honoured with
-        /// a filter alone.
+        /// peptide that replaces what it drops. Promoting works in two stages instead. The first removes
+        /// sites at which the required modification could never be present, before enumeration, and needs
+        /// no slack: the read-through across a site that is not a site is just the ordinary peptide
+        /// between the sites that remain. The second refines OCCUPANCY per peptidoform, and it does NOT
+        /// yet have a read-through -- a peptidoform whose cut is feasible but unoccupied is dropped with
+        /// nothing generated to replace it (truth-set case STCE-08). Note that the two corrections are
+        /// therefore NOT symmetric in one further respect: an unconfigured blocking modification cannot
+        /// remove a site the sequence really has, whereas an unsatisfiable promoting requirement means
+        /// there is genuinely no site -- which is why this flag has no "nothing configured, go inert"
+        /// escape and must not be given one.</para>
         ///
         /// Scope: like its sibling, this applies to full-specificity searches only. A semi or
         /// nonspecific search is left exactly as it was. There the peptide's termini are not all

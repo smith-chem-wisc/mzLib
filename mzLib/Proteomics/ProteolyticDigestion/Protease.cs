@@ -78,7 +78,7 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         internal IEnumerable<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
             int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false,
-            bool respectCleavageRequirements = false)
+            bool respectCleavageRequirements = false, IEnumerable<Modification> configuredModifications = null)
         {
             return CleavageSpecificity switch
             {
@@ -92,7 +92,7 @@ namespace Proteomics.ProteolyticDigestion
                 CleavageSpecificity.None => TopDownDigestion(protein, initiatorMethionineBehavior, minPeptideLength, maxPeptideLength, topDownTruncationSearch),
 
                 // Full proteolytic cleavage
-                CleavageSpecificity.Full => FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength, respectCleavageRequirements),
+                CleavageSpecificity.Full => FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength, respectCleavageRequirements, configuredModifications),
 
                 // Cleavage rules for semi-specific search
                 CleavageSpecificity.Semi => SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
@@ -151,7 +151,8 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
         private IEnumerable<ProteolyticPeptide> FullDigestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, bool respectCleavageRequirements = false)
+            int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, bool respectCleavageRequirements = false,
+            IEnumerable<Modification> configuredModifications = null)
         {
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
 
@@ -161,7 +162,7 @@ namespace Proteomics.ProteolyticDigestion
             // is simply the ordinary peptide between the sites that remain, and needs no generation slack.
             if (respectCleavageRequirements)
             {
-                oneBasedIndicesToCleaveAfter = FilterToFeasibleCleavageSites(oneBasedIndicesToCleaveAfter, protein);
+                oneBasedIndicesToCleaveAfter = FilterToFeasibleCleavageSites(oneBasedIndicesToCleaveAfter, protein, configuredModifications);
             }
             char firstResidueInProtein = protein[0];
 

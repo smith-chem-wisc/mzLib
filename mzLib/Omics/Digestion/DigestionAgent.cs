@@ -105,7 +105,8 @@ namespace Omics.Digestion
         /// they are always kept: removing them would discard the peptide that runs to the end of the
         /// protein.</para>
         /// </remarks>
-        public List<int> FilterToFeasibleCleavageSites(List<int> oneBasedIndicesToCleaveAfter, IBioPolymer parent)
+        public List<int> FilterToFeasibleCleavageSites(List<int> oneBasedIndicesToCleaveAfter, IBioPolymer parent,
+            IEnumerable<Modification> configuredModifications = null)
         {
             if (!HasCleavageRequirement || oneBasedIndicesToCleaveAfter is null || parent is null)
             {
@@ -126,7 +127,7 @@ namespace Omics.Digestion
                     continue;
                 }
 
-                if (AnyMotifCouldJustify(site, sequence, parent))
+                if (AnyMotifCouldJustify(site, sequence, parent, configuredModifications))
                 {
                     feasible.Add(site);
                 }
@@ -140,7 +141,8 @@ namespace Omics.Digestion
         /// there. A motif carrying no requirement justifies any cut it matches, which is what lets a
         /// composite agent keep cutting at its ordinary sequence motifs.
         /// </summary>
-        private bool AnyMotifCouldJustify(int cutAfterOneBasedResidue, string sequence, IBioPolymer parent)
+        private bool AnyMotifCouldJustify(int cutAfterOneBasedResidue, string sequence, IBioPolymer parent,
+            IEnumerable<Modification> configuredModifications)
         {
             foreach (DigestionMotif motif in DigestionMotifs)
             {
@@ -180,10 +182,57 @@ namespace Omics.Digestion
                     continue;
                 }
 
-                if (parent.OneBasedPossibleLocalizedModifications is not null
-                    && parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
-                    && candidates is not null
-                    && candidates.Any(requirement.IsSatisfiedBy))
+                if (CouldCarrySatisfyingModification(requirement, constrainedResidue, sequence, parent, configuredModifications))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when a modification satisfying <paramref name="requirement"/> could occupy
+        /// <paramref name="constrainedResidue"/> -- either because the database annotates one there, or
+        /// because the search configures one that fits there.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Both sources have to be consulted, and consulting only the first is a real defect.</b>
+        /// Database annotations answer "this protein is known to be glycosylated here"; configured variable
+        /// and fixed modifications answer "this search is willing to place a glycan wherever it fits". A
+        /// search supplying an O-glycan as a variable modification against an unannotated database -- the
+        /// ordinary MetaMorpheus configuration -- has every motif site feasible, and judging it on
+        /// annotations alone found none of them, filtered away every site, and returned the undigested
+        /// protein as the only product. The protease was silently switched off.</para>
+        ///
+        /// <para>Feasibility from a configured modification is deliberately weak: a variable modification
+        /// that fits anywhere makes every site feasible, so the filter stops discriminating and the
+        /// per-peptidoform occupancy check downstream does the work instead. That is the correct division --
+        /// "could be anywhere" genuinely is no constraint on the site list -- and it is why this filter
+        /// bites hardest exactly where the evidence is strongest, on a database with localized glycosites.</para>
+        /// </remarks>
+        private static bool CouldCarrySatisfyingModification(CleavageRequirement requirement, int constrainedResidue,
+            string sequence, IBioPolymer parent, IEnumerable<Modification> configuredModifications)
+        {
+            if (parent.OneBasedPossibleLocalizedModifications is not null
+                && parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
+                && candidates is not null
+                && candidates.Any(requirement.IsSatisfiedBy))
+            {
+                return true;
+            }
+
+            if (configuredModifications is null)
+            {
+                return false;
+            }
+
+            foreach (Modification configured in configuredModifications)
+            {
+                // The whole parent is passed as the "product" because this asks whether the modification
+                // could ever sit at this residue of this sequence, not whether it sits on some peptide.
+                if (requirement.IsSatisfiedBy(configured)
+                    && ModificationLocalization.ModFits(configured, sequence, constrainedResidue, sequence.Length, constrainedResidue))
                 {
                     return true;
                 }

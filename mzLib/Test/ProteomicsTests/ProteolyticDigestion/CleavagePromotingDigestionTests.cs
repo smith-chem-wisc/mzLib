@@ -6,6 +6,7 @@ using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
+using CollectionAssert = NUnit.Framework.Legacy.CollectionAssert;
 
 namespace Test.ProteomicsTests.ProteolyticDigestion
 {
@@ -82,7 +83,8 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         private static List<string> Digest(string sequence, string proteaseName, bool respectPromoting,
-            IDictionary<int, List<Modification>> localizedMods = null)
+            IDictionary<int, List<Modification>> localizedMods = null, List<Modification> variableMods = null,
+            InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Retain)
         {
             var protein = localizedMods is null
                 ? new Protein(sequence, "TEST")
@@ -92,14 +94,14 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 protease: proteaseName,
                 maxMissedCleavages: 0,
                 minPeptideLength: 1,
-                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                initiatorMethionineBehavior: initiatorMethionineBehavior,
                 respectCleavagePromotingModifications: respectPromoting);
 
             // DISTINCT BASE sequences, not full sequences. A localized modification makes the generator
             // emit the same peptide twice, once carrying it and once not, so counting peptidoforms would
             // conflate "the protease made a second cut" with "the same peptide has two glycoforms" --
             // and those are the two things these tests exist to tell apart.
-            return protein.Digest(parameters, new List<Modification>(), new List<Modification>())
+            return protein.Digest(parameters, new List<Modification>(), variableMods ?? new List<Modification>())
                 .Select(p => p.BaseSequence)
                 .Distinct()
                 .OrderBy(s => s, System.StringComparer.Ordinal)
@@ -291,6 +293,81 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.AreEqual(1, products.Count);
             Assert.AreEqual("AHGVTSAPDTRK", products[0],
                 "the intact protein must survive: neither of its termini is a protease cut");
+        }
+        // ---------------------------------------------------------------------------------------
+        // Where the glycan may come from, and what happens when it comes from nowhere
+        // ---------------------------------------------------------------------------------------
+
+        [Test]
+        public static void AVariableModificationMakesASiteFeasibleWithNoDatabaseAnnotation()
+        {
+            // THE CONFIGURATION THAT BROKE. Feasibility used to be judged only against the database's
+            // localized modifications, so a search that supplied the glycan as a VARIABLE modification --
+            // the ordinary way to look for O-glycopeptides in MetaMorpheus -- found no annotated glycosite
+            // anywhere, judged every site infeasible, filtered the whole site list away, and returned the
+            // undigested protein as the only product. The protease was silently switched off.
+            //
+            // On the parent commit this returns exactly one backbone. Both sources of the modification
+            // have to be consulted: the database says "known to be glycosylated here", the configured
+            // variable modification says "willing to place a glycan wherever it fits".
+            GlycanAwareStcE("StcE-req-varmod");
+
+            List<string> withVariableGlycan = Digest("RPPITQSSL", "StcE-req-varmod", respectPromoting: true,
+                variableMods: new List<Modification> { OGlycan() });
+
+            CollectionAssert.Contains(withVariableGlycan, "RPPITQ",
+                "a variable O-glycan fits Thr5, so the StcE site is feasible and the cut must be made");
+            CollectionAssert.Contains(withVariableGlycan, "SSL",
+                "the C-terminal product must survive too: its N-terminal cut is justified by a glycan "
+                + "lying in the NEIGHBOURING product, which the out-of-product fallback has to allow for");
+        }
+
+        [Test]
+        public static void WithNothingAbleToCarryTheGlycanTheGlycoproteaseDoesNotCleave()
+        {
+            // Pinned deliberately, because the obvious "make it inert" "fix" is wrong and was tried.
+            //
+            // It is tempting to read the previous test's failure as "the feature must go inert when no
+            // glycan is configured" and add a gate mirroring ProteinDigestion's
+            // AnyConfiguredModificationCanBlockCleavage. That gate breaks the enzymology: StcE, OpeRATOR
+            // and IMPa demonstrably do NOT cleave unglycosylated substrate, which is what the truth set's
+            // unglycosylated controls (STCE-03, IMPA-12, OGPA-07) encode. The two corrections are not
+            // symmetric -- an unconfigured BLOCKING modification cannot remove a site the sequence really
+            // has, but an unsatisfiable PROMOTING requirement means there is genuinely no site.
+            //
+            // So returning almost nothing here is the correct answer, not a defect. What it implies is a
+            // PRECONDITION on the flag: a search that turns it on must put the glycan somewhere digestion
+            // can see -- annotated in the database or configured as a modification. A glyco search, where
+            // the glycan is resolved after identification and never reaches digestion at all, satisfies
+            // neither and must not turn the flag on.
+            GlycanAwareStcE("StcE-req-noglycan");
+
+            List<string> nothingConfigured = Digest("RPPITQSSL", "StcE-req-noglycan", respectPromoting: true);
+
+            CollectionAssert.AreEqual(new[] { "RPPITQSSL" }, nothingConfigured,
+                "with no glycan reachable at all there is no justifiable StcE site, so the substrate "
+                + "stays intact -- the published unglycosylated-control result");
+        }
+
+        [Test]
+        public static void RemovingTheInitiatorMethionineIsNotAProteaseCut()
+        {
+            // A peptide starting at residue 2 of a Met-initiated sequence got that N-terminus from
+            // initiator-methionine removal, not from the protease, so demanding a glycan justify it is a
+            // category error. It silently deleted every initiator-cleaved form -- for a glycoprotease,
+            // half of all N-terminal peptidoforms -- with no read-through to replace them.
+            GlycanAwareStcE("StcE-req-initmet");
+
+            var glycanAtThr6 = new Dictionary<int, List<Modification>> { { 6, new List<Modification> { OGlycan() } } };
+
+            List<string> products = Digest("MRPPITQSSL", "StcE-req-initmet", respectPromoting: true,
+                localizedMods: glycanAtThr6, variableMods: new List<Modification> { OGlycan() },
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Variable);
+
+            CollectionAssert.Contains(products, "RPPITQ",
+                "the initiator-cleaved form must survive: its N-terminus is not a protease cut");
+            CollectionAssert.Contains(products, "MRPPITQ",
+                "and so must the Met-retained form, whose N-terminus is the protein's own");
         }
     }
 }
