@@ -306,7 +306,9 @@ namespace MassSpectrometry.MzSpectra
             {
                 return null;
             }
-            return 1 - 2 * Math.Acos((double)CosineSimilarity()) / Math.PI;
+            // Floating-point rounding can put the cosine of identical vectors a hair above 1 (or of opposite ones
+            // below -1), where Math.Acos returns NaN. Clamp to acos's domain.
+            return 1 - 2 * Math.Acos(Math.Clamp((double)CosineSimilarity(), -1.0, 1.0)) / Math.PI;
         }
 
         public double? EuclideanDistance()
