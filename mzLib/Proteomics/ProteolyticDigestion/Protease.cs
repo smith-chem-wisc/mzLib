@@ -166,7 +166,25 @@ namespace Proteomics.ProteolyticDigestion
             }
             char firstResidueInProtein = protein[0];
 
-            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
+            // The second half of the promoting correction needs generation slack, and for the opposite
+            // reason to the filter above. The filter removes sites that can never be real, so the peptide
+            // spanning them is the ordinary one between the sites that remain and costs nothing extra. A
+            // site that survives the filter is feasible but may still be UNOCCUPIED in a given
+            // peptidoform, and there the protease could not have cut either -- so the read-through across
+            // it is a real peptide carrying one fewer real missed cleavage than its span suggests. At the
+            // caller's budget it was never enumerated, which is why the unglycosylated form of a
+            // glycoprotease substrate used to vanish instead of surviving intact (truth-set STCE-08).
+            //
+            // Slack buys those spans; ProteolyticPeptide then discounts the unoccupied sites back out of
+            // the reported count and drops anything still over budget, so the slack cannot leak into the
+            // output as peptides claiming more missed cleavages than were asked for.
+            int generationMissedCleavages = maximumMissedCleavages;
+            if (respectCleavageRequirements)
+            {
+                generationMissedCleavages += MaximumInternalSitesInOnePeptide(oneBasedIndicesToCleaveAfter, maxPeptideLength);
+            }
+
+            for (int missedCleavages = 0; missedCleavages <= generationMissedCleavages; missedCleavages++)
             {
                 for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {

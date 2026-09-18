@@ -158,10 +158,62 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
             List<string> products = Digest("RPPITQSSL", "StcE-req-present", respectPromoting: true, mods);
 
-            // STCE-01: "converting RPPIT*QSSL to RPPIT*Q".
-            Assert.AreEqual(2, products.Count, "with the glycan at P2 the cut is justified and must be made");
-            Assert.IsTrue(products.Any(p => p.StartsWith("RPPIT", System.StringComparison.Ordinal)),
+            // STCE-01: "converting RPPIT*QSSL to RPPIT*Q" -- the two cut products.
+            CollectionAssert.Contains(products, "RPPITQ",
                 "expected the N-terminal product RPPIT*Q; got " + string.Join(" | ", products));
+            CollectionAssert.Contains(products, "SSL",
+                "expected the C-terminal product SSL; got " + string.Join(" | ", products));
+
+            // And the READ-THROUGH, which is the third product and the point of slice 4. A localized
+            // modification is a site that MAY be occupied, so the digest describes a mixed population:
+            // molecules carrying the glycan are cut, molecules without it cannot be, and the intact
+            // peptide from the second population is a real product. This assertion counts BASE sequences,
+            // so it is not the glycoform of RPPITQ being counted twice -- it is a distinct backbone that
+            // spans the site. Before slice 4 it was missing, because at MaxMissedCleavages = 0 the span
+            // was never enumerated and the occupancy drop had nothing to put in its place.
+            CollectionAssert.Contains(products, "RPPITQSSL",
+                "the unglycosylated population cannot be cut, so the intact peptide must survive; got "
+                + string.Join(" | ", products));
+            Assert.AreEqual(3, products.Count,
+                "exactly the two cut products and the read-through; got " + string.Join(" | ", products));
+        }
+
+        [Test]
+        public static void TheReadThroughCarriesNoMissedCleavage_AndTheGlycosylatedIntactFormDoesNotSurvive()
+        {
+            // Truth-set STCE-08, and the sharpest statement of what slice 4 does.
+            //
+            // The read-through is not a missed cleavage. Skipping a site the protease COULD NOT have cut
+            // is not a cleavage it missed, so RPPITQSSL comes back at MaxMissedCleavages = 0 with a
+            // reported count of zero. That is what lets it exist at all at the caller's budget, and it is
+            // why the generation slack that bought its span cannot leak out as an over-budget peptide.
+            //
+            // The converse matters just as much: the peptidoform that carries the glycan AND spans the
+            // site must NOT survive, because with the glycan present StcE would have cut. Keeping it
+            // would turn the correction into a no-op that merely added peptides.
+            GlycanAwareStcE("StcE-req-readthrough");
+
+            var mods = new Dictionary<int, List<Modification>> { { 5, new List<Modification> { OGlycan("T") } } };
+            var protein = new Protein("RPPITQSSL", "TEST",
+                oneBasedModifications: mods.ToDictionary(kv => kv.Key, kv => kv.Value));
+
+            var parameters = new DigestionParams(protease: "StcE-req-readthrough", maxMissedCleavages: 0,
+                minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                respectCleavagePromotingModifications: true);
+
+            var products = protein.Digest(parameters, new List<Modification>(), new List<Modification>()).ToList();
+
+            var readThrough = products.SingleOrDefault(x => x.BaseSequence == "RPPITQSSL");
+            Assert.IsNotNull(readThrough, "the read-through must be generated; got "
+                + string.Join(" | ", products.Select(x => x.FullSequence)));
+            Assert.AreEqual(0, readThrough.MissedCleavages,
+                "an unoccupied site is not a cleavage the protease missed, so the count must be discounted to zero");
+            Assert.IsFalse(readThrough.AllModsOneIsNterminus.ContainsKey(5 - 1 + 2),
+                "the surviving read-through is the UNGLYCOSYLATED form; the glycosylated one would have been cut");
+
+            Assert.AreEqual(3, products.Select(x => x.BaseSequence).Distinct().Count(),
+                "two cut products and one read-through, no more: "
+                + string.Join(" | ", products.Select(x => x.FullSequence)));
         }
 
         [Test]

@@ -80,6 +80,16 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             /// </summary>
             public string KnownGap { get; init; }
 
+            /// <summary>
+            /// "fixed" (the default) when the published substrate was homogeneously glycosylated, as a
+            /// synthetic peptide is; "variable" when the case deliberately models a mixed population in
+            /// which some molecules carry the glycan and some do not.
+            /// </summary>
+            public string Occupancy { get; init; }
+
+            public bool IsMixedPopulation =>
+                string.Equals(Occupancy, "variable", StringComparison.OrdinalIgnoreCase);
+
             public bool HasKnownGap => !string.IsNullOrEmpty(KnownGap) && KnownGap != "-";
 
             public bool IsEncodable =>
@@ -118,6 +128,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     Source = f[10],
                     Note = f[11],
                     KnownGap = f.Length > 12 ? f[12] : "-",
+                    Occupancy = f.Length > 13 ? f[13] : "fixed",
                 };
             }
         }
@@ -201,11 +212,64 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
                 respectCleavagePromotingModifications: true);
 
-            return protein.Digest(parameters, new List<Modification>(), new List<Modification>())
+            IEnumerable<PeptideWithSetModifications> products =
+                protein.Digest(parameters, new List<Modification>(), new List<Modification>());
+
+            // OCCUPANCY. mzLib enumerates a localized modification BOTH ways -- one peptidoform carrying
+            // it and one without -- because in a real search a database glycosite is a site that MAY be
+            // occupied. That is the right default for a search and the wrong model for most of this
+            // corpus: a synthetic peptide carrying a single GalNAc is homogeneously glycosylated, there
+            // are no unglycosylated molecules, and so there is nothing for the protease to read through.
+            //
+            // Keeping only the fully-occupied peptidoforms reproduces the published experiment exactly.
+            // The one case that genuinely models a mixed population (STCE-08) declares occupancy
+            // "variable" and is left alone -- and it is precisely the read-through that distinguishes it
+            // from STCE-01, which is the SAME substrate with the SAME glycosite. Those two cases are the
+            // corpus's sharpest statement that occupancy, not sequence, decides the digest.
+            if (!c.IsMixedPopulation)
+            {
+                products = products.Where(p => EveryGlycositeInsideIsOccupied(p, c));
+            }
+
+            return products
                 .Select(p => p.BaseSequence)
                 .Distinct()
                 .OrderBy(s => s, StringComparer.Ordinal)
                 .ToList();
+        }
+
+        /// <summary>
+        /// True when every glycosite the truth set declares for this case, that falls inside this
+        /// peptide, actually carries its modification in this peptidoform.
+        /// </summary>
+        /// <remarks>
+        /// Modification keys are two-based: key 1 is the N-terminus, key 2 the first residue. A protein
+        /// position P inside a peptide starting at S is therefore key P - S + 2.
+        /// </remarks>
+        private static bool EveryGlycositeInsideIsOccupied(PeptideWithSetModifications peptide, TruthCase c)
+        {
+            if (string.IsNullOrWhiteSpace(c.Glycosites) || c.Glycosites == "-")
+            {
+                return true;
+            }
+
+            foreach (string site in c.Glycosites.Split(';', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] parts = site.Split(':');
+                if (parts.Length != 2 || !int.TryParse(parts[0], out int position))
+                    continue;
+
+                if (position < peptide.OneBasedStartResidue || position > peptide.OneBasedEndResidue)
+                    continue;
+
+                int key = position - peptide.OneBasedStartResidue + 2;
+                if (!peptide.AllModsOneIsNterminus.ContainsKey(key))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         [Test]

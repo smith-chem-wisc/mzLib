@@ -69,6 +69,13 @@ namespace Proteomics.ProteolyticDigestion
                 && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                 && digestionParams.DigestionAgent is not null
                 && digestionParams.DigestionAgent.HasCleavageRequirement;
+
+            // Which internal positions are SITES is a property of the sequence and the configured
+            // modifications, identical for every peptidoform of this peptide, so it is found once here
+            // rather than rescanned inside the pattern loop. Only occupancy varies per peptidoform.
+            List<int> internalFeasibleSites = respectCleavageRequirements
+                ? FindInternalFeasibleCleavageSites(digestionParams.DigestionAgent, configuredModifications)
+                : null;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
@@ -140,11 +147,21 @@ namespace Proteomics.ProteolyticDigestion
                     // needs a bound on how many feasible-but-unoccupied sites a peptidoform can contain,
                     // which is follow-up work. Until then this gate is exact when the required glycan is
                     // localized in the database and conservative when it is variable.
+                    int promotingMissedCleavages = reportedMissedCleavages;
                     if (respectCleavageRequirements
                         && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
-                            digestionParams.DigestionAgent, configuredModifications))
+                            digestionParams.DigestionAgent, configuredModifications, internalFeasibleSites,
+                            digestionParams.MaxMissedCleavages, out promotingMissedCleavages))
                     {
                         continue;
+                    }
+
+                    // The promoting discount, applied only where it is smaller: a peptidoform can be over
+                    // budget for blocking reasons and under it for promoting reasons at once, and the
+                    // reported count has to be the number of cleavages the protease genuinely missed.
+                    if (respectCleavageRequirements && promotingMissedCleavages < reportedMissedCleavages)
+                    {
+                        reportedMissedCleavages = promotingMissedCleavages;
                     }
 
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,

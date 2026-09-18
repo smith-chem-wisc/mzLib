@@ -1,3 +1,4 @@
+using System;
 using MzLibUtil;
 using Omics.Modifications;
 
@@ -84,8 +85,11 @@ namespace Omics.Digestion
         /// ending at the last residue, got that terminus from the sequence ending, not from the agent.</para>
         /// </remarks>
         protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
-            int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications = null)
+            int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications,
+            IReadOnlyList<int> internalFeasibleSites, int maxMissedCleavagesAllowed, out int openMissedCleavages)
         {
+            openMissedCleavages = MissedCleavages;
+
             // Nothing configured can require anything, so nothing can be unreachable. This gate is what
             // keeps an ordinary tryptic digest from paying for a feature it cannot use.
             if (agent is null || !agent.HasCleavageRequirement || Parent is null)
@@ -121,7 +125,64 @@ namespace Omics.Digestion
                 return true;
             }
 
-            return false;
+            // Both ends are real cuts, so this peptide exists. What remains is whether it exists WITHIN
+            // the caller's missed-cleavage budget, and that is not the span's raw count: a feasible site
+            // this peptidoform leaves unoccupied is a site the agent could not have cut, so skipping it
+            // is not a missed cleavage. Discounting those is what lets the read-through across an
+            // unoccupied site come back at the budget the caller actually set -- the peptide the drop
+            // above used to remove with nothing to replace it.
+            //
+            // Clamped, so the count can never go negative, and compared afterwards so the generation
+            // slack that bought this span cannot leak out as a peptide claiming more missed cleavages
+            // than were asked for. Exactly the shape of the blocking mirror in ProteolyticPeptide.
+            if (internalFeasibleSites is not null && internalFeasibleSites.Count > 0)
+            {
+                int unjustifiedInternalSites = 0;
+                for (int i = 0; i < internalFeasibleSites.Count; i++)
+                {
+                    int site = internalFeasibleSites[i];
+                    if (!AnyMotifJustifies(site, parentSequence, variableModPattern, productLength, agent,
+                            configuredModifications))
+                    {
+                        unjustifiedInternalSites++;
+                    }
+                }
+
+                openMissedCleavages = MissedCleavages - Math.Min(unjustifiedInternalSites, MissedCleavages);
+            }
+
+            return openMissedCleavages > maxMissedCleavagesAllowed;
+        }
+
+        /// <summary>
+        /// The internal positions of this product at which the agent could have cut -- the sites that
+        /// survive <see cref="DigestionAgent.FilterToFeasibleCleavageSites"/> and so were in the list the
+        /// span was enumerated from. One-based parent residues, each naming the bond after it.
+        /// </summary>
+        /// <remarks>
+        /// Hoisted out of the peptidoform loop on purpose. Which positions are SITES depends only on the
+        /// sequence and the configured modifications, not on where a particular peptidoform happens to put
+        /// its glycans, so scanning per pattern would repeat identical work inside the hottest loop in the
+        /// library. Only the occupancy question is per-peptidoform.
+        /// </remarks>
+        protected List<int> FindInternalFeasibleCleavageSites(DigestionAgent agent,
+            IEnumerable<Modification> configuredModifications)
+        {
+            var sites = new List<int>();
+            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
+            {
+                return sites;
+            }
+
+            for (int residue = OneBasedStartResidue; residue < OneBasedEndResidue; residue++)
+            {
+                if (agent.IsFeasibleCleavageSite(residue, Parent, configuredModifications))
+                {
+                    sites.Add(residue);
+                }
+            }
+
+            return sites;
         }
 
         /// <summary>

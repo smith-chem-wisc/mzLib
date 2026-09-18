@@ -192,6 +192,81 @@ namespace Omics.Digestion
         }
 
         /// <summary>
+        /// True when this agent could cut after <paramref name="cutAfterOneBasedResidue"/> in
+        /// <paramref name="parent"/> -- that is, when the site would survive
+        /// <see cref="FilterToFeasibleCleavageSites"/> and therefore appears in the site list digestion
+        /// actually enumerated.
+        /// </summary>
+        /// <remarks>
+        /// Needed by the missed-cleavage discount, which has to tell three kinds of internal position
+        /// apart: a position that is no site at all (never in the list, so never a missed cleavage), a
+        /// site that is real for this peptidoform (a genuine missed cleavage), and a site that is feasible
+        /// but unoccupied here (in the list, but not a cleavage the agent could have made, so it must be
+        /// discounted). Only the middle one may count against the caller's budget.
+        /// </remarks>
+        public bool IsFeasibleCleavageSite(int cutAfterOneBasedResidue, IBioPolymer parent,
+            IEnumerable<Modification> configuredModifications = null)
+        {
+            if (parent is null || cutAfterOneBasedResidue < 1 || cutAfterOneBasedResidue >= parent.BaseSequence.Length)
+            {
+                return false;
+            }
+
+            return AnyMotifCouldJustify(cutAfterOneBasedResidue, parent.BaseSequence, parent, configuredModifications);
+        }
+
+        /// <summary>
+        /// The most feasible cleavage sites that can fall strictly inside a single peptide of at most
+        /// <paramref name="maxPeptideLength"/> residues, and therefore the generation slack the
+        /// cleavage-promoting correction needs.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Why the slack is not MaxMods, unlike the blocking mirror.</b> A blocked site is a site
+        /// carrying a modification, and a peptidoform carries at most MaxMods of them, so MaxMods bounds
+        /// the blocking slack exactly. An unjustified site is the COMPLEMENT -- a feasible site with NO
+        /// modification on it -- and nothing about the modification budget limits how many of those a
+        /// peptide may span. A peptidoform with no glycan at all has every feasible site it spans
+        /// unjustified. So the bound has to come from the sequence and the length limit instead.</para>
+        ///
+        /// <para>This is an exact upper bound: any peptide the caller could legally receive is at most
+        /// maxPeptideLength residues long, so it cannot contain more internal sites than the densest
+        /// window of that length. Buying exactly that much slack means every read-through is reachable
+        /// and none is merely hoped for.</para>
+        ///
+        /// <para>The slack is cheap even when it is large. It widens the outer loop of the span
+        /// enumeration, but every extra span is rejected by the length check before a peptide object is
+        /// built, so the cost is loop iterations rather than digestion work. A protein with few sites
+        /// buys little slack; a mucin buys a lot and needs it.</para>
+        /// </remarks>
+        public static int MaximumInternalSitesInOnePeptide(List<int> oneBasedIndicesToCleaveAfter, int maxPeptideLength)
+        {
+            if (oneBasedIndicesToCleaveAfter is null || oneBasedIndicesToCleaveAfter.Count < 3)
+            {
+                return 0;
+            }
+
+            // Widest pair of sites still within the length limit; the internal sites are those between.
+            int most = 0;
+            int start = 0;
+            for (int end = 1; end < oneBasedIndicesToCleaveAfter.Count; end++)
+            {
+                while (start < end
+                       && oneBasedIndicesToCleaveAfter[end] - oneBasedIndicesToCleaveAfter[start] > maxPeptideLength)
+                {
+                    start++;
+                }
+
+                int internalSites = end - start - 1;
+                if (internalSites > most)
+                {
+                    most = internalSites;
+                }
+            }
+
+            return most;
+        }
+
+        /// <summary>
         /// True when a modification satisfying <paramref name="requirement"/> could occupy
         /// <paramref name="constrainedResidue"/> -- either because the database annotates one there, or
         /// because the search configures one that fits there.
