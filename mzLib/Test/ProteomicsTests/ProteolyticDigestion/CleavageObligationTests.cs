@@ -1,4 +1,4 @@
-using NUnit.Framework;
+﻿using NUnit.Framework;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
@@ -178,6 +178,48 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
             Assert.IsFalse(trypsin.HasCleavageRequirement);
             CollectionAssert.IsEmpty(Product(protein, 5, 8).GetCleavageObligatedSites(trypsin));
+        }
+
+        [Test]
+        public static void InAPrimeSideCoDigestATrypticCutCancelsTheObligation()
+        {
+            // The case real data pointed at. Every published protocol for these enzymes is a co-digest
+            // with trypsin, so a peptide can begin with Ser/Thr and owe that N-terminus to TRYPSIN rather
+            // than to the glycoprotease -- and then nothing says its first residue carries a glycan.
+            // Obligating it anyway would force a glycan onto a residue that need not have one, which is
+            // the over-constraining direction this API must never take.
+            Protease composite = ProteaseDictionary.Dictionary["OpeRATOR-trypsin|P"];
+
+            // AAAK | STGLDAAA -- the cut after Lys4 is explained by trypsin, which requires nothing.
+            var trypticOrigin = new Protein("AAAKSTGLDAAA", "CODIGEST");
+            CollectionAssert.IsEmpty(Product(trypticOrigin, 5, 12).GetCleavageObligatedSites(composite),
+                "a tryptic cut needs no glycan, even when the peptide happens to start with Ser");
+
+            // AAAG | STGLDAAA -- nothing tryptic fits, so only the OgpA motif explains the cut.
+            var glycoOrigin = new Protein("AAAGSTGLDAAA", "CODIGEST");
+            CollectionAssert.AreEqual(new[] { 2 }, Product(glycoOrigin, 5, 12).GetCleavageObligatedSites(composite),
+                "with no tryptic explanation the glycoprotease rule stands and residue 1 is obligated");
+        }
+
+        [Test]
+        public static void EveryShippedCoDigestKeepsItsTrypticMotifsRuleFree()
+        {
+            // If a tryptic motif inherited the glycan rule, trypsin would need a glycan and would be
+            // switched off inside the composite. Checked for the PRIME-side composites specifically,
+            // because their subsite arithmetic differs from StcE's non-prime one.
+            foreach (string name in new[] { "OpeRATOR-trypsin|P", "IMPa-trypsin|P", "SmE-trypsin|P" })
+            {
+                Assert.IsTrue(ProteaseDictionary.Dictionary.ContainsKey(name), name + " is missing");
+                Protease composite = ProteaseDictionary.Dictionary[name];
+
+                var ruleFree = composite.DigestionMotifs.Where(m => !m.HasCleavageRequirement).ToList();
+                CollectionAssert.AreEquivalent(new[] { "K", "R" },
+                    ruleFree.Select(m => m.InducingCleavage).ToList(),
+                    name + ": the two tryptic motifs, and only those, must be rule-free");
+
+                Assert.AreEqual(2, composite.DigestionMotifs.Count(m => m.HasCleavageRequirement),
+                    name + ": both glycoprotease motifs must carry the rule");
+            }
         }
 
         [Test]

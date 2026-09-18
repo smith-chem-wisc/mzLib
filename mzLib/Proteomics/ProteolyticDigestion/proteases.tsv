@@ -1,4 +1,4 @@
-﻿# ============================================================================					
+# ============================================================================					
 # PROTEASE DEFINITIONS FILE					
 # ============================================================================					
 # Lines starting with '#' are comments and will be ignored by the parser.					
@@ -186,6 +186,9 @@ StcE-trypsin|P	TX|T,TX|S,SX|T,SX|S,K[P]|,R[P]|	full		StcE/Trypsin		P2:O-glycan
 OpeRATOR	|T,|S	full		OpeRATOR		P1':O-glycan>=Hex1HexNAc1;P1':!O-glycan>=HexNAc2
 IMPa	[D]|T,[D]|S	full		IMPa		P1':O-glycan;P1:!O-glycan
 SmE	|T,|S	full		SmE		P1':O-glycan
+OpeRATOR-trypsin|P	|T,|S,K[P]|,R[P]|	full		OpeRATOR/Trypsin		P1':O-glycan>=Hex1HexNAc1;P1':!O-glycan>=HexNAc2
+IMPa-trypsin|P	[D]|T,[D]|S,K[P]|,R[P]|	full		IMPa/Trypsin		P1':O-glycan;P1:!O-glycan
+SmE-trypsin|P	|T,|S,K[P]|,R[P]|	full		SmE/Trypsin		P1':O-glycan
 CNBr_old	M|	full	MS:1001307	CNBr	
 CNBr_N	|M	full	MS:1001307	CNBr	Homoserine lactone N-terminal on M
 ProAlanase	P|,A|	full			

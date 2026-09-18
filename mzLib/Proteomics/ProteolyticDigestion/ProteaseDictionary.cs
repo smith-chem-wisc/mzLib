@@ -680,6 +680,18 @@ namespace Proteomics.ProteolyticDigestion
             {
                 foreach (CleavageRequirement requirement in requirements)
                 {
+                    // Only a REQUIRED condition decides whether a motif belongs to this enzyme.
+                    // A FORBIDDEN one is useless for the question and actively misleading: P1 of
+                    // any cut-after motif is its own recognition residue, so IMPa's "no glycan at
+                    // P1" reaches trypsin's K and R, and letting that count handed the tryptic
+                    // motifs the glycan REQUIREMENT as well -- which needs a glycan to cut after
+                    // Lys and switches trypsin off inside the composite. A forbidden condition
+                    // rides along on motifs that are already governed.
+                    if (requirement.IsForbidden)
+                    {
+                        continue;
+                    }
+
                     char constrainedSubsite = requirement.IsPrimeSide
                         ? motifs[i].PrimeSubsite(requirement.Subsite)
                         : motifs[i].NonPrimeSubsite(requirement.Subsite);
