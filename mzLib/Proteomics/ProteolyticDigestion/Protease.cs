@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Omics;
 using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 
 namespace Proteomics.ProteolyticDigestion
@@ -35,14 +36,19 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
         internal IEnumerable<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false)
+            int minPeptideLength, int maxPeptideLength, Protease specificProtease,
+            FragmentationTerminus fragmentationTerminus, CleavageSpecificity? searchModeType = null,
+            bool topDownTruncationSearch = false)
         {
             bool retainMethionine = initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M';
             bool cleaveMethionine = initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M';
             int initialStartResidue = retainMethionine ? 1 : 2; //where does the protein start?
             int? alternateInitialStartResidue = retainMethionine && cleaveMethionine ? 2 : null;
 
-            return CleavageSpecificity switch
+            CleavageSpecificity requestedSpecificity = searchModeType == CleavageSpecificity.Semi
+                ? CleavageSpecificity.Semi
+                : CleavageSpecificity;
+            return requestedSpecificity switch
             {
                 // proteolytic cleavage in one spot (N)
                 CleavageSpecificity.SingleN => SingleLeftSideDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength, specificProtease, initialStartResidue).Cast<ProteolyticPeptide>(),
@@ -58,6 +64,11 @@ namespace Proteomics.ProteolyticDigestion
                     initialStartResidue, alternateInitialStartResidue, CleavageSpecificity.Full, "full").Cast<ProteolyticPeptide>(),
 
                 // Cleavage rules for semi-specific search
+                CleavageSpecificity.Semi when fragmentationTerminus is FragmentationTerminus.N or FragmentationTerminus.C
+                    => SpeedySemiSpecificDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength,
+                        fragmentationTerminus == FragmentationTerminus.N, initialStartResidue,
+                        cleaveMethionine ? 2 : null).Cast<ProteolyticPeptide>(),
+
                 CleavageSpecificity.Semi => SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
                 _ => throw new NotImplementedException()
             };
@@ -69,12 +80,6 @@ namespace Proteomics.ProteolyticDigestion
         /// <see cref="DigestionParams.SearchModeType"/> = <see cref="CleavageSpecificity.Semi"/>, so that asking for a
         /// semi-specific digest through the search mode and through a Semi protease gives identical peptides.
         /// </summary>
-        internal IEnumerable<ProteolyticPeptide> GetSemiSpecificUnmodifiedPeptides(Protein protein, int maximumMissedCleavages,
-            InitiatorMethionineBehavior initiatorMethionineBehavior, int minPeptideLength, int maxPeptideLength)
-        {
-            return SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength);
-        }
-
         /// <summary>
         /// Retain N-terminal residue?
         /// </summary>

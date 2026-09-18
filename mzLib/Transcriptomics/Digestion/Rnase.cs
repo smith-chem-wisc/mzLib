@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using Omics;
 using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 
 namespace Transcriptomics.Digestion
@@ -23,10 +24,15 @@ namespace Transcriptomics.Digestion
         }
 
         public IEnumerable<NucleolyticOligo> GetUnmodifiedOligos(NucleicAcid nucleicAcid, int maxMissedCleavages, int minLength,
-            int maxLength, Rnase? specificRnase = null, bool topDownTruncationSearch = false)
+            int maxLength, Rnase? specificRnase = null, bool topDownTruncationSearch = false,
+            FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
+            CleavageSpecificity? searchModeType = null)
         {
             specificRnase ??= this;
-            return CleavageSpecificity switch
+            CleavageSpecificity requestedSpecificity = searchModeType == CleavageSpecificity.Semi
+                ? CleavageSpecificity.Semi
+                : CleavageSpecificity;
+            return requestedSpecificity switch
             {
                 // top down
                 CleavageSpecificity.None => TopDownDigestion(nucleicAcid, minLength, maxLength, topDownTruncationSearch, 1, null, CleavageSpecificity.Full, "full").Cast<NucleolyticOligo>(),
@@ -39,8 +45,13 @@ namespace Transcriptomics.Digestion
                 CleavageSpecificity.SingleN => SingleLeftSideDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength, specificRnase, 1).Cast<NucleolyticOligo>(),
 
                 CleavageSpecificity.SingleC => SingleRightSideDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength, specificRnase, 1).Cast<NucleolyticOligo>(),
+
+                CleavageSpecificity.Semi when fragmentationTerminus is FragmentationTerminus.FivePrime or FragmentationTerminus.ThreePrime
+                    => SpeedySemiSpecificDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength,
+                        fragmentationTerminus == FragmentationTerminus.FivePrime, 1, null).Cast<NucleolyticOligo>(),
+
                 _ => throw new ArgumentException(
-                    "Cleave Specificity not defined for Rna digestion, currently supports Full, None, SingleN and SingleC")
+                    "Cleavage specificity or terminus is not defined for RNA digestion; currently supports Full, None, SingleN and SingleC")
             };
         }
 

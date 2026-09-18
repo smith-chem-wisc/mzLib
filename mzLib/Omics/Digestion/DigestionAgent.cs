@@ -193,6 +193,7 @@ namespace Omics.Digestion
                     }
                 }
             }
+
         }
 
         protected IEnumerable<DigestionProduct> TopDownDigestion(IBioPolymer parent, int minLength, int maxLength, bool topDownTruncationSearch, int initialStartResidue, int? alternateInitialStartResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
@@ -359,6 +360,201 @@ namespace Omics.Digestion
                         yield return product;
                     }
                 }
+            }
+        }
+
+        protected IEnumerable<DigestionProduct> SpeedySemiSpecificDigestion(
+            IBioPolymer parent,
+            int maximumMissedCleavages,
+            int minLength,
+            int maxLength,
+            bool fixedLeftTerminus,
+            int initialStartResidue,
+            int? alternateInitialStartResidue)
+        {
+            List<int> cleavageIndices = GetDigestionSiteIndices(parent.BaseSequence);
+            int cleavageWindowSize = maximumMissedCleavages + 1;
+
+            for (int i = 0; i < cleavageIndices.Count - cleavageWindowSize; i++)
+            {
+                int startBoundary = cleavageIndices[i];
+                int endBoundary = cleavageIndices[i + cleavageWindowSize];
+
+                if (i == 0)
+                {
+                    startBoundary = Math.Max(startBoundary, initialStartResidue - 1);
+                }
+
+                foreach (var product in GetSpeedyProducts(parent, startBoundary, endBoundary, maximumMissedCleavages,
+                             fixedLeftTerminus, minLength, maxLength, ""))
+                {
+                    yield return product;
+                }
+
+                    if (i == 0
+                        && alternateInitialStartResidue.HasValue
+                        && alternateInitialStartResidue.Value != initialStartResidue
+                        && !cleavageIndices.Contains(alternateInitialStartResidue.Value - 1)
+                        && (fixedLeftTerminus || initialStartResidue > 1))
+                {
+                    foreach (var product in GetSpeedyProducts(parent, alternateInitialStartResidue.Value - 1, endBoundary,
+                                 maximumMissedCleavages, fixedLeftTerminus, minLength, maxLength, ":M cleaved"))
+                    {
+                        yield return product;
+                    }
+                }
+            }
+
+            int lastIndex = cleavageIndices.Count - 1;
+            int maximumIndexDifference = Math.Min(maximumMissedCleavages, lastIndex);
+            bool methionineMustBeRemoved = initialStartResidue > 1;
+            bool methionineMayBeRemoved = alternateInitialStartResidue.HasValue;
+            bool residueOneIsCleavageSite = cleavageIndices.Count > 1 && cleavageIndices[1] == 1;
+
+            for (int i = 1; i <= maximumIndexDifference; i++)
+            {
+                int startBoundary = fixedLeftTerminus ? cleavageIndices[lastIndex - i] : cleavageIndices[0];
+                int endBoundary = fixedLeftTerminus ? cleavageIndices[lastIndex] : cleavageIndices[i];
+                bool startsAtParentBeginning = startBoundary == 0;
+
+                if (fixedLeftTerminus)
+                {
+                    if (!startsAtParentBeginning || !methionineMustBeRemoved)
+                    {
+                        foreach (var product in GetSpeedyProducts(parent, startBoundary, endBoundary, i - 1,
+                                     true, minLength, maxLength, ""))
+                        {
+                            yield return product;
+                        }
+                    }
+
+                    if (startsAtParentBeginning && methionineMayBeRemoved && !residueOneIsCleavageSite)
+                    {
+                        foreach (var product in GetSpeedyProducts(parent, 1, endBoundary, i - 1,
+                                     true, minLength, maxLength, ":M cleaved"))
+                        {
+                            yield return product;
+                        }
+                    }
+                }
+                else
+                {
+                    int effectiveStartBoundary = startsAtParentBeginning && methionineMustBeRemoved ? 1 : startBoundary;
+                    foreach (var product in GetSpeedyProducts(parent, effectiveStartBoundary, endBoundary, i - 1,
+                                 false, minLength, maxLength, ""))
+                    {
+                        yield return product;
+                    }
+                }
+            }
+
+            foreach (var truncationProduct in parent.TruncationProducts)
+            {
+                if (fixedLeftTerminus)
+                {
+                    if (!truncationProduct.OneBasedBeginPosition.HasValue
+                        || cleavageIndices.Contains(truncationProduct.OneBasedBeginPosition.Value - 1))
+                    {
+                        continue;
+                    }
+
+                    int cleavageIndex = 0;
+                    while (cleavageIndices[cleavageIndex] < truncationProduct.OneBasedBeginPosition.Value)
+                    {
+                        cleavageIndex++;
+                    }
+
+                    cleavageIndex = Math.Min(cleavageIndex + maximumMissedCleavages, cleavageIndices.Count - 1);
+                    int startResidue = Math.Max(truncationProduct.OneBasedBeginPosition.Value, initialStartResidue);
+                    int endResidue = cleavageIndices[cleavageIndex];
+                    if (truncationProduct.OneBasedEndPosition.HasValue)
+                    {
+                        endResidue = Math.Min(endResidue, truncationProduct.OneBasedEndPosition.Value);
+                    }
+                    endResidue = Math.Min(endResidue, startResidue + maxLength - 1);
+
+                    if (endResidue - startResidue + 1 >= minLength)
+                    {
+                        foreach (var product in GetConcreteProducts(parent, startResidue, endResidue,
+                                     maximumMissedCleavages, CleavageSpecificity.Full, truncationProduct.Type + " start"))
+                        {
+                            yield return product;
+                        }
+                    }
+                }
+                else
+                {
+                    if (!truncationProduct.OneBasedEndPosition.HasValue
+                        || cleavageIndices.Contains(truncationProduct.OneBasedEndPosition.Value))
+                    {
+                        continue;
+                    }
+
+                    int cleavageIndex = 0;
+                    while (cleavageIndices[cleavageIndex] < truncationProduct.OneBasedEndPosition.Value)
+                    {
+                        cleavageIndex++;
+                    }
+
+                    cleavageIndex = Math.Max(cleavageIndex - maximumMissedCleavages - 1, 0);
+                    int startResidue = Math.Max(cleavageIndices[cleavageIndex] + 1, initialStartResidue);
+                    if (truncationProduct.OneBasedBeginPosition.HasValue)
+                    {
+                        startResidue = Math.Max(startResidue, truncationProduct.OneBasedBeginPosition.Value);
+                    }
+
+                    int endResidue = truncationProduct.OneBasedEndPosition.Value;
+                    startResidue = Math.Max(startResidue, endResidue - maxLength + 1);
+                    if (endResidue - startResidue + 1 >= minLength)
+                    {
+                        foreach (var product in GetConcreteProducts(parent, startResidue, endResidue,
+                                     maximumMissedCleavages, CleavageSpecificity.Full, truncationProduct.Type + " start"))
+                        {
+                            yield return product;
+                        }
+                    }
+                }
+            }
+        }
+
+        private IEnumerable<DigestionProduct> GetSpeedyProducts(
+            IBioPolymer parent,
+            int startBoundary,
+            int endBoundary,
+            int missedCleavages,
+            bool fixedLeftTerminus,
+            int minLength,
+            int maxLength,
+            string descriptionSuffix)
+        {
+            int length = endBoundary - startBoundary;
+            if (length < minLength)
+            {
+                yield break;
+            }
+
+            int startResidue = startBoundary + 1;
+            int endResidue = endBoundary;
+            CleavageSpecificity specificity = CleavageSpecificity.Full;
+            string description = "full" + descriptionSuffix;
+
+            if (length > maxLength)
+            {
+                specificity = CleavageSpecificity.Semi;
+                description = "semi" + descriptionSuffix;
+                if (fixedLeftTerminus)
+                {
+                    endResidue = startBoundary + maxLength;
+                }
+                else
+                {
+                    startResidue = endBoundary - maxLength + 1;
+                }
+            }
+
+            foreach (var product in GetConcreteProducts(parent, startResidue, endResidue, missedCleavages, specificity, description))
+            {
+                yield return product;
             }
         }
 
