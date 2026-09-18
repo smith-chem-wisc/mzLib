@@ -20,13 +20,9 @@ namespace Omics.Digestion
         public List<DigestionMotif> DigestionMotifs { get; init; }
         public Modification CleavageMod { get; set; }
 
-
-
-
         protected abstract IEnumerable<DigestionProduct> GetConcreteProducts(IBioPolymer parent, int oneBasedStartResidue, int oneBasedEndResidue, int missedCleavages, CleavageSpecificity specificity, string description);
 
         #region Digestion Methods
-
 
         /// <summary>
         /// Gets peptides for the singleN protease
