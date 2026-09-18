@@ -25,7 +25,8 @@ namespace Test.DatabaseTests.VariantCorpus
     /// VCF depth cutoff = minAlleleDepth). The S-series deepens the substitution axis (before/on/after a PTM,
     /// protein start/end, VCF depth cutoff, multi-residue MNV, and double substitutions) and pulls the bottom-up
     /// DIGESTION axis forward for the "a substitution moves the knife" cases (installment 5): trypsin cut-site
-    /// create/destroy and the not-before-proline rule (trypsin|P). Processing/insertions are later layers.
+    /// create/destroy and the not-before-proline rule (trypsin|P). The I-series adds anchored insertions (L1).
+    /// Processing is a later layer.
     /// </summary>
     [TestFixture]
     internal class VariantCorpusTests
@@ -201,6 +202,18 @@ namespace Test.DatabaseTests.VariantCorpus
                 ExpectedForms: new[] { "PEPTIDE" },
                 MinAlleleDepth: 7);
 
+            // D09 — anchored deletion whose KEPT anchor carries the PTM. Phospho@T4; TI->T over [4,5] deletes I5 and
+            // keeps T4 unchanged, so the phospho survives on the variant (invariant 2; D7 retained-anchor half,
+            // settled 2026-09-16). Consensus{0,1} + PEPTDE{0,1} = 4. Same proteoforms as D04, reached through the
+            // anchored encoding, which puts the modified residue inside [begin,end].
+            yield return new CorpusCase(
+                Id: "D09", Layer: "L1-int", Tests: "del-anchored-on-ptm-kept",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=TI VAR=T BEGIN=4 END=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Anchored deletion TI->T keeps T4 and removes I5; the mod on the kept anchor survives even though position 4 lies inside [begin,end]. Consensus{0,1} + PEPTDE{0,1} = 4, the same forms as D04. Deletion half of the I01 retained-anchor rule.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTDE", "PEPT[Biological:Phosphorylation on T]DE" });
+
             // ---- L1 multi: two SEPARATE deletions in one protein (combinatorial path; invariants 3-4) -------
             // Two genotype-less deletions expand to consensus + each single + the pair (least-modified-first,
             // applied descending-position). Kept to PAIRS so base+2+1 = 4 stays under the default cap (no
@@ -245,6 +258,171 @@ namespace Test.DatabaseTests.VariantCorpus
                     "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
                     "PPTIDE", "PPT[Biological:Phosphorylation on T]IDE",
                     "PEPIDE", "PPIDE"
+                });
+
+            // ---- L1: insertions (installment 3; invariants 2-3) --------------------------------------------
+            // UniProt writes an insertion ANCHORED on a retained residue: <original>P</original><variation>PAG
+            // </variation> = "insert AG after P". The variant is longer than the original, so everything after the
+            // anchor shifts RIGHT by the inserted length (the mirror of a deletion) and surviving mods ride along.
+            // I00-I02 walk a two-residue insertion past a PTM at both boundaries: anchored immediately before the
+            // modified residue, ON it (the modified residue is the retained anchor), and immediately after it.
+            // I03-I04 put the insertion at the protein's start and end; I05-I06 are the VCF depth-cutoff twins;
+            // I07 moves the trypsin knife; I08 carries a variant-borne mod; I09 anchors on the right with the PTM on the
+            // kept anchor; MI00-MI01 are indel pairs.
+
+            // I00 — insertion immediately BEFORE the PTM residue. Phospho@T4; P3->PAG inserts AG between P3 and T4.
+            // T slides 4->6 and the phospho follows it (installment 3). Consensus{0,1} + PEPAGTIDE{0,1} = 4 forms.
+            yield return new CorpusCase(
+                Id: "I00", Layer: "L1-int", Tests: "ins-before-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=P VAR=PAG POS=3 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Insertion upstream of the mod re-anchors the phospho with its residue (T 4->6, +2). Mod sits at end+1 of the edit, the shift boundary. Consensus{0,1} + PEPAGTIDE{0,1} = 4. Installment 3; mirror of D02.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPAGTIDE", "PEPAGT[Biological:Phosphorylation on T]IDE" });
+
+            // I01 — insertion ANCHORED ON the PTM residue. Phospho@T4; T4->TAG keeps T4 where it is and inserts AG
+            // after it. The anchor residue survives unchanged (same residue, same position), so the phospho survives
+            // on the variant (invariant 2). 4 forms. AdjustModificationIndices used to drop every mod inside the edited
+            // [begin,end], including a retained anchor; it now keeps mods on the unchanged prefix/suffix.
+            yield return new CorpusCase(
+                Id: "I01", Layer: "L1-int", Tests: "ins-anchored-on-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=TAG POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "T4->TAG retains T4 (same residue, same position) and inserts AG after it, so the phospho's anchor survives and the mod stays at 4 (invariant 2). Consensus{0,1} + PEPTAGIDE{0,1} = 4. Pins the retained-anchor half of D7: only residues the variant actually changes lose their mods.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTAGIDE", "PEPT[Biological:Phosphorylation on T]AGIDE" });
+
+            // I02 — insertion immediately AFTER the PTM residue. Phospho@T4; I5->IAG inserts AG after I5. T4 is
+            // before the edit, so it is unmoved and keeps its phospho. Consensus{0,1} + PEPTIAGDE{0,1} = 4 forms.
+            yield return new CorpusCase(
+                Id: "I02", Layer: "L1-int", Tests: "ins-after-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=I VAR=IAG POS=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Insertion downstream of the mod leaves the phospho anchored at T4 (mod at begin-1, the unaffected boundary). Consensus{0,1} + PEPTIAGDE{0,1} = 4. AdjustModificationIndices k<begin -> unaffected; mirror of D04.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTIAGDE", "PEPT[Biological:Phosphorylation on T]IAGDE" });
+
+            // I03 — insertion at the protein START, ahead of the first residue. Phospho@T4; P1->AGP keeps P1 as the
+            // right-hand anchor and puts AG in front of it, so the new protein begins AG. Every residue shifts +2 and
+            // T4->6 carries its phospho. M-free base + Retain, so no initiator-Met interplay (that node is parked).
+            // Consensus{0,1} + AGPEPTIDE{0,1} = 4 forms.
+            yield return new CorpusCase(
+                Id: "I03", Layer: "L1-int", Tests: "ins-at-start",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=P VAR=AGP POS=1 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "N-terminal insertion (P1->AGP, AG before the first residue) shifts the whole protein +2; the phospho follows T 4->6. Consensus{0,1} + AGPEPTIDE{0,1} = 4. Start boundary of the insertion axis (mirror of S03); M-free base + Retain.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "AGPEPTIDE", "AGPEPT[Biological:Phosphorylation on T]IDE" });
+
+            // I04 — insertion at the protein END, after the last residue. Phospho@T4; E7->EAG extends the C-terminus
+            // by AG. Nothing sits downstream of the edit, so T4 and its phospho are unmoved and the variant is two
+            // residues longer than the consensus. Consensus{0,1} + PEPTIDEAG{0,1} = 4 forms.
+            yield return new CorpusCase(
+                Id: "I04", Layer: "L1-int", Tests: "ins-at-end",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E VAR=EAG POS=7 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "C-terminal insertion (E7->EAG) extends the protein past its consensus length; the anchor is the last residue so nothing shifts and the phospho stays at T4. Consensus{0,1} + PEPTIDEAG{0,1} = 4. End boundary of the insertion axis (mirror of S04; contrast D06, where end > length is pruned).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTIDEAG", "PEPT[Biological:Phosphorylation on T]IDEAG" });
+
+            // I09 — insertion anchored on the RIGHT, with the PTM on the kept anchor. Phospho@T4; T4->AGT puts AG in
+            // front of T4 and keeps T as the variant's last residue, so T moves 4->6 and its phospho moves with it
+            // (invariant 2). Same forms as I00, reached through the right-anchored encoding, which puts the modified
+            // residue inside [begin,end]. This is the kept-SUFFIX half of the I01 rule: the old code dropped the mod.
+            yield return new CorpusCase(
+                Id: "I09", Layer: "L1-int", Tests: "ins-right-anchored-on-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=AGT POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "T4->AGT keeps T as its trailing residue and inserts AG before it, so the T and its phospho shift 4->6 rather than being dropped. Consensus{0,1} + PEPAGTIDE{0,1} = 4, the same forms as I00. Kept-suffix half of the I01 retained-anchor rule (I01 and D09 are kept-prefix).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPAGTIDE", "PEPAGT[Biological:Phosphorylation on T]IDE" });
+
+            // I05 — VCF insertion PASSING the depth cutoff. VCF anchors on the reference base: REF=E ALT=EAG at 2
+            // inserts AG after E2 -> PEAGPTIDE. Het 0/1, alt AD=6 >= minAlleleDepth 5 -> keep consensus AND apply
+            // (installment 12; ApplyVariants het path). Phospho@T4 sits downstream, so it shifts 4->6 through the
+            // VCF path, which re-anchors mods separately from the UniProt combinatorial path I00 covers.
+            // Consensus{0,1} + PEAGPTIDE{0,1} = 4 forms.
+            yield return new CorpusCase(
+                Id: "I05", Layer: "L1-vcf", Tests: "ins-depth-pass",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E VAR=EAG POS=2 SRC=vcf GT=0/1 AD=8,6 DP=14", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "VCF-anchored insertion (REF=E ALT=EAG at 2); het alt AD=6 >= minAlleleDepth=5 -> consensus + PEAGPTIDE, with the phospho re-anchored T 4->6 on the variant. Consensus{0,1} + variant{0,1} = 4. Depth filter = minAlleleDepth (VCF AD); mirror of D07.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEAGPTIDE", "PEAGPT[Biological:Phosphorylation on T]IDE" },
+                MinAlleleDepth: 5);
+
+            // I06 — same VCF insertion FAILING the depth cutoff. alt AD=6 < minAlleleDepth 7 -> allele filtered; only
+            // the consensus and its phospho form survive. The variant is still READ, so the round-trip family checks
+            // the writer preserves an unapplied insertion (as D08/S06 do for their variant types).
+            yield return new CorpusCase(
+                Id: "I06", Layer: "L1-vcf", Tests: "ins-depth-fail",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E VAR=EAG POS=2 SRC=vcf GT=0/1 AD=8,6 DP=14", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 2, Verdict: "filtered:below-depth-cutoff",
+                Reason: "Same VCF insertion; alt AD=6 < minAlleleDepth=7 -> isDeepAlternateAllele false, insertion not applied; consensus{0,1} only. Mirror of D08.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE" },
+                MinAlleleDepth: 7);
+
+            // I07 — insertion CREATES a trypsin cut site (installment 5; invariant 7). A4->AK inserts a K after A4.
+            // Consensus PEPAIDE (no K/R) -> {PEPAIDE}; variant PEPAKIDE cuts after K5 -> {PEPAK, IDE}. Union = 3.
+            yield return new CorpusCase(
+                Id: "I07", Layer: "L3-digest", Tests: "ins-creates-cut-site",
+                Base: "PEPAIDE", Mods: "-", Variants: "OP=A VAR=AK POS=4 SRC=uniprot", Protease: "trypsin",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "applied",
+                Reason: "Inserting K after A4 gives PEPAKIDE, which trypsin cuts after K5 -> PEPAK + IDE; consensus PEPAIDE has no K/R -> one peptide. An inserted K/R adds a knife (installment 5). Insertion analog of S08.",
+                ExpectedForms: new[] { "PEPAIDE", "PEPAK", "IDE" });
+
+            // I08 — insertion that CARRIES A MOD (variant-borne; installment 4, #1083). P3->PT inserts a T after P3,
+            // turning PEPIDE into PEPTIDE, and a phospho is stored ON THE VARIANT at the inserted T (subposition 4,
+            // in the applied frame). The consensus PEPIDE has no T and stays bare; only the applied variant carries
+            // the variable phospho. 3 forms. Unlike S11 the mod sits past the variant's own position (4 vs 3), so it
+            // also checks the stored subposition is read in the applied frame. The round-trip family checks the
+            // writer keeps a mod that lives on an insertion.
+            yield return new CorpusCase(
+                Id: "I08", Layer: "L1-int", Tests: "ins-carries-variant-borne-mod",
+                Base: "PEPIDE", Mods: "-", Variants: "OP=P VAR=PT POS=3 SRC=uniprot VMOD=Phosphorylation@4", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 3, Verdict: "applied",
+                Reason: "P3->PT inserts a phosphorylatable T at applied position 4, and the phospho is stored on the variant (SequenceVariation.OneBasedModifications). Consensus PEPIDE is bare; applied PEPTIDE carries a variable phospho. 3 forms. Insertion analog of S11 (installment 4; AdjustModificationIndices merges variant.OneBasedModifications).",
+                ExpectedForms: new[] { "PEPIDE", "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE" });
+
+            // ---- L1 multi: two indels in one protein (combinatorial path; invariants 3-4) ----------------------
+            // Genotype-less pairs expand to consensus + each single + the pair, applied descending-position (D6),
+            // so each step re-frames the coordinates the next one works in. Kept to pairs (base+2+1 = 4 isoforms).
+
+            // MI00 — two insertions FLANKING a PTM. Phospho@T4; E2->EAG (before) and I5->IAG (after). T sits at 6
+            // whenever the E2 insertion is applied, else at 4. 4 isoforms x {0,1 phospho} = 8 forms. Mirror of MD01.
+            yield return new CorpusCase(
+                Id: "MI00", Layer: "L1-multi", Tests: "ins-x2-flanking-ptm",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=E VAR=EAG POS=2 SRC=uniprot; OP=I VAR=IAG POS=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 8, Verdict: "applied",
+                Reason: "Insertions before (E2) and after (I5) the mod; the phospho survives all 4 combos, at T6 when E2->EAG is applied and T4 otherwise. Pair applied I5 first, then E2 -> PEAGPTIAGDE. 4 isoforms x {0,1 phospho} = 8.",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "PEAGPTIDE", "PEAGPT[Biological:Phosphorylation on T]IDE",
+                    "PEPTIAGDE", "PEPT[Biological:Phosphorylation on T]IAGDE",
+                    "PEAGPTIAGDE", "PEAGPT[Biological:Phosphorylation on T]IAGDE"
+                });
+
+            // MI01 — an insertion AND a deletion, both upstream of the PTM, with opposite shifts. Phospho@T4;
+            // P1->PA (+1) and delete P3 (-1). Singly they move T to 5 and 3; together they cancel and T ends at 4
+            // again, but only if each step re-anchors in the frame the previous step left (applied P3 first -> PETIDE,
+            // T3; then P1->PA -> PAETIDE, T4). 4 isoforms x {0,1 phospho} = 8 forms.
+            yield return new CorpusCase(
+                Id: "MI01", Layer: "L1-multi", Tests: "ins-plus-del-net-zero",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=P VAR=PA POS=1 SRC=uniprot; OP=P POS=3 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 8, Verdict: "applied",
+                Reason: "Insertion P1->PA (+1) and deletion of P3 (-1), both before T4. Singles: PAEPTIDE (T5), PETIDE (T3). Pair: PAETIDE with T back at 4, after two opposite re-anchorings (invariants 3-4). 4 isoforms x {0,1 phospho} = 8.",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "PAEPTIDE", "PAEPT[Biological:Phosphorylation on T]IDE",
+                    "PETIDE", "PET[Biological:Phosphorylation on T]IDE",
+                    "PAETIDE", "PAET[Biological:Phosphorylation on T]IDE"
                 });
 
             // ---- S-series: the substitution axis, deepened (installments 2, 5, 11; invariants 1-2, 5) ---------
@@ -645,9 +823,12 @@ namespace Test.DatabaseTests.VariantCorpus
                     {
                         string gt = kv["GT"], ad = kv["AD"], dp = kv.TryGetValue("DP", out var d) ? d : "0";
                         // Effect label is cosmetic for the reader (only ANN's Allele field, == ALT, drives
-                        // AlleleIndex); label it faithfully anyway: empty variation = deletion, equal-length = sub.
+                        // AlleleIndex); label it faithfully anyway: empty variation = deletion, equal-length = sub,
+                        // longer = in-frame insertion (a protein-level variant cannot express a frameshift).
                         string effect = variation == "" ? "inframe_deletion"
-                            : (variation.Length == op.Length ? "missense_variant" : "frameshift_variant");
+                            : variation.Length == op.Length ? "missense_variant"
+                            : variation.Length > op.Length ? "inframe_insertion"
+                            : "frameshift_variant";
                         // Tabs as literal "\t" (VariantCallFormat normalizes them); ANN carries the 16
                         // pipe-delimited fields SnpEffAnnotation indexes, with Allele == ALT so AlleleIndex resolves.
                         description =
