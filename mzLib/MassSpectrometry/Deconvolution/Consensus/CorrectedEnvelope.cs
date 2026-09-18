@@ -17,5 +17,12 @@ namespace MassSpectrometry.Deconvolution.Consensus
         public int Charge;
         public double Intensity;
         public bool WasCorrected;
+
+        /// <summary>
+        /// Quality score of the envelope this observation came from, carried through from
+        /// <see cref="MassTrace"/>. <see cref="double.NaN"/> when the trace was built without a
+        /// scorer; treat NaN as missing, not as a low score.
+        /// </summary>
+        public double Score = double.NaN;
     }
 }
