@@ -18,7 +18,7 @@ public class WaveletFilter
         {
             ScalingCoefficients[i] = filterCoeffs[i] / Math.Sqrt(2d);
         }
-        WaveletCoefficients = WaveletMathUtils.QMF(ScalingCoefficients, inverse: true);
+        WaveletCoefficients = WaveletMathUtils.QMF(ScalingCoefficients);
     }
 
     public void CreateFiltersFromCoeffs(WaveletType waveletType)

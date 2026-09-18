@@ -801,7 +801,7 @@ public sealed class MslLibrary : IDisposable
 	///   order. Each entry has its <c>MatchedFragmentIons</c> list populated before being yielded.
 	/// </returns>
 	/// <exception cref="ObjectDisposedException">
-	///   Thrown when the first call to <see cref="IEnumerator{T}.MoveNext"/> is made after
+	///   Thrown when the first call to <c>IEnumerator{T}.MoveNext</c> is made after
 	///   this instance has been disposed.
 	/// </exception>
 	public IEnumerable<MslLibraryEntry> GetAllEntries(bool includeDecoys = true)

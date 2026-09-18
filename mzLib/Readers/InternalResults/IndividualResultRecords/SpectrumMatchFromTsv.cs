@@ -446,7 +446,7 @@ namespace Readers
         /// <summary>
         /// Parses the full sequence to identify mods. Local wrapper for MzLibUtil extension method.
         /// </summary>
-        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="fullSeq"> Full sequence of the peptide in question</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
         public static Dictionary<int, string> ParseModifications(string fullSeq)
         {

@@ -418,10 +418,6 @@ namespace FlashLFQ.PEP
         /// <returns>The enumerable of chromatographic peak data.</returns>
         public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakData(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
         {
-            object ChromatographicPeakDataListLock = new object();
-            List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
-            int[] threads = Enumerable.Range(0, maxThreads).ToArray();
-
             List<double> pipScores = new();
             foreach(int i in donorIndices)
             {
@@ -430,38 +426,40 @@ namespace FlashLFQ.PEP
             pipScores.Sort((a, b) => b.CompareTo(a)); // This is a descending sort
             double groupSpecificPipScoreCutoff = pipScores[(int)Math.Floor(pipScores.Count * 0.25)];
 
+            // One slot per donor, filled in place, then flattened in donor order. Appending each thread's
+            // chunk under a lock instead made the row order depend on which chunk finished first, and the
+            // trainer is sensitive to row order: FastTree runs single-threaded from a fixed seed, but the
+            // order rows arrive in changes its binning and split choices, so the model - and every PEP it
+            // predicts - differed between runs. Those PEPs order the target-decoy walk that assigns
+            // MbrQValue, and the peptide roll-up keeps an MBR peak only while its q-value is under the
+            // threshold, so a peptide whose only peak is an MBR transfer flipped between its real intensity
+            // and zero from one run to the next.
+            List<ChromatographicPeakData>[] rowsByDonor = new List<ChromatographicPeakData>[donorIndices.Count];
+
             Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
                 (range, loopState) =>
                 {
-                    List<ChromatographicPeakData> localChromatographicPeakDataList = new List<ChromatographicPeakData>();
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
+                        List<ChromatographicPeakData> rowsForThisDonor = new();
                         var donor = donors[donorIndices[i]];
                         foreach (var peak in donor)
                         {
-                            ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
                             if (peak.RandomRt)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: false);
-                                localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                                rowsForThisDonor.Add(CreateOneChromatographicPeakDataEntry(peak, label: false));
                             }
                             else if (!peak.RandomRt & peak.MbrScore >= groupSpecificPipScoreCutoff)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: true);
-                                localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                                rowsForThisDonor.Add(CreateOneChromatographicPeakDataEntry(peak, label: true));
                             }
                         }
-                    }
-                    lock (ChromatographicPeakDataListLock)
-                    {
-                        ChromatographicPeakDataList.AddRange(localChromatographicPeakDataList);
+                        rowsByDonor[i] = rowsForThisDonor;
                     }
                 });
 
-            ChromatographicPeakData[] pda = ChromatographicPeakDataList.ToArray();
-
-            return pda.AsEnumerable();
+            return rowsByDonor.Where(rows => rows != null).SelectMany(rows => rows).ToArray();
         }
 
         /// <summary>
@@ -473,10 +471,6 @@ namespace FlashLFQ.PEP
         /// <returns>The enumerable of chromatographic peak data.</returns>
         public IEnumerable<ChromatographicPeakData> CreateChromatographicPeakDataIteration(List<DonorGroup> donors, List<int> donorIndices, int maxThreads)
         {
-            object ChromatographicPeakDataListLock = new object();
-            List<ChromatographicPeakData> ChromatographicPeakDataList = new List<ChromatographicPeakData>();
-            int[] threads = Enumerable.Range(0, maxThreads).ToArray();
-
             List<double> peps = new();
             foreach (int i in donorIndices)
             {
@@ -485,38 +479,35 @@ namespace FlashLFQ.PEP
             peps.Sort();
             double groupSpecificPepCutoff = peps[(int)Math.Floor(peps.Count * 0.25)];
 
+            // Filled in place and flattened in donor order, for the reason given in
+            // CreateChromatographicPeakData. This builder feeds the nine iterative training rounds, so an
+            // order that varied here reached the trainer nine times per run.
+            List<ChromatographicPeakData>[] rowsByDonor = new List<ChromatographicPeakData>[donorIndices.Count];
+
             Parallel.ForEach(Partitioner.Create(0, donorIndices.Count),
                 new ParallelOptions { MaxDegreeOfParallelism = maxThreads },
                 (range, loopState) =>
                 {
-                    List<ChromatographicPeakData> localChromatographicPeakDataList = new List<ChromatographicPeakData>();
                     for (int i = range.Item1; i < range.Item2; i++)
                     {
+                        List<ChromatographicPeakData> rowsForThisDonor = new();
                         var donor = donors[donorIndices[i]];
                         foreach (var peak in donor)
                         {
-                            ChromatographicPeakData newChromatographicPeakData = new ChromatographicPeakData();
                             if (peak.RandomRt)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: false);
-                                localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                                rowsForThisDonor.Add(CreateOneChromatographicPeakDataEntry(peak, label: false));
                             }
                             else if (!peak.RandomRt & peak.MbrPep <= groupSpecificPepCutoff)
                             {
-                                newChromatographicPeakData = CreateOneChromatographicPeakDataEntry(peak, label: true);
-                                localChromatographicPeakDataList.Add(newChromatographicPeakData);
+                                rowsForThisDonor.Add(CreateOneChromatographicPeakDataEntry(peak, label: true));
                             }
                         }
-                    }
-                    lock (ChromatographicPeakDataListLock)
-                    {
-                        ChromatographicPeakDataList.AddRange(localChromatographicPeakDataList);
+                        rowsByDonor[i] = rowsForThisDonor;
                     }
                 });
 
-            ChromatographicPeakData[] pda = ChromatographicPeakDataList.ToArray();
-
-            return pda.AsEnumerable();
+            return rowsByDonor.Where(rows => rows != null).SelectMany(rows => rows).ToArray();
         }
 
         public static void Compute_PEP_For_All_Peaks(

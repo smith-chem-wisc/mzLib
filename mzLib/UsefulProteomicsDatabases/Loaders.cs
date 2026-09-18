@@ -213,7 +213,7 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Shared client for the ontology downloads below. One instance rather than one per call, which is
-        /// what <see cref="PredictionClients"/>' Koina client and <see cref="PrideArchiveClient"/> both do,
+        /// what <c>PredictionClients</c>' Koina client and <see cref="PrideArchiveClient"/> both do,
         /// so repeated refreshes cannot exhaust sockets.
         /// </summary>
         /// <remarks>

@@ -289,7 +289,7 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Handles the end of an XML element during protein database parsing and updates the internal state or finalizes objects as needed.
         /// Depending on the element name, this method processes and stores feature, subfeature, database reference, gene, and organism information.
-        /// When the end of an <entry> element is reached, it finalizes the parsing of the protein entry by:
+        /// When the end of an &lt;entry&gt; element is reached, it finalizes the parsing of the protein entry by:
         ///   - Sanitizing the sequence (replacing invalid amino acids with 'X').
         ///   - Pruning sequence variants whose coordinates exceed the sequence length.
         ///   - Resolving and attaching all annotated modifications, excluding specified types or unknowns.
@@ -297,7 +297,7 @@ namespace UsefulProteomicsDatabases
         ///   - Aggregating all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes)
         ///     into a new <see cref="Protein"/> instance.
         ///   - Clearing the internal state to prepare for the next entry.
-        /// Returns a constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, returns <c>null</c>.
+        /// Returns a constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present; otherwise, returns <c>null</c>.
         /// </summary>
         /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the current XML element.</param>
         /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
@@ -306,7 +306,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
         /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
         /// <returns>
-        /// A constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, <c>null</c>.
+        /// A constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present; otherwise, <c>null</c>.
         /// </returns>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
             bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
@@ -360,7 +360,7 @@ namespace UsefulProteomicsDatabases
         /// </returns>
         internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
+            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false, IList<SequenceTransformationOnRead>? transformationsToApply = null)
         {
             RNA result = null;
             if (xml.Name == "feature")
@@ -385,7 +385,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier, entrapmentIdentifier, isEntrapmentDb);
+                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier, entrapmentIdentifier, isEntrapmentDb, transformationsToApply);
             }
             return result;
         }
@@ -479,16 +479,15 @@ namespace UsefulProteomicsDatabases
         /// or <c>null</c> if the entry is incomplete.
         /// </returns>
         internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
-            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false, IList<SequenceTransformationOnRead>? transformationsToApply = null)
         {
             RNA result = null;
             bool isDecoy = false;
             bool isEntrapment = false;
             if (Accession != null && Sequence != null)
             {
-                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
-                // sometimes strange characters get added by RNA sequencing software, etc.
-                Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+                // sanitize the sequence 
+                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence, transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>());
                 // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
@@ -678,9 +677,9 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Clear this object's properties
+        /// Clear this object's properties. Internal so the RNA loader can reset state after a skipped entry.
         /// </summary>
-        private void Clear()
+        internal void Clear()
         {
             EntryAttributes = null;
             Accession = null;

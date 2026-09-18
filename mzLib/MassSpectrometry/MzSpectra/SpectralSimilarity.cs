@@ -51,7 +51,6 @@ namespace MassSpectrometry.MzSpectra
         private readonly double _localPpmTolerance;
         private readonly SpectrumNormalizationScheme _scheme;
         private readonly bool _allPeaks;
-        private readonly bool _keepAllTheoreticalPeaks;
 
         public List<(double, double)> IntensityPairs { get; } = new();
 
@@ -108,8 +107,7 @@ namespace MassSpectrometry.MzSpectra
         /// NOTE: ALL THEORETICAL MZ VALUES ARE USED TO CREATE AN INTENSITY PAIR. This prevents high similarity scores from
         /// only a handful of peaks.
         /// </summary>
-        /// <param name="keepAllExperimentalPeaks"></param>
-        /// <param name="keepAllTheoreticalPeaks"></param>
+        /// <param name="allPeaks"></param>
         /// <param name="experimentalYArray"></param>
         /// <param name="theoreticalYArray"></param>
         /// <returns></returns>
@@ -385,7 +383,7 @@ namespace MassSpectrometry.MzSpectra
         // This method should only be used when allPeaks is set to true
         public double? SpectralEntropy()
         {
-            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_allPeaks && !_keepAllTheoreticalPeaks)
+            if (_scheme != SpectrumNormalizationScheme.SpectrumSum && !_allPeaks)
             {
                 return null;
             }

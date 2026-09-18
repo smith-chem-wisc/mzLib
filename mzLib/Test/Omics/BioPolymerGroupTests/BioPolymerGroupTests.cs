@@ -262,8 +262,8 @@ namespace Test.Omics.BioPolymerGroupTests
         [Test]
         public void ToStringAndHeader_HaveMatchingColumnCounts()
         {
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
-            var row = _bioPolymerGroup.ToString();
+            var header = GroupTsv.Header(_bioPolymerGroup);
+            var row = GroupTsv.Row(_bioPolymerGroup);
 
             var headerColumns = header.Split('\t').Length;
             var rowColumns = row.Split('\t').Length;
@@ -287,7 +287,7 @@ namespace Test.Omics.BioPolymerGroupTests
                 isDecoy: isDecoy, isContaminant: isContaminant, isEntrapment: isEntrapment);
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
-            var result = bg.ToString();
+            var result = GroupTsv.Row(bg);
 
             Assert.That(result, Does.Contain(expectedMarker));
         }
@@ -324,7 +324,7 @@ namespace Test.Omics.BioPolymerGroupTests
             });
 
             // Verify ToString doesn't throw with mixed types
-            Assert.DoesNotThrow(() => _bioPolymerGroup.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(_bioPolymerGroup));
         }
 
         /// <summary>
@@ -344,7 +344,7 @@ namespace Test.Omics.BioPolymerGroupTests
                 { sample127, 2222.0 }
             };
 
-            var result = _bioPolymerGroup.ToString();
+            var result = GroupTsv.Row(_bioPolymerGroup);
             var index1111 = result.IndexOf("1111");
             var index2222 = result.IndexOf("2222");
 
@@ -366,7 +366,7 @@ namespace Test.Omics.BioPolymerGroupTests
             var bioPolymer = new MockBioPolymer("SEQ", "BP00001", fullName: longName);
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
-            var result = bg.ToString();
+            var result = GroupTsv.Row(bg);
 
             Assert.That(result.Length, Is.LessThan(longName.Length));
         }
@@ -381,8 +381,8 @@ namespace Test.Omics.BioPolymerGroupTests
             _bioPolymerGroup.SamplesForQuantification = null;
             _bioPolymerGroup.IntensitiesBySample = null;
 
-            Assert.DoesNotThrow(() => _bioPolymerGroup.ToString());
-            Assert.DoesNotThrow(() => _bioPolymerGroup.GetTabSeparatedHeader());
+            Assert.DoesNotThrow(() => GroupTsv.Row(_bioPolymerGroup));
+            Assert.DoesNotThrow(() => GroupTsv.Header(_bioPolymerGroup));
             Assert.DoesNotThrow(() => _bioPolymerGroup.ConstructSubsetBioPolymerGroup(@"C:\test.raw"));
         }
 
@@ -405,7 +405,7 @@ namespace Test.Omics.BioPolymerGroupTests
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             // Without IntensitiesBySample, intensity columns should not appear
             Assert.That(header, Does.Not.Contain("Intensity_test1"));
@@ -427,7 +427,7 @@ namespace Test.Omics.BioPolymerGroupTests
             };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
             Assert.That(header, Does.Contain("Intensity_test1"));
             Assert.That(header, Does.Contain("Intensity_test2"));
         }
@@ -445,7 +445,7 @@ namespace Test.Omics.BioPolymerGroupTests
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file1, file2 };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             Assert.That(header, Does.Not.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Not.Contain("Intensity_sample_B"));
@@ -465,18 +465,22 @@ namespace Test.Omics.BioPolymerGroupTests
             };
             _bioPolymerGroup.PopulateSampleGroupResults();
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
             Assert.That(header, Does.Contain("Intensity_sample_A"));
             Assert.That(header, Does.Contain("Intensity_sample_B"));
         }
 
         /// <summary>
-        /// Verifies isobaric header groups channels by file and orders by channel label.
-        /// Critical: Channel order in header must match intensity column order for TMT/iTRAQ data.
+        /// A spectral count describes the acquired FILE, so an isobaric header carries one
+        /// <c>SpectralCount_</c> and one <c>CountOccupancy_</c> per file — not one per channel.
+        ///
+        /// Every channel of a file is handed that file's whole PSM list, so a per-channel count
+        /// restates one number n times. Files keep their order; the channels within a file no longer
+        /// each open a counting column of their own.
         /// </summary>
         [Test]
-        public void GetTabSeparatedHeader_Isobaric_GroupsByFileAndOrdersByChannel()
+        public void GetTabSeparatedHeader_Isobaric_CountColumnsAreOnePerFile()
         {
             var sample126 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
             var sample127 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "127N", 127.0, false);
@@ -484,15 +488,160 @@ namespace Test.Omics.BioPolymerGroupTests
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { sample127, sample126, sample128 };
 
-            var header = _bioPolymerGroup.GetTabSeparatedHeader();
+            var header = GroupTsv.Header(_bioPolymerGroup);
 
-            // Channels should be ordered by file path first, then by channel label
-            var index126 = header.IndexOf("fileA_126");
-            var index127 = header.IndexOf("fileA_127N");
-            var index128 = header.IndexOf("fileB_128C");
+            Assert.Multiple(() =>
+            {
+                Assert.That(header, Does.Contain("SpectralCount_fileA"), "fileA needs a count column");
+                Assert.That(header, Does.Contain("SpectralCount_fileB"), "fileB needs a count column");
 
-            Assert.That(index126, Is.LessThan(index127), "126 should come before 127N within same file");
-            Assert.That(index127, Is.LessThan(index128), "fileA channels should come before fileB channels");
+                Assert.That(header, Does.Not.Contain("SpectralCount_fileA_126"),
+                    "a count belongs to the file, so no channel may open one of its own");
+                Assert.That(header, Does.Not.Contain("SpectralCount_fileA_127N"),
+                    "a count belongs to the file, so no channel may open one of its own");
+                Assert.That(header, Does.Not.Contain("CountOccupancy_fileA_126"),
+                    "count-based occupancy is derived from the same per-file PSM list as the count");
+
+                Assert.That(header.IndexOf("SpectralCount_fileA", StringComparison.Ordinal),
+                    Is.LessThan(header.IndexOf("SpectralCount_fileB", StringComparison.Ordinal)),
+                    "fileA's columns should still come before fileB's");
+            });
+        }
+
+        /// <summary>
+        /// Channel columns are ordered by ascending reporter-ion m/z, not by channel label.
+        ///
+        /// TMT N/C pairs are the case that separates the two: 127N is 127.1248 and 127C is 127.1311,
+        /// so the N reporter is the lighter and comes first — but an ordinal comparison of the
+        /// LABELS puts "127C" before "127N", because C precedes N. Ordering by label therefore
+        /// inverts every N/C pair in a plex. The samples are supplied heaviest-first so the assertion
+        /// cannot pass merely by keeping input order.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_Isobaric_ChannelColumnsAreOrderedByReporterMz()
+        {
+            var channel127N = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "127N", 127.124760, false);
+            var channel127C = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "127C", 127.131079, false);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { channel127C, channel127N };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { channel127N, 500.0 },
+                { channel127C, 750.0 }
+            };
+
+            var header = GroupTsv.Header(_bioPolymerGroup);
+
+            Assert.That(header.IndexOf("Intensity_fileA_127N", StringComparison.Ordinal),
+                Is.LessThan(header.IndexOf("Intensity_fileA_127C", StringComparison.Ordinal)),
+                "127N is the lighter reporter and must come first; ordering by label inverts the pair");
+        }
+
+        /// <summary>
+        /// Every channel of a file reports the same count, which is what lets one column report it.
+        ///
+        /// The schema answers a count section from whichever of its results it indexed first, so
+        /// that is only sound while they agree. They do, by construction -- SampleGroupBuilder
+        /// computes psmsInFile once per file and hands that same list to each channel's
+        /// SpectralCount and to each channel's occupancy callback -- and this pins the agreement so
+        /// a later change that gave channels their own PSM lists cannot quietly make the rendered
+        /// count depend on indexing order.
+        /// </summary>
+        [Test]
+        public void SampleGroupResults_ChannelsOfOneFile_AgreeOnTheCountTheyReport()
+        {
+            var channel126 = new IsobaricQuantSampleInfo(@"C:\agree.raw", "Control", 1, 1, 0, 1, "126", 126.127, false);
+            var channel127N = new IsobaricQuantSampleInfo(@"C:\agree.raw", "Control", 1, 1, 0, 1, "127N", 127.124, false);
+            var channel127C = new IsobaricQuantSampleInfo(@"C:\agree.raw", "Control", 1, 1, 0, 1, "127C", 127.131, false);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { channel126, channel127N, channel127C };
+            _bioPolymerGroup.PopulateSampleGroupResults();
+
+            var results = _bioPolymerGroup.SampleGroupResults;
+
+            Assert.That(results, Has.Count.EqualTo(3), "one result per channel");
+
+            foreach (var section in results.GroupBy(r => r.CountIdentity))
+            {
+                Assert.Multiple(() =>
+                {
+                    Assert.That(section.Select(r => r.SpectralCount).Distinct().Count(), Is.EqualTo(1),
+                        $"channels of {section.Key} disagree on SpectralCount, so one count column cannot speak for them");
+                    Assert.That(section.Select(r => r.FormatOccupancy(new[] { "P12345" })).Distinct().Count(), Is.EqualTo(1),
+                        $"channels of {section.Key} disagree on count-based occupancy");
+                });
+            }
+        }
+
+        /// <summary>
+        /// A run that quantified but measured nothing still advertises its intensity columns, empty.
+        ///
+        /// This is mzLib #1240's property stated as behaviour rather than as row width, and it is
+        /// the assertion that keeps the run-level gate honest. Whether the intensity columns exist
+        /// is a property of the RUN — an engine either quantified these groups or it did not — not
+        /// of whether any particular sample group came back with a value. Swap the predicate in
+        /// BioPolymerGroupTsvSchema.QuantificationColumns for the per-sample-group
+        /// SampleGroupResult.HasIntensityData that #1240 rejected and this test goes red: the
+        /// columns disappear entirely instead of standing empty, which is how a group with no
+        /// measured intensity came to describe a narrower table than its neighbour.
+        ///
+        /// A width assertion cannot catch that. TsvWriter.RowLine joins the same schema the header
+        /// came from, so header and row agree by construction whatever the predicate says; only the
+        /// column's presence and its emptiness can still disagree.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_QuantifiedRunWithNoMeasuredIntensity_KeepsEmptyIntensityColumns()
+        {
+            var file = new SpectraFileInfo(@"C:\gated.raw", "Control", 0, 0, 0);
+
+            // The run quantified -- samples are declared and the intensity map exists -- but nothing
+            // was measured into it, so every sample group's own HasIntensityData is false.
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { file };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>();
+
+            var columns = GroupTsv.Header(_bioPolymerGroup).Split('\t');
+            var row = GroupTsv.Row(_bioPolymerGroup).Split('\t');
+
+            int intensity = Array.IndexOf(columns, "Intensity_gated");
+
+            // Not inside the Assert.Multiple below: the cell read needs this index, so a missing
+            // column should report itself rather than arrive as an IndexOutOfRangeException.
+            Assert.That(intensity, Is.GreaterThanOrEqualTo(0),
+                "the run quantified, so the intensity column must be advertised even with nothing in it");
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(row[intensity], Is.Empty,
+                    "nothing was measured, so the cell must be present and empty rather than a zero");
+                Assert.That(columns, Has.Member("IntensityOccupancy_gated"));
+            });
+        }
+
+        /// <summary>
+        /// Two files of the same name in different directories are distinct count sections, and the
+        /// count columns must say which is which.
+        ///
+        /// The sample columns were already separated by their channel labels, so nothing forces the
+        /// count labels apart unless they are disambiguated in their own right — which is why the
+        /// two sections are widened independently rather than sharing one pass.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_Isobaric_SameNamedFilesGetDistinctCountColumns()
+        {
+            var rep1 = new IsobaricQuantSampleInfo(@"C:\Rep1\sample.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var rep2 = new IsobaricQuantSampleInfo(@"C:\Rep2\sample.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { rep1, rep2 };
+
+            var header = GroupTsv.Header(_bioPolymerGroup);
+            var columns = header.Split('\t');
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(columns, Has.Member("SpectralCount_Rep1_sample"));
+                Assert.That(columns, Has.Member("SpectralCount_Rep2_sample"));
+                Assert.That(columns, Is.Unique, "no two columns may share a name");
+            });
         }
 
         #endregion
@@ -530,7 +679,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // N-terminal mods should appear as [ModName]- prefix
             Assert.That(output, Does.Contain("[Acetyl on P]-"));
         }
@@ -565,7 +714,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // C-terminal mods should appear as -[ModName] suffix
             Assert.That(output, Does.Contain("-[Amidated on E]"));
         }
@@ -604,7 +753,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // N-terminal mod occupancy should report position as aa1
             Assert.That(output, Does.Contain("pos0["));
             Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
@@ -638,7 +787,7 @@ namespace Test.Omics.BioPolymerGroupTests
             var psm = new MockSpectralMatch(@"C:\test.raw", "PEPTIDEK-[Amidated on K]", "PEPTIDEK", 100, 1, [peptide]);
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // C-terminal mod occupancy should report position as aa10 (protein length + 2)
             Assert.That(output, Does.Contain("pos9["));
             Assert.That(output, Does.Contain("fraction=1.00(1/1)"));
@@ -675,7 +824,7 @@ namespace Test.Omics.BioPolymerGroupTests
             // Should not throw
             Assert.DoesNotThrow(() => group.CalculateSequenceCoverage());
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // Unknown location restriction mods should not appear in occupancy info
             Assert.That(output, Does.Not.Contain("UnknownMod"));
         }
@@ -751,7 +900,7 @@ namespace Test.Omics.BioPolymerGroupTests
             // Enable modification display
             group.DisplayModsOnPeptides = true;
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
 
             // Unique sequences column should contain the full modified sequence
             Assert.That(output, Does.Contain("PEP[Phospho]TIDE"));
@@ -792,7 +941,7 @@ namespace Test.Omics.BioPolymerGroupTests
 
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             // The modification should appear after the T (4th residue)
             Assert.That(output, Does.Contain("[Phospho on T]"));
         }
@@ -808,29 +957,29 @@ namespace Test.Omics.BioPolymerGroupTests
         [Test]
         public void MaxStringLength_ControlsTruncation()
         {
-            var originalMax = BioPolymerGroup.MaxStringLength;
+            var originalMax = BioPolymerGroupTsvSchema.MaxStringLength;
             try
             {
                 // Test with custom limit
-                BioPolymerGroup.MaxStringLength = 100;
+                BioPolymerGroupTsvSchema.MaxStringLength = 100;
                 var longName = new string('X', 200);
                 var bioPolymer = new MockBioPolymer("SEQ", "P00001", fullName: longName);
                 var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
-                var result = bg.ToString();
+                var result = GroupTsv.Row(bg);
 
                 // Full name column should be truncated
                 Assert.That(result, Does.Not.Contain(longName));
                 Assert.That(result.Contains(new string('X', 100)), Is.True);
 
                 // Test disabling truncation (0 or negative)
-                BioPolymerGroup.MaxStringLength = 0;
-                var result2 = bg.ToString();
+                BioPolymerGroupTsvSchema.MaxStringLength = 0;
+                var result2 = GroupTsv.Row(bg);
                 Assert.That(result2, Does.Contain(longName), "MaxStringLength=0 should disable truncation");
             }
             finally
             {
-                BioPolymerGroup.MaxStringLength = originalMax;
+                BioPolymerGroupTsvSchema.MaxStringLength = originalMax;
             }
         }
 
@@ -845,13 +994,13 @@ namespace Test.Omics.BioPolymerGroupTests
             var bg = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer }, _allSequences, _uniqueSequences);
 
             // Should not throw with null fullName
-            Assert.DoesNotThrow(() => bg.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(bg));
 
             var bioPolymer2 = new MockBioPolymer("SEQ", "P00002", fullName: "");
             var bg2 = new BioPolymerGroup(new HashSet<IBioPolymer> { bioPolymer2 }, _allSequences, _uniqueSequences);
 
             // Should not throw with empty fullName
-            Assert.DoesNotThrow(() => bg2.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(bg2));
         }
 
         #endregion

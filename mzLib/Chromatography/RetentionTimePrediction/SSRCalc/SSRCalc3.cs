@@ -1017,7 +1017,10 @@ public class SSRCalc3
             if (m == 'O' || m == 'U')
             {
                 where = i;
+                // dead while DUPLICATE_ORIGINAL_CODE is true; kept so flipping the const still works
+#pragma warning disable CS0162
                 if (!DUPLICATE_ORIGINAL_CODE) break;
+#pragma warning restore CS0162
             }
         }
         where += ix2;
@@ -1173,7 +1176,7 @@ public class SSRCalc3
     /// <param name="acid">Central amino acid.</param>
     /// <param name="lp">Left-flanking amino acid.</param>
     /// <param name="rp">Right-flanking amino acid.</param>
-    /// <param name="ct">Connector type ("--", "<-", or "->").</param>
+    /// <param name="ct">Connector type ("--", "&lt;-", or "-&gt;").</param>
     /// <param name="far1">Far-left amino acid for offset patterns.</param>
     /// <param name="far2">Far-right amino acid for offset patterns.</param>
     /// <returns>Connection multiplier (0 = incompatible, >0 = compatible).</returns>

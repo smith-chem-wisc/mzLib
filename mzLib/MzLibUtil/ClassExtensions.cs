@@ -253,7 +253,7 @@ namespace MzLibUtil
         /// <summary>
         /// Parses the full sequence to identify mods
         /// </summary>
-        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="fullSeq"> Full sequence of the peptide in question</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
         public static Dictionary<int, string> ParseModifications(this string fullSeq)
         {
@@ -315,6 +315,23 @@ namespace MzLibUtil
         public static string[] SplitProteinAccessions(this string proteinGroupName)
         {
             return CompiledProteinSplitPattern.Split(proteinGroupName);
+        }
+
+        /// <summary>
+        /// Determines if all characters in the string are lowercase letters.
+        /// </summary>
+        public static bool IsAllLower(this string str)
+        {
+            if (string.IsNullOrEmpty(str)) return false;
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                if (!char.IsLower(str[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
         }
     }
 }

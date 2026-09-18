@@ -60,7 +60,9 @@ namespace Test.FlashLFQ
             string result = chromatographicPeak.ToString();
 
             // Assert
-            string expected = "sampleFile\tMPEPTIDE\tM[Oxidation]PEPTIDE\t\t\t100\t10\t2\t51.007276466879\t0\t-\t-\t-\t-\t-\t0\tMSMS\t\t\t1\t1\t1\t0\tNaN\tFalse\tFalse";
+            // Apex is null here because CalculateIntensityForThisFeature is never called, so the width
+            // columns read "-" and NoApex.
+            string expected = "sampleFile\tMPEPTIDE\tM[Oxidation]PEPTIDE\t\t\t100\t10\t2\t51.007276466879\t0\t-\t-\t-\t-\tNoApex\t-\t-\t0\tMSMS\t\t\t1\t1\t1\t0\tNaN\tFalse\tFalse";
             Assert.AreEqual(expected, result);
         }
 
@@ -110,17 +112,25 @@ namespace Test.FlashLFQ
             List<string> str_IsoTecker_MBR = peak_IsoTecker_MBR.ToString().Split("\t").ToList();
             List<string> str_IsoTecker_Amb = peak_IsoTecker_Amb.ToString().Split("\t").ToList();
 
+            // Columns are located by header name rather than by a fixed index, which any column added
+            // ahead of them shifts.
+            List<string> header = ChromatographicPeak.TabSeparatedHeader.Split("\t").ToList();
+            int detectionType = header.IndexOf("Peak Detection Type");
+            int ms2RetentionTime = header.IndexOf("MS2 Retention Time");
+            NUnit.Framework.Assert.That(detectionType, Is.GreaterThanOrEqualTo(0));
+            NUnit.Framework.Assert.That(ms2RetentionTime, Is.GreaterThanOrEqualTo(0));
+
             // Test the DetectionType output
-            Assert.AreEqual(str_MSMS[16], "MSMS");
-            Assert.AreEqual(str_MBR[16], "MBR");
-            Assert.AreEqual(str_IsoTecker_MBR[16], "MBR_IsoTrack");
-            Assert.AreEqual(str_IsoTecker_Amb[16], "IsoTrack_Ambiguous");
+            Assert.AreEqual(str_MSMS[detectionType], "MSMS");
+            Assert.AreEqual(str_MBR[detectionType], "MBR");
+            Assert.AreEqual(str_IsoTecker_MBR[detectionType], "MBR_IsoTrack");
+            Assert.AreEqual(str_IsoTecker_Amb[detectionType], "IsoTrack_Ambiguous");
 
             // The MS2Retention time will only be printed for MSMS peaks
-            Assert.AreEqual(str_MSMS[6], "10");
-            Assert.AreEqual(str_MBR[6], "");
-            Assert.AreEqual(str_IsoTecker_MBR[6], "");
-            Assert.AreEqual(str_IsoTecker_Amb[6], "");
+            Assert.AreEqual(str_MSMS[ms2RetentionTime], "10");
+            Assert.AreEqual(str_MBR[ms2RetentionTime], "");
+            Assert.AreEqual(str_IsoTecker_MBR[ms2RetentionTime], "");
+            Assert.AreEqual(str_IsoTecker_Amb[ms2RetentionTime], "");
 
         }
     }

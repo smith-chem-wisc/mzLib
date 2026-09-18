@@ -734,7 +734,7 @@ public static class MslReader
 	/// <summary>
 	/// Deserialises one precursor's fragment block from the open on-demand
 	/// <see cref="System.IO.FileStream"/> by seeking to the stored offset. Used in
-	/// index-only mode; called from <see cref="MslLibrary.LoadFragmentsOnDemand"/>.
+	/// index-only mode; called from <c>MslLibrary.LoadFragmentsOnDemand</c>.
 	///
 	/// Thread-safety: the caller (<see cref="MslLibrary"/>) must hold the library's internal
 	/// stream lock around the entire call to prevent concurrent Seek + Read interleaving.
@@ -877,7 +877,7 @@ public static class MslReader
 	/// </param>
 	/// <param name="fragments">
 	/// Pre-loaded fragment ions. Pass a populated list for full-load mode; pass an empty list
-	/// for index-only mode (fragments loaded later via <see cref="MslLibrary.LoadFragmentsOnDemand"/>).
+	/// for index-only mode (fragments loaded later via <c>MslLibrary.LoadFragmentsOnDemand</c>).
 	/// </param>
 	/// <returns>A fully populated <see cref="MslLibraryEntry"/>.</returns>
 	private static MslLibraryEntry ConvertPrecursor(

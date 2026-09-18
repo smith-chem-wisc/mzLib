@@ -23,7 +23,8 @@ namespace UsefulProteomicsDatabases
 
     public static class ProteinDbLoader
     {
-        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"[|](.+)[|]", 0, 1);
+        // Captures the last pipe-delimited field, not everything between the first and last pipe.
+        public static readonly FastaHeaderFieldRegex UniprotAccessionRegex = new FastaHeaderFieldRegex("accession", @"^>.*\|([^|]*)\|", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotFullNameRegex = new FastaHeaderFieldRegex("fullName", @"\s(.*?)\s(OS=|GN=|PE=|SV=|OX=)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotNameRegex = new FastaHeaderFieldRegex("name", @"\|(?:.+)\|(.*?)(\s|$)", 0, 1);
         public static readonly FastaHeaderFieldRegex UniprotGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"GN=(.*?)(\s|$)", 0, 1);
@@ -102,17 +103,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".xml");
+            string newProteinDbLocation = database.Location;
 
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -156,14 +148,30 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
-            }
+            // Expand the targets first, then mirror each expanded entry, so that every generated decoy is the
+            // reversal of exactly one target sequence: same length, same residue composition, one for one.
+            //
+            // Reversing the variations and expanding the decoy separately does not give that. Reversal maps a
+            // variation at [b,e] onto [L-e+2, L-b+2], which turns variations sharing an end into variations
+            // sharing a begin, and overlapping variations compose differently under the two geometries. The
+            // decoy half then gained and lost entries that mirrored no target - on a U2OS Spritz database, 385
+            // decoys mirrored nothing (one of them 2 residues long) and 114 targets had no decoy at all.
+            //
+            // Mirroring an already-expanded target keeps the variant character of the null, which is the point
+            // of building decoys through the same pipeline: the reversal of a variant protein still contains
+            // that variant's junction, so variant peptides still have decoys to be scored against.
+            var expandedTargets = targets
+                .SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth))
+                .ToList();
 
-            decoys.AddRange(DecoyProteinGenerator.GenerateDecoys(targets, decoyType, maxThreads, decoyIdentifier));
-            IEnumerable<Protein> proteinsToExpand = generateTargets ? targets.Concat(decoys) : decoys;
-            var toReturn = proteinsToExpand.SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+            // Decoys read from the file itself are expanded as they always were; only generated decoys mirror.
+            var expandedFileDecoys = decoys
+                .SelectMany(p => p.GetVariantBioPolymers(maxHeterozygousVariants, minAlleleDepth));
+
+            IEnumerable<Protein> toReturn = (generateTargets ? expandedTargets : Enumerable.Empty<Protein>())
+                .Concat(expandedFileDecoys)
+                .Concat(DecoyProteinGenerator.GenerateDecoys(expandedTargets, decoyType, maxThreads, decoyIdentifier));
+
             return Merge(toReturn).ToList();
         }
 
@@ -240,17 +248,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".fasta");
+            string newProteinDbLocation = database.Location;
 
             using (var fastaFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -397,11 +396,6 @@ namespace UsefulProteomicsDatabases
                         break;
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             if (!targets.Any())

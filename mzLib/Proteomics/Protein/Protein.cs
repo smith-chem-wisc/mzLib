@@ -46,10 +46,15 @@ namespace Proteomics
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
             UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
+            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
+            Protein nonVariantProtein = null)
         {
             BaseSequence = sequence;
-            NonVariantProtein = this;
+            // Defaults to this, which is right for an entry that is its own consensus. A caller building an
+            // entry that carries applied variations - a decoy mirrored from a variant target, for instance -
+            // passes the consensus so that ConsensusVariant and NonVariantProtein point at it rather than at
+            // the variant entry itself.
+            NonVariantProtein = nonVariantProtein ?? this;
             Accession = accession;
 
             Name = name;
@@ -92,7 +97,6 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="newBaseSequence"></param>
-        /// <param name="silacAccession"></param>
         public Protein(Protein originalProtein, string newBaseSequence)
         {
             BaseSequence = newBaseSequence;
@@ -374,10 +378,22 @@ namespace Proteomics
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
             ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
+
+            // SearchModeType Semi means two different things depending on FragmentationTerminus:
+            //  - N or C: the caller is MetaMorpheus's non-specific search engine, which wants "seed" peptides fixed at that
+            //    terminus and trims them after the search (see ProteinDigestion.SpeedySemiSpecificDigestion).
+            //  - anything else (Both is the default): the caller wants the semi-specific peptides themselves. Classic,
+            //    Modern, Glyco and crosslink searches do no trimming, so they must get every peptide with at least one
+            //    specific terminus. This used to fall through to the seed path as well, where Both silently behaved as C,
+            //    and those searches lost most semi-specific peptides without any error.
+            // SearchModeType None never returns peptides: DigestionParams has already swapped the protease for singleN or
+            // singleC, whose digestion (the first branch) returns non-specific seeds; None + Both gives the singleC ones.
+            // The full table of what each SearchModeType and FragmentationTerminus returns is on
+            // DigestionParams.SearchModeType and is pinned by SearchModeTypeDigestionTests.
             IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                searchModeType == CleavageSpecificity.Semi ?
-                digestion.SpeedySemiSpecificDigestion(this) :
-                    digestion.Digestion(this, topDownTruncationSearch);
+                searchModeType != CleavageSpecificity.Semi ? digestion.Digestion(this, topDownTruncationSearch)
+                : ProteinDigestion.WantsSemiSpecificSeeds(digestionParameters) ? digestion.SpeedySemiSpecificDigestion(this)
+                : digestion.SemiSpecificDigestion(this);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {

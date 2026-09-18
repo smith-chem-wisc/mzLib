@@ -32,9 +32,6 @@
 		<Reference Include="ThermoFisher.CommonCore.Data">
 			<HintPath>Thermo\ThermoFisher.CommonCore.Data.dll</HintPath>
 		</Reference>
-		<Reference Include="ThermoFisher.CommonCore.MassPrecisionEstimator">
-			<HintPath>Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll</HintPath>
-		</Reference>
 		<Reference Include="ThermoFisher.CommonCore.RawFileReader">
 			<HintPath>Thermo\ThermoFisher.CommonCore.RawFileReader.dll</HintPath>
 		</Reference>
@@ -70,9 +67,6 @@
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.Data.dll">
-			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
-		</None>
-		<None Update="Thermo\ThermoFisher.CommonCore.MassPrecisionEstimator.dll">
 			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
 		</None>
 		<None Update="Thermo\ThermoFisher.CommonCore.RawFileReader.dll">

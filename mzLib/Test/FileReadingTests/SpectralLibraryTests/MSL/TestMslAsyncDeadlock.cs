@@ -21,6 +21,12 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 
+// [Timeout] is [Obsolete] in favour of [CancelAfter], but CancelAfter cannot enforce a budget on
+// a non-cooperative synchronous test, which is exactly what these are. Measured on NUnit 4.1 and
+// net10.0: an 8 s Thread.Sleep against a 2 s budget fails under [Timeout] and passes under
+// [CancelAfter]. Swapping them here would turn every deadlock guard in this file into a hang.
+#pragma warning disable CS0618
+
 namespace Test.SpectralLibrary.MSL;
 
 [TestFixture]
