@@ -195,6 +195,53 @@ namespace Omics.Digestion
             }
         }
 
+        protected IEnumerable<DigestionProduct> TopDownDigestion(IBioPolymer parent, int minLength, int maxLength, bool topDownTruncationSearch, int initialStartResidue, int? alternateInitialStartResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
+        {
+            if (!topDownTruncationSearch)
+            {
+                if (ValidLength(parent.Length - initialStartResidue + 1, minLength, maxLength))
+                {
+                    foreach (var product in GetConcreteProducts(parent, initialStartResidue, parent.Length, 0,
+                                 CleavageSpecificity.Full, initialDescription))
+                    {
+                        yield return product;
+                    }
+                }
+
+                if (alternateInitialStartResidue.HasValue
+                    && ValidLength(parent.Length - alternateInitialStartResidue.Value + 1, minLength, maxLength))
+                {
+                    foreach (var product in GetConcreteProducts(parent, alternateInitialStartResidue.Value, parent.Length, 0,
+                                 CleavageSpecificity.Full, initialDescription + ":M cleaved"))
+                    {
+                        yield return product;
+                    }
+                }
+            }
+
+            foreach (var truncationProduct in parent.TruncationProducts)
+            {
+                if (truncationProduct.OneBasedBeginPosition.HasValue
+                    && truncationProduct.OneBasedEndPosition.HasValue
+                    && ValidLength(
+                        truncationProduct.OneBasedEndPosition.Value - truncationProduct.OneBasedBeginPosition.Value + 1,
+                        minLength,
+                        maxLength))
+                {
+                    foreach (var product in GetConcreteProducts(
+                                 parent,
+                                 truncationProduct.OneBasedBeginPosition.Value,
+                                 truncationProduct.OneBasedEndPosition.Value,
+                                 0,
+                                 truncationSpecificity,
+                                 truncationProduct.Type))
+                    {
+                        yield return product;
+                    }
+                }
+            }
+        }
+
         #endregion
 
         public override string ToString()

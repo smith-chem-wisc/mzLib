@@ -23,17 +23,20 @@ namespace Transcriptomics.Digestion
         }
 
         public IEnumerable<NucleolyticOligo> GetUnmodifiedOligos(NucleicAcid nucleicAcid, int maxMissedCleavages, int minLength,
-            int maxLength, Rnase? specificRnase = null)
+            int maxLength, Rnase? specificRnase = null, bool topDownTruncationSearch = false)
         {
             specificRnase ??= this;
             return CleavageSpecificity switch
             {
                 // top down
-                CleavageSpecificity.None => TopDownDigestion(nucleicAcid, minLength, maxLength),
+                CleavageSpecificity.None => TopDownDigestion(nucleicAcid, minLength, maxLength, topDownTruncationSearch, 1, null, CleavageSpecificity.Full, "full").Cast<NucleolyticOligo>(),
+
                 // full cleavage
                 CleavageSpecificity.Full => FullDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength),
-                // non-specific, anchored at one terminus (see SingleFivePrimeDigestion)
+
+                // non-specific, anchored at one terminus
                 CleavageSpecificity.SingleN => SingleLeftSideDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength, specificRnase, 1).Cast<NucleolyticOligo>(),
+
                 CleavageSpecificity.SingleC => SingleRightSideDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength, specificRnase, 1).Cast<NucleolyticOligo>(),
                 _ => throw new ArgumentException(
                     "Cleave Specificity not defined for Rna digestion, currently supports Full, None, SingleN and SingleC")
@@ -45,33 +48,10 @@ namespace Transcriptomics.Digestion
             foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(startResidue, endResidue, (NucleicAcid)rna, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
             {
                 yield return new NucleolyticOligo((NucleicAcid)rna, startResidue, endResidue,
-                    0, CleavageSpecificity.SingleN, fivePrimeTerminus, threePrimeTerminus, "SingleN");
+                    missedCleavages, specificity, fivePrimeTerminus, threePrimeTerminus, description);
             }
         }
 
-        private IEnumerable<NucleolyticOligo> TopDownDigestion(NucleicAcid nucleicAcid, int minLength, int maxLength)
-        {
-            if (ValidLength(nucleicAcid.Length, minLength, maxLength))
-                yield return new NucleolyticOligo(nucleicAcid, 1, nucleicAcid.Length,
-                    0, CleavageSpecificity.Full, nucleicAcid.FivePrimeTerminus, nucleicAcid.ThreePrimeTerminus);
-
-            // Also digest using the proteolysis product start/end indices
-            foreach (var truncationProduct in nucleicAcid.TruncationProducts)
-            {
-                if (truncationProduct is { OneBasedEndPosition: not null, OneBasedBeginPosition: not null })
-                {
-                    int length = truncationProduct.OneBasedEndPosition.Value - truncationProduct.OneBasedBeginPosition.Value + 1;
-                    if (!ValidLength(length, minLength, maxLength)) continue;
-
-                    foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncationProduct.OneBasedBeginPosition.Value,
-                        truncationProduct.OneBasedEndPosition.Value, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-                    {
-                        yield return new NucleolyticOligo(nucleicAcid, truncationProduct.OneBasedBeginPosition.Value, truncationProduct.OneBasedEndPosition.Value,
-                            0, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncationProduct.Type);
-                    }
-                }
-            }
-        }
 
         private IEnumerable<NucleolyticOligo> FullDigestion(NucleicAcid nucleicAcid, int maxMissedCleavages,
             int minLength, int maxLength)
