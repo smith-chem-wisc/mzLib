@@ -32,7 +32,8 @@ namespace Transcriptomics.Digestion
                 CleavageSpecificity.None => TopDownDigestion(nucleicAcid, minLength, maxLength, topDownTruncationSearch, 1, null, CleavageSpecificity.Full, "full").Cast<NucleolyticOligo>(),
 
                 // full cleavage
-                CleavageSpecificity.Full => FullDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength),
+                CleavageSpecificity.Full => FullDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength,
+                    1, null, CleavageSpecificity.Full, null).Cast<NucleolyticOligo>(),
 
                 // non-specific, anchored at one terminus
                 CleavageSpecificity.SingleN => SingleLeftSideDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength, specificRnase, 1).Cast<NucleolyticOligo>(),
@@ -49,115 +50,6 @@ namespace Transcriptomics.Digestion
             {
                 yield return new NucleolyticOligo((NucleicAcid)rna, startResidue, endResidue,
                     missedCleavages, specificity, fivePrimeTerminus, threePrimeTerminus, description);
-            }
-        }
-
-
-        private IEnumerable<NucleolyticOligo> FullDigestion(NucleicAcid nucleicAcid, int maxMissedCleavages,
-            int minLength, int maxLength)
-        {
-            List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(nucleicAcid.BaseSequence);
-            for (int missedCleavages = 0; missedCleavages <= maxMissedCleavages; missedCleavages++)
-            {
-                for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
-                {
-                    if (ValidLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i],
-                            minLength, maxLength))
-                    {
-                        int oneBasedStartResidue = oneBasedIndicesToCleaveAfter[i] + 1;
-                        int oneBasedEndResidue = oneBasedIndicesToCleaveAfter[i + missedCleavages + 1];
-
-                        foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(oneBasedStartResidue, oneBasedEndResidue, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-                        {
-                            yield return new NucleolyticOligo(nucleicAcid, oneBasedStartResidue, oneBasedEndResidue,
-                                missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus);
-                        }
-                    }
-                }
-
-                // Also digest using the truncation products start/end indices
-                foreach (var truncation in nucleicAcid.TruncationProducts)
-                {
-                    if (truncation.OneBasedBeginPosition == 1 && truncation.OneBasedEndPosition == nucleicAcid.Length)
-                        continue;
-
-                        int cleavageIndexWithinTruncation = 0;
-                        //get the first cleavage index after the start of the truncation
-                        while (oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation] < truncation.OneBasedBeginPosition)
-                        {
-                            cleavageIndexWithinTruncation++;
-                        }
-
-                        bool startPeptide = cleavageIndexWithinTruncation + missedCleavages < oneBasedIndicesToCleaveAfter.Count //if the current missed cleavages doesn't hit the end
-                                && oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation + missedCleavages] <= truncation.OneBasedEndPosition //and the cleavage occurs before the proteolytic end
-                                && truncation.OneBasedBeginPosition.HasValue //and the proteolytic peptide even has a beginning
-                                && !oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedBeginPosition.Value - 1) //and we haven't already cleaved here
-                                && ValidLength(oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation + missedCleavages] - truncation.OneBasedBeginPosition.Value + 1, minLength, maxLength); //and it's the correct size
-                        if (startPeptide)
-                        {
-                            foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncation.OneBasedBeginPosition, truncation.OneBasedEndPosition, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-                            {
-                                yield return new NucleolyticOligo(nucleicAcid, truncation.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation + missedCleavages],
-                                missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncation.Type + " start");
-                            }
-                        }
-
-                        //get the cleavage index before the end of the proteolysis product
-                        while (oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation] < truncation.OneBasedEndPosition)
-                        {
-                            cleavageIndexWithinTruncation++;
-                        }
-
-                        bool endPeptide = cleavageIndexWithinTruncation - missedCleavages - 1 >= 0 //if we're not going to go out of bounds (-1 to get in front of the end)
-                                          && oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation - missedCleavages - 1] + 1 >= truncation.OneBasedBeginPosition //and it's not before the beginning
-                                          && truncation.OneBasedEndPosition.HasValue //and the proteolytic peptide even has an end
-                                          && !oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedEndPosition.Value) //and we haven't already cleaved here
-                                          && ValidLength(truncation.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation - missedCleavages - 1] + 1 - 1, minLength, maxLength); //and it's the correct size
-                        if (endPeptide)
-                        {
-                            foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncation.OneBasedBeginPosition, truncation.OneBasedEndPosition, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-                            {
-                                yield return new NucleolyticOligo(nucleicAcid, oneBasedIndicesToCleaveAfter[cleavageIndexWithinTruncation - missedCleavages - 1] + 1, truncation.OneBasedEndPosition.Value,
-                                    missedCleavages, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncation.Type + " end");
-                            }
-                        }
-                    }
-            }
-
-            //add intact truncation (if acceptable)
-            foreach (var truncation in nucleicAcid.TruncationProducts)
-            {
-                if (!truncation.OneBasedBeginPosition.HasValue 
-                    || !truncation.OneBasedEndPosition.HasValue 
-                    || !ValidLength(truncation.OneBasedEndPosition.Value - truncation.OneBasedBeginPosition.Value, minLength, maxLength) //if it's not the correct size
-                    || oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedBeginPosition.Value - 1) //or we have already cleaved here
-                    || oneBasedIndicesToCleaveAfter.Contains(truncation.OneBasedEndPosition.Value)) //or we have already cleaved there
-                    continue; 
-
-                int firstCleavage = 0;
-                //get the first cleavage index after the start of the proteolysis product
-                while (oneBasedIndicesToCleaveAfter[firstCleavage] < truncation.OneBasedBeginPosition)
-                {
-                    firstCleavage++;
-                }
-
-                int lastCleavage = firstCleavage;
-                //get the last cleavage index before the end of the proteolysis product
-                while (oneBasedIndicesToCleaveAfter[lastCleavage] < truncation.OneBasedEndPosition)
-                {
-                    lastCleavage++;
-                }
-
-                //if there are too many missed cleavages
-                if (lastCleavage - firstCleavage >= maxMissedCleavages) 
-                    continue; 
-
-                foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(truncation.OneBasedBeginPosition.Value, truncation.OneBasedEndPosition.Value, nucleicAcid, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-                {
-                    yield return new NucleolyticOligo(nucleicAcid, truncation.OneBasedBeginPosition.Value, truncation.OneBasedEndPosition.Value,
-                        lastCleavage - firstCleavage, CleavageSpecificity.Full, fivePrimeTerminus, threePrimeTerminus, truncation.Type + " end");
-
-                }
             }
         }
 

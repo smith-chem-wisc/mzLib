@@ -242,6 +242,126 @@ namespace Omics.Digestion
             }
         }
 
+        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, int initialStartResidue, int? alternateInitialStartResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
+        {
+            List<int> cleavageIndices = GetDigestionSiteIndices(parent.BaseSequence);
+
+            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
+            {
+                for (int i = 0; i < cleavageIndices.Count - missedCleavages - 1; i++)
+                {
+                    int endResidue = cleavageIndices[i + missedCleavages + 1];
+                    int startResidue = i == 0
+                        ? Math.Max(initialStartResidue, cleavageIndices[i] + 1)
+                        : cleavageIndices[i] + 1;
+
+                    if (ValidLength(endResidue - startResidue + 1, minLength, maxLength))
+                        foreach (var product in GetConcreteProducts(parent, startResidue, endResidue, missedCleavages, CleavageSpecificity.Full, initialDescription))
+                            yield return product;
+
+                    if (i == 0
+                        && alternateInitialStartResidue.HasValue
+                        && !cleavageIndices.Contains(alternateInitialStartResidue.Value - 1))
+                    {
+                        if (ValidLength(endResidue - alternateInitialStartResidue.Value + 1, minLength, maxLength))
+                            foreach (var product in GetConcreteProducts(parent, alternateInitialStartResidue.Value, endResidue, missedCleavages, CleavageSpecificity.Full, initialDescription + ":M cleaved"))
+                                yield return product;
+                    }
+                }
+
+                foreach (var truncationProduct in parent.TruncationProducts)
+                {
+                    if (truncationProduct.OneBasedBeginPosition != 1 || truncationProduct.OneBasedEndPosition != parent.Length)
+                    {
+                        int cleavageIndex = 0;
+                        while (cleavageIndices[cleavageIndex] < truncationProduct.OneBasedBeginPosition)
+                        {
+                            cleavageIndex++;
+                        }
+
+                        bool startProduct = cleavageIndex + missedCleavages < cleavageIndices.Count
+                            && truncationProduct.OneBasedBeginPosition.HasValue
+                            && truncationProduct.OneBasedEndPosition.HasValue
+                            && cleavageIndices[cleavageIndex + missedCleavages] <= truncationProduct.OneBasedEndPosition
+                            && !cleavageIndices.Contains(truncationProduct.OneBasedBeginPosition.Value - 1)
+                            && truncationProduct.OneBasedBeginPosition.Value >= initialStartResidue
+                            && ValidLength(cleavageIndices[cleavageIndex + missedCleavages]
+                                - truncationProduct.OneBasedBeginPosition.Value + 1, minLength, maxLength);
+
+                        if (startProduct)
+                        {
+                            foreach (var product in GetConcreteProducts(parent, truncationProduct.OneBasedBeginPosition.Value,
+                                         cleavageIndices[cleavageIndex + missedCleavages], missedCleavages,
+                                         CleavageSpecificity.Full, truncationProduct.Type + " start"))
+                            {
+                                yield return product;
+                            }
+                        }
+
+                        while (cleavageIndices[cleavageIndex] < truncationProduct.OneBasedEndPosition)
+                        {
+                            cleavageIndex++;
+                        }
+
+                        bool endProduct = cleavageIndex - missedCleavages - 1 >= 0
+                            && truncationProduct.OneBasedBeginPosition.HasValue
+                            && truncationProduct.OneBasedEndPosition.HasValue
+                            && cleavageIndices[cleavageIndex - missedCleavages - 1] + 1 >= truncationProduct.OneBasedBeginPosition
+                            && !cleavageIndices.Contains(truncationProduct.OneBasedEndPosition.Value)
+                            && ValidLength(truncationProduct.OneBasedEndPosition.Value
+                                - cleavageIndices[cleavageIndex - missedCleavages - 1], minLength, maxLength);
+
+                        if (endProduct)
+                        {
+                            foreach (var product in GetConcreteProducts(parent,
+                                         cleavageIndices[cleavageIndex - missedCleavages - 1] + 1,
+                                         truncationProduct.OneBasedEndPosition.Value, missedCleavages,
+                                         CleavageSpecificity.Full, truncationProduct.Type + " end"))
+                            {
+                                yield return product;
+                            }
+                        }
+                    }
+                }
+            }
+
+            foreach (var truncationProduct in parent.TruncationProducts)
+            {
+                if (!truncationProduct.OneBasedBeginPosition.HasValue
+                    || !truncationProduct.OneBasedEndPosition.HasValue
+                    || truncationProduct.OneBasedBeginPosition.Value < initialStartResidue
+                    || cleavageIndices.Contains(truncationProduct.OneBasedBeginPosition.Value - 1)
+                    || cleavageIndices.Contains(truncationProduct.OneBasedEndPosition.Value)
+                    || !ValidLength(truncationProduct.OneBasedEndPosition.Value - truncationProduct.OneBasedBeginPosition.Value,
+                        minLength, maxLength))
+                {
+                    continue;
+                }
+
+                int firstCleavage = 0;
+                while (cleavageIndices[firstCleavage] < truncationProduct.OneBasedBeginPosition)
+                {
+                    firstCleavage++;
+                }
+
+                int lastCleavage = firstCleavage;
+                while (cleavageIndices[lastCleavage] < truncationProduct.OneBasedEndPosition)
+                {
+                    lastCleavage++;
+                }
+
+                if (lastCleavage - firstCleavage < maximumMissedCleavages)
+                {
+                    foreach (var product in GetConcreteProducts(parent, truncationProduct.OneBasedBeginPosition.Value,
+                                 truncationProduct.OneBasedEndPosition.Value, lastCleavage - firstCleavage,
+                                 truncationSpecificity, truncationProduct.Type + " end"))
+                    {
+                        yield return product;
+                    }
+                }
+            }
+        }
+
         #endregion
 
         public override string ToString()

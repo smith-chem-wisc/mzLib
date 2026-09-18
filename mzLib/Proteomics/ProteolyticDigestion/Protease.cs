@@ -54,7 +54,8 @@ namespace Proteomics.ProteolyticDigestion
                 CleavageSpecificity.None => TopDownDigestion(protein, minPeptideLength, maxPeptideLength, topDownTruncationSearch, initialStartResidue, alternateInitialStartResidue, CleavageSpecificity.None, "full").Cast<ProteolyticPeptide>(),
 
                 // Full proteolytic cleavage
-                CleavageSpecificity.Full => FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
+                CleavageSpecificity.Full => FullDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength,
+                    initialStartResidue, alternateInitialStartResidue, CleavageSpecificity.Full, "full").Cast<ProteolyticPeptide>(),
 
                 // Cleavage rules for semi-specific search
                 CleavageSpecificity.Semi => SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
@@ -100,118 +101,6 @@ namespace Proteomics.ProteolyticDigestion
             return oneBasedCleaveAfter == 0 // this only pertains to the n-terminus
                 && initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain
                 && nTerminus == 'M';
-        }
-
-
-        /// <summary>
-        /// Gets protein intervals for digestion by this specific protease.
-        /// </summary>
-        /// <param name="protein"></param>
-        /// <param name="initiatorMethionineBehavior"></param>
-        /// <param name="maximumMissedCleavages"></param>
-        /// <param name="minPeptideLength"></param>
-        /// <param name="maxPeptideLength"></param>
-        /// <returns></returns>
-        private IEnumerable<ProteolyticPeptide> FullDigestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength)
-        {
-            List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
-            char firstResidueInProtein = protein[0];
-
-            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
-            {
-                for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
-                {
-                    if (Retain(i, initiatorMethionineBehavior, firstResidueInProtein)
-                        && ValidLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - oneBasedIndicesToCleaveAfter[i], minPeptideLength, maxPeptideLength))
-                    {
-                        yield return new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[i] + 1, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
-                            missedCleavages, CleavageSpecificity.Full, "full");
-                    }
-                    if (Cleave(i, initiatorMethionineBehavior, firstResidueInProtein) && oneBasedIndicesToCleaveAfter[1] != 1 //prevent duplicates if that bond is cleaved by the protease
-                        && ValidLength(oneBasedIndicesToCleaveAfter[i + missedCleavages + 1] - 1, minPeptideLength, maxPeptideLength))
-                    {
-                        yield return new ProteolyticPeptide(protein, 2, oneBasedIndicesToCleaveAfter[i + missedCleavages + 1],
-                            missedCleavages, CleavageSpecificity.Full, "full:M cleaved");
-                    }
-                }
-
-                //TODO: Generate all the proteolytic products as distinct proteins during XML reading and delete all of the code below
-                // Also digest using the proteolysis product start/end indices
-                foreach (var proteolysisProduct in protein.TruncationProducts)
-                {
-                    //if the proteolysis product contains something other than just the start AND end residues of the protein
-                    if (proteolysisProduct.OneBasedBeginPosition != 1 || proteolysisProduct.OneBasedEndPosition != protein.Length)
-                    {
-                        int cleavageIndexWithinProteolysisProduct = 0;
-                        //get the first cleavage index after the start of the proteolysis product
-                        while (oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct] < proteolysisProduct.OneBasedBeginPosition)
-                        {
-                            cleavageIndexWithinProteolysisProduct++;
-                        }
-
-                        bool startPeptide = cleavageIndexWithinProteolysisProduct + missedCleavages < oneBasedIndicesToCleaveAfter.Count //if the current missed cleavages doesn't hit the end
-                            && oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct + missedCleavages] <= proteolysisProduct.OneBasedEndPosition //and the cleavage occurs before the proteolytic end
-                            && proteolysisProduct.OneBasedBeginPosition.HasValue //and the proteolytic peptide even has a beginning
-                            && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedBeginPosition.Value - 1) //and we haven't already cleaved here
-                            && (proteolysisProduct.OneBasedBeginPosition.Value != 1 || !Cleave(0, initiatorMethionineBehavior, firstResidueInProtein)) //and it's not the initiator methionine
-                            && ValidLength(oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct + missedCleavages] - proteolysisProduct.OneBasedBeginPosition.Value + 1, minPeptideLength, maxPeptideLength); //and it's the correct size
-                        if (startPeptide)
-                        {
-                            yield return new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct + missedCleavages],
-                                missedCleavages, CleavageSpecificity.Full, proteolysisProduct.Type + " start");
-                        }
-
-                        //get the cleavage index before the end of the proteolysis product
-                        while (oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct] < proteolysisProduct.OneBasedEndPosition)
-                        {
-                            cleavageIndexWithinProteolysisProduct++;
-                        }
-
-                        bool endPeptide = cleavageIndexWithinProteolysisProduct - missedCleavages - 1 >= 0 //if we're not going to go out of bounds (-1 to get in front of the end)
-                            && oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 >= proteolysisProduct.OneBasedBeginPosition //and it's not before the beginning
-                            && proteolysisProduct.OneBasedEndPosition.HasValue //and the proteolytic peptide even has an end
-                            && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedEndPosition.Value) //and we haven't already cleaved here
-                            && ValidLength(proteolysisProduct.OneBasedEndPosition.Value - oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1 - 1, minPeptideLength, maxPeptideLength); //and it's the correct size
-                        if (endPeptide)
-                        {
-                            yield return new ProteolyticPeptide(protein, oneBasedIndicesToCleaveAfter[cleavageIndexWithinProteolysisProduct - missedCleavages - 1] + 1, proteolysisProduct.OneBasedEndPosition.Value,
-                                missedCleavages, CleavageSpecificity.Full, proteolysisProduct.Type + " end");
-                        }
-                    }
-                }
-            }
-
-            //add intact proteolysis products (if acceptable)
-            foreach (var proteolysisProduct in protein.TruncationProducts)
-            {
-                if (proteolysisProduct.OneBasedBeginPosition.HasValue //begin has value
-                    && proteolysisProduct.OneBasedEndPosition.HasValue //and end has value
-                    && (proteolysisProduct.OneBasedBeginPosition.Value != 1 || !Cleave(0, initiatorMethionineBehavior, firstResidueInProtein)) //and it's not the initiator methionine
-                    && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedBeginPosition.Value - 1) //and we haven't already cleaved here
-                    && !oneBasedIndicesToCleaveAfter.Contains(proteolysisProduct.OneBasedEndPosition.Value)) //and we haven't already cleaved there
-                {
-                    int firstCleavage = 0;
-                    //get the first cleavage index after the start of the proteolysis product
-                    while (oneBasedIndicesToCleaveAfter[firstCleavage] < proteolysisProduct.OneBasedBeginPosition)
-                    {
-                        firstCleavage++;
-                    }
-
-                    int lastCleavage = firstCleavage;
-                    //get the last cleavage index before the end of the proteolysis product
-                    while (oneBasedIndicesToCleaveAfter[lastCleavage] < proteolysisProduct.OneBasedEndPosition)
-                    {
-                        lastCleavage++;
-                    }
-                    if (lastCleavage - firstCleavage < maximumMissedCleavages && //if there aren't too many missed cleavages
-                        ValidLength(proteolysisProduct.OneBasedEndPosition.Value - proteolysisProduct.OneBasedBeginPosition.Value, minPeptideLength, maxPeptideLength)) //and it's the correct size
-                    {
-                        yield return new ProteolyticPeptide(protein, proteolysisProduct.OneBasedBeginPosition.Value, proteolysisProduct.OneBasedEndPosition.Value,
-                            lastCleavage - firstCleavage, CleavageSpecificity.Full, proteolysisProduct.Type + " end");
-                    }
-                }
-            }
         }
 
         /// <summary>
