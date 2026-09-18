@@ -35,11 +35,11 @@ namespace Transcriptomics.Digestion
             return requestedSpecificity switch
             {
                 // top down
-                CleavageSpecificity.None => TopDownDigestion(nucleicAcid, minLength, maxLength, topDownTruncationSearch, 1, null, CleavageSpecificity.Full, "full").Cast<NucleolyticOligo>(),
+                CleavageSpecificity.None => TopDownDigestion(nucleicAcid, minLength, maxLength, topDownTruncationSearch, false, true, CleavageSpecificity.Full, "full").Cast<NucleolyticOligo>(),
 
                 // full cleavage
                 CleavageSpecificity.Full => FullDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength,
-                    1, null, CleavageSpecificity.Full, null).Cast<NucleolyticOligo>(),
+                    false, true, CleavageSpecificity.Full, null).Cast<NucleolyticOligo>(),
 
                 // non-specific, anchored at one terminus
                 CleavageSpecificity.SingleN => SingleLeftSideDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength, specificRnase, 1).Cast<NucleolyticOligo>(),
@@ -48,7 +48,7 @@ namespace Transcriptomics.Digestion
 
                 CleavageSpecificity.Semi when fragmentationTerminus is FragmentationTerminus.FivePrime or FragmentationTerminus.ThreePrime
                     => SpeedySemiSpecificDigestion(nucleicAcid, maxMissedCleavages, minLength, maxLength,
-                        fragmentationTerminus == FragmentationTerminus.FivePrime, 1, null).Cast<NucleolyticOligo>(),
+                        fragmentationTerminus == FragmentationTerminus.FivePrime, false, true).Cast<NucleolyticOligo>(),
 
                 _ => throw new ArgumentException(
                     "Cleavage specificity or terminus is not defined for RNA digestion; currently supports Full, None, SingleN and SingleC")

@@ -192,23 +192,22 @@ namespace Omics.Digestion
 
         }
 
-        protected IEnumerable<DigestionProduct> TopDownDigestion(IBioPolymer parent, int minLength, int maxLength, bool topDownTruncationSearch, int initialStartResidue, int? alternateInitialStartResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
+        protected IEnumerable<DigestionProduct> TopDownDigestion(IBioPolymer parent, int minLength, int maxLength, bool topDownTruncationSearch, bool cleaveFirstResidue, bool retainFirstResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
         {
             if (!topDownTruncationSearch)
             {
-                if (ValidLength(parent.Length - initialStartResidue + 1, minLength, maxLength))
+                if (retainFirstResidue && ValidLength(parent.Length, minLength, maxLength))
                 {
-                    foreach (var product in GetConcreteProducts(parent, initialStartResidue, parent.Length, 0,
+                    foreach (var product in GetConcreteProducts(parent, 1, parent.Length, 0,
                                  CleavageSpecificity.Full, initialDescription))
                     {
                         yield return product;
                     }
                 }
 
-                if (alternateInitialStartResidue.HasValue
-                    && ValidLength(parent.Length - alternateInitialStartResidue.Value + 1, minLength, maxLength))
+                if (cleaveFirstResidue && ValidLength(parent.Length - 1, minLength, maxLength))
                 {
-                    foreach (var product in GetConcreteProducts(parent, alternateInitialStartResidue.Value, parent.Length, 0,
+                    foreach (var product in GetConcreteProducts(parent, 2, parent.Length, 0,
                                  CleavageSpecificity.Full, initialDescription + ":M cleaved"))
                     {
                         yield return product;
@@ -239,7 +238,7 @@ namespace Omics.Digestion
             }
         }
 
-        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, int initialStartResidue, int? alternateInitialStartResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
+        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, bool cleaveFirstResidue, bool retainFirstResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
         {
             List<int> cleavageIndices = GetDigestionSiteIndices(parent.BaseSequence);
 
@@ -248,21 +247,16 @@ namespace Omics.Digestion
                 for (int i = 0; i < cleavageIndices.Count - missedCleavages - 1; i++)
                 {
                     int endResidue = cleavageIndices[i + missedCleavages + 1];
-                    int startResidue = i == 0
-                        ? Math.Max(initialStartResidue, cleavageIndices[i] + 1)
-                        : cleavageIndices[i] + 1;
-
-                    if (ValidLength(endResidue - startResidue + 1, minLength, maxLength))
-                        foreach (var product in GetConcreteProducts(parent, startResidue, endResidue, missedCleavages, CleavageSpecificity.Full, initialDescription))
+                    if ((i != 0 || retainFirstResidue)
+                        && ValidLength(endResidue - cleavageIndices[i], minLength, maxLength))
+                        foreach (var product in GetConcreteProducts(parent, cleavageIndices[i] + 1, endResidue, missedCleavages, CleavageSpecificity.Full, initialDescription))
                             yield return product;
 
-                    if (i == 0
-                        && alternateInitialStartResidue.HasValue
-                        && !cleavageIndices.Contains(alternateInitialStartResidue.Value - 1))
+                    if (i == 0 && cleaveFirstResidue && cleavageIndices[1] != 1
+                        && ValidLength(endResidue - 1, minLength, maxLength))
                     {
-                        if (ValidLength(endResidue - alternateInitialStartResidue.Value + 1, minLength, maxLength))
-                            foreach (var product in GetConcreteProducts(parent, alternateInitialStartResidue.Value, endResidue, missedCleavages, CleavageSpecificity.Full, initialDescription + ":M cleaved"))
-                                yield return product;
+                        foreach (var product in GetConcreteProducts(parent, 2, endResidue, missedCleavages, CleavageSpecificity.Full, initialDescription + ":M cleaved"))
+                            yield return product;
                     }
                 }
 
@@ -281,7 +275,7 @@ namespace Omics.Digestion
                             && truncationProduct.OneBasedEndPosition.HasValue
                             && cleavageIndices[cleavageIndex + missedCleavages] <= truncationProduct.OneBasedEndPosition
                             && !cleavageIndices.Contains(truncationProduct.OneBasedBeginPosition.Value - 1)
-                            && truncationProduct.OneBasedBeginPosition.Value >= initialStartResidue
+                            && (truncationProduct.OneBasedBeginPosition.Value != 1 || !cleaveFirstResidue)
                             && ValidLength(cleavageIndices[cleavageIndex + missedCleavages]
                                 - truncationProduct.OneBasedBeginPosition.Value + 1, minLength, maxLength);
 
@@ -326,7 +320,7 @@ namespace Omics.Digestion
             {
                 if (!truncationProduct.OneBasedBeginPosition.HasValue
                     || !truncationProduct.OneBasedEndPosition.HasValue
-                    || truncationProduct.OneBasedBeginPosition.Value < initialStartResidue
+                    || (truncationProduct.OneBasedBeginPosition.Value == 1 && cleaveFirstResidue)
                     || cleavageIndices.Contains(truncationProduct.OneBasedBeginPosition.Value - 1)
                     || cleavageIndices.Contains(truncationProduct.OneBasedEndPosition.Value)
                     || !ValidLength(truncationProduct.OneBasedEndPosition.Value - truncationProduct.OneBasedBeginPosition.Value,
@@ -365,8 +359,8 @@ namespace Omics.Digestion
             int minLength,
             int maxLength,
             bool fixedLeftTerminus,
-            int initialStartResidue,
-            int? alternateInitialStartResidue)
+            bool cleaveFirstResidue,
+            bool retainFirstResidue)
         {
             List<int> cleavageIndices = GetDigestionSiteIndices(parent.BaseSequence);
             int cleavageWindowSize = maximumMissedCleavages + 1;
@@ -376,24 +370,19 @@ namespace Omics.Digestion
                 int startBoundary = cleavageIndices[i];
                 int endBoundary = cleavageIndices[i + cleavageWindowSize];
 
-                if (i == 0)
+                bool retain = i != 0 || retainFirstResidue;
+                if (retain)
                 {
-                    startBoundary = Math.Max(startBoundary, initialStartResidue - 1);
+                    foreach (var product in GetSpeedyProducts(parent, startBoundary, endBoundary, maximumMissedCleavages,
+                                 fixedLeftTerminus, minLength, maxLength, ""))
+                    {
+                        yield return product;
+                    }
                 }
 
-                foreach (var product in GetSpeedyProducts(parent, startBoundary, endBoundary, maximumMissedCleavages,
-                             fixedLeftTerminus, minLength, maxLength, ""))
+                if (i == 0 && cleaveFirstResidue && (fixedLeftTerminus || !retain))
                 {
-                    yield return product;
-                }
-
-                    if (i == 0
-                        && alternateInitialStartResidue.HasValue
-                        && alternateInitialStartResidue.Value != initialStartResidue
-                        && !cleavageIndices.Contains(alternateInitialStartResidue.Value - 1)
-                        && (fixedLeftTerminus || initialStartResidue > 1))
-                {
-                    foreach (var product in GetSpeedyProducts(parent, alternateInitialStartResidue.Value - 1, endBoundary,
+                    foreach (var product in GetSpeedyProducts(parent, 1, endBoundary,
                                  maximumMissedCleavages, fixedLeftTerminus, minLength, maxLength, ":M cleaved"))
                     {
                         yield return product;
@@ -403,8 +392,8 @@ namespace Omics.Digestion
 
             int lastIndex = cleavageIndices.Count - 1;
             int maximumIndexDifference = Math.Min(maximumMissedCleavages, lastIndex);
-            bool methionineMustBeRemoved = initialStartResidue > 1;
-            bool methionineMayBeRemoved = alternateInitialStartResidue.HasValue;
+            bool methionineMustBeRemoved = !retainFirstResidue;
+            bool methionineMayBeRemoved = cleaveFirstResidue;
             bool residueOneIsCleavageSite = cleavageIndices.Count > 1 && cleavageIndices[1] == 1;
 
             for (int i = 1; i <= maximumIndexDifference; i++)
@@ -461,7 +450,7 @@ namespace Omics.Digestion
                     }
 
                     cleavageIndex = Math.Min(cleavageIndex + maximumMissedCleavages, cleavageIndices.Count - 1);
-                    int startResidue = Math.Max(truncationProduct.OneBasedBeginPosition.Value, initialStartResidue);
+                    int startResidue = Math.Max(truncationProduct.OneBasedBeginPosition.Value, retainFirstResidue ? 1 : 2);
                     int endResidue = cleavageIndices[cleavageIndex];
                     if (truncationProduct.OneBasedEndPosition.HasValue)
                     {
@@ -493,7 +482,7 @@ namespace Omics.Digestion
                     }
 
                     cleavageIndex = Math.Max(cleavageIndex - maximumMissedCleavages - 1, 0);
-                    int startResidue = Math.Max(cleavageIndices[cleavageIndex] + 1, initialStartResidue);
+                    int startResidue = Math.Max(cleavageIndices[cleavageIndex] + 1, retainFirstResidue ? 1 : 2);
                     if (truncationProduct.OneBasedBeginPosition.HasValue)
                     {
                         startResidue = Math.Max(startResidue, truncationProduct.OneBasedBeginPosition.Value);

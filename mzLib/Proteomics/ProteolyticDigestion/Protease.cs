@@ -42,8 +42,7 @@ namespace Proteomics.ProteolyticDigestion
         {
             bool retainMethionine = initiatorMethionineBehavior != InitiatorMethionineBehavior.Cleave || protein[0] != 'M';
             bool cleaveMethionine = initiatorMethionineBehavior != InitiatorMethionineBehavior.Retain && protein[0] == 'M';
-            int initialStartResidue = retainMethionine ? 1 : 2; //where does the protein start?
-            int? alternateInitialStartResidue = retainMethionine && cleaveMethionine ? 2 : null;
+            int initialStartResidue = retainMethionine ? 1 : 2;
 
             CleavageSpecificity requestedSpecificity = searchModeType == CleavageSpecificity.Semi
                 ? CleavageSpecificity.Semi
@@ -57,17 +56,16 @@ namespace Proteomics.ProteolyticDigestion
                 CleavageSpecificity.SingleC => SingleRightSideDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength, specificProtease, initialStartResidue).Cast<ProteolyticPeptide>(),
 
                 //top-down
-                CleavageSpecificity.None => TopDownDigestion(protein, minPeptideLength, maxPeptideLength, topDownTruncationSearch, initialStartResidue, alternateInitialStartResidue, CleavageSpecificity.None, "full").Cast<ProteolyticPeptide>(),
+                CleavageSpecificity.None => TopDownDigestion(protein, minPeptideLength, maxPeptideLength, topDownTruncationSearch, cleaveMethionine, retainMethionine, CleavageSpecificity.None, "full").Cast<ProteolyticPeptide>(),
 
                 // Full proteolytic cleavage
                 CleavageSpecificity.Full => FullDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength,
-                    initialStartResidue, alternateInitialStartResidue, CleavageSpecificity.Full, "full").Cast<ProteolyticPeptide>(),
+                    cleaveMethionine, retainMethionine, CleavageSpecificity.Full, "full").Cast<ProteolyticPeptide>(),
 
                 // Cleavage rules for semi-specific search
                 CleavageSpecificity.Semi when fragmentationTerminus is FragmentationTerminus.N or FragmentationTerminus.C
                     => SpeedySemiSpecificDigestion(protein, maximumMissedCleavages, minPeptideLength, maxPeptideLength,
-                        fragmentationTerminus == FragmentationTerminus.N, initialStartResidue,
-                        cleaveMethionine ? 2 : null).Cast<ProteolyticPeptide>(),
+                        fragmentationTerminus == FragmentationTerminus.N, cleaveMethionine, retainMethionine).Cast<ProteolyticPeptide>(),
 
                 CleavageSpecificity.Semi => SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
                 _ => throw new NotImplementedException()
