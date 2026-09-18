@@ -1,4 +1,4 @@
-using Omics.Digestion;
+﻿using Omics.Digestion;
 using Omics.Fragmentation;
 
 namespace Transcriptomics.Digestion
@@ -28,7 +28,7 @@ namespace Transcriptomics.Digestion
             SpecificRnase = Rnase;
             if (SearchModeType == CleavageSpecificity.None) //nonspecific searches, which might have a specific protease
             {
-                Rnase = FragmentationTerminus == FragmentationTerminus.N ?
+                Rnase = FragmentationTerminus is FragmentationTerminus.N or FragmentationTerminus.FivePrime ?
                    RnaseDictionary.Dictionary["singleN"] :
                    RnaseDictionary.Dictionary["singleC"];
             }
@@ -96,3 +96,4 @@ namespace Transcriptomics.Digestion
 
     }
 }
+
