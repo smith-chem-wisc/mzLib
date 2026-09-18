@@ -55,7 +55,8 @@ namespace MassSpectrometry
         /// owns it. Must contain at least one sample and no nulls.
         /// </param>
         /// <exception cref="ArgumentException">
-        /// The file name is empty, the sample array is empty or contains a null, or the file has already
+        /// The file name is empty, the sample array is empty or contains a null, the array lists one
+        /// sample more than once (see <see cref="DescribeRepeatedSample"/>), or the file has already
         /// been added (including under different casing).
         /// </exception>
         public void Add(string fileNameOrPath, params ISampleInfo[] samples)
@@ -94,7 +95,68 @@ namespace MassSpectrometry
                     nameof(fileNameOrPath));
             }
 
+            string? repeated = DescribeRepeatedSample(samples);
+            if (repeated != null)
+            {
+                throw new ArgumentException(
+                    $"File '{fileNameOrPath}': {repeated}. Quantification indexes columns by sample, so " +
+                    "the repeats would merge into one column under one of their names. List each sample " +
+                    "once.",
+                    nameof(samples));
+            }
+
             FileNameSampleInfoDictionary[fileName] = samples.ToArray();
+        }
+
+        /// <summary>
+        /// Describes the first sample listed more than once among <paramref name="samples"/>, or returns
+        /// null when every sample is distinct. Null entries are skipped.
+        /// </summary>
+        /// <remarks>
+        /// "The same sample" means equal, which for an isobaric channel is the same file and channel
+        /// label — deliberately not its <see cref="IsobaricQuantSampleInfo.SampleName"/> — and for a
+        /// label-free <see cref="SpectraFileInfo"/> the same file, condition and replicates. Two such
+        /// entries are one column to quantification, whose matrices index columns by sample: the later
+        /// silently takes the earlier one's place, and the merged column carries only one of their
+        /// names. Public SDRF has exactly this shape — <c>PXD040455</c>, a TMT × SILAC design, lists a
+        /// light and a heavy sample under one reporter channel of one file 551 times.
+        ///
+        /// Shared by <see cref="Add"/>, which refuses such a design one file at a time as it is built, and
+        /// by the quantification engine, which asks it of every file's samples at once, from any
+        /// <see cref="IExperimentalDesign"/> implementation. Not every design is built through this
+        /// class, and the engine merges all files' columns into one matrix, so a sample listed under two
+        /// file keys collides there as surely as one listed twice under one.
+        /// </remarks>
+        public static string? DescribeRepeatedSample(IEnumerable<ISampleInfo> samples)
+        {
+            var repeated = samples
+                .Where(sample => sample != null)
+                .GroupBy(sample => sample)
+                .FirstOrDefault(sameSample => sameSample.Count() > 1);
+
+            if (repeated == null)
+            {
+                return null;
+            }
+
+            int count = repeated.Count();
+
+            if (repeated.Key is IsobaricQuantSampleInfo channel)
+            {
+                var names = repeated
+                    .OfType<IsobaricQuantSampleInfo>()
+                    .Select(c => c.SampleName)
+                    .Where(name => !string.IsNullOrWhiteSpace(name))
+                    .Distinct(StringComparer.Ordinal)
+                    .Select(name => $"'{name}'")
+                    .ToList();
+
+                string asNamed = names.Count == 0 ? string.Empty : $", as {string.Join(" and ", names)}";
+                return $"channel {channel.ChannelLabel} of '{Path.GetFileName(channel.FullFilePathWithExtension)}' " +
+                       $"is listed {count} times{asNamed}";
+            }
+
+            return $"sample '{repeated.Key}' is listed {count} times";
         }
 
         /// <summary>
