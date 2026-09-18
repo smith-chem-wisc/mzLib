@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using Omics.BioPolymer;
 using Omics.Digestion;
@@ -35,6 +35,38 @@ namespace Proteomics.ProteolyticDigestion
         public int MaxPeptideLength { get; set; }
         public IEnumerable<Modification> AllKnownFixedModifications { get; set; }
         public List<Modification> VariableModifications { get; set; }
+
+        /// <summary>
+        /// True when at least one configured modification -- variable or fixed -- could abolish a
+        /// cleavage this protease would otherwise perform. False makes the whole cleavage-blocking
+        /// correction inert: no generation slack is bought and no peptidoform can be dropped, because
+        /// nothing in the search can block anything.
+        ///
+        /// Both modification lists are consulted, not just the variable one. Fixed modifications are
+        /// appended to the variable pattern before the drop is evaluated, so a fixed blocking
+        /// modification can trigger the drop and must therefore also be able to buy the slack that
+        /// replaces the dropped peptidoform.
+        /// </summary>
+        /// <remarks>
+        /// Not memoised, deliberately: <see cref="Protease"/>, <see cref="VariableModifications"/> and
+        /// <see cref="AllKnownFixedModifications"/> are all settable after construction, and a cached
+        /// answer would go stale behind a caller that changed one. The cost is a handful of memoised
+        /// <see cref="Modification.BlocksCleavage"/> reads against the motif list, per protein, and only
+        /// on the path where the flag is already on.
+        /// </remarks>
+        /// <summary>
+        /// Every modification this digestion could place: the variable list and the fixed list together.
+        /// Materialised once per call because the feasibility filter walks it per candidate site.
+        /// </summary>
+        private List<Modification> ConfiguredModifications =>
+            (VariableModifications ?? Enumerable.Empty<Modification>())
+                .Concat(AllKnownFixedModifications ?? Enumerable.Empty<Modification>())
+                .ToList();
+
+        private bool AnyConfiguredModificationCanBlockCleavage =>
+            (VariableModifications ?? Enumerable.Empty<Modification>())
+                .Concat(AllKnownFixedModifications ?? Enumerable.Empty<Modification>())
+                .Any(modification => CleavageBlockingModifications.BlocksCleavageBy(modification, Protease));
 
         /// <summary>
         /// Gets the fixed-terminus "seed" peptides that MetaMorpheus's non-specific search engine uses for a fast
@@ -328,7 +360,48 @@ namespace Proteomics.ProteolyticDigestion
         /// <returns></returns>
         public IEnumerable<ProteolyticPeptide> Digestion(Protein protein, bool topDownTruncationSearch = false)
         {
-            return Protease.GetUnmodifiedPeptides(protein, MaximumMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch);
+            // Generation uses MaximumMissedCleavages -- the instance property SpeedySemiSpecificDigestion
+            // also reads, so the two digestion paths stay in step even if a caller mutates it after
+            // construction. When cleavage-blocking modifications are respected in full-specificity mode we
+            // add slack so the read-through form of a blocked cleavage can be generated (it costs one extra
+            // missed cleavage per blocked site); the surplus is trimmed again by the open-site filter in
+            // ProteolyticPeptide.GetModifiedPeptides. The slack is MaxMods, not a fixed 2: a peptidoform
+            // can carry at most MaxMods variable modifications and therefore at most that many blocked
+            // sites, so this reaches every variable-mod read-through no matter how many co-occur. (A fixed
+            // blocking modification is unbounded and remains a documented limitation.)
+            //
+            // The slack is bought with enumeration, so it is only granted when it can actually be spent:
+            // a search whose configured modifications cannot block a cleavage of THIS protease pays
+            // nothing. That gate matters at MetaMorpheus defaults, where MaxMissedCleavages 2 plus
+            // MaxMods 2 enumerates at 4 -- roughly 1.7x the unmodified peptides before modification
+            // combinatorics, and it carries into the fragment index.
+            int generationMaxMissedCleavages = MaximumMissedCleavages;
+            if (DigestionParams.RespectCleavageBlockingModifications
+                && DigestionParams.SearchModeType == CleavageSpecificity.Full
+                && AnyConfiguredModificationCanBlockCleavage)
+                generationMaxMissedCleavages += DigestionParams.MaxMods;
+
+            // The promoting correction is the mirror of the blocking one above, and needs the opposite
+            // treatment. Blocking REMOVES a site the sequence had, so the replacement peptide is LONGER
+            // and has to be bought with generation slack. Promoting removes a site the sequence never
+            // really had, so the replacement is just the ordinary peptide between the sites that remain --
+            // no slack, provided the impossible sites never enter the enumeration. That is what the
+            // feasibility filter inside FullDigestion does, and why this is a flag rather than a budget.
+            //
+            // There is deliberately NO "can anything satisfy the requirement" gate here, and the absence
+            // is load-bearing. It would be the natural mirror of the blocking gate above, but the two
+            // corrections are not symmetric: a blocking modification that is not configured cannot remove
+            // a site the sequence really has, whereas a promoting requirement that nothing can satisfy
+            // means the protease genuinely has no site to cut. Adding the gate makes a glycoprotease
+            // digest a bare protein, which is exactly what the published unglycosylated controls say does
+            // not happen (truth-set STCE-03, IMPA-12, OGPA-07). Returning almost nothing is the correct
+            // enzymology; see RespectCleavagePromotingModifications for the precondition that implies.
+            var configuredModifications = ConfiguredModifications;
+            bool respectCleavageRequirements = DigestionParams.RespectCleavagePromotingModifications
+                && DigestionParams.SearchModeType == CleavageSpecificity.Full
+                && Protease.HasCleavageRequirement;
+
+            return Protease.GetUnmodifiedPeptides(protein, generationMaxMissedCleavages, InitiatorMethionineBehavior, MinPeptideLength, MaxPeptideLength, DigestionParams.SpecificProtease, topDownTruncationSearch, respectCleavageRequirements, configuredModifications);
         }
     }
 }

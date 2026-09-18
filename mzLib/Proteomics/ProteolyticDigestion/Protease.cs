@@ -77,7 +77,8 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
         internal IEnumerable<ProteolyticPeptide> GetUnmodifiedPeptides(Protein protein, int maximumMissedCleavages, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false)
+            int minPeptideLength, int maxPeptideLength, Protease specificProtease, bool topDownTruncationSearch = false,
+            bool respectCleavageRequirements = false, IEnumerable<Modification> configuredModifications = null)
         {
             return CleavageSpecificity switch
             {
@@ -91,7 +92,7 @@ namespace Proteomics.ProteolyticDigestion
                 CleavageSpecificity.None => TopDownDigestion(protein, initiatorMethionineBehavior, minPeptideLength, maxPeptideLength, topDownTruncationSearch),
 
                 // Full proteolytic cleavage
-                CleavageSpecificity.Full => FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
+                CleavageSpecificity.Full => FullDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength, respectCleavageRequirements, configuredModifications),
 
                 // Cleavage rules for semi-specific search
                 CleavageSpecificity.Semi => SemiProteolyticDigestion(protein, initiatorMethionineBehavior, maximumMissedCleavages, minPeptideLength, maxPeptideLength),
@@ -150,12 +151,40 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="maxPeptideLength"></param>
         /// <returns></returns>
         private IEnumerable<ProteolyticPeptide> FullDigestion(Protein protein, InitiatorMethionineBehavior initiatorMethionineBehavior,
-            int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength)
+            int maximumMissedCleavages, int minPeptideLength, int maxPeptideLength, bool respectCleavageRequirements = false,
+            IEnumerable<Modification> configuredModifications = null)
         {
             List<int> oneBasedIndicesToCleaveAfter = GetDigestionSiteIndices(protein.BaseSequence);
+
+            // A protease whose motif requires a modification has no site where that modification cannot
+            // be. Removing those sites HERE rather than dropping peptidoforms later is what keeps peptide
+            // spans and missed-cleavage counts correct: the read-through across a site that is not a site
+            // is simply the ordinary peptide between the sites that remain, and needs no generation slack.
+            if (respectCleavageRequirements)
+            {
+                oneBasedIndicesToCleaveAfter = FilterToFeasibleCleavageSites(oneBasedIndicesToCleaveAfter, protein, configuredModifications);
+            }
             char firstResidueInProtein = protein[0];
 
-            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
+            // The second half of the promoting correction needs generation slack, and for the opposite
+            // reason to the filter above. The filter removes sites that can never be real, so the peptide
+            // spanning them is the ordinary one between the sites that remain and costs nothing extra. A
+            // site that survives the filter is feasible but may still be UNOCCUPIED in a given
+            // peptidoform, and there the protease could not have cut either -- so the read-through across
+            // it is a real peptide carrying one fewer real missed cleavage than its span suggests. At the
+            // caller's budget it was never enumerated, which is why the unglycosylated form of a
+            // glycoprotease substrate used to vanish instead of surviving intact (truth-set STCE-08).
+            //
+            // Slack buys those spans; ProteolyticPeptide then discounts the unoccupied sites back out of
+            // the reported count and drops anything still over budget, so the slack cannot leak into the
+            // output as peptides claiming more missed cleavages than were asked for.
+            int generationMissedCleavages = maximumMissedCleavages;
+            if (respectCleavageRequirements)
+            {
+                generationMissedCleavages += MaximumInternalSitesInOnePeptide(oneBasedIndicesToCleaveAfter, maxPeptideLength);
+            }
+
+            for (int missedCleavages = 0; missedCleavages <= generationMissedCleavages; missedCleavages++)
             {
                 for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count - missedCleavages - 1; i++)
                 {

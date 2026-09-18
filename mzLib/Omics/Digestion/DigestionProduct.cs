@@ -1,3 +1,4 @@
+﻿using System;
 using MzLibUtil;
 using Omics.Modifications;
 
@@ -38,6 +39,512 @@ namespace Omics.Digestion
         public CleavageSpecificity CleavageSpecificityForFdrCategory { get; set; } //structured explanation of source
         public int Length => BaseSequence.Length; //how many residues long the peptide is
         public char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
+
+        #region Cleavage Requirement Discharge
+
+        /// <summary>
+        /// True when this peptidoform describes a digestion <paramref name="agent"/> could NOT have
+        /// performed, because a modification one of its motifs REQUIRES is absent from the subsite that
+        /// motif names. The mirror of a cleavage-blocking drop: that one removes a peptidoform the agent
+        /// could not produce BECAUSE of a modification, this one removes a peptidoform it could not
+        /// produce WITHOUT one.
+        /// </summary>
+        /// <param name="variableModPattern">
+        /// The modifications this peptidoform carries, in the two-based key scheme the pattern generator
+        /// mints: key 1 is the N-terminus, key 2 the FIRST residue, key <paramref name="productLength"/>
+        /// + 1 the LAST residue, key + 2 the C-terminus. The parent residue behind key k is therefore
+        /// <c>OneBasedStartResidue + k - 2</c>.
+        /// </param>
+        /// <param name="productLength">
+        /// Passed rather than read from <see cref="Length"/>, because the concrete callers already hold
+        /// the cheap arithmetic form while <see cref="Length"/> walks a substring of the parent.
+        /// </param>
+        /// <remarks>
+        /// <para><b>Each cut is answered by exactly one of the two products that touch it.</b> A subsite
+        /// on the non-prime side lies in the product ENDING at the cut; one on the prime side lies in the
+        /// product STARTING at it. So StcE (P2) is discharged by the peptide whose C-terminus is the cut,
+        /// and the OgpA family (P1') by the peptide whose N-terminus is. Across a whole digest every
+        /// internal cut is therefore checked once, from the side that can see it.</para>
+        ///
+        /// <para><b>The far end is checked for feasibility, not occupancy.</b> A product still has to
+        /// answer for the cut at its other terminus, whose constrained residue lies in the neighbouring
+        /// product and is not in this pattern -- the pattern generator discards modifications outside the
+        /// product outright. There the parent's list of possible localized modifications decides: if no
+        /// modification of the required class can EVER sit at that residue, the cut is impossible and the
+        /// peptidoform goes; if one can, the peptidoform is kept even though it may not itself carry one.
+        /// That is deliberately one-sided. It never drops a real peptide and it leaves some impossible
+        /// ones standing, which is the safe direction to be wrong in.</para>
+        ///
+        /// <para><b>A cut is justified if ANY motif justifies it.</b> An agent may mix motifs that carry a
+        /// requirement with motifs that do not -- StcE-trypsin is exactly that -- so a tryptic cut is
+        /// answered by the tryptic motif and needs no glycan, while a cut only the StcE motif explains
+        /// does. Each motif is re-matched against the parent sequence at the cut, so a motif that does not
+        /// fit there cannot vouch for it.</para>
+        ///
+        /// <para>Protein termini are not cuts and are never checked: a peptide starting at residue 1, or
+        /// ending at the last residue, got that terminus from the sequence ending, not from the agent.</para>
+        /// </remarks>
+        protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
+            int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications,
+            IEnumerable<Modification> fixedModifications, IReadOnlyList<int> internalFeasibleSites,
+            int maxMissedCleavagesAllowed, out int openMissedCleavages)
+        {
+            openMissedCleavages = MissedCleavages;
+
+            // Nothing configured can require anything, so nothing can be unreachable. This gate is what
+            // keeps an ordinary tryptic digest from paying for a feature it cannot use.
+            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
+            {
+                return false;
+            }
+
+            string parentSequence = Parent.BaseSequence;
+
+            // Removing the initiator methionine is not a proteolytic cut, so the N-terminus of a peptide
+            // that starts at residue 2 of a sequence beginning with Met was not produced by the agent and
+            // must not be asked to justify itself. Without this exemption every initiator-cleaved form is
+            // deleted -- for a glycoprotease that is HALF of all N-terminal peptidoforms, dropped silently
+            // and with no read-through to replace them.
+            bool startedAtInitiatorMethionineRemoval = OneBasedStartResidue == 2
+                && parentSequence.Length > 0
+                && parentSequence[0] == 'M';
+
+            // A cut severs the bond AFTER the residue that names it, so the cut at this peptide's
+            // N-terminus falls after the residue preceding it.
+            if (OneBasedStartResidue > 1
+                && !startedAtInitiatorMethionineRemoval
+                && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, productLength, agent,
+                    configuredModifications, fixedModifications))
+            {
+                return true;
+            }
+
+            if (OneBasedEndResidue < parentSequence.Length
+                && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, productLength, agent,
+                    configuredModifications, fixedModifications))
+            {
+                return true;
+            }
+
+            // Both ends are real cuts, so this peptide exists. What remains is whether it exists WITHIN
+            // the caller's missed-cleavage budget, and that is not the span's raw count: a feasible site
+            // this peptidoform leaves unoccupied is a site the agent could not have cut, so skipping it
+            // is not a missed cleavage. Discounting those is what lets the read-through across an
+            // unoccupied site come back at the budget the caller actually set -- the peptide the drop
+            // above used to remove with nothing to replace it.
+            //
+            // Clamped, so the count can never go negative, and compared afterwards so the generation
+            // slack that bought this span cannot leak out as a peptide claiming more missed cleavages
+            // than were asked for. Exactly the shape of the blocking mirror in ProteolyticPeptide.
+            if (internalFeasibleSites is not null && internalFeasibleSites.Count > 0)
+            {
+                int unjustifiedInternalSites = 0;
+                for (int i = 0; i < internalFeasibleSites.Count; i++)
+                {
+                    int site = internalFeasibleSites[i];
+                    if (!AnyMotifJustifies(site, parentSequence, variableModPattern, productLength, agent,
+                            configuredModifications, fixedModifications))
+                    {
+                        unjustifiedInternalSites++;
+                    }
+                }
+
+                openMissedCleavages = MissedCleavages - Math.Min(unjustifiedInternalSites, MissedCleavages);
+            }
+
+            return openMissedCleavages > maxMissedCleavagesAllowed;
+        }
+
+        /// <summary>
+        /// The internal positions of this product at which the agent could have cut -- the sites that
+        /// survive <see cref="DigestionAgent.FilterToFeasibleCleavageSites"/> and so were in the list the
+        /// span was enumerated from. One-based parent residues, each naming the bond after it.
+        /// </summary>
+        /// <remarks>
+        /// Hoisted out of the peptidoform loop on purpose. Which positions are SITES depends only on the
+        /// sequence and the configured modifications, not on where a particular peptidoform happens to put
+        /// its glycans, so scanning per pattern would repeat identical work inside the hottest loop in the
+        /// library. Only the occupancy question is per-peptidoform.
+        /// </remarks>
+        protected List<int> FindInternalFeasibleCleavageSites(DigestionAgent agent,
+            IEnumerable<Modification> configuredModifications)
+        {
+            var sites = new List<int>();
+            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
+            {
+                return sites;
+            }
+
+            for (int residue = OneBasedStartResidue; residue < OneBasedEndResidue; residue++)
+            {
+                if (agent.IsFeasibleCleavageSite(residue, Parent, configuredModifications))
+                {
+                    sites.Add(residue);
+                }
+            }
+
+            return sites;
+        }
+
+        /// <summary>
+        /// True when at least one of the agent's motifs both MATCHES the parent sequence at this cut and
+        /// has its modification requirement met there. A motif carrying no requirement justifies any cut
+        /// it matches.
+        /// </summary>
+        /// <param name="cutAfterOneBasedResidue">
+        /// The parent residue whose C-side bond is severed. The motif's recognition sequence therefore
+        /// begins <see cref="DigestionMotif.CutIndex"/> residues earlier.
+        /// </param>
+        private bool AnyMotifJustifies(int cutAfterOneBasedResidue, string parentSequence,
+            Dictionary<int, Modification> variableModPattern, int productLength, DigestionAgent agent,
+            IEnumerable<Modification> configuredModifications, IEnumerable<Modification> fixedModifications)
+        {
+            foreach (DigestionMotif motif in agent.DigestionMotifs)
+            {
+                if (motif is null)
+                {
+                    continue;
+                }
+
+                // Where the motif's recognition sequence would have to start for its cut to land here.
+                // Fits takes a ZERO-based index into the sequence it is handed, and that sequence is the
+                // PARENT here -- the same API is used against a peptide's own sequence elsewhere in the
+                // library, so the coordinate space has to be stated rather than assumed.
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0
+                    || motifStartZeroBased + motif.InducingCleavage.Length > parentSequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(parentSequence, motifStartZeroBased);
+                if (!fits || prevented)
+                {
+                    continue;
+                }
+
+                // ALL of this motif's conditions must hold for it to vouch for the cut. A motif with
+                // none is satisfied by sequence alone.
+                bool everyConditionMet = true;
+                foreach (CleavageRequirement requirement in motif.CleavageRequirements)
+                {
+                    if (!RequirementIsMet(requirement, cutAfterOneBasedResidue, variableModPattern, productLength,
+                            configuredModifications, fixedModifications))
+                    {
+                        everyConditionMet = false;
+                        break;
+                    }
+                }
+
+                if (everyConditionMet)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when this condition holds at the residue it addresses: a REQUIRED modification present,
+        /// or a FORBIDDEN one absent.
+        /// </summary>
+        /// <remarks>
+        /// The two polarities fail in opposite directions, so they are given opposite benefit of the
+        /// doubt wherever occupancy is unknowable. A required condition whose subsite lies in the
+        /// neighbouring product falls back to whether the parent COULD carry the modification; a
+        /// forbidden one is simply treated as met, because the alternative is to drop a peptide over a
+        /// residue this peptidoform does not describe. Both choices only ever keep peptides.
+        /// </remarks>
+        private bool RequirementIsMet(CleavageRequirement requirement, int cutAfterOneBasedResidue,
+            Dictionary<int, Modification> variableModPattern, int productLength,
+            IEnumerable<Modification> configuredModifications, IEnumerable<Modification> fixedModifications)
+        {
+            // Subsites count outward from the severed bond: P1 is the residue before it, P1' the one
+            // after. The bond falls after cutAfterOneBasedResidue, so Pk is (cut - k + 1) and Pk' is
+            // (cut + k), both one-based in the parent.
+            int constrainedResidue = requirement.IsPrimeSide
+                ? cutAfterOneBasedResidue + requirement.Subsite
+                : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+            // No such residue: a forbidden modification cannot be there, so the condition holds
+            // vacuously, while a required one can never be satisfied.
+            if (constrainedResidue < 1 || constrainedResidue > Parent.BaseSequence.Length)
+            {
+                return requirement.IsForbidden;
+            }
+
+            // Inside this product, the pattern is authoritative: it says what this peptidoform carries.
+            if (constrainedResidue >= OneBasedStartResidue && constrainedResidue <= OneBasedEndResidue)
+            {
+                int key = constrainedResidue - OneBasedStartResidue + 2;
+                if (key < 2 || key > productLength + 1)
+                {
+                    return requirement.IsForbidden;
+                }
+
+                bool carriesMatchingModification = variableModPattern is not null
+                    && variableModPattern.TryGetValue(key, out Modification placed)
+                    && requirement.IsSatisfiedBy(placed);
+
+                return requirement.IsConditionMet(carriesMatchingModification);
+            }
+
+            // Outside this product the peptidoform says nothing about the residue, so a forbidden
+            // condition is normally given the benefit of the doubt -- guessing would delete a real peptide.
+            //
+            // A FIXED modification is the one case where the doubt is settled. Fixed means every copy of
+            // the residue carries it, so if one satisfies this condition and fits there, the subsite IS
+            // occupied and the cleavage was impossible. That is what lets a non-prime forbidden rule prune
+            // from BOTH sides of its bond: the product ENDING at the cut sees the subsite in its own
+            // pattern, and the product STARTING at it can only ever see it here. Without this, IMPa's
+            // "no cleavage between two adjacent glycosites" removes the left-hand peptide and leaves the
+            // right-hand one standing, which is half a rule.
+            if (requirement.IsForbidden)
+            {
+                if (fixedModifications is null)
+                {
+                    return true;
+                }
+
+                string sequenceForFixed = Parent.BaseSequence;
+                foreach (Modification fixedModification in fixedModifications)
+                {
+                    if (requirement.IsSatisfiedBy(fixedModification)
+                        && ModificationLocalization.ModFits(fixedModification, sequenceForFixed, constrainedResidue,
+                            sequenceForFixed.Length, constrainedResidue))
+                    {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            // Outside this product, in a neighbour: fall back to whether the parent could ever carry a
+            // satisfying modification there. See the caller's remarks for why this is feasibility rather
+            // than occupancy.
+            //
+            // BOTH sources are consulted, for the same reason the site-list filter consults both. A search
+            // supplying the glycan as a variable modification against an unannotated database has nothing
+            // in OneBasedPossibleLocalizedModifications, so an annotation-only test answers "impossible"
+            // for every cut whose constrained residue sits in the neighbouring product -- and silently
+            // deletes every peptide lying C-terminal to a glycan-justified cut.
+            if (Parent.OneBasedPossibleLocalizedModifications is not null
+                && Parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
+                && candidates is not null
+                && candidates.Any(requirement.IsSatisfiedBy))
+            {
+                return true;
+            }
+
+            if (configuredModifications is null)
+            {
+                return false;
+            }
+
+            string parentSequence = Parent.BaseSequence;
+            foreach (Modification configured in configuredModifications)
+            {
+                if (requirement.IsSatisfiedBy(configured)
+                    && ModificationLocalization.ModFits(configured, parentSequence, constrainedResidue,
+                        parentSequence.Length, constrainedResidue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+
+        /// <summary>
+        /// The residues inside this product that MUST carry a modification satisfying a cleavage
+        /// requirement, because the cuts that produced this product could not have happened otherwise.
+        /// Empty for every ordinary protease. Keys are two-based, matching the modification-pattern
+        /// convention: key 2 is the first residue, key <see cref="Length"/> + 1 the last.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>What this is for, and why it cannot be answered at digestion.</b> A glyco search never
+        /// puts the glycan in the digestion: the peptide backbone is identified naked and the glycan
+        /// arrives afterwards as a precursor-mass difference, to be localized against fragment ions. So
+        /// the cleavage requirement cannot filter peptides there the way it does for a search that
+        /// configures the glycan as a modification. What it CAN do is tell the localizer where the glycan
+        /// must have been: if OpeRATOR produced this peptide, its first residue carries a glycan. That is
+        /// not a hypothesis to be scored, it is a consequence of the peptide existing at all.</para>
+        ///
+        /// <para><b>Derived, never stored.</b> Everything needed is already reachable -- the agent's
+        /// motifs, this product's coordinates and the parent sequence -- so this computes on demand and
+        /// adds no field. That is not a style preference: MetaMorpheus caches the peptide index to disk
+        /// with a field-based, schema-rigid serializer whose reuse check carries no assembly version, so a
+        /// new serialized field silently changes the on-disk layout and corrupts indices users already
+        /// have.</para>
+        ///
+        /// <para><b>Deliberately conservative in two places, because over-constraining DELETES correct
+        /// answers.</b> A cut that any requirement-free motif explains is not obligated at all -- a
+        /// tryptic cut inside a StcE-trypsin digest needs no glycan. And when several requirement-carrying
+        /// motifs fit the same cut but point at DIFFERENT residues, the truth is a disjunction ("one of
+        /// these must be occupied") which a set of forced positions cannot express, so nothing is emitted.
+        /// Under-constraining only forgoes a refinement; over-constraining would forbid the right
+        /// localization.</para>
+        ///
+        /// <para>A subsite lying outside this product is skipped: it belongs to the neighbouring peptide
+        /// and is not a position this product can localize to. For a P2 requirement (StcE) the C-terminal
+        /// cut's subsite is inside and the N-terminal cut's is not; for P1' (the OgpA family) it is the
+        /// other way round.</para>
+        /// </remarks>
+        /// <summary>
+        /// The obligated sites of <see cref="GetCleavageObligatedSites"/>, each with the conditions the
+        /// protease imposes there -- so a caller can ask not only WHERE a modification must be but WHICH
+        /// modifications would satisfy the rule.
+        /// </summary>
+        /// <remarks>
+        /// This is what lets a glyco search use a composition-level rule. OpeRATOR does not merely require
+        /// "a glycan" at P1'; it requires at least core 1, and is blocked again by core 2. The localizer
+        /// holds real glycans, and a glycan IS a Modification, so it can put each candidate through
+        /// <see cref="CleavageRequirement.IsSatisfiedBy"/> directly and refuse the arrangements that place
+        /// the wrong KIND of glycan on a site the enzyme has already spoken for.
+        /// </remarks>
+        public Dictionary<int, List<CleavageRequirement>> GetCleavageObligations(DigestionAgent agent)
+        {
+            var obligations = new Dictionary<int, List<CleavageRequirement>>();
+            foreach (int site in GetCleavageObligatedSites(agent, obligations))
+            {
+                // GetCleavageObligatedSites fills the dictionary as it goes; the loop is only to run it.
+                _ = site;
+            }
+
+            return obligations;
+        }
+
+        public List<int> GetCleavageObligatedSites(DigestionAgent agent) =>
+            GetCleavageObligatedSites(agent, null);
+
+        private List<int> GetCleavageObligatedSites(DigestionAgent agent,
+            Dictionary<int, List<CleavageRequirement>> conditionsBySite)
+        {
+            var obligated = new List<int>();
+            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
+            {
+                return obligated;
+            }
+
+            string parentSequence = Parent.BaseSequence;
+            int productLength = OneBasedEndResidue - OneBasedStartResidue + 1;
+
+            // Removing the initiator methionine is not a proteolytic cut, and neither is the sequence
+            // simply beginning or ending -- none of those needs a modification to explain it.
+            bool startedAtInitiatorMethionineRemoval = OneBasedStartResidue == 2
+                && parentSequence.Length > 0
+                && parentSequence[0] == 'M';
+
+            if (OneBasedStartResidue > 1 && !startedAtInitiatorMethionineRemoval)
+            {
+                AddObligationForCut(OneBasedStartResidue - 1, parentSequence, agent, productLength, obligated, conditionsBySite);
+            }
+
+            if (OneBasedEndResidue < parentSequence.Length)
+            {
+                AddObligationForCut(OneBasedEndResidue, parentSequence, agent, productLength, obligated, conditionsBySite);
+            }
+
+            return obligated;
+        }
+
+        /// <summary>
+        /// Adds the site this cut forces, if it forces exactly one and that one lies inside this product.
+        /// </summary>
+        private void AddObligationForCut(int cutAfterOneBasedResidue, string parentSequence, DigestionAgent agent,
+            int productLength, List<int> obligated, Dictionary<int, List<CleavageRequirement>> conditionsBySite)
+        {
+            int forcedResidue = -1;
+            var conditionsHere = new List<CleavageRequirement>();
+
+            foreach (DigestionMotif motif in agent.DigestionMotifs)
+            {
+                if (motif is null)
+                {
+                    continue;
+                }
+
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0
+                    || motifStartZeroBased + motif.InducingCleavage.Length > parentSequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(parentSequence, motifStartZeroBased);
+                if (!fits || prevented)
+                {
+                    continue;
+                }
+
+                // Only a REQUIRED condition proves a residue was occupied. A forbidden one proves the
+                // opposite and is not an obligation to localize anything, so it is skipped -- emitting it
+                // would force a glycan onto the one residue the enzyme says cannot carry it. It is still
+                // collected, because once a site IS obliged, a forbidden condition still says what may
+                // not sit there.
+                var required = new List<CleavageRequirement>();
+                foreach (CleavageRequirement candidate in motif.CleavageRequirements)
+                {
+                    if (candidate.IsForbidden)
+                    {
+                        conditionsHere.Add(candidate);
+                    }
+                    else
+                    {
+                        required.Add(candidate);
+                    }
+                }
+
+                // This motif explains the cut without requiring any modification, so the cut obliges
+                // nothing at all.
+                if (required.Count != 1)
+                {
+                    return;
+                }
+
+                CleavageRequirement requirement = required[0];
+                conditionsHere.Add(requirement);
+                int constrainedResidue = requirement.IsPrimeSide
+                    ? cutAfterOneBasedResidue + requirement.Subsite
+                    : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+                if (forcedResidue == -1)
+                {
+                    forcedResidue = constrainedResidue;
+                }
+                else if (forcedResidue != constrainedResidue)
+                {
+                    // Two motifs fit and disagree about which residue must be occupied. The obligation is
+                    // a disjunction, which a forced-site set cannot say, so say nothing.
+                    return;
+                }
+            }
+
+            if (forcedResidue < OneBasedStartResidue || forcedResidue > OneBasedEndResidue)
+            {
+                return;
+            }
+
+            int twoBasedKey = forcedResidue - OneBasedStartResidue + 2;
+            if (twoBasedKey >= 2 && twoBasedKey <= productLength + 1 && !obligated.Contains(twoBasedKey))
+            {
+                obligated.Add(twoBasedKey);
+
+                if (conditionsBySite is not null)
+                {
+                    // Every condition of every motif that vouched for this cut, so the caller can test a
+                    // candidate modification against all of them. Forbidden conditions are carried too --
+                    // they do not oblige a site, but once a site IS obliged they still say what may not
+                    // sit on it.
+                    conditionsBySite[twoBasedKey] = conditionsHere;
+                }
+            }
+        }
+
+        #endregion
 
         #region Digestion Helper Methods
 

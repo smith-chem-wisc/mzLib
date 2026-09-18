@@ -15,7 +15,9 @@ namespace Proteomics.ProteolyticDigestion
         public DigestionParams(string protease = "trypsin", int maxMissedCleavages = 2, int minPeptideLength = 7, int maxPeptideLength = int.MaxValue,
             int maxModificationIsoforms = 1024, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Variable,
             int maxModsForPeptides = 2, CleavageSpecificity searchModeType = CleavageSpecificity.Full, FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
-            bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false)
+            bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false,
+            bool respectCleavageBlockingModifications = false,
+            bool respectCleavagePromotingModifications = false)
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
@@ -30,6 +32,8 @@ namespace Proteomics.ProteolyticDigestion
             GeneratehUnlabeledProteinsForSilac = generateUnlabeledProteinsForSilac;
             KeepNGlycopeptide = keepNGlycopeptide;
             KeepOGlycopeptide = keepOGlycopeptide;
+            RespectCleavageBlockingModifications = respectCleavageBlockingModifications;
+            RespectCleavagePromotingModifications = respectCleavagePromotingModifications;
         }
 
         public InitiatorMethionineBehavior InitiatorMethionineBehavior { get; private set; }
@@ -85,6 +89,81 @@ namespace Proteomics.ProteolyticDigestion
         public bool KeepNGlycopeptide { get; private set; }
         public bool KeepOGlycopeptide { get; private set; }
 
+        /// <summary>
+        /// When set, digestion treats a cleavage-blocking modification (see
+        /// <see cref="Omics.Modifications.Modification.BlocksCleavage"/>) on a Lys/Arg as abolishing
+        /// that cleavage site for the peptidoform carrying it. Peptidoforms whose C-terminus is such a
+        /// residue are dropped -- trypsin could not have produced them -- and the blocked residue stops
+        /// counting as a missed cleavage in the read-through form, so the real peptide survives even at
+        /// MaxMissedCleavages = 0. Default false, which reproduces the historical (modification-blind)
+        /// digestion exactly.
+        /// </summary>
+        /// <remarks>
+        /// <see cref="MaxMissedCleavages"/> keeps its meaning and its guarantee: no peptide leaves
+        /// digestion reporting more missed cleavages than were asked for. A blocked residue is not a
+        /// cleavage site for the peptidoform carrying it, so it is not a missed cleavage either -- the
+        /// count reports cleavages that could have happened and did not, not Lys/Arg residues. Digestion
+        /// does enumerate a wider span internally to reach the read-through forms, but that slack is
+        /// discounted again before a peptide is emitted, so it is never observable in the result.
+        ///
+        /// Scope: this flag applies to full-specificity SEARCHES only
+        /// (<see cref="SearchModeType"/> == <see cref="CleavageSpecificity.Full"/>). A semi or
+        /// nonspecific search is left exactly as it was, deliberately and entirely. The drop and the
+        /// wider generation span are two halves of one exchange -- the impossible peptidoform leaves and
+        /// the read-through form that replaces it arrives -- and applying only the first half would make
+        /// a peptide unidentifiable rather than correctly identified whenever the budget is too small to
+        /// reach the read-through. Half a correction is worse than none, so semi gets none.
+        ///
+        /// Making semi searches benefit properly is follow-up work, and it is not just a matter of
+        /// widening this gate: a semi peptide's C-terminus may be a genuine protease cut or a
+        /// length-driven truncation, and telling them apart needs the protease's site list, which full
+        /// digestion gets free from its own enumeration and semi digestion does not.
+        /// </remarks>
+        public bool RespectCleavageBlockingModifications { get; private set; }
+
+        /// <summary>
+        /// When set, digestion honours a protease whose motif REQUIRES a modification at one of its
+        /// subsites -- a glycoprotease. A peptidoform whose cut is not justified by the required
+        /// glycan is dropped, because the protease could not have made that cut. Default false, which
+        /// reproduces the historical (modification-blind) digestion exactly.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>PRECONDITION: the glycan must be somewhere digestion can see it.</b> The requirement
+        /// is evaluated against the modifications available at digestion time -- those the database
+        /// annotates on the protein, and those the search configures as fixed or variable. Either source
+        /// will do, and they are both consulted. But if NEITHER carries a modification that can satisfy
+        /// the requirement, then no cut anywhere is justified and the protein comes back essentially
+        /// undigested.</para>
+        ///
+        /// <para>That is the correct answer, not a defect: StcE, OpeRATOR and IMPa demonstrably do not
+        /// cleave unglycosylated substrate, and returning the intact substrate is what the published
+        /// unglycosylated controls describe. It does mean the flag must not be set by a workflow that
+        /// resolves the glycan AFTER identification rather than placing it at digestion -- a glyco search,
+        /// where the glycan enters as a precursor-mass offset and is localized against fragment ions, has
+        /// no glycan in the digestion's view at all and would simply lose its peptides. For that workflow
+        /// the requirement has to constrain localization instead, which this flag does not do.</para>
+        ///
+        /// <para>The mirror of <see cref="RespectCleavageBlockingModifications"/>, and gated the same way:
+        /// full-specificity searches only. The two corrections move in opposite directions. Blocking
+        /// removes a site the bare sequence had, so it needs generation SLACK to reach the read-through
+        /// peptide that replaces what it drops. Promoting works in two stages instead. The first removes
+        /// sites at which the required modification could never be present, before enumeration, and needs
+        /// no slack: the read-through across a site that is not a site is just the ordinary peptide
+        /// between the sites that remain. The second refines OCCUPANCY per peptidoform, and it does NOT
+        /// yet have a read-through -- a peptidoform whose cut is feasible but unoccupied is dropped with
+        /// nothing generated to replace it (truth-set case STCE-08). Note that the two corrections are
+        /// therefore NOT symmetric in one further respect: an unconfigured blocking modification cannot
+        /// remove a site the sequence really has, whereas an unsatisfiable promoting requirement means
+        /// there is genuinely no site -- which is why this flag has no "nothing configured, go inert"
+        /// escape and must not be given one.</para>
+        ///
+        /// Scope: like its sibling, this applies to full-specificity searches only. A semi or
+        /// nonspecific search is left exactly as it was. There the peptide's termini are not all
+        /// protease cuts, and dropping a peptidoform whose length-driven terminus happens to sit at an
+        /// unglycosylated motif would remove a peptide the search should still see.
+        /// </remarks>
+        public bool RespectCleavagePromotingModifications { get; private set; }
+
         #region Properties overridden by more generic interface
 
         /// <summary>
@@ -136,7 +215,9 @@ namespace Proteomics.ProteolyticDigestion
                    && SpecificProtease.Equals(other.SpecificProtease)
                    && GeneratehUnlabeledProteinsForSilac == other.GeneratehUnlabeledProteinsForSilac
                    && KeepNGlycopeptide == other.KeepNGlycopeptide
-                   && KeepOGlycopeptide == other.KeepOGlycopeptide;
+                   && KeepOGlycopeptide == other.KeepOGlycopeptide
+                   && RespectCleavageBlockingModifications == other.RespectCleavageBlockingModifications
+                   && RespectCleavagePromotingModifications == other.RespectCleavagePromotingModifications;
         }
 
         public override int GetHashCode()
@@ -155,6 +236,8 @@ namespace Proteomics.ProteolyticDigestion
             hash.Add(GeneratehUnlabeledProteinsForSilac);
             hash.Add(KeepNGlycopeptide);
             hash.Add(KeepOGlycopeptide);
+            hash.Add(RespectCleavageBlockingModifications);
+            hash.Add(RespectCleavagePromotingModifications);
             return hash.ToHashCode();
         }
 
@@ -164,7 +247,9 @@ namespace Proteomics.ProteolyticDigestion
         {
             return MaxMissedCleavages + "," + InitiatorMethionineBehavior + "," + MinLength + "," + MaxLength + ","
                    + MaxModificationIsoforms + "," + MaxMods + "," + SpecificProtease.Name + "," + SearchModeType + "," + FragmentationTerminus + ","
-                   + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide;
+                   + GeneratehUnlabeledProteinsForSilac + "," + KeepNGlycopeptide + "," + KeepOGlycopeptide + ","
+                   + RespectCleavageBlockingModifications + ","
+                   + RespectCleavagePromotingModifications;
         }
 
         public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
@@ -173,10 +258,12 @@ namespace Proteomics.ProteolyticDigestion
             if (SearchModeType == CleavageSpecificity.None)
                 return new DigestionParams(SpecificProtease.Name, MaxMissedCleavages, MinLength, MaxLength,
                     MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
-                    GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+                    GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide,
+                    RespectCleavageBlockingModifications, RespectCleavagePromotingModifications);
             return new DigestionParams(Protease.Name, MaxMissedCleavages, MinLength, MaxLength,
                 MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
-                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
+                GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide,
+                RespectCleavageBlockingModifications, RespectCleavagePromotingModifications);
         }
             
 

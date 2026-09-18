@@ -49,8 +49,72 @@ namespace Omics.Modifications
         public List<string> Keywords { get; protected set; }
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; protected set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; protected set; }
+        /// <summary>
+        /// What this glycan is built from, when it is a glycan and the source said. Null for every
+        /// ordinary modification, and null for a glycan whose source only gave a mass.
+        /// </summary>
+        /// <remarks>
+        /// Null means UNKNOWN, never "no sugars", and every rule written against it must read it that
+        /// way: a cleavage rule that cannot see a composition has to let the cleavage through rather than
+        /// refuse it, or adding this property would silently change results for every glycan database
+        /// that does not populate it.
+        ///
+        /// Safe to add because modifications are NOT serialized into MetaMorpheus's peptide index --
+        /// PeptideWithSetModifications marks its modification dictionary [NonSerialized] and rebuilds it
+        /// from the full sequence against the run's known modifications -- so this changes no on-disk
+        /// layout and cannot corrupt a cached index.
+        /// </remarks>
+        public MonosaccharideComposition MonosaccharideComposition { get; protected set; }
+
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
+
+        /// <summary>
+        /// True when this modification sits on the side chain of a trypsin-family cleavage residue
+        /// (Lys/Arg) and neutralises or masks its charge enough that the protease would not cleave
+        /// after it -- N6-succinyllysine, N6-acetyllysine and the other epsilon-amine acylations.
+        ///
+        /// This is a property of the modification alone, and it is only the first of three questions.
+        /// Whether the configured PROTEASE cleaves after that residue at all is the second -- see
+        /// <see cref="CleavageBlockingModifications.BlocksCleavageBy"/>, which is what digestion
+        /// actually consults. Whether the modification invalidates a given peptidoform is the third, a
+        /// question of POSITION that digestion decides: an acylated residue that is the protein's own
+        /// C-terminus ends a perfectly real peptide, since no cleavage happens there.
+        ///
+        /// Curated classification; see <see cref="CleavageBlockingModifications"/> for what is in the
+        /// set and why the methyl series is excluded. Digestion consults this only when
+        /// DigestionParams.RespectCleavageBlockingModifications is set.
+        /// </summary>
+        public bool BlocksCleavage
+        {
+            get
+            {
+                // Classifying costs a lower-casing allocation and a scan of the acyl stems, and the
+                // digestion path asks per modification per peptidoform -- millions of times across a
+                // search -- so the answer is memoised. It is derived entirely from OriginalId, Target
+                // and LocationRestriction, which are set at construction and not changed afterwards.
+                //
+                // An int rather than a bool? because a torn read of a two-field Nullable is a real (if
+                // remote) hazard and a 32-bit aligned write is not. The race is benign either way: two
+                // threads racing here compute the same value from the same immutable inputs.
+                int cached = _blocksCleavageCache;
+                if (cached == BlocksCleavageNotYetClassified)
+                {
+                    cached = CleavageBlockingModifications.NeutralizesCleavageResidue(this)
+                        ? BlocksCleavageYes
+                        : BlocksCleavageNo;
+                    _blocksCleavageCache = cached;
+                }
+
+                return cached == BlocksCleavageYes;
+            }
+        }
+
+        private const int BlocksCleavageNotYetClassified = 0;
+        private const int BlocksCleavageNo = 1;
+        private const int BlocksCleavageYes = 2;
+
+        private int _blocksCleavageCache;
 
         public virtual bool ValidModification
         {
@@ -71,8 +135,10 @@ namespace Omics.Modifications
             double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null,
             Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null,
             Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
-            string _fileOrigin = null)
+            string _fileOrigin = null, MonosaccharideComposition _monosaccharideComposition = null)
         {
+            this.MonosaccharideComposition = _monosaccharideComposition;
+
             if (_originalId != null)
             {
                 if (_originalId.Contains(" on "))
@@ -269,6 +335,18 @@ namespace Omics.Modifications
                 {
                     sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
                 }
+            }
+
+            // GC, for the monosaccharide composition. Emitted so the field survives a database round
+            // trip: ProteinDbWriter stores a modification as this very string (ProteinDbWriter.cs:95 and
+            // :360) and ProteinDbLoader reads it back through ModificationLoader (ProteinDbLoader.cs:217),
+            // so a field absent here is silently gone after any write-then-read and the cleavage rule that
+            // depends on it quietly weakens. The format is key-prefixed and order-insensitive -- the
+            // reader dispatches on the first two characters and ignores keys it does not know -- so this
+            // may sit anywhere in the record, and an older mzLib simply drops it rather than failing.
+            if (this.MonosaccharideComposition != null)
+            {
+                sb.AppendLine("GC   " + this.MonosaccharideComposition);
             }
 
             return sb.ToString();
