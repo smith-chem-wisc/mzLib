@@ -393,7 +393,35 @@ namespace Omics.Digestion
         /// cut's subsite is inside and the N-terminal cut's is not; for P1' (the OgpA family) it is the
         /// other way round.</para>
         /// </remarks>
-        public List<int> GetCleavageObligatedSites(DigestionAgent agent)
+        /// <summary>
+        /// The obligated sites of <see cref="GetCleavageObligatedSites"/>, each with the conditions the
+        /// protease imposes there -- so a caller can ask not only WHERE a modification must be but WHICH
+        /// modifications would satisfy the rule.
+        /// </summary>
+        /// <remarks>
+        /// This is what lets a glyco search use a composition-level rule. OpeRATOR does not merely require
+        /// "a glycan" at P1'; it requires at least core 1, and is blocked again by core 2. The localizer
+        /// holds real glycans, and a glycan IS a Modification, so it can put each candidate through
+        /// <see cref="CleavageRequirement.IsSatisfiedBy"/> directly and refuse the arrangements that place
+        /// the wrong KIND of glycan on a site the enzyme has already spoken for.
+        /// </remarks>
+        public Dictionary<int, List<CleavageRequirement>> GetCleavageObligations(DigestionAgent agent)
+        {
+            var obligations = new Dictionary<int, List<CleavageRequirement>>();
+            foreach (int site in GetCleavageObligatedSites(agent, obligations))
+            {
+                // GetCleavageObligatedSites fills the dictionary as it goes; the loop is only to run it.
+                _ = site;
+            }
+
+            return obligations;
+        }
+
+        public List<int> GetCleavageObligatedSites(DigestionAgent agent) =>
+            GetCleavageObligatedSites(agent, null);
+
+        private List<int> GetCleavageObligatedSites(DigestionAgent agent,
+            Dictionary<int, List<CleavageRequirement>> conditionsBySite)
         {
             var obligated = new List<int>();
             if (agent is null || !agent.HasCleavageRequirement || Parent is null)
@@ -412,12 +440,12 @@ namespace Omics.Digestion
 
             if (OneBasedStartResidue > 1 && !startedAtInitiatorMethionineRemoval)
             {
-                AddObligationForCut(OneBasedStartResidue - 1, parentSequence, agent, productLength, obligated);
+                AddObligationForCut(OneBasedStartResidue - 1, parentSequence, agent, productLength, obligated, conditionsBySite);
             }
 
             if (OneBasedEndResidue < parentSequence.Length)
             {
-                AddObligationForCut(OneBasedEndResidue, parentSequence, agent, productLength, obligated);
+                AddObligationForCut(OneBasedEndResidue, parentSequence, agent, productLength, obligated, conditionsBySite);
             }
 
             return obligated;
@@ -427,9 +455,10 @@ namespace Omics.Digestion
         /// Adds the site this cut forces, if it forces exactly one and that one lies inside this product.
         /// </summary>
         private void AddObligationForCut(int cutAfterOneBasedResidue, string parentSequence, DigestionAgent agent,
-            int productLength, List<int> obligated)
+            int productLength, List<int> obligated, Dictionary<int, List<CleavageRequirement>> conditionsBySite)
         {
             int forcedResidue = -1;
+            var conditionsHere = new List<CleavageRequirement>();
 
             foreach (DigestionMotif motif in agent.DigestionMotifs)
             {
@@ -453,11 +482,17 @@ namespace Omics.Digestion
 
                 // Only a REQUIRED condition proves a residue was occupied. A forbidden one proves the
                 // opposite and is not an obligation to localize anything, so it is skipped -- emitting it
-                // would force a glycan onto the one residue the enzyme says cannot carry it.
+                // would force a glycan onto the one residue the enzyme says cannot carry it. It is still
+                // collected, because once a site IS obliged, a forbidden condition still says what may
+                // not sit there.
                 var required = new List<CleavageRequirement>();
                 foreach (CleavageRequirement candidate in motif.CleavageRequirements)
                 {
-                    if (!candidate.IsForbidden)
+                    if (candidate.IsForbidden)
+                    {
+                        conditionsHere.Add(candidate);
+                    }
+                    else
                     {
                         required.Add(candidate);
                     }
@@ -471,6 +506,7 @@ namespace Omics.Digestion
                 }
 
                 CleavageRequirement requirement = required[0];
+                conditionsHere.Add(requirement);
                 int constrainedResidue = requirement.IsPrimeSide
                     ? cutAfterOneBasedResidue + requirement.Subsite
                     : cutAfterOneBasedResidue - requirement.Subsite + 1;
@@ -496,6 +532,15 @@ namespace Omics.Digestion
             if (twoBasedKey >= 2 && twoBasedKey <= productLength + 1 && !obligated.Contains(twoBasedKey))
             {
                 obligated.Add(twoBasedKey);
+
+                if (conditionsBySite is not null)
+                {
+                    // Every condition of every motif that vouched for this cut, so the caller can test a
+                    // candidate modification against all of them. Forbidden conditions are carried too --
+                    // they do not oblige a site, but once a site IS obliged they still say what may not
+                    // sit on it.
+                    conditionsBySite[twoBasedKey] = conditionsHere;
+                }
             }
         }
 

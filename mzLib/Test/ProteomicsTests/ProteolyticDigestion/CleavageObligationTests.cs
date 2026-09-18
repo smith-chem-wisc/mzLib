@@ -181,6 +181,48 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         [Test]
+        public static void AnObligationCarriesTheConditionsThatWouldSatisfyIt()
+        {
+            // The obligation says WHERE a modification must be; the conditions say WHICH ones would do.
+            // A glyco search needs both, because OpeRATOR does not merely require "a glycan" at P1' -- it
+            // requires at least core 1, and is blocked again by core 2 -- and the localizer holds real
+            // glycans it can put through IsSatisfiedBy directly.
+            Protease opeRator = ProteaseDictionary.Dictionary["OpeRATOR"];
+            var protein = new Protein("AHGVTSAPDTRK", "COND");
+
+            var obligations = Product(protein, 5, 12).GetCleavageObligations(opeRator);
+
+            Assert.AreEqual(1, obligations.Count, "one obligated site");
+            Assert.IsTrue(obligations.ContainsKey(2), "the peptide's first residue");
+
+            var conditions = obligations[2];
+            Assert.AreEqual(1, conditions.Count(c => !c.IsForbidden), "one required condition");
+            Assert.AreEqual(1, conditions.Count(c => c.IsForbidden),
+                "and the forbidden one, which still says what may NOT sit on an obligated site");
+
+            CleavageRequirement floor = conditions.First(c => !c.IsForbidden);
+            Assert.IsNotNull(floor.MinimumComposition, "OpeRATOR's required condition carries a floor");
+
+            // The whole point, expressed the way the localizer will use it.
+            Assert.IsTrue(floor.IsSatisfiedBy(Glycan("Hex1HexNAc1")), "core 1 satisfies OpeRATOR");
+            Assert.IsFalse(floor.IsSatisfiedBy(Glycan("HexNAc1")),
+                "the Tn antigen is a lone HexNAc and does not reach core 1");
+
+            CleavageRequirement blocked = conditions.First(c => c.IsForbidden);
+            Assert.IsTrue(blocked.IsSatisfiedBy(Glycan("Hex1HexNAc2")),
+                "core 2 matches the forbidding condition, so a localizer must refuse it here");
+            Assert.IsFalse(blocked.IsSatisfiedBy(Glycan("Hex1HexNAc1")), "core 1 does not");
+        }
+
+        private static Modification Glycan(string composition)
+        {
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
+            return new Modification(_originalId: composition, _modificationType: "O-linked glycosylation",
+                _target: motif, _locationRestriction: "Anywhere.", _monoisotopicMass: 203.079373,
+                _monosaccharideComposition: MonosaccharideComposition.Parse(composition));
+        }
+
+        [Test]
         public static void InAPrimeSideCoDigestATrypticCutCancelsTheObligation()
         {
             // The case real data pointed at. Every published protocol for these enzymes is a co-digest
