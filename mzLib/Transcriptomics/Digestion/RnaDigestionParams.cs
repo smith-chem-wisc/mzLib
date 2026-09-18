@@ -25,7 +25,7 @@ namespace Transcriptomics.Digestion
             FragmentationTerminus = fragmentationTerminus;
             SearchModeType = searchModeType;
 
-            SpecificDigestionAgent = DigestionAgent;
+            SpecificRnase = Rnase;
             if (SearchModeType == CleavageSpecificity.None) //nonspecific searches, which might have a specific protease
             {
                 Rnase = FragmentationTerminus == FragmentationTerminus.N ?
@@ -40,8 +40,9 @@ namespace Transcriptomics.Digestion
         public int MaxModificationIsoforms { get; set; }
         public int MaxMods { get; set; }
         public DigestionAgent DigestionAgent => Rnase;
+        public DigestionAgent SpecificDigestionAgent  => SpecificRnase;
         public Rnase Rnase { get; private set; }
-        public DigestionAgent SpecificDigestionAgent { get; private set; }
+        public DigestionAgent SpecificRnase { get; private set; }
         public FragmentationTerminus FragmentationTerminus { get; set; }
         public CleavageSpecificity SearchModeType { get; set; }
         public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
