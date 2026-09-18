@@ -303,6 +303,135 @@ namespace Omics.Digestion
             return false;
         }
 
+
+        /// <summary>
+        /// The residues inside this product that MUST carry a modification satisfying a cleavage
+        /// requirement, because the cuts that produced this product could not have happened otherwise.
+        /// Empty for every ordinary protease. Keys are two-based, matching the modification-pattern
+        /// convention: key 2 is the first residue, key <see cref="Length"/> + 1 the last.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>What this is for, and why it cannot be answered at digestion.</b> A glyco search never
+        /// puts the glycan in the digestion: the peptide backbone is identified naked and the glycan
+        /// arrives afterwards as a precursor-mass difference, to be localized against fragment ions. So
+        /// the cleavage requirement cannot filter peptides there the way it does for a search that
+        /// configures the glycan as a modification. What it CAN do is tell the localizer where the glycan
+        /// must have been: if OpeRATOR produced this peptide, its first residue carries a glycan. That is
+        /// not a hypothesis to be scored, it is a consequence of the peptide existing at all.</para>
+        ///
+        /// <para><b>Derived, never stored.</b> Everything needed is already reachable -- the agent's
+        /// motifs, this product's coordinates and the parent sequence -- so this computes on demand and
+        /// adds no field. That is not a style preference: MetaMorpheus caches the peptide index to disk
+        /// with a field-based, schema-rigid serializer whose reuse check carries no assembly version, so a
+        /// new serialized field silently changes the on-disk layout and corrupts indices users already
+        /// have.</para>
+        ///
+        /// <para><b>Deliberately conservative in two places, because over-constraining DELETES correct
+        /// answers.</b> A cut that any requirement-free motif explains is not obligated at all -- a
+        /// tryptic cut inside a StcE-trypsin digest needs no glycan. And when several requirement-carrying
+        /// motifs fit the same cut but point at DIFFERENT residues, the truth is a disjunction ("one of
+        /// these must be occupied") which a set of forced positions cannot express, so nothing is emitted.
+        /// Under-constraining only forgoes a refinement; over-constraining would forbid the right
+        /// localization.</para>
+        ///
+        /// <para>A subsite lying outside this product is skipped: it belongs to the neighbouring peptide
+        /// and is not a position this product can localize to. For a P2 requirement (StcE) the C-terminal
+        /// cut's subsite is inside and the N-terminal cut's is not; for P1' (the OgpA family) it is the
+        /// other way round.</para>
+        /// </remarks>
+        public List<int> GetCleavageObligatedSites(DigestionAgent agent)
+        {
+            var obligated = new List<int>();
+            if (agent is null || !agent.HasCleavageRequirement || Parent is null)
+            {
+                return obligated;
+            }
+
+            string parentSequence = Parent.BaseSequence;
+            int productLength = OneBasedEndResidue - OneBasedStartResidue + 1;
+
+            // Removing the initiator methionine is not a proteolytic cut, and neither is the sequence
+            // simply beginning or ending -- none of those needs a modification to explain it.
+            bool startedAtInitiatorMethionineRemoval = OneBasedStartResidue == 2
+                && parentSequence.Length > 0
+                && parentSequence[0] == 'M';
+
+            if (OneBasedStartResidue > 1 && !startedAtInitiatorMethionineRemoval)
+            {
+                AddObligationForCut(OneBasedStartResidue - 1, parentSequence, agent, productLength, obligated);
+            }
+
+            if (OneBasedEndResidue < parentSequence.Length)
+            {
+                AddObligationForCut(OneBasedEndResidue, parentSequence, agent, productLength, obligated);
+            }
+
+            return obligated;
+        }
+
+        /// <summary>
+        /// Adds the site this cut forces, if it forces exactly one and that one lies inside this product.
+        /// </summary>
+        private void AddObligationForCut(int cutAfterOneBasedResidue, string parentSequence, DigestionAgent agent,
+            int productLength, List<int> obligated)
+        {
+            int forcedResidue = -1;
+
+            foreach (DigestionMotif motif in agent.DigestionMotifs)
+            {
+                if (motif is null)
+                {
+                    continue;
+                }
+
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0
+                    || motifStartZeroBased + motif.InducingCleavage.Length > parentSequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(parentSequence, motifStartZeroBased);
+                if (!fits || prevented)
+                {
+                    continue;
+                }
+
+                // This motif explains the cut without any modification, so the cut obliges nothing.
+                if (motif.CleavageRequirement is null)
+                {
+                    return;
+                }
+
+                CleavageRequirement requirement = motif.CleavageRequirement;
+                int constrainedResidue = requirement.IsPrimeSide
+                    ? cutAfterOneBasedResidue + requirement.Subsite
+                    : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+                if (forcedResidue == -1)
+                {
+                    forcedResidue = constrainedResidue;
+                }
+                else if (forcedResidue != constrainedResidue)
+                {
+                    // Two motifs fit and disagree about which residue must be occupied. The obligation is
+                    // a disjunction, which a forced-site set cannot say, so say nothing.
+                    return;
+                }
+            }
+
+            if (forcedResidue < OneBasedStartResidue || forcedResidue > OneBasedEndResidue)
+            {
+                return;
+            }
+
+            int twoBasedKey = forcedResidue - OneBasedStartResidue + 2;
+            if (twoBasedKey >= 2 && twoBasedKey <= productLength + 1 && !obligated.Contains(twoBasedKey))
+            {
+                obligated.Add(twoBasedKey);
+            }
+        }
+
         #endregion
 
         #region Digestion Helper Methods
