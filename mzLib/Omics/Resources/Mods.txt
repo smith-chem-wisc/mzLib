@@ -506,6 +506,7 @@ MT   Less Common
 PP   N-terminal.
 NL   H0 or H26 C14 O1
 CF   H26 C14 O1
+DR   Unimod; 45.
 //
 ID   Myristoylation
 TG   C or K
@@ -513,6 +514,7 @@ PP   Anywhere.
 MT   Less Common
 NL   H0 or H26 C14 O1
 CF   H26 C14 O1
+DR   Unimod; 45.
 //
 ID   Palmitoylation
 TG   K or S or T or C
@@ -607,6 +609,7 @@ PP   Anywhere.
 MT   Trypsin Digested
 DI   HCD:114.042923533
 CF   H6 C4 N2 O2
+DR   Unimod; 121.
 //
 ID   DVIEVYQEQTGG (SUMO-1 Site human)
 TG   D
@@ -625,6 +628,7 @@ TG   K
 PP   Anywhere.
 MT   Trypsin Digested
 CF   C20 H32 N6 O8
+DR   Unimod; 846.
 //
 ################################## SPECULATIVE/UNCHARACTERIZED
 ID   Carbon Adduct
