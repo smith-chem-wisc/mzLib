@@ -202,7 +202,7 @@ public static class Mods
             {
                 if (!AllKnownProteinModsDictionary.TryGetValue(id, out mod))
                 {
-                    mod = AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id) 
+                    mod = AllProteinModsList.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id)
                           ?? AllProteinModsList.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
                 }
                 break;
@@ -212,7 +212,7 @@ public static class Mods
             {
                 if (!AllKnownRnaModsDictionary.TryGetValue(id, out mod))
                 {
-                    mod = AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id)
+                    mod = AllRnaModsList.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id)
                           ?? AllRnaModsList.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
                 }
                 break;
@@ -222,7 +222,7 @@ public static class Mods
             {
                 if (!AllModsKnownDictionary.TryGetValue(id, out mod))
                 {
-                    mod = AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id) 
+                    mod = AllKnownMods.FirstOrDefault(m => m.IdWithMotif == id || m.OriginalId == id)
                           ?? AllKnownMods.FirstOrDefault(m => $"{m.ModificationType}:{m.IdWithMotif}" == id);
                 }
                 break;
