@@ -283,13 +283,13 @@ namespace Test.Omics.BioPolymerGroupTests
             var group = new BioPolymerGroup(bioPolymers, sequences, uniqueSequences);
 
             // Before CalculateSequenceCoverage, ToString should not throw
-            Assert.DoesNotThrow(() => group.ToString());
+            Assert.DoesNotThrow(() => GroupTsv.Row(group));
 
             // After CalculateSequenceCoverage, ToString should include coverage data
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch>();
             group.CalculateSequenceCoverage();
 
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
             Assert.That(output, Is.Not.Null);
             Assert.That(output, Is.Not.Empty);
         }
@@ -312,7 +312,7 @@ namespace Test.Omics.BioPolymerGroupTests
             group.CalculateSequenceCoverage();
 
             // Verify coverage is reflected in ToString output
-            var output = group.ToString();
+            var output = GroupTsv.Row(group);
 
             // Coverage fraction should be 5/9 ≈ 0.556
             Assert.That(output, Does.Contain("0.5")); // Partial match on fraction
@@ -337,10 +337,10 @@ namespace Test.Omics.BioPolymerGroupTests
             group.AllPsmsBelowOnePercentFDR = new HashSet<ISpectralMatch> { psm };
 
             group.CalculateSequenceCoverage();
-            var output1 = group.ToString();
+            var output1 = GroupTsv.Row(group);
 
             group.CalculateSequenceCoverage();
-            var output2 = group.ToString();
+            var output2 = GroupTsv.Row(group);
 
             // Results should be identical (replaced, not appended)
             Assert.That(output1, Is.EqualTo(output2));

@@ -227,6 +227,40 @@ namespace Test.DatabaseTests
         /// read the native deletion yet failed to apply it would pass SeqVarXmlTest and fail here.
         /// </summary>
         [Test]
+        public static void SeqVar_AnchoredInsertionWithVariantBorneMod_DoesNotMutateSourceModLists()
+        {
+            // T5 -> TAG keeps T5, so the consensus phospho on T5 is carried onto the variant. The variant also carries its
+            // own mod at 5; merging it in must not write into the consensus protein's list, which the carried-over key
+            // used to share by reference.
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motifT);
+            Modification phospho = new Modification("Phospho", null, "type", null, motifT, "Anywhere.", null, 79.966331, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification variantBorne = new Modification("VariantBorne", null, "type", null, motifT, "Anywhere.", null, 42.010565, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            var insertion = new SequenceVariation(5, 5, "T", "TAG", "T5TAG",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { variantBorne } } });
+            var substitution = new SequenceVariation(2, 2, "P", "L", "P2L");
+            Protein protein = new Protein("MPEPTIDE", "P00003",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 5, new List<Modification> { phospho } } },
+                sequenceVariations: new List<SequenceVariation> { insertion, substitution });
+
+            List<Protein> variants = null;
+            for (int i = 0; i < 3; i++)
+            {
+                variants = protein.GetVariantBioPolymers();
+            }
+
+            Assert.That(protein.OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(insertion.OneBasedModifications[5], Is.EqualTo(new[] { variantBorne }));
+
+            var bySequence = variants.ToDictionary(p => p.BaseSequence);
+            Assert.That(bySequence.Keys, Is.EquivalentTo(new[] { "MPEPTIDE", "MLEPTIDE", "MPEPTAGIDE", "MLEPTAGIDE" }));
+            Assert.That(bySequence["MPEPTIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(bySequence["MLEPTIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(bySequence["MPEPTAGIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho, variantBorne }));
+            Assert.That(bySequence["MLEPTAGIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho, variantBorne }));
+        }
+
+        [Test]
         public static void SeqVar_NativeCTerminalDeletion_YPSE_AppliesAndShortensProtein()
         {
             var loaded = ProteinDbLoader.LoadProteinXML(
@@ -644,10 +678,11 @@ namespace Test.DatabaseTests
         ///    position 4, making them partially overlapping. They are applied in descending
         ///    position order (A first, then B):
         ///      MPEPTIDE → (PT→PA at 4–5) → MPEPAIDE → (EP→EA at 3–4) → MPEAAIDE
-        ///    The overlap causes <c>intersectsAppliedRegionIncompletely</c> to fire inside
-        ///    <see cref="ApplySingleVariant"/>. The production fix ensures the intermediate
-        ///    tail ("AIDE") is used rather than the consensus tail ("TIDE"), which would
-        ///    incorrectly revert the T→A mutation at position 5 and yield "MPEATIDE".
+        ///    <see cref="ApplySingleVariant"/> takes the tail unconditionally from the protein it is
+        ///    handed, so the intermediate tail ("AIDE") is used rather than the consensus tail
+        ///    ("TIDE"). Taking the consensus tail when an edit partially overlaps an already-applied
+        ///    one would revert the T→A mutation at position 5 and yield "MPEATIDE"; this test is
+        ///    what pins that behaviour.
         ///
         /// 2. NULL-VCF PATH IN AdjustSequenceVariationIndices
         ///    Variant A carries no <see cref="VariantCallFormat"/> data (null VCF). When B
@@ -713,10 +748,9 @@ namespace Test.DatabaseTests
             //   Step 1: MPEPTIDE + PT→PA(4-5) → MPEPAIDE   (T at pos 5 becomes A)
             //   Step 2: MPEPAIDE + EP→EA(3-4) → MPEAAIDE   (P at pos 4 becomes A; tail "AIDE" preserved)
             //
-            // The overlap at position 4 triggers intersectsAppliedRegionIncompletely = true.
-            // The production fix uses protein.BaseSequence.Substring(afterIdx) = "AIDE"
-            // rather than the buggy protein.ConsensusVariant.BaseSequence.Substring(afterIdx) = "TIDE",
-            // which would incorrectly revert the T→A from variant A, producing "MPEATIDE".
+            // ApplySingleVariant uses protein.BaseSequence.Substring(afterIdx) = "AIDE" unconditionally,
+            // rather than protein.ConsensusVariant.BaseSequence.Substring(afterIdx) = "TIDE", which
+            // would incorrectly revert the T→A from variant A, producing "MPEATIDE".
             var both = variants[3];
             Assert.That(both.BaseSequence, Is.EqualTo("MPEAAIDE"),
                 "Combined: PT→PA mutates pos 5 (T→A) and EP→EA mutates pos 4 (P→A); both changes must survive.");
