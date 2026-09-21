@@ -227,6 +227,40 @@ namespace Test.DatabaseTests
         /// read the native deletion yet failed to apply it would pass SeqVarXmlTest and fail here.
         /// </summary>
         [Test]
+        public static void SeqVar_AnchoredInsertionWithVariantBorneMod_DoesNotMutateSourceModLists()
+        {
+            // T5 -> TAG keeps T5, so the consensus phospho on T5 is carried onto the variant. The variant also carries its
+            // own mod at 5; merging it in must not write into the consensus protein's list, which the carried-over key
+            // used to share by reference.
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motifT);
+            Modification phospho = new Modification("Phospho", null, "type", null, motifT, "Anywhere.", null, 79.966331, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification variantBorne = new Modification("VariantBorne", null, "type", null, motifT, "Anywhere.", null, 42.010565, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            var insertion = new SequenceVariation(5, 5, "T", "TAG", "T5TAG",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { variantBorne } } });
+            var substitution = new SequenceVariation(2, 2, "P", "L", "P2L");
+            Protein protein = new Protein("MPEPTIDE", "P00003",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 5, new List<Modification> { phospho } } },
+                sequenceVariations: new List<SequenceVariation> { insertion, substitution });
+
+            List<Protein> variants = null;
+            for (int i = 0; i < 3; i++)
+            {
+                variants = protein.GetVariantBioPolymers();
+            }
+
+            Assert.That(protein.OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(insertion.OneBasedModifications[5], Is.EqualTo(new[] { variantBorne }));
+
+            var bySequence = variants.ToDictionary(p => p.BaseSequence);
+            Assert.That(bySequence.Keys, Is.EquivalentTo(new[] { "MPEPTIDE", "MLEPTIDE", "MPEPTAGIDE", "MLEPTAGIDE" }));
+            Assert.That(bySequence["MPEPTIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(bySequence["MLEPTIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(bySequence["MPEPTAGIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho, variantBorne }));
+            Assert.That(bySequence["MLEPTAGIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho, variantBorne }));
+        }
+
+        [Test]
         public static void SeqVar_NativeCTerminalDeletion_YPSE_AppliesAndShortensProtein()
         {
             var loaded = ProteinDbLoader.LoadProteinXML(
