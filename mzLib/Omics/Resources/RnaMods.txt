@@ -126,6 +126,13 @@ MT   Simple Biological
 CF   C3 H6 O1
 //
 ################################## Base Conversion
+ID   A->I
+TG   A
+PP   Anywhere.
+MT   Base Conversion
+CF   N-1H-1O1
+BL   Modified
+//
 ID   Deoxylnosine
 TG   T
 PP   Anywhere.

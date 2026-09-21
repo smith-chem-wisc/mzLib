@@ -30,6 +30,7 @@ using System.IO;
 using System.Linq;
 using System.Net.Http;
 using System.Net;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Omics.Modifications.IO;
@@ -699,6 +700,178 @@ namespace Test.DatabaseTests
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiMods);
             bool anyNegativeValue = formalChargesDictionary.Values.Any(i => i < 0);
             Assert.IsTrue(anyNegativeValue);
+        }
+
+        /// <summary>
+        /// The formal-charge adjustment is what makes a trimethylated lysine addable to a neutral peptide
+        /// mass. Getting it wrong is a silent one-proton error on every trimethyl site, so the arithmetic
+        /// is pinned here rather than left to be inferred from the file or the code.
+        ///
+        /// UniProt writes N6,N6,N6-trimethyllysine the way it exists on the protein: "CF C3 H7", the
+        /// quaternary ammonium. That nitrogen carries a permanent positive charge and so needs no proton
+        /// to acquire one -- which means the formula as written CANNOT simply be added to a peptide, being
+        /// one hydrogen heavier than the neutral increment. PSI-MOD MOD:00083 carries FormalCharge 1+, and
+        /// subtracting it is what turns 43.05 into the 42.04695 that Unimod calls Trimethyl.
+        ///
+        /// The trap for anyone changing this code: MM and CF are not interchangeable inputs. UniProt's
+        /// "MM 43.054227" is the CATION mass -- an electron lighter than the C3H7 formula mass, which is
+        /// exactly why the two differ by 0.000548 -- so a PROTON is the right thing to subtract from it.
+        /// A mass derived from the FORMULA still has that electron and needs a HYDROGEN ATOM removed
+        /// instead. The two subtractions differ by 0.549 mDa: small enough to survive a loose tolerance,
+        /// and wrong in every spectrum. The last assertion here states that difference so a change that
+        /// reuses the proton path for a formula-derived mass fails on this test rather than in someone's
+        /// search results.
+        /// </summary>
+        [Test]
+        public void TrimethylLysine_FormalChargeAdjustmentYieldsTheNeutralMassIncrement()
+        {
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModPath));
+            Assert.AreEqual(1, formalCharges["PSI-MOD; MOD:00083"],
+                "the fixture must still carry the 1+ charge this test is about");
+
+            Modification adjusted = ReadSingleModification(TrimethylLysineEntry, formalCharges);
+            Modification unadjusted = ReadSingleModification(TrimethylLysineEntry, new Dictionary<string, int>());
+
+            double neutralIncrement = ChemicalFormula.ParseFormula("C3H6").MonoisotopicMass;  // Unimod 37, Trimethyl
+
+            // The thing that actually matters: what comes out is addable to a neutral peptide mass as it
+            // stands, in both the mass and the formula.
+            Assert.That(adjusted.MonoisotopicMass, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "a trimethylated lysine must contribute the NEUTRAL increment, not the charged species");
+            Assert.AreEqual("C3H6", adjusted.ChemicalFormula.Formula,
+                "the formula has to lose the hydrogen too, or formula and mass disagree");
+
+            // Without the dictionary the adjustment cannot fire, so the assertions above cannot be passing
+            // by coincidence -- and this is precisely the one-proton error the adjustment exists to prevent.
+            Assert.That(unadjusted.MonoisotopicMass, Is.EqualTo(43.054227).Within(1e-6));
+            Assert.AreEqual("C3H7", unadjusted.ChemicalFormula.Formula);
+            Assert.That(unadjusted.MonoisotopicMass - adjusted.MonoisotopicMass,
+                Is.EqualTo(Constants.ProtonMass).Within(1e-6),
+                "the MM line is a cation mass, so a proton is what comes off it");
+
+            // The trap, stated as arithmetic. A formula-derived mass needs a hydrogen ATOM removed; reusing
+            // the proton leaves an electron behind.
+            double formulaMass = ChemicalFormula.ParseFormula("C3H7").MonoisotopicMass;
+            double hydrogenAtom = PeriodicTable.GetElement("H").PrincipalIsotope.AtomicMass;
+            Assert.That(formulaMass - hydrogenAtom, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "a CF-derived mass reaches the neutral increment by losing a hydrogen atom");
+            Assert.That(formulaMass - Constants.ProtonMass - neutralIncrement, Is.EqualTo(0.000549).Within(1e-5),
+                "and losing a proton instead leaves it an electron mass too heavy");
+        }
+
+        /// <summary>
+        /// The UniProt ptmlist entry for N6,N6,N6-trimethyllysine, verbatim but for the MT line the loader
+        /// requires. Kept as text rather than read from the shipped ptmlist so the test states the input it
+        /// is reasoning about.
+        /// </summary>
+        private const string TrimethylLysineEntry =
+            "ID   N6,N6,N6-trimethyllysine\r\n" +
+            "MT   UniProt\r\n" +
+            "FT   MOD_RES\r\n" +
+            "TG   Lysine.\r\n" +
+            "PP   Anywhere.\r\n" +
+            "CF   C3 H7\r\n" +
+            "MM   43.054227\r\n" +
+            "DR   PSI-MOD; MOD:00083.\r\n" +
+            "//";
+
+        private static Modification ReadSingleModification(string ptmListText, Dictionary<string, int> formalCharges)
+        {
+            using StreamReader reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(ptmListText)));
+            return ModificationLoader.ReadModsFromFile(reader, formalCharges, out List<(Modification, string)> _).Single();
+        }
+
+        private static Modification ReadSingleModificationThroughPtmListLoader(string ptmListText, Dictionary<string, int> formalCharges)
+        {
+            using StreamReader reader = new StreamReader(new MemoryStream(Encoding.UTF8.GetBytes(ptmListText)));
+#pragma warning disable CS0618 // PtmListLoader is obsolete in favour of ModificationLoader; the point here is that it still agrees
+            return PtmListLoader.ReadModsFromFile(reader, formalCharges, out List<(Modification, string)> _).Single();
+#pragma warning restore CS0618
+        }
+
+        /// <summary>
+        /// The same invariant through the other public entry point. PtmListLoader is obsolete and is being
+        /// reduced to a forward onto ModificationLoader (#1182), which deletes a second copy of the
+        /// formal-charge arithmetic -- so the two have to agree on the one number where disagreeing would be
+        /// silent. Asserting equality alone would pass if BOTH went wrong together, so this pins the value.
+        /// </summary>
+        [Test]
+        public void TrimethylLysine_FormalChargeAdjustmentIsTheSameThroughPtmListLoader()
+        {
+            string psiModPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModPath));
+
+            Modification viaModificationLoader = ReadSingleModification(TrimethylLysineEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(TrimethylLysineEntry, formalCharges);
+
+            double neutralIncrement = ChemicalFormula.ParseFormula("C3H6").MonoisotopicMass;
+
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(neutralIncrement).Within(1e-6),
+                "the obsolete entry point must reach the same neutral increment");
+            Assert.AreEqual("C3H6", viaPtmListLoader.ChemicalFormula.Formula);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(viaModificationLoader.MonoisotopicMass).Within(1e-9),
+                "the two loaders must not disagree about a mass");
+        }
+
+        /// <summary>
+        /// PSI-MOD writes a formal charge as magnitude then sign ("1+", "2-"). The XML reader used to keep
+        /// only the digits, so every negative charge came back positive. The dictionary drives the proton
+        /// correction in the ptmlist loaders, so a flipped sign moves an anionic modification by two
+        /// protons in the wrong direction: it loses a hydrogen it should have gained. TestPsiModLoading
+        /// already guards the OBO-text reader, which had its sign fixed separately; this pins the XML
+        /// reader, which is the one MetaMorpheus calls.
+        /// </summary>
+        [Test]
+        public void PsiModXml_FormalChargesKeepTheirSign()
+        {
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.LoadPsiMod(TestOntologies.PsiModXml));
+
+            Assert.AreEqual(1, formalCharges["PSI-MOD; MOD:00083"], "N6,N6,N6-trimethyllysine is 1+");
+            Assert.AreEqual(-1, formalCharges["PSI-MOD; MOD:01701"], "deprotonated residue is 1-");
+            Assert.AreEqual(-2, formalCharges["PSI-MOD; MOD:00145"], "tetrakis-L-cysteinyl iron is 2-");
+            Assert.AreEqual(-3, formalCharges["PSI-MOD; MOD:00147"], "hexakis-L-cysteinyl triiron trisulfide is 3-");
+            // The fixture is a trimmed ontology; a re-trim that dropped the anionic terms would leave this test
+            // green against nothing, so require that negative charges are actually present.
+            Assert.That(formalCharges.Values.Count(v => v < 0), Is.GreaterThan(0));
+
+            // The OBO-text reader parses the same ontology; the two must not disagree about a sign.
+            string psiModOboPath = Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", "PSI-MOD.obo");
+            Dictionary<string, int> fromObo = Loaders.GetFormalChargesDictionary(Loaders.ReadPsiModFile(psiModOboPath));
+            foreach (var (accession, charge) in formalCharges)
+            {
+                if (fromObo.TryGetValue(accession, out int oboCharge))
+                    Assert.AreEqual(oboCharge, charge, accession);
+            }
+        }
+
+        /// <summary>
+        /// The other half of the sign: a negative formal charge has to ADD a proton to the MM line and a
+        /// hydrogen to the formula, mirroring the trimethyllysine case above. The entry is synthetic, a
+        /// carboxylate written as the anion, because no current ptmlist entry cross-references a negatively
+        /// charged PSI-MOD term; that is why the flipped sign has so far been silent.
+        /// </summary>
+        [Test]
+        public void NegativeFormalCharge_AdjustmentAddsAProton()
+        {
+            Dictionary<string, int> formalCharges = Loaders.GetFormalChargesDictionary(Loaders.LoadPsiMod(TestOntologies.PsiModXml));
+            const string anionEntry =
+                "ID   Test carboxylate anion\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Glycine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "CF   C2 H3 O2\r\n" +
+                "MM   59.013853\r\n" +
+                "DR   PSI-MOD; MOD:01701.\r\n" +
+                "//";
+
+            Modification adjusted = ReadSingleModification(anionEntry, formalCharges);
+            Modification unadjusted = ReadSingleModification(anionEntry, new Dictionary<string, int>());
+
+            Assert.That(adjusted.MonoisotopicMass - unadjusted.MonoisotopicMass,
+                Is.EqualTo(Constants.ProtonMass).Within(1e-9), "a 1- charge puts a proton back on the MM line");
+            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "and a hydrogen back on the formula");
         }
 
         /// <summary>
