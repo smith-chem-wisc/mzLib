@@ -191,33 +191,57 @@ public class KoinaModelBaseTests
         Assert.That(warning!.Message, Does.Contain("serialize failed"));
     }
 
-    [TestCase("[UNIMOD:1]-PEPTIDE")]
-    [TestCase("PEPTIDE-[UNIMOD:2]")]
-    [TestCase("[UNIMOD:1]-PEPTIDE-[UNIMOD:2]")]
-    [TestCase("[UNIMOD:1][UNIMOD:34]-PEPTIDE")]
-    public void TryCleanSequence_ProFormaTerminalModification_ReachesTheConverter(string proForma)
+    [TestCase("PEPTIDE-[Unimod:Amidated on X]", "PEPTIDE-[UNIMOD:2]")]
+    [TestCase("[Unimod:Acetyl on X]PEPTIDE-[Unimod:Amidated on X]", "[UNIMOD:1]PEPTIDE-[UNIMOD:2]")]
+    public void TryCleanSequence_MzLibCTerminalModification_SurvivesTheRawBaseSequenceCheck(
+        string mzLibSequence, string expectedApiSequence)
     {
-        // The raw base-sequence check used to strip only the brackets, leaving "-PEPTIDE", which the amino-acid
-        // pattern rejects before the converter is ever asked. Under ReturnNull that failure was silent.
-        string? parsed = null;
-        var converter = new FakeSequenceConverter(
-            parse: s => { parsed = s; return CanonicalSequence.Unmodified("PEPTIDE", "fake"); },
-            serialize: _ => proForma);
-        var model = new KoinaModelHarness(converter);
+        // The raw check used to strip only the brackets, leaving "PEPTIDE-", which the amino-acid pattern
+        // rejects before the converter is ever asked. Under ReturnNull that failure was silent -- no
+        // warning, so a caller could not tell it apart from a sequence that was never valid. Run against
+        // the REAL converter, so this asserts the whole of TryCleanSequence and not just the pre-check.
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildAcceptAllConverter());
 
-        var result = model.TryClean(proForma, out var apiSequence, out var warning);
+        var result = model.TryClean(mzLibSequence, out var apiSequence, out var warning);
 
-        Assert.That(parsed, Is.EqualTo(proForma));
-        Assert.That(result, Is.Not.Null);
-        Assert.That(apiSequence, Is.EqualTo(proForma));
+        Assert.That(result, Is.EqualTo(expectedApiSequence));
+        Assert.That(apiSequence, Is.EqualTo(expectedApiSequence));
         Assert.That(warning, Is.Null);
     }
 
+    [Test]
+    public void TryCleanSequence_CTerminalModificationTheModelDoesNotAllow_FailsWithANamedWarning()
+    {
+        // Clearing the raw check is not the same as being predicted. A C-terminal group the model's
+        // lookup does not know still fails -- but now it fails at the converter, which says WHICH
+        // modification it was, instead of being dropped by the pre-check with no warning at all.
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int> { 35 }));
+
+        var result = model.TryClean("PEPTIDE-[Unimod:Amidated on X]", out var apiSequence, out var warning);
+
+        Assert.That(result, Is.Null);
+        Assert.That(apiSequence, Is.Null);
+        Assert.That(warning, Is.Not.Null);
+        Assert.That(warning!.Message, Does.Contain("Amidated"));
+    }
+
+    // A bare separator, a separator anywhere but the C-terminus, and ProForma shapes the Koina
+    // converters cannot read. The last three are the reason CTerminalModStripper is anchored to one
+    // group at the end of the string: MzLibSequenceParser would parse
+    // "PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]" as C-terminal amidation PLUS an oxidation
+    // on E, and "[Unimod:Acetyl on X]-[Unimod:Amidated on X]PEPTIDE" as N-terminal acetylation PLUS a
+    // C-terminal amidation -- both a different peptide than was asked for, and neither with a warning.
+    // Being stopped here, before parsing, is the correct outcome for all of them.
     [TestCase("-PEPTIDE")]
     [TestCase("PEPTIDE-")]
-    [TestCase("[UNIMOD:1]-PEP*TIDE")]
     [TestCase("PEP-[UNIMOD:1]TIDE")]
-    public void TryCleanSequence_TerminalSeparatorWithoutValidTerminalGroup_StillRejectedBeforeParsing(string sequence)
+    [TestCase("[UNIMOD:1]-PEP*TIDE")]
+    [TestCase("[UNIMOD:1]-PEPTIDE")]
+    [TestCase("[UNIMOD:1][UNIMOD:34]-PEPTIDE")]
+    [TestCase("PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]")]
+    [TestCase("[Unimod:Acetyl on X]-[Unimod:Amidated on X]PEPTIDE")]
+    public void TryCleanSequence_SeparatorThatIsNotAnMzLibCTerminalModification_RejectedBeforeParsing(
+        string sequence)
     {
         bool parseCalled = false;
         var converter = new FakeSequenceConverter(

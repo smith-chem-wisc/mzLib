@@ -13,11 +13,25 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     protected static readonly Regex BaseStripper = new(@"\[[^\]]+\]", RegexOptions.Compiled);
 
     /// <summary>
-    /// ProForma terminal modification groups, e.g. the "[UNIMOD:1]-" in "[UNIMOD:1]-MSKP" and the "-[UNIMOD:2]"
-    /// in "PEPTIDE-[UNIMOD:2]". They are removed together with their separator before the raw base-sequence
-    /// check, because <see cref="BaseStripper"/> removes only the brackets and would leave the "-" behind.
+    /// An mzLib C-terminal modification group together with its separator, e.g. the "-[Amidation on E]"
+    /// in "PEPTIDE-[Amidation on E]". It is removed before the raw base-sequence check, because
+    /// <see cref="BaseStripper"/> removes only the brackets and would leave the "-" behind, which
+    /// <see cref="AllowedAminoAcidPattern"/> then rejects.
     /// </summary>
-    protected static readonly Regex TerminalModStripper = new(@"^(?:\[[^\]]+\])+-|-(?:\[[^\]]+\])+$", RegexOptions.Compiled);
+    /// <remarks>
+    /// Deliberately narrow -- one group, C-terminus only, anchored at the end of the string. That is the
+    /// whole of what mzLib format writes: MzLibSequenceFormatSchema declares an EMPTY N-terminal
+    /// separator, so "[Acetylation on X]PEPTIDE" already passes the check, and no mzLib string has a "-"
+    /// followed by anything but one terminal group at the end.
+    ///
+    /// Widening this to ProForma shapes ("-" at both ends, stacked groups) would be wrong here rather
+    /// than merely generous, because every converter built below parses with MzLibSequenceParser:
+    /// "[UNIMOD:1]-PEPTIDE" would clear this check only to fail one step later, and
+    /// "PEPTIDE-[Amidation on E][Oxidation on M]" would parse as a DIFFERENT peptide -- C-terminal
+    /// amidation plus an oxidation on E -- with no warning. Accepting ProForma needs the model to carry
+    /// a ProForma parser and serializer, not a looser pre-check.
+    /// </remarks>
+    protected static readonly Regex CTerminalModStripper = new(@"-\[[^\]]+\]$", RegexOptions.Compiled);
 
     protected KoinaModelBase(ISequenceConverter sequenceConverter)
     {
@@ -182,7 +196,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         apiSequence = null;
         warning = null;
 
-        var rawBase = BaseStripper.Replace(TerminalModStripper.Replace(sequence, string.Empty), string.Empty);
+        var rawBase = BaseStripper.Replace(CTerminalModStripper.Replace(sequence, string.Empty), string.Empty);
         if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
         {
             HandleFailure(ModHandlingMode, "Invalid base sequence.");
