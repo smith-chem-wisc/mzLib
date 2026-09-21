@@ -32,6 +32,32 @@ namespace Omics
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,
             List<Modification> variableModifications, List<SilacLabel>? silacLabels = null, (SilacLabel startLabel, SilacLabel endLabel)? turnoverLabels = null, bool topDownTruncationSearch = false);
 
+        /// <summary>
+        /// Adds the modification associated with a digestion agent to the appropriate modification collection.
+        /// Legacy non-cleavage modifications are treated as fixed modifications.
+        /// </summary>
+        static void AddDigestionAgentModification(DigestionAgent digestionAgent,
+            ICollection<Modification> fixedModifications, ICollection<Modification> variableModifications)
+        {
+            if (digestionAgent?.CleavageMod is null || fixedModifications is null || variableModifications is null)
+                return;
+
+            Modification cleavageMod = digestionAgent.CleavageMod;
+
+            if (cleavageMod is CleavageModification cleavageModification)
+            {
+                if (cleavageModification.IsFixedMod && !fixedModifications.Contains(cleavageModification))
+                    fixedModifications.Add(cleavageModification);
+
+                if (cleavageModification.IsVariableMod && !variableModifications.Contains(cleavageModification))
+                    variableModifications.Add(cleavageModification);
+            }
+            else if (!fixedModifications.Contains(cleavageMod))
+            {
+                fixedModifications.Add(cleavageMod);
+            }
+        }
+
         IBioPolymer CloneWithNewSequenceAndMods(string newBaseSequence, IDictionary<int, List<Modification>>? newMods);
 
         bool IEquatable<IBioPolymer>.Equals(IBioPolymer? other)
