@@ -155,6 +155,65 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(rnaClone.FragmentationTerminus, Is.EqualTo(FragmentationTerminus.ThreePrime));
         }
 
+        /// <summary>
+        /// An implementation that does not perform the non-specific agent swap does not have to say so. The member is
+        /// defaulted, not abstract, so a type that implements the rest of the interface compiles and reports its own
+        /// agent.
+        /// </summary>
+        /// <remarks>
+        /// This test DOES NOT COMPILE against the parent commit, which is the point: <see cref="AgentlessDigestionParams"/>
+        /// deliberately omits <c>SpecificDigestionAgent</c>, so before the default existed it failed CS0535 -- the same
+        /// error MetaMorpheus's two hand-written doubles fail with, which has reddened mzLib's integration job since
+        /// #1318 merged.
+        /// </remarks>
+        [Test]
+        public void AnImplementationThatSwapsNoAgent_NeedNotRestateSpecificDigestionAgent()
+        {
+            IDigestionParams minimal = new MinimalDigestionParams(ProteaseDictionary.Dictionary["trypsin"]);
+
+            Assert.That(minimal.SpecificDigestionAgent, Is.SameAs(minimal.DigestionAgent),
+                "with no swap performed, the named agent and the effective agent are one object");
+            Assert.That(minimal.SpecificDigestionAgent.Name, Is.EqualTo("trypsin"));
+        }
+
+        /// <summary>
+        /// An implementation that DOES swap still has to override, and both of mzLib's own do. Without this, the default
+        /// above could be wrong for the case the member exists to describe and nothing here would say so.
+        /// </summary>
+        [Test]
+        public void AnImplementationThatSwapsAgents_StillReportsTheNamedOne()
+        {
+            var nonSpecific = new DigestionParams("trypsin", searchModeType: CleavageSpecificity.None,
+                fragmentationTerminus: FragmentationTerminus.N);
+
+            Assert.That(nonSpecific.DigestionAgent.Name, Is.EqualTo("singleN"));
+            Assert.That(((IDigestionParams)nonSpecific).SpecificDigestionAgent.Name, Is.EqualTo("trypsin"),
+                "the swap is exactly the case the member exists for, so the default must not reach it");
+        }
+
+        /// <summary>
+        /// Stands in for the minimal hand-written doubles MetaMorpheus keeps -- ParameterTest.BadDigestionParams and
+        /// DigestionAgentNameTests.AgentlessDigestionParams. It implements every member of IDigestionParams EXCEPT
+        /// SpecificDigestionAgent, on purpose.
+        /// </summary>
+        private class MinimalDigestionParams : IDigestionParams
+        {
+            private readonly DigestionAgent _agent;
+
+            internal MinimalDigestionParams(DigestionAgent agent) => _agent = agent;
+
+            public int MaxMissedCleavages { get; set; }
+            public int MinLength { get; set; }
+            public int MaxLength { get; set; }
+            public int MaxModificationIsoforms { get; set; }
+            public int MaxMods { get; set; }
+            public DigestionAgent DigestionAgent => _agent;
+            public FragmentationTerminus FragmentationTerminus => FragmentationTerminus.Both;
+            public CleavageSpecificity SearchModeType => CleavageSpecificity.Full;
+            public IDigestionParams Clone(FragmentationTerminus? newTerminus = null) => this;
+            public bool Equals(IDigestionParams other) => ReferenceEquals(this, other);
+        }
+
         private static void AllLabelsAreFullOrSemi(List<(int Start, int End, CleavageSpecificity Label)> products)
         {
             foreach (var product in products)

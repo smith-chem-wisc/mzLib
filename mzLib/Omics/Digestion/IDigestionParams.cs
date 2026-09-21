@@ -17,7 +17,15 @@ namespace Omics.Digestion
         /// singleC (anything else) to make the non-specific seeds, and this keeps the named protease, whose sites still
         /// limit missed cleavages and are written to settings and output.
         /// </summary>
-        DigestionAgent SpecificDigestionAgent { get; }
+        /// <remarks>
+        /// Defaulted rather than abstract, because the two cases coincide for every implementation that does not
+        /// perform that swap -- and because an added abstract member is a source-breaking change for implementations
+        /// outside this repository. MetaMorpheus has two hand-written test doubles of this interface, and requiring
+        /// the member broke both: <c>ParameterTest.BadDigestionParams</c> and
+        /// <c>DigestionAgentNameTests.AgentlessDigestionParams</c> fail CS0535, which is what mzLib's integration
+        /// job builds. An implementation that DOES swap agents must still override this -- both of mzLib's own do.
+        /// </remarks>
+        DigestionAgent SpecificDigestionAgent => DigestionAgent;
 
         /// <summary>
         /// Which terminus a search fixes. In digestion it matters only together with a Semi or None
