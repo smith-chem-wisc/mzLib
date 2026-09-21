@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using MzIdentML;
 using MzLibUtil;
@@ -499,6 +500,312 @@ namespace Test.MzIdentML
         public void MzIdentML130_OnlyTheFirstSpectrumIdentificationListIsRead()
         {
             Assert.That(Read("multiple_spectra_per_id_1_3_0.mzid").Count, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// The Stream constructor runs the same version cascade as the path constructor over a buffered copy, so
+        /// every fixture, one per schema version and every writer, must read identically either way.
+        /// </summary>
+        [TestCase("SmallCalibratible_Yeast.mzID")]
+        [TestCase("OpenxQuest_example_1_2_0.mzid")]
+        [TestCase("multiple_spectra_per_id_1_3_0.mzid")]
+        [TestCase("PXD078927_msgf_1_1_0.mzid")]
+        [TestCase("PXD019733_proteomediscoverer_1_1_0.mzid")]
+        public void StreamConstructor_ReadsLikeThePathConstructor(string fileName)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", fileName);
+            var fromPath = new MzidIdentifications(path);
+            using var stream = File.OpenRead(path);
+            var fromStream = new MzidIdentifications(stream);
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fromStream.Count, Is.EqualTo(fromPath.Count));
+                Assert.That(fromStream.Ms2SpectrumID(0), Is.EqualTo(fromPath.Ms2SpectrumID(0)));
+                Assert.That(fromStream.GetSpectrumMatches().Select(m => m.SpectrumIdentificationItemId),
+                    Is.EqualTo(fromPath.GetSpectrumMatches().Select(m => m.SpectrumIdentificationItemId)));
+            });
+        }
+
+        /// <summary>
+        /// A GZipStream cannot seek, and the cascade opens the document once per version it tries, so the
+        /// constructor must buffer it. The caller's stream is read but left open.
+        /// </summary>
+        [Test]
+        public void StreamConstructor_ReadsAForwardOnlyGzipStreamAndLeavesItOpen()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles", "PXD078927_msgf_1_1_0.mzid.gz");
+            using var file = File.OpenRead(path);
+            using var gzip = new GZipStream(file, CompressionMode.Decompress);
+
+            var ids = new MzidIdentifications(gzip);
+
+            Assert.That(ids.GetSpectrumMatches().Count(), Is.EqualTo(12));
+            Assert.That(gzip.CanRead, Is.True);
+            Assert.That(file.CanRead, Is.True);
+        }
+
+        [Test]
+        public void StreamConstructor_RejectsANullStream()
+        {
+            Assert.That(() => new MzidIdentifications((Stream)null), Throws.ArgumentNullException);
+        }
+
+        /// <summary>
+        /// The last arm of the cascade, the legacy ".../1.1.0" namespace mzLib used to write, is reached through
+        /// the Stream constructor too.
+        /// </summary>
+        [Test]
+        public void StreamConstructor_ReadsTheLegacyNamespace()
+        {
+            string document = SyntheticDocument("http://psidev.info/psi/pi/mzIdentML/1.1.0", "MS:1000584", "mzML format", "");
+            using var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(document));
+
+            var ids = new MzidIdentifications(stream);
+
+            Assert.That(ids.Ms2SpectrumID(0), Is.EqualTo("index=7"));
+        }
+
+        /// <summary>
+        /// SYNTHETIC, not a capture. Two SpectrumIdentificationLists, and in the first result two items: one
+        /// with every optional attribute and param a record reads, one with neither its own peptide_ref nor
+        /// calculatedMassToCharge, whose evidence names its peptide. The second list's result references a
+        /// SpectraData that does not exist, and its item references evidence that does not exist.
+        /// </summary>
+        private static string RichSyntheticDocument(string ns) =>
+            $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<MzIdentML xmlns=""{ns}"" id=""synthetic"" version=""1.1.0"">
+  <SequenceCollection>
+    <DBSequence id=""DB_1"" accession=""P12345"" searchDatabase_ref=""SDB_1"" />
+    <DBSequence id=""DB_2"" accession=""DECOY_P12345"" searchDatabase_ref=""SDB_1"" />
+    <Peptide id=""PEP_1"">
+      <PeptideSequence>PEPTIDE</PeptideSequence>
+      <Modification location=""0"" monoisotopicMassDelta=""42.010565"">
+        <cvParam cvRef=""UNIMOD"" accession=""UNIMOD:1"" name=""Acetyl"" />
+      </Modification>
+      <Modification location=""4"" residues=""T"">
+        <cvParam cvRef=""UNIMOD"" accession=""UNIMOD:21"" name=""Phospho"" />
+        <cvParam cvRef=""PSI-MS"" accession=""MS:1001524"" name=""fragment neutral loss"" value=""0"" unitCvRef=""UO"" unitAccession=""UO:0000221"" unitName=""dalton"" />
+      </Modification>
+      <SubstitutionModification originalResidue=""E"" replacementResidue=""D"" location=""7"" />
+    </Peptide>
+    <Peptide id=""PEP_2"">
+      <PeptideSequence>SAMPLER</PeptideSequence>
+    </Peptide>
+    <PeptideEvidence id=""PE_1"" dBSequence_ref=""DB_1"" peptide_ref=""PEP_1"" start=""10"" end=""16"" pre=""K"" post=""A"" isDecoy=""false"" />
+    <PeptideEvidence id=""PE_2"" dBSequence_ref=""DB_2"" peptide_ref=""PEP_2"" isDecoy=""true"" />
+    <PeptideEvidence id=""PE_3"" dBSequence_ref=""DB_MISSING"" peptide_ref=""PEP_2"" isDecoy=""true"" />
+  </SequenceCollection>
+  <DataCollection>
+    <Inputs>
+      <SpectraData id=""SD_1"" name=""run one"" location=""C:\data\run1.raw"">
+        <FileFormat><cvParam cvRef=""PSI-MS"" accession=""MS:1000563"" name=""Thermo RAW format"" /></FileFormat>
+        <SpectrumIDFormat><cvParam cvRef=""PSI-MS"" accession=""MS:1000768"" name=""Thermo nativeID format"" /></SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData id=""SD_2"" location=""run2.mgf"" />
+    </Inputs>
+    <AnalysisData>
+      <SpectrumIdentificationList id=""SIL_1"">
+        <SpectrumIdentificationResult id=""SIR_1"" spectrumID=""scan=7"" spectraData_ref=""SD_1"">
+          <SpectrumIdentificationItem id=""SII_1"" chargeState=""2"" experimentalMassToCharge=""500.5"" calculatedMassToCharge=""500.25"" peptide_ref=""PEP_1"" rank=""1"" passThreshold=""true"">
+            <PeptideEvidenceRef peptideEvidence_ref=""PE_1"" />
+            <cvParam cvRef=""PSI-MS"" accession=""MS:1002354"" name=""PSM-level q-value"" value=""0.01"" />
+            <userParam name=""engine score"" value=""12.5"" type=""xsd:double"" />
+          </SpectrumIdentificationItem>
+          <SpectrumIdentificationItem id=""SII_2"" chargeState=""3"" experimentalMassToCharge=""333.5"" rank=""2"" passThreshold=""false"">
+            <PeptideEvidenceRef peptideEvidence_ref=""PE_2"" />
+            <PeptideEvidenceRef peptideEvidence_ref=""PE_3"" />
+          </SpectrumIdentificationItem>
+          <cvParam cvRef=""PSI-MS"" accession=""MS:1000796"" name=""spectrum title"" value=""the title"" />
+          <userParam name=""result note"" value=""kept"" />
+        </SpectrumIdentificationResult>
+      </SpectrumIdentificationList>
+      <SpectrumIdentificationList id=""SIL_2"">
+        <SpectrumIdentificationResult id=""SIR_2"" spectrumID=""index=3"" spectraData_ref=""SD_MISSING"">
+          <SpectrumIdentificationItem id=""SII_3"" chargeState=""1"" experimentalMassToCharge=""700"" peptide_ref=""PEP_MISSING"" rank=""1"" passThreshold=""true"">
+            <PeptideEvidenceRef peptideEvidence_ref=""PE_MISSING"" />
+          </SpectrumIdentificationItem>
+        </SpectrumIdentificationResult>
+      </SpectrumIdentificationList>
+    </AnalysisData>
+  </DataCollection>
+</MzIdentML>";
+
+        /// <summary>
+        /// GetSpectrumMatches is written once per schema version, so each version's copy is driven through
+        /// every field it projects, every list, and every reference that does or does not resolve.
+        /// </summary>
+        [TestCaseSource(nameof(EveryNamespace))]
+        public void GetSpectrumMatches_EveryVersion_ResolvesEveryReferenceInEveryList(string ns)
+        {
+            var matches = ReadSynthetic(RichSyntheticDocument(ns), "synthetic_matches.mzid").GetSpectrumMatches().ToList();
+
+            Assert.That(matches.Select(m => m.SpectrumIdentificationItemId), Is.EqualTo(new[] { "SII_1", "SII_2", "SII_3" }));
+            var full = matches[0];
+            var viaEvidence = matches[1];
+            var unresolved = matches[2];
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(full.SpectrumIdentificationListId, Is.EqualTo("SIL_1"));
+                Assert.That(full.SpectrumIdentificationResultId, Is.EqualTo("SIR_1"));
+                Assert.That(full.SpectrumId, Is.EqualTo("scan=7"));
+                Assert.That(full.SpectraData, Is.EqualTo(new MzidSpectraData("SD_1", "run one", @"C:\data\run1.raw",
+                    new CvParam("PSI-MS", "MS:1000563", "Thermo RAW format", ""),
+                    new CvParam("PSI-MS", "MS:1000768", "Thermo nativeID format", ""))));
+                Assert.That(full.SpectrumTitle, Is.EqualTo("the title"));
+                Assert.That(full.Rank, Is.EqualTo(1));
+                Assert.That(full.PassThreshold, Is.True);
+                Assert.That(full.ChargeState, Is.EqualTo(2));
+                Assert.That(full.ExperimentalMassToCharge, Is.EqualTo(500.5));
+                Assert.That(full.CalculatedMassToCharge, Is.EqualTo(500.25));
+                Assert.That(full.PeptideSequence, Is.EqualTo("PEPTIDE"));
+                Assert.That(full.HasSubstitutionModifications, Is.True);
+                Assert.That(full.Modifications, Has.Count.EqualTo(2));
+                Assert.That(full.Modifications[0].Location, Is.EqualTo(0));
+                Assert.That(full.Modifications[0].Residues, Is.Empty);
+                Assert.That(full.Modifications[0].MonoisotopicMassDelta, Is.EqualTo(42.010565));
+                Assert.That(full.Modifications[0].CvParams.Single().Accession, Is.EqualTo("UNIMOD:1"));
+                Assert.That(full.Modifications[1].Residues, Is.EqualTo(new[] { "T" }));
+                Assert.That(full.Modifications[1].MonoisotopicMassDelta, Is.Null);
+                Assert.That(full.Modifications[1].CvParams[1], Is.EqualTo(
+                    new CvParam("PSI-MS", "MS:1001524", "fragment neutral loss", "0", "UO", "UO:0000221", "dalton")));
+                Assert.That(full.PeptideEvidence.Single(), Is.EqualTo(new MzidPeptideEvidence("PE_1", false, "P12345", 10, 16, "K", "A")));
+                Assert.That(full.ItemCvParams.Single().Value, Is.EqualTo("0.01"));
+                Assert.That(full.ItemUserParams.Single(), Is.EqualTo(new MzidUserParam("engine score", "12.5", "xsd:double")));
+                Assert.That(full.ResultCvParams.Single().Accession, Is.EqualTo("MS:1000796"));
+                Assert.That(full.ResultUserParams.Single(), Is.EqualTo(new MzidUserParam("result note", "kept", null)));
+
+                // no peptide_ref of its own: the first evidence names the peptide; an unknown DBSequence gives no accession
+                Assert.That(viaEvidence.PeptideSequence, Is.EqualTo("SAMPLER"));
+                Assert.That(viaEvidence.CalculatedMassToCharge, Is.Null);
+                Assert.That(viaEvidence.Modifications, Is.Empty);
+                Assert.That(viaEvidence.HasSubstitutionModifications, Is.False);
+                Assert.That(viaEvidence.PeptideEvidence.Select(e => (e.DBSequenceAccession, e.IsDecoy, e.Start)),
+                    Is.EqualTo(new (string, bool, int?)[] { ("DECOY_P12345", true, null), (null, true, null) }));
+
+                // the second list is read, and references that resolve to nothing are reported as absent
+                Assert.That(unresolved.SpectrumIdentificationListId, Is.EqualTo("SIL_2"));
+                Assert.That(unresolved.SpectraData, Is.Null);
+                Assert.That(unresolved.SpectrumTitle, Is.Null);
+                Assert.That(unresolved.PeptideSequence, Is.Null);
+                Assert.That(unresolved.PeptideEvidence, Is.Empty);
+                Assert.That(unresolved.ItemCvParams, Is.Empty);
+            });
+        }
+
+        /// <summary>
+        /// The title is the value of MS:1000796, or of the obsolete MS:1001416 it replaced; an empty value is no
+        /// title. Unlike Ms2SpectrumID, nothing falls back to another cvParam.
+        /// </summary>
+        [TestCase(@"accession=""MS:1001416"" name=""spectrum title"" value=""old title""", "old title")]
+        [TestCase(@"accession=""MS:1000796"" name=""spectrum title"" value=""""", null)]
+        [TestCase(@"accession=""MS:1001371"" name=""Mascot:identity threshold"" value=""17""", null)]
+        public void GetSpectrumMatches_SpectrumTitle(string titleTerm, string expected)
+        {
+            string document = RichSyntheticDocument(Mzid110).Replace(
+                @"accession=""MS:1000796"" name=""spectrum title"" value=""the title""", titleTerm);
+
+            var match = ReadSynthetic(document, "synthetic_title_terms.mzid").GetSpectrumMatches().First();
+
+            Assert.That(match.SpectrumTitle, Is.EqualTo(expected));
+        }
+
+        [TestCaseSource(nameof(EveryNamespace))]
+        public void GetSpectraData_EveryVersion_ListsEveryEntry(string ns)
+        {
+            var spectraData = ReadSynthetic(RichSyntheticDocument(ns), "synthetic_spectradata.mzid").GetSpectraData();
+
+            Assert.That(spectraData.Select(d => d.Id), Is.EqualTo(new[] { "SD_1", "SD_2" }));
+            Assert.That(spectraData[1].FileFormat, Is.Null);
+            Assert.That(spectraData[1].Location, Is.EqualTo("run2.mgf"));
+        }
+
+        /// <summary>
+        /// A document with no SequenceCollection at all still enumerates its items, with nothing resolved.
+        /// </summary>
+        [TestCaseSource(nameof(EveryNamespace))]
+        public void GetSpectrumMatches_EveryVersion_ToleratesAMissingSequenceCollection(string ns)
+        {
+            var match = ReadSynthetic(SyntheticDocument(ns, "MS:1000584", "mzML format", ""), "synthetic_noseq.mzid")
+                .GetSpectrumMatches().Single();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(match.SpectrumId, Is.EqualTo("index=7"));
+                Assert.That(match.SpectraData.Id, Is.EqualTo("SD_1"));
+                Assert.That(match.PeptideSequence, Is.Null);
+                Assert.That(match.ItemUserParams.Single().Name, Is.EqualTo("Percolator q-Value"));
+            });
+        }
+
+        private static IEnumerable<TestCaseData> MissingSectionsInEveryVersion() =>
+            from ns in EveryNamespace
+            from body in new[]
+            {
+                // no DataCollection at all
+                "",
+                // DataCollection with neither Inputs nor AnalysisData
+                "<DataCollection />",
+                // Inputs with no SpectraData; a list with no results; a result with no items and no spectraData_ref
+                @"<DataCollection>
+    <Inputs />
+    <AnalysisData>
+      <SpectrumIdentificationList id=""SIL_EMPTY"" />
+      <SpectrumIdentificationList id=""SIL_1"">
+        <SpectrumIdentificationResult id=""SIR_EMPTY"" spectrumID=""index=0"" />
+      </SpectrumIdentificationList>
+    </AnalysisData>
+  </DataCollection>",
+            }
+            select new TestCaseData(ns, body);
+
+        /// <summary>
+        /// Every section GetSpectrumMatches and GetSpectraData walk is optional to the deserializer, and each
+        /// version's copy treats an absent one as empty rather than throwing.
+        /// </summary>
+        [TestCaseSource(nameof(MissingSectionsInEveryVersion))]
+        public void GetSpectrumMatches_EveryVersion_TreatsMissingSectionsAsEmpty(string ns, string body)
+        {
+            string document = $@"<?xml version=""1.0"" encoding=""utf-8""?>
+<MzIdentML xmlns=""{ns}"" id=""synthetic"" version=""1.1.0"">
+  {body}
+</MzIdentML>";
+            var ids = ReadSynthetic(document, "synthetic_sections.mzid");
+
+            Assert.That(ids.GetSpectrumMatches(), Is.Empty);
+            Assert.That(ids.GetSpectraData(), Is.Empty);
+        }
+
+        /// <summary>
+        /// Every attribute of a cvParam is optional to the deserializer; an absent one reads as empty, the
+        /// CvParam default.
+        /// </summary>
+        [Test]
+        public void GetSpectrumMatches_ACvParamWithOnlyAnAccessionReadsTheRestAsEmpty()
+        {
+            string document = RichSyntheticDocument(Mzid110).Replace(
+                @"<cvParam cvRef=""PSI-MS"" accession=""MS:1002354"" name=""PSM-level q-value"" value=""0.01"" />",
+                @"<cvParam accession=""MS:1002354"" />");
+
+            var cv = ReadSynthetic(document, "synthetic_bare_cv.mzid").GetSpectrumMatches().First().ItemCvParams.Single();
+
+            Assert.That(cv, Is.EqualTo(new CvParam("", "MS:1002354", "", "")));
+        }
+
+        /// <summary>
+        /// A repeated id keeps its first entry, and an entry with no id is not indexed.
+        /// </summary>
+        [Test]
+        public void GetSpectrumMatches_ARepeatedIdResolvesToItsFirstEntry()
+        {
+            string document = RichSyntheticDocument(Mzid110)
+                .Replace(@"<DBSequence id=""DB_2"" accession=""DECOY_P12345""",
+                    @"<DBSequence id=""DB_1"" accession=""SHADOWED"" searchDatabase_ref=""SDB_1"" /><DBSequence accession=""NO_ID"" /><DBSequence id=""DB_2"" accession=""DECOY_P12345""");
+
+            var match = ReadSynthetic(document, "synthetic_repeated.mzid").GetSpectrumMatches().First();
+
+            Assert.That(match.PeptideEvidence.Single().DBSequenceAccession, Is.EqualTo("P12345"));
         }
 
         [Test]
