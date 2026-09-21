@@ -600,59 +600,61 @@ public sealed class EntrapmentReportBuilder
 
         _wholeProtein.EntrapmentSearchSpacePeptides +=
             EntrapmentPairing.CountSearchablePeptides(assembly.EntrapmentSequence, _digestionParams);
-        if (assembly.UnrepairableRunCollisionPeptides.Count > 0)
-        {
-            // Keyed by the accession a search will report the peptide under, not by the target it
-            // was rearranged from. These peptides belong to the ENTRAPMENT protein; filing them
-            // under the target made the two halves of one table mean different things by
-            // `accession`, and a consumer filtering on (accession, peptide) matched the ambiguous
-            // rows and silently missed these -- under-excluding, which inflates an FDP estimate.
-            string entrapmentAccession =
-                EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
-            if (!_unrepairableByAccession.TryGetValue(entrapmentAccession, out List<string>? collisions))
-            {
-                collisions = new List<string>();
-                _unrepairableByAccession[entrapmentAccession] = collisions;
-            }
+        // Both exclusion lists through ONE routine, so they cannot drift apart. They were two
+        // near-identical blocks, and the keying really did diverge once -- these rows were filed
+        // under the target while the ambiguous rows meant something else by `accession` -- so the
+        // duplication was not hypothetical. Kept as two LISTS rather than two reasons on one,
+        // because the two are produced by different constructions and at MaxMissedCleavages = 0
+        // the run list is empty by definition while the other is empty only if the check ran.
+        string entrapmentAccession =
+            EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
 
-            // Distinct peptides, not placements. The same run can collide at two points in one
-            // low-complexity protein, and an exclusion list is read as "these peptides" -- a
-            // consumer subtracting a duplicate twice would over-correct.
-            foreach (string collision in assembly.UnrepairableRunCollisionPeptides)
-            {
-                if (!collisions.Contains(collision))
-                {
-                    collisions.Add(collision);
-                    // Incremented here rather than from assembly.UnrepairableRunCollisions, which
-                    // counts PLACEMENTS. The column and the sidecar are read together, so counting
-                    // one in placements and the other in peptides made them disagree -- 2,048
-                    // against 1,983 rows on the reviewed human database.
-                    _wholeProtein.UnrepairableRunCollisions++;
-                }
-            }
+        RecordExclusions(_unrepairableByAccession, entrapmentAccession,
+            assembly.UnrepairableRunCollisionPeptides,
+            () => _wholeProtein.UnrepairableRunCollisions++);
+
+        RecordExclusions(_initiatorMethionineByAccession, entrapmentAccession,
+            assembly.InitiatorMethionineCollisionPeptides,
+            () => _wholeProtein.InitiatorMethionineCollisions++);
+    }
+
+    /// <summary>
+    /// Files one exclusion list under the accession a search will report it under, counting each
+    /// distinct peptide once.
+    /// </summary>
+    /// <remarks>
+    /// <para><b>Keyed by the ENTRAPMENT accession</b>, not by the target the sequence was rearranged
+    /// from: these peptides belong to the entrapment protein, and filing them under the target made
+    /// the two halves of one table mean different things by `accession` -- a consumer filtering on
+    /// (accession, peptide) matched the ambiguous rows and silently missed these, under-excluding,
+    /// which inflates an FDP estimate.</para>
+    /// <para><b>Distinct peptides, not placements.</b> The same run can collide at two points in one
+    /// low-complexity protein, and an exclusion list is read as "these peptides" -- a consumer
+    /// subtracting a duplicate twice would over-correct. The counter is incremented here, beside the
+    /// dedup, rather than from the assembly's own total, which counts placements: counting one in
+    /// placements and the other in peptides made the column and the sidecar disagree, 2,048 against
+    /// 1,983 rows on the reviewed human database.</para>
+    /// </remarks>
+    private static void RecordExclusions(Dictionary<string, List<string>> byAccession,
+        string entrapmentAccession, IReadOnlyList<string> peptides, Action count)
+    {
+        if (peptides.Count == 0)
+        {
+            return;
         }
 
-        // The same shape, deliberately: same accession, same distinct-peptide rule, same reason for
-        // both. Kept as a second list rather than a second reason on the first because the two are
-        // produced by different constructions, and at MaxMissedCleavages = 0 the run list is empty
-        // by definition while this one is empty only if the check ran and found nothing.
-        if (assembly.InitiatorMethionineCollisionPeptides.Count > 0)
+        if (!byAccession.TryGetValue(entrapmentAccession, out List<string>? filed))
         {
-            string entrapmentAccession =
-                EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
-            if (!_initiatorMethionineByAccession.TryGetValue(entrapmentAccession, out List<string>? stripped))
-            {
-                stripped = new List<string>();
-                _initiatorMethionineByAccession[entrapmentAccession] = stripped;
-            }
+            filed = new List<string>();
+            byAccession[entrapmentAccession] = filed;
+        }
 
-            foreach (string collision in assembly.InitiatorMethionineCollisionPeptides)
+        foreach (string peptide in peptides)
+        {
+            if (!filed.Contains(peptide))
             {
-                if (!stripped.Contains(collision))
-                {
-                    stripped.Add(collision);
-                    _wholeProtein.InitiatorMethionineCollisions++;
-                }
+                filed.Add(peptide);
+                count();
             }
         }
     }
