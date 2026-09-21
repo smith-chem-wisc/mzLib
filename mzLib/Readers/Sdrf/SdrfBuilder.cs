@@ -53,6 +53,7 @@ namespace Readers
         private const string FractionIdentifier = "comment[fraction identifier]";
         private const string TechnicalReplicate = "comment[technical replicate]";
         private const string DataFile = "comment[data file]";
+        private const string SearchedDataFile = "comment[searched data file]";
         private const string PxAccession = "comment[proteomexchange accession number]";
         private const string SoftwareColumn = "comment[software]";
         private const string SdrfVersionColumn = "comment[sdrf version]";
@@ -118,12 +119,16 @@ namespace Readers
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
 
+            // Written only when some row was searched from a file other than the one acquired, so a
+            // caller that never sets it gets byte-for-byte the document it got before.
+            bool searchedColumn = inputs.Any(r => !string.IsNullOrWhiteSpace(r.Assay.SearchedDataFileName));
+
             var header = new SdrfHeader(BuildHeader(
-                characteristicColumns, factorColumns, modificationSlots, options));
+                characteristicColumns, factorColumns, modificationSlots, searchedColumn, options));
 
             var built = inputs
                 .Select(input => new SdrfRow(header,
-                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, options)))
+                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, searchedColumn, options)))
                 .ToList();
 
             return new SdrfDocument(header, built);
@@ -158,7 +163,7 @@ namespace Readers
 
         private static List<string> BuildHeader(
             IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
         {
             var names = new List<string> { SourceName, Organism };
             names.AddRange(characteristics);
@@ -177,6 +182,7 @@ namespace Readers
             names.Add(FractionIdentifier);
             names.Add(TechnicalReplicate);
             names.Add(DataFile);
+            if (searchedColumn) names.Add(SearchedDataFile);
 
             if (!string.IsNullOrWhiteSpace(options.ProteomeXchangeAccession)) names.Add(PxAccession);
             if (options.Software is not null) names.Add(SoftwareColumn);
@@ -188,7 +194,7 @@ namespace Readers
 
         private static List<string> BuildCells(
             SdrfRowInput input, IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
         {
             var sample = input.Sample;
             var assay = input.Assay;
@@ -222,6 +228,12 @@ namespace Readers
             cells.Add(Positive(assay.Fraction, FractionIdentifier));
             cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate));
             cells.Add(Required(assay.DataFileName, DataFile, options));
+            if (searchedColumn)
+                // A row whose search read the acquired file itself names that file again, so the
+                // column says "no transformation" rather than leaving the reader to guess.
+                cells.Add(string.IsNullOrWhiteSpace(assay.SearchedDataFileName)
+                    ? assay.DataFileName
+                    : assay.SearchedDataFileName);
 
             if (!string.IsNullOrWhiteSpace(options.ProteomeXchangeAccession))
                 cells.Add(options.ProteomeXchangeAccession);

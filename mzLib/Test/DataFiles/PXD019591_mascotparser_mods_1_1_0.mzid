@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MzIdentML id="report" version="1.1.0" xsi:schemaLocation="http://psidev.info/psi/pi/mzIdentML/1.1 http://www.matrixscience.com/xmlns/schema/mzIdentML/mzIdentML1.1.0.xsd" xmlns="http://psidev.info/psi/pi/mzIdentML/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" creationDate="2019-08-28T19:47:45">
+	<cvList>
+		<cv id="PSI-MS" fullName="Proteomics Standards Initiative Mass Spectrometry Vocabularies" uri="http://psidev.cvs.sourceforge.net/viewvc/*checkout*/psidev/psi/psi-ms/mzML/controlledVocabulary/psi-ms.obo" version="4.0.10"/>
+		<cv id="UNIMOD" fullName="UNIMOD" uri="http://www.unimod.org/obo/unimod.obo"/>
+		<cv id="UO" fullName="UNIT-ONTOLOGY" uri="http://obo.cvs.sourceforge.net/*checkout*/obo/obo/ontology/phenotype/unit.obo"/>
+	</cvList>
+	<AnalysisSoftwareList>
+		<AnalysisSoftware id="AS_mascot_server" name="Mascot Server" version="2.6.1" uri="http://www.matrixscience.com/search_form_select.html">
+			<ContactRole contact_ref="ORG_MSL">
+				<Role>
+					<cvParam accession="MS:1001267" name="software vendor" cvRef="PSI-MS"/>
+				</Role>
+			</ContactRole>
+			<SoftwareName>
+				<cvParam accession="MS:1001207" name="Mascot" cvRef="PSI-MS"/>
+			</SoftwareName>
+			<Customizations>
+        No customisations
+      </Customizations>
+		</AnalysisSoftware>
+		<AnalysisSoftware id="AS_mascot_parser" name="Mascot Parser" version="2.6.1.0" uri="http://www.matrixscience.com/msparser.html">
+			<ContactRole contact_ref="ORG_MSL">
+				<Role>
+					<cvParam accession="MS:1001267" name="software vendor" cvRef="PSI-MS"/>
+				</Role>
+			</ContactRole>
+			<SoftwareName>
+				<cvParam accession="MS:1001478" name="Mascot Parser" cvRef="PSI-MS"/>
+			</SoftwareName>
+			<Customizations>
+        No customisations
+      </Customizations>
+		</AnalysisSoftware>
+	</AnalysisSoftwareList>
+	<Provider id="PROVIDER">
+		<ContactRole contact_ref="PERSON_DOC_OWNER">
+			<Role>
+				<cvParam accession="MS:1001271" name="researcher" cvRef="PSI-MS"/>
+			</Role>
+		</ContactRole>
+	</Provider>
+	<AuditCollection>
+		<Person id="PERSON_MSL">
+			<Affiliation organization_ref="ORG_MSL"/>
+		</Person>
+		<Person id="PERSON_DOC_OWNER" name="Vinni">
+			<Affiliation organization_ref="ORG_DOC_OWNER"/>
+		</Person>
+		<Organization id="ORG_MSL" name="Matrix Science Limited">
+			<cvParam accession="MS:1000589" name="contact email" value="support@matrixscience.com" cvRef="PSI-MS"/>
+			<cvParam accession="MS:1000587" name="contact address" value="64 Baker Street, London W1U 7GB, UK" cvRef="PSI-MS"/>
+			<cvParam accession="MS:1001755" name="contact phone number" value="+44 (0)20 7486 1050" cvRef="PSI-MS"/>
+			<cvParam accession="MS:1001756" name="contact fax number" value="+44 (0)20 7224 1344" cvRef="PSI-MS"/>
+			<cvParam accession="MS:1000588" name="contact URL" value="http://www.matrixscience.com" cvRef="PSI-MS"/>
+		</Organization>
+		<Organization id="ORG_DOC_OWNER"/>
+	</AuditCollection>
+	<SequenceCollection>
+		<DBSequence id="DBSeq_1_ATX10_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="ATX10_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Ataxin-10 OS=Homo sapiens GN=ATXN10 PE=1 SV=1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_ZYX_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="ZYX_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Zyxin OS=Homo sapiens GN=ZYX PE=1 SV=1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_IFIH1_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="IFIH1_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Interferon-induced helicase C domain-containing protein 1 OS=Homo sapiens GN=IFIH1 PE=1 SV=3"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_DYH3_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="DYH3_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Dynein heavy chain 3, axonemal OS=Homo sapiens GN=DNAH3 PE=2 SV=1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_SC31B_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="SC31B_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Protein transport protein Sec31B OS=Homo sapiens GN=SEC31B PE=1 SV=1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_HERC4_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="HERC4_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Probable E3 ubiquitin-protein ligase HERC4 OS=Homo sapiens GN=HERC4 PE=1 SV=1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_NEB1_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="NEB1_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Neurabin-1 OS=Homo sapiens GN=PPP1R9A PE=1 SV=2"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_CASC3_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="CASC3_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Protein CASC3 OS=Homo sapiens GN=CASC3 PE=1 SV=2"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_MARK1_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="MARK1_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Serine/threonine-protein kinase MARK1 OS=Homo sapiens GN=MARK1 PE=1 SV=2"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_RINT1_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="RINT1_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="RAD50-interacting protein 1 OS=Homo sapiens GN=RINT1 PE=1 SV=1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_EYA2_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="EYA2_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Eyes absent homolog 2 OS=Homo sapiens GN=EYA2 PE=1 SV=2"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_1_UBR5_HUMAN" searchDatabase_ref="SDB_SwissProt" accession="UBR5_HUMAN">
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="E3 ubiquitin-protein ligase UBR5 OS=Homo sapiens GN=UBR5 PE=1 SV=2"/>
+		</DBSequence>
+		<Peptide id="peptide_47_1">
+			<PeptideSequence>KKPSLDDLK</PeptideSequence>
+			<Modification location="4" residues="S" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.976896" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_47_2">
+			<PeptideSequence>YIVHRDLK</PeptideSequence>
+			<Modification location="1" residues="Y" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_61_1">
+			<PeptideSequence>FSSAPIK</PeptideSequence>
+		</Peptide>
+		<Peptide id="peptide_61_2">
+			<PeptideSequence>FASSPLK</PeptideSequence>
+		</Peptide>
+		<Peptide id="peptide_61_3">
+			<PeptideSequence>TLMGALK</PeptideSequence>
+			<Modification location="3" residues="M" monoisotopicMassDelta="15.994915">
+				<cvParam accession="UNIMOD:35" name="Oxidation" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="0" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_61_4">
+			<PeptideSequence>FTPVASK</PeptideSequence>
+		</Peptide>
+		<Peptide id="peptide_61_5">
+			<PeptideSequence>FAEVGVK</PeptideSequence>
+		</Peptide>
+		<Peptide id="peptide_157_1">
+			<PeptideSequence>SSHAVELACR</PeptideSequence>
+			<Modification location="9" residues="C" monoisotopicMassDelta="57.021464">
+				<cvParam accession="UNIMOD:4" name="Carbamidomethyl" cvRef="UNIMOD"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_157_2">
+			<PeptideSequence>SSLSRLGSSR</PeptideSequence>
+			<Modification location="4" residues="S" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="0" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_157_3">
+			<PeptideSequence>SSLSRLGSSR</PeptideSequence>
+			<Modification location="2" residues="S" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="0" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_157_4">
+			<PeptideSequence>SSLSRLGSSR</PeptideSequence>
+			<Modification location="1" residues="S" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="0" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_157_5">
+			<PeptideSequence>YKNLPTASR</PeptideSequence>
+			<Modification location="8" residues="S" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="0" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_157_6">
+			<PeptideSequence>YKNLPTASR</PeptideSequence>
+			<Modification location="6" residues="T" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="0" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="peptide_200_1">
+			<PeptideSequence>GLFFEHDLR</PeptideSequence>
+		</Peptide>
+		<Peptide id="peptide_200_2">
+			<PeptideSequence>QGITKSAPLR</PeptideSequence>
+			<Modification location="0" monoisotopicMassDelta="-17.026549">
+				<cvParam accession="UNIMOD:28" name="Gln-&gt;pyro-Glu" cvRef="UNIMOD"/>
+			</Modification>
+			<Modification location="4" residues="T" monoisotopicMassDelta="79.966331">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.976896" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<PeptideEvidence id="PE_47_1_1_HERC4_HUMAN_0_827_835" start="827" end="835" pre="K" post="E" peptide_ref="peptide_47_1" isDecoy="false" dBSequence_ref="DBSeq_1_HERC4_HUMAN"/>
+		<PeptideEvidence id="PE_47_2_1_MARK1_HUMAN_0_177_184" start="177" end="184" pre="K" post="A" peptide_ref="peptide_47_2" isDecoy="false" dBSequence_ref="DBSeq_1_MARK1_HUMAN"/>
+		<PeptideEvidence id="PE_61_1_1_NEB1_HUMAN_0_459_465" start="459" end="465" pre="K" post="V" peptide_ref="peptide_61_1" isDecoy="false" dBSequence_ref="DBSeq_1_NEB1_HUMAN"/>
+		<PeptideEvidence id="PE_61_2_1_SC31B_HUMAN_0_248_254" start="248" end="254" pre="R" post="V" peptide_ref="peptide_61_2" isDecoy="false" dBSequence_ref="DBSeq_1_SC31B_HUMAN"/>
+		<PeptideEvidence id="PE_61_3_1_DYH3_HUMAN_0_1414_1420" start="1414" end="1420" pre="R" post="L" peptide_ref="peptide_61_3" isDecoy="false" dBSequence_ref="DBSeq_1_DYH3_HUMAN"/>
+		<PeptideEvidence id="PE_61_4_1_ZYX_HUMAN_0_273_279" start="273" end="279" pre="K" post="F" peptide_ref="peptide_61_4" isDecoy="false" dBSequence_ref="DBSeq_1_ZYX_HUMAN"/>
+		<PeptideEvidence id="PE_61_5_1_IFIH1_HUMAN_0_744_750" start="744" end="750" pre="K" post="A" peptide_ref="peptide_61_5" isDecoy="false" dBSequence_ref="DBSeq_1_IFIH1_HUMAN"/>
+		<PeptideEvidence id="PE_157_1_1_ATX10_HUMAN_0_57_66" start="57" end="66" pre="K" post="D" peptide_ref="peptide_157_1" isDecoy="false" dBSequence_ref="DBSeq_1_ATX10_HUMAN"/>
+		<PeptideEvidence id="PE_157_2_1_UBR5_HUMAN_0_286_295" start="286" end="295" pre="R" post="V" peptide_ref="peptide_157_2" isDecoy="false" dBSequence_ref="DBSeq_1_UBR5_HUMAN"/>
+		<PeptideEvidence id="PE_157_3_1_UBR5_HUMAN_0_286_295" start="286" end="295" pre="R" post="V" peptide_ref="peptide_157_3" isDecoy="false" dBSequence_ref="DBSeq_1_UBR5_HUMAN"/>
+		<PeptideEvidence id="PE_157_4_1_UBR5_HUMAN_0_286_295" start="286" end="295" pre="R" post="V" peptide_ref="peptide_157_4" isDecoy="false" dBSequence_ref="DBSeq_1_UBR5_HUMAN"/>
+		<PeptideEvidence id="PE_157_5_1_RINT1_HUMAN_0_493_501" start="493" end="501" pre="R" post="K" peptide_ref="peptide_157_5" isDecoy="false" dBSequence_ref="DBSeq_1_RINT1_HUMAN"/>
+		<PeptideEvidence id="PE_157_6_1_RINT1_HUMAN_0_493_501" start="493" end="501" pre="R" post="K" peptide_ref="peptide_157_6" isDecoy="false" dBSequence_ref="DBSeq_1_RINT1_HUMAN"/>
+		<PeptideEvidence id="PE_200_1_1_CASC3_HUMAN_0_186_194" start="186" end="194" pre="K" post="G" peptide_ref="peptide_200_1" isDecoy="false" dBSequence_ref="DBSeq_1_CASC3_HUMAN"/>
+		<PeptideEvidence id="PE_200_2_1_EYA2_HUMAN_0_36_45" start="36" end="45" pre="R" post="V" peptide_ref="peptide_200_2" isDecoy="false" dBSequence_ref="DBSeq_1_EYA2_HUMAN"/>
+	</SequenceCollection>
+	<AnalysisCollection>
+		<SpectrumIdentification id="SI" spectrumIdentificationProtocol_ref="SIP" spectrumIdentificationList_ref="SIL_1" activityDate="2019-06-20T15:48:43">
+			<InputSpectra spectraData_ref="SD_1"/>
+			<SearchDatabaseRef searchDatabase_ref="SDB_SwissProt"/>
+		</SpectrumIdentification>
+	</AnalysisCollection>
+	<AnalysisProtocolCollection>
+		<SpectrumIdentificationProtocol id="SIP" analysisSoftware_ref="AS_mascot_server">
+			<SearchType>
+				<cvParam accession="MS:1001083" name="ms-ms search" cvRef="PSI-MS" value=""/>
+			</SearchType>
+			<AdditionalSearchParams>
+				<userParam name="Mascot Instrument Name" value="ESI-TRAP"/>
+				<cvParam accession="MS:1001211" name="parent mass type mono" cvRef="PSI-MS"/>
+				<cvParam accession="MS:1001118" name="param: b ion" cvRef="PSI-MS"/>
+				<cvParam accession="MS:1001149" name="param: b ion-NH3" cvRef="PSI-MS"/>
+				<cvParam accession="MS:1001150" name="param: b ion-H2O" cvRef="PSI-MS"/>
+				<cvParam accession="MS:1001262" name="param: y ion" cvRef="PSI-MS"/>
+				<cvParam accession="MS:1001151" name="param: y ion-NH3" cvRef="PSI-MS"/>
+				<cvParam accession="MS:1001152" name="param: y ion-H2O" cvRef="PSI-MS"/>
+			</AdditionalSearchParams>
+			<ModificationParams>
+				<SearchModification fixedMod="true" massDelta="57.021464" residues="C">
+					<cvParam accession="UNIMOD:4" name="Carbamidomethyl" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="-17.026549" residues="Q">
+					<SpecificityRules>
+						<cvParam accession="MS:1001189" cvRef="PSI-MS" name="modification specificity N-term"/>
+					</SpecificityRules>
+					<cvParam accession="UNIMOD:28" name="Gln-&gt;pyro-Glu" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="15.994915" residues="M">
+					<cvParam accession="UNIMOD:35" name="Oxidation" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="79.966331" residues="S T">
+					<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="79.966331" residues="Y">
+					<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				</SearchModification>
+			</ModificationParams>
+			<Enzymes>
+				<Enzyme id="ENZ_0" cTermGain="OH" nTermGain="H" missedCleavages="2" semiSpecific="0">
+					<SiteRegexp/>
+					<EnzymeName>
+						<cvParam accession="MS:1001251" name="Trypsin" cvRef="PSI-MS"/>
+					</EnzymeName>
+				</Enzyme>
+			</Enzymes>
+			<MassTable id="MT_1" msLevel="1 2">
+				<Residue code="A" mass="71.037114"/>
+				<Residue code="C" mass="103.009185"/>
+				<Residue code="D" mass="115.026943"/>
+				<Residue code="E" mass="129.042593"/>
+				<Residue code="F" mass="147.068414"/>
+				<Residue code="G" mass="57.021464"/>
+				<Residue code="H" mass="137.058912"/>
+				<Residue code="I" mass="113.084064"/>
+				<Residue code="J" mass="113.084064"/>
+				<Residue code="K" mass="128.094963"/>
+				<Residue code="L" mass="113.084064"/>
+				<Residue code="M" mass="131.040485"/>
+				<Residue code="N" mass="114.042927"/>
+				<Residue code="O" mass="237.147727"/>
+				<Residue code="P" mass="97.052764"/>
+				<Residue code="Q" mass="128.058578"/>
+				<Residue code="R" mass="156.101111"/>
+				<Residue code="S" mass="87.032028"/>
+				<Residue code="T" mass="101.047679"/>
+				<Residue code="U" mass="150.953633"/>
+				<Residue code="V" mass="99.068414"/>
+				<Residue code="W" mass="186.079313"/>
+				<Residue code="Y" mass="163.063329"/>
+				<AmbiguousResidue code="B">
+					<cvParam accession="MS:1001360" name="alternate single letter codes" cvRef="PSI-MS" value="D N"/>
+				</AmbiguousResidue>
+				<AmbiguousResidue code="Z">
+					<cvParam accession="MS:1001360" name="alternate single letter codes" cvRef="PSI-MS" value="E Q"/>
+				</AmbiguousResidue>
+				<AmbiguousResidue code="X">
+					<cvParam accession="MS:1001360" name="alternate single letter codes" cvRef="PSI-MS" value="A C D E F G H I K L M N O P Q R S T U V W Y"/>
+				</AmbiguousResidue>
+			</MassTable>
+			<FragmentTolerance>
+				<cvParam accession="MS:1001412" name="search tolerance plus value" value="0.025" cvRef="PSI-MS" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+				<cvParam accession="MS:1001413" name="search tolerance minus value" value="0.025" cvRef="PSI-MS" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</FragmentTolerance>
+			<ParentTolerance>
+				<cvParam accession="MS:1001412" name="search tolerance plus value" value="10" cvRef="PSI-MS" unitAccession="UO:0000169" unitName="parts per million" unitCvRef="UO"/>
+				<cvParam accession="MS:1001413" name="search tolerance minus value" value="10" cvRef="PSI-MS" unitAccession="UO:0000169" unitName="parts per million" unitCvRef="UO"/>
+			</ParentTolerance>
+			<Threshold>
+				<cvParam accession="MS:1001316" name="Mascot:SigThreshold" cvRef="PSI-MS" value="0.05"/>
+				<cvParam accession="MS:1001758" name="Mascot:SigThresholdType" cvRef="PSI-MS" value="identity"/>
+			</Threshold>
+			<DatabaseFilters>
+				<Filter>
+					<FilterType>
+						<cvParam accession="MS:1001020" name="DB filter taxonomy" cvRef="PSI-MS"/>
+					</FilterType>
+					<Include>
+						<cvParam accession="MS:1001467" name="taxonomy: NCBI TaxID" cvRef="PSI-MS" value="9606"/>
+					</Include>
+				</Filter>
+			</DatabaseFilters>
+		</SpectrumIdentificationProtocol>
+		<ProteinDetectionProtocol id="PDP_MascotParser_1" analysisSoftware_ref="AS_mascot_parser">
+			<AnalysisParams>
+				<cvParam accession="MS:1001316" name="Mascot:SigThreshold" cvRef="PSI-MS" value="0.05"/>
+				<cvParam accession="MS:1001317" name="Mascot:MaxProteinHits" cvRef="PSI-MS" value="1000000"/>
+				<cvParam accession="MS:1001318" name="Mascot:ProteinScoringMethod" cvRef="PSI-MS" value="Standard"/>
+				<cvParam accession="MS:1001319" name="Mascot:MinMSMSThreshold" cvRef="PSI-MS" value="5"/>
+				<cvParam accession="MS:1001758" name="Mascot:SigThresholdType" cvRef="PSI-MS" value="identity"/>
+				<cvParam accession="MS:1001759" name="Mascot:ProteinGrouping" cvRef="PSI-MS" value="Occam's razor"/>
+				<cvParam accession="MS:1001320" name="Mascot:ShowHomologousProteinsWithSamePeptides" cvRef="PSI-MS" value="1"/>
+				<cvParam accession="MS:1001321" name="Mascot:ShowHomologousProteinsWithSubsetOfPeptides" cvRef="PSI-MS" value="1"/>
+				<cvParam accession="MS:1001322" name="Mascot:RequireBoldRed" cvRef="PSI-MS" value="0"/>
+				<cvParam accession="MS:1001323" name="Mascot:UseUnigeneClustering" cvRef="PSI-MS" value="1"/>
+				<cvParam accession="MS:1001324" name="Mascot:IncludeErrorTolerantMatches" cvRef="PSI-MS" value="1"/>
+				<cvParam accession="MS:1001325" name="Mascot:ShowDecoyMatches" cvRef="PSI-MS" value="0"/>
+			</AnalysisParams>
+			<Threshold>
+				<cvParam accession="MS:1001494" name="no threshold" cvRef="PSI-MS"/>
+			</Threshold>
+		</ProteinDetectionProtocol>
+	</AnalysisProtocolCollection>
+	<DataCollection>
+		<Inputs>
+			<SourceFile location="file:///C://1_MSlab//Ryan//temp//F002080.dat" id="SF_1">
+				<FileFormat>
+					<cvParam accession="MS:1001199" name="Mascot DAT format" cvRef="PSI-MS"/>
+				</FileFormat>
+			</SourceFile>
+			<SearchDatabase location="file:///C:/inetpub/mascot/sequence/SwissProt/current/SwissProt_2016_10.fasta" id="SDB_SwissProt" name="SwissProt" numDatabaseSequences="552884" numResidues="197760918" version="SwissProt_2016_10.fasta">
+				<FileFormat>
+					<cvParam accession="MS:1001348" name="FASTA format" cvRef="PSI-MS"/>
+				</FileFormat>
+				<DatabaseName>
+					<userParam name="SwissProt_2016_10.fasta"/>
+				</DatabaseName>
+				<cvParam accession="MS:1001073" name="database type amino acid" cvRef="PSI-MS"/>
+			</SearchDatabase>
+			<SpectraData location="file://///qmcr.qmul.ac.uk/rfs/HAEMONC/Pedro's Lab/Mass Spec/PharmacoDB/RAW/TP/QE2_PharmacoDB_TP_Sample_16B.raw.-1.mgf" id="SD_1">
+				<FileFormat>
+					<cvParam accession="MS:1001062" name="Mascot MGF format" cvRef="PSI-MS"/>
+				</FileFormat>
+				<SpectrumIDFormat>
+					<cvParam accession="MS:1000774" name="multiple peak list nativeID format" cvRef="PSI-MS"/>
+				</SpectrumIDFormat>
+			</SpectraData>
+		</Inputs>
+		<AnalysisData>
+			<SpectrumIdentificationList id="SIL_1" numSequencesSearched="20121">
+				<SpectrumIdentificationResult id="SIR_47" spectrumID="index=3734" spectraData_ref="SD_1">
+					<SpectrumIdentificationItem id="SII_47_1" calculatedMassToCharge="375.196795333333" chargeState="3" experimentalMassToCharge="375.19669" peptide_ref="peptide_47_1" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_47_1_1_HERC4_HUMAN_0_827_835"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="9.70"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="2.21804496184185"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_47_2" calculatedMassToCharge="375.193499333333" chargeState="3" experimentalMassToCharge="375.19669" peptide_ref="peptide_47_2" rank="2" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_47_2_1_MARK1_HUMAN_0_177_184"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="0.47"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="18.5767760461655"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="26"/>
+					<cvParam accession="MS:1001370" name="Mascot:homology threshold" cvRef="PSI-MS" value="14"/>
+					<cvParam accession="MS:1001030" name="number of peptide seqs compared to each spectrum" cvRef="PSI-MS" value="414"/>
+					<cvParam accession="MS:1000797" name="peak list scans" cvRef="PSI-MS" value="7629"/>
+					<cvParam accession="MS:1000016" name="scan start time" cvRef="PSI-MS" value="1886.3997" unitAccession="UO:0000010" unitName="second" unitCvRef="UO"/>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="3735: Scan 7629 (rt=31.44) [\\qmcr.qmul.ac.uk\rfs\HAEMONC\Pedro's Lab\Mass Spec\PharmacoDB\RAW\TP\QE2_PharmacoDB_TP_Sample_16B.raw]"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="SIR_61" spectrumID="index=12903" spectraData_ref="SD_1">
+					<SpectrumIdentificationItem id="SII_61_1" calculatedMassToCharge="375.213239" chargeState="2" experimentalMassToCharge="375.21268" peptide_ref="peptide_61_1" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_61_1_1_NEB1_HUMAN_0_459_465"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="12.81"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="0.141372117878153"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_61_2" calculatedMassToCharge="375.213239" chargeState="2" experimentalMassToCharge="375.21268" peptide_ref="peptide_61_2" rank="2" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_61_2_1_SC31B_HUMAN_0_248_254"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="8.89"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="0.348629203875654"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_61_3" calculatedMassToCharge="375.214925" chargeState="2" experimentalMassToCharge="375.21268" peptide_ref="peptide_61_3" rank="3" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_61_3_1_DYH3_HUMAN_0_1414_1420"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="6.11"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="0.661247075298082"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_61_4" calculatedMassToCharge="375.213247" chargeState="2" experimentalMassToCharge="375.21268" peptide_ref="peptide_61_4" rank="4" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_61_4_1_ZYX_HUMAN_0_273_279"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="0.86"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="2.21494916969051"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_61_5" calculatedMassToCharge="375.213247" chargeState="2" experimentalMassToCharge="375.21268" peptide_ref="peptide_61_5" rank="5" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_61_5_1_IFIH1_HUMAN_0_744_750"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="0.30"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="2.51978661215188"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="17"/>
+					<cvParam accession="MS:1001030" name="number of peptide seqs compared to each spectrum" cvRef="PSI-MS" value="54"/>
+					<cvParam accession="MS:1000797" name="peak list scans" cvRef="PSI-MS" value="18141"/>
+					<cvParam accession="MS:1000016" name="scan start time" cvRef="PSI-MS" value="3230.3117" unitAccession="UO:0000010" unitName="second" unitCvRef="UO"/>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="12904: Scan 18141 (rt=53.8385) [\\qmcr.qmul.ac.uk\rfs\HAEMONC\Pedro's Lab\Mass Spec\PharmacoDB\RAW\TP\QE2_PharmacoDB_TP_Sample_16B.raw]"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="SIR_157" spectrumID="index=1860" spectraData_ref="SD_1">
+					<SpectrumIdentificationItem id="SII_157_1" calculatedMassToCharge="377.185468" chargeState="3" experimentalMassToCharge="377.18549" peptide_ref="peptide_157_1" rank="1" passThreshold="true">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_157_1_1_ATX10_HUMAN_0_57_66"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="25.77"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="0.049394527585015"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_157_2" calculatedMassToCharge="377.183550666667" chargeState="3" experimentalMassToCharge="377.18549" peptide_ref="peptide_157_2" rank="2" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_157_2_1_UBR5_HUMAN_0_286_295"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="2.41"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="10.7072720201667"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_157_3" calculatedMassToCharge="377.183550666667" chargeState="3" experimentalMassToCharge="377.18549" peptide_ref="peptide_157_3" rank="3" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_157_3_1_UBR5_HUMAN_0_286_295"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="2.41"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="10.7072720201667"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_157_4" calculatedMassToCharge="377.183550666667" chargeState="3" experimentalMassToCharge="377.18549" peptide_ref="peptide_157_4" rank="4" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_157_4_1_UBR5_HUMAN_0_286_295"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="2.41"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="10.7072720201667"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_157_5" calculatedMassToCharge="377.184888333333" chargeState="3" experimentalMassToCharge="377.18549" peptide_ref="peptide_157_5" rank="5" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_157_5_1_RINT1_HUMAN_0_493_501"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="0.15"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="18.01684889316"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_157_6" calculatedMassToCharge="377.184888333333" chargeState="3" experimentalMassToCharge="377.18549" peptide_ref="peptide_157_6" rank="6" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_157_6_1_RINT1_HUMAN_0_493_501"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="0.15"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="18.01684889316"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="25"/>
+					<cvParam accession="MS:1001370" name="Mascot:homology threshold" cvRef="PSI-MS" value="17"/>
+					<cvParam accession="MS:1001030" name="number of peptide seqs compared to each spectrum" cvRef="PSI-MS" value="373"/>
+					<cvParam accession="MS:1000797" name="peak list scans" cvRef="PSI-MS" value="5452"/>
+					<cvParam accession="MS:1000016" name="scan start time" cvRef="PSI-MS" value="1592.1895" unitAccession="UO:0000010" unitName="second" unitCvRef="UO"/>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="1861: Scan 5452 (rt=26.5365) [\\qmcr.qmul.ac.uk\rfs\HAEMONC\Pedro's Lab\Mass Spec\PharmacoDB\RAW\TP\QE2_PharmacoDB_TP_Sample_16B.raw]"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="SIR_200" spectrumID="index=19129" spectraData_ref="SD_1">
+					<SpectrumIdentificationItem id="SII_200_1" calculatedMassToCharge="378.529457333333" chargeState="3" experimentalMassToCharge="378.5293" peptide_ref="peptide_200_1" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_200_1_1_CASC3_HUMAN_0_186_194"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="22.91"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="0.0706120933045625"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="SII_200_2" calculatedMassToCharge="378.528663666667" chargeState="3" experimentalMassToCharge="378.5293" peptide_ref="peptide_200_2" rank="2" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="PE_200_2_1_EYA2_HUMAN_0_36_45"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="4.23"/>
+						<cvParam accession="MS:1001172" name="Mascot:expectation value" cvRef="PSI-MS" value="5.21049623477074"/>
+						<cvParam accession="MS:1001363" name="peptide unique to one protein" cvRef="PSI-MS"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="24"/>
+					<cvParam accession="MS:1001370" name="Mascot:homology threshold" cvRef="PSI-MS" value="18"/>
+					<cvParam accession="MS:1001030" name="number of peptide seqs compared to each spectrum" cvRef="PSI-MS" value="276"/>
+					<cvParam accession="MS:1000797" name="peak list scans" cvRef="PSI-MS" value="25129"/>
+					<cvParam accession="MS:1000016" name="scan start time" cvRef="PSI-MS" value="4136.9014" unitAccession="UO:0000010" unitName="second" unitCvRef="UO"/>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="19130: Scan 25129 (rt=68.9484) [\\qmcr.qmul.ac.uk\rfs\HAEMONC\Pedro's Lab\Mass Spec\PharmacoDB\RAW\TP\QE2_PharmacoDB_TP_Sample_16B.raw]"/>
+				</SpectrumIdentificationResult>
+</SpectrumIdentificationList>
+</AnalysisData>
+</DataCollection>
+</MzIdentML>
