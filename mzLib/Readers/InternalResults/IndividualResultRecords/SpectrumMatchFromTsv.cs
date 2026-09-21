@@ -98,9 +98,11 @@ namespace Readers
         }
         protected List<(string proteinAccessions, string geneName, string organism)> ConstructProteinGroupInfo()
         {
-            string[] accessions = Accession.Split('|');
-            string[] genes = GeneName.Split('|');
-            string[] organisms = OrganismName.Split('|');
+            // These columns are optional and come back null for empty cells (e.g. a PSM with no gene annotation),
+            // so guard against null before splitting rather than throwing a NullReferenceException.
+            string[] accessions = (Accession ?? "").Split('|');
+            string[] genes = (GeneName ?? "").Split('|');
+            string[] organisms = (OrganismName ?? "").Split('|');
             List<(string proteinAccessions, string geneName, string organism)> proteinGroupInfoList = new();
             for (int i = 0; i < accessions.Length; i++)
             {
