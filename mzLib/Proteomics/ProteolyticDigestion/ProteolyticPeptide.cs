@@ -46,16 +46,19 @@ namespace Proteomics.ProteolyticDigestion
         /// <param name="allKnownFixedModifications"></param>
         /// <param name="digestionParams"></param>
         /// <param name="variableModifications"></param>
+        /// <param name="cleavageBlockingPolicy">
+        /// The other half of the exchange <see cref="Protein.Digest(Omics.Digestion.IDigestionParams,List{Modification},List{Modification},List{SilacLabel},System.ValueTuple{SilacLabel,SilacLabel}?,bool)"/>
+        /// bought generation slack for. Passed in rather than rebuilt here, so the drop below and that
+        /// slack are decided by one object and cannot disagree about the protease or the budget. The
+        /// default is the inert policy, which is exactly the historical behaviour.
+        /// </param>
         /// <returns></returns>
         internal IEnumerable<PeptideWithSetModifications> GetModifiedPeptides(List<Modification> allKnownFixedModifications,
-            DigestionParams digestionParams, List<Modification> variableModifications)
+            DigestionParams digestionParams, List<Modification> variableModifications,
+            CleavageBlockingPolicy cleavageBlockingPolicy = default)
         {
             int variable_modification_isoforms = 0;
             int peptideLength = OneBasedEndResidue - OneBasedStartResidue + 1;
-            // The other half of the exchange Protein.Digest bought generation slack for. Built from the
-            // same DigestionParams and the same variable modification list, so the drop below and that
-            // slack cannot disagree about the protease or about the missed-cleavage budget.
-            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParams, variableModifications);
             int maximumVariableModificationIsoforms = digestionParams.MaxModificationIsoforms;
             int maxModsForPeptide = digestionParams.MaxModsForPeptide;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();

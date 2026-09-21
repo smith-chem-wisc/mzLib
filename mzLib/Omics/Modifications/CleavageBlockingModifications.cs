@@ -1,4 +1,5 @@
-﻿using System.Linq;
+using System;
+using System.Linq;
 using Omics.Digestion;
 
 namespace Omics.Modifications
@@ -16,8 +17,19 @@ namespace Omics.Modifications
     ///
     /// This is a name-keyed heuristic rather than a chemistry calculation: no modification database
     /// (UniProt ptmlist, Unimod, PSI-MOD) encodes "blocks protease cleavage", so the set has to be
-    /// curated somewhere. Matching is done on substrings of the modification id so that both the
-    /// UniProt "N6-&lt;acyl&gt;lysine" naming and the Unimod "&lt;Acyl&gt;" short naming are covered.
+    /// curated somewhere. Acyl groups are matched as substrings of the modification id so that both
+    /// the UniProt "N6-&lt;acyl&gt;lysine" naming and the Unimod "&lt;Acyl&gt;" short naming are covered;
+    /// the short Gly-Gly stubs are matched as whole tokens instead, because they are too short to be
+    /// safe as substrings.
+    ///
+    /// Being a heuristic, it can in principle classify a modification whose name merely CONTAINS an
+    /// acyl stem -- an O-linked "acetyl" sugar on a lysine would be the shape of it. Two things bound
+    /// that: the residue gate (only a Lys/Arg target reaches the name test at all) and the location
+    /// gate (only the side-chain "Anywhere." form). Measured rather than assumed, against the two
+    /// databases mzLib ships: 24 unimod.xml entries and 17 ptmlist.txt entries classify as blocking,
+    /// and every one of them is a genuine epsilon-amine acylation or citrulline. There is no false
+    /// positive in shipped data today. A user-curated modification file is not covered by that
+    /// measurement, which is the honest limit of a name-keyed rule.
     ///
     /// The methyl series (mono/di/tri-methyllysine) is deliberately EXCLUDED: methylation retains the
     /// positive charge and is sterically impaired rather than abolished, so in practice it shows up
@@ -43,6 +55,34 @@ namespace Omics.Modifications
             "acetyl", "succinyl", "malonyl", "glutaryl", "crotonyl", "propionyl", "butyryl",
             "formyl", "carbamyl", "carbamoyl", "hydroxyisobutyryl", "benzoyl", "lactyl", "biotinyl",
         };
+
+        /// <summary>
+        /// Names for the Gly-Gly stub a ubiquitin-family modifier leaves on the lysine epsilon-amine.
+        /// Matched as whole TOKENS of the modification id, not as substrings -- see
+        /// <see cref="HasUbiquitinRemnantToken"/> for why both halves of that matter.
+        /// </summary>
+        private static readonly string[] UbiquitinRemnantStubs = { "gg", "digly", "lrgg" };
+
+        /// <summary>
+        /// Characters that separate the components of a modification id. Unimod composes names out of
+        /// parts ("Label:13C(6)+GG"), so a component is found by splitting rather than by substring.
+        /// </summary>
+        private static readonly char[] IdTokenSeparators = { ' ', '+', ':', '-', '(', ')', '[', ']', ',', '/', '_', '.' };
+
+        /// <summary>
+        /// True when any whole token of <paramref name="id"/> is one of <see cref="UbiquitinRemnantStubs"/>.
+        /// </summary>
+        /// <remarks>
+        /// Whole tokens, because the stubs are short and a substring test is wrong in both directions.
+        /// Too narrow as a substring anchored with ==: the shipped unimod.xml carries seven K-targeted
+        /// remnants whose id is the stub plus something else -- "LRGG", "LRGG+methyl", "LRGG+dimethyl",
+        /// and four "Label:...+GG" isotope pairs -- none of which an id == "gg" test reaches. Too wide as
+        /// a bare Contains: "digly" is a substring of "diglycidyl" and "diglyceride", which are not
+        /// ubiquitin remnants at all.
+        /// </remarks>
+        private static bool HasUbiquitinRemnantToken(string id) =>
+            id.Split(IdTokenSeparators, StringSplitOptions.RemoveEmptyEntries)
+                .Any(token => UbiquitinRemnantStubs.Contains(token));
 
         /// <summary>
         /// The residue a modification sits on -- the one whose cleavage it would abolish -- or the null
@@ -90,8 +130,12 @@ namespace Omics.Modifications
             // --- Lysine epsilon-amine chemistry below ---
 
             // The ubiquitin / NEDD8 / SUMO remnant left after tryptic digestion is a Gly-Gly stub,
-            // which both neutralises the amine and is sterically prohibitive.
-            if (id == "gg" || id.Contains("gly-gly") || id.Contains("diglycyl") || id.Contains("ubiquit"))
+            // which both neutralises the amine and is sterically prohibitive. The stub is spelled
+            // "GG" (Unimod), "Gly-Gly" (UniProt's "Glycyl lysine isopeptide (Gly-Gly)"), "diglycyl"
+            // (PSI-MOD) and "diGly" (MaxQuant and common usage); a non-tryptic digest leaves the longer
+            // "LRGG" stub instead, and Unimod composes all of these with isotope labels and methyls.
+            if (id.Contains("gly-gly") || id.Contains("diglycyl") || id.Contains("ubiquit")
+                || HasUbiquitinRemnantToken(id))
                 return true;
 
             // The acyl test has the last word, and deliberately runs after nothing that could veto it.
