@@ -742,25 +742,65 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
         /// <summary>
         /// Review (nbollis): Modification.BlocksCleavage memoises a classification derived from
-        /// OriginalId, IdWithMotif, Target and LocationRestriction, and the immutability that makes the
-        /// memo safe was only a comment -- Modification is not sealed, has two subclasses, and those
-        /// properties had protected setters. Instances are shared across threads through the static
-        /// lists on Mods, so a stale answer would be globally wrong.
+        /// OriginalId, IdWithMotif, Target and LocationRestriction, and the immutability that makes
+        /// that memo safe was only a comment -- Modification is not sealed, has subclasses, and those
+        /// properties have protected setters. Instances are shared across threads through the static
+        /// lists on Mods, so a stale answer is globally wrong rather than locally wrong.
         ///
-        /// The setters are private now. This pins that, because nothing else would notice it being
-        /// widened again: a protected setter compiles, and the staleness it allows only shows up as a
-        /// wrong digest much later.
+        /// He was more right than the finding claimed, and CI proved it: making the four properties
+        /// private set broke the MetaMorpheus build, because EngineLayer/GlycoSearch/Glycan.cs is a
+        /// real Modification subclass that assigns OriginalId, Target and IdWithMotif in its own
+        /// constructor AFTER the base constructor has run. The immutability cannot be enforced; the
+        /// memo has to survive mutation instead. It now caches the inputs beside the answer and
+        /// recomputes when they change.
+        ///
+        /// Fails against a plain compute-once memo: the first read classifies a serine-targeted
+        /// phospho as non-blocking, and the second read -- after the subclass has moved it onto a
+        /// lysine and renamed it -- would keep returning that stale answer.
         /// </summary>
         [Test]
-        public static void ModificationIdentityIsImmutable(
-            [Values("OriginalId", "IdWithMotif", "Target", "LocationRestriction")] string propertyName)
+        public static void BlocksCleavage_IsRecomputedWhenASubclassChangesItsInputs()
         {
-            var setter = typeof(Modification).GetProperty(propertyName)?.SetMethod;
+            ModificationMotif.TryGetMotif("S", out ModificationMotif serine);
+            var mod = new MutableModification(_originalId: "Phospho", _modificationType: "Test",
+                _target: serine, _locationRestriction: "Anywhere.", _monoisotopicMass: 79.96633);
 
-            Assert.That(setter, Is.Not.Null, propertyName + " should still exist on Modification");
-            Assert.That(setter.IsPrivate, Is.True,
-                propertyName + " must stay private-set: Modification.BlocksCleavage memoises a value derived from it, "
-                + "and Modification is neither sealed nor free of subclasses");
+            Assert.IsFalse(mod.BlocksCleavage, "a phospho-serine blocks no trypsin cleavage");
+
+            // Exactly what Glycan does: reassign the identity after construction.
+            ModificationMotif.TryGetMotif("K", out ModificationMotif lysine);
+            mod.Reassign("N6-succinyllysine", lysine, "Anywhere.");
+
+            Assert.IsTrue(mod.BlocksCleavage,
+                "the memo must follow its inputs, because a subclass can move them after the first read");
+
+            // ...and back again, so the test cannot pass by the memo simply never caching.
+            mod.Reassign("Phospho", serine, "Anywhere.");
+            Assert.IsFalse(mod.BlocksCleavage);
+        }
+
+        /// <summary>
+        /// Stands in for MetaMorpheus's Glycan, which assigns OriginalId, Target and IdWithMotif in
+        /// its own constructor after base construction. mzLib has no subclass that does this, so the
+        /// hazard is not reachable from mzLib's own types -- which is why it needs a stand-in here
+        /// rather than an existing one.
+        /// </summary>
+        private class MutableModification : Modification
+        {
+            public MutableModification(string _originalId, string _modificationType, ModificationMotif _target,
+                string _locationRestriction, double _monoisotopicMass)
+                : base(_originalId: _originalId, _modificationType: _modificationType, _target: _target,
+                    _locationRestriction: _locationRestriction, _monoisotopicMass: _monoisotopicMass)
+            {
+            }
+
+            internal void Reassign(string originalId, ModificationMotif target, string locationRestriction)
+            {
+                OriginalId = originalId;
+                Target = target;
+                LocationRestriction = locationRestriction;
+                IdWithMotif = originalId + " on " + target;
+            }
         }
 
     }

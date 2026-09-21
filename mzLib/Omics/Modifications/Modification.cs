@@ -9,23 +9,24 @@ namespace Omics.Modifications
     /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
     /// </summary>
     /// <remarks>
-    /// IDENTITY IS IMMUTABLE. <see cref="IdWithMotif"/>, <see cref="OriginalId"/>, <see cref="Target"/>
-    /// and <see cref="LocationRestriction"/> are written once, by this class's constructor, and have
-    /// private setters so that neither a subclass nor a future constructor overload can change them
-    /// afterwards. <see cref="BlocksCleavage"/> memoises a classification derived from exactly those
-    /// four, and instances are shared across threads (the static lists on <see cref="Mods"/>), so a
-    /// stale answer would be globally wrong rather than locally wrong. This class is not sealed and
-    /// has subclasses (BaseModification, BackboneModification); the private setters are what keeps the
-    /// memoised answer correct for them too. Widen them and the memoisation has to go.
+    /// IDENTITY IS MUTABLE BY A SUBCLASS, and anything derived from it must survive that.
+    /// <see cref="IdWithMotif"/>, <see cref="OriginalId"/>, <see cref="Target"/> and
+    /// <see cref="LocationRestriction"/> have protected setters, and MetaMorpheus's
+    /// <c>Glycan : Modification</c> really does assign three of them in its own constructor, AFTER
+    /// the base constructor has run. So a value memoised from them on first read can be stale by
+    /// second read; <see cref="BlocksCleavage"/> handles that by caching the INPUTS next to the
+    /// answer and recomputing when they change, rather than by assuming they cannot. Instances are
+    /// shared across threads (the static lists on <see cref="Mods"/>), so a stale answer would be
+    /// globally wrong rather than locally wrong -- do not replace that with a plain memo.
     /// </remarks>
     public class Modification : IComparable<Modification>
     {
-        public string IdWithMotif { get; private set; }
+        public string IdWithMotif { get; protected set; }
 
         /// <summary>
         /// The name of the Mod. This is what shows up in the full sequence. 
         /// </summary>
-        public string OriginalId { get; private set; }
+        public string OriginalId { get; protected set; }
         public string Accession { get; protected set; }
 
         /// <summary>
@@ -33,12 +34,12 @@ namespace Omics.Modifications
         /// </summary>
         public string ModificationType { get; protected set; }
         public string FeatureType { get; protected set; }
-        public ModificationMotif Target { get; private set; }
+        public ModificationMotif Target { get; protected set; }
 
         /// <summary>
         /// Determines where a mod can be placed in an IBioPolymerWithSetMods during digestion. Fixed terminology is stored as strings and found at ModLocationOnPeptideOrProtein and is used throughout the codebase, bit of a mess.  
         /// </summary>
-        public string LocationRestriction { get; private set; }
+        public string LocationRestriction { get; protected set; }
         public ChemicalFormula ChemicalFormula { get; protected set; }
         private double? monoisotopicMass = null;
 
@@ -84,38 +85,63 @@ namespace Omics.Modifications
             {
                 // Classifying costs a lower-casing allocation and a scan of the acyl stems, and the
                 // digestion path asks per modification per peptidoform -- millions of times across a
-                // search -- so the answer is memoised. It is derived entirely from OriginalId,
-                // IdWithMotif, Target and LocationRestriction, all four of which have PRIVATE setters
-                // and are written only by this class's constructor -- see the remarks on the class.
-                // That is what the memoisation rests on, and it is enforced by the type rather than
-                // asserted by this comment: ModificationIdentityIsImmutable pins it.
+                // search -- so the answer is memoised.
                 //
-                // The field this adds is not in any serialized graph. MetaMorpheus's NetSerializer
-                // peptide index is field-based and schema-rigid, but PeptideWithSetModifications keeps
-                // its modification dictionary [NonSerialized] and rebuilds it from the full sequence,
-                // so no Modification is written to that cache and its layout is unaffected.
+                // The memo cannot assume its inputs are fixed. OriginalId, IdWithMotif, Target and
+                // LocationRestriction have protected setters, and MetaMorpheus's Glycan subclass
+                // assigns three of them in its own constructor after base construction -- so a plain
+                // "compute once" cache can be built from values that no longer hold, and these
+                // instances are shared across threads. The cached inputs are therefore stored beside
+                // the cached answer and compared by reference on every read: three reference
+                // comparisons, far cheaper than the scan, and correct under mutation.
                 //
-                // An int rather than a bool? because a torn read of a two-field Nullable is a real (if
-                // remote) hazard and a 32-bit aligned write is not. The race is benign either way: two
-                // threads racing here compute the same value from the same immutable inputs.
-                int cached = _blocksCleavageCache;
-                if (cached == BlocksCleavageNotYetClassified)
+                // The snapshot is a single immutable object behind one reference field, so publishing
+                // it is atomic and a read can never see a half-updated pair. The race is benign: two
+                // threads racing here compute the same answer from the same inputs.
+                string id = OriginalId ?? IdWithMotif;
+                ModificationMotif target = Target;
+                string locationRestriction = LocationRestriction;
+
+                BlocksCleavageClassification cached = _blocksCleavage;
+                if (cached is null
+                    || !ReferenceEquals(cached.Id, id)
+                    || !ReferenceEquals(cached.Target, target)
+                    || !ReferenceEquals(cached.LocationRestriction, locationRestriction))
                 {
-                    cached = CleavageBlockingModifications.NeutralizesCleavageResidue(this)
-                        ? BlocksCleavageYes
-                        : BlocksCleavageNo;
-                    _blocksCleavageCache = cached;
+                    cached = new BlocksCleavageClassification(id, target, locationRestriction,
+                        CleavageBlockingModifications.NeutralizesCleavageResidue(this));
+                    _blocksCleavage = cached;
                 }
 
-                return cached == BlocksCleavageYes;
+                return cached.Answer;
             }
         }
 
-        private const int BlocksCleavageNotYetClassified = 0;
-        private const int BlocksCleavageNo = 1;
-        private const int BlocksCleavageYes = 2;
+        /// <summary>
+        /// A memoised <see cref="BlocksCleavage"/> answer together with the three inputs it was
+        /// computed from, so the answer can be invalidated when a subclass changes them.
+        /// </summary>
+        private sealed class BlocksCleavageClassification
+        {
+            internal BlocksCleavageClassification(string id, ModificationMotif target, string locationRestriction, bool answer)
+            {
+                Id = id;
+                Target = target;
+                LocationRestriction = locationRestriction;
+                Answer = answer;
+            }
 
-        private int _blocksCleavageCache;
+            internal readonly string Id;
+            internal readonly ModificationMotif Target;
+            internal readonly string LocationRestriction;
+            internal readonly bool Answer;
+        }
+
+        // Not serialized anywhere: MetaMorpheus's NetSerializer peptide index is field-based and
+        // schema-rigid, but PeptideWithSetModifications keeps its modification dictionary
+        // [NonSerialized] and rebuilds it from the full sequence, so no Modification reaches that
+        // cache and its on-disk layout is unaffected by this field.
+        private BlocksCleavageClassification _blocksCleavage;
 
         public virtual bool ValidModification
         {
