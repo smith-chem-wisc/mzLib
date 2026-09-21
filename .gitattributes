@@ -93,3 +93,4 @@ mzLib/Test/DataFiles/Ontologies/*.xml -text
 # which `* text=auto` would erase in the index.
 ###############################################################################
 mzLib/Test/DataFiles/PXD*.mzid -text
+mzLib/Test/DataFiles/PXD*.mzid.gz binary
