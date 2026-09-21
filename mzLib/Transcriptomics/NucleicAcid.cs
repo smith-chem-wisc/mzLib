@@ -216,6 +216,8 @@ namespace Transcriptomics
                     "DigestionParameters must be of type DigestionParams for protein digestion", new ArgumentException());
             allKnownFixedMods ??= new();
             variableModifications ??= new();
+            IBioPolymer.AddDigestionAgentModification(digestionParams.Rnase,
+                allKnownFixedMods, variableModifications);
 
             // digest based upon base sequence
             foreach (var unmodifiedOligo in digestionParams.Rnase.GetUnmodifiedOligos(this,

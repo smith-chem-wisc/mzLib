@@ -1,4 +1,6 @@
 using NUnit.Framework;
+using Omics.Modifications;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -22,6 +24,60 @@ namespace Test.Transcriptomics
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase A"));
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("RNase 4"));
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("top-down"));
+        }
+
+        [Test]
+        public void TestRnaseDictionary_LoadsCleavageModificationModes()
+        {
+            var fixedRnase = RnaseDictionary.Dictionary["RNase PhyM (>= 7M urea)"];
+            var variableRnase = RnaseDictionary.Dictionary["RNase 4"];
+
+            Assert.That(fixedRnase.CleavageMod, Is.TypeOf<CleavageModification>());
+            Assert.That(((CleavageModification)fixedRnase.CleavageMod).IsFixedMod, Is.True);
+            Assert.That(((CleavageModification)fixedRnase.CleavageMod).IsVariableMod, Is.False);
+            Assert.That(fixedRnase.CleavageMod.OriginalId, Is.EqualTo("Cyclic Phosphate"));
+
+            Assert.That(variableRnase.CleavageMod, Is.TypeOf<CleavageModification>());
+            Assert.That(((CleavageModification)variableRnase.CleavageMod).IsFixedMod, Is.False);
+            Assert.That(((CleavageModification)variableRnase.CleavageMod).IsVariableMod, Is.True);
+        }
+
+        [Test]
+        public void TestVariableCleavageModification_IsStoredInFullSequence()
+        {
+            var rna = new RNA("AUGCUGA");
+            var digestionParams = new RnaDigestionParams("RNase 4", minLength: 1);
+            var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Cast<OligoWithSetMods>()
+                .ToList();
+
+            var cyclicOligo = oligos.First(o => o.AllModsOneIsNterminus.Values
+                .Any(modification => modification.OriginalId == "Cyclic Phosphate"));
+            var roundTripped = new OligoWithSetMods(cyclicOligo.FullSequence, Mods.AllKnownRnaModsDictionary);
+
+            Assert.That(cyclicOligo.OneBasedEndResidue, Is.Not.EqualTo(rna.Length));
+            Assert.That(roundTripped.FullSequence, Is.EqualTo(cyclicOligo.FullSequence));
+            Assert.That(roundTripped.AllModsOneIsNterminus.Keys,
+                Is.EquivalentTo(cyclicOligo.AllModsOneIsNterminus.Keys));
+        }
+
+        [Test]
+        public void TestFixedCleavageModification_IsStoredInFullSequence()
+        {
+            var rna = new RNA("CAUGCU");
+            var digestionParams = new RnaDigestionParams("RNase PhyM (>= 7M urea)", minLength: 1);
+            var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                .Cast<OligoWithSetMods>()
+                .ToList();
+
+            var cyclicOligo = oligos.First(o => o.OneBasedEndResidue != rna.Length);
+            var roundTripped = new OligoWithSetMods(cyclicOligo.FullSequence, Mods.AllKnownRnaModsDictionary);
+
+            Assert.That(cyclicOligo.AllModsOneIsNterminus.Keys,
+                Does.Contain(cyclicOligo.Length + 2));
+            Assert.That(roundTripped.FullSequence, Is.EqualTo(cyclicOligo.FullSequence));
+            Assert.That(roundTripped.AllModsOneIsNterminus.Keys,
+                Is.EquivalentTo(cyclicOligo.AllModsOneIsNterminus.Keys));
         }
 
         [Test]
