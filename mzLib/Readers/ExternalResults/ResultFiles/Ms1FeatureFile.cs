@@ -78,11 +78,24 @@ namespace Readers
         /// re-detected on reload (the writer emits an Apex_intensity column); the
         /// label is not persisted as a column. Pass <see cref="Software.Unspecified"/>
         /// to leave the in-memory label blank.</param>
+        /// <param name="splitGappedChargeRuns">
+        /// False (default): one row per feature spanning its lowest to highest observed
+        /// charge, the same Min/Max convention TopFD and FLASHDeconv files use. The reader
+        /// expands that row to every charge in the span, so a charge the MS1 tracer did not
+        /// see but that lies inside the span still yields a FromFile precursor. Those
+        /// charges matter: on Jurkat top-down files an MS2 scan often isolates such a
+        /// charge, and writing the split form instead cost 16% of confident proteoforms in
+        /// a MetaMorpheus FromFile search.
+        /// True: one row per contiguous run of observed charges (see
+        /// <see cref="Ms1FeatureFromMassFeatureExtensions.ToMs1Features"/>), for callers that
+        /// need the exact observed charge set to survive a round trip.
+        /// </param>
         public static Ms1FeatureFile FromMassFeatures(
             IEnumerable<MassFeature> features,
             int sampleId = 0,
             int fractionId = 0,
-            Software software = Software.TopFD)
+            Software software = Software.TopFD,
+            bool splitGappedChargeRuns = false)
         {
             // Build the record list up front and assign via the setter. The base
             // Results getter only lazy-loads when File.Exists(FilePath), so a
@@ -92,8 +105,12 @@ namespace Readers
             int sequentialId = 0;
             foreach (var f in features)
             {
-                // ToMs1Features splits a gapped charge set into contiguous-run rows so the
-                // reader can't fabricate the missing charges; number each emitted row.
+                if (!splitGappedChargeRuns)
+                {
+                    records.Add(f.ToMs1Feature(sequentialId++, sampleId, fractionId));
+                    continue;
+                }
+
                 foreach (var rec in f.ToMs1Features(sampleId, fractionId))
                 {
                     rec.Id = sequentialId++;

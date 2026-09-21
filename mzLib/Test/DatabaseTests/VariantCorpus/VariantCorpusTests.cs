@@ -268,7 +268,8 @@ namespace Test.DatabaseTests.VariantCorpus
             // modified residue, ON it (the modified residue is the retained anchor), and immediately after it.
             // I03-I04 put the insertion at the protein's start and end; I05-I06 are the VCF depth-cutoff twins;
             // I07 moves the trypsin knife; I08 carries a variant-borne mod; I09 anchors on the right with the PTM on the
-            // kept anchor; MI00-MI01 are indel pairs.
+            // kept anchor; I10-I11 encode the insertion as a BEGIN/END range; I12 slides an existing cut site; MI00-MI01
+            // are indel pairs.
 
             // I00 — insertion immediately BEFORE the PTM residue. Phospho@T4; P3->PAG inserts AG between P3 and T4.
             // T slides 4->6 and the phospho follows it (installment 3). Consensus{0,1} + PEPAGTIDE{0,1} = 4 forms.
@@ -386,6 +387,44 @@ namespace Test.DatabaseTests.VariantCorpus
                 ExpectedCount: 3, Verdict: "applied",
                 Reason: "P3->PT inserts a phosphorylatable T at applied position 4, and the phospho is stored on the variant (SequenceVariation.OneBasedModifications). Consensus PEPIDE is bare; applied PEPTIDE carries a variable phospho. 3 forms. Insertion analog of S11 (installment 4; AdjustModificationIndices merges variant.OneBasedModifications).",
                 ExpectedForms: new[] { "PEPIDE", "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE" });
+
+            // I10 — RANGE-encoded insertion, PTM on the kept LEFT anchor. Phospho@T4; TI->TAGI over [4,5] keeps T4 and
+            // I5 and inserts AG between them. Every other insertion node uses a single POS, where begin == end; here
+            // the original spans two residues, so the edit is placed through the BEGIN/END path and the variant is
+            // longer than its range. T4 is the unchanged prefix, so the phospho stays at 4. Consensus{0,1} +
+            // PEPTAGIDE{0,1} = 4 forms, the same as I01.
+            yield return new CorpusCase(
+                Id: "I10", Layer: "L1-int", Tests: "ins-range-kept-left-anchor",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=TI VAR=TAGI BEGIN=4 END=5 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "TI->TAGI over [4,5] keeps both flanks and inserts AG between them; the phospho on the kept left anchor T4 stays at 4. Consensus{0,1} + PEPTAGIDE{0,1} = 4, the same forms as I01. Range (BEGIN/END) encoding of an insertion.",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPTAGIDE", "PEPT[Biological:Phosphorylation on T]AGIDE" });
+
+            // I11 — RANGE-encoded insertion, PTM on the kept RIGHT anchor. Phospho@T4; PT->PAGT over [3,4] keeps P3 and
+            // T4 and inserts AG between them, so T moves 4->6 and carries its phospho. The modified residue is the
+            // range's END, which is where the kept-suffix branch has to count back from. Consensus{0,1} +
+            // PEPAGTIDE{0,1} = 4 forms, the same as I00 and I09.
+            yield return new CorpusCase(
+                Id: "I11", Layer: "L1-int", Tests: "ins-range-kept-right-anchor",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=PT VAR=PAGT BEGIN=3 END=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "PT->PAGT over [3,4] inserts AG between the kept P3 and the kept T4, so T and its phospho shift 4->6. Consensus{0,1} + PEPAGTIDE{0,1} = 4, the same forms as I00/I09. Range encoding with the mod on the range's END (kept suffix).",
+                ExpectedForms: new[] { "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE", "PEPAGTIDE", "PEPAGT[Biological:Phosphorylation on T]IDE" });
+
+            // I12 — insertion upstream of an existing K SLIDES the trypsin cut site (installment 5; invariants 3, 7).
+            // E2->EAG puts AG ahead of K4, so the knife moves from after residue 4 to after residue 6: consensus PEPKIDE
+            // -> {PEPK, IDE}; variant PEAGPKIDE -> {PEAGPK, IDE}. The cut site is neither created nor destroyed, only
+            // moved, so the downstream peptide is unchanged and each proteoform yields its own IDE (the digest is a
+            // per-proteoform union, not de-duplicated). 4 peptides.
+            yield return new CorpusCase(
+                Id: "I12", Layer: "L3-digest", Tests: "ins-slides-cut-site",
+                Base: "PEPKIDE", Mods: "-", Variants: "OP=E VAR=EAG POS=2 SRC=uniprot", Protease: "trypsin",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 4, Verdict: "applied",
+                Reason: "Inserting AG after E2 moves K from 4 to 6, so trypsin cuts after 6 instead of 4: consensus PEPKIDE -> PEPK + IDE; variant PEAGPKIDE -> PEAGPK + IDE. The site slides (installment 5: indels slide cut sites); the unchanged downstream peptide IDE comes once from each proteoform. 4 peptides.",
+                ExpectedForms: new[] { "PEPK", "IDE", "PEAGPK", "IDE" });
 
             // ---- L1 multi: two indels in one protein (combinatorial path; invariants 3-4) ----------------------
             // Genotype-less pairs expand to consensus + each single + the pair, applied descending-position (D6),
