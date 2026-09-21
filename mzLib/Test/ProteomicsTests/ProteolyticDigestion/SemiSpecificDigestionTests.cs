@@ -45,7 +45,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     /// way lost most of their identifications without any error.</description></item>
     /// <item><description>The same, but with FragmentationTerminus <see cref="FragmentationTerminus.N"/>
     /// or <see cref="FragmentationTerminus.C"/>. This deliberately does NOT enumerate semi-specific
-    /// peptides. It returns "seeds" (<c>ProteinDigestion.SpeedySemiSpecificDigestion</c>): the longest
+    /// peptides. It returns "seeds": the longest
     /// fully specific stretch from each fixed terminus, which MetaMorpheus's non-specific search engine
     /// scores with ions from that terminus only and then trims to the length the precursor mass supports.
     /// These tests do not demand that seeds equal the semi set; they demand that every semi peptide is
