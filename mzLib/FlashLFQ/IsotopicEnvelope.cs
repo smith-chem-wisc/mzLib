@@ -1,4 +1,5 @@
-﻿using MassSpectrometry;
+﻿using System;
+using MassSpectrometry;
 
 namespace FlashLFQ
 {
@@ -17,7 +18,9 @@ namespace FlashLFQ
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
-            Intensity = intensity / chargeState;
+            // Use the magnitude of the charge so that RNA/oligonucleotide envelopes, which are
+            // acquired in negative mode with negative charge states, still yield a positive intensity.
+            Intensity = intensity / Math.Abs(chargeState);
             PearsonCorrelation = pearsonCorrelation;
         }
 
@@ -25,7 +28,9 @@ namespace FlashLFQ
         {
             IndexedPeak = monoisotopicPeak;
             ChargeState = chargeState;
-            Intensity = intensity / chargeState;
+            // Use the magnitude of the charge so that RNA/oligonucleotide envelopes, which are
+            // acquired in negative mode with negative charge states, still yield a positive intensity.
+            Intensity = intensity / Math.Abs(chargeState);
             PearsonCorrelation = pearsonCorrelation;
         }
 
