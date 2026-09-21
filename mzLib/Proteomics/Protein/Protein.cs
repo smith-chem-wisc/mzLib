@@ -1,4 +1,4 @@
-﻿using Proteomics.ProteolyticDigestion;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -377,11 +377,9 @@ namespace Proteomics
             variableModifications = variableModifications ?? new List<Modification>();
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
-            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
-
             // SearchModeType Semi means two different things depending on FragmentationTerminus:
             //  - N or C: the caller is MetaMorpheus's non-specific search engine, which wants "seed" peptides fixed at that
-            //    terminus and trims them after the search (see ProteinDigestion.SpeedySemiSpecificDigestion).
+            //    terminus and trims them after the search.
             //  - anything else (Both is the default): the caller wants the semi-specific peptides themselves. Classic,
             //    Modern, Glyco and crosslink searches do no trimming, so they must get every peptide with at least one
             //    specific terminus. This used to fall through to the seed path as well, where Both silently behaved as C,
@@ -390,10 +388,31 @@ namespace Proteomics
             // singleC, whose digestion (the first branch) returns non-specific seeds; None + Both gives the singleC ones.
             // The full table of what each SearchModeType and FragmentationTerminus returns is on
             // DigestionParams.SearchModeType and is pinned by SearchModeTypeDigestionTests.
-            IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                searchModeType != CleavageSpecificity.Semi ? digestion.Digestion(this, topDownTruncationSearch)
-                : ProteinDigestion.WantsSemiSpecificSeeds(digestionParameters) ? digestion.SpeedySemiSpecificDigestion(this)
-                : digestion.SemiSpecificDigestion(this);
+
+            // Generation slack for the cleavage-blocking correction. The correction is an exchange: a
+            // peptidoform whose C-terminus is a cleavage the protease could not have made is dropped in
+            // ProteolyticPeptide.GetModifiedPeptides, and the read-through form that really would have
+            // been produced replaces it -- but only if enumeration was widened first, because that form
+            // costs one extra missed cleavage per blocked site. Performing half the trade loses real
+            // peptides, so both halves read one CleavageBlockingPolicy built from the same parameters and
+            // the same modification list, and the policy is inert unless the exchange can complete.
+            //
+            // The slack is bought with enumeration, so it is only granted when it can be spent. At
+            // MetaMorpheus defaults an ungated slack would enumerate at 4 missed cleavages instead of 2 --
+            // roughly 1.7x the unmodified peptides before modification combinatorics, carried into the
+            // fragment index -- in searches where nothing configured can block anything.
+            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications);
+
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
+                this,
+                digestionParameters.MaxMissedCleavages + cleavageBlockingPolicy.GenerationSlack,
+                digestionParameters.InitiatorMethionineBehavior,
+                digestionParameters.MinLength,
+                digestionParameters.MaxLength,
+                digestionParameters.SpecificProtease,
+                digestionParameters.FragmentationTerminus,
+                digestionParameters.SearchModeType,
+                topDownTruncationSearch);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {

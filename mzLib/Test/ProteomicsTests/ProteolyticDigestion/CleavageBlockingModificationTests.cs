@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
@@ -272,7 +272,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// <summary>
         /// A semi or nonspecific search is left ENTIRELY alone by the flag -- not just its non-Full
         /// subset. The drop and the generation slack are two halves of one exchange (impossible
-        /// peptidoform out, read-through form in), and ProteinDigestion grants the slack only when
+        /// peptidoform out, read-through form in), and Protein.Digest grants the slack only when
         /// SearchModeType is Full. Applying the drop without it performed half the trade: at a
         /// missed-cleavage budget too small to reach the read-through, the peptide was dropped and never
         /// replaced, so it became unidentifiable.
@@ -465,8 +465,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// combinatorics, and carrying into the fragment index.
         ///
         /// The cost is invisible in the finished digest, because the open-site filter trims the surplus
-        /// again on the way out: an output comparison passes either way and pins nothing. So this reads
-        /// the enumeration itself, through ProteinDigestion.Digestion, which is where the slack is spent.
+        /// again on the way out: an output comparison passes either way and pins nothing. Since the slack
+        /// now lives inside Protein.Digest, the gate is asserted where it is decided -- on the policy
+        /// itself -- which pins it more tightly than the enumeration count ever did.
         /// </summary>
         [Test]
         public static void WithNoBlockingModificationConfigured_NoGenerationSlackIsPaid()
@@ -477,25 +478,43 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var methyl = MakeKModification("N6-methyllysine", mass: 14.01565);
             var succinyl = MakeKModification("N6-succinyllysine");
 
-            var protein = new Protein("AAAAKAAAAKAAAASAAAAKAAAAKAAAAR", "accession");
-
-            int Enumerated(bool respect, params Modification[] variableMods)
+            CleavageBlockingPolicy PolicyFor(bool respect, params Modification[] variableMods)
             {
                 var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 5,
                     respectCleavageBlockingModifications: respect);
-                return new ProteinDigestion(dp, new List<Modification>(), variableMods.ToList())
-                    .Digestion(protein).Count();
+                return CleavageBlockingPolicy.For(dp, variableMods.ToList());
             }
 
-            int baseline = Enumerated(respect: false, phospho, methyl);
-
-            Assert.That(Enumerated(respect: true, phospho, methyl), Is.EqualTo(baseline),
+            Assert.That(PolicyFor(respect: false, phospho, succinyl).GenerationSlack, Is.Zero,
+                "with the flag off nothing may be enumerated beyond the historical path");
+            Assert.That(PolicyFor(respect: true, phospho, methyl).GenerationSlack, Is.Zero,
                 "nothing configured can block a trypsin cleavage, so no slack may be bought");
 
             // The counterpart, so the gate cannot pass by disabling the slack outright: once a blocking
-            // modification IS configured, the slack is bought and enumeration widens.
-            Assert.That(Enumerated(respect: true, phospho, succinyl), Is.GreaterThan(baseline),
+            // modification IS configured, the slack is bought.
+            Assert.That(PolicyFor(respect: true, phospho, succinyl).GenerationSlack, Is.GreaterThan(0),
                 "a configured blocking modification must still buy the slack the read-through needs");
+
+            // And the slack must actually reach digestion: the read-through peptidoform of a blocked
+            // cleavage only exists because enumeration was widened for it.
+            var protein = new Protein("AAAAKAAAAKAAAASAAAAKAAAAKAAAAR", "accession");
+
+            List<string> FullSequences(bool respect, params Modification[] variableMods)
+            {
+                var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 5,
+                    respectCleavageBlockingModifications: respect);
+                return protein.Digest(dp, new List<Modification>(), variableMods.ToList())
+                    .Select(p => p.FullSequence).ToList();
+            }
+
+            Assert.That(FullSequences(respect: true, phospho, methyl),
+                Is.EquivalentTo(FullSequences(respect: false, phospho, methyl)),
+                "a search that cannot block anything must digest exactly as it always did");
+
+            var withSlack = FullSequences(respect: true, phospho, succinyl);
+            var withoutSlack = FullSequences(respect: false, phospho, succinyl);
+            Assert.That(withSlack.Except(withoutSlack), Is.Not.Empty,
+                "the slack must produce read-through peptidoforms that flag-off digestion cannot reach");
         }
 
         /// <summary>
