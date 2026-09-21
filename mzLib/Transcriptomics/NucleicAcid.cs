@@ -217,7 +217,7 @@ namespace Transcriptomics
             allKnownFixedMods ??= new();
             variableModifications ??= new();
             IBioPolymer.AddDigestionAgentModification(digestionParams.Rnase,
-                allKnownFixedMods, variableModifications);
+                ref allKnownFixedMods, ref variableModifications);
 
             // digest based upon base sequence
             foreach (var unmodifiedOligo in digestionParams.Rnase.GetUnmodifiedOligos(this,

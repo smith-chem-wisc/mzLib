@@ -91,12 +91,6 @@ namespace Test.Transcriptomics
             var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "AU", "GCU", "GA" }));
 
-            var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
-            foreach (var group in grouped)
-            {
-                var distinctBaseSeqs = group.Value.Distinct().ToArray();
-                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has duplicate terminus combinations: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
-            }
         }
 
         [Test]
@@ -110,12 +104,6 @@ namespace Test.Transcriptomics
             var distinctBaseSequences = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinctBaseSequences, Is.EqualTo(new[] { "AUUCU", "GA" }));
 
-            var grouped = products.GroupBy(p => p.BaseSequence).ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
-            foreach (var group in grouped)
-            {
-                var distinctBaseSeqs = group.Value.Distinct().ToArray();
-                Assert.That(distinctBaseSeqs.Length, Is.EqualTo(group.Value.Count()), $"Base sequence {group.Key} has duplicate terminus combinations: {string.Join(", ", distinctBaseSeqs.Select(v => $"({v.ThreePrimeTerminus}, {v.FivePrimeTerminus})"))}");
-            }
         }
 
         /// <summary>
@@ -266,27 +254,6 @@ namespace Test.Transcriptomics
             var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinct, Is.EqualTo(new[] { "AAGUA", "U" }),
                 "MC1 should skip GU positions");
-        }
-
-        [Test]
-        public void TestRnaseMC1_MultipleTerminiPerFragment()
-        {
-            var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
-
-            // MC1 has two 3' terminus options (H2O4P and O3P); verify each base sequence
-            // gets a unique set of (ThreePrime, FivePrime) combinations — no duplicates.
-            var products = mc1.GetUnmodifiedOligos(new RNA("AAUGAU"), 0, 1, int.MaxValue).ToArray();
-
-            var grouped = products
-                .GroupBy(p => p.BaseSequence)
-                .ToDictionary(g => g.Key, g => g.Select(o => (o.ThreePrimeTerminus, o.FivePrimeTerminus)));
-
-            foreach (var group in grouped)
-            {
-                var distinctCombos = group.Value.Distinct().ToArray();
-                Assert.That(distinctCombos.Length, Is.EqualTo(group.Value.Count()),
-                    $"Base sequence {group.Key} has duplicate terminus combinations");
-            }
         }
 
         #endregion

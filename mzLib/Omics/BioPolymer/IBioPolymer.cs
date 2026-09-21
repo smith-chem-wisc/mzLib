@@ -37,7 +37,7 @@ namespace Omics
         /// Legacy non-cleavage modifications are treated as fixed modifications.
         /// </summary>
         static void AddDigestionAgentModification(DigestionAgent digestionAgent,
-            ICollection<Modification> fixedModifications, ICollection<Modification> variableModifications)
+            ref List<Modification> fixedModifications, ref List<Modification> variableModifications)
         {
             if (digestionAgent?.CleavageMod is null || fixedModifications is null || variableModifications is null)
                 return;
