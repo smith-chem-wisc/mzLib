@@ -194,4 +194,86 @@ public class EntrapmentPeptideGeneratorTests
             EntrapmentPeptideGenerator.Create("ACDEFGHIK", Trypsin, NothingForbidden, fold: -1));
         Assert.That(negative!.Message, Does.Contain("Fold -1"));
     }
+
+    [Test]
+    public void ANullForbiddenSetMeansNothingIsForbidden()
+    {
+        // The parameter is optional in spirit -- a caller generating against no target database has
+        // nothing to forbid -- and a null set used to reach `.Contains` as a NullReferenceException
+        // out of a public API, which names no argument.
+        const string target = "ALADQMNLLLSK";
+
+        EntrapmentPeptide viaNull = EntrapmentPeptideGenerator.Create(target, Trypsin, null);
+        EntrapmentPeptide viaEmpty = EntrapmentPeptideGenerator.Create(target, Trypsin,
+            new HashSet<string>());
+
+        Assert.That(viaNull.Succeeded, Is.True);
+        Assert.That(viaNull.EntrapmentSequence, Is.EqualTo(viaEmpty.EntrapmentSequence),
+            "null and empty must be the same request, not merely both non-throwing");
+    }
+
+    [Test]
+    public void AFoldCountTheSpaceCannotCoverIsNeverReportedAsACrowdedDatabase()
+    {
+        // The identity is never a usable partner, so the space to share out is `size - 1`, not
+        // `size`. Testing `size / foldCount == 0` missed the boundary: whichever fold's stretch
+        // held the identity had its one candidate refused and reported as AllPermutationsTaken --
+        // which sends a caller after a different TARGET DATABASE when the answer is a smaller fold
+        // count. With nothing forbidden, AllPermutationsTaken is never the honest answer: nothing
+        // took them.
+        const string target = "AAGK";   // AAG, AGA, GAA with the K pinned
+
+        Assert.That(UsefulProteomicsDatabases.DecoySequenceValidator.PermutationSpaceSize(
+                target, Trypsin, null),
+            Is.EqualTo(new BigInteger(3)),
+            "fixture must really have a space of three, or it proves nothing");
+
+        Assert.That(EntrapmentPeptideGenerator.Create(target, Trypsin, NothingForbidden).Succeeded,
+            Is.True, "one fold is served by either of the two non-identity arrangements");
+
+        for (int foldCount = 2; foldCount <= 4; foldCount++)
+        {
+            for (int fold = 0; fold < foldCount; fold++)
+            {
+                EntrapmentPeptide result = EntrapmentPeptideGenerator.Create(target, Trypsin,
+                    NothingForbidden, fold: fold, foldCount: foldCount);
+
+                Assert.That(result.Failure, Is.Not.EqualTo(EntrapmentFailure.AllPermutationsTaken),
+                    "fold " + fold + " of " + foldCount + ": nothing was forbidden, so no "
+                    + "arrangement can have been taken -- the fold count is what does not fit");
+
+                if (!result.Succeeded)
+                {
+                    Assert.That(result.Failure,
+                        Is.EqualTo(EntrapmentFailure.SpaceTooSmallForFoldCount));
+                }
+            }
+        }
+
+        // Three folds over three arrangements cannot work at all, one of the three being the target.
+        for (int fold = 0; fold < 3; fold++)
+        {
+            Assert.That(EntrapmentPeptideGenerator.Create(target, Trypsin, NothingForbidden,
+                    fold: fold, foldCount: 3).Failure,
+                Is.EqualTo(EntrapmentFailure.SpaceTooSmallForFoldCount));
+        }
+    }
+
+    [Test]
+    public void AFailedSearchReportsHowMuchOfTheSpaceItWalked()
+    {
+        // ProbesUsed was hard-coded to 0 on every failure path, so the one number saying the walk
+        // was EXHAUSTIVE -- which is what makes "no partner exists" a proof rather than an
+        // abandoned search -- was absent exactly where it mattered.
+        const string target = "AAGK";
+        var everythingTaken = new HashSet<string> { "AGAK", "GAAK" };
+
+        EntrapmentPeptide result = EntrapmentPeptideGenerator.Create(target, Trypsin, everythingTaken);
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Failure, Is.EqualTo(EntrapmentFailure.AllPermutationsTaken),
+            "here the database really did take them, which is the other side of the test above");
+        Assert.That(result.ProbesUsed, Is.EqualTo(3),
+            "the whole space was examined, and the count is the evidence of it");
+    }
 }

@@ -60,10 +60,16 @@ public sealed class EntrapmentStratum
     /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds.
     /// </summary>
     /// <remarks>
-    /// This is the population an FDP estimator's <c>r</c> is over, and the denominator
+    /// <para>This is the population an FDP estimator's <c>r</c> is over, and the denominator
     /// <see cref="Ambiguous"/> belongs to -- <see cref="Ambiguous"/> is counted over missed-cleavage
     /// peptides too, so dividing it by <see cref="TargetPeptides"/> divides two different
-    /// populations. On the reviewed human proteome that mistake turned 0.24% into "1.19%".
+    /// populations. On the reviewed human proteome that mistake turned 0.24% into "1.19%".</para>
+    /// <para><b>A WHOLE-DATABASE figure, carried on <see cref="EntrapmentReport.Total"/> alone.</b>
+    /// It is counted once per protein rather than once per peptide, so it cannot be attributed to a
+    /// candidate-site stratum, and every stratum row therefore reads 0 for it. That zero is
+    /// structural, not a measurement: <c>ambiguous / searchSpacePeptides</c> is a whole-database
+    /// rate and computing it <i>within</i> a stratum row divides by zero. The column stays on the
+    /// stratum rows so the table keeps one shape, which the consumers already parse.</para>
     /// </remarks>
     public int SearchSpacePeptides { get; internal set; }
 
@@ -71,11 +77,14 @@ public sealed class EntrapmentStratum
     /// Distinct peptides a search could report from the <b>entrapment</b> side of the database.
     /// </summary>
     /// <remarks>
-    /// The counterpart of <see cref="SearchSpacePeptides"/>, and the other half of a peptide-level
-    /// <c>r</c>. <see cref="EntrapmentPeptides"/> counts base pieces, so the ratio built from it is a
-    /// base-piece ratio; excision makes the two search spaces differ by more than the fold factor, so
-    /// this cannot be derived from the target count and a correction. An FDP estimator wants
-    /// <c>entrapmentSearchSpacePeptides / searchSpacePeptides</c>.
+    /// <para>The counterpart of <see cref="SearchSpacePeptides"/>, and the other half of a
+    /// peptide-level <c>r</c>. <see cref="EntrapmentPeptides"/> counts base pieces, so the ratio
+    /// built from it is a base-piece ratio; excision makes the two search spaces differ by more than
+    /// the fold factor, so this cannot be derived from the target count and a correction. An FDP
+    /// estimator wants <c>entrapmentSearchSpacePeptides / searchSpacePeptides</c>.</para>
+    /// <para><b>A WHOLE-DATABASE figure, on <see cref="EntrapmentReport.Total"/> alone</b>, for the
+    /// same reason as <see cref="SearchSpacePeptides"/>: every stratum row reads 0, structurally,
+    /// and the ratio above is a whole-database ratio rather than a per-stratum one.</para>
     /// </remarks>
     public int EntrapmentSearchSpacePeptides { get; internal set; }
 
@@ -232,8 +241,8 @@ public sealed class EntrapmentReport
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> InitiatorMethionineCollisionsByAccession { get; }
 
     /// <summary>
-    /// Peptides of the foreign-species arm that are also target peptides, by the foreign protein's
-    /// own accession.
+    /// Peptides of the foreign-species arm that are also target peptides, by the accession of the
+    /// ENTRAPMENT entry holding them (<c>Random_foreign_&lt;accession&gt;</c>).
     /// </summary>
     /// <remarks>
     /// Homology, not a defect. A conserved protein shares peptides with its ortholog, and a shared
@@ -263,56 +272,71 @@ public sealed class EntrapmentReport
     public int EntriesYieldingNoPartner { get; internal set; }
 
     /// <summary>
-    /// The two exclusion lists as a tab-separated table: <c>accession, peptide, reason</c>.
+    /// Entries whose entrapment sequence came out byte for byte identical to its target, so they
+    /// entrap nothing.
     /// </summary>
     /// <remarks>
-    /// A sidecar rather than more columns on the stratified table, because these are per-peptide
-    /// facts and that table is per-stratum. Empty but for its header when nothing is excluded, which
-    /// is a meaningful answer rather than a missing file.
+    /// Legitimate only for an entry too small to contribute a searchable peptide at all -- every
+    /// piece below <c>MinLength</c> is kept verbatim, and the alternative is excising the whole
+    /// entry to say the same thing less clearly. Anything else reaching this count is a symptom: it
+    /// means the sequence was never partitioned into rearrangeable pieces. The agents that caused
+    /// that at scale -- those whose motif matches at every position -- are now refused at the call
+    /// by <see cref="EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld"/>, and this figure is
+    /// how anyone would find out if another route opened. Emitted as a provenance line only when
+    /// non-zero.
+    /// </remarks>
+    public int EntriesIdenticalToTarget { get; internal set; }
+
+    /// <summary>
+    /// The exclusion lists as a tab-separated table: <c>accession, peptide, reason, side</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>A sidecar rather than more columns on the stratified table, because these are
+    /// per-peptide facts and that table is per-stratum. Empty but for its header when nothing is
+    /// excluded, which is a meaningful answer rather than a missing file.</para>
+    /// <para><b><c>side</c> says which database the accession names</b>, and it exists because the
+    /// column genuinely holds two things. Three of the four reasons describe peptides of the
+    /// ENTRAPMENT database, keyed by the accession a search reports them under. <c>ambiguous</c>
+    /// describes peptides of the TARGET database -- two target peptides of one protein sharing a
+    /// composition-and-pinning key, so a discovery cannot be traced back to one of them -- and
+    /// re-keying those to an entrapment accession would assert something false about where they
+    /// live. Making the semantics uniform was the wrong repair; naming them is the right one. A
+    /// consumer filtering entrapment hits wants <c>side == "entrapment"</c>, and one excluding
+    /// ambiguous targets from a paired estimator wants the other.</para>
+    /// <para>Appended last so that a reader taking the first three fields positionally is
+    /// unaffected.</para>
     /// </remarks>
     public string ExclusionsToTabSeparated()
     {
         var text = new StringBuilder();
-        text.AppendLine(string.Join("\t", "accession", "peptide", "reason"));
+        text.AppendLine(string.Join("\t", "accession", "peptide", "reason", "side"));
 
-        foreach ((string accession, IReadOnlyCollection<string> peptides) in
-                 AmbiguousPeptidesByAccession.OrderBy(kv => kv.Key, StringComparer.Ordinal))
+        void Section(IReadOnlyDictionary<string, IReadOnlyCollection<string>> rows, string reason,
+            string side)
         {
-            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
+            foreach ((string accession, IReadOnlyCollection<string> peptides) in
+                     rows.OrderBy(kv => kv.Key, StringComparer.Ordinal))
             {
-                text.AppendLine(string.Join("\t", accession, peptide, "ambiguous"));
+                foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
+                {
+                    text.AppendLine(string.Join("\t", accession, peptide, reason, side));
+                }
             }
         }
 
-        foreach ((string accession, IReadOnlyCollection<string> peptides) in
-                 UnrepairableRunCollisionsByAccession.OrderBy(kv => kv.Key, StringComparer.Ordinal))
-        {
-            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
-            {
-                text.AppendLine(string.Join("\t", accession, peptide, "unrepairableRunCollision"));
-            }
-        }
-
-        foreach ((string accession, IReadOnlyCollection<string> peptides) in
-                 InitiatorMethionineCollisionsByAccession.OrderBy(kv => kv.Key, StringComparer.Ordinal))
-        {
-            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
-            {
-                text.AppendLine(string.Join("\t", accession, peptide, "initiatorMethionineCollision"));
-            }
-        }
-
-        foreach ((string accession, IReadOnlyCollection<string> peptides) in
-                 ForeignPeptidesSharedWithTarget.OrderBy(kv => kv.Key, StringComparer.Ordinal))
-        {
-            foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
-            {
-                text.AppendLine(string.Join("\t", accession, peptide, "sharedWithTarget"));
-            }
-        }
+        Section(AmbiguousPeptidesByAccession, "ambiguous", TargetSide);
+        Section(UnrepairableRunCollisionsByAccession, "unrepairableRunCollision", EntrapmentSide);
+        Section(InitiatorMethionineCollisionsByAccession, "initiatorMethionineCollision", EntrapmentSide);
+        Section(ForeignPeptidesSharedWithTarget, "sharedWithTarget", EntrapmentSide);
 
         return text.ToString();
     }
+
+    /// <summary>Value of the exclusion table's <c>side</c> column for target-database rows.</summary>
+    public const string TargetSide = "target";
+
+    /// <summary>Value of the exclusion table's <c>side</c> column for entrapment-database rows.</summary>
+    public const string EntrapmentSide = "entrapment";
 
     public EntrapmentProvenance Provenance { get; }
 
@@ -372,6 +396,11 @@ public sealed class EntrapmentReport
         if (EntriesYieldingNoPartner > 0)
         {
             text.AppendLine($"# entriesYieldingNoPartner\t{EntriesYieldingNoPartner.ToString(CultureInfo.InvariantCulture)}");
+        }
+        // Emitted only when non-zero, so a report from a healthy build is byte-identical to before.
+        if (EntriesIdenticalToTarget > 0)
+        {
+            text.AppendLine($"# entriesIdenticalToTarget\t{EntriesIdenticalToTarget.ToString(CultureInfo.InvariantCulture)}");
         }
         // The foreign arm contributes entries that no permutation figure describes, so
         // without these the provenance describes only half a database that has one, and the
@@ -439,6 +468,7 @@ public sealed class EntrapmentReportBuilder
     private readonly MassGroupComparison? _massGroups;
     private readonly string _entrapmentIdentifier;
     private int _entriesYieldingNoPartner;
+    private int _entriesIdenticalToTarget;
     private readonly Dictionary<string, HashSet<string>> _foreignSharedByAccession = new();
 
     /// <summary>
@@ -524,7 +554,11 @@ public sealed class EntrapmentReportBuilder
 
             // Each target peptide is counted once however many folds run, so the ratio below is
             // partners per target -- the achieved r -- rather than a fraction of what was asked.
-            if (_countedTargetPieces.Add(target.Accession + " " + piece.Index))
+            // "\0" as an escape, not as a literal NUL byte in the source. The separator has to be
+            // something no accession contains, and a raw NUL was doing that job -- but it also made
+            // this file binary to every tool that sniffs for one, so `git diff` printed "Binary
+            // files differ" and `grep` skipped it without saying so.
+            if (_countedTargetPieces.Add(target.Accession + "\0" + piece.Index))
             {
                 stratum.TargetPeptides++;
             }
@@ -558,6 +592,10 @@ public sealed class EntrapmentReportBuilder
         if (assembly.EntrapmentSequence.Length == 0)
         {
             _entriesYieldingNoPartner++;
+        }
+        else if (assembly.IsIdenticalToTarget)
+        {
+            _entriesIdenticalToTarget++;
         }
 
         _wholeProtein.EntrapmentSearchSpacePeptides +=
@@ -707,6 +745,7 @@ public sealed class EntrapmentReportBuilder
         {
             ForeignEntries = _foreignEntries,
             EntriesYieldingNoPartner = _entriesYieldingNoPartner,
+            EntriesIdenticalToTarget = _entriesIdenticalToTarget,
             // A snapshot, like the two dictionaries above it. Handing out the builder's live
             // dictionary let a later AddForeign mutate a report that had already been built.
             ForeignPeptidesSharedWithTarget = _foreignSharedByAccession

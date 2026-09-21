@@ -862,10 +862,21 @@ public class EntrapmentProteinTests
 
         Assert.That(entrapment.Select(e => e.Accession),
             Is.EquivalentTo(new[] { "Random_foreign_Q9SHARED", "Random_foreign_Q9CLEAN" }));
-        Assert.That(shared.ContainsKey("Q9SHARED"), Is.True,
+        // Keyed by the accession the ENTRY is written under, not the foreign protein's own. The
+        // exclusion sidecar has one `accession` column, and a consumer filtering it against what a
+        // search reported can only match rows keyed the way the database is; keyed by "Q9SHARED"
+        // these rows matched nothing, so the arm's one real hazard was named unusably.
+        string foreignAccession = EntrapmentAccession.FormatForeign("Q9SHARED");
+        Assert.That(foreignAccession, Is.EqualTo("Random_foreign_Q9SHARED"));
+        Assert.That(shared.ContainsKey("Q9SHARED"), Is.False,
+            "the foreign protein's own accession names no entry in the database that was written");
+        Assert.That(shared.ContainsKey(foreignAccession), Is.True,
             "fixture must actually share a peptide, or it proves nothing");
-        Assert.That(shared["Q9SHARED"], Does.Contain(conserved));
-        Assert.That(shared.ContainsKey("Q9CLEAN"), Is.False);
+        Assert.That(shared[foreignAccession], Does.Contain(conserved));
+        Assert.That(shared.ContainsKey(EntrapmentAccession.FormatForeign("Q9CLEAN")), Is.False);
+
+        // The key a consumer filters on is the one the entry carries, so they must agree exactly.
+        Assert.That(entrapment.Select(e => e.Accession), Is.SupersetOf(shared.Keys));
     }
 
     [Test]
@@ -1040,5 +1051,105 @@ public class EntrapmentProteinTests
             "the cleavage residue opening that piece is pinned as before");
         Assert.That(entrapment.BaseSequence[39], Is.EqualTo('E'),
             "the protein's own C-terminus was already anchored and stays so");
+    }
+
+    [Test]
+    [TestCase("top-down")]
+    [TestCase("peptidomics")]
+    [TestCase("singleN")]
+    [TestCase("singleC")]
+    public void AnAgentWithAnEmptyMotifIsRefused(string agentName)
+    {
+        // These four have an EMPTY Motif column in proteases.tsv, and `"".Split(',')` yields one
+        // motif whose InducingCleavage is "" -- so DigestionMotif.Fits runs its comparison loop
+        // zero times and returns true at every position. The sequence then partitions into single
+        // residues, every one of which is below MinLength and is kept verbatim, and the
+        // "entrapment" protein is emitted byte for byte identical to its target with
+        // IsEntrapment = true. The length test could not see them: zero is not greater than one.
+        var digestion = new DigestionParams(agentName, minPeptideLength: 7, maxMissedCleavages: 2);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("empty cleavage motif"));
+    }
+
+    [Test]
+    public void AWildcardAgentIsRefused()
+    {
+        // non-specific is 'X|', and MotifMatches returns true for 'X' against any residue, so it
+        // partitions into single residues exactly as an empty motif does. B, J and Z each match a
+        // definite pair of residues and stay allowed -- the positions they pin are still a function
+        // of the sequence, so a rearrangement can neither invent nor destroy one.
+        var digestion = new DigestionParams("non-specific", minPeptideLength: 7, maxMissedCleavages: 2);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("wildcard motif"));
+    }
+
+    [Test]
+    [TestCase("top-down")]
+    [TestCase("non-specific")]
+    public void AnUnpinnableAgentNeverEmitsAnEntrapmentEntryIdenticalToItsTarget(string agentName)
+    {
+        // The assertion the guard exists for, stated over the OUTPUT rather than over the message:
+        // no entry may be flagged IsEntrapment while carrying its target's own sequence. Before the
+        // guard both of these produced exactly that, and every Unpairable* column read 0 because
+        // the report skips pieces below MinLength.
+        var digestion = new DigestionParams(agentName, minPeptideLength: 7, maxMissedCleavages: 2);
+        var target = new Protein(Sequence, "P00001");
+
+        Assert.That(() => EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>(),
+            "an agent that pins every position must be refused, not allowed to emit a copy");
+    }
+
+    [Test]
+    public void ADecoyIsRefusedAsATargetToEntrapFrom()
+    {
+        // A decoy's accession is prefixed, not replaced, so the entry comes out
+        // "Random_DECOY_P00001_f0". ProteinDbLoader decides what an entry is with
+        // accession.StartsWith(decoyIdentifier), from the FRONT, so the entrapment prefix hides the
+        // decoy one and the entry reloads as a target-side entrapment entry -- a shuffle of a
+        // shuffle counted as an entrapment discovery.
+        var decoy = new Protein(Sequence, "DECOY_P00001", isDecoy: true);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentProteinGenerator.Create(decoy, Tryptic, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("DECOY"));
+
+        // The accession the guard prevents really would have been misread, which is the half of
+        // this that checking the message cannot show.
+        string wouldHaveBeen = EntrapmentAccession.Format("DECOY_P00001", 0);
+        Assert.That(wouldHaveBeen, Is.EqualTo("Random_DECOY_P00001_f0"));
+        Assert.That(wouldHaveBeen.StartsWith("DECOY"), Is.False,
+            "which is precisely why the loader would classify it as a target");
+    }
+
+    [Test]
+    public void ADecoyIsRefusedByTheForeignArmToo()
+    {
+        var decoy = new Protein(ForeignSequence, "DECOY_Q9CLEAN", isDecoy: true);
+
+        Assert.That(() => EntrapmentProteinGenerator.CreateForeign(decoy),
+            Throws.TypeOf<MzLibUtil.MzLibException>());
+    }
+
+    [Test]
+    public void ADecoyReachesTheGeneratorThroughItsOwnConsensusVariant()
+    {
+        // Why the guard is not paranoia: DecoyProteinGenerator passes nonVariantProtein:
+        // decoyConsensus, so a decoy's ConsensusVariant is a decoy and DatabaseEntries -- which
+        // deduplicates by consensus -- yields it as an entry of its own. A caller handing over the
+        // list a loader returned, targets and decoys together, is the ordinary shape.
+        var decoy = new Protein(Sequence, "DECOY_P00001", isDecoy: true);
+
+        Assert.That(EntrapmentProteinGenerator.DatabaseEntries(new[] { decoy }).ToList(),
+            Has.Count.EqualTo(1), "the decoy is its own database entry, so nothing filters it out");
+
+        Assert.That(() => EntrapmentProteinGenerator.GenerateEntrapment(
+                new[] { new Protein(Sequence, "P00001"), decoy }, Tryptic, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>(),
+            "a mixed target-and-decoy list must be refused rather than half-entrapped");
     }
 }

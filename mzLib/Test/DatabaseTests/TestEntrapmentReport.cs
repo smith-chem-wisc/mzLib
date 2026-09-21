@@ -494,12 +494,12 @@ public class EntrapmentReportTests
 
         string[] lines = report.ExclusionsToTabSeparated()
             .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
-        Assert.That(lines[0], Is.EqualTo("accession\tpeptide\treason"));
-        Assert.That(lines, Does.Contain(entrapmentAccession + "\t" + run + "\tunrepairableRunCollision"));
+        Assert.That(lines[0], Is.EqualTo("accession\tpeptide\treason\tside"));
+        Assert.That(lines, Does.Contain(entrapmentAccession + "\t" + run + "\tunrepairableRunCollision\tentrapment"));
 
         // The column and the sidecar are read together, so they count the same thing.
         Assert.That(report.Total.UnrepairableRunCollisions,
-            Is.EqualTo(lines.Count(l => l.EndsWith("\tunrepairableRunCollision"))),
+            Is.EqualTo(lines.Count(l => l.EndsWith("\tunrepairableRunCollision\tentrapment"))),
             "the stratified column counts peptides, as the sidecar does, not placements");
     }
 
@@ -523,8 +523,8 @@ public class EntrapmentReportTests
             Is.SupersetOf(new[] { "LIHTGVK", "LIHTVGK" }));
 
         string table = report.ExclusionsToTabSeparated();
-        Assert.That(table, Does.Contain("P00002\tLIHTGVK\tambiguous"));
-        Assert.That(table, Does.Contain("P00002\tLIHTVGK\tambiguous"));
+        Assert.That(table, Does.Contain("P00002\tLIHTGVK\tambiguous\ttarget"));
+        Assert.That(table, Does.Contain("P00002\tLIHTVGK\tambiguous\ttarget"));
     }
 
     [Test]
@@ -541,7 +541,7 @@ public class EntrapmentReportTests
 
         Assert.That(report.ForeignEntries, Is.EqualTo(2));
         Assert.That(report.ExclusionsToTabSeparated(),
-            Does.Contain("Q9SHARED	LIHTGVKPEPTIDER	sharedWithTarget"));
+            Does.Contain("Q9SHARED	LIHTGVKPEPTIDER	sharedWithTarget	entrapment"));
     }
 
     [Test]
@@ -566,7 +566,7 @@ public class EntrapmentReportTests
         var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
         string table = builder.Build().ExclusionsToTabSeparated();
 
-        Assert.That(table.Trim(), Is.EqualTo("accession\tpeptide\treason"));
+        Assert.That(table.Trim(), Is.EqualTo("accession\tpeptide\treason\tside"));
     }
 
     [Test]
@@ -690,5 +690,84 @@ public class EntrapmentReportTests
 
         Assert.That(report.EntriesYieldingNoPartner, Is.Zero);
         Assert.That(report.ToTabSeparated(), Does.Not.Contain("entriesYieldingNoPartner"));
+    }
+
+    [Test]
+    public void TheExclusionTableSaysWhichDatabaseEachAccessionNames()
+    {
+        // The `accession` column genuinely holds two things: `ambiguous` rows name TARGET peptides,
+        // the other three name ENTRAPMENT peptides. Making them uniform would have asserted
+        // something false about where the ambiguous ones live, so the table names the side instead.
+        IDigestionParams digestion = Tryptic;
+        var protein = new Protein("MSTQAEVDLNSGWKLIHTGVKLIHTVGKALADQMNLLLSK", "P00002");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+
+        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        builder.Add(protein, 0, assembly);
+        builder.AddForeign(1, new Dictionary<string, IReadOnlyCollection<string>>
+        {
+            ["Random_foreign_Q9SHARED"] = new[] { "LIHTGVKPEPTIDER" },
+        });
+
+        string[] lines = builder.Build().ExclusionsToTabSeparated()
+            .Split('\n').Select(l => l.TrimEnd('\r')).Where(l => l.Length > 0).ToArray();
+
+        Assert.That(lines[0], Is.EqualTo("accession\tpeptide\treason\tside"));
+        foreach (string line in lines.Skip(1))
+        {
+            string[] fields = line.Split('\t');
+            Assert.That(fields, Has.Length.EqualTo(4), "every row carries the side: " + line);
+            Assert.That(fields[3], Is.EqualTo(fields[2] == "ambiguous"
+                    ? EntrapmentReport.TargetSide
+                    : EntrapmentReport.EntrapmentSide),
+                "ambiguous rows are target-side and every other reason entrapment-side: " + line);
+        }
+
+        Assert.That(lines.Any(l => l.EndsWith("\tambiguous\ttarget")), Is.True,
+            "fixture must actually produce an ambiguous pair, or it proves nothing");
+        Assert.That(lines.Any(l => l.EndsWith("\tsharedWithTarget\tentrapment")), Is.True);
+    }
+
+    [Test]
+    public void AnEntryIdenticalToItsTargetIsCounted()
+    {
+        // A protein every one of whose pieces is below MinLength is kept verbatim throughout, so
+        // its "entrapment" sequence is its target's. Legitimate for an entry this small -- it
+        // contributes no searchable peptide either way -- but it entraps nothing, and the only
+        // thing worse than the count being non-zero is nobody being able to see that it is.
+        IDigestionParams digestion = Tryptic;
+        var tiny = new Protein("MKAPKGR", "P00009");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(tiny.BaseSequence, digestion,
+            NothingForbidden);
+        Assert.That(assembly.EntrapmentSequence, Is.EqualTo(tiny.BaseSequence),
+            "fixture must really come out identical, or it proves nothing");
+        Assert.That(assembly.IsIdenticalToTarget, Is.True);
+
+        builder.Add(tiny, 0, assembly);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.EntriesIdenticalToTarget, Is.EqualTo(1));
+        Assert.That(report.ToTabSeparated(), Does.Contain("# entriesIdenticalToTarget\t1"));
+    }
+
+    [Test]
+    public void AHealthyReportDoesNotCarryTheIdenticalEntryLine()
+    {
+        // Emitted only when non-zero, so an ordinary report stays byte-identical to what consumers
+        // already parse.
+        IDigestionParams digestion = Tryptic;
+        var protein = new Protein("SYKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P00001");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+
+        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        builder.Add(protein, 0, assembly);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.EntriesIdenticalToTarget, Is.Zero);
+        Assert.That(report.ToTabSeparated(), Does.Not.Contain("entriesIdenticalToTarget"));
     }
 }

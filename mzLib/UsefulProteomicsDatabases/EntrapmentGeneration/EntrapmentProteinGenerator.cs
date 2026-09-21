@@ -19,6 +19,39 @@ namespace UsefulProteomicsDatabases.EntrapmentGeneration;
 public static class EntrapmentProteinGenerator
 {
     /// <summary>
+    /// Refuses a decoy handed in as a target, because the entry minted from it reloads as neither.
+    /// </summary>
+    /// <remarks>
+    /// <para>The accession is built by prefixing, so a decoy target yields
+    /// <c>Random_DECOY_P12345_f0</c>. <see cref="ProteinDbLoader"/> decides what an entry is by
+    /// <c>accession.StartsWith(decoyIdentifier)</c> -- from the front -- so the prefix hides the
+    /// <c>DECOY</c> and the entry loads back as a <b>target-side entrapment</b> entry. It is then a
+    /// shuffle of a shuffle counted as an entrapment discovery, which is exactly the circularity the
+    /// foreign arm exists to avoid.</para>
+    /// <para>Nothing upstream stops a caller reaching this: a decoy's <c>ConsensusVariant</c> is
+    /// itself a decoy (<c>DecoyProteinGenerator</c> passes <c>nonVariantProtein: decoyConsensus</c>),
+    /// so <see cref="DatabaseEntries"/> yields it as an entry of its own, and a caller passing the
+    /// list a loader returned -- targets and decoys together, which is the ordinary shape -- gets
+    /// partners for both. Refused rather than skipped: silently generating fewer entries than the
+    /// caller expected is the failure mode this project keeps finding, and a count that quietly
+    /// disagrees with its input is worse than a throw naming the entry.</para>
+    /// </remarks>
+    private static void RefuseDecoy(Protein protein)
+    {
+        if (!protein.IsDecoy)
+        {
+            return;
+        }
+
+        throw new MzLibException(
+            $"'{protein.Accession}' is a DECOY, and an entrapment entry minted from it would carry "
+            + "the entrapment prefix in front of the decoy one, so a loader reading the accession "
+            + "from the front would classify it as a target-side entrapment entry. Generate "
+            + "entrapment entries from the TARGET proteins only, and generate decoys from the "
+            + "finished target-plus-entrapment database afterwards.");
+    }
+
+    /// <summary>
     /// Entrapment entries taken from a foreign proteome, and the peptides they share with the
     /// target database.
     /// </summary>
@@ -26,7 +59,9 @@ public static class EntrapmentProteinGenerator
     /// <param name="digestionParams">Used to digest the foreign proteins for the sharing check.</param>
     /// <param name="targetPeptides">Every peptide of the target database.</param>
     /// <param name="sharedWithTarget">Foreign peptides that are also target peptides, by the
-    /// foreign protein's own accession. Empty when the two proteomes are disjoint.</param>
+    /// accession of the ENTRAPMENT entry holding them (<c>Random_foreign_&lt;accession&gt;</c>) -- the
+    /// accession a search reports them under, and so the one a consumer can filter on. Empty when
+    /// the two proteomes are disjoint.</param>
     /// <remarks>
     /// <para><b>Why this arm is required scope rather than a nicety.</b> If the entrapment sequences
     /// and the decoy sequences are both shuffles of the target, they are the same construction, and
@@ -77,7 +112,15 @@ public static class EntrapmentProteinGenerator
 
             if (collisions.Count > 0)
             {
-                shared[foreign.Accession] = collisions;
+                // Keyed by the accession the ENTRY is written under, not the foreign protein's own.
+                // The other two exclusion lists were re-keyed to the entrapment accession for a
+                // reason that applies here identically: the sidecar is one table with one
+                // `accession` column, and a consumer filtering it against what a search reported
+                // can only match rows keyed the way the database is. Keyed by `foreign.Accession`
+                // these rows matched nothing, so the arm's one real hazard -- homology -- was named
+                // in a form nobody could subtract.
+                shared[EntrapmentAccession.FormatForeign(foreign.Accession, entrapmentIdentifier)] =
+                    collisions;
             }
 
             entrapment.Add(CreateForeign(foreign, entrapmentIdentifier));
@@ -95,6 +138,7 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build a foreign entrapment entry from a null protein.");
         }
+        RefuseDecoy(foreign);
 
         // The sequence is untouched, so unlike the permutation path the positional annotations still
         // describe it and are kept. Sequence variations are the exception: applying them would
@@ -281,6 +325,7 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build an entrapment protein from a null target.");
         }
+        RefuseDecoy(target);
 
         assembly = EntrapmentAssembler.Assemble(target.BaseSequence, digestionParams,
             forbiddenSequences, fold, foldCount, seed);

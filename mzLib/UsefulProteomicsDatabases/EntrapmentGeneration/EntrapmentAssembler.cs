@@ -156,14 +156,43 @@ public sealed class EntrapmentAssembly
     /// <para>The route survives a build at <c>MaxMissedCleavages = 0</c>, which deletes the run
     /// route entirely, so it is the only way a real target peptide reaches the entrapment set there.
     /// Measured on the reviewed human proteome before this check existed: two peptides under Arg-C
-    /// and two under Glu-C, none under Asp-N -- 0.0005% -- and, because a run collision was the only
-    /// reason the exclusion sidecar could name, they appeared in no list at all. A count of zero
-    /// here is the statement that the check ran, which an absent column is not.</para>
+    /// and two under Glu-C, none under Asp-N -- 0.0005%.</para>
+    /// <para><b>This list is an assertion channel, and under the current rules it is provably always
+    /// empty.</b> A piece that can be rearranged has every strip-colliding arrangement refused
+    /// outright, and a piece whose every arrangement strip-collides is excised as
+    /// <see cref="EntrapmentFailure.RunCollisionsExhaustedTheSpace"/>; neither is retained and
+    /// listed. The one site that appends here is the kept-verbatim branch, whose piece is already
+    /// shorter than <c>MinLength</c>, so its stripped form is shorter still and the check returns
+    /// null before it can match. The code is written anyway because "cannot fire" is a claim worth
+    /// letting the count check: if a future change to the excision rule or the length bounds makes
+    /// it reachable, this list says so instead of the peptide leaking silently. Do not read a zero
+    /// here as a measurement of the route -- the rejections are the measurement, and they are
+    /// counted as excisions.</para>
     /// </remarks>
     public IReadOnlyList<string> InitiatorMethionineCollisionPeptides { get; }
 
     /// <summary>How many of <see cref="InitiatorMethionineCollisionPeptides"/> there are.</summary>
     public int InitiatorMethionineCollisions => InitiatorMethionineCollisionPeptides.Count;
+
+    /// <summary>
+    /// The entrapment sequence came out byte for byte identical to its target, so the entry is no
+    /// entrapment at all.
+    /// </summary>
+    /// <remarks>
+    /// <para>The construction cannot produce this from a usable agent: a piece long enough to be
+    /// identified is either rearranged or excised, so an identical sequence means every piece was
+    /// kept verbatim, which in turn means no piece reached <c>MinLength</c>. That is legitimate for
+    /// a genuinely tiny protein -- a nine-residue entry digesting into two short pieces contributes
+    /// nothing a search can report, and excising it would say the same thing less clearly -- and it
+    /// is a symptom for anything larger.</para>
+    /// <para>Counted rather than refused, because the two cases are indistinguishable here and this
+    /// project counts what it cannot repair. The agent that made it reachable at scale -- one whose
+    /// motif matches everywhere, so every piece is a single residue -- is refused at the call
+    /// instead, by <see cref="EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld"/>.</para>
+    /// </remarks>
+    public bool IsIdenticalToTarget =>
+        EntrapmentSequence.Length > 0
+        && string.Equals(EntrapmentSequence, TargetSequence, StringComparison.Ordinal);
 
     public int ExcisedCount => Pieces.Count(p => p.Outcome == PieceOutcome.Excised);
 
@@ -186,13 +215,17 @@ public sealed class EntrapmentAssembly
 /// </remarks>
 public static class EntrapmentAssembler
 {
+    /// <summary>Stands in for a null exclusion set, so "nothing is forbidden" costs no allocation.</summary>
+    private static readonly IReadOnlySet<string> NoForbiddenSequences = new HashSet<string>();
+
     /// <summary>
     /// Builds the entrapment sequence for one fold.
     /// </summary>
     /// <param name="targetSequence">The target sequence, typically a protein.</param>
     /// <param name="digestionParams">Supplies the cleavage sites and the minimum peptide length
     /// below which a piece is not identifiable on its own.</param>
-    /// <param name="forbiddenSequences">Sequences no partner may equal, normally every target peptide.</param>
+    /// <param name="forbiddenSequences">Sequences no partner may equal, normally every target
+    /// peptide. Null is read as "nothing is forbidden", the same as an empty set.</param>
     /// <param name="fold">Zero-based fold, in <c>[0, foldCount)</c>.</param>
     /// <param name="foldCount">Partners per target -- the <c>r</c> of an r-fold database.</param>
     /// <param name="seed">Changes every choice reproducibly.</param>
@@ -203,6 +236,10 @@ public static class EntrapmentAssembler
         {
             throw new MzLibException("Cannot assemble an entrapment sequence from an empty sequence.");
         }
+
+        // Read as "nothing is forbidden", matching EntrapmentPeptideGenerator.Create. Passed on
+        // unvalidated, a null set reached `.Contains` there as a NullReferenceException.
+        forbiddenSequences ??= NoForbiddenSequences;
 
         List<DigestionMotif> motifs = digestionParams.DigestionAgent.DigestionMotifs;
         RefuseAgentsWhoseSitesCannotBeHeld(digestionParams.DigestionAgent.Name, motifs);
@@ -391,8 +428,36 @@ public static class EntrapmentAssembler
     /// <exception cref="MzLibException">The agent carries a preventing or multi-residue motif.</exception>
     internal static void RefuseAgentsWhoseSitesCannotBeHeld(string agentName, List<DigestionMotif> motifs)
     {
+        // A null list is the "no agent was supplied" case, which the callers report themselves. An
+        // EMPTY one is an agent that pins nothing, which is the defect this method exists to refuse.
+        if (motifs is not null && motifs.Count == 0)
+        {
+            throw new MzLibException(
+                $"The digestion agent '{agentName}' has no cleavage motifs, so there is nothing to "
+                + "hold in place and every position of the sequence is free to move. Use an agent "
+                + "with at least one single-residue motif.");
+        }
+
         foreach (DigestionMotif motif in motifs ?? new List<DigestionMotif>())
         {
+            // An EMPTY inducing cleavage matches at every position -- DigestionMotif.Fits runs its
+            // comparison loop zero times and falls through to `fits = true` -- so the sequence
+            // partitions into single residues, each with a permutation space of one. Every piece
+            // then takes the kept-verbatim branch and the "entrapment" protein is emitted byte for
+            // byte identical to its target, flagged IsEntrapment and counted as a partner. Four
+            // shipped agents parse to exactly this, because `"".Split(',')` yields one empty motif:
+            // `top-down`, `peptidomics`, `singleN` and `singleC`. The length test below cannot see
+            // them -- zero is not greater than one -- which is why this is its own check.
+            if (string.IsNullOrEmpty(motif.InducingCleavage))
+            {
+                throw new MzLibException(
+                    $"The digestion agent '{agentName}' has an empty cleavage motif, which matches at "
+                    + "every position, so the sequence partitions into single residues and no "
+                    + "rearrangement exists. The entrapment protein would be identical to its target. "
+                    + "Agents that do not cleave -- top-down, peptidomics, singleN, singleC -- cannot "
+                    + "drive this per-piece construction; proteoform mode is the top-down path.");
+            }
+
             if (!string.IsNullOrEmpty(motif.PreventingCleavage))
             {
                 throw new MzLibException(
@@ -411,6 +476,26 @@ public static class EntrapmentAssembler
                     + "pieces, so neither fragment matches inside its own piece and nothing is held at "
                     + "the seam. The entrapment protein would not digest into the same pieces as its "
                     + "target. Use a single-residue agent.");
+            }
+
+            // A WILDCARD motif matches at every position, because `MotifMatches` returns true for
+            // 'X' against any residue -- so `non-specific` ('X|') partitions the sequence into
+            // single residues exactly as an empty motif does, and for the same reason. B, J and Z
+            // are NOT wildcards: each matches a definite pair of residues, so the positions they
+            // pin are still a function of the sequence and a rearrangement can neither invent nor
+            // destroy one.
+            //
+            // Tested AFTER the length check, not before, because a multi-residue motif that also
+            // contains a wildcard -- StcE's 'TX|T', collagenase's 'GPX|GPX' -- is refused for the
+            // sharper reason. Both refusals are correct; the caller is better served by the one
+            // that names the seam.
+            if (motif.InducingCleavage.Contains('X'))
+            {
+                throw new MzLibException(
+                    $"The digestion agent '{agentName}' has a wildcard motif "
+                    + $"('{motif.InducingCleavage}'), which matches at every position, so the sequence "
+                    + "partitions into single residues and no rearrangement exists. Use an agent whose "
+                    + "motifs name specific residues.");
             }
         }
     }

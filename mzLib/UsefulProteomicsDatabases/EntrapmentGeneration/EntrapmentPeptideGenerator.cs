@@ -90,7 +90,11 @@ public sealed class EntrapmentPeptide
     /// is what distinguishes an impossible peptide from a merely crowded one.</summary>
     public BigInteger PermutationSpaceSize { get; }
 
-    /// <summary>Candidates examined, including the one returned. One means the first choice was free.</summary>
+    /// <summary>
+    /// Candidates examined, including the one returned. One means the first choice was free; on a
+    /// failure it is the whole stretch, which is what makes the failure a proof. Saturates at
+    /// <see cref="int.MaxValue"/> rather than overflowing, being a diagnostic.
+    /// </summary>
     public int ProbesUsed { get; }
 
     public EntrapmentFailure Failure { get; }
@@ -121,6 +125,9 @@ public sealed class EntrapmentPeptide
 /// </remarks>
 public static class EntrapmentPeptideGenerator
 {
+    /// <summary>Stands in for a null exclusion set, so "nothing is forbidden" costs no allocation.</summary>
+    private static readonly IReadOnlySet<string> NoForbiddenSequences = new HashSet<string>();
+
     /// <summary>
     /// The entrapment partner of <paramref name="targetSequence"/> for one fold.
     /// </summary>
@@ -128,7 +135,7 @@ public static class EntrapmentPeptideGenerator
     /// <param name="motifs">Cleavage motifs whose residues must stay in place, so that the partner
     /// still digests the same way. Typically <c>DigestionAgent.DigestionMotifs</c>.</param>
     /// <param name="forbiddenSequences">Sequences the partner may not equal -- normally every target
-    /// peptide in the database.</param>
+    /// peptide in the database. Null is read as "nothing is forbidden", the same as an empty set.</param>
     /// <param name="fold">Zero-based fold, in <c>[0, foldCount)</c>.</param>
     /// <param name="foldCount">How many partners each target is to receive (the <c>r</c> of an
     /// r-fold entrapment database).</param>
@@ -160,36 +167,62 @@ public static class EntrapmentPeptideGenerator
             throw new MzLibException($"Fold {fold} is outside the {foldCount} requested folds.");
         }
 
+        // No exclusions rather than an exception. The parameter is optional in spirit -- a caller
+        // generating against no target database has nothing to forbid -- and reaching `.Contains`
+        // on a null set threw a NullReferenceException out of a public API, which says nothing
+        // about which argument was wrong.
+        forbiddenSequences ??= NoForbiddenSequences;
+
         BigInteger size = DecoySequenceValidator.PermutationSpaceSize(targetSequence, motifs, alsoHeldInPlace);
 
         // One arrangement means the identity and nothing else. No fold count and no seed can help.
         if (size <= BigInteger.One)
         {
-            return Failed(targetSequence, fold, size, EntrapmentFailure.NoPermutationExists);
+            return Failed(targetSequence, fold, size, 0, EntrapmentFailure.NoPermutationExists);
+        }
+
+        // The identity is never a usable partner, so the space a fold count has to be shared out
+        // over is `size - 1`, not `size`. Testing `size / foldCount == 0` missed the boundary: at
+        // size 3 and foldCount 3 every fold gets a stretch of one, and whichever stretch holds the
+        // identity has that single candidate refused and reported as AllPermutationsTaken -- which
+        // sends a caller after a different target database when the answer is a smaller fold count.
+        if (size - BigInteger.One < foldCount)
+        {
+            return Failed(targetSequence, fold, size, 0, EntrapmentFailure.SpaceTooSmallForFoldCount);
         }
 
         // Give each fold its own contiguous stretch of the space. Disjoint stretches make the folds
         // distinct by construction and independent of one another -- neither has to know what the
         // others chose, so they can be produced in any order, in parallel, or years apart.
         BigInteger stretch = size / foldCount;
-        if (stretch.IsZero)
-        {
-            return Failed(targetSequence, fold, size, EntrapmentFailure.SpaceTooSmallForFoldCount);
-        }
 
         BigInteger start = fold * stretch;
         BigInteger offset = DeriveOffset(targetSequence, seed, stretch);
 
         bool anyRejectedOnlyByContext = false;
+        bool rejectedAsIdentity = false;
+        bool rejectedAsForbidden = false;
+        BigInteger probes = BigInteger.Zero;
 
         for (BigInteger step = BigInteger.Zero; step < stretch; step++)
         {
+            probes = step + BigInteger.One;
             BigInteger index = start + (offset + step) % stretch;
             string candidate = DecoySequenceValidator.UnrankPermutation(targetSequence, motifs, index,
                 out int[] swapped, alsoHeldInPlace);
 
-            if (candidate == targetSequence || forbiddenSequences.Contains(candidate))
+            if (candidate == targetSequence)
             {
+                // Refused because it IS the target, which is a property of the stretch this fold was
+                // handed rather than of a crowded database. Tracked apart so that a stretch holding
+                // nothing but the identity is reported as a fold count too large.
+                rejectedAsIdentity = true;
+                continue;
+            }
+
+            if (forbiddenSequences.Contains(candidate))
+            {
+                rejectedAsForbidden = true;
                 continue;
             }
 
@@ -201,21 +234,41 @@ public static class EntrapmentPeptideGenerator
             }
 
             return new EntrapmentPeptide(targetSequence, candidate, swapped, fold, size,
-                (int)(step + BigInteger.One), EntrapmentFailure.None);
+                Probes(probes), EntrapmentFailure.None);
         }
 
         // The stretch was walked end to end, so this is a proof rather than an abandoned search --
         // and which proof it is depends on what did the refusing. Reporting a run collision as
         // "all permutations taken" would send a caller after a different target database when the
-        // answer is a different seed.
-        return Failed(targetSequence, fold, size, anyRejectedOnlyByContext
+        // answer is a different seed. The probe count is the whole stretch, not zero: it is the
+        // evidence the walk was exhaustive, and it is on the failure paths that a reader most wants
+        // to know how much was examined.
+        EntrapmentFailure reason = anyRejectedOnlyByContext
             ? EntrapmentFailure.RunCollisionsExhaustedTheSpace
-            : EntrapmentFailure.AllPermutationsTaken);
+            : rejectedAsIdentity && !rejectedAsForbidden
+                ? EntrapmentFailure.SpaceTooSmallForFoldCount
+                : EntrapmentFailure.AllPermutationsTaken;
+
+        return Failed(targetSequence, fold, size, Probes(probes), reason);
     }
 
+    /// <summary>
+    /// The probe count as a diagnostic <see cref="int"/>, saturating rather than throwing.
+    /// </summary>
+    /// <remarks>
+    /// The walk is over a <see cref="BigInteger"/> stretch, which a lightly-pinned peptide can make
+    /// larger than <see cref="int.MaxValue"/>. An explicit conversion is checked, so a walk that
+    /// ever got that far would throw <see cref="OverflowException"/> out of a report build whose job
+    /// was to classify the outcome -- trading a usable answer for a crash, over a number that is
+    /// only ever read as a diagnostic. Saturating says "at least this many", which is what the
+    /// column means at that magnitude anyway.
+    /// </remarks>
+    private static int Probes(BigInteger probes) =>
+        probes >= int.MaxValue ? int.MaxValue : (int)probes;
+
     private static EntrapmentPeptide Failed(string targetSequence, int fold, BigInteger size,
-        EntrapmentFailure failure) =>
-        new(targetSequence, null, null, fold, size, 0, failure);
+        int probesUsed, EntrapmentFailure failure) =>
+        new(targetSequence, null, null, fold, size, probesUsed, failure);
 
     /// <summary>
     /// Where in a fold's stretch to start looking, derived from the sequence and the seed.
