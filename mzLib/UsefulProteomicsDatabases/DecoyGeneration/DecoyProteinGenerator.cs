@@ -374,7 +374,7 @@ namespace UsefulProteomicsDatabases
                 List<SpliceSite> spliceSitesSlide = new List<SpliceSite>();
                 bool initMet = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
                 Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedPossibleLocalizedModifications);
-                Dictionary<int, List<Modification>> decoyFixedModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedFixedModifications);
+                Dictionary<int, Modification> decoyFixedModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedFixedModifications);
 
                 var slided_sequence = new string(sequenceArraySlided);
 
@@ -468,7 +468,7 @@ namespace UsefulProteomicsDatabases
             return decoyProteins;
         }
 
-        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, int sequenceLength, IDictionary<int, List<Modification>> sourceModifications)
+        private static Dictionary<int, Modification> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, int sequenceLength, IDictionary<int, Modification> sourceModifications)
         {
             // Do not include the initiator methionine in shuffle!!!
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -481,7 +481,7 @@ namespace UsefulProteomicsDatabases
                 sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, sequenceLength, initiatorMethionine)];
             }
 
-            Dictionary<int, List<Modification>> decoyModifications = new Dictionary<int, List<Modification>>(sourceModifications.Count);
+            Dictionary<int, Modification> decoyModifications = new Dictionary<int, Modification>(sourceModifications.Count);
             foreach (var kvp in sourceModifications)
             {
                 if (initiatorMethionine && kvp.Key == 1)
@@ -497,10 +497,33 @@ namespace UsefulProteomicsDatabases
             return decoyModifications;
         }
 
-        private static Dictionary<int, List<Modification>> ReverseProteinModifications(
-            IDictionary<int, List<Modification>> sourceModifications, int sequenceLength, bool startsWithM)
+        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods(
+            char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine,
+            int numSlides, int sequenceLength, IDictionary<int, List<Modification>> sourceModifications)
         {
-            var reversed = new Dictionary<int, List<Modification>>(sourceModifications.Count);
+            int startIndex = initiatorMethionine ? 1 : 0;
+            if (numSlides % sequenceArraySlided.Length - startIndex == 0)
+                numSlides++;
+
+            for (int i = startIndex; i < sequenceArraySlided.Length; i++)
+                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, sequenceLength, initiatorMethionine)];
+
+            var decoyModifications = new Dictionary<int, List<Modification>>(sourceModifications.Count);
+            foreach (var kvp in sourceModifications)
+            {
+                int newPosition = initiatorMethionine && kvp.Key == 1
+                    ? 1
+                    : GetNewSlidedIndex(kvp.Key - 1, numSlides, sequenceLength, initiatorMethionine) + 1;
+                decoyModifications.Add(newPosition, kvp.Value);
+            }
+
+            return decoyModifications;
+        }
+
+        private static Dictionary<int, Modification> ReverseProteinModifications(
+            IDictionary<int, Modification> sourceModifications, int sequenceLength, bool startsWithM)
+        {
+            var reversed = new Dictionary<int, Modification>(sourceModifications.Count);
             foreach (var kvp in sourceModifications)
             {
                 int reverseKey = startsWithM

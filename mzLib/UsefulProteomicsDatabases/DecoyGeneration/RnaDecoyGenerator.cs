@@ -71,7 +71,7 @@ namespace UsefulProteomicsDatabases
                     reverseModifications.Add(reverseKey, kvp.Value);
                 }
 
-                var reverseFixedModifications = new Dictionary<int, List<Modification>>();
+                var reverseFixedModifications = new Dictionary<int, Modification>();
                 foreach (var kvp in nucleicAcid.OneBasedFixedModifications)
                 {
                     var reverseKey = indexMapping[kvp.Key];

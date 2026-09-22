@@ -22,7 +22,7 @@ namespace Test.Omics;
     public string DatabaseFilePath { get; } = "";
     public int Length => BaseSequence.Length;
     public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } = new Dictionary<int, List<Modification>>();
-    public IDictionary<int, List<Modification>> OneBasedFixedModifications { get; } = new Dictionary<int, List<Modification>>();
+    public IDictionary<int, Modification> OneBasedFixedModifications { get; } = new Dictionary<int, Modification>();
     public string SampleNameForVariants { get; set; } = "";
     public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; } = new Dictionary<int, List<Modification>>();
     public IBioPolymer ConsensusVariant => this;

@@ -16,7 +16,7 @@ namespace Transcriptomics
         public RNA(string sequence,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            IDictionary<int, List<Modification>>? oneBasedFixedModifications = null)
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : base(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm, oneBasedFixedModifications)
         {
         }
@@ -36,7 +36,7 @@ namespace Transcriptomics
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null,
             bool isEntrapment = false,
-            IDictionary<int, List<Modification>>? oneBasedFixedModifications = null)
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : base(sequence, accession, oneBasedPossibleModifications, fivePrimeTerminus, threePrimeTerminus,
                 name, organism, databaseFilePath, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
                 truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName,
