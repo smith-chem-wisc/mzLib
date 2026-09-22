@@ -61,7 +61,7 @@ namespace Transcriptomics
                     var newParent = new RNA(newSequence, accession, newModifications,oldParent.FivePrimeTerminus, oldParent.ThreePrimeTerminus, 
                      oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
                      newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName,
-                     oldParent.IsEntrapment, fixedMods);
+                      oldParent.IsEntrapment, newFixedMods);
 
 
                     returnObj = new OligoWithSetMods(

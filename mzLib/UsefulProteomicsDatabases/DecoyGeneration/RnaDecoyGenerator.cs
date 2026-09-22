@@ -70,6 +70,13 @@ namespace UsefulProteomicsDatabases
                     var reverseKey = indexMapping[kvp.Key];
                     reverseModifications.Add(reverseKey, kvp.Value);
                 }
+
+                var reverseFixedModifications = new Dictionary<int, List<Modification>>();
+                foreach (var kvp in nucleicAcid.OneBasedFixedModifications)
+                {
+                    var reverseKey = indexMapping[kvp.Key];
+                    reverseFixedModifications.Add(reverseKey, kvp.Value);
+                }
                 
                 List<TruncationProduct> reverseTruncs = new List<TruncationProduct>();
                 List<SequenceVariation> reverseVariations = new List<SequenceVariation>();
@@ -114,7 +121,7 @@ namespace UsefulProteomicsDatabases
                     }
                 }
 
-                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, reverseTruncs, reverseVariations, reverseAppliedVariations, decoyIdentifier);
+                T newNucleicAcid = nucleicAcid.CreateNew(reverseSequence, reverseModifications, true, reverseTruncs, reverseVariations, reverseAppliedVariations, decoyIdentifier, reverseFixedModifications);
                 lock (decoyNucleicAcids)
                 {
                     decoyNucleicAcids.Add(newNucleicAcid);
