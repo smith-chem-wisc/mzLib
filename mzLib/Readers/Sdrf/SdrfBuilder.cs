@@ -105,15 +105,20 @@ namespace Readers
             // Union with the required set, so a caller who supplied no characteristics at all still
             // gets a spec-conformant header. See RequiredCharacteristics for why absent is worse
             // than empty.
+            // BOTH dictionaries join one union. If the free-text keys did not, a row would carry a
+            // cell the header never declared and the table would go ragged -- the defect class this
+            // builder has already been fixed for twice.
             var characteristicColumns = inputs
-                .SelectMany(r => r.Sample.Characteristics.Keys)
+                .SelectMany(r => r.Sample.Characteristics.Keys.Concat(r.Sample.RawCharacteristics.Keys))
                 .Concat(RequiredCharacteristics)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
 
+            // Sorted ordinally rather than left in insertion order, so two rows that name their
+            // columns in different orders still produce one deterministic header.
             var factorColumns = inputs
-                .Select(r => r.Sample.FactorValueColumn)
+                .SelectMany(r => r.Sample.FactorValues.Keys.Append(r.Sample.FactorValueColumn))
                 .Where(c => !string.IsNullOrWhiteSpace(c))
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
@@ -159,6 +164,35 @@ namespace Readers
                 throw new ArgumentException(
                     $"Row {index} has a null {nameof(SdrfAssay.VariableModifications)}; pass an " +
                     "empty list for a search with none.", nameof(input));
+            if (input.Sample.RawCharacteristics is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.RawCharacteristics)}; pass an empty " +
+                    "dictionary for a sample with no free-text characteristics.", nameof(input));
+            if (input.Sample.FactorValues is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.FactorValues)}; pass an empty " +
+                    "dictionary for a sample with no factor values.", nameof(input));
+
+            // One column space, two dictionaries. Preferring either one silently is how a column
+            // comes to mean a term on some rows and free text on others.
+            var both = input.Sample.Characteristics.Keys
+                .Intersect(input.Sample.RawCharacteristics.Keys, StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (both.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} puts {string.Join(", ", both)} in both " +
+                    $"{nameof(SdrfSample.Characteristics)} and {nameof(SdrfSample.RawCharacteristics)}. " +
+                    "A column may be a term or free text, not both; decide in the caller.", nameof(input));
+
+            // Same rule, one level up: FactorValue/FactorValueColumn is shorthand for a one-entry
+            // FactorValues, and two statements of one row's factors that disagree is a caller error.
+            if (input.Sample.FactorValues.Count > 0
+                && !string.IsNullOrWhiteSpace(input.Sample.FactorValueColumn))
+                throw new ArgumentException(
+                    $"Row {index} sets both {nameof(SdrfSample.FactorValues)} and " +
+                    $"{nameof(SdrfSample.FactorValueColumn)}. The pair is the one-factor shorthand " +
+                    "for the dictionary; use one or the other.", nameof(input));
         }
 
         private static List<string> BuildHeader(
@@ -205,9 +239,26 @@ namespace Readers
             };
 
             foreach (var column in characteristics)
-                cells.Add(sample.Characteristics.TryGetValue(column, out var value)
-                    ? Term(value, column, options)
-                    : Missing(column, options));
+            {
+                if (sample.Characteristics.TryGetValue(column, out var term))
+                    cells.Add(Term(term, column, options));
+                else if (sample.RawCharacteristics.TryGetValue(column, out var free))
+                    // Verbatim, reserved words included: this cell is somebody else's statement and
+                    // the builder is carrying it, not making it. Blank is the one case it will not
+                    // pass on -- Required turns that into the same reserved word an absent cell
+                    // gets, because a blank cell and a missing one make the same claim.
+                    cells.Add(Required(free, column, options));
+                else if (RequiredCharacteristics.Contains(column, StringComparer.Ordinal))
+                    // D17 governs the columns the SPECIFICATION requires: opting in and then leaving
+                    // one blank is what fills the corpus with reserved words, so it refuses.
+                    cells.Add(Missing(column, options));
+                else
+                    // But a column that exists only because ANOTHER row carried it is a different
+                    // case. One described sample must not fail the whole document, and "this sample
+                    // has no age" is exactly what the reserved word is for -- the column is here
+                    // because somewhere a real value was supplied, and this cell marks who lacks it.
+                    cells.Add(SdrfReserved.NotAvailable);
+            }
 
             cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate));
 
@@ -247,10 +298,18 @@ namespace Readers
                 cells.Add("v" + options.SdrfVersion.TrimStart('v', 'V'));
 
             foreach (var column in factors)
-                cells.Add(string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
-                          && !string.IsNullOrWhiteSpace(sample.FactorValue)
-                    ? sample.FactorValue
-                    : SdrfReserved.NotApplicable);
+            {
+                if (sample.FactorValues.TryGetValue(column, out var factor)
+                    && !string.IsNullOrWhiteSpace(factor))
+                    cells.Add(factor);
+                else if (string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
+                         && !string.IsNullOrWhiteSpace(sample.FactorValue))
+                    cells.Add(sample.FactorValue);
+                else
+                    // A sample that has no value for a factor another row declares is not applicable
+                    // to it -- which is a different claim from "not available", and the right one.
+                    cells.Add(SdrfReserved.NotApplicable);
+            }
 
             return cells;
         }

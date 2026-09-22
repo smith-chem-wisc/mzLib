@@ -42,11 +42,51 @@ namespace Readers
         /// <summary>The label for this row: "label free sample", or a TMT channel.</summary>
         public CvParam Label { get; init; }
 
+        /// <summary>
+        /// Sample characteristics whose values are FREE TEXT, keyed by the same SDRF column names as
+        /// <see cref="Characteristics"/>.
+        ///
+        /// D13 says a writer prefers a CV term to free text, and that is still true of facts this
+        /// stack KNOWS. These are facts it does not: cells lifted out of somebody else's SDRF by
+        /// <see cref="SdrfSampleBlock"/> and carried through unchanged (REQ-2). Coercing them would
+        /// mean either resolving a term nobody asserted or dropping the cell, and the deposited
+        /// wording is the only evidence of what the depositor meant.
+        ///
+        /// Values are written verbatim, reserved words included -- a config-built SDRF's
+        /// <c>not available</c> (D27) is a statement, not an absence. A value cannot contain a tab or
+        /// a newline, because it came out of a tab-separated file.
+        ///
+        /// A key present here AND in <see cref="Characteristics"/> is a caller error and throws: the
+        /// two dictionaries share one column space, and silently preferring one is how a column comes
+        /// to mean two different things in one document.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> RawCharacteristics { get; init; }
+            = new Dictionary<string, string>();
+
         /// <summary>Free-text factor value, or null. The experimental variable under study.</summary>
+        /// <remarks>
+        /// The one-factor shorthand for <see cref="FactorValues"/>. Setting both throws.
+        /// </remarks>
         public string FactorValue { get; init; }
 
         /// <summary>The SDRF column the factor value belongs under, e.g. "factor value[disease]".</summary>
         public string FactorValueColumn { get; init; }
+
+        /// <summary>
+        /// Every factor value for this sample, keyed by column -- <c>factor value[disease]</c>,
+        /// <c>factor value[treatment]</c>, and so on.
+        ///
+        /// Plural because the corpus is: 129 curated files carry <c>factor value[phenotype]</c>, 78
+        /// <c>factor value[disease]</c>, 77 <c>factor value[organism part]</c>, and a study that
+        /// varied two things says so in two columns. Carrying only the first would silently discard
+        /// the second variable of a factorial design.
+        ///
+        /// <see cref="FactorValue"/> with <see cref="FactorValueColumn"/> is the one-entry shorthand.
+        /// Setting both throws rather than merging them: two ways to state one row's factors that
+        /// disagree is a caller error, and choosing between them here would hide it.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> FactorValues { get; init; }
+            = new Dictionary<string, string>();
     }
 
     /// <summary>
