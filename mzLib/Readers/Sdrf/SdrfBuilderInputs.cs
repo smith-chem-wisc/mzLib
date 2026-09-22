@@ -27,7 +27,7 @@ namespace Readers
         /// database states it, and mzLib retains it as <c>Protein.NcbiTaxonomyId</c> plus
         /// <c>Protein.Organism</c>. Null only when the database supplied neither.
         /// </summary>
-        public CvParam Organism { get; init; }
+        public CvParam? Organism { get; init; }
 
         /// <summary>
         /// Sample characteristics keyed by SDRF column name, e.g. "characteristics[organism part]".
@@ -40,7 +40,7 @@ namespace Readers
         public int BiologicalReplicate { get; init; } = 1;
 
         /// <summary>The label for this row: "label free sample", or a TMT channel.</summary>
-        public CvParam Label { get; init; }
+        public CvParam? Label { get; init; }
 
         /// <summary>
         /// Sample characteristics whose values are FREE TEXT, keyed by the same SDRF column names as
@@ -67,10 +67,10 @@ namespace Readers
         /// <remarks>
         /// The one-factor shorthand for <see cref="FactorValues"/>. Setting both throws.
         /// </remarks>
-        public string FactorValue { get; init; }
+        public string? FactorValue { get; init; }
 
         /// <summary>The SDRF column the factor value belongs under, e.g. "factor value[disease]".</summary>
-        public string FactorValueColumn { get; init; }
+        public string? FactorValueColumn { get; init; }
 
         /// <summary>
         /// Every factor value for this sample, keyed by column -- <c>factor value[disease]</c>,
@@ -117,7 +117,7 @@ namespace Readers
         /// Null when the search read the acquired file; the column is then omitted unless another row
         /// sets it.
         /// </summary>
-        public string SearchedDataFileName { get; init; }
+        public string? SearchedDataFileName { get; init; }
 
         /// <summary>The run identifier. Unique per file within the document.</summary>
         public required string AssayName { get; init; }
@@ -126,17 +126,17 @@ namespace Readers
         /// Where the instrument comes from. mzML carries it already accessioned; a Thermo RAW gives
         /// a name with an empty accession, which the builder resolves against PSI-MS.
         /// </summary>
-        public CvParam Instrument { get; init; }
+        public CvParam? Instrument { get; init; }
 
-        public Tolerance PrecursorMassTolerance { get; init; }
-        public Tolerance ProductMassTolerance { get; init; }
+        public Tolerance? PrecursorMassTolerance { get; init; }
+        public Tolerance? ProductMassTolerance { get; init; }
 
         /// <summary>
         /// The cleavage agent. A <see cref="Protease"/> carries its own PSI-MS accession; any other
         /// <see cref="DigestionAgent"/> contributes a name with no accession, which the SDRF
         /// specification permits.
         /// </summary>
-        public DigestionAgent CleavageAgent { get; init; }
+        public DigestionAgent? CleavageAgent { get; init; }
 
         public IReadOnlyList<Modification> FixedModifications { get; init; } = new List<Modification>();
         public IReadOnlyList<Modification> VariableModifications { get; init; } = new List<Modification>();
@@ -144,7 +144,7 @@ namespace Readers
         public DissociationType DissociationType { get; init; } = DissociationType.Unknown;
 
         /// <summary>DDA/DIA/PRM/SRM, as a PRIDE CV term. The corpus uses PRIDE here, not PSI-MS.</summary>
-        public CvParam AcquisitionMethod { get; init; }
+        public CvParam? AcquisitionMethod { get; init; }
 
         /// <summary>1-based, as SDRF writes them.</summary>
         public int TechnicalReplicate { get; init; } = 1;
@@ -166,16 +166,16 @@ namespace Readers
         /// comment[proteomexchange accession number], and it is what ties our assay parameters back
         /// to somebody else's samples when the two halves come from different places.
         /// </summary>
-        public string ProteomeXchangeAccession { get; init; }
+        public string? ProteomeXchangeAccession { get; init; }
 
         /// <summary>
         /// The software that produced the file, e.g. MetaMorpheus. MS:1002826 is MetaMorpheus's own
         /// PSI-MS accession. Null omits the column.
         /// </summary>
-        public CvParam Software { get; init; }
+        public CvParam? Software { get; init; }
 
         /// <summary>Version string of that software, recorded alongside it.</summary>
-        public string SoftwareVersion { get; init; }
+        public string? SoftwareVersion { get; init; }
 
         /// <summary>
         /// Stamped into comment[sdrf version]. Defaults to the specification version this builder

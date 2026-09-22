@@ -80,7 +80,7 @@ namespace Readers
         /// </summary>
         private static readonly string[] RequiredCharacteristics = { OrganismPart };
 
-        public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions options = null)
+        public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions? options = null)
         {
             if (rows is null) throw new ArgumentNullException(nameof(rows));
             options ??= new SdrfBuilderOptions();
@@ -120,6 +120,7 @@ namespace Readers
             var factorColumns = inputs
                 .SelectMany(r => r.Sample.FactorValues.Keys.Append(r.Sample.FactorValueColumn))
                 .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c!)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
@@ -319,7 +320,7 @@ namespace Readers
         /// an empty accession, which is resolved here against PSI-MS — the one place a name-to-
         /// accession lookup genuinely belongs, since the raw reader must not carry an ontology.
         /// </summary>
-        private static string InstrumentCell(CvParam instrument, SdrfBuilderOptions options)
+        private static string InstrumentCell(CvParam? instrument, SdrfBuilderOptions options)
         {
             if (instrument is null) return Missing(Instrument, options);
 
@@ -343,7 +344,7 @@ namespace Readers
                 : SdrfCell.ToCell(instrument);
         }
 
-        private static string CleavageAgentCell(Omics.Digestion.DigestionAgent agent, SdrfBuilderOptions options)
+        private static string CleavageAgentCell(Omics.Digestion.DigestionAgent? agent, SdrfBuilderOptions options)
         {
             if (agent is null) return Missing(CleavageAgent, options);
 
@@ -424,7 +425,7 @@ namespace Readers
         /// Their ToString is not reused here only because it renders "±10.0000 PPM", which is not
         /// the grammar SDRF asks for.
         /// </summary>
-        private static string ToleranceCell(Tolerance tolerance, string column, SdrfBuilderOptions options)
+        private static string ToleranceCell(Tolerance? tolerance, string column, SdrfBuilderOptions options)
         {
             if (tolerance is null) return Missing(column, options);
             string value = tolerance.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -444,16 +445,18 @@ namespace Readers
 
         private static string SoftwareCell(SdrfBuilderOptions options)
         {
-            var software = options.Software;
+            // Only reached when the header added the column, which happens only when Software is
+            // set -- BuildHeader and BuildCells test the same option.
+            CvParam software = options.Software!;
             return string.IsNullOrWhiteSpace(options.SoftwareVersion)
                 ? SdrfCell.ToCell(software)
                 : SdrfCell.ToCell(software, ("VV", options.SoftwareVersion));
         }
 
-        private static string Term(CvParam term, string column, SdrfBuilderOptions options) =>
+        private static string Term(CvParam? term, string column, SdrfBuilderOptions options) =>
             term is null ? Missing(column, options) : SdrfCell.ToCell(term);
 
-        private static string Required(string value, string column, SdrfBuilderOptions options) =>
+        private static string Required(string? value, string column, SdrfBuilderOptions options) =>
             string.IsNullOrWhiteSpace(value) ? Missing(column, options) : value;
 
         /// <summary>
