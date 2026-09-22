@@ -110,10 +110,15 @@ namespace Omics.Digestion
                         //the modification is protease associated and is applied to the n-terminal cleaved residue, not at the beginning of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, 1, length, OneBasedStartResidue))
                         {
-                            if (mod.ModificationType == "Protease") // Protease N-terminal or 5' modification
+                            if (mod.ModificationType == "Protease")
                             {
                                 if (OneBasedStartResidue != 1)
                                     fixedModsOneIsNterminus[2] = mod;
+                            }
+                            else if (mod is CleavageModification)
+                            {
+                                if (OneBasedStartResidue != 1)
+                                    fixedModsOneIsNterminus[1] = mod;
                             }
                             else if (OneBasedStartResidue == 1) // Modified BioPolymer Start Residue (e.g. Protein N-Terminal)
                             {
@@ -149,10 +154,15 @@ namespace Omics.Digestion
                         //the modification is protease associated and is applied to the c-terminal cleaved residue, not if it is at the end of the protein
                         if (ModificationLocalization.ModFits(mod, Parent.BaseSequence, length, length, OneBasedStartResidue + length - 1))
                         {
-                            if (mod.ModificationType == "Protease") // Protease N-terminal or 3' modification
+                            if (mod.ModificationType == "Protease")
                             {
                                 if (OneBasedEndResidue != Parent.Length)
                                     fixedModsOneIsNterminus[length + 1] = mod;
+                            }
+                            else if (mod is CleavageModification)
+                            {
+                                if (OneBasedEndResidue != Parent.Length)
+                                    fixedModsOneIsNterminus[length + 2] = mod;
                             }
                             else if (OneBasedEndResidue == Parent.Length) // Modified BioPolymer End Residue (e.g. Protein C-Terminal)
                             {
@@ -200,7 +210,9 @@ namespace Omics.Digestion
             foreach (Modification variableModification in allVariableMods)
             {
                 // Check if can be a n-term mod
-                if (CanBeNTerminalOrFivePrime(variableModification, peptideLength) && !ModificationLocalization.UniprotModExists(Parent, 1, variableModification))
+                if (CanBeNTerminalOrFivePrime(variableModification, peptideLength)
+                    && (!IsCleavageModification(variableModification) || OneBasedStartResidue != 1)
+                    && !ModificationLocalization.UniprotModExists(Parent, 1, variableModification))
                 {
                     pepNTermVariableMods.Add(variableModification);
                 }
@@ -222,7 +234,9 @@ namespace Omics.Digestion
                     }
                 }
                 // Check if can be a c-term mod
-                if (CanBeCTerminalOrThreePrime(variableModification, peptideLength) && !ModificationLocalization.UniprotModExists(Parent, peptideLength, variableModification))
+                if (CanBeCTerminalOrThreePrime(variableModification, peptideLength)
+                    && (!IsCleavageModification(variableModification) || OneBasedEndResidue != Parent.Length)
+                    && !ModificationLocalization.UniprotModExists(Parent, peptideLength, variableModification))
                 {
                     pepCTermVariableMods.Add(variableModification);
                 }
@@ -378,6 +392,11 @@ namespace Omics.Digestion
         {
             return mod.LocationRestriction is "3'-terminal." or "Oligo 3'-terminal." or "C-terminal." or "Peptide C-terminal."
                    && ModificationLocalization.ModFits(mod, Parent.BaseSequence, peptideLength, peptideLength, OneBasedStartResidue + peptideLength - 1);
+        }
+
+        private static bool IsCleavageModification(Modification modification)
+        {
+            return modification.ModificationType == "Protease" || modification is CleavageModification;
         }
 
         #endregion

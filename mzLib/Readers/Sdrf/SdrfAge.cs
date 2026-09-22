@@ -9,7 +9,10 @@ namespace Readers
     /// </summary>
     public enum SdrfAgePrecision
     {
-        /// <summary>One age: <c>58Y</c>, <c>30Y6M</c>, <c>1 week</c>.</summary>
+        /// <summary>
+        /// One age: <c>58Y</c>, <c>30Y6M</c>, <c>1 week</c> -- and a degenerate range such as
+        /// <c>40Y-40Y</c>, which pins exactly the same single age as <c>40Y</c> does.
+        /// </summary>
         Exact,
 
         /// <summary>
@@ -57,6 +60,18 @@ namespace Readers
         SdrfAgePrecision Precision,
         bool FollowsSpecification)
     {
+        /// <summary>
+        /// The cell this age was read from, trimmed -- never null on an instance <see cref="TryParse"/>
+        /// produced.
+        ///
+        /// A normalised number without the text it came from cannot be audited: a reader who doubts
+        /// 0.0109589 years has no way back to "4 hour", and a curator who wants to fix a cohort's
+        /// cells has no way to find them. Carrying the cell costs one reference and removes the need
+        /// for every consumer to keep a parallel dictionary of what it parsed (asked for by dataRepo,
+        /// which stores a normalised age beside its raw characteristic for exactly this reason).
+        /// </summary>
+        public string? Cell { get; init; }
+
         private const double DaysPerYear = 365.25;
 
         // The spec's grammar: one or more number+unit parts, largest unit first, each at most once
@@ -80,6 +95,15 @@ namespace Readers
         /// without guessing, and the caller should treat the sample as having no age.
         /// </summary>
         public static bool TryParse(string? cell, [MaybeNullWhen(false)] out SdrfAge age)
+        {
+            // Attached in one place rather than at each of the four constructions below, so a new
+            // shape of cell cannot be added without it.
+            if (!TryRead(cell, out age)) return false;
+            age = age with { Cell = cell!.Trim() };
+            return true;
+        }
+
+        private static bool TryRead(string? cell, [MaybeNullWhen(false)] out SdrfAge age)
         {
             age = null;
             if (string.IsNullOrWhiteSpace(cell)) return false;
@@ -144,7 +168,15 @@ namespace Readers
             }
 
             if (min > max) return false;
-            age = new SdrfAge((min + max) / 2d, min, max, SdrfAgePrecision.Range, spec);
+
+            // A degenerate range pins one age. "40Y-40Y" says exactly 40 by any reading, and the
+            // filter this library tells every consumer to use for a point age is
+            // Precision == Exact -- so classifying it as a Range drops it, and the drop is
+            // indistinguishable from "this sample has no age", which is the one meaning a refusal
+            // is supposed to carry. Raised by aging, thread 015.
+            age = min == max
+                ? new SdrfAge(min, min, max, SdrfAgePrecision.Exact, spec)
+                : new SdrfAge((min + max) / 2d, min, max, SdrfAgePrecision.Range, spec);
             return true;
         }
 

@@ -388,12 +388,9 @@ namespace Proteomics
 
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            // add in any modifications that are caused by protease digestion
-            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
-            {
-                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
-            }
             variableModifications = variableModifications ?? new List<Modification>();
+            IBioPolymer.AddDigestionAgentModification(digestionParameters.Protease,
+                ref allKnownFixedModifications, ref variableModifications);
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
             // SearchModeType Semi means two different things depending on FragmentationTerminus:
