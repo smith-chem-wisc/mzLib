@@ -72,18 +72,15 @@ public static class ModificationOccupancyCalculator
             if (sequence is null) // No form found for this PSM, skip it entirely.
                 continue;
 
+            // A form that starts after the removed initiator Met covers the protein N-terminus (position 1)
+            // but not residue 1 (position 2), so the N-terminus is counted on its own.
+            if (StartsAfterInitiatorMethionine(sequence, bioPolymer))
+                AddToTotals(positionTotals, 1, psm);
+
             int rangeStart = sequence.OneBasedStartResidue + (sequence.OneBasedStartResidue == 1 ? 0 : 1); // Include position 1 if sequence starts at the protein N-terminus
             int rangeEnd = sequence.OneBasedEndResidue + (sequence.OneBasedEndResidue == bioPolymer.Length ? 2 : 1); // Include last position if sequence ends at the protein C-terminus
             for (int i = rangeStart; i <= rangeEnd; i++)
-            {
-                if (!positionTotals.ContainsKey(i))
-                    positionTotals[i] = (0, 0.0);
-                var totals = positionTotals[i];
-                totals.totalCount++;
-                if (psm.Intensities is { Length: 1 })
-                    totals.totalIntensity += psm.Intensities[0];
-                positionTotals[i] = totals;
-            }
+                AddToTotals(positionTotals, i, psm);
         }
 
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
@@ -99,7 +96,7 @@ public static class ModificationOccupancyCalculator
                 if (IsExcludedMod(mod.Value))
                     continue;
 
-                if (!TryGetProteinPosition(mod, sequence, bioPolymer.Length, out int indexInProtein))
+                if (!TryGetProteinPosition(mod, sequence, bioPolymer, out int indexInProtein))
                     continue;
 
                 if (!working.TryGetValue(indexInProtein, out var modsAtPosition))
@@ -213,20 +210,41 @@ public static class ModificationOccupancyCalculator
         return working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
     }
 
+    private static void AddToTotals(Dictionary<int, (int totalCount, double totalIntensity)> positionTotals,
+        int position, ISpectralMatch psm)
+    {
+        positionTotals.TryGetValue(position, out var totals);
+        totals.totalCount++;
+        if (psm.Intensities is { Length: 1 })
+            totals.totalIntensity += psm.Intensities[0];
+        positionTotals[position] = totals;
+    }
+
+    /// <summary>
+    /// True when <paramref name="sequence"/> begins at residue 2 because the initiator Met was removed, which is
+    /// the same condition under which digestion produces such a form (Protease: residue 1 must be 'M'). Its
+    /// N-terminus is then the protein N-terminus, and ModificationLocalization places "N-terminal." mods there.
+    /// </summary>
+    private static bool StartsAfterInitiatorMethionine(IBioPolymerWithSetMods sequence, IBioPolymer bioPolymer)
+        => sequence.OneBasedStartResidue == 2
+           && bioPolymer.BaseSequence.Length > 0
+           && bioPolymer.BaseSequence[0] == 'M';
+
     private static bool TryGetProteinPosition(
         KeyValuePair<int, Modification> mod,
         IBioPolymerWithSetMods sequence,
-        int bioPolymerLength,
+        IBioPolymer bioPolymer,
         out int indexInProtein)
     {
         indexInProtein = 0;
+        int bioPolymerLength = bioPolymer.Length;
 
         if (IsExcludedMod(mod.Value))
             return false;
 
         if (mod.Value.LocationRestriction.Equals("N-terminal."))
         {
-            if (sequence.OneBasedStartResidue != 1)
+            if (sequence.OneBasedStartResidue != 1 && !StartsAfterInitiatorMethionine(sequence, bioPolymer))
                 return false;
 
             indexInProtein = 1;
