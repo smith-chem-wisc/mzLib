@@ -185,6 +185,12 @@ namespace Omics.Digestion
                         throw new NotSupportedException("This terminus localization is not supported.");
                 }
             }
+
+            foreach (var entry in Parent.OneBasedFixedModifications)
+            {
+                if (entry.Key >= OneBasedStartResidue && entry.Key <= OneBasedEndResidue)
+                    fixedModsOneIsNterminus[entry.Key - OneBasedStartResidue + 2] = entry.Value;
+            }
         }
 
         /// <summary>
