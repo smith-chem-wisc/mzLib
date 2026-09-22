@@ -31,6 +31,11 @@ namespace UsefulProteomicsDatabases.Ensembl
     /// Reference data this size (tens of MB) is never embedded in the assembly -- see
     /// ControlledVocabulary for the line -- so the caller supplies the file and the set records its name,
     /// sha256, release and genome build, which travel with anything resolved against it.
+    ///
+    /// A GTF is large (human release 116: 141 MB compressed, 4.66 GB unzipped) and only its gene rows
+    /// are used. <see cref="EnsemblGeneSetWriter"/> writes those rows and the GTF's provenance to a
+    /// compact table (about 0.5 MB for human) that <see cref="EnsemblGeneSetReader"/> reads back into
+    /// an identical set.
     /// </summary>
     public sealed class EnsemblGeneSet
     {
@@ -78,6 +83,9 @@ namespace UsefulProteomicsDatabases.Ensembl
         public IReadOnlyList<string> GeneIds { get; }
 
         public int Count => _genes.Count;
+
+        /// <summary>Every gene in the set, in ordinal order of stable id.</summary>
+        public IEnumerable<EnsemblGene> Genes => GeneIds.Select(id => _genes[id]);
 
         /// <summary>True when the stable id is in the set. Versioned ids are not stripped here: that is the caller's call.</summary>
         public bool Contains(string geneId) => geneId != null && _genes.ContainsKey(geneId);
@@ -160,6 +168,15 @@ namespace UsefulProteomicsDatabases.Ensembl
             return new EnsemblGeneSet(genes, Path.GetFileName(path), sha256,
                 release.Success ? release.Groups[1].Value : null, genomeBuild, lastUpdated);
         }
+
+        /// <summary>
+        /// Rebuilds a set from genes and the provenance of the GTF they were originally read from. Used by
+        /// <see cref="EnsemblGeneSetReader"/>: the provenance stays the GTF's, so anything resolved against
+        /// the rebuilt set is keyed exactly as it would be against the GTF.
+        /// </summary>
+        internal static EnsemblGeneSet FromGenes(Dictionary<string, EnsemblGene> genes, string sourceFileName,
+            string sourceSha256, string release, string genomeBuild, string genebuildLastUpdated) =>
+            new(genes, sourceFileName, sourceSha256, release, genomeBuild, genebuildLastUpdated);
 
         private static string HeaderValue(string line, string prefix) =>
             line.StartsWith(prefix, StringComparison.Ordinal) ? line.Substring(prefix.Length).Trim() : null;
