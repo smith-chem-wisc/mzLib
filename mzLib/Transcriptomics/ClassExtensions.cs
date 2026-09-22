@@ -23,14 +23,15 @@ namespace Transcriptomics
         /// </remarks>
         public static T CreateNew<T>(this T target, string? sequence = null, IDictionary<int, List<Modification>>? modifications = null,
         bool? isDecoy = null, List<TruncationProduct>? truncationProducts = null, List<SequenceVariation>? sequenceVariations = null,
-        List<SequenceVariation>? appliedSequenceVariations = null, string decoyIdentifier = "DECOY")
+        List<SequenceVariation>? appliedSequenceVariations = null, string decoyIdentifier = "DECOY", IDictionary<int, List<Modification>>? fixedMods = null)
             where T : INucleicAcid
         {
             // set new object parameters where not null
             object? returnObj = null;
             string newSequence = sequence ?? target.BaseSequence;
             IDictionary<int, List<Modification>> newModifications = modifications ?? target.OneBasedPossibleLocalizedModifications;
-            
+            IDictionary<int, List<Modification>> newFixedMods = fixedMods ?? target.OneBasedFixedModifications;
+
             switch (target)
             {
                 case RNA rna:
@@ -45,7 +46,7 @@ namespace Transcriptomics
                         rna.ThreePrimeTerminus, rna.Name, rna.Organism, rna.DatabaseFilePath, rna.IsContaminant,
                         newIsDecoy, rna.GeneNames, rna.AdditionalDatabaseFields, newTruncs,
                         newVariations, newAppliedVariations, rna.SampleNameForVariants, rna.FullName,
-                        rna.IsEntrapment);
+                        rna.IsEntrapment, newFixedMods);
                     break;
                 }
                 case OligoWithSetMods oligo:
@@ -58,9 +59,9 @@ namespace Transcriptomics
                     List<SequenceVariation> newAppliedVariations = appliedSequenceVariations ?? oldParent.AppliedSequenceVariations;
 
                     var newParent = new RNA(newSequence, accession, newModifications,oldParent.FivePrimeTerminus, oldParent.ThreePrimeTerminus, 
-                    oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
-                    newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName,
-                    oldParent.IsEntrapment);
+                     oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
+                     newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName,
+                     oldParent.IsEntrapment, fixedMods);
 
 
                     returnObj = new OligoWithSetMods(

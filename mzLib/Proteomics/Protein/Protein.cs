@@ -45,9 +45,10 @@ namespace Proteomics
             List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
-            UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
-            Protein nonVariantProtein = null)
+             UniProtEntryAttributes uniProtEntryAttributes = null,
+             UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
+             Protein nonVariantProtein = null,
+             IDictionary<int, List<Modification>> oneBasedFixedModifications = null)
         {
             BaseSequence = sequence;
             // Defaults to this, which is right for an entry that is its own consensus. A caller building an
@@ -71,6 +72,7 @@ namespace Proteomics
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, List<Modification>>();
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications);
@@ -122,6 +124,7 @@ namespace Proteomics
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             UniProtEntryAttributes = originalProtein.UniProtEntryAttributes;
             UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
+            OneBasedFixedModifications = originalProtein.OneBasedFixedModifications;
         }
 
         /// <summary>
@@ -168,9 +171,10 @@ namespace Proteomics
             List<DatabaseReference> databaseReferences = null,
             List<DisulfideBond> disulfideBonds = null,
             List<SpliceSite> spliceSites = null,
-            UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null,
-            Protein nonVariantProtein = null)
+             UniProtEntryAttributes uniProtEntryAttributes = null,
+             UniProtSequenceAttributes uniProtSequenceAttributes = null,
+             Protein nonVariantProtein = null,
+             IDictionary<int, List<Modification>> oneBasedFixedModifications = null)
         {
             BaseSequence = originalProtein.BaseSequence;
             Accession = accession ?? originalProtein.Accession;
@@ -193,6 +197,7 @@ namespace Proteomics
             OneBasedPossibleLocalizedModifications = oneBasedModifications != null
                 ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications)
                 : originalProtein.OneBasedPossibleLocalizedModifications;
+            OneBasedFixedModifications = oneBasedFixedModifications ?? originalProtein.OneBasedFixedModifications;
             DatabaseReferences = databaseReferences ?? originalProtein.DatabaseReferences;
             DisulfideBonds = disulfideBonds ?? originalProtein.DisulfideBonds;
             SpliceSites = spliceSites ?? originalProtein.SpliceSites;
@@ -227,9 +232,10 @@ namespace Proteomics
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
-                  databaseFilePath: protein.DatabaseFilePath,
-                  uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
+                   databaseFilePath: protein.DatabaseFilePath,
+                   uniProtEntryAttributes: protein.UniProtEntryAttributes,
+                   uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                   oneBasedFixedModifications: protein.OneBasedFixedModifications)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -241,6 +247,8 @@ namespace Proteomics
         /// Modifications (values) located at one-based protein positions (keys)
         /// </summary>
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
+
+        public IDictionary<int, List<Modification>> OneBasedFixedModifications { get; private set; }
 
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
