@@ -97,8 +97,12 @@ namespace UsefulProteomicsDatabases.Ensembl
         {
             ArgumentNullException.ThrowIfNull(protein);
 
-            var accession = protein.Accession.ParseProteinAccession();
-            string uniProtGeneName = PrimaryGeneName(protein);
+            // A sequence-variant proteoform ("P12345_S70N", as LoadProteinXML names applied variants) is
+            // not an accession grammar, but it is a known entry: the entry, its grammar and its gene
+            // links come from the consensus, while the verbatim accession is kept as the search reported it.
+            var entry = protein.ConsensusVariant as Protein ?? protein;
+            var accession = entry.Accession.ParseProteinAccession() with { Verbatim = protein.Accession };
+            string uniProtGeneName = PrimaryGeneName(protein) ?? PrimaryGeneName(entry);
 
             GeneResolution Row(GeneResolutionOutcome outcome, int geneCount = 0, string geneId = null,
                 string versionedGeneId = null, int offPrimary = 0)
@@ -118,7 +122,13 @@ namespace UsefulProteomicsDatabases.Ensembl
 
             // First versioned id seen per stable gene: one gene's transcripts share a gene version.
             var versionedByGene = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var link in protein.EnsemblGeneReferences)
+            var links = protein.EnsemblGeneReferences;
+            if (links.Count == 0 && !ReferenceEquals(entry, protein))
+            {
+                links = entry.EnsemblGeneReferences;
+            }
+
+            foreach (var link in links)
             {
                 versionedByGene.TryAdd(link.GeneId, link.VersionedGeneId);
             }

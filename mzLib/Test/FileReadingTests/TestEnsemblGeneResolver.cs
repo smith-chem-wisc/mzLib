@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using MzLibUtil;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Proteomics;
 using UsefulProteomicsDatabases;
 using UsefulProteomicsDatabases.Ensembl;
@@ -158,6 +159,36 @@ namespace Test.FileReadingTests
             var r = Resolve(Entry("P11111-2", references: Transcript("ENST00000000001.1", "ENSG00000000001.7"))).Single();
 
             Assert.That((r.Accession, r.EntryAccession, r.Isoform), Is.EqualTo(("P11111-2", "P11111", (int?)2)));
+        }
+
+        private static Protein VariantOf(Protein consensus, string variantAccession, List<DatabaseReference> references = null) =>
+            new("PEPTIDEK", variantAccession, geneNames: consensus.GeneNames?.ToList(), databaseReferences: references,
+                appliedSequenceVariations: new List<SequenceVariation> { new(1, 1, "P", "S", "S70N") },
+                nonVariantProtein: consensus);
+
+        [Test]
+        public void SequenceVariant_OfAnEntryWithNoGene_IsNotInSource_NotUnrecognized()
+        {
+            // LoadProteinXML applies UniProt's sequence variants by default and names each proteoform
+            // "{accession}_{change}". That is not an accession grammar, but it is a known entry.
+            var consensus = Entry("A0A087X1C5", "CYP2D7");
+            var r = Resolve(VariantOf(consensus, "A0A087X1C5_S70N")).Single();
+
+            Assert.That(r.Outcome, Is.EqualTo(GeneResolutionOutcome.NotInSource));
+            Assert.That((r.Accession, r.EntryAccession, r.Namespace),
+                Is.EqualTo(("A0A087X1C5_S70N", "A0A087X1C5", AccessionNamespace.UniProt)),
+                "verbatim accession kept; entry and grammar come from the consensus entry");
+            Assert.That(r.UniProtGeneName, Is.EqualTo("CYP2D7"));
+        }
+
+        [Test]
+        public void SequenceVariant_ResolvesThroughItsConsensusEntrysGeneLinks()
+        {
+            var consensus = Entry("P11111", references: Transcript("ENST00000000001.1", "ENSG00000000001.7"));
+            var r = Resolve(VariantOf(consensus, "P11111_S70N", references: new List<DatabaseReference>())).Single();
+
+            Assert.That((r.Outcome, r.GeneId, r.EntryAccession),
+                Is.EqualTo((GeneResolutionOutcome.Resolved, "ENSG00000000001", "P11111")));
         }
 
         [Test]
