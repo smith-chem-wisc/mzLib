@@ -123,6 +123,9 @@ namespace UsefulProteomicsDatabases
                 }
             }
 
+            var decoyFixedModifications = ReverseProteinModifications(
+                protein.OneBasedFixedModifications, protein.BaseSequence.Length, startsWithM);
+
             // reverse proteolysis products
             List<TruncationProduct> decoyPP = new List<TruncationProduct>();
             foreach (TruncationProduct pp in protein.TruncationProducts)
@@ -217,9 +220,10 @@ namespace UsefulProteomicsDatabases
                 spliceSites,
                 protein.DatabaseFilePath,
                 uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                isEntrapment: protein.IsEntrapment,
-                nonVariantProtein: decoyConsensus);
+                 uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                 isEntrapment: protein.IsEntrapment,
+                 nonVariantProtein: decoyConsensus,
+                 oneBasedFixedModifications: decoyFixedModifications);
 
             return decoyProtein;
         }
@@ -369,7 +373,8 @@ namespace UsefulProteomicsDatabases
                 List<DisulfideBond> decoy_disulfides_slide = new List<DisulfideBond>();
                 List<SpliceSite> spliceSitesSlide = new List<SpliceSite>();
                 bool initMet = protein.BaseSequence.StartsWith("M", StringComparison.Ordinal);
-                Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein);
+                Dictionary<int, List<Modification>> decoyModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedPossibleLocalizedModifications);
+                Dictionary<int, List<Modification>> decoyFixedModifications = SlideProteinSequenceWithMods(sequenceArraySlided, sequenceArrayUnslided, initMet, numSlides, protein.BaseSequence.Length, protein.OneBasedFixedModifications);
 
                 var slided_sequence = new string(sequenceArraySlided);
 
@@ -454,15 +459,16 @@ namespace UsefulProteomicsDatabases
                     spliceSitesSlide,
                     protein.DatabaseFilePath,
                     uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                    isEntrapment: protein.IsEntrapment);
+                     uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                     isEntrapment: protein.IsEntrapment,
+                     oneBasedFixedModifications: decoyFixedModifications);
                 lock (decoyProteins) { decoyProteins.Add(decoyProteinSlide); }
             });
             decoyProteins = decoyProteins.OrderBy(p => p.Accession).ToList();
             return decoyProteins;
         }
 
-        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, Protein protein)
+        private static Dictionary<int, List<Modification>> SlideProteinSequenceWithMods (char[] sequenceArraySlided, char[] sequenceArrayUnslided, bool initiatorMethionine, int numSlides, int sequenceLength, IDictionary<int, List<Modification>> sourceModifications)
         {
             // Do not include the initiator methionine in shuffle!!!
             int startIndex = initiatorMethionine ? 1 : 0;
@@ -472,11 +478,11 @@ namespace UsefulProteomicsDatabases
             }
             for (int i = startIndex; i < sequenceArraySlided.Length; i++)
             {
-                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, protein.BaseSequence.Length, initiatorMethionine)];
+                sequenceArraySlided[i] = sequenceArrayUnslided[GetOldSlidedIndex(i, numSlides, sequenceLength, initiatorMethionine)];
             }
 
-            Dictionary<int, List<Modification>> decoyModifications = new Dictionary<int, List<Modification>>(protein.OneBasedPossibleLocalizedModifications.Count);
-            foreach (var kvp in protein.OneBasedPossibleLocalizedModifications)
+            Dictionary<int, List<Modification>> decoyModifications = new Dictionary<int, List<Modification>>(sourceModifications.Count);
+            foreach (var kvp in sourceModifications)
             {
                 if (initiatorMethionine && kvp.Key == 1)
                 {
@@ -484,11 +490,26 @@ namespace UsefulProteomicsDatabases
                 }
                 else
                 {
-                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, protein.BaseSequence.Length, initiatorMethionine)+1, kvp.Value);
+                    decoyModifications.Add(GetNewSlidedIndex(kvp.Key-1, numSlides, sequenceLength, initiatorMethionine)+1, kvp.Value);
                 }
             }
 
             return decoyModifications;
+        }
+
+        private static Dictionary<int, List<Modification>> ReverseProteinModifications(
+            IDictionary<int, List<Modification>> sourceModifications, int sequenceLength, bool startsWithM)
+        {
+            var reversed = new Dictionary<int, List<Modification>>(sourceModifications.Count);
+            foreach (var kvp in sourceModifications)
+            {
+                int reverseKey = startsWithM
+                    ? kvp.Key == 1 ? 1 : sequenceLength - kvp.Key + 2
+                    : sequenceLength - kvp.Key + 1;
+                reversed.Add(reverseKey, kvp.Value);
+            }
+
+            return reversed;
         }
 
 
