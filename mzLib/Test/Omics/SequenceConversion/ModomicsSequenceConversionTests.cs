@@ -144,19 +144,19 @@ public class ModomicsSequenceConversionTests
 
     [TestCase(
         "GJACUGCBUCUA#UGAA#CA",
-        "GU[Common Biological: Methylation on U]ACUGCC[Common Biological: Methylation on C]UCUAG[Common Biological: Methylation on G]UGAAG[Common Biological: Methylation on G]CA")]
+         "GU[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UGAAG[Modomics:2'-O-methylguanosine on G]CA")]
     [TestCase(
         "/UCCAGU#CAGUACJG",
-        "A[Common Biological: Methylation on A]UCCAGUG[Common Biological: Methylation on G]CAGUACU[Common Biological: Methylation on U]G")]
+         "A[Modomics:2-methyladenosine on A]UCCAGUG[Modomics:2'-O-methylguanosine on G]CAGUACU[Modomics:2'-O-methyluridine on U]G")]
     [TestCase(
         "UUCAAGUA:UCCAGGAUAGGCU",
-        "UUCAAGUA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
+         "UUCAAGUA[Modomics:2'-O-methyladenosine on A]UCCAGGAUAGGCU")]
     [TestCase(
         "UUCAAGUA=UCCAGGAUAGGCU",
-        "UUCAAGUA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
+         "UUCAAGUA[Modomics:N6-methyladenosine on A]UCCAGGAUAGGCU")]
     [TestCase(
         "UCCCUGAGACCCUA:CUUGUGA",
-        "UCCCUGAGACCCUA[Common Biological: Methylation on A]CUUGUGA")]
+         "UCCCUGAGACCCUA[Modomics:2'-O-methyladenosine on A]CUUGUGA")]
     public void ModomicsAndMetaMorpheusConstructionProduceIdenticalFragments(
         string modomicsSequence,
         string metaMorpheusFullSequence)

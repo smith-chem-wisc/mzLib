@@ -36,13 +36,6 @@ public class SequenceConversionService : ISequenceConversionService
     {
         var service = new SequenceConversionService();
 
-        // Register MODOMICS before mzLib so auto-detection can identify
-        // one-letter modification codes without changing plain RNA parsing.
-        service.RegisterParser(ModomicsSequenceParser.Instance);
-        service.RegisterConverter(new SequenceConverter(
-            ModomicsSequenceParser.Instance,
-            new MzLibSequenceSerializer(ModomicsModificationLookup.Instance)));
-
         // Register mzLib format
         service.RegisterParser(MzLibSequenceParser.Instance);
         service.RegisterSerializer(MzLibSequenceSerializer.Instance);
@@ -64,6 +57,10 @@ public class SequenceConversionService : ISequenceConversionService
         // Register EssentialSequence (serializer only with default (from MM) mod allowances are w)
         service.RegisterSerializer(EssentialSequenceSerializer.Instance);
         service.RegisterConverter(new SequenceConverter(MzLibSequenceParser.Instance, EssentialSequenceSerializer.Instance));
+
+        // Register MODOMICS
+        service.RegisterParser(ModomicsSequenceParser.Instance);
+        service.RegisterConverter(new SequenceConverter(ModomicsSequenceParser.Instance, new MzLibSequenceSerializer(ModomicsModificationLookup.Instance)));
 
         return service;
     }
