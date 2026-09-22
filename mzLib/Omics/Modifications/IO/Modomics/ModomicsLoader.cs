@@ -75,6 +75,7 @@ public static class ModomicsLoader
         return new ModomicsLoadResult
         {
             LoadedModifications = _cachedBaseResult.LoadedModifications,
+            ModificationsByAbbreviation = _cachedBaseResult.ModificationsByAbbreviation,
             TerminalModifications = _cachedBaseResult.TerminalModifications,
             DuplicateModifications = duplicates,
             NotYetRepresentableEntries = _cachedBaseResult.NotYetRepresentableEntries,
@@ -113,6 +114,7 @@ public static class ModomicsLoader
 
         var moietyTypeByShortName = ReadMoietyTypesByShortName(modomicsCsvStream);
         var loadedModifications = new List<Modification>();
+        var modificationsByAbbreviation = new Dictionary<string, List<Modification>>(StringComparer.Ordinal);
         var terminalModifications = new List<Modification>();
         var notYetRepresentableEntries = new List<ModomicsNotYetRepresentableEntry>();
         var loadedById = new Dictionary<string, Modification>(StringComparer.Ordinal);
@@ -136,6 +138,16 @@ public static class ModomicsLoader
                 if (loadedById.TryAdd(outcome.Modification.IdWithMotif, outcome.Modification))
                 {
                     loadedModifications.Add(outcome.Modification);
+                    if (!string.IsNullOrEmpty(dto.Abbrev))
+                    {
+                        if (!modificationsByAbbreviation.TryGetValue(dto.Abbrev, out var modifications))
+                        {
+                            modifications = [];
+                            modificationsByAbbreviation.Add(dto.Abbrev, modifications);
+                        }
+
+                        modifications.Add(outcome.Modification);
+                    }
                     if (outcome.Modification.LocationRestriction is "5'-terminal." or "Oligo 5'-terminal.")
                     {
                         terminalModifications.Add(outcome.Modification);
@@ -147,6 +159,7 @@ public static class ModomicsLoader
         return new ModomicsLoadResult
         {
             LoadedModifications = loadedModifications,
+            ModificationsByAbbreviation = modificationsByAbbreviation,
             TerminalModifications = terminalModifications,
             NotYetRepresentableEntries = notYetRepresentableEntries,
         };
