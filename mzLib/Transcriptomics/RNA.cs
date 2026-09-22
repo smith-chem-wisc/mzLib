@@ -15,8 +15,9 @@ namespace Transcriptomics
         /// </summary>
         public RNA(string sequence,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
-            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
-            : base(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            IDictionary<int, List<Modification>>? oneBasedFixedModifications = null)
+            : base(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm, oneBasedFixedModifications)
         {
         }
 
@@ -34,11 +35,12 @@ namespace Transcriptomics
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null,
-            bool isEntrapment = false)
+            bool isEntrapment = false,
+            IDictionary<int, List<Modification>>? oneBasedFixedModifications = null)
             : base(sequence, accession, oneBasedPossibleModifications, fivePrimeTerminus, threePrimeTerminus,
                 name, organism, databaseFilePath, isContaminant, isDecoy, geneNames, databaseAdditionalFields,
                 truncationProducts, sequenceVariations, appliedSequenceVariations, sampleNameForVariants, fullName,
-                isEntrapment)
+                isEntrapment, oneBasedFixedModifications)
         {
         }
         
@@ -54,9 +56,9 @@ namespace Transcriptomics
                   original.Organism, original.DatabaseFilePath, original.IsContaminant, 
                   original.IsDecoy, original.GeneNames, original.AdditionalDatabaseFields,
                   [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
-                  [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants, 
-                  VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants),
-                  original.IsEntrapment)
+                   [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants,
+                   VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants),
+                   original.IsEntrapment, original.OneBasedFixedModifications)
         {
             ConsensusVariant = original.ConsensusVariant;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
