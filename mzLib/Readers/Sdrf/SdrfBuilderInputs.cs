@@ -193,5 +193,21 @@ namespace Readers
         /// before a search starts, is the alternative.
         /// </summary>
         public bool RequireSampleMetadata { get; init; } = true;
+
+        /// <summary>
+        /// How <c>comment[label]</c> is written: <see cref="SdrfLabelForm.Accessioned"/> (the default)
+        /// as <c>NT=TMT127N;AC=PRIDE:0000519</c>, or <see cref="SdrfLabelForm.Bare"/> as the term's
+        /// name alone, <c>TMT127N</c>.
+        ///
+        /// Bare is a deliberate exception to "terms are resolved and written as terms", and the only
+        /// one. The accessioned form is more precise, but about six in seven published SDRFs write the
+        /// label bare, and sdrf-pipelines 0.1.6 mishandles the accessioned form: its OpenMS converter
+        /// crashes on the second channel of every TMT file (bigbio/sdrf-pipelines#344). A caller whose
+        /// output feeds quantms needs Bare until that is fixed.
+        ///
+        /// The label is still RESOLVED either way; only its spelling changes. A label with no name to
+        /// write bare keeps its accessioned form rather than losing the accession.
+        /// </summary>
+        public SdrfLabelForm LabelForm { get; init; } = SdrfLabelForm.Accessioned;
     }
 }

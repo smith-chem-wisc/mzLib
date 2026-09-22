@@ -131,6 +131,87 @@ namespace Test.FileReadingTests
                 Is.EqualTo("NT=Data-dependent acquisition;AC=PRIDE:0000627"));
         }
 
+        private static CvParam Pride(string name)
+        {
+            Assert.That(ControlledVocabulary.Pride.TryGetByName(name, out var t), Is.True, name);
+            return t;
+        }
+
+        /// <summary>Two channels of one TMT file: one assay, two samples, two labels.</summary>
+        private static SdrfRowInput[] TwoTmtChannels() => new[]
+        {
+            new SdrfRowInput(Sample("Patient 1") with { Label = Pride("TMT126") }, Assay("plex1.raw")),
+            new SdrfRowInput(Sample("Patient 2") with { Label = Pride("TMT127N") }, Assay("plex1.raw"))
+        };
+
+        [Test]
+        public void TheLabelIsAccessionedByDefault()
+        {
+            var document = SdrfBuilder.Build(TwoTmtChannels());
+
+            Assert.That(document.Results.Select(r => r["comment[label]"]),
+                Is.EqualTo(new[] { "NT=TMT126;AC=PRIDE:0000516", "NT=TMT127N;AC=PRIDE:0000519" }));
+        }
+
+        /// <summary>
+        /// Bare writes the resolved term's name and nothing else, and only in comment[label]. The
+        /// document must still validate, and mzLib's own auditor must read every label as bare and the
+        /// file as channel-level. That is the reading quantms depends on.
+        /// </summary>
+        [Test]
+        public void ABareLabelIsTheTermsNameAlone_AndNoOtherColumnChanges()
+        {
+            var document = SdrfBuilder.Build(TwoTmtChannels(),
+                new SdrfBuilderOptions { LabelForm = SdrfLabelForm.Bare });
+
+            Assert.That(document.Results.Select(r => r["comment[label]"]),
+                Is.EqualTo(new[] { "TMT126", "TMT127N" }));
+            Assert.That(document.Results[0]["characteristics[organism]"], Is.EqualTo("NT=Homo sapiens;AC=NCBITaxon:9606"),
+                "Only the label is exempt from the controlled-vocabulary form.");
+            Assert.That(document.Results[0]["comment[instrument]"], Is.EqualTo("NT=Q Exactive;AC=MS:1001911"));
+
+            var validation = SdrfValidator.Validate(document);
+            Assert.That(validation.IsValid, Is.True,
+                "errors: " + string.Join(" | ", validation.Errors.Select(e => e.ToString())));
+
+            var audit = SdrfQuantAuditor.Audit(document);
+            Assert.That(audit.BareLabelCells, Is.EqualTo(2), audit.ToReport());
+            Assert.That(audit.AccessionedLabelCells, Is.EqualTo(0), audit.ToReport());
+            Assert.That(audit.Kind, Is.EqualTo(SdrfQuantKind.ChannelLevel), audit.ToReport());
+        }
+
+        [Test]
+        public void ABareLabelWithNoNameKeepsItsAccessionRatherThanLosingIt()
+        {
+            var row = new SdrfRowInput(Sample() with { Label = new CvParam("PRIDE", "PRIDE:0000519", "", "") }, Assay());
+
+            var document = SdrfBuilder.Build(new[] { row }, new SdrfBuilderOptions { LabelForm = SdrfLabelForm.Bare });
+
+            Assert.That(document.Results[0]["comment[label]"], Is.EqualTo("AC=PRIDE:0000519"));
+        }
+
+        [Test]
+        public void AMissingLabelIsTreatedAlikeInEitherForm()
+        {
+            var row = new SdrfRowInput(Sample() with { Label = null }, Assay());
+
+            Assert.Throws<MzLibException>(() => SdrfBuilder.Build(new[] { row },
+                new SdrfBuilderOptions { LabelForm = SdrfLabelForm.Bare }));
+
+            var lenient = SdrfBuilder.Build(new[] { row },
+                new SdrfBuilderOptions { LabelForm = SdrfLabelForm.Bare, RequireSampleMetadata = false });
+            Assert.That(lenient.Results[0]["comment[label]"], Is.EqualTo("not available"));
+        }
+
+        [Test]
+        public void ABareLabelCannotCarryASeparator()
+        {
+            var row = new SdrfRowInput(Sample() with { Label = new CvParam("", "", "TMT\t126", "") }, Assay());
+
+            Assert.Throws<ArgumentException>(() => SdrfBuilder.Build(new[] { row },
+                new SdrfBuilderOptions { LabelForm = SdrfLabelForm.Bare }));
+        }
+
         [Test]
         public void ModificationsCarryAccessionTargetAndFixedOrVariable()
         {
