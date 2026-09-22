@@ -68,6 +68,59 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// A degenerate range pins one age, so it grades Exact rather than Range.
+        ///
+        /// This is not a cosmetic classification. The advice this library gives a caller who wants
+        /// one age per sample is "filter on Precision == Exact"; grading 40Y-40Y as a Range makes
+        /// that filter drop a cell that states an age exactly, and the drop looks identical to a
+        /// refusal -- "this sample has no age". Raised by aging, thread 015.
+        /// </summary>
+        [TestCase("40Y-40Y", 40d, true)]
+        [TestCase("8W-8W", 8d * 7d / 365.25, true)]
+        [TestCase("6-6 weeks", 6d * 7d / 365.25, false)]
+        [TestCase("40-40Y", 40d, false)]
+        public void ADegenerateRangeIsExact(string cell, double years, bool spec)
+        {
+            Assert.That(SdrfAge.TryParse(cell, out var age), Is.True);
+            Assert.That(age!.Precision, Is.EqualTo(SdrfAgePrecision.Exact),
+                "A range whose ends are equal states one age, and Precision == Exact is the filter " +
+                "every consumer is told to use for one.");
+            Assert.That(age.Years, Is.EqualTo(years).Within(Tolerance));
+            Assert.That(age.MinYears, Is.EqualTo(years).Within(Tolerance));
+            Assert.That(age.MaxYears, Is.EqualTo(years).Within(Tolerance));
+            Assert.That(age.FollowsSpecification, Is.EqualTo(spec),
+                "Classifying it as Exact must not change what the cell's grammar was.");
+        }
+
+        /// <summary>
+        /// A range with genuinely different ends is untouched by the degenerate case above.
+        /// </summary>
+        [Test]
+        public void ARealRangeIsStillARange()
+        {
+            Assert.That(SdrfAge.TryParse("40Y-85Y", out var age), Is.True);
+            Assert.That(age!.Precision, Is.EqualTo(SdrfAgePrecision.Range));
+            Assert.That(age.Years, Is.EqualTo(62.5d).Within(Tolerance));
+        }
+
+        /// <summary>
+        /// Every age carries the cell it was read from, so a normalised number can be audited back
+        /// to the text a depositor wrote. Asked for by dataRepo, which stores the two side by side.
+        /// </summary>
+        [TestCase("58Y")]
+        [TestCase(" 54y ")]
+        [TestCase("4 hour")]
+        [TestCase(">=90Y")]
+        [TestCase("40Y-85Y")]
+        [TestCase("40Y-40Y")]
+        public void AnAgeKeepsTheCellItWasReadFrom(string cell)
+        {
+            Assert.That(SdrfAge.TryParse(cell, out var age), Is.True);
+            Assert.That(age!.Cell, Is.EqualTo(cell.Trim()),
+                "The parsed figure alone cannot be audited: 0.0109589 years does not say \"4 hour\".");
+        }
+
+                /// <summary>
         /// ">=90Y" is the de-identification cap: 750 cells in the corpus. The bound is the best single
         /// figure, and the open end is stated rather than invented.
         /// </summary>
