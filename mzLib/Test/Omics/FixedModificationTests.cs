@@ -14,32 +14,32 @@ public class FixedModificationTests
     public void RnaStoresAndClonesOneBasedFixedModifications()
     {
         var modification = CreateModification('U');
-        var fixedModifications = new Dictionary<int, List<Modification>>
+        var fixedModifications = new Dictionary<int, Modification>
         {
-            [3] = [modification],
+            [3] = modification,
         };
 
         var rna = new RNA("GUACUG", oneBasedFixedModifications: fixedModifications);
         var clone = (RNA)rna.CloneWithNewSequenceAndMods("GUACUG");
 
-        Assert.That(rna.OneBasedFixedModifications[3], Is.EqualTo(new[] { modification }));
-        Assert.That(clone.OneBasedFixedModifications[3], Is.EqualTo(new[] { modification }));
+        Assert.That(rna.OneBasedFixedModifications[3], Is.EqualTo(modification));
+        Assert.That(clone.OneBasedFixedModifications[3], Is.EqualTo(modification));
     }
 
     [Test]
     public void ProteinStoresAndClonesOneBasedFixedModifications()
     {
         var modification = CreateModification('M');
-        var fixedModifications = new Dictionary<int, List<Modification>>
+        var fixedModifications = new Dictionary<int, Modification>
         {
-            [1] = [modification],
+            [1] = modification,
         };
 
         var protein = new Protein("MPEPTIDE", "P1", oneBasedFixedModifications: fixedModifications);
         var clone = (Protein)protein.CloneWithNewSequenceAndMods("MPEPTIDE");
 
-        Assert.That(protein.OneBasedFixedModifications[1], Is.EqualTo(new[] { modification }));
-        Assert.That(clone.OneBasedFixedModifications[1], Is.EqualTo(new[] { modification }));
+        Assert.That(protein.OneBasedFixedModifications[1], Is.EqualTo(modification));
+        Assert.That(clone.OneBasedFixedModifications[1], Is.EqualTo(modification));
     }
 
     private static Modification CreateModification(char target)

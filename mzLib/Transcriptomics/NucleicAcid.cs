@@ -46,7 +46,7 @@ namespace Transcriptomics
         protected NucleicAcid(string sequence,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
             IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
-            IDictionary<int, List<Modification>>? oneBasedFixedModifications = null)
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
         {
             ConsensusVariant = this;
             MonoisotopicMass = 0;
@@ -62,7 +62,7 @@ namespace Transcriptomics
             OneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications != null 
                 ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedPossibleLocalizedModifications) 
                 : new Dictionary<int, List<Modification>>();
-            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, Modification>();
         }
 
         /// <summary>
@@ -81,7 +81,7 @@ namespace Transcriptomics
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null,
             bool isEntrapment = false,
-            IDictionary<int, List<Modification>>? oneBasedFixedModifications = null)
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm, oneBasedFixedModifications)
         {
             Name = name ?? "";
@@ -163,7 +163,7 @@ namespace Transcriptomics
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; protected set; }
 
-        public IDictionary<int, List<Modification>> OneBasedFixedModifications { get; protected set; }
+        public IDictionary<int, Modification> OneBasedFixedModifications { get; protected set; }
 
         public string Organism { get; }
 

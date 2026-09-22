@@ -48,7 +48,7 @@ namespace Proteomics
              UniProtEntryAttributes uniProtEntryAttributes = null,
              UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
              Protein nonVariantProtein = null,
-             IDictionary<int, List<Modification>> oneBasedFixedModifications = null)
+             IDictionary<int, Modification> oneBasedFixedModifications = null)
         {
             BaseSequence = sequence;
             // Defaults to this, which is right for an entry that is its own consensus. A caller building an
@@ -72,7 +72,7 @@ namespace Proteomics
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
-            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, Modification>();
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications);
@@ -174,7 +174,7 @@ namespace Proteomics
              UniProtEntryAttributes uniProtEntryAttributes = null,
              UniProtSequenceAttributes uniProtSequenceAttributes = null,
              Protein nonVariantProtein = null,
-             IDictionary<int, List<Modification>> oneBasedFixedModifications = null)
+             IDictionary<int, Modification> oneBasedFixedModifications = null)
         {
             BaseSequence = originalProtein.BaseSequence;
             Accession = accession ?? originalProtein.Accession;
@@ -248,7 +248,7 @@ namespace Proteomics
         /// </summary>
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
 
-        public IDictionary<int, List<Modification>> OneBasedFixedModifications { get; private set; }
+        public IDictionary<int, Modification> OneBasedFixedModifications { get; private set; }
 
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.

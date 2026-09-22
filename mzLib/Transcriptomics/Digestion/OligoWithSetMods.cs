@@ -179,8 +179,8 @@ namespace Transcriptomics.Digestion
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications => _oneBasedPossibleLocalizedModifications ??=
             _allModsOneIsNterminus.ToDictionary(p => p.Key, p => new List<Modification>() { p.Value });
-        public IDictionary<int, List<Modification>> OneBasedFixedModifications =>
-            NucleicAcid?.OneBasedFixedModifications ?? new Dictionary<int, List<Modification>>();
+        public IDictionary<int, Modification> OneBasedFixedModifications =>
+            NucleicAcid?.OneBasedFixedModifications ?? new Dictionary<int, Modification>();
         public int NumMods => AllModsOneIsNterminus.Count;
         public int NumFixedMods { get; }
         public int NumVariableMods => NumMods - NumFixedMods;

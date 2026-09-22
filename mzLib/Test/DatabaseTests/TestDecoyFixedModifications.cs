@@ -19,18 +19,17 @@ public class TestDecoyFixedModifications
         var rna = new RNA(
             "GUACUG",
             "RNA1",
-            oneBasedFixedModifications: new Dictionary<int, List<Modification>>
+            oneBasedFixedModifications: new Dictionary<int, Modification>
             {
-                [2] = [fixedModification],
-                [5] = [fixedModification],
+                [2] = fixedModification,
+                [5] = fixedModification,
             });
 
         var decoy = RnaDecoyGenerator.GenerateDecoys([rna], DecoyType.Reverse, 1).Single();
 
         Assert.That(decoy.BaseSequence, Is.EqualTo("GUCAUG"));
         Assert.That(decoy.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 2, 5 }));
-        Assert.That(decoy.OneBasedFixedModifications.Values.SelectMany(modifications => modifications),
-            Is.All.EqualTo(fixedModification));
+        Assert.That(decoy.OneBasedFixedModifications.Values, Is.All.EqualTo(fixedModification));
     }
 
     [Test]
@@ -41,18 +40,18 @@ public class TestDecoyFixedModifications
         var protein = new Protein(
             "MPEPTIDE",
             "P1",
-            oneBasedFixedModifications: new Dictionary<int, List<Modification>>
+            oneBasedFixedModifications: new Dictionary<int, Modification>
             {
-                [2] = [firstModification],
-                [5] = [secondModification],
+                [2] = firstModification,
+                [5] = secondModification,
             });
 
         var decoy = DecoyProteinGenerator.GenerateDecoys([protein], DecoyType.Reverse, 1).Single();
 
         Assert.That(decoy.BaseSequence, Is.EqualTo("MEDITPEP"));
         Assert.That(decoy.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 5, 8 }));
-        Assert.That(decoy.OneBasedFixedModifications[8], Is.EqualTo(new[] { firstModification }));
-        Assert.That(decoy.OneBasedFixedModifications[5], Is.EqualTo(new[] { secondModification }));
+        Assert.That(decoy.OneBasedFixedModifications[8], Is.EqualTo(firstModification));
+        Assert.That(decoy.OneBasedFixedModifications[5], Is.EqualTo(secondModification));
     }
 
     [Test]
@@ -67,14 +66,13 @@ public class TestDecoyFixedModifications
             "MPEPTIDE",
             "P1",
             oneBasedModifications: localizedModifications,
-            oneBasedFixedModifications: localizedModifications);
+            oneBasedFixedModifications: localizedModifications.ToDictionary(pair => pair.Key, pair => pair.Value[0]));
 
         var decoy = DecoyProteinGenerator.GenerateDecoys([protein], DecoyType.Slide, 1).Single();
 
         Assert.That(decoy.OneBasedFixedModifications.Keys,
             Is.EquivalentTo(decoy.OneBasedPossibleLocalizedModifications.Keys));
-        Assert.That(decoy.OneBasedFixedModifications.Values.SelectMany(modifications => modifications),
-            Is.All.EqualTo(modification));
+        Assert.That(decoy.OneBasedFixedModifications.Values, Is.All.EqualTo(modification));
     }
 
     private static Modification CreateModification(char target)

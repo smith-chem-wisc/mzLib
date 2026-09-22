@@ -23,14 +23,14 @@ namespace Transcriptomics
         /// </remarks>
         public static T CreateNew<T>(this T target, string? sequence = null, IDictionary<int, List<Modification>>? modifications = null,
         bool? isDecoy = null, List<TruncationProduct>? truncationProducts = null, List<SequenceVariation>? sequenceVariations = null,
-        List<SequenceVariation>? appliedSequenceVariations = null, string decoyIdentifier = "DECOY", IDictionary<int, List<Modification>>? fixedMods = null)
+        List<SequenceVariation>? appliedSequenceVariations = null, string decoyIdentifier = "DECOY", IDictionary<int, Modification>? fixedMods = null)
             where T : INucleicAcid
         {
             // set new object parameters where not null
             object? returnObj = null;
             string newSequence = sequence ?? target.BaseSequence;
             IDictionary<int, List<Modification>> newModifications = modifications ?? target.OneBasedPossibleLocalizedModifications;
-            IDictionary<int, List<Modification>> newFixedMods = fixedMods ?? target.OneBasedFixedModifications;
+            IDictionary<int, Modification> newFixedMods = fixedMods ?? target.OneBasedFixedModifications;
 
             switch (target)
             {
