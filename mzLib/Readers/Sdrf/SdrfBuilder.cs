@@ -96,6 +96,7 @@ namespace Readers
             // established ArgumentException as the contract for a malformed input.
             for (int i = 0; i < inputs.Count; i++)
                 RequireComplete(inputs[i], i);
+            RequireOneKindPerColumn(inputs);
 
             // Multi-cardinality columns are as wide as the widest row needs, and every row pads to
             // that width. Sizing per row would produce a ragged document.
@@ -174,6 +175,16 @@ namespace Readers
                     $"Row {index} has a null {nameof(SdrfSample.FactorValues)}; pass an empty " +
                     "dictionary for a sample with no factor values.", nameof(input));
 
+            // A blank key would become a column with no name. The factor union already drops one,
+            // which loses its value silently; refusing all three alike tells the caller instead.
+            if (input.Sample.Characteristics.Keys
+                    .Concat(input.Sample.RawCharacteristics.Keys)
+                    .Concat(input.Sample.FactorValues.Keys)
+                    .Any(string.IsNullOrWhiteSpace))
+                throw new ArgumentException(
+                    $"Row {index} has a characteristic or factor value keyed by a blank column name.",
+                    nameof(input));
+
             // One column space, two dictionaries. Preferring either one silently is how a column
             // comes to mean a term on some rows and free text on others.
             var both = input.Sample.Characteristics.Keys
@@ -194,6 +205,30 @@ namespace Readers
                     $"Row {index} sets both {nameof(SdrfSample.FactorValues)} and " +
                     $"{nameof(SdrfSample.FactorValueColumn)}. The pair is the one-factor shorthand " +
                     "for the dictionary; use one or the other.", nameof(input));
+        }
+
+        /// <summary>
+        /// The same rule <see cref="RequireComplete"/> applies within a row, applied across rows: the
+        /// header union merges every row's keys into ONE column, so a column that is a term on one row
+        /// and free text on another would mean two different things in one document just as surely as
+        /// a key in both dictionaries of a single row would.
+        /// </summary>
+        private static void RequireOneKindPerColumn(IReadOnlyList<SdrfRowInput> inputs)
+        {
+            var termColumns = inputs
+                .SelectMany(r => r.Sample.Characteristics.Keys)
+                .ToHashSet(StringComparer.Ordinal);
+            var mixed = inputs
+                .SelectMany(r => r.Sample.RawCharacteristics.Keys)
+                .Where(termColumns.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (mixed.Count > 0)
+                throw new ArgumentException(
+                    $"{string.Join(", ", mixed)} is a term on some rows and free text on others. " +
+                    "One column holds one kind of value in a document; decide in the caller.",
+                    nameof(inputs));
         }
 
         private static List<string> BuildHeader(

@@ -162,6 +162,44 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// SourceName is the join key, so it is trimmed; the source name CELL is a copy like every
+        /// other cell, so it is not.
+        /// </summary>
+        [Test]
+        public void APaddedSourceNameIsTrimmedAsTheKeyButKeptVerbatimAsACell()
+        {
+            var blocks = SdrfSampleBlock.BySourceName(Doc(Columns,
+                new[] { " S1 ", "Homo sapiens", "liver", "1", "run 1", "a.raw", "TMT126", "normal" }),
+                out _);
+
+            Assert.That(blocks["S1"].SourceName, Is.EqualTo("S1"));
+            Assert.That(blocks["S1"]["source name"], Is.EqualTo(" S1 "));
+        }
+
+        /// <summary>
+        /// The column lists come back in the order the header wrote them, whatever order a
+        /// dictionary happens to enumerate in.
+        /// </summary>
+        [Test]
+        public void ColumnsComeBackInHeaderOrder()
+        {
+            string[] columns =
+            {
+                "source name", "characteristics[sex]", "factor value[treatment]",
+                "characteristics[age]", "assay name", "factor value[disease]"
+            };
+
+            var block = SdrfSampleBlock.BySourceName(Doc(columns,
+                new[] { "S1", "female", "drug", "58Y", "run 1", "normal" }),
+                out _)["S1"];
+
+            Assert.That(block.CharacteristicColumns,
+                Is.EqualTo(new[] { "characteristics[sex]", "characteristics[age]" }));
+            Assert.That(block.FactorValueColumns,
+                Is.EqualTo(new[] { "factor value[treatment]", "factor value[disease]" }));
+        }
+
+        /// <summary>
         /// A row with no source name cannot be keyed to a sample, so it is reported rather than
         /// dropped quietly or filed under the empty string.
         /// </summary>

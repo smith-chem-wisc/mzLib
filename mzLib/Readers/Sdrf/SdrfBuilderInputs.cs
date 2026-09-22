@@ -56,9 +56,19 @@ namespace Readers
         /// <c>not available</c> (D27) is a statement, not an absence. A value cannot contain a tab or
         /// a newline, because it came out of a tab-separated file.
         ///
-        /// A key present here AND in <see cref="Characteristics"/> is a caller error and throws: the
-        /// two dictionaries share one column space, and silently preferring one is how a column comes
-        /// to mean two different things in one document.
+        /// A column that is a term on one row and free text on another -- whether the same row puts
+        /// it in both dictionaries or two rows each put it in a different one -- is a caller error
+        /// and throws: the two dictionaries share one column space, and silently preferring one is
+        /// how a column comes to mean two different things in one document.
+        ///
+        /// <para><b>One value per column, so a REPEATED column cannot be carried.</b> SDRF lets a
+        /// column repeat, and nine corpus files repeat <c>characteristics[organism part]</c>;
+        /// <see cref="SdrfSampleBlock.All"/> keeps every value, but this dictionary holds one and the
+        /// builder writes one column per name. A caller copying a block in with its indexer carries
+        /// the FIRST value only. That is a deliberate scope boundary, not an oversight: writing
+        /// repeats needs a list-valued input and a header that repeats the column, and nine files in
+        /// 1,236 do not yet justify that. A caller that must not lose the others can check
+        /// <c>block.All(column).Count &gt; 1</c> and decide.</para>
         /// </summary>
         public IReadOnlyDictionary<string, string> RawCharacteristics { get; init; }
             = new Dictionary<string, string>();
@@ -84,6 +94,9 @@ namespace Readers
         /// <see cref="FactorValue"/> with <see cref="FactorValueColumn"/> is the one-entry shorthand.
         /// Setting both throws rather than merging them: two ways to state one row's factors that
         /// disagree is a caller error, and choosing between them here would hide it.
+        ///
+        /// One value per column, for the reason given on <see cref="RawCharacteristics"/>: a repeated
+        /// factor column is carried as its first value.
         /// </summary>
         public IReadOnlyDictionary<string, string> FactorValues { get; init; }
             = new Dictionary<string, string>();

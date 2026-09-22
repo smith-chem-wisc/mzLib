@@ -856,6 +856,93 @@ namespace Test.FileReadingTests
                 "a valid SDRF.");
         }
 
+        /// <summary>
+        /// The term-or-free-text rule holds across the DOCUMENT, not just within a row. The header
+        /// union merges both rows' keys into one column, so a term on row 1 and free text on row 2
+        /// would give that column two meanings as surely as one row putting it in both dictionaries.
+        /// </summary>
+        [Test]
+        public void ATermOnOneRowAndFreeTextOnAnotherIsRefused()
+        {
+            var term = Sample("Sample 1");
+            var free = Sample("Sample 2") with
+            {
+                Characteristics = new Dictionary<string, CvParam>(),
+                RawCharacteristics = new Dictionary<string, string>
+                    { ["characteristics[organism part]"] = "liver" }
+            };
+
+            Assert.That(() => SdrfBuilder.Build(new[]
+                {
+                    new SdrfRowInput(term, Assay("a.raw")),
+                    new SdrfRowInput(free, Assay("b.raw"))
+                }),
+                Throws.TypeOf<ArgumentException>()
+                    .With.Message.Contains("characteristics[organism part]"));
+        }
+
+        /// <summary>
+        /// A blank key would become a column with no name -- or, for a factor, vanish from the header
+        /// and take its value with it. All three dictionaries refuse one alike.
+        /// </summary>
+        [Test]
+        public void ABlankColumnNameIsRefusedInEveryDictionary()
+        {
+            var sample = Sample();
+
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with
+                {
+                    Characteristics = new Dictionary<string, CvParam>
+                        { [" "] = new CvParam("UBERON", "UBERON:0002107", "liver", "") }
+                }, Assay()) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with
+                {
+                    RawCharacteristics = new Dictionary<string, string> { [""] = "58Y" }
+                }, Assay()) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with
+                {
+                    FactorValues = new Dictionary<string, string> { [" "] = "normal" }
+                }, Assay()) }),
+                Throws.TypeOf<ArgumentException>());
+        }
+
+        /// <summary>
+        /// The scope boundary, pinned: a REPEATED column is kept whole on the read side but carried
+        /// as its first value on the write side, because the input holds one value per column. Nine
+        /// corpus files repeat characteristics[organism part]. If the builder ever grows a
+        /// list-valued input, this test is the one to change.
+        /// </summary>
+        [Test]
+        public void ARepeatedColumnIsCarriedAsItsFirstValueOnly()
+        {
+            var incomingHeader = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[organism part]", "characteristics[organism part]",
+                "assay name", "comment[data file]"
+            });
+            var incoming = new SdrfDocument(incomingHeader, new[]
+            {
+                new SdrfRow(incomingHeader, new[] { "Sample 1", "liver", "left lobe", "run x", "x.raw" })
+            });
+            var block = SdrfSampleBlock.BySourceName(incoming, out _)["Sample 1"];
+            Assert.That(block.All("characteristics[organism part]"), Has.Count.EqualTo(2),
+                "The read side keeps both, so a caller CAN see what the write side will drop.");
+
+            var sample = Sample("Sample 1") with
+            {
+                Characteristics = new Dictionary<string, CvParam>(),
+                RawCharacteristics = block.CharacteristicColumns
+                    .ToDictionary(c => c, c => block[c]!, StringComparer.Ordinal)
+            };
+            var written = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) });
+
+            Assert.That(written.Header.Count(c => c == "characteristics[organism part]"), Is.EqualTo(1));
+            Assert.That(written.Results.Single().All("characteristics[organism part]"),
+                Is.EqualTo(new[] { "liver" }));
+        }
+
         #endregion
     }
 }

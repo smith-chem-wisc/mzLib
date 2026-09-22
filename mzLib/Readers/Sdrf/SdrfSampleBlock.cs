@@ -33,18 +33,30 @@ namespace Readers
         private const string CharacteristicsPrefix = "characteristics[";
         private const string FactorValuePrefix = "factor value[";
 
+        /// <summary>
+        /// The keys of <see cref="Cells"/> in header order. Kept separately because a dictionary's
+        /// enumeration order is not part of its contract.
+        /// </summary>
+        private readonly IReadOnlyList<string> _columnOrder;
+
         internal SdrfSampleBlock(string sourceName,
             IReadOnlyDictionary<string, IReadOnlyList<string>> cells,
+            IReadOnlyList<string> columnOrder,
             IReadOnlyList<string> conflictingColumns,
             int rowCount)
         {
             SourceName = sourceName;
             Cells = cells;
+            _columnOrder = columnOrder;
             ConflictingColumns = conflictingColumns;
             RowCount = rowCount;
         }
 
-        /// <summary>The sample's name, spelled as the FIRST row that named it spelled it.</summary>
+        /// <summary>
+        /// The sample's name as the FIRST row that named it spelled it, trimmed of surrounding
+        /// whitespace because this is the join key. <c>Cells["source name"]</c> keeps the cell
+        /// verbatim, padding and all, like every other cell in the block.
+        /// </summary>
         public string SourceName { get; }
 
         /// <summary>
@@ -93,11 +105,11 @@ namespace Readers
 
         /// <summary>The <c>characteristics[...]</c> columns this block agrees on, in header order.</summary>
         public IEnumerable<string> CharacteristicColumns =>
-            Cells.Keys.Where(c => c.StartsWith(CharacteristicsPrefix, StringComparison.OrdinalIgnoreCase));
+            _columnOrder.Where(c => c.StartsWith(CharacteristicsPrefix, StringComparison.OrdinalIgnoreCase));
 
         /// <summary>The <c>factor value[...]</c> columns this block agrees on, in header order.</summary>
         public IEnumerable<string> FactorValueColumns =>
-            Cells.Keys.Where(c => c.StartsWith(FactorValuePrefix, StringComparison.OrdinalIgnoreCase));
+            _columnOrder.Where(c => c.StartsWith(FactorValuePrefix, StringComparison.OrdinalIgnoreCase));
 
         public override string ToString() =>
             $"{SourceName}: {Cells.Count} column(s) over {RowCount} row(s)" +
@@ -181,6 +193,7 @@ namespace Readers
             foreach (var (name, rows) in rowsBySample)
             {
                 var agreed = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+                var order = new List<string>();
                 var conflicts = new List<string>();
 
                 foreach (string column in sampleColumns)
@@ -188,11 +201,15 @@ namespace Readers
                     IReadOnlyList<string> first = rows[0].All(column);
                     bool agrees = rows.Skip(1).All(r => SameValues(first, r.All(column)));
 
-                    if (agrees) agreed[column] = first;
+                    if (agrees)
+                    {
+                        agreed[column] = first;
+                        order.Add(column);
+                    }
                     else conflicts.Add(column);
                 }
 
-                blocks[name] = new SdrfSampleBlock(firstSpelling[name], agreed, conflicts, rows.Count);
+                blocks[name] = new SdrfSampleBlock(firstSpelling[name], agreed, order, conflicts, rows.Count);
             }
 
             return blocks;
