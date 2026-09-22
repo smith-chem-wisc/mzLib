@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using MzLibUtil;
 using Omics.Modifications;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -40,6 +41,88 @@ namespace Test.Transcriptomics
             Assert.That(variableRnase.CleavageMod, Is.TypeOf<CleavageModification>());
             Assert.That(((CleavageModification)variableRnase.CleavageMod).IsFixedMod, Is.False);
             Assert.That(((CleavageModification)variableRnase.CleavageMod).IsVariableMod, Is.True);
+        }
+
+        [Test]
+        public void TestRnaseDictionary_UnknownCleavageModification_Throws()
+        {
+            string tempPath = Path.Combine(Path.GetTempPath(), "unknown_cleavage_mod_rnase.tsv");
+            try
+            {
+                File.WriteAllText(tempPath,
+                    "Name\tMotif\tSpecificity\tCleavageModification\tCleavageModificationType\n" +
+                    "UnknownModificationRnase\tG|\tfull\tMissing Modification on X\tfixed\n");
+
+                var exception = Assert.Throws<MzLibException>(() =>
+                    RnaseDictionary.LoadAndMergeCustomRnases(tempPath));
+
+                Assert.That(exception!.Message, Does.Contain("Missing Modification on X"));
+                Assert.That(exception.Message, Does.Contain("UnknownModificationRnase"));
+            }
+            finally
+            {
+                if (RnaseDictionary.Dictionary.ContainsKey("UnknownModificationRnase"))
+                    RnaseDictionary.Dictionary.Remove("UnknownModificationRnase");
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
+        [Test]
+        public void TestRnaseDictionary_InvalidCleavageModificationType_Throws()
+        {
+            string tempPath = Path.Combine(Path.GetTempPath(), "invalid_cleavage_mod_type_rnase.tsv");
+            try
+            {
+                File.WriteAllText(tempPath,
+                    "Name\tMotif\tSpecificity\tCleavageModification\tCleavageModificationType\n" +
+                    "InvalidModificationTypeRnase\tG|\tfull\tCyclic Phosphate on X\toptional\n");
+
+                var exception = Assert.Throws<MzLibException>(() =>
+                    RnaseDictionary.LoadAndMergeCustomRnases(tempPath));
+
+                Assert.That(exception!.Message, Does.Contain("fixed"));
+                Assert.That(exception.Message, Does.Contain("variable"));
+            }
+            finally
+            {
+                if (RnaseDictionary.Dictionary.ContainsKey("InvalidModificationTypeRnase"))
+                    RnaseDictionary.Dictionary.Remove("InvalidModificationTypeRnase");
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
+        }
+
+        [Test]
+        public void TestFixedFivePrimeCleavageModification_IsAppliedAtFivePrimeTerminus()
+        {
+            string tempPath = Path.Combine(Path.GetTempPath(), "five_prime_cleavage_rnase.tsv");
+            try
+            {
+                File.WriteAllText(tempPath,
+                    "Name\tMotif\tSpecificity\tCleavageModification\tCleavageModificationType\n" +
+                    "FivePrimeModificationRnase\tG|\tfull\tTerminal Phosphorylation on X\tfixed\n");
+                RnaseDictionary.LoadAndMergeCustomRnases(tempPath);
+
+                var rna = new RNA("GAG");
+                var digestionParams = new RnaDigestionParams("FivePrimeModificationRnase", minLength: 1);
+                var oligos = rna.Digest(digestionParams, new List<Modification>(), new List<Modification>())
+                    .Cast<OligoWithSetMods>()
+                    .ToList();
+                var modifiedOligo = oligos.Single(oligo => oligo.BaseSequence == "AG");
+
+                Assert.That(modifiedOligo.AllModsOneIsNterminus, Does.ContainKey(1));
+                Assert.That(modifiedOligo.AllModsOneIsNterminus[1], Is.TypeOf<CleavageModification>());
+                Assert.That(modifiedOligo.AllModsOneIsNterminus[1].OriginalId,
+                    Is.EqualTo("Terminal Phosphorylation"));
+            }
+            finally
+            {
+                if (RnaseDictionary.Dictionary.ContainsKey("FivePrimeModificationRnase"))
+                    RnaseDictionary.Dictionary.Remove("FivePrimeModificationRnase");
+                if (File.Exists(tempPath))
+                    File.Delete(tempPath);
+            }
         }
 
         [Test]
