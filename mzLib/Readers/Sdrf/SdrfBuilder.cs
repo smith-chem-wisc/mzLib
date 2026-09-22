@@ -283,9 +283,15 @@ namespace Readers
             if (searchedColumn)
                 // A row whose search read the acquired file itself names that file again, so the
                 // column says "no transformation" rather than leaving the reader to guess.
-                cells.Add(string.IsNullOrWhiteSpace(assay.SearchedDataFileName)
-                    ? assay.DataFileName
-                    : assay.SearchedDataFileName);
+                // Through Required, like the comment[data file] cell one line above. Writing the
+                // fallback raw meant that a row with a blank DataFileName produced "not available"
+                // in one column and an EMPTY cell in the other -- two cells disagreeing about the
+                // same absence, plus an EmptyCell warning from the lint.
+                cells.Add(Required(
+                    string.IsNullOrWhiteSpace(assay.SearchedDataFileName)
+                        ? assay.DataFileName
+                        : assay.SearchedDataFileName,
+                    SearchedDataFile, options));
 
             if (!string.IsNullOrWhiteSpace(options.ProteomeXchangeAccession))
                 cells.Add(options.ProteomeXchangeAccession);
