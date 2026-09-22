@@ -47,6 +47,10 @@ namespace UsefulProteomicsDatabases.Ensembl
     /// One row of a resolution: one (accession, gene) pair, or one outcome row for an accession with
     /// no gene. Restrictions are columns, never modes -- a consumer filters on Outcome and can see what
     /// it dropped.
+    ///
+    /// Source says which source linked the gene. Outcome and GeneCount always describe the search
+    /// database's own links, so filtering to <see cref="EnsemblGeneResolver.SearchDatabaseSource"/> gives
+    /// the search database's view unchanged; filtering to EnsemblXrefAgrees == true gives Ensembl's.
     /// </summary>
     public sealed record GeneResolution(
         string Accession,
@@ -83,9 +87,17 @@ namespace UsefulProteomicsDatabases.Ensembl
         /// <summary>The Source value for rows resolved from the search database's own dbReferences.</summary>
         public const string SearchDatabaseSource = "search_database_dbreference";
 
+        /// <summary>
+        /// The Source value for a gene Ensembl's cross-reference links to the accession and the search
+        /// database does not. These rows carry the search database's Outcome, so they never change it.
+        /// </summary>
+        public const string EnsemblXrefSource = "ensembl_xref";
+
         /// <param name="geneSet">The release gene set every resolution is counted against.</param>
-        /// <param name="xrefs">Optional: Ensembl's own cross-references, to say per gene row whether Ensembl
-        /// agrees with the search database's link. Without it, agreement is unknown (null), not false.</param>
+        /// <param name="xrefs">Optional: Ensembl's own cross-references. They say per gene row whether Ensembl
+        /// agrees with the search database's link, and add a row (Source <see cref="EnsemblXrefSource"/>) for
+        /// every gene in the set Ensembl links and the search database does not, so that neither source's
+        /// answer is dropped. Without it, agreement is unknown (null), not false, and no such rows exist.</param>
         public EnsemblGeneResolver(EnsemblGeneSet geneSet, EnsemblXrefTable xrefs = null)
         {
             GeneSet = geneSet ?? throw new ArgumentNullException(nameof(geneSet));
@@ -115,7 +127,7 @@ namespace UsefulProteomicsDatabases.Ensembl
             string uniProtGeneName = PrimaryGeneName(protein) ?? PrimaryGeneName(entry);
 
             GeneResolution Row(GeneResolutionOutcome outcome, int geneCount = 0, string geneId = null,
-                string versionedGeneId = null, int offPrimary = 0)
+                string versionedGeneId = null, int offPrimary = 0, string source = SearchDatabaseSource)
             {
                 EnsemblGene gene = null;
                 if (geneId != null) GeneSet.TryGetGene(geneId, out gene);
@@ -128,7 +140,7 @@ namespace UsefulProteomicsDatabases.Ensembl
 
                 return new GeneResolution(accession.Verbatim, accession.EntryAccession, accession.Isoform,
                     accession.Namespace, outcome, geneCount, geneId, versionedGeneId, gene?.Symbol, gene?.Biotype,
-                    offPrimary, uniProtGeneName, SearchDatabaseSource, searchDatabaseSha256, GeneSet.Release,
+                    offPrimary, uniProtGeneName, source, searchDatabaseSha256, GeneSet.Release,
                     GeneSet.SourceSha256, agrees, xrefInfo, Xrefs?.SourceSha256);
             }
 
@@ -150,27 +162,39 @@ namespace UsefulProteomicsDatabases.Ensembl
                 versionedByGene.TryAdd(link.GeneId, link.VersionedGeneId);
             }
 
-            if (versionedByGene.Count == 0)
-            {
-                return new[]
-                {
-                    Row(accession.Namespace == AccessionNamespace.Unrecognized
-                        ? GeneResolutionOutcome.UnrecognizedAccession
-                        : GeneResolutionOutcome.NotInSource)
-                };
-            }
-
             var onAssembly = versionedByGene.Keys.Where(GeneSet.Contains).OrderBy(g => g, StringComparer.Ordinal).ToList();
             int offAssembly = versionedByGene.Count - onAssembly.Count;
-            if (onAssembly.Count == 0)
+
+            var rows = new List<GeneResolution>();
+            GeneResolutionOutcome outcome;
+            if (versionedByGene.Count == 0)
             {
-                return new[] { Row(GeneResolutionOutcome.OffPrimaryOnly, offPrimary: offAssembly) };
+                outcome = accession.Namespace == AccessionNamespace.Unrecognized
+                    ? GeneResolutionOutcome.UnrecognizedAccession
+                    : GeneResolutionOutcome.NotInSource;
+                rows.Add(Row(outcome));
+            }
+            else if (onAssembly.Count == 0)
+            {
+                outcome = GeneResolutionOutcome.OffPrimaryOnly;
+                rows.Add(Row(outcome, offPrimary: offAssembly));
+            }
+            else
+            {
+                outcome = onAssembly.Count == 1 ? GeneResolutionOutcome.Resolved : GeneResolutionOutcome.MultiGene;
+                rows.AddRange(onAssembly.Select(g => Row(outcome, onAssembly.Count, g, versionedByGene[g], offAssembly)));
             }
 
-            var outcome = onAssembly.Count == 1 ? GeneResolutionOutcome.Resolved : GeneResolutionOutcome.MultiGene;
-            return onAssembly
-                .Select(g => Row(outcome, onAssembly.Count, g, versionedByGene[g], offAssembly))
-                .ToList();
+            // Genes only Ensembl links, restricted to the same gene set so its ALT links stay out too. They
+            // carry the search database's outcome and gene count: they add an answer, never change one.
+            foreach (var geneId in XrefGenes(accession).Where(g => GeneSet.Contains(g) && !versionedByGene.ContainsKey(g)))
+            {
+                GeneSet.TryGetGene(geneId, out var gene);
+                string versioned = gene.Version is int v ? $"{geneId}.{v}" : null;
+                rows.Add(Row(outcome, onAssembly.Count, geneId, versioned, offAssembly, EnsemblXrefSource));
+            }
+
+            return rows;
         }
 
         /// <summary>Resolves every protein, in order.</summary>
@@ -198,6 +222,21 @@ namespace UsefulProteomicsDatabases.Ensembl
             }
 
             return Xrefs.TryGetLink(accession.EntryAccession, geneId, out infoType);
+        }
+
+        /// <summary>
+        /// The genes Ensembl's xref links to the accession: the verbatim accession's own rows when it has
+        /// any, else its entry's -- the same precedence as <see cref="XrefLink"/>.
+        /// </summary>
+        private IEnumerable<string> XrefGenes(ProteinAccession accession)
+        {
+            if (Xrefs == null)
+            {
+                return Enumerable.Empty<string>();
+            }
+
+            string key = Xrefs.ContainsAccession(accession.Verbatim) ? accession.Verbatim : accession.EntryAccession;
+            return Xrefs.GenesFor(key).Select(g => g.GeneId);
         }
 
         /// <summary>

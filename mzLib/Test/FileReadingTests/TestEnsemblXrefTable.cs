@@ -167,5 +167,97 @@ namespace Test.FileReadingTests
             Assert.That(cells["ensembl_xref_agrees"], Is.EqualTo("true"));
             Assert.That(cells["ensembl_xref_info_type"], Is.EqualTo("DIRECT"));
         }
+
+        // ---- genes only the xref links: rows of their own, never a changed outcome ----
+
+        private EnsemblXrefTable XrefOnlyTable() => EnsemblXrefTable.Load(WriteGz("Rattus_norvegicus.GRCr8.116.uniprot.tsv.gz",
+            Header +
+            Row("ENSG00000000001", "ENST1", "P44444", "Uniprot/SWISSPROT", "DIRECT") +
+            Row("ENSG00000000003", "ENST3", "P44444", "Uniprot/SWISSPROT", "SEQUENCE_MATCH") +
+            Row("ENSG00000000003", "ENST3", "P55555", "Uniprot/SWISSPROT", "DIRECT") +
+            Row("ENSG00000000099", "ENST99", "P66666", "Uniprot/SWISSPROT", "DIRECT") +
+            Row("ENSG00000000002", "ENST2", "P77777", "Uniprot/SWISSPROT", "DIRECT")));
+
+        private static Protein[] XrefOnlyProteins() => new[]
+        {
+            Entry("P44444", Transcript("ENST1.1", "ENSG00000000001.1")),          // XML one gene, xref adds a second
+            Entry("P55555", Transcript("ENST55.1", "ENSG00000055001.1")),         // XML only off the set, xref rescues
+            Entry("P66666"),                                                     // xref gene is off the set too
+            Entry("P88888"),                                                     // neither source knows it
+            new Protein("PEPTIDEK", "P77777", isContaminant: true),              // xref would resolve it
+        };
+
+        [Test]
+        public void XrefOnlyGene_IsItsOwnRow_AndKeepsTheSearchDatabasesOutcome()
+        {
+            var rows = new EnsemblGeneResolver(_genes, XrefOnlyTable()).Resolve(XrefOnlyProteins()[0], "sha");
+
+            Assert.That(rows.Select(r => (r.GeneId, r.Source)), Is.EqualTo(new[]
+            {
+                ("ENSG00000000001", EnsemblGeneResolver.SearchDatabaseSource),
+                ("ENSG00000000003", EnsemblGeneResolver.EnsemblXrefSource),
+            }));
+            Assert.That(rows.Select(r => (r.Outcome, r.GeneCount)).Distinct(), Is.EqualTo(new[] { (GeneResolutionOutcome.Resolved, 1) }),
+                "the outcome reports the search database's links; the xref adds an answer, it does not change one");
+            var added = rows[1];
+            Assert.That((added.EnsemblXrefAgrees, added.EnsemblXrefInfoType, added.VersionedGeneId),
+                Is.EqualTo(((bool?)true, "SEQUENCE_MATCH", "ENSG00000000003.1")), "the version is the gene set's");
+        }
+
+        [Test]
+        public void OffPrimaryOnlyEntry_KeepsItsOutcomeRow_AndGainsTheXrefGene()
+        {
+            var rows = new EnsemblGeneResolver(_genes, XrefOnlyTable()).Resolve(XrefOnlyProteins()[1], "sha");
+
+            Assert.That(rows.Select(r => (r.Outcome, r.GeneId, r.Source, r.OffPrimaryGenes)), Is.EqualTo(new[]
+            {
+                (GeneResolutionOutcome.OffPrimaryOnly, (string)null, EnsemblGeneResolver.SearchDatabaseSource, 1),
+                (GeneResolutionOutcome.OffPrimaryOnly, "ENSG00000000003", EnsemblGeneResolver.EnsemblXrefSource, 1),
+            }));
+        }
+
+        [Test]
+        public void XrefGeneOutsideTheGeneSet_IsNotAdded()
+        {
+            var r = new EnsemblGeneResolver(_genes, XrefOnlyTable()).Resolve(XrefOnlyProteins()[2], "sha").Single();
+
+            Assert.That((r.Outcome, r.GeneId), Is.EqualTo((GeneResolutionOutcome.NotInSource, (string)null)),
+                "the xref's off-set links are held to the same gene set as the XML's");
+        }
+
+        [Test]
+        public void Contaminant_GainsNoXrefGene()
+        {
+            var r = new EnsemblGeneResolver(_genes, XrefOnlyTable()).Resolve(XrefOnlyProteins()[4], "sha").Single();
+
+            Assert.That(r.Outcome, Is.EqualTo(GeneResolutionOutcome.ContaminantNotMapped));
+        }
+
+        [Test]
+        public void FilteringToTheSearchDatabaseSource_GivesTheSearchDatabasesViewUnchanged()
+        {
+            var proteins = XrefOnlyProteins();
+            var withXref = new EnsemblGeneResolver(_genes, XrefOnlyTable()).ResolveAll(proteins, "sha")
+                .Where(r => r.Source == EnsemblGeneResolver.SearchDatabaseSource);
+            var without = new EnsemblGeneResolver(_genes).ResolveAll(proteins, "sha");
+
+            Assert.That(withXref.Select(r => (r.Accession, r.Outcome, r.GeneCount, r.GeneId, r.VersionedGeneId, r.OffPrimaryGenes)),
+                Is.EqualTo(without.Select(r => (r.Accession, r.Outcome, r.GeneCount, r.GeneId, r.VersionedGeneId, r.OffPrimaryGenes))));
+        }
+
+        [Test]
+        public void FilteringToAgreement_GivesEveryXrefGeneInTheSet()
+        {
+            var table = XrefOnlyTable();
+            var proteins = XrefOnlyProteins().Where(p => !p.IsContaminant).ToList();
+            var rows = new EnsemblGeneResolver(_genes, table).ResolveAll(proteins, "sha").ToList();
+
+            foreach (var p in proteins)
+            {
+                var agreeing = rows.Where(r => r.Accession == p.Accession && r.EnsemblXrefAgrees == true).Select(r => r.GeneId);
+                var xrefInSet = table.GenesFor(p.Accession).Select(g => g.GeneId).Where(_genes.Contains);
+                Assert.That(agreeing, Is.EquivalentTo(xrefInSet), p.Accession);
+            }
+        }
     }
 }

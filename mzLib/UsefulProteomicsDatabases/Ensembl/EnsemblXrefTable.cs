@@ -77,6 +77,15 @@ namespace UsefulProteomicsDatabases.Ensembl
                 && genes.TryGetValue(geneId, out infoType);
         }
 
+        /// <summary>
+        /// Every gene the table links <paramref name="accession"/> to (exact), with the strongest evidence
+        /// type for each, in ordinal order of gene id. Empty when the accession is not in the table.
+        /// </summary>
+        public IReadOnlyList<(string GeneId, string InfoType)> GenesFor(string accession) =>
+            accession != null && _links.TryGetValue(accession, out var genes)
+                ? genes.OrderBy(g => g.Key, StringComparer.Ordinal).Select(g => (g.Key, g.Value)).ToList()
+                : Array.Empty<(string, string)>();
+
         /// <exception cref="FileNotFoundException">The file does not exist.</exception>
         /// <exception cref="InvalidDataException">The header is not the expected layout.</exception>
         public static EnsemblXrefTable Load(string path)
