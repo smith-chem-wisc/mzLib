@@ -76,6 +76,24 @@ namespace Readers
         /// file]</c> exists only in the metabolomics template, so borrowing either would mislead.
         /// Null when the search read the acquired file; the column is then omitted unless another row
         /// sets it.
+        ///
+        /// <para><b>THE JOIN RULE, for anyone reading an SDRF back into an experimental design.</b>
+        /// An experimental design is keyed on the file the SEARCH read, and this column is the only
+        /// place that name appears -- <c>comment[data file]</c> is the acquisition. So: key on
+        /// <c>comment[searched data file]</c> when the document has it, fall back to
+        /// <c>comment[data file]</c> when it does not, and match on the STEM, case-insensitively,
+        /// because a converted <c>.mzML</c> matches no <c>.raw</c> by full name.</para>
+        ///
+        /// <para>Keying on <c>comment[data file]</c> instead fails on every CALIBRATED run, which is
+        /// most of them -- and it fails by producing a design with zero matched files, which reads
+        /// like a bad fixture rather than a mapping bug. That is why the rule is written here, beside
+        /// the thing that creates the mismatch, rather than left for each consumer to rediscover.</para>
+        ///
+        /// <para><b>And a caveat for anyone MINING these documents.</b> The column is gated
+        /// document-wide: one row that names a derivative gives every row the column, so a row where
+        /// searched equals acquired asserts "no transformation" in one document and says nothing at
+        /// all in another. Never read the column's ABSENCE as "nothing was transformed anywhere" --
+        /// it means only that no row in that document set it.</para>
         /// </summary>
         public string SearchedDataFileName { get; init; }
 
