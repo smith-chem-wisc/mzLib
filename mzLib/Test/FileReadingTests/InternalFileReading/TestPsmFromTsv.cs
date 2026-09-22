@@ -20,6 +20,46 @@ namespace Test.FileReadingTests.InternalFileReading
     {
 
         [Test]
+        public static void ProteinGroupInfos_HandlesEmptyAccessionGeneOrganism()
+        {
+            // Regression test: ConstructProteinGroupInfo split Accession/Gene Name/Organism Name without a null
+            // check, but GetOptionalValue returns null for empty cells, so a PSM row with no protein annotation
+            // threw a NullReferenceException when ProteinGroupInfos was accessed (e.g. on the FlashLFQ
+            // MakeIdentifications path over a real AllPSMs file). Build such a row from a real file and verify it
+            // no longer throws and yields empty strings instead of null.
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            string[] header = lines[0].Split('\t');
+            int acc = Array.IndexOf(header, "Protein Accession");
+            int gene = Array.IndexOf(header, "Gene Name");
+            int org = Array.IndexOf(header, "Organism Name");
+            NUnit.Framework.Assert.That(acc >= 0 && gene >= 0 && org >= 0, "template is missing an expected column");
+
+            string[] cells = lines[1].Split('\t');
+            cells[acc] = cells[gene] = cells[org] = ""; // empty cells -> GetOptionalValue returns null for these fields
+            string tempPath = Path.Combine(Path.GetTempPath(), "EmptyProteinFields_" + Guid.NewGuid().ToString("N") + ".psmtsv");
+            File.WriteAllLines(tempPath, new[] { lines[0], string.Join("\t", cells) });
+
+            try
+            {
+                List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(tempPath, out _);
+                NUnit.Framework.Assert.That(psms.Count, Is.EqualTo(1));
+
+                List<(string proteinAccessions, string geneName, string organism)> infos = null;
+                NUnit.Framework.Assert.DoesNotThrow(() => infos = psms[0].ProteinGroupInfos);
+                NUnit.Framework.Assert.That(infos.Count, Is.EqualTo(1));
+                NUnit.Framework.Assert.That(infos[0].proteinAccessions, Is.EqualTo(""));
+                NUnit.Framework.Assert.That(infos[0].geneName, Is.EqualTo(""));
+                NUnit.Framework.Assert.That(infos[0].organism, Is.EqualTo(""));
+            }
+            finally
+            {
+                File.Delete(tempPath);
+            }
+        }
+
+        [Test]
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
         [TestCase("oGlycoAllPsms.psmtsv", 10)] // oglyco - AllPsms
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco

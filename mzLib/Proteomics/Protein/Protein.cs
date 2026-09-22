@@ -369,19 +369,14 @@ namespace Proteomics
 
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            // add in any modifications that are caused by protease digestion
-            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
-            {
-                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
-            }
             variableModifications = variableModifications ?? new List<Modification>();
+            IBioPolymer.AddDigestionAgentModification(digestionParameters.Protease,
+                ref allKnownFixedModifications, ref variableModifications);
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
-
-            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
 
             // SearchModeType Semi means two different things depending on FragmentationTerminus:
             //  - N or C: the caller is MetaMorpheus's non-specific search engine, which wants "seed" peptides fixed at that
-            //    terminus and trims them after the search (see ProteinDigestion.SpeedySemiSpecificDigestion).
+            //    terminus and trims them after the search.
             //  - anything else (Both is the default): the caller wants the semi-specific peptides themselves. Classic,
             //    Modern, Glyco and crosslink searches do no trimming, so they must get every peptide with at least one
             //    specific terminus. This used to fall through to the seed path as well, where Both silently behaved as C,
@@ -390,10 +385,16 @@ namespace Proteomics
             // singleC, whose digestion (the first branch) returns non-specific seeds; None + Both gives the singleC ones.
             // The full table of what each SearchModeType and FragmentationTerminus returns is on
             // DigestionParams.SearchModeType and is pinned by SearchModeTypeDigestionTests.
-            IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                searchModeType != CleavageSpecificity.Semi ? digestion.Digestion(this, topDownTruncationSearch)
-                : ProteinDigestion.WantsSemiSpecificSeeds(digestionParameters) ? digestion.SpeedySemiSpecificDigestion(this)
-                : digestion.SemiSpecificDigestion(this);
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
+                this,
+                digestionParameters.MaxMissedCleavages,
+                digestionParameters.InitiatorMethionineBehavior,
+                digestionParameters.MinLength,
+                digestionParameters.MaxLength,
+                digestionParameters.SpecificProtease,
+                digestionParameters.FragmentationTerminus,
+                digestionParameters.SearchModeType,
+                topDownTruncationSearch);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {

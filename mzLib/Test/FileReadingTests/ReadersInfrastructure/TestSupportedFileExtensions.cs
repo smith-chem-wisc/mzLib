@@ -48,6 +48,9 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv", SupportedFileType.DiaNnReport);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv", SupportedFileType.Sdrf);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\match_output_Lumos_Orbi.txt", SupportedFileType.PytheasResult);
+            yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid", SupportedFileType.MzIdentML);
+            yield return new TestCaseData(@"DataFiles\SmallCalibratible_Yeast.mzID", SupportedFileType.MzIdentML);
+            yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid.gz", SupportedFileType.MzIdentMLGz);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();
@@ -156,6 +159,10 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             badTest = Path.Combine(TestContext.CurrentContext.TestDirectory, "Codswallop_ms3.msalign");
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2"));
+
+            badTest = "reads.fastq.gz";
+            e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"Gz file type not supported"));
 
             var emptyFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "emptyFile.tsv");
             File.Create(emptyFile).Close();

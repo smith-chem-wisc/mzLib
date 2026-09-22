@@ -63,6 +63,22 @@ namespace Readers
         /// </summary>
         public required string DataFileName { get; init; }
 
+        /// <summary>
+        /// The file the search actually read, when that is not <see cref="DataFileName"/> -- a
+        /// calibrated or averaged derivative such as <c>X-calib.mzML</c>. Written to
+        /// <c>comment[searched data file]</c> beside <c>comment[data file]</c>, so a row names both
+        /// the acquisition it describes and the transformation its results came from: the results
+        /// cannot be regenerated from the raw file without re-running that step, and naming only the
+        /// raw file would hide it.
+        ///
+        /// Not a specification term. The spec's <c>comment[associated data file]</c> means a sidecar
+        /// needed to READ the primary file (a <c>.wiff.scan</c>), and <c>comment[processed data
+        /// file]</c> exists only in the metabolomics template, so borrowing either would mislead.
+        /// Null when the search read the acquired file; the column is then omitted unless another row
+        /// sets it.
+        /// </summary>
+        public string SearchedDataFileName { get; init; }
+
         /// <summary>The run identifier. Unique per file within the document.</summary>
         public required string AssayName { get; init; }
 

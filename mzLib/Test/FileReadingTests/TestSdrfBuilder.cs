@@ -78,6 +78,41 @@ namespace Test.FileReadingTests
             Assert.That(document.Results.Count, Is.EqualTo(1));
         }
 
+        /// <summary>
+        /// A row names both the acquisition and the file the search read, so a calibrated search
+        /// neither hides the transformation nor gives up the join to the deposited raw file.
+        /// </summary>
+        [Test]
+        public void ASearchedDerivativeIsNamedBesideTheAcquiredFile()
+        {
+            var calibrated = Assay("a.raw") with { SearchedDataFileName = "a-calib.mzML" };
+            var uncalibrated = Assay("b.raw");
+            var document = SdrfBuilder.Build(new[]
+            {
+                new SdrfRowInput(Sample("S1"), calibrated),
+                new SdrfRowInput(Sample("S2"), uncalibrated)
+            });
+
+            var header = document.Header.ToList();
+            Assert.That(header.IndexOf("comment[searched data file]"),
+                Is.EqualTo(header.IndexOf("comment[data file]") + 1), "the two file columns sit together");
+            Assert.That(document.Results[0]["comment[data file]"], Is.EqualTo("a.raw"));
+            Assert.That(document.Results[0]["comment[searched data file]"], Is.EqualTo("a-calib.mzML"));
+            Assert.That(document.Results[1]["comment[searched data file]"], Is.EqualTo("b.raw"),
+                "a row searched from its acquired file names that file again, not a reserved word");
+            Assert.That(SdrfValidator.Validate(document).Errors, Is.Empty);
+        }
+
+        /// <summary>
+        /// A caller that never sets it gets exactly the document it got before: no new column.
+        /// </summary>
+        [Test]
+        public void NoSearchedDataFileColumnUnlessARowSetsOne()
+        {
+            var document = SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), Assay()) });
+            Assert.That(document.Header, Does.Not.Contain("comment[searched data file]"));
+        }
+
         [Test]
         public void WritesEveryColumnAsAControlledVocabularyTerm()
         {
