@@ -16,6 +16,25 @@ public class ModomicsSequenceConversionTests
 {
     private static readonly ModomicsSequenceParser Parser = ModomicsSequenceParser.Instance;
 
+    [TestCase(null, false)]
+    [TestCase("", false)]
+    [TestCase("   ", false)]
+    [TestCase("GUACUG", false)]
+    [TestCase("GJACUG", true)]
+    [TestCase(" GJ ACUG ", true)]
+    [TestCase("GU\u2603AC", false)]
+    [TestCase("P", false)]
+    public void CanParse_RecognizesModomicsAlphabetAndCodes(string input, bool expected)
+    {
+        Assert.That(Parser.CanParse(input), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void CanParse_RejectsUnknownCharactersAfterValidSequence()
+    {
+        Assert.That(Parser.CanParse("GJACUG\u2603"), Is.False);
+    }
+
     [TestCase("GUACUG", "GUACUG", 0)]
     [TestCase("GJACUGCBUCUA#UGAA#CA", "GUACUGCCUCUAGUGAAGCA", 4)]
     [TestCase("/UCCAGU#CAGUACJG", "AUCCAGUGCAGUACUG", 3)]
@@ -74,6 +93,75 @@ public class ModomicsSequenceConversionTests
     public void UnknownCodeThrowsInThrowExceptionMode()
     {
         Assert.Throws<SequenceConversionException>(() => Parser.Parse("GU\u2603AC"));
+    }
+
+    [Test]
+    public void Parse_WhitespaceOnlyInput_ReturnsNullInReturnNullMode()
+    {
+        var warnings = new ConversionWarnings();
+
+        var sequence = Parser.Parse(" \t\r\n", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(sequence, Is.Null);
+        Assert.That(warnings.HasFatalError, Is.True);
+    }
+
+    [Test]
+    public void Parse_WhitespaceOnlyInput_ThrowsInThrowExceptionMode()
+    {
+        Assert.Throws<SequenceConversionException>(() => Parser.Parse(" \t\r\n"));
+    }
+
+    [Test]
+    public void Parse_FivePrimeTerminalCodeAtSequenceStart_CreatesNTerminalModification()
+    {
+        var terminalCode = Mods.ModomicsLoadReport.ModificationsByAbbreviation
+            .First(pair => pair.Value.Any(modification =>
+                Mods.ModomicsLoadReport.TerminalModifications.Contains(modification)))
+            .Key[0];
+
+        var sequence = Parser.Parse($"{terminalCode}AC");
+
+        Assert.That(sequence, Is.Not.Null);
+        Assert.That(sequence!.Value.BaseSequence, Is.EqualTo("AC"));
+        Assert.That(sequence.Value.Modifications.Length, Is.EqualTo(1));
+        Assert.That(sequence.Value.Modifications[0].PositionType, Is.EqualTo(ModificationPositionType.NTerminus));
+        Assert.That(sequence.Value.Modifications[0].OriginalRepresentation, Is.EqualTo(terminalCode.ToString()));
+    }
+
+    [Test]
+    public void Parse_FivePrimeTerminalCodeAfterResidue_ReturnsNullInReturnNullMode()
+    {
+        var terminalCode = Mods.ModomicsLoadReport.ModificationsByAbbreviation
+            .First(pair => pair.Value.Any(modification =>
+                Mods.ModomicsLoadReport.TerminalModifications.Contains(modification)))
+            .Key[0];
+        var warnings = new ConversionWarnings();
+
+        var sequence = Parser.Parse($"A{terminalCode}C", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(sequence, Is.Null);
+        Assert.That(warnings.HasFatalError, Is.True);
+        Assert.That(warnings.IncompatibleItems, Does.Contain(terminalCode.ToString()));
+    }
+
+    [Test]
+    public void Parse_AmbiguousCodeWithUnmatchedTarget_ReturnsNullInReturnNullMode()
+    {
+        var ambiguousCode = Mods.ModomicsLoadReport.ModificationsByAbbreviation
+            .FirstOrDefault(pair => pair.Key.Length == 1
+                && !"ACGUPY".Contains(pair.Key[0])
+                && pair.Value.Count > 1)
+            .Key;
+
+        Assume.That(ambiguousCode, Is.Not.Null.And.Not.Empty);
+        var warnings = new ConversionWarnings();
+
+        var sequence = Parser.Parse($"A{ambiguousCode}Z", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(sequence, Is.Null);
+        Assert.That(warnings.HasFatalError, Is.True);
+        Assert.That(warnings.IncompatibleItems, Does.Contain(ambiguousCode));
     }
 
     [Test]
