@@ -214,7 +214,7 @@ namespace Readers
             cells.Add(Required(assay.AssayName, AssayName, options));
             cells.Add(TechnologyTypeValue);
             cells.Add(Term(assay.AcquisitionMethod, AcquisitionMethod, options));
-            cells.Add(Term(sample.Label, Label, options));
+            cells.Add(LabelCell(sample.Label, options));
             cells.Add(InstrumentCell(assay.Instrument, options));
             cells.Add(CleavageAgentCell(assay.CleavageAgent, options));
 
@@ -393,6 +393,25 @@ namespace Readers
 
         private static string Term(CvParam term, string column, SdrfBuilderOptions options) =>
             term is null ? Missing(column, options) : SdrfCell.ToCell(term);
+
+        /// <summary>
+        /// <c>comment[label]</c>, in the form <see cref="SdrfBuilderOptions.LabelForm"/> asks for. A
+        /// missing label, or one with no name to write bare, goes through <see cref="Term"/> exactly
+        /// as any other term does.
+        /// </summary>
+        private static string LabelCell(CvParam label, SdrfBuilderOptions options)
+        {
+            if (options.LabelForm != SdrfLabelForm.Bare || string.IsNullOrWhiteSpace(label?.Name))
+                return Term(label, Label, options);
+
+            // The same refusal SdrfCell.ToCell makes: the format has no escape for a separator.
+            if (label.Name.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
+                throw new ArgumentException(
+                    "An SDRF cell cannot contain a tab or newline; the format defines no escape " +
+                    $"mechanism. Offending label: '{label.Name}'.", nameof(label));
+
+            return label.Name;
+        }
 
         private static string Required(string value, string column, SdrfBuilderOptions options) =>
             string.IsNullOrWhiteSpace(value) ? Missing(column, options) : value;

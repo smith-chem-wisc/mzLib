@@ -110,6 +110,34 @@ namespace Test.FileReadingTests
 
         // ---------------- drift ----------------
 
+        /// <summary>
+        /// comment[searched data file] is unique per row by construction -- it names the file one
+        /// search read -- so pooling documents written by different searches must never report it as
+        /// a drifting value. Left out of PerRowColumns, every filename becomes a finding and buries
+        /// the real ones, which is the noise that set exists to prevent.
+        /// </summary>
+        [Test]
+        public void Drift_TheSearchedDataFileIsPerRow_NotDrift()
+        {
+            // The same acquisition, searched twice on two machines that disagree about case. In any
+            // other column that is a real drift finding; here it is two searches naming their own
+            // intermediate, which is data.
+            string[] columns =
+            {
+                "source name", "assay name", "technology type",
+                "comment[data file]", "comment[searched data file]"
+            };
+            var a = Doc(columns, new[] { "S1", "run 1", "t", "Sample01.raw", "Sample01-calib.mzML" });
+            var b = Doc(columns, new[] { "S2", "run 2", "t", "sample01.raw", "sample01-calib.mzML" });
+
+            var findings = SdrfDriftLint.Analyze(new SdrfCollection(new[] { a, b }, new[] { "A", "B" }));
+
+            Assert.That(findings.Any(f => f.Column == "comment[searched data file]"
+                                          || f.Concept.Contains("searched data file")), Is.False,
+                "Two searches naming two different files is data, not drift: "
+                + string.Join(" | ", findings.Select(f => f.Column + "/" + f.Concept)));
+        }
+
         [Test]
         public void Drift_SameNameDifferentAccession_IsDetected()
         {
