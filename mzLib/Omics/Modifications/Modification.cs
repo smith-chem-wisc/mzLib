@@ -142,9 +142,10 @@ namespace Omics.Modifications
 
         public override bool Equals(object o)
         {
-            Modification m = o as Modification;
-            return o != null
-                && IdWithMotif == m.IdWithMotif
+            if (o is not Modification m || GetType() != m.GetType())
+                return false;
+
+            return IdWithMotif == m.IdWithMotif
                 && OriginalId == m.OriginalId
                 && ModificationType == m.ModificationType
                 && (MonoisotopicMass == m.MonoisotopicMass
@@ -156,7 +157,7 @@ namespace Omics.Modifications
             string id = IdWithMotif ?? OriginalId ?? string.Empty;
             string mt = ModificationType ?? string.Empty;
             int cf = ChemicalFormula?.GetHashCode() ?? 1;
-            return id.GetHashCode() ^ mt.GetHashCode() ^ cf;
+            return GetType().GetHashCode() ^ id.GetHashCode() ^ mt.GetHashCode() ^ cf;
         }
 
         public override string ToString()
@@ -319,11 +320,14 @@ namespace Omics.Modifications
         {
             if (other == null) return 1;
 
+            int typeComparison = string.Compare(GetType().FullName, other.GetType().FullName, StringComparison.Ordinal);
+            if (typeComparison != 0) return typeComparison;
+
             int idComparison = string.Compare(this.IdWithMotif, other.IdWithMotif, StringComparison.Ordinal);
             if (idComparison != 0) return idComparison;
 
-            int typeComparison = string.Compare(this.ModificationType, other.ModificationType, StringComparison.Ordinal);
-            if (typeComparison != 0) return typeComparison;
+            int modificationTypeComparison = string.Compare(this.ModificationType, other.ModificationType, StringComparison.Ordinal);
+            if (modificationTypeComparison != 0) return modificationTypeComparison;
 
             int locRestrictionComparison = string.Compare(this.LocationRestriction, other.LocationRestriction, StringComparison.Ordinal);
             if (locRestrictionComparison != 0) return locRestrictionComparison;
