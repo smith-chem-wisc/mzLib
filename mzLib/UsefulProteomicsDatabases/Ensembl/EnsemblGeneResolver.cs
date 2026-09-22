@@ -64,7 +64,10 @@ namespace UsefulProteomicsDatabases.Ensembl
         string Source,
         string SearchDatabaseSha256,
         string GeneSetRelease,
-        string GeneSetSha256);
+        string GeneSetSha256,
+        bool? EnsemblXrefAgrees,
+        string EnsemblXrefInfoType,
+        string EnsemblXrefSha256);
 
     /// <summary>
     /// Resolves proteins to stable Ensembl gene ids, counted against one release's gene set.
@@ -80,13 +83,20 @@ namespace UsefulProteomicsDatabases.Ensembl
         /// <summary>The Source value for rows resolved from the search database's own dbReferences.</summary>
         public const string SearchDatabaseSource = "search_database_dbreference";
 
-        public EnsemblGeneResolver(EnsemblGeneSet geneSet)
+        /// <param name="geneSet">The release gene set every resolution is counted against.</param>
+        /// <param name="xrefs">Optional: Ensembl's own cross-references, to say per gene row whether Ensembl
+        /// agrees with the search database's link. Without it, agreement is unknown (null), not false.</param>
+        public EnsemblGeneResolver(EnsemblGeneSet geneSet, EnsemblXrefTable xrefs = null)
         {
             GeneSet = geneSet ?? throw new ArgumentNullException(nameof(geneSet));
+            Xrefs = xrefs;
         }
 
         /// <summary>The gene set every resolution is counted against.</summary>
         public EnsemblGeneSet GeneSet { get; }
+
+        /// <summary>Ensembl's cross-references used for the agreement column, or null.</summary>
+        public EnsemblXrefTable Xrefs { get; }
 
         /// <summary>
         /// Every row for one protein. Never empty: a protein always gets at least one outcome.
@@ -109,10 +119,17 @@ namespace UsefulProteomicsDatabases.Ensembl
             {
                 EnsemblGene gene = null;
                 if (geneId != null) GeneSet.TryGetGene(geneId, out gene);
+                bool? agrees = null;
+                string xrefInfo = null;
+                if (geneId != null && Xrefs != null)
+                {
+                    agrees = XrefLink(accession, geneId, out xrefInfo);
+                }
+
                 return new GeneResolution(accession.Verbatim, accession.EntryAccession, accession.Isoform,
                     accession.Namespace, outcome, geneCount, geneId, versionedGeneId, gene?.Symbol, gene?.Biotype,
                     offPrimary, uniProtGeneName, SearchDatabaseSource, searchDatabaseSha256, GeneSet.Release,
-                    GeneSet.SourceSha256);
+                    GeneSet.SourceSha256, agrees, xrefInfo, Xrefs?.SourceSha256);
             }
 
             if (protein.IsContaminant)
@@ -170,6 +187,20 @@ namespace UsefulProteomicsDatabases.Ensembl
         }
 
         /// <summary>
+        /// Whether Ensembl's xref links this accession to this gene: the verbatim accession's own row first
+        /// (isoform accessions have rows of their own), then its entry's.
+        /// </summary>
+        private bool XrefLink(ProteinAccession accession, string geneId, out string infoType)
+        {
+            if (Xrefs.ContainsAccession(accession.Verbatim))
+            {
+                return Xrefs.TryGetLink(accession.Verbatim, geneId, out infoType);
+            }
+
+            return Xrefs.TryGetLink(accession.EntryAccession, geneId, out infoType);
+        }
+
+        /// <summary>
         /// The entry's primary gene name, as the search database wrote it. A label only -- read once from
         /// bytes pinned by the database hash, so it cannot come out ragged across datasets.
         /// </summary>
@@ -202,6 +233,9 @@ namespace UsefulProteomicsDatabases.Ensembl
             new("search_database_sha256", r => r.SearchDatabaseSha256),
             new("gene_set_release", r => r.GeneSetRelease),
             new("gene_set_sha256", r => r.GeneSetSha256),
+            new("ensembl_xref_agrees", r => r.EnsemblXrefAgrees switch { true => "true", false => "false", null => null }),
+            new("ensembl_xref_info_type", r => r.EnsemblXrefInfoType),
+            new("ensembl_xref_sha256", r => r.EnsemblXrefSha256),
         };
 
         public static void Write(TextWriter output, IEnumerable<GeneResolution> rows) =>
