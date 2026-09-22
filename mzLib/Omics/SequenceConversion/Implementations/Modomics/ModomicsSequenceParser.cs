@@ -23,15 +23,28 @@ public sealed class ModomicsSequenceParser : ISequenceParser
 
     public bool CanParse(string input)
     {
-        if (string.IsNullOrWhiteSpace(input) || input.Contains('[') || input.Contains(']'))
+        if (string.IsNullOrWhiteSpace(input))
         {
             return false;
         }
 
-        return input.Any(character =>
-            !char.IsWhiteSpace(character) &&
-            !CanonicalResidues.Contains(character) &&
-            character != 'P');
+        var hasModificationCode = false;
+        foreach (var character in input)
+        {
+            if (char.IsWhiteSpace(character) || CanonicalResidues.Contains(character) || character == 'P')
+            {
+                continue;
+            }
+
+            if (!Mods.ModomicsLoadReport.ModificationsByAbbreviation.ContainsKey(character.ToString()))
+            {
+                return false;
+            }
+
+            hasModificationCode = true;
+        }
+
+        return hasModificationCode;
     }
 
     public CanonicalSequence? Parse(
@@ -84,7 +97,7 @@ public sealed class ModomicsSequenceParser : ISequenceParser
 
             if (modification is not null)
             {
-                var target = modification!.Target?.Motif?.FirstOrDefault();
+                var target = modification!.Target?.Motif?.FirstOrDefault() ?? '\0';
                 if (IsFivePrimeModification(modification))
                 {
                     if (baseSequence.Length != 0)
@@ -98,7 +111,14 @@ public sealed class ModomicsSequenceParser : ISequenceParser
                 }
                 else
                 {
-                    baseSequence.Append(target);
+                    if (!IsPostfixCode(code, target, baseSequence))
+                    {
+                        baseSequence.Append(target);
+                    }
+                    else
+                    {
+                        residueIndex--;
+                    }
                 }
 
                 modifications.Add(new CanonicalModification(
@@ -131,6 +151,9 @@ public sealed class ModomicsSequenceParser : ISequenceParser
 
     private static bool IsFivePrimeModification(Modification modification) =>
         modification.LocationRestriction?.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase) == true;
+
+    private static bool IsPostfixCode(char code, char target, StringBuilder baseSequence) =>
+        code is ':' or '=' && baseSequence.Length > 0 && baseSequence[^1] == target;
 
     private static CanonicalSequence? HandleCodeError(
         ConversionWarnings warnings,

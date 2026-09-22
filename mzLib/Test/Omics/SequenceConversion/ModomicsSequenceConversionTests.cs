@@ -1,6 +1,13 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using NUnit.Framework;
+using MassSpectrometry;
 using Omics.Modifications;
 using Omics.SequenceConversion;
+using Omics.Fragmentation;
+using Transcriptomics;
+using Transcriptomics.Digestion;
 
 namespace Test.Omics.SequenceConversion;
 
@@ -12,8 +19,9 @@ public class ModomicsSequenceConversionTests
     [TestCase("GUACUG", "GUACUG", 0)]
     [TestCase("GJACUGCBUCUA#UGAA#CA", "GUACUGCCUCUAGUGAAGCA", 4)]
     [TestCase("/UCCAGU#CAGUACJG", "AUCCAGUGCAGUACUG", 3)]
-    [TestCase("UUCAAGUA:UCCAGGAUAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
-    [TestCase("UUCAAGUA=UCCAGGAUAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
+    [TestCase("UUCAAGUA:UCCAGGAUAGGCU", "UUCAAGUAUCCAGGAUAGGCU", 1)]
+    [TestCase("UUCAAGUA=UCCAGGAUAGGCU", "UUCAAGUAUCCAGGAUAGGCU", 1)]
+    [TestCase("[G]", "AGU", 2)]
     public void ParsesWorkbookSequences(string input, string expectedBaseSequence, int expectedModificationCount)
     {
         var sequence = Parser.Parse(input);
@@ -55,6 +63,8 @@ public class ModomicsSequenceConversionTests
     {
         Assert.That(SequenceConversionService.Default.DetectFormat("GUACUG"), Is.EqualTo("mzLib"));
         Assert.That(SequenceConversionService.Default.DetectFormat("GJACUG"), Is.EqualTo("Modomics"));
+        Assert.That(SequenceConversionService.Default.DetectFormat("[G]"), Is.EqualTo("Modomics"));
+        Assert.That(SequenceConversionService.Default.DetectFormat("[Oxidation on M]PEPTIDE"), Is.EqualTo("mzLib"));
     }
 
     [Test]
@@ -94,11 +104,101 @@ public class ModomicsSequenceConversionTests
     }
 
     [Test]
+    public void BracketCodesResolveToTheirOwnTargetResidues()
+    {
+        var leftBracket = ModomicsModificationLookup.Instance.TryResolve("[", 'A');
+        var rightBracket = ModomicsModificationLookup.Instance.TryResolve("]", 'U');
+
+        Assert.That(leftBracket, Is.Not.Null);
+        Assert.That(leftBracket!.Value.MzLibModification!.OriginalId,
+            Is.EqualTo("2-methylthio-N6-threonylcarbamoyladenosine"));
+        Assert.That(rightBracket, Is.Not.Null);
+        Assert.That(rightBracket!.Value.MzLibModification!.OriginalId,
+            Is.EqualTo("1-methylpseudouridine"));
+    }
+
+    [Test]
+    public void EveryLoadedOneLetterCodeResolvesThroughModomicsLookup()
+    {
+        foreach (var abbreviation in Mods.ModomicsLoadReport.ModificationsByAbbreviation.Keys)
+        {
+            Assert.That(abbreviation.Length, Is.EqualTo(1), $"Unexpected multi-character code: {abbreviation}");
+            foreach (var candidate in Mods.ModomicsLoadReport.ModificationsByAbbreviation[abbreviation])
+            {
+                var target = candidate.Target.Motif[0];
+                Assert.That(ModomicsModificationLookup.Instance.TryResolveCode(abbreviation[0], target, out var modification),
+                    Is.True, $"Code {abbreviation} did not resolve for target {target}");
+                Assert.That(modification!.ModificationType, Is.AnyOf("Modomics", "5' Terminal Cap"));
+            }
+        }
+    }
+
+    [Test]
     public void ServiceRegistersModomicsSourceAndConverter()
     {
         Assert.That(SequenceConversionService.Default.AvailableSourceFormats,
             Does.Contain("Modomics"));
         Assert.That(SequenceConversionService.Default.AvailableConverters,
             Does.Contain("Modomics-mzLib"));
+    }
+
+    [TestCase(
+        "GJACUGCBUCUA#UGAA#CA",
+        "GU[Common Biological: Methylation on U]ACUGCC[Common Biological: Methylation on C]UCUAG[Common Biological: Methylation on G]UGAAG[Common Biological: Methylation on G]CA")]
+    [TestCase(
+        "/UCCAGU#CAGUACJG",
+        "A[Common Biological: Methylation on A]UCCAGUG[Common Biological: Methylation on G]CAGUACU[Common Biological: Methylation on U]G")]
+    [TestCase(
+        "UUCAAGUA:UCCAGGAUAGGCU",
+        "UUCAAGUA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
+    [TestCase(
+        "UUCAAGUA=UCCAGGAUAGGCU",
+        "UUCAAGUA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
+    [TestCase(
+        "UCCCUGAGACCCUA:CUUGUGA",
+        "UCCCUGAGACCCUA[Common Biological: Methylation on A]CUUGUGA")]
+    public void ModomicsAndMetaMorpheusConstructionProduceIdenticalFragments(
+        string modomicsSequence,
+        string metaMorpheusFullSequence)
+    {
+        var modomicsCanonical = SequenceConversionService.Default.Parse(modomicsSequence, "Modomics");
+        var modomicsToMzlib = SequenceConversionService.Default.Convert(modomicsSequence, "Modomics", "mzLib");
+
+        Assert.That(modomicsCanonical, Is.Not.Null);
+
+        var metaMorpheusOligo = new OligoWithSetMods(metaMorpheusFullSequence);
+        var convertedOligo = new OligoWithSetMods(modomicsToMzlib);
+
+        Assert.That(convertedOligo.BaseSequence, Is.EqualTo(metaMorpheusOligo.BaseSequence));
+        Assert.That(convertedOligo.AllModsOneIsNterminus.Keys, Is.EquivalentTo(metaMorpheusOligo.AllModsOneIsNterminus.Keys));
+
+        foreach (var dissociationType in new[] { DissociationType.CID, DissociationType.HCD })
+        {
+            var metaMorpheusProducts = new List<Product>();
+            var convertedProducts = new List<Product>();
+            metaMorpheusOligo.Fragment(dissociationType, FragmentationTerminus.Both, metaMorpheusProducts);
+            convertedOligo.Fragment(dissociationType, FragmentationTerminus.Both, convertedProducts);
+
+            Assert.That(convertedProducts.Count, Is.EqualTo(metaMorpheusProducts.Count), dissociationType.ToString());
+            var expected = metaMorpheusProducts.OrderBy(product => product.ProductType)
+                .ThenBy(product => product.Terminus)
+                .ThenBy(product => product.FragmentNumber)
+                .ThenBy(product => product.NeutralLoss)
+                .ToList();
+            var actual = convertedProducts.OrderBy(product => product.ProductType)
+                .ThenBy(product => product.Terminus)
+                .ThenBy(product => product.FragmentNumber)
+                .ThenBy(product => product.NeutralLoss)
+                .ToList();
+
+            for (var i = 0; i < expected.Count; i++)
+            {
+                Assert.That(actual[i].ProductType, Is.EqualTo(expected[i].ProductType), dissociationType.ToString());
+                Assert.That(actual[i].Terminus, Is.EqualTo(expected[i].Terminus), dissociationType.ToString());
+                Assert.That(actual[i].FragmentNumber, Is.EqualTo(expected[i].FragmentNumber), dissociationType.ToString());
+                Assert.That(actual[i].NeutralLoss, Is.EqualTo(expected[i].NeutralLoss).Within(1e-9), dissociationType.ToString());
+                Assert.That(actual[i].NeutralMass, Is.EqualTo(expected[i].NeutralMass).Within(1e-9), dissociationType.ToString());
+            }
+        }
     }
 }
