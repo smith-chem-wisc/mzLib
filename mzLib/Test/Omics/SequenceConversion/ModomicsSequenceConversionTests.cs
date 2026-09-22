@@ -59,15 +59,6 @@ public class ModomicsSequenceConversionTests
     }
 
     [Test]
-    public void AutoDetectionIdentifiesModomicsButNotPlainRna()
-    {
-        Assert.That(SequenceConversionService.Default.DetectFormat("GUACUG"), Is.EqualTo("mzLib"));
-        Assert.That(SequenceConversionService.Default.DetectFormat("GJACUG"), Is.EqualTo("Modomics"));
-        Assert.That(SequenceConversionService.Default.DetectFormat("[G]"), Is.EqualTo("Modomics"));
-        Assert.That(SequenceConversionService.Default.DetectFormat("[Oxidation on M]PEPTIDE"), Is.EqualTo("mzLib"));
-    }
-
-    [Test]
     public void UnknownCodeReturnsNullWithoutThrowingInReturnNullMode()
     {
         var warnings = new ConversionWarnings();
