@@ -396,16 +396,23 @@ namespace Omics.BioPolymer
 
             int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
 
+            // Measure against the residues the variant actually edits, not its whole [begin,end]: a residue an
+            // anchored indel keeps (T -> TAG, P -> AGP) is not edited, so a product boundary on it survives and
+            // moves exactly as a mod on that residue does (AdjustModificationIndices uses the same rule).
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
+            int editedBegin = variant.OneBasedBeginPosition + keptPrefix;
+            int editedEnd = variant.OneBasedEndPosition - keptSuffix;
+
             foreach (TruncationProduct p in proteolysisProducts.Where(p => p.OneBasedEndPosition.HasValue && p.OneBasedBeginPosition.HasValue))
             {
                 // Entirely before the edit: unchanged
-                if (variant.OneBasedBeginPosition > p.OneBasedEndPosition)
+                if (editedBegin > p.OneBasedEndPosition)
                 {
                     products.Add(p);
                 }
                 // Segment spans the edit or is clamped at boundaries: extend/contract or clamp to stop
-                else if ((p.OneBasedBeginPosition < variant.OneBasedBeginPosition || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
-                         && (p.OneBasedEndPosition > variant.OneBasedEndPosition || p.OneBasedEndPosition == protein.ConsensusVariant.BaseSequence.Length))
+                else if ((p.OneBasedBeginPosition < editedBegin || p.OneBasedBeginPosition == 1 || p.OneBasedBeginPosition == 2)
+                         && (p.OneBasedEndPosition > editedEnd || p.OneBasedEndPosition == protein.ConsensusVariant.BaseSequence.Length))
                 {
                     if (variant.VariantSequence.EndsWith("*"))
                     {
@@ -418,7 +425,7 @@ namespace Omics.BioPolymer
                     }
                 }
                 // Entirely after the edit: shift right/left by the net length change, if still within bounds and not terminated
-                else if (p.OneBasedBeginPosition > variant.OneBasedEndPosition
+                else if (p.OneBasedBeginPosition > editedEnd
                          && p.OneBasedBeginPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length
                          && p.OneBasedEndPosition + sequenceLengthChange <= variantAppliedProteinSequence.Length
                          && !variant.VariantSequence.EndsWith("*"))
