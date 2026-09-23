@@ -255,7 +255,7 @@ namespace Readers
         // Words that mark a re-injection when the name without them is also in the deposit.
         private static readonly HashSet<string> ReinjectionWords = new(StringComparer.OrdinalIgnoreCase)
         {
-            "rep", "re", "repeat", "rerun", "reinj", "reinjection", "replicate", "rr", "inj", "injection"
+            "rep", "re", "repeat", "rerun", "reinj", "reinjection", "replicate", "rr", "r", "inj", "injection"
         };
 
         /// <summary>Run -> (its unmarked twin, which injection this one is).</summary>

@@ -212,6 +212,7 @@ namespace Test.FileReadingTests
         [TestCase("HP_C10", "HP_C10_rr")]
         [TestCase("Cat_1_long", "Cat_1_long2")]
         [TestCase("Run1_0_13C", "Run1_0_13C_2")]
+        [TestCase("C_Day14_1", "C_Day14_1R")]
         public void AReinjectionMarkerIsReadWhereverItStandsWhenTheUnmarkedNameExists(string first, string again)
         {
             var names = new[] { first, again, first.Replace("1", "9"), again.Replace("1", "9") }.Distinct().ToList();
