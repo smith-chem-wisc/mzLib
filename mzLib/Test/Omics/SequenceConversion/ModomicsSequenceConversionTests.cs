@@ -243,10 +243,10 @@ public class ModomicsSequenceConversionTests
          "A[Modomics:2-methyladenosine on A]UCCAGUG[Modomics:2'-O-methylguanosine on G]CAGUACU[Modomics:2'-O-methyluridine on U]G")]
     [TestCase(
         "UUCAAGUA:UCCAGGAUAGGCU",
-        "UUCAAGUAA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
-    [TestCase(
-        "UUCAAGUA=UCCAGGAUAGGCU",
-        "UUCAAGUAA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
+        "UUCAAGUAA[Biological: 2'-O-Methyladenosine on A]UCCAGGAUAGGCU")]
+     [TestCase(
+         "UUCAAGUA=UCCAGGAUAGGCU",
+         "UUCAAGUAA[Modomics:N6-methyladenosine on A]UCCAGGAUAGGCU")]
     [TestCase(
         "UCCCUGAGACCCUA:CUUGUGA",
         "UCCCUGAGACCCUAA[Common Biological: Methylation on A]CUUGUGA")]
