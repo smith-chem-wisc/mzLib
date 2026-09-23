@@ -53,7 +53,10 @@ namespace Proteomics
     /// explained by another entry at a site the search's protease rules happened to skip.
     ///
     /// Decoys are ignored. Contaminants are real sequences in the search space and are included, so
-    /// a peptide shared with a contaminant is reported as shared.
+    /// a peptide shared with a contaminant of a different sequence is reported as shared. A contaminant
+    /// whose sequence is identical to a target's is one sequence with it, like any two identical entries:
+    /// no peptide can tell them apart, so the peptide is <see cref="PeptideSharing.Unique"/> and both
+    /// accessions are listed.
     /// </summary>
     public static class PeptideUniquenessClassifier
     {
@@ -101,14 +104,15 @@ namespace Proteomics
                 inputToFolded[i] = id;
             }
 
-            var hits = FindContainingProteins(folded, targets);
+            var foldedSequences = targets.Select(p => FoldSequence(p.BaseSequence)).ToList();
+            var hits = FindContainingProteins(folded, foldedSequences);
 
             var byFolded = new PeptideUniqueness[folded.Count];
             var results = new PeptideUniqueness[given.Count];
             for (int i = 0; i < given.Count; i++)
             {
                 int id = inputToFolded[i];
-                byFolded[id] ??= Classify(folded[id], hits[id], targets, geneKeys);
+                byFolded[id] ??= Classify(folded[id], hits[id], targets, foldedSequences, geneKeys);
                 results[i] = byFolded[id] with { Peptide = given[i] };
             }
             return results;
@@ -141,7 +145,7 @@ namespace Proteomics
         }
 
         private static PeptideUniqueness Classify(string foldedPeptide, List<int> proteinIndexes,
-            List<Protein> targets, Func<Protein, IEnumerable<string>> geneKeys)
+            List<Protein> targets, List<string> foldedSequences, Func<Protein, IEnumerable<string>> geneKeys)
         {
             var containing = proteinIndexes.Select(i => targets[i]).ToList();
             var accessions = containing.Select(p => p.Accession)
@@ -169,7 +173,7 @@ namespace Proteomics
             }
             var sharedKeys = shared.OrderBy(k => k, StringComparer.Ordinal).ToList();
 
-            int distinctSequences = containing.Select(p => FoldSequence(p.BaseSequence))
+            int distinctSequences = proteinIndexes.Select(i => foldedSequences[i])
                 .Distinct(StringComparer.Ordinal)
                 .Count();
 
@@ -182,11 +186,13 @@ namespace Proteomics
         }
 
         /// <summary>
-        /// For each folded peptide, the indexes of the target proteins containing it. Peptides are
-        /// indexed by a packed prefix of the shortest peptide's length, so each protein position costs
-        /// one rolling update and one lookup rather than a scan over every peptide.
+        /// For each folded peptide, the indexes of the target proteins containing it. Each peptide is
+        /// indexed by a packed prefix of its own length, capped at <see cref="MaxKeyLength"/>, in one
+        /// index per key length. Each protein position then costs one rolling update and one lookup per
+        /// key length present, rather than a scan over every peptide, and a short peptide in the batch
+        /// cannot shorten the key, and so swell the candidate lists, of every longer one.
         /// </summary>
-        private static List<int>[] FindContainingProteins(List<string> folded, List<Protein> targets)
+        private static List<int>[] FindContainingProteins(List<string> folded, List<string> foldedSequences)
         {
             var hits = new List<int>[folded.Count];
             for (int i = 0; i < hits.Length; i++)
@@ -198,28 +204,30 @@ namespace Proteomics
                 return hits;
             }
 
-            int keyLength = Math.Min(MaxKeyLength, folded.Min(p => p.Length));
-            ulong mask = (1UL << (5 * keyLength)) - 1;
-
-            var index = new Dictionary<ulong, List<int>>();
+            // indexes[k]: peptides whose key is their first k residues. Null when no peptide uses k.
+            var indexes = new Dictionary<ulong, List<int>>[MaxKeyLength + 1];
             for (int id = 0; id < folded.Count; id++)
             {
+                int keyLength = Math.Min(MaxKeyLength, folded[id].Length);
                 ulong key = 0;
                 for (int j = 0; j < keyLength; j++)
                 {
                     key = (key << 5) | Code(folded[id][j]);
                 }
+                var index = indexes[keyLength] ??= new Dictionary<ulong, List<int>>();
                 if (!index.TryGetValue(key, out var ids))
                 {
                     index.Add(key, ids = new List<int>());
                 }
                 ids.Add(id);
             }
+            var keyLengths = Enumerable.Range(1, MaxKeyLength).Where(k => indexes[k] != null).ToArray();
+            ulong fullMask = (1UL << (5 * MaxKeyLength)) - 1;
 
-            for (int p = 0; p < targets.Count; p++)
+            for (int p = 0; p < foldedSequences.Count; p++)
             {
-                string sequence = FoldSequence(targets[p].BaseSequence);
-                ulong key = 0;
+                string sequence = foldedSequences[p];
+                ulong window = 0; // the last MaxKeyLength residues; the last k of them are the low 5k bits
                 int valid = 0; // residues since the last character that cannot be in a peptide
                 for (int end = 0; end < sequence.Length; end++)
                 {
@@ -227,25 +235,35 @@ namespace Proteomics
                     if (code == 0)
                     {
                         valid = 0;
-                        key = 0;
+                        window = 0;
                         continue;
                     }
-                    key = ((key << 5) | code) & mask;
-                    if (++valid < keyLength || !index.TryGetValue(key, out var candidates))
-                    {
-                        continue;
-                    }
+                    window = ((window << 5) | code) & fullMask;
+                    valid++;
 
-                    int start = end - keyLength + 1;
-                    foreach (int id in candidates)
+                    foreach (int keyLength in keyLengths)
                     {
-                        string peptide = folded[id];
-                        var peptideHits = hits[id];
-                        if (start + peptide.Length <= sequence.Length
-                            && (peptideHits.Count == 0 || peptideHits[^1] != p)
-                            && sequence.AsSpan(start, peptide.Length).SequenceEqual(peptide))
+                        if (valid < keyLength)
                         {
-                            peptideHits.Add(p);
+                            break; // keyLengths ascend
+                        }
+                        ulong key = window & ((1UL << (5 * keyLength)) - 1);
+                        if (!indexes[keyLength].TryGetValue(key, out var candidates))
+                        {
+                            continue;
+                        }
+
+                        int start = end - keyLength + 1;
+                        foreach (int id in candidates)
+                        {
+                            string peptide = folded[id];
+                            var peptideHits = hits[id];
+                            if (start + peptide.Length <= sequence.Length
+                                && (peptideHits.Count == 0 || peptideHits[^1] != p)
+                                && sequence.AsSpan(start, peptide.Length).SequenceEqual(peptide))
+                            {
+                                peptideHits.Add(p);
+                            }
                         }
                     }
                 }

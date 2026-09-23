@@ -130,6 +130,37 @@ namespace Test.ProteomicsTests
         }
 
         [Test]
+        public void AContaminantIdenticalToATarget_IsOneSequenceWithIt_SoThePeptideIsUniqueAndListsBoth()
+        {
+            var result = One("SAMPLER", Entry("MKSAMPLERK", "P00001", "GENEA"),
+                Entry("MKSAMPLERK", "CON__P00002", "GENEB", isContaminant: true));
+
+            Assert.That(result.Sharing, Is.EqualTo(PeptideSharing.Unique));
+            Assert.That(result.Accessions, Is.EqualTo(new[] { "CON__P00002", "P00001" }));
+        }
+
+        [Test]
+        public void AOneResiduePeptide_DoesNotHideLongerOnes_AtAnyKeyLength()
+        {
+            // One index per key length: the 1-mer, a 5-mer, a 12-mer and a 14-mer are all found.
+            var proteins = new[]
+            {
+                Entry("MKWPEPTIDEKLONGERPEPTIDEKR", "P00001", "GENEA"),
+                Entry("MKPEPTLDEKGGR", "P00002", "GENEB")
+            };
+
+            var results = PeptideUniquenessClassifier.Classify(
+                new[] { "W", "GGR", "LONGERPEPTLD", "LONGERPEPTIDEK", "ABSENTPEPTIDEK" }, proteins);
+
+            Assert.That(results.Select(r => r.Sharing), Is.EqualTo(new[]
+            {
+                PeptideSharing.Unique, PeptideSharing.Unique, PeptideSharing.Unique, PeptideSharing.Unique,
+                PeptideSharing.NotInDatabase
+            }));
+            Assert.That(results.Select(r => r.Accessions.Single()).Take(2), Is.EqualTo(new[] { "P00001", "P00002" }));
+        }
+
+        [Test]
         public void AbsentPeptide_IsNotInDatabase()
         {
             var result = One("NOWHERE", Entry("MKSAMPLERK", "P00001", "GENEA"));
@@ -159,7 +190,7 @@ namespace Test.ProteomicsTests
         [Test]
         public void PeptidesOfMixedLengths_AreAllFound_IncludingOneLongerThanTheIndexKey()
         {
-            // The index keys on the shortest peptide's prefix; longer peptides are verified in full.
+            // Each peptide is keyed on its own prefix, capped at twelve residues; longer peptides are verified in full.
             var proteins = new[]
             {
                 Entry("MKAKLONGPEPTIDESEQUENCEKGGK", "P00001", "GENEA"),
