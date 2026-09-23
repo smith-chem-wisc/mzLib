@@ -595,7 +595,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     continue;
 
                 hasCharacters = true;
-                if (character is not ('a' or 'c' or 'g' or 'u'))
+                if (!IsCanonicalRnaNucleotide(char.ToUpperInvariant(character)))
                     return false;
             }
 
@@ -610,7 +610,10 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 if (char.IsWhiteSpace(character))
                     continue;
 
-                if (character is 'A' or 'C' or 'G' or 'U' or 'Y')
+                if (IsCanonicalRnaNucleotide(character))
+                    continue;
+
+                if (character == Nucleotide.DeoxyThymineBase.Letter)
                     continue;
 
                 if (character == 'P' || Mods.ModomicsLoadReport.ModificationsByAbbreviation.ContainsKey(character.ToString()))
@@ -619,10 +622,18 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                     continue;
                 }
 
-                return false;
+                hasModificationCode = true;
             }
 
             return hasModificationCode;
         }
+
+        private static bool IsCanonicalRnaNucleotide(char character) =>
+            Nucleotide.TryGetResidue(character, out var nucleotide)
+            && (nucleotide == Nucleotide.AdenineBase
+                || nucleotide == Nucleotide.CytosineBase
+                || nucleotide == Nucleotide.GuanineBase
+                || nucleotide == Nucleotide.UracilBase
+                || nucleotide == Nucleotide.PseudoUracilBase);
     }
 }
