@@ -848,6 +848,18 @@
     <None Update="Transcriptomics\TestData\20mer1.xml.gz">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="Transcriptomics\TestData\Burkemers.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkemers_Modomics.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkmers_ModomicsSequences.fasta">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkmers_PrimarySequence.fasta">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Update="Transcriptomics\TestData\DecoyVariants.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
