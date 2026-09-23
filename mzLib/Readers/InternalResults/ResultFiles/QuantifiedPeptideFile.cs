@@ -31,14 +31,7 @@ public class QuantifiedPeptideFile : ResultFile<QuantifiedPeptideFromTsv>, IResu
             using var csv = new CsvReader(new StreamReader(FilePath), QuantifiedPeptideFromTsv.CsvConfiguration);
             csv.Read();
             csv.ReadHeader();
-            var header = csv.HeaderRecord ?? [];
-            var sampleColumns = new List<(int Index, string Prefix, string Label)>();
-            for (int i = 0; i < header.Length; i++)
-            {
-                string? prefix = SamplePrefixes.FirstOrDefault(p => header[i].StartsWith(p, StringComparison.Ordinal));
-                if (prefix != null)
-                    sampleColumns.Add((i, prefix, header[i][prefix.Length..]));
-            }
+            var sampleColumns = ProteinGroupFromTsvFile.SampleColumns(csv.HeaderRecord ?? [], SamplePrefixes);
 
             var results = new List<QuantifiedPeptideFromTsv>();
             while (csv.Read())

@@ -145,6 +145,20 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(site.ModificationIdWithMotif, Is.EqualTo("N-acetylmethionine on M"));
         }
 
+        /// <summary>Derived values are computed once per row, not on every read.</summary>
+        [Test]
+        public void ParsedValuesAreKeptAcrossReads()
+        {
+            var row = Row("P0C0S5|Q71UI9");
+            var group = row.SampleGroups["QE-002108_GM1_c-calib"];
+            Assert.That(group.CountOccupancy, Is.SameAs(group.CountOccupancy));
+            Assert.That(group.IntensityOccupancy, Is.SameAs(group.IntensityOccupancy));
+            Assert.That(row.Accessions, Is.SameAs(row.Accessions));
+
+            row.ProteinGroupName = "P1|P2|P3";
+            Assert.That(row.Accessions, Is.EqualTo(new[] { "P1", "P2", "P3" }), "a new name is split again");
+        }
+
         [Test]
         public void WritingIsRefused()
         {

@@ -74,9 +74,24 @@ public class ProteinGroupFromTsv
     /// <summary>Written by MetaMorpheus 1.1.x only.</summary>
     [Name("Best Peptide PEP")] [Optional] public double? BestPep { get; set; }
 
-    /// <summary>The members, in the order written, which is accession order.</summary>
+    private string? _accessionsSource;
+    private string[] _accessions = [];
+
+    /// <summary>The members, in the order written, which is accession order. Split once per
+    /// <see cref="ProteinGroupName"/> value, not on every read.</summary>
     [Ignore]
-    public IReadOnlyList<string> Accessions => ProteinGroupName.Split('|');
+    public IReadOnlyList<string> Accessions
+    {
+        get
+        {
+            if (!ReferenceEquals(_accessionsSource, ProteinGroupName))
+            {
+                _accessions = ProteinGroupName.Split('|');
+                _accessionsSource = ProteinGroupName;
+            }
+            return _accessions;
+        }
+    }
 
     [Ignore] public bool IsDecoy => DecoyContaminantTarget.Contains('D');
     [Ignore] public bool IsContaminant => DecoyContaminantTarget == "C";
@@ -111,15 +126,32 @@ public sealed class SampleGroupMeasurement
     /// <summary><c>Intensity_</c>: blank when the group was not quantified in this sample group.</summary>
     public double? Intensity { get; internal set; }
 
+    private string? _countOccupancyText;
+    private string? _intensityOccupancyText;
+    private ModificationOccupancyCell? _countOccupancy;
+    private ModificationOccupancyCell? _intensityOccupancy;
+
     /// <summary>The <c>CountOccupancy_</c> cell, verbatim.</summary>
-    public string? CountOccupancyText { get; internal set; }
+    public string? CountOccupancyText
+    {
+        get => _countOccupancyText;
+        internal set { _countOccupancyText = value; _countOccupancy = null; }
+    }
 
     /// <summary>The <c>IntensityOccupancy_</c> cell, verbatim.</summary>
-    public string? IntensityOccupancyText { get; internal set; }
+    public string? IntensityOccupancyText
+    {
+        get => _intensityOccupancyText;
+        internal set { _intensityOccupancyText = value; _intensityOccupancy = null; }
+    }
 
-    /// <summary>The count cell, parsed. Trust its (modified/total) pair over its rounded fraction.</summary>
-    public ModificationOccupancyCell CountOccupancy => ModificationOccupancyCell.Parse(CountOccupancyText);
+    /// <summary>The count cell, parsed on first read and kept. Trust its (modified/total) pair over its
+    /// rounded fraction. Throws <see cref="FormatException"/>, on every read, if the cell is malformed.</summary>
+    public ModificationOccupancyCell CountOccupancy =>
+        _countOccupancy ??= ModificationOccupancyCell.Parse(CountOccupancyText);
 
-    /// <summary>The intensity cell, parsed. Trust its fraction; the pair is rounded to four significant digits.</summary>
-    public ModificationOccupancyCell IntensityOccupancy => ModificationOccupancyCell.Parse(IntensityOccupancyText);
+    /// <summary>The intensity cell, parsed on first read and kept. Trust its fraction; the pair is rounded
+    /// to four significant digits. Throws <see cref="FormatException"/>, on every read, if the cell is malformed.</summary>
+    public ModificationOccupancyCell IntensityOccupancy =>
+        _intensityOccupancy ??= ModificationOccupancyCell.Parse(IntensityOccupancyText);
 }

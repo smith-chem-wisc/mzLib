@@ -44,9 +44,17 @@ public sealed class ModificationOccupancyCell
 
     // Anchored on ",info:fraction=<number>(" so a modification name may contain commas, brackets and
     // parentheses. The name may not itself span that anchor, so two sites run together without a
-    // separator are refused rather than read as one site with a very long name.
+    // separator are refused rather than read as one site with a very long name. Nor may it contain a "]"
+    // followed by a separator, so a malformed site cannot swallow the one after it.
     private static readonly Regex Site = new(
-        @"\Gpos(?<pos>\d+)\[(?<name>(?:(?!,info:fraction=).)+),info:fraction=(?<f>[-+0-9.eE]+|NaN)\((?<n>[^/()]+)/(?<d>[^()]+)\)\](?<sep>[;|]|$)",
+        @"\Gpos(?<pos>\d+)\[(?<name>(?:(?!,info:fraction=|\][;|]).)+),info:fraction=(?<f>[-+0-9.eE]+|NaN)\((?<n>[^/()]+)/(?<d>[^()]+)\)\](?<sep>[;|]|$)",
+        RegexOptions.Compiled | RegexOptions.CultureInvariant);
+
+    // What a cut leaves: the start of one site running to the end of the cell, each part of Site in turn,
+    // each part optional, down to a lone "p". The name may not contain a "]" that closes a site (one followed by a
+    // separator or the end), so a finished site with a misspelt field is refused rather than read as cut.
+    private static readonly Regex CutSite = new(
+        @"\G(?:po?|pos(?:\d+(?:\[(?:(?!,info:fraction=|\][;|]|\]$).)*(?:,info:fraction=(?:[-+0-9.eE]*|N|Na|NaN)(?:\([^/()]*(?:/[^()]*\)?)?)?)?)?)?)$",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private ModificationOccupancyCell(IReadOnlyList<IReadOnlyList<OccupancySite>> entities, bool truncated)
@@ -66,8 +74,9 @@ public sealed class ModificationOccupancyCell
 
     /// <summary>
     /// The cell was cut short: either replaced wholesale by <see cref="ExcelTruncationText"/>, or cut
-    /// mid-site at <see cref="BioPolymerGroupTsvSchema.MaxStringLength"/>. Complete sites before the cut
-    /// are kept. A truncated cell is not an empty one.
+    /// mid-site (mzLib's writer cuts at <see cref="BioPolymerGroupTsvSchema.MaxStringLength"/>, whatever
+    /// it was set to when the file was written). Complete sites before the cut are kept. A truncated
+    /// cell is not an empty one.
     /// </summary>
     public bool IsTruncated { get; }
 
@@ -90,9 +99,11 @@ public sealed class ModificationOccupancyCell
             var m = Site.Match(cell, at);
             if (!m.Success)
             {
-                // A cut at MaxStringLength leaves an unfinished "pos..." token at the end. Anything else
-                // is not this format, and guessing at it would be the silent error this type exists to stop.
-                if (at > 0 && cell.Length >= BioPolymerGroupTsvSchema.MaxStringLength && cell[at..].StartsWith("pos", StringComparison.Ordinal))
+                // A cut leaves an unfinished site at the end. It is recognised by its shape, not by the
+                // cell's length: the limit it was cut at is a writer setting this reader cannot know.
+                // Anything else is not this format, and guessing at it would be the silent error this
+                // type exists to stop.
+                if (CutSite.IsMatch(cell, at))
                 {
                     if (current.Count > 0) entities.Add(current);
                     return new(entities, true);

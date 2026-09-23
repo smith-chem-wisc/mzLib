@@ -39,7 +39,7 @@ public class ProteinGroupFromTsvFile : ResultFile<ProteinGroupFromTsv>, IResultF
             using var csv = new CsvReader(new StreamReader(FilePath), ProteinGroupFromTsv.CsvConfiguration);
             csv.Read();
             csv.ReadHeader();
-            var sampleColumns = SampleColumns(csv.HeaderRecord ?? []);
+            var sampleColumns = SampleColumns(csv.HeaderRecord ?? [], SamplePrefixes);
 
             var results = new List<ProteinGroupFromTsv>();
             while (csv.Read())
@@ -76,13 +76,17 @@ public class ProteinGroupFromTsvFile : ResultFile<ProteinGroupFromTsv>, IResultF
         throw new NotSupportedException(
             "Writing protein-group tables is not supported; they are written from BioPolymerGroups by BioPolymerGroupTsvSchema.");
 
-    /// <summary>(column index, prefix, label) for every per-sample column, in header order.</summary>
-    internal static List<(int Index, string Prefix, string Label)> SampleColumns(string[] header)
+    /// <summary>
+    /// (column index, prefix, label) for every per-sample column, in header order. The first prefix a
+    /// header starts with wins, so a prefix that another one extends must come after it. Shared with
+    /// <see cref="QuantifiedPeptideFile"/>.
+    /// </summary>
+    internal static List<(int Index, string Prefix, string Label)> SampleColumns(string[] header, string[] prefixes)
     {
         var columns = new List<(int, string, string)>();
         for (int i = 0; i < header.Length; i++)
         {
-            string? prefix = SamplePrefixes.FirstOrDefault(p => header[i].StartsWith(p, StringComparison.Ordinal));
+            string? prefix = prefixes.FirstOrDefault(p => header[i].StartsWith(p, StringComparison.Ordinal));
             if (prefix != null)
                 columns.Add((i, prefix, header[i][prefix.Length..]));
         }

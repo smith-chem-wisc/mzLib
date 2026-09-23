@@ -1,3 +1,4 @@
+using MzLibUtil;
 using NUnit.Framework;
 using Readers;
 using System;
@@ -64,6 +65,47 @@ namespace Test.FileReadingTests.InternalFileReading
                 Assert.That(row.PeakOrder, Is.EqualTo(2));
                 var f1 = row.Samples["f1"];
                 Assert.That((f1.Intensity, f1.RetentionTime, f1.DetectionType), Is.EqualTo(((double?)1.5e6, (double?)42.5, "MSMS")));
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        /// <summary>A blank cell is "not written", which is not FlashLFQ's written 0.</summary>
+        [Test]
+        public void ABlankCellIsNull()
+        {
+            string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestQuantifiedPeptideFileBlank");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, "QuantifiedPeptides.tsv");
+            File.WriteAllLines(path,
+            [
+                "Sequence\tBase Sequence\tIntensity_f1\tRetentionTime (min)_f1\tDetection Type_f1",
+                "PEPTIDE\tPEPTIDE\t\t\t"
+            ]);
+            try
+            {
+                var f1 = new QuantifiedPeptideFile(path).Single().Samples["f1"];
+                Assert.That((f1.Intensity, f1.RetentionTime, f1.DetectionType), Is.EqualTo(((double?)null, (double?)null, (string?)null)));
+            }
+            finally
+            {
+                Directory.Delete(dir, true);
+            }
+        }
+
+        [Test]
+        public void AFileThatIsNotAPeptideTableIsReportedWithItsPath()
+        {
+            string dir = Path.Combine(TestContext.CurrentContext.TestDirectory, "TestQuantifiedPeptideFileBroken");
+            Directory.CreateDirectory(dir);
+            string path = Path.Combine(dir, "QuantifiedPeptides.tsv");
+            File.WriteAllLines(path, ["Sequence\tBase Sequence\tIntensity_f1", "PEPTIDE\tPEPTIDE\tnot-a-number"]);
+            try
+            {
+                var ex = Assert.Throws<MzLibException>(() => new QuantifiedPeptideFile(path).LoadResults());
+                Assert.That(ex!.Message, Does.Contain(path));
             }
             finally
             {

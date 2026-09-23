@@ -75,9 +75,31 @@ namespace Test.Omics.BioPolymerGroupTests
             Assert.That(cell.Sites.Count(), Is.EqualTo(BioPolymerGroupTsvSchema.MaxStringLength / (one.Length + 1)));
         }
 
+        /// <summary>The limit is a writer setting the reader cannot know, so a cut is recognised at any
+        /// length and at any character of the unfinished site, including inside a bracketed name.</summary>
+        [Test]
+        public void ACutIsRecognisedWhateverTheLimitWas()
+        {
+            string done = "pos1[A on K,info:fraction=1.00(1/1)];";
+            string last = "pos7[HexNAc(1)Hex(1)[glycan] on S,info:fraction=0.50(1/2)]";
+            for (int cut = 1; cut < last.Length; cut++)
+            {
+                if (last[..cut].EndsWith(']'))
+                    continue; // a cut straight after a "]" in the name cannot be told from a finished site
+                var cell = ModificationOccupancyCell.Parse(done + last[..cut]);
+                Assert.That(cell.IsTruncated, $"cut after {cut} characters");
+                Assert.That(cell.Sites.Single().ModificationIdWithMotif, Is.EqualTo("A on K"));
+            }
+            Assert.That(ModificationOccupancyCell.Parse("pos12[Phospho").IsTruncated, "a cut inside the first site");
+        }
+
         [TestCase("not an occupancy cell")]
         [TestCase("pos3[Oxidation on M,info:occupancy=0.50(1/2)]")]
+        [TestCase("pos1[A on K,info:fraction=1.00(1/1)];pos3[Oxidation on M,info:occupancy=0.50(1/2)]")]
+        [TestCase("pos1[A on K,info:fraction=1.00(1/1)];pos3[Oxidation on M,info:fraction=0.50(1/2)]x")]
+        [TestCase("pos1[A on K,info:fraction=1.00(1/1)];pos3[B on M];pos5[C on S,info:fraction=1.00(1/1)]")]
         [TestCase("pos1[A on K,info:fraction=1.00(1/1)]pos2[B on K,info:fraction=1.00(1/1)]")]
+        [TestCase("pos1[A on K,info:fraction=1.00(1/1)];pos2[B on K,info:fraction=1.00(1/1)]pos3[C on K,info:fraction=1.00(1/1)]")]
         public void AnythingElseIsRefusedNotGuessed(string text)
         {
             Assert.Throws<FormatException>(() => ModificationOccupancyCell.Parse(text));
