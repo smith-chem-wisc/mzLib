@@ -26,7 +26,13 @@ namespace Readers
     /// <param name="Base">The name without its marker(s): files sharing it are replicates of one another.</param>
     /// <param name="Number">The inner marker's rank within its base (1-based), or null when the file has none.</param>
     /// <param name="Outer">The outer marker's rank, when the name carries two levels (<c>X_2_1</c>), else null.</param>
-    internal sealed record SdrfReplicateReading(string FileName, string Base, int? Number, int? Outer);
+    /// <param name="Kind">
+    /// What this file's inner marker counts: the marker's own word when it says (<c>FR01</c> fraction,
+    /// <c>TR1</c> technical, <c>BR1</c>/<c>Rat1</c> biological), else what the record decided
+    /// (<see cref="SdrfReplicates.MarkerKind"/>). Unstated for a file with no marker.
+    /// </param>
+    internal sealed record SdrfReplicateReading(string FileName, string Base, int? Number, int? Outer,
+        SdrfReplicateKind Kind = SdrfReplicateKind.Unstated);
 
     /// <summary>
     /// What <see cref="SdrfReplicateResolver.Read"/> found: every file's markers, what the inner and outer
@@ -67,11 +73,30 @@ namespace Readers
     /// </summary>
     internal static class SdrfReplicateResolver
     {
-        private const string Num = @"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|duplicates?|triplicates?|quadruplicates?|twice)";
+        /// <summary>The most replicates of one condition a marker may count (the free check on 95 gold datasets).</summary>
+        internal const int MaxReplicates = 12;
+
+        private const string Num =@"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|duplicates?|triplicates?|quadruplicates?|twice)";
 
         private static readonly Regex NumberMarker = new(
-            @"^(?<base>.*?)[_\-\.\s]*(?:biorep|techrep|replicate|repeat|rep|rat|mouse|br|tr|r)?(?<![0-9])(?<n>\d{1,2})$",
+            @"^(?<base>.*?)(?<sep>[_\-\.\s]*)(?<w>[A-Za-z]*)(?<![0-9])(?<n>\d{1,2})$",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        // The word written just before a marker's number, when it says what the number counts. A word that
+        // says nothing (r, rep, replicate, repeat, or none) leaves the kind to the record.
+        private static readonly Dictionary<string, SdrfReplicateKind> MarkerWords = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["f"] = SdrfReplicateKind.Fraction, ["fr"] = SdrfReplicateKind.Fraction, ["frac"] = SdrfReplicateKind.Fraction,
+            ["fraction"] = SdrfReplicateKind.Fraction, ["band"] = SdrfReplicateKind.Fraction, ["slice"] = SdrfReplicateKind.Fraction,
+            ["fx"] = SdrfReplicateKind.Fraction, ["gel"] = SdrfReplicateKind.Fraction,
+            ["tr"] = SdrfReplicateKind.Technical, ["inj"] = SdrfReplicateKind.Technical, ["injection"] = SdrfReplicateKind.Technical,
+            ["techrep"] = SdrfReplicateKind.Technical,
+            ["br"] = SdrfReplicateKind.Biological, ["bio"] = SdrfReplicateKind.Biological, ["biorep"] = SdrfReplicateKind.Biological,
+            ["rat"] = SdrfReplicateKind.Biological, ["mouse"] = SdrfReplicateKind.Biological, ["animal"] = SdrfReplicateKind.Biological,
+            ["patient"] = SdrfReplicateKind.Biological, ["donor"] = SdrfReplicateKind.Biological,
+            [""] = SdrfReplicateKind.Unstated, ["r"] = SdrfReplicateKind.Unstated, ["rep"] = SdrfReplicateKind.Unstated,
+            ["replicate"] = SdrfReplicateKind.Unstated, ["repeat"] = SdrfReplicateKind.Unstated,
+        };
+
         private static readonly Regex LetterMarker = new(
             @"^(?<base>.*?[0-9A-Za-z])[_\-\.\s]?(?<l>[A-Da-d])$", RegexOptions.Compiled);
 
@@ -128,10 +153,12 @@ namespace Readers
                 var m = inner[n];
                 if (m.Rank == null) return new SdrfReplicateReading(n, SdrfFileNamePattern.Stem(n), null, null);
                 var o = outer.TryGetValue(m.Base, out var om) && om.Rank != null ? om : null;
-                return new SdrfReplicateReading(n, o?.Base ?? m.Base, m.Rank, o?.Rank);
+                return new SdrfReplicateReading(n, o?.Base ?? m.Base, m.Rank, o?.Rank, m.WordKind);
             }).ToList();
 
-            int innerCount = files.Where(f => f.Number != null).Select(f => f.Number!.Value).DefaultIfEmpty(0).Max();
+            // The record decides only markers whose own word said nothing.
+            int innerCount = files.Where(f => f.Number != null && f.Kind == SdrfReplicateKind.Unstated)
+                .Select(f => f.Number!.Value).DefaultIfEmpty(0).Max();
             int outerCount = files.Where(f => f.Outer != null).Select(f => f.Outer!.Value).DefaultIfEmpty(0).Max();
             bool twoLevels = outerCount > 0;
 
@@ -149,11 +176,12 @@ namespace Readers
             if (single == null && tech.Count > 0 && !statesBiological) single = "technical replicates only";
             bool one = single != null && !statesBiological;
 
+            files = files.Select(f => f.Number != null && f.Kind == SdrfReplicateKind.Unstated ? f with { Kind = kind } : f).ToList();
             return new SdrfReplicates(files, kind, evidence, outerKind, one,
                 one ? $"the record says '{single}' and states no biological replicates" : "");
         }
 
-        private sealed record Marker(string Base, int? Rank);
+        private sealed record Marker(string Base, int? Rank, SdrfReplicateKind WordKind = SdrfReplicateKind.Unstated);
 
         /// <summary>
         /// Stem -> its final marker, ranked within its base. A base qualifies only with two or more members
@@ -164,28 +192,45 @@ namespace Readers
             var parsed = stems.ToDictionary(kv => kv.Key, kv => Parse(kv.Value), StringComparer.Ordinal);
             var result = parsed.ToDictionary(kv => kv.Key, kv => new Marker(kv.Value.Base ?? stems[kv.Key], null), StringComparer.Ordinal);
             foreach (var group in parsed.Where(kv => kv.Value.Base != null)
-                         .GroupBy(kv => kv.Value.Base!.ToLowerInvariant() + "|" + kv.Value.Letter))
+                         .GroupBy(kv => kv.Value.Base!.ToLowerInvariant() + "|" + kv.Value.Letter + "|" + kv.Value.Kind))
             {
                 var members = group.OrderBy(kv => kv.Value.Value).ToList();
                 if (members.Count < 2) continue;
                 var values = members.Select(kv => kv.Value.Value).ToList();
                 if (values.Distinct().Count() != values.Count) continue;
                 if (values.Where((v, i) => v != values[0] + i).Any()) continue;
+                // No study has more than a dozen replicates of one condition: a longer run whose own word
+                // says nothing is a run counter (Phospho_final_01..40). Fractions often run to 24 or more.
+                if (members.Count > MaxReplicates && members[0].Value.Kind != SdrfReplicateKind.Fraction) continue;
                 for (int i = 0; i < members.Count; i++)
-                    result[members[i].Key] = new Marker(members[i].Value.Base!, i + 1);
+                    result[members[i].Key] = new Marker(members[i].Value.Base!, i + 1, members[i].Value.Kind);
             }
             return result;
         }
 
-        private static (string? Base, int Value, bool Letter) Parse(string stem)
+        private static (string? Base, int Value, bool Letter, SdrfReplicateKind Kind) Parse(string stem)
         {
             var m = NumberMarker.Match(stem);
-            if (m.Success && m.Groups["base"].Value.Length > 0)
-                return (m.Groups["base"].Value.TrimEnd('_', '-', '.', ' '), int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture), false);
+            if (m.Success)
+            {
+                string b = m.Groups["base"].Value, w = m.Groups["w"].Value;
+                int n = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
+                if (MarkerWords.TryGetValue(w, out var kind))
+                {
+                    if (b.Length > 0) return (b.TrimEnd('_', '-', '.', ' '), n, false, kind);
+                }
+                else if (w.Length >= 2 && m.Groups["sep"].Value.Length == 0)
+                {
+                    // An unknown WORD stuck to the number is part of the base: Mock1..4, Singlecell1..4.
+                    // An unknown single LETTER (C1, S2, P3) is a code nobody explained: not a marker.
+                    return ((b + w).TrimEnd('_', '-', '.', ' '), n, false, SdrfReplicateKind.Unstated);
+                }
+            }
             var l = LetterMarker.Match(stem);
             if (l.Success)
-                return (l.Groups["base"].Value.TrimEnd('_', '-', '.', ' '), char.ToUpperInvariant(l.Groups["l"].Value[0]) - 'A' + 1, true);
-            return (null, 0, false);
+                return (l.Groups["base"].Value.TrimEnd('_', '-', '.', ' '), char.ToUpperInvariant(l.Groups["l"].Value[0]) - 'A' + 1, true,
+                    SdrfReplicateKind.Unstated);
+            return (null, 0, false, SdrfReplicateKind.Unstated);
         }
 
         private static (SdrfReplicateKind Kind, string Evidence) Decide(int count, HashSet<int> bio, HashSet<int> tech, HashSet<int> frac, SdrfReplicateKind fallback)

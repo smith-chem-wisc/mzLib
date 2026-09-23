@@ -58,6 +58,39 @@ namespace Test.FileReadingTests
             Assert.That(r.Files.All(f => f.Number == null), "0316/0321/0357 are animal IDs, not a 1..n count");
         }
 
+        [TestCase("S1_FR01", "S1_FR02", "S1_FR03", "Fraction")]
+        [TestCase("BR2_F1", "BR2_F2", "BR2_F3", "Fraction")]
+        [TestCase("X_TR1", "X_TR2", "X_TR3", "Technical")]
+        [TestCase("X_inj1", "X_inj2", "X_inj3", "Technical")]
+        [TestCase("Liver_Rat1", "Liver_Rat2", "Liver_Rat3", "Biological")]
+        public void AMarkersOwnWordSaysWhatItCounts(string a, string b, string c, string kindName)
+        {
+            var r = SdrfReplicateResolver.Read(new[] { a, b, c }, Array.Empty<string>());
+
+            Assert.That(r.Files.Select(f => f.Kind), Is.All.EqualTo(Enum.Parse<SdrfReplicateKind>(kindName)));
+            Assert.That(r.Files.Select(f => f.Number), Is.EqualTo(new int?[] { 1, 2, 3 }));
+        }
+
+        [Test]
+        public void ACountPastTwelveIsARunCounterUnlessItsWordSaysFraction()
+        {
+            var runs = Enumerable.Range(1, 40).Select(i => $"Phospho_final_{i:00}").ToList();
+            var fractions = Enumerable.Range(1, 24).Select(i => $"S1_FR{i:00}").ToList();
+
+            var r = SdrfReplicateResolver.Read(runs.Concat(fractions), Array.Empty<string>());
+
+            Assert.That(r.Files.Where(f => runs.Contains(f.FileName)).All(f => f.Number == null), "no study has 40 replicates of one condition");
+            Assert.That(r.Files.Single(f => f.FileName == "S1_FR24").Number, Is.EqualTo(24), "24 fractions are ordinary");
+        }
+
+        [Test]
+        public void AnUnknownLetterBeforeANumberIsNotAReplicateMarker()
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "HP_C1", "HP_C2", "HP_C3" }, Array.Empty<string>());
+
+            Assert.That(r.Files.All(f => f.Number == null), "C1..C3 could be columns, fractions or cases; nothing says replicate");
+        }
+
         [Test]
         public void NumbersWithGapsAreRunNumbersNotAReplicateCount()
         {
