@@ -6,7 +6,7 @@ using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Statistics;
 
-namespace Quantification.DifferentialAbundance
+namespace Statistics
 {
     /// <summary>
     /// The prior distribution of per-feature residual variances: s²_g ~ s0² · χ²(d0)/d0, fitted across
@@ -243,7 +243,7 @@ namespace Quantification.DifferentialAbundance
             var knots = new double[k];
             knots[0] = 0; knots[k - 1] = 1;
             for (int i = 1; i < k - 1; i++)
-                knots[i] = Statistics.QuantileCustom(sorted, (double)i / (k - 1), QuantileDefinition.R7);
+                knots[i] = MathNet.Numerics.Statistics.Statistics.QuantileCustom(sorted, (double)i / (k - 1), QuantileDefinition.R7);
 
             double D(double v, int idx)
             {

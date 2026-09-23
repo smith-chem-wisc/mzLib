@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Distributions;
 
-namespace Quantification.DifferentialAbundance
+namespace Statistics
 {
     /// <summary>One pooled estimate across studies.</summary>
     public sealed class MetaAnalysisResult
