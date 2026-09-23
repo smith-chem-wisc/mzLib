@@ -277,8 +277,29 @@ namespace UsefulProteomicsDatabases.Ensembl
             new("ensembl_xref_sha256", r => r.EnsemblXrefSha256),
         };
 
-        public static void Write(TextWriter output, IEnumerable<GeneResolution> rows) =>
-            TsvWriter.Write(output, Schema, rows);
+        /// <summary>
+        /// Writes the header and one line per row. Lines end in "\n" whatever <paramref name="output"/>'s
+        /// NewLine is, so the table's bytes do not depend on the machine that wrote it.
+        /// </summary>
+        /// <exception cref="ArgumentException">A value contains a tab or line break, which would shift the
+        /// row; nothing is escaped, so it is refused rather than written.</exception>
+        public static void Write(TextWriter output, IEnumerable<GeneResolution> rows)
+        {
+            ArgumentNullException.ThrowIfNull(output);
+            ArgumentNullException.ThrowIfNull(rows);
+
+            output.Write(TsvWriter.HeaderLine(Schema));
+            output.Write('\n');
+            foreach (var row in rows)
+            {
+                foreach (var column in Schema)
+                {
+                    EnsemblGeneSetWriter.RejectSeparators(column.GetValue(row), column.Header, row.Accession);
+                }
+                output.Write(TsvWriter.RowLine(Schema, row));
+                output.Write('\n');
+            }
+        }
 
         /// <summary>The outcome as written in the table, e.g. "off_primary_only".</summary>
         public static string OutcomeName(GeneResolutionOutcome outcome) => outcome switch

@@ -263,5 +263,26 @@ namespace Test.FileReadingTests
             Assert.That(notInSource["gene_id"], Is.EqualTo(""));
             Assert.That(notInSource["uniprot_gene_name"], Is.EqualTo("NAMEONLY"));
         }
+
+        [Test]
+        public void WriteTsv_LinesEndInLineFeed_WhateverTheWritersNewLine()
+        {
+            var output = new StringWriter { NewLine = "\r\n" };
+            GeneResolutionTsv.Write(output, Resolve(Entry("P22222", "NAMEONLY")));
+
+            Assert.That(output.ToString(), Does.Not.Contain("\r"));
+            Assert.That(output.ToString().Count(c => c == '\n'), Is.EqualTo(2), "header plus one row");
+        }
+
+        [Test]
+        public void WriteTsv_ValueWithATabOrLineBreak_IsRefused_NotWrittenAcrossCells()
+        {
+            foreach (string name in new[] { "BAD\tNAME", "BAD\nNAME", "BAD\rNAME" })
+            {
+                var ex = Assert.Throws<ArgumentException>(() =>
+                    GeneResolutionTsv.Write(new StringWriter(), Resolve(Entry("P22222", name))));
+                Assert.That(ex.Message, Does.Contain("uniprot_gene_name of P22222"));
+            }
+        }
     }
 }

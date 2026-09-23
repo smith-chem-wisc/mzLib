@@ -84,11 +84,12 @@ namespace UsefulProteomicsDatabases.Ensembl
             writer.WriteLine($"#!{key} {value}");
         }
 
-        private static void RejectSeparators(string value, string field, string geneId)
+        /// <summary>Throws when <paramref name="value"/> would not stay one cell of a tab-separated row.</summary>
+        internal static void RejectSeparators(string value, string field, string rowKey)
         {
             if (value != null && value.IndexOfAny(new[] { '\t', '\r', '\n' }) >= 0)
             {
-                string where = geneId == null ? field : $"{field} of {geneId}";
+                string where = rowKey == null ? field : $"{field} of {rowKey}";
                 throw new ArgumentException($"{where} contains a tab or line break and cannot be written as one cell.");
             }
         }
