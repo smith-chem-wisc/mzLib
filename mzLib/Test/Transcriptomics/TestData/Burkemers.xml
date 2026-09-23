@@ -1,0 +1,122 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<mzLibProteinDb>
+  <modification>ID   2'-O-Methyladenosine on A
+TG   A
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+BL   Suppressed
+DR   Unimod; 34.
+
+//</modification>
+  <modification>ID   N6-methyladenosine on A
+TG   A
+PP   Anywhere.
+MT   Biological
+CF   C1 H2
+BL   Modified
+DR   Unimod; 34.
+
+//</modification>
+  <modification>ID   N6,2'-O-dimethyladenosine on A
+TG   A
+PP   Anywhere.
+MT   Biological
+CF   C2 H4
+BL   Suppressed:C1H2
+DR   Unimod; 36.
+
+=
+//</modification>
+  <entry>
+    <accession>22mer#1-unmod</accession>
+    <name>22mer#1-unmod</name>
+    <protein>
+      <recommendedName>
+        <fullName>22mer#1-unmod</fullName>
+      </recommendedName>
+    </protein>
+    <gene />
+    <organism>
+      <name type="scientific">Burkmers</name>
+    </organism>
+    <sequence length="22">UUCAAGUAAUCCAGGAUAGGCU</sequence>
+  </entry>
+  <entry>
+    <accession>22mer#1-Am</accession>
+    <name>22mer#1-Am</name>
+    <protein>
+      <recommendedName>
+        <fullName>22mer#1-Am</fullName>
+      </recommendedName>
+    </protein>
+    <gene />
+    <organism>
+      <name type="scientific">Burkmers</name>
+    </organism>
+    <feature type="modified residue" description="2'-O-Methyladenosine on A">
+      <location>
+        <position position="9" />
+      </location>
+    </feature>
+    <sequence length="22">UUCAAGUAAUCCAGGAUAGGCU</sequence>
+  </entry>
+  <entry>
+    <accession>22mer#1-m6A</accession>
+    <name>22mer#1-m6A</name>
+    <protein>
+      <recommendedName>
+        <fullName>22mer#1-m6A</fullName>
+      </recommendedName>
+    </protein>
+    <gene />
+    <organism>
+      <name type="scientific">Burkmers</name>
+    </organism>
+    <feature type="modified residue" description="N6-methyladenosine on A">
+      <location>
+        <position position="9" />
+      </location>
+    </feature>
+    <sequence length="22">UUCAAGUAAUCCAGGAUAGGCU</sequence>
+  </entry>
+  <entry>
+    <accession>22mer#1-m6Am</accession>
+    <name>22mer#1-m6Am</name>
+    <protein>
+      <recommendedName>
+        <fullName>22mer#1-m6Am</fullName>
+      </recommendedName>
+    </protein>
+    <gene />
+    <organism>
+      <name type="scientific">Burkmers</name>
+    </organism>
+    <feature type="modified residue" description="N6,2'-O-dimethyladenosine on A">
+      <location>
+        <position position="9" />
+      </location>
+    </feature>
+    <sequence length="22">UUCAAGUAAUCCAGGAUAGGCU</sequence>
+  </entry>
+  <entry>
+    <accession>22mer#2-Am</accession>
+    <name>21mer#1-Am</name>
+    <protein>
+      <recommendedName>
+        <fullName>22mer#2-Am</fullName>
+      </recommendedName>
+    </protein>
+    <gene />
+    <organism>
+      <name type="scientific">Burkmers</name>
+    </organism>
+    <feature type="modified residue" description="2'-O-Methyladenosine on A">
+      <location>
+        <position position="15" />
+      </location>
+    </feature>
+    <sequence length="22">UCCCUGAGACCCUAACUUGUGA</sequence>
+  </entry>
+</mzLibProteinDb>
+

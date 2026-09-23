@@ -572,9 +572,9 @@ namespace Test.Transcriptomics
 
                 // 'i' is the inosine residue added alongside this normalization, and the only ASCII
                 // letter whose uppercase mapping depends on the current culture.
-                Assert.That(RnaDbLoader.SanitizeAndTransform("guacigccucuagugaagca", transforms),
+                Assert.That(RnaDbLoader.SanitizeAndTransform("guacigccucuagugaagca", transforms, out _),
                     Is.EqualTo("GUACIGCCUCUAGUGAAGCA"));
-                Assert.That(RnaDbLoader.SanitizeAndTransform("i", transforms), Is.EqualTo("I"));
+                Assert.That(RnaDbLoader.SanitizeAndTransform("i", transforms, out _), Is.EqualTo("I"));
             }
             finally
             {

@@ -487,7 +487,8 @@ namespace UsefulProteomicsDatabases
             if (Accession != null && Sequence != null)
             {
                 // sanitize the sequence 
-                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence, transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>());
+                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence,
+                    transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>(), out var fixedModifications);
                 // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
@@ -511,7 +512,7 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
                     isContaminant, isDecoy, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName,
-                    isEntrapment);
+                    isEntrapment, fixedModifications);
             }
             Clear();
             return result;
