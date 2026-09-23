@@ -38,8 +38,11 @@ public class ModomicsSequenceConversionTests
     [TestCase("GUACUG", "GUACUG", 0)]
     [TestCase("GJACUGCBUCUA#UGAA#CA", "GUACUGCCUCUAGUGAAGCA", 4)]
     [TestCase("/UCCAGU#CAGUACJG", "AUCCAGUGCAGUACUG", 3)]
-    [TestCase("UUCAAGUA:UCCAGGAUAGGCU", "UUCAAGUAUCCAGGAUAGGCU", 1)]
-    [TestCase("UUCAAGUA=UCCAGGAUAGGCU", "UUCAAGUAUCCAGGAUAGGCU", 1)]
+    [TestCase("UUCAAGUA:UCCAGGAUAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
+    [TestCase("UUCAAGUA=UCCAGGAUAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
+    [TestCase("GA:C", "GAAC", 1)]
+    [TestCase("GA=C", "GAAC", 1)]
+    [TestCase("G:C", "GAC", 1)]
     [TestCase("[G]", "AGU", 2)]
     public void ParsesWorkbookSequences(string input, string expectedBaseSequence, int expectedModificationCount)
     {
@@ -229,13 +232,13 @@ public class ModomicsSequenceConversionTests
          "A[Modomics:2-methyladenosine on A]UCCAGUG[Modomics:2'-O-methylguanosine on G]CAGUACU[Modomics:2'-O-methyluridine on U]G")]
     [TestCase(
         "UUCAAGUA:UCCAGGAUAGGCU",
-         "UUCAAGUA[Modomics:2'-O-methyladenosine on A]UCCAGGAUAGGCU")]
+        "UUCAAGUAA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
     [TestCase(
         "UUCAAGUA=UCCAGGAUAGGCU",
-         "UUCAAGUA[Modomics:N6-methyladenosine on A]UCCAGGAUAGGCU")]
+        "UUCAAGUAA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
     [TestCase(
         "UCCCUGAGACCCUA:CUUGUGA",
-         "UCCCUGAGACCCUA[Modomics:2'-O-methyladenosine on A]CUUGUGA")]
+        "UCCCUGAGACCCUAA[Common Biological: Methylation on A]CUUGUGA")]
     public void ModomicsAndMetaMorpheusConstructionProduceIdenticalFragments(
         string modomicsSequence,
         string metaMorpheusFullSequence)

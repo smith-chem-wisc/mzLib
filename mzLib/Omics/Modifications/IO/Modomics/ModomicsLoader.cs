@@ -122,6 +122,8 @@ public static class ModomicsLoader
         foreach (var kvp in jsonDict)
         {
             var dto = BuildDto(kvp.Key, kvp.Value, moietyTypeByShortName);
+            if (!string.IsNullOrEmpty(dto.Abbrev) && !modificationsByAbbreviation.ContainsKey(dto.Abbrev))
+                modificationsByAbbreviation.Add(dto.Abbrev, []);
             foreach (var outcome in ConvertDto(dto))
             {
                 if (outcome.NotYetRepresentableEntry is not null)

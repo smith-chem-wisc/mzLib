@@ -111,14 +111,7 @@ public sealed class ModomicsSequenceParser : ISequenceParser
                 }
                 else
                 {
-                    if (!IsPostfixCode(code, target, baseSequence))
-                    {
-                        baseSequence.Append(target);
-                    }
-                    else
-                    {
-                        residueIndex--;
-                    }
+                    baseSequence.Append(target);
                 }
 
                 modifications.Add(new CanonicalModification(
@@ -151,9 +144,6 @@ public sealed class ModomicsSequenceParser : ISequenceParser
 
     private static bool IsFivePrimeModification(Modification modification) =>
         modification.LocationRestriction?.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase) == true;
-
-    private static bool IsPostfixCode(char code, char target, StringBuilder baseSequence) =>
-        code is ':' or '=' && baseSequence.Length > 0 && baseSequence[^1] == target;
 
     private static CanonicalSequence? HandleCodeError(
         ConversionWarnings warnings,
