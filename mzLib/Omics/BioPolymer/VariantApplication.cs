@@ -140,7 +140,10 @@ namespace Omics.BioPolymer
                 .ToList();
 
             // A shallow "base" variant to branch from (no applied variants yet)
-            TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
+            TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts,
+                protein.OneBasedPossibleLocalizedModifications, protein is IBioPolymer baseBioPolymer
+                    ? baseBioPolymer.OneBasedFixedModifications
+                    : new Dictionary<int, Modification>(), null);
 
             if (uniqueEffectsToApply.Count == 0)
             {
@@ -287,7 +290,12 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
             List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
-            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            Dictionary<int, Modification> adjustedFixedModifications = protein is IBioPolymer bioPolymer
+                ? AdjustFixedModificationIndices(variantGettingApplied, variantSequence, bioPolymer)
+                : new Dictionary<int, Modification>();
+            TBioPolymerType variant = protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations,
+                adjustedProteolysisProducts, adjustedModifications, adjustedFixedModifications, individual);
+            return variant;
         }
 
         /// <summary>
@@ -449,15 +457,16 @@ namespace Omics.BioPolymer
             {
                 foreach (KeyValuePair<int, List<Modification>> kv in modificationDictionary)
                 {
-                    if (kv.Key > variantAppliedProteinSequence.Length)
+                    if (kv.Key == protein.BaseSequence.Length + 2)
                     {
-                        continue; // drop if beyond new end
+                        mods.Add(variantAppliedProteinSequence.Length + 2, new List<Modification>(kv.Value));
                     }
                     else if (kv.Key < variant.OneBasedBeginPosition + keptPrefix)
                     {
                         mods.Add(kv.Key, new List<Modification>(kv.Value)); // before the edit, or on a residue the variant keeps at its start
                     }
-                    else if (variant.OneBasedEndPosition - keptSuffix < kv.Key && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
+                    else if (variant.OneBasedEndPosition - keptSuffix < kv.Key
+                        && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
                     {
                         mods.Add(kv.Key + sequenceLengthChange, new List<Modification>(kv.Value)); // after the edit, or on a residue the variant keeps at its end
                     }
@@ -481,6 +490,37 @@ namespace Omics.BioPolymer
             }
 
             return mods;
+        }
+
+        /// <summary>
+        /// Re-bases fixed modifications through one applied sequence variation.
+        /// Modifications on residues replaced by the variation are dropped.
+        /// </summary>
+        public static Dictionary<int, Modification> AdjustFixedModificationIndices(
+            SequenceVariation variant, string variantAppliedSequence, IBioPolymer bioPolymer)
+        {
+            Dictionary<int, Modification> fixedMods = new Dictionary<int, Modification>();
+            int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
+
+            foreach (KeyValuePair<int, Modification> entry in bioPolymer.OneBasedFixedModifications)
+            {
+                if (entry.Key == bioPolymer.Length + 2)
+                {
+                    fixedMods.Add(variantAppliedSequence.Length + 2, entry.Value);
+                }
+                else if (entry.Key < variant.OneBasedBeginPosition + keptPrefix)
+                {
+                    fixedMods.Add(entry.Key, entry.Value);
+                }
+                else if (variant.OneBasedEndPosition - keptSuffix < entry.Key
+                    && entry.Key + sequenceLengthChange <= variantAppliedSequence.Length)
+                {
+                    fixedMods.Add(entry.Key + sequenceLengthChange, entry.Value);
+                }
+            }
+
+            return fixedMods;
         }
 
         /// <summary>
