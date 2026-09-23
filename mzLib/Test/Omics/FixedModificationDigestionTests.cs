@@ -151,6 +151,30 @@ public class FixedModificationDigestionTests
         Assert.That(cg.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
     }
 
+    [Test]
+    public void RnaDigestAppliesParentFixedTerminalModificationsToFullLengthProduct()
+    {
+        var nTermModification = CreateModification("N-terminal fixed", 'G');
+        var cTermModification = CreateModification("C-terminal fixed", 'G');
+        var rna = new RNA(
+            "GAUACG",
+            oneBasedFixedModifications: new Dictionary<int, Modification>
+            {
+                [0] = nTermModification,
+                [8] = cTermModification,
+            });
+
+        var fullLength = rna.Digest(
+                new RnaDigestionParams("top-down", minLength: 1),
+                new List<Modification>(),
+                new List<Modification>())
+            .Cast<OligoWithSetMods>()
+            .Single(oligo => oligo.OneBasedStartResidue == 1 && oligo.OneBasedEndResidue == rna.Length);
+
+        Assert.That(fullLength.AllModsOneIsNterminus[1], Is.EqualTo(nTermModification));
+        Assert.That(fullLength.AllModsOneIsNterminus[rna.Length + 2], Is.EqualTo(cTermModification));
+    }
+
     private static Modification CreateModification(string id, char target)
     {
         Assert.That(ModificationMotif.TryGetMotif(target.ToString(), out var motif), Is.True);
