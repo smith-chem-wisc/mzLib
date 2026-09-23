@@ -80,7 +80,22 @@ namespace Readers
         /// </summary>
         private static readonly string[] RequiredCharacteristics = { OrganismPart };
 
-        public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions options = null)
+        /// <summary>
+        /// Characteristics columns the builder writes from a dedicated <see cref="SdrfSample"/>
+        /// property, and which therefore may not arrive through either dictionary as well.
+        ///
+        /// <see cref="BuildHeader"/> emits both unconditionally, so a key naming one would add a
+        /// SECOND column of the same name, and <see cref="SdrfValidator"/> does not look for
+        /// duplicate columns. They are exactly the columns <see cref="SdrfSampleBlock.CharacteristicColumns"/>
+        /// harvests from a deposited SDRF, so copying a block in whole would hit this.
+        /// </summary>
+        private static readonly Dictionary<string, string> BuiltInCharacteristics = new(StringComparer.Ordinal)
+        {
+            [Organism] = nameof(SdrfSample.Organism),
+            [BiologicalReplicate] = nameof(SdrfSample.BiologicalReplicate)
+        };
+
+        public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions? options = null)
         {
             if (rows is null) throw new ArgumentNullException(nameof(rows));
             options ??= new SdrfBuilderOptions();
@@ -96,6 +111,7 @@ namespace Readers
             // established ArgumentException as the contract for a malformed input.
             for (int i = 0; i < inputs.Count; i++)
                 RequireComplete(inputs[i], i);
+            RequireOneKindPerColumn(inputs);
 
             // Multi-cardinality columns are as wide as the widest row needs, and every row pads to
             // that width. Sizing per row would produce a ragged document.
@@ -105,16 +121,22 @@ namespace Readers
             // Union with the required set, so a caller who supplied no characteristics at all still
             // gets a spec-conformant header. See RequiredCharacteristics for why absent is worse
             // than empty.
+            // BOTH dictionaries join one union. If the free-text keys did not, a row would carry a
+            // cell the header never declared and the table would go ragged -- the defect class this
+            // builder has already been fixed for twice.
             var characteristicColumns = inputs
-                .SelectMany(r => r.Sample.Characteristics.Keys)
+                .SelectMany(r => r.Sample.Characteristics.Keys.Concat(r.Sample.RawCharacteristics.Keys))
                 .Concat(RequiredCharacteristics)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
 
+            // Sorted ordinally rather than left in insertion order, so two rows that name their
+            // columns in different orders still produce one deterministic header.
             var factorColumns = inputs
-                .Select(r => r.Sample.FactorValueColumn)
+                .SelectMany(r => r.Sample.FactorValues.Keys.Append(r.Sample.FactorValueColumn))
                 .Where(c => !string.IsNullOrWhiteSpace(c))
+                .Select(c => c!)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(c => c, StringComparer.Ordinal)
                 .ToList();
@@ -159,6 +181,83 @@ namespace Readers
                 throw new ArgumentException(
                     $"Row {index} has a null {nameof(SdrfAssay.VariableModifications)}; pass an " +
                     "empty list for a search with none.", nameof(input));
+            if (input.Sample.RawCharacteristics is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.RawCharacteristics)}; pass an empty " +
+                    "dictionary for a sample with no free-text characteristics.", nameof(input));
+            if (input.Sample.FactorValues is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.FactorValues)}; pass an empty " +
+                    "dictionary for a sample with no factor values.", nameof(input));
+
+            // A blank key would become a column with no name. The factor union already drops one,
+            // which loses its value silently; refusing all three alike tells the caller instead.
+            if (input.Sample.Characteristics.Keys
+                    .Concat(input.Sample.RawCharacteristics.Keys)
+                    .Concat(input.Sample.FactorValues.Keys)
+                    .Any(string.IsNullOrWhiteSpace))
+                throw new ArgumentException(
+                    $"Row {index} has a characteristic or factor value keyed by a blank column name.",
+                    nameof(input));
+
+            // Refused rather than skipped: skipping would drop the caller's value without a word,
+            // and the value belongs in the property the builder writes the column from.
+            var builtIn = input.Sample.Characteristics.Keys
+                .Concat(input.Sample.RawCharacteristics.Keys)
+                .Where(BuiltInCharacteristics.ContainsKey)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (builtIn.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} has a characteristic '{builtIn[0]}', which the builder already writes " +
+                    $"from {nameof(SdrfSample)}.{BuiltInCharacteristics[builtIn[0]]}; set it there " +
+                    "instead, so one column is never written twice.", nameof(input));
+
+            // One column space, two dictionaries. Preferring either one silently is how a column
+            // comes to mean a term on some rows and free text on others.
+            var both = input.Sample.Characteristics.Keys
+                .Intersect(input.Sample.RawCharacteristics.Keys, StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (both.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} puts {string.Join(", ", both)} in both " +
+                    $"{nameof(SdrfSample.Characteristics)} and {nameof(SdrfSample.RawCharacteristics)}. " +
+                    "A column may be a term or free text, not both; decide in the caller.", nameof(input));
+
+            // Same rule, one level up: FactorValue/FactorValueColumn is shorthand for a one-entry
+            // FactorValues, and two statements of one row's factors that disagree is a caller error.
+            if (input.Sample.FactorValues.Count > 0
+                && !string.IsNullOrWhiteSpace(input.Sample.FactorValueColumn))
+                throw new ArgumentException(
+                    $"Row {index} sets both {nameof(SdrfSample.FactorValues)} and " +
+                    $"{nameof(SdrfSample.FactorValueColumn)}. The pair is the one-factor shorthand " +
+                    "for the dictionary; use one or the other.", nameof(input));
+        }
+
+        /// <summary>
+        /// The same rule <see cref="RequireComplete"/> applies within a row, applied across rows: the
+        /// header union merges every row's keys into ONE column, so a column that is a term on one row
+        /// and free text on another would mean two different things in one document just as surely as
+        /// a key in both dictionaries of a single row would.
+        /// </summary>
+        private static void RequireOneKindPerColumn(IReadOnlyList<SdrfRowInput> inputs)
+        {
+            var termColumns = inputs
+                .SelectMany(r => r.Sample.Characteristics.Keys)
+                .ToHashSet(StringComparer.Ordinal);
+            var mixed = inputs
+                .SelectMany(r => r.Sample.RawCharacteristics.Keys)
+                .Where(termColumns.Contains)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (mixed.Count > 0)
+                throw new ArgumentException(
+                    $"{string.Join(", ", mixed)} is a term on some rows and free text on others. " +
+                    "One column holds one kind of value in a document; decide in the caller.",
+                    nameof(inputs));
         }
 
         private static List<string> BuildHeader(
@@ -205,9 +304,26 @@ namespace Readers
             };
 
             foreach (var column in characteristics)
-                cells.Add(sample.Characteristics.TryGetValue(column, out var value)
-                    ? Term(value, column, options)
-                    : Missing(column, options));
+            {
+                if (sample.Characteristics.TryGetValue(column, out var term))
+                    cells.Add(Term(term, column, options));
+                else if (sample.RawCharacteristics.TryGetValue(column, out var free))
+                    // Verbatim, reserved words included: this cell is somebody else's statement and
+                    // the builder is carrying it, not making it. Blank is the one case it will not
+                    // pass on -- Required turns that into the same reserved word an absent cell
+                    // gets, because a blank cell and a missing one make the same claim.
+                    cells.Add(Required(free, column, options));
+                else if (RequiredCharacteristics.Contains(column, StringComparer.Ordinal))
+                    // D17 governs the columns the SPECIFICATION requires: opting in and then leaving
+                    // one blank is what fills the corpus with reserved words, so it refuses.
+                    cells.Add(Missing(column, options));
+                else
+                    // But a column that exists only because ANOTHER row carried it is a different
+                    // case. One described sample must not fail the whole document, and "this sample
+                    // has no age" is exactly what the reserved word is for -- the column is here
+                    // because somewhere a real value was supplied, and this cell marks who lacks it.
+                    cells.Add(SdrfReserved.NotAvailable);
+            }
 
             cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate));
 
@@ -231,9 +347,15 @@ namespace Readers
             if (searchedColumn)
                 // A row whose search read the acquired file itself names that file again, so the
                 // column says "no transformation" rather than leaving the reader to guess.
-                cells.Add(string.IsNullOrWhiteSpace(assay.SearchedDataFileName)
-                    ? assay.DataFileName
-                    : assay.SearchedDataFileName);
+                // Through Required, like the comment[data file] cell one line above. Writing the
+                // fallback raw meant that a row with a blank DataFileName produced "not available"
+                // in one column and an EMPTY cell in the other -- two cells disagreeing about the
+                // same absence, plus an EmptyCell warning from the lint.
+                cells.Add(Required(
+                    string.IsNullOrWhiteSpace(assay.SearchedDataFileName)
+                        ? assay.DataFileName
+                        : assay.SearchedDataFileName,
+                    SearchedDataFile, options));
 
             if (!string.IsNullOrWhiteSpace(options.ProteomeXchangeAccession))
                 cells.Add(options.ProteomeXchangeAccession);
@@ -247,10 +369,18 @@ namespace Readers
                 cells.Add("v" + options.SdrfVersion.TrimStart('v', 'V'));
 
             foreach (var column in factors)
-                cells.Add(string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
-                          && !string.IsNullOrWhiteSpace(sample.FactorValue)
-                    ? sample.FactorValue
-                    : SdrfReserved.NotApplicable);
+            {
+                if (sample.FactorValues.TryGetValue(column, out var factor)
+                    && !string.IsNullOrWhiteSpace(factor))
+                    cells.Add(factor);
+                else if (string.Equals(sample.FactorValueColumn, column, StringComparison.Ordinal)
+                         && !string.IsNullOrWhiteSpace(sample.FactorValue))
+                    cells.Add(sample.FactorValue);
+                else
+                    // A sample that has no value for a factor another row declares is not applicable
+                    // to it -- which is a different claim from "not available", and the right one.
+                    cells.Add(SdrfReserved.NotApplicable);
+            }
 
             return cells;
         }
@@ -260,7 +390,7 @@ namespace Readers
         /// an empty accession, which is resolved here against PSI-MS — the one place a name-to-
         /// accession lookup genuinely belongs, since the raw reader must not carry an ontology.
         /// </summary>
-        private static string InstrumentCell(CvParam instrument, SdrfBuilderOptions options)
+        private static string InstrumentCell(CvParam? instrument, SdrfBuilderOptions options)
         {
             if (instrument is null) return Missing(Instrument, options);
 
@@ -284,7 +414,7 @@ namespace Readers
                 : SdrfCell.ToCell(instrument);
         }
 
-        private static string CleavageAgentCell(Omics.Digestion.DigestionAgent agent, SdrfBuilderOptions options)
+        private static string CleavageAgentCell(Omics.Digestion.DigestionAgent? agent, SdrfBuilderOptions options)
         {
             if (agent is null) return Missing(CleavageAgent, options);
 
@@ -365,7 +495,7 @@ namespace Readers
         /// Their ToString is not reused here only because it renders "±10.0000 PPM", which is not
         /// the grammar SDRF asks for.
         /// </summary>
-        private static string ToleranceCell(Tolerance tolerance, string column, SdrfBuilderOptions options)
+        private static string ToleranceCell(Tolerance? tolerance, string column, SdrfBuilderOptions options)
         {
             if (tolerance is null) return Missing(column, options);
             string value = tolerance.Value.ToString(System.Globalization.CultureInfo.InvariantCulture);
@@ -385,13 +515,15 @@ namespace Readers
 
         private static string SoftwareCell(SdrfBuilderOptions options)
         {
-            var software = options.Software;
+            // Only reached when the header added the column, which happens only when Software is
+            // set -- BuildHeader and BuildCells test the same option.
+            CvParam software = options.Software!;
             return string.IsNullOrWhiteSpace(options.SoftwareVersion)
                 ? SdrfCell.ToCell(software)
                 : SdrfCell.ToCell(software, ("VV", options.SoftwareVersion));
         }
 
-        private static string Term(CvParam term, string column, SdrfBuilderOptions options) =>
+        private static string Term(CvParam? term, string column, SdrfBuilderOptions options) =>
             term is null ? Missing(column, options) : SdrfCell.ToCell(term);
 
         /// <summary>
@@ -399,13 +531,13 @@ namespace Readers
         /// missing label, or one with no name to write bare, goes through <see cref="Term"/> exactly
         /// as any other term does.
         /// </summary>
-        private static string LabelCell(CvParam label, SdrfBuilderOptions options)
+        private static string LabelCell(CvParam? label, SdrfBuilderOptions options)
         {
             if (options.LabelForm != SdrfLabelForm.Bare || string.IsNullOrWhiteSpace(label?.Name))
                 return Term(label, Label, options);
 
             // The same refusal SdrfCell.ToCell makes: the format has no escape for a separator.
-            if (label.Name.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
+            if (label!.Name.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
                 throw new ArgumentException(
                     "An SDRF cell cannot contain a tab or newline; the format defines no escape " +
                     $"mechanism. Offending label: '{label.Name}'.", nameof(label));
@@ -413,7 +545,7 @@ namespace Readers
             return label.Name;
         }
 
-        private static string Required(string value, string column, SdrfBuilderOptions options) =>
+        private static string Required(string? value, string column, SdrfBuilderOptions options) =>
             string.IsNullOrWhiteSpace(value) ? Missing(column, options) : value;
 
         /// <summary>
