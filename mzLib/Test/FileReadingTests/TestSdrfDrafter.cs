@@ -154,6 +154,44 @@ namespace Test.FileReadingTests
             Assert.That(d.FactorColumns, Is.Empty);
         }
 
+        /// <summary>
+        /// Found by improving the whole curated corpus: two families of names with different numbers of
+        /// factors gave rows fewer factor cells than the draft had factor columns.
+        /// </summary>
+        [Test]
+        public void EveryRowHasOneCellPerFactorColumnWhenFamiliesDiffer()
+        {
+            var p = Covid();
+            p.ProjectDescription = "";
+            var files = new List<string> { "Blank_std.raw", "Blank_std2.raw" };
+            files.AddRange(new[] { "WT", "KO" }.SelectMany(g => new[] { "A", "B" }.SelectMany(t => Enumerable.Range(1, 2).Select(i => $"{g}_{t}_{i}.raw"))));
+            files.AddRange(new[] { "X", "Y" }.SelectMany(g => Enumerable.Range(1, 2).Select(i => $"20200101_run_{g}{i}.raw")));
+
+            var d = SdrfDrafter.Draft(p, files);
+
+            Assert.That(d.Rows.All(r => r.Factors.Count == d.FactorColumns.Count));
+            var wt = Row(d, "WT_A_1.raw");
+            Assert.That(wt.Factors.Count(f => f.Source != SdrfDraftSource.NotAvailable), Is.EqualTo(2), "its own family's two factors");
+        }
+
+        [Test]
+        public void ASidecarFileIsNotARow()
+        {
+            var d = SdrfDrafter.Draft(Covid(), new[] { "A_1.wiff", "A_1.wiff.scan", "A_2.wiff", "A_2.wiff.scan" });
+
+            Assert.That(d.Rows.Select(r => r.DataFile), Is.EquivalentTo(new[] { "A_1.wiff", "A_2.wiff" }));
+        }
+
+        [Test]
+        public void AValueWrittenOnlyBecauseSdrfNeedsOneIsMarkedDefault()
+        {
+            var d = SdrfDrafter.Draft(Covid(), CovidFiles().Append("Blank.raw"));
+
+            Assert.That(Row(d, "POS1.raw").Fraction.Source, Is.EqualTo(SdrfDraftSource.Default), "no fraction marker: 1 is a default, not a reading");
+            Assert.That(Row(d, "POS1.raw").TechnicalReplicate.Source, Is.EqualTo(SdrfDraftSource.Inferred), "POS1rep exists: POS1 is the first injection");
+            Assert.That(Row(d, "Blank.raw").TechnicalReplicate.Source, Is.EqualTo(SdrfDraftSource.Default), "no re-injection: 1 is a default");
+        }
+
         [Test]
         public void EveryInferredCellSaysWhy()
         {

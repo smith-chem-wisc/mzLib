@@ -203,7 +203,7 @@ namespace Readers
             // runs. Each family of like-shaped names is read on its own, and a lone run is its own sample.
             List<List<string>> families = Align(design) != null
                 ? new List<List<string>> { design }
-                : design.GroupBy(r => Tokenize(r, SplitMode.None).Length).Select(g => g.ToList())
+                : design.GroupBy(Shape).Select(g => g.ToList())
                     .OrderByDescending(f => f.Count).ThenBy(f => f[0], StringComparer.Ordinal).ToList();
 
             var slots = new List<SdrfFileNameSlot>();
@@ -248,6 +248,15 @@ namespace Readers
             var files = names.Select(n => byRun[runOf[n]] with { FileName = n }).ToList();
             return new SdrfFileNameStructure(slots, files, null);
         }
+
+        /// <summary>
+        /// A name's family shape: its parts, each as letters (A), digits (N) or mixed (M). WT_A_1 is AAN and
+        /// 20200101_run_X1 is NAM -- the same part count, different families. (Grouping by part count alone
+        /// put them together, and the family then refused itself over a part that was a number in one and a
+        /// word in the other; found by improving the whole curated corpus.)
+        /// </summary>
+        private static string Shape(string run) => string.Concat(Tokenize(run, SplitMode.None).Select(p =>
+            p.All(char.IsAsciiLetter) ? 'A' : p.All(char.IsAsciiDigit) ? 'N' : 'M'));
 
         private static SdrfFileNameReading Alone(string run) =>
             new(run, run, Array.Empty<string>(), null, null, null, null, null, false);

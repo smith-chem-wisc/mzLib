@@ -14,7 +14,15 @@ namespace Readers
         PrideProjectRecord,
 
         /// <summary>Nothing states it; written as <c>not available</c>.</summary>
-        NotAvailable
+        NotAvailable,
+
+        /// <summary>
+        /// Written only because an SDRF needs a value there -- fraction 1 when nothing marks a fraction,
+        /// replicate 1 when nothing marks a replicate. Not a reading: it neither fills a gap in a deposited
+        /// SDRF nor disputes one (found by improving the whole corpus, where defaults produced 44,000
+        /// false fraction "disagreements").
+        /// </summary>
+        Default
     }
 
     /// <summary>
@@ -81,7 +89,11 @@ namespace Readers
         {
             if (project == null) throw new ArgumentNullException(nameof(project));
             if (rawFileNames == null) throw new ArgumentNullException(nameof(rawFileNames));
-            var names = rawFileNames.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(n => n, StringComparer.Ordinal).ToList();
+            var all = rawFileNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+            // A sidecar (X.wiff.scan beside X.wiff) is part of its run, not a run: no row of its own.
+            var runs = new HashSet<string>(all.Where(n => !IsSidecar(n)).Select(SdrfFileNamePattern.Stem), StringComparer.OrdinalIgnoreCase);
+            var names = all.Where(n => !IsSidecar(n) || !runs.Contains(SdrfFileNamePattern.Stem(n)))
+                .OrderBy(n => n, StringComparer.Ordinal).ToList();
             if (names.Count == 0) return new SdrfDraft(Array.Empty<SdrfDraftRow>(), Array.Empty<string>());
 
             var text = new[] { project.Title, project.ProjectDescription, project.SampleProcessingProtocol, project.DataProcessingProtocol }
@@ -94,12 +106,29 @@ namespace Readers
 
             // ---- conditions: anchored in the record first, else what the names alone showed ----
             bool anchored = anchors.Factors.Count > 0;
-            IReadOnlyList<string> LevelsOf(string file) => anchored
-                ? anchors.LevelsByFile[file].Select(l => l.Length == 0 ? SdrfReserved.NotAvailable : l).ToList()
-                : byName[file].FactorLevels;
-            var factorEvidence = anchored
-                ? anchors.Factors.Select(f => f.Evidence).ToList()
-                : structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Select(s => s.Evidence).ToList();
+            // Without anchors, ONE COLUMN PER FACTOR SLOT: slots belong to families of names, a file fills
+            // only its own family's columns, and every other column is not available for it. (Matching
+            // slots across families by position put one family's genotype under another's treatment.)
+            var allSlots = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).ToList();
+            // With anchors, the names' own WORD factors that the anchors do not already cover are kept too
+            // (WT/KO anchored beside an A/B the record never names); their NUMERIC categories are dropped,
+            // which is what stops animal IDs becoming factors.
+            var anchoredLevels = new HashSet<string>(anchors.Factors.SelectMany(f => f.Levels), StringComparer.OrdinalIgnoreCase);
+            var factorSlots = anchored
+                ? allSlots.Where(s => s.Levels.All(l => !l.All(char.IsAsciiDigit)) && !s.Levels.Any(anchoredLevels.Contains)).ToList()
+                : allSlots;
+            IReadOnlyList<string> LevelsOf(string file)
+            {
+                var mine = byName[file];
+                var ownSlots = allSlots.Where(s => s.Family == mine.Family).ToList();
+                var fromNames = factorSlots.Select(s => s.Family == mine.Family && ownSlots.IndexOf(s) < mine.FactorLevels.Count
+                    ? mine.FactorLevels[ownSlots.IndexOf(s)] : SdrfReserved.NotAvailable);
+                return anchored
+                    ? anchors.LevelsByFile[file].Select(l => l.Length == 0 ? SdrfReserved.NotAvailable : l).Concat(fromNames).ToList()
+                    : fromNames.ToList();
+            }
+            var factorEvidence = (anchored ? anchors.Factors.Select(f => f.Evidence) : Enumerable.Empty<string>())
+                .Concat(factorSlots.Select(s => s.Evidence)).ToList();
             int factorCount = factorEvidence.Count;
             var factorColumns = Enumerable.Range(0, factorCount)
                 .Select(i => i == 0 ? "factor value[condition]" : $"factor value[condition {i + 1}]").ToList();
@@ -139,11 +168,11 @@ namespace Readers
             {
                 var r = reading[n];
                 string cond = ConditionOf(n);
-                (int bio, string bioWhy) = r.Bio is int b ? (b, r.BioWhy)
-                    : replicates.SingleBiologicalSample ? (1, replicates.SingleSampleEvidence)
+                (int bio, string bioWhy, SdrfDraftSource bioSource) = r.Bio is int b ? (b, r.BioWhy, SdrfDraftSource.Inferred)
+                    : replicates.SingleBiologicalSample ? (1, replicates.SingleSampleEvidence, SdrfDraftSource.Inferred)
                     : conditionKnown && samplesInCondition[cond] <= SdrfReplicateResolver.MaxReplicates
-                        ? (rank[(cond, r.Key)], "the sample's rank within its condition")
-                        : (1, "no replicate structure found, so no count is claimed");
+                        ? (rank[(cond, r.Key)], "the sample's rank within its condition", SdrfDraftSource.Inferred)
+                        : (1, "no replicate structure found, so no count is claimed", SdrfDraftSource.Default);
                 var levels = LevelsOf(n);
                 var factors = levels.Select((l, i) => l == SdrfReserved.NotAvailable
                     ? SdrfDraftCell.NotAvailable("this file carries none of the condition's levels")
@@ -157,9 +186,11 @@ namespace Readers
                     n,
                     new SdrfDraftCell(sourceName[r.Key], SdrfDraftSource.Inferred, r.KeyWhy),
                     organism, part, rowDisease, instrument,
-                    new SdrfDraftCell(bio.ToString(System.Globalization.CultureInfo.InvariantCulture), SdrfDraftSource.Inferred, bioWhy),
-                    new SdrfDraftCell((r.Tech ?? 1).ToString(System.Globalization.CultureInfo.InvariantCulture), SdrfDraftSource.Inferred, r.TechWhy),
-                    new SdrfDraftCell((r.Frac ?? 1).ToString(System.Globalization.CultureInfo.InvariantCulture), SdrfDraftSource.Inferred, r.FracWhy),
+                    new SdrfDraftCell(bio.ToString(System.Globalization.CultureInfo.InvariantCulture), bioSource, bioWhy),
+                    new SdrfDraftCell((r.Tech ?? 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        r.Tech == null ? SdrfDraftSource.Default : SdrfDraftSource.Inferred, r.TechWhy),
+                    new SdrfDraftCell((r.Frac ?? 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
+                        r.Frac == null ? SdrfDraftSource.Default : SdrfDraftSource.Inferred, r.FracWhy),
                     factors));
             }
             return new SdrfDraft(rows, factorColumns);
@@ -248,6 +279,8 @@ namespace Readers
             SdrfDraftSource.PrideProjectRecord => "pride project record",
             _ => "inferred"
         };
+
+        private static bool IsSidecar(string name) => name.EndsWith(".wiff.scan", StringComparison.OrdinalIgnoreCase);
 
         private sealed record Replicates(string Key, string KeyWhy, int? Bio, string BioWhy, int? Tech, string TechWhy, int? Frac, string FracWhy);
 
