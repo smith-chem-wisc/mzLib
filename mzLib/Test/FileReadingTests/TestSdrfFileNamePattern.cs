@@ -163,6 +163,22 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// A six-digit number that parses as yyMMdd is read as a date. That is the common case in PRIDE
+        /// (12,358 such tokens in raw-file names across 167 cached deposits), and a sample ID that happens
+        /// to parse would be misread, so the evidence names the format for a curator to check.
+        /// </summary>
+        [Test]
+        public void ASixDigitDateSaysItWasReadAsYyMMdd()
+        {
+            var names = new[] { "210304_WT_1", "210304_KO_1", "210611_WT_2", "210611_KO_2" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(Slot(s, SdrfFileNameRole.Batch).Evidence, Does.Contain("yyMMdd"));
+        }
+
+        /// <summary>
         /// The same arm in two batches with nothing else varying is either one sample run twice or two
         /// samples; the names cannot say which, so neither is guessed.
         /// </summary>
@@ -341,6 +357,47 @@ namespace Test.FileReadingTests
             Assert.That(s.Found, Is.True, s.NoStructureReason);
             Assert.That(s.Slots.Count(x => x.Role == SdrfFileNameRole.Factor), Is.EqualTo(2));
             Assert.That(s.Files.Single(f => f.FileName == "B_2_1").Replicate, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// A number that is the only part to vary is refused when unnamed (a run number looks the same),
+        /// but a word before it that states what it counts settles that: one sample injected twice.
+        /// </summary>
+        [Test]
+        public void ANamedTechnicalReplicateAloneIsOneSampleInjectedSeveralTimes()
+        {
+            var names = new[] { "Sample_inj1.raw", "Sample_inj2.raw", "Sample_inj3.raw" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Select(f => f.TechnicalReplicate), Is.EqualTo(new int?[] { 1, 2, 3 }));
+            Assert.That(s.Files.Select(f => f.SampleKey).Distinct().Single(), Is.Empty, "the whole deposit is one sample");
+            Assert.That(Slot(s, SdrfFileNameRole.TechnicalReplicate).Evidence, Does.Contain("'inj'"));
+        }
+
+        [Test]
+        public void ANamedBiologicalReplicateAloneIsOneSamplePerReplicate()
+        {
+            var names = new[] { "HeLa_BR1.raw", "HeLa_BR2.raw", "HeLa_BR3.raw" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Select(f => f.BiologicalReplicate), Is.EqualTo(new int?[] { 1, 2, 3 }));
+            Assert.That(s.Files.Select(f => f.SampleKey).Distinct().Count(), Is.EqualTo(3));
+        }
+
+        [Test]
+        public void NumericLevelsAreListedInNumericOrder()
+        {
+            var names = Enumerable.Range(1, 12).SelectMany(c => new[] { $"Bsub_{c}_R1", $"Bsub_{c}_R2" }).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Single(x => x.Role == SdrfFileNameRole.Factor).Levels,
+                Is.EqualTo(Enumerable.Range(1, 12).Select(i => i.ToString())));
         }
 
         // ---- The refusals: each of these would be an over-split. ----
