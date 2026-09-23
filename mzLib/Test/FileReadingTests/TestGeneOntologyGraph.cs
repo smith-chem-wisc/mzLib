@@ -231,6 +231,115 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Obo_EdgeQualifierAndComment_AreStripped()
+        {
+            // OBO 1.2 allows a trailing {qualifier} block before the "! name" comment. The current go.obo
+            // writes none on edges, but a file that does must still name GO:0000002 as the parent, not
+            // "GO:0000002 {source="x"}" -- which would fail as a dangling edge.
+            string path = Write("qualified.obo", "data-version: x\n\n" +
+                                                 Term("GO:0000001", "is_a: GO:0000002 {source=\"x\"} ! parent",
+                                                      "relationship: part_of GO:0000003 {source=\"y\"}") +
+                                                 Term("GO:0000002") + Term("GO:0000003"));
+
+            Assert.That(GeneOntologyGraph.Load(path).Ancestors("GO:0000001"),
+                Is.EquivalentTo(new[] { "GO:0000002", "GO:0000003" }));
+        }
+
+        [Test]
+        public void Obo_ObsoleteTermThatStillListsParents_LeavesTheDag()
+        {
+            // GO strips an obsolete term's parents, but a file that did not would let the obsolete term
+            // borrow a place in the hierarchy. The rule is the reader's, not the file's.
+            string path = Write("obsolete.obo", "data-version: x\n\n" +
+                                                Term("GO:0000001", "is_obsolete: true", "is_a: GO:0000002",
+                                                     "relationship: part_of GO:0000002") +
+                                                Term("GO:0000002"));
+            var go = GeneOntologyGraph.Load(path);
+
+            Assert.That(go.TryGetTerm("GO:0000001", out var term), Is.True);
+            Assert.That(term.IsAParents, Is.Empty);
+            Assert.That(term.PartOfParents, Is.Empty);
+            Assert.That(go.Ancestors("GO:0000001"), Is.Empty);
+        }
+
+        [Test]
+        public void Obo_AltIdClaimedTwice_Throws()
+        {
+            string path = Write("alt.obo", "data-version: x\n\n" +
+                                           Term("GO:0000001", "alt_id: GO:0000009") +
+                                           Term("GO:0000002", "alt_id: GO:0000009"));
+
+            var ex = Assert.Throws<InvalidDataException>(() => GeneOntologyGraph.Load(path));
+            Assert.That(ex.Message, Does.Contain("GO:0000009"));
+        }
+
+        [Test]
+        public void Obo_AltIdEqualToAPrimaryId_Throws()
+        {
+            // Otherwise the alt id would silently shadow the real term in TryGetTerm.
+            string path = Write("shadow.obo", "data-version: x\n\n" +
+                                              Term("GO:0000001", "alt_id: GO:0000002") + Term("GO:0000002"));
+
+            Assert.Throws<InvalidDataException>(() => GeneOntologyGraph.Load(path));
+        }
+
+        [Test]
+        public void Obo_LineWithEmptyTag_ThrowsWithLineNumber()
+        {
+            string path = Write("emptytag.obo", "data-version: x\n\n[Term]\nid: GO:0000001\n: orphan value\n");
+
+            var ex = Assert.Throws<InvalidDataException>(() => GeneOntologyGraph.Load(path));
+            Assert.That(ex.Message, Does.Contain("emptytag.obo line 5"));
+        }
+
+        [Test]
+        public void Obo_TermWithoutName_HasEmptyName()
+        {
+            string path = Write("noname.obo", "data-version: x\n\n[Term]\nid: GO:0000001\n");
+
+            Assert.That(GeneOntologyGraph.Load(path).TryGetTerm("GO:0000001", out var term), Is.True);
+            Assert.That(term.Name, Is.Empty);
+            Assert.That(term.Aspect, Is.EqualTo(GoAspect.Unknown), "no namespace is Unknown, never a guess");
+        }
+
+        [Test]
+        public void Obo_TermWithoutId_ReportsTheStanzaLine()
+        {
+            string path = Write("noid2.obo", "data-version: x\n\n[Term]\nname: orphan\n");
+
+            var ex = Assert.Throws<InvalidDataException>(() => GeneOntologyGraph.Load(path));
+            Assert.That(ex.Message, Does.Contain("noid2.obo line 3"));
+        }
+
+        [Test]
+        public void TermIds_AreInOrdinalOrder_AndNullIsNotATerm()
+        {
+            var go = GeneOntologyGraph.Load(FixturePath);
+
+            Assert.That(go.TermIds, Is.EqualTo(go.TermIds.OrderBy(id => id, StringComparer.Ordinal).ToList()));
+            Assert.That(go.TermIds.First(), Is.EqualTo("GO:0003674"));
+            Assert.That(go.TryGetTerm(null, out var term), Is.False);
+            Assert.That(term, Is.Null);
+        }
+
+        [Test]
+        public void Ancestors_UnknownId_NamesTheIdAndTheRelease()
+        {
+            var ex = Assert.Throws<ArgumentException>(() => GeneOntologyGraph.Load(FixturePath).Ancestors("GO:9999999"));
+
+            Assert.That(ex.Message, Does.Contain("GO:9999999").And.Contain("releases/2026-07-26"));
+        }
+
+        [Test]
+        public void Ancestors_UnknownId_InAnUnversionedFile_SaysSo()
+        {
+            string path = Write("unversioned.obo", "format-version: 1.2\n\n" + Term("GO:0000001"));
+
+            var ex = Assert.Throws<ArgumentException>(() => GeneOntologyGraph.Load(path).Ancestors("GO:9999999"));
+            Assert.That(ex.Message, Does.Contain("(unversioned)"));
+        }
+
+        [Test]
         public void LoadGeneOntology_ExistingFile_DoesNotDownload()
         {
             string path = Path.Combine(_dir, "go.obo");
