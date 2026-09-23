@@ -215,7 +215,8 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            string sampleNameForVariants, IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : this(
                   variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
@@ -235,9 +236,7 @@ namespace Proteomics
                    databaseFilePath: protein.DatabaseFilePath,
                    uniProtEntryAttributes: protein.UniProtEntryAttributes,
                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                    oneBasedFixedModifications: appliedSequenceVariations?.FirstOrDefault() is SequenceVariation appliedVariation
-                        ? VariantApplication.AdjustFixedModificationIndices(appliedVariation, variantBaseSequence, protein)
-                        : protein.OneBasedFixedModifications)
+                     oneBasedFixedModifications: oneBasedFixedModifications ?? protein.OneBasedFixedModifications)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -732,14 +731,15 @@ namespace Proteomics
         public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
         public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants
         {
             if (original is not Protein originalProtein)
                 throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
 
             var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
-                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants, oneBasedFixedModifications);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
         #endregion

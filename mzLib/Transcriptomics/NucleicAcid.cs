@@ -165,6 +165,11 @@ namespace Transcriptomics
 
         public IDictionary<int, Modification> OneBasedFixedModifications { get; protected set; }
 
+        public void SetOneBasedFixedModifications(IDictionary<int, Modification> fixedModifications)
+        {
+            OneBasedFixedModifications = fixedModifications;
+        }
+
         public string Organism { get; }
 
         /// <summary>
@@ -282,7 +287,8 @@ namespace Transcriptomics
 
         // Abstract so we can do this construction in the appropriate derived class
         public abstract TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants;
 
         #endregion

@@ -50,9 +50,9 @@ public class TestVariantOligo
         var fixedModification = CreateFixedModification("A");
         var original = new RNA("CAAA", "accession", oneBasedFixedModifications:
             new Dictionary<int, Modification> { { 3, fixedModification } });
-        var variant = new RNA("CAAAA", original,
-            new[] { new SequenceVariation(2, "A", "AA", "insertion", null) }, null,
-            new Dictionary<int, List<Modification>>(), "");
+        var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                new List<SequenceVariation> { new SequenceVariation(2, "A", "AA", "insertion", null) }, 2)
+            .Single(rna => rna.BaseSequence == "CAAAA");
 
         Assert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 4 }));
     }
@@ -63,9 +63,9 @@ public class TestVariantOligo
         var fixedModification = CreateFixedModification("A");
         var original = new RNA("CAAA", "accession", oneBasedFixedModifications:
             new Dictionary<int, Modification> { { 3, fixedModification } });
-        var variant = new RNA("CAA", original,
-            new[] { new SequenceVariation(2, "A", "", "deletion", null) }, null,
-            new Dictionary<int, List<Modification>>(), "");
+        var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                new List<SequenceVariation> { new SequenceVariation(2, "A", "", "deletion", null) }, 2)
+            .Single(rna => rna.BaseSequence == "CAA");
 
         Assert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 2 }));
     }
@@ -76,9 +76,9 @@ public class TestVariantOligo
         var fixedModification = CreateFixedModification("A");
         var original = new RNA("CAAA", "accession", oneBasedFixedModifications:
             new Dictionary<int, Modification> { { 3, fixedModification } });
-        var variant = new RNA("CAUA", original,
-            new[] { new SequenceVariation(3, "A", "U", "substitution", null) }, null,
-            new Dictionary<int, List<Modification>>(), "");
+        var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                new List<SequenceVariation> { new SequenceVariation(3, "A", "U", "substitution", null) }, 2)
+            .Single(rna => rna.BaseSequence == "CAUA");
 
         Assert.That(variant.OneBasedFixedModifications, Is.Empty);
     }
@@ -357,7 +357,8 @@ public class TestVariantOligo
         var protein = new Protein("PEPTIDE", "accession");
         NUnit.Framework.Assert.Throws<ArgumentException>(() =>
         {
-            rnas[0].CreateVariant(rnas[0].BaseSequence, protein, [], [], new Dictionary<int, List<Modification>>(), "");
+        rnas[0].CreateVariant(rnas[0].BaseSequence, protein, [], [], new Dictionary<int, List<Modification>>(),
+            new Dictionary<int, Modification>(), "");
         });
     }
 
