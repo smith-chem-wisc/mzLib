@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using MzLibUtil;
 using Proteomics;
 
 namespace UsefulProteomicsDatabases.GeneOntology
@@ -101,23 +102,23 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 throw new ArgumentException($"Group '{group.Name}' has no members.", nameof(group));
             }
 
-            // term -> (carrying members, members carrying it directly, evidence)
+            // term -> (carrying members, members carrying it directly, members carrying it only by inheritance, evidence)
             var byTerm = new SortedDictionary<string, TermAccumulator>(StringComparer.Ordinal);
             bool anyMemberMissing = false;
 
             foreach (string member in members)
             {
-                if (!_direct.TryGetValue(member, out var terms))
+                if (!TryGetTerms(member, out var terms, out bool inherited))
                 {
                     anyMemberMissing = true;
                     continue;
                 }
                 foreach (var (termId, evidence) in terms)
                 {
-                    Accumulate(byTerm, termId, member, evidence, direct: true);
+                    Accumulate(byTerm, termId, member, evidence, direct: true, inherited);
                     foreach (string ancestor in _ontology.Ancestors(termId))
                     {
-                        Accumulate(byTerm, ancestor, member, evidence, direct: false);
+                        Accumulate(byTerm, ancestor, member, evidence, direct: false, inherited);
                     }
                 }
             }
@@ -141,7 +142,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 var accumulated = pair.Value;
                 return new GoAnnotationRow(group.Name, accumulated.Members.ToList(), term.Id, term.Name, term.Aspect,
                     accumulated.Evidence.ToList(),
-                    Inherited: false,
+                    Inherited: accumulated.InheritedMembers.Count == accumulated.Members.Count,
                     Propagated: accumulated.DirectMembers.Count == 0,
                     members.Count, accumulated.Members.Count, GoAnnotationStatus.Annotated, group.QValue,
                     _ontology.Release, _ontology.SourceSha256, _annotationDbSha256);
@@ -155,8 +156,32 @@ namespace UsefulProteomicsDatabases.GeneOntology
             return groups.SelectMany(Annotate);
         }
 
+        /// <summary>
+        /// A member's own terms when the database has its accession; otherwise, for a UniProt isoform
+        /// (P04406-2), its entry's terms, flagged inherited. ProteinAccession parses and never repairs, so an
+        /// accession outside UniProt's grammar -- a decoy or contaminant prefix, a hyphenated name -- never
+        /// inherits. Whether an inherited term holds for the isoform is the consumer's call: an isoform can
+        /// differ from its entry precisely in cellular component, which is why the row says so.
+        /// </summary>
+        private bool TryGetTerms(string member, out Dictionary<string, SortedSet<string>> terms, out bool inherited)
+        {
+            inherited = false;
+            if (_direct.TryGetValue(member, out terms))
+            {
+                return true;
+            }
+            var accession = ProteinAccession.Parse(member);
+            if (accession.Namespace == AccessionNamespace.UniProt && accession.Isoform != null
+                && _direct.TryGetValue(accession.EntryAccession, out terms))
+            {
+                inherited = true;
+                return true;
+            }
+            return false;
+        }
+
         private static void Accumulate(SortedDictionary<string, TermAccumulator> byTerm, string termId, string member,
-            IEnumerable<string> evidence, bool direct)
+            IEnumerable<string> evidence, bool direct, bool inherited)
         {
             if (!byTerm.TryGetValue(termId, out var accumulator))
             {
@@ -168,6 +193,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
             {
                 accumulator.DirectMembers.Add(member);
             }
+            if (inherited)
+            {
+                accumulator.InheritedMembers.Add(member);
+            }
             accumulator.Evidence.UnionWith(evidence);
         }
 
@@ -175,6 +204,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
         {
             public SortedSet<string> Members { get; } = new(StringComparer.Ordinal);
             public SortedSet<string> DirectMembers { get; } = new(StringComparer.Ordinal);
+            public SortedSet<string> InheritedMembers { get; } = new(StringComparer.Ordinal);
             public SortedSet<string> Evidence { get; } = new(StringComparer.Ordinal);
         }
     }
