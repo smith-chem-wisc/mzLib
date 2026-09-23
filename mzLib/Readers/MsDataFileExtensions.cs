@@ -197,7 +197,9 @@ namespace Readers
                 // property added later is silently dropped here even though no constructor call
                 // changed. Omitting it meant every snipped mzML still lost the instrument -- the
                 // exact loss the writer fix exists to prevent.
-                InstrumentModel = originalFile.SourceFile.InstrumentModel
+                InstrumentModel = originalFile.SourceFile.InstrumentModel,
+                InstrumentSerialNumber = originalFile.SourceFile.InstrumentSerialNumber,
+                AcquisitionStartTime = originalFile.SourceFile.AcquisitionStartTime
             };
 
             var dataFile = new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile);
