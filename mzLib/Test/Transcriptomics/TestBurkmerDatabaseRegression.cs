@@ -57,8 +57,8 @@ public class TestBurkmerDatabaseRegression
     [Test]
     public void TopDownProductsHaveExpectedFixedVariableAndUnmodifiedForms()
     {
-        var primary = LoadFasta("Burkmers_PrimarySequence.fasta", out _).ToDictionary(rna => rna.Name);
-        var modomicsFasta = LoadFasta("Burkmers_ModomicsSequences.fasta", out _).ToDictionary(rna => rna.Name);
+        var primary = LoadFasta("Burkmers_PrimarySequence.fasta", out _).ToDictionary(rna => rna.Accession);
+        var modomicsFasta = LoadFasta("Burkmers_ModomicsSequences.fasta", out _).ToDictionary(rna => rna.Accession);
         var normalXml = LoadXml("Burkemers.xml", out _).ToDictionary(rna => rna.Accession);
         var modomicsXml = LoadXml("Burkemers_Modomics.xml", out _).ToDictionary(rna => rna.Accession);
 
@@ -109,7 +109,7 @@ public class TestBurkmerDatabaseRegression
 
     private static void AssertCaseRecords(IEnumerable<RNA> rnas, bool expectFixed, bool expectNoPossibleMods)
     {
-        var records = rnas.ToDictionary(rna => rna.Name ?? rna.Accession);
+        var records = rnas.ToDictionary(rna => rna.Accession);
         Assert.That(records.Keys, Is.EquivalentTo(Cases.Select(expected => expected.Name)));
 
         foreach (var expected in Cases)

@@ -6,5 +6,5 @@ UUCAAGUA:UCCAGGAUAGGCU
 UUCAAGUA=UCCAGGAUAGGCU
 >id:15|Name:22mer#1-m6Am|SOterm:22mer#1-m6Am|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard
 UUCAAGUAχUCCAGGAUAGGCU
->id:16|Name:22mer#2-Am|SOterm:22mer#1-Am|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard
+>id:16|Name:22mer#2-Am|SOterm:22mer#2-Am|Type:tRNA|Subtype:Ala|Feature:VGC|Cellular_Localization:freezer|Species:standard
 UCCCUGAGACCCUA:CUUGUGA
