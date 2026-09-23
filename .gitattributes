@@ -85,3 +85,12 @@
 *.obo -text
 mzLib/Test/DataFiles/Ontologies/*.txt -text
 mzLib/Test/DataFiles/Ontologies/*.xml -text
+
+###############################################################################
+# mzIdentML files downloaded from PRIDE Archive and trimmed, see
+# mzLib/Test/DataFiles/PRIDE_MZID_PROVENANCE.md. Every kept line is the published
+# bytes, line ending included: three of the five originals are CRLF and two LF,
+# which `* text=auto` would erase in the index.
+###############################################################################
+mzLib/Test/DataFiles/PXD*.mzid -text
+mzLib/Test/DataFiles/PXD*.mzid.gz binary

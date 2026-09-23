@@ -403,5 +403,77 @@ namespace Test.FileReadingTests
             Assert.That(expected, Is.Not.Empty, $"no expectations read from {path}");
             return expected;
         }
+
+        /// <summary>
+        /// After a calibrated search the ACQUIRED file is often not on disk beside the results while
+        /// the derivative the search read is. The audit still reports it missing -- it audits the
+        /// deposition, and the deposited file genuinely is not there -- but it says which ones are
+        /// present under the name the search gave them.
+        ///
+        /// Without that, the audit is wrong in the one direction a curator acts on: they go looking
+        /// for data that is already on the disk in front of them.
+        /// </summary>
+        [Test]
+        public void ACalibratedDepositIsMissingButSaysTheSearchedFileIsHere()
+        {
+            string folder = Path.Combine(TestContext.CurrentContext.TestDirectory, "SdrfAudit_Calibrated");
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+            Directory.CreateDirectory(folder);
+
+            // What a calibrated analysis leaves behind: the derivative, not the acquisition.
+            File.WriteAllText(Path.Combine(folder, "a-calib.mzML"), "");
+
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "assay name", "technology type", "comment[label]",
+                "comment[data file]", "comment[searched data file]"
+            });
+            var document = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[]
+                    { "S1", "run a", "t", "label free sample", "a.raw", "a-calib.mzML" })
+            });
+
+            SdrfQuantAudit audit = SdrfQuantAuditor.Audit(document, folder);
+
+            Assert.That(audit.UnmatchedDataFiles, Is.EqualTo(new[] { "a.raw" }),
+                "The deposited file is genuinely not on disk, and the audit does not pretend it is.");
+            Assert.That(audit.UnmatchedButSearchedFileOnDisk, Is.EqualTo(new[] { "a.raw" }),
+                "But the file the search read IS here, and a curator needs to know that.");
+            Assert.That(audit.ToReport(), Does.Contain("present only as the file the search read"));
+
+            Directory.Delete(folder, true);
+        }
+
+        /// <summary>
+        /// A deposit that really is absent stays absent: nothing on disk, nothing claimed.
+        /// </summary>
+        [Test]
+        public void AnAbsentDepositIsNotExcusedByTheSearchedColumn()
+        {
+            string folder = Path.Combine(TestContext.CurrentContext.TestDirectory, "SdrfAudit_Absent");
+            if (Directory.Exists(folder)) Directory.Delete(folder, true);
+            Directory.CreateDirectory(folder);
+
+            var header = new SdrfHeader(new[]
+            {
+                "source name", "assay name", "technology type", "comment[label]",
+                "comment[data file]", "comment[searched data file]"
+            });
+            var document = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[]
+                    { "S1", "run a", "t", "label free sample", "a.raw", "a-calib.mzML" })
+            });
+
+            SdrfQuantAudit audit = SdrfQuantAuditor.Audit(document, folder);
+
+            Assert.That(audit.UnmatchedDataFiles, Is.EqualTo(new[] { "a.raw" }));
+            Assert.That(audit.UnmatchedButSearchedFileOnDisk, Is.Empty);
+            Assert.That(audit.ToReport(), Does.Not.Contain("present only as"));
+
+            Directory.Delete(folder, true);
+        }
+
     }
 }

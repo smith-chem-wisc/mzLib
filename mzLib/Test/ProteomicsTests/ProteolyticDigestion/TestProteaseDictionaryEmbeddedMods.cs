@@ -94,6 +94,57 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         /// <summary>
+        /// Every protease name mzLib has shipped since the table became an embedded resource. Only ever add to this
+        /// list; see <see cref="EmbeddedProteases_NoShippedProteaseNameIsRemovedOrRenamed"/> before removing one.
+        /// </summary>
+        private static readonly string[] ShippedProteaseNames =
+        {
+            "Arg-C", "Asp-N", "chymotrypsin|P", "CNBr", "elastase|P", "Glu-C", "Glu-C (with asp)", "Lys-C|P", "Lys-N",
+            "trypsin", "trypsin|P", "tryptophan oxidation", "non-specific", "top-down", "singleN", "singleC", "peptidomics",
+            "collagenase", "StcE", "StcE-trypsin", "CNBr_old", "CNBr_N", "ProAlanase", "subtilisin|P",
+        };
+
+        /// <summary>
+        /// A protease name is part of mzLib's public contract: settings files store it as a string, and
+        /// <c>new DigestionParams(name)</c> looks it up by exact key. Removing or renaming a row in the embedded
+        /// proteases.tsv therefore breaks every saved settings file that names it, with a KeyNotFoundException at load
+        /// time, in programs this repository never builds (MetaMorpheus task files, ProteaseGuru, scripts).
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Why this test exists.</b> #1005 (February 2026) removed "semi-trypsin" in favour of trypsin plus
+        /// <c>SearchModeType = Semi</c>. Nothing failed in mzLib's CI, but MetaMorpheus glyco settings files that named
+        /// it (including the O-Pair Search paper's) stopped loading, and the obvious manual substitute silently lost
+        /// most peptides until #1303. This test makes such a change a deliberate decision instead of a side effect.</para>
+        /// <para><b>If this fails because you removed or renamed a protease on purpose:</b> make the old name still
+        /// resolve (for a rename, add it to <c>ProteaseDictionary.NormalizeProteaseName</c>), or record in the PR that
+        /// consuming programs must migrate settings that use it; then remove the name from
+        /// <see cref="ShippedProteaseNames"/>. Adding a protease needs no change here.</para>
+        /// <para>The names are read from the embedded resource itself, not from <see cref="ProteaseDictionary.Dictionary"/>,
+        /// because other tests add custom proteases to that dictionary (some without removing them).</para>
+        /// </remarks>
+        [Test]
+        public static void EmbeddedProteases_NoShippedProteaseNameIsRemovedOrRenamed()
+        {
+            using Stream stream = Assembly.GetAssembly(typeof(ProteaseDictionary))!.GetManifestResourceStream("Proteomics.ProteolyticDigestion.proteases.tsv");
+            NUnit.Framework.Assert.That(stream, Is.Not.Null, "the embedded proteases.tsv is missing");
+            using var reader = new StreamReader(stream!);
+
+            // Same rules as ProteaseDictionary's parser: skip comment and blank lines, the first remaining line is the
+            // header, and the name is the first tab-separated column.
+            List<string> embeddedNames = reader.ReadToEnd().Split('\n')
+                .Select(line => line.TrimEnd('\r').TrimStart('﻿'))
+                .Where(line => !string.IsNullOrWhiteSpace(line) && !line.StartsWith("#"))
+                .Skip(1)
+                .Select(line => line.Split('\t')[0].Trim())
+                .ToList();
+
+            List<string> missing = ShippedProteaseNames.Where(name => !embeddedNames.Contains(name)).ToList();
+            NUnit.Framework.Assert.That(missing, Is.Empty,
+                "These shipped protease names are no longer in the embedded proteases.tsv, so settings files that name them will fail to load: "
+                + string.Join(", ", missing) + ". If that is intended, read the remarks on this test before updating ShippedProteaseNames.");
+        }
+
+        /// <summary>
         /// Verifies that CNBr in the static Dictionary has its cleavage modification loaded
         /// from the embedded protease_mods.txt — proving the self-contained loading works
         /// without any external files.
@@ -287,7 +338,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(homoserineMod.DatabaseReference, Is.Not.Null,
                 "Homoserine lactone should have a database reference");
             Assert.That(homoserineMod.DatabaseReference.ContainsKey("Unimod"), Is.True);
-            Assert.That(homoserineMod.DatabaseReference["Unimod"], Contains.Item("10"));
+            Assert.That(homoserineMod.DatabaseReference["Unimod"], Contains.Item("11"));
         }
 
         [Test]

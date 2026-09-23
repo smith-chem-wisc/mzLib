@@ -53,6 +53,20 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public const string NcbiTaxonomyDatabaseReferenceType = Protein.NcbiTaxonomyDatabaseReferenceType;
 
+        /// <summary>
+        /// The dbReference type UniProt uses for Gene Ontology annotations. Re-exported here for the
+        /// same reason as the taxonomy type: a caller that already references the loader should not
+        /// have to reach into Proteomics for the string. Read the terms themselves from
+        /// <see cref="Protein.GoTerms"/>, which filters and deduplicates them.
+        /// </summary>
+        public const string GeneOntologyDatabaseReferenceType = Protein.GeneOntologyDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Ensembl transcript/gene links. Re-exported for the same
+        /// reason as the taxonomy and GO types. Read the genes from <see cref="Protein.EnsemblGeneIds"/>.
+        /// </summary>
+        public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
+
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
@@ -103,17 +117,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> decoys = new List<Protein>();
             unknownModifications = new Dictionary<string, Modification>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation),"temp.xml");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".xml");
+            string newProteinDbLocation = database.Location;
 
             using (var uniprotXmlFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -155,11 +160,6 @@ namespace UsefulProteomicsDatabases
 
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             // Expand the targets first, then mirror each expanded entry, so that every generated decoy is the
@@ -262,17 +262,8 @@ namespace UsefulProteomicsDatabases
             List<Protein> targets = new List<Protein>();
             List<Protein> decoys = new List<Protein>();
 
-            string newProteinDbLocation = proteinDbLocation;
-
-            //we had trouble decompressing and streaming on the fly so we decompress completely first, then stream the file, then delete the decompressed file
-            if (proteinDbLocation.EndsWith(".gz"))
-            {
-                newProteinDbLocation = Path.Combine(Path.GetDirectoryName(proteinDbLocation), "temp.fasta");
-                using var stream = new FileStream(proteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read);
-                using FileStream outputFileStream = File.Create(newProteinDbLocation);
-                using var decompressor = new GZipStream(stream, CompressionMode.Decompress);
-                decompressor.CopyTo(outputFileStream);
-            }
+            using var database = DecompressedDatabase.For(proteinDbLocation, ".fasta");
+            string newProteinDbLocation = database.Location;
 
             using (var fastaFileStream = new FileStream(newProteinDbLocation, FileMode.Open, FileAccess.Read, FileShare.Read))
             {
@@ -419,11 +410,6 @@ namespace UsefulProteomicsDatabases
                         break;
                     }
                 }
-            }
-
-            if (newProteinDbLocation != proteinDbLocation)
-            {
-                File.Delete(newProteinDbLocation);
             }
 
             if (!targets.Any())

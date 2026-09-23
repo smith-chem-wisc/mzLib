@@ -436,5 +436,38 @@ namespace Test.ChemistryTests
             Assert.That(f.NumberOfUniqueElementsByAtomicNumber == 2);
             Assert.That(f.MonoisotopicMass, Is.EqualTo(-131.95423157613).Within(0.001));
         }
+
+        /// <summary>
+        /// AddPrincipalIsotopesOf was reached only by two Assert.Throws cases, which return before the
+        /// add, and by a zero-count call, which returns early. Its effect on the formula was therefore
+        /// never asserted, and the method could be gutted to a no-op without failing a test.
+        /// </summary>
+        [Test]
+        public static void TestAddPrincipalIsotopesOfChangesFormula()
+        {
+            ChemicalFormula formula = new ChemicalFormula();
+            formula.AddPrincipalIsotopesOf(PeriodicTable.GetElement("C"), 3);
+
+            Assert.AreEqual(3, formula.AtomCount);
+            Assert.AreEqual(1, formula.NumberOfUniqueIsotopes);
+            Assert.AreEqual(3 * PeriodicTable.GetElement("C").PrincipalIsotope.AtomicMass, formula.MonoisotopicMass, 1e-9);
+        }
+
+        /// <summary>
+        /// Adding zero of an isotope must not create a zero-count entry. AddZeroIsotopeToFormula already
+        /// covers this line, but it asserts formula equality, and ChemicalFormula.Equals compares masses
+        /// only, so a zero-count entry -- which changes no mass -- is invisible to that assertion.
+        /// </summary>
+        [Test]
+        public static void TestAddZeroIsotopeCreatesNoEntry()
+        {
+            ChemicalFormula formula = ChemicalFormula.ParseFormula("C{13}2");
+
+            formula.Add(PeriodicTable.GetElement("H")[1], 0);
+
+            Assert.AreEqual(1, formula.NumberOfUniqueIsotopes);
+            Assert.AreEqual(1, formula.NumberOfUniqueElementsByAtomicNumber);
+        }
+
     }
 }
