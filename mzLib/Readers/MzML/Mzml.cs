@@ -309,7 +309,9 @@ namespace Readers
                     simpler.id,
                     simpler.name)
                 {
-                    InstrumentModel = GetInstrumentModel()
+                    InstrumentModel = GetInstrumentModel(),
+                    InstrumentSerialNumber = GetInstrumentSerialNumber(),
+                    AcquisitionStartTime = GetAcquisitionStartTime()
                 };
             }
             else
@@ -330,7 +332,9 @@ namespace Readers
                     Path.GetFullPath(FilePath),
                     Path.GetFileNameWithoutExtension(FilePath))
                 {
-                    InstrumentModel = GetInstrumentModel()
+                    InstrumentModel = GetInstrumentModel(),
+                    InstrumentSerialNumber = GetInstrumentSerialNumber(),
+                    AcquisitionStartTime = GetAcquisitionStartTime()
                 };
             }
             return sourceFile;
@@ -399,6 +403,63 @@ namespace Readers
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// The instrument serial number (MS:1000529) declared for the run's instrument, trimmed, or
+        /// null when the file declares none. It sits beside the model -- inline on the
+        /// instrumentConfiguration or in a referenceableParamGroup it references -- so it is looked
+        /// for in the same configuration and in the same order as <see cref="GetInstrumentModel"/>.
+        /// Reported verbatim: a placeholder such as "Serial Number N/A" is what the file says.
+        /// </summary>
+        private string? GetInstrumentSerialNumber()
+        {
+            var configurations = _mzMLConnection.instrumentConfigurationList?.instrumentConfiguration;
+            if (configurations == null || configurations.Length == 0)
+                return null;
+
+            var defaultRef = _mzMLConnection.run?.defaultInstrumentConfigurationRef;
+            var configuration = configurations.FirstOrDefault(c => c.id == defaultRef) ?? configurations[0];
+
+            var serial = FirstSerialNumber(configuration.cvParam);
+            if (serial != null)
+                return serial;
+
+            var groups = _mzMLConnection.referenceableParamGroupList?.referenceableParamGroup;
+            if (configuration.referenceableParamGroupRef == null || groups == null)
+                return null;
+
+            foreach (var groupRef in configuration.referenceableParamGroupRef)
+            {
+                serial = FirstSerialNumber(groups.FirstOrDefault(g => g.id == groupRef.@ref)?.cvParam);
+                if (serial != null)
+                    return serial;
+            }
+
+            return null;
+        }
+
+        private static string? FirstSerialNumber(Generated.CVParamType[]? cvParams) =>
+            cvParams?
+                .Where(cv => cv.accession == "MS:1000529" && !string.IsNullOrWhiteSpace(cv.value))
+                .Select(cv => cv.value.Trim())
+                .FirstOrDefault();
+
+        /// <summary>
+        /// run/@startTimeStamp, or null when the file omits it. XmlSerializer returns an xs:dateTime
+        /// with "Z" as Kind Utc, one without an offset as Unspecified, and one WITH an offset
+        /// converted to the reading machine's Local time; that last is converted back to UTC here so
+        /// the value never depends on where the file is read (see
+        /// <see cref="SourceFile.AcquisitionStartTime"/>).
+        /// </summary>
+        private DateTime? GetAcquisitionStartTime()
+        {
+            var run = _mzMLConnection.run;
+            if (run == null || !run.startTimeStampSpecified)
+                return null;
+
+            var value = run.startTimeStamp;
+            return value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : value;
         }
 
         /// <summary>
