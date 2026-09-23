@@ -1,0 +1,140 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Linq;
+using NUnit.Framework;
+using Readers;
+
+namespace Test.FileReadingTests
+{
+    /// <summary>
+    /// Tests for reading replicates as sibling markers and deciding their kind from the record. Every case
+    /// is a shape the blind benchmark's graders quoted when a drafted biological replicate was judged wrong
+    /// (sdrf project, fresh sets 1 and 2, 2026-09-23).
+    /// </summary>
+    [TestFixture]
+    [ExcludeFromCodeCoverage]
+    public class TestSdrfReplicateResolver
+    {
+        private static SdrfReplicateReading File(SdrfReplicates r, string name) => r.Files.Single(f => f.FileName == name);
+
+        // ---- step 1: sibling markers, read locally ----
+
+        [TestCase("CT10A", "CT10B", "CT10C")]
+        [TestCase("WT-30min-A", "WT-30min-B", "WT-30min-C")]
+        [TestCase("IL1BETA_R1", "IL1BETA_R2", "IL1BETA_R3")]
+        [TestCase("Brain_Rat1", "Brain_Rat2", "Brain_Rat3")]
+        [TestCase("era_repeat1", "era_repeat2", "era_repeat3")]
+        [TestCase("PR619_BR1", "PR619_BR2", "PR619_BR3")]
+        [TestCase("CTR_01", "CTR_02", "CTR_03")]
+        [TestCase("K5PA5pass-1", "K5PA5pass-2", "K5PA5pass-3")]
+        public void SiblingsThatDifferOnlyInAFinalMarkerAreReplicatesOfOneBase(string a, string b, string c)
+        {
+            var r = SdrfReplicateResolver.Read(new[] { a, b, c, "Other_file" }, Array.Empty<string>());
+
+            Assert.That(new[] { a, b, c }.Select(n => File(r, n).Number), Is.EqualTo(new int?[] { 1, 2, 3 }));
+            Assert.That(new[] { a, b, c }.Select(n => File(r, n).Base).Distinct().Count(), Is.EqualTo(1));
+            Assert.That(File(r, "Other_file").Number, Is.Null, "a lone file has no marker");
+        }
+
+        [Test]
+        public void NumberingRestartsInEveryBaseEvenWhenTheDepositMixesShapes()
+        {
+            var names = new[] { "Astro_IL1BETA_R1", "Astro_IL1BETA_R2", "PHA_CTRL_R1", "PHA_CTRL_R2", "PHA_CTRL_R3" };
+
+            var r = SdrfReplicateResolver.Read(names, Array.Empty<string>());
+
+            Assert.That(File(r, "PHA_CTRL_R3").Number, Is.EqualTo(3));
+            Assert.That(File(r, "Astro_IL1BETA_R2").Number, Is.EqualTo(2), "never one count across the deposit");
+        }
+
+        [Test]
+        public void AnIdentifierIsNotAMarker()
+        {
+            var names = new[] { "sham_0316", "sham_0321", "sham_0357" };
+
+            var r = SdrfReplicateResolver.Read(names, Array.Empty<string>());
+
+            Assert.That(r.Files.All(f => f.Number == null), "0316/0321/0357 are animal IDs, not a 1..n count");
+        }
+
+        [Test]
+        public void NumbersWithGapsAreRunNumbersNotAReplicateCount()
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "WT_1", "WT_3", "WT_7" }, Array.Empty<string>());
+
+            Assert.That(r.Files.All(f => f.Number == null));
+        }
+
+        [Test]
+        public void TwoMarkersAreAnOuterAndAnInnerLevel()
+        {
+            var names = new[] { "del_rlmC_1_1", "del_rlmC_1_2", "del_rlmC_2_1", "del_rlmC_2_2" };
+
+            var r = SdrfReplicateResolver.Read(names, Array.Empty<string>());
+
+            var f = File(r, "del_rlmC_2_1");
+            Assert.That((f.Outer, f.Number), Is.EqualTo(((int?)2, (int?)1)));
+            Assert.That(r.OuterKind, Is.EqualTo(SdrfReplicateKind.Biological));
+            Assert.That(r.MarkerKind, Is.EqualTo(SdrfReplicateKind.Technical), "the inner of two levels is a re-injection unless the record says otherwise");
+        }
+
+        // ---- step 2: the record decides the kind, only when a stated number matches the count ----
+
+        [TestCase("Three biological replicates were prepared for each strain.", "Biological")]
+        [TestCase("Cells were grown in triplicate.", "Biological")]
+        [TestCase("Samples were analyzed in triplicate by LC-MS/MS.", "Technical")]
+        [TestCase("Each digest was injected three times.", "Technical")]
+        [TestCase("Peptides were separated into 3 high-pH fractions.", "Fraction")]
+        [TestCase("n = 3 mice per group.", "Biological")]
+        [TestCase("Two biological replicates were prepared.", "Unstated")]
+        [TestCase("A proteome.", "Unstated")]
+        public void TheRecordNamesTheKindOnlyWhenItsNumberMatchesTheCount(string text, string kindName)
+        {
+            var kind = Enum.Parse<SdrfReplicateKind>(kindName);
+            var names = new[] { "WT_1", "WT_2", "WT_3", "KO_1", "KO_2", "KO_3" };
+
+            var r = SdrfReplicateResolver.Read(names, new[] { text });
+
+            Assert.That(r.MarkerKind, Is.EqualTo(kind), r.MarkerEvidence);
+            if (kind != SdrfReplicateKind.Unstated) Assert.That(r.MarkerEvidence, Does.Contain("record"));
+        }
+
+        [Test]
+        public void TwoKindsStatingTheSameNumberDecideNothing()
+        {
+            var names = new[] { "WT_1", "WT_2", "WT_3" };
+            var text = new[] { "Cultures were grown in triplicate and each was analyzed in triplicate." };
+
+            var r = SdrfReplicateResolver.Read(names, text);
+
+            Assert.That(r.MarkerKind, Is.EqualTo(SdrfReplicateKind.Unstated));
+        }
+
+        [TestCase("Lysates were pooled within each group.")]
+        [TestCase("A single HCT116 lysate was fractionated.")]
+        [TestCase("The biosample was run with three technical replicates.")]
+        public void TheRecordCanSayThereIsOneBiologicalSample(string text)
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "x_F1", "x_F2" }, new[] { text });
+
+            Assert.That(r.SingleBiologicalSample, Is.True, r.SingleSampleEvidence);
+        }
+
+        [Test]
+        public void StatedBiologicalReplicatesAreNotASingleSample()
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "a", "b" },
+                new[] { "Lysates were pooled from three biological replicates." });
+
+            Assert.That(r.SingleBiologicalSample, Is.False);
+        }
+
+        [Test]
+        public void MalformedArgumentsThrow()
+        {
+            Assert.Throws<ArgumentNullException>(() => SdrfReplicateResolver.Read(null!, Array.Empty<string>()));
+            Assert.Throws<ArgumentNullException>(() => SdrfReplicateResolver.Read(new[] { "a" }, null!));
+        }
+    }
+}
