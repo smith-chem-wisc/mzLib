@@ -1497,6 +1497,17 @@ namespace Test.DatabaseTests
             Assert.That(result, Is.EqualTo(new[] { "MAAAAA", "MCADAA" }));
         }
 
+        [Test]
+        public static void ApplyVariants_HomozygousDeepAlternate_AppliesAlternateBranch()
+        {
+            string vcf = "1\t2\t.\tA\tC\t.\tPASS\tANN=C||||||||||||||||\tGT:AD:DP\t1/1:1,30:31";
+            var variation = new SequenceVariation(2, 2, "A", "C", "homozygous", vcf);
+
+            var result = ApplyToMAAAAA(1, variation);
+
+            Assert.That(result, Is.EqualTo(new[] { "MCAAAA" }));
+        }
+
         /// <summary>
         /// Past the cap, a site with a shallow reference allele is taken as alternate on every branch,
         /// and a site with a shallow alternate allele is not applied at all.
