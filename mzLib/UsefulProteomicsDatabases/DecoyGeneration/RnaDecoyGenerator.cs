@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Omics.Modifications;
 using Transcriptomics;
 using Omics.BioPolymer;
+using Omics;
 
 namespace UsefulProteomicsDatabases
 {
@@ -72,12 +73,15 @@ namespace UsefulProteomicsDatabases
                 }
 
                 var reverseFixedModifications = new Dictionary<int, Modification>();
-                foreach (var kvp in nucleicAcid.OneBasedFixedModifications)
+                if (nucleicAcid is IBioPolymer bioPol)
                 {
-                    var reverseKey = indexMapping[kvp.Key];
-                    reverseFixedModifications.Add(reverseKey, kvp.Value);
+                    foreach (var kvp in bioPol.OneBasedFixedModifications)
+                    {
+                        var reverseKey = indexMapping[kvp.Key];
+                        reverseFixedModifications.Add(reverseKey, kvp.Value);
+                    }
                 }
-                
+
                 List<TruncationProduct> reverseTruncs = new List<TruncationProduct>();
                 List<SequenceVariation> reverseVariations = new List<SequenceVariation>();
                 List<SequenceVariation> reverseAppliedVariations = new List<SequenceVariation>();

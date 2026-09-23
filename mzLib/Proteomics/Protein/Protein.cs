@@ -235,7 +235,9 @@ namespace Proteomics
                    databaseFilePath: protein.DatabaseFilePath,
                    uniProtEntryAttributes: protein.UniProtEntryAttributes,
                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                   oneBasedFixedModifications: protein.OneBasedFixedModifications)
+                    oneBasedFixedModifications: appliedSequenceVariations?.FirstOrDefault() is SequenceVariation appliedVariation
+                        ? VariantApplication.AdjustFixedModificationIndices(appliedVariation, variantBaseSequence, protein)
+                        : protein.OneBasedFixedModifications)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -280,6 +282,25 @@ namespace Proteomics
         /// </summary>
         public string NcbiTaxonomyId => DatabaseReferences
             ?.FirstOrDefault(r => r.Type == NcbiTaxonomyDatabaseReferenceType)?.Id;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Gene Ontology annotations
+        /// (&lt;dbReference type="GO" id="GO:0005737"&gt;). Declared here for the same reason as the
+        /// taxonomy type: anything holding a Protein can find its GO without depending on how the
+        /// protein was read.
+        /// </summary>
+        public const string GeneOntologyDatabaseReferenceType = "GO";
+
+        /// <summary>
+        /// This protein's Gene Ontology annotations, deduplicated by GO id, with the evidence codes
+        /// and projects of repeated ids unioned.
+        ///
+        /// A derived view over DatabaseReferences: GO is already parsed and stored, because
+        /// ProteinXmlEntry keeps every dbReference generically, so nothing in the parser had to
+        /// change for this to exist. Decoys carry no GO -- only the taxonomy reference travels onto
+        /// a decoy -- so this is empty for them, and backgrounds built from it stay target-only.
+        /// </summary>
+        public IReadOnlyList<GoTerm> GoTerms => GoTerm.FromDatabaseReferences(DatabaseReferences);
 
         public string Organism { get; }
         public bool IsDecoy { get; }

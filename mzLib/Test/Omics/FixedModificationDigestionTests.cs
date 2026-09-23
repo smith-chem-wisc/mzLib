@@ -72,6 +72,85 @@ public class FixedModificationDigestionTests
         Assert.That(products.Any(product => product.NumFixedMods >= 1), Is.True);
     }
 
+    [Test]
+    public void ProteinDigestAppliesParentFixedModsOnlyWhenResidueIsInsideProduct()
+    {
+        var modAtResidueFour = CreateModification("Anchored four", 'R');
+        var modAtResidueSix = CreateModification("Anchored six", 'K');
+        var protein = new Protein(
+            "AKTRTKTR",
+            "P1",
+            oneBasedFixedModifications: new Dictionary<int, Modification>
+            {
+                [4] = modAtResidueFour,
+                [6] = modAtResidueSix,
+            });
+
+        var products = protein.Digest(
+                new DigestionParams("trypsin", maxMissedCleavages: 0, minPeptideLength: 1,
+                    initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain),
+                new List<Modification>(),
+                new List<Modification>())
+            .ToList();
+
+        Assert.That(products, Is.Not.Empty);
+
+        var ak = products.Single(product => product.OneBasedStartResidueInProtein == 1);
+        Assert.That(ak.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
+        Assert.That(ak.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueSix));
+
+        var tr = products.Single(product => product.OneBasedStartResidueInProtein == 3);
+        Assert.That(tr.AllModsOneIsNterminus[4 - 3 + 2], Is.EqualTo(modAtResidueFour));
+        Assert.That(tr.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueSix));
+
+        var tk = products.Single(product => product.OneBasedStartResidueInProtein == 5);
+        Assert.That(tk.AllModsOneIsNterminus[6 - 5 + 2], Is.EqualTo(modAtResidueSix));
+        Assert.That(tk.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
+
+        var secondTr = products.Single(product => product.OneBasedStartResidueInProtein == 7);
+        Assert.That(secondTr.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
+        Assert.That(secondTr.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueSix));
+    }
+
+    [Test]
+    public void RnaDigestAppliesParentFixedModsOnlyWhenResidueIsInsideProduct()
+    {
+        var modAtResidueFour = CreateModification("Anchored four", 'A');
+        var modAtResidueFive = CreateModification("Anchored five", 'C');
+        var rna = new RNA(
+            "GAUACG",
+            oneBasedFixedModifications: new Dictionary<int, Modification>
+            {
+                [4] = modAtResidueFour,
+                [5] = modAtResidueFive,
+            });
+
+        var products = rna.Digest(
+                new RnaDigestionParams("RNase U2", minLength: 1),
+                new List<Modification>(),
+                new List<Modification>())
+            .Cast<OligoWithSetMods>()
+            .ToList();
+
+        Assert.That(products, Is.Not.Empty);
+
+        var g = products.Single(product => product.OneBasedStartResidue == 1);
+        Assert.That(g.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
+        Assert.That(g.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFive));
+
+        var a = products.Single(product => product.OneBasedStartResidue == 2);
+        Assert.That(a.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
+        Assert.That(a.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFive));
+
+        var ua = products.Single(product => product.OneBasedStartResidue == 3);
+        Assert.That(ua.AllModsOneIsNterminus[4 - 3 + 2], Is.EqualTo(modAtResidueFour));
+        Assert.That(ua.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFive));
+
+        var cg = products.Single(product => product.OneBasedStartResidue == 5);
+        Assert.That(cg.AllModsOneIsNterminus[5 - 5 + 2], Is.EqualTo(modAtResidueFive));
+        Assert.That(cg.AllModsOneIsNterminus.Values, Does.Not.Contain(modAtResidueFour));
+    }
+
     private static Modification CreateModification(string id, char target)
     {
         Assert.That(ModificationMotif.TryGetMotif(target.ToString(), out var motif), Is.True);

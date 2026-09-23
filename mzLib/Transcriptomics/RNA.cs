@@ -58,7 +58,10 @@ namespace Transcriptomics
                   [..applicableTruncationProducts ?? new List<TruncationProduct>()], original.SequenceVariations, 
                    [..appliedSequenceVariants ?? new List<SequenceVariation>()], sampleNameForVariants,
                    VariantApplication.GetVariantName(original.FullName, appliedSequenceVariants),
-                   original.IsEntrapment, original.OneBasedFixedModifications)
+                    original.IsEntrapment,
+                    appliedSequenceVariants?.FirstOrDefault() is SequenceVariation appliedVariation
+                        ? VariantApplication.AdjustFixedModificationIndices(appliedVariation, variantBaseSequence, original)
+                        : original.OneBasedFixedModifications)
         {
             ConsensusVariant = original.ConsensusVariant;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;

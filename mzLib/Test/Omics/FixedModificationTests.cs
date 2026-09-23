@@ -1,9 +1,11 @@
 using System.Collections.Generic;
+using System.Linq;
 using Chemistry;
 using NUnit.Framework;
 using Omics.Modifications;
 using Proteomics;
 using Transcriptomics;
+using Transcriptomics.Digestion;
 
 namespace Test.Omics;
 

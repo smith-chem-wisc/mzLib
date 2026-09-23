@@ -32,6 +32,54 @@ namespace Test.DatabaseTests
             UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
         }
 
+        private static Modification CreateFixedTestModification()
+        {
+            ModificationMotif.TryGetMotif("A", out var motif);
+            return new Modification("Fixed test", "", "", "", motif, "Anywhere.", ChemicalFormula.ParseFormula("CH2"));
+        }
+
+        [Test]
+        public void VariantProtein_InsertedResidue_ShiftsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = new Protein("MAAAA", original,
+                new[] { new SequenceVariation(2, "A", "AA", "insertion", null) }, null,
+                new Dictionary<int, List<Modification>>(), "");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 4 }));
+        }
+
+        [Test]
+        public void VariantProtein_DeletedResidue_ShiftsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = new Protein("MAA", original,
+                new[] { new SequenceVariation(2, "A", "", "deletion", null) }, null,
+                new Dictionary<int, List<Modification>>(), "");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 2 }));
+        }
+
+        [Test]
+        public void VariantProtein_ReplacedResidue_DropsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = new Protein("MAUA", original,
+                new[] { new SequenceVariation(3, "A", "U", "substitution", null) }, null,
+                new Dictionary<int, List<Modification>>(), "");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications, Is.Empty);
+        }
+
         [SetUp]
         public static void Setuppp()
         {
