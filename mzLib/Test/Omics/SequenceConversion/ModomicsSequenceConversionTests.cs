@@ -16,6 +16,25 @@ public class ModomicsSequenceConversionTests
 {
     private static readonly ModomicsSequenceParser Parser = ModomicsSequenceParser.Instance;
 
+    [TestCase(null, false)]
+    [TestCase("", false)]
+    [TestCase("   ", false)]
+    [TestCase("GUACUG", false)]
+    [TestCase("GJACUG", true)]
+    [TestCase(" GJ ACUG ", true)]
+    [TestCase("GU\u2603AC", false)]
+    [TestCase("P", false)]
+    public void CanParse_RecognizesModomicsAlphabetAndCodes(string input, bool expected)
+    {
+        Assert.That(Parser.CanParse(input), Is.EqualTo(expected));
+    }
+
+    [Test]
+    public void CanParse_RejectsUnknownCharactersAfterValidSequence()
+    {
+        Assert.That(Parser.CanParse("GJACUG\u2603"), Is.False);
+    }
+
     [TestCase("GUACUG", "GUACUG", 0)]
     [TestCase("GJACUGCBUCUA#UGAA#CA", "GUACUGCCUCUAGUGAAGCA", 4)]
     [TestCase("/UCCAGU#CAGUACJG", "AUCCAGUGCAGUACUG", 3)]
@@ -33,6 +52,17 @@ public class ModomicsSequenceConversionTests
         Assert.That(sequence!.Value.BaseSequence, Is.EqualTo(expectedBaseSequence));
         Assert.That(sequence.Value.ModificationCount, Is.EqualTo(expectedModificationCount));
         Assert.That(sequence.Value.AllModificationsResolved, Is.True);
+    }
+
+    [Test]
+    public void FullSequenceParser_TrimsWhitespaceAfterModomicsNamespace()
+    {
+        var oligo = new OligoWithSetMods("A[Modomics: 2'-O-methyladenosine on A]U");
+
+        Assert.That(oligo.BaseSequence, Is.EqualTo("AU"));
+        Assert.That(oligo.AllModsOneIsNterminus, Does.ContainKey(2));
+        Assert.That(oligo.AllModsOneIsNterminus[2].OriginalId,
+            Is.EqualTo("2'-O-methyladenosine"));
     }
 
     [Test]
@@ -62,15 +92,6 @@ public class ModomicsSequenceConversionTests
     }
 
     [Test]
-    public void AutoDetectionIdentifiesModomicsButNotPlainRna()
-    {
-        Assert.That(SequenceConversionService.Default.DetectFormat("GUACUG"), Is.EqualTo("mzLib"));
-        Assert.That(SequenceConversionService.Default.DetectFormat("GJACUG"), Is.EqualTo("Modomics"));
-        Assert.That(SequenceConversionService.Default.DetectFormat("[G]"), Is.EqualTo("Modomics"));
-        Assert.That(SequenceConversionService.Default.DetectFormat("[Oxidation on M]PEPTIDE"), Is.EqualTo("mzLib"));
-    }
-
-    [Test]
     public void UnknownCodeReturnsNullWithoutThrowingInReturnNullMode()
     {
         var warnings = new ConversionWarnings();
@@ -86,6 +107,75 @@ public class ModomicsSequenceConversionTests
     public void UnknownCodeThrowsInThrowExceptionMode()
     {
         Assert.Throws<SequenceConversionException>(() => Parser.Parse("GU\u2603AC"));
+    }
+
+    [Test]
+    public void Parse_WhitespaceOnlyInput_ReturnsNullInReturnNullMode()
+    {
+        var warnings = new ConversionWarnings();
+
+        var sequence = Parser.Parse(" \t\r\n", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(sequence, Is.Null);
+        Assert.That(warnings.HasFatalError, Is.True);
+    }
+
+    [Test]
+    public void Parse_WhitespaceOnlyInput_ThrowsInThrowExceptionMode()
+    {
+        Assert.Throws<SequenceConversionException>(() => Parser.Parse(" \t\r\n"));
+    }
+
+    [Test]
+    public void Parse_FivePrimeTerminalCodeAtSequenceStart_CreatesNTerminalModification()
+    {
+        var terminalCode = Mods.ModomicsLoadReport.ModificationsByAbbreviation
+            .First(pair => pair.Value.Any(modification =>
+                Mods.ModomicsLoadReport.TerminalModifications.Contains(modification)))
+            .Key[0];
+
+        var sequence = Parser.Parse($"{terminalCode}AC");
+
+        Assert.That(sequence, Is.Not.Null);
+        Assert.That(sequence!.Value.BaseSequence, Is.EqualTo("AC"));
+        Assert.That(sequence.Value.Modifications.Length, Is.EqualTo(1));
+        Assert.That(sequence.Value.Modifications[0].PositionType, Is.EqualTo(ModificationPositionType.NTerminus));
+        Assert.That(sequence.Value.Modifications[0].OriginalRepresentation, Is.EqualTo(terminalCode.ToString()));
+    }
+
+    [Test]
+    public void Parse_FivePrimeTerminalCodeAfterResidue_ReturnsNullInReturnNullMode()
+    {
+        var terminalCode = Mods.ModomicsLoadReport.ModificationsByAbbreviation
+            .First(pair => pair.Value.Any(modification =>
+                Mods.ModomicsLoadReport.TerminalModifications.Contains(modification)))
+            .Key[0];
+        var warnings = new ConversionWarnings();
+
+        var sequence = Parser.Parse($"A{terminalCode}C", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(sequence, Is.Null);
+        Assert.That(warnings.HasFatalError, Is.True);
+        Assert.That(warnings.IncompatibleItems, Does.Contain(terminalCode.ToString()));
+    }
+
+    [Test]
+    public void Parse_AmbiguousCodeWithUnmatchedTarget_ReturnsNullInReturnNullMode()
+    {
+        var ambiguousCode = Mods.ModomicsLoadReport.ModificationsByAbbreviation
+            .FirstOrDefault(pair => pair.Key.Length == 1
+                && !"ACGUPY".Contains(pair.Key[0])
+                && pair.Value.Count > 1)
+            .Key;
+
+        Assume.That(ambiguousCode, Is.Not.Null.And.Not.Empty);
+        var warnings = new ConversionWarnings();
+
+        var sequence = Parser.Parse($"A{ambiguousCode}Z", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+        Assert.That(sequence, Is.Null);
+        Assert.That(warnings.HasFatalError, Is.True);
+        Assert.That(warnings.IncompatibleItems, Does.Contain(ambiguousCode));
     }
 
     [Test]
@@ -147,10 +237,10 @@ public class ModomicsSequenceConversionTests
 
     [TestCase(
         "GJACUGCBUCUA#UGAA#CA",
-        "GU[Common Biological: Methylation on U]ACUGCC[Common Biological: Methylation on C]UCUAG[Common Biological: Methylation on G]UGAAG[Common Biological: Methylation on G]CA")]
+         "GU[Modomics:2'-O-methyluridine on U]ACUGCC[Modomics:2'-O-methylcytidine on C]UCUAG[Modomics:2'-O-methylguanosine on G]UGAAG[Modomics:2'-O-methylguanosine on G]CA")]
     [TestCase(
         "/UCCAGU#CAGUACJG",
-        "A[Common Biological: Methylation on A]UCCAGUG[Common Biological: Methylation on G]CAGUACU[Common Biological: Methylation on U]G")]
+         "A[Modomics:2-methyladenosine on A]UCCAGUG[Modomics:2'-O-methylguanosine on G]CAGUACU[Modomics:2'-O-methyluridine on U]G")]
     [TestCase(
         "UUCAAGUA:UCCAGGAUAGGCU",
         "UUCAAGUAA[Common Biological: Methylation on A]UCCAGGAUAGGCU")]
