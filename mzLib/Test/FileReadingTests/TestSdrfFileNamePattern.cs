@@ -189,13 +189,148 @@ namespace Test.FileReadingTests
             Assert.That(s.Files.All(f => f.Batch == null));
         }
 
+        // ---- Pilot 1 (blind grading of 60 deposits, 2026-09-23): shapes a human reads at a glance. ----
+
+        [Test]
+        public void AReinjectionMarkerAfterTheNumberIsATechnicalReplicateOfTheSameSample()
+        {
+            var names = new[] { "NEG", "POS" }.SelectMany(arm => Enumerable.Range(1, 3)
+                .SelectMany(i => new[] { $"{arm}{i}.raw", $"{arm}{i}rep.raw" })).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            var first = s.Files.Single(f => f.FileName == "NEG2.raw");
+            var again = s.Files.Single(f => f.FileName == "NEG2rep.raw");
+            Assert.That(again.SampleKey, Is.EqualTo(first.SampleKey), "a re-injection is the same sample");
+            Assert.That((first.TechnicalReplicate, again.TechnicalReplicate), Is.EqualTo(((int?)1, (int?)2)));
+            Assert.That(s.Files.Select(f => f.SampleKey).Distinct().Count(), Is.EqualTo(6));
+            Assert.That(s.Slots.Single(x => x.Role == SdrfFileNameRole.Factor).Levels, Is.EqualTo(new[] { "NEG", "POS" }));
+        }
+
+        [TestCase("AF_17_Control", "AF_17_Replicate_Control")]
+        [TestCase("HP_C10", "HP_C10_rr")]
+        [TestCase("Cat_1_long", "Cat_1_long2")]
+        [TestCase("Run1_0_13C", "Run1_0_13C_2")]
+        public void AReinjectionMarkerIsReadWhereverItStandsWhenTheUnmarkedNameExists(string first, string again)
+        {
+            var names = new[] { first, again, first.Replace("1", "9"), again.Replace("1", "9") }.Distinct().ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            var a = s.Files.Single(f => f.FileName == first);
+            var b = s.Files.Single(f => f.FileName == again);
+            Assert.That(b.SampleKey, Is.EqualTo(a.SampleKey));
+            Assert.That(b.TechnicalReplicate, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void AMarkerWithNoUnmarkedTwinIsNotAReinjection()
+        {
+            var names = new[] { "WT_rep1", "WT_rep2", "KO_rep1", "KO_rep2" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Files.All(f => f.TechnicalReplicate == null), "rep1..2 with no bare twin is a replicate count, not a re-injection");
+            Assert.That(s.Files.Single(f => f.FileName == "KO_rep2").Replicate, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void ADepositMixingFamiliesReadsEachFamilyOnItsOwn()
+        {
+            var names = new List<string> { "Blank.raw", "QC_standard_mix.raw" };
+            names.AddRange(Names("{0}_{1}.raw", ("WT", 3), ("KO", 3)));
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Single(f => f.FileName == "KO_2.raw").FactorLevels, Is.EqualTo(new[] { "KO" }));
+            var blank = s.Files.Single(f => f.FileName == "Blank.raw");
+            Assert.That(blank.FactorLevels, Is.Empty);
+            Assert.That(s.Files.Count(f => f.SampleKey == blank.SampleKey), Is.EqualTo(1), "a lone file is its own sample");
+        }
+
+        [Test]
+        public void ASidecarFileFoldsIntoItsRun()
+        {
+            var names = Names("{0}_{1}.wiff", ("WT", 2), ("KO", 2));
+            names.AddRange(names.Select(n => n + ".scan").ToList());
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            var run = s.Files.Single(f => f.FileName == "KO_2.wiff");
+            var scan = s.Files.Single(f => f.FileName == "KO_2.wiff.scan");
+            Assert.That(scan with { FileName = run.FileName }, Is.EqualTo(run));
+        }
+
+        [Test]
+        public void ADashSeparatedDateIsOneDate()
+        {
+            var names = new[] { "2018-02-28_WT_1", "2018-02-28_WT_2", "2018-03-05_KO_1", "2018-03-05_KO_2" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Single(f => f.FileName == "2018-03-05_KO_2").Replicate, Is.EqualTo(2));
+            Assert.That(s.Slots.Single(x => x.Role == SdrfFileNameRole.Factor).Levels, Is.EqualTo(new[] { "KO", "WT" }));
+        }
+
+        [Test]
+        public void ANumberThatDoesNotCountIsACategoryWhenEachValueIsShared()
+        {
+            var names = new[] { "0", "5", "25" }.SelectMany(c => new[] { $"Bsub_{c}_R1", $"Bsub_{c}_R2" }).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Single(x => x.Role == SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(new[] { "0", "5", "25" }));
+            Assert.That(s.Files.Single(f => f.FileName == "Bsub_25_R2").Replicate, Is.EqualTo(2));
+        }
+
+        [Test]
+        public void InterleavedRunNumbersIdentifySamplesButAreNotAReplicateCount()
+        {
+            var names = new[] { "WT_1", "KO_2", "WT_3", "KO_4", "WT_5", "KO_6" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Single(x => x.Role == SdrfFileNameRole.Factor).Levels, Is.EqualTo(new[] { "KO", "WT" }));
+            Assert.That(s.Files.All(f => f.Replicate == null && f.BiologicalReplicate == null), "1,3,5 does not count replicates");
+            Assert.That(s.Files.Select(f => f.SampleKey).Distinct().Count(), Is.EqualTo(6));
+        }
+
+        /// <summary>A number that is alone in every group passes "contiguous" trivially; 1..1 counts nothing.</summary>
+        [Test]
+        public void ANumberAloneInEveryGroupIsNotAReplicateCount()
+        {
+            var names = new[] { "WT_a_3", "WT_b_5", "KO_a_7", "KO_b_9" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Slots.Any(x => x.Role == SdrfFileNameRole.Replicate), Is.False);
+            Assert.That(s.Files.All(f => f.Replicate == null));
+        }
+
+        [Test]
+        public void OfTwoUnnamedNumbersTheLastCountsAndTheSharedOneIsACategory()
+        {
+            var names = new[] { "A_1_1", "A_1_2", "A_2_1", "A_2_2", "B_1_1", "B_1_2", "B_2_1", "B_2_2" };
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Count(x => x.Role == SdrfFileNameRole.Factor), Is.EqualTo(2));
+            Assert.That(s.Files.Single(f => f.FileName == "B_2_1").Replicate, Is.EqualTo(1));
+        }
+
         // ---- The refusals: each of these would be an over-split. ----
 
         [TestCase(new[] { "HeLa_A", "HeLa_B", "HeLa_C", "HeLa_D" }, "identifier", TestName = "A word that names every file differently is an identifier")]
         [TestCase(new[] { "QE_run001", "QE_run002", "QE_run003", "QE_run004" }, "run number", TestName = "A run number alone is not a replicate")]
-        [TestCase(new[] { "WT_1", "KO_2", "WT_3", "KO_4", "WT_5", "KO_6" }, "contiguously", TestName = "Interleaved run order is not a replicate count")]
-        [TestCase(new[] { "A_1_1", "A_1_2", "A_2_1", "A_2_2", "B_1_1", "B_1_2", "B_2_1", "B_2_2" }, "two numbered parts", TestName = "Two unnamed indices cannot be told apart")]
-        [TestCase(new[] { "WT_rep1", "KO_replicate_1_extra" }, "shape", TestName = "Names of different shapes cannot be compared")]
+        [TestCase(new[] { "WT_rep1", "KO_replicate_1_extra" }, "family", TestName = "Names of different shapes cannot be compared")]
         [TestCase(new[] { "only.raw" }, "one file", TestName = "One file has no siblings")]
         [TestCase(new[] { "run.raw", "run.mzML" }, "extension", TestName = "Names differing only in extension")]
         [TestCase(new[] { "20210301_x", "20210302_x" }, "acquisition date", TestName = "A date alone is not a design")]
