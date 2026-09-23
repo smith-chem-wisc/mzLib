@@ -289,6 +289,29 @@ namespace Test.FlashLFQ
             Assert.That(decoyId.QValue, Is.EqualTo(2).Within(0.000001));
             Assert.That(decoyId.PsmScore, Is.EqualTo(6.218).Within(0.001));
         }
+
+        [Test]
+        public static void MakeIdentificationsFromPsmtsv_SkipsRecordsForSpectraFilesThatWereNotProvided()
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(psmFilePath);
+
+            SpectraFileInfo providedSpectraFile = new SpectraFileInfo("04-30-13_CAST_Frac5_4uL.raw", "A", 0, 0, 0);
+            string providedFileName = Path.GetFileNameWithoutExtension(providedSpectraFile.FullFilePathWithExtension);
+
+            int totalRecordCount = quantifiableResultFile.GetQuantifiableResults().Count();
+            int expectedRecordCount = quantifiableResultFile.GetQuantifiableResults().Count(p => p.FileName == providedFileName);
+
+            Assert.That(expectedRecordCount, Is.GreaterThan(0));
+            Assert.That(expectedRecordCount, Is.LessThan(totalRecordCount));
+
+            List<Identification> ids = null;
+            Assert.DoesNotThrow(() => ids = quantifiableResultFile.MakeIdentifications(new List<SpectraFileInfo> { providedSpectraFile }));
+
+            Assert.That(ids, Is.Not.Null);
+            Assert.That(ids.Count, Is.EqualTo(expectedRecordCount));
+            Assert.That(ids.All(id => id.FileInfo.Equals(providedSpectraFile)), Is.True);
+        }
     }
 
     // Mock classes for testing
