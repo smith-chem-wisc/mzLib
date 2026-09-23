@@ -600,6 +600,349 @@ namespace Test.FileReadingTests
                 Throws.TypeOf<ArgumentException>());
             Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, assay with { VariableModifications = null }) }),
                 Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with { RawCharacteristics = null }, assay) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with { FactorValues = null }, assay) }),
+                Throws.TypeOf<ArgumentException>());
         }
+
+        #region Carrying somebody else's sample facts through (REQ-2)
+
+        /// <summary>
+        /// Free-text characteristics reach the document, and their keys join the SAME header union as
+        /// the term-valued ones. If they did not, a row would carry a cell the header never declared
+        /// and the table would go ragged -- the defect class this builder has been fixed for twice.
+        /// </summary>
+        [Test]
+        public void FreeTextCharacteristicsAreWrittenAndJoinTheHeaderUnion()
+        {
+            var sample = Sample() with
+            {
+                RawCharacteristics = new Dictionary<string, string>
+                {
+                    ["characteristics[age]"] = "58Y",
+                    ["characteristics[sex]"] = "female"
+                }
+            };
+
+            var document = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) });
+
+            Assert.That(document.Header.Contains("characteristics[age]"), Is.True);
+            Assert.That(document.Header.Contains("characteristics[sex]"), Is.True);
+            Assert.That(document.Results.Single()["characteristics[age]"], Is.EqualTo("58Y"));
+            Assert.That(document.Results.Single()["characteristics[sex]"], Is.EqualTo("female"));
+            Assert.That(document.Results.Single().Cells.Count, Is.EqualTo(document.Header.Count),
+                "Every row is exactly as wide as the header.");
+            Assert.That(SdrfValidator.Validate(document).Errors, Is.Empty);
+        }
+
+        /// <summary>
+        /// A column only SOME rows carry still appears once, and the rows without it say so with a
+        /// reserved word rather than going short.
+        /// </summary>
+        [Test]
+        public void AColumnOnlyOneRowCarriesIsStillOneColumn()
+        {
+            var described = Sample("Sample 1") with
+            {
+                RawCharacteristics = new Dictionary<string, string> { ["characteristics[age]"] = "58Y" }
+            };
+
+            var document = SdrfBuilder.Build(new[]
+            {
+                new SdrfRowInput(described, Assay("a.raw")),
+                new SdrfRowInput(Sample("Sample 2"), Assay("b.raw"))
+            });
+
+            Assert.That(document.Header.Count(c => c == "characteristics[age]"), Is.EqualTo(1));
+            Assert.That(document.Results[0]["characteristics[age]"], Is.EqualTo("58Y"));
+            Assert.That(document.Results[1]["characteristics[age]"], Is.EqualTo(SdrfReserved.NotAvailable));
+            Assert.That(document.Results.All(r => r.Cells.Count == document.Header.Count), Is.True);
+        }
+
+        /// <summary>
+        /// Reserved words carried in from another document survive. An SDRF built from a config
+        /// design may say "not available" for a fact PRIDE does not hold (D27), and that word is the
+        /// file's one honest statement about the cell.
+        /// </summary>
+        [Test]
+        public void ACarriedReservedWordIsWrittenAsItArrived()
+        {
+            var sample = Sample() with
+            {
+                RawCharacteristics = new Dictionary<string, string>
+                    { ["characteristics[age]"] = SdrfReserved.NotAvailable }
+            };
+
+            var document = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) });
+
+            Assert.That(document.Results.Single()["characteristics[age]"],
+                Is.EqualTo(SdrfReserved.NotAvailable));
+        }
+
+        /// <summary>
+        /// One column space, two dictionaries: a key in both is refused rather than resolved.
+        /// Preferring either silently is how one column comes to mean a term on some rows and free
+        /// text on others, and no reading of the caller's intent is obviously right.
+        /// </summary>
+        [Test]
+        public void AKeyInBothCharacteristicDictionariesIsRefused()
+        {
+            var sample = Sample() with
+            {
+                RawCharacteristics = new Dictionary<string, string>
+                    { ["characteristics[organism part]"] = "liver" }
+            };
+
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) }),
+                Throws.TypeOf<ArgumentException>()
+                    .With.Message.Contains("characteristics[organism part]"),
+                "The message has to name the column; the caller has a dictionary, not a row number.");
+        }
+
+        /// <summary>
+        /// A factorial study varies two things and says so in two columns. Carrying only the first
+        /// would discard the second variable silently, and nothing downstream could see it happen.
+        /// </summary>
+        [Test]
+        public void SeveralFactorValuesEachGetTheirOwnColumn()
+        {
+            var one = Sample("Sample 1") with
+            {
+                FactorValues = new Dictionary<string, string>
+                {
+                    ["factor value[disease]"] = "normal",
+                    ["factor value[treatment]"] = "vehicle"
+                }
+            };
+            var two = Sample("Sample 2") with
+            {
+                FactorValues = new Dictionary<string, string>
+                {
+                    ["factor value[disease]"] = "carcinoma",
+                    ["factor value[treatment]"] = "drug"
+                }
+            };
+
+            var document = SdrfBuilder.Build(new[]
+            {
+                new SdrfRowInput(one, Assay("a.raw")), new SdrfRowInput(two, Assay("b.raw"))
+            });
+
+            Assert.That(document.Header.Contains("factor value[disease]"), Is.True);
+            Assert.That(document.Header.Contains("factor value[treatment]"), Is.True);
+            Assert.That(document.Results[0]["factor value[treatment]"], Is.EqualTo("vehicle"));
+            Assert.That(document.Results[1]["factor value[disease]"], Is.EqualTo("carcinoma"));
+            Assert.That(SdrfValidator.Validate(document).Errors, Is.Empty);
+        }
+
+        /// <summary>
+        /// The single FactorValue/FactorValueColumn pair still works -- it is the one-factor
+        /// shorthand, and #2816 writes it -- but stating the row's factors twice is refused.
+        /// </summary>
+        [Test]
+        public void TheSingleFactorShorthandStillWorks_AndCannotBeCombinedWithTheDictionary()
+        {
+            var shorthand = Sample() with
+            {
+                FactorValue = "normal",
+                FactorValueColumn = "factor value[disease]"
+            };
+
+            var document = SdrfBuilder.Build(new[] { new SdrfRowInput(shorthand, Assay()) });
+            Assert.That(document.Results.Single()["factor value[disease]"], Is.EqualTo("normal"));
+
+            var both = shorthand with
+            {
+                FactorValues = new Dictionary<string, string> { ["factor value[disease]"] = "carcinoma" }
+            };
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(both, Assay()) }),
+                Throws.TypeOf<ArgumentException>(),
+                "Two statements of one row's factors that disagree is a caller error, and choosing " +
+                "between them here would hide it.");
+        }
+
+        /// <summary>
+        /// A sample with no value for a factor another row declares is NOT APPLICABLE to it, which is
+        /// a different claim from "not available" and the right one: the study did not measure that
+        /// variable for this sample.
+        /// </summary>
+        [Test]
+        public void ASampleOutsideAFactorSaysNotApplicable()
+        {
+            var withFactor = Sample("Sample 1") with
+            {
+                FactorValues = new Dictionary<string, string> { ["factor value[disease]"] = "normal" }
+            };
+
+            var document = SdrfBuilder.Build(new[]
+            {
+                new SdrfRowInput(withFactor, Assay("a.raw")),
+                new SdrfRowInput(Sample("Sample 2"), Assay("b.raw"))
+            });
+
+            Assert.That(document.Results[1]["factor value[disease]"], Is.EqualTo(SdrfReserved.NotApplicable));
+        }
+
+        /// <summary>
+        /// The header is deterministic whatever order the caller's dictionaries enumerate in. Two
+        /// rows naming their columns in opposite orders must not produce two different documents.
+        /// </summary>
+        [Test]
+        public void TheHeaderIsTheSameWhateverOrderTheCallerNamesColumnsIn()
+        {
+            var forwards = Sample("Sample 1") with
+            {
+                RawCharacteristics = new Dictionary<string, string>
+                    { ["characteristics[age]"] = "58Y", ["characteristics[sex]"] = "female" },
+                FactorValues = new Dictionary<string, string>
+                    { ["factor value[disease]"] = "normal", ["factor value[treatment]"] = "vehicle" }
+            };
+            var backwards = Sample("Sample 2") with
+            {
+                RawCharacteristics = new Dictionary<string, string>
+                    { ["characteristics[sex]"] = "male", ["characteristics[age]"] = "61Y" },
+                FactorValues = new Dictionary<string, string>
+                    { ["factor value[treatment]"] = "drug", ["factor value[disease]"] = "carcinoma" }
+            };
+
+            var one = SdrfBuilder.Build(new[]
+                { new SdrfRowInput(forwards, Assay("a.raw")), new SdrfRowInput(backwards, Assay("b.raw")) });
+            var other = SdrfBuilder.Build(new[]
+                { new SdrfRowInput(backwards, Assay("b.raw")), new SdrfRowInput(forwards, Assay("a.raw")) });
+
+            Assert.That(one.Header.ToString(), Is.EqualTo(other.Header.ToString()));
+        }
+
+        /// <summary>
+        /// The round trip REQ-2 actually makes: read somebody else's document, lift a sample block
+        /// out of it, and write that block into a document this search produced. What the depositor
+        /// said about the sample has to survive the journey unchanged.
+        /// </summary>
+        [Test]
+        public void ASampleBlockLiftedFromOneDocumentCanBeWrittenIntoAnother()
+        {
+            var incomingHeader = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[organism]", "characteristics[age]",
+                "characteristics[sex]", "assay name", "comment[data file]", "factor value[disease]"
+            });
+            var incoming = new SdrfDocument(incomingHeader, new[]
+            {
+                new SdrfRow(incomingHeader, new[]
+                    { "Sample 1", "Homo sapiens", "58Y", "female", "run x", "x.raw", "normal" })
+            });
+
+            var block = SdrfSampleBlock.BySourceName(incoming, out var problems)["Sample 1"];
+            Assert.That(problems, Is.Empty);
+
+            var sample = Sample("Sample 1") with
+            {
+                RawCharacteristics = block.CharacteristicColumns
+                    .Where(c => c != "characteristics[organism]")
+                    .ToDictionary(c => c, c => block[c], StringComparer.Ordinal),
+                FactorValues = block.FactorValueColumns
+                    .ToDictionary(c => c, c => block[c], StringComparer.Ordinal)
+            };
+
+            var written = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) });
+            SdrfRow row = written.Results.Single();
+
+            Assert.That(row["characteristics[age]"], Is.EqualTo("58Y"));
+            Assert.That(row["characteristics[sex]"], Is.EqualTo("female"));
+            Assert.That(row["factor value[disease]"], Is.EqualTo("normal"));
+            Assert.That(SdrfValidator.Validate(written).Errors, Is.Empty,
+                "The document a search writes after carrying somebody else's sample facts is still " +
+                "a valid SDRF.");
+        }
+
+        /// <summary>
+        /// The term-or-free-text rule holds across the DOCUMENT, not just within a row. The header
+        /// union merges both rows' keys into one column, so a term on row 1 and free text on row 2
+        /// would give that column two meanings as surely as one row putting it in both dictionaries.
+        /// </summary>
+        [Test]
+        public void ATermOnOneRowAndFreeTextOnAnotherIsRefused()
+        {
+            var term = Sample("Sample 1");
+            var free = Sample("Sample 2") with
+            {
+                Characteristics = new Dictionary<string, CvParam>(),
+                RawCharacteristics = new Dictionary<string, string>
+                    { ["characteristics[organism part]"] = "liver" }
+            };
+
+            Assert.That(() => SdrfBuilder.Build(new[]
+                {
+                    new SdrfRowInput(term, Assay("a.raw")),
+                    new SdrfRowInput(free, Assay("b.raw"))
+                }),
+                Throws.TypeOf<ArgumentException>()
+                    .With.Message.Contains("characteristics[organism part]"));
+        }
+
+        /// <summary>
+        /// A blank key would become a column with no name -- or, for a factor, vanish from the header
+        /// and take its value with it. All three dictionaries refuse one alike.
+        /// </summary>
+        [Test]
+        public void ABlankColumnNameIsRefusedInEveryDictionary()
+        {
+            var sample = Sample();
+
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with
+                {
+                    Characteristics = new Dictionary<string, CvParam>
+                        { [" "] = new CvParam("UBERON", "UBERON:0002107", "liver", "") }
+                }, Assay()) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with
+                {
+                    RawCharacteristics = new Dictionary<string, string> { [""] = "58Y" }
+                }, Assay()) }),
+                Throws.TypeOf<ArgumentException>());
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample with
+                {
+                    FactorValues = new Dictionary<string, string> { [" "] = "normal" }
+                }, Assay()) }),
+                Throws.TypeOf<ArgumentException>());
+        }
+
+        /// <summary>
+        /// The scope boundary, pinned: a REPEATED column is kept whole on the read side but carried
+        /// as its first value on the write side, because the input holds one value per column. Nine
+        /// corpus files repeat characteristics[organism part]. If the builder ever grows a
+        /// list-valued input, this test is the one to change.
+        /// </summary>
+        [Test]
+        public void ARepeatedColumnIsCarriedAsItsFirstValueOnly()
+        {
+            var incomingHeader = new SdrfHeader(new[]
+            {
+                "source name", "characteristics[organism part]", "characteristics[organism part]",
+                "assay name", "comment[data file]"
+            });
+            var incoming = new SdrfDocument(incomingHeader, new[]
+            {
+                new SdrfRow(incomingHeader, new[] { "Sample 1", "liver", "left lobe", "run x", "x.raw" })
+            });
+            var block = SdrfSampleBlock.BySourceName(incoming, out _)["Sample 1"];
+            Assert.That(block.All("characteristics[organism part]"), Has.Count.EqualTo(2),
+                "The read side keeps both, so a caller CAN see what the write side will drop.");
+
+            var sample = Sample("Sample 1") with
+            {
+                Characteristics = new Dictionary<string, CvParam>(),
+                RawCharacteristics = block.CharacteristicColumns
+                    .ToDictionary(c => c, c => block[c]!, StringComparer.Ordinal)
+            };
+            var written = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) });
+
+            Assert.That(written.Header.Count(c => c == "characteristics[organism part]"), Is.EqualTo(1));
+            Assert.That(written.Results.Single().All("characteristics[organism part]"),
+                Is.EqualTo(new[] { "liver" }));
+        }
+
+        #endregion
     }
 }
