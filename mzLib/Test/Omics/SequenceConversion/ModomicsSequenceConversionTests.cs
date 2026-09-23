@@ -55,6 +55,17 @@ public class ModomicsSequenceConversionTests
     }
 
     [Test]
+    public void FullSequenceParser_TrimsWhitespaceAfterModomicsNamespace()
+    {
+        var oligo = new OligoWithSetMods("A[Modomics: 2'-O-methyladenosine on A]U");
+
+        Assert.That(oligo.BaseSequence, Is.EqualTo("AU"));
+        Assert.That(oligo.AllModsOneIsNterminus, Does.ContainKey(2));
+        Assert.That(oligo.AllModsOneIsNterminus[2].OriginalId,
+            Is.EqualTo("2'-O-methyladenosine"));
+    }
+
+    [Test]
     public void PseudouridineBecomesMzLibYResidue()
     {
         var sequence = Parser.Parse("GPACU");
