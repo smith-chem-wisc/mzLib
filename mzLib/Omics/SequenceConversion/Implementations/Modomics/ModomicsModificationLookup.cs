@@ -63,5 +63,5 @@ public sealed class ModomicsModificationLookup : ModificationLookupBase
     }
 
     private static char GetTargetResidue(Modification modification) =>
-        modification.Target?.Motif?.FirstOrDefault() ?? '\0';
+        modification.Target.Motif?.FirstOrDefault() ?? '\0';
 }
