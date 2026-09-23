@@ -197,6 +197,28 @@ namespace Test.FileReadingTests
             Assert.That(SdrfValidator.Validate(i.Document).Errors.Where(e => e.Rule == "RowKeyUniqueness"), Is.Empty);
         }
 
+        /// <summary>
+        /// G29, found by the draft -> improve -> restrict chain: a deposit missing columns the specification
+        /// requires stayed missing them. They are added, filled "not available" -- except technology type,
+        /// whose one specified value every mass-spectrometry deposit has.
+        /// </summary>
+        [Test]
+        public void EveryRequiredColumnIsPresentAfterImprovement()
+        {
+            var cols = new[] { "source name", "characteristics[biological replicate]", "assay name", "comment[data file]" };
+            var dep = Doc(cols, new[] { "p1", "1", "run 1", "NEG1.raw" }, new[] { "p2", "1", "run 2", "POS1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            Assert.That(SdrfValidator.Validate(i.Document).Errors.Where(e => e.Rule == "RequiredColumn"), Is.Empty);
+            var h = i.Document.Header.ToList();
+            Assert.That(h.IndexOf("technology type"), Is.EqualTo(h.IndexOf("assay name") + 1));
+            Assert.That(h.IndexOf("characteristics[organism part]"), Is.LessThan(h.IndexOf("assay name")));
+            Assert.That(Row(i.Document, "NEG1.raw")["technology type"], Is.EqualTo("proteomic profiling by mass spectrometry"));
+            Assert.That(Row(i.Document, "NEG1.raw")["comment[cleavage agent details]"], Is.EqualTo("not available"));
+            Assert.That(i.Document.Results.All(r => r.Cells.Count == h.Count), "never ragged");
+        }
+
         [Test]
         public void ARepeatedColumnIsCarriedByPositionNotByName()
         {
@@ -225,7 +247,7 @@ namespace Test.FileReadingTests
 
             int files = 0, crashed = 0, filled = 0, addedRows = 0, disagreements = 0, worse = 0, joined = 0;
             var crashes = new List<string>();
-            var byColumn = new Dictionary<string, int>(); var examples = new List<string>(); var samples = new List<string>(); int manyAdded = 0;
+            var byColumn = new Dictionary<string, int>(); var examples = new List<string>(); var samples = new List<string>(); int manyAdded = 0, requiredFixed = 0;
             foreach (var path in System.IO.Directory.GetFiles(corpus!, "*.sdrf.tsv", System.IO.SearchOption.AllDirectories))
             {
                 string acc = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(path))!;
@@ -242,6 +264,7 @@ namespace Test.FileReadingTests
                     if (!deposited.Header.Contains("comment[data file]") || raw.Count == 0) continue;
                     joined++;
                     int before = SdrfValidator.Validate(deposited).Errors.Count();
+                    int requiredBefore = SdrfValidator.Validate(deposited).Errors.Count(e => e.Rule == "RequiredColumn");
                     var i = SdrfImprover.Improve(deposited, SdrfDrafter.Draft(project, raw));
                     filled += i.FilledCells; addedRows += i.AddedRows; disagreements += i.Disagreements.Count;
                     foreach (var g in i.Disagreements.GroupBy(x => x.Column)) byColumn[g.Key] = byColumn.GetValueOrDefault(g.Key) + g.Count();
@@ -249,6 +272,7 @@ namespace Test.FileReadingTests
                     foreach (var x in i.Disagreements.Where(x => x.Column == "characteristics[organism]" || x.Column == "comment[instrument]").Take(1))
                         if (samples.Count < 8) samples.Add($"{acc} {x.Column}: deposited '{x.Deposited}' vs drafted '{x.Drafted}'");
                     var afterErrors = SdrfValidator.Validate(i.Document).Errors.ToList();
+                    if (requiredBefore > 0 && afterErrors.All(e => e.Rule != "RequiredColumn")) requiredFixed++;
                     if (afterErrors.Count > before)
                     {
                         worse++;
@@ -265,6 +289,7 @@ namespace Test.FileReadingTests
             }
             TestContext.Progress.WriteLine($"{files} corpus SDRFs with a cached PRIDE project; {joined} improved; {crashed} crashed");
             TestContext.Progress.WriteLine($"cells filled {filled}; rows added {addedRows}; disagreements reported {disagreements}; validator worse on {worse}");
+            TestContext.Progress.WriteLine($"files that were missing a required column and now have them all: {requiredFixed}");
             foreach (var c in crashes) TestContext.Progress.WriteLine("  CRASH " + c);
             foreach (var (c, n) in byColumn.OrderByDescending(kv => kv.Value)) TestContext.Progress.WriteLine($"  disagree {n,7} {c}");
             TestContext.Progress.WriteLine($"  deposits with more rows added than they had: {manyAdded}");
