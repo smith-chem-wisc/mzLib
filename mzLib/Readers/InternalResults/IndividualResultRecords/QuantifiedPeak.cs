@@ -88,18 +88,22 @@ namespace Readers
         public string PeakDetectionType { get; set; }
 
         // No longer written since the PIP columns below replaced it (#802); kept for older tables.
+        // Null when the column is absent, and on MSMS peaks, where older writers left it blank: a
+        // score of 0 is a real (poor) MBR score, so neither case may read as 0.
         [Optional]
         [Name("MBR Score")]
-        [TypeConverter(typeof(DashToNullOrDoubleConverter))]
-        public double MBRScore { get; set; }
+        [TypeConverter(typeof(DashOrBlankToNullDoubleConverter))]
+        public double? MBRScore { get; set; }
 
-        // Blank (hence nullable) on MSMS peaks, where the writer leaves these MBR-only fields empty.
+        // Blank (hence null) on MSMS peaks, where the writer leaves these MBR-only fields empty.
         [Optional]
         [Name("PIP Q-Value")]
+        [TypeConverter(typeof(DashOrBlankToNullDoubleConverter))]
         public double? PipQValue { get; set; }
 
         [Optional]
         [Name("PIP PEP")]
+        [TypeConverter(typeof(DashOrBlankToNullDoubleConverter))]
         public double? PipPep { get; set; }
 
         [Name("PSMs Mapped")]

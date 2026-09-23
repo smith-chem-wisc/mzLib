@@ -65,7 +65,7 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(first.PeakCharge, Is.EqualTo(2));
             Assert.That(first.NumChargeStatesObserved, Is.EqualTo(3));
             Assert.That(first.PeakDetectionType, Is.EqualTo("MSMS"));
-            Assert.That(first.MBRScore, Is.EqualTo(0));
+            Assert.That(first.MBRScore, Is.Null); // blank on an MSMS peak: no MBR score, not a score of 0
             Assert.That(first.PSMsMapped, Is.EqualTo(2));
             Assert.That(first.BaseSequencesMapped, Is.EqualTo(1));
             Assert.That(first.FullSequencesMapped, Is.EqualTo(1));
@@ -89,7 +89,7 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(last.PeakCharge, Is.Null);
             Assert.That(last.NumChargeStatesObserved, Is.EqualTo(0));
             Assert.That(last.PeakDetectionType, Is.EqualTo("MSMS"));
-            Assert.That(last.MBRScore, Is.EqualTo(0));
+            Assert.That(last.MBRScore, Is.Null);
             Assert.That(last.PSMsMapped, Is.EqualTo(1));
             Assert.That(last.BaseSequencesMapped, Is.EqualTo(1));
             Assert.That(last.FullSequencesMapped, Is.EqualTo(1));
@@ -130,7 +130,7 @@ namespace Test.FileReadingTests.InternalFileReading
                 Assert.That(originalPeak.PeakCharge, Is.EqualTo(writtenPeak.PeakCharge));
                 Assert.That(originalPeak.NumChargeStatesObserved, Is.EqualTo(writtenPeak.NumChargeStatesObserved));
                 Assert.That(originalPeak.PeakDetectionType, Is.EqualTo(writtenPeak.PeakDetectionType));
-                Assert.That(originalPeak.MBRScore, Is.EqualTo(writtenPeak.MBRScore).Within(0.0000001));
+                Assert.That(originalPeak.MBRScore, Is.EqualTo(writtenPeak.MBRScore));
                 Assert.That(originalPeak.PSMsMapped, Is.EqualTo(writtenPeak.PSMsMapped));
                 Assert.That(originalPeak.BaseSequencesMapped, Is.EqualTo(writtenPeak.BaseSequencesMapped));
                 Assert.That(originalPeak.FullSequencesMapped, Is.EqualTo(writtenPeak.FullSequencesMapped));
@@ -171,7 +171,7 @@ namespace Test.FileReadingTests.InternalFileReading
                 Assert.That(originalPeak.PeakCharge, Is.EqualTo(writtenPeak.PeakCharge));
                 Assert.That(originalPeak.NumChargeStatesObserved, Is.EqualTo(writtenPeak.NumChargeStatesObserved));
                 Assert.That(originalPeak.PeakDetectionType, Is.EqualTo(writtenPeak.PeakDetectionType));
-                Assert.That(originalPeak.MBRScore, Is.EqualTo(writtenPeak.MBRScore).Within(0.0000001));
+                Assert.That(originalPeak.MBRScore, Is.EqualTo(writtenPeak.MBRScore));
                 Assert.That(originalPeak.PSMsMapped, Is.EqualTo(writtenPeak.PSMsMapped));
                 Assert.That(originalPeak.BaseSequencesMapped, Is.EqualTo(writtenPeak.BaseSequencesMapped));
                 Assert.That(originalPeak.FullSequencesMapped, Is.EqualTo(writtenPeak.FullSequencesMapped));
@@ -232,7 +232,7 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(msms.PeakDetectionType, Is.EqualTo("MSMS"));
             Assert.That(msms.PipQValue, Is.Null);
             Assert.That(msms.PipPep, Is.Null);
-            Assert.That(msms.MBRScore, Is.EqualTo(0));
+            Assert.That(msms.MBRScore, Is.Null);
             Assert.That(msms.PSMsMapped, Is.EqualTo(3));
             Assert.That(msms.PeakSplitValleyRT, Is.EqualTo(27.009756088256836));
             Assert.That(msms.PeakApexMassError, Is.EqualTo(-0.630587040611585));
@@ -294,9 +294,33 @@ namespace Test.FileReadingTests.InternalFileReading
                 Assert.That(writtenPeak.PeakDetectionType, Is.EqualTo(originalPeak.PeakDetectionType));
                 Assert.That(writtenPeak.PipQValue, Is.EqualTo(originalPeak.PipQValue).Within(0.0000001));
                 Assert.That(writtenPeak.PipPep, Is.EqualTo(originalPeak.PipPep).Within(0.0000001));
+                // absent on read, so written blank and read back null, never as a column of zeros
+                Assert.That(writtenPeak.MBRScore, Is.Null);
                 Assert.That(writtenPeak.DecoyPeptide, Is.EqualTo(originalPeak.DecoyPeptide));
                 Assert.That(writtenPeak.RandomRt, Is.EqualTo(originalPeak.RandomRt));
             }
+        }
+
+        [Test]
+        public static void TestDashOrBlankToNullDoubleConverter()
+        {
+            var converter = new DashOrBlankToNullDoubleConverter();
+
+            // a dash or a blank is "not applicable", never 0
+            Assert.That(converter.ConvertFromString("-", null, null), Is.Null);
+            Assert.That(converter.ConvertFromString("", null, null), Is.Null);
+            Assert.That(converter.ConvertFromString(null, null, null), Is.Null);
+            Assert.That(converter.ConvertFromString("0", null, null), Is.EqualTo(0.0));
+            Assert.That(converter.ConvertFromString("0.081486", null, null), Is.EqualTo(0.081486));
+
+            // text that is not a number throws rather than reading as 0
+            using var csv = new CsvHelper.CsvReader(new StringReader("abc"), QuantifiedPeak.CsvConfiguration);
+            var memberMapData = new CsvHelper.Configuration.MemberMapData(null);
+            Assert.Throws<CsvHelper.TypeConversion.TypeConverterException>(() =>
+                converter.ConvertFromString("abc", csv, memberMapData));
+
+            Assert.That(converter.ConvertToString(null, null, null), Is.Empty);
+            Assert.That(converter.ConvertToString(0.081486, null, null), Is.EqualTo("0.081486"));
         }
     }
 }
