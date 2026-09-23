@@ -297,6 +297,64 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Isoform_InheritsItsEntrysTerms_FlaggedInherited()
+        {
+            // A FASTA search with isoforms reports P04406-2; UniProt XML has only the entry P04406. The isoform
+            // takes the entry's terms, marked inherited, because an isoform can differ precisely in where it is.
+            var rows = Annotator(P("P04406", Go(Nucleus, "ECO:0000314"))).Annotate(Group("P04406-2"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.True);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { "P04406-2" }), "the member as the search named it");
+            Assert.That(nucleus.Evidence, Is.EqualTo(new[] { "ECO:0000314" }));
+            Assert.That(Row(rows, Organelle).Inherited, Is.True, "propagated rows inherit the flag");
+        }
+
+        [Test]
+        public void Inherited_IsFalse_WhenAnyCarryingMemberHasItsOwnEntry()
+        {
+            var rows = Annotator(P("P04406", Go(Nucleus))).Annotate(Group("P04406|P04406-2"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.False);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { "P04406", "P04406-2" }));
+        }
+
+        [Test]
+        public void Isoform_WhoseEntryIsAbsent_ReadsNoEntry()
+        {
+            Assert.That(Annotator(P("P04406", Go(Nucleus))).Annotate(Group("Q13148-3")).Single().Status,
+                Is.EqualTo(GoAnnotationStatus.NoEntry));
+        }
+
+        [Test]
+        public void Isoform_WhoseEntryHasNoTerms_ReadsNoGoTerms()
+        {
+            // The entry was found, so the absence is of terms, not of an entry.
+            Assert.That(Annotator(P("P04406")).Annotate(Group("P04406-2")).Single().Status,
+                Is.EqualTo(GoAnnotationStatus.NoGoTerms));
+        }
+
+        [Test]
+        public void Isoform_WithItsOwnEntry_UsesItAndIsNotInherited()
+        {
+            var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406-2", Go(Gapdh))).Annotate(Group("P04406-2"));
+
+            Assert.That(rows.Any(r => r.GoId == Nucleus), Is.False, "its own entry wins; the parent's is not merged in");
+            Assert.That(Row(rows, Gapdh).Inherited, Is.False);
+        }
+
+        [Test]
+        public void AccessionOutsideUniProtsGrammar_NeverInherits()
+        {
+            // ProteinAccession parses and never repairs: a hyphenated name that is not a UniProt isoform
+            // is not stripped to something that happens to exist.
+            var rows = Annotator(P("contam", Go(Nucleus))).Annotate(Group("contam-2"));
+
+            Assert.That(rows.Single().Status, Is.EqualTo(GoAnnotationStatus.NoEntry));
+        }
+
+        [Test]
         public void NullArguments_ThrowArgumentNull_NotNullReference()
         {
             Assert.Throws<ArgumentNullException>(() => new GoGroupAnnotator(null, Array.Empty<Protein>(), DbSha));

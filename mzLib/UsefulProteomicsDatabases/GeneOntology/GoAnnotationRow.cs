@@ -54,8 +54,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// <param name="Evidence">ECO codes, in ordinal order: for a term a member carries directly, that
     /// annotation's codes; for a propagated term, the codes of the direct descendant annotations that produced
     /// it, so an evidence filter still bites after propagation.</param>
-    /// <param name="Inherited">True when every carrying member got the term only from its canonical entry
-    /// (an isoform); null on a term-less row.</param>
+    /// <param name="Inherited">True when every carrying member is a UniProt isoform (P04406-2) absent from the
+    /// annotation database that took the term from its entry (P04406); null on a term-less row. An entry is not
+    /// necessarily the isoform's sequence, and isoforms can differ in cellular component, so the consumer
+    /// decides whether inherited rows count.</param>
     /// <param name="Propagated">True when no carrying member is annotated to the term itself, only to a
     /// descendant; null on a term-less row. A boolean, never a distance: GO is a DAG, so there is no one path
     /// to measure.</param>
