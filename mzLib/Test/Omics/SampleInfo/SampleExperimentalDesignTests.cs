@@ -179,6 +179,24 @@ namespace Test.Omics.SampleInfo
         }
 
         /// <summary>
+        /// The repeated channel's names are listed in ordinal order, not in the order they arrive, so the
+        /// message is the same whatever order the caller's collection enumerates in. The engine asks the
+        /// rule of a Dictionary's values, whose order is not guaranteed.
+        /// </summary>
+        [Test]
+        public void DescribeRepeatedSample_ListsTheNamesInOrdinalOrder_NotArrivalOrder()
+        {
+            var samples = new ISampleInfo[]
+            {
+                new IsobaricQuantSampleInfo(@"C:\Data\tmt.raw", "Control", 1, 1, 0, 1, "126", 126.12776, false) { SampleName = "Pt3" },
+                new IsobaricQuantSampleInfo(@"C:\Data\tmt.raw", "Control", 2, 1, 0, 1, "126", 126.12776, false) { SampleName = "Pt1" }
+            };
+
+            Assert.That(SampleExperimentalDesign.DescribeRepeatedSample(samples),
+                Is.EqualTo("channel 126 of 'tmt.raw' is listed 2 times, as 'Pt1' and 'Pt3'"));
+        }
+
+        /// <summary>
         /// One sample on the same channel of every plex is a bridge design, not a repeat. PXD008841 puts
         /// a sample named "pool" in 131N of every plex; the channels are in different files, so they are
         /// different samples however they are named.

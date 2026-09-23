@@ -148,6 +148,9 @@ namespace MassSpectrometry
                     .Select(c => c.SampleName)
                     .Where(name => !string.IsNullOrWhiteSpace(name))
                     .Distinct(StringComparer.Ordinal)
+                    // Sorted, so the message does not depend on the order a caller's collection enumerates
+                    // in; the engine hands over a Dictionary's values, whose order is not guaranteed.
+                    .OrderBy(name => name, StringComparer.Ordinal)
                     .Select(name => $"'{name}'")
                     .ToList();
 
