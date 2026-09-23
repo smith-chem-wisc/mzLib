@@ -17,6 +17,41 @@ namespace Test.Statistics;
 [ExcludeFromCodeCoverage]
 public class DifferentialAbundanceTests
 {
+    // ---- Polygamma -------------------------------------------------------------------------------
+
+    [Test]
+    public void Trigamma_MatchesClosedForms()
+    {
+        Assert.That(Polygamma.Trigamma(1), Is.EqualTo(Math.PI * Math.PI / 6).Within(1e-13));
+        Assert.That(Polygamma.Trigamma(0.5), Is.EqualTo(Math.PI * Math.PI / 2).Within(1e-12));
+        Assert.That(Polygamma.Trigamma(2), Is.EqualTo(Math.PI * Math.PI / 6 - 1).Within(1e-13));
+        Assert.That(Polygamma.Trigamma(1000), Is.EqualTo(1.0 / 1000 + 1.0 / (2 * 1e6) + 1.0 / (6 * 1e9)).Within(1e-15));
+    }
+
+    [Test]
+    public void Tetragamma_AtOne_IsMinusTwiceZetaThree() =>
+        Assert.That(Polygamma.Tetragamma(1), Is.EqualTo(-2 * 1.2020569031595942).Within(1e-12));
+
+    [TestCase(1e-5)]
+    [TestCase(0.01)]
+    [TestCase(0.3)]
+    [TestCase(1)]
+    [TestCase(7)]
+    [TestCase(1e4)]
+    [TestCase(1e8)]
+    public void TrigammaInverse_RoundTrips(double x)
+    {
+        double y = Polygamma.TrigammaInverse(x);
+        Assert.That(Polygamma.Trigamma(y), Is.EqualTo(x).Within(1e-8 * x));
+    }
+
+    [Test]
+    public void Polygamma_RejectsNonPositiveArguments()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => Polygamma.Trigamma(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => Polygamma.TrigammaInverse(-1));
+    }
+
     // ---- LinearModel -----------------------------------------------------------------------------
 
     private static double[,] InterceptAndSlope(double[] x) =>
@@ -112,6 +147,17 @@ public class DifferentialAbundanceTests
         Assert.That(LinearModel.ResolveThreads(1), Is.EqualTo(1));
     }
 
+    /// <summary>A fit with too few usable features says so about the fit, not about an internal argument.</summary>
+    [Test]
+    public void Moderate_RefusesAFitWithFewerThanTwoFittedFeatures()
+    {
+        var design = InterceptAndSlope(new double[] { 1, 2, 3, 4 });
+        var y = ToMatrix(2, 4, (f, s) => f == 0 ? s + 0.1 * (s % 2) : (s == 0 ? 1 : double.NaN));
+        var fit = LinearModel.Fit(y, design, new[] { "intercept", "x" });
+        var ex = Assert.Throws<ArgumentException>(() => EmpiricalBayes.Moderate(fit, "x", trend: false));
+        Assert.That(ex!.ParamName, Is.EqualTo("fit"));
+    }
+
     // ---- MultipleTesting ------------------------------------------------------------------------
 
     [Test]
@@ -163,6 +209,117 @@ public class DifferentialAbundanceTests
         Assert.That(r.Estimate, Is.EqualTo(0.4).Within(1e-15));
         Assert.That(r.StandardError, Is.EqualTo(0.1).Within(1e-15));
         Assert.That(double.IsNaN(r.ISquared) && double.IsNaN(r.LeaveOneOutMaxDelta));
+    }
+
+    // ---- EmpiricalBayes -------------------------------------------------------------------------
+
+    /// <summary>
+    /// Simulates the model moderation assumes: σ²_g drawn from a scaled inverse χ² with d0 and s0², then
+    /// s²_g ~ σ²_g·χ²(d)/d. With many features the moment estimator must recover d0 and s0².
+    /// </summary>
+    [Test]
+    public void FitPrior_RecoversTheHyperparametersItAssumes()
+    {
+        const double d0 = 6, s0Sq = 0.05, d = 5;
+        var rng = new MersenneTwister(11);
+        var chiD0 = new ChiSquared(d0, rng);
+        var chiD = new ChiSquared(d, rng);
+        int n = 40000;
+        var s2 = new double[n];
+        for (int g = 0; g < n; g++)
+        {
+            double sigma2 = d0 * s0Sq / chiD0.Sample();
+            s2[g] = sigma2 * chiD.Sample() / d;
+        }
+        var prior = EmpiricalBayes.FitPrior(s2, Enumerable.Repeat(d, n).ToArray());
+
+        Assert.That(prior.Df, Is.EqualTo(d0).Within(0.1 * d0));
+        Assert.That(prior.Scale[0], Is.EqualTo(s0Sq).Within(0.05 * s0Sq));
+        Assert.That(prior.Trended, Is.False);
+    }
+
+    /// <summary>When every feature shares one true variance, sample variances are no more spread than χ²
+    /// sampling explains, the prior df is infinite, and every feature takes the prior variance.</summary>
+    [Test]
+    public void FitPrior_CommonVarianceGivesInfinitePriorDf()
+    {
+        var rng = new MersenneTwister(3);
+        var chi = new ChiSquared(4, rng);
+        var s2 = Enumerable.Range(0, 20000).Select(_ => 0.2 * chi.Sample() / 4).ToArray();
+        var prior = EmpiricalBayes.FitPrior(s2, Enumerable.Repeat(4.0, s2.Length).ToArray());
+        Assert.That(prior.Df, Is.GreaterThan(200));   // infinite or very large: no detectable dispersion
+        Assert.That(prior.Scale[0], Is.EqualTo(0.2).Within(0.01));
+    }
+
+    /// <summary>A prior variance that falls with intensity is captured by the trend and missed without it.</summary>
+    [Test]
+    public void FitPrior_TrendFollowsIntensity()
+    {
+        var rng = new MersenneTwister(5);
+        var chi = new ChiSquared(6, rng);
+        int n = 20000;
+        var amean = Enumerable.Range(0, n).Select(g => 18 + 12.0 * g / n).ToArray();
+        var s2 = amean.Select(a => Math.Exp(-0.3 * (a - 24)) * 0.05 * chi.Sample() / 6).ToArray();
+        var df = Enumerable.Repeat(6.0, n).ToArray();
+
+        var trended = EmpiricalBayes.FitPrior(s2, df, amean);
+        double low = trended.Scale[n / 10], high = trended.Scale[9 * n / 10];
+        double expectedRatio = Math.Exp(-0.3 * (amean[n / 10] - amean[9 * n / 10]));
+        Assert.That(trended.Trended);
+        Assert.That(low / high, Is.EqualTo(expectedRatio).Within(0.1 * expectedRatio));
+    }
+
+    /// <summary>Under the null, moderated p-values are uniform: about 5% fall below 0.05.</summary>
+    [Test]
+    public void Moderate_NullPValuesAreUniform()
+    {
+        var (y, design) = SimulatedAgeStudy(features: 6000, samples: 10, trueSlope: 0, seed: 13);
+        var fit = LinearModel.Fit(y, design, new[] { "intercept", "age_decades", "male" }, maxThreads: 4);
+        var test = EmpiricalBayes.Moderate(fit, "age_decades", trend: true);
+
+        var p = test.PValue.Where(double.IsFinite).ToArray();
+        double below = p.Count(v => v < 0.05) / (double)p.Length;
+        Assert.That(p.Length, Is.GreaterThan(5500));
+        Assert.That(below, Is.EqualTo(0.05).Within(0.01));
+        Assert.That(test.BenjaminiHochbergAdjusted.Where(double.IsFinite).Count(q => q < 0.05), Is.LessThan(30));
+    }
+
+    /// <summary>A real age effect on a tenth of features is found, and moderation does not move the estimate.</summary>
+    [Test]
+    public void Moderate_FindsTrueAgeEffectsAndLeavesEstimatesAlone()
+    {
+        var (y, design) = SimulatedAgeStudy(features: 3000, samples: 12, trueSlope: 0.6, seed: 17, affectedEvery: 10);
+        var fit = LinearModel.Fit(y, design, new[] { "intercept", "age_decades", "male" });
+        var test = EmpiricalBayes.Moderate(fit, "age_decades", trend: false);
+
+        int truePositives = Enumerable.Range(0, 3000).Count(f => f % 10 == 0 && test.BenjaminiHochbergAdjusted[f] < 0.05);
+        int falsePositives = Enumerable.Range(0, 3000).Count(f => f % 10 != 0 && test.BenjaminiHochbergAdjusted[f] < 0.05);
+        Assert.That(truePositives, Is.GreaterThan(150));
+        Assert.That(falsePositives / (double)Math.Max(1, truePositives + falsePositives), Is.LessThan(0.1));
+        Assert.That(test.Estimate[0], Is.EqualTo(fit.Coefficient(0, 1)));
+        Assert.That(test.DfTotal[0], Is.GreaterThan(fit.DfResidual[0]));
+    }
+
+    /// <summary>
+    /// Omitting a missing value lowers that feature's residual df, which is when this result departs from
+    /// limma's current default, so the result must say so. Complete data leave every df equal. A feature
+    /// that could not be fitted has no residual df and must not raise the flag.
+    /// </summary>
+    [Test]
+    public void Moderate_ReportsWhenResidualDfDiffer()
+    {
+        var design = InterceptAndSlope(new double[] { 1, 2, 3, 4, 5, 6 });
+        double[,] Responses(bool oneMissing) => ToMatrix(5, 6, (f, s) =>
+            f == 4 ? (s == 0 ? 1 : double.NaN)                  // too sparse to fit
+            : oneMissing && f == 0 && s == 5 ? double.NaN
+            : 10 + f + 0.3 * s + 0.1 * ((f + 1) * (s + 2) % 5));
+        var names = new[] { "intercept", "x" };
+
+        var complete = EmpiricalBayes.Moderate(LinearModel.Fit(Responses(false), design, names), "x", trend: false);
+        Assert.That(complete.ResidualDfDiffer, Is.False);
+
+        var withMissing = EmpiricalBayes.Moderate(LinearModel.Fit(Responses(true), design, names), "x", trend: false);
+        Assert.That(withMissing.ResidualDfDiffer, Is.True);
     }
 
     /// <summary>

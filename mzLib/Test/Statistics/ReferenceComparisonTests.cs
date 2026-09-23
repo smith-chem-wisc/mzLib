@@ -11,7 +11,8 @@ namespace Test.Statistics;
 
 /// <summary>
 /// Compares the Statistics project against frozen outputs of the published implementations: limma's
-/// lmFit and metafor's DerSimonian-Laird rma. The outputs, the R script that made them and its versions are in
+/// lmFit and eBayes (legacy = TRUE, the method-of-moments prior this project implements) and metafor's
+/// DerSimonian-Laird rma. The outputs, the R script that made them and its versions are in
 /// ReferenceData (PROVENANCE.txt). R is never run by these tests.
 /// </summary>
 [TestFixture]
@@ -86,6 +87,24 @@ public class ReferenceComparisonTests
         AssertClose(fit.Sigma, Column(file, "sigma"), "sigma");
         AssertClose(fit.DfResidual.Select(d => (double)d).ToArray(), Column(file, "df_residual"), "df.residual");
         AssertClose(fit.AverageResponse, Column(file, "amean"), "Amean");
+    }
+
+    [TestCase(false, "notrend")]
+    [TestCase(true, "trend")]
+    public void ModerationMatchesLimmaEBayesLegacy(bool trend, string tag)
+    {
+        var test = EmpiricalBayes.Moderate(FitReferenceData(), "age_decades", trend);
+        // The fixture omits missing values, so this is exactly the input on which default limma (>= 3.61)
+        // would use its newer estimator; the match below holds for legacy = TRUE only.
+        Assert.That(test.ResidualDfDiffer, Is.True);
+        string file = $"limma_ebayes_{tag}.tsv";
+        AssertClose(new[] { test.Prior.Df }, Column($"limma_ebayes_{tag}_prior.tsv", "df_prior"), "df.prior");
+        AssertClose(test.Prior.Scale, Column(file, "s2_prior"), "s2.prior");
+        AssertClose(test.PosteriorVariance, Column(file, "s2_post"), "s2.post");
+        AssertClose(test.DfTotal, Column(file, "df_total"), "df.total");
+        AssertClose(test.T, Column(file, "t_age"), "t");
+        AssertClose(test.PValue, Column(file, "p_age"), "p.value");
+        AssertClose(test.BenjaminiHochbergAdjusted, Column(file, "bh_age"), "BH");
     }
 
     [Test]
