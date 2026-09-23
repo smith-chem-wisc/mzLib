@@ -133,6 +133,44 @@ namespace Test.FileReadingTests
             if (kind != SdrfReplicateKind.Unstated) Assert.That(r.MarkerEvidence, Does.Contain("record"));
         }
 
+        [TestCase("Each sample was analysed in three separate technical replicates.", "Technical")]
+        [TestCase("Three independent biological replicates were grown.", "Biological")]
+        public void AWordOrTwoBetweenTheNumberAndTheKindStillCounts(string text, string kindName)
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "M35_001", "M35_002", "M35_003", "M36_001", "M36_002", "M36_003" }, new[] { text });
+
+            Assert.That(r.MarkerKind, Is.EqualTo(Enum.Parse<SdrfReplicateKind>(kindName)), r.MarkerEvidence);
+        }
+
+        [Test]
+        public void TheCountIsWhatMostBasesHaveNotTheLargest()
+        {
+            var names = new[] { "A_1", "A_2", "A_3", "B_1", "B_2", "B_3", "C_1", "C_2", "C_3", "C_4" };
+
+            var r = SdrfReplicateResolver.Read(names, new[] { "Samples were analyzed in triplicate." });
+
+            Assert.That(r.MarkerKind, Is.EqualTo(SdrfReplicateKind.Technical), r.MarkerEvidence);
+        }
+
+        [Test]
+        public void AFractionMarkerKeepsItsOwnNumbersAcrossAGap()
+        {
+            var names = new[] { "SKMEL28_F1", "SKMEL28_F2", "SKMEL28_F4", "SKMEL28_F5" };
+
+            var r = SdrfReplicateResolver.Read(names, Array.Empty<string>());
+
+            Assert.That(r.Files.Select(f => f.Number), Is.EqualTo(new int?[] { 1, 2, 4, 5 }), "a missing band stays a gap (MAP-34)");
+            Assert.That(r.Files.Select(f => f.Base).Distinct().Count(), Is.EqualTo(1));
+        }
+
+        [Test]
+        public void TechMarksATechnicalReplicate()
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "tech_A_01", "tech_A_02", "tech_A_03" }, Array.Empty<string>());
+
+            Assert.That(r.Files.Select(f => f.Kind), Is.All.EqualTo(SdrfReplicateKind.Technical));
+        }
+
         [Test]
         public void TwoKindsStatingTheSameNumberDecideNothing()
         {

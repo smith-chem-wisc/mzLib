@@ -79,7 +79,7 @@ namespace Readers
         private const string Num =@"(\d+|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|duplicates?|triplicates?|quadruplicates?|twice)";
 
         private static readonly Regex NumberMarker = new(
-            @"^(?<base>.*?)(?<sep>[_\-\.\s]*)(?<w>[A-Za-z]*)(?<![0-9])(?<n>\d{1,2})$",
+            @"^(?<base>.*?)(?<sep>[_\-\.\s]*)(?<w>[A-Za-z]*)(?<![0-9])(?<n>0\d{2}|\d{1,2})$",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
         // The word written just before a marker's number, when it says what the number counts. A word that
         // says nothing (r, rep, replicate, repeat, or none) leaves the kind to the record.
@@ -97,12 +97,16 @@ namespace Readers
             ["replicate"] = SdrfReplicateKind.Unstated, ["repeat"] = SdrfReplicateKind.Unstated,
         };
 
+        private static readonly Regex TechnicalInName = new(
+            @"(?:^|[_\-\.\s])(?:tech|technical|techrep|inj|injection|reinjection|rerun)(?:$|[_\-\.\s])",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
         private static readonly Regex LetterMarker = new(
             @"^(?<base>.*?[0-9A-Za-z])[_\-\.\s]?(?<l>[A-Da-d])$", RegexOptions.Compiled);
 
         private static readonly Regex[] Biological =
         {
-            new(@"\b" + Num + @"\s+(?:independent\s+)?biological(?:ly)?(?:\s+independent)?\s+(?:replicates?|samples?|triplicates?|duplicates?|repeats?)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+            new(@"\b" + Num + @"\s+(?:\w+\s+){0,2}?biological(?:ly)?(?:\s+independent)?\s+(?:replicates?|samples?|triplicates?|duplicates?|repeats?)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\bbiological\s+" + Num, RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\b(?:grown|cultured|cultivated|incubated|prepared|harvested|collected|treated|infected)\s+in\s+" + Num, RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\bn\s*=\s*(\d+)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
@@ -112,7 +116,7 @@ namespace Readers
 
         private static readonly Regex[] Technical =
         {
-            new(@"\b" + Num + @"\s+technical\s+(?:replicates?|triplicates?|duplicates?|repeats?|injections?)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+            new(@"\b" + Num + @"\s+(?:\w+\s+){0,2}?technical\s+(?:replicates?|triplicates?|duplicates?|repeats?|injections?)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\btechnical\s+" + Num, RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\b(?:analy[sz]ed|injected|measured|run|acquired|performed)\s+(?:\w+\s+){0,3}?in\s+" + Num, RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\b(?:injected|analy[sz]ed|measured|run|acquired)\s+(?:" + Num + @"\s+times|(twice))", RegexOptions.IgnoreCase | RegexOptions.Compiled),
@@ -157,8 +161,10 @@ namespace Readers
             }).ToList();
 
             // The record decides only markers whose own word said nothing.
+            // The count is what MOST bases have (A_1..3, B_1..3, C_1..4 -> 3), not the largest.
             int innerCount = files.Where(f => f.Number != null && f.Kind == SdrfReplicateKind.Unstated)
-                .Select(f => f.Number!.Value).DefaultIfEmpty(0).Max();
+                .GroupBy(f => f.Base, StringComparer.OrdinalIgnoreCase).Select(g => g.Count())
+                .GroupBy(c => c).OrderByDescending(g => g.Count()).ThenBy(g => g.Key).Select(g => g.Key).FirstOrDefault();
             int outerCount = files.Where(f => f.Outer != null).Select(f => f.Outer!.Value).DefaultIfEmpty(0).Max();
             bool twoLevels = outerCount > 0;
 
@@ -198,6 +204,15 @@ namespace Readers
                 if (members.Count < 2) continue;
                 var values = members.Select(kv => kv.Value.Value).ToList();
                 if (values.Distinct().Count() != values.Count) continue;
+                if (members[0].Value.Kind == SdrfReplicateKind.Fraction)
+                {
+                    // A fraction keeps its own number and a gap stays a gap (MAP-34): fractions are matched
+                    // across samples by index, and a missing band is a missing file, not a renumbering.
+                    int shift = values[0] == 0 ? 1 : 0;
+                    foreach (var kv in members)
+                        result[kv.Key] = new Marker(kv.Value.Base!, kv.Value.Value + shift, SdrfReplicateKind.Fraction);
+                    continue;
+                }
                 if (values.Where((v, i) => v != values[0] + i).Any()) continue;
                 // No study has more than a dozen replicates of one condition: a longer run whose own word
                 // says nothing is a run counter (Phospho_final_01..40). Fractions often run to 24 or more.
@@ -217,6 +232,8 @@ namespace Readers
                 int n = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
                 if (MarkerWords.TryGetValue(w, out var kind))
                 {
+                    // A word saying nothing next to the number may be said elsewhere in the name: tech_A_01.
+                    if (kind == SdrfReplicateKind.Unstated && TechnicalInName.IsMatch(b)) kind = SdrfReplicateKind.Technical;
                     if (b.Length > 0) return (b.TrimEnd('_', '-', '.', ' '), n, false, kind);
                 }
                 else if (w.Length >= 2 && m.Groups["sep"].Value.Length == 0)
