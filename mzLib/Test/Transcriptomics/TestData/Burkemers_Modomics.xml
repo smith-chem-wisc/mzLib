@@ -55,11 +55,11 @@
     <organism>
       <name type="scientific">Burkmers</name>
     </organism>
-    <sequence length="22">UUCAAGUAXUCCAGGAUAGGCU</sequence>
+    <sequence length="22">UUCAAGUAχUCCAGGAUAGGCU</sequence>
   </entry>
   <entry>
     <accession>22mer#2-Am</accession>
-    <name>21mer#1-Am</name>
+     <name>22mer#2-Am</name>
     <protein>
       <recommendedName>
         <fullName>22mer#2-Am</fullName>
