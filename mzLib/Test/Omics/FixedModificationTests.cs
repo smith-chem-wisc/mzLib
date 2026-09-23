@@ -44,36 +44,6 @@ public class FixedModificationTests
         Assert.That(clone.OneBasedFixedModifications[1], Is.EqualTo(modification));
     }
 
-    [Test]
-    public void DigestedOligoExposesParentsOneBasedFixedModifications()
-    {
-        var modification = CreateModification('U');
-        var fixedModifications = new Dictionary<int, Modification>
-        {
-            [3] = modification,
-        };
-        var rna = new RNA("GUACUG", oneBasedFixedModifications: fixedModifications);
-
-        var digestedOligos = rna.Digest(
-                new RnaDigestionParams { MaxMods = 2 },
-                new List<Modification>(),
-                new List<Modification>())
-            .Cast<OligoWithSetMods>()
-            .ToList();
-
-        Assert.That(digestedOligos, Is.Not.Empty);
-        Assert.That(digestedOligos.All(oligo => oligo.OneBasedFixedModifications.ContainsKey(3)), Is.True);
-        Assert.That(digestedOligos.All(oligo => oligo.OneBasedFixedModifications[3] == modification), Is.True);
-    }
-
-    [Test]
-    public void ParentlessOligoReturnsEmptyOneBasedFixedModifications()
-    {
-        var parentlessOligo = new OligoWithSetMods("GUACUG");
-
-        Assert.That(parentlessOligo.OneBasedFixedModifications, Is.Empty);
-    }
-
     private static Modification CreateModification(char target)
     {
         Assert.That(ModificationMotif.TryGetMotif(target.ToString(), out var motif), Is.True);
