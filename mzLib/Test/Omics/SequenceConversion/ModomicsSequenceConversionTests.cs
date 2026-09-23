@@ -40,6 +40,7 @@ public class ModomicsSequenceConversionTests
     [TestCase("/UCCAGU#CAGUACJG", "AUCCAGUGCAGUACUG", 3)]
     [TestCase("UUCAAGUA:UCCAGGAUAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
     [TestCase("UUCAAGUA=UCCAGGAUAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
+    [TestCase("UUCAAGUA=UCCAGGA   UAGGCU", "UUCAAGUAAUCCAGGAUAGGCU", 1)]
     [TestCase("GA:C", "GAAC", 1)]
     [TestCase("GA=C", "GAAC", 1)]
     [TestCase("G:C", "GAC", 1)]
@@ -176,6 +177,16 @@ public class ModomicsSequenceConversionTests
         Assert.That(sequence, Is.Null);
         Assert.That(warnings.HasFatalError, Is.True);
         Assert.That(warnings.IncompatibleItems, Does.Contain(ambiguousCode));
+    }
+
+    [Test]
+    public void DumbTestsForCodeCoverage()
+    {
+        var lookup = ModomicsModificationLookup.Instance;
+        Assert.That(lookup.Name, Is.EqualTo("Modomics"));
+
+        var parser = ModomicsSequenceParser.Instance;
+        Assert.That(parser.Schema, Is.EqualTo(ModomicsSequenceFormatSchema.Instance));
     }
 
     [Test]

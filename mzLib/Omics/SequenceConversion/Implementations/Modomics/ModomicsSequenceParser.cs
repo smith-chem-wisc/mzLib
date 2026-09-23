@@ -97,7 +97,7 @@ public sealed class ModomicsSequenceParser : ISequenceParser
 
             if (modification is not null)
             {
-                var target = modification!.Target?.Motif?.FirstOrDefault() ?? '\0';
+                var target = modification.Target.Motif?.FirstOrDefault() ?? '\0';
                 if (IsFivePrimeModification(modification))
                 {
                     if (baseSequence.Length != 0)
@@ -129,13 +129,6 @@ public sealed class ModomicsSequenceParser : ISequenceParser
             return HandleCodeError(warnings, mode, code, "The MODOMICS code could not be resolved.");
         }
 
-        if (baseSequence.Length == 0)
-        {
-            return SequenceConversionHelpers.HandleParserError(
-                warnings, mode, ConversionFailureReason.InvalidSequence,
-                "No valid sequence characters found.");
-        }
-
         return new CanonicalSequence(
             baseSequence.ToString(),
             modifications.ToImmutableArray(),
@@ -143,7 +136,7 @@ public sealed class ModomicsSequenceParser : ISequenceParser
     }
 
     private static bool IsFivePrimeModification(Modification modification) =>
-        modification.LocationRestriction?.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase) == true;
+        modification.LocationRestriction.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase) == true;
 
     private static CanonicalSequence? HandleCodeError(
         ConversionWarnings warnings,
