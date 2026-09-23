@@ -17,6 +17,7 @@
 
 using Chemistry;
 using Proteomics;
+using UsefulProteomicsDatabases.GeneOntology;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -139,6 +140,69 @@ namespace UsefulProteomicsDatabases
                 File.Move(psiModOboLocation, psiModOboLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
                 File.Move(psiModOboLocation + ".temp", psiModOboLocation);
             }
+        }
+
+        /// <summary>
+        /// Where go.obo is downloaded from: the OBO Foundry PURL, which always resolves to the current GO
+        /// release. The release actually fetched is whatever the file's data-version says, and
+        /// <see cref="GeneOntologyGraph.Release"/> records it.
+        /// </summary>
+        public const string GeneOntologyUrl = "https://purl.obolibrary.org/obo/go.obo";
+
+        /// <summary>
+        /// Downloads the current go.obo to <paramref name="geneOntologyLocation"/>, keeping any file already
+        /// there as a timestamped backup when the download differs from it.
+        /// </summary>
+        /// <remarks>
+        /// This always fetches the whole file (~37 MB): there is no conditional request. Call it to move to a
+        /// new release on purpose; <see cref="LoadGeneOntology"/> never calls it once a file exists, so a
+        /// pinned release stays pinned.
+        /// </remarks>
+        public static void UpdateGeneOntology(string geneOntologyLocation, CancellationToken cancellationToken = default) =>
+            UpdateGeneOntology(geneOntologyLocation, DownloadClient, cancellationToken);
+
+        /// <summary>
+        /// <see cref="UpdateGeneOntology(string,CancellationToken)"/> over a caller-supplied
+        /// <see cref="HttpClient"/>, so the replace-and-backup path can be tested without the live PURL.
+        /// </summary>
+        internal static void UpdateGeneOntology(string geneOntologyLocation, HttpClient httpClient,
+            CancellationToken cancellationToken = default)
+        {
+            string temp = geneOntologyLocation + ".temp";
+            // DownloadContent opens the temp file with FileMode.CreateNew, so one left behind by a crashed run
+            // would make every later update throw. It is never a complete file -- a completed download is
+            // moved into place -- so it is safe to discard.
+            if (File.Exists(temp))
+            {
+                File.Delete(temp);
+            }
+            DownloadContent(GeneOntologyUrl, temp, httpClient, cancellationToken);
+            if (!File.Exists(geneOntologyLocation))
+            {
+                File.Move(temp, geneOntologyLocation);
+                return;
+            }
+            if (FilesAreEqual_Hash(temp, geneOntologyLocation))
+            {
+                File.Delete(temp);
+            }
+            else
+            {
+                File.Move(geneOntologyLocation, geneOntologyLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
+                File.Move(temp, geneOntologyLocation);
+            }
+        }
+
+        /// <summary>
+        /// Loads go.obo from <paramref name="geneOntologyLocation"/>, downloading it first only if no file is
+        /// there. An existing file is never refreshed here: that keeps a pinned release pinned. Use
+        /// <see cref="UpdateGeneOntology(string,CancellationToken)"/> to move to a newer one.
+        /// </summary>
+        public static GeneOntologyGraph LoadGeneOntology(string geneOntologyLocation)
+        {
+            if (!File.Exists(geneOntologyLocation))
+                UpdateGeneOntology(geneOntologyLocation);
+            return GeneOntologyGraph.Load(geneOntologyLocation);
         }
 
         public static IEnumerable<OboTerm> ReadPsiModFile(string psiModOboLocation)
