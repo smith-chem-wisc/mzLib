@@ -6,12 +6,10 @@
 #   Rscript make_reference_fixtures.R <out_dir>
 #
 # What is compared, and why these settings:
-#   * limma lmFit + eBayes, trend = FALSE and trend = TRUE, robust = FALSE.
-#   * legacy = TRUE. From limma 3.61 eBayes switches to a different prior estimator
-#     (fitFDistUnequalDF1) whenever residual df differ between features, which missing values cause.
-#     mzLib implements the method-of-moments estimator of Smyth (2004), which is the legacy one.
+#   * limma lmFit: per-feature least squares with missing values omitted.
 #   * metafor rma(method = "DL") for DerSimonian-Laird pooling.
-#   * p.adjust(method = "BH").
+# The eBayes comparison was split out with the moderation code. eBayes draws no random numbers, so
+# removing it leaves the random stream, and every output below, exactly as first generated.
 # Every feature's observed design is kept full-rank, because limma drops aliased coefficients and
 # keeps the feature, while mzLib reports it RankDeficient and leaves it out of the prior.
 
@@ -53,17 +51,6 @@ w(fmt(data.frame(
   coef_intercept = fit$coefficients[, 1], coef_age = fit$coefficients[, 2], coef_sex = fit$coefficients[, 3],
   unscaled_age = fit$stdev.unscaled[, 2], sigma = fit$sigma, df_residual = fit$df.residual, amean = fit$Amean
 )), "limma_fit.tsv")
-
-for (trend in c(FALSE, TRUE)) {
-  eb <- eBayes(fit, trend = trend, robust = FALSE, legacy = TRUE)
-  tag <- if (trend) "trend" else "notrend"
-  w(fmt(data.frame(
-    s2_prior = if (length(eb$s2.prior) == 1) rep(eb$s2.prior, G) else eb$s2.prior,
-    s2_post = eb$s2.post, df_total = eb$df.total,
-    t_age = eb$t[, 2], p_age = eb$p.value[, 2], bh_age = p.adjust(eb$p.value[, 2], "BH")
-  )), sprintf("limma_ebayes_%s.tsv", tag))
-  w(fmt(data.frame(df_prior = eb$df.prior)), sprintf("limma_ebayes_%s_prior.tsv", tag))
-}
 
 # ---- DerSimonian-Laird, several heterogeneity regimes ------------------------------------------------
 meta <- list()
