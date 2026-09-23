@@ -375,34 +375,36 @@ namespace Readers
         /// That pair is also the clearest illustration of the value test above: the model carries no
         /// value, the serial number does.
         /// </summary>
-        private CvParam GetInstrumentModel()
+        private CvParam GetInstrumentModel() =>
+            InstrumentCvParamsInLookupOrder()
+                .Select(FirstInstrumentModel)
+                .FirstOrDefault(model => model != null);
+
+        /// <summary>
+        /// The cvParam arrays that describe the run's instrument, in the order a run-level lookup
+        /// should search them: the default instrumentConfiguration (or the first, when the run names
+        /// none), its direct cvParams first -- a file that states a value inline means it, and should
+        /// not be overridden by a shared group -- then each referenceableParamGroup it references, in
+        /// reference order. Shared by <see cref="GetInstrumentModel"/> and
+        /// <see cref="GetInstrumentSerialNumber"/> so the two lookups cannot drift apart.
+        /// </summary>
+        private IEnumerable<Generated.CVParamType[]?> InstrumentCvParamsInLookupOrder()
         {
             var configurations = _mzMLConnection.instrumentConfigurationList?.instrumentConfiguration;
             if (configurations == null || configurations.Length == 0)
-                return null;
+                yield break;
 
             var defaultRef = _mzMLConnection.run?.defaultInstrumentConfigurationRef;
             var configuration = configurations.FirstOrDefault(c => c.id == defaultRef) ?? configurations[0];
 
-            // Direct cvParams first: a file that states the model inline means it, and should not be
-            // overridden by a shared group.
-            var model = FirstInstrumentModel(configuration.cvParam);
-            if (model != null)
-                return model;
+            yield return configuration.cvParam;
 
             var groups = _mzMLConnection.referenceableParamGroupList?.referenceableParamGroup;
             if (configuration.referenceableParamGroupRef == null || groups == null)
-                return null;
+                yield break;
 
             foreach (var groupRef in configuration.referenceableParamGroupRef)
-            {
-                var group = groups.FirstOrDefault(g => g.id == groupRef.@ref);
-                model = FirstInstrumentModel(group?.cvParam);
-                if (model != null)
-                    return model;
-            }
-
-            return null;
+                yield return groups.FirstOrDefault(g => g.id == groupRef.@ref)?.cvParam;
         }
 
         /// <summary>
@@ -412,32 +414,10 @@ namespace Readers
         /// for in the same configuration and in the same order as <see cref="GetInstrumentModel"/>.
         /// Reported verbatim: a placeholder such as "Serial Number N/A" is what the file says.
         /// </summary>
-        private string? GetInstrumentSerialNumber()
-        {
-            var configurations = _mzMLConnection.instrumentConfigurationList?.instrumentConfiguration;
-            if (configurations == null || configurations.Length == 0)
-                return null;
-
-            var defaultRef = _mzMLConnection.run?.defaultInstrumentConfigurationRef;
-            var configuration = configurations.FirstOrDefault(c => c.id == defaultRef) ?? configurations[0];
-
-            var serial = FirstSerialNumber(configuration.cvParam);
-            if (serial != null)
-                return serial;
-
-            var groups = _mzMLConnection.referenceableParamGroupList?.referenceableParamGroup;
-            if (configuration.referenceableParamGroupRef == null || groups == null)
-                return null;
-
-            foreach (var groupRef in configuration.referenceableParamGroupRef)
-            {
-                serial = FirstSerialNumber(groups.FirstOrDefault(g => g.id == groupRef.@ref)?.cvParam);
-                if (serial != null)
-                    return serial;
-            }
-
-            return null;
-        }
+        private string? GetInstrumentSerialNumber() =>
+            InstrumentCvParamsInLookupOrder()
+                .Select(FirstSerialNumber)
+                .FirstOrDefault(serial => serial != null);
 
         private static string? FirstSerialNumber(Generated.CVParamType[]? cvParams) =>
             cvParams?
