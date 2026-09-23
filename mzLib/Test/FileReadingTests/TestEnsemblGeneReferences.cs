@@ -132,6 +132,17 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void EnsemblGeneReferences_ReferencesWithoutATranscriptId_AreNotRepeatsOfEachOther()
+        {
+            var protein = WithReferences(
+                Ensembl(null, ("gene ID", "ENSG00000000001.1")),
+                Ensembl(null, ("gene ID", "ENSG00000000002.1")));
+
+            Assert.That(protein.EnsemblGeneIds, Is.EqualTo(new[] { "ENSG00000000001", "ENSG00000000002" }),
+                "no transcript id is not a shared transcript id, so the second gene link is not dropped");
+        }
+
+        [Test]
         public void Decoys_CarryNoEnsemblGeneReferences()
         {
             var decoy = ProteinDbLoader

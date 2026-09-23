@@ -82,8 +82,10 @@ namespace Proteomics
                 }
 
                 // Matched by type, never by position: ProteinDbWriter re-sorts properties on write.
+                // A reference with no transcript id (DatabaseReference stores a missing one as "") names no
+                // transcript to be a repeat of, so it is kept.
                 string geneId = PropertyValue(reference, GeneIdPropertyType);
-                if (string.IsNullOrEmpty(geneId) || !seenTranscripts.Add(reference.Id ?? ""))
+                if (string.IsNullOrEmpty(geneId) || (!string.IsNullOrEmpty(reference.Id) && !seenTranscripts.Add(reference.Id)))
                 {
                     continue;
                 }
