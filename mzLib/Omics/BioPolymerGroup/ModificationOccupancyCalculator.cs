@@ -225,6 +225,12 @@ public static class ModificationOccupancyCalculator
     /// the same condition under which digestion produces such a form (Protease: residue 1 must be 'M'). Its
     /// N-terminus is then the protein N-terminus, and ModificationLocalization places "N-terminal." mods there.
     /// </summary>
+    /// <remarks>
+    /// Not handled: a protease that cleaves C-terminal to Met (e.g. CNBr, "M|") also yields a form starting at
+    /// residue 2 from a Met-retained molecule. That form has the same base sequence and span as the Met-removed
+    /// N-terminus, so digestion produces one form for both and nothing here can tell them apart; it is counted
+    /// as the protein N-terminus. For such proteases, protein N-terminal occupancy may be understated.
+    /// </remarks>
     private static bool StartsAfterInitiatorMethionine(IBioPolymerWithSetMods sequence, IBioPolymer bioPolymer)
         => sequence.OneBasedStartResidue == 2
            && bioPolymer.BaseSequence.Length > 0
