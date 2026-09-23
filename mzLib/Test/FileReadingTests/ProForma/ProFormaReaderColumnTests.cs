@@ -105,6 +105,39 @@ namespace Test.FileReadingTests.ProForma
             Assert.That(disambiguated.ProForma, Is.EqualTo(SpectrumMatchFromTsv.ProFormaFromFullSequence(firstCandidate)));
         }
 
+        [Test]
+        public void ProForma_ColumnPresentButBlank_IsComputedLikeAnAbsentColumn()
+        {
+            // A blank cell carries no value from the file, so it must give the same answer as a file
+            // without the column, including on a disambiguated candidate of an ambiguous row.
+            var lines = File.ReadAllLines(SearchResult("OneOverK0Example.psmtsv")).ToList();
+            lines[0] += "\t" + SpectrumMatchFromTsvHeader.ProForma;
+            for (int i = 1; i < lines.Count; i++)
+                if (lines[i].Length > 0) lines[i] += "\t";
+
+            string tmp = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"proforma_blank_{TestContext.CurrentContext.Test.ID}.psmtsv");
+            File.WriteAllLines(tmp, lines);
+            try
+            {
+                var psms = SpectrumMatchTsvReader.ReadTsv<PsmFromTsv>(tmp, out _);
+                Assert.That(psms, Is.Not.Empty);
+                foreach (var psm in psms)
+                    Assert.That(psm.ProForma, Is.EqualTo(SpectrumMatchFromTsv.ProFormaFromFullSequence(psm.FullSequence)));
+                Assert.That(psms.Count(p => p.ProForma != null), Is.GreaterThan(0));
+
+                var ambiguous = psms.Single(p => p.FullSequence.Contains('|'));
+                string firstCandidate = ambiguous.FullSequence.Split('|')[0];
+                var disambiguated = new PsmFromTsv(ambiguous, firstCandidate, 0);
+                Assert.That(disambiguated.ProForma, Is.Not.Null);
+                Assert.That(disambiguated.ProForma, Is.EqualTo(SpectrumMatchFromTsv.ProFormaFromFullSequence(firstCandidate)));
+            }
+            finally
+            {
+                File.Delete(tmp);
+            }
+        }
+
         [TestCase(@"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\XLink.psmtsv")]
         [TestCase(@"FileReadingTests\SearchResults\oglyco.psmtsv")]

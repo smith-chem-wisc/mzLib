@@ -210,9 +210,11 @@ namespace Readers
             DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
             Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
             EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
-            // optional: absent in pre-ProForma files, where the getter computes it from FullSequence instead
-            if (parsedHeader.TryGetValue(SpectrumMatchFromTsvHeader.ProForma, out int proFormaIndex) && proFormaIndex >= 0)
-                ProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl);
+            // optional: absent in pre-ProForma files, and may be blank on a row, where the getter computes it
+            // from FullSequence instead, so a blank cell and a missing column give the same answer
+            string? fileProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl);
+            if (!string.IsNullOrWhiteSpace(fileProForma))
+                ProForma = fileProForma;
             MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
             MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
             MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
