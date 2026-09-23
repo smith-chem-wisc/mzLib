@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text.RegularExpressions;
 
@@ -156,6 +157,11 @@ namespace UsefulProteomicsDatabases.GeneOntology
             if (value.Length == 0)
             {
                 throw new InvalidDataException($"{fileName} line {lineNumber}: header key '{key}' has no value.");
+            }
+            // The category table's header writes "#!category_map <name> <version> <sha256>", split on spaces.
+            if (value.Any(char.IsWhiteSpace))
+            {
+                throw new InvalidDataException($"{fileName} line {lineNumber}: header key '{key}' may not contain whitespace.");
             }
             if (!header.TryAdd(key, value))
             {
