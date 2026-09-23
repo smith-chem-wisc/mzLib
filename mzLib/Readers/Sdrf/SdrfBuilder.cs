@@ -59,7 +59,15 @@ namespace Readers
         private const string SdrfVersionColumn = "comment[sdrf version]";
 
         /// <summary>The one value SDRF defines for this column in an MS experiment.</summary>
-        private const string TechnologyTypeValue = "proteomic profiling by mass spectrometry";
+        // The comment columns the builder writes itself; an extension comment may not reuse one.
+        private static readonly HashSet<string> BuiltInComments = new(StringComparer.Ordinal)
+        {
+            AcquisitionMethod, Label, Instrument, CleavageAgent, ModificationParameters, PrecursorTolerance,
+            FragmentTolerance, DissociationMethod, FractionIdentifier, TechnicalReplicate, DataFile,
+            SearchedDataFile, PxAccession, SoftwareColumn, SdrfVersionColumn
+        };
+
+        private const string TechnologyTypeValue ="proteomic profiling by mass spectrometry";
 
         /// <summary>
         /// Characteristics columns SDRF requires of every document, and which are therefore emitted
@@ -130,12 +138,20 @@ namespace Readers
             // caller that never sets it gets byte-for-byte the document it got before.
             bool searchedColumn = inputs.Any(r => !string.IsNullOrWhiteSpace(r.Assay.SearchedDataFileName));
 
+            // Extension comments: one union, sorted, like every other multi-row column set. Empty for a
+            // caller that sets none, so its document is unchanged.
+            var commentColumns = inputs
+                .SelectMany(r => r.Sample.Comments.Keys)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+
             var header = new SdrfHeader(BuildHeader(
-                characteristicColumns, factorColumns, modificationSlots, searchedColumn, options));
+                characteristicColumns, factorColumns, modificationSlots, searchedColumn, commentColumns, options));
 
             var built = inputs
                 .Select(input => new SdrfRow(header,
-                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, searchedColumn, options)))
+                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, searchedColumn, commentColumns, options)))
                 .ToList();
 
             return new SdrfDocument(header, built);
@@ -174,6 +190,23 @@ namespace Readers
                 throw new ArgumentException(
                     $"Row {index} has a null {nameof(SdrfSample.FactorValues)}; pass an empty " +
                     "dictionary for a sample with no factor values.", nameof(input));
+            if (input.Sample.Comments is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.Comments)}; pass an empty " +
+                    "dictionary for a sample with no extension comments.", nameof(input));
+            foreach (var key in input.Sample.Comments.Keys)
+            {
+                if (string.IsNullOrWhiteSpace(key)
+                    || !key.StartsWith("comment[", StringComparison.Ordinal) || !key.EndsWith(']'))
+                    throw new ArgumentException(
+                        $"Row {index} has an extension comment keyed '{key}'; {nameof(SdrfSample.Comments)} " +
+                        "takes comment[...] columns only. Characteristics go in Characteristics or " +
+                        "RawCharacteristics, factors in FactorValues.", nameof(input));
+                if (BuiltInComments.Contains(key))
+                    throw new ArgumentException(
+                        $"Row {index} has an extension comment '{key}', which the builder already writes " +
+                        "from the assay; set it there instead, so one column is never written twice.", nameof(input));
+            }
 
             // A blank key would become a column with no name. The factor union already drops one,
             // which loses its value silently; refusing all three alike tells the caller instead.
@@ -233,7 +266,7 @@ namespace Readers
 
         private static List<string> BuildHeader(
             IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, IReadOnlyList<string> comments, SdrfBuilderOptions options)
         {
             var names = new List<string> { SourceName, Organism };
             names.AddRange(characteristics);
@@ -258,13 +291,14 @@ namespace Readers
             if (options.Software is not null) names.Add(SoftwareColumn);
             if (!string.IsNullOrWhiteSpace(options.SdrfVersion)) names.Add(SdrfVersionColumn);
 
+            names.AddRange(comments);
             names.AddRange(factors);
             return names;
         }
 
         private static List<string> BuildCells(
             SdrfRowInput input, IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, IReadOnlyList<string> comments, SdrfBuilderOptions options)
         {
             var sample = input.Sample;
             var assay = input.Assay;
@@ -338,6 +372,13 @@ namespace Readers
                 // column, so the malformed value would have gone out silently. The specification
                 // asks for vMAJOR.MINOR.PATCH.
                 cells.Add("v" + options.SdrfVersion.TrimStart('v', 'V'));
+
+            foreach (var column in comments)
+                // A row without this key: for a provenance override column that means "no override,
+                // the row default holds", which is not-applicable rather than not-available.
+                cells.Add(sample.Comments.TryGetValue(column, out var comment) && !string.IsNullOrWhiteSpace(comment)
+                    ? comment
+                    : SdrfReserved.NotApplicable);
 
             foreach (var column in factors)
             {

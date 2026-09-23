@@ -163,6 +163,43 @@ namespace Test.FileReadingTests
             Assert.That(cells.Where(c => c.Source == SdrfDraftSource.Inferred).All(c => c.Evidence.Length > 0));
         }
 
+        // ---- writing the draft as an SDRF ----
+
+        [Test]
+        public void ADraftBecomesAValidSdrfWithOneRowPerFile()
+        {
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Covid(), CovidFiles()), "PXD020394");
+
+            Assert.That(doc.Results.Count, Is.EqualTo(20));
+            Assert.That(doc.Results.Select(r => r["comment[data file]"]), Is.EquivalentTo(CovidFiles()));
+            Assert.That(doc.Header, Does.Contain("factor value[condition]"));
+            var v = SdrfValidator.Validate(doc);
+            Assert.That(v.Errors, Is.Empty, string.Join("\n", v.Errors.Select(e => e.ToString())));
+        }
+
+        [Test]
+        public void ProvenanceIsARowDefaultWithAnOverrideOnlyWhereACellDiffers()
+        {
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Covid(), CovidFiles()), "PXD020394");
+            var neg = doc.Results.Single(r => r["comment[data file]"] == "NEG1.raw");
+
+            Assert.That(neg["comment[characteristics source]"], Is.EqualTo("pride project record"));
+            Assert.That(neg["comment[disease source]"], Is.EqualTo("inferred"), "the control arm's 'normal' was inferred");
+            Assert.That(neg["characteristics[disease]"], Does.Contain("AC=PATO:0000461"));
+            var h = doc.Header.ToList();
+            Assert.That(h.IndexOf("comment[characteristics source]"), Is.GreaterThan(h.IndexOf("assay name")), "comment columns after assay name (N10)");
+        }
+
+        [Test]
+        public void ACellNothingStatesIsNotAvailableAndCarriesNoSource()
+        {
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Covid(), CovidFiles()), "PXD020394");
+            var row = doc.Results.Single(r => r["comment[data file]"] == "POS1.raw");
+
+            Assert.That(row["characteristics[organism]"], Is.EqualTo("not available"), "PRIDE lists two organisms");
+            Assert.That(row["assay name"], Is.EqualTo("run POS1"));
+        }
+
         [Test]
         public void MalformedArgumentsThrow()
         {

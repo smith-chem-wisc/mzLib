@@ -165,6 +165,90 @@ namespace Readers
             return new SdrfDraft(rows, factorColumns);
         }
 
+        /// <summary>
+        /// Writes a draft as an SDRF through <see cref="SdrfBuilder"/>, with its provenance.
+        ///
+        /// <para><b>Provenance, option B (D31).</b> <c>comment[characteristics source]</c> is each row's
+        /// default: the source most of its stated characteristics share. <c>comment[&lt;characteristic&gt;
+        /// source]</c> is written only where one cell's source differs -- the control arm's inferred
+        /// <c>normal</c> beside a project-record organism part. A cell nothing states is
+        /// <c>not available</c> and has no source.</para>
+        ///
+        /// <para>Assay facts a draft cannot know (cleavage agent, modifications, tolerances) are
+        /// <c>not available</c>: the search that uses this SDRF knows them and writes them in the SDRF it
+        /// emits (D37). <c>assay name</c> is <c>run &lt;file stem&gt;</c> (MAP-13).</para>
+        /// </summary>
+        public static SdrfDocument ToDocument(SdrfDraft draft, string? proteomeXchangeAccession = null)
+        {
+            if (draft == null) throw new ArgumentNullException(nameof(draft));
+            if (draft.Rows.Count == 0) throw new ArgumentException("A draft with no rows has no SDRF.", nameof(draft));
+            ControlledVocabulary.Pride.TryGetByAccession("MS:1002038", out var labelFree);
+
+            var rows = draft.Rows.Select(r =>
+            {
+                var stated = new List<(string Name, SdrfDraftCell Cell)>
+                    { ("organism", r.Organism), ("organism part", r.OrganismPart), ("disease", r.Disease) }
+                    .Where(x => x.Cell.Source != SdrfDraftSource.NotAvailable).ToList();
+                var comments = new Dictionary<string, string>(StringComparer.Ordinal);
+                if (stated.Count > 0)
+                {
+                    var byRow = stated.GroupBy(x => x.Cell.Source)
+                        .OrderByDescending(g => g.Count()).ThenBy(g => g.Key == SdrfDraftSource.PrideProjectRecord ? 0 : 1)
+                        .First().Key;
+                    comments["comment[characteristics source]"] = SourceWord(byRow);
+                    foreach (var (name, cell) in stated.Where(x => x.Cell.Source != byRow))
+                        comments[$"comment[{name} source]"] = SourceWord(cell.Source);
+                }
+
+                var characteristics = new Dictionary<string, CvParam>(StringComparer.Ordinal);
+                if (r.OrganismPart.Term != null) characteristics["characteristics[organism part]"] = r.OrganismPart.Term;
+                if (r.Disease.Source != SdrfDraftSource.NotAvailable)
+                    characteristics["characteristics[disease]"] = r.Disease.Value == "normal" ? Normal : r.Disease.Term!;
+
+                var factors = draft.FactorColumns.Zip(r.Factors)
+                    .Where(x => x.Second.Source != SdrfDraftSource.NotAvailable)
+                    .ToDictionary(x => x.First, x => x.Second.Value, StringComparer.Ordinal);
+
+                return new SdrfRowInput(
+                    new SdrfSample
+                    {
+                        SourceName = r.SourceName.Value,
+                        Organism = r.Organism.Term,
+                        Characteristics = characteristics,
+                        BiologicalReplicate = int.Parse(r.BiologicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture),
+                        Label = labelFree,
+                        FactorValues = factors,
+                        Comments = comments
+                    },
+                    new SdrfAssay
+                    {
+                        DataFileName = r.DataFile,
+                        AssayName = "run " + SdrfFileNamePattern.Stem(r.DataFile),
+                        Instrument = r.Instrument.Term,
+                        Fraction = int.Parse(r.Fraction.Value, System.Globalization.CultureInfo.InvariantCulture),
+                        TechnicalReplicate = int.Parse(r.TechnicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture)
+                    });
+            }).ToList();
+
+            // A draft states only what it read; everything else is "not available", never a refusal (D27's
+            // exception to D17, carried over to drafted SDRFs by D30).
+            return SdrfBuilder.Build(rows, new SdrfBuilderOptions
+            {
+                RequireSampleMetadata = false,
+                ProteomeXchangeAccession = proteomeXchangeAccession
+            });
+        }
+
+        // PATO's "normal": the control arm's disease cell, and PRIDE's "Disease free", as a term, so the
+        // disease column never mixes terms with free text.
+        private static readonly CvParam Normal = new("PATO", "PATO:0000461", "normal", "");
+
+        private static string SourceWord(SdrfDraftSource source) => source switch
+        {
+            SdrfDraftSource.PrideProjectRecord => "pride project record",
+            _ => "inferred"
+        };
+
         private sealed record Replicates(string Key, string KeyWhy, int? Bio, string BioWhy, int? Tech, string TechWhy, int? Frac, string FracWhy);
 
         private static Replicates ReadReplicates(string file, SdrfFileNameReading t, SdrfReplicateReading m, SdrfReplicates all, bool found)

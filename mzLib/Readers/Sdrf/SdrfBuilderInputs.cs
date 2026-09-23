@@ -100,6 +100,23 @@ namespace Readers
         /// </summary>
         public IReadOnlyDictionary<string, string> FactorValues { get; init; }
             = new Dictionary<string, string>();
+
+        /// <summary>
+        /// Extension <c>comment[...]</c> columns for this row, keyed by column name, written verbatim in
+        /// the comment block AFTER the assay columns and before the factor values.
+        ///
+        /// The first users are the provenance columns: <c>comment[characteristics source]</c>, the row's
+        /// default source, and <c>comment[&lt;characteristic&gt; source]</c>, an override only where one
+        /// cell's source differs (sdrf D29/D31). They cannot travel in <see cref="RawCharacteristics"/>:
+        /// that would write them in the sample block, BEFORE <c>assay name</c>, and the reference
+        /// validator rejects a comment column there.
+        ///
+        /// Every row's keys join one union. A row without a key writes <c>not applicable</c> -- for an
+        /// override column, "no override here, the row default holds". A key must be a
+        /// <c>comment[...]</c> column and must not be one the builder already writes; either throws.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Comments { get; init; }
+            = new Dictionary<string, string>();
     }
 
     /// <summary>
