@@ -2,6 +2,7 @@
 using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 using Proteomics;
 using System;
 using System.Collections.Generic;
@@ -30,7 +31,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
     {
         None,
         ToUpper,
-        ConvertAllTtoU
+        ConvertAllTtoU,
+        ConvertModomicsSequence
     }
 
     public static class RnaDbLoader
@@ -50,6 +52,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         private static readonly Regex _trnaDbHeaderRegex = new Regex(@"^>tdb[A-Z]+\d+", RegexOptions.Compiled);
 
         private static readonly ListPool<SequenceTransformationOnRead> transformPool = new(4);
+        private static readonly HashSet<char> IupacAmbiguityOrPlaceholderCodes =
+            ['B', 'D', 'H', 'K', 'M', 'N', 'R', 'S', 'V', 'W', 'X'];
 
         public static RnaFastaHeaderType DetectRnaFastaHeaderType(string line)
         {
@@ -270,12 +274,14 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                         var transformsForThisSequence = transformPool.Get();
                         transformsForThisSequence.AddRange(sequenceTransformations);
 
-                        if (rawSequence.IsAllLower())
-                            transformsForThisSequence.Add(SequenceTransformationOnRead.ToUpper);
+                            if (IsLowerCanonicalSequence(rawSequence))
+                                transformsForThisSequence.Add(SequenceTransformationOnRead.ToUpper);
+                            else if (IsModomicsRepresentation(rawSequence))
+                                transformsForThisSequence.Add(SequenceTransformationOnRead.ConvertModomicsSequence);
 
                         try
                         {
-                            var sequence = SanitizeAndTransform(rawSequence, transformsForThisSequence);
+                            var sequence = SanitizeAndTransform(rawSequence, transformsForThisSequence, out var fixedModifications);
 
                             bool isDecoy = identifier.StartsWith(decoyIdentifier);
                             bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
@@ -292,7 +298,7 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             }
 
                             RNA rna = new RNA(sequence, identifier,
-                                null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields, isEntrapment: rnaIsEntrapment);
+                                null, fivePrimeTerminus: fivePrimeTerm, threePrimeTerminus: threePrimeTerm, name: name, organism: organism, databaseFilePath: rnaDbLocation, isContaminant: isContaminant, isDecoy: isDecoy, geneNames: geneNames, databaseAdditionalFields: additonalDatabaseFields, isEntrapment: rnaIsEntrapment, oneBasedFixedModifications: fixedModifications);
                             if (rna.Length == 0)
                                 errors.Add("Line" + line + ", Rna length of 0: " + rna.Name + "was skipped from database: " + rnaDbLocation);
                             else if (rna.IsDecoy)
@@ -397,8 +403,10 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             var transformsForThisEntry = transformPool.Get();
                             transformsForThisEntry.AddRange(sequenceTransformations);
 
-                            if (block.Sequence != null && block.Sequence.IsAllLower())
+                            if (block.Sequence != null && IsLowerCanonicalSequence(block.Sequence))
                                 transformsForThisEntry.Add(SequenceTransformationOnRead.ToUpper);
+                            else if (block.Sequence != null && IsModomicsRepresentation(block.Sequence))
+                                transformsForThisEntry.Add(SequenceTransformationOnRead.ConvertModomicsSequence);
 
                             try
                             {
@@ -528,9 +536,42 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         }
 
         // TODO: Some oligo databases may have the reverse strand, this is currently not handled yet and this code assumes we are always reading in the strand to search against. 
-        public static string SanitizeAndTransform(string rawSequence, IList<SequenceTransformationOnRead> sequenceTransformations)
+        public static string SanitizeAndTransform(string rawSequence,
+            IList<SequenceTransformationOnRead> sequenceTransformations,
+            out Dictionary<int, Modification> oneBasedFixedModifications)
         {
             var cleanedSequence = SubstituteWhitespace.Replace(rawSequence, "");
+            oneBasedFixedModifications = new Dictionary<int, Modification>();
+
+            if (sequenceTransformations.Contains(SequenceTransformationOnRead.ConvertModomicsSequence))
+            {
+                CanonicalSequence canonical;
+                try
+                {
+                    canonical = ModomicsSequenceParser.Instance.Parse(cleanedSequence)
+                        ?? throw new ArgumentException("The MODOMICS sequence could not be converted.");
+                }
+                catch (SequenceConversionException e)
+                {
+                    throw new ArgumentException("The MODOMICS sequence could not be converted.", e);
+                }
+                cleanedSequence = canonical.BaseSequence;
+
+                foreach (var modification in canonical.Modifications)
+                {
+                    if (modification.MzLibModification is null)
+                        throw new ArgumentException($"MODOMICS modification '{modification.OriginalRepresentation}' was not resolved.");
+
+                    int position = modification.PositionType switch
+                    {
+                        ModificationPositionType.NTerminus => 0,
+                        ModificationPositionType.CTerminus => cleanedSequence.Length + 2,
+                        ModificationPositionType.Residue when modification.ResidueIndex.HasValue => modification.ResidueIndex.Value + 1,
+                        _ => throw new ArgumentException($"MODOMICS modification '{modification.OriginalRepresentation}' has no valid position."),
+                    };
+                    oneBasedFixedModifications[position] = modification.MzLibModification;
+                }
+            }
 
             if (sequenceTransformations.Count == 0)
                 return cleanedSequence;
@@ -545,6 +586,46 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                 cleanedSequence = cleanedSequence.Replace('T', 'U');
 
             return cleanedSequence;
+        }
+
+        private static bool IsLowerCanonicalSequence(string sequence)
+        {
+            foreach (var character in sequence)
+            {
+                if (char.IsWhiteSpace(character))
+                    continue;
+                else if (!char.IsLower(character)
+                    || !Nucleotide.AllKnownRnaResidues.ContainsKey(char.ToUpperInvariant(character)))
+                    return false;
+                else
+                    continue;
+            }
+
+            return true;
+        }
+
+        private static bool IsModomicsRepresentation(string sequence)
+        {
+            var hasUnambiguousModomicsCode = false;
+            foreach (var character in sequence)
+            {
+                if (char.IsWhiteSpace(character))
+                    continue;
+                // Is Canonical
+                else if (Nucleotide.AllKnownRnaResidues.ContainsKey(character))
+                    continue;
+                // Is Modomics
+                else if (Mods.ModomicsLoadReport.ModificationsByAbbreviation.ContainsKey(character.ToString()))
+                {
+                    if (!IupacAmbiguityOrPlaceholderCodes.Contains(character))
+                        hasUnambiguousModomicsCode = true;
+                    continue;
+                }
+                // Unknown character
+                else
+                    return false;
+            }
+            return hasUnambiguousModomicsCode;
         }
     }
 }

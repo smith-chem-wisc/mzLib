@@ -301,6 +301,35 @@ namespace Proteomics
         /// </summary>
         public IReadOnlyList<GoTerm> GoTerms => GoTerm.FromDatabaseReferences(DatabaseReferences);
 
+        /// <summary>
+        /// The dbReference type UniProt uses for Ensembl transcript/gene links
+        /// (&lt;dbReference type="Ensembl" id="ENST..."&gt;). Declared here for the same reason as the
+        /// taxonomy and GO types.
+        /// </summary>
+        public const string EnsemblDatabaseReferenceType = "Ensembl";
+
+        /// <summary>
+        /// Every Ensembl transcript this entry links to, with the gene each belongs to. One per
+        /// transcript, deduplicated by transcript id.
+        ///
+        /// A derived view over DatabaseReferences, like GoTerms: nothing in the parser changed for it to
+        /// exist. Only XML-loaded entries carry these; FASTA-loaded proteins and decoys do not, so this is
+        /// empty for them.
+        /// </summary>
+        public IReadOnlyList<EnsemblGeneReference> EnsemblGeneReferences =>
+            EnsemblGeneReference.FromDatabaseReferences(DatabaseReferences);
+
+        /// <summary>
+        /// The distinct stable Ensembl gene ids this entry links to, in ordinal order. Often one, but
+        /// not always -- a sequence encoded by several loci (the core histones) links to all of them,
+        /// and this returns every one rather than picking. Empty when the entry names no Ensembl gene.
+        /// </summary>
+        public IReadOnlyList<string> EnsemblGeneIds => EnsemblGeneReferences
+            .Select(r => r.GeneId)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
+
         public string Organism { get; }
         public bool IsDecoy { get; }
         public int Length => BaseSequence.Length;
