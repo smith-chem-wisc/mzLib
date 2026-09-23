@@ -9,8 +9,8 @@ namespace Test.FileReadingTests
 {
     /// <summary>
     /// Tests for reading a design out of one deposit's file names. The refusals matter as much as the
-    /// reads: the plex audit measured file-name partitioning at 3 correct of 9, failing by
-    /// over-splitting, so every case that should NOT yield structure is pinned here too.
+    /// reads: the nearest measurement of this kind of inference (a source-name partition, 3 right of 9)
+    /// failed by over-splitting, so every case that should NOT yield structure is pinned here too.
     ///
     /// The deposit-shaped sets follow the patterns aging reported for PXD049018 (2 lysates x 10 gel
     /// bands), PXD067622 (genotype x treatment x 3) and PXD024803 / PXD032040 (IP with IgG controls).
@@ -40,6 +40,41 @@ namespace Test.FileReadingTests
             Assert.That(Slot(s, SdrfFileNameRole.Fraction).Evidence, Does.Contain("'Band'"));
             Assert.That(Slot(s, SdrfFileNameRole.Sample).Evidence, Does.Contain("'Lysate'"));
             Assert.That(s.Files.All(f => f.Replicate == null && f.BiologicalReplicate == null));
+        }
+
+        /// <summary>
+        /// Fractions are matched ACROSS samples by index (FlashLFQ transfers between fractions at most
+        /// one apart), so a lysate whose first band was never uploaded must keep its bands' own numbers.
+        /// Renumbering it from 1 would line its band 2 up with the other lysate's band 1 (MAP-34).
+        /// </summary>
+        [Test]
+        public void AMissingBandLeavesAGapAndDoesNotShiftTheOthers()
+        {
+            var names = Names("Lysate{0}_Band{1:00}.raw", ("2", 10));
+            names.AddRange(Enumerable.Range(2, 9).Select(i => $"Lysate1_Band{i:00}.raw"));
+            names.Remove("Lysate2_Band05.raw");
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Single(f => f.FileName == "Lysate1_Band02.raw").Fraction, Is.EqualTo(2));
+            Assert.That(s.Files.Single(f => f.FileName == "Lysate2_Band06.raw").Fraction, Is.EqualTo(6));
+            Assert.That(Slot(s, SdrfFileNameRole.Fraction).Evidence, Does.Not.Contain("renumbered"));
+        }
+
+        [Test]
+        public void BandsCountedFromZeroAreShiftedTogetherNotPerSample()
+        {
+            var names = Enumerable.Range(0, 3).Select(i => $"Lysate1_Band{i:00}")
+                .Concat(Enumerable.Range(1, 2).Select(i => $"Lysate2_Band{i:00}")).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Single(f => f.FileName == "Lysate1_Band00").Fraction, Is.EqualTo(1));
+            Assert.That(s.Files.Single(f => f.FileName == "Lysate2_Band01").Fraction, Is.EqualTo(2),
+                "one offset for the whole deposit, so band 01 is fraction 2 in both lysates");
+            Assert.That(Slot(s, SdrfFileNameRole.Fraction).Evidence, Does.Contain("shifted by 1"));
         }
 
         [Test]
@@ -154,7 +189,7 @@ namespace Test.FileReadingTests
             Assert.That(s.Files.All(f => f.Batch == null));
         }
 
-        // ---- The refusals: each of these is an over-split the plex audit warned about. ----
+        // ---- The refusals: each of these would be an over-split. ----
 
         [TestCase(new[] { "HeLa_A", "HeLa_B", "HeLa_C", "HeLa_D" }, "identifier", TestName = "A word that names every file differently is an identifier")]
         [TestCase(new[] { "QE_run001", "QE_run002", "QE_run003", "QE_run004" }, "run number", TestName = "A run number alone is not a replicate")]

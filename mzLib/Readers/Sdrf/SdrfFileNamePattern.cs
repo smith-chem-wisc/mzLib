@@ -8,7 +8,10 @@ namespace Readers
     /// </summary>
     internal enum SdrfFileNameRole
     {
-        /// <summary>A contiguous index inside each sample, named as a fraction (<c>Band_01..10</c>).</summary>
+        /// <summary>
+        /// An index named as a fraction (<c>Band_01..10</c>). Kept as written, not ranked per sample,
+        /// so fractions still line up across samples and a missing file stays a visible gap.
+        /// </summary>
         Fraction,
 
         /// <summary>An index named as a biological replicate (<c>BR1</c>, <c>bio2</c>).</summary>
@@ -44,8 +47,10 @@ namespace Readers
     internal sealed record SdrfFileNameSlot(int Position, SdrfFileNameRole Role, IReadOnlyList<string> Levels, string Evidence);
 
     /// <summary>
-    /// One file's reading. Numbers are 1-based, the convention <see cref="SdrfBuilder"/> takes, and are
-    /// renumbered within their group when the names count from elsewhere (the slot's evidence says so).
+    /// One file's reading. Numbers are 1-based, the convention <see cref="SdrfBuilder"/> takes. A replicate
+    /// or sample index is renumbered within its group when the names count from elsewhere; a fraction
+    /// never is, and is only shifted, for the whole deposit at once, when its count starts at 0. The
+    /// slot's evidence says which happened.
     /// </summary>
     /// <param name="FileName">The file name as given.</param>
     /// <param name="SampleKey">
@@ -81,16 +86,15 @@ namespace Readers
     /// <summary>
     /// Reads a design out of ONE deposit's file names, or says that it cannot.
     ///
-    /// <para><b>Why this is allowed at all.</b> <see cref="SdrfQuantAuditor"/> refuses to infer a plex from
-    /// file names, on a measurement: the source-name partition was right in 3 of 9 cases with ground
-    /// truth, failing by OVER-SPLITTING. A deposit with no SDRF has nothing else, so the drafter reads
-    /// names anyway -- but under three rules that answer that measurement rather than ignore it.
-    /// (1) A token earns a role only from how it varies across the SET, never from one name: an index
-    /// is a fraction only if it runs contiguously inside every sample, a word is a factor only if every
-    /// value it takes is shared by two or more files. (2) Anything that names each file differently is
-    /// an identifier, and an identifier is not structure -- that is the over-split. (3) When the
-    /// evidence does not decide, the answer is "no structure found", with the reason, and every
-    /// reading the caller writes from a found structure is marked inferred with its
+    /// <para><b>How far to trust it.</b> Inferring a design from file names has not been measured
+    /// yet. The nearest measurement -- partitioning channel-level files by their set of
+    /// <c>source name</c> values, right in 3 of 9 files with a plex column -- failed by OVER-SPLITTING,
+    /// so the rules here lean against that failure. (1) A token earns a role only from how it varies
+    /// across the SET, never from one name: an unnamed index must run contiguously inside every group,
+    /// and a word is a factor only if every value it takes is shared by two or more files.
+    /// (2) Anything that names each file differently is an identifier, and an identifier is not
+    /// structure. (3) When the evidence does not decide, the answer is "no structure found", with the
+    /// reason, and every cell a caller writes from a found structure is marked inferred with its
     /// <see cref="SdrfFileNameSlot.Evidence"/>.</para>
     ///
     /// <para>Pure: file names in, a reading out. The PRIDE listing, the provenance marking and the
@@ -229,6 +233,21 @@ namespace Readers
                     return None(names, "two numbered parts carry no word saying what they count, so neither can be read");
 
                 var others = designPositions.Where(q => q != p).ToList();
+                if (role == SdrfFileNameRole.Fraction)
+                {
+                    // Fractions are matched ACROSS samples by index (FlashLFQ transfers only between
+                    // fractions at most one apart), so they are never ranked per sample: a lysate whose
+                    // band 1 was never uploaded keeps band 2 as fraction 2, and a gap stays a gap for the
+                    // design reader to report (MAP-34). One offset for the whole deposit, and only to
+                    // move a count that starts at 0 onto the 1-based SDRF scale.
+                    var bands = tokens.Select(t => long.Parse(t[p], CultureInfo.InvariantCulture)).ToArray();
+                    long shift = bands.Min() == 0 ? 1 : 0;
+                    numbers[p] = bands.Select(v => (int)(v + shift)).ToArray();
+                    slots.Add(new SdrfFileNameSlot(p, role.Value, Sorted(tokens.Select(t => t[p])),
+                        $"part {p + 1} numbers the files{named}" +
+                        (shift > 0 ? "; shifted by 1 for the whole deposit, because the count starts at 0" : "")));
+                    continue;
+                }
                 if (!TryRank(tokens, p, others, out var rank, out bool renumbered))
                     return None(names, $"the numbers at part {p + 1} do not run contiguously inside each group, " +
                                        "so they read as run numbers, not as fractions or replicates");
