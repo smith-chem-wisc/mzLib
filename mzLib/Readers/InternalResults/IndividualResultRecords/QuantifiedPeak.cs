@@ -30,6 +30,12 @@ namespace Readers
         [Name("Protein Group")]
         public string ProteinGroup { get; set; }
 
+        // Columns marked Optional below are written by ChromatographicPeak.TabSeparatedHeader but are
+        // absent from tables written before it (e.g. FlashLFQ in mzLib 1.0.549), so both formats read.
+        [Optional]
+        [Name("Organism")]
+        public string Organism { get; set; }
+
         [Name("Peptide Monoisotopic Mass")]
         public double PeptideMonoisotopicMass { get; set; }
 
@@ -57,6 +63,16 @@ namespace Readers
         [TypeConverter(typeof(DashToNullOrDoubleConverter))]
         public double? PeakRTEnd { get; set; }
 
+        // "-" when the width was not measured; Peak FWHM Status says why.
+        [Optional]
+        [Name("Peak FWHM")]
+        [TypeConverter(typeof(DashToNullOrDoubleConverter))]
+        public double? PeakFwhm { get; set; }
+
+        [Optional]
+        [Name("Peak FWHM Status")]
+        public string PeakFwhmStatus { get; set; }
+
         [Name("Peak MZ")]
         [TypeConverter(typeof(DashToNullOrDoubleConverter))]
         public double? PeakMz { get; set; }
@@ -71,9 +87,20 @@ namespace Readers
         [Name("Peak Detection Type")]
         public string PeakDetectionType { get; set; }
 
+        // No longer written since the PIP columns below replaced it (#802); kept for older tables.
+        [Optional]
         [Name("MBR Score")]
         [TypeConverter(typeof(DashToNullOrDoubleConverter))]
         public double MBRScore { get; set; }
+
+        // Blank (hence nullable) on MSMS peaks, where the writer leaves these MBR-only fields empty.
+        [Optional]
+        [Name("PIP Q-Value")]
+        public double? PipQValue { get; set; }
+
+        [Optional]
+        [Name("PIP PEP")]
+        public double? PipPep { get; set; }
 
         [Name("PSMs Mapped")]
         public int PSMsMapped { get; set; }
@@ -90,5 +117,14 @@ namespace Readers
         [Name("Peak Apex Mass Error (ppm)")]
         [TypeConverter(typeof(DashToNullOrDoubleConverter))]
         public double? PeakApexMassError { get; set; }
+
+        // Nullable so a table that predates these columns reads as unknown, not as false.
+        [Optional]
+        [Name("Decoy Peptide")]
+        public bool? DecoyPeptide { get; set; }
+
+        [Optional]
+        [Name("Random RT")]
+        public bool? RandomRt { get; set; }
     }
 }

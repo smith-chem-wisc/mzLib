@@ -11,6 +11,7 @@ namespace Test.FileReadingTests.InternalFileReading
     {
         internal static string TestDirectory;
         internal static string TestFilePath;
+        internal static string CurrentFormatFilePath;
 
         [OneTimeSetUp]
         public void SetUp()
@@ -19,6 +20,8 @@ namespace Test.FileReadingTests.InternalFileReading
                 @"FileReadingTests\ReadingWritingTests");
             TestFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
                 @"FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv");
+            CurrentFormatFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.591_QuantifiedPeaks.tsv");
             Directory.CreateDirectory(TestDirectory);
         }
 
@@ -174,6 +177,125 @@ namespace Test.FileReadingTests.InternalFileReading
                 Assert.That(originalPeak.FullSequencesMapped, Is.EqualTo(writtenPeak.FullSequencesMapped));
                 Assert.That(originalPeak.PeakSplitValleyRT, Is.EqualTo(writtenPeak.PeakSplitValleyRT));
                 Assert.That(originalPeak.PeakApexMassError, Is.EqualTo(writtenPeak.PeakApexMassError).Within(0.0000001));
+            }
+        }
+
+        [Test]
+        public static void TestOldFormatLeavesCurrentOnlyColumnsNull()
+        {
+            // 1.0.549 predates Organism, Peak FWHM, the PIP columns, Decoy Peptide and Random RT
+            QuantifiedPeakFile file = new QuantifiedPeakFile(TestFilePath);
+            foreach (var peak in file)
+            {
+                Assert.That(peak.Organism, Is.Null);
+                Assert.That(peak.PeakFwhm, Is.Null);
+                Assert.That(peak.PeakFwhmStatus, Is.Null);
+                Assert.That(peak.PipQValue, Is.Null);
+                Assert.That(peak.PipPep, Is.Null);
+                Assert.That(peak.DecoyPeptide, Is.Null);
+                Assert.That(peak.RandomRt, Is.Null);
+            }
+        }
+
+        [Test]
+        public static void TestCurrentFormatLoadsAndCountCorrect()
+        {
+            // Written by MetaMorpheus 1.1.11 (mzLib 1.0.591): no MBR Score column
+            Assert.That(File.ReadLines(CurrentFormatFilePath).First().Split('	'), Does.Not.Contain("MBR Score"));
+
+            QuantifiedPeakFile file = new QuantifiedPeakFile(CurrentFormatFilePath);
+            Assert.That(file.Count(), Is.EqualTo(5));
+            Assert.That(file.CanRead(CurrentFormatFilePath));
+
+            file = FileReader.ReadFile<QuantifiedPeakFile>(CurrentFormatFilePath);
+            Assert.That(file.Count(), Is.EqualTo(5));
+        }
+
+        [Test]
+        public static void TestCurrentFormatValuesAreCorrect()
+        {
+            QuantifiedPeakFile file = new QuantifiedPeakFile(CurrentFormatFilePath);
+
+            // MSMS peak: MBR-only PIP fields are blank
+            var msms = file.Results[0];
+            Assert.That(msms.FileName, Is.EqualTo("20161028_AWH_ColID_236_ProjectID_240_Deniz_Kurian_ctrl1-calib"));
+            Assert.That(msms.BaseSequence, Is.EqualTo("VATVSLPR"));
+            Assert.That(msms.ProteinGroup, Is.EqualTo("P00761"));
+            Assert.That(msms.Organism, Is.EqualTo("Sus scrofa"));
+            Assert.That(msms.PeptideMonoisotopicMass, Is.EqualTo(841.502152023));
+            Assert.That(msms.MS2RetentionTime, Is.EqualTo(27.071499));
+            Assert.That(msms.PeakIntensity, Is.EqualTo(2441141840));
+            Assert.That(msms.PeakRTEnd, Is.EqualTo(28.056227));
+            Assert.That(msms.PeakFwhm, Is.EqualTo(0.17232151774795668));
+            Assert.That(msms.PeakFwhmStatus, Is.EqualTo("Measured"));
+            Assert.That(msms.PeakMz, Is.EqualTo(421.7581));
+            Assert.That(msms.PeakDetectionType, Is.EqualTo("MSMS"));
+            Assert.That(msms.PipQValue, Is.Null);
+            Assert.That(msms.PipPep, Is.Null);
+            Assert.That(msms.MBRScore, Is.EqualTo(0));
+            Assert.That(msms.PSMsMapped, Is.EqualTo(3));
+            Assert.That(msms.PeakSplitValleyRT, Is.EqualTo(27.009756088256836));
+            Assert.That(msms.PeakApexMassError, Is.EqualTo(-0.630587040611585));
+            Assert.That(msms.DecoyPeptide, Is.False);
+            Assert.That(msms.RandomRt, Is.False);
+
+            // MBR peak: no MS2 retention time, PIP fields populated
+            var mbr = file.Results[1];
+            Assert.That(mbr.FullSequence, Is.EqualTo("IKPVLMM[Common Variable:Oxidation on M]NK"));
+            Assert.That(mbr.MS2RetentionTime, Is.Null);
+            Assert.That(mbr.PeakDetectionType, Is.EqualTo("MBR"));
+            Assert.That(mbr.PipQValue, Is.EqualTo(0.081486));
+            Assert.That(mbr.PipPep, Is.EqualTo(0.9995839595794678));
+
+            // decoy peptide: blank organism
+            var decoy = file.Results[2];
+            Assert.That(decoy.ProteinGroup, Is.EqualTo("DECOY_O94903"));
+            Assert.That(decoy.Organism, Is.Empty);
+            Assert.That(decoy.DecoyPeptide, Is.True);
+
+            // MBR peak with a random RT and an unmeasured width
+            var randomRt = file.Results[3];
+            Assert.That(randomRt.PeakFwhm, Is.Null);
+            Assert.That(randomRt.PeakFwhmStatus, Is.EqualTo("TooFewPoints"));
+            Assert.That(randomRt.RandomRt, Is.True);
+
+            // peak with no apex: dashes read as null
+            var noApex = file.Results[4];
+            Assert.That(noApex.PeakIntensity, Is.EqualTo(0));
+            Assert.That(noApex.PeakRTStart, Is.Null);
+            Assert.That(noApex.PeakRTApex, Is.Null);
+            Assert.That(noApex.PeakRTEnd, Is.Null);
+            Assert.That(noApex.PeakFwhm, Is.Null);
+            Assert.That(noApex.PeakFwhmStatus, Is.EqualTo("NoApex"));
+            Assert.That(noApex.PeakMz, Is.Null);
+            Assert.That(noApex.PeakCharge, Is.Null);
+            Assert.That(noApex.PeakApexMassError, Is.EqualTo(double.NaN));
+        }
+
+        [Test]
+        public static void TestCurrentFormatReadWrite()
+        {
+            var file = FileReader.ReadFile<QuantifiedPeakFile>(CurrentFormatFilePath);
+            var testOutputPath = Path.Combine(TestDirectory, "TestOutput_Current_QuantifiedPeaks.tsv");
+
+            file.WriteResults(testOutputPath);
+            var writtenFile = new QuantifiedPeakFile(testOutputPath);
+            Assert.That(writtenFile.Count(), Is.EqualTo(file.Count()));
+
+            for (int i = 0; i < file.Count(); i++)
+            {
+                var originalPeak = file.Results[i];
+                var writtenPeak = writtenFile.Results[i];
+                Assert.That(writtenPeak.FullSequence, Is.EqualTo(originalPeak.FullSequence));
+                Assert.That(writtenPeak.Organism, Is.EqualTo(originalPeak.Organism));
+                Assert.That(writtenPeak.PeakIntensity, Is.EqualTo(originalPeak.PeakIntensity).Within(0.0000001));
+                Assert.That(writtenPeak.PeakFwhm, Is.EqualTo(originalPeak.PeakFwhm).Within(0.0000001));
+                Assert.That(writtenPeak.PeakFwhmStatus, Is.EqualTo(originalPeak.PeakFwhmStatus));
+                Assert.That(writtenPeak.PeakDetectionType, Is.EqualTo(originalPeak.PeakDetectionType));
+                Assert.That(writtenPeak.PipQValue, Is.EqualTo(originalPeak.PipQValue).Within(0.0000001));
+                Assert.That(writtenPeak.PipPep, Is.EqualTo(originalPeak.PipPep).Within(0.0000001));
+                Assert.That(writtenPeak.DecoyPeptide, Is.EqualTo(originalPeak.DecoyPeptide));
+                Assert.That(writtenPeak.RandomRt, Is.EqualTo(originalPeak.RandomRt));
             }
         }
     }
