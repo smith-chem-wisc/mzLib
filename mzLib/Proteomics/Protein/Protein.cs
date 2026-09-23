@@ -235,7 +235,9 @@ namespace Proteomics
                    databaseFilePath: protein.DatabaseFilePath,
                    uniProtEntryAttributes: protein.UniProtEntryAttributes,
                    uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
-                   oneBasedFixedModifications: protein.OneBasedFixedModifications)
+                    oneBasedFixedModifications: appliedSequenceVariations?.FirstOrDefault() is SequenceVariation appliedVariation
+                        ? VariantApplication.AdjustFixedModificationIndices(appliedVariation, variantBaseSequence, protein)
+                        : protein.OneBasedFixedModifications)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;

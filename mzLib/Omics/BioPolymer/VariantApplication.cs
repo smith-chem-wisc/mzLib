@@ -484,6 +484,38 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
+        /// Re-bases fixed modifications through one applied sequence variation.
+        /// Modifications on residues replaced by the variation are dropped.
+        /// </summary>
+        public static Dictionary<int, Modification> AdjustFixedModificationIndices(
+            SequenceVariation variant, string variantAppliedSequence, IBioPolymer bioPolymer)
+        {
+            Dictionary<int, Modification> fixedMods = new Dictionary<int, Modification>();
+            int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
+
+            foreach (KeyValuePair<int, Modification> entry in bioPolymer.OneBasedFixedModifications)
+            {
+                if (entry.Key > variantAppliedSequence.Length)
+                {
+                    continue;
+                }
+
+                if (entry.Key < variant.OneBasedBeginPosition + keptPrefix)
+                {
+                    fixedMods.Add(entry.Key, entry.Value);
+                }
+                else if (variant.OneBasedEndPosition - keptSuffix < entry.Key
+                    && entry.Key + sequenceLengthChange <= variantAppliedSequence.Length)
+                {
+                    fixedMods.Add(entry.Key + sequenceLengthChange, entry.Value);
+                }
+            }
+
+            return fixedMods;
+        }
+
+        /// <summary>
         /// Counts the residues an indel leaves unchanged at its start and then at its end (T -> TAG keeps one at the start,
         /// P -> AGP one at the end). The suffix is counted only over what the prefix left, so no residue is counted twice.
         /// </summary>
