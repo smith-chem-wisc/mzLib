@@ -23,6 +23,40 @@ namespace Test.Transcriptomics
         public static string ModomicsUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             "Transcriptomics/TestData/ModomicsUnmodifiedTrimmed.fasta");
 
+        [TestCase("guacigccuc", "GUACIGCCUC", true)]
+        [TestCase("GUACIGCCUC", "GUACIGCCUC", true)]
+        [TestCase("GUACUGRCCU", "", false)]
+        [TestCase("GUACUGXAUC", "", false)]
+        public void ModomicsDetectionPreservesCanonicalAndRejectsAmbiguousSequences(
+            string inputSequence, string expectedSequence, bool shouldLoad)
+        {
+            var path = Path.Combine(TestContext.CurrentContext.TestDirectory, "modomics-detection-probe.fasta");
+            File.WriteAllText(path,
+                ">id:probe|Name:probe|SOterm:probe|Type:tRNA|Subtype:test|Feature:test|Species:standard\n"
+                + inputSequence + "\n");
+
+            try
+            {
+                var rnas = RnaDbLoader.LoadRnaFasta(path, true, DecoyType.None, false, out var errors);
+                if (shouldLoad)
+                {
+                    Assert.That(errors, Is.Empty);
+                    Assert.That(rnas, Has.Count.EqualTo(1));
+                    Assert.That(rnas[0].BaseSequence, Is.EqualTo(expectedSequence));
+                }
+                else
+                {
+                    Assert.That(rnas, Is.Empty);
+                    Assert.That(errors.Any(error => error.Contains("probe")), Is.True);
+                }
+            }
+            finally
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+        }
+
         public static string TRNAdbUnmodifedFastaPath => Path.Combine(TestContext.CurrentContext.TestDirectory,
             "Transcriptomics/TestData/TRNAdbUnmodifiedTrimmed.fasta");
 

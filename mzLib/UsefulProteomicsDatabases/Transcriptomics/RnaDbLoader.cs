@@ -52,6 +52,8 @@ namespace UsefulProteomicsDatabases.Transcriptomics
         private static readonly Regex _trnaDbHeaderRegex = new Regex(@"^>tdb[A-Z]+\d+", RegexOptions.Compiled);
 
         private static readonly ListPool<SequenceTransformationOnRead> transformPool = new(4);
+        private static readonly HashSet<char> IupacAmbiguityOrPlaceholderCodes =
+            ['B', 'D', 'H', 'K', 'M', 'N', 'R', 'S', 'V', 'W', 'X'];
 
         public static RnaFastaHeaderType DetectRnaFastaHeaderType(string line)
         {
@@ -588,52 +590,42 @@ namespace UsefulProteomicsDatabases.Transcriptomics
 
         private static bool IsLowerCanonicalSequence(string sequence)
         {
-            var hasCharacters = false;
             foreach (var character in sequence)
             {
                 if (char.IsWhiteSpace(character))
                     continue;
-
-                hasCharacters = true;
-                if (!IsCanonicalRnaNucleotide(char.ToUpperInvariant(character)))
+                else if (!char.IsLower(character)
+                    || !Nucleotide.AllKnownRnaResidues.ContainsKey(char.ToUpperInvariant(character)))
                     return false;
+                else
+                    continue;
             }
 
-            return hasCharacters;
+            return true;
         }
 
         private static bool IsModomicsRepresentation(string sequence)
         {
-            var hasModificationCode = false;
+            var hasUnambiguousModomicsCode = false;
             foreach (var character in sequence)
             {
                 if (char.IsWhiteSpace(character))
                     continue;
-
-                if (IsCanonicalRnaNucleotide(character))
+                // Is Canonical
+                else if (Nucleotide.AllKnownRnaResidues.ContainsKey(character))
                     continue;
-
-                if (character == Nucleotide.DeoxyThymineBase.Letter)
-                    continue;
-
-                if (character == 'P' || Mods.ModomicsLoadReport.ModificationsByAbbreviation.ContainsKey(character.ToString()))
+                // Is Modomics
+                else if (Mods.ModomicsLoadReport.ModificationsByAbbreviation.ContainsKey(character.ToString()))
                 {
-                    hasModificationCode = true;
+                    if (!IupacAmbiguityOrPlaceholderCodes.Contains(character))
+                        hasUnambiguousModomicsCode = true;
                     continue;
                 }
-
-                hasModificationCode = true;
+                // Unknown character
+                else
+                    return false;
             }
-
-            return hasModificationCode;
+            return hasUnambiguousModomicsCode;
         }
-
-        private static bool IsCanonicalRnaNucleotide(char character) =>
-            Nucleotide.TryGetResidue(character, out var nucleotide)
-            && (nucleotide == Nucleotide.AdenineBase
-                || nucleotide == Nucleotide.CytosineBase
-                || nucleotide == Nucleotide.GuanineBase
-                || nucleotide == Nucleotide.UracilBase
-                || nucleotide == Nucleotide.PseudoUracilBase);
     }
 }
