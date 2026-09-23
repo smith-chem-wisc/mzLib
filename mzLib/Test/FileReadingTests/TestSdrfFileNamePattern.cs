@@ -252,6 +252,23 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void EveryReadingSaysWhichFamilyItWasReadIn()
+        {
+            var names = new List<string> { "Blank.raw" };
+            names.AddRange(Names("{0}_{1}.raw", ("WT", 2), ("KO", 2)));
+            names.AddRange(Names("20180222_ZJ_{0}_{1}.raw", ("MG", 2)));
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            var wt = s.Files.Single(f => f.FileName == "WT_1.raw");
+            var mg = s.Files.Single(f => f.FileName == "20180222_ZJ_MG_1.raw");
+            Assert.That(wt.Family, Is.GreaterThanOrEqualTo(0));
+            Assert.That(mg.Family, Is.Not.EqualTo(wt.Family), "a differently shaped name is another family");
+            Assert.That(s.Files.Single(f => f.FileName == "Blank.raw").Family, Is.EqualTo(-1), "a lone run belongs to no family");
+            Assert.That(s.Files.Where(f => f.FileName.StartsWith("WT") || f.FileName.StartsWith("KO")).Select(f => f.Family).Distinct().Count(), Is.EqualTo(1));
+        }
+
+        [Test]
         public void ASidecarFileFoldsIntoItsRun()
         {
             var names = Names("{0}_{1}.wiff", ("WT", 2), ("KO", 2));

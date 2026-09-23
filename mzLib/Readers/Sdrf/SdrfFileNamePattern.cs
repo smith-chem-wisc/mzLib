@@ -75,7 +75,15 @@ namespace Readers
         int? TechnicalReplicate,
         int? Replicate,
         string? Batch,
-        bool IsControl);
+        bool IsControl)
+    {
+        /// <summary>
+        /// The family of like-shaped names this file was read in (0 = the largest), or -1 for a run read
+        /// alone. A caller numbering replicates within a condition numbers within a family too: two
+        /// families are two sub-experiments, and their samples do not share one count.
+        /// </summary>
+        public int Family { get; init; } = -1;
+    }
 
     /// <summary>
     /// What <see cref="SdrfFileNamePattern.Read"/> found. When <see cref="Found"/> is false,
@@ -215,7 +223,7 @@ namespace Readers
                 }
                 slots.AddRange(read.Value.Slots.Select(x => x with { Family = k }));
                 foreach (var (r, reading) in read.Value.Readings)
-                    byRun[r] = several ? reading with { SampleKey = $"F{k + 1} {reading.SampleKey}".TrimEnd() } : reading;
+                    byRun[r] = (several ? reading with { SampleKey = $"F{k + 1} {reading.SampleKey}".TrimEnd() } : reading) with { Family = k };
             }
 
             foreach (var (run, (twin, count)) in again)
