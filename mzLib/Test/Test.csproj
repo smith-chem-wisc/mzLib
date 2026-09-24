@@ -487,6 +487,9 @@
     <None Update="FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.549_QuantifiedPeaks.tsv">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="FileReadingTests\ExternalFileTypes\FlashLFQ_MzLib1.0.591_QuantifiedPeaks.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="FileReadingTests\ExternalFileTypes\crux.txt">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -840,6 +843,18 @@
     </None>
     <None Update="Transcriptomics\TestData\20mer1.xml.gz">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkemers.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkemers_Modomics.xml">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkmers_ModomicsSequences.fasta">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Transcriptomics\TestData\Burkmers_PrimarySequence.fasta">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="Transcriptomics\TestData\DecoyVariants.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
