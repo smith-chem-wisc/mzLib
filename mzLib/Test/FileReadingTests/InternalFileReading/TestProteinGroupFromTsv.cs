@@ -159,6 +159,24 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(row.Accessions, Is.EqualTo(new[] { "P1", "P2", "P3" }), "a new name is split again");
         }
 
+        /// <summary>
+        /// MetaMorpheus names the table AllProteinGroups.tsv when label-free quantification is off, and
+        /// &lt;file&gt;_ProteinGroups.tsv for each file's individual results. Both are the same table.
+        /// </summary>
+        [TestCase("AllProteinGroups.tsv")]
+        [TestCase("Sample1_ProteinGroups.tsv")]
+        [TestCase("ALLPROTEINGROUPS.TSV")]
+        public void EveryMetaMorpheusProteinGroupFileNameIsRecognised(string fileName)
+        {
+            string path = Path.Combine(_outputDirectory, fileName);
+            File.WriteAllText(path, "Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nP1|P2\tT\t0.004\n");
+
+            Assert.That(path.ParseFileType(), Is.EqualTo(SupportedFileType.MetaMorpheusQuantifiedProteinGroups));
+            var row = ((ProteinGroupFromTsvFile)FileReader.ReadResultFile(path)).Single();
+            Assert.That(row.Accessions, Is.EqualTo(new[] { "P1", "P2" }));
+            Assert.That(FileReader.ReadFile<ProteinGroupFromTsvFile>(path).Single().QValue, Is.EqualTo(0.004));
+        }
+
         [Test]
         public void WritingIsRefused()
         {
