@@ -19,6 +19,18 @@ namespace Statistics
         /// observed sample shares one sex so the sex coefficient cannot be estimated.
         /// </summary>
         RankDeficient,
+        /// <summary>
+        /// Logistic regression only: the outcomes are (quasi-)completely separated by the design, so the
+        /// maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
+        /// </summary>
+        Separated,
+        /// <summary>An iterative fit did not converge within its iteration limit.</summary>
+        NotConverged,
+        /// <summary>
+        /// Mixed model only: fewer than two groups, or no group observed twice, so the between-group variance
+        /// cannot be told apart from the residual variance.
+        /// </summary>
+        TooFewGroups,
     }
 
     /// <summary>
@@ -215,7 +227,7 @@ namespace Statistics
             fit.StatusValues[f] = FeatureFitStatus.Fitted;
         }
 
-        private static bool IsFullRank(Matrix<double> m)
+        internal static bool IsFullRank(Matrix<double> m)
         {
             var r = m.RowCount == m.ColumnCount && IsUpperTriangular(m) ? m : m.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Thin).R;
             double max = 0;
