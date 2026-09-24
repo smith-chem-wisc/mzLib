@@ -31,7 +31,8 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override int MinPeptideLength => 1;
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public override HashSet<int>? AllowedCollisionEnergies => null; // Fixed CID, no CE input
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD (mods only affect m/z)
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Unused for validation: AcceptsAllUnimodModifications below is authoritative.
+        public override bool AcceptsAllUnimodModifications => true; // Accepts all UNIMOD (mods only affect m/z)
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
@@ -67,9 +68,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             return batchedRequests;
         }
 
-        protected override string? TryCleanSequence(string sequence, out string? apiSequence, out WarningException? warning)
+        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
         {
-            var sanitized = base.TryCleanSequence(sequence, out apiSequence, out warning);
+            var sanitized = base.TryCleanSequence(sequence, sourceParser, out apiSequence, out warning);
             if (sanitized == null || apiSequence == null)
             {
                 return sanitized;

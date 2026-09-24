@@ -122,9 +122,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
             return batchedRequests;
         }
 
-        protected override string? TryCleanSequence(string sequence, out string? apiSequence, out WarningException? warning)
+        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
         {
-            var sanitized = base.TryCleanSequence(sequence, out apiSequence, out warning);
+            var sanitized = base.TryCleanSequence(sequence, sourceParser, out apiSequence, out warning);
             if (sanitized == null || apiSequence == null)
             {
                 return sanitized;

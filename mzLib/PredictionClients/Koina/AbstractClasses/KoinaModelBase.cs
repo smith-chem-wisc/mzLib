@@ -64,10 +64,17 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <summary>
     /// Unimod modification IDs accepted by the model when converting sequences.
     /// Used by the modification converter layer (not parameter validation).
-    /// empty = no modifications are accepted.
+    /// empty = no modifications are accepted, UNLESS <see cref="AcceptsAllUnimodModifications"/> is true.
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
+    /// <summary>
+    /// True when this model accepts any UNIMOD-identified modification instead of restricting to
+    /// <see cref="AllowedUnimodIds"/>. Models built via <see cref="CreateUnimodConverterAcceptAll"/>
+    /// must override this to true, since an empty <see cref="AllowedUnimodIds"/> otherwise means
+    /// "reject every modification".
+    /// </summary>
+    public virtual bool AcceptsAllUnimodModifications => false;
 
     /// <summary>
     /// Gets the regex pattern for validating amino acid sequences.
@@ -167,26 +174,28 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
     /// Handles incompatible modifications according to the specified ModHandlingMode.
     /// </summary>
+    /// <param name="sequence">The raw input sequence string, in the format <paramref name="sourceParser"/> (or the
+    /// model's default converter parser, when null) understands.</param>
+    /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser. The model's
+    /// own serializer always produces the output, regardless of which parser is used here.</param>
     protected virtual string? TryCleanSequence(
         string sequence,
+        ISequenceParser? sourceParser,
         out string? apiSequence,
         out WarningException? warning)
     {
         apiSequence = null;
         warning = null;
 
-        var rawBase = BaseStripper.Replace(sequence, string.Empty);
-        if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
-        {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
-            return null;
-        }
-
         var conversionWarnings = new ConversionWarnings();
         CanonicalSequence? canonical;
         try
         {
-            canonical = SequenceConverter.Parse(sequence, conversionWarnings, ModHandlingMode);
+            // Use the caller-supplied parser when present; otherwise fall back to SequenceConverter.Parse
+            // (not .Parser.Parse) so converters without a real Parser (e.g. test doubles) keep working.
+            canonical = sourceParser != null
+                ? sourceParser.Parse(sequence, conversionWarnings, ModHandlingMode)
+                : SequenceConverter.Parse(sequence, conversionWarnings, ModHandlingMode);
             if (!canonical.HasValue)
             {
                 HandleFailure(ModHandlingMode, "Failed to parse sequence.");
@@ -201,10 +210,40 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
+        // Shared parsers drop unrecognized characters with a warning instead of failing the parse; promote
+        // that warning to a rejection here so "PEP*TIDE" fails instead of silently becoming "PEPTIDE".
+        if (conversionWarnings.Warnings.Any(w => w.Contains("Unexpected character", StringComparison.Ordinal)))
+        {
+            const string ignoredCharMessage = "Sequence contains unsupported or ignored syntax.";
+            HandleFailure(ModHandlingMode, ignoredCharMessage);
+            warning = BuildWarning(conversionWarnings, ignoredCharMessage);
+            return null;
+        }
+
         if (!IsValidBaseSequence(canonical.Value.BaseSequence, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
         {
             HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            warning = BuildWarning(conversionWarnings, null);
             return null;
+        }
+
+        // Pre-identified modifications (e.g. ProForma's UNIMOD:N tokens) skip the serializer's own
+        // lookup/resolution step, so check them against AllowedUnimodIds explicitly here.
+        if (!AcceptsAllUnimodModifications)
+        {
+            var disallowed = canonical.Value.Modifications
+                .Where(m => m.UnimodId.HasValue && !AllowedUnimodIds.Contains(m.UnimodId.Value))
+                .Select(m => $"UNIMOD:{m.UnimodId.Value}")
+                .Distinct()
+                .ToList();
+
+            if (disallowed.Count > 0)
+            {
+                var message = $"Sequence contains unsupported modification(s): {string.Join(", ", disallowed)}.";
+                HandleFailure(ModHandlingMode, message);
+                warning = new WarningException(message);
+                return null;
+            }
         }
 
         var cleaned = canonical.Value;
@@ -217,6 +256,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         string? serialized;
         try
         {
+            // Always the model's own serializer, never sourceParser: it alone owns the Koina-bound target format.
             serialized = SequenceConverter.Serialize(cleaned, conversionWarnings, ModHandlingMode);
         }
         catch (SequenceConversionException ex)

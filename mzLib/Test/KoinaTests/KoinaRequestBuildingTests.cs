@@ -5,7 +5,9 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
+using Readers.ProForma;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 
@@ -135,9 +137,56 @@ namespace Test.KoinaTests
         }
 
         [Test]
+        public void Tmt_TryCleanSequence_ProFormaSourceReachesSameApiSequenceAsMzLib()
+        {
+            // A ProForma-sourced N-terminal TMT label must produce the exact same Koina-bound
+            // apiSequence as the equivalent mzLib-sourced input, via the production converter.
+            var model = new TmtProbe();
+
+            var mzLibResult = model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", out var mzLibApi, out var mzLibWarning);
+            var proFormaResult = model.CleanWithParser("[UNIMOD:737]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
+
+            Assert.That(mzLibResult, Is.Not.Null);
+            Assert.That(proFormaResult, Is.Not.Null, "A ProForma-sourced N-terminal TMT label must survive cleaning.");
+            Assert.That(proFormaWarning, Is.Null);
+            Assert.That(proFormaApi, Does.StartWith("[UNIMOD:737]-"));
+            Assert.That(proFormaApi, Is.EqualTo(mzLibApi), "mzLib and ProForma sources of the same peptide must serialize byte-identically.");
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ProFormaSourceWithoutNTerminalLabel_IsRejected()
+        {
+            var model = new TmtProbe();
+
+            // Rejection signals failure via a null return value and a populated warning; apiSequence
+            // is not also nulled out, matching Tmt_TryCleanSequence_RejectsSequenceWithoutNTerminalLabel.
+            var result = model.CleanWithParser("PEPTIDEK", ProFormaSequenceParser.Instance, out _, out var warning);
+
+            Assert.That(result, Is.Null);
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning!.Message, Does.Contain("N-terminal"));
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ProFormaSourceWithOutOfSetUnimodId_IsRejectedBeforeSerialization()
+        {
+            // UNIMOD:21 (Phospho) is not in Prosit2020IntensityTMT's allowed set. A ProForma "UNIMOD:N"
+            // token is pre-resolved at parse time, so without the allow-list check this would reach Koina.
+            var model = new TmtProbe();
+
+            var result = model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
+
+            Assert.That(result, Is.Null);
+            Assert.That(api, Is.Null);
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning!.Message, Does.Contain("UNIMOD:21"));
+        }
+
+        [Test]
         public void Tmt_ToBatchedRequests_SendsFragmentationType([Values("HCD", "CID")] string fragType)
         {
             // Both supported fragmentation types must flow through to the Koina request offline.
+
             var model = new TmtProbe();
             var inputs = new List<FragmentIntensityPredictionInput>
             {
@@ -209,7 +258,10 @@ namespace Test.KoinaTests
         private sealed class TmtProbe : Prosit2020IntensityTMT
         {
             public string? Clean(string sequence, out string? api, out WarningException? warning)
-                => TryCleanSequence(sequence, out api, out warning);
+                => TryCleanSequence(sequence, null, out api, out warning);
+
+            public string? CleanWithParser(string sequence, ISequenceParser sourceParser, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, sourceParser, out api, out warning);
 
             public List<Dictionary<string, object>> Build(List<FragmentIntensityPredictionInput> inputs)
                 => ToBatchedRequests(inputs);
@@ -235,7 +287,7 @@ namespace Test.KoinaTests
         private sealed class XlNms2Probe : Prosit2024IntensityXLNMS2
         {
             public string? Clean(string sequence, out string? api, out WarningException? warning)
-                => TryCleanSequence(sequence, out api, out warning);
+                => TryCleanSequence(sequence, null, out api, out warning);
         }
     }
 }

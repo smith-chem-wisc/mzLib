@@ -34,6 +34,12 @@ namespace PredictionClients.Koina.AbstractClasses
         string FullSequence
     )
     {
+        /// <summary>
+        /// Optional parser for <see cref="FullSequence"/>'s source format. Null (default) preserves
+        /// current mzLib-only behavior; see <see cref="RetentionTimePredictionInput.SequenceParser"/>
+        /// for the full contract.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
     }
@@ -134,7 +140,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
 
                 if (cleanedSequence != null && apiSequence != null)
                 {

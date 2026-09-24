@@ -42,16 +42,35 @@ public class KoinaModelBaseTests
         }
     }
 
+    private sealed class FakeSequenceParser : ISequenceParser
+    {
+        private readonly Func<string, CanonicalSequence?> _parse;
+
+        public FakeSequenceParser(Func<string, CanonicalSequence?> parse)
+        {
+            _parse = parse;
+        }
+
+        public string FormatName => "fake";
+        public SequenceFormatSchema Schema => MzLibSequenceFormatSchema.Instance;
+        public bool CanParse(string input) => true;
+
+        public CanonicalSequence? Parse(string input, ConversionWarnings? warnings = null, SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+            => _parse(input);
+    }
+
     private sealed class KoinaModelHarness : KoinaModelBase<string, string>
     {
         public KoinaModelHarness(
             ISequenceConverter converter,
             SequenceConversionHandlingMode modHandlingMode = SequenceConversionHandlingMode.ReturnNull,
-            IReadOnlySet<int>? allowedUnimodIds = null)
+            IReadOnlySet<int>? allowedUnimodIds = null,
+            bool acceptsAllUnimodModifications = false)
             : base(converter)
         {
             ModHandlingMode = modHandlingMode;
             AllowedUnimodIds = allowedUnimodIds ?? new HashSet<int>();
+            AcceptsAllUnimodModifications = acceptsAllUnimodModifications;
         }
 
         public override string ModelName => "Harness";
@@ -63,6 +82,7 @@ public class KoinaModelBaseTests
         public override int MaxPeptideLength => 50;
         public override int MinPeptideLength => 1;
         public override IReadOnlySet<int> AllowedUnimodIds { get; }
+        public override bool AcceptsAllUnimodModifications { get; }
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<string> validInputs)
         {
@@ -71,7 +91,12 @@ public class KoinaModelBaseTests
 
         public string? TryClean(string sequence, out string? apiSequence, out WarningException? warning)
         {
-            return TryCleanSequence(sequence, out apiSequence, out warning);
+            return TryCleanSequence(sequence, null, out apiSequence, out warning);
+        }
+
+        public string? TryCleanWithParser(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
+        {
+            return TryCleanSequence(sequence, sourceParser, out apiSequence, out warning);
         }
 
         public static ISequenceConverter BuildConverter(IReadOnlySet<int> allowedUnimodIds)
@@ -100,7 +125,91 @@ public class KoinaModelBaseTests
 
         Assert.That(result, Is.Null);
         Assert.That(apiSequence, Is.Null);
+        // MzLibSequenceParser drops '*' with a warning rather than failing the parse, so
+        // TryCleanSequence promotes that warning to an actionable rejection instead of silently
+        // treating "PEP*TIDE" as "PEPTIDE".
+        Assert.That(warning, Is.Not.Null);
+        Assert.That(warning!.Message, Does.Contain("unsupported or ignored syntax"));
+    }
+
+    [Test]
+    public void TryCleanSequence_NullSourceParser_UsesModelsOwnConverterParser()
+    {
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int> { 35 }), allowedUnimodIds: new HashSet<int> { 35 });
+
+        var result = model.TryCleanWithParser("PEPM[Common Variable:Oxidation on M]IDE", null, out var apiSequence, out _);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(apiSequence, Does.Contain("UNIMOD:35"));
+    }
+
+    [Test]
+    public void TryCleanSequence_ExplicitSourceParser_OverridesConvertersOwnParser()
+    {
+        // A fake parser that returns a fixed CanonicalSequence proves the caller-supplied
+        // SequenceParser is actually consulted instead of the converter's own MzLib parser.
+        var fakeParser = new FakeSequenceParser(_ => CanonicalSequence.Unmodified("PEPTIDEK", "fake"));
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int>()));
+
+        var result = model.TryCleanWithParser("this mzLib parser would reject this string", fakeParser, out var apiSequence, out var warning);
+
+        Assert.That(result, Is.EqualTo("PEPTIDEK"));
+        Assert.That(apiSequence, Is.EqualTo("PEPTIDEK"));
         Assert.That(warning, Is.Null);
+    }
+
+    [Test]
+    public void TryCleanSequence_PreIdentifiedUnimodIdOutsideAllowList_IsRejectedBeforeSerialization()
+    {
+        // Simulates a ProForma-style "UNIMOD:N" token that already carries a resolved UnimodId.
+        // UnimodSequenceSerializer.ShouldResolveMod skips lookup for such mods, so without the
+        // pre-serialization allow-list check this would bypass AllowedUnimodIds and reach Koina.
+        var preIdentified = CanonicalModification.AtResidue(3, 'M', "UNIMOD:35", unimodId: 35);
+        var fakeParser = new FakeSequenceParser(_ =>
+            CanonicalSequence.Unmodified("PEPMIDE", "fake").WithModification(preIdentified));
+        var model = new KoinaModelHarness(
+            KoinaModelHarness.BuildConverter(new HashSet<int> { 4 }),
+            allowedUnimodIds: new HashSet<int> { 4 }); // 35 not allowed
+
+        var result = model.TryCleanWithParser("PEPM[UNIMOD:35]IDE", fakeParser, out var apiSequence, out var warning);
+
+        Assert.That(result, Is.Null);
+        Assert.That(apiSequence, Is.Null);
+        Assert.That(warning, Is.Not.Null);
+        Assert.That(warning!.Message, Does.Contain("UNIMOD:35"));
+    }
+
+    [Test]
+    public void TryCleanSequence_PreIdentifiedUnimodIdWithinAllowList_ReachesSerializer()
+    {
+        var preIdentified = CanonicalModification.AtResidue(3, 'M', "UNIMOD:35", unimodId: 35);
+        var fakeParser = new FakeSequenceParser(_ =>
+            CanonicalSequence.Unmodified("PEPMIDE", "fake").WithModification(preIdentified));
+        var model = new KoinaModelHarness(
+            KoinaModelHarness.BuildConverter(new HashSet<int> { 35 }),
+            allowedUnimodIds: new HashSet<int> { 35 });
+
+        var result = model.TryCleanWithParser("PEPM[UNIMOD:35]IDE", fakeParser, out var apiSequence, out var warning);
+
+        Assert.That(result, Is.Not.Null);
+        Assert.That(apiSequence, Does.Contain("UNIMOD:35"));
+    }
+
+    [Test]
+    public void TryCleanSequence_AcceptsAllUnimodModifications_SkipsAllowListCheckForPreIdentifiedId()
+    {
+        var preIdentified = CanonicalModification.AtResidue(3, 'M', "UNIMOD:9999", unimodId: 9999); // not a real id
+        var fakeParser = new FakeSequenceParser(_ =>
+            CanonicalSequence.Unmodified("PEPMIDE", "fake").WithModification(preIdentified));
+        var model = new KoinaModelHarness(
+            KoinaModelHarness.BuildAcceptAllConverter(),
+            acceptsAllUnimodModifications: true);
+
+        // AcceptsAllUnimodModifications skips the pre-serialization allow-list check, so no early
+        // rejection naming UNIMOD:9999 is produced here (serialization-time lookup is not this test's concern).
+        var result = model.TryCleanWithParser("PEPM[UNIMOD:9999]IDE", fakeParser, out _, out var warning);
+
+        Assert.That(warning is null || !warning.Message.Contains("Sequence contains unsupported modification(s): UNIMOD:9999"));
     }
 
     [Test]
