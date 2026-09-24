@@ -78,7 +78,9 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
     /// whenever Results is empty, and a file whose every item is skipped (a crosslink search, say) would
     /// otherwise be parsed again on every access.
     /// </summary>
-    /// <exception cref="MzLibException">The file is not a readable mzIdentML document.</exception>
+    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="DirectoryNotFoundException">The file's directory does not exist.</exception>
+    /// <exception cref="MzLibException">The file is not a readable mzIdentML document, or reading it failed.</exception>
     public override void LoadResults()
     {
         if (_loadedFrom == FilePath)
@@ -87,19 +89,17 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
         }
 
         MzidIdentifications identifications;
-        using (var file = new FileStream(FilePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-        using (var stream = FilePath.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
-                   ? new GZipStream(file, CompressionMode.Decompress)
-                   : (Stream)file)
+        try
         {
-            try
-            {
-                identifications = new MzidIdentifications(stream);
-            }
-            catch (Exception e) when (e is InvalidOperationException or XmlException or InvalidDataException)
-            {
-                throw new MzLibException($"Could not read mzIdentML file '{FilePath}': {e.Message}", e);
-            }
+            // Only a .gz needs the stream constructor, which buffers the whole document in memory so each
+            // schema version can re-read it. A plain file is re-opened per version by the path constructor.
+            identifications = FilePath.EndsWith(".gz", StringComparison.OrdinalIgnoreCase)
+                ? ReadCompressed(FilePath)
+                : new MzidIdentifications(FilePath);
+        }
+        catch (Exception e) when (IsReadFailure(e))
+        {
+            throw new MzLibException($"Could not read mzIdentML file '{FilePath}': {e.Message}", e);
         }
 
         var spectraData = new Dictionary<string, MzidSpectraData>();
@@ -131,6 +131,22 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
         Results = results;
         _loadedFrom = FilePath;
     }
+
+    private static MzidIdentifications ReadCompressed(string path)
+    {
+        using var file = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+        using var gzip = new GZipStream(file, CompressionMode.Decompress);
+        return new MzidIdentifications(gzip);
+    }
+
+    /// <summary>
+    /// Anything that goes wrong reading an existing file: a document no schema version accepts, malformed
+    /// XML, a corrupt gzip, or an I/O fault mid-read. A missing file or directory is not one of these; it
+    /// propagates as it does from the other result-file readers.
+    /// </summary>
+    private static bool IsReadFailure(Exception e) =>
+        e is InvalidOperationException or XmlException or InvalidDataException
+        || e is IOException and not FileNotFoundException and not DirectoryNotFoundException;
 
     /// <summary>
     /// mzIdentML cannot be regenerated from these records, so writing is not supported. MetaMorpheus writes
@@ -234,9 +250,14 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
         string sequence = match.PeptideSequence;
         foreach (var modification in match.Modifications)
         {
-            if (modification.Location is not int location || location < 0 || location > sequence.Length + 1)
+            if (modification.Location is not int location)
             {
-                return $"modification location {modification.Location?.ToString() ?? "(none)"} is not on the peptide";
+                return "modification has no location";
+            }
+
+            if (location < 0 || location > sequence.Length + 1)
+            {
+                return $"modification location {location} is not on the peptide";
             }
 
             var unimod = modification.CvParams.FirstOrDefault(cv => cv.Accession.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase));

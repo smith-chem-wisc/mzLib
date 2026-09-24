@@ -328,6 +328,62 @@ namespace Test.FileReadingTests.ExternalFileReading
             Assert.Throws<MzLibException>(() => _ = new MzIdentMLResultFile(path).Results);
         }
 
+        /// <summary>
+        /// Results returns nothing for a missing file (ResultFile only loads a file that exists), so only a
+        /// direct LoadResults sees it, and sees it as a missing file rather than an unreadable one.
+        /// </summary>
+        [TestCase("missing.mzid")]
+        [TestCase("missing.mzid.gz")]
+        public void LoadingAMissingFileThrowsFileNotFoundException(string fileName)
+        {
+            string path = Path.Combine(_outputDirectory, fileName);
+
+            Assert.Throws<FileNotFoundException>(() => new MzIdentMLResultFile(path).LoadResults());
+        }
+
+        /// <summary>
+        /// An I/O fault on a file that exists is a read failure like any other, so it names the file. A file
+        /// another process holds open without sharing stands in for a truncated or yanked one.
+        /// </summary>
+        [TestCase("PXD078927_msgf_1_1_0.mzid")]
+        [TestCase("PXD078927_msgf_1_1_0.mzid.gz")]
+        public void AnIOFaultThrowsMzLibExceptionNamingTheFile(string fileName)
+        {
+            string path = Path.Combine(_outputDirectory, "locked_" + fileName);
+            File.Copy(DataFile(fileName), path, overwrite: true);
+
+            using (new FileStream(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            {
+                var e = Assert.Throws<MzLibException>(() => _ = new MzIdentMLResultFile(path).Results);
+                Assert.That(e!.Message, Does.StartWith($"Could not read mzIdentML file '{path}'"));
+                Assert.That(e.InnerException, Is.InstanceOf<IOException>());
+            }
+        }
+
+        /// <summary>
+        /// A plain .mzid is read from disk, not copied into memory first as a .gz must be. The document is
+        /// padded with comments the deserializer skips, so reading it allocates far less than its size unless
+        /// the whole file is buffered.
+        /// </summary>
+        [Test]
+        public void APlainFileIsNotBufferedWholeIntoMemory()
+        {
+            string source = File.ReadAllText(DataFile("PXD078927_msgf_1_1_0.mzid"));
+            int body = source.IndexOf("<MzIdentML", StringComparison.Ordinal);
+            string padding = string.Concat(Enumerable.Repeat("<!--" + new string('x', 1000) + "-->\n", 40_000));
+            string path = Path.Combine(_outputDirectory, "padded.mzid");
+            File.WriteAllText(path, source[..body] + padding + source[body..]);
+            long size = new FileInfo(path).Length;
+
+            _ = Read("PXD078927_msgf_1_1_0.mzid").Results; // serializer and Unimod warm-up
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            var file = new MzIdentMLResultFile(path);
+            Assert.That(file.Results, Has.Count.EqualTo(12));
+            long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+            Assert.That(allocated, Is.LessThan(size / 2), $"allocated {allocated:N0} bytes reading a {size:N0}-byte file");
+        }
+
         [TestCase(null, -1)]
         [TestCase("", -1)]
         [TestCase("scan=42", 42)]
@@ -395,7 +451,7 @@ namespace Test.FileReadingTests.ExternalFileReading
         [TestCase("bad_unimod.mzid", "PEPTIDE", "2", "UNIMOD:abc", "modification UNIMOD:abc at location 2 has no UNIMOD accession")]
         [TestCase("past_the_end.mzid", "PEPTIDE", "9", "UNIMOD:35", "modification location 9 is not on the peptide")]
         [TestCase("negative.mzid", "PEPTIDE", "-1", "UNIMOD:35", "modification location -1 is not on the peptide")]
-        [TestCase("no_location.mzid", "PEPTIDE", null, "UNIMOD:35", "modification location (none) is not on the peptide")]
+        [TestCase("no_location.mzid", "PEPTIDE", null, "UNIMOD:35", "modification has no location")]
         public void AnItemWithAModificationThatCannotBeResolvedIsSkipped(
             string fileName, string sequence, string location, string accession, string reason)
         {
