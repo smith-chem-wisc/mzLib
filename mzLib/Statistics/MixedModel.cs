@@ -69,7 +69,10 @@ namespace Statistics
         /// <summary>Generalized-least-squares fixed-effect coefficient at the estimated variances.</summary>
         public double Coefficient(int feature, int coefficient) => CoefficientMatrix[feature, coefficient];
 
-        /// <summary>Standard error, √ of the diagonal of σ̂²(XᵀV⁻¹X)⁻¹.</summary>
+        /// <summary>
+        /// Standard error, √ of the diagonal of s²(XᵀV⁻¹X)⁻¹ at θ̂, with s² = RSS / (m − p). Under REML s² is σ̂²;
+        /// under ML it is σ̂² × m / (m − p), as nlme's summary reports ML fits (adjustSigma = TRUE).
+        /// </summary>
         public double StandardError(int feature, int coefficient) => StandardErrorMatrix[feature, coefficient];
 
         /// <summary>Denominator degrees of freedom of the coefficient's t test (containment rule). NaN when not positive.</summary>
@@ -288,11 +291,15 @@ namespace Statistics
             fit.GroupVarianceValues[f] = theta * sigma2;
             fit.LogLikelihoodValues[f] = -0.5 * best.Objective;
 
+            // Standard errors use rss / (m − p) under both estimators. Under ML this is nlme's summary default
+            // (adjustSigma = TRUE): σ̂²_ML is scaled by m / (m − p) before testing, because unscaled ML
+            // standard errors are too small and their t tests anticonservative.
+            double sigma2ForTests = best.Rss / (m - p);
             var (dfWithin, dfBetween, isBetween) = ContainmentDf(x, rowGroup, G, m);
             for (int j = 0; j < p; j++)
             {
                 fit.CoefficientMatrix[f, j] = best.Beta[j];
-                fit.StandardErrorMatrix[f, j] = Math.Sqrt(sigma2 * best.AInverse[j, j]);
+                fit.StandardErrorMatrix[f, j] = Math.Sqrt(sigma2ForTests * best.AInverse[j, j]);
                 double df = isBetween[j] ? dfBetween : dfWithin;
                 fit.DfMatrix[f, j] = df > 0 ? df : double.NaN;
             }

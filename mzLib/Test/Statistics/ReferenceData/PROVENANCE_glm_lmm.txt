@@ -1,0 +1,6 @@
+generated_utc 2026-09-24 23:08:49 UTC
+R R version 4.6.1 (2026-06-24)
+nlme 3.1.169
+seed 20260924
+script make_glm_lmm_fixtures.R
+ci_run https://github.com/trishorts/mzLib/actions/runs/36071167647 (branch ci/statistics-glm-lmm-fixtures, commit aff5dccd)
