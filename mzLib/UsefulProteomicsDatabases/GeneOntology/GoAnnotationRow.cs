@@ -56,8 +56,11 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// it, so an evidence filter still bites after propagation.</param>
     /// <param name="Inherited">True when every carrying member is a UniProt isoform (P04406-2) absent from the
     /// annotation database that took the term from its entry (P04406); null on a term-less row. An entry is not
-    /// necessarily the isoform's sequence, and isoforms can differ in cellular component, so the consumer
-    /// decides whether inherited rows count.</param>
+    /// necessarily the isoform's sequence, so the consumer decides whether inherited rows count. Inherited
+    /// cellular component terms are usually right, but a location is a positive claim and a wrong one costs
+    /// the most: a consumer making organelle claims can rest them on rows where this is false and report the
+    /// figure with inherited rows beside it. Nothing here is blanked, and waiting will not fix it: GOA maps
+    /// isoform-level subcellular annotation up to the main entry.</param>
     /// <param name="Propagated">True when no carrying member is annotated to the term itself, only to a
     /// descendant; null on a term-less row. A boolean, never a distance: GO is a DAG, so there is no one path
     /// to measure.</param>
