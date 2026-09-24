@@ -49,9 +49,9 @@ public static class SampleGroupBuilder
                 {
                     var filesInGroup = bioRepGroup.ToList();
                     bool labelFromFileName = (conditionsUndefined && unfractionated) || silacExperimentalDesign;
-                    string label = labelFromFileName
-                        ? filesInGroup.First().FilenameWithoutExtension
-                        : $"{conditionGroup.Key}_{bioRepGroup.Key + 1}";
+                    // Every file in the group shares its condition and replicate, so the first
+                    // speaks for them.
+                    string label = SampleGroupLabels.ForSample(filesInGroup.First(), labelFromFileName);
 
                     var filePaths = new HashSet<string>(filesInGroup.Select(f => f.FullFilePathWithExtension));
                     var psmsInGroup = psms.Where(p => filePaths.Contains(p.FullFilePath)).ToList();
@@ -116,7 +116,7 @@ public static class SampleGroupBuilder
                 foreach (var sample in fileGroup.OrderBy(p => p.ReporterIonMz)
                                                 .ThenBy(p => p.ChannelLabel, StringComparer.Ordinal))
                 {
-                    string label = $"{Path.GetFileNameWithoutExtension(sample.FullFilePathWithExtension)}_{sample.ChannelLabel}";
+                    string label = SampleGroupLabels.ForSample(sample);
 
                     var channelIntensities = new Dictionary<string, double>();
                     if (intensitiesBySample != null && intensitiesBySample.TryGetValue(sample, out var channelIntensity))
