@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using NUnit.Framework;
 using Proteomics;
 using UsefulProteomicsDatabases.GeneOntology;
@@ -93,6 +94,28 @@ namespace Test.FileReadingTests
         public void Header_NoSourceFile_OmitsThatLine()
         {
             Assert.That(HeaderOf(WriteAnnotation(Annotator().Annotate(Group("P1", 0.001)))).ContainsKey("source_file_sha256"), Is.False);
+        }
+
+        [Test]
+        public void Header_NamesTheMzLibBuild_SecondAndThird()
+        {
+            string version = typeof(GoAnnotationTsv).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>().InformationalVersion;
+            string[] lines = WriteAnnotation(Annotator().Annotate(Group("P1", 0.001))).Split('\n');
+
+            Assert.That(lines[1], Is.EqualTo("#!mzlib_version " + version));
+            Assert.That(lines[2], Is.EqualTo("#!mzlib_release " + TsvHeader.ReleaseOf(version)));
+        }
+
+        [TestCase("1.0.593+9771d6ea", "1.0.593")]
+        [TestCase("1.0.593", "1.0.593")]
+        [TestCase("1.0.0+9771d6ea", "none")]
+        [TestCase("1.0.0", "none")]
+        [TestCase("", "none")]
+        [TestCase(null, "none")]
+        public void ReleaseOf_NamesATaggedBuild_AndNoneForTheSdkDefault(string informationalVersion, string expected)
+        {
+            Assert.That(TsvHeader.ReleaseOf(informationalVersion), Is.EqualTo(expected));
         }
 
         [Test]
@@ -325,6 +348,8 @@ namespace Test.FileReadingTests
             string[] lines = text.Split('\n');
 
             Assert.That(lines[0], Is.EqualTo("#!go_category_format 1"));
+            Assert.That(lines[1], Does.StartWith("#!mzlib_version "));
+            Assert.That(lines[2], Does.StartWith("#!mzlib_release "));
             var header = HeaderOf(text);
             Assert.That(header["go_release"], Is.EqualTo("releases/2026-07-26"));
             Assert.That(header["go_obo_sha256"], Is.EqualTo(_go.SourceSha256));

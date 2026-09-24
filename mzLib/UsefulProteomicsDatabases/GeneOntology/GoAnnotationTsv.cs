@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using Omics.BioPolymerGroup;
 using Proteomics;
 
@@ -12,7 +13,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// Writes GO annotation rows as a tab-separated file: "#!key value" header lines, a column header, then
     /// one line per (protein group, term) row.
     ///
-    /// The header states the provenance every row shares -- format version first, then the go.obo release
+    /// The header states the provenance every row shares -- format version first, then the mzLib build that
+    /// wrote the file and its release ("none" for a local build), then the go.obo release
     /// and sha256, the annotation database's sha256 and, when there is one, the sha256 of the results file
     /// the groups were read from -- and five run counters: the number of multi-member groups and the number
     /// of groups in each annotation status. The counters count GROUPS, not rows, and only groups at
@@ -83,6 +85,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 .ToList();
 
             TsvHeader.Write(output, "go_annotation_format", FormatVersion.ToString(CultureInfo.InvariantCulture));
+            TsvHeader.WriteProducer(output);
             TsvHeader.Write(output, "go_release", ontology.Release);
             TsvHeader.Write(output, "go_obo_sha256", ontology.SourceSha256);
             TsvHeader.Write(output, "annotation_db_sha256", annotationDbSha256);
@@ -170,6 +173,29 @@ namespace UsefulProteomicsDatabases.GeneOntology
             }
             RejectSeparators(value, key);
             output.Write($"#!{key} {value}" + "\n");
+        }
+
+        /// <summary>
+        /// Writes "#!mzlib_version" (this assembly's informational version, commit included) and
+        /// "#!mzlib_release" (the released version, or "none" for a local build), so an ingester can refuse
+        /// a file no release produced without parsing the version itself.
+        /// </summary>
+        public static void WriteProducer(TextWriter output)
+        {
+            string version = typeof(TsvHeader).Assembly
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion;
+            Write(output, "mzlib_version", version);
+            Write(output, "mzlib_release", ReleaseOf(version));
+        }
+
+        /// <summary>
+        /// The release an informational version names, or "none". release.yml builds with
+        /// /p:Version=(git tag); a build without it gets the SDK default 1.0.0, which no release carries.
+        /// </summary>
+        public static string ReleaseOf(string informationalVersion)
+        {
+            string version = informationalVersion?.Split('+')[0];
+            return string.IsNullOrEmpty(version) || version == "1.0.0" ? "none" : version;
         }
 
         public static void RejectSeparators(string value, string field)

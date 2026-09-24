@@ -10,6 +10,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// Writes one consumer map's term-to-category table for a set of GO annotation rows:
     /// <code>
     /// #!go_category_format 1
+    /// #!mzlib_version 1.0.593+...
+    /// #!mzlib_release 1.0.593
     /// #!go_release releases/2026-07-26
     /// #!go_obo_sha256 ...
     /// #!category_map organelle 1 ...
@@ -56,6 +58,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
 
             var map = resolver.Map;
             TsvHeader.Write(output, "go_category_format", FormatVersion.ToString(CultureInfo.InvariantCulture));
+            TsvHeader.WriteProducer(output);
             TsvHeader.Write(output, "go_release", ontology.Release);
             TsvHeader.Write(output, "go_obo_sha256", ontology.SourceSha256);
             TsvHeader.Write(output, "category_map", $"{map.MapName} {map.MapVersion} {map.SourceSha256}");
