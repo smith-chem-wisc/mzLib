@@ -160,4 +160,46 @@ public class PtmQtlTests
         var pairs = PtmPairEngine.CoVarying(SiteOccupancyCalculator.Calculate(obs), obs);
         Assert.That(pairs, Is.Empty);
     }
+    private static PtmPair APair(string modA, int posA, string protA, int posB, string protB, double rho, double p, int n) => new()
+    {
+        ResultType = PairResultType.A, Overlapping = false, Statistic = rho, PValue = p, N = n,
+        SiteA = new ModificationSite(protA, posA, 'S', modA), SiteB = new ModificationSite(protB, posB, 'S', Phos),
+    };
+
+    private static string Canonical(ModificationSite s) =>
+        $"{s.ProteinAccession}:{s.Residue}{s.Position}:" + (s.Modification.EndsWith("Phosphoserine on S") || s.Modification.EndsWith("Phosphorylation on S") ? "UNIMOD:21" : s.Modification);
+
+    [Test]
+    public void GlobalTypeAIsSignedWeightedStoufferAcrossDatasetsWithNamesMerged()
+    {
+        var pairs = new[]
+        {
+            ("D1", APair(Phos, 13, "P1", 43, "P2", 0.8, 0.01, 16)),
+            ("D2", APair("UniProt:Phosphoserine on S", 13, "P1", 43, "P2", 0.6, 0.04, 9)),   // same chemistry, other engine name
+        };
+        var g = GlobalPairEngine.Combine(pairs, Canonical).Single();
+        Assert.That(g.Scopes, Is.EqualTo(new[] { "D1", "D2" }));
+        Assert.That(g.ScopesAgreeing, Is.EqualTo(2));
+        double z1 = MathNet.Numerics.Distributions.Normal.InvCDF(0, 1, 1 - 0.005), z2 = MathNet.Numerics.Distributions.Normal.InvCDF(0, 1, 1 - 0.02);
+        double z = (4 * z1 + 3 * z2) / 5;
+        Assert.That(g.CombinedZ, Is.EqualTo(z).Within(1e-10));
+        Assert.That(g.PValue, Is.EqualTo(2 * MathNet.Numerics.Distributions.Normal.CDF(0, 1, -z)).Within(1e-12));
+        Assert.That(g.Statistic, Is.EqualTo(0.7).Within(1e-12), "median rho");
+        Assert.That(g.Q, Is.EqualTo(g.PValue).Within(1e-15), "one test in its family");
+    }
+
+    [Test]
+    public void OppositeCorrelationsCancelAndSingleDatasetPairsAreLeftOut()
+    {
+        var pairs = new[]
+        {
+            ("D1", APair(Phos, 13, "P1", 43, "P2", 0.8, 0.01, 16)),
+            ("D2", APair(Phos, 13, "P1", 43, "P2", -0.8, 0.01, 16)),
+            ("D1", APair(Phos, 20, "P1", 43, "P2", 0.9, 0.001, 16)),                       // seen in one dataset only
+        };
+        var g = GlobalPairEngine.Combine(pairs, Canonical);
+        Assert.That(g, Has.Count.EqualTo(1));
+        Assert.That(g[0].CombinedZ, Is.EqualTo(0).Within(1e-12));
+        Assert.That(g[0].PValue, Is.EqualTo(1).Within(1e-12));
+    }
 }
