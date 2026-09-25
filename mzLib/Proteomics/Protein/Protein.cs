@@ -45,9 +45,10 @@ namespace Proteomics
             List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
-            UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
-            Protein nonVariantProtein = null)
+             UniProtEntryAttributes uniProtEntryAttributes = null,
+             UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
+             Protein nonVariantProtein = null,
+             IDictionary<int, Modification> oneBasedFixedModifications = null)
         {
             BaseSequence = sequence;
             // Defaults to this, which is right for an entry that is its own consensus. A caller building an
@@ -71,6 +72,7 @@ namespace Proteomics
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, Modification>();
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications);
@@ -122,6 +124,7 @@ namespace Proteomics
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             UniProtEntryAttributes = originalProtein.UniProtEntryAttributes;
             UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
+            OneBasedFixedModifications = originalProtein.OneBasedFixedModifications;
         }
 
         /// <summary>
@@ -168,9 +171,10 @@ namespace Proteomics
             List<DatabaseReference> databaseReferences = null,
             List<DisulfideBond> disulfideBonds = null,
             List<SpliceSite> spliceSites = null,
-            UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null,
-            Protein nonVariantProtein = null)
+             UniProtEntryAttributes uniProtEntryAttributes = null,
+             UniProtSequenceAttributes uniProtSequenceAttributes = null,
+             Protein nonVariantProtein = null,
+             IDictionary<int, Modification> oneBasedFixedModifications = null)
         {
             BaseSequence = originalProtein.BaseSequence;
             Accession = accession ?? originalProtein.Accession;
@@ -193,6 +197,7 @@ namespace Proteomics
             OneBasedPossibleLocalizedModifications = oneBasedModifications != null
                 ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications)
                 : originalProtein.OneBasedPossibleLocalizedModifications;
+            OneBasedFixedModifications = oneBasedFixedModifications ?? originalProtein.OneBasedFixedModifications;
             DatabaseReferences = databaseReferences ?? originalProtein.DatabaseReferences;
             DisulfideBonds = disulfideBonds ?? originalProtein.DisulfideBonds;
             SpliceSites = spliceSites ?? originalProtein.SpliceSites;
@@ -210,7 +215,8 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            string sampleNameForVariants, IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : this(
                   variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
@@ -227,9 +233,10 @@ namespace Proteomics
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
-                  databaseFilePath: protein.DatabaseFilePath,
-                  uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
+                   databaseFilePath: protein.DatabaseFilePath,
+                   uniProtEntryAttributes: protein.UniProtEntryAttributes,
+                   uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                     oneBasedFixedModifications: oneBasedFixedModifications ?? protein.OneBasedFixedModifications)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -241,6 +248,8 @@ namespace Proteomics
         /// Modifications (values) located at one-based protein positions (keys)
         /// </summary>
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
+
+        public IDictionary<int, Modification> OneBasedFixedModifications { get; private set; }
 
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
@@ -272,6 +281,54 @@ namespace Proteomics
         /// </summary>
         public string NcbiTaxonomyId => DatabaseReferences
             ?.FirstOrDefault(r => r.Type == NcbiTaxonomyDatabaseReferenceType)?.Id;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Gene Ontology annotations
+        /// (&lt;dbReference type="GO" id="GO:0005737"&gt;). Declared here for the same reason as the
+        /// taxonomy type: anything holding a Protein can find its GO without depending on how the
+        /// protein was read.
+        /// </summary>
+        public const string GeneOntologyDatabaseReferenceType = "GO";
+
+        /// <summary>
+        /// This protein's Gene Ontology annotations, deduplicated by GO id, with the evidence codes
+        /// and projects of repeated ids unioned.
+        ///
+        /// A derived view over DatabaseReferences: GO is already parsed and stored, because
+        /// ProteinXmlEntry keeps every dbReference generically, so nothing in the parser had to
+        /// change for this to exist. Decoys carry no GO -- only the taxonomy reference travels onto
+        /// a decoy -- so this is empty for them, and backgrounds built from it stay target-only.
+        /// </summary>
+        public IReadOnlyList<GoTerm> GoTerms => GoTerm.FromDatabaseReferences(DatabaseReferences);
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Ensembl transcript/gene links
+        /// (&lt;dbReference type="Ensembl" id="ENST..."&gt;). Declared here for the same reason as the
+        /// taxonomy and GO types.
+        /// </summary>
+        public const string EnsemblDatabaseReferenceType = "Ensembl";
+
+        /// <summary>
+        /// Every Ensembl transcript this entry links to, with the gene each belongs to. One per
+        /// transcript, deduplicated by transcript id.
+        ///
+        /// A derived view over DatabaseReferences, like GoTerms: nothing in the parser changed for it to
+        /// exist. Only XML-loaded entries carry these; FASTA-loaded proteins and decoys do not, so this is
+        /// empty for them.
+        /// </summary>
+        public IReadOnlyList<EnsemblGeneReference> EnsemblGeneReferences =>
+            EnsemblGeneReference.FromDatabaseReferences(DatabaseReferences);
+
+        /// <summary>
+        /// The distinct stable Ensembl gene ids this entry links to, in ordinal order. Often one, but
+        /// not always -- a sequence encoded by several loci (the core histones) links to all of them,
+        /// and this returns every one rather than picking. Empty when the entry names no Ensembl gene.
+        /// </summary>
+        public IReadOnlyList<string> EnsemblGeneIds => EnsemblGeneReferences
+            .Select(r => r.GeneId)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
 
         public string Organism { get; }
         public bool IsDecoy { get; }
@@ -369,19 +426,14 @@ namespace Proteomics
 
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            // add in any modifications that are caused by protease digestion
-            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
-            {
-                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
-            }
             variableModifications = variableModifications ?? new List<Modification>();
+            IBioPolymer.AddDigestionAgentModification(digestionParameters.Protease,
+                ref allKnownFixedModifications, ref variableModifications);
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
-
-            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
 
             // SearchModeType Semi means two different things depending on FragmentationTerminus:
             //  - N or C: the caller is MetaMorpheus's non-specific search engine, which wants "seed" peptides fixed at that
-            //    terminus and trims them after the search (see ProteinDigestion.SpeedySemiSpecificDigestion).
+            //    terminus and trims them after the search.
             //  - anything else (Both is the default): the caller wants the semi-specific peptides themselves. Classic,
             //    Modern, Glyco and crosslink searches do no trimming, so they must get every peptide with at least one
             //    specific terminus. This used to fall through to the seed path as well, where Both silently behaved as C,
@@ -390,10 +442,55 @@ namespace Proteomics
             // singleC, whose digestion (the first branch) returns non-specific seeds; None + Both gives the singleC ones.
             // The full table of what each SearchModeType and FragmentationTerminus returns is on
             // DigestionParams.SearchModeType and is pinned by SearchModeTypeDigestionTests.
-            IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                searchModeType != CleavageSpecificity.Semi ? digestion.Digestion(this, topDownTruncationSearch)
-                : ProteinDigestion.WantsSemiSpecificSeeds(digestionParameters) ? digestion.SpeedySemiSpecificDigestion(this)
-                : digestion.SemiSpecificDigestion(this);
+
+            // Generation slack for the cleavage-blocking correction. The correction is an exchange: a
+            // peptidoform whose C-terminus is a cleavage the protease could not have made is dropped in
+            // ProteolyticPeptide.GetModifiedPeptides, and the read-through form that really would have
+            // been produced replaces it -- but only if enumeration was widened first, because that form
+            // costs one extra missed cleavage per blocked site. Performing half the trade loses real
+            // peptides, so both halves read one CleavageBlockingPolicy built from the same parameters and
+            // the same modification list, and the policy is inert unless the exchange can complete.
+            //
+            // The slack is bought with enumeration, so it is only granted when it can be spent. At
+            // MetaMorpheus defaults an ungated slack would enumerate at 4 missed cleavages instead of 2 --
+            // roughly 1.7x the unmodified peptides before modification combinatorics, carried into the
+            // fragment index -- in searches where nothing configured can block anything.
+            CleavageBlockingPolicy cleavageBlockingPolicy = CleavageBlockingPolicy.For(digestionParameters, variableModifications);
+
+            // The promoting correction is the mirror of the blocking one above, and needs the opposite
+            // treatment. Blocking REMOVES a site the sequence had, so the replacement peptide is LONGER
+            // and has to be bought with generation slack. Promoting removes a site the sequence never
+            // really had, so the replacement is just the ordinary peptide between the sites that remain --
+            // provided the impossible sites never enter the enumeration, which is what the feasibility
+            // filter inside DigestionAgent.FullDigestion does.
+            //
+            // There is deliberately NO "can anything satisfy the requirement" gate here, and the absence
+            // is load-bearing. It would be the natural mirror of the blocking gate, but the two
+            // corrections are not symmetric: a blocking modification that is not configured cannot remove
+            // a site the sequence really has, whereas a promoting requirement that nothing can satisfy
+            // means the protease genuinely has no site to cut. Adding the gate makes a glycoprotease
+            // digest a bare protein, which is exactly what the published unglycosylated controls say does
+            // not happen (truth-set STCE-03, IMPA-12, OGPA-07). Returning almost nothing is the correct
+            // enzymology; see RespectCleavagePromotingModifications for the precondition that implies.
+            bool respectCleavageRequirements = digestionParameters.RespectCleavagePromotingModifications
+                && searchModeType == CleavageSpecificity.Full
+                && digestionParameters.Protease.HasCleavageRequirement;
+            List<Modification> configuredModifications = respectCleavageRequirements
+                ? variableModifications.Concat(allKnownFixedModifications).ToList()
+                : null;
+
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
+                this,
+                digestionParameters.MaxMissedCleavages + cleavageBlockingPolicy.GenerationSlack,
+                digestionParameters.InitiatorMethionineBehavior,
+                digestionParameters.MinLength,
+                digestionParameters.MaxLength,
+                digestionParameters.SpecificProtease,
+                digestionParameters.FragmentationTerminus,
+                digestionParameters.SearchModeType,
+                topDownTruncationSearch,
+                respectCleavageRequirements,
+                configuredModifications);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
@@ -401,7 +498,7 @@ namespace Proteomics
             }
 
             IEnumerable<PeptideWithSetModifications> modifiedPeptides = unmodifiedPeptides.SelectMany(peptide => 
-                peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParameters, variableModifications));
+                peptide.GetModifiedPeptides(allKnownFixedModifications, digestionParameters, variableModifications, cleavageBlockingPolicy));
 
             //Remove terminal modifications (if needed)
             if (searchModeType == CleavageSpecificity.SingleN ||
@@ -702,14 +799,15 @@ namespace Proteomics
         public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
         public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants
         {
             if (original is not Protein originalProtein)
                 throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
 
             var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
-                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants, oneBasedFixedModifications);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
         #endregion

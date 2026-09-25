@@ -380,7 +380,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             // Pinned deliberately, because the obvious "make it inert" "fix" is wrong and was tried.
             //
             // It is tempting to read the previous test's failure as "the feature must go inert when no
-            // glycan is configured" and add a gate mirroring ProteinDigestion's
+            // glycan is configured" and add a gate mirroring CleavageBlockingPolicy.For
             // AnyConfiguredModificationCanBlockCleavage. That gate breaks the enzymology: StcE, OpeRATOR
             // and IMPa demonstrably do NOT cleave unglycosylated substrate, which is what the truth set's
             // unglycosylated controls (STCE-03, IMPA-12, OGPA-07) encode. The two corrections are not

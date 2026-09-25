@@ -1,6 +1,6 @@
-﻿using Chemistry;
 using MzLibUtil;
 using Omics.Digestion;
+using Omics.Modifications;
 
 namespace Transcriptomics.Digestion
 {
@@ -267,8 +267,8 @@ namespace Transcriptomics.Digestion
             string[] nameAliases = { "name" };
             string[] motifAliases = { "motif", "sequences inducing cleavage" };
             string[] specificityAliases = { "specificity", "cleavage specificity" };
-            string[] threePrimeAliases = { "threeprimeterminusremainder", "three prime terminus remainder" };
-            string[] fivePrimeAliases = { "fiveprimeterminusremainder", "five prime terminus remainder" };
+            string[] cleavageModificationAliases = { "cleavagemodification", "cleavage modification" };
+            string[] cleavageModificationTypeAliases = { "cleavagemodificationtype", "cleavemodificationtype", "cleavage modification type", "modification type" };
 
             foreach (string line in lines)
             {
@@ -291,8 +291,8 @@ namespace Transcriptomics.Digestion
                 string name = GetFieldValue(fields, columnIndices, nameAliases);
                 string motifField = GetFieldValue(fields, columnIndices, motifAliases);
                 string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
-                string threePrimeField = GetFieldValue(fields, columnIndices, threePrimeAliases);
-                string fivePrimeField = GetFieldValue(fields, columnIndices, fivePrimeAliases);
+                string cleavageModificationName = GetFieldValue(fields, columnIndices, cleavageModificationAliases);
+                string cleavageModificationType = GetFieldValue(fields, columnIndices, cleavageModificationTypeAliases);
 
                 if (string.IsNullOrWhiteSpace(name))
                     continue; // skip lines without a name
@@ -306,12 +306,11 @@ namespace Transcriptomics.Digestion
                         typeof(CleavageSpecificity), specificityField, true);
                 }
 
-                IList<IHasChemicalFormula> threePrimeTermini = ParseTerminusFormulas(threePrimeField);
-                IList<IHasChemicalFormula> fivePrimeTermini = ParseTerminusFormulas(fivePrimeField);
+                Modification? cleavageModification = ParseCleavageModification(
+                    cleavageModificationName, cleavageModificationType, name);
 
                 var rnase = new Rnase(name, cleavageSpecificity, motifList,
-                    threePrimeTerminusRemainder: threePrimeTermini,
-                    fivePrimeTerminusRemainder: fivePrimeTermini);
+                    cleavageMod: cleavageModification);
 
                 if (dict.ContainsKey(rnase.Name))
                 {
@@ -373,20 +372,28 @@ namespace Transcriptomics.Digestion
             return string.Empty;
         }
 
-        /// <summary>
-        /// Parses a comma-separated list of chemical formula strings into terminus remainders.
-        /// Returns null when the field is blank so the <see cref="Rnase"/> constructor applies its defaults.
-        /// </summary>
-        private static IList<IHasChemicalFormula>? ParseTerminusFormulas(string field)
+        private static Modification? ParseCleavageModification(string modificationName, string modificationType, string rnaseName)
         {
-            if (string.IsNullOrWhiteSpace(field))
+            if (string.IsNullOrWhiteSpace(modificationName))
                 return null;
 
-            return field.Split(',')
-                .Select(f => f.Trim())
-                .Where(f => !string.IsNullOrEmpty(f))
-                .Select(f => (IHasChemicalFormula)ChemicalFormula.ParseFormula(f))
-                .ToList();
+            Modification? modification = Mods.GetModification(modificationName,
+                searchProteinMods: false, searchRnaMods: true);
+            if (modification is null)
+            {
+                throw new MzLibException(
+                    $"RNase '{rnaseName}' references unknown RNA modification '{modificationName}'.");
+            }
+
+            bool isFixed = modificationType.Equals("fixed", StringComparison.OrdinalIgnoreCase);
+            bool isVariable = modificationType.Equals("variable", StringComparison.OrdinalIgnoreCase);
+            if (!isFixed && !isVariable)
+            {
+                throw new MzLibException(
+                    $"RNase '{rnaseName}' must specify 'fixed' or 'variable' for cleavage modification '{modificationName}'.");
+            }
+
+            return new CleavageModification(isFixed, isVariable, modification);
         }
 
         #endregion
