@@ -208,6 +208,9 @@
     <None Update="DataFiles\Ontologies\unimod_tables.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\Ontologies\go-trimmed.obo">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\ranges1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
