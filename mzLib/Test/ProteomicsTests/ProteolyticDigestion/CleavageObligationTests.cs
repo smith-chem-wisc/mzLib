@@ -1,4 +1,5 @@
 ﻿using NUnit.Framework;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
@@ -240,6 +241,20 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 "the O-glycan satisfies the requirement at P1'");
             Assert.IsFalse(conditions.Any(c => c.IsForbidden && c.IsSatisfiedBy(oGlycan)),
                 "and no stored condition refuses the glycan the enzyme requires");
+        }
+
+        [Test]
+        public static void ATruncationProductBoundaryObligesNothing()
+        {
+            // A signal peptide ends after Lys5, so the mature chain begins at Thr6. That N-terminus is a
+            // database-annotated processing site, not a cut the glycoprotease made, so it says nothing
+            // about whether Thr6 carries a glycan -- exactly as for the removal of an initiator Met.
+            Protease ogpA = OgpALike("obligation-OgpA-truncation");
+            var protein = new Protein("AAAAKTPPIAQ", "TRUNC",
+                proteolysisProducts: new List<TruncationProduct> { new(6, 11, "chain") });
+
+            CollectionAssert.IsEmpty(Product(protein, 6, 11).GetCleavageObligatedSites(ogpA),
+                "a truncation-product boundary is not a protease cut and obliges no glycan");
         }
 
         private static Modification Glycan(string composition)

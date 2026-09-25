@@ -82,7 +82,8 @@ namespace Omics.Digestion
         /// fit there cannot vouch for it.</para>
         ///
         /// <para>Protein termini are not cuts and are never checked: a peptide starting at residue 1, or
-        /// ending at the last residue, got that terminus from the sequence ending, not from the agent.</para>
+        /// ending at the last residue, got that terminus from the sequence ending, not from the agent -- and
+        /// neither is a truncation-product boundary the database annotates.</para>
         /// </remarks>
         protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
             int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications,
@@ -110,9 +111,12 @@ namespace Omics.Digestion
                 && parentSequence[0] == 'M';
 
             // A cut severs the bond AFTER the residue that names it, so the cut at this peptide's
-            // N-terminus falls after the residue preceding it.
+            // N-terminus falls after the residue preceding it. A terminus the database annotates as a
+            // truncation-product boundary (signal peptide, propeptide, chain) is a processing site, not
+            // a cut this agent made, and is exempt for the same reason as initiator-Met removal.
             if (OneBasedStartResidue > 1
                 && !startedAtInitiatorMethionineRemoval
+                && !IsTruncationProductBoundary(OneBasedStartResidue - 1)
                 && !AnyMotifJustifies(OneBasedStartResidue - 1, parentSequence, variableModPattern, productLength, agent,
                     configuredModifications, fixedModifications))
             {
@@ -120,6 +124,7 @@ namespace Omics.Digestion
             }
 
             if (OneBasedEndResidue < parentSequence.Length
+                && !IsTruncationProductBoundary(OneBasedEndResidue)
                 && !AnyMotifJustifies(OneBasedEndResidue, parentSequence, variableModPattern, productLength, agent,
                     configuredModifications, fixedModifications))
             {
@@ -433,17 +438,19 @@ namespace Omics.Digestion
             int productLength = OneBasedEndResidue - OneBasedStartResidue + 1;
 
             // Removing the initiator methionine is not a proteolytic cut, and neither is the sequence
-            // simply beginning or ending -- none of those needs a modification to explain it.
+            // simply beginning or ending, nor a truncation-product boundary the database annotates --
+            // none of those needs a modification to explain it.
             bool startedAtInitiatorMethionineRemoval = OneBasedStartResidue == 2
                 && parentSequence.Length > 0
                 && parentSequence[0] == 'M';
 
-            if (OneBasedStartResidue > 1 && !startedAtInitiatorMethionineRemoval)
+            if (OneBasedStartResidue > 1 && !startedAtInitiatorMethionineRemoval
+                && !IsTruncationProductBoundary(OneBasedStartResidue - 1))
             {
                 AddObligationForCut(OneBasedStartResidue - 1, parentSequence, agent, productLength, obligated, conditionsBySite);
             }
 
-            if (OneBasedEndResidue < parentSequence.Length)
+            if (OneBasedEndResidue < parentSequence.Length && !IsTruncationProductBoundary(OneBasedEndResidue))
             {
                 AddObligationForCut(OneBasedEndResidue, parentSequence, agent, productLength, obligated, conditionsBySite);
             }
@@ -549,6 +556,35 @@ namespace Omics.Digestion
                         .ToList();
                 }
             }
+        }
+
+        /// <summary>
+        /// True when the bond after <paramref name="cutAfterOneBasedResidue"/> is a boundary of one of the
+        /// parent's annotated truncation products. Digestion yields products ending or starting there
+        /// ("chain start", "chain end" and the intact products), so such a terminus came from the
+        /// database, not from the agent.
+        /// </summary>
+        /// <remarks>
+        /// When a truncation boundary happens to coincide with a real cleavage site this exempts that
+        /// cut too, which only ever keeps a peptide -- the safe direction for this correction to err.
+        /// </remarks>
+        private bool IsTruncationProductBoundary(int cutAfterOneBasedResidue)
+        {
+            if (Parent?.TruncationProducts is null)
+            {
+                return false;
+            }
+
+            foreach (var truncationProduct in Parent.TruncationProducts)
+            {
+                if (truncationProduct.OneBasedBeginPosition - 1 == cutAfterOneBasedResidue
+                    || truncationProduct.OneBasedEndPosition == cutAfterOneBasedResidue)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
@@ -106,6 +107,26 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 .Distinct()
                 .OrderBy(s => s, System.StringComparer.Ordinal)
                 .ToList();
+        }
+
+        [Test]
+        public static void WithTheFlagOn_ATruncationProductBoundaryNeedsNoGlycanToJustifyIt()
+        {
+            // The signal peptide AAAAK ends after Lys5, so FullDigestion yields the mature chain
+            // RPPITQSSL as a "chain start" product. Its N-terminus is a processing site from the
+            // database, not a StcE cut, so no StcE motif fits there -- and it must not be asked to.
+            // Without a glycan StcE cuts nothing inside it, so the mature chain is the product.
+            GlycanAwareStcE("StcE-req-truncation");
+            var protein = new Protein("AAAAKRPPITQSSL", "TRUNC",
+                proteolysisProducts: new List<TruncationProduct> { new(6, 14, "chain") });
+            var parameters = new DigestionParams(protease: "StcE-req-truncation", maxMissedCleavages: 0,
+                minPeptideLength: 1, respectCleavagePromotingModifications: true);
+
+            List<string> products = protein.Digest(parameters, new List<Modification>(), new List<Modification>())
+                .Select(p => p.BaseSequence).Distinct().ToList();
+
+            CollectionAssert.Contains(products, "RPPITQSSL",
+                "the truncation-derived mature chain must survive; got " + string.Join(" | ", products));
         }
 
         // ---------------------------------------------------------------------------------------
