@@ -214,6 +214,34 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsFalse(blocked.IsSatisfiedBy(Glycan("Hex1HexNAc1")), "core 1 does not");
         }
 
+        [Test]
+        public static void ObligationConditions_OnlyAddressTheObligatedResidue()
+        {
+            // IMPa is "P1':O-glycan;P1:!O-glycan": the glycan must be on the residue AFTER the bond and
+            // must not be on the residue BEFORE it. Those are two different residues. The peptide that
+            // starts at the cut owes its first residue (P1') a glycan; the P1 rule addresses the last
+            // residue of the neighbouring peptide and says nothing about this site. Storing it here made
+            // the O-glycan IMPa requires match a forbidding condition, so a localizer testing a
+            // candidate against every stored condition refused the correct glycan.
+            Protease impa = ProteaseDictionary.Dictionary["IMPa"];
+            var protein = new Protein("AAGASAAK", "IMPA");
+
+            var obligations = Product(protein, 5, 8).GetCleavageObligations(impa);
+
+            Assert.AreEqual(1, obligations.Count, "one obligated site");
+            Assert.IsTrue(obligations.ContainsKey(2), "the peptide's first residue, P1'");
+
+            var conditions = obligations[2];
+            Assert.IsFalse(conditions.Any(c => c.IsForbidden),
+                "the P1 prohibition addresses a residue outside this peptide, not the obligated P1' site");
+
+            Modification oGlycan = Glycan("Hex1HexNAc1");
+            Assert.IsTrue(conditions.Where(c => !c.IsForbidden).All(c => c.IsSatisfiedBy(oGlycan)),
+                "the O-glycan satisfies the requirement at P1'");
+            Assert.IsFalse(conditions.Any(c => c.IsForbidden && c.IsSatisfiedBy(oGlycan)),
+                "and no stored condition refuses the glycan the enzyme requires");
+        }
+
         private static Modification Glycan(string composition)
         {
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);

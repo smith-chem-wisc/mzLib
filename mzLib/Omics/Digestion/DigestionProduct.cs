@@ -458,7 +458,11 @@ namespace Omics.Digestion
             int productLength, List<int> obligated, Dictionary<int, List<CleavageRequirement>> conditionsBySite)
         {
             int forcedResidue = -1;
-            var conditionsHere = new List<CleavageRequirement>();
+
+            // Each condition with the parent residue it addresses. A motif's conditions need not share a
+            // residue -- IMPa is "P1':O-glycan;P1:!O-glycan", two residues either side of the bond -- so
+            // only those addressing the forced residue may be reported against it.
+            var conditionsHere = new List<(int Residue, CleavageRequirement Condition)>();
 
             foreach (DigestionMotif motif in agent.DigestionMotifs)
             {
@@ -483,14 +487,14 @@ namespace Omics.Digestion
                 // Only a REQUIRED condition proves a residue was occupied. A forbidden one proves the
                 // opposite and is not an obligation to localize anything, so it is skipped -- emitting it
                 // would force a glycan onto the one residue the enzyme says cannot carry it. It is still
-                // collected, because once a site IS obliged, a forbidden condition still says what may
-                // not sit there.
+                // collected, because once a site IS obliged, a forbidden condition AT THAT SITE still
+                // says what may not sit there.
                 var required = new List<CleavageRequirement>();
                 foreach (CleavageRequirement candidate in motif.CleavageRequirements)
                 {
                     if (candidate.IsForbidden)
                     {
-                        conditionsHere.Add(candidate);
+                        conditionsHere.Add((ConstrainedResidue(candidate, cutAfterOneBasedResidue), candidate));
                     }
                     else
                     {
@@ -506,10 +510,8 @@ namespace Omics.Digestion
                 }
 
                 CleavageRequirement requirement = required[0];
-                conditionsHere.Add(requirement);
-                int constrainedResidue = requirement.IsPrimeSide
-                    ? cutAfterOneBasedResidue + requirement.Subsite
-                    : cutAfterOneBasedResidue - requirement.Subsite + 1;
+                int constrainedResidue = ConstrainedResidue(requirement, cutAfterOneBasedResidue);
+                conditionsHere.Add((constrainedResidue, requirement));
 
                 if (forcedResidue == -1)
                 {
@@ -535,14 +537,29 @@ namespace Omics.Digestion
 
                 if (conditionsBySite is not null)
                 {
-                    // Every condition of every motif that vouched for this cut, so the caller can test a
-                    // candidate modification against all of them. Forbidden conditions are carried too --
-                    // they do not oblige a site, but once a site IS obliged they still say what may not
-                    // sit on it.
-                    conditionsBySite[twoBasedKey] = conditionsHere;
+                    // Every condition, of every motif that vouched for this cut, that addresses THIS
+                    // residue, so the caller can test a candidate modification against all of them.
+                    // Forbidden conditions are carried too -- they do not oblige a site, but once a site
+                    // IS obliged they still say what may not sit on it. A condition addressing another
+                    // residue is left out: IMPa's P1 prohibition would otherwise refuse the very glycan
+                    // its P1' requirement demands.
+                    conditionsBySite[twoBasedKey] = conditionsHere
+                        .Where(c => c.Residue == forcedResidue)
+                        .Select(c => c.Condition)
+                        .ToList();
                 }
             }
         }
+
+        /// <summary>
+        /// The one-based parent residue a condition addresses at the cut after
+        /// <paramref name="cutAfterOneBasedResidue"/>. Subsites count outward from the severed bond: Pk is
+        /// (cut - k + 1) and Pk' is (cut + k).
+        /// </summary>
+        private static int ConstrainedResidue(CleavageRequirement requirement, int cutAfterOneBasedResidue) =>
+            requirement.IsPrimeSide
+                ? cutAfterOneBasedResidue + requirement.Subsite
+                : cutAfterOneBasedResidue - requirement.Subsite + 1;
 
         #endregion
 
