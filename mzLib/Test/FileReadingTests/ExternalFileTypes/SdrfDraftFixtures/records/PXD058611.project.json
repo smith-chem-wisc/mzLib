@@ -1,0 +1,181 @@
+{
+  "Accession": "PXD058611",
+  "Title": "Enhanced non-enzymatic H2S generation extends lifespan and healthspan in male mice",
+  "ProjectDescription": "Hydrogen sulfide is a gasotransmitter with biological functions, including roles in antioxidant defenses, mitochondrial bioenergetics and cellular signaling via cysteine persulfidation. Several longevity-promoting interventions enhance endogenous hydrogen sulfide generation. However, whether enhanced hydrogen sulfide generation extends healthspan and lifespan in mammals remains unknown. Here, we investigated the in vivo effects of the non-enzymatic hydrogen sulfide generation promoted by natural diallyl sulforated compounds. Diallyl sulforated compounds extended lifespan and improved the main aspects of healthspan, including glucoregulation, locomotor function and neurocognition in wild type male mice across their lifespan. At histological and molecular levels, we observed reductions in hepatic lipid-droplet size, attenuation of transcriptional and proteomic signatures associated with mTOR and immune-related pathways, and increased cysteine persulfidation in proteins. In humans, greater protein persulfidation in individuals with polypathological conditions was associated with increased muscle strength and lower triglyceride levels, supporting its physiological relevance. Our findings uncover the potential of enhanced hydrogen sulfide generation to promote healthy aging.",
+  "SampleProcessingProtocol": "Detection of proteomics and persulfidated proteins was performed using the protocol described by Zivanovic et al. with minor modifications 41. Protein extraction and quantification (3 mg/ml) was performed in lysis buffer (50 mM Hepes, 150 mM NaCl, 1 % sodium deoxycholate, 0.1 % sodium dodecyl sulphate, 1 % Nonidet p-40) with 1 % protease inhibitors (Sigma-Aldrich, P8340), and 10 mM NBF-Cl (Sigma-Aldrich, 163260) and incubated 30 minutes at 37 ºC. An aliquot per sample of 300 µg was lyophilized using a VirTis BenchTop Pro with OmnitronicsTM device, and directly processed to evaluate global proteomic profiles. Another aliquot of 1500 µg per samples was processed for persulfidomic analyses. Samples were precipitated with methanol/chloroform to eliminate excess of NBF-Cl and resuspended in PBS with 2 % sodium dodecyl sulphate with 100 μM (DCP-BIO 1) (Kerafast, EE0028) and incubated in for 1 hour at 37 ºC. Negative controls in duplicate per experimental group, consisting in tissue lysates without DCP-BIO 1 treatment, were included in parallel to detect false positive interactions. Then, samples were precipitated with methanol/chloroform, proteins were resuspended in PBS with 0.1 % sodium dodecyl sulfate and incubated with Sera-Mag Magnetic Streptavidin coated particles (Sigma-Aldrich, GE30152103010150) at 4 ºC overnight with agitation. Several washes were performed with PBS using a DynaMag-2 magnet (Thermo Fisher, 12321D). Persulfidated proteins in Sera-Mag Magnetic Streptavidin Coated particles were collected by incubating overnight with 2.25 M ammonium hydroxide with agitation. Formic acid was used to neutralize samples. Then, protein concentration was determined and lysates were lyophilized. Protein persulfidation was quantified by spectrometry-based label-free identification. Proteins were trypsinized at 1:50 (wt:wt) (enzyme-to-substrate ratio) at 37 °C overnight with agitation. The resulting peptide samples were then quenched with formic acid (pH 3) and desalted using a Stage-tip Omix C18 tips (Agilent). Analysis of digested peptides was performed by LC-MS/MS with an Easy-nLC 1000 HPLC system (Thermo Fisher) coupled to a Q Exactive Plus Orbitrap mass spectrometer (Thermo Fisher). Sample separation was performed on PepMap 100 C18 precolumn (75 µm x 2 cm) and Easy Spray HPLC column 75 μm x 25 cm, 2 μm, 100 Å using a 120 minute gradient from 5 – 40 % gradient of B (A: H2O 0,1% formic acid, B: acetonitrile 0.1% formic acid) with a flow rate of 250 nl/minute. A MS survey scan was obtained using a top 15 method for the m/z range of 350-1500. The MS/MS Spectra Acquisition was obtained using Higher Energy Collisional Dissociation (HCD). An isolation mass window of 2 m/z was used for the precursor ion selection, and normalized collision energy of 27 % was used for fragmentation. Five second duration was used for the dynamic exclusion",
+  "DataProcessingProtocol": "Mass Spectrometry raw data was analysed using MaxQuant (v2.6.5.0) according to Tyanova et al. using standard settings with the following modifications: the maximum number of modifications per peptide was limited to 2 64. Label Free Quantification was activated with the classical for single shots. The search was performed against an in silico Trypsin/P-digested Mus musculus proteome (Uniprot Aug 27th 2024) with a maximum number of mis-cleavages of 2. Match-between-runs with default settings was activated.",
+  "Doi": "",
+  "SubmissionType": "PARTIAL",
+  "License": "Creative Commons Public Domain (CC0)",
+  "SubmissionDate": "2024-12-05T00:00:00",
+  "PublicationDate": "2025-12-12T00:00:00",
+  "ProjectTags": [],
+  "Keywords": [
+    ""
+  ],
+  "Countries": [
+    "Spain"
+  ],
+  "Submitters": [
+    {
+      "Title": "Dr",
+      "FirstName": "Román",
+      "LastName": "González-Prieto",
+      "Name": "Román González-Prieto",
+      "Affiliation": "Andalusian Center for Regenerative Medicine and Cell Biology, CABIMER, University of Seville",
+      "Email": "roman.gonzalez@cabimer.es",
+      "Country": "Spain",
+      "Orcid": "0000-0001-8997-2321",
+      "Id": "2499923"
+    }
+  ],
+  "LabPIs": [
+    {
+      "Title": "Dr",
+      "FirstName": "Román",
+      "LastName": "González-Prieto",
+      "Name": "Román González-Prieto",
+      "Affiliation": "CABIMER",
+      "Email": "roman.gonzalez@cabimer.es",
+      "Country": "",
+      "Orcid": "",
+      "Id": "3073152"
+    }
+  ],
+  "References": [
+    {
+      "ReferenceLine": "",
+      "PubmedId": 0,
+      "Doi": "10.1016/J.CMET.2025.11.012"
+    }
+  ],
+  "Instruments": [
+    {
+      "CvLabel": "MS",
+      "Accession": "MS:1002634",
+      "Name": "Q Exactive Plus",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Softwares": [
+    {
+      "CvLabel": "MS",
+      "Accession": "MS:1001583",
+      "Name": "MaxQuant",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "ExperimentTypes": [
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000433",
+      "Name": "Affinity purification coupled with mass spectrometry proteomics",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "QuantificationMethods": [
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "EFO:0030054",
+      "Name": "label-free quantification",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Organisms": [
+    {
+      "CvLabel": "NEWT",
+      "Accession": "NEWT:10090",
+      "Name": "Mus musculus (mouse)",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "OrganismParts": [
+    {
+      "CvLabel": "BTO",
+      "Accession": "BTO:0000759",
+      "Name": "Liver",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Diseases": [],
+  "IdentifiedPTMStrings": [
+    {
+      "CvLabel": "MOD",
+      "Accession": "MOD:00695",
+      "Name": "sulfated residue",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "AdditionalAttributes": [],
+  "SampleAttributes": [
+    {
+      "Key": {
+        "CvLabel": "EFO",
+        "Accession": "EFO:0000635",
+        "Name": "organism part",
+        "Value": "",
+        "UnitCvLabel": "",
+        "UnitAccession": "",
+        "UnitName": ""
+      },
+      "Value": [
+        {
+          "CvLabel": "BTO",
+          "Accession": "BTO:0000759",
+          "Name": "liver",
+          "Value": "",
+          "UnitCvLabel": "",
+          "UnitAccession": "",
+          "UnitName": ""
+        }
+      ]
+    },
+    {
+      "Key": {
+        "CvLabel": "EFO",
+        "Accession": "OBI:0100026",
+        "Name": "organism",
+        "Value": "",
+        "UnitCvLabel": "",
+        "UnitAccession": "",
+        "UnitName": ""
+      },
+      "Value": [
+        {
+          "CvLabel": "NEWT",
+          "Accession": "NEWT:10090",
+          "Name": "Mus musculus (Mouse)",
+          "Value": "",
+          "UnitCvLabel": "",
+          "UnitAccession": "",
+          "UnitName": ""
+        }
+      ]
+    }
+  ],
+  "TotalFileDownloads": 316,
+  "BotCount": 266,
+  "HubCount": 46,
+  "OrganicCount": 4
+}
