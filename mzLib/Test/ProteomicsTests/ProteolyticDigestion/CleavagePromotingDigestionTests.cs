@@ -109,6 +109,79 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 .ToList();
         }
 
+        // ---------------------------------------------------------------------------------------
+        // Both corrections at once: blocking and promoting discount into ONE budget
+        // ---------------------------------------------------------------------------------------
+
+        private static Modification AcetylLysine()
+        {
+            Modification acetylK = Mod("N6-acetyllysine", "K", "Test");
+            Assert.IsTrue(acetylK.BlocksCleavage, "test setup: acetyl-K must classify as cleavage-blocking");
+            return acetylK;
+        }
+
+        private static List<PeptideWithSetModifications> DigestWithBothCorrections(Protein protein, string proteaseName,
+            List<Modification> variableMods) =>
+            protein.Digest(new DigestionParams(protease: proteaseName, maxMissedCleavages: 0, minPeptideLength: 1,
+                    respectCleavageBlockingModifications: true, respectCleavagePromotingModifications: true),
+                new List<Modification>(), variableMods).ToList();
+
+        [Test]
+        public static void WithBothFlagsOn_ThePromotingReadThroughIsNotDroppedByTheBlockingBudget()
+        {
+            // STCE-08 with the blocking correction also on. Acetyl-K is configured, so the blocking
+            // policy is active -- but RPPITQSSL has no lysine and no blocked site. The read-through
+            // across the unoccupied StcE site spans one site and owes nothing for it, because StcE could
+            // not have cut there without the glycan. Judged by the blocking budget alone it looked like
+            // one missed cleavage at MaxMissedCleavages = 0 and was dropped before the promoting
+            // discount could be applied.
+            GlycanAwareStcE("StcE-req-both-flags");
+            var protein = new Protein("RPPITQSSL", "BOTH");
+
+            List<PeptideWithSetModifications> peptides = DigestWithBothCorrections(protein, "StcE-req-both-flags",
+                new List<Modification> { OGlycan("T"), AcetylLysine() });
+
+            PeptideWithSetModifications readThrough = peptides.FirstOrDefault(p =>
+                p.BaseSequence == "RPPITQSSL" && p.AllModsOneIsNterminus.Count == 0);
+            Assert.IsNotNull(readThrough, "the unglycosylated intact peptide must survive; got "
+                + string.Join(" | ", peptides.Select(p => p.FullSequence)));
+            Assert.AreEqual(0, readThrough.MissedCleavages, "the unoccupied StcE site is not a missed cleavage");
+        }
+
+        [Test]
+        public static void WithBothFlagsOn_ABlockedAndAnUnjustifiedSiteAreDiscountedTogether()
+        {
+            // GAKGTASGGR under a StcE-trypsin composite: Lys3 is a tryptic site, and T5-A6-S7 a StcE
+            // site cut after Ala6. With Lys3 acetylated and Thr5 bare, neither site could have been cut,
+            // so the whole peptide is a zero-missed-cleavage product. Each correction alone discounted
+            // only its own site and left one missed cleavage over a budget of zero.
+            var requirement = CleavageRequirement.NonPrime(2, GlycosylationClass.OLinked);
+            var composite = new Protease("StcE-trypsin-req-both", CleavageSpecificity.Full, null, null,
+                new List<DigestionMotif>
+                {
+                    new("TXT", null, 2, null, requirement),
+                    new("TXS", null, 2, null, requirement),
+                    new("SXT", null, 2, null, requirement),
+                    new("SXS", null, 2, null, requirement),
+                    new("K", null, 1, null),
+                    new("R", null, 1, null),
+                });
+            ProteaseDictionary.Dictionary[composite.Name] = composite;
+            var protein = new Protein("GAKGTASGGR", "BOTH2");
+
+            List<PeptideWithSetModifications> peptides = DigestWithBothCorrections(protein, composite.Name,
+                new List<Modification> { OGlycan("T"), AcetylLysine() });
+
+            PeptideWithSetModifications readThrough = peptides.FirstOrDefault(p =>
+                p.BaseSequence == "GAKGTASGGR"
+                && p.AllModsOneIsNterminus.Count == 1
+                && p.AllModsOneIsNterminus.ContainsKey(4));
+            Assert.IsNotNull(readThrough, "the acetylated, unglycosylated read-through must survive; got "
+                + string.Join(" | ", peptides.Select(p => p.FullSequence)));
+            Assert.AreEqual(0, readThrough.MissedCleavages,
+                "a blocked site and an unoccupied site together are two cleavages that could not happen");
+        }
+
         [Test]
         public static void WithTheFlagOn_ATruncationProductBoundaryNeedsNoGlycanToJustifyIt()
         {

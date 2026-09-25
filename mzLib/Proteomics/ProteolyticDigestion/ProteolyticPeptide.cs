@@ -83,6 +83,13 @@ namespace Proteomics.ProteolyticDigestion
             List<int> internalFeasibleSites = respectCleavageRequirements
                 ? FindInternalFeasibleCleavageSites(digestionParams.DigestionAgent, configuredModifications)
                 : null;
+
+            // When both corrections are on, the blocking drop hands the residues it discounted to the
+            // promoting drop, which applies the ONE missed-cleavage budget over both. Reused across
+            // peptidoforms rather than allocated per pattern.
+            List<int> blockedInternalResidues = respectCleavageRequirements && cleavageBlockingPolicy.IsActive
+                ? new List<int>()
+                : null;
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
@@ -113,11 +120,17 @@ namespace Proteomics.ProteolyticDigestion
                     // so counting it as a missed cleavage would report a cleavage that cannot occur --
                     // and would let the generation slack leak out as peptides claiming more missed
                     // cleavages than the caller asked for.
+                    //
+                    // With the promoting correction also on, the budget is NOT tested here: a read-through
+                    // may be over budget by blocked sites alone and back under it once the unoccupied
+                    // glycoprotease sites are discounted too, so the blocked residues are passed on and the
+                    // promoting drop below tests the budget once, over both.
                     int reportedMissedCleavages = MissedCleavages;
+                    blockedInternalResidues?.Clear();
                     if (cleavageBlockingPolicy.IsActive
                         && CleavageSpecificityForFdrCategory == CleavageSpecificity.Full
                         && IsUnreachableThroughBlockedCleavage(variableModPattern, peptideLength, cleavageBlockingPolicy,
-                            out reportedMissedCleavages))
+                            blockedInternalResidues, out reportedMissedCleavages))
                     {
                         continue;
                     }
@@ -145,29 +158,17 @@ namespace Proteomics.ProteolyticDigestion
                     // filter is a site that COULD carry the modification; this gate removes the
                     // peptidoforms in which it does not.
                     //
-                    // KNOWN LIMITATION, stated rather than hidden: unlike the feasibility filter, this
-                    // drop has no read-through to replace what it removes. A peptidoform whose cut is
-                    // feasible but unoccupied is dropped, and the peptide spanning that site carries one
-                    // more missed cleavage than the caller may have allowed. Blocking solves the same
-                    // problem with generation slack (see Protein.Digest); doing the same here
-                    // needs a bound on how many feasible-but-unoccupied sites a peptidoform can contain,
-                    // which is follow-up work. Until then this gate is exact when the required glycan is
-                    // localized in the database and conservative when it is variable.
-                    int promotingMissedCleavages = reportedMissedCleavages;
+                    // The peptide spanning a feasible but unoccupied site is a real read-through, reached
+                    // by the generation slack DigestionAgent.FullDigestion adds. The unoccupied sites it
+                    // spans are discounted from its missed cleavages together with any sites the blocking
+                    // drop above discounted, and the budget is tested once over both.
                     if (respectCleavageRequirements
                         && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
                             digestionParams.DigestionAgent, configuredModifications, allKnownFixedModifications,
-                            internalFeasibleSites, digestionParams.MaxMissedCleavages, out promotingMissedCleavages))
+                            internalFeasibleSites, blockedInternalResidues, digestionParams.MaxMissedCleavages,
+                            out reportedMissedCleavages))
                     {
                         continue;
-                    }
-
-                    // The promoting discount, applied only where it is smaller: a peptidoform can be over
-                    // budget for blocking reasons and under it for promoting reasons at once, and the
-                    // reported count has to be the number of cleavages the protease genuinely missed.
-                    if (respectCleavageRequirements && promotingMissedCleavages < reportedMissedCleavages)
-                    {
-                        reportedMissedCleavages = promotingMissedCleavages;
                     }
 
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
@@ -235,8 +236,14 @@ namespace Proteomics.ProteolyticDigestion
         /// discount a missed cleavage it did not occupy. The count is clamped so it can never go
         /// negative, and case (1) -- the correctness fix this is here for -- is exact.
         /// </remarks>
+        /// <param name="blockedInternalResidues">
+        /// Null when this drop owns the budget. Otherwise it receives the one-based parent residue of
+        /// every blocked internal site, the budget test is skipped, and the caller applies it once over
+        /// these and the promoting correction's unoccupied sites together.
+        /// </param>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
-            int peptideLength, CleavageBlockingPolicy policy, out int openMissedCleavages)
+            int peptideLength, CleavageBlockingPolicy policy, List<int> blockedInternalResidues,
+            out int openMissedCleavages)
         {
             bool cTerminalResidueBlocked = false;
             int blockedInternalSites = 0;
@@ -259,6 +266,7 @@ namespace Proteomics.ProteolyticDigestion
                 else if (positionAndMod.Key >= 2 && positionAndMod.Key <= peptideLength)
                 {
                     blockedInternalSites++;
+                    blockedInternalResidues?.Add(OneBasedStartResidue + positionAndMod.Key - 2);
                 }
             }
 
@@ -274,7 +282,7 @@ namespace Proteomics.ProteolyticDigestion
                 return true;
             }
 
-            return openMissedCleavages > policy.MaxMissedCleavages;
+            return blockedInternalResidues is null && openMissedCleavages > policy.MaxMissedCleavages;
         }
     }
 }

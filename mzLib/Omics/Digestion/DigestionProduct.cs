@@ -88,9 +88,12 @@ namespace Omics.Digestion
         protected bool IsUnreachableWithoutRequiredModification(Dictionary<int, Modification> variableModPattern,
             int productLength, DigestionAgent agent, IEnumerable<Modification> configuredModifications,
             IEnumerable<Modification> fixedModifications, IReadOnlyList<int> internalFeasibleSites,
-            int maxMissedCleavagesAllowed, out int openMissedCleavages)
+            IReadOnlyList<int> alreadyDiscountedResidues, int maxMissedCleavagesAllowed, out int openMissedCleavages)
         {
-            openMissedCleavages = MissedCleavages;
+            // Sites another correction has already shown could not be cut (a blocked lysine) count toward
+            // the discount too, so that both corrections are applied against ONE budget.
+            int alreadyDiscounted = alreadyDiscountedResidues?.Count ?? 0;
+            openMissedCleavages = MissedCleavages - Math.Min(alreadyDiscounted, MissedCleavages);
 
             // Nothing configured can require anything, so nothing can be unreachable. This gate is what
             // keeps an ordinary tryptic digest from paying for a feature it cannot use.
@@ -147,6 +150,13 @@ namespace Omics.Digestion
                 for (int i = 0; i < internalFeasibleSites.Count; i++)
                 {
                     int site = internalFeasibleSites[i];
+
+                    // A residue already discounted is not discounted twice.
+                    if (alreadyDiscounted > 0 && alreadyDiscountedResidues.Contains(site))
+                    {
+                        continue;
+                    }
+
                     if (!AnyMotifJustifies(site, parentSequence, variableModPattern, productLength, agent,
                             configuredModifications, fixedModifications))
                     {
@@ -154,7 +164,8 @@ namespace Omics.Digestion
                     }
                 }
 
-                openMissedCleavages = MissedCleavages - Math.Min(unjustifiedInternalSites, MissedCleavages);
+                int discounted = unjustifiedInternalSites + alreadyDiscounted;
+                openMissedCleavages = MissedCleavages - Math.Min(discounted, MissedCleavages);
             }
 
             return openMissedCleavages > maxMissedCleavagesAllowed;
