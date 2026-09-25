@@ -32,6 +32,9 @@ namespace Readers
         /// <summary>
         /// Sample characteristics keyed by SDRF column name, e.g. "characteristics[organism part]".
         /// Values are terms, not free text (D13).
+        /// Not <c>characteristics[organism]</c> or <c>characteristics[biological replicate]</c>:
+        /// those are written from <see cref="Organism"/> and <see cref="BiologicalReplicate"/>, and a
+        /// key naming either throws rather than writing the column twice.
         /// </summary>
         public IReadOnlyDictionary<string, CvParam> Characteristics { get; init; }
             = new Dictionary<string, CvParam>();
@@ -60,6 +63,12 @@ namespace Readers
         /// it in both dictionaries or two rows each put it in a different one -- is a caller error
         /// and throws: the two dictionaries share one column space, and silently preferring one is
         /// how a column comes to mean two different things in one document.
+        ///
+        /// <para><b>Not the two columns the builder writes itself.</b> A deposited
+        /// <c>characteristics[organism]</c> or <c>characteristics[biological replicate]</c> goes in
+        /// <see cref="Organism"/> or <see cref="BiologicalReplicate"/>; a key naming either throws,
+        /// as it does in <see cref="Characteristics"/>. <see cref="SdrfSampleBlock.CharacteristicColumns"/>
+        /// includes both, so a caller copying a block in skips them.</para>
         ///
         /// <para><b>One value per column, so a REPEATED column cannot be carried.</b> SDRF lets a
         /// column repeat, and nine corpus files repeat <c>characteristics[organism part]</c>;
