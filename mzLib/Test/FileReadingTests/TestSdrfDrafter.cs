@@ -102,6 +102,63 @@ namespace Test.FileReadingTests
             Assert.That(r.Organism.Value, Is.EqualTo("homo sapiens"));
         }
 
+        /// <summary>
+        /// G31 / pride 006 (SDRF-P6): 17 of 692 PRIDE part and disease terms carry the wrong cvLabel, so the
+        /// ontology is read from the accession's prefix. pride's named examples.
+        /// </summary>
+        [TestCase("UBERON:0002048", "Lung", "UBERON")]    // PXD006179, labelled CL
+        [TestCase("BTO:0004102", "Kidney cell", "BTO")]    // PXD008795, labelled CL
+        [TestCase("UBERON:0000355", "Pharyngeal mucosa", "UBERON")]
+        public void ATermsOntologyIsItsAccessionPrefixNotPridesLabel(string accession, string name, string ontology)
+        {
+            var p = Covid();
+            p.OrganismParts.Clear();
+            p.OrganismParts.Add(Term("CL", accession, name));
+
+            var part = Row(SdrfDrafter.Draft(p, CovidFiles()), "POS1.raw").OrganismPart;
+
+            Assert.That(part.Term!.CvLabel, Is.EqualTo(ontology));
+            Assert.That(part.Term.Accession, Is.EqualTo(accession));
+            Assert.That(part.Value, Is.EqualTo(name));
+        }
+
+        /// <summary>
+        /// A term from an ontology of the wrong KIND is not written in the column: an anatomy or sequence term
+        /// is not a disease (PXD031485 lists UBERON:0000474 as its disease; pride names SO:0000337 in
+        /// PXD010991), and a cellular component or a chemical is not an organism part (PXD013322 GO:0005634).
+        /// </summary>
+        [TestCase("disease", "UBERON", "UBERON:0000474", "Female reproductive system")]
+        [TestCase("disease", "DOID", "SO:0000337", "Rnai_reagent")]
+        [TestCase("organism part", "CL", "GO:0005634", "Nucleus")]
+        [TestCase("organism part", "CL", "CHEBI:15377", "Water")]
+        public void ATermFromTheWrongKindOfOntologyIsNotAvailableAndSaysWhy(string column, string label, string accession, string name)
+        {
+            var p = Covid();
+            var list = column == "disease" ? p.Diseases : p.OrganismParts;
+            list.Clear();
+            list.Add(Term(label, accession, name));
+
+            var row = Row(SdrfDrafter.Draft(p, CovidFiles()), "POS1.raw");
+            var cell = column == "disease" ? row.Disease : row.OrganismPart;
+
+            Assert.That(cell.Source, Is.EqualTo(SdrfDraftSource.NotAvailable));
+            Assert.That(cell.Evidence, Does.Contain(accession).And.Contain(accession.Split(':')[0]));
+        }
+
+        [TestCase("SYMP:0000292", "Heart failure")]    // PXD007171: a symptom is written as the disease
+        [TestCase("HP:0001627", "Abnormal heart morphology")]
+        public void APhenotypeOrSymptomTermIsStillADisease(string accession, string name)
+        {
+            var p = Covid();
+            p.Diseases.Clear();
+            p.Diseases.Add(Term("DOID", accession, name));
+
+            var disease = Row(SdrfDrafter.Draft(p, CovidFiles()), "POS1.raw").Disease;
+
+            Assert.That(disease.Value, Is.EqualTo(name));
+            Assert.That(disease.Term!.CvLabel, Is.EqualTo(accession.Split(':')[0]));
+        }
+
         [Test]
         public void ADiseaseFreeProjectIsNormal()
         {
