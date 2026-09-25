@@ -49,7 +49,6 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public static class GlycoproteaseTruthSetTests
     {
-        /// <summary>Enzymes mzLib can actually digest with today. Everything else is not modelled yet.</summary>
         /// <summary>
         /// Whether proteases.tsv actually ships this enzyme. Asked of the dictionary rather than held in
         /// a list here: a hand-maintained allowlist drifts silently the moment an enzyme is added, and it
@@ -58,6 +57,24 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// </summary>
         private static bool IsModelled(string enzyme) =>
             !string.IsNullOrWhiteSpace(enzyme) && ProteaseDictionary.Dictionary.ContainsKey(enzyme);
+
+        /// <summary>
+        /// The shipped entry an unshipped enzyme name was almost certainly meant to be, or null. The
+        /// proline suffix is the one spelling that differs between otherwise identical entries
+        /// ("IMPa-trypsin" is not shipped, "IMPa-trypsin|P" is), so a name that is off by exactly that
+        /// suffix is a typo in the truth set, not an enzyme left out on purpose -- and reporting it as
+        /// Inconclusive silently skipped the only IMPa co-digest case.
+        /// </summary>
+        private static string ShippedNearMiss(string enzyme)
+        {
+            if (string.IsNullOrWhiteSpace(enzyme) || IsModelled(enzyme))
+                return null;
+
+            string candidate = enzyme.EndsWith("|P", StringComparison.Ordinal)
+                ? enzyme.Substring(0, enzyme.Length - 2)
+                : enzyme + "|P";
+            return ProteaseDictionary.Dictionary.ContainsKey(candidate) ? candidate : null;
+        }
 
         /// <summary>One row of the truth set.</summary>
         public class TruthCase
@@ -386,6 +403,11 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             if (!c.IsEncodable)
                 Assert.Inconclusive(c.CaseId + ": the source names the substrate but not an exact bond, so no "
                     + "product list is defensible yet. " + c.Note);
+
+            string nearMiss = ShippedNearMiss(c.Enzyme);
+            if (nearMiss is not null)
+                Assert.Fail(c.CaseId + ": " + c.Enzyme + " is not a proteases.tsv entry, but " + nearMiss
+                    + " is. Fix the enzyme column; a misspelt enzyme would otherwise skip the case as not modelled.");
 
             if (!IsModelled(c.Enzyme))
                 Assert.Inconclusive(c.CaseId + ": " + c.Enzyme + " has no proteases.tsv entry -- it was left out "
