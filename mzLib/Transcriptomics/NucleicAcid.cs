@@ -45,7 +45,8 @@ namespace Transcriptomics
         /// </summary>
         protected NucleicAcid(string sequence,
             IDictionary<int, List<Modification>>? oneBasedPossibleLocalizedModifications = null,
-            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null)
+            IHasChemicalFormula? fivePrimeTerm = null, IHasChemicalFormula? threePrimeTerm = null,
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
         {
             ConsensusVariant = this;
             MonoisotopicMass = 0;
@@ -61,6 +62,7 @@ namespace Transcriptomics
             OneBasedPossibleLocalizedModifications = oneBasedPossibleLocalizedModifications != null 
                 ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedPossibleLocalizedModifications) 
                 : new Dictionary<int, List<Modification>>();
+            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, Modification>();
         }
 
         /// <summary>
@@ -78,8 +80,9 @@ namespace Transcriptomics
             List<SequenceVariation>? sequenceVariations = null,
             List<SequenceVariation>? appliedSequenceVariations = null,
             string? sampleNameForVariants = null, string? fullName = null,
-            bool isEntrapment = false)
-            : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm)
+            bool isEntrapment = false,
+            IDictionary<int, Modification>? oneBasedFixedModifications = null)
+            : this(sequence, oneBasedPossibleLocalizedModifications, fivePrimeTerm, threePrimeTerm, oneBasedFixedModifications)
         {
             Name = name ?? "";
             DatabaseFilePath = databaseFilePath ?? "";
@@ -160,6 +163,13 @@ namespace Transcriptomics
 
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; protected set; }
 
+        public IDictionary<int, Modification> OneBasedFixedModifications { get; protected set; }
+
+        public void SetOneBasedFixedModifications(IDictionary<int, Modification> fixedModifications)
+        {
+            OneBasedFixedModifications = fixedModifications;
+        }
+
         public string Organism { get; }
 
         /// <summary>
@@ -216,6 +226,8 @@ namespace Transcriptomics
                     "DigestionParameters must be of type DigestionParams for protein digestion", new ArgumentException());
             allKnownFixedMods ??= new();
             variableModifications ??= new();
+            IBioPolymer.AddDigestionAgentModification(digestionParams.Rnase,
+                ref allKnownFixedMods, ref variableModifications);
 
             // digest based upon base sequence
             foreach (var unmodifiedOligo in digestionParams.Rnase.GetUnmodifiedOligos(this,
@@ -275,7 +287,8 @@ namespace Transcriptomics
 
         // Abstract so we can do this construction in the appropriate derived class
         public abstract TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants;
 
         #endregion

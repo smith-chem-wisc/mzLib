@@ -11,16 +11,11 @@ namespace Transcriptomics.Digestion
         public static IHasChemicalFormula DefaultThreePrimeTerminus = ChemicalFormula.ParseFormula("H2O4P"); // Makes 3' Phosphate
         public static IHasChemicalFormula DefaultFivePrimeTerminus = ChemicalFormula.ParseFormula("O-3P-1"); // Makes 5' -OH by removing phosphate
 
-        public IList<IHasChemicalFormula> ThreePrimeTerminusRemainder { get; set; }
-        public IList<IHasChemicalFormula> FivePrimeTerminusRemainder { get; set; }
-
-        public Rnase(string name, CleavageSpecificity cleaveSpecificity, List<DigestionMotif> motifList, Modification cleavageMod = null, IList<IHasChemicalFormula>? threePrimeTerminusRemainder = null, IList<IHasChemicalFormula>? fivePrimeTerminusRemainder = null) :
+        public Rnase(string name, CleavageSpecificity cleaveSpecificity, List<DigestionMotif> motifList, Modification cleavageMod = null) :
             base(name, cleaveSpecificity, motifList, cleavageMod)
         {
             CleavageSpecificity = cleaveSpecificity;
             DigestionMotifs = motifList;
-            ThreePrimeTerminusRemainder = threePrimeTerminusRemainder ?? new List<IHasChemicalFormula> { DefaultThreePrimeTerminus };
-            FivePrimeTerminusRemainder = fivePrimeTerminusRemainder ?? new List<IHasChemicalFormula> { DefaultFivePrimeTerminus };
         }
 
         public IEnumerable<NucleolyticOligo> GetUnmodifiedOligos(NucleicAcid nucleicAcid, int maxMissedCleavages, int minLength,
@@ -57,41 +52,16 @@ namespace Transcriptomics.Digestion
 
         protected override IEnumerable<DigestionProduct> GetConcreteProducts(IBioPolymer rna, int startResidue, int endResidue, int missedCleavages, CleavageSpecificity specificity, string description)
         {
-            foreach (var (threePrimeTerminus, fivePrimeTerminus) in GetDigestedTermini(startResidue, endResidue, (NucleicAcid)rna, ThreePrimeTerminusRemainder, FivePrimeTerminusRemainder))
-            {
-                yield return new NucleolyticOligo((NucleicAcid)rna, startResidue, endResidue,
-                    missedCleavages, specificity, fivePrimeTerminus, threePrimeTerminus, description);
-            }
-        }
+            NucleicAcid nucleicAcid = (NucleicAcid)rna;
+            IHasChemicalFormula threePrimeTerminus = endResidue == nucleicAcid.Length
+                ? nucleicAcid.ThreePrimeTerminus
+                : DefaultThreePrimeTerminus;
+            IHasChemicalFormula fivePrimeTerminus = startResidue == 1
+                ? nucleicAcid.FivePrimeTerminus
+                : DefaultFivePrimeTerminus;
 
-        private static IEnumerable<(IHasChemicalFormula ThreePrime, IHasChemicalFormula FivePrime)> GetDigestedTermini(int? oligoStartIndex, int? oligoEndIndex, NucleicAcid nucleicAcid, IList<IHasChemicalFormula> threePrimeTerminusRemainder, IList<IHasChemicalFormula> fivePrimeTerminusRemainder)
-        {
-            // contains original 5' terminus ? keep it : use all rnase-specific remainders
-            bool isOriginalFivePrimeTerminus = oligoStartIndex == 1;
-
-            // contains original 3' terminus ? keep it : use all rnase-specific remainders
-            bool isOriginalThreePrimeTerminus = oligoEndIndex == nucleicAcid.Length;
-
-            if (isOriginalThreePrimeTerminus && isOriginalFivePrimeTerminus)
-            {
-                yield return (nucleicAcid.ThreePrimeTerminus, nucleicAcid.FivePrimeTerminus);
-            }
-            else if (isOriginalThreePrimeTerminus)
-            {
-                foreach (var fivePrime in fivePrimeTerminusRemainder)
-                    yield return (nucleicAcid.ThreePrimeTerminus, fivePrime);
-            }
-            else if (isOriginalFivePrimeTerminus)
-            {
-                foreach (var threePrime in threePrimeTerminusRemainder)
-                    yield return (threePrime, nucleicAcid.FivePrimeTerminus);
-            }
-            else
-            {
-                foreach (var threePrime in threePrimeTerminusRemainder)
-                    foreach (var fivePrime in fivePrimeTerminusRemainder)
-                        yield return (threePrime, fivePrime);
-            }
+            yield return new NucleolyticOligo(nucleicAcid, startResidue, endResidue,
+                missedCleavages, specificity, fivePrimeTerminus, threePrimeTerminus, description);
         }
 
         public bool Equals(Rnase? other)

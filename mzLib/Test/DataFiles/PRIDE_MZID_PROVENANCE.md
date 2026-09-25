@@ -1,9 +1,10 @@
 # PRIDE mzIdentML fixtures
 
-The five `PXD*.mzid` files next to this note are real mzIdentML output from five different writers,
+The `PXD*.mzid` files next to this note are real mzIdentML output from five different writers,
 downloaded from PRIDE Archive and trimmed. They exist because the published HUPO-PSI examples do not
-reach the CV spellings and document shapes real writers produce. See `MzidIdentificationsTests` for
-what each one pins.
+reach the CV spellings and document shapes real writers produce. See `MzidIdentificationsTests` and
+`TestMzIdentMLResultFile` for what each one pins. The first five are listed here; the two modification
+fixtures and one derived `.gz` are described further down.
 
 | Fixture | PRIDE project | Source file | Writer | Source line endings | SHA-256 of the file as downloaded |
 |---|---|---|---|---|---|
@@ -33,3 +34,31 @@ downloaded file matches every non-blank fixture line except those closing tags.
 
 The unreferenced `SpectraData` entries are kept on purpose. xiFDR's results reference `SpectraData`
 index 5 of 9, which is the shape `Ms2SpectrumID`'s `SpectraData[0]` shortcut gets wrong.
+
+## Modification fixtures
+
+Two more captures come from the same downloads as the Scaffold and Mascot Parser fixtures above. They keep
+different results, chosen for the modifications their peptides carry. `TestMzIdentMLResultFile` reads them.
+
+| Fixture | Source file (as above) | Results kept | Modifications reached |
+|---|---|---|---|
+| `PXD000783_scaffold_mods_1_1_0.mzid` | `mascot_daemon_merge_F008897.mzid.gz` | `Spec_524963`, `Spec_525064`, `Spec_525101`, `Spec_525280`, `Spec_525765` | UNIMOD:21 Phospho, UNIMOD:4 Carbamidomethyl, UNIMOD:35 Oxidation, UNIMOD:7 Deamidated, UNIMOD:1 Acetyl at the N-terminus (location 0, no `residues`) |
+| `PXD019591_mascotparser_mods_1_1_0.mzid` | `F002080.mzid.gz` | `SIR_47`, `SIR_61`, `SIR_157`, `SIR_200` | UNIMOD:21 Phospho, UNIMOD:35 Oxidation, UNIMOD:4 Carbamidomethyl, UNIMOD:28 Gln->pyro-Glu at the N-terminus |
+
+Their trim rule differs from the one above in one respect. The kept results are not the first ones:
+walking the first `SpectrumIdentificationList` in order, a result is kept when one of its items references
+a peptide carrying a (UNIMOD accession, N-terminal or not) pair that no earlier kept result carried. Every
+other rule is the same. The referenced sequence entries are kept, `ProteinDetection` is dropped, the closing
+tags are the only added text, and the source line endings are kept. The same line-by-line check against the
+download passes.
+
+## Derived fixture
+
+`PXD078927_msgf_1_1_0.mzid.gz` is **not** a PRIDE download. It is `PXD078927_msgf_1_1_0.mzid` compressed
+with gzip (no file name, modification time 0), so the compressed read path has a fixture whose
+uncompressed bytes are pinned. Reading it must give exactly what reading the `.mzid` gives.
+`.gitattributes` marks it `binary`.
+
+The live canary, `PrideMzIdentMLLiveTests`, downloads a real compressed file instead:
+`2014/07/PXD000710/ma190_19_tandem_pproph.pep.mzid.gz` (X!Tandem + PeptideProphet, 8,563 bytes, SHA-256
+`80bee1aa7c6637a8e780d6f7528cae0ac82e031b06f8791879d936a905cae99f` on 2026-09-17).
