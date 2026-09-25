@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
@@ -56,6 +56,23 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsTrue(MakeKModification("N6-acetyllysine").BlocksCleavage);
             Assert.IsTrue(MakeKModification("Acetyl").BlocksCleavage, "the Unimod short name must classify too");
             Assert.IsTrue(MakeKModification("GG").BlocksCleavage, "the ubiquitin remnant blocks cleavage");
+
+            // The remnant is not always spelled "GG" on its own. Review (nbollis) raised "diGly", the
+            // MaxQuant/community spelling; checking the shipped unimod.xml for the same class of miss
+            // turned up seven more K-targeted remnants that an exact id == "gg" test cannot reach --
+            // the non-tryptic "LRGG" stub, its methyl/dimethyl composites, and four isotope-label
+            // pairings. All of them neutralise the same epsilon-amine.
+            Assert.IsTrue(MakeKModification("diGly").BlocksCleavage, "the MaxQuant spelling of the remnant");
+            Assert.IsTrue(MakeKModification("LRGG").BlocksCleavage, "the non-tryptic ubiquitin stub (unimod)");
+            Assert.IsTrue(MakeKModification("LRGG+dimethyl").BlocksCleavage);
+            Assert.IsTrue(MakeKModification("Label:13C(6)+GG").BlocksCleavage, "an isotope-labelled remnant (unimod)");
+            Assert.IsTrue(MakeKModification("Glycyl lysine isopeptide (Gly-Gly)").BlocksCleavage, "the UniProt spelling");
+
+            // ...and the stubs are matched as whole TOKENS, because they are too short to be safe as
+            // substrings: unimod carries "diglycidyl" and "diglyceride" names, neither a remnant.
+            Assert.IsFalse(MakeKModification("Bisphenol A diglycidyl ether derivative").BlocksCleavage,
+                "a substring test on \"digly\" would misclassify this");
+            Assert.IsFalse(MakeKModification("N-acyl diglyceride cysteine").BlocksCleavage);
 
             // Methylation retains the charge; it impairs rather than abolishes cleavage, so it is
             // deliberately excluded (it shows up as a missed cleavage, not an impossible peptide).
@@ -272,7 +289,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// <summary>
         /// A semi or nonspecific search is left ENTIRELY alone by the flag -- not just its non-Full
         /// subset. The drop and the generation slack are two halves of one exchange (impossible
-        /// peptidoform out, read-through form in), and ProteinDigestion grants the slack only when
+        /// peptidoform out, read-through form in), and Protein.Digest grants the slack only when
         /// SearchModeType is Full. Applying the drop without it performed half the trade: at a
         /// missed-cleavage budget too small to reach the read-through, the peptide was dropped and never
         /// replaced, so it became unidentifiable.
@@ -465,8 +482,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// combinatorics, and carrying into the fragment index.
         ///
         /// The cost is invisible in the finished digest, because the open-site filter trims the surplus
-        /// again on the way out: an output comparison passes either way and pins nothing. So this reads
-        /// the enumeration itself, through ProteinDigestion.Digestion, which is where the slack is spent.
+        /// again on the way out: an output comparison passes either way and pins nothing. Since the slack
+        /// now lives inside Protein.Digest, the gate is asserted where it is decided -- on the policy
+        /// itself -- which pins it more tightly than the enumeration count ever did.
         /// </summary>
         [Test]
         public static void WithNoBlockingModificationConfigured_NoGenerationSlackIsPaid()
@@ -477,25 +495,43 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var methyl = MakeKModification("N6-methyllysine", mass: 14.01565);
             var succinyl = MakeKModification("N6-succinyllysine");
 
-            var protein = new Protein("AAAAKAAAAKAAAASAAAAKAAAAKAAAAR", "accession");
-
-            int Enumerated(bool respect, params Modification[] variableMods)
+            CleavageBlockingPolicy PolicyFor(bool respect, params Modification[] variableMods)
             {
                 var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 5,
                     respectCleavageBlockingModifications: respect);
-                return new ProteinDigestion(dp, new List<Modification>(), variableMods.ToList())
-                    .Digestion(protein).Count();
+                return CleavageBlockingPolicy.For(dp, variableMods.ToList());
             }
 
-            int baseline = Enumerated(respect: false, phospho, methyl);
-
-            Assert.That(Enumerated(respect: true, phospho, methyl), Is.EqualTo(baseline),
+            Assert.That(PolicyFor(respect: false, phospho, succinyl).GenerationSlack, Is.Zero,
+                "with the flag off nothing may be enumerated beyond the historical path");
+            Assert.That(PolicyFor(respect: true, phospho, methyl).GenerationSlack, Is.Zero,
                 "nothing configured can block a trypsin cleavage, so no slack may be bought");
 
             // The counterpart, so the gate cannot pass by disabling the slack outright: once a blocking
-            // modification IS configured, the slack is bought and enumeration widens.
-            Assert.That(Enumerated(respect: true, phospho, succinyl), Is.GreaterThan(baseline),
+            // modification IS configured, the slack is bought.
+            Assert.That(PolicyFor(respect: true, phospho, succinyl).GenerationSlack, Is.GreaterThan(0),
                 "a configured blocking modification must still buy the slack the read-through needs");
+
+            // And the slack must actually reach digestion: the read-through peptidoform of a blocked
+            // cleavage only exists because enumeration was widened for it.
+            var protein = new Protein("AAAAKAAAAKAAAASAAAAKAAAAKAAAAR", "accession");
+
+            List<string> FullSequences(bool respect, params Modification[] variableMods)
+            {
+                var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 5,
+                    respectCleavageBlockingModifications: respect);
+                return protein.Digest(dp, new List<Modification>(), variableMods.ToList())
+                    .Select(p => p.FullSequence).ToList();
+            }
+
+            Assert.That(FullSequences(respect: true, phospho, methyl),
+                Is.EquivalentTo(FullSequences(respect: false, phospho, methyl)),
+                "a search that cannot block anything must digest exactly as it always did");
+
+            var withSlack = FullSequences(respect: true, phospho, succinyl);
+            var withoutSlack = FullSequences(respect: false, phospho, succinyl);
+            Assert.That(withSlack.Except(withoutSlack), Is.Not.Empty,
+                "the slack must produce read-through peptidoforms that flag-off digestion cannot reach");
         }
 
         /// <summary>
@@ -560,12 +596,23 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// it as blocked discounted a missed cleavage the peptide genuinely has -- both under-reporting
         /// the count and letting an over-budget peptide through on the generation slack.
         /// </summary>
+        /// <remarks>
+        /// Each protease gets a substrate with its OWN cleavage sites. Review (nbollis) caught the Arg-C
+        /// case sharing the Glu-C protein, which contains no arginine at all: the digest was then a
+        /// single whole-protein peptide with no internal cut, so the comparison passed trivially and
+        /// would have passed with the protease half of BlocksCleavageBy deleted. Arg-C now digests
+        /// AAAAAAARAAKAAAAARAAAAAAA, where the 1-missed-cleavage product AAAAAAARAAKAAAAAR has a real
+        /// missed cleavage at R8 AND carries the succinylated K11 internally -- so if a blocked K were
+        /// allowed to discount an Arg-C missed cleavage, that peptide would report 0 instead of 1 and
+        /// this test would fail.
+        /// </remarks>
         [Test]
-        public static void AProteaseThatDoesNotCleaveAfterTheModifiedResidue_IsUnaffected(
-            [Values("Glu-C", "Arg-C")] string protease)
+        [TestCase("Glu-C", "AAAAAAAEAAKAAAAAEAAAAAAA")]   // E8, K11, E17
+        [TestCase("Arg-C", "AAAAAAARAAKAAAAARAAAAAAA")]   // R8, K11, R17
+        public static void AProteaseThatDoesNotCleaveAfterTheModifiedResidue_IsUnaffected(string protease, string sequence)
         {
             var succinyl = MakeKModification("N6-succinyllysine");
-            var protein = new Protein("AAAAAAAEAAKAAAAAEAAAAAAA", "accession");   // E8, K11, E17
+            var protein = new Protein(sequence, "accession");
 
             List<string> WholeDigest(bool respect) =>
                 protein.Digest(new DigestionParams(protease: protease, maxMissedCleavages: 1, minPeptideLength: 7,
@@ -574,8 +621,13 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     .Cast<PeptideWithSetModifications>()
                     .Select(p => p.FullSequence + "|" + p.MissedCleavages).OrderBy(x => x).ToList();
 
-            CollectionAssert.AreEqual(WholeDigest(respect: false), WholeDigest(respect: true),
+            var flagOff = WholeDigest(respect: false);
+            CollectionAssert.AreEqual(flagOff, WholeDigest(respect: true),
                 protease + " does not cleave after K, so a blocked K must not discount its missed cleavages");
+
+            // The substrate has to be able to SHOW a discount, or the assertion above is vacuous.
+            Assert.That(flagOff.Any(entry => entry.EndsWith("|1")), Is.True,
+                protease + " must produce a peptide with a real missed cleavage AND a blocked K inside it");
         }
 
         /// <summary>
@@ -626,5 +678,130 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(readThrough.MissedCleavages, Is.EqualTo(1),
                 "citrulline on R blocks nothing under Lys-C, so the missed cleavage at K stands");
         }
+
+        /// <summary>
+        /// Review (nbollis): the generation slack is DigestionParams.MaxMods, which bounds VARIABLE
+        /// modifications, but fixed modifications are merged into the pattern regardless of MaxMods --
+        /// so a fixed blocking modification could trigger the C-terminal drop while buying no slack to
+        /// replace it. At MaxMods 0 the slack is exactly zero and the peptide was lost outright rather
+        /// than corrected, which is worse than the uncorrected behaviour the flag replaces.
+        ///
+        /// Resolved by scoping the correction to variable modifications: CleavageBlockingPolicy.For
+        /// activates on the variable list alone, and the drop is asked before fixed modifications are
+        /// merged into the pattern, so a fixed blocking modification can neither buy slack nor spend it.
+        /// A fixed blocking modification is unavoidable -- it sits on EVERY instance of its residue --
+        /// so the read-through replacing a dropped peptidoform would have to span every such residue in
+        /// the protein, which no MaxMods-derived slack can pay for. Removing those sites before
+        /// enumeration is the mechanism that case needs, and it is not this one.
+        ///
+        /// Fails before that change: the flag-on digest is missing PEPTIDEK entirely.
+        /// </summary>
+        [Test]
+        public static void AFixedBlockingModification_NeverLosesAPeptide([Values(0, 1, 2)] int maxMods)
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein(Sequence, "accession");   // PEPTIDEKAAAAAAAR: trypsin cuts after K8
+
+            List<string> Digested(bool respect) =>
+                protein.Digest(
+                        new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 7,
+                            maxModsForPeptides: maxMods, respectCleavageBlockingModifications: respect),
+                        new List<Modification> { succinyl },       // FIXED
+                        new List<Modification>())                  // no variable modifications at all
+                    .Cast<PeptideWithSetModifications>()
+                    .Select(p => p.FullSequence + "|" + p.MissedCleavages).OrderBy(x => x).ToList();
+
+            var flagOff = Digested(respect: false);
+            Assert.That(flagOff.Any(entry => entry.StartsWith("PEPTIDEK[")), Is.True,
+                "the substrate must actually produce the peptidoform whose loss this test guards against");
+            CollectionAssert.AreEqual(flagOff, Digested(respect: true),
+                "a fixed blocking modification buys no slack, so it must not be able to drop anything either");
+        }
+
+        /// <summary>
+        /// The counterpart, so the scoping above cannot pass by disabling the correction: the same
+        /// blocking chemistry declared as a VARIABLE modification still drops the impossible
+        /// peptidoform and still generates the read-through that replaces it.
+        /// </summary>
+        [Test]
+        public static void AVariableBlockingModification_StillGetsTheCorrection()
+        {
+            var succinyl = MakeKModification("N6-succinyllysine");
+            var protein = new Protein(Sequence, "accession");
+            var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 7,
+                maxModsForPeptides: 1, respectCleavageBlockingModifications: true);
+
+            var digest = protein.Digest(dp, new List<Modification>(), new List<Modification> { succinyl })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            Assert.That(digest.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.False,
+                "trypsin cannot cleave after a succinylated K, so that peptidoform must go");
+            Assert.That(digest.Any(p => p.BaseSequence == Sequence && p.AllModsOneIsNterminus.ContainsKey(9)), Is.True,
+                "and the read-through must arrive to replace it, at zero missed cleavages");
+        }
+
+        /// <summary>
+        /// Review (nbollis): Modification.BlocksCleavage memoises a classification derived from
+        /// OriginalId, IdWithMotif, Target and LocationRestriction, and the immutability that makes
+        /// that memo safe was only a comment -- Modification is not sealed, has subclasses, and those
+        /// properties have protected setters. Instances are shared across threads through the static
+        /// lists on Mods, so a stale answer is globally wrong rather than locally wrong.
+        ///
+        /// He was more right than the finding claimed, and CI proved it: making the four properties
+        /// private set broke the MetaMorpheus build, because EngineLayer/GlycoSearch/Glycan.cs is a
+        /// real Modification subclass that assigns OriginalId, Target and IdWithMotif in its own
+        /// constructor AFTER the base constructor has run. The immutability cannot be enforced; the
+        /// memo has to survive mutation instead. It now caches the inputs beside the answer and
+        /// recomputes when they change.
+        ///
+        /// Fails against a plain compute-once memo: the first read classifies a serine-targeted
+        /// phospho as non-blocking, and the second read -- after the subclass has moved it onto a
+        /// lysine and renamed it -- would keep returning that stale answer.
+        /// </summary>
+        [Test]
+        public static void BlocksCleavage_IsRecomputedWhenASubclassChangesItsInputs()
+        {
+            ModificationMotif.TryGetMotif("S", out ModificationMotif serine);
+            var mod = new MutableModification(_originalId: "Phospho", _modificationType: "Test",
+                _target: serine, _locationRestriction: "Anywhere.", _monoisotopicMass: 79.96633);
+
+            Assert.IsFalse(mod.BlocksCleavage, "a phospho-serine blocks no trypsin cleavage");
+
+            // Exactly what Glycan does: reassign the identity after construction.
+            ModificationMotif.TryGetMotif("K", out ModificationMotif lysine);
+            mod.Reassign("N6-succinyllysine", lysine, "Anywhere.");
+
+            Assert.IsTrue(mod.BlocksCleavage,
+                "the memo must follow its inputs, because a subclass can move them after the first read");
+
+            // ...and back again, so the test cannot pass by the memo simply never caching.
+            mod.Reassign("Phospho", serine, "Anywhere.");
+            Assert.IsFalse(mod.BlocksCleavage);
+        }
+
+        /// <summary>
+        /// Stands in for MetaMorpheus's Glycan, which assigns OriginalId, Target and IdWithMotif in
+        /// its own constructor after base construction. mzLib has no subclass that does this, so the
+        /// hazard is not reachable from mzLib's own types -- which is why it needs a stand-in here
+        /// rather than an existing one.
+        /// </summary>
+        private class MutableModification : Modification
+        {
+            public MutableModification(string _originalId, string _modificationType, ModificationMotif _target,
+                string _locationRestriction, double _monoisotopicMass)
+                : base(_originalId: _originalId, _modificationType: _modificationType, _target: _target,
+                    _locationRestriction: _locationRestriction, _monoisotopicMass: _monoisotopicMass)
+            {
+            }
+
+            internal void Reassign(string originalId, ModificationMotif target, string locationRestriction)
+            {
+                OriginalId = originalId;
+                Target = target;
+                LocationRestriction = locationRestriction;
+                IdWithMotif = originalId + " on " + target;
+            }
+        }
+
     }
 }

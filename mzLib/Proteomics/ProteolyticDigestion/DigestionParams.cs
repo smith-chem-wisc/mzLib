@@ -28,6 +28,7 @@ namespace Proteomics.ProteolyticDigestion
             SearchModeType = searchModeType;
             FragmentationTerminus = fragmentationTerminus;
             RecordSpecificProtease();
+
             GeneratehUnlabeledProteinsForSilac = generateUnlabeledProteinsForSilac;
             KeepNGlycopeptide = keepNGlycopeptide;
             KeepOGlycopeptide = keepOGlycopeptide;
@@ -41,6 +42,7 @@ namespace Proteomics.ProteolyticDigestion
         public int MaxLength { get; set; }
         public int MaxMods { get; set; }
         public DigestionAgent DigestionAgent => Protease;
+        public DigestionAgent SpecificDigestionAgent => SpecificProtease;
 
         /// <summary>
         /// The kind of search: <see cref="CleavageSpecificity.Full"/> (the default), <see cref="CleavageSpecificity.Semi"/>
@@ -217,7 +219,6 @@ namespace Proteomics.ProteolyticDigestion
                 GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide,
                 RespectCleavageBlockingModifications);
         }
-            
 
         private void RecordSpecificProtease()
         {
