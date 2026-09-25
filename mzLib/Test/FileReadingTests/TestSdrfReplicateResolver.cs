@@ -63,12 +63,28 @@ namespace Test.FileReadingTests
         [TestCase("X_TR1", "X_TR2", "X_TR3", "Technical")]
         [TestCase("X_inj1", "X_inj2", "X_inj3", "Technical")]
         [TestCase("Liver_Rat1", "Liver_Rat2", "Liver_Rat3", "Biological")]
+        [TestCase("S1_Band_01", "S1_Band_02", "S1_Band_03", "Fraction")]
+        [TestCase("MSB67868ABand_01", "MSB67868ABand_02", "MSB67868ABand_03", "Fraction")]
         public void AMarkersOwnWordSaysWhatItCounts(string a, string b, string c, string kindName)
         {
             var r = SdrfReplicateResolver.Read(new[] { a, b, c }, Array.Empty<string>());
 
             Assert.That(r.Files.Select(f => f.Kind), Is.All.EqualTo(Enum.Parse<SdrfReplicateKind>(kindName)));
             Assert.That(r.Files.Select(f => f.Number), Is.EqualTo(new int?[] { 1, 2, 3 }));
+        }
+
+        /// <summary>
+        /// A word read across a separator, or off a tag it is glued to, has to mean one thing. In
+        /// PXD041400, <c>f_10</c> is a female, not a fraction. <c>InGel</c> is an in-gel digestion,
+        /// not a gel band.
+        /// </summary>
+        [TestCase("Liver_f_1", "Liver_f_2", "Liver_f_3")]
+        [TestCase("MCF7_InGel_01", "MCF7_InGel_02", "MCF7_InGel_03")]
+        public void AShortOrAmbiguousWordBeforeTheSeparatorStatesNothing(string a, string b, string c)
+        {
+            var r = SdrfReplicateResolver.Read(new[] { a, b, c }, Array.Empty<string>());
+
+            Assert.That(r.Files.Select(f => f.Kind), Is.All.Not.EqualTo(SdrfReplicateKind.Fraction));
         }
 
         [Test]
