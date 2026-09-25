@@ -212,6 +212,27 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void ABiologicalReplicateNothingMarkedIsLabelledDefaultNotTheRowSource()
+        {
+            // D39: a replicate 1 written only because an SDRF needs one is `default`. Under D31's grain the row's
+            // comment[characteristics source] covers every characteristic without its own override, so without
+            // one a default replicate would read as "pride project record".
+            var draft = SdrfDrafter.Draft(Covid(), CovidFiles().Append("Blank.raw"));
+            var doc = SdrfDrafter.ToDocument(draft, "PXD020394");
+
+            string Effective(SdrfRow r) => doc.Header.Contains("comment[biological replicate source]")
+                && r["comment[biological replicate source]"] is { } o && o != "not applicable" ? o : r["comment[characteristics source]"];
+            foreach (var row in draft.Rows)
+            {
+                var written = doc.Results.Single(r => r["comment[data file]"] == row.DataFile);
+                string expected = row.BiologicalReplicate.Source == SdrfDraftSource.Default ? "default" : "inferred";
+                Assert.That(Effective(written), Is.EqualTo(expected), row.DataFile);
+            }
+            Assert.That(draft.Rows.Any(r => r.BiologicalReplicate.Source == SdrfDraftSource.Default), "the fixture must carry a default");
+            Assert.That(doc.Header.Count(h => h == "comment[characteristics source]"), Is.EqualTo(1));
+        }
+
+        [Test]
         public void EveryInferredCellSaysWhy()
         {
             var d = SdrfDrafter.Draft(Covid(), CovidFiles());
