@@ -351,7 +351,13 @@ public static class EntrapmentProteinGenerator
             appliedSequenceVariations: new List<SequenceVariation>(),
             proteolysisProducts: new List<TruncationProduct>(),
             disulfideBonds: new List<DisulfideBond>(),
-            spliceSites: new List<SpliceSite>());
+            spliceSites: new List<SpliceSite>(),
+            // Database references are not positional, but each (GO, InterPro, Pfam, PDB) is a claim
+            // about what the target's sequence is or does. The partner's sequence was built to be
+            // nothing, so inheriting them would give it the target's function in any tool that
+            // reads annotation from the searched database. The foreign arm keeps its sequence, and
+            // so its references.
+            databaseReferences: new List<DatabaseReference>());
     }
 
     /// <summary>

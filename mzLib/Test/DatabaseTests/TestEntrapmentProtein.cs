@@ -928,6 +928,46 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void APartnerDoesNotInheritItsTargetDatabaseReferences()
+    {
+        // A dbReference is not positional, but every one (GO, InterPro, Pfam, PDB) is a claim about
+        // what a sequence is or does, and the partner's sequence was built to be nothing. Carried
+        // across, a tool reading function from the searched database says Random_P12345_f0 does
+        // what P12345 does. Reported by the go project (thread go/001, GO-E1).
+        var references = new List<DatabaseReference>
+        {
+            new DatabaseReference("GO", "GO:0005737",
+                new List<Tuple<string, string>> { new("term", "C:cytoplasm") }),
+            new DatabaseReference("Pfam", "PF00001", new List<Tuple<string, string>>()),
+        };
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR", "P12345",
+            databaseReferences: references);
+        var foreign = new Protein(ForeignSequence, "Q9XYZ1", databaseReferences: references);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        Protein foreignEntry = EntrapmentProteinGenerator.CreateForeign(foreign);
+
+        Assert.That(entrapment.DatabaseReferences, Is.Empty);
+        Assert.That(target.DatabaseReferences, Has.Count.EqualTo(2), "the target keeps its own");
+        Assert.That(foreignEntry.DatabaseReferences, Has.Count.EqualTo(2),
+            "a foreign entry keeps its sequence, so its references are still true of it");
+
+        string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "entrapment_dbreferences.xml");
+        ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+            new List<Protein> { target, entrapment, foreignEntry }, path);
+        List<Protein> reloaded = ProteinDbLoader.LoadProteinXML(path, true, DecoyType.None,
+            new List<Modification>(), false, new List<string>(), out _);
+        File.Delete(path);
+
+        Assert.That(reloaded.Single(p => p.Accession == entrapment.Accession).DatabaseReferences, Is.Empty,
+            "nothing the writer emits may give the partner its target's function");
+        Assert.That(reloaded.Single(p => p.Accession == "P12345").DatabaseReferences.Select(r => r.Id),
+            Is.EquivalentTo(new[] { "GO:0005737", "PF00001" }));
+        Assert.That(reloaded.Single(p => p.Accession == foreignEntry.Accession).DatabaseReferences.Select(r => r.Id),
+            Is.EquivalentTo(new[] { "GO:0005737", "PF00001" }));
+    }
+
+    [Test]
     public void AnUnknownResidueDoesNotWriteAZeroMass()
     {
         // MonoisotopicMass is NaN for a sequence holding X or B, and (int)Math.Round(NaN) is 0, so
