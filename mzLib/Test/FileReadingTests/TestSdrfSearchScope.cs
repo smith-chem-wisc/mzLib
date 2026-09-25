@@ -104,6 +104,26 @@ namespace Test.FileReadingTests
             Assert.That(s.Document.Results.Count(r => r["comment[data file]"] == "WT_1.raw"), Is.EqualTo(1));
         }
 
+        /// <summary>
+        /// D40: an SDRF MetaMorpheus wrote names the SEARCHED file in comment[data file], so the suffix can be on
+        /// the ROW side. Read back for a later search -- of the same derivative, the original raw file, or a
+        /// further derivative -- the row must still join.
+        /// </summary>
+        [TestCase("WT_1-calib.mzML")]
+        [TestCase("WT_1.raw")]
+        [TestCase("WT_1-calib-averaged.mzML")]
+        public void ARowNamingADerivativeJoinsAnyFileOfTheSameRun(string searchedFile)
+        {
+            var written = Doc(new[] { "S1", "1", "run 1", "label free sample", "WT_1-calib.mzML", "1" },
+                              new[] { "S2", "2", "run 2", "label free sample", "WT_2-calib.mzML", "1" });
+
+            var s = SdrfSearchScope.Restrict(written, new[] { searchedFile });
+
+            Assert.That(s.SearchedWithoutRow, Is.Empty);
+            Assert.That(s.Document.Results.Single()["comment[data file]"], Is.EqualTo("WT_1-calib.mzML"));
+            Assert.That(s.Document.Results.Single()["comment[searched data file]"], Is.EqualTo(searchedFile));
+        }
+
         [Test]
         public void AnEarlierSearchsColumnIsReplaced()
         {
