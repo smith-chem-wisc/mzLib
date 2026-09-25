@@ -49,6 +49,9 @@
   </ItemGroup>
 
   <ItemGroup>
+    <None Update="ProteomicsTests\ProteolyticDigestion\TestData\digestion-truth-set.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <!-- Architecture-stamped input for TestNoArchitectureSpecificAssemblyReferences. Test data, not a
          dependency: pinned here rather than read from Readers\Thermo\ so that updating the vendored
          Thermo binaries cannot leave the positive control with nothing to assert. See the README beside it. -->

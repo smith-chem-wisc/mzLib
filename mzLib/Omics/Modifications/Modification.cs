@@ -8,6 +8,17 @@ namespace Omics.Modifications
     /// Represents a modification
     /// Mods.txt format was taken from https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/complete/docs/ptmlist.txt
     /// </summary>
+    /// <remarks>
+    /// IDENTITY IS MUTABLE BY A SUBCLASS, and anything derived from it must survive that.
+    /// <see cref="IdWithMotif"/>, <see cref="OriginalId"/>, <see cref="Target"/> and
+    /// <see cref="LocationRestriction"/> have protected setters, and MetaMorpheus's
+    /// <c>Glycan : Modification</c> really does assign three of them in its own constructor, AFTER
+    /// the base constructor has run. So a value memoised from them on first read can be stale by
+    /// second read; <see cref="BlocksCleavage"/> handles that by caching the INPUTS next to the
+    /// answer and recomputing when they change, rather than by assuming they cannot. Instances are
+    /// shared across threads (the static lists on <see cref="Mods"/>), so a stale answer would be
+    /// globally wrong rather than locally wrong -- do not replace that with a plain memo.
+    /// </remarks>
     public class Modification : IComparable<Modification>
     {
         public string IdWithMotif { get; protected set; }
@@ -49,8 +60,105 @@ namespace Omics.Modifications
         public List<string> Keywords { get; protected set; }
         public Dictionary<DissociationType, List<double>> NeutralLosses { get; protected set; }
         public Dictionary<DissociationType, List<double>> DiagnosticIons { get; protected set; }
+        /// <summary>
+        /// What this glycan is built from, when it is a glycan and the source said. Null for every
+        /// ordinary modification, and null for a glycan whose source only gave a mass.
+        /// </summary>
+        /// <remarks>
+        /// Null means UNKNOWN, never "no sugars", and every rule written against it must read it that
+        /// way: a cleavage rule that cannot see a composition has to let the cleavage through rather than
+        /// refuse it, or adding this property would silently change results for every glycan database
+        /// that does not populate it.
+        ///
+        /// Safe to add because modifications are NOT serialized into MetaMorpheus's peptide index --
+        /// PeptideWithSetModifications marks its modification dictionary [NonSerialized] and rebuilds it
+        /// from the full sequence against the run's known modifications -- so this changes no on-disk
+        /// layout and cannot corrupt a cached index.
+        /// </remarks>
+        public MonosaccharideComposition MonosaccharideComposition { get; protected set; }
+
         public string FileOrigin { get; private set; }
         protected const double tolForEquality = 1e-9;
+
+        /// <summary>
+        /// True when this modification sits on the side chain of a trypsin-family cleavage residue
+        /// (Lys/Arg) and neutralises or masks its charge enough that the protease would not cleave
+        /// after it -- N6-succinyllysine, N6-acetyllysine and the other epsilon-amine acylations.
+        ///
+        /// This is a property of the modification alone, and it is only the first of three questions.
+        /// Whether the configured PROTEASE cleaves after that residue at all is the second -- see
+        /// <see cref="CleavageBlockingModifications.BlocksCleavageBy"/>, which is what digestion
+        /// actually consults. Whether the modification invalidates a given peptidoform is the third, a
+        /// question of POSITION that digestion decides: an acylated residue that is the protein's own
+        /// C-terminus ends a perfectly real peptide, since no cleavage happens there.
+        ///
+        /// Curated classification; see <see cref="CleavageBlockingModifications"/> for what is in the
+        /// set and why the methyl series is excluded. Digestion consults this only when
+        /// DigestionParams.RespectCleavageBlockingModifications is set.
+        /// </summary>
+        public bool BlocksCleavage
+        {
+            get
+            {
+                // Classifying costs a lower-casing allocation and a scan of the acyl stems, and the
+                // digestion path asks per modification per peptidoform -- millions of times across a
+                // search -- so the answer is memoised.
+                //
+                // The memo cannot assume its inputs are fixed. OriginalId, IdWithMotif, Target and
+                // LocationRestriction have protected setters, and MetaMorpheus's Glycan subclass
+                // assigns three of them in its own constructor after base construction -- so a plain
+                // "compute once" cache can be built from values that no longer hold, and these
+                // instances are shared across threads. The cached inputs are therefore stored beside
+                // the cached answer and compared by reference on every read: three reference
+                // comparisons, far cheaper than the scan, and correct under mutation.
+                //
+                // The snapshot is a single immutable object behind one reference field, so publishing
+                // it is atomic and a read can never see a half-updated pair. The race is benign: two
+                // threads racing here compute the same answer from the same inputs.
+                string id = OriginalId ?? IdWithMotif;
+                ModificationMotif target = Target;
+                string locationRestriction = LocationRestriction;
+
+                BlocksCleavageClassification cached = _blocksCleavage;
+                if (cached is null
+                    || !ReferenceEquals(cached.Id, id)
+                    || !ReferenceEquals(cached.Target, target)
+                    || !ReferenceEquals(cached.LocationRestriction, locationRestriction))
+                {
+                    cached = new BlocksCleavageClassification(id, target, locationRestriction,
+                        CleavageBlockingModifications.NeutralizesCleavageResidue(this));
+                    _blocksCleavage = cached;
+                }
+
+                return cached.Answer;
+            }
+        }
+
+        /// <summary>
+        /// A memoised <see cref="BlocksCleavage"/> answer together with the three inputs it was
+        /// computed from, so the answer can be invalidated when a subclass changes them.
+        /// </summary>
+        private sealed class BlocksCleavageClassification
+        {
+            internal BlocksCleavageClassification(string id, ModificationMotif target, string locationRestriction, bool answer)
+            {
+                Id = id;
+                Target = target;
+                LocationRestriction = locationRestriction;
+                Answer = answer;
+            }
+
+            internal readonly string Id;
+            internal readonly ModificationMotif Target;
+            internal readonly string LocationRestriction;
+            internal readonly bool Answer;
+        }
+
+        // Not serialized anywhere: MetaMorpheus's NetSerializer peptide index is field-based and
+        // schema-rigid, but PeptideWithSetModifications keeps its modification dictionary
+        // [NonSerialized] and rebuilds it from the full sequence, so no Modification reaches that
+        // cache and its on-disk layout is unaffected by this field.
+        private BlocksCleavageClassification _blocksCleavage;
 
         public virtual bool ValidModification
         {
@@ -71,8 +179,10 @@ namespace Omics.Modifications
             double? _monoisotopicMass = null, Dictionary<string, IList<string>> _databaseReference = null,
             Dictionary<string, IList<string>> _taxonomicRange = null, List<string> _keywords = null,
             Dictionary<DissociationType, List<double>> _neutralLosses = null, Dictionary<DissociationType, List<double>> _diagnosticIons = null,
-            string _fileOrigin = null)
+            string _fileOrigin = null, MonosaccharideComposition _monosaccharideComposition = null)
         {
+            this.MonosaccharideComposition = _monosaccharideComposition;
+
             if (_originalId != null)
             {
                 if (_originalId.Contains(" on "))
@@ -270,6 +380,18 @@ namespace Omics.Modifications
                 {
                     sb.AppendLine("KW   " + String.Join(" or ", this.Keywords.ToList().OrderBy(b => b)));
                 }
+            }
+
+            // GC, for the monosaccharide composition. Emitted so the field survives a database round
+            // trip: ProteinDbWriter stores a modification as this very string (ProteinDbWriter.cs:95 and
+            // :360) and ProteinDbLoader reads it back through ModificationLoader (ProteinDbLoader.cs:217),
+            // so a field absent here is silently gone after any write-then-read and the cleavage rule that
+            // depends on it quietly weakens. The format is key-prefixed and order-insensitive -- the
+            // reader dispatches on the first two characters and ignores keys it does not know -- so this
+            // may sit anywhere in the record, and an older mzLib simply drops it rather than failing.
+            if (this.MonosaccharideComposition != null)
+            {
+                sb.AppendLine("GC   " + this.MonosaccharideComposition);
             }
 
             return sb.ToString();
