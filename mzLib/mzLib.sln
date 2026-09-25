@@ -41,6 +41,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Quantification", "Quantific
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PredictionClients", "PredictionClients\PredictionClients.csproj", "{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}"
 EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Statistics", "Statistics\Statistics.csproj", "{CDB46347-F094-4FE3-94F2-BA33273EACAB}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -277,6 +279,18 @@ Global
 		{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}.TestAndRelease|Any CPU.Build.0 = Release|AnyCPU
 		{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}.TestAndRelease|x64.ActiveCfg = Release|x64
 		{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}.TestAndRelease|x64.Build.0 = Release|x64
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Debug|Any CPU.ActiveCfg = Debug|AnyCPU
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Debug|Any CPU.Build.0 = Debug|AnyCPU
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Debug|x64.ActiveCfg = Debug|x64
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Debug|x64.Build.0 = Debug|x64
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Release|Any CPU.ActiveCfg = Release|AnyCPU
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Release|Any CPU.Build.0 = Release|AnyCPU
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Release|x64.ActiveCfg = Release|x64
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.Release|x64.Build.0 = Release|x64
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.TestAndRelease|Any CPU.ActiveCfg = Release|AnyCPU
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.TestAndRelease|Any CPU.Build.0 = Release|AnyCPU
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.TestAndRelease|x64.ActiveCfg = Release|x64
+		{CDB46347-F094-4FE3-94F2-BA33273EACAB}.TestAndRelease|x64.Build.0 = Release|x64
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
