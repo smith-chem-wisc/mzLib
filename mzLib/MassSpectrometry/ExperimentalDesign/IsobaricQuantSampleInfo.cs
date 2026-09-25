@@ -60,6 +60,21 @@ namespace MassSpectrometry
         public string ChannelLabel { get; }
 
         /// <summary>
+        /// The name the experimental design gives the sample in this channel — the "Sample Name"
+        /// column of a MetaMorpheus TMT design, or an SDRF source name — or null when the design
+        /// does not name it.
+        /// </summary>
+        /// <remarks>
+        /// Display only: it names the channel's column in quantification output. It takes no part in
+        /// <see cref="Equals(IsobaricQuantSampleInfo?)"/>, <see cref="GetHashCode"/> or
+        /// <see cref="UniqueIdentifier"/>, which stay keyed on file and channel, because a sample name
+        /// is free text and two channels a design happens to name alike are still two measurements.
+        /// It is an init property rather than a constructor parameter so that no existing caller
+        /// has to change.
+        /// </remarks>
+        public string? SampleName { get; init; }
+
+        /// <summary>
         /// The reporter ion m/z value for this channel. Used to extract intensity values
         /// from MS2/MS3 spectra during quantification.
         /// </summary>

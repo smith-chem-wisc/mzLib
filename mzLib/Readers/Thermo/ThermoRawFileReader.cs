@@ -144,6 +144,8 @@ namespace Readers
                     .Replace("-", string.Empty);
             }
 
+            var (instrumentModel, serialNumber, acquisitionStartTime) = GetInstrumentMetadata();
+
             SourceFile sourceFile = new SourceFile(
                 @"Thermo nativeID format",
                 @"Thermo RAW format",
@@ -152,42 +154,59 @@ namespace Readers
                 FilePath,
                 Path.GetFileNameWithoutExtension(FilePath))
             {
-                InstrumentModel = GetInstrumentModel()
+                InstrumentModel = instrumentModel,
+                InstrumentSerialNumber = serialNumber,
+                AcquisitionStartTime = acquisitionStartTime
             };
 
             return sourceFile;
         }
 
         /// <summary>
-        /// The instrument model recorded in the RAW file, as a NAME-only CvParam
-        /// (e.g. NT=Orbitrap Fusion Lumos with an empty accession).
+        /// The run-level metadata a RAW file records, read on one connection: the instrument model,
+        /// the instrument serial number, and the file's creation date, which is when acquisition
+        /// started.
         ///
-        /// Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS cvParam --
-        /// a RAW file records only free text, so no accession can be produced here without a
-        /// controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
+        /// The model comes back as a NAME-only CvParam (e.g. NT=Orbitrap Fusion Lumos with an empty
+        /// accession). Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS
+        /// cvParam -- a RAW file records only free text, so no accession can be produced here without
+        /// a controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
         /// file, and forcing it here would put an ontology dependency into the raw reader. Callers
         /// that need the accession resolve the name themselves; the empty Accession is the signal
         /// that they must, and is documented on <see cref="SourceFile.InstrumentModel"/>.
         ///
-        /// Returns null rather than throwing if the model cannot be read: the instrument name is
-        /// metadata, and failing to obtain it must not stop a file being opened.
+        /// Every value is null rather than an exception when it cannot be read: this is metadata,
+        /// and failing to obtain it must not stop a file being opened. The creation date is read
+        /// separately so that a file whose header cannot be read still reports its instrument.
         /// </summary>
-        private CvParam GetInstrumentModel()
+        private (CvParam? Model, string? SerialNumber, DateTime? AcquisitionStartTime) GetInstrumentMetadata()
         {
             try
             {
                 using var connection = RawFileReaderAdapter.FileFactory(FilePath);
                 if (connection == null || !connection.IsOpen || connection.IsError)
-                    return null;
+                    return (null, null, null);
+
+                DateTime? created = null;
+                try
+                {
+                    created = connection.FileHeader?.CreationDate;
+                }
+                catch (Exception)
+                {
+                    // The header is metadata too; losing it must not lose the instrument.
+                }
 
                 connection.SelectInstrument(Device.MS, 1);
                 var instrument = connection.GetInstrumentData();
 
-                return BuildInstrumentModel(instrument?.Model, instrument?.Name);
+                return (BuildInstrumentModel(instrument?.Model, instrument?.Name),
+                    BuildSerialNumber(instrument?.SerialNumber),
+                    BuildAcquisitionStartTime(created));
             }
             catch (Exception)
             {
-                return null;
+                return (null, null, null);
             }
         }
 
@@ -211,6 +230,30 @@ namespace Readers
             // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
             return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
         }
+
+        /// <summary>
+        /// The serial number a RAW file records, trimmed, or null when it records none. Internal and
+        /// string-typed for the same reason as <see cref="BuildInstrumentModel"/>.
+        /// </summary>
+        internal static string? BuildSerialNumber(string? serialNumber) =>
+            string.IsNullOrWhiteSpace(serialNumber) ? null : serialNumber.Trim();
+
+        /// <summary>
+        /// The acquisition start time from a RAW file's creation date, as a wall-clock time with
+        /// <see cref="DateTimeKind.Unspecified"/>, or null when the file records none.
+        ///
+        /// The Thermo library returns the value with Kind Utc, but it is the acquisition computer's
+        /// LOCAL time: for both committed .raw fixtures that have a ProteoWizard mzML beside them
+        /// (sliced_ethcd, sliced-raw), the value read here is exactly five hours earlier than the
+        /// mzML's startTimeStamp, which is US Central daylight time. ProteoWizard converts assuming
+        /// the converting machine's time zone. The RAW file does not record the offset, so the
+        /// instant is unknown and the Kind is cleared rather than trusted. Internal and primitive-
+        /// typed for the same reason as <see cref="BuildInstrumentModel"/>.
+        /// </summary>
+        internal static DateTime? BuildAcquisitionStartTime(DateTime? created) =>
+            created is { } value && value != default
+                ? DateTime.SpecifyKind(value, DateTimeKind.Unspecified)
+                : null;
 
         /// <summary>
         /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
