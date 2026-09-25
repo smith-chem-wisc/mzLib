@@ -211,7 +211,9 @@ namespace Readers
         /// default: the source most of its stated characteristics share. <c>comment[&lt;characteristic&gt;
         /// source]</c> is written only where one cell's source differs -- the control arm's inferred
         /// <c>normal</c> beside a project-record organism part. A cell nothing states is
-        /// <c>not available</c> and has no source.</para>
+        /// <c>not available</c> and has no source. The biological replicate never votes on the row default
+        /// and gets <c>comment[biological replicate source]</c> wherever its source differs: <c>default</c>
+        /// (D39) when nothing marked a replicate and 1 was written only because an SDRF needs a value.</para>
         ///
         /// <para>Assay facts a draft cannot know (cleavage agent, modifications, tolerances) are
         /// <c>not available</c>: the search that uses this SDRF knows them and writes them in the SDRF it
@@ -238,6 +240,11 @@ namespace Readers
                     foreach (var (name, cell) in stated.Where(x => x.Cell.Source != byRow))
                         comments[$"comment[{name} source]"] = SourceWord(cell.Source);
                 }
+                // The biological replicate is a characteristic too, so the row default would otherwise claim it.
+                // It stays out of the vote (a count is never what the row's characteristics came from) and gets
+                // its own word wherever that differs -- `default` when nothing marked it (D39).
+                if (!comments.TryGetValue("comment[characteristics source]", out var rowWord) || rowWord != SourceWord(r.BiologicalReplicate.Source))
+                    comments["comment[biological replicate source]"] = SourceWord(r.BiologicalReplicate.Source);
 
                 var characteristics = new Dictionary<string, CvParam>(StringComparer.Ordinal);
                 if (r.OrganismPart.Term != null) characteristics["characteristics[organism part]"] = r.OrganismPart.Term;
@@ -285,6 +292,7 @@ namespace Readers
         private static string SourceWord(SdrfDraftSource source) => source switch
         {
             SdrfDraftSource.PrideProjectRecord => "pride project record",
+            SdrfDraftSource.Default => "default",
             _ => "inferred"
         };
 
