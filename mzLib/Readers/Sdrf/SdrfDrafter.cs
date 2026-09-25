@@ -258,9 +258,12 @@ namespace Readers
                 if (r.Disease.Source != SdrfDraftSource.NotAvailable)
                     characteristics["characteristics[disease]"] = r.Disease.Value == "normal" ? Normal : r.Disease.Term!;
 
+                // Every factor column is written on every row. A cell the drafter could not place is UNKNOWN,
+                // `not available`; left out, the builder would fill `not applicable`, which says the factor does
+                // not apply to the sample (G37).
                 var factors = draft.FactorColumns.Zip(r.Factors)
-                    .Where(x => x.Second.Source != SdrfDraftSource.NotAvailable)
-                    .ToDictionary(x => x.First, x => x.Second.Value, StringComparer.Ordinal);
+                    .ToDictionary(x => x.First, x => x.Second.Source == SdrfDraftSource.NotAvailable ? SdrfReserved.NotAvailable : x.Second.Value,
+                        StringComparer.Ordinal);
 
                 return new SdrfRowInput(
                     new SdrfSample

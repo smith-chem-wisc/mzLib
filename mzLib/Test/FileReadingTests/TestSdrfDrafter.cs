@@ -312,6 +312,27 @@ namespace Test.FileReadingTests
             Assert.That(v.Errors, Is.Empty, string.Join("\n", v.Errors.Select(e => e.ToString())));
         }
 
+        /// <summary>
+        /// G37: a file the drafter could not place has an UNKNOWN condition -- `not available` -- not a condition
+        /// that does not apply to it. PXD032040's shape: IgG / ctrl IPs beside a batch of runs with no condition token.
+        /// </summary>
+        [Test]
+        public void AFactorTheDrafterCouldNotPlaceIsNotAvailableNotNotApplicable()
+        {
+            var files = new[] { "IP_IgG1.raw", "IP_IgG2.raw", "IP_IgG3.raw", "IP_ctrl1.raw", "IP_ctrl2.raw", "IP_ctrl3.raw",
+                                "Q1_ColID_292_10.raw", "Q1_ColID_292_11.raw", "Q1_ColID_292_12.raw" };
+            var draft = SdrfDrafter.Draft(Covid(), files);
+            Assume.That(draft.FactorColumns, Is.Not.Empty, "the fixture must yield a condition");
+            var doc = SdrfDrafter.ToDocument(draft, "PXD032040");
+
+            var unplaced = doc.Results.Single(r => r["comment[data file]"] == "Q1_ColID_292_10.raw");
+            var placed = doc.Results.Single(r => r["comment[data file]"] == "IP_IgG1.raw");
+
+            Assert.That(unplaced[draft.FactorColumns[0]], Is.EqualTo("not available"));
+            Assert.That(placed[draft.FactorColumns[0]], Is.EqualTo("IgG"));
+            Assert.That(SdrfValidator.Validate(doc).Errors, Is.Empty);
+        }
+
         [Test]
         public void ProvenanceIsARowDefaultWithAnOverrideOnlyWhereACellDiffers()
         {
