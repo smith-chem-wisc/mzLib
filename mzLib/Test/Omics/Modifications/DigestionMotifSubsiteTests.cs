@@ -172,6 +172,40 @@ namespace Test.Omics.Modifications
         }
 
         [Test]
+        [TestCase("|D", 1, 'D', true)]
+        [TestCase("|D", 1, 'E', false)]
+        [TestCase("TX|T", 1, 'T', true)]
+        [TestCase("TX|T", 1, 'S', false)]
+        [TestCase("GPX|GPX", 1, 'G', true)]
+        [TestCase("GPX|GPX", 2, 'P', true)]
+        [TestCase("GPX|GPX", 2, 'G', false)]
+        [TestCase("GPX|GPX", 3, 'W', true)]   // the wildcard sits at P3'
+        [TestCase("|X{P}", 1, 'P', false)]   // an excluded wildcard at P1'
+        [TestCase("|X{P}", 1, 'A', true)]
+        [TestCase("|B", 1, 'N', true)]
+        [TestCase("|B", 1, 'E', false)]
+        [TestCase("|Z", 1, 'Q', true)]
+        [TestCase("|Z", 1, 'D', false)]
+        public static void PrimeSubsiteAccepts_MatchesTheResidueTheMotifNames(string motifString, int position, char residue, bool expected)
+        {
+            Assert.AreEqual(expected, Motif(motifString).PrimeSubsiteAccepts(position, residue));
+        }
+
+        [Test]
+        [TestCase("TX|T", 2, 'T', true)]      // StcE's glycosylatable P2
+        [TestCase("TX|T", 2, 'S', false)]
+        [TestCase("SX|S", 2, 'S', true)]
+        [TestCase("GPX|GPX", 2, 'P', true)]
+        [TestCase("GPX|GPX", 3, 'G', true)]
+        [TestCase("GPX|GPX", 3, 'P', false)]
+        [TestCase("RX{P}|", 2, 'R', true)]
+        [TestCase("RX{P}|", 2, 'K', false)]
+        public static void NonPrimeSubsiteAccepts_BeyondP1_MatchesTheResidueTheMotifNames(string motifString, int position, char residue, bool expected)
+        {
+            Assert.AreEqual(expected, Motif(motifString).NonPrimeSubsiteAccepts(position, residue));
+        }
+
+        [Test]
         public static void SubsiteAccepts_UnconstrainedSubsite_NeverMatches()
         {
             // Trypsin constrains nothing at P1', so asking whether P1' demands alanine is false -- not
@@ -190,20 +224,76 @@ namespace Test.Omics.Modifications
 
         // --- CleavesCTerminalTo: behaviour preserved across the re-expression ---
 
-        [Test]
-        public static void CleavesCTerminalTo_IsExactlyTheP1Question_ForEveryShippedMotif()
+        /// <summary>
+        /// CleavesCTerminalTo as it was written before it delegated to NonPrimeSubsiteAccepts: bounds
+        /// check, then match InducingCleavage[CutIndex - 1]. The matcher is restated here rather than
+        /// reached through the motif, so that an error in the subsite arithmetic or the shared matcher
+        /// cannot move both sides of the comparison together.
+        /// </summary>
+        private static bool CleavesCTerminalToAsOriginallyWritten(DigestionMotif motif, char residue)
         {
-            // The behaviour-preservation evidence for re-expressing CleavesCTerminalTo in terms of the
-            // new accessors. Checked over every motif shape and every residue, not a sample.
-            foreach (string motifString in new[] { "K|", "R|", "E|", "|D", "|K", "|M", "GPX|GPX", "TX|T", "G|U", "X|" })
+            if (motif.CutIndex < 1 || motif.CutIndex > motif.InducingCleavage.Length)
+            {
+                return false;
+            }
+
+            char motifChar = motif.InducingCleavage[motif.CutIndex - 1];
+            return motifChar switch
+            {
+                'X' => residue.ToString() != motif.ExcludeFromWildcard,
+                'B' => residue is 'D' or 'N',
+                'J' => residue is 'I' or 'L',
+                'Z' => residue is 'E' or 'Q',
+                _ => motifChar == residue,
+            };
+        }
+
+        [Test]
+        public static void CleavesCTerminalTo_AgreesWithTheOriginalFormula_ForEveryMotifShape()
+        {
+            // The behaviour-preservation evidence for re-expressing CleavesCTerminalTo as the P1
+            // question, checked against the formula it replaced over every residue. The shapes cover
+            // each side, each straddling offset, the wildcard with and without an exclusion, and the
+            // ambiguity codes.
+            foreach (string motifString in new[]
+                     {
+                         "K|", "R|", "E|", "|D", "|K", "|M", "GPX|GPX", "|X{P}", "TX|T", "G|U",
+                         "X|", "X|U", "U|A", "RX{P}|", "B|", "|Z",
+                     })
             {
                 DigestionMotif motif = Motif(motifString);
-                foreach (char residue in AllResidues)
+                foreach (char residue in AllResidues + "U")
                 {
-                    Assert.AreEqual(motif.NonPrimeSubsiteAccepts(1, residue), motif.CleavesCTerminalTo(residue),
-                        $"{motifString} disagreed at {residue}");
+                    Assert.AreEqual(CleavesCTerminalToAsOriginallyWritten(motif, residue), motif.CleavesCTerminalTo(residue),
+                        $"{motifString} disagreed with the original formula at {residue}");
                 }
             }
+        }
+
+        [Test]
+        public static void CleavesCTerminalTo_EmptyMotif_CleavesAfterNothing()
+        {
+            // The original bounds check rejected every CutIndex against an empty recognition sequence.
+            DigestionMotif empty = new DigestionMotif(string.Empty, null, 0, null);
+            foreach (char residue in AllResidues)
+            {
+                Assert.IsFalse(empty.CleavesCTerminalTo(residue));
+                Assert.IsFalse(empty.NonPrimeSubsiteAccepts(1, residue));
+                Assert.IsFalse(empty.PrimeSubsiteAccepts(1, residue));
+            }
+        }
+
+        [Test]
+        [TestCase("GPX|GPX", 'A', true)]   // P1 is the wildcard
+        [TestCase("TX|T", 'T', true)]
+        [TestCase("RX{P}|", 'P', false)]
+        [TestCase("RX{P}|", 'R', true)]
+        [TestCase("G|U", 'G', true)]
+        [TestCase("G|U", 'U', false)]      // U is P1', not P1
+        [TestCase("U|A", 'U', true)]
+        public static void CleavesCTerminalTo_TabulatedP1Answers(string motifString, char residue, bool expected)
+        {
+            Assert.AreEqual(expected, Motif(motifString).CleavesCTerminalTo(residue));
         }
 
         [Test]
