@@ -182,6 +182,69 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 "a blocked site and an unoccupied site together are two cleavages that could not happen");
         }
 
+        // ---------------------------------------------------------------------------------------
+        // The read-through slack is finite, and complete within the read-through length
+        // ---------------------------------------------------------------------------------------
+
+        /// <summary>A dense mucin-like tandem repeat, 22 residues, 7 StcE sites and one lysine per repeat.</summary>
+        private const string MucinRepeat = "PTTTPITTTKVTPTPTPTGTQT";
+
+        private static HashSet<(int, int)> PromotingSpans(string sequence, string proteaseName, int maxPeptideLength)
+        {
+            var protein = new Protein(sequence, "MUCIN");
+            var parameters = new DigestionParams(protease: proteaseName, maxMissedCleavages: 2, minPeptideLength: 7,
+                maxPeptideLength: maxPeptideLength, respectCleavagePromotingModifications: true);
+            return protein.Digest(parameters, new List<Modification>(), new List<Modification> { OGlycan("T"), OGlycan("S") })
+                .Select(p => (p.OneBasedStartResidue, p.OneBasedEndResidue))
+                .ToHashSet();
+        }
+
+        [Test]
+        public static void WithTheFlagOn_ReadThroughsGrowLinearlyWithTheMucin_WhenNoLengthLimitIsSet()
+        {
+            // With no length limit, slack covering every site made every span between two sites a
+            // candidate, so the digest of a mucin grew with the SQUARE of its length. Doubling the
+            // mucin must roughly double the product spans, not quadruple them.
+            int shortSpans = PromotingSpans(string.Concat(Enumerable.Repeat(MucinRepeat, 4)), "StcE", int.MaxValue).Count;
+            int longSpans = PromotingSpans(string.Concat(Enumerable.Repeat(MucinRepeat, 8)), "StcE", int.MaxValue).Count;
+
+            Assert.Less(longSpans, 3 * shortSpans,
+                $"doubling the mucin took the product spans from {shortSpans} to {longSpans}");
+        }
+
+        [Test]
+        public static void WithTheFlagOn_EveryReadThroughWithinTheReadThroughLength_IsStillProduced()
+        {
+            // The guarantee the finite slack keeps: with no length limit, every product a full-coverage
+            // enumeration yields up to ReadThroughLengthWithoutLengthLimit residues is still yielded.
+            // A limit equal to the protein's length is finite, so it buys slack for every site.
+            string mucin = string.Concat(Enumerable.Repeat(MucinRepeat, 4));
+            HashSet<(int, int)> complete = PromotingSpans(mucin, "StcE", mucin.Length);
+            HashSet<(int, int)> unbounded = PromotingSpans(mucin, "StcE", int.MaxValue);
+
+            var missing = complete
+                .Where(span => span.Item2 - span.Item1 + 1 <= DigestionAgent.ReadThroughLengthWithoutLengthLimit)
+                .Where(span => !unbounded.Contains(span))
+                .ToList();
+            CollectionAssert.IsEmpty(missing, "read-throughs within the read-through length were lost");
+        }
+
+        [Test]
+        public static void ReadThroughSlack_CountsOnlySitesThatNeedTheRequiredModification()
+        {
+            // StcE-trypsin|P on a sequence whose only StcE site is T11-A12-S13 (cut after Ala12), among
+            // five internal tryptic lysines. A tryptic cut is justified in every peptidoform and can never be
+            // discounted, so only the StcE site buys slack -- one, not the six sites a window holds.
+            Protease composite = ProteaseDictionary.Dictionary["StcE-trypsin|P"];
+            string sequence = "GAKGAKGAKGTASGAKGAKGAK";
+            List<int> sites = composite.GetDigestionSiteIndices(sequence);
+            Assert.AreEqual(6, sites.Count - 2, "test setup: five internal lysines and one StcE site");
+
+            Assert.AreEqual(1, composite.ReadThroughGenerationSlack(sites, sequence, int.MaxValue, 2));
+            Assert.AreEqual(0, composite.ReadThroughGenerationSlack(sites, sequence, 3, 2),
+                "no window of three residues holds the StcE site between two others");
+        }
+
         [Test]
         public static void WithTheFlagOn_ATruncationProductBoundaryNeedsNoGlycanToJustifyIt()
         {

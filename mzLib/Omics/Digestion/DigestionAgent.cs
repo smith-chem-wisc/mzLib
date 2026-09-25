@@ -263,7 +263,8 @@ namespace Omics.Digestion
             int generationMissedCleavages = maximumMissedCleavages;
             if (respectCleavageRequirements)
             {
-                generationMissedCleavages += MaximumInternalSitesInOnePeptide(cleavageIndices, maxLength);
+                generationMissedCleavages += ReadThroughGenerationSlack(cleavageIndices, parent.BaseSequence, maxLength,
+                    maximumMissedCleavages);
             }
 
             for (int missedCleavages = 0; missedCleavages <= generationMissedCleavages; missedCleavages++)
@@ -778,54 +779,132 @@ namespace Omics.Digestion
         }
 
         /// <summary>
-        /// The most feasible cleavage sites that can fall strictly inside a single peptide of at most
-        /// <paramref name="maxPeptideLength"/> residues, and therefore the generation slack the
-        /// cleavage-promoting correction needs.
+        /// The length, in residues, within which every read-through is guaranteed reachable when the
+        /// caller sets no maximum peptide length.
         /// </summary>
+        /// <remarks>
+        /// The slack has to be finite. Under the occupancy model a glycosite may independently be bare, so
+        /// a peptide spanning ANY number of unoccupied sites is a real product -- and buying slack for all
+        /// of them makes span enumeration quadratic in the number of sites. On a 220-residue synthetic
+        /// mucin that was 188,937 peptidoforms in 9.7 s, and real mucins run to thousands of residues.
+        /// MetaMorpheus's default DigestionParams set no length limit, so this is the ordinary path, not an
+        /// edge case. With it, enumeration is linear: every read-through up to this many residues is
+        /// reached, and a longer one only if it spans no more unoccupied sites than one of that length
+        /// can. A caller who sets a maximum length gets exactly that length instead.
+        /// </remarks>
+        public const int ReadThroughLengthWithoutLengthLimit = 60;
+
+        /// <summary>
+        /// The generation slack the cleavage-promoting correction needs: the most internal sites a
+        /// read-through can skip BECAUSE they are unoccupied, in any peptide the caller could receive.
+        /// </summary>
+        /// <param name="oneBasedIndicesToCleaveAfter">The site list, termini included, after the
+        /// feasibility filter.</param>
+        /// <param name="sequence">The parent sequence the sites index.</param>
+        /// <param name="maxPeptideLength">The caller's length limit; int.MaxValue means none, and is
+        /// replaced by <see cref="ReadThroughLengthWithoutLengthLimit"/>.</param>
+        /// <param name="maximumMissedCleavages">The ordinary missed-cleavage budget the enumeration
+        /// already has, before this slack.</param>
         /// <remarks>
         /// <para><b>Why the slack is not MaxMods, unlike the blocking mirror.</b> A blocked site is a site
         /// carrying a modification, and a peptidoform carries at most MaxMods of them, so MaxMods bounds
         /// the blocking slack exactly. An unjustified site is the COMPLEMENT -- a feasible site with NO
         /// modification on it -- and nothing about the modification budget limits how many of those a
-        /// peptide may span. A peptidoform with no glycan at all has every feasible site it spans
-        /// unjustified. So the bound has to come from the sequence and the length limit instead.</para>
+        /// peptide may span. So the bound has to come from the sequence and the length limit instead.</para>
         ///
-        /// <para>This is an exact upper bound: any peptide the caller could legally receive is at most
-        /// maxPeptideLength residues long, so it cannot contain more internal sites than the densest
-        /// window of that length. Buying exactly that much slack means every read-through is reachable
-        /// and none is merely hoped for.</para>
+        /// <para><b>Only requirement-only sites buy slack.</b> A site some requirement-free motif can cut
+        /// -- a tryptic K or R inside StcE-trypsin -- is justified in every peptidoform, is never
+        /// discounted, and so always counts as a real missed cleavage. Counting it here only enumerated
+        /// spans that were then dropped as over budget.</para>
         ///
-        /// <para>The slack is cheap even when it is large. It widens the outer loop of the span
-        /// enumeration, but every extra span is rejected by the length check before a peptide object is
-        /// built, so the cost is loop iterations rather than digestion work. A protein with few sites
-        /// buys little slack; a mucin buys a lot and needs it.</para>
+        /// <para>So the slack is the most requirement-only internal sites in any window of sites that is
+        /// no longer than the length limit and holds no more ordinary internal sites than
+        /// <paramref name="maximumMissedCleavages"/> allows. Any peptide that can survive the promoting
+        /// drop lies in such a window, so this is exact for the length it is computed at. A span it buys
+        /// that is still over budget for the peptidoform at hand is dropped by the discount afterwards;
+        /// with no length limit set, those spans are not rejected before a peptide object is built, which
+        /// is why the length has to be finite.</para>
         /// </remarks>
-        public static int MaximumInternalSitesInOnePeptide(List<int> oneBasedIndicesToCleaveAfter, int maxPeptideLength)
+        public int ReadThroughGenerationSlack(List<int> oneBasedIndicesToCleaveAfter, string sequence,
+            int maxPeptideLength, int maximumMissedCleavages)
         {
-            if (oneBasedIndicesToCleaveAfter is null || oneBasedIndicesToCleaveAfter.Count < 3)
+            if (oneBasedIndicesToCleaveAfter is null || oneBasedIndicesToCleaveAfter.Count < 3 || sequence is null)
             {
                 return 0;
             }
 
-            // Widest pair of sites still within the length limit; the internal sites are those between.
+            int lengthLimit = maxPeptideLength == int.MaxValue ? ReadThroughLengthWithoutLengthLimit : maxPeptideLength;
+
+            // Classified once per site, not once per window.
+            var requirementOnly = new bool[oneBasedIndicesToCleaveAfter.Count];
+            for (int i = 1; i < oneBasedIndicesToCleaveAfter.Count - 1; i++)
+            {
+                requirementOnly[i] = !AnyRequirementFreeMotifCuts(oneBasedIndicesToCleaveAfter[i], sequence);
+            }
+
+            // Two pointers over the site list; the internal sites of window [start, end] are start+1 .. end-1.
+            // Both constraints only loosen as start advances, so one pass suffices.
             int most = 0;
             int start = 0;
+            int ordinaryInside = 0;
+            int requirementOnlyInside = 0;
             for (int end = 1; end < oneBasedIndicesToCleaveAfter.Count; end++)
             {
-                while (start < end
-                       && oneBasedIndicesToCleaveAfter[end] - oneBasedIndicesToCleaveAfter[start] > maxPeptideLength)
+                int newlyInternal = end - 1;
+                if (newlyInternal > start)
                 {
+                    if (requirementOnly[newlyInternal]) requirementOnlyInside++; else ordinaryInside++;
+                }
+
+                while (start < end
+                       && (oneBasedIndicesToCleaveAfter[end] - oneBasedIndicesToCleaveAfter[start] > lengthLimit
+                           || ordinaryInside > maximumMissedCleavages))
+                {
+                    int leaving = start + 1;
+                    if (leaving < end)
+                    {
+                        if (requirementOnly[leaving]) requirementOnlyInside--; else ordinaryInside--;
+                    }
+
                     start++;
                 }
 
-                int internalSites = end - start - 1;
-                if (internalSites > most)
+                if (requirementOnlyInside > most)
                 {
-                    most = internalSites;
+                    most = requirementOnlyInside;
                 }
             }
 
             return most;
+        }
+
+        /// <summary>
+        /// True when a motif carrying no cleavage requirement matches the sequence at the cut after
+        /// <paramref name="cutAfterOneBasedResidue"/>, so that cut needs no modification to explain it.
+        /// </summary>
+        private bool AnyRequirementFreeMotifCuts(int cutAfterOneBasedResidue, string sequence)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif is null || motif.HasCleavageRequirement)
+                {
+                    continue;
+                }
+
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0 || motifStartZeroBased + motif.InducingCleavage.Length > sequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(sequence, motifStartZeroBased);
+                if (fits && !prevented)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
