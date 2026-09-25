@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 
 namespace MassSpectrometry.Deconvolution.Consensus
@@ -19,11 +20,20 @@ namespace MassSpectrometry.Deconvolution.Consensus
     /// </summary>
     public static class MassTraceBuilder
     {
+        /// <param name="envelopeScorer">
+        /// Optional per-envelope quality scorer, called once for each envelope with the scan it
+        /// came from. Supplied here rather than computed later because this is the only point in
+        /// the pipeline where an envelope and its spectrum are both in hand; recovering the pair
+        /// afterwards would mean re-reading the file. When null, scores are recorded as NaN and
+        /// every downstream aggregate reports NaN, which callers must treat as "not scored"
+        /// rather than as a score of zero.
+        /// </param>
         public static List<MassTrace> BuildTraces(
             IReadOnlyList<MsDataScan> ms1Scans,
             IReadOnlyList<IReadOnlyList<IsotopicEnvelope>> perScanEnvelopes,
             double toleranceDa,
-            int maxGap)
+            int maxGap,
+            Func<IsotopicEnvelope, MsDataScan, double> envelopeScorer = null)
         {
             if (perScanEnvelopes.Count != ms1Scans.Count)
                 throw new System.ArgumentException(
@@ -68,7 +78,10 @@ namespace MassSpectrometry.Deconvolution.Consensus
                                  ms1Scans[scanIdx].OneBasedScanNumber,
                                  ms1Scans[scanIdx].RetentionTime,
                                  env.MonoisotopicMass,
-                                 env.TotalIntensity);
+                                 env.TotalIntensity,
+                                 envelopeScorer is null
+                                     ? double.NaN
+                                     : envelopeScorer(env, ms1Scans[scanIdx]));
 
                     if (best != null)
                     {
