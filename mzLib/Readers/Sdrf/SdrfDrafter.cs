@@ -107,7 +107,12 @@ namespace Readers
             string ConditionOf(string file) => byName[file].Family + "\u001f" + string.Join("\u001f", LevelsOf(file));
 
             // ---- samples and replicates (measured order: marker, named count, one stated sample, rank, 1) ----
-            var reading = names.ToDictionary(n => n, n => ReadReplicates(n, byName[n], markerOf[n], replicates, structure.Found), StringComparer.Ordinal);
+            // A count the names do not start at 1 in every condition was ranked, and its evidence says so (MAP-33).
+            var rankedFamilies = structure.Slots
+                .Where(s => s.Renumbered && s.Role is SdrfFileNameRole.BiologicalReplicate or SdrfFileNameRole.Replicate)
+                .Select(s => s.Family).ToHashSet();
+            var reading = names.ToDictionary(n => n, n => ReadReplicates(n, byName[n], markerOf[n], replicates, structure.Found,
+                rankedFamilies.Contains(byName[n].Family)), StringComparer.Ordinal);
 
             // A re-injection the names mark (NEG1rep beside NEG1) is its twin's sample: same key, same count.
             if (structure.Found)
@@ -139,9 +144,12 @@ namespace Readers
             {
                 var r = reading[n];
                 string cond = ConditionOf(n);
+                // A file none of whose levels is known has no condition to rank within: ranking it with
+                // the other unknowns would count across the deposit, which a draft never does.
+                bool hasCondition = conditionKnown && LevelsOf(n).Any(l => l != SdrfReserved.NotAvailable);
                 (int bio, string bioWhy) = r.Bio is int b ? (b, r.BioWhy)
                     : replicates.SingleBiologicalSample ? (1, replicates.SingleSampleEvidence)
-                    : conditionKnown && samplesInCondition[cond] <= SdrfReplicateResolver.MaxReplicates
+                    : hasCondition && samplesInCondition[cond] <= SdrfReplicateResolver.MaxReplicates
                         ? (rank[(cond, r.Key)], "the sample's rank within its condition")
                         : (1, "no replicate structure found, so no count is claimed");
                 var levels = LevelsOf(n);
@@ -167,12 +175,15 @@ namespace Readers
 
         private sealed record Replicates(string Key, string KeyWhy, int? Bio, string BioWhy, int? Tech, string TechWhy, int? Frac, string FracWhy);
 
-        private static Replicates ReadReplicates(string file, SdrfFileNameReading t, SdrfReplicateReading m, SdrfReplicates all, bool found)
+        private static Replicates ReadReplicates(string file, SdrfFileNameReading t, SdrfReplicateReading m, SdrfReplicates all, bool found,
+            bool ranked)
         {
             string key = found ? "T:" + t.SampleKey : "F:" + SdrfFileNamePattern.Stem(file);
             string keyWhy = found ? "files the names read as one sample" : "no structure in the names, so each file is its own sample";
             int? bio = t.BiologicalReplicate ?? t.Replicate, tech = t.TechnicalReplicate, frac = t.Fraction;
-            string bioWhy = bio != null ? "a replicate count in the file names" : "";
+            string bioWhy = bio == null ? ""
+                : ranked ? "a replicate count in the file names, ranked from 1 within each condition because the names do not count from 1 in every condition"
+                : "a replicate count in the file names";
             string techWhy = tech != null ? "a re-injection or technical count in the file names" : "no re-injection marked";
             string fracWhy = frac != null ? "a fraction index in the file names" : "no fraction marked";
             if (m.Number != null)

@@ -114,6 +114,25 @@ namespace Test.FileReadingTests
             Assert.That(r.Disease.Value, Is.EqualTo("normal"));
         }
 
+        /// <summary>
+        /// A file with no known condition is not ranked. Its only company in "no condition" is every other
+        /// unexplained file, so ranking would count across the deposit, which a draft never does.
+        /// PXD009495 numbered unrelated samples 1..5 this way.
+        /// </summary>
+        [Test]
+        public void AFileWithNoKnownConditionIsNotRankedWithTheOtherUnknowns()
+        {
+            var files = new[] { "WT_1.raw", "WT_2.raw", "KO_1.raw", "KO_2.raw", "QC_pool_x.raw", "QC_pool_y.raw", "QC_pool_z.raw" };
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Is.Not.Empty, "WT and KO are a condition");
+            Assert.That(Row(d, "KO_2.raw").BiologicalReplicate.Value, Is.EqualTo("2"));
+            foreach (var qc in files.Where(f => f.StartsWith("QC", StringComparison.Ordinal)))
+                Assert.That(Row(d, qc).BiologicalReplicate.Value, Is.EqualTo("1"),
+                    qc + ": " + Row(d, qc).BiologicalReplicate.Evidence);
+        }
+
         [Test]
         public void TheFactorIsTheConditionTheNamesAndRecordShare()
         {
