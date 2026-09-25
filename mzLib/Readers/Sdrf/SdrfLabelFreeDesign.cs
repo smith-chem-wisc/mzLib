@@ -195,6 +195,7 @@ namespace Readers
                 refusals.Add($"The SDRF has no '{BiologicalReplicateColumn}' column. MetaMorpheus needs a biological replicate for every file.");
 
             var conditionColumns = ResolveConditionColumns(header, options.ConditionColumns, refusals);
+            bool conditionDeclared = options.ConditionColumns is { Count: > 0 };
 
             if (rows.Count == 0)
                 refusals.Add("The SDRF has no rows.");
@@ -207,7 +208,7 @@ namespace Readers
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
             for (int i = 0; i < rows.Count; i++)
             {
-                var row = ParseRow(rows[i], i + 2, keyColumn!, conditionColumns, refusals);
+                var row = ParseRow(rows[i], i + 2, keyColumn!, conditionColumns, conditionDeclared, refusals);
                 if (row != null)
                     parsed.Add(row);
                 else if (rows[i][keyColumn!] is { } unread && !string.IsNullOrWhiteSpace(unread))
@@ -281,7 +282,7 @@ namespace Readers
         }
 
         private static ParsedRow? ParseRow(SdrfRow row, int line, string keyColumn, List<string> conditionColumns,
-            List<string> refusals)
+            bool conditionDeclared, List<string> refusals)
         {
             int before = refusals.Count;
 
@@ -304,8 +305,12 @@ namespace Readers
                 if (value.Length == 0)
                     refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is empty.");
                 else if (UnknownFactorWords.Any(w => string.Equals(value, w, StringComparison.OrdinalIgnoreCase)))
+                    // SDRF-P1 (sdrf 012): the refusal names its remedy, and the remedy depends on how the column was chosen.
                     refusals.Add($"Line {line}{Describe(fileName)}: '{column}' is '{value}'. A condition cannot be built from an unknown " +
-                                 "factor; fill it in, or leave the column out of the declared condition columns.");
+                                 (conditionDeclared
+                                     ? "factor; fill it in, or leave the column out of the declared condition columns to pool these rows."
+                                     : "factor. It was used because it is the only factor value column and none was declared; " +
+                                       "fill it in, or declare the column(s) the condition should be built from instead."));
                 factorValues.Add(value);
             }
 

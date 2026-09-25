@@ -238,6 +238,31 @@ namespace Test.FileReadingTests
             Assert.That(design.Files.Single().Condition, Is.EqualTo("A"));
         }
 
+        /// <summary>
+        /// SDRF-P1 (sdrf 012): the only factor column is refused when it is unknown in even one row,
+        /// and since nothing was declared, the remedy is to declare, not to leave a column out.
+        /// </summary>
+        [Test]
+        public void AnUnknownFactorInTheOnlyFactorColumnIsRefusedAndTheRemedyIsToDeclare()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(
+                ("a1.raw", "A", "1", "1", "1"), ("a2.raw", "not available", "1", "1", "1")));
+
+            Assert.That(design.Refusals.Single(), Does.StartWith("Line 3 (a2.raw): 'factor value[condition]' is 'not available'.")
+                .And.Contain("it is the only factor value column and none was declared")
+                .And.Contain("declare the column(s) the condition should be built from"));
+        }
+
+        [Test]
+        public void AnUnknownFactorInADeclaredColumnNamesLeavingItOutAsTheRemedy()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "not applicable", "1", "1", "1")),
+                Declared("factor value[condition]"));
+
+            Assert.That(design.Refusals.Single(), Does.Contain(
+                "fill it in, or leave the column out of the declared condition columns to pool these rows."));
+        }
+
         [Test]
         public void ADeclaredColumnThatIsNotInTheSdrfIsRefusedNamingTheOnesThatAre()
         {
