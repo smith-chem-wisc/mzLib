@@ -51,6 +51,10 @@ namespace Readers
     internal sealed record SdrfFileNameSlot(int Position, SdrfFileNameRole Role, IReadOnlyList<string> Levels, string Evidence)
     {
         public int Family { get; init; }
+
+        /// <summary>True when a count was ranked from 1 within each group because the names do not
+        /// count from 1 in every group (control 1-3, treated 4-6). A caller must say so (MAP-33).</summary>
+        public bool Renumbered { get; init; }
     }
 
     /// <summary>
@@ -377,9 +381,25 @@ namespace Readers
             bool namedReplicate = named.Values.Any(r => r is SdrfFileNameRole.Replicate
                 or SdrfFileNameRole.BiologicalReplicate or SdrfFileNameRole.TechnicalReplicate);
             var unnamed = indexPositions.Where(p => named[p] == null).ToList();
-            int? countCandidate = namedReplicate || unnamed.Count == 0 ? null : unnamed[^1];
+            // A count is written small. MSB67868/MSB67869 are contiguous, but they are sample IDs, and
+            // ranking them would make two unreplicated samples "replicates 1 and 2". This is the same
+            // bound the replicate resolver's markers use.
+            int? countCandidate = namedReplicate || unnamed.Count == 0
+                || !tokens.All(t => CountLike(t[unnamed[^1]])) ? null : unnamed[^1];
+
+            // A number that does not count is a condition only when each of its values is shared by two
+            // or more SAMPLES. Files that differ only in their fraction or re-injection are one sample,
+            // so an ID repeated across one sample's bands names that sample. A word stays a condition
+            // either way: Control_Band_01 beside Treated_Band_01 states one.
+            var withinSample = indexPositions
+                .Where(q => named[q] is SdrfFileNameRole.Fraction or SdrfFileNameRole.TechnicalReplicate).ToList();
+            bool SharedBySamples(int p) => tokens.GroupBy(t => t[p], StringComparer.OrdinalIgnoreCase).All(g => g
+                .Select(t => string.Join("\u001f", designPositions.Where(q => q != p && !withinSample.Contains(q))
+                    .Select(q => t[q].ToUpperInvariant())))
+                .Distinct().Count() >= 2);
+
             foreach (int p in unnamed.Where(p => p != countCandidate))
-                (Shared(p) ? factors : identity).Add(p);
+                (SharedBySamples(p) ? factors : identity).Add(p);
 
             var numbers = new Dictionary<int, int[]>();
             foreach (int p in indexPositions)
@@ -407,8 +427,8 @@ namespace Readers
                 if (!TryRank(tokens, p, others, out var rank, out bool renumbered) || rank.Max() == 1)
                 {
                     // 1..1 in every group passes "contiguous" trivially and counts nothing.
-                    // Not a count: a category if shared, an identifier if not. Never a refusal of the family.
-                    (Shared(p) ? factors : identity).Add(p);
+                    // Not a count: a category if shared by samples, an identifier if not. Never a refusal of the family.
+                    (SharedBySamples(p) ? factors : identity).Add(p);
                     continue;
                 }
                 // Alone, an unnamed number could be a run number; a word that names it settles the kind.
@@ -420,7 +440,7 @@ namespace Readers
                 numbers[p] = rank;
                 slots.Add(new SdrfFileNameSlot(p, role, Sorted(tokens.Select(t => t[p])),
                     $"part {p + 1} counts {Distinct(rank)} within each group" + word +
-                    (renumbered ? "; renumbered from 1 within each group" : "")));
+                    (renumbered ? "; renumbered from 1 within each group" : "")) { Renumbered = renumbered });
             }
 
             foreach (int p in factors.OrderBy(p => p))
@@ -535,10 +555,40 @@ namespace Readers
         {
             named = "";
             if (p == 0 || factorPositions.Contains(p - 1)) return null;
-            if (!IndexWords.TryGetValue(first[p - 1], out var role)) return null;
-            named = $", after the word '{first[p - 1]}'";
+            string word = first[p - 1];
+            if (!IndexWords.ContainsKey(word))
+                word = GluedWord(word, IndexWords.ContainsKey) ?? word;
+            if (!IndexWords.TryGetValue(word, out var role)) return null;
+            named = $", after the word '{word}'";
             return role;
         }
+
+        /// <summary>
+        /// A known word written straight onto the tag before it, with no separator (<c>ABand</c> in
+        /// <c>MSB67868ABand_01</c>: sample A, band 1). It is only read at a camel-case boundary, an
+        /// uppercase letter followed by lowercase ones, and only for words of three or more letters.
+        /// That way the one-letter words (<c>f</c>, <c>r</c>, <c>s</c>) can never be carved out of an
+        /// ordinary name. Never <c>gel</c>: <c>InGel</c> is an in-gel digestion, not a gel band
+        /// (PXD004131, PXD003283). Null when <paramref name="letters"/> ends in no such word.
+        /// </summary>
+        internal static string? GluedWord(string letters, Func<string, bool> known)
+        {
+            for (int i = 1; i <= letters.Length - 3; i++)
+            {
+                if (!char.IsUpper(letters[i]) || !char.IsLower(letters[i + 1])) continue;
+                string tail = letters[i..];
+                if (tail.Skip(1).All(char.IsLower) && Unambiguous(tail) && known(tail)) return tail;
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// A word long enough to mean one thing when it is read from a distance: glued onto a tag, or
+        /// across a separator. <c>f_10</c> is a female in PXD041400, not a fraction, and in-gel
+        /// digestion is not a band.
+        /// </summary>
+        internal static bool Unambiguous(string word) =>
+            word.Length >= 3 && !word.Equals("gel", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>
         /// Ranks the numbers at <paramref name="p"/> within each group of files that agree on every
@@ -564,6 +614,9 @@ namespace Readers
         }
 
         private static bool IsNumber(string token) => token.Length is > 0 and <= 9 && token.All(char.IsAsciiDigit);
+
+        /// <summary>Written like a count: one or two digits, or three with a leading zero (<c>007</c>).</summary>
+        private static bool CountLike(string token) => token.Length <= 2 || (token.Length == 3 && token[0] == '0');
 
         private static bool IsDate(string token) =>
             token.Length is 6 or 8 && token.All(char.IsAsciiDigit) &&
