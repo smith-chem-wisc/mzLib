@@ -32,6 +32,54 @@ namespace Test.DatabaseTests
             UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
         }
 
+        private static Modification CreateFixedTestModification(string target = "A")
+        {
+            ModificationMotif.TryGetMotif(target, out var motif);
+            return new Modification("Fixed test", "", "", "", motif, "Anywhere.", ChemicalFormula.ParseFormula("CH2"));
+        }
+
+        [Test]
+        public void VariantProtein_InsertedResidue_ShiftsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { new SequenceVariation(2, "A", "AA", "insertion", null) }, 2)
+                .Single(protein => protein.BaseSequence == "MAAAA");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 4 }));
+        }
+
+        [Test]
+        public void VariantProtein_DeletedResidue_ShiftsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { new SequenceVariation(2, "A", "", "deletion", null) }, 2)
+                .Single(protein => protein.BaseSequence == "MAA");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 2 }));
+        }
+
+        [Test]
+        public void VariantProtein_ReplacedResidue_DropsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { new SequenceVariation(3, "A", "U", "substitution", null) }, 2)
+                .Single(protein => protein.BaseSequence == "MAUA");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications, Is.Empty);
+        }
+
         [SetUp]
         public static void Setuppp()
         {
@@ -903,7 +951,8 @@ namespace Test.DatabaseTests
             var rna = new RNA("GUACUGACU");
             NUnit.Framework.Assert.Throws<ArgumentException>(() =>
             {
-                proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
+        proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(),
+            new Dictionary<int, Modification>(), "");
             });
         }
         /// <summary>
@@ -1447,6 +1496,85 @@ namespace Test.DatabaseTests
                 HeterozygousSubstitution(4, "D", 30, 30));
 
             Assert.That(result, Is.EqualTo(new[] { "MAAAAA", "MCADAA" }));
+        }
+
+        [Test]
+        public static void ApplyVariants_HomozygousDeepAlternate_AppliesAlternateBranch()
+        {
+            string vcf = "1\t2\t.\tA\tC\t.\tPASS\tANN=C||||||||||||||||\tGT:AD:DP\t1/1:1,30:31";
+            var variation = new SequenceVariation(2, 2, "A", "C", "homozygous", vcf);
+
+            var result = ApplyToMAAAAA(1, variation);
+
+            Assert.That(result, Is.EqualTo(new[] { "MCAAAA" }));
+        }
+
+        [Test]
+        public void ApplyAllVariantCombinations_InsertionShiftsFixedModsAfterEdit()
+        {
+            var fixedAtE = CreateFixedTestModification("E");
+            var fixedAtT = CreateFixedTestModification("T");
+            var original = new Protein("MPEPTIDEK", "accession",
+                oneBasedFixedModifications: new Dictionary<int, Modification>
+                {
+                    [3] = fixedAtE,
+                    [5] = fixedAtT,
+                });
+            var insertion = new SequenceVariation(2, 2, "P", "PAA", "insertion", null);
+
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { insertion }, 2)
+                .Single(protein => protein.BaseSequence == "MPAAEPTIDEK");
+
+            Assert.That(variant.OneBasedFixedModifications[5], Is.EqualTo(fixedAtE));
+            Assert.That(variant.OneBasedFixedModifications[7], Is.EqualTo(fixedAtT));
+        }
+
+        [Test]
+        public void ApplyAllVariantCombinations_DeletionDropsCoveredAndShiftsFollowingFixedMods()
+        {
+            var fixedAtDeletedE = CreateFixedTestModification("E");
+            var fixedAtT = CreateFixedTestModification("T");
+            var fixedAtFinalE = CreateFixedTestModification("E");
+            var original = new Protein("MPEPTIDEK", "accession",
+                oneBasedFixedModifications: new Dictionary<int, Modification>
+                {
+                    [3] = fixedAtDeletedE,
+                    [5] = fixedAtT,
+                    [8] = fixedAtFinalE,
+                });
+            var deletion = new SequenceVariation(2, 4, "PEP", "P", "deletion", null);
+
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { deletion }, 2)
+                .Single(protein => protein.BaseSequence == "MPTIDEK");
+
+            Assert.That(variant.OneBasedFixedModifications.ContainsKey(3), Is.True);
+            Assert.That(variant.OneBasedFixedModifications[3], Is.EqualTo(fixedAtT));
+            Assert.That(variant.OneBasedFixedModifications[6], Is.EqualTo(fixedAtFinalE));
+            Assert.That(variant.OneBasedFixedModifications.Values.Count, Is.EqualTo(2));
+            Assert.That(variant.OneBasedFixedModifications.Values.Any(modification => modification.Target.Motif == "E"), Is.True);
+        }
+
+        [Test]
+        public void ApplyAllVariantCombinations_IndelRemapsTerminalFixedModifications()
+        {
+            var nTermModification = CreateFixedTestModification("M");
+            var cTermModification = CreateFixedTestModification("A");
+            var original = new Protein("MAAA", "accession",
+                oneBasedFixedModifications: new Dictionary<int, Modification>
+                {
+                    [0] = nTermModification,
+                    [6] = cTermModification,
+                });
+            var insertion = new SequenceVariation(2, 2, "A", "AA", "insertion", null);
+
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { insertion }, 2)
+                .Single(protein => protein.BaseSequence == "MAAAA");
+
+            Assert.That(variant.OneBasedFixedModifications[0], Is.EqualTo(nTermModification));
+            Assert.That(variant.OneBasedFixedModifications[7], Is.EqualTo(cTermModification));
         }
 
         /// <summary>

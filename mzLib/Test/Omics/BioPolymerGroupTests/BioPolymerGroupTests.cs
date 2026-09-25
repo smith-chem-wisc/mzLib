@@ -478,28 +478,43 @@ namespace Test.Omics.BioPolymerGroupTests
         /// Every channel of a file is handed that file's whole PSM list, so a per-channel count
         /// restates one number n times. Files keep their order; the channels within a file no longer
         /// each open a counting column of their own.
+        ///
+        /// A "no such column" assertion passes vacuously for a label the header never uses, so each
+        /// channel's label is first shown to be in the header, on its intensity column. 126 is named and
+        /// 127N is not, so both label forms are covered.
         /// </summary>
         [Test]
         public void GetTabSeparatedHeader_Isobaric_CountColumnsAreOnePerFile()
         {
-            var sample126 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "126", 126.0, false);
+            var sample126 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "126", 126.0, false) { SampleName = "Patient7" };
             var sample127 = new IsobaricQuantSampleInfo(@"C:\fileA.raw", "Control", 1, 1, 0, 1, "127N", 127.0, false);
             var sample128 = new IsobaricQuantSampleInfo(@"C:\fileB.raw", "Control", 1, 1, 0, 1, "128C", 128.0, false);
 
             _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { sample127, sample126, sample128 };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double>
+            {
+                { sample126, 1.0 },
+                { sample127, 2.0 },
+                { sample128, 3.0 }
+            };
 
             var header = GroupTsv.Header(_bioPolymerGroup);
+            var columns = header.Split('\t');
+
+            Assert.That(new[] { sample126, sample127 }.Select(s => $"Intensity_{SampleGroupLabels.ForSample(s)}"),
+                Is.SubsetOf(columns),
+                "the channel labels must be in this header for their absence as count columns to mean anything");
 
             Assert.Multiple(() =>
             {
                 Assert.That(header, Does.Contain("SpectralCount_fileA"), "fileA needs a count column");
                 Assert.That(header, Does.Contain("SpectralCount_fileB"), "fileB needs a count column");
 
-                Assert.That(header, Does.Not.Contain("SpectralCount_fileA_126"),
+                Assert.That(header, Does.Not.Contain($"SpectralCount_{SampleGroupLabels.ForSample(sample126)}"),
                     "a count belongs to the file, so no channel may open one of its own");
-                Assert.That(header, Does.Not.Contain("SpectralCount_fileA_127N"),
+                Assert.That(header, Does.Not.Contain($"SpectralCount_{SampleGroupLabels.ForSample(sample127)}"),
                     "a count belongs to the file, so no channel may open one of its own");
-                Assert.That(header, Does.Not.Contain("CountOccupancy_fileA_126"),
+                Assert.That(header, Does.Not.Contain($"CountOccupancy_{SampleGroupLabels.ForSample(sample126)}"),
                     "count-based occupancy is derived from the same per-file PSM list as the count");
 
                 Assert.That(header.IndexOf("SpectralCount_fileA", StringComparison.Ordinal),
@@ -532,9 +547,71 @@ namespace Test.Omics.BioPolymerGroupTests
 
             var header = GroupTsv.Header(_bioPolymerGroup);
 
-            Assert.That(header.IndexOf("Intensity_fileA_127N", StringComparison.Ordinal),
-                Is.LessThan(header.IndexOf("Intensity_fileA_127C", StringComparison.Ordinal)),
+            int n = header.IndexOf($"Intensity_{SampleGroupLabels.ForSample(channel127N)}", StringComparison.Ordinal);
+            int c = header.IndexOf($"Intensity_{SampleGroupLabels.ForSample(channel127C)}", StringComparison.Ordinal);
+
+            // Not inside a Multiple with the order check: IndexOf's -1 would satisfy "less than" for a
+            // missing 127N column, so presence has to be settled first.
+            Assert.That(new[] { n, c }, Is.All.GreaterThanOrEqualTo(0), "both channel columns must be present for their order to mean anything");
+            Assert.That(n, Is.LessThan(c),
                 "127N is the lighter reporter and must come first; ordering by label inverts the pair");
+        }
+
+        /// <summary>
+        /// The six fractions of one plex keep six intensity columns, each naming its own file.
+        ///
+        /// A fraction shares its plex's sample, condition and replicate and differs only by file, so
+        /// a label built from those alone names all six alike. They usually share a directory too,
+        /// which leaves the collision rule nothing to widen with but ordinals — six columns called
+        /// Patient7_126, Patient7_126_2 … that no longer say which fraction is which. Drop the file
+        /// from SampleGroupLabels.ForSample and this goes red on exactly that.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_Isobaric_SixFractionsOfOnePlexKeepDistinctColumns()
+        {
+            var fractions = Enumerable.Range(1, 6)
+                .Select(f => (ISampleInfo)new IsobaricQuantSampleInfo($@"C:\plex1\fraction{f}.raw", "Control", 1, 1, f, 1, "126", 126.127, false)
+                {
+                    SampleName = "Patient7"
+                })
+                .ToList();
+
+            _bioPolymerGroup.SamplesForQuantification = fractions;
+            _bioPolymerGroup.IntensitiesBySample = fractions.ToDictionary(s => s, _ => 1.0);
+
+            var intensityColumns = GroupTsv.Header(_bioPolymerGroup).Split('\t')
+                .Where(column => column.StartsWith("Intensity_", StringComparison.Ordinal))
+                .ToList();
+
+            Assert.That(intensityColumns, Is.EqualTo(Enumerable.Range(1, 6).Select(f => $"Intensity_Patient7_fraction{f}_126")),
+                "each fraction must be named by its own file, with no ordinal suffix standing in for it");
+        }
+
+        /// <summary>
+        /// When two channels would still share a name, the collision widens the name with the path
+        /// rather than numbering it.
+        ///
+        /// Two plexes can each store a <c>run.raw</c> in their own directory and name the sample in
+        /// channel 126 alike. The labels then genuinely collide, and the reader needs to know which
+        /// plex each column is — which the directory says and an ordinal does not.
+        /// </summary>
+        [Test]
+        public void GetTabSeparatedHeader_Isobaric_SameSampleInSameNamedFilesWidensByDirectory()
+        {
+            var plexA = new IsobaricQuantSampleInfo(@"C:\PlexA\run.raw", "Control", 1, 1, 0, 1, "126", 126.127, false) { SampleName = "Patient7" };
+            var plexB = new IsobaricQuantSampleInfo(@"C:\PlexB\run.raw", "Control", 1, 1, 0, 2, "126", 126.127, false) { SampleName = "Patient7" };
+
+            _bioPolymerGroup.SamplesForQuantification = new List<ISampleInfo> { plexA, plexB };
+            _bioPolymerGroup.IntensitiesBySample = new Dictionary<ISampleInfo, double> { { plexA, 1.0 }, { plexB, 2.0 } };
+
+            var columns = GroupTsv.Header(_bioPolymerGroup).Split('\t');
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(columns, Has.Member("Intensity_PlexA_Patient7_run_126"));
+                Assert.That(columns, Has.Member("Intensity_PlexB_Patient7_run_126"));
+                Assert.That(columns, Is.Unique);
+            });
         }
 
         /// <summary>
