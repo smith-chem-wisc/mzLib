@@ -1,0 +1,153 @@
+{
+  "Accession": "PXD067622",
+  "Title": "DNA-Protein Crosslinks Promote cGAS-STING-driven Premature Aging and Embryonic Lethality",
+  "ProjectDescription": "DNA-protein crosslinks (DPCs) are severe DNA lesions that disrupt replication, transcription, and genome stability. However, their role in development and aging remains poorly understood. Here, we show that impaired SPRTN function, a metalloprotease essential for DPC repair during replication and mitosis, leads to DNA damage, mitotic abnormalities, and activation of the immune system. Notably, micronuclei formed upon SPRTN deficiency frequently contain DPCs, exhibit nuclear envelope rupture, and accumulate unrepaired DNA, thereby facilitating activation of the cGAS-STING pathway. Using a Sprtn knock-in mouse model of Ruijs Aalfs progeria syndrome, we demonstrate that chronic cGas-Sting activation drives inflammation, innate immune responses, and embryonic lethality. Surviving mice display a continuum of aging phenotypes from embryogenesis into adulthood. Genetic or pharmacological inhibition of cGas-Sting rescues embryonic viability and ameliorates progeroid features, linking DPC-induced innate immune activation to lifespan defects. Our findings uncover a previously unrecognized role for DPCs in coupling early developmental failure to premature aging.",
+  "SampleProcessingProtocol": "HeLa cells were transfected with SPRTN-TurboID plasmids. When required for M-phase or S-phase synchronization, cells were treated with thymidine (2 mM for 16 h) or nocodazole (100 ng/ml for 16 h), starting 32 hours after transfection. At 48 hours post-transfection, cells were treated with 500 µM biotin for 30 minutes. For formaldehyde (FA) treatment, cells were exposed to 1 mM FA starting 30 minutes before biotin addition and continuing during the 30-minute biotin incubation (total FA exposure time: 1 hour). Cells were harvested by scraping in lysis buffer (50 mM Tris, 150 mM NaCl, 0,1% SDS, 0,5%sodium deoxycholate, 1% Triton X-100 + protease inhibitor cocktail). Biotinylated proteins were pulled down using Streptavidin beads for 2hr at 4ºC. Beads were then washed once with lysis buffer and three times with 8M urea in 1% SDS before a final wash with 1% SDS. Biotinylated proteins were then boiled in the presence of 2 mM TCEP and 4 mM CAA before on-bead digestion with 500 ng of trypsin over night at 37°C. The digestion was stopped upon addition of 150 µl of 1% TFA in isopropanol. Peptide clean-up was performed using SDB-RPS stage tips (Sigma-Aldrich). Peptides were added to stage tips and washed first with 1% TFA in isopropanol and then with 0.2% TFA in water. Lastly, peptides were eluted in 80% acetonitrile plus 1.25% ammonia and dried in vacuum concentrator.",
+  "DataProcessingProtocol": "MS raw data were analyzed using FragPipe v21.1, with MSFragger v.4.0 (68) and Philosopher v.5.1.0 (69). The built-in workflow “LFQ-MBR” was used with a precursor mass tolerance of 20 ppm and fragment mass tolerance of 20 ppm. The human proteome database used by FP (ID: UP000005640, 20/08/2024) comprised of 20,468 reviewed sequences only and their corresponding decoys, including common contaminant proteins.",
+  "Doi": "",
+  "SubmissionType": "PARTIAL",
+  "License": "Creative Commons Public Domain (CC0)",
+  "SubmissionDate": "2025-08-22T00:00:00",
+  "PublicationDate": "2025-09-30T00:00:00",
+  "ProjectTags": [],
+  "Keywords": [
+    "Emrbyo",
+    "Sprtn",
+    "Dpc"
+  ],
+  "Countries": [
+    "Germany"
+  ],
+  "Submitters": [
+    {
+      "Title": "Dr",
+      "FirstName": "Thorsten",
+      "LastName": "Mosler",
+      "Name": "Thorsten Mosler",
+      "Affiliation": "Goethe University Clinics Frankfurt",
+      "Email": "thorstenmosler@googlemail.com",
+      "Country": "Germany",
+      "Orcid": "",
+      "Id": "2885910"
+    }
+  ],
+  "LabPIs": [
+    {
+      "Title": "Dr",
+      "FirstName": "Ivan",
+      "LastName": "Dikic",
+      "Name": "Ivan Dikic",
+      "Affiliation": "Institute of Biochemistry II, Faculty of Medicine, Goethe University Frankfurt; Frankfurt, Germany.",
+      "Email": "dikic@biochem2.uni-frankfurt.de",
+      "Country": "",
+      "Orcid": "",
+      "Id": "3253165"
+    }
+  ],
+  "References": [],
+  "Instruments": [
+    {
+      "CvLabel": "MS",
+      "Accession": "MS:1002523",
+      "Name": "Q Exactive HF",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "Softwares": [
+    {
+      "CvLabel": "MS",
+      "Accession": "MS:1003429",
+      "Name": "FragPipe",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "ExperimentTypes": [
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000428",
+      "Name": "Bottom-up proteomics",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    },
+    {
+      "CvLabel": "PRIDE",
+      "Accession": "PRIDE:0000627",
+      "Name": "Data-dependent acquisition",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "QuantificationMethods": [],
+  "Organisms": [
+    {
+      "CvLabel": "NEWT",
+      "Accession": "NEWT:9606",
+      "Name": "Homo sapiens (human)",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "OrganismParts": [],
+  "Diseases": [],
+  "IdentifiedPTMStrings": [
+    {
+      "CvLabel": "MOD",
+      "Accession": "MOD:00425",
+      "Name": "monohydroxylated residue",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    },
+    {
+      "CvLabel": "MOD",
+      "Accession": "MOD:00397",
+      "Name": "iodoacetamide derivatized residue",
+      "Value": "",
+      "UnitCvLabel": "",
+      "UnitAccession": "",
+      "UnitName": ""
+    }
+  ],
+  "AdditionalAttributes": [],
+  "SampleAttributes": [
+    {
+      "Key": {
+        "CvLabel": "EFO",
+        "Accession": "OBI:0100026",
+        "Name": "organism",
+        "Value": "",
+        "UnitCvLabel": "",
+        "UnitAccession": "",
+        "UnitName": ""
+      },
+      "Value": [
+        {
+          "CvLabel": "NEWT",
+          "Accession": "NEWT:9606",
+          "Name": "Homo sapiens (Human)",
+          "Value": "",
+          "UnitCvLabel": "",
+          "UnitAccession": "",
+          "UnitName": ""
+        }
+      ]
+    }
+  ],
+  "TotalFileDownloads": 163,
+  "BotCount": 88,
+  "HubCount": 65,
+  "OrganicCount": 10
+}
