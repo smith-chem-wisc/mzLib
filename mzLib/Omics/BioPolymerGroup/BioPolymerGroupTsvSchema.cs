@@ -300,14 +300,8 @@ public static class BioPolymerGroupTsvSchema
     /// <summary>
     /// Single-letter classification: entrapment decoy, entrapment target, decoy, contaminant, or target.
     /// </summary>
-    private static string TargetDecoyLabel(BioPolymerGroup group)
-    {
-        if (group.IsEntrapment && group.IsDecoy) return "ED";
-        if (group.IsEntrapment) return "ET";
-        if (group.IsDecoy) return "D";
-        if (group.IsContaminant) return "C";
-        return "T";
-    }
+    private static string TargetDecoyLabel(BioPolymerGroup group) =>
+        Omics.BioPolymer.DecoyContaminantTargetLabel.For(group.IsDecoy, group.IsContaminant, group.IsEntrapment);
 
     /// <summary>
     /// Truncates to <see cref="MaxStringLength"/> so output stays within Excel's cell limit.

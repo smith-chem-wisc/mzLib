@@ -1,5 +1,6 @@
 using CsvHelper.Configuration;
 using CsvHelper.Configuration.Attributes;
+using Omics.BioPolymer;
 using Omics.BioPolymerGroup;
 using System.Globalization;
 
@@ -93,9 +94,9 @@ public class ProteinGroupFromTsv
         }
     }
 
-    [Ignore] public bool IsDecoy => DecoyContaminantTarget.Contains('D');
-    [Ignore] public bool IsContaminant => DecoyContaminantTarget == "C";
-    [Ignore] public bool IsEntrapment => DecoyContaminantTarget.StartsWith('E');
+    [Ignore] public bool IsDecoy => DecoyContaminantTargetLabel.IsDecoy(DecoyContaminantTarget);
+    [Ignore] public bool IsContaminant => DecoyContaminantTarget == DecoyContaminantTargetLabel.Contaminant;
+    [Ignore] public bool IsEntrapment => DecoyContaminantTargetLabel.IsEntrapment(DecoyContaminantTarget);
 
     /// <summary>
     /// The per-sample-group measurements, keyed by the label that follows the column prefix, verbatim

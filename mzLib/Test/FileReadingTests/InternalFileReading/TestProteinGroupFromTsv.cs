@@ -175,6 +175,19 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(ex!.Message, Does.Contain(path));
         }
 
+        [TestCase("T", false, false)]
+        [TestCase("D", true, false)]
+        [TestCase("ET", false, true)]
+        [TestCase("ED", true, true)]
+        public void EntrapmentGroupLabelsAreRead(string label, bool isDecoy, bool isEntrapment)
+        {
+            string path = Path.Combine(_outputDirectory, $"Entrapment{label}_AllProteinGroups.tsv");
+            File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nRandom_P1_f0\t{label}\t0.001\n");
+
+            var row = new ProteinGroupFromTsvFile(path).Single();
+            Assert.That((row.IsDecoy, row.IsEntrapment, row.IsContaminant), Is.EqualTo((isDecoy, isEntrapment, false)));
+        }
+
         /// <summary>
         /// The reader is the inverse of mzLib's own writer. Groups are rendered by
         /// <see cref="BioPolymerGroupTsvSchema"/> (the "BioPolymer ..." vocabulary) and read back.
