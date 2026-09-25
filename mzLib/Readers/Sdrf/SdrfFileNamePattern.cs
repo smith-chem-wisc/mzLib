@@ -42,7 +42,7 @@ namespace Readers
     /// </summary>
     /// <param name="Position">The token position in the aligned names, 0-based.</param>
     /// <param name="Role">What the part was read as.</param>
-    /// <param name="Levels">The distinct values it takes, as written, in sorted order.</param>
+    /// <param name="Levels">The distinct values it takes, as written; numbers in numeric order, then words.</param>
     /// <param name="Evidence">The pattern that produced the role, in words a curator can check.</param>
     /// <remarks>
     /// <see cref="Family"/> says which family of like-shaped names the slot was read in (0 = the largest).
@@ -234,8 +234,7 @@ namespace Readers
             }
             if (again.Count > 0)
                 slots.Add(new SdrfFileNameSlot(-1, SdrfFileNameRole.TechnicalReplicate,
-                    again.Values.Select(v => v.Count.ToString(CultureInfo.InvariantCulture)).Prepend("1").Distinct()
-                        .OrderBy(v => v, StringComparer.Ordinal).ToList(),
+                    Sorted(again.Values.Select(v => v.Count.ToString(CultureInfo.InvariantCulture)).Prepend("1")),
                     $"{again.Count} run(s) repeat another run's name with a re-injection marker, e.g. '{again.Keys.First()}'"));
 
             if (slots.Count == 0)
@@ -334,7 +333,7 @@ namespace Readers
                     {
                         batchPositions.Add(p);
                         slots.Add(new SdrfFileNameSlot(p, SdrfFileNameRole.Batch, Sorted(values),
-                            $"a date at part {p + 1} splits the {runs.Count} files into {byDate.Count} groups of two or more"));
+                            $"a date at part {p + 1}{(values[0].Length == 6 ? " (read as yyMMdd)" : "")} splits the {runs.Count} files into {byDate.Count} groups of two or more"));
                     }
                     // A date on every file is when it was acquired, not a design: ignored, not refused.
                     continue;
@@ -403,7 +402,8 @@ namespace Readers
                     (Shared(p) ? factors : identity).Add(p);
                     continue;
                 }
-                if (others.Count == 0)
+                // Alone, an unnamed number could be a run number; a word that names it settles the kind.
+                if (others.Count == 0 && named[p] == null)
                 {
                     reason = $"the only part that varies is a number (part {p + 1}), which cannot tell a replicate from a run number";
                     return null;
@@ -561,8 +561,11 @@ namespace Readers
             DateTime.TryParseExact(token, DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d) &&
             d.Year is >= 2000 and <= 2099;
 
+        // Numbers by value (1, 2, 10), then everything else by text.
         private static IReadOnlyList<string> Sorted(IEnumerable<string> values) =>
-            values.Distinct(StringComparer.OrdinalIgnoreCase).OrderBy(v => v, StringComparer.OrdinalIgnoreCase).ToList();
+            values.Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(v => IsNumber(v) ? long.Parse(v, CultureInfo.InvariantCulture) : long.MaxValue)
+                .ThenBy(v => v, StringComparer.OrdinalIgnoreCase).ToList();
 
         private static string Distinct(int[] rank) => rank.Length == 0 ? "0" : $"1..{rank.Max()}";
     }

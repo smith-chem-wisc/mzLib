@@ -465,6 +465,137 @@ public class QuantificationDeliveryTests
     }
 
     /// <summary>
+    /// A design that lists one channel of a file twice is refused by the engine, whatever type the
+    /// design is.
+    ///
+    /// SampleExperimentalDesign already refuses this as it is built, but IExperimentalDesign is the
+    /// seam outside code implements -- MetaMorpheus has its own -- so the engine is the only place
+    /// every design passes. Without the check the second entry silently takes the first one's column.
+    /// </summary>
+    [Test]
+    public void Run_WithADesignThatRepeatsAChannel_ReturnsFailureNamingIt()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        var samples = design.FileNameSampleInfoDictionary[File1];
+        samples[1] = new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, false);
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain($"channel {Channels[0]} of '{File1}' is listed 2 times"));
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// The same channel listed under two different file keys is refused as well.
+    ///
+    /// The engine combines every file's columns into one matrix keyed by sample, so a channel of one
+    /// file appearing under two keys collides there exactly as a channel listed twice under one key
+    /// does -- the run would succeed with one key's values overwritten and shown under the other's
+    /// name. Asking the rule one key at a time cannot see it.
+    /// </summary>
+    [Test]
+    public void Run_WithTwoDesignKeysHoldingOneChannel_ReturnsFailureNamingIt()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary[File1][0] =
+            new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, true) { SampleName = "Pt1" };
+        design.FileNameSampleInfoDictionary[File2][1] =
+            new IsobaricQuantSampleInfo(File1, "Cond1", 1, 1, 0, 0, Channels[0], 126.0, false) { SampleName = "Pt3" };
+
+        var results = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups).Run();
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(results.Success, Is.False);
+            Assert.That(results.Summary, Does.Contain($"channel {Channels[0]} of '{File1}' is listed 2 times, as 'Pt1' and 'Pt3'"));
+            Assert.That(results.ProteinIntensities, Is.Empty);
+        });
+    }
+
+    /// <summary>
+    /// The repeat check tolerates the nulls an outside <see cref="IExperimentalDesign"/> can hand it --
+    /// a null dictionary, a null sample array, null entries -- rather than throwing, and does not count
+    /// two nulls as one sample listed twice. Whether such a design can run is for the later stages to
+    /// say; the files here are ones no spectral match names.
+    /// </summary>
+    [Test]
+    public void ValidateEngine_WithNullsInTheDesign_ReportsNoRepeat()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary["absent.raw"] = null;
+        design.FileNameSampleInfoDictionary["holes.raw"] = new ISampleInfo[] { null, null };
+
+        var withNulls = new QuantificationEngine(SimpleParameters(), design, spectralMatches, peptides, proteinGroups);
+        var withNoDictionary = new QuantificationEngine(SimpleParameters(),
+            new TestExperimentalDesign { FileNameSampleInfoDictionary = null }, spectralMatches, peptides, proteinGroups);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(withNulls.ValidateEngine(out var bad), Is.True, bad?.Summary);
+            Assert.DoesNotThrow(() => withNoDictionary.ValidateEngine(out _));
+        });
+    }
+
+    /// <summary>
+    /// A design that names its samples reaches both kinds of output under the same column names: the
+    /// quantification matrices written by <see cref="QuantificationWriter"/> and the grouped protein
+    /// table rendered from the entities the engine wrote back. One channel is named and the rest are
+    /// not, so both label forms travel the whole path.
+    ///
+    /// The unit test on <see cref="QuantificationWriter.SampleColumnLabel"/> shows the two writers ask
+    /// one function; this shows the name actually survives the design, the engine and both writers.
+    /// </summary>
+    [Test]
+    public void Run_WithANamedDesign_NamesChannelsAlikeInTheMatricesAndTheGroupedTable()
+    {
+        BuildFixture(out var design, out var spectralMatches, out var peptides, out var proteinGroups);
+        design.FileNameSampleInfoDictionary[File1][0] =
+            new IsobaricQuantSampleInfo(File1, "Cond0", 1, 1, 0, 0, Channels[0], 126.0, true) { SampleName = "Patient7" };
+
+        string outputDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+            "QuantNamedDesign_" + TestContext.CurrentContext.Test.ID);
+        try
+        {
+            var parameters = SimpleParameters(outputDirectory);
+            parameters.WritePeptideInformation = true;
+            parameters.WriteProteinInformation = true;
+
+            var results = new QuantificationEngine(parameters, design, spectralMatches, peptides, proteinGroups).Run();
+            Assert.That(results.Success, Is.True, results.Summary);
+
+            string[] MatrixSampleColumns(string fileName) =>
+                File.ReadLines(Path.Combine(outputDirectory, fileName)).First().Split('\t').Skip(1).ToArray();
+
+            var groupedIntensityColumns = GroupTsv.Header(proteinGroups.Cast<BioPolymerGroup>().ToArray())
+                .Split('\t')
+                .Where(column => column.StartsWith("Intensity_", StringComparison.Ordinal))
+                .Select(column => column.Substring("Intensity_".Length))
+                .ToArray();
+
+            string[] expected =
+            {
+                "Patient7_file1_126", "file1_127N", "file1_127C",
+                "file2_126", "file2_127N", "file2_127C"
+            };
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(MatrixSampleColumns(QuantificationWriter.ProteinGroupFileName), Is.EquivalentTo(expected));
+                Assert.That(MatrixSampleColumns(QuantificationWriter.PeptideFileName), Is.EquivalentTo(expected));
+                Assert.That(groupedIntensityColumns, Is.EquivalentTo(expected));
+            });
+        }
+        finally
+        {
+            if (Directory.Exists(outputDirectory)) Directory.Delete(outputDirectory, recursive: true);
+        }
+    }
+
+    /// <summary>
     /// With all three write flags on, the engine writes three files, reports their paths, and the
     /// protein file's contents match the matrix it was built from.
     /// </summary>
@@ -559,6 +690,30 @@ public class QuantificationDeliveryTests
         Assert.That(labels.Distinct().Count(), Is.EqualTo(3));
         Assert.That(labels[0], Is.EqualTo("a_126"));
         Assert.That(labels[1], Is.EqualTo("a_126_2"));
+    }
+
+    /// <summary>
+    /// The quantification matrices and the grouped protein table name an isobaric channel the same
+    /// way, because both ask <see cref="SampleGroupLabels.ForSample"/>.
+    ///
+    /// They are two writers of one fact. Before, the matrix header came from
+    /// IsobaricQuantSampleInfo.ToString() and the protein table built its own string, so they agreed
+    /// only because both happened to spell <c>{file}_{channel}</c>. Point either back at its own
+    /// spelling and this goes red on the named channel, where the sample name is the part only one
+    /// of them knows.
+    /// </summary>
+    [Test]
+    public void SampleColumnLabel_Isobaric_NamesTheChannelAsTheProteinTableDoes()
+    {
+        var named = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "Control", 1, 1, 0, 0, "126", 126.0, false) { SampleName = "Patient7" };
+        var unnamed = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "Control", 2, 1, 0, 0, "127N", 127.0, false);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(QuantificationWriter.SampleColumnLabel(named), Is.EqualTo("Patient7_plex1_126"));
+            Assert.That(QuantificationWriter.SampleColumnLabel(named), Is.EqualTo(SampleGroupLabels.ForSample(named)));
+            Assert.That(QuantificationWriter.SampleColumnLabel(unnamed), Is.EqualTo(SampleGroupLabels.ForSample(unnamed)));
+        });
     }
 
     /// <summary>
