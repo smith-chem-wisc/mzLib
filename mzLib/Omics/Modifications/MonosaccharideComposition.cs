@@ -194,16 +194,25 @@ namespace Omics.Modifications
         // Value equality, because this is a value. Both halves are implemented together and over the same
         // field, unlike Modification, whose Equals and GetHashCode read different fields. No operator==:
         // no type in Omics or Chemistry defines one.
+        //
+        // Equal means each covers the other: IsSupersetOf is a component-wise floor, so one direction
+        // alone makes Hex2 "equal" Hex1. A zero count is the same as an absent monosaccharide -- the
+        // indexer answers 0 for both -- so Hex0HexNAc1 equals HexNAc1, and the hash skips zeros to agree.
         public override bool Equals(object obj) =>
             obj is MonosaccharideComposition other
-            && _counts.Count == other._counts.Count
-            && IsSupersetOf(other);
+            && IsSupersetOf(other)
+            && other.IsSupersetOf(this);
 
         public override int GetHashCode()
         {
             int hash = 17;
             foreach (KeyValuePair<string, int> entry in _counts)
             {
+                if (entry.Value == 0)
+                {
+                    continue;
+                }
+
                 hash = hash * 31 + entry.Key.GetHashCode();
                 hash = hash * 31 + entry.Value;
             }

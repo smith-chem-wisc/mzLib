@@ -251,6 +251,35 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         }
 
         [Test]
+        [TestCase("Hex2", "Hex1")]
+        [TestCase("Hex1HexNAc2", "Hex1HexNAc1")]
+        [TestCase("HexNAc1", "Hex1")]
+        public static void Equals_DifferentCompositions_AreUnequalInBothDirections(string a, string b)
+        {
+            // Same number of monosaccharide kinds plus a component-wise floor is not equality: Hex2
+            // covers Hex1, but they are different compositions.
+            var first = MonosaccharideComposition.Parse(a);
+            var second = MonosaccharideComposition.Parse(b);
+            Assert.IsFalse(first.Equals(second), a + " must not equal " + b);
+            Assert.IsFalse(second.Equals(first), b + " must not equal " + a);
+        }
+
+        [Test]
+        [TestCase("H1N1", "HexNAc(1)Hex(1)")]
+        [TestCase("HexNAc1Hex1", "Hex1HexNAc1")]
+        [TestCase("Hex0HexNAc1", "HexNAc1")]
+        public static void Equals_SameComposition_IsSymmetricAndHashesAlike(string a, string b)
+        {
+            // A zero count constrains nothing -- the indexer already answers 0 for an absent
+            // monosaccharide -- so writing it out must not make a different composition.
+            var first = MonosaccharideComposition.Parse(a);
+            var second = MonosaccharideComposition.Parse(b);
+            Assert.IsTrue(first.Equals(second), a + " must equal " + b);
+            Assert.IsTrue(second.Equals(first), b + " must equal " + a);
+            Assert.AreEqual(first.GetHashCode(), second.GetHashCode(), "equal compositions must hash alike");
+        }
+
+        [Test]
         public static void AnOrdinaryModificationCarriesNoCompositionAndIsUnaffected()
         {
             ModificationMotif.TryGetMotif("T", out ModificationMotif motif);
