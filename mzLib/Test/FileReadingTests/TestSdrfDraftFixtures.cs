@@ -53,9 +53,6 @@ namespace Test.FileReadingTests
         /// treatment is <c>not available</c>, and no condition may be invented from the sample IDs.
         /// </summary>
         [Test]
-        [Ignore("KNOWN FAILURE, reported to aging (sdrf 029) before any tuning: `Band_01..10` is read as a " +
-                "biological-replicate marker, not a fraction, so there are 20 samples, not 2. And the sample " +
-                "IDs 67868/67869 become an invented `factor value[condition]`.")]
         public void PXD049018_IsTwoSamplesByTenBandsWithNoTreatmentStated()
         {
             var d = Draft("PXD049018", out var files);
@@ -131,8 +128,6 @@ namespace Test.FileReadingTests
         /// told the number was ranked, not read.
         /// </summary>
         [Test]
-        [Ignore("KNOWN FAILURE, reported to aging (sdrf 029) before any tuning: the evidence reads " +
-                "'a replicate count in the file names' and never says the study-wide index was ranked (MAP-33).")]
         public void PXD067622_ARankedReplicateSaysItWasRanked()
         {
             var d = Draft("PXD067622", out _);

@@ -97,6 +97,8 @@ namespace Readers
             ["replicate"] = SdrfReplicateKind.Unstated, ["repeat"] = SdrfReplicateKind.Unstated,
         };
 
+        private static readonly Regex TrailingLetters = new(@"[A-Za-z]+$", RegexOptions.Compiled);
+
         private static readonly Regex TechnicalInName = new(
             @"(?:^|[_\-\.\s])(?:tech|technical|techrep|inj|injection|reinjection|rerun)(?:$|[_\-\.\s])",
             RegexOptions.IgnoreCase | RegexOptions.Compiled);
@@ -232,6 +234,15 @@ namespace Readers
                 int n = int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture);
                 if (MarkerWords.TryGetValue(w, out var kind))
                 {
+                    // With a separator, the word sits before it: Band_01, and MSB67868ABand_01 (sample A
+                    // written straight onto Band). Only a word that states a kind is taken from there.
+                    if (w.Length == 0 && m.Groups["sep"].Value.Length > 0)
+                    {
+                        string before = TrailingLetters.Match(b).Value;
+                        string? said = MarkerWords.ContainsKey(before) && SdrfFileNamePattern.Unambiguous(before) ? before
+                            : SdrfFileNamePattern.GluedWord(before, MarkerWords.ContainsKey);
+                        if (said != null && MarkerWords[said] != SdrfReplicateKind.Unstated) kind = MarkerWords[said];
+                    }
                     // A word saying nothing next to the number may be said elsewhere in the name: tech_A_01.
                     if (kind == SdrfReplicateKind.Unstated && TechnicalInName.IsMatch(b)) kind = SdrfReplicateKind.Technical;
                     if (b.Length > 0) return (b.TrimEnd('_', '-', '.', ' '), n, false, kind);
