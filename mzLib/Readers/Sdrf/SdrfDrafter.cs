@@ -82,6 +82,13 @@ namespace Readers
 
         private static readonly Regex Parenthetical = new(@"\s*\(.*\)\s*$", RegexOptions.Compiled);
 
+        // Ontologies whose terms are never the column's kind (G31). A deny list, not an allow list: PRIDE writes
+        // symptoms (SYMP) and phenotypes (HP) as diseases and cell types (CL) as organism parts, and those stand.
+        private static readonly HashSet<string> NotDisease = new(StringComparer.OrdinalIgnoreCase)
+            { "UBERON", "BTO", "CL", "CLO", "GO", "CHEBI", "SO", "NEWT", "NCBITaxon", "MS", "PRIDE" };
+        private static readonly HashSet<string> NotOrganismPart = new(StringComparer.OrdinalIgnoreCase)
+            { "DOID", "MONDO", "GO", "CHEBI", "SO", "NEWT", "NCBITaxon", "MS", "PRIDE" };
+
         /// <summary>
         /// Drafts one row per raw file. Throws only on a null argument; an empty file list drafts no rows.
         /// </summary>
@@ -161,9 +168,9 @@ namespace Readers
 
             // ---- project facts (D27), disease (D34) ----
             var organism = One(project.Organisms, "organism", Organism);
-            var part = One(project.OrganismParts, "organism part", t => t);
-            var instrument = One(project.Instruments, "instrument", t => t);
-            var disease = One(project.Diseases, "disease", t => t);
+            var part = OfKind(One(project.OrganismParts, "organism part", ByPrefix), "organism part", NotOrganismPart);
+            var instrument = One(project.Instruments, "instrument", ByPrefix);
+            var disease = OfKind(One(project.Diseases, "disease", ByPrefix), "disease", NotDisease);
             if (disease.Term != null && disease.Value.Equals("disease free", StringComparison.OrdinalIgnoreCase))
                 disease = disease with { Value = "normal", Evidence = "PRIDE's project record lists 'Disease free'" };
             bool split = names.Any(n => LevelsOf(n).Any(CaseControlArm.IsMatch)) && names.Any(n => !LevelsOf(n).Any(CaseControlArm.IsMatch));
@@ -348,6 +355,22 @@ namespace Readers
             var term = normalise(distinct[0]);
             return new SdrfDraftCell(term.Name, SdrfDraftSource.PrideProjectRecord, $"the one {what} PRIDE's project record lists", term);
         }
+
+        /// <summary>
+        /// The ontology is the accession's prefix, not PRIDE's cvLabel: 17 of 692 PRIDE part and disease terms are
+        /// mislabelled, <c>UBERON:0002048</c> as CL among them (pride 006, SDRF-P6).
+        /// </summary>
+        private static CvParam ByPrefix(CvParam t)
+        {
+            int colon = t.Accession.IndexOf(':');
+            return colon > 0 ? t with { CvLabel = t.Accession[..colon] } : t;
+        }
+
+        /// <summary>A term from an ontology that is never this column's kind is not written; the reason says why.</summary>
+        private static SdrfDraftCell OfKind(SdrfDraftCell cell, string what, HashSet<string> wrongKind) =>
+            cell.Term is { } term && wrongKind.Contains(term.CvLabel)
+                ? SdrfDraftCell.NotAvailable($"PRIDE's project record lists {term.Accession} '{term.Name}' as the {what}, but {term.CvLabel} is not a {what} ontology")
+                : cell;
 
         /// <summary>
         /// PRIDE labels organisms NEWT with a bare taxon (<c>NEWT:9606</c>, "Homo sapiens (human)"); SDRF writes
