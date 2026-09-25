@@ -638,7 +638,10 @@ namespace Test.FileReadingTests
 
         /// <summary>
         /// A column only SOME rows carry still appears once, and the rows without it say so with a
-        /// reserved word rather than going short.
+        /// reserved word rather than going short. Under <see cref="SdrfBuilderOptions.RequireSampleMetadata"/>
+        /// too, deliberately: that option (D17) governs the columns the SPECIFICATION requires, and
+        /// this column exists only because another row supplied it. One undescribed sample must not
+        /// fail the whole document.
         /// </summary>
         [Test]
         public void AColumnOnlyOneRowCarriesIsStillOneColumn()
@@ -652,7 +655,7 @@ namespace Test.FileReadingTests
             {
                 new SdrfRowInput(described, Assay("a.raw")),
                 new SdrfRowInput(Sample("Sample 2"), Assay("b.raw"))
-            });
+            }, new SdrfBuilderOptions { RequireSampleMetadata = true });
 
             Assert.That(document.Header.Count(c => c == "characteristics[age]"), Is.EqualTo(1));
             Assert.That(document.Results[0]["characteristics[age]"], Is.EqualTo("58Y"));
@@ -825,22 +828,29 @@ namespace Test.FileReadingTests
             var incomingHeader = new SdrfHeader(new[]
             {
                 "source name", "characteristics[organism]", "characteristics[age]",
-                "characteristics[sex]", "assay name", "comment[data file]", "factor value[disease]"
+                "characteristics[sex]", "characteristics[biological replicate]", "assay name",
+                "comment[data file]", "factor value[disease]"
             });
             var incoming = new SdrfDocument(incomingHeader, new[]
             {
                 new SdrfRow(incomingHeader, new[]
-                    { "Sample 1", "Homo sapiens", "58Y", "female", "run x", "x.raw", "normal" })
+                    { "Sample 1", "Homo sapiens", "58Y", "female", "2", "run x", "x.raw", "normal" })
             });
 
             var block = SdrfSampleBlock.BySourceName(incoming, out var problems)["Sample 1"];
             Assert.That(problems, Is.Empty);
 
+            // The builder writes organism and biological replicate from their own properties and
+            // refuses them as dictionary keys, so a caller copying a block in skips those two and
+            // sets the properties. Organism needs a term, which the block's free text is not; the
+            // replicate is a number.
+            var builtIn = new[] { "characteristics[organism]", "characteristics[biological replicate]" };
             var sample = Sample("Sample 1") with
             {
+                BiologicalReplicate = int.Parse(block["characteristics[biological replicate]"]!),
                 RawCharacteristics = block.CharacteristicColumns
-                    .Where(c => c != "characteristics[organism]")
-                    .ToDictionary(c => c, c => block[c], StringComparer.Ordinal),
+                    .Except(builtIn, StringComparer.Ordinal)
+                    .ToDictionary(c => c, c => block[c]!, StringComparer.Ordinal),
                 FactorValues = block.FactorValueColumns
                     .ToDictionary(c => c, c => block[c], StringComparer.Ordinal)
             };
@@ -851,9 +861,39 @@ namespace Test.FileReadingTests
             Assert.That(row["characteristics[age]"], Is.EqualTo("58Y"));
             Assert.That(row["characteristics[sex]"], Is.EqualTo("female"));
             Assert.That(row["factor value[disease]"], Is.EqualTo("normal"));
+            Assert.That(row["characteristics[biological replicate]"], Is.EqualTo("2"));
+            Assert.That(written.Header.Count(c => c == "characteristics[biological replicate]"), Is.EqualTo(1));
+            Assert.That(written.Header.Count(c => c == "characteristics[organism]"), Is.EqualTo(1));
             Assert.That(SdrfValidator.Validate(written).Errors, Is.Empty,
                 "The document a search writes after carrying somebody else's sample facts is still " +
                 "a valid SDRF.");
+        }
+
+        /// <summary>
+        /// Organism and biological replicate are written from their own properties, unconditionally.
+        /// A dictionary key naming either used to add a SECOND column of the same name, and the
+        /// validator does not look for duplicate columns, so the document passed. Both are among
+        /// the columns a deposited sample block carries, so copying one in whole is how it happens.
+        /// </summary>
+        [TestCase("characteristics[organism]", "Organism", false)]
+        [TestCase("characteristics[organism]", "Organism", true)]
+        [TestCase("characteristics[biological replicate]", "BiologicalReplicate", false)]
+        [TestCase("characteristics[biological replicate]", "BiologicalReplicate", true)]
+        public void AColumnTheBuilderWritesItselfIsRefusedAsACharacteristic(
+            string column, string property, bool asTerm)
+        {
+            var sample = asTerm
+                ? Sample() with
+                {
+                    Characteristics = new Dictionary<string, CvParam>(Sample().Characteristics)
+                        { [column] = new CvParam("NCBITaxon", "NCBITaxon:9606", "Homo sapiens", "") }
+                }
+                : Sample() with { RawCharacteristics = new Dictionary<string, string> { [column] = "2" } };
+
+            Assert.That(() => SdrfBuilder.Build(new[] { new SdrfRowInput(sample, Assay()) }),
+                Throws.ArgumentException
+                    .With.Message.Contains(column)
+                    .And.Message.Contains(property));
         }
 
         /// <summary>

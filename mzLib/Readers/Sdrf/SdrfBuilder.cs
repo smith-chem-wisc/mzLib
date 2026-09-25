@@ -88,6 +88,21 @@ namespace Readers
         /// </summary>
         private static readonly string[] RequiredCharacteristics = { OrganismPart };
 
+        /// <summary>
+        /// Characteristics columns the builder writes from a dedicated <see cref="SdrfSample"/>
+        /// property, and which therefore may not arrive through either dictionary as well.
+        ///
+        /// <see cref="BuildHeader"/> emits both unconditionally, so a key naming one would add a
+        /// SECOND column of the same name, and <see cref="SdrfValidator"/> does not look for
+        /// duplicate columns. They are exactly the columns <see cref="SdrfSampleBlock.CharacteristicColumns"/>
+        /// harvests from a deposited SDRF, so copying a block in whole would hit this.
+        /// </summary>
+        private static readonly Dictionary<string, string> BuiltInCharacteristics = new(StringComparer.Ordinal)
+        {
+            [Organism] = nameof(SdrfSample.Organism),
+            [BiologicalReplicate] = nameof(SdrfSample.BiologicalReplicate)
+        };
+
         public static SdrfDocument Build(IEnumerable<SdrfRowInput> rows, SdrfBuilderOptions? options = null)
         {
             if (rows is null) throw new ArgumentNullException(nameof(rows));
@@ -217,6 +232,20 @@ namespace Readers
                 throw new ArgumentException(
                     $"Row {index} has a characteristic or factor value keyed by a blank column name.",
                     nameof(input));
+
+            // Refused rather than skipped: skipping would drop the caller's value without a word,
+            // and the value belongs in the property the builder writes the column from.
+            var builtIn = input.Sample.Characteristics.Keys
+                .Concat(input.Sample.RawCharacteristics.Keys)
+                .Where(BuiltInCharacteristics.ContainsKey)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+            if (builtIn.Count > 0)
+                throw new ArgumentException(
+                    $"Row {index} has a characteristic '{builtIn[0]}', which the builder already writes " +
+                    $"from {nameof(SdrfSample)}.{BuiltInCharacteristics[builtIn[0]]}; set it there " +
+                    "instead, so one column is never written twice.", nameof(input));
 
             // One column space, two dictionaries. Preferring either one silently is how a column
             // comes to mean a term on some rows and free text on others.
