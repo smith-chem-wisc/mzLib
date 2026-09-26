@@ -2,6 +2,7 @@
 using Chemistry;
 using NUnit.Framework;
 using Omics.Modifications;
+using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -206,5 +207,53 @@ public static class ModificationTest
         Mods.AddOrUpdateModification(newMod, true);
         var retrievedUpdatedMod = Mods.GetModification("TestMod on M", false, true);
         Assert.That(retrievedUpdatedMod, Is.EqualTo(newMod));
+    }
+
+    /// <summary>
+    /// The "DR   Unimod; N." lines in the shipped mod files are hand-written, not derived from
+    /// unimod.xml. Where an entry declares its own chemical formula, that formula must equal the
+    /// composition of the record it cites. Entries with no formula are skipped: the isobaric
+    /// labels in TMT.txt give an MM averaged across label channels on purpose. A cited record that
+    /// is absent from the shipped unimod.xml is also skipped, since that is a stale-XML problem
+    /// rather than a wrong accession.
+    /// </summary>
+    [Test]
+    public static void ShippedUnimodAccessionsMatchTheCitedRecordsComposition()
+    {
+        var unimodByAccession = Mods.UnimodModifications
+            .Where(m => m.ModificationType == "Unimod"
+                        && m.DatabaseReference != null
+                        && m.DatabaseReference.ContainsKey("Unimod"))
+            .GroupBy(m => m.DatabaseReference["Unimod"].First())
+            .ToDictionary(g => g.Key, g => g.First());
+
+        var shippedMods = Mods.MetaMorpheusProteinModifications
+            .Concat(Mods.MetaMorpheusRnaModifications)
+            .Concat(Mods.IsobaricLabelModifications)
+            .Concat(ProteaseDictionary.LoadEmbeddedProteaseMods());
+
+        var mismatches = new List<string>();
+
+        foreach (var mod in shippedMods)
+        {
+            if (mod.ChemicalFormula == null
+                || mod.DatabaseReference == null
+                || !mod.DatabaseReference.TryGetValue("Unimod", out var accessions))
+            {
+                continue;
+            }
+
+            string accession = accessions.First();
+            if (!unimodByAccession.TryGetValue(accession, out var cited))
+                continue;
+
+            if (!mod.ChemicalFormula.Equals(cited.ChemicalFormula))
+            {
+                mismatches.Add($"'{mod.IdWithMotif}' ({mod.ChemicalFormula.Formula}, {mod.MonoisotopicMass:F6}) cites " +
+                               $"UNIMOD:{accession} '{cited.OriginalId}' ({cited.ChemicalFormula.Formula}, {cited.MonoisotopicMass:F6})");
+            }
+        }
+
+        Assert.That(mismatches, Is.Empty, string.Join(Environment.NewLine, mismatches));
     }
 }

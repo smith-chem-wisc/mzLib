@@ -1,5 +1,6 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Omics.Digestion;
+using Omics.Modifications;
 
 namespace Transcriptomics.Digestion
 {
@@ -266,6 +267,8 @@ namespace Transcriptomics.Digestion
             string[] nameAliases = { "name" };
             string[] motifAliases = { "motif", "sequences inducing cleavage" };
             string[] specificityAliases = { "specificity", "cleavage specificity" };
+            string[] cleavageModificationAliases = { "cleavagemodification", "cleavage modification" };
+            string[] cleavageModificationTypeAliases = { "cleavagemodificationtype", "cleavemodificationtype", "cleavage modification type", "modification type" };
 
             foreach (string line in lines)
             {
@@ -288,6 +291,8 @@ namespace Transcriptomics.Digestion
                 string name = GetFieldValue(fields, columnIndices, nameAliases);
                 string motifField = GetFieldValue(fields, columnIndices, motifAliases);
                 string specificityField = GetFieldValue(fields, columnIndices, specificityAliases);
+                string cleavageModificationName = GetFieldValue(fields, columnIndices, cleavageModificationAliases);
+                string cleavageModificationType = GetFieldValue(fields, columnIndices, cleavageModificationTypeAliases);
 
                 if (string.IsNullOrWhiteSpace(name))
                     continue; // skip lines without a name
@@ -301,7 +306,11 @@ namespace Transcriptomics.Digestion
                         typeof(CleavageSpecificity), specificityField, true);
                 }
 
-                var rnase = new Rnase(name, cleavageSpecificity, motifList);
+                Modification? cleavageModification = ParseCleavageModification(
+                    cleavageModificationName, cleavageModificationType, name);
+
+                var rnase = new Rnase(name, cleavageSpecificity, motifList,
+                    cleavageMod: cleavageModification);
 
                 if (dict.ContainsKey(rnase.Name))
                 {
@@ -361,6 +370,30 @@ namespace Transcriptomics.Digestion
                     return fields[index].Trim();
             }
             return string.Empty;
+        }
+
+        private static Modification? ParseCleavageModification(string modificationName, string modificationType, string rnaseName)
+        {
+            if (string.IsNullOrWhiteSpace(modificationName))
+                return null;
+
+            Modification? modification = Mods.GetModification(modificationName,
+                searchProteinMods: false, searchRnaMods: true);
+            if (modification is null)
+            {
+                throw new MzLibException(
+                    $"RNase '{rnaseName}' references unknown RNA modification '{modificationName}'.");
+            }
+
+            bool isFixed = modificationType.Equals("fixed", StringComparison.OrdinalIgnoreCase);
+            bool isVariable = modificationType.Equals("variable", StringComparison.OrdinalIgnoreCase);
+            if (!isFixed && !isVariable)
+            {
+                throw new MzLibException(
+                    $"RNase '{rnaseName}' must specify 'fixed' or 'variable' for cleavage modification '{modificationName}'.");
+            }
+
+            return new CleavageModification(isFixed, isVariable, modification);
         }
 
         #endregion

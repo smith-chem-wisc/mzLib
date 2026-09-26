@@ -110,6 +110,56 @@ public class KoinaModelDiscoveryTests
     }
 
     /// <summary>
+    /// Every model's session deadline must cover the work it is bounding, at every request size.
+    /// </summary>
+    /// <remarks>
+    /// This is the offline guard that lets <see cref="KoinaTests.KoinaLiveTestFixture"/> skip a test
+    /// whose Koina call was cut off. A call that died because Koina never answered and a call that
+    /// died because our own deadline was too short abort at the same line and read identically, so
+    /// that fixture cannot tell them apart and skips both. Which is only safe while the second cannot
+    /// happen -- and that is what this asserts.
+    ///
+    /// Arithmetic rather than network on purpose. A batching regression has to fail a deterministic
+    /// test in the required job, not depend on a live test in the non-blocking one to notice it; a
+    /// live test that goes quietly Skipped is precisely the outcome that got "out of memory" removed
+    /// from KoinaServiceException.ServiceFaultMarkers.
+    ///
+    /// The bound asserted is the estimate's own definition -- twice the benchmarked time for every
+    /// batch, plus the throttling delay between chunks -- so raising a batch size, lowering a
+    /// benchmark, or rounding the deadline down all fail here rather than in CI a week later.
+    /// </remarks>
+    [Test]
+    [TestCaseSource(nameof(ConcreteKoinaModelTypes))]
+    public static void EveryConcreteModel_SessionDeadlineCoversItsOwnBenchmarkedWork(Type modelType)
+    {
+        var model = InstantiateWithDefaults(modelType);
+
+        int throttle = (int)modelType.GetProperty(nameof(KoinaModelBase<int, int>.ThrottlingDelayInMilliseconds))!.GetValue(model)!;
+        int benchmark = (int)modelType.GetProperty(nameof(KoinaModelBase<int, int>.BenchmarkedTimeForOneMaxBatchSizeInMilliseconds))!.GetValue(model)!;
+        int maxBatchesPerRequest = (int)modelType.GetProperty(nameof(KoinaModelBase<int, int>.MaxNumberOfBatchesPerRequest))!.GetValue(model)!;
+        var sessionDeadline = modelType.GetMethod(nameof(KoinaModelBase<int, int>.SessionDeadline))!;
+
+        // One batch is the shape every live Koina test takes (a handful of peptides), and the shape
+        // the 2026-09 AlphaPeptDeep_ccs_generic stall was observed on. The large counts are where a rounding or tuning
+        // regression would actually bite.
+        foreach (int batchCount in new[] { 1, 2, 17, 250, 1_000, 25_000 })
+        {
+            int chunkCount = (int)Math.Ceiling(batchCount / (double)maxBatchesPerRequest);
+            var deadline = (TimeSpan)sessionDeadline.Invoke(model, new object[] { batchCount, chunkCount })!;
+
+            double estimatedMilliseconds = batchCount * 2.0 * benchmark + (double)throttle * chunkCount;
+            Assert.That(deadline.TotalMilliseconds, Is.GreaterThanOrEqualTo(estimatedMilliseconds),
+                $"{modelType.Name}: the deadline for {batchCount} batch(es) in {chunkCount} chunk(s) is "
+                + "shorter than the work it bounds, so a healthy run can be cut off -- and the live "
+                + "fixture would report that as a Koina outage.");
+
+            Assert.That(deadline, Is.GreaterThanOrEqualTo(TimeSpan.FromMinutes(1)),
+                $"{modelType.Name}: the one-minute floor is the only thing standing between a small "
+                + "request and a deadline measured in milliseconds.");
+        }
+    }
+
+    /// <summary>
     /// Live (NETWORK) check: every model's ModelName must name a real endpoint on the Koina server.
     /// A model sends its ModelName verbatim as the request URL path, so a single typo (for example an
     /// extra underscore) silently turns every prediction for that model into a 404 at runtime. This

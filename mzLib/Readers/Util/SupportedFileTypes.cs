@@ -1,4 +1,4 @@
-﻿using MzLibUtil;
+using MzLibUtil;
 using Readers.ExternalResults.ResultFiles;
 
 namespace Readers
@@ -35,7 +35,12 @@ namespace Readers
         BrukerTimsTof,
         CasanovoMzTab,
         DiaNnReport,
-        Sdrf
+        Sdrf,
+        PytheasResult,
+        MzIdentML,
+        MzIdentMLGz,
+        MetaMorpheusQuantifiedProteinGroups,
+        FlashLFQQuantifiedPeptide
     }
 
     public static class SupportedFileTypeExtensions
@@ -77,6 +82,7 @@ namespace Readers
                 SupportedFileType.MsPathFinderTDecoys => "_IcDecoy.tsv",
                 SupportedFileType.MsPathFinderTAllResults => "_IcTDA.tsv",
                 SupportedFileType.CruxResult => ".txt",
+                SupportedFileType.PytheasResult => ".txt",
                 SupportedFileType.ExperimentAnnotation => "experiment_annotation.tsv",
                 SupportedFileType.CasanovoMzTab => ".mztab",
                 // Unlike the other .tsv members, this is a conventional whole-name rather than a
@@ -86,6 +92,10 @@ namespace Readers
                 // appends when naming an output file.
                 SupportedFileType.DiaNnReport => "report.tsv",
                 SupportedFileType.Sdrf => ".sdrf.tsv",
+                SupportedFileType.MzIdentML => ".mzid",
+                SupportedFileType.MzIdentMLGz => ".mzid.gz",
+                SupportedFileType.MetaMorpheusQuantifiedProteinGroups => "QuantifiedProteinGroups.tsv",
+                SupportedFileType.FlashLFQQuantifiedPeptide => "QuantifiedPeptides.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -127,6 +137,12 @@ namespace Readers
                 case ".tsv":
                 {
                     // these tsv cases have a specialized ending before the .tsv
+                    // MetaMorpheus/FlashLFQ quantification tables first: MsFragger's "protein.tsv" and
+                    // "peptide.tsv" are matched case-insensitively below, so a longer suffix must win here.
+                    if (filePath.EndsWith(SupportedFileType.MetaMorpheusQuantifiedProteinGroups.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MetaMorpheusQuantifiedProteinGroups;
+                    if (filePath.EndsWith(SupportedFileType.FlashLFQQuantifiedPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FlashLFQQuantifiedPeptide;
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
                     if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
@@ -167,6 +183,12 @@ namespace Readers
                     if (firstLine.Contains("FeatureIndex"))
                         return SupportedFileType.Tsv_FlashDeconv;
 
+                    // Pytheas writes a match-output file that carries no standard name or extension, so
+                    // it is recognized by its header here, like the DIA-NN report. The first line is
+                    // always "#theoretical_digest <path>" regardless of how the file was renamed.
+                    if (firstLine.StartsWith("#theoretical_digest", StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.PytheasResult;
+
                     // DIA-NN's main report is conventionally named report.tsv, but the name is set by
                     // whoever ran the search and is routinely changed, so match on the header instead.
                     // File.Name is what separates the long-format report from the matrix reports
@@ -182,6 +204,18 @@ namespace Readers
                 }
 
                 case ".txt":
+                    // Probe for the Pytheas header only when the file is readable; a missing or unreadable path
+                    if (File.Exists(filePath))
+                    {
+                        using var reader = new StreamReader(
+                            new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite));
+                        for (int i = 0; i < 5 && !reader.EndOfStream; i++)
+                        {
+                            var line = reader.ReadLine();
+                            if (line != null && line.StartsWith("#theoretical_digest", StringComparison.InvariantCultureIgnoreCase))
+                                return SupportedFileType.PytheasResult;
+                        }
+                    }
                     if (filePath.EndsWith(SupportedFileType.CruxResult.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.CruxResult;
                     throw new MzLibException("Txt file type not supported");
@@ -192,6 +226,16 @@ namespace Readers
                     if (filePath.EndsWith(SupportedFileType.Ms2Align.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms2Align;
                     throw new MzLibException("MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2");
+
+                case ".mzid":
+                    return SupportedFileType.MzIdentML;
+
+                case ".gz":
+                    // Path.GetExtension only sees the last extension, so compressed files are told apart by
+                    // what precedes it. PRIDE serves most mzIdentML compressed.
+                    if (filePath.EndsWith(SupportedFileType.MzIdentMLGz.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MzIdentMLGz;
+                    throw new MzLibException("Gz file type not supported");
 
                 case ".mztab":
                     using (var reader = new StreamReader(filePath))
@@ -252,6 +296,11 @@ namespace Readers
                 SupportedFileType.CasanovoMzTab => typeof(CasanovoMzTabFile),
                 SupportedFileType.DiaNnReport => typeof(DiaNnReportFile),
                 SupportedFileType.Sdrf => typeof(SdrfDocument),
+                SupportedFileType.PytheasResult => typeof(PytheasResultFile),
+                SupportedFileType.MzIdentML => typeof(MzIdentMLResultFile),
+                SupportedFileType.MzIdentMLGz => typeof(MzIdentMLResultFile),
+                SupportedFileType.MetaMorpheusQuantifiedProteinGroups => typeof(ProteinGroupFromTsvFile),
+                SupportedFileType.FlashLFQQuantifiedPeptide => typeof(QuantifiedPeptideFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }

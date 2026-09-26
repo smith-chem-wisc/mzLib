@@ -316,5 +316,31 @@ namespace MzLibUtil
         {
             return CompiledProteinSplitPattern.Split(proteinGroupName);
         }
+
+        /// <summary>
+        /// Parses one accession into its entry, isoform or version, and grammar. See
+        /// <see cref="ProteinAccession.Parse"/>: parse, never repair.
+        /// </summary>
+        public static ProteinAccession ParseProteinAccession(this string accession)
+        {
+            return ProteinAccession.Parse(accession);
+        }
+
+        /// <summary>
+        /// Determines if all characters in the string are lowercase letters.
+        /// </summary>
+        public static bool IsAllLower(this string str)
+        {
+            if (string.IsNullOrEmpty(str)) return false;
+
+            for (int i = 0; i < str.Length; i++)
+            {
+                if (!char.IsLower(str[i]))
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }

@@ -565,5 +565,55 @@ namespace Test.MassSpectrometryTests.Deconvolution
             }
         }
 
+
+        /// <summary>
+        /// This scan is known to contain a charge-2 envelope (see
+        /// CheckClassicGetMostAbundantObservedIsotopicMass), and with min == max == 2 every envelope
+        /// returned must be charge 2, so the charge filter cannot be widened at either end. It does not
+        /// pin inclusivity: both charge candidates can propose charge 2 on a real scan, so narrowing
+        /// either bounds check alone leaves the other as a path.
+        /// </summary>
+        [Test]
+        public static void ClassicDeconvolutionRejectsChargesOutsideBounds()
+        {
+            string singleScan = Path.Combine(TestContext.CurrentContext.TestDirectory, "DataFiles",
+                "12-18-17_frac7_calib_ms1_663_665.mzML");
+            MzSpectrum spectrum = MsDataFileReader.GetDataFile(singleScan).LoadAllStaticData()
+                .GetAllScansList()[0].MassSpectrum;
+            MzRange range = new MzRange(spectrum.XArray.Min(), spectrum.XArray.Max());
+
+            DeconvolutionParameters parameters = new ClassicDeconvolutionParameters(2, 2, 20, 3);
+
+            List<IsotopicEnvelope> envelopes = Deconvoluter.Deconvolute(spectrum, parameters, range).ToList();
+
+            Assert.That(envelopes, Is.Not.Empty,
+                "charge 2 is present in this scan and must be found when it is both the min and the max bound");
+            Assert.That(envelopes.Select(e => e.Charge), Is.All.EqualTo(2));
+        }
+
+        /// <summary>
+        /// On a clean envelope the isotope spacing is slightly wider than 1/z, so the floored charge is
+        /// z - 1 and charge z is proposed only by the "charge + 1" candidate. With a single synthetic
+        /// charge-2 envelope and min == max == 2, that candidate is the only way charge 2 can be
+        /// considered, so its bounds check must be inclusive at both ends.
+        /// </summary>
+        [Test]
+        public static void ClassicDeconvolutionUpperChargeCandidateBoundsAreInclusive()
+        {
+            IsotopicDistribution distribution =
+                IsotopicDistribution.GetDistribution(ChemicalFormula.ParseFormula("C60H100N16O20"), 0.125, 0.01);
+            double[] mzs = distribution.Masses.Select(m => m.ToMz(2)).ToArray();
+            double[] intensities = distribution.Intensities.Select(i => i * 1e6).ToArray();
+            MzSpectrum spectrum = new MzSpectrum(mzs, intensities, false);
+            MzRange range = new MzRange(mzs.Min() - 1, mzs.Max() + 1);
+
+            DeconvolutionParameters parameters = new ClassicDeconvolutionParameters(2, 2, 20, 3);
+
+            List<IsotopicEnvelope> envelopes = Deconvoluter.Deconvolute(spectrum, parameters, range).ToList();
+
+            Assert.That(envelopes, Is.Not.Empty);
+            Assert.That(envelopes.Select(e => e.Charge), Is.All.EqualTo(2));
+        }
+
     }
 }

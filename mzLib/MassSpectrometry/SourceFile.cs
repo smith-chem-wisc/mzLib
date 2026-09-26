@@ -23,6 +23,19 @@ namespace MassSpectrometry
 {
     public class SourceFile
     {
+        /// <summary>
+        /// Written to mzML's <c>sourceFile/@location</c> when no usable <see cref="Uri"/> is available,
+        /// and used by the mzML reader for the same case. The attribute is <c>use="required"</c> in the
+        /// schema, so it cannot simply be omitted. Shared so the two sides cannot drift apart.
+        /// </summary>
+        public const string UnknownLocation = "file:///unknown-source";
+
+        /// <summary>
+        /// Written to mzML's <c>sourceFile/@name</c> when <see cref="FileName"/> is null. Also
+        /// <c>use="required"</c>, and omitting it produced a schema-invalid file.
+        /// </summary>
+        public const string UnknownName = "unknown-source";
+
         public SourceFile(string nativeIdFormat, string massSpectrometerFileFormat, string checkSum, string fileChecksumType, string id)
         {
             NativeIdFormat = nativeIdFormat;
@@ -77,5 +90,36 @@ namespace MassSpectrometry
         /// match on Accession and never on Name.
         /// </summary>
         public CvParam InstrumentModel { get; init; }
+
+        /// <summary>
+        /// The serial number of the instrument that produced this file, verbatim and trimmed, e.g.
+        /// "FSN10189". Null when the source format does not record it or the reader could not
+        /// determine it. Init-only, like <see cref="InstrumentModel"/>.
+        ///
+        /// Together with the model it tells two instruments of one model apart, which is what a
+        /// batch or instrument confound needs. mzML carries it as MS:1000529 beside the model; Thermo
+        /// RAW records it in the instrument data. It is free text and is reported as written: some
+        /// converters write a placeholder such as "Serial Number N/A", and that is not repaired here.
+        /// </summary>
+        public string InstrumentSerialNumber { get; init; }
+
+        /// <summary>
+        /// When acquisition of this file started. Null when the source format does not record it or
+        /// the reader could not determine it. Init-only, like <see cref="InstrumentModel"/>.
+        ///
+        /// <see cref="DateTime.Kind"/> says how much is known, and is never Local, so the value does
+        /// not depend on the time zone of the machine that read the file:
+        ///
+        ///   Utc          the source fixes the instant: mzML startTimeStamp with "Z" or an offset,
+        ///                converted to UTC.
+        ///   Unspecified  the source gives a wall-clock time with no offset: mzML startTimeStamp
+        ///                without one, and Thermo RAW, whose creation date is the acquisition
+        ///                computer's local time. The instant is unknown, so none is invented.
+        ///
+        /// A RAW file and ProteoWizard's mzML of it can therefore differ by the acquisition site's
+        /// UTC offset: ProteoWizard converts the RAW's local time to UTC assuming the converting
+        /// machine's time zone, and writes "Z".
+        /// </summary>
+        public DateTime? AcquisitionStartTime { get; init; }
     }
 }
