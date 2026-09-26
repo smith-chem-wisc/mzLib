@@ -340,6 +340,10 @@ public static class EntrapmentProteinGenerator
             isEntrapment: true,
             uniProtSequenceAttributes: DescribeSequence(target, assembly.EntrapmentSequence),
             oneBasedModifications: movedMods,
+            // Fixed modifications are positional too, and the copy constructor inherits them unmoved
+            // when not handed any, so they are remapped the same way.
+            oneBasedFixedModifications: MoveFixedModifications(target.OneBasedFixedModifications,
+                assembly.TargetToEntrapmentPosition, target.Length, assembly.EntrapmentSequence.Length),
             // Every other positional annotation describes the TARGET's sequence and means nothing
             // once the residues have moved. Carrying them over is not merely untidy: excision
             // shortens the protein, so a coordinate can point past its end, and a consumer that
@@ -447,6 +451,42 @@ public static class EntrapmentProteinGenerator
             {
                 moved[newOneBased] = new List<Modification>(mods);
             }
+        }
+
+        return moved;
+    }
+
+    /// <summary>
+    /// Fixed modifications carried to the residues they were on. Their keys differ from the variable
+    /// dictionary's: 0 is the protein N-terminus and length + 2 the C-terminus, and both stay termini
+    /// of the partner, whose length excision may have changed.
+    /// </summary>
+    private static Dictionary<int, Modification> MoveFixedModifications(
+        IDictionary<int, Modification> fixedModifications, int[] targetToEntrapmentPosition,
+        int targetLength, int entrapmentLength)
+    {
+        var moved = new Dictionary<int, Modification>();
+        if (fixedModifications is null)
+        {
+            return moved;
+        }
+
+        foreach ((int key, Modification mod) in fixedModifications)
+        {
+            if (key == 0)
+            {
+                moved[0] = mod;
+            }
+            else if (key == targetLength + 2)
+            {
+                moved[entrapmentLength + 2] = mod;
+            }
+            else if (key >= 1 && key <= targetToEntrapmentPosition.Length
+                && targetToEntrapmentPosition[key - 1] >= 0)
+            {
+                moved[targetToEntrapmentPosition[key - 1] + 1] = mod;
+            }
+            // otherwise the residue was excised, and its modification goes with it
         }
 
         return moved;

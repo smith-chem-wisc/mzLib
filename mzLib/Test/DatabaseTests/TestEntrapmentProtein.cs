@@ -968,6 +968,58 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void AFixedModificationMovesWithItsResidue()
+    {
+        // Master's #1342 gave Protein a second positional mod dictionary, OneBasedFixedModifications,
+        // and the copy constructor inherits it when not told otherwise -- so a partner would carry
+        // its target's fixed mods at the TARGET's positions, on whatever residue now sits there. The
+        // keys are 0 for the protein N-terminus, 1..L for residues and L+2 for the C-terminus.
+        const string withHomopolymer = "SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR";
+        ModificationMotif.TryGetMotif("T", out ModificationMotif t);
+        ModificationMotif.TryGetMotif("S", out ModificationMotif s);
+        ModificationMotif.TryGetMotif("X", out ModificationMotif any);
+        var onT = new Modification(_originalId: "FixedT", _modificationType: "Test",
+            _target: t, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.0);
+        var onExcisedTract = new Modification(_originalId: "FixedS", _modificationType: "Test",
+            _target: s, _locationRestriction: "Anywhere.", _monoisotopicMass: 2.0);
+        var nTerm = new Modification(_originalId: "FixedN", _modificationType: "Test",
+            _target: any, _locationRestriction: "N-terminal.", _monoisotopicMass: 3.0);
+        var cTerm = new Modification(_originalId: "FixedC", _modificationType: "Test",
+            _target: any, _locationRestriction: "C-terminal.", _monoisotopicMass: 4.0);
+
+        int length = withHomopolymer.Length;
+        var fixedMods = new Dictionary<int, Modification>
+        {
+            { 0, nTerm }, { 17, onExcisedTract }, { length + 2, cTerm },
+        };
+        for (int oneBased = 1; oneBased <= length; oneBased++)
+        {
+            if (withHomopolymer[oneBased - 1] == 'T')
+            {
+                fixedMods[oneBased] = onT;
+            }
+        }
+        var target = new Protein(withHomopolymer, "P12345", oneBasedFixedModifications: fixedMods);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        int newLength = entrapment.BaseSequence.Length;
+        Assert.That(newLength, Is.LessThan(length), "the fixture must actually excise something");
+
+        var residueKeys = entrapment.OneBasedFixedModifications.Keys.Where(k => k >= 1 && k <= newLength).ToList();
+        Assert.That(residueKeys.Select(k => entrapment.OneBasedFixedModifications[k]), Is.All.SameAs(onT),
+            "the mod on the excised tract goes with it");
+        Assert.That(residueKeys.Select(k => entrapment.BaseSequence[k - 1]), Is.All.EqualTo('T'),
+            "a fixed mod must land on the residue it was on");
+        Assert.That(residueKeys, Has.Count.EqualTo(withHomopolymer.Count(c => c == 'T')));
+        Assert.That(entrapment.OneBasedFixedModifications[0], Is.SameAs(nTerm));
+        Assert.That(entrapment.OneBasedFixedModifications[newLength + 2], Is.SameAs(cTerm),
+            "the C-terminal key follows the partner's own length");
+        Assert.That(entrapment.OneBasedFixedModifications.Keys,
+            Is.All.Matches<int>(k => k == 0 || k == newLength + 2 || (k >= 1 && k <= newLength)));
+        Assert.That(target.OneBasedFixedModifications, Has.Count.EqualTo(fixedMods.Count), "the target keeps its own");
+    }
+
+    [Test]
     public void AnUnknownResidueDoesNotWriteAZeroMass()
     {
         // MonoisotopicMass is NaN for a sequence holding X or B, and (int)Math.Round(NaN) is 0, so
