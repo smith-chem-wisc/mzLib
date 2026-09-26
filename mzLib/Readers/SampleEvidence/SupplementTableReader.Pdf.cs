@@ -299,18 +299,25 @@ namespace Readers
         {
             var cells = Enumerable.Repeat("", columns.Count).ToList();
             void Put(int k, string text) => cells[k] = cells[k].Length == 0 ? text : cells[k] + " " + text;
-            foreach (var c in line.Cells)
+            int Home(PdfCell c)
             {
-                double centre = (c.Left + c.Right) / 2;
-                double slack = line.Height / 2;
-                double width = Math.Max(c.Right - c.Left, 1e-6);
-                int home = columns.FindIndex(k => (centre >= k.Left + (k.Right - k.Left) / 4 && centre <= k.Right - (k.Right - k.Left) / 4)
+                double centre = (c.Left + c.Right) / 2, slack = line.Height / 2, width = Math.Max(c.Right - c.Left, 1e-6);
+                return columns.FindIndex(k => (centre >= k.Left + (k.Right - k.Left) / 4 && centre <= k.Right - (k.Right - k.Left) / 4)
                     || Math.Abs(c.Left - k.Left) <= slack || Math.Abs(c.Right - k.Right) <= slack
                     || (Math.Min(c.Right, k.Right) - Math.Max(c.Left, k.Left)) / width >= 0.75);
-                if (home >= 0 || columns.Count < 2) { Put(home >= 0 ? home : Best(c.Left, c.Right, columns), c.Text); continue; }
+            }
+            var homes = line.Cells.Select(Home).ToList();
+            // Only a line of group labels -- none of its cells sitting on a column -- is spread over column pairs; one
+            // awkward cell on a line of ordinary headers is placed by overlap (PXD021990's "SKU").
+            bool groupLine = columns.Count >= 2 && homes.All(h => h < 0);
+            for (int i = 0; i < line.Cells.Count; i++)
+            {
+                var c = line.Cells[i];
+                if (homes[i] >= 0) { Put(homes[i], c.Text); continue; }
+                double centre = (c.Left + c.Right) / 2;
                 var nearest = Enumerable.Range(0, columns.Count)
                     .OrderBy(k => Math.Abs((columns[k].Left + columns[k].Right) / 2 - centre)).Take(2).OrderBy(k => k).ToList();
-                if (nearest[1] - nearest[0] != 1) { Put(Best(c.Left, c.Right, columns), c.Text); continue; }
+                if (!groupLine || nearest.Count < 2 || nearest[1] - nearest[0] != 1) { Put(Best(c.Left, c.Right, columns), c.Text); continue; }
                 foreach (int k in nearest) Put(k, c.Text);
             }
             return cells;
