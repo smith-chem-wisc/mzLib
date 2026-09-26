@@ -220,7 +220,11 @@ namespace Readers
         /// <c>normal</c> beside a project-record organism part. A cell nothing states is
         /// <c>not available</c> and has no source. The biological replicate never votes on the row default
         /// and gets <c>comment[biological replicate source]</c> wherever its source differs: <c>default</c>
-        /// (D39) when nothing marked a replicate and 1 was written only because an SDRF needs a value.</para>
+        /// (D39) when nothing marked a replicate and 1 was written only because an SDRF needs a value.
+        /// <c>comment[fraction identifier]</c> and <c>comment[technical replicate]</c> are not characteristics, so no
+        /// row default covers them: <c>comment[fraction identifier source]</c> and <c>comment[technical replicate
+        /// source]</c> are written on every row (dataRepo SDRF-DR10), <c>default</c> where 1 was written only
+        /// because an SDRF needs a value.</para>
         ///
         /// <para>Assay facts a draft cannot know (cleavage agent, modifications, tolerances) are
         /// <c>not available</c>: the search that uses this SDRF knows them and writes them in the SDRF it
@@ -252,6 +256,10 @@ namespace Readers
                 // its own word wherever that differs -- `default` when nothing marked it (D39).
                 if (!comments.TryGetValue("comment[characteristics source]", out var rowWord) || rowWord != SourceWord(r.BiologicalReplicate.Source))
                     comments["comment[biological replicate source]"] = SourceWord(r.BiologicalReplicate.Source);
+                // Fraction and technical replicate decide which runs pool into one sample, and no row default covers a
+                // comment[] column, so every row says where they came from (dataRepo SDRF-DR10).
+                comments["comment[fraction identifier source]"] = SourceWord(r.Fraction.Source);
+                comments["comment[technical replicate source]"] = SourceWord(r.TechnicalReplicate.Source);
 
                 var characteristics = new Dictionary<string, CvParam>(StringComparer.Ordinal);
                 if (r.OrganismPart.Term != null) characteristics["characteristics[organism part]"] = r.OrganismPart.Term;
