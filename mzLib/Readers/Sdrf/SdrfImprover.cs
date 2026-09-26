@@ -68,6 +68,15 @@ namespace Readers
 
         private static readonly CvParam Normal = new("PATO", "PATO:0000461", "normal", "");
 
+        /// <summary>Columns that describe the whole assay, not one file or one sample: the only ones a drafted row
+        /// may copy from the deposit. The builder writes each of them once per document's settings.</summary>
+        private static readonly HashSet<string> AssayWide = new(StringComparer.Ordinal)
+        {
+            "technology type", "comment[label]", "comment[cleavage agent details]", "comment[modification parameters]",
+            "comment[precursor mass tolerance]", "comment[fragment mass tolerance]", "comment[proteomics data acquisition method]",
+            "comment[dissociation method]", "comment[proteomexchange accession number]"
+        };
+
         /// <summary>
         /// Improves <paramref name="deposited"/> with <paramref name="draft"/>. Throws on a null argument, or
         /// on a deposited SDRF with no <c>comment[data file]</c> column, which leaves nothing to join on.
@@ -100,7 +109,10 @@ namespace Readers
             var draftByStem = draft.Rows.GroupBy(r => SdrfFileNamePattern.Stem(r.DataFile), StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(g => g.Key, g => g.First(), StringComparer.OrdinalIgnoreCase);
             string StemOf(List<string> row) => SdrfFileNamePattern.Stem(row[Col(DataFile)]);
-            var rowsPerFile = rows.GroupBy(StemOf, StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+            // Multiplexed = several rows naming ONE file. By the full name, not the stem: a run listed under two
+            // extensions (S1.raw, S1.mzML) is two label-free rows, not two channels.
+            var rowsPerFile = rows.GroupBy(r => r[Col(DataFile)], StringComparer.OrdinalIgnoreCase).ToDictionary(g => g.Key, g => g.Count(), StringComparer.OrdinalIgnoreCase);
+            bool Multiplexed(List<string> row) => rowsPerFile[row[Col(DataFile)]] > 1;
 
             // ---- deposited rows: mark them, fill gaps, report disagreements ----
             int rowSource = Ensure(RowSource);
@@ -109,13 +121,21 @@ namespace Readers
             {
                 bool any = rows.Any(r => draftByStem.TryGetValue(StemOf(r), out var d)
                     && target.Cell(d).Source is not (SdrfDraftSource.NotAvailable or SdrfDraftSource.Default)
-                    && (target.PerFile || rowsPerFile[StemOf(r)] == 1));
+                    && (target.PerFile || !Multiplexed(r)));
                 if (any) Ensure(target.Column);
             }
+            // A column the deposit writes only as free text gets its fills as free text too, not a term beside
+            // free text (SdrfDriftLint's MixedTermAndFreeText). A new or term-written column gets terms.
+            var freeText = Targets.ToDictionary(t => t.Column, t =>
+            {
+                var stated = Col(t.Column) < 0 ? new List<string>() : rows.Select(r => r[Col(t.Column)]).Where(v => !IsGap(v)).ToList();
+                return stated.Count > 0 && stated.All(v => !SdrfCell.IsTerm(v));
+            });
+            string Write(Target target, SdrfDraftCell cell) => Written(target, cell, freeText[target.Column]);
             foreach (var r in rows)
             {
                 if (!draftByStem.TryGetValue(StemOf(r), out var d)) continue;
-                bool multiplexed = rowsPerFile[StemOf(r)] > 1;
+                bool multiplexed = Multiplexed(r);
                 foreach (var target in Targets)
                 {
                     if (!target.PerFile && multiplexed) continue;
@@ -125,7 +145,7 @@ namespace Readers
                     if (at < 0 || cell.Source is SdrfDraftSource.NotAvailable or SdrfDraftSource.Default) continue;
                     if (IsGap(r[at]))
                     {
-                        r[at] = Written(target, cell);
+                        r[at] = Write(target, cell);
                         int mark = Ensure($"comment[{target.Name} source]");
                         r[mark] = Word(cell.Source);
                         if (cell.Source == SdrfDraftSource.Publication)
@@ -138,7 +158,7 @@ namespace Readers
                     // A project-level summary is weaker evidence than a per-file statement: it may fill a gap,
                     // never dispute (PRIDE's "LTQ Orbitrap" against a curated per-file "Q Exactive").
                     else if (cell.Source != SdrfDraftSource.PrideProjectRecord && !Same(r[at], cell))
-                        disagreements.Add(new SdrfDisagreement(r[Col(DataFile)], target.Column, r[at], Written(target, cell), cell.Evidence));
+                        disagreements.Add(new SdrfDisagreement(r[Col(DataFile)], target.Column, r[at], Write(target, cell), cell.Evidence));
                 }
             }
 
@@ -149,7 +169,7 @@ namespace Readers
                 foreach (var f in draft.FactorColumns) { header.Add(f); foreach (var r in rows) r.Add(""); addedColumns++; }
                 foreach (var r in rows)
                 {
-                    if (!draftByStem.TryGetValue(StemOf(r), out var d) || rowsPerFile[StemOf(r)] > 1) continue;
+                    if (!draftByStem.TryGetValue(StemOf(r), out var d) || Multiplexed(r)) continue;
                     for (int k = 0; k < draft.FactorColumns.Count; k++)
                         if (d.Factors[k].Source != SdrfDraftSource.NotAvailable) { r[Col(draft.FactorColumns[k])] = d.Factors[k].Value; filled++; }
                 }
@@ -168,12 +188,13 @@ namespace Readers
             // ---- raw files the deposit does not list ----
             var listed = new HashSet<string>(rows.Select(StemOf), StringComparer.OrdinalIgnoreCase);
             var depositedNames = new HashSet<string>(rows.Select(r => r[Col(SourceName) < 0 ? 0 : Col(SourceName)]), StringComparer.Ordinal);
-            // A column every deposited row fills with one value is carried to drafted rows (a label, a
-            // cleavage agent). By POSITION: SDRF repeats columns, so a name is not a key.
+            // An ASSAY-WIDE column every deposited row fills with one value is carried to drafted rows (a label,
+            // a cleavage agent). Nothing else: a one-row deposit makes every column "constant", and a file URI
+            // or a sample's individual is not the drafted file's. By POSITION: SDRF repeats columns.
             var constant = Enumerable.Range(0, header.Count).Select(i =>
             {
                 var values = rows.Select(r => r[i]).ToList();
-                return values.Count > 0 && values.All(v => !IsGap(v)) && values.Distinct(StringComparer.Ordinal).Count() == 1
+                return AssayWide.Contains(header[i]) && values.Count > 0 && values.All(v => !IsGap(v)) && values.Distinct(StringComparer.Ordinal).Count() == 1
                     ? values[0] : SdrfReserved.NotAvailable;
             }).ToList();
             var usedAssays = new HashSet<string>(Col("assay name") >= 0 ? rows.Select(r => r[Col("assay name")]) : Enumerable.Empty<string>(), StringComparer.Ordinal);
@@ -194,7 +215,7 @@ namespace Readers
                 row[Col(RowSource)] = "inferred";
                 foreach (var target in Targets)
                     if (Col(target.Column) >= 0)
-                        row[Col(target.Column)] = target.Cell(d).Source == SdrfDraftSource.NotAvailable ? SdrfReserved.NotAvailable : Written(target, target.Cell(d));
+                        row[Col(target.Column)] = target.Cell(d).Source == SdrfDraftSource.NotAvailable ? SdrfReserved.NotAvailable : Write(target, target.Cell(d));
                 foreach (var h in header.Where(h => h.EndsWith(" source]", StringComparison.Ordinal) && h != RowSource))
                     row[Col(h)] = SdrfReserved.NotApplicable;
                 for (int k = 0; k < draft.FactorColumns.Count && draftFactors; k++)
@@ -231,8 +252,9 @@ namespace Readers
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "a cell with no source is never written")
         };
 
-        private static string Written(Target target, SdrfDraftCell cell)
+        private static string Written(Target target, SdrfDraftCell cell, bool freeText)
         {
+            if (freeText) return cell.Value;
             if (target.Name == "disease" && cell.Value == "normal") return SdrfCell.ToCell(Normal);
             return cell.Term != null ? SdrfCell.ToCell(cell.Term) : cell.Value;
         }

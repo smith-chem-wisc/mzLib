@@ -130,6 +130,20 @@ namespace Test.FileReadingTests
         [TestCase("Age", "0.15 years", "0.15Y")]
         [TestCase("Sex", "M", "male")]
         [TestCase("Sex", "subject", null)]
+        [TestCase("Sex (0=male, 1=female)", "1", "female")]
+        [TestCase("Sex (0=male, 1=female)", "0", "male")]
+        [TestCase("Gender (1F,0M)", "0", "male")]
+        [TestCase("Sex (1=F, 1=M)", "1", null)]
+        [TestCase("Sex", "Women", "female")]
+        [TestCase("Sex", "n/a", null)]
+        [TestCase("Age (weeks)", "12", "12W")]
+        [TestCase("Age (days)", "3", "3D")]
+        [TestCase("Age", "2.50", "2.5Y")]
+        [TestCase("Age", "0", null)]
+        [TestCase("Age", "adult", null)]
+        [TestCase("Species", "E. coli", "E. coli")]
+        [TestCase("Organism", "human", null)]
+        [TestCase("Biological replicate", "0", null)]
         public void AValueIsDecodedByItsHeaderOrDropped(string header, string value, string? expected)
         {
             var t = Table("t.xlsx", "S1", new[] { "File", header }, new[] { "A1", value }, new[] { "A2", value });
