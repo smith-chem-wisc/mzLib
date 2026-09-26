@@ -94,7 +94,14 @@ namespace Readers
             int addedColumns = 0, filled = 0;
             var disagreements = new List<SdrfDisagreement>();
 
-            int Col(string name) => header.IndexOf(name);
+            // A column the depositor wrote in other casing (Source Name, Characteristics[organism]) is still that
+            // column: filled in place, never shadowed by a lowercase copy the validator and joins would read
+            // instead. Its spelling is kept, so the validator's casing hint still reaches the curator.
+            int Col(string name)
+            {
+                int exact = header.IndexOf(name);
+                return exact >= 0 ? exact : header.FindIndex(h => string.Equals(h, name, StringComparison.OrdinalIgnoreCase));
+            }
             int Ensure(string name)
             {
                 int at = Col(name);

@@ -220,6 +220,27 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AColumnWrittenInOtherCasingIsNeverShadowedByALowercaseCopy()
+        {
+            var cols = new[] { "Source Name", "Characteristics[organism]", "characteristics[biological replicate]", "Assay Name",
+                "Technology Type", "Comment[label]", "comment[data file]" };
+            var dep = Doc(cols,
+                new[] { "p1", "not available", "1", "run 1", "proteomic profiling by mass spectrometry", "label free sample", "NEG1.raw" },
+                new[] { "p2", "homo sapiens", "1", "run 2", "proteomic profiling by mass spectrometry", "label free sample", "POS1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var h = i.Document.Header.ToList();
+            foreach (var name in cols)
+                Assert.That(h.Count(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase)), Is.EqualTo(1), name);
+            var neg = Row(i.Document, "NEG1.raw");
+            Assert.That((neg["Source Name"], neg["Assay Name"], neg["Comment[label]"]), Is.EqualTo(("p1", "run 1", "label free sample")));
+            Assert.That(neg["Characteristics[organism]"], Is.EqualTo("homo sapiens"), "the gap is filled in the depositor's own column");
+            Assert.That(SdrfValidator.Validate(i.Document).Errors.Where(e => e.Rule == "RequiredColumn").Select(e => e.Message),
+                Has.Some.Contains("differs only in casing"), "the curator still hears about the casing");
+        }
+
+        [Test]
         public void ADraftedRowCarriesOnlyAssayWideColumns()
         {
             var cols = new[] { "source name", "characteristics[organism]", "characteristics[individual]", "assay name",
