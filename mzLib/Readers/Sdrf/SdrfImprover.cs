@@ -128,6 +128,8 @@ namespace Readers
                         r[at] = Written(target, cell);
                         int mark = Ensure($"comment[{target.Name} source]");
                         r[mark] = Word(cell.Source);
+                        if (cell.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(cell.Reference))
+                            r[Ensure($"comment[{target.Name} source reference]")] = cell.Reference;
                         filled++;
                     }
                     // A project-level summary is weaker evidence than a per-file statement: it may fill a gap,
@@ -216,8 +218,15 @@ namespace Readers
         private static bool IsGap(string? cell) =>
             string.IsNullOrWhiteSpace(cell) || string.Equals(cell.Trim(), SdrfReserved.NotAvailable, StringComparison.OrdinalIgnoreCase);
 
-        private static string Word(SdrfDraftSource source) =>
-            source == SdrfDraftSource.PrideProjectRecord ? "pride project record" : "inferred";
+        // Every source by name: a catch-all would write a new source as "inferred" without anyone noticing.
+        private static string Word(SdrfDraftSource source) => source switch
+        {
+            SdrfDraftSource.PrideProjectRecord => "pride project record",
+            SdrfDraftSource.Publication => "publication",
+            SdrfDraftSource.Default => "default",
+            SdrfDraftSource.Inferred => "inferred",
+            _ => throw new ArgumentOutOfRangeException(nameof(source), source, "a cell with no source is never written")
+        };
 
         private static string Written(Target target, SdrfDraftCell cell)
         {
