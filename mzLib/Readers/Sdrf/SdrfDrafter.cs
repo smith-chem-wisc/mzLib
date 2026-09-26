@@ -35,9 +35,11 @@ namespace Readers
     /// <summary>
     /// One drafted cell: its value, where the value came from, and why. <see cref="Term"/> is the
     /// controlled-vocabulary term when the value is one (organism, organism part, disease, instrument).
-    /// <see cref="Reference"/> locates a <see cref="SdrfDraftSource.Publication"/> value in its source.
+    /// <see cref="Reference"/> locates a <see cref="SdrfDraftSource.Publication"/> value in its source, and <see cref="Method"/>
+    /// says how it was read: <c>rules</c>, <c>curator</c> or <c>model</c> (aging 038: a column test, not a parse of the locator).
     /// </summary>
-    internal sealed record SdrfDraftCell(string Value, SdrfDraftSource Source, string Evidence, CvParam? Term = null, string? Reference = null)
+    internal sealed record SdrfDraftCell(string Value, SdrfDraftSource Source, string Evidence, CvParam? Term = null, string? Reference = null,
+        string? Method = null)
     {
         internal static SdrfDraftCell NotAvailable(string why) => new(SdrfReserved.NotAvailable, SdrfDraftSource.NotAvailable, why);
     }
@@ -292,8 +294,11 @@ namespace Readers
                     comments["comment[biological replicate source]"] = SourceWord(r.BiologicalReplicate.Source);
                 // Where a publication stated it: the D31 grain's `source reference` beside the source word.
                 foreach (var (name, cell) in stated.Append(("biological replicate", r.BiologicalReplicate)))
-                    if (cell.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(cell.Reference))
-                        comments[$"comment[{name} source reference]"] = cell.Reference;
+                    if (cell.Source == SdrfDraftSource.Publication)
+                    {
+                        if (!string.IsNullOrEmpty(cell.Reference)) comments[$"comment[{name} source reference]"] = cell.Reference;
+                        if (!string.IsNullOrEmpty(cell.Method)) comments[$"comment[{name} source method]"] = cell.Method;
+                    }
 
                 var characteristics = new Dictionary<string, CvParam>(StringComparer.Ordinal);
                 var raw = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -391,7 +396,7 @@ namespace Readers
                     }
                     var first = claims.First(c => c.Value.Trim().Equals(values[0], StringComparison.OrdinalIgnoreCase));
                     var cell = new SdrfDraftCell(values[0], SdrfDraftSource.Publication,
-                        $"{first.Method} evidence from the {first.Source}", null, first.Locator);
+                        $"{first.Method} evidence from the {first.Source}", null, first.Locator, MethodWord(first.Method));
 
                     // Evidence fills what the draft does not know; it never overrides what the draft read.
                     SdrfDraftCell? Fill(SdrfDraftCell current)
@@ -428,6 +433,14 @@ namespace Readers
             }).ToList();
             return draft with { Rows = rows, EvidenceNotes = notes };
         }
+
+        /// <summary>How a claim was read, as <c>comment[&lt;column&gt; source method]</c> writes it: every rule is <c>rules</c>.</summary>
+        private static string MethodWord(string method) => method.Trim().ToLowerInvariant() switch
+        {
+            "model" => "model",
+            "curator" => "curator",
+            _ => "rules"
+        };
 
         /// <summary><c>characteristics[age]</c> -> <c>age</c>.</summary>
         private static string Inner(string column)

@@ -69,8 +69,21 @@ namespace Test.FileReadingTests
             Assert.That(SourceOf(doc, one, "age"), Is.EqualTo("publication"));
             Assert.That(SourceOf(doc, one, "organism"), Is.EqualTo("pride project record"), "the organism still came from PRIDE");
             Assert.That(one["comment[age source reference]"], Is.EqualTo("mmc1.xlsx!DatasetS1!R2C4"));
+            Assert.That(one["comment[age source method]"], Is.EqualTo("rules"), "aging 038: how it was read is its own column");
             Assert.That(Written(doc, "HumanControl_1.raw")["characteristics[age]"], Is.EqualTo("not available"), "no claim, no value");
             Assert.That(SdrfValidator.Validate(doc).Errors, Is.Empty);
+        }
+
+        [TestCase("model", "model")]
+        [TestCase("curator", "curator")]
+        [TestCase("channel-map", "rules")]
+        [TestCase("isa-tab", "rules")]
+        public void TheSourceMethodSaysWhetherRulesACuratorOrAModelReadIt(string method, string word)
+        {
+            var claim = new SdrfEvidence("HumanHFpEF_1.raw", "", "characteristics[age]", "77Y", "paper", "PMC1/sec:methods", method, SdrfEvidenceConfidence.Likely);
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Project(), Files, new[] { claim }), "PXD060431");
+
+            Assert.That(Written(doc, "HumanHFpEF_1.raw")["comment[age source method]"], Is.EqualTo(word));
         }
 
         [Test]
@@ -172,6 +185,7 @@ namespace Test.FileReadingTests
             Assert.That(improved["characteristics[organism part]"], Is.EqualTo("heart left ventricle"));
             Assert.That(improved["comment[organism part source]"], Is.EqualTo("publication"));
             Assert.That(improved["comment[organism part source reference]"], Is.EqualTo("mmc1.xlsx!DatasetS1!R2C4"));
+            Assert.That(improved["comment[organism part source method]"], Is.EqualTo("rules"));
         }
 
         [Test]
