@@ -218,6 +218,26 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Has.Count.EqualTo(3), design.Report());
         }
 
+        /// <summary>
+        /// A document with no column naming a file, no biological replicate column and no rows is
+        /// refused for all three at once, and builds nothing.
+        /// </summary>
+        [Test]
+        public void ADocumentMissingWhatEveryDesignNeedsIsRefusedForEachReason()
+        {
+            var header = new SdrfHeader(new[] { "source name", "comment[label]", "factor value[condition]" });
+            var design = SdrfLabelFreeDesign.Read(new SdrfDocument(header, new List<SdrfRow>()));
+
+            Assert.That(design.Refusals, Is.EqualTo(new[]
+            {
+                "The SDRF has neither 'comment[searched data file]' nor 'comment[data file]', so no row names a file.",
+                "The SDRF has no 'characteristics[biological replicate]' column. MetaMorpheus needs a biological replicate for every file.",
+                "The SDRF has no rows."
+            }), design.Report());
+            Assert.That(design.FileKeyColumn, Is.Null);
+            Assert.That(design.Files, Is.Empty);
+        }
+
         [Test]
         public void AFileNamedByTwoRowsIsRefused()
         {
@@ -270,6 +290,15 @@ namespace Test.FileReadingTests
 
             Assert.That(design.Refusals.Single(), Does.Contain("'factor value[Condition]' is not in the SDRF")
                 .And.Contain("'factor value[condition]'"), "column names match case-sensitively");
+        }
+
+        [Test]
+        public void AConditionColumnDeclaredTwiceIsRefused()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1")),
+                Declared("factor value[condition]", "factor value[condition]"));
+
+            Assert.That(design.Refusals.Single(), Is.EqualTo("The condition column 'factor value[condition]' is declared more than once."));
         }
 
         [Test]
