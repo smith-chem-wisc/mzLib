@@ -117,13 +117,16 @@ namespace Readers
             // only its own family's columns, and every other column is not available for it. (Matching
             // slots across families by position put one family's genotype under another's treatment.)
             var allSlots = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).ToList();
+            // A name part the resolver read as a replicate marker (CT10A..C) is not also a condition: left in,
+            // every replicate would sit alone in its own condition.
+            var markerSlots = MarkerSlots(allSlots, names, byName, markerOf);
             // With anchors, the names' own WORD factors that the anchors do not already cover are kept too
             // (WT/KO anchored beside an A/B the record never names); their NUMERIC categories are dropped,
             // which is what stops animal IDs becoming factors.
             var anchoredLevels = new HashSet<string>(anchors.Factors.SelectMany(f => f.Levels), StringComparer.OrdinalIgnoreCase);
-            var factorSlots = anchored
-                ? allSlots.Where(s => s.Levels.All(l => !l.All(char.IsAsciiDigit)) && !s.Levels.Any(anchoredLevels.Contains)).ToList()
-                : allSlots;
+            var factorSlots = (anchored
+                ? allSlots.Where(s => s.Levels.All(l => !l.All(char.IsAsciiDigit)) && !s.Levels.Any(anchoredLevels.Contains))
+                : allSlots).Where(s => !markerSlots.Any(m => ReferenceEquals(m, s))).ToList();
             IReadOnlyList<string> LevelsOf(string file)
             {
                 var mine = byName[file];
@@ -323,7 +326,10 @@ namespace Readers
         {
             string key = found ? "T:" + t.SampleKey : "F:" + SdrfFileNamePattern.Stem(file);
             string keyWhy = found ? "files the names read as one sample" : "no structure in the names, so each file is its own sample";
+            // No study has more than a dozen replicates of one condition (the resolver's own limit): a longer
+            // count in the names is a run counter or a fraction index, and the rules below decide instead.
             int? bio = t.BiologicalReplicate ?? t.Replicate, tech = t.TechnicalReplicate, frac = t.Fraction;
+            if (bio > SdrfReplicateResolver.MaxReplicates) bio = null;
             string bioWhy = bio == null ? ""
                 : ranked ? "a replicate count in the file names, ranked from 1 within each condition because the names do not count from 1 in every condition"
                 : "a replicate count in the file names";
@@ -335,6 +341,10 @@ namespace Readers
                 if (all.SingleBiologicalSample && kind is SdrfReplicateKind.Unstated or SdrfReplicateKind.Biological)
                     kind = SdrfReplicateKind.Technical;
                 if (m.Outer != null) { bio = m.Outer; bioWhy = "the outer of two replicate markers in the names"; }
+                // The names' unlabelled replicate count is this same marker: read as a re-injection or a fraction,
+                // it is not also a biological replicate. One the names label biological (BR2_F1) stays.
+                else if (kind is SdrfReplicateKind.Technical or SdrfReplicateKind.Fraction && t.BiologicalReplicate == null)
+                    { bio = null; bioWhy = ""; }
                 switch (kind)
                 {
                     case SdrfReplicateKind.Technical:
@@ -353,6 +363,34 @@ namespace Readers
                 }
             }
             return new Replicates(key, keyWhy, bio, bioWhy, tech, techWhy, frac, fracWhy);
+        }
+
+        /// <summary>
+        /// The factor slots whose level, in every file of the slot's family carrying a single replicate marker,
+        /// is that marker (the A of CT10A). Needs two such files; a file with no marker does not keep the slot.
+        /// </summary>
+        private static List<SdrfFileNameSlot> MarkerSlots(IReadOnlyList<SdrfFileNameSlot> slots, IReadOnlyList<string> names,
+            IReadOnlyDictionary<string, SdrfFileNameReading> byName, IReadOnlyDictionary<string, SdrfReplicateReading> markerOf)
+        {
+            static string? MarkerText(string file, SdrfReplicateReading m)
+            {
+                string stem = SdrfFileNamePattern.Stem(file);
+                return m.Number != null && m.Outer == null && stem.Length > m.Base.Length && stem.StartsWith(m.Base, StringComparison.OrdinalIgnoreCase)
+                    ? stem[m.Base.Length..].Trim('_', '-', '.', ' ')
+                    : null;
+            }
+            var result = new List<SdrfFileNameSlot>();
+            foreach (var family in slots.GroupBy(s => s.Family))
+            {
+                var own = family.ToList();
+                var marked = names.Where(n => byName[n].Family == family.Key)
+                    .Select(n => (Levels: byName[n].FactorLevels, Marker: MarkerText(n, markerOf[n]))).Where(x => x.Marker != null).ToList();
+                if (marked.Count < 2) continue;
+                for (int i = 0; i < own.Count; i++)
+                    if (marked.All(x => i < x.Levels.Count && string.Equals(x.Levels[i], x.Marker, StringComparison.OrdinalIgnoreCase)))
+                        result.Add(own[i]);
+            }
+            return result;
         }
 
         /// <summary>A project fact, only when PRIDE lists exactly one value for it (D27).</summary>

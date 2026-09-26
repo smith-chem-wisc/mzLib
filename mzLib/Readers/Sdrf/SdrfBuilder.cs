@@ -58,7 +58,6 @@ namespace Readers
         private const string SoftwareColumn = "comment[software]";
         private const string SdrfVersionColumn = "comment[sdrf version]";
 
-        /// <summary>The one value SDRF defines for this column in an MS experiment.</summary>
         // The comment columns the builder writes itself; an extension comment may not reuse one.
         private static readonly HashSet<string> BuiltInComments = new(StringComparer.Ordinal)
         {
@@ -67,7 +66,8 @@ namespace Readers
             SearchedDataFile, PxAccession, SoftwareColumn, SdrfVersionColumn
         };
 
-        private const string TechnologyTypeValue ="proteomic profiling by mass spectrometry";
+        /// <summary>The one value SDRF defines for this column in an MS experiment.</summary>
+        private const string TechnologyTypeValue = "proteomic profiling by mass spectrometry";
 
         /// <summary>
         /// Characteristics columns SDRF requires of every document, and which are therefore emitted
