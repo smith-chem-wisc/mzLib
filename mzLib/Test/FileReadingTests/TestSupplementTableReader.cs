@@ -186,6 +186,24 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AGroupLabelBetweenTwoChannelsNamesBoth()
+        {
+            // PXD007160's channel map: "AD" is set between TMT 127C and 127N, and both channels hold AD samples; the
+            // header runs over several lines above the first full data line.
+            string pdf = Pdf("map.pdf",
+                ("AD", 186, 740, 10), ("Ctrl", 283, 740, 10),
+                ("Batch", 50, 728, 10),
+                ("127C", 150, 716, 10), ("127N", 200, 716, 10), ("128C", 250, 716, 10), ("128N", 300, 716, 10),
+                ("1", 50, 700, 10), ("E08-53", 150, 700, 10), ("OS00-12", 200, 700, 10), ("E05-130", 250, 700, 10), ("E06-41", 300, 700, 10),
+                ("2", 50, 686, 10), ("OS00-32", 150, 686, 10), ("OS03-163", 200, 686, 10), ("A86-46", 250, 686, 10), ("OS03-299", 300, 686, 10));
+
+            var t = SupplementTableReader.Read(pdf).Single();
+
+            Assert.That(t.Header, Is.EqualTo(new[] { "Batch", "AD 127C", "AD 127N", "Ctrl 128C", "Ctrl 128N" }));
+            Assert.That(t.Rows.Select(r => r[1]), Is.EqualTo(new[] { "E08-53", "OS00-32" }));
+        }
+
+        [Test]
         public void ProseInAPdfIsNotATable()
         {
             string pdf = Pdf("methods.pdf",
