@@ -290,6 +290,25 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void EveryRowSaysWhereItsFractionAndTechnicalReplicateCameFrom()
+        {
+            // dataRepo SDRF-DR10: they pool runs by fraction and technical replicate, and a defaulted 1 must say so.
+            var draft = SdrfDrafter.Draft(Covid(), CovidFiles().Append("Blank.raw"));
+            var doc = SdrfDrafter.ToDocument(draft, "PXD020394");
+
+            foreach (var row in draft.Rows)
+            {
+                var written = doc.Results.Single(r => r["comment[data file]"] == row.DataFile);
+                Assert.That(written["comment[fraction identifier source]"], Is.EqualTo(row.Fraction.Source == SdrfDraftSource.Default ? "default" : "inferred"), row.DataFile);
+                Assert.That(written["comment[technical replicate source]"], Is.EqualTo(row.TechnicalReplicate.Source == SdrfDraftSource.Default ? "default" : "inferred"), row.DataFile);
+            }
+            var blank = doc.Results.Single(r => r["comment[data file]"] == "Blank.raw");
+            Assert.That((blank["comment[fraction identifier source]"], blank["comment[technical replicate source]"]), Is.EqualTo(("default", "default")));
+            var pos1 = doc.Results.Single(r => r["comment[data file]"] == "POS1.raw");
+            Assert.That(pos1["comment[technical replicate source]"], Is.EqualTo("inferred"), "POS1rep exists: the injection was read");
+        }
+
+        [Test]
         public void EveryInferredCellSaysWhy()
         {
             var d = SdrfDrafter.Draft(Covid(), CovidFiles());
