@@ -376,6 +376,63 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void ARunTheRecordCallsFractionsIsNotCountedAsBiologicalReplicates()
+        {
+            var p = Covid();
+            p.SampleProcessingProtocol = "Peptides were separated into 16 fractions.";
+            var files = new[] { "WT", "KO" }.SelectMany(a => Enumerable.Range(1, 16).Select(i => $"{a}_{i:00}.raw")).ToList();
+
+            var d = SdrfDrafter.Draft(p, files);
+
+            Assert.That(Row(d, "KO_16.raw").Fraction.Value, Is.EqualTo("16"));
+            Assert.That(d.Rows.Select(r => r.BiologicalReplicate.Value), Is.All.EqualTo("1"));
+            Assert.That(d.Rows.Select(r => r.SourceName.Value).Distinct().Count(), Is.EqualTo(2), "one sample per arm");
+        }
+
+        [TestCase("Samples were analyzed in triplicate.", "TechnicalReplicate")]
+        [TestCase("Peptides were separated into 3 fractions.", "Fraction")]
+        public void OneTrailingNumberIsNotBothABiologicalReplicateAndAnother(string text, string column)
+        {
+            var p = Covid();
+            p.ProjectDescription = "";
+            p.SampleProcessingProtocol = text;
+            var files = new[] { "WT", "KO" }.SelectMany(a => Enumerable.Range(1, 3).Select(i => $"{a}_{i}.raw")).ToList();
+
+            var d = SdrfDrafter.Draft(p, files);
+
+            Assert.That(d.Rows.Select(r => r.BiologicalReplicate.Value), Is.All.EqualTo("1"));
+            var cell = typeof(SdrfDraftRow).GetProperty(column)!;
+            Assert.That(files.Where(f => f.StartsWith("KO")).Select(f => ((SdrfDraftCell)cell.GetValue(Row(d, f))!).Value), Is.EqualTo(new[] { "1", "2", "3" }));
+            Assert.That(d.Rows.Select(r => r.SourceName.Value).Distinct().Count(), Is.EqualTo(2), "one sample per arm");
+        }
+
+        [Test]
+        public void NoBiologicalReplicateIsDraftedPastTwelve()
+        {
+            var p = Covid();
+            p.ProjectDescription = "";
+            var files = new[] { "WT", "KO" }.SelectMany(a => Enumerable.Range(1, 16).Select(i => $"{a}_{i:00}.raw")).ToList();
+
+            var d = SdrfDrafter.Draft(p, files);
+
+            Assert.That(d.Rows.Select(r => int.Parse(r.BiologicalReplicate.Value)), Is.All.LessThanOrEqualTo(SdrfReplicateResolver.MaxReplicates));
+        }
+
+        [TestCase("CT10", "KO10", "A", "B", "C")]
+        [TestCase("BPA_", "DMSO_", "A", "B", "C", "D")]
+        public void ALetterReplicateMarkerIsNotAlsoACondition(string arm1, string arm2, params string[] letters)
+        {
+            var files = new[] { arm1, arm2 }.SelectMany(a => letters.Select(l => a + l + ".raw")).ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(1), string.Join(", ", d.FactorColumns));
+            Assert.That(d.Rows.Select(r => r.Factors[0].Value).Distinct().Count(), Is.EqualTo(2), "the arms are the condition");
+            Assert.That(Row(d, arm2 + letters[^1] + ".raw").BiologicalReplicate.Value, Is.EqualTo(letters.Length.ToString()));
+            Assert.That(d.Rows.Select(r => r.SourceName.Value).Distinct().Count(), Is.EqualTo(2 * letters.Length));
+        }
+
+        [Test]
         public void MalformedArgumentsThrow()
         {
             Assert.Throws<ArgumentNullException>(() => SdrfDrafter.Draft(null!, new[] { "a.raw" }));
