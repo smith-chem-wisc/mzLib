@@ -57,7 +57,7 @@ namespace Readers
                         if (caption != null) raw.Add((0, new List<string> { caption }));
                         bool truncated = block.Count > maxRows;
                         int most = block.Max(l => l.Cells.Count);
-                        int firstFull = block.FindIndex(l => l.Cells.Count == most);
+                        int firstFull = FirstDataLine(block, most);
                         var body = new List<(int Number, List<string> Cells)>();
                         for (int i = 0; i < Math.Min(block.Count, maxRows); i++)
                             body.Add((i + 1, i < firstFull && block[i].Cells.Count < columns.Count
@@ -274,6 +274,21 @@ namespace Readers
         }
 
         /// <summary>A line's cells placed in the columns they overlap most; two cells in one column are joined.</summary>
+        private static readonly System.Text.RegularExpressions.Regex ChannelTag =
+            new(@"^(1[23]\d[NC]?|11[3-9]|121)$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+        /// <summary>
+        /// Where the header zone ends: the first line nearly as full as the fullest (three quarters) that holds a plain
+        /// number other than a channel tag -- a row or batch number, an age. Taking simply the first fullest line
+        /// failed where close-set IDs fuse into one cell on some rows (PXD007160, page 5).
+        /// </summary>
+        private static int FirstDataLine(List<PdfLine> block, int most)
+        {
+            int i = block.FindIndex(l => l.Cells.Count >= 0.75 * most
+                && l.Cells.Any(c => Numeric.IsMatch(c.Text) && !ChannelTag.IsMatch(c.Text)));
+            return i >= 0 ? i : block.FindIndex(l => l.Cells.Count == most);
+        }
+
         /// <summary>
         /// A line of the header zone (above the table's first fullest line) with fewer cells than columns. A cell
         /// centred on a column (its centre in the middle half of the column), or aligned with its left or right edge,
@@ -288,8 +303,10 @@ namespace Readers
             {
                 double centre = (c.Left + c.Right) / 2;
                 double slack = line.Height / 2;
+                double width = Math.Max(c.Right - c.Left, 1e-6);
                 int home = columns.FindIndex(k => (centre >= k.Left + (k.Right - k.Left) / 4 && centre <= k.Right - (k.Right - k.Left) / 4)
-                    || Math.Abs(c.Left - k.Left) <= slack || Math.Abs(c.Right - k.Right) <= slack);
+                    || Math.Abs(c.Left - k.Left) <= slack || Math.Abs(c.Right - k.Right) <= slack
+                    || (Math.Min(c.Right, k.Right) - Math.Max(c.Left, k.Left)) / width >= 0.75);
                 if (home >= 0 || columns.Count < 2) { Put(home >= 0 ? home : Best(c.Left, c.Right, columns), c.Text); continue; }
                 var nearest = Enumerable.Range(0, columns.Count)
                     .OrderBy(k => Math.Abs((columns[k].Left + columns[k].Right) / 2 - centre)).Take(2).OrderBy(k => k).ToList();
