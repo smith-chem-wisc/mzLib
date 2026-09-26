@@ -198,6 +198,58 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void ADraftedRowCarriesOnlyAssayWideColumns()
+        {
+            var cols = new[] { "source name", "characteristics[organism]", "characteristics[individual]", "assay name",
+                "comment[label]", "comment[cleavage agent details]", "comment[data file]", "comment[file uri]" };
+            var dep = Doc(cols, new[] { "p1", "homo sapiens", "patient 7", "run 1", "label free sample", "NT=Trypsin;AC=MS:1001251", "S1.raw", "ftp://x/S1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), new[] { "S1.raw", "S2.raw" }));
+
+            var added = Row(i.Document, "S2.raw");
+            Assert.That(added["comment[file uri]"], Is.EqualTo("not available"), "never another file's download link");
+            Assert.That(added["characteristics[individual]"], Is.EqualTo("not available"), "a sample the deposit did not describe");
+            Assert.That(added["comment[label]"], Is.EqualTo("label free sample"));
+            Assert.That(added["comment[cleavage agent details]"], Is.EqualTo("NT=Trypsin;AC=MS:1001251"));
+        }
+
+        [Test]
+        public void ARunListedUnderTwoExtensionsIsNotAMultiplexedFile()
+        {
+            var cols = new[] { "source name", "characteristics[organism]", "assay name", "comment[label]", "comment[data file]" };
+            var dep = Doc(cols,
+                new[] { "p1", "not available", "run 1", "label free sample", "S1.raw" },
+                new[] { "p1", "not available", "run 1m", "label free sample", "S1.mzML" },
+                new[] { "p2", "not available", "run 2", "label free sample", "S2.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), new[] { "S1.raw", "S2.raw" }));
+
+            Assert.That(new[] { "S1.raw", "S1.mzML", "S2.raw" }.Select(f => Row(i.Document, f)["characteristics[organism]"]),
+                Is.All.Contains("homo sapiens"));
+        }
+
+        [Test]
+        public void AFillFollowsTheFormItsColumnIsWrittenIn()
+        {
+            var cols = new[] { "source name", "characteristics[organism]", "characteristics[disease]", "assay name", "comment[label]", "comment[data file]" };
+            var freeText = Doc(cols,
+                new[] { "p1", "homo sapiens", "not available", "run 1", "label free sample", "NEG1.raw" },
+                new[] { "p2", "not available", "COVID-19", "run 2", "label free sample", "POS1.raw" });
+            var terms = Doc(cols,
+                new[] { "p1", "NT=homo sapiens;AC=NCBITaxon:9606", "not available", "run 1", "label free sample", "NEG1.raw" },
+                new[] { "p2", "not available", "NT=COVID-19;AC=MONDO:0100096", "run 2", "label free sample", "POS1.raw" });
+
+            var asText = SdrfImprover.Improve(freeText, SdrfDrafter.Draft(Project(), Files)).Document;
+            var asTerms = SdrfImprover.Improve(terms, SdrfDrafter.Draft(Project(), Files)).Document;
+
+            Assert.That(Row(asText, "POS1.raw")["characteristics[organism]"], Is.EqualTo("homo sapiens"));
+            Assert.That(Row(asText, "NEG1.raw")["characteristics[disease]"], Is.EqualTo("normal"));
+            Assert.That(Row(asText, "NEG2.raw")["characteristics[organism]"], Is.EqualTo("homo sapiens"), "a drafted row too");
+            Assert.That(Row(asTerms, "POS1.raw")["characteristics[organism]"], Does.Contain("AC=NCBITaxon:9606"));
+            Assert.That(Row(asTerms, "NEG1.raw")["characteristics[disease]"], Does.Contain("AC=PATO:0000461"));
+        }
+
+        [Test]
         public void ARepeatedColumnIsCarriedByPositionNotByName()
         {
             var cols = new[] { "source name", "assay name", "comment[data file]", "comment[modification parameters]", "comment[modification parameters]" };
