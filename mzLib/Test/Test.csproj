@@ -46,6 +46,7 @@
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
     <ProjectReference Include="..\Quantification\Quantification.csproj" />
+    <ProjectReference Include="..\SampleEvidenceModel\SampleEvidenceModel.csproj" />
   </ItemGroup>
 
   <ItemGroup>
