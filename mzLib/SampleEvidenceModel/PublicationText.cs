@@ -44,12 +44,14 @@ namespace SampleEvidenceModel
         /// order, protein tables filled the budget before a cohort table was reached, and an ISA assay table of 160
         /// runs lost its last 10.
         /// </summary>
-        internal static string Tables(IEnumerable<SupplementTable> tables, int maxRowsPerTable = 150, int maxChars = 120_000,
+        internal static string Tables(IEnumerable<SupplementTable> tables, int maxRowsPerTable = 150, int maxChars = 200_000,
             int maxSampleRows = 2_000, int resultRows = 5)
         {
             var sb = new StringBuilder();
-            foreach (var (t, rank) in tables.Select(t => (t, Rank(t))).OrderBy(x => x.Item2))
+            var ranked = tables.Select(t => (t, Rank(t))).OrderBy(x => x.Item2).ToList();
+            for (int i = 0; i < ranked.Count; i++)
             {
+                var (t, rank) = ranked[i];
                 if (sb.Length >= maxChars) { sb.Append("[further tables omitted for length]\n"); break; }
                 string name = t.Sheet.Length > 0 ? $"{t.File}!{t.Sheet}" : t.File;
                 sb.Append("### ").Append(name);
@@ -57,14 +59,18 @@ namespace SampleEvidenceModel
                 if (rank == ResultRank) sb.Append(" [result table: preview only]");
                 sb.Append('\n').Append("[header] ").Append(string.Join(" | ", t.Header)).Append('\n');
                 int cap = rank switch { SampleRank => maxSampleRows, ResultRank => resultRows, _ => maxRowsPerTable };
+                // Each table still to come keeps a small reserve, so a long table cannot hide the ones after it.
+                int stop = maxChars - Math.Min(maxChars / 2, ReservePerTable * (ranked.Count - i - 1));
                 int k = 0;
-                for (; k < Math.Min(t.Rows.Count, cap) && sb.Length < maxChars; k++)
+                for (; k < Math.Min(t.Rows.Count, cap) && sb.Length < stop; k++)
                     sb.Append('[').Append(name).Append("!R").Append(t.RowNumbers[k]).Append("] ").Append(string.Join(" | ", t.Rows[k])).Append('\n');
                 if (t.Rows.Count > k) sb.Append($"[{t.Rows.Count - k} more rows]\n");
                 sb.Append('\n');
             }
             return sb.ToString();
         }
+
+        private const int ReservePerTable = 2_000;
 
         private const int SampleRank = 0, OtherRank = 1, ResultRank = 2;
 
@@ -78,9 +84,18 @@ namespace SampleEvidenceModel
         private static int Rank(SupplementTable t)
         {
             if (SampleEvidenceExtractor.IsResultTable(t)) return ResultRank;
-            int described = t.Header.Count(h => HeaderMap.ColumnFor(h) != null);
+            if (FigureSheet.IsMatch($"{t.Sheet} {t.Title}")) return OtherRank;
+            // Distinct columns, not headers: "fraction_helix | fraction_sheet | fraction_coil" or "Cluster 1..5" are one
+            // measurement repeated, and they made a figure's data outrank the cohort table (G36 batch 2, PXD017291).
+            var described = t.Header.Select(HeaderMap.ColumnFor).Where(c => c != null).Distinct().Count();
+            int result = t.Header.Count(h => ResultWord.IsMatch(h));
+            if (result >= described) return OtherRank;
             return described >= 2 || (described >= 1 && SampleTitle.IsMatch($"{t.File} {t.Sheet} {t.Title}")) ? SampleRank : OtherRank;
         }
+
+        private static readonly Regex FigureSheet = new(@"\bfig", RegexOptions.IgnoreCase | RegexOptions.Compiled);
+        private static readonly Regex ResultWord = new(@"p[ ._-]?val|q[ ._-]?val|p\.adj|fdr|fold|log2|ratio|intensity|abundance|protein|peptide|gene|uniprot|score|enrich|pathway",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         private static readonly Regex Digits = new(@"\d+", RegexOptions.Compiled);
 

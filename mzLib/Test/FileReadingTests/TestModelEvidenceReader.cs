@@ -163,6 +163,24 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void RepeatedHeadersAndFigureDataDoNotOutrankTheCohort()
+        {
+            // G36 batch 2, PXD017291: three "fraction_*" headers made a figure's 3,800 rows the first table in the prompt.
+            var figure = Table("s003.xlsx", new[] { "gene_name", "set", "fraction_helix", "fraction_sheet", "fraction_coil" }, 3000,
+                k => new[] { $"G{k}", "aggregator", "0.1", "0.2", "0.7" }) with { Sheet = "Figure2G" };
+            var clusters = Table("s007.xlsx", new[] { "", "Cluster 1", "Cluster 2", "Cluster 3" }, 3000, k => new[] { $"c{k}", "1", "2", "3" });
+            string text = PublicationText.Tables(new[] { figure, clusters, CohortTable() }, maxChars: 30_000);
+
+            Assert.That(text, Does.StartWith("### cohort.xlsx"));
+            Assert.That(text, Does.Contain("### s003.xlsx!Figure2G"), "a long table cannot hide the ones after it");
+            Assert.That(text, Does.Contain("### s007.xlsx"));
+
+            var big = Table("big.xlsx", new[] { "Sample ID", "Age", "Sex" }, 2000, k => new[] { $"B{k:0000}", "50", "F" });
+            string two = PublicationText.Tables(new[] { big, CohortTable() }, maxChars: 30_000);
+            Assert.That(two, Does.Contain("### cohort.xlsx"), "a long table cannot take the whole budget");
+        }
+
+        [Test]
         public void ARowLeftOutOfThePromptIsStillValidText()
         {
             // The quote check reads every row: shortening the prompt must not turn a true quote into a rejection.
