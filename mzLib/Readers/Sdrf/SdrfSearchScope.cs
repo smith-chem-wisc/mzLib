@@ -7,7 +7,8 @@ namespace Readers
     /// </summary>
     /// <param name="Document">Rows only for acquisitions the search read, each naming the searched file.</param>
     /// <param name="SearchedWithoutRow">Searched files the SDRF has no row for. Reported, never invented.</param>
-    /// <param name="DroppedDataFiles">Acquired files the SDRF describes but this search did not read.</param>
+    /// <param name="DroppedDataFiles">Acquired files the SDRF describes but this search did not read. A row naming no
+    /// file is dropped too, and not listed: it names nothing to report.</param>
     /// <param name="Ambiguous">Acquisitions two or more searched files claimed; the first, in name order, was kept.</param>
     internal sealed record SdrfSearchScoping(
         SdrfDocument Document,
@@ -91,7 +92,7 @@ namespace Readers
                 string stem = Derivative.Replace(SdrfFileNamePattern.Stem(acquired), "");
                 if (!readerOf.TryGetValue(stem, out var reader))
                 {
-                    if (!dropped.Contains(acquired, StringComparer.OrdinalIgnoreCase)) dropped.Add(acquired);
+                    if (!string.IsNullOrWhiteSpace(acquired) && !dropped.Contains(acquired, StringComparer.OrdinalIgnoreCase)) dropped.Add(acquired);
                     continue;
                 }
                 joined.Add(stem);
@@ -112,7 +113,8 @@ namespace Readers
         private static string AcquiredStem(string searched, IReadOnlyDictionary<string, string>? acquiredNameOf)
         {
             if (acquiredNameOf != null && acquiredNameOf.TryGetValue(searched, out var acquired) && !string.IsNullOrWhiteSpace(acquired))
-                return SdrfFileNamePattern.Stem(FileName(acquired));
+                // Normalised like the row side: a known name may itself be a derivative (WT_1-calib.mzML).
+                return Derivative.Replace(SdrfFileNamePattern.Stem(FileName(acquired)), "");
             return Derivative.Replace(SdrfFileNamePattern.Stem(FileName(searched)), "");
         }
 
