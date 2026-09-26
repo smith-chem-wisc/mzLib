@@ -21,6 +21,7 @@
     <dependency id="NetSerializer" version="4.1.2" />
     <dependency id="OpenMcdf" version="2.3.1" />
     <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="PdfPig" version="0.1.16" />
     <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
@@ -41,6 +42,7 @@
     <dependency id="NetSerializer" version="4.1.2" />
     <dependency id="OpenMcdf" version="2.3.1" />
     <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="PdfPig" version="0.1.16" />
     <dependency id="OxyPlot.Wpf" version="2.0.0" />
     <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
