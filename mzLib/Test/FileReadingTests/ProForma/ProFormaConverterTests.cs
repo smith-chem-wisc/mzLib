@@ -436,6 +436,24 @@ namespace Test.FileReadingTests.ProForma
             Assert.That(ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-KPEPTIDE"), allModsKnown)[1], Is.SameAs(terminalK));
         }
 
+        /// <summary>
+        /// A term with no residues has no terminal residue to fit, so a terminal mod resolves to the first
+        /// terminus-compatible candidate rather than indexing into an empty sequence.
+        /// </summary>
+        [Test]
+        public void Layer2_TerminalModOnAnEmptySequenceTakesTheFirstTerminusCompatibleCandidate()
+        {
+            ModificationMotif.TryGetMotif("X", out var motifX);
+            var terminalX = new Modification(_originalId: "Acetyl", _modificationType: "testMods", _target: motifX,
+                _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
+            var allModsKnown = new Dictionary<string, Modification> { [terminalX.IdWithMotif] = terminalX };
+
+            var descriptors = new[] { new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, "Acetyl") };
+            var term = new Tdp.ProFormaTerm("", null, descriptors, null, null, null, null, null);
+
+            Assert.That(ProFormaConverter.ToModificationDictionary(term, allModsKnown)[1], Is.SameAs(terminalX));
+        }
+
         [Test]
         public void Layer2_ResolvesTerminalMod_WhenRestrictionIsAnywhere()
         {
