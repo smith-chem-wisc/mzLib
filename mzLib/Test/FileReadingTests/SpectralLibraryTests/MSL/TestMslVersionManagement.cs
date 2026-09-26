@@ -69,24 +69,20 @@ public class TestMslVersionManagement
 
 	// ════════════════════════════════════════════════════════════════════
 	// Canary test — fails when CurrentVersion is incremented without
-	// updating this test (and therefore without updating the Python reader)
+	// updating this test
 	// ════════════════════════════════════════════════════════════════════
 
 	/// <summary>
 	/// This test is intentionally a canary. It will fail if MslFormat.CurrentVersion
-	/// is incremented without updating the Python reader's MAX_SUPPORTED_VERSION.
+	/// is incremented without updating this test.
 	///
 	/// When this test fails:
-	///   1. Update msl_reader.py MAX_SUPPORTED_VERSION to match the new CurrentVersion.
-	///   2. Add compression/parsing logic in _validate_and_load if the new version
-	///      introduces structural changes.
-	///   3. Update _MslBuilder.FORMAT_VERSION in test_msl_reader.py.
-	///   4. Update the expected value below to match the new CurrentVersion.
-	///   5. Add a history entry to the MslFormat.cs version history comment block.
-	///   6. Update MslStructs.cs MslFileHeader.FormatVersion field doc.
+	///   1. Update the expected value below to match the new CurrentVersion.
+	///   2. Add a history entry to the MslFormat.cs version history comment block.
+	///   3. Update MslStructs.cs MslFileHeader.FormatVersion field doc.
 	/// </summary>
 	[Test]
-	public void FormatVersion_PythonReaderMaxVersion_MustMatchCurrentVersion()
+	public void FormatVersion_MustMatchExpectedConstant()
 	{
 		// UPDATE THIS VALUE whenever MslFormat.CurrentVersion is incremented.
 		// This is a deliberate compile-time-visible constant so reviewers can grep for it.
@@ -95,9 +91,7 @@ public class TestMslVersionManagement
 		Assert.That(MslFormat.CurrentVersion, Is.EqualTo(expectedCurrentVersion),
 			$"MslFormat.CurrentVersion has changed from {expectedCurrentVersion} to " +
 			$"{MslFormat.CurrentVersion}. " +
-			"Before merging: update msl_reader.py MAX_SUPPORTED_VERSION, " +
-			"update test_msl_reader.py _MslBuilder.FORMAT_VERSION, " +
-			"update the version history comment in MslFormat.cs, " +
+			"Before merging: update the version history comment in MslFormat.cs, " +
 			"update MslStructs.cs FormatVersion field doc, " +
 			"and update the expectedCurrentVersion constant in this test.");
 	}

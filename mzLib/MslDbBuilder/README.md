@@ -1,6 +1,6 @@
 # MslDbBuilder
 
-Standalone .NET 8 console tool for the MetaMorpheus **ManySearchTask** spectral-library (`.msl`)
+Standalone .NET 10 console tool for the MetaMorpheus **ManySearchTask** spectral-library (`.msl`)
 workstream: converts protein FASTA databases into mzLib `.msl` spectral libraries (the peptide
 source / fragmentation cache the parallel search reads instead of digesting FASTAs at search time).
 

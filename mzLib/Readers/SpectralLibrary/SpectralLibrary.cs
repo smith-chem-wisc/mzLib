@@ -1,4 +1,4 @@
-using Chemistry;
+﻿using Chemistry;
 using MzLibUtil;
 using Omics.Fragmentation;
 using System.Globalization;
@@ -679,7 +679,6 @@ namespace Readers.SpectralLibrary
                     if (ind > 0)
                     {
                         bool readingModName = false;
-                        int bracketCount = 0;
 
                         for (int i = ind; i < line.Length; i++)
                         {

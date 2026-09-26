@@ -1,55 +1,55 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 using System.Text;
 
 namespace PredictionClients.Koina.Client
 {
-    public class HTTP: IDisposable
+    /// <summary>
+    /// Wraps a single shared <see cref="HttpClient"/> to avoid socket exhaustion across many
+    /// prediction sessions. Each request must supply a <see cref="CancellationToken"/> that bounds it
+    /// to the caller's session deadline (the token is required, not optional). A generous fixed
+    /// <see cref="HttpClient.Timeout"/> is kept only as a coarse backstop so that a caller passing
+    /// <see cref="CancellationToken.None"/> still cannot hang a request indefinitely.
+    /// </summary>
+    public static class HTTP
     {
         public static readonly string ModelsURL = "https://koina.wilhelmlab.org:443/v2/models/";
-        public readonly HttpClient Client;
-        private bool _disposed = false;
 
-        public HTTP(int timeoutInMinutes = 1)
-        {
-            Client = new HttpClient { Timeout = TimeSpan.FromMinutes(timeoutInMinutes) };
-        }
+        // Coarse per-request (per-POST) backstop only. The precise, batch-size-scaled bound is the
+        // caller-supplied token (see the CancellationTokenSource in each model's AsyncThrottledPredictor).
+        // A single batch chunk completes in seconds, so this never fires for a healthy request; it only
+        // guarantees a stalled connection cannot block forever when a token never fires.
+        private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromMinutes(10) };
 
-        public async Task<string> InferenceRequest(string modelName, Dictionary<string, object> request)
+        public static async Task<string> InferenceRequest(string modelName, Dictionary<string, object> request, CancellationToken cancellationToken)
         {
             var json = JsonConvert.SerializeObject(request);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            using var response = await Client.PostAsync($"{ModelsURL}{modelName}/infer", content);
+            using var response = await Client.PostAsync($"{ModelsURL}{modelName}/infer", content, cancellationToken);
 
             if (!response.IsSuccessStatusCode)
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new HttpRequestException(
-                    $"Request failed with status {(int)response.StatusCode} {response.ReasonPhrase}: {errorContent}");
+                // Koina answers 400 both for a request it will never accept and for a model it failed
+                // to run, putting the difference only in the body. ForFailedResponse draws it, so this
+                // method does nothing but read the body and throw what it is handed.
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw KoinaServiceException.ForFailedResponse(
+                    (int)response.StatusCode, response.ReasonPhrase, errorContent);
             }
 
             // Stream instead of buffering
-            using var stream = await response.Content.ReadAsStreamAsync();
+            using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
             using var reader = new StreamReader(stream);
-            return await reader.ReadToEndAsync(); // No buffer limit
+            return await reader.ReadToEndAsync(cancellationToken);
         }
 
-        public async Task TestConnectionAsync()
+        public static async Task TestConnectionAsync(CancellationToken cancellationToken)
         {
             using var head = new HttpRequestMessage(HttpMethod.Head, "https://koina.wilhelmlab.org/");
-            using var headResp = await Client.SendAsync(head);
+            using var headResp = await Client.SendAsync(head, cancellationToken);
             if (!headResp.IsSuccessStatusCode &&
                 headResp.StatusCode != System.Net.HttpStatusCode.MethodNotAllowed)
             {
                 throw new HttpRequestException($"Koina unreachable: {(int)headResp.StatusCode} {headResp.ReasonPhrase}");
-            }
-        }
-
-        public void Dispose()
-        {
-            if (!_disposed)
-            {
-                Client.Dispose();
-                _disposed = true;
             }
         }
     }

@@ -70,6 +70,15 @@ namespace Readers
         [Optional]
         public int FractionIdMax { get; set; }
 
+        /// <summary>
+        /// Expands this row into one <see cref="ISingleChargeMs1Feature"/> per charge in
+        /// [<see cref="ChargeStateMin"/>, <see cref="ChargeStateMax"/>]. The per-charge
+        /// <c>Intensity</c> is taken from <see cref="IntensityApex"/> (the apex intensity),
+        /// not the summed <see cref="Intensity"/> column: the summed value is preserved on
+        /// the record for fidelity, but downstream MS2 pairing weights by the charge-state
+        /// apex. Changing this to use the summed column would also change how external
+        /// TopFD / FLASHDeconv files are interpreted.
+        /// </summary>
         public IEnumerable<ISingleChargeMs1Feature> GetSingleChargeFeatures()
         {
             for (int z = ChargeStateMin; z <= ChargeStateMax ; z++)

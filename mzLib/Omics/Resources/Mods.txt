@@ -114,7 +114,7 @@ TG   P
 PP   Anywhere.
 MT   Common Biological
 CF   O1
-DI   HCD:170.060123533
+DI   HCD:170.069143
 DR   Unimod; 35.
 //
 ID   Nitrosylation
@@ -534,7 +534,7 @@ TG   D or E
 PP   Anywhere.
 MT   Less Common
 CF   H-2 C-1 O-1
-DR   Unimod; 914.
+DR   Unimod; 1915.
 //
 ID   Reduction
 TG   D or S or T

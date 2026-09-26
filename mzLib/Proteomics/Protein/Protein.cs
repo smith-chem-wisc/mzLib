@@ -45,11 +45,17 @@ namespace Proteomics
             List<DatabaseReference> databaseReferences = null,
             List<SequenceVariation> sequenceVariations = null, List<SequenceVariation> appliedSequenceVariations = null, string sampleNameForVariants = null,
             List<DisulfideBond> disulfideBonds = null, List<SpliceSite> spliceSites = null, string databaseFilePath = null, bool addTruncations = false,
-            UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false)
+             UniProtEntryAttributes uniProtEntryAttributes = null,
+             UniProtSequenceAttributes uniProtSequenceAttributes = null, bool isEntrapment = false,
+             Protein nonVariantProtein = null,
+             IDictionary<int, Modification> oneBasedFixedModifications = null)
         {
             BaseSequence = sequence;
-            NonVariantProtein = this;
+            // Defaults to this, which is right for an entry that is its own consensus. A caller building an
+            // entry that carries applied variations - a decoy mirrored from a variant target, for instance -
+            // passes the consensus so that ConsensusVariant and NonVariantProtein point at it rather than at
+            // the variant entry itself.
+            NonVariantProtein = nonVariantProtein ?? this;
             Accession = accession;
 
             Name = name;
@@ -66,6 +72,7 @@ namespace Proteomics
             SequenceVariations = sequenceVariations ?? new List<SequenceVariation>();
             AppliedSequenceVariations = appliedSequenceVariations ?? new List<SequenceVariation>();
             OriginalNonVariantModifications = oneBasedModifications ?? new Dictionary<int, List<Modification>>();
+            OneBasedFixedModifications = oneBasedFixedModifications ?? new Dictionary<int, Modification>();
             if (oneBasedModifications != null)
             {
                 OneBasedPossibleLocalizedModifications = ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications);
@@ -92,7 +99,6 @@ namespace Proteomics
         /// </summary>
         /// <param name="originalProtein"></param>
         /// <param name="newBaseSequence"></param>
-        /// <param name="silacAccession"></param>
         public Protein(Protein originalProtein, string newBaseSequence)
         {
             BaseSequence = newBaseSequence;
@@ -118,6 +124,7 @@ namespace Proteomics
             DatabaseFilePath = originalProtein.DatabaseFilePath;
             UniProtEntryAttributes = originalProtein.UniProtEntryAttributes;
             UniProtSequenceAttributes = originalProtein.UniProtSequenceAttributes;
+            OneBasedFixedModifications = originalProtein.OneBasedFixedModifications;
         }
 
         /// <summary>
@@ -164,9 +171,10 @@ namespace Proteomics
             List<DatabaseReference> databaseReferences = null,
             List<DisulfideBond> disulfideBonds = null,
             List<SpliceSite> spliceSites = null,
-            UniProtEntryAttributes uniProtEntryAttributes = null,
-            UniProtSequenceAttributes uniProtSequenceAttributes = null,
-            Protein nonVariantProtein = null)
+             UniProtEntryAttributes uniProtEntryAttributes = null,
+             UniProtSequenceAttributes uniProtSequenceAttributes = null,
+             Protein nonVariantProtein = null,
+             IDictionary<int, Modification> oneBasedFixedModifications = null)
         {
             BaseSequence = originalProtein.BaseSequence;
             Accession = accession ?? originalProtein.Accession;
@@ -189,6 +197,7 @@ namespace Proteomics
             OneBasedPossibleLocalizedModifications = oneBasedModifications != null
                 ? ((IBioPolymer)this).SelectValidOneBaseMods(oneBasedModifications)
                 : originalProtein.OneBasedPossibleLocalizedModifications;
+            OneBasedFixedModifications = oneBasedFixedModifications ?? originalProtein.OneBasedFixedModifications;
             DatabaseReferences = databaseReferences ?? originalProtein.DatabaseReferences;
             DisulfideBonds = disulfideBonds ?? originalProtein.DisulfideBonds;
             SpliceSites = spliceSites ?? originalProtein.SpliceSites;
@@ -206,7 +215,8 @@ namespace Proteomics
         /// <param name="oneBasedModifications"></param>
         /// <param name="sampleNameForVariants"></param>
         public Protein(string variantBaseSequence, Protein protein, IEnumerable<SequenceVariation> appliedSequenceVariations,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            string sampleNameForVariants, IDictionary<int, Modification>? oneBasedFixedModifications = null)
             : this(
                   variantBaseSequence,
                   VariantApplication.GetAccession(protein, appliedSequenceVariations),
@@ -223,9 +233,10 @@ namespace Proteomics
                   sequenceVariations: new List<SequenceVariation>(protein.SequenceVariations),
                   disulfideBonds: new List<DisulfideBond>(protein.DisulfideBonds),
                   spliceSites: new List<SpliceSite>(protein.SpliceSites),
-                  databaseFilePath: protein.DatabaseFilePath,
-                  uniProtEntryAttributes: protein.UniProtEntryAttributes,
-                  uniProtSequenceAttributes: protein.UniProtSequenceAttributes)
+                   databaseFilePath: protein.DatabaseFilePath,
+                   uniProtEntryAttributes: protein.UniProtEntryAttributes,
+                   uniProtSequenceAttributes: protein.UniProtSequenceAttributes,
+                     oneBasedFixedModifications: oneBasedFixedModifications ?? protein.OneBasedFixedModifications)
         {
             NonVariantProtein = protein.ConsensusVariant as Protein;
             OriginalNonVariantModifications = ConsensusVariant.OriginalNonVariantModifications;
@@ -237,6 +248,8 @@ namespace Proteomics
         /// Modifications (values) located at one-based protein positions (keys)
         /// </summary>
         public IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; private set; }
+
+        public IDictionary<int, Modification> OneBasedFixedModifications { get; private set; }
 
         /// <summary>
         /// The list of gene names consists of tuples, where Item1 is the type of gene name, and Item2 is the name. There may be many genes and names of a certain type produced when reading an XML protein database.
@@ -252,6 +265,70 @@ namespace Proteomics
         /// Base sequence, which may contain applied sequence variations.
         /// </summary>
         public string BaseSequence { get; private set; }
+
+        /// <summary>
+        /// The dbReference type UniProt uses for the NCBI taxonomy identifier, in both its XML
+        /// (&lt;dbReference type="NCBI Taxonomy" id="9606"/&gt;) and its FASTA headers (OX=9606).
+        /// Declared here rather than in the loader so that anything holding a Protein can find the
+        /// taxonomy without depending on how the protein was read.
+        /// </summary>
+        public const string NcbiTaxonomyDatabaseReferenceType = "NCBI Taxonomy";
+
+        /// <summary>
+        /// The NCBI taxonomy identifier for this protein's organism, or null if the database did
+        /// not supply one. The organism NAME is free text and ambiguous across databases; this is
+        /// the stable machine identifier.
+        /// </summary>
+        public string NcbiTaxonomyId => DatabaseReferences
+            ?.FirstOrDefault(r => r.Type == NcbiTaxonomyDatabaseReferenceType)?.Id;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Gene Ontology annotations
+        /// (&lt;dbReference type="GO" id="GO:0005737"&gt;). Declared here for the same reason as the
+        /// taxonomy type: anything holding a Protein can find its GO without depending on how the
+        /// protein was read.
+        /// </summary>
+        public const string GeneOntologyDatabaseReferenceType = "GO";
+
+        /// <summary>
+        /// This protein's Gene Ontology annotations, deduplicated by GO id, with the evidence codes
+        /// and projects of repeated ids unioned.
+        ///
+        /// A derived view over DatabaseReferences: GO is already parsed and stored, because
+        /// ProteinXmlEntry keeps every dbReference generically, so nothing in the parser had to
+        /// change for this to exist. Decoys carry no GO -- only the taxonomy reference travels onto
+        /// a decoy -- so this is empty for them, and backgrounds built from it stay target-only.
+        /// </summary>
+        public IReadOnlyList<GoTerm> GoTerms => GoTerm.FromDatabaseReferences(DatabaseReferences);
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Ensembl transcript/gene links
+        /// (&lt;dbReference type="Ensembl" id="ENST..."&gt;). Declared here for the same reason as the
+        /// taxonomy and GO types.
+        /// </summary>
+        public const string EnsemblDatabaseReferenceType = "Ensembl";
+
+        /// <summary>
+        /// Every Ensembl transcript this entry links to, with the gene each belongs to. One per
+        /// transcript, deduplicated by transcript id.
+        ///
+        /// A derived view over DatabaseReferences, like GoTerms: nothing in the parser changed for it to
+        /// exist. Only XML-loaded entries carry these; FASTA-loaded proteins and decoys do not, so this is
+        /// empty for them.
+        /// </summary>
+        public IReadOnlyList<EnsemblGeneReference> EnsemblGeneReferences =>
+            EnsemblGeneReference.FromDatabaseReferences(DatabaseReferences);
+
+        /// <summary>
+        /// The distinct stable Ensembl gene ids this entry links to, in ordinal order. Often one, but
+        /// not always -- a sequence encoded by several loci (the core histones) links to all of them,
+        /// and this returns every one rather than picking. Empty when the entry names no Ensembl gene.
+        /// </summary>
+        public IReadOnlyList<string> EnsemblGeneIds => EnsemblGeneReferences
+            .Select(r => r.GeneId)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(id => id, StringComparer.Ordinal)
+            .ToList();
 
         public string Organism { get; }
         public bool IsDecoy { get; }
@@ -303,7 +380,14 @@ namespace Proteomics
             var n = GeneNames.FirstOrDefault();
             string geneName = n == null ? "" : n.Item2;
 
-            return string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName);
+            // OX= sits between OS= and GN=, matching real UniProt headers -- and matching
+            // ProteinDbLoader.UniprotOrganismRegex, which already treats OX= as a terminator for the
+            // organism name. Omitted entirely when unknown rather than written empty, so a header
+            // without taxonomy stays exactly as it was.
+            string taxonomy = NcbiTaxonomyId;
+            return string.IsNullOrEmpty(taxonomy)
+                ? string.Format("mz|{0}|{1} {2} OS={3} GN={4}", Accession, Name, FullName, Organism, geneName)
+                : string.Format("mz|{0}|{1} {2} OS={3} OX={4} GN={5}", Accession, Name, FullName, Organism, taxonomy, geneName);
         }
 
         /// <summary>
@@ -342,19 +426,32 @@ namespace Proteomics
 
             //can't be null
             allKnownFixedModifications = allKnownFixedModifications ?? new List<Modification>();
-            // add in any modifications that are caused by protease digestion
-            if (digestionParameters.Protease.CleavageMod != null && !allKnownFixedModifications.Contains(digestionParameters.Protease.CleavageMod))
-            {
-                allKnownFixedModifications.Add(digestionParameters.Protease.CleavageMod);
-            }
             variableModifications = variableModifications ?? new List<Modification>();
+            IBioPolymer.AddDigestionAgentModification(digestionParameters.Protease,
+                ref allKnownFixedModifications, ref variableModifications);
             CleavageSpecificity searchModeType = digestionParameters.SearchModeType;
 
-            ProteinDigestion digestion = new(digestionParameters, allKnownFixedModifications, variableModifications);
-            IEnumerable<ProteolyticPeptide> unmodifiedPeptides =
-                searchModeType == CleavageSpecificity.Semi ?
-                digestion.SpeedySemiSpecificDigestion(this) :
-                    digestion.Digestion(this, topDownTruncationSearch);
+            // SearchModeType Semi means two different things depending on FragmentationTerminus:
+            //  - N or C: the caller is MetaMorpheus's non-specific search engine, which wants "seed" peptides fixed at that
+            //    terminus and trims them after the search.
+            //  - anything else (Both is the default): the caller wants the semi-specific peptides themselves. Classic,
+            //    Modern, Glyco and crosslink searches do no trimming, so they must get every peptide with at least one
+            //    specific terminus. This used to fall through to the seed path as well, where Both silently behaved as C,
+            //    and those searches lost most semi-specific peptides without any error.
+            // SearchModeType None never returns peptides: DigestionParams has already swapped the protease for singleN or
+            // singleC, whose digestion (the first branch) returns non-specific seeds; None + Both gives the singleC ones.
+            // The full table of what each SearchModeType and FragmentationTerminus returns is on
+            // DigestionParams.SearchModeType and is pinned by SearchModeTypeDigestionTests.
+            IEnumerable<ProteolyticPeptide> unmodifiedPeptides = digestionParameters.Protease.GetUnmodifiedPeptides(
+                this,
+                digestionParameters.MaxMissedCleavages,
+                digestionParameters.InitiatorMethionineBehavior,
+                digestionParameters.MinLength,
+                digestionParameters.MaxLength,
+                digestionParameters.SpecificProtease,
+                digestionParameters.FragmentationTerminus,
+                digestionParameters.SearchModeType,
+                topDownTruncationSearch);
 
             if (digestionParameters.KeepNGlycopeptide || digestionParameters.KeepOGlycopeptide)
             {
@@ -663,14 +760,15 @@ namespace Proteomics
         public IDictionary<int, List<Modification>> OriginalNonVariantModifications { get; set; }
 
         public TBioPolymerType CreateVariant<TBioPolymerType>(string variantBaseSequence, TBioPolymerType original, IEnumerable<SequenceVariation> appliedSequenceVariants,
-            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications, string sampleNameForVariants)
+            IEnumerable<TruncationProduct> applicableProteolysisProducts, IDictionary<int, List<Modification>> oneBasedModifications,
+            IDictionary<int, Modification> oneBasedFixedModifications, string sampleNameForVariants)
             where TBioPolymerType : IHasSequenceVariants
         {
             if (original is not Protein originalProtein)
                 throw new ArgumentException("The original BioPolymer must be Protein to create a protein variant");
 
             var variantProtein =  new Protein(variantBaseSequence, originalProtein, appliedSequenceVariants, 
-                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants);
+                applicableProteolysisProducts, oneBasedModifications, sampleNameForVariants, oneBasedFixedModifications);
             return (TBioPolymerType)(IHasSequenceVariants)variantProtein;
         }
         #endregion

@@ -1,5 +1,6 @@
 ﻿using Chemistry;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace MassSpectrometry;
@@ -14,29 +15,43 @@ public sealed class Averagine : AverageResidue
     public static readonly double[][] AllIntensities = new double[NumAveraginesToGenerate][];
     public static readonly double[] MostIntenseMasses = new double[NumAveraginesToGenerate];
     public static readonly double[] DiffToMonoisotopic = new double[NumAveraginesToGenerate];
+
+    /// <summary>
+    /// The average number of each element in a single amino-acid averagine unit
+    /// (e.g. {'C', 4.9384}). Magic numbers determined by https://pmc.ncbi.nlm.nih.gov/articles/PMC6166224/.
+    /// </summary>
+    private static readonly Dictionary<char, double> AverageComposition = new()
+    {
+        { 'C', 4.9384 },
+        { 'H', 7.7583 },
+        { 'O', 1.4773 },
+        { 'N', 1.3577 },
+        { 'S', 0.0417 },
+    };
+
     public override int GetMostIntenseMassIndex(double testMass) => MostIntenseMasses.GetClosestIndex(testMass);
     public override double[] GetAllTheoreticalMasses(int index) => AllMasses[index];
     public override double[] GetAllTheoreticalIntensities(int index) => AllIntensities[index];
     public override double GetDiffToMonoisotopic(int index) => DiffToMonoisotopic[index];
-    static Averagine() 
-    {
-        // Magic numbers determined by https://pmc.ncbi.nlm.nih.gov/articles/PMC6166224/
-        double averageC = 4.9384;
-        double averageH = 7.7583;
-        double averageO = 1.4773;
-        double averageN = 1.3577;
-        double averageS = 0.0417;
 
+    /// <summary>
+    /// Returns the average elemental composition of a single averagine unit as a map from element
+    /// symbol to average atom count (e.g. {'C', 4.9384}). Callers can scale this by a mass to derive
+    /// an approximate chemical formula for an arbitrary species.
+    /// </summary>
+    public Dictionary<char, double> GetAverageChemicalFormula() => new(AverageComposition);
+
+    static Averagine()
+    {
         for (int i = 0; i < NumAveraginesToGenerate; i++)
         {
             double averagineMultiplier = (i + 1) / 2.0;
             //Console.Write("numAveragines = " + numAveragines);
             ChemicalFormula chemicalFormula = new ChemicalFormula();
-            chemicalFormula.Add("C", Convert.ToInt32(averageC * averagineMultiplier));
-            chemicalFormula.Add("H", Convert.ToInt32(averageH * averagineMultiplier));
-            chemicalFormula.Add("O", Convert.ToInt32(averageO * averagineMultiplier));
-            chemicalFormula.Add("N", Convert.ToInt32(averageN * averagineMultiplier));
-            chemicalFormula.Add("S", Convert.ToInt32(averageS * averagineMultiplier));
+            foreach (var (element, count) in AverageComposition)
+            {
+                chemicalFormula.Add(element.ToString(), Convert.ToInt32(count * averagineMultiplier));
+            }
 
             var chemicalFormulaReg = chemicalFormula;
             IsotopicDistribution ye = IsotopicDistribution.GetDistribution(chemicalFormulaReg, FineRes, MinRes);

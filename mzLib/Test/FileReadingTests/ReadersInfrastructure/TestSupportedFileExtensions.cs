@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -45,6 +45,14 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms1Align_FlashDeconvOpenMs3.0.0_ms1.msalign", SupportedFileType.Ms1Align);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign", SupportedFileType.Ms2Align);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab", SupportedFileType.CasanovoMzTab);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv", SupportedFileType.DiaNnReport);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv", SupportedFileType.Sdrf);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\match_output_Lumos_Orbi.txt", SupportedFileType.PytheasResult);
+            yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid", SupportedFileType.MzIdentML);
+            yield return new TestCaseData(@"DataFiles\SmallCalibratible_Yeast.mzID", SupportedFileType.MzIdentML);
+            yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid.gz", SupportedFileType.MzIdentMLGz);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv", SupportedFileType.MetaMorpheusQuantifiedProteinGroups);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv", SupportedFileType.FlashLFQQuantifiedPeptide);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();
@@ -89,6 +97,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
 
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", SupportedFileType.MsFraggerPsm)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv", SupportedFileType.DiaNnReport)]
         public static void TestIQuantifiableResultFileReaderWorks(string filePath, SupportedFileType expectedType)
         {
             IQuantifiableResultFile resultFile = FileReader.ReadQuantifiableResultFile(filePath);
@@ -153,6 +162,10 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
             Assert.That(e?.Message, Is.EqualTo($"MsAlign file type not supported, must end with _msX.msalign where X is 1 or 2"));
 
+            badTest = "reads.fastq.gz";
+            e = Assert.Throws<MzLibException>(() => badTest.ParseFileType());
+            Assert.That(e?.Message, Is.EqualTo($"Gz file type not supported"));
+
             var emptyFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "emptyFile.tsv");
             File.Create(emptyFile).Close();
             e = Assert.Throws<MzLibException>(() => emptyFile.ParseFileType());
@@ -164,6 +177,15 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             {
                 _ = value.GetFileExtension();
             }
+        }
+
+        [Test]
+        public static void TestParseFileTypeMissingTxtFallsThroughToCrux()
+        {
+            string missingTxt = Path.Combine(TestContext.CurrentContext.TestDirectory, "definitely_missing_file_xyz.txt");
+            Assert.That(File.Exists(missingTxt), Is.False);
+
+            Assert.That(missingTxt.ParseFileType(), Is.EqualTo(SupportedFileType.CruxResult));
         }
 
         [Test]

@@ -43,7 +43,6 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Gets the peptides for a specific protein interval
         /// </summary>
-        /// <param name="interval"></param>
         /// <param name="allKnownFixedModifications"></param>
         /// <param name="digestionParams"></param>
         /// <param name="variableModifications"></param>

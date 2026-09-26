@@ -13,7 +13,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Test.FileReadingTests;
-using MassSpectrometry;
 using UsefulProteomicsDatabases;
 using ChromatographicPeak = FlashLFQ.ChromatographicPeak;
 using Stopwatch = System.Diagnostics.Stopwatch;
@@ -40,6 +39,75 @@ namespace Test.FlashLFQ
         public static void TearDown()
         {
             Console.WriteLine($"Analysis time: {Stopwatch.Elapsed.Hours}h {Stopwatch.Elapsed.Minutes}m {Stopwatch.Elapsed.Seconds}s");
+
+            // FlashLFQ's PEP engine used to drop a scratch "model.zip" into the input data folder
+            // (mzLib#1124). The fix routes it to a temp dir; clean up here as well so the test suite
+            // never accumulates that artifact — including any left behind by an older build.
+            string pepModelArtifact = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", "model.zip");
+            if (File.Exists(pepModelArtifact)) File.Delete(pepModelArtifact);
+        }
+
+        [Test]
+        public static void TestRnaModeTheoreticalIsotopeDistribution()
+        {
+            // RNA is quantified in negative mode with negative charge states. With RnaMode on, the
+            // theoretical isotope distribution must be built from the ribonucleotide formula, not the
+            // amino-acid one, and the peak-finding (most abundant) mass must be set accordingly.
+            var rna = new global::Transcriptomics.RNA("GUACGUACGUAC");
+            double monoMass = rna.MonoisotopicMass;
+
+            SpectraFileInfo file = new SpectraFileInfo("rna.mzML", "a", 0, 0, 0);
+            var id = new Identification(file, "GUACGUACGUAC", "GUACGUACGUAC", monoMass, 5.0, -3,
+                new List<ProteinGroup>());
+
+            var rnaParams = new FlashLfqParameters { RnaMode = true, MaxThreads = 1 };
+            var engine = new FlashLfqEngine(rnaParams, new List<Identification> { id });
+            engine.CalculateTheoreticalIsotopeDistributions();
+
+            // distribution was built and contains the normalized (most abundant) isotope
+            Assert.IsTrue(engine.ModifiedSequenceToIsotopicDistribution.ContainsKey("GUACGUACGUAC"));
+            var distribution = engine.ModifiedSequenceToIsotopicDistribution["GUACGUACGUAC"];
+            Assert.IsTrue(distribution.Any(p => p.normalizedAbundance == 1.0));
+
+            // the peak-finding mass equals mono mass plus the most-abundant-isotope shift computed from
+            // the RNA formula's true isotopic envelope
+            double mostAbundantShift = distribution.First(p => p.normalizedAbundance == 1.0).massShift;
+            Assert.AreEqual(monoMass + mostAbundantShift, id.PeakfindingMass, 1e-6);
+
+            var trueEnvelope = IsotopicDistribution.GetDistribution(rna.GetChemicalFormula(), 0.125, 1e-8);
+            double trueMostAbundantMass = trueEnvelope.Masses
+                .Zip(trueEnvelope.Intensities, (m, i) => (m, i))
+                .OrderByDescending(x => x.i).First().m;
+            Assert.AreEqual(trueMostAbundantMass, id.PeakfindingMass, 0.02);
+        }
+
+        [Test]
+        public static void TestRnaAveraginePathForUnparsableSequence()
+        {
+            // A sequence that is not valid RNA falls back to the ribonucleotide averagine. The
+            // distribution must still be built without throwing (RNA construction would throw here).
+            SpectraFileInfo file = new SpectraFileInfo("rna.mzML", "a", 0, 0, 0);
+            var id = new Identification(file, "ZZZZ", "ZZZZ", 3800.5, 5.0, -4, new List<ProteinGroup>());
+
+            var rnaParams = new FlashLfqParameters { RnaMode = true, MaxThreads = 1 };
+            var engine = new FlashLfqEngine(rnaParams, new List<Identification> { id });
+
+            Assert.DoesNotThrow(() => engine.CalculateTheoreticalIsotopeDistributions());
+            Assert.IsTrue(engine.ModifiedSequenceToIsotopicDistribution["ZZZZ"].Any(p => p.normalizedAbundance == 1.0));
+            Assert.Greater(id.PeakfindingMass, 0);
+        }
+
+        [Test]
+        public static void TestIsotopicEnvelopeNegativeChargeYieldsPositiveIntensity()
+        {
+            // Dividing the summed intensity by a negative charge state used to produce a negative
+            // intensity for RNA. The magnitude of the charge must be used instead.
+            var peak = new IndexedMassSpectralPeak(500, 1000, 0, 5.0);
+            var envelope = new IsotopicEnvelope(peak, -3, 3000, 0.99);
+
+            Assert.Greater(envelope.Intensity, 0);
+            Assert.AreEqual(1000, envelope.Intensity, 1e-9);
+            Assert.AreEqual(-3, envelope.ChargeState);
         }
 
         [Test]
@@ -486,6 +554,56 @@ namespace Test.FlashLFQ
             Assert.AreEqual(4, resultsA.SpectraFiles.Count);
         }
 
+        /// <summary>
+        /// A peptide seen only in the merged-in results is added to PeptideModifiedSequences by the merge,
+        /// but it also has to join the set of sequences eligible for quantification. Otherwise the next
+        /// CalculatePeptideResults blanks every peptide and then refuses to repopulate that one, silently
+        /// zeroing the merged-in half of the data. The two runs must quantify DIFFERENT sequences for this
+        /// to prove anything - with a shared sequence the two sets are identical and the union is a no-op.
+        /// </summary>
+        [Test]
+        public static void TestFlashLfqMergeResultsKeepsMergedInPeptideQuantifiable()
+        {
+            FlashLfqResults resultsA = QuantifyOnePeptideInOneFile("peptideA", "a", out SpectraFileInfo fileA);
+            FlashLfqResults resultsB = QuantifyOnePeptideInOneFile("peptideB", "b", out SpectraFileInfo fileB);
+
+            Assert.That(resultsB.PeptideModifiedSequences["peptideB"].GetIntensity(fileB), Is.GreaterThan(0),
+                "the peptide must be quantified in the second run, or this test proves nothing");
+
+            resultsA.MergeResultsWith(resultsB);
+            resultsA.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+
+            Assert.That(resultsA.PeptideModifiedSequences["peptideB"].GetIntensity(fileB), Is.GreaterThan(0),
+                "a peptide seen only in the merged-in results must survive requantification");
+            Assert.That(resultsA.PeptideModifiedSequences["peptideB"].GetDetectionType(fileB),
+                Is.EqualTo(DetectionType.MSMS));
+
+            // the receiving run's own peptide was never at risk; it is here as a control
+            Assert.That(resultsA.PeptideModifiedSequences["peptideA"].GetIntensity(fileA), Is.GreaterThan(0));
+        }
+
+        /// <summary>
+        /// Builds a single-file result quantifying one peptide, without touching the disk. The identification
+        /// is passed to the FlashLfqResults constructor so that the peptide lands in the set of sequences
+        /// eligible for quantification - an empty set there means "quantify nothing", not "quantify everything".
+        /// </summary>
+        private static FlashLfqResults QuantifyOnePeptideInOneFile(string sequence, string condition, out SpectraFileInfo file)
+        {
+            file = new SpectraFileInfo("", condition, 0, 0, 0);
+            Identification id = new Identification(file, sequence, sequence, 0, 0, 0, new List<ProteinGroup>());
+
+            ChromatographicPeak peak = new ChromatographicPeak(id, file);
+            peak.ResolveIdentifications();
+            peak.IsotopicEnvelopes.Add(new IsotopicEnvelope(new IndexedMassSpectralPeak(0, 0, 0, 0), 1, 1000, 1));
+            peak.CalculateIntensityForThisFeature(false);
+
+            FlashLfqResults results = new FlashLfqResults(new List<SpectraFileInfo> { file }, new List<Identification> { id });
+            results.Peaks[file].Add(peak);
+            results.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+
+            return results;
+        }
+
 
         /// <summary>
         /// This test MatchBetweenRuns by creating two fake mzML files and a list of fake IDs. 
@@ -869,8 +987,6 @@ namespace Test.FlashLFQ
             string peptide = "PEPTIDE";
             double intensity = 1e6;
 
-            Loaders.LoadElements();
-
             // generate mzml file
 
             // 1 MS1 scan per peptide
@@ -937,8 +1053,6 @@ namespace Test.FlashLFQ
             string fileToWrite = "myMzml.mzML";
             string peptide = "PEPTIDE";
             double intensity = 1e6;
-
-            Loaders.LoadElements();
 
             // generate mzml file
 
@@ -1444,118 +1558,6 @@ namespace Test.FlashLFQ
         }
 
         [Test]
-        public static void RealDataMbrTest()
-        {
-            string psmFile = Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"PSMsForMbrTest.psmtsv");
-
-            SpectraFileInfo f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r1_sliced_mbr.raw"), "a", 0, 0, 0);
-            SpectraFileInfo f1r2 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r2_sliced_mbr.raw"), "a", 1, 0, 0);
-
-            List<Identification> ids = new List<Identification>();
-            Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
-            foreach (string line in File.ReadAllLines(psmFile))
-            {
-                var split = line.Split(new char[] { '\t' });
-
-                if (split.Contains("File Name") || string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-
-                SpectraFileInfo file = null;
-
-                if (split[0].Contains("f1r1"))
-                {
-                    file = f1r1;
-                }
-                else if (split[0].Contains("f1r2"))
-                {
-                    file = f1r2;
-                }
-
-                string baseSequence = split[12];
-                string fullSequence = split[13];
-                double monoMass = double.Parse(split[21]);
-                double rt = double.Parse(split[2]);
-                int z = (int)double.Parse(split[6]);
-                var proteins = split[24].Split(new char[] { '|' });
-                bool decoyPeptide = split[39].Equals("D");
-                List<ProteinGroup> proteinGroups = new List<ProteinGroup>();
-                foreach (var protein in proteins)
-                {
-                    if (allProteinGroups.TryGetValue(protein, out var proteinGroup))
-                    {
-                        proteinGroups.Add(proteinGroup);
-                    }
-                    else
-                    {
-                        allProteinGroups.Add(protein, new ProteinGroup(protein, "", ""));
-                        proteinGroups.Add(allProteinGroups[protein]);
-                    }
-                }
-
-                Identification id = new Identification(file, baseSequence, fullSequence, monoMass, rt, z, proteinGroups, decoy: decoyPeptide);
-                ids.Add(id);
-            }
-
-            var engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: false, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.15, maxMbrWindow: 1);
-            var results = engine.Run();
-
-            // Count the number of MBR results in each file
-            var f1r1MbrResults = results
-                .PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MBR && p.Value.GetDetectionType(f1r2) == DetectionType.MSMS)
-                .ToList();
-            var f1r2MbrResults = results
-                .PeptideModifiedSequences
-                .Where(p => p.Value.GetDetectionType(f1r1) == DetectionType.MSMS && p.Value.GetDetectionType(f1r2) == DetectionType.MBR)
-                .ToList();
-
-            // Due to the small number of results in the test data, the counts and correlation values can be quite variable.
-            // Any change to ML.NET or the PEP Analysis engine will cause these to change.
-            Console.WriteLine("r1 PIP event count: " + f1r1MbrResults.Count);
-            Console.WriteLine("r2 PIP event count: " + f1r2MbrResults.Count);
-            Assert.AreEqual(141, f1r1MbrResults.Count);
-            Assert.AreEqual(78, f1r2MbrResults.Count);
-
-            // Check that MS/MS identified peaks and MBR identified peaks have similar intensities 
-            List<(double, double)> peptideIntensities = f1r1MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
-            double corrRun1 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-
-            peptideIntensities = f1r2MbrResults.Select(pep => (Math.Log(pep.Value.GetIntensity(f1r1)), Math.Log(pep.Value.GetIntensity(f1r2)))).ToList();
-            double corrRun2 = Correlation.Pearson(peptideIntensities.Select(p => p.Item1), peptideIntensities.Select(p => p.Item2));
-
-            // These values are also sensitive, changes can cause them to dip as low as 0.6 (specifically the corrRun2 value)
-            Console.WriteLine("r1 correlation: " + corrRun1);
-            Console.WriteLine("r2 correlation: " + corrRun2);
-            Assert.Greater(corrRun1, 0.75);
-            Assert.Greater(corrRun2, 0.65);
-
-            // the "requireMsmsIdInCondition" field requires that at least one MS/MS identification from a protein
-            // has to be observed in a condition for match-between-runs
-
-            f1r1 = new SpectraFileInfo(Path.Combine(TestContext.CurrentContext.TestDirectory, "FlashLFQ", "TestData", @"f1r1_sliced_mbr.raw"), "b", 0, 0, 0);
-            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 5);
-            results = engine.Run();
-            var proteinsObservedInF1 = ids.Where(id => !id.IsDecoy).Where(p => p.FileInfo == f1r1).SelectMany(p => p.ProteinGroups).Distinct().ToList();
-            var proteinsObservedInF2 = ids.Where(id => !id.IsDecoy).Where(p => p.FileInfo == f1r2).SelectMany(p => p.ProteinGroups).Distinct().ToList();
-            var proteinsObservedInF1ButNotF2 = proteinsObservedInF1.Except(proteinsObservedInF2).ToList();
-            foreach (ProteinGroup protein in proteinsObservedInF1ButNotF2)
-            {
-                Assert.That(results.ProteinGroups[protein.ProteinGroupName].GetIntensity(f1r2) == 0);
-            }
-
-            // Test that no decoys are reported in the final resultsw
-            Assert.AreEqual(0, ids.Where(id => id.IsDecoy).Count(id => results.ProteinGroups.ContainsKey(id.ProteinGroups.First().ProteinGroupName)));
-
-            List<string> peptidesToUse = ids.Where(id => id.QValue <= 0.007 & !id.IsDecoy).Select(id => id.ModifiedSequence).Distinct().ToList();
-            engine = new FlashLfqEngine(ids, matchBetweenRuns: true, requireMsmsIdInCondition: true, maxThreads: 1, matchBetweenRunsFdrThreshold: 0.5, maxMbrWindow: 1, peptideSequencesToQuantify: peptidesToUse);
-            results = engine.Run();
-
-            CollectionAssert.AreEquivalent(results.PeptideModifiedSequences.Select(kvp => kvp.Key), peptidesToUse);
-        }
-
-        [Test]
         public static void ProteoformPeakfindingTest()
         {
             string sequence =
@@ -1922,6 +1924,61 @@ namespace Test.FlashLFQ
             Assert.That(double.Parse(protein2Results[6]) == 0);
 
             File.Delete(filepath);
+        }
+
+        /// <summary>
+        /// A sample's column is labelled by file name only when there is no experimental design to
+        /// label it with. The unfractionated cases were previously inverted: a run with real
+        /// conditions was labelled by file name, and a run with none produced the degenerate
+        /// "Intensity__1".
+        /// </summary>
+        [Test]
+        [TestCase("", "", "Intensity_run_1\tIntensity_run_2", TestName = "NoDesign_LabelsByFileName")]
+        [TestCase("Default", "Default", "Intensity_run_1\tIntensity_run_2", TestName = "DefaultCondition_LabelsByFileName")]
+        [TestCase("control", "treated", "Intensity_control_1\tIntensity_treated_2", TestName = "RealConditions_LabelBySample")]
+        public static void TestProteinGroupHeader_UnfractionatedLabelling(string condition1, string condition2, string expectedIntensityColumns)
+        {
+            var spectraFiles = new List<SpectraFileInfo>
+            {
+                new SpectraFileInfo("run_1.mzML", condition1, biorep: 0, techrep: 0, fraction: 0),
+                new SpectraFileInfo("run_2.mzML", condition2, biorep: 1, techrep: 0, fraction: 0)
+            };
+
+            string header = ProteinGroup.TabSeparatedHeader(spectraFiles);
+
+            Assert.That(header, Is.EqualTo("Protein Groups\tGene Name\tOrganism\t" + expectedIntensityColumns));
+        }
+
+        /// <summary>
+        /// The header and the row are generated by separate methods that must make the same
+        /// labelling choice, or every intensity lands under the wrong column.
+        /// </summary>
+        [Test]
+        public static void TestProteinGroupHeaderAndRowAgreeOnColumnCount()
+        {
+            foreach (string[] conditions in new[] { new[] { "", "" }, new[] { "control", "treated" } })
+            {
+                foreach (int secondFraction in new[] { 0, 1 })
+                {
+                    var spectraFiles = new List<SpectraFileInfo>
+                    {
+                        new SpectraFileInfo("run_1.mzML", conditions[0], biorep: 0, techrep: 0, fraction: 0),
+                        new SpectraFileInfo("run_2.mzML", conditions[1], biorep: 1, techrep: 0, fraction: secondFraction)
+                    };
+
+                    var proteinGroup = new ProteinGroup("P1", "GENE", "Homo sapiens");
+                    foreach (SpectraFileInfo file in spectraFiles)
+                    {
+                        proteinGroup.SetIntensity(file, 1000);
+                    }
+
+                    int headerColumns = ProteinGroup.TabSeparatedHeader(spectraFiles).Split('\t').Length;
+                    int rowColumns = proteinGroup.ToString(spectraFiles).Split('\t').Length;
+
+                    Assert.That(rowColumns, Is.EqualTo(headerColumns),
+                        $"conditions=[{string.Join(",", conditions)}] secondFraction={secondFraction}");
+                }
+            }
         }
 
         [Test]

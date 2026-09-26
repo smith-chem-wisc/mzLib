@@ -7,6 +7,8 @@ using Omics.Fragmentation.Peptide;
 using Omics.SpectrumMatch;
 using MzLibUtil;
 using System.Numerics;
+using Omics.SequenceConversion;
+using Readers.ProForma;
 
 namespace Readers
 {
@@ -17,6 +19,35 @@ namespace Readers
         protected static readonly Regex IonParser = new Regex(@"([a-zA-Z]+)(\d+)");
 
         public string FullSequence { get; protected set; }
+
+        private string? _proForma;
+        private bool _proFormaFromFile;
+        private bool _proFormaComputed;
+
+        /// <summary>
+        /// The match as a ProForma 2.0 string. Taken verbatim from the "ProForma" column when the file
+        /// has one; otherwise computed on first access from <see cref="FullSequence"/>, because
+        /// MetaMorpheus releases before that column (1.1.11 and earlier) never wrote it. Null when it
+        /// cannot be computed, e.g. an ambiguous ("|"-joined) full sequence.
+        /// </summary>
+        public string ProForma
+        {
+            get
+            {
+                if (!_proFormaFromFile && !_proFormaComputed)
+                {
+                    _proForma = ProFormaFromFullSequence(FullSequence);
+                    _proFormaComputed = true;
+                }
+                return _proForma;
+            }
+            protected set
+            {
+                _proForma = value;
+                _proFormaFromFile = true;
+            }
+        }
+
         public int Ms2ScanNumber { get; protected set; }
         public string FileNameWithoutExtension { get; protected set; }
         public int PrecursorScanNum { get; protected set; }
@@ -24,6 +55,12 @@ namespace Readers
         public double? PrecursorIntensity { get; }
         public double PrecursorMz { get; protected set; }
         public double PrecursorMass { get; protected set; }
+        /// <summary>
+        /// The observed neutral mass of the most abundant (tallest) isotopologue of the precursor envelope,
+        /// the companion observation to the monoisotopic <see cref="PrecursorMass"/>. Null when the source
+        /// file did not contain the "Precursor Most Abundant Mass" column (the usual monoisotopic-mode case).
+        /// </summary>
+        public double? PrecursorMostAbundantMass { get; protected set; }
         public double RetentionTime { get; protected set; }
         public double? CollisionEnergy { get; protected set; }
         public double Score { get; protected set; }
@@ -45,6 +82,12 @@ namespace Readers
         public string MonoisotopicMassString { get; protected set; }
         public string MassDiffDa { get; protected set; }
         public string MassDiffPpm { get; protected set; }
+        /// <summary>
+        /// Optional most-abundant-mode precursor mass error (ppm), the analogue of <see cref="MassDiffPpm"/>.
+        /// Null when the source file did not contain the "Most Abundant Mass Diff (ppm)" column (the usual
+        /// monoisotopic-mode case). Read as a string because ambiguous matches carry a "|"-separated list.
+        /// </summary>
+        public string MostAbundantMassDiffPpm { get; protected set; }
         public string Name { get; protected set; }
         public string GeneName { get; protected set; }
         public string OrganismName { get; protected set; }
@@ -85,9 +128,11 @@ namespace Readers
         }
         protected List<(string proteinAccessions, string geneName, string organism)> ConstructProteinGroupInfo()
         {
-            string[] accessions = Accession.Split('|');
-            string[] genes = GeneName.Split('|');
-            string[] organisms = OrganismName.Split('|');
+            // These columns are optional and come back null for empty cells (e.g. a PSM with no gene annotation),
+            // so guard against null before splitting rather than throwing a NullReferenceException.
+            string[] accessions = (Accession ?? "").Split('|');
+            string[] genes = (GeneName ?? "").Split('|');
+            string[] organisms = (OrganismName ?? "").Split('|');
             List<(string proteinAccessions, string geneName, string organism)> proteinGroupInfoList = new();
             for (int i = 0; i < accessions.Length; i++)
             {
@@ -144,6 +189,7 @@ namespace Readers
             PrecursorIntensity = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorIntensity, parsedHeader, spl, null);
             PrecursorMz = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMz, parsedHeader, spl);
             PrecursorMass = GetRequiredValue<double>(SpectrumMatchFromTsvHeader.PrecursorMass, parsedHeader, spl);
+            PrecursorMostAbundantMass = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass, parsedHeader, spl, null);
             BaseSeq = RemoveParentheses(GetRequiredValue(SpectrumMatchFromTsvHeader.BaseSequence, parsedHeader, spl));
             FullSequence = GetRequiredValue(SpectrumMatchFromTsvHeader.FullSequence, parsedHeader, spl);
             MonoisotopicMassString = GetRequiredValue(SpectrumMatchFromTsvHeader.MonoisotopicMass, parsedHeader, spl);
@@ -164,9 +210,15 @@ namespace Readers
             DeltaScore = GetOptionalValue<double>(SpectrumMatchFromTsvHeader.DeltaScore, parsedHeader, spl);
             Notch = GetOptionalValue(SpectrumMatchFromTsvHeader.Notch, parsedHeader, spl);
             EssentialSeq = GetOptionalValue(SpectrumMatchFromTsvHeader.EssentialSequence, parsedHeader, spl);
+            // optional: absent in pre-ProForma files, and may be blank on a row, where the getter computes it
+            // from FullSequence instead, so a blank cell and a missing column give the same answer
+            string? fileProForma = GetOptionalValue(SpectrumMatchFromTsvHeader.ProForma, parsedHeader, spl);
+            if (!string.IsNullOrWhiteSpace(fileProForma))
+                ProForma = fileProForma;
             MissedCleavage = GetOptionalValue(SpectrumMatchFromTsvHeader.MissedCleavages, parsedHeader, spl);
             MassDiffDa = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffDa, parsedHeader, spl);
             MassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MassDiffPpm, parsedHeader, spl);
+            MostAbundantMassDiffPpm = GetOptionalValue(SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm, parsedHeader, spl);
             Accession = GetOptionalValue(SpectrumMatchFromTsvHeader.Accession, parsedHeader, spl);
             Name = GetOptionalValue(SpectrumMatchFromTsvHeader.Name, parsedHeader, spl);
             GeneName = GetOptionalValue(SpectrumMatchFromTsvHeader.GeneName, parsedHeader, spl);
@@ -204,6 +256,8 @@ namespace Readers
             if (!psm.FullSequence.Contains("|"))
             {
                 FullSequence = fullSequence;
+                if (psm._proFormaFromFile)
+                    ProForma = psm._proForma;
                 EssentialSeq = psm.EssentialSeq;
                 BaseSeq = baseSequence == "" ? psm.BaseSeq : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence;
@@ -213,11 +267,17 @@ namespace Readers
                 MonoisotopicMassString = psm.MonoisotopicMassString;
                 MassDiffDa = psm.MassDiffDa;
                 MassDiffPpm = psm.MassDiffPpm;
+                MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm;
             }
             // potentially ambiguous fields
             else
             {
                 FullSequence = fullSequence;
+                // ProForma uses '|' as an internal descriptor separator, so a file's value cannot be split per
+                // candidate; carry the parent value. Without the column, this candidate's own (unambiguous)
+                // full sequence is converted on first access.
+                if (psm._proFormaFromFile)
+                    ProForma = psm._proForma;
                 EssentialSeq = psm.EssentialSeq.Split("|")[index];
                 BaseSeq = baseSequence == "" ? psm.BaseSeq.Split("|")[index] : baseSequence;
                 StartAndEndResiduesInParentSequence = psm.StartAndEndResiduesInParentSequence.Split("|")[index];
@@ -250,12 +310,14 @@ namespace Readers
                     MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[0];
                     MassDiffDa = psm.MassDiffDa.Split("|")[0];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[0];
+                    MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm?.Split("|")[0];
                 }
                 else
                 {
                     MonoisotopicMassString = psm.MonoisotopicMassString.Split("|")[index];
                     MassDiffDa = psm.MassDiffDa.Split("|")[index];
                     MassDiffPpm = psm.MassDiffPpm.Split("|")[index];
+                    MostAbundantMassDiffPpm = psm.MostAbundantMassDiffPpm?.Split("|")[index];
                 }
             }
 
@@ -265,6 +327,8 @@ namespace Readers
             PrecursorScanNum = psm.PrecursorScanNum;
             PrecursorCharge = psm.PrecursorCharge;
             PrecursorIntensity = psm.PrecursorIntensity;
+            // An observation of the precursor envelope, so it is the same for every hypothesis of this match.
+            PrecursorMostAbundantMass = psm.PrecursorMostAbundantMass;
             Score = psm.Score;
             MatchedIons = psm.MatchedIons.ToList();
             ChildScanMatchedIons = psm.ChildScanMatchedIons;
@@ -422,11 +486,29 @@ namespace Readers
         /// <summary>
         /// Parses the full sequence to identify mods. Local wrapper for MzLibUtil extension method.
         /// </summary>
-        /// <param name="fullSequence"> Full sequence of the peptide in question</param>
+        /// <param name="fullSeq"> Full sequence of the peptide in question</param>
         /// <returns> Dictionary with the key being the amino acid position of the mod and the value being the string representing the mod</returns>
         public static Dictionary<int, string> ParseModifications(string fullSeq)
         {
             return fullSeq.ParseModifications();
+        }
+
+        /// <summary>
+        /// Converts an mzLib/MetaMorpheus full sequence to ProForma 2.0 with the shared
+        /// <see cref="SequenceConversionService"/>, so each modification is written as its UNIMOD
+        /// accession when it has one and by name otherwise.
+        /// </summary>
+        /// <returns>The ProForma string, or null for an empty or ambiguous ("|"-joined) full sequence,
+        /// or one the converter cannot parse.</returns>
+        internal static string? ProFormaFromFullSequence(string? fullSequence)
+        {
+            if (string.IsNullOrWhiteSpace(fullSequence) || fullSequence.Contains('|'))
+                return null;
+
+            ProFormaSequenceConversion.RegisterWithDefault();
+            return SequenceConversionService.Default.Convert(fullSequence,
+                MzLibSequenceFormatSchema.Instance.FormatName, ProFormaSequenceFormatSchema.ProFormaFormatName,
+                mode: SequenceConversionHandlingMode.ReturnNull);
         }
 
         protected static List<MatchedFragmentIon> ReadFragmentIonsFromString(string matchedMzString, string matchedIntensityString, string peptideBaseSequence, SpectrumMatchParsingParameters parsingParams, string? matchedMassErrorDaString = null, bool isProtein = true)

@@ -385,6 +385,31 @@ namespace Test.MassSpectrometryTests
             NUnit.Framework.Assert.That(s.DotProduct(), Is.Null);
         }
 
+        /// <summary>
+        /// SpectralEntropy is only meaningful when every peak is paired, or when the spectra were
+        /// normalized by spectrum sum. Outside of that it declines to answer rather than returning
+        /// a number built from a partial peak list.
+        /// </summary>
+        [Test]
+        public void TestSpectralEntropyIsNullUnlessSpectrumSumOrAllPeaks()
+        {
+            double ppmTolerance = 10;
+            MzSpectrum experimentalSpectrum = new(new double[] { 1, 2, 3, 4, 5 }, new double[] { 2, 4, 6, 8, 10 }, false);
+            MzSpectrum theoreticalSpectrum = new(new double[] { 3, 4, 5, 6, 7 }, new double[] { 9, 7, 5, 3, 1 }, false);
+
+            // neither condition met: not spectrum sum, and unpaired peaks are dropped
+            SpectralSimilarity s = new(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum, ppmTolerance, false, 0);
+            NUnit.Framework.Assert.That(s.SpectralEntropy(), Is.Null);
+
+            // all peaks kept, so the scheme does not matter
+            s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SquareRootSpectrumSum, ppmTolerance, true, 0);
+            NUnit.Framework.Assert.That(s.SpectralEntropy(), Is.Not.Null);
+
+            // spectrum sum, so allPeaks does not matter
+            s = new SpectralSimilarity(experimentalSpectrum, theoreticalSpectrum, SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, ppmTolerance, false, 0);
+            NUnit.Framework.Assert.That(s.SpectralEntropy(), Is.Not.Null);
+        }
+
         [Test]
         public void TestKullbackLeiblerDivergence()
         {

@@ -210,8 +210,19 @@ public abstract class ModificationLookupBase : IModificationLookup
             var primaryList = primary?.ToList() ?? [];
             if (primaryList.Count > 0)
             {
+                // An identifier names the modification but not where it sits, so a terminal position
+                // is applied here: otherwise the residue preference below picks a side-chain entry
+                // (or one for the other terminus) over the terminal entry with the same identifier.
+                // Narrowing to nothing ends in ApplyCumulativeFilters, which returns null for no candidates.
+                primaryList = NarrowToTerminus(primaryList, context.Term);
+
+                // With no residue given, an identifier whose entries sit on different residues is ambiguous.
+                // SelectBestCandidate would still pick one when they share a formula (Phospho on C, S, T, ...).
+                var residueUnknown = !context.TargetResidue.HasValue &&
+                                     primaryList.Select(m => m.Target?.Motif ?? "").Distinct().Count() > 1;
+
                 // We have primary candidates from specific identifiers - try to select best match
-                var uniqueFromPrimary = SelectBestCandidate(primaryList, context.TargetResidue);
+                var uniqueFromPrimary = residueUnknown ? null : SelectBestCandidate(primaryList, context.TargetResidue);
                 if (uniqueFromPrimary != null)
                 {
                     return uniqueFromPrimary;
@@ -538,6 +549,29 @@ public abstract class ModificationLookupBase : IModificationLookup
         };
     }
 
+    /// <summary>
+    /// For an N- or C-terminal position, keeps the candidates restricted to that terminus, or, when there
+    /// are none, the candidates allowed anywhere. Candidates for the opposite terminus are never kept.
+    /// A residue position, or no position, leaves the candidates unchanged.
+    /// </summary>
+    private List<Modification> NarrowToTerminus(List<Modification> candidates, ModificationPositionType? term)
+    {
+        if (term is not (ModificationPositionType.NTerminus or ModificationPositionType.CTerminus))
+        {
+            return candidates;
+        }
+
+        var allowed = FilterByTerm(candidates, term.Value).ToList();
+        var terminal = allowed
+            .Where(m => !string.IsNullOrWhiteSpace(m.LocationRestriction) &&
+                        (term == ModificationPositionType.NTerminus
+                            ? IsNTerminalRestriction(m.LocationRestriction)
+                            : IsCTerminalRestriction(m.LocationRestriction)))
+            .ToList();
+
+        return terminal.Count > 0 ? terminal : allowed;
+    }
+
     private static bool IsNTerminalRestriction(string locationRestriction)
     {
         return locationRestriction.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) ||
@@ -565,13 +599,32 @@ public abstract class ModificationLookupBase : IModificationLookup
     protected IEnumerable<Modification> FilterByUnimodId(IEnumerable<Modification> source, int unimodId)
     {
         source ??= CandidateSet;
-        var idString = unimodId.ToString(CultureInfo.InvariantCulture);
 
         return source.Where(m =>
             (m.DatabaseReference != null &&
              m.DatabaseReference.Any(kvp => kvp.Key.Equals("UNIMOD", StringComparison.OrdinalIgnoreCase) &&
-                                             kvp.Value.Any(value => value.Contains(idString, StringComparison.OrdinalIgnoreCase))))
-            || (!string.IsNullOrEmpty(m.Accession) && m.Accession.Contains(idString, StringComparison.OrdinalIgnoreCase)));
+                                             kvp.Value.Any(value => IsUnimodId(value, unimodId))))
+            || IsUnimodId(m.Accession, unimodId));
+    }
+
+    /// <summary>
+    /// Whether <paramref name="value"/> is the Unimod id itself, written as "35" or "UNIMOD:35". The whole
+    /// id is compared: a substring test would let UNIMOD:1 match 10, 21 and 127.
+    /// </summary>
+    private static bool IsUnimodId(string? value, int unimodId)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        var id = value.Trim();
+        if (id.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase))
+        {
+            id = id["UNIMOD:".Length..];
+        }
+
+        return int.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out var parsed) && parsed == unimodId;
     }
 
     private IEnumerable<Modification> FilterByIdentifierSet(IEnumerable<Modification> source, HashSet<string> identifiers)

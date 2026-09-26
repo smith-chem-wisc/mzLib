@@ -1,0 +1,334 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?>
+<MzIdentML id="C:\Users\taod2\Desktop\Lumos Data\PD searched\500to10K_Plate1col3to8\500to10K_Plate1col3to8\500to10K_Plate1col3to8.pdResult" creationDate="2020-05-19T14:54:39" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" version="1.1.0" xmlns="http://psidev.info/psi/pi/mzIdentML/1.1">
+  <cvList xmlns="http://psidev.info/psi/pi/mzIdentML/1.1">
+    <cv id="PSI-MS" uri="http://psidev.cvs.sourceforge.net/viewvc/*checkout*/psidev/psi/psi-ms/mzML/controlledVocabulary/psi-ms.obo" version="3.30.0" fullName="Proteomics Standards Initiative Mass Spectrometry Ontology" />
+    <cv id="UNIMOD" uri="http://www.unimod.org/obo/unimod.obo" fullName="UNIMOD" />
+    <cv id="UO" uri="http://obo.cvs.sourceforge.net/*checkout*/obo/obo/ontology/phenotype/unit.obo" fullName="UNIT-ONTOLOGY" />
+  </cvList>
+  <AnalysisSoftwareList xmlns="http://psidev.info/psi/pi/mzIdentML/1.1">
+    <AnalysisSoftware version="2.2.0.388" name="2.2.0.388" id="Proteome Discoverer">
+      <SoftwareName>
+        <cvParam accession="MS:1000650" cvRef="PSI-MS" name="Proteome Discoverer" />
+      </SoftwareName>
+    </AnalysisSoftware>
+  </AnalysisSoftwareList>
+  <SequenceCollection xmlns="http://psidev.info/psi/pi/mzIdentML/1.1">
+    <DBSequence accession="O95881" searchDatabase_ref="SearchDB_1" length="172" id="-9218003044822153883">
+      <Seq>METRPRLGATCLLGFSFLLLVISSDGHNGLGKGFGDHIHWRTLEDGKKEAAASGLPLMVIIHKSWCGACKALKPKFAESTEISELSHNFVMVNLEDEEEPKDEDFSPDGGYIPRILFLDPSGKVHPEIINENGNPSYKYFYVSAEQVVQGMKEAQERLTGDAFRKKHLEDEL</Seq>
+      <cvParam accession="MS:1001088" cvRef="PSI-MS" name="protein description" value="Thioredoxin domain-containing protein 12 OS=Homo sapiens OX=9606 GN=TXNDC12 PE=1 SV=1" />
+    </DBSequence>
+    <Peptide id="-4_388273_198521">
+      <PeptideSequence>EAAASGLPLMVIIHK</PeptideSequence>
+    </Peptide>
+    <Peptide id="-4_402424_1330354">
+      <PeptideSequence>YFYVSAEQVVQGMK</PeptideSequence>
+    </Peptide>
+    <Peptide id="-4_1162189_198521">
+      <PeptideSequence>EAAASGLPLMVIIHK</PeptideSequence>
+    </Peptide>
+    <PeptideEvidence post="S" pre="K" end="62" start="48" peptide_ref="-4_388273_198521" dBSequence_ref="-9218003044822153883" id="PE_198521_-4_388273_198521_-9218003044822153883" />
+    <PeptideEvidence post="E" pre="K" end="151" start="138" peptide_ref="-4_402424_1330354" dBSequence_ref="-9218003044822153883" id="PE_1330354_-4_402424_1330354_-9218003044822153883" />
+    <PeptideEvidence post="S" pre="K" end="62" start="48" peptide_ref="-4_1162189_198521" dBSequence_ref="-9218003044822153883" id="PE_198521_-4_1162189_198521_-9218003044822153883" />
+  </SequenceCollection>
+  <AnalysisCollection xmlns="http://psidev.info/psi/pi/mzIdentML/1.1">
+    <SpectrumIdentification spectrumIdentificationList_ref="SI_LIST_1" spectrumIdentificationProtocol_ref="SpecIdentProt_1" id="SpecIdent_1">
+      <InputSpectra spectraData_ref="ID_MZML_FILE_with_spectra" />
+      <SearchDatabaseRef searchDatabase_ref="SearchDB_1" />
+    </SpectrumIdentification>
+  </AnalysisCollection>
+  <AnalysisProtocolCollection xmlns="http://psidev.info/psi/pi/mzIdentML/1.1">
+    <SpectrumIdentificationProtocol analysisSoftware_ref="Proteome Discoverer" id="SpecIdentProt_1">
+      <SearchType>
+        <cvParam accession="MS:1001083" cvRef="PSI-MS" name="ms-ms search" />
+      </SearchType>
+      <Enzymes>
+        <Enzyme id="Trypsin" missedCleavages="2">
+          <EnzymeName>
+            <cvParam accession="MS:1001251" cvRef="PSI-MS" name="Trypsin" />
+          </EnzymeName>
+        </Enzyme>
+      </Enzymes>
+      <Threshold>
+        <cvParam accession="MS:1001494" cvRef="PSI-MS" name="no threshold" />
+      </Threshold>
+    </SpectrumIdentificationProtocol>
+  </AnalysisProtocolCollection>
+  <DataCollection>
+    <Inputs>
+      <SearchDatabase location="C:\" id="SearchDB_1">
+        <FileFormat>
+          <cvParam accession="MS:1001348" cvRef="PSI-MS" name="FASTA format" />
+        </FileFormat>
+        <DatabaseName>
+          <userParam name="Human_uniprot_2019Jan" />
+        </DatabaseName>
+        <cvParam accession="MS:1001197" cvRef="PSI-MS" name="DB composition target+decoy" />
+      </SearchDatabase>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\PD searched\500to10K_Plate1col3to8\500to10K_Plate1col3to8\500to10K_Plate1col3to8.mzML" name="MzML spectra file" id="ID_MZML_FILE_with_spectra">
+        <FileFormat>
+          <cvParam accession="MS:1000584" cvRef="PSI-MS" name="mzML format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\1K_4D.raw" name="1K_4D.raw" id="454">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\1K_4E.raw" name="1K_4E.raw" id="455">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\1K_4F.raw" name="1K_4F.raw" id="456">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\1K_4G.raw" name="1K_4G.raw" id="457">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\1K_4H.raw" name="1K_4H.raw" id="458">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\3K_5E.raw" name="3K_5E.raw" id="459">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\3K_5F.raw" name="3K_5F.raw" id="460">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\3K_5G.raw" name="3K_5G.raw" id="461">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\3K_5H.raw" name="3K_5H.raw" id="462">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\5K_6D.raw" name="5K_6D.raw" id="463">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\5K_6E.raw" name="5K_6E.raw" id="464">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\5K_6F.raw" name="5K_6F.raw" id="465">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\5K_6G.raw" name="5K_6G.raw" id="466">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\5K_6H.raw" name="5K_6H.raw" id="467">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\7K_7D.raw" name="7K_7D.raw" id="468">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\7K_7E.raw" name="7K_7E.raw" id="469">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\7K_7F.raw" name="7K_7F.raw" id="470">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\7K_7G.raw" name="7K_7G.raw" id="471">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\7K_7H.raw" name="7K_7H.raw" id="472">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\10K_8D.raw" name="10K_8D.raw" id="473">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\10K_8E.raw" name="10K_8E.raw" id="474">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\10K_8F.raw" name="10K_8F.raw" id="475">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\10K_8G.raw" name="10K_8G.raw" id="476">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\10K_8H.raw" name="10K_8H.raw" id="477">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\500_3D.raw" name="500_3D.raw" id="478">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\500_3E.raw" name="500_3E.raw" id="479">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\500_3F.raw" name="500_3F.raw" id="480">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\500_3G.raw" name="500_3G.raw" id="481">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+      <SpectraData location="C:\Users\taod2\Desktop\Lumos Data\APB_001_029_500to10K_Plate1col3to8\500_3H.raw" name="500_3H.raw" id="482">
+        <FileFormat>
+          <cvParam accession="MS:1000563" cvRef="PSI-MS" name="Thermo RAW format" />
+        </FileFormat>
+        <SpectrumIDFormat>
+          <cvParam accession="MS:1000768" cvRef="PSI-MS" name="Thermo nativeID format" />
+        </SpectrumIDFormat>
+      </SpectraData>
+    </Inputs>
+    <AnalysisData>
+      <SpectrumIdentificationList id="SI_LIST_1">
+        <SpectrumIdentificationResult spectraData_ref="ID_MZML_FILE_with_spectra" spectrumID="scan=81409 file=454" id="SIR_454_81409">
+          <SpectrumIdentificationItem passThreshold="true" rank="1" peptide_ref="-4_388273_198521" experimentalMassToCharge="517.297609364367" calculatedMassToCharge="517.29720453" chargeState="3" id="SII__454_81409_1">
+            <PeptideEvidenceRef peptideEvidence_ref="PE_198521_-4_388273_198521_-9218003044822153883" />
+            <userParam name="Proteome Discoverer Delta Score" value="0.0106" />
+          </SpectrumIdentificationItem>
+          <cvParam accession="MS:1000894" cvRef="PSI-MS" name="retention time" value="57.680778219366" />
+        </SpectrumIdentificationResult>
+        <SpectrumIdentificationResult spectraData_ref="ID_MZML_FILE_with_spectra" spectrumID="scan=84210 file=454" id="SIR_454_84210">
+          <SpectrumIdentificationItem passThreshold="true" rank="1" peptide_ref="-4_402424_1330354" experimentalMassToCharge="824.909816436817" calculatedMassToCharge="824.905615775" chargeState="2" id="SII__454_84210_1">
+            <PeptideEvidenceRef peptideEvidence_ref="PE_1330354_-4_402424_1330354_-9218003044822153883" />
+            <userParam name="Proteome Discoverer Delta Score" value="0.0662" />
+          </SpectrumIdentificationItem>
+          <cvParam accession="MS:1000894" cvRef="PSI-MS" name="retention time" value="59.3033298103562" />
+        </SpectrumIdentificationResult>
+        <SpectrumIdentificationResult spectraData_ref="ID_MZML_FILE_with_spectra" spectrumID="scan=81596 file=455" id="SIR_455_81596">
+          <SpectrumIdentificationItem passThreshold="true" rank="1" peptide_ref="-4_1162189_198521" experimentalMassToCharge="517.297409435224" calculatedMassToCharge="517.29720453" chargeState="3" id="SII__455_81596_1">
+            <PeptideEvidenceRef peptideEvidence_ref="PE_198521_-4_1162189_198521_-9218003044822153883" />
+            <userParam name="Proteome Discoverer Delta Score" value="0.027" />
+          </SpectrumIdentificationItem>
+          <cvParam accession="MS:1000894" cvRef="PSI-MS" name="retention time" value="57.6956711137869" />
+        </SpectrumIdentificationResult>
+</SpectrumIdentificationList>
+</AnalysisData>
+</DataCollection>
+</MzIdentML>
