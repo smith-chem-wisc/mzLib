@@ -278,15 +278,17 @@ namespace Readers
             new(@"^(1[23]\d[NC]?|11[3-9]|121)$", System.Text.RegularExpressions.RegexOptions.Compiled);
 
         /// <summary>
-        /// Where the header zone ends: the first line nearly as full as the fullest (three quarters) that holds a plain
-        /// number other than a channel tag -- a row or batch number, an age. Taking simply the first fullest line
-        /// failed where close-set IDs fuse into one cell on some rows (PXD007160, page 5).
+        /// Where the header zone ends: the first fullest line, or earlier, the first line nearly as full (three
+        /// quarters) that holds a plain number other than a channel tag -- a row or batch number, an age. The fullest
+        /// line alone failed where close-set IDs fuse into one cell on some rows (PXD007160, page 5).
         /// </summary>
         private static int FirstDataLine(List<PdfLine> block, int most)
         {
-            int i = block.FindIndex(l => l.Cells.Count >= 0.75 * most
+            int numbered = block.FindIndex(l => l.Cells.Count >= 0.75 * most
                 && l.Cells.Any(c => Numeric.IsMatch(c.Text) && !ChannelTag.IsMatch(c.Text)));
-            return i >= 0 ? i : block.FindIndex(l => l.Cells.Count == most);
+            int fullest = block.FindIndex(l => l.Cells.Count == most);
+            // Whichever comes first: a table with no numbers (a strain list) must not lose rows to its header.
+            return numbered >= 0 ? Math.Min(numbered, fullest) : fullest;
         }
 
         /// <summary>
