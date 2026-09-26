@@ -40,7 +40,7 @@ namespace Test.FileReadingTests
 
         private static string Answer(string design, params string[] claims) => $$"""{"claims":[{{string.Join(",", claims)}}],"design":{{design}}}""";
 
-        private const string NoDesign = """{"groups":[],"technical_replicates":0,"fractions_per_sample":0,"runs_stated":0,"quote":""}""";
+        private const string NoDesign = """{"groups":[],"plexes":0,"technical_replicates":0,"fractions_per_sample":0,"runs_stated":0,"quote":""}""";
 
         [Test]
         public void AClaimQuotingATableRowIsKeptWithTheRowAsItsLocator()
@@ -82,7 +82,7 @@ namespace Test.FileReadingTests
         [Test]
         public void ADesignIsKeptOnlyWithARealQuoteAndItsRunsAreCounted()
         {
-            const string design = """{"groups":[{"name":"HFpEF","samples":10},{"name":"non-failing","samples":10}],"technical_replicates":1,"fractions_per_sample":0,"runs_stated":0,"quote":"collected from 10 HFpEF patients and 10 non-failing donors"}""";
+            const string design = """{"groups":[{"name":"HFpEF","samples":10},{"name":"non-failing","samples":10}],"plexes":0,"technical_replicates":1,"fractions_per_sample":0,"runs_stated":0,"quote":"collected from 10 HFpEF patients and 10 non-failing donors"}""";
 
             var r = ModelEvidenceReader.Interpret(Answer(design), Input());
 
@@ -93,6 +93,19 @@ namespace Test.FileReadingTests
             var r2 = ModelEvidenceReader.Interpret(Answer(invented), Input());
             Assert.That(r2.Design, Is.Null);
             Assert.That(r2.Rejected.Single(), Does.StartWith("design"));
+        }
+
+        [Test]
+        public void AnIsobaricDesignCountsRunsByPlexNotBySample()
+        {
+            // PXD010429: 174 samples in 29 TMT 6-plexes, 12 fractions, injected twice = 696 runs, the deposit's count.
+            var input = Input() with { PaperText = "The 174 samples were distributed across 29 TMT 6-plexes and separated into twelve concatenated fractions, each injected twice." };
+            const string design = """{"groups":[{"name":"tumor","samples":116},{"name":"pool","samples":58}],"plexes":29,"technical_replicates":2,"fractions_per_sample":12,"runs_stated":0,"quote":"distributed across 29 TMT 6-plexes"}""";
+
+            var d = ModelEvidenceReader.Interpret(Answer(design), input).Design!;
+
+            Assert.That(d.Plexes, Is.EqualTo(29));
+            Assert.That(d.PredictedRuns, Is.EqualTo(696), "plexes x fractions x injections, not samples");
         }
 
         [Test]

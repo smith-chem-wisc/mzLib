@@ -22,13 +22,20 @@ namespace SampleEvidenceModel
         IReadOnlyList<string> RawFiles,
         IReadOnlyList<SdrfEvidence> RuleEvidence);
 
-    /// <summary>The design a publication states (the user's counting check, sdrf G36 check 3); 0 means not stated.</summary>
-    internal sealed record StatedDesign(IReadOnlyList<(string Name, int Samples)> Groups, int TechnicalReplicates, int FractionsPerSample,
-        int RunsStated, string Quote)
+    /// <summary>
+    /// The design a publication states (the user's counting check, sdrf G36 check 3); 0 means not stated.
+    /// <see cref="Plexes"/> is the number of isobaric (TMT/iTRAQ) plexes: there several samples share one run.
+    /// </summary>
+    internal sealed record StatedDesign(IReadOnlyList<(string Name, int Samples)> Groups, int Plexes, int TechnicalReplicates,
+        int FractionsPerSample, int RunsStated, string Quote)
     {
-        /// <summary>Groups x samples x technical replicates x fractions, or 0 when the groups are not stated.</summary>
-        public int PredictedRuns => Groups.Count == 0 ? 0
-            : Groups.Sum(g => g.Samples) * Math.Max(1, TechnicalReplicates) * Math.Max(1, FractionsPerSample);
+        /// <summary>
+        /// The raw files the design implies: label-free, samples x fractions x injections; isobaric, PLEXES x fractions x
+        /// injections (PXD010429: 29 x 12 x 2 = 696). 0 when neither groups nor plexes are stated.
+        /// </summary>
+        public int PredictedRuns => (Plexes > 0 ? Plexes : Groups.Sum(g => g.Samples)) is var units and > 0
+            ? units * Math.Max(1, TechnicalReplicates) * Math.Max(1, FractionsPerSample)
+            : 0;
     }
 
     /// <summary>A model reading: the claims that passed validation, the ones that did not and why, and what it cost.</summary>
@@ -140,8 +147,9 @@ namespace SampleEvidenceModel
             - Do not repeat what the rule-based reader already found; add what is missing and correct nothing silently.
             - confidence: "likely" when the text states it for these samples; "guess" when you inferred it.
 
-            Design: the groups the study compares with the number of biological samples in each, technical replicates
-            per sample, fractions per sample, and the number of runs if stated, with the quote that states it. Use 0 for
+            Design: the groups the study compares with the number of biological samples in each; for isobaric labelling
+            the number of plexes (several samples share one run); technical replicates (injections) per sample or plex;
+            fractions per sample or plex; and the number of runs if stated, with the quote that states it. Use 0 for
             anything not stated, and an empty list of groups when the text states none.
 
             If nothing can be claimed, return an empty list of claims.
@@ -187,10 +195,11 @@ namespace SampleEvidenceModel
             {
                 type = "object",
                 additionalProperties = false,
-                required = new[] { "groups", "technical_replicates", "fractions_per_sample", "runs_stated", "quote" },
+                required = new[] { "groups", "plexes", "technical_replicates", "fractions_per_sample", "runs_stated", "quote" },
                 properties = new
                 {
                     groups = new { type = "array", items = group },
+                    plexes = integer,
                     technical_replicates = integer, fractions_per_sample = integer, runs_stated = integer, quote = str
                 }
             };
@@ -261,7 +270,7 @@ namespace SampleEvidenceModel
                 string quote = d.TryGetProperty("quote", out var q) ? q.GetString() ?? "" : "";
                 // A design is only as good as its quote.
                 if (groups.Count > 0 && Norm(quote).Length >= 3 && corpus.Contains(Norm(quote), StringComparison.Ordinal))
-                    design = new StatedDesign(groups, Int("technical_replicates"), Int("fractions_per_sample"), Int("runs_stated"), quote);
+                    design = new StatedDesign(groups, Int("plexes"), Int("technical_replicates"), Int("fractions_per_sample"), Int("runs_stated"), quote);
                 else if (groups.Count > 0)
                     rejected.Add("design: the quote is not in the given text");
             }
