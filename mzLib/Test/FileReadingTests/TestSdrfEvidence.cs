@@ -251,6 +251,26 @@ namespace Test.FileReadingTests
             Assert.That(SdrfEvidence.GlobMatches(pattern, file), Is.EqualTo(matches));
 
         [Test]
+        public void AnEvidenceFileSkipsBlankLinesReadsShortRowsAndRefusesAnUnknownConfidence()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "evidence-edges.tsv");
+            const string header = "confidence\tdata file\tlabel\tcolumn\tvalue\tsource\tlocator\tmethod\n";
+            File.WriteAllText(path, header + "\nlikely\tA.raw\t\tcharacteristics[age]\n");
+
+            var claim = SdrfEvidenceFile.Read(path).Single();
+            Assert.That((claim.Confidence, claim.Column, claim.Value, claim.Method), Is.EqualTo((SdrfEvidenceConfidence.Likely, "characteristics[age]", "", "")),
+                "columns are found by name, and cells past a short row's end are empty");
+
+            File.WriteAllText(path, header + "stated\tA.raw\t\tcharacteristics[age]\t40Y\tpaper\tx\trules\n");
+            var e = Assert.Throws<MzLibException>(() => SdrfEvidenceFile.Read(path));
+            Assert.That(e!.Message, Does.Contain("line 2").And.Contain("stated"));
+
+            File.WriteAllText(path, "");
+            Assert.Throws<MzLibException>(() => SdrfEvidenceFile.Read(path));
+            File.Delete(path);
+        }
+
+        [Test]
         public void AnEvidenceFileWithoutItsColumnsIsRefused()
         {
             string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "evidence-bad.tsv");

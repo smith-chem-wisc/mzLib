@@ -70,6 +70,15 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void NullCommentsAreRefusedAndNameTheRow()
+        {
+            var rows = new[] { Row("s1", "a.raw", new()), Row("s2", "b.raw", null!) };
+
+            var e = Assert.Throws<ArgumentException>(() => SdrfBuilder.Build(rows, Lenient));
+            Assert.That(e!.Message, Does.Contain("Row 1").And.Contain("Comments"));
+        }
+
+        [Test]
         public void ACommentThatCollidesWithABuiltInColumnThrows()
         {
             var rows = new[] { Row("s1", "a.raw", new() { ["comment[data file]"] = "x.raw" }) };
