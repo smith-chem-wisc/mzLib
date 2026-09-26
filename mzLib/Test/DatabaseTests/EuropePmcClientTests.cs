@@ -177,6 +177,202 @@ namespace Test.DatabaseTests
             Assert.That(found, Is.True);
             Assert.That(article.PmcId, Is.EqualTo("PMC6910996"));
         }
+
+        /// <summary>Delivers a few bytes and then goes silent, honouring only cancellation (PrideArchiveDownloadTests' StallingStream).</summary>
+        private sealed class StallingStream : Stream
+        {
+            private int _bytesBeforeStall;
+            public StallingStream(int bytesBeforeStall) => _bytesBeforeStall = bytesBeforeStall;
+
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                if (_bytesBeforeStall > 0)
+                {
+                    int n = Math.Min(buffer.Length, _bytesBeforeStall);
+                    buffer.Span.Slice(0, n).Fill((byte)'<');
+                    _bytesBeforeStall -= n;
+                    return n;
+                }
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                return 0;
+            }
+
+            public override int Read(byte[] buffer, int offset, int count) => ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        private static readonly EuropePmcArticle Open = new() { PmcId = "PMC6910996", HasFullText = true };
+
+        [TestCase("<html>Service temporarily down</html>")]
+        [TestCase("""{"version":"6.9","hitCount":0}""")]
+        public void ASearchAnswerThatIsNotAResultListIsAContractFailure(string body)
+        {
+            using var client = new EuropePmcClient(new HttpClient(new StubHandler(_ => Text(body))));
+
+            Assert.ThrowsAsync<MzLibException>(() => client.TryFindArticleAsync(31836719, ""));
+        }
+
+        [Test]
+        public async Task AnArticleIsHeldInFullTextOnlyWhenEuropePmcSaysSo()
+        {
+            // Not in Europe PMC, with a PMCID Europe PMC does not list: no full text, so nothing is ever requested.
+            const string notHeld = """{"resultList":{"result":[{"pmid":"1","pmcid":"PMC1","inEPMC":"N","fullTextIdList":{"fullTextId":["PMC9"]}}]}}""";
+            // Listed without the inEPMC flag: held.
+            const string listed = """{"resultList":{"result":[{"pmid":"2","pmcid":"PMC2","inEPMC":"N","fullTextIdList":{"fullTextId":["PMC2"]}}]}}""";
+            // No identifiers at all: every string is empty, never null.
+            const string bare = """{"resultList":{"result":[{"source":"MED"}]}}""";
+
+            async Task<EuropePmcArticle> Find(string body)
+            {
+                using var client = new EuropePmcClient(new HttpClient(new StubHandler(_ => Text(body))));
+                return (await client.TryFindArticleAsync(1, "")).Article;
+            }
+
+            Assert.That((await Find(notHeld)).HasFullText, Is.False);
+            Assert.That((await Find(listed)).HasFullText, Is.True);
+            var b = await Find(bare);
+            Assert.That((b.PubMedId, b.PmcId, b.Doi, b.Title, b.HasFullText, b.IsOpenAccess), Is.EqualTo(("", "", "", "", false, false)));
+        }
+
+        [Test]
+        public async Task AFullTextThatIsMissingIsAValueAndOneThatIsNotXmlIsAFailure()
+        {
+            string dir = TempDir();
+
+            using (var missing = new EuropePmcClient(new HttpClient(new StubHandler(_ => Text("", HttpStatusCode.NotFound)))))
+                Assert.That((await missing.TryDownloadFullTextXmlAsync(Open, dir)).Found, Is.False);
+
+            foreach (var notXml in new[] { "{\"error\":true}", "   " })
+            {
+                using var client = new EuropePmcClient(new HttpClient(new StubHandler(_ => Text(notXml))));
+                Assert.ThrowsAsync<MzLibException>(() => client.TryDownloadFullTextXmlAsync(Open, dir), notXml);
+            }
+            Assert.That(Directory.GetFiles(dir), Is.Empty, "nothing that failed is written");
+        }
+
+        [Test]
+        public async Task AFullTextWithAByteOrderMarkIsXmlAndOverwriteFetchesItAgain()
+        {
+            string dir = TempDir();
+            byte[] withBom = new byte[] { 0xEF, 0xBB, 0xBF }.Concat(Encoding.UTF8.GetBytes("\n <article/>")).ToArray();
+            var handler = new StubHandler(_ => Bytes(withBom));
+            using var client = new EuropePmcClient(new HttpClient(handler));
+
+            var (found, path) = await client.TryDownloadFullTextXmlAsync(Open, dir);
+            await client.TryDownloadFullTextXmlAsync(Open, dir, overwrite: true);
+
+            Assert.That(found, Is.True);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(withBom));
+            Assert.That(handler.RequestedUris, Has.Count.EqualTo(2), "overwrite ignores the file on disk");
+        }
+
+        [TestCase(null)]
+        [TestCase(new byte[] { (byte)'P', (byte)'K', 3 })]
+        [TestCase(new byte[] { (byte)'P', (byte)'X', 3, 4 })]
+        [TestCase(new byte[] { (byte)'<', (byte)'K', 3, 4 })]
+        public async Task OnlyAZipIsASupplement(byte[] body)
+        {
+            string dir = TempDir();
+            using var client = new EuropePmcClient(new HttpClient(new StubHandler(_ => body == null ? Text("", HttpStatusCode.NotFound) : Bytes(body))));
+
+            var (found, _) = await client.TryDownloadSupplementaryFilesAsync(Open, dir);
+
+            Assert.That(found, Is.False);
+            Assert.That(Directory.GetFiles(dir), Is.Empty);
+        }
+
+        [Test]
+        public async Task SupplementsOnDiskAreReusedAndAClosedArticleIsNeverAsked()
+        {
+            string dir = TempDir();
+            var handler = new StubHandler(_ => Bytes(Zip()));
+            using var client = new EuropePmcClient(new HttpClient(handler));
+
+            await client.TryDownloadSupplementaryFilesAsync(Open, dir);
+            var (again, _) = await client.TryDownloadSupplementaryFilesAsync(Open, dir);
+            var (closed, _) = await client.TryDownloadSupplementaryFilesAsync(new EuropePmcArticle { PmcId = "PMC1" }, dir);
+            var (noId, _) = await client.TryDownloadSupplementaryFilesAsync(new EuropePmcArticle { HasFullText = true }, dir);
+
+            Assert.That((again, closed, noId), Is.EqualTo((true, false, false)));
+            Assert.That(handler.RequestedUris, Has.Count.EqualTo(1));
+        }
+
+        [TestCase("PMC1/../../x")]
+        [TestCase("..")]
+        public void APmcIdThatIsAPathIsRefusedBeforeAnyRequest(string pmcId)
+        {
+            var handler = new StubHandler(_ => Bytes(Zip()));
+            using var client = new EuropePmcClient(new HttpClient(handler));
+            var article = new EuropePmcArticle { PmcId = pmcId, HasFullText = true };
+
+            Assert.ThrowsAsync<ArgumentException>(() => client.TryDownloadSupplementaryFilesAsync(article, TempDir()));
+            Assert.That(handler.RequestedUris, Is.Empty);
+        }
+
+        [Test]
+        public void MalformedArgumentsThrow()
+        {
+            Assert.Throws<ArgumentNullException>(() => new EuropePmcClient(null!));
+            using var client = new EuropePmcClient(new HttpClient(new StubHandler(_ => Bytes(Zip()))));
+            Assert.ThrowsAsync<ArgumentNullException>(() => client.TryFindArticleAsync((PrideReference)null!));
+            Assert.ThrowsAsync<ArgumentNullException>(() => client.TryDownloadFullTextXmlAsync(null!, TempDir()));
+            Assert.ThrowsAsync<ArgumentException>(() => client.TryDownloadFullTextXmlAsync(Open, " "));
+        }
+
+        [Test]
+        public async Task ASuppliedBaseAddressIsKept()
+        {
+            var handler = new StubHandler(_ => Text(Hit));
+            using var client = new EuropePmcClient(new HttpClient(handler) { BaseAddress = new Uri("http://mirror.example/rest/") });
+
+            await client.TryFindArticleAsync(31836719, "");
+
+            Assert.That(handler.RequestedUris.Single(), Does.StartWith("http://mirror.example/rest/search"));
+        }
+
+        [Test]
+        public void ABodyThatStallsIsAnOutageAndLeavesNoFile()
+        {
+            string dir = TempDir();
+            var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StallingStream(4)) });
+            using var client = new EuropePmcClient(new HttpClient(handler)) { BodyStallTimeout = TimeSpan.FromMilliseconds(200) };
+
+            var e = Assert.ThrowsAsync<HttpRequestException>(() => client.TryDownloadFullTextXmlAsync(Open, dir));
+
+            Assert.That(e!.Message, Does.Contain("delivered nothing"));
+            Assert.That(Directory.GetFiles(dir), Is.Empty);
+        }
+
+        [Test]
+        public void ACallerCancellingDuringTheBodyStaysACancellation()
+        {
+            var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new StallingStream(4)) });
+            using var client = new EuropePmcClient(new HttpClient(handler)) { BodyStallTimeout = TimeSpan.FromSeconds(30) };
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+
+            Assert.CatchAsync<OperationCanceledException>(() => client.TryDownloadFullTextXmlAsync(Open, TempDir(), cancellationToken: cts.Token));
+        }
+
+        [Test]
+        public void TheDefaultClientDisposesOnceAndASuppliedHttpClientIsLeftOpen()
+        {
+            var own = new EuropePmcClient();
+            Assert.That(own.BodyStallTimeout, Is.EqualTo(TimeSpan.FromMinutes(2)));
+            own.Dispose();
+            Assert.That(() => own.Dispose(), Throws.Nothing, "idempotent");
+
+            var http = new HttpClient(new StubHandler(_ => Text(Hit)));
+            new EuropePmcClient(http).Dispose();
+            Assert.That(() => http.GetAsync("http://x/").GetAwaiter().GetResult(), Throws.Nothing, "the caller's HttpClient is not disposed");
+        }
     }
 
     [TestFixture]
