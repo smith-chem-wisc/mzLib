@@ -140,6 +140,9 @@ namespace SampleEvidenceModel
             - data_file: one raw file name exactly as listed, or "" when the value holds for every file of the deposit.
               Assign per-file values only when the text links a sample to a file (a sample ID that appears in the file
               name, an explicit table, a stated run order). Never assign by guessing an order.
+            - data_file_pattern: when the value holds for a SET of the files (the TMT6 files, Set A, one tissue), a glob
+              over the file names (* any characters, ? one), with data_file "". It must match at least one listed file.
+              Otherwise "".
             - label: for isobaric labelling, the channel as TMT126, TMT127N, TMTpro134C or iTRAQ114; for SILAC, the
               state as SILAC light, SILAC medium or SILAC heavy (one claim per state, each for its own sample);
               otherwise "".
@@ -187,10 +190,10 @@ namespace SampleEvidenceModel
             {
                 type = "object",
                 additionalProperties = false,
-                required = new[] { "data_file", "label", "column", "value", "source", "quote", "confidence" },
+                required = new[] { "data_file", "data_file_pattern", "label", "column", "value", "source", "quote", "confidence" },
                 properties = new
                 {
-                    data_file = str, label = str, column = str, value = str,
+                    data_file = str, data_file_pattern = str, label = str, column = str, value = str,
                     source = new { type = "string", @enum = new[] { "paper", "supplement", "pride record" } },
                     quote = str,
                     confidence = new { type = "string", @enum = new[] { "likely", "guess" } }
@@ -249,23 +252,25 @@ namespace SampleEvidenceModel
                 foreach (var c in claims.EnumerateArray())
                 {
                     string Get(string name) => c.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()!.Trim() : "";
-                    string file = Get("data_file"), label = Get("label"), column = Get("column").ToLowerInvariant(), value = Get("value"),
-                        source = Get("source"), quote = Get("quote"), confidence = Get("confidence");
-                    string what = $"{(file.Length > 0 ? file : "(all files)")} {label} {column} = '{value}'";
+                    string file = Get("data_file"), pattern = Get("data_file_pattern"), label = Get("label"), column = Get("column").ToLowerInvariant(),
+                        value = Get("value"), source = Get("source"), quote = Get("quote"), confidence = Get("confidence");
+                    string what = $"{(file.Length > 0 ? file : pattern.Length > 0 ? pattern : "(all files)")} {label} {column} = '{value}'";
 
                     if (value.Length == 0) { rejected.Add($"{what}: no value"); continue; }
                     if (!Column.IsMatch(column)) { rejected.Add($"{what}: not an SDRF column"); continue; }
                     if (label.Length > 0 && !Label.IsMatch(label)) { rejected.Add($"{what}: not a channel label"); continue; }
                     if (file.Length > 0 && !files.TryGetValue(file, out file!)) { rejected.Add($"{what}: not one of the deposit's raw files"); continue; }
+                    if (pattern.Length > 0 && file.Length > 0) { rejected.Add($"{what}: names both a file and a file pattern"); continue; }
+                    if (pattern.Length > 0 && !input.RawFiles.Any(f => SdrfEvidence.GlobMatches(pattern, f))) { rejected.Add($"{what}: the file pattern matches none of the deposit's raw files"); continue; }
                     string rowRef = RowRef.Match(quote) is { Success: true } m && refs.Contains(m.Groups[1].Value) ? m.Groups[1].Value : "";
                     string bare = Norm(RowRef.Replace(quote, " "));
                     if (bare.Length < 3 || !corpus.Contains(bare, StringComparison.Ordinal)) { rejected.Add($"{what}: the quote is not in the given text"); continue; }
-                    if (!seen.Add((file, label, column))) continue;
+                    if (!seen.Add((file + "|" + pattern, label, column))) continue;
 
                     string locator = rowRef.Length > 0 ? rowRef : $"{source}: \"{Truncate(quote, 160)}\"";
                     evidence.Add(new SdrfEvidence(file, label, column, value,
                         source is "paper" or "supplement" or "pride record" ? source : "paper", locator, "model",
-                        confidence == "guess" ? SdrfEvidenceConfidence.Guess : SdrfEvidenceConfidence.Likely));
+                        confidence == "guess" ? SdrfEvidenceConfidence.Guess : SdrfEvidenceConfidence.Likely, pattern));
                 }
 
             StatedDesign? design = null;

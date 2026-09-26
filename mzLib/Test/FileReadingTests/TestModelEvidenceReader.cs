@@ -35,8 +35,8 @@ namespace Test.FileReadingTests
             new[] { "HumanHFpEF_1.raw", "HumanControl_1.raw" },
             Array.Empty<SdrfEvidence>());
 
-        private static string Claim(string file, string column, string value, string quote, string source = "supplement", string confidence = "likely", string label = "") =>
-            $$"""{"data_file":"{{file}}","label":"{{label}}","column":"{{column}}","value":"{{value}}","source":"{{source}}","quote":"{{quote}}","confidence":"{{confidence}}"}""";
+        private static string Claim(string file, string column, string value, string quote, string source = "supplement", string confidence = "likely", string label = "", string pattern = "") =>
+            $$"""{"data_file":"{{file}}","data_file_pattern":"{{pattern}}","label":"{{label}}","column":"{{column}}","value":"{{value}}","source":"{{source}}","quote":"{{quote}}","confidence":"{{confidence}}"}""";
 
         private static string Answer(string design, params string[] claims) => $$"""{"claims":[{{string.Join(",", claims)}}],"design":{{design}}}""";
 
@@ -143,6 +143,20 @@ namespace Test.FileReadingTests
         [TestCase("n = 10 per group", 10, true)]
         public void AQuoteStatesANumberAsDigitsOrWords(string quote, int n, bool states) =>
             Assert.That(ModelEvidenceReader.States(quote, n), Is.EqualTo(states));
+
+        [Test]
+        public void AClaimAboutASetOfFilesKeepsItsPatternAndAPatternMatchingNothingIsRejected()
+        {
+            const string q = "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77";
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign,
+                Claim("", "characteristics[disease]", "HFpEF", q, pattern: "HumanHFpEF_*"),
+                Claim("", "characteristics[disease]", "x", q, pattern: "*_TMT6_*"),
+                Claim("HumanHFpEF_1.raw", "characteristics[sex]", "female", q, pattern: "Human*")), Input());
+
+            Assert.That(r.Evidence.Single().DataFilePattern, Is.EqualTo("HumanHFpEF_*"));
+            Assert.That(r.Rejected, Has.Some.EndsWith("the file pattern matches none of the deposit's raw files"));
+            Assert.That(r.Rejected, Has.Some.EndsWith("names both a file and a file pattern"));
+        }
 
         [Test]
         public void AGuessStaysAGuessAndDuplicatesCollapse()
