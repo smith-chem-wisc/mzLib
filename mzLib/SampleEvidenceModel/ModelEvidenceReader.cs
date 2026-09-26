@@ -25,15 +25,18 @@ namespace SampleEvidenceModel
     /// <summary>
     /// The design a publication states (the user's counting check, sdrf G36 check 3); 0 means not stated.
     /// <see cref="Plexes"/> is the number of multiplexed (TMT/iTRAQ/SILAC) plexes or mixes: there several samples share one run.
+    /// Every number here was quoted from the given text by a quote that states it (<see cref="ModelEvidenceReader.Interpret"/>):
+    /// a count read off the file names would make the check agree with itself (G36 rerun: PXD006430, PXD011967).
     /// </summary>
     internal sealed record StatedDesign(IReadOnlyList<(string Name, int Samples)> Groups, int Plexes, int TechnicalReplicates,
-        int FractionsPerSample, int RunsStated, string Quote)
+        int FractionsPerSample, int RunsStated, IReadOnlyList<string> Quotes)
     {
         /// <summary>
         /// The raw files the design implies: label-free, samples x fractions x injections; multiplexed, PLEXES x fractions x
-        /// injections (PXD010429: 29 x 12 x 2 = 696). 0 when neither groups nor plexes are stated.
+        /// injections (PXD010429: 29 x 12 x 2 = 696). 0 when it cannot be counted: no plexes and no groups, or a label-free
+        /// design with a group whose size is not stated (a partial sum would read as a mismatch).
         /// </summary>
-        public int PredictedRuns => (Plexes > 0 ? Plexes : Groups.Sum(g => g.Samples)) is var units and > 0
+        public int PredictedRuns => (Plexes > 0 ? Plexes : Groups.Any(g => g.Samples == 0) ? 0 : Groups.Sum(g => g.Samples)) is var units and > 0
             ? units * Math.Max(1, TechnicalReplicates) * Math.Max(1, FractionsPerSample)
             : 0;
     }
@@ -151,8 +154,10 @@ namespace SampleEvidenceModel
 
             Design: the groups the study compares with the number of biological samples in each; for multiplexed labelling
             (TMT, iTRAQ, SILAC) the number of plexes or mixes (several samples share one run); technical replicates (injections) per sample or plex;
-            fractions per sample or plex; and the number of runs if stated, with the quote that states it. Use 0 for
-            anything not stated, and an empty list of groups when the text states none.
+            fractions per sample or plex; and the number of runs if stated. Give each number its own quote, copied
+            verbatim, that contains that number (as digits or a word such as "twelve", "twice" or "triplicate"). A number
+            the text does not state is 0 with an empty quote: never count files, file names or table rows to get one.
+            Use an empty list of groups when the text states none.
 
             If nothing can be claimed, return an empty list of claims.
             """;
@@ -191,17 +196,20 @@ namespace SampleEvidenceModel
                     confidence = new { type = "string", @enum = new[] { "likely", "guess" } }
                 }
             };
-            var group = new { type = "object", additionalProperties = false, required = new[] { "name", "samples" }, properties = new { name = str, samples = integer } };
+            var group = new { type = "object", additionalProperties = false, required = new[] { "name", "samples", "quote" }, properties = new { name = str, samples = integer, quote = str } };
             var design = new
             {
                 type = "object",
                 additionalProperties = false,
-                required = new[] { "groups", "plexes", "technical_replicates", "fractions_per_sample", "runs_stated", "quote" },
+                required = new[] { "groups", "plexes", "plexes_quote", "technical_replicates", "technical_replicates_quote",
+                    "fractions_per_sample", "fractions_quote", "runs_stated", "runs_quote" },
                 properties = new
                 {
                     groups = new { type = "array", items = group },
-                    plexes = integer,
-                    technical_replicates = integer, fractions_per_sample = integer, runs_stated = integer, quote = str
+                    plexes = integer, plexes_quote = str,
+                    technical_replicates = integer, technical_replicates_quote = str,
+                    fractions_per_sample = integer, fractions_quote = str,
+                    runs_stated = integer, runs_quote = str
                 }
             };
             return new Dictionary<string, JsonElement>
@@ -263,19 +271,55 @@ namespace SampleEvidenceModel
             StatedDesign? design = null;
             if (root.TryGetProperty("design", out var d) && d.ValueKind == JsonValueKind.Object)
             {
-                int Int(string n) => d.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int i) ? Math.Max(0, i) : 0;
-                var groups = d.TryGetProperty("groups", out var g) && g.ValueKind == JsonValueKind.Array
-                    ? g.EnumerateArray().Select(x => (Name: x.TryGetProperty("name", out var n) ? n.GetString() ?? "" : "",
-                        Samples: x.TryGetProperty("samples", out var s) && s.TryGetInt32(out int k) ? Math.Max(0, k) : 0)).ToList()
-                    : new List<(string, int)>();
-                string quote = d.TryGetProperty("quote", out var q) ? q.GetString() ?? "" : "";
-                // A design is only as good as its quote.
-                if (groups.Count > 0 && Norm(quote).Length >= 3 && corpus.Contains(Norm(quote), StringComparison.Ordinal))
-                    design = new StatedDesign(groups, Int("plexes"), Int("technical_replicates"), Int("fractions_per_sample"), Int("runs_stated"), quote);
-                else if (groups.Count > 0)
-                    rejected.Add("design: the quote is not in the given text");
+                var quotes = new List<string>();
+                // A number is kept only with a quote that is in the given text and states that number.
+                int Stated(string what, int n, string quote)
+                {
+                    if (n <= 0) return 0;
+                    bool found = Norm(quote).Length >= 3 && corpus.Contains(Norm(quote), StringComparison.Ordinal);
+                    if (found && States(quote, n))
+                    {
+                        if (!quotes.Contains(quote)) quotes.Add(quote);
+                        return n;
+                    }
+                    rejected.Add($"design {what} = {n}: " + (found ? "the quote does not state it" : "the quote is not in the given text"));
+                    return 0;
+                }
+                static string Str(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString()!.Trim() : "";
+                static int Int(JsonElement e, string n) => e.TryGetProperty(n, out var v) && v.ValueKind == JsonValueKind.Number && v.TryGetInt32(out int i) ? Math.Max(0, i) : 0;
+
+                var groups = new List<(string Name, int Samples)>();
+                if (d.TryGetProperty("groups", out var g) && g.ValueKind == JsonValueKind.Array)
+                    foreach (var x in g.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.Object && Str(x, "name").Length > 0))
+                        groups.Add((Str(x, "name"), Stated($"group '{Str(x, "name")}'", Int(x, "samples"), Str(x, "quote"))));
+                int plexes = Stated("plexes", Int(d, "plexes"), Str(d, "plexes_quote"));
+                int tech = Stated("technical replicates", Int(d, "technical_replicates"), Str(d, "technical_replicates_quote"));
+                int fractions = Stated("fractions", Int(d, "fractions_per_sample"), Str(d, "fractions_quote"));
+                int runs = Stated("runs", Int(d, "runs_stated"), Str(d, "runs_quote"));
+                if (groups.Any(x => x.Samples > 0) || plexes > 0 || runs > 0)
+                    design = new StatedDesign(groups, plexes, tech, fractions, runs, quotes);
             }
             return new ModelEvidenceResult(evidence, rejected, design, stopReason, 0, 0, 0);
+        }
+
+        private static readonly string[] NumberWords =
+            { "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven", "twelve",
+              "thirteen", "fourteen", "fifteen", "sixteen", "seventeen", "eighteen", "nineteen", "twenty" };
+
+        /// <summary>Whether a quote states the number: as digits standing alone, as a word, or as once/twice/triplicate.</summary>
+        internal static bool States(string quote, int n)
+        {
+            string q = Norm(quote);
+            if (Regex.IsMatch(q, $@"(?<![\d.,]){n}(?!\d|[.,]\d)")) return true;
+            if (n < NumberWords.Length && Regex.IsMatch(q, $@"\b{NumberWords[n]}\b")) return true;
+            return n switch
+            {
+                1 => Regex.IsMatch(q, @"\b(once|single|singly)\b"),
+                2 => Regex.IsMatch(q, @"\b(twice|duplicates?|pairs?)\b"),
+                3 => Regex.IsMatch(q, @"\b(thrice|triplicates?)\b"),
+                4 => Regex.IsMatch(q, @"\bquadruplicates?\b"),
+                _ => false
+            };
         }
 
         /// <summary>Lower case, one space for any run of whitespace, typographic dashes and quotes made plain.</summary>

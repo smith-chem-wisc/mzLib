@@ -40,7 +40,13 @@ namespace Test.FileReadingTests
 
         private static string Answer(string design, params string[] claims) => $$"""{"claims":[{{string.Join(",", claims)}}],"design":{{design}}}""";
 
-        private const string NoDesign = """{"groups":[],"plexes":0,"technical_replicates":0,"fractions_per_sample":0,"runs_stated":0,"quote":""}""";
+        private const string NoDesign = """{"groups":[],"plexes":0,"plexes_quote":"","technical_replicates":0,"technical_replicates_quote":"","fractions_per_sample":0,"fractions_quote":"","runs_stated":0,"runs_quote":""}""";
+
+        private static string Design(string groups = "", int plexes = 0, string plexesQuote = "", int tech = 0, string techQuote = "",
+            int fractions = 0, string fractionsQuote = "") =>
+            $$"""{"groups":[{{groups}}],"plexes":{{plexes}},"plexes_quote":"{{plexesQuote}}","technical_replicates":{{tech}},"technical_replicates_quote":"{{techQuote}}","fractions_per_sample":{{fractions}},"fractions_quote":"{{fractionsQuote}}","runs_stated":0,"runs_quote":""}""";
+
+        private static string Group(string name, int samples, string quote) => $$"""{"name":"{{name}}","samples":{{samples}},"quote":"{{quote}}"}""";
 
         [Test]
         public void AClaimQuotingATableRowIsKeptWithTheRowAsItsLocator()
@@ -82,17 +88,21 @@ namespace Test.FileReadingTests
         [Test]
         public void ADesignIsKeptOnlyWithARealQuoteAndItsRunsAreCounted()
         {
-            const string design = """{"groups":[{"name":"HFpEF","samples":10},{"name":"non-failing","samples":10}],"plexes":0,"technical_replicates":1,"fractions_per_sample":0,"runs_stated":0,"quote":"collected from 10 HFpEF patients and 10 non-failing donors"}""";
+            string design = Design(
+                Group("HFpEF", 10, "collected from 10 HFpEF patients") + "," + Group("non-failing", 10, "10 non-failing donors"),
+                tech: 1, techQuote: "Each sample was injected once.");
 
             var r = ModelEvidenceReader.Interpret(Answer(design), Input());
 
             Assert.That(r.Design!.Groups.Select(g => g.Samples), Is.EqualTo(new[] { 10, 10 }));
             Assert.That(r.Design.PredictedRuns, Is.EqualTo(20), "10 + 10 samples, one injection, no fractions");
+            Assert.That(r.Design.Quotes, Has.Count.EqualTo(3));
 
             var invented = design.Replace("collected from 10 HFpEF", "collected from 12 HFpEF");
             var r2 = ModelEvidenceReader.Interpret(Answer(invented), Input());
-            Assert.That(r2.Design, Is.Null);
-            Assert.That(r2.Rejected.Single(), Does.StartWith("design"));
+            Assert.That(r2.Rejected.Single(), Is.EqualTo("design group 'HFpEF' = 10: the quote is not in the given text"));
+            Assert.That(r2.Design!.Groups[0].Samples, Is.Zero);
+            Assert.That(r2.Design.PredictedRuns, Is.Zero, "one group's size unknown: no count, rather than a false mismatch");
         }
 
         [Test]
@@ -100,13 +110,39 @@ namespace Test.FileReadingTests
         {
             // PXD010429: 174 samples in 29 TMT 6-plexes, 12 fractions, injected twice = 696 runs, the deposit's count.
             var input = Input() with { PaperText = "The 174 samples were distributed across 29 TMT 6-plexes and separated into twelve concatenated fractions, each injected twice." };
-            const string design = """{"groups":[{"name":"tumor","samples":116},{"name":"pool","samples":58}],"plexes":29,"technical_replicates":2,"fractions_per_sample":12,"runs_stated":0,"quote":"distributed across 29 TMT 6-plexes"}""";
+            string design = Design(plexes: 29, plexesQuote: "distributed across 29 TMT 6-plexes",
+                tech: 2, techQuote: "each injected twice", fractions: 12, fractionsQuote: "twelve concatenated fractions");
 
             var d = ModelEvidenceReader.Interpret(Answer(design), input).Design!;
 
             Assert.That(d.Plexes, Is.EqualTo(29));
             Assert.That(d.PredictedRuns, Is.EqualTo(696), "plexes x fractions x injections, not samples");
         }
+
+        [Test]
+        public void ACountTheQuoteDoesNotStateIsDropped()
+        {
+            // G36 rerun, PXD011967: 20 plexes counted from Set1..Set20 in the file names, quoted from a sentence about one set.
+            var input = Input() with { PaperText = "Each TMT6plex set contained one donor from each of five age groups and a reference." };
+            string design = Design(plexes: 20, plexesQuote: "Each TMT6plex set contained one donor", fractions: 5, fractionsQuote: "each of five age groups");
+
+            var r = ModelEvidenceReader.Interpret(Answer(design), input);
+
+            Assert.That(r.Design, Is.Null, "nothing countable is left");
+            Assert.That(r.Rejected, Does.Contain("design plexes = 20: the quote does not state it"));
+            Assert.That(r.Rejected, Has.Count.EqualTo(1), "'five' states 5, so the fractions number itself passes the check");
+        }
+
+        [TestCase("each injected twice", 2, true)]
+        [TestCase("analysed in triplicate", 3, true)]
+        [TestCase("twelve concatenated fractions", 12, true)]
+        [TestCase("29 TMT 6-plexes", 6, true)]
+        [TestCase("29 TMT 6-plexes", 9, false)]
+        [TestCase("1.5 mg of protein", 5, false)]
+        [TestCase("a 120 min gradient", 12, false)]
+        [TestCase("n = 10 per group", 10, true)]
+        public void AQuoteStatesANumberAsDigitsOrWords(string quote, int n, bool states) =>
+            Assert.That(ModelEvidenceReader.States(quote, n), Is.EqualTo(states));
 
         [Test]
         public void AGuessStaysAGuessAndDuplicatesCollapse()
