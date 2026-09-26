@@ -24,13 +24,13 @@ namespace SampleEvidenceModel
 
     /// <summary>
     /// The design a publication states (the user's counting check, sdrf G36 check 3); 0 means not stated.
-    /// <see cref="Plexes"/> is the number of isobaric (TMT/iTRAQ) plexes: there several samples share one run.
+    /// <see cref="Plexes"/> is the number of multiplexed (TMT/iTRAQ/SILAC) plexes or mixes: there several samples share one run.
     /// </summary>
     internal sealed record StatedDesign(IReadOnlyList<(string Name, int Samples)> Groups, int Plexes, int TechnicalReplicates,
         int FractionsPerSample, int RunsStated, string Quote)
     {
         /// <summary>
-        /// The raw files the design implies: label-free, samples x fractions x injections; isobaric, PLEXES x fractions x
+        /// The raw files the design implies: label-free, samples x fractions x injections; multiplexed, PLEXES x fractions x
         /// injections (PXD010429: 29 x 12 x 2 = 696). 0 when neither groups nor plexes are stated.
         /// </summary>
         public int PredictedRuns => (Plexes > 0 ? Plexes : Groups.Sum(g => g.Samples)) is var units and > 0
@@ -137,7 +137,9 @@ namespace SampleEvidenceModel
             - data_file: one raw file name exactly as listed, or "" when the value holds for every file of the deposit.
               Assign per-file values only when the text links a sample to a file (a sample ID that appears in the file
               name, an explicit table, a stated run order). Never assign by guessing an order.
-            - label: for isobaric labelling, the channel as TMT126, TMT127N, TMTpro134C or iTRAQ114; otherwise "".
+            - label: for isobaric labelling, the channel as TMT126, TMT127N, TMTpro134C or iTRAQ114; for SILAC, the
+              state as SILAC light, SILAC medium or SILAC heavy (one claim per state, each for its own sample);
+              otherwise "".
             - column: an SDRF column: "source name", "characteristics[<name>]" with name one of organism part, disease,
               cell type, cell line, sex, age, developmental stage, individual, strain, genotype, treatment, compound,
               dose, time, biological replicate, phenotype, or "comment[fraction identifier]",
@@ -147,8 +149,8 @@ namespace SampleEvidenceModel
             - Do not repeat what the rule-based reader already found; add what is missing and correct nothing silently.
             - confidence: "likely" when the text states it for these samples; "guess" when you inferred it.
 
-            Design: the groups the study compares with the number of biological samples in each; for isobaric labelling
-            the number of plexes (several samples share one run); technical replicates (injections) per sample or plex;
+            Design: the groups the study compares with the number of biological samples in each; for multiplexed labelling
+            (TMT, iTRAQ, SILAC) the number of plexes or mixes (several samples share one run); technical replicates (injections) per sample or plex;
             fractions per sample or plex; and the number of runs if stated, with the quote that states it. Use 0 for
             anything not stated, and an empty list of groups when the text states none.
 
@@ -162,8 +164,7 @@ namespace SampleEvidenceModel
             sb.Append("## Paper: methods and tables\n").Append(input.PaperText.Length > 0 ? input.PaperText : "(no full text available)").Append("\n\n");
             sb.Append("## Supplementary tables\n").Append(input.Tables.Count > 0 ? PublicationText.Tables(input.Tables) : "(none)").Append("\n\n");
             sb.Append($"## Raw files ({input.RawFiles.Count})\n");
-            foreach (var f in input.RawFiles.Take(600)) sb.Append(f).Append('\n');
-            if (input.RawFiles.Count > 600) sb.Append($"[{input.RawFiles.Count - 600} more files]\n");
+            sb.Append(PublicationText.Files(input.RawFiles));
             sb.Append("\n## Already found by the rule-based reader\n");
             if (input.RuleEvidence.Count == 0) sb.Append("(nothing)\n");
             foreach (var e in input.RuleEvidence.Take(300))
@@ -215,7 +216,7 @@ namespace SampleEvidenceModel
         // ---------------- validation ----------------
 
         private static readonly Regex Column = new(@"^(source name|(characteristics|factor value)\[[a-z][a-z0-9 ]*\]|comment\[(fraction identifier|technical replicate)\])$", RegexOptions.Compiled);
-        private static readonly Regex Label = new(@"^(TMT(pro)?1[23]\d[NC]?|iTRAQ(11[3-9]|121))$", RegexOptions.Compiled);
+        private static readonly Regex Label = new(@"^(TMT(pro)?1[23]\d[NC]?|iTRAQ(11[3-9]|121)|SILAC (light|medium|heavy))$", RegexOptions.Compiled);
         private static readonly Regex RowRef = new(@"\[([^\[\]]+![^\[\]]*R\d+)\]", RegexOptions.Compiled);
 
         /// <summary>
@@ -229,7 +230,7 @@ namespace SampleEvidenceModel
             try { root = JsonDocument.Parse(json).RootElement; }
             catch (JsonException e) { return new(Array.Empty<SdrfEvidence>(), new[] { "not JSON: " + e.Message }, null, stopReason, 0, 0, 0); }
 
-            string corpus = Norm(string.Join("\n", input.RecordText, input.PaperText, PublicationText.Tables(input.Tables, int.MaxValue, int.MaxValue)));
+            string corpus = Norm(string.Join("\n", input.RecordText, input.PaperText, PublicationText.Tables(input.Tables, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue)));
             var files = input.RawFiles.ToDictionary(f => f, f => f, StringComparer.OrdinalIgnoreCase);
             var refs = new HashSet<string>(input.Tables.SelectMany(t => Enumerable.Range(0, t.Rows.Count)
                 .Select(k => $"{(t.Sheet.Length > 0 ? $"{t.File}!{t.Sheet}" : t.File)}!R{t.RowNumbers[k]}")), StringComparer.Ordinal);

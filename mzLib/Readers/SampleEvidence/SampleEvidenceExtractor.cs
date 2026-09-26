@@ -207,7 +207,7 @@ namespace Readers
         private static readonly Regex ResultWord = new(@"\b(protein ?ids?|proteins?|peptides?|sequence|gene ?names?|genes?|uniprot|accession|intensity|lfq|ibaq|abundance|ratio|fold|log2\w*|p[ -]?value|q[ -]?value|fdr|pep|score|m/?z|charge|modifications?|sites?|localization|spectral ?counts?|go ?term|pathway|enrichment|unique|razor|coverage|retention|scan|precursor|psm|t-?test|anova|regulated|annotation|symbol)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled);
 
         /// <summary>Proteins, peptides, statistics: rows are not samples.</summary>
-        private static bool IsResultTable(SupplementTable t)
+        internal static bool IsResultTable(SupplementTable t)
         {
             var cells = t.Rows.Take(200).SelectMany(r => r).Where(c => c.Length > 0).ToList();
             if (cells.Count > 0 && cells.Count(c => UniProt.IsMatch(c.Split(';')[0])) > 0.05 * cells.Count) return true;

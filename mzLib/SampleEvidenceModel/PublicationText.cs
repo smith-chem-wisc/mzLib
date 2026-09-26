@@ -37,24 +37,73 @@ namespace SampleEvidenceModel
         }
 
         /// <summary>
-        /// Supplement tables as text, one line per row prefixed with the row's locator
-        /// (<c>[mmc1.xlsx!S1!R14]</c>), capped per table and overall so one result table cannot crowd out the rest.
-        /// Result tables (proteins, statistics) are left out entirely.
+        /// Supplement tables as text, one line per row prefixed with the row's locator (<c>[mmc1.xlsx!S1!R14]</c>).
+        /// Tables that describe samples come first and are given whole (up to <paramref name="maxSampleRows"/>); other
+        /// tables follow, capped at <paramref name="maxRowsPerTable"/>; result tables (proteins, statistics) come last,
+        /// as a preview of <paramref name="resultRows"/> rows. Measured (sdrf G36 batch 2, 2026-09-26): in document
+        /// order, protein tables filled the budget before a cohort table was reached, and an ISA assay table of 160
+        /// runs lost its last 10.
         /// </summary>
-        internal static string Tables(IEnumerable<SupplementTable> tables, int maxRowsPerTable = 150, int maxChars = 120_000)
+        internal static string Tables(IEnumerable<SupplementTable> tables, int maxRowsPerTable = 150, int maxChars = 120_000,
+            int maxSampleRows = 2_000, int resultRows = 5)
         {
             var sb = new StringBuilder();
-            foreach (var t in tables)
+            foreach (var (t, rank) in tables.Select(t => (t, Rank(t))).OrderBy(x => x.Item2))
             {
                 if (sb.Length >= maxChars) { sb.Append("[further tables omitted for length]\n"); break; }
                 string name = t.Sheet.Length > 0 ? $"{t.File}!{t.Sheet}" : t.File;
                 sb.Append("### ").Append(name);
                 if (t.Title.Length > 0) sb.Append(" -- ").Append(t.Title);
+                if (rank == ResultRank) sb.Append(" [result table: preview only]");
                 sb.Append('\n').Append("[header] ").Append(string.Join(" | ", t.Header)).Append('\n');
-                for (int k = 0; k < Math.Min(t.Rows.Count, maxRowsPerTable); k++)
+                int cap = rank switch { SampleRank => maxSampleRows, ResultRank => resultRows, _ => maxRowsPerTable };
+                int k = 0;
+                for (; k < Math.Min(t.Rows.Count, cap) && sb.Length < maxChars; k++)
                     sb.Append('[').Append(name).Append("!R").Append(t.RowNumbers[k]).Append("] ").Append(string.Join(" | ", t.Rows[k])).Append('\n');
-                if (t.Rows.Count > maxRowsPerTable) sb.Append($"[{t.Rows.Count - maxRowsPerTable} more rows]\n");
+                if (t.Rows.Count > k) sb.Append($"[{t.Rows.Count - k} more rows]\n");
                 sb.Append('\n');
+            }
+            return sb.ToString();
+        }
+
+        private const int SampleRank = 0, OtherRank = 1, ResultRank = 2;
+
+        private static readonly Regex SampleTitle = new(@"sample|patient|subject|donor|cohort|participant|clinical|demograph|characteristic|channel|\btmt\b|itraq|label|design|run ?order|raw ?file|s_[^ ]*\.txt|a_[^ ]*\.txt",
+            RegexOptions.IgnoreCase | RegexOptions.Compiled);
+
+        /// <summary>
+        /// Sample tables first: an ISA study or assay file, or a table with two or more sample-describing headers, or a
+        /// sample-describing name with at least one. Result tables last (<see cref="SampleEvidenceExtractor.IsResultTable"/>).
+        /// </summary>
+        private static int Rank(SupplementTable t)
+        {
+            if (SampleEvidenceExtractor.IsResultTable(t)) return ResultRank;
+            int described = t.Header.Count(h => HeaderMap.ColumnFor(h) != null);
+            return described >= 2 || (described >= 1 && SampleTitle.IsMatch($"{t.File} {t.Sheet} {t.Title}")) ? SampleRank : OtherRank;
+        }
+
+        private static readonly Regex Digits = new(@"\d+", RegexOptions.Compiled);
+
+        /// <summary>
+        /// The raw file names, one per line when they fit in <paramref name="maxChars"/>. Otherwise each group of names
+        /// that differ only in their numbers is written once as a pattern with its numbers listed, so no file is lost
+        /// from a 650-file deposit (sdrf G36 batch 2: a 600-name cap cut PXD011967's last 50). A claim still names the
+        /// file in full, and <see cref="ModelEvidenceReader.Interpret"/> still requires it to be one of the deposit's.
+        /// </summary>
+        internal static string Files(IReadOnlyList<string> files, int maxChars = 60_000)
+        {
+            var sb = new StringBuilder();
+            if (files.Sum(f => f.Length + 1) <= maxChars)
+            {
+                foreach (var f in files) sb.Append(f).Append('\n');
+                return sb.ToString();
+            }
+            sb.Append("Listed by pattern: each {n} stands for the numbers shown, in order, one file per line of numbers.\n");
+            foreach (var g in files.GroupBy(f => Digits.Replace(f, "{n}")))
+            {
+                if (g.Count() == 1) { sb.Append(g.First()).Append('\n'); continue; }
+                sb.Append(g.Key).Append($"  ({g.Count()} files)\n  ");
+                sb.Append(string.Join(", ", g.Select(f => string.Join("/", Digits.Matches(f).Select(m => m.Value))))).Append('\n');
             }
             return sb.ToString();
         }

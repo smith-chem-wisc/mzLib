@@ -139,6 +139,74 @@ namespace Test.FileReadingTests
             Assert.That(prompt, Does.Contain("HumanHFpEF_1.raw\t\tcharacteristics[age]\t77Y"));
         }
 
+        private static SupplementTable Table(string file, string[] header, int rows, Func<int, string[]> row) => new(
+            file, "S1", "", header, Enumerable.Range(1, rows).Select(k => (IReadOnlyList<string>)row(k)).ToArray(),
+            Enumerable.Range(2, rows).ToArray(), false);
+
+        private static SupplementTable ProteinTable() => Table("proteins.xlsx", new[] { "Protein Accession", "Gene", "log2 fold change", "p-value" }, 300,
+            k => new[] { $"P{10000 + k}", $"GENE{k}", "1.5", "0.01" });
+
+        private static SupplementTable CohortTable() => Table("cohort.xlsx", new[] { "Sample ID", "Age", "Sex", "Diagnosis" }, 200,
+            k => new[] { $"S{k:000}", $"{40 + k % 30}", k % 2 == 0 ? "F" : "M", "HFpEF" });
+
+        [Test]
+        public void ASampleTableComesBeforeAResultTableAndIsGivenWhole()
+        {
+            // G36 batch 2: in document order, protein tables filled the budget before the cohort table was reached.
+            string text = PublicationText.Tables(new[] { ProteinTable(), CohortTable() }, maxRowsPerTable: 150, maxChars: 20_000);
+
+            Assert.That(text.IndexOf("### cohort.xlsx"), Is.LessThan(text.IndexOf("### proteins.xlsx")), "sample table first");
+            Assert.That(text, Does.Contain("[cohort.xlsx!S1!R201] S200 | 60 | F | HFpEF"), "all 200 rows, past the 150-row cap");
+            Assert.That(text, Does.Contain("### proteins.xlsx!S1 [result table: preview only]"));
+            Assert.That(text, Does.Contain("[proteins.xlsx!S1!R6] P10005"));
+            Assert.That(text, Does.Not.Contain("[proteins.xlsx!S1!R7]"), "a result table is previewed, not given");
+        }
+
+        [Test]
+        public void ARowLeftOutOfThePromptIsStillValidText()
+        {
+            // The quote check reads every row: shortening the prompt must not turn a true quote into a rejection.
+            var input = Input() with { Tables = new[] { ProteinTable() } };
+            Assert.That(ModelEvidenceReader.UserPrompt(input), Does.Not.Contain("P10200"));
+
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("", "characteristics[organism]", "Homo sapiens",
+                "[proteins.xlsx!S1!R201] P10200 | GENE200 | 1.5 | 0.01", confidence: "guess")), input);
+
+            Assert.That(r.Rejected, Is.Empty);
+        }
+
+        [Test]
+        public void ManyFilesAreListedByPatternAndNoneIsLost()
+        {
+            // G36 batch 2: a 600-name cap cut PXD011967's last 50 files.
+            var files = Enumerable.Range(1, 70).SelectMany(s => Enumerable.Range(1, 10).Select(f => $"Plasma_Sample{s:000}_F{f:00}.raw")).ToList();
+            files.Add("QC_blank.raw");
+
+            string text = PublicationText.Files(files, maxChars: 5_000);
+
+            Assert.That(text, Does.Contain("Plasma_Sample{n}_F{n}.raw  (700 files)"));
+            Assert.That(text, Does.Contain("001/01, 001/02"));
+            Assert.That(text, Does.Contain("070/10"), "the last file is there");
+            Assert.That(text, Does.Contain("QC_blank.raw"));
+            Assert.That(text.Length, Is.LessThan(files.Sum(f => f.Length + 1)));
+
+            Assert.That(PublicationText.Files(new[] { "a1.raw", "a2.raw" }), Is.EqualTo("a1.raw\na2.raw\n"), "a short list is given whole");
+        }
+
+        [Test]
+        public void ASilacStateIsAChannelLabel()
+        {
+            // G36 batch 2, PXD006430: with no way to say which sample was heavy, both went into one source name.
+            var input = Input() with { PaperText = "Proteins from ctrl cells (Light SILAC labeled) and from TRAP3high cells (Heavy SILAC labeled) were mixed." };
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign,
+                Claim("HumanHFpEF_1.raw", "source name", "TRAP3high", "from TRAP3high cells (Heavy SILAC labeled)", source: "paper", label: "SILAC heavy"),
+                Claim("HumanHFpEF_1.raw", "source name", "ctrl", "from ctrl cells (Light SILAC labeled)", source: "paper", label: "SILAC light"),
+                Claim("HumanHFpEF_1.raw", "source name", "x", "from ctrl cells (Light SILAC labeled)", source: "paper", label: "heavy")), input);
+
+            Assert.That(r.Evidence.Select(e => e.Label), Is.EqualTo(new[] { "SILAC heavy", "SILAC light" }));
+            Assert.That(r.Rejected.Single(), Does.EndWith("not a channel label"));
+        }
+
         private sealed class RecordingHandler : HttpMessageHandler
         {
             private readonly string _answer;
