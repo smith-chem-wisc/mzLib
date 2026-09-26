@@ -379,6 +379,16 @@ namespace Readers
                     notes.Add(new(e.DataFile, e.Column, "", e.Value, "only characteristics are taken from evidence so far"));
                     continue;
                 }
+                if (e.DataFilePattern.Length > 0)
+                {
+                    // A claim about a set of files is a claim about each file in it.
+                    var matched = draft.Rows.Where(r => SdrfEvidence.GlobMatches(e.DataFilePattern, r.DataFile)).ToList();
+                    if (matched.Count == 0)
+                        notes.Add(new(e.DataFilePattern, e.Column, "", e.Value, "the file pattern matches none of the deposit's raw files"));
+                    foreach (var r in matched)
+                        usable.Add(e with { Column = column, DataFile = r.DataFile, DataFilePattern = "" });
+                    continue;
+                }
                 usable.Add(e with { Column = column });
             }
             var claimsOf = usable
