@@ -1,6 +1,7 @@
 ﻿using NUnit.Framework;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
+using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.LocalModels;
 using PredictionClients.MixedModels;
@@ -11,6 +12,8 @@ using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using System.Net.Http;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 using CategoryAttribute = NUnit.Framework.CategoryAttribute;
 
@@ -23,11 +26,12 @@ namespace Test.MixedModelTests
     /// -----------------
     /// 1. LibrarySpectrumMerger unit tests  — pure logic, no models, no files
     /// 2. CombinedLibraryModel construction — validates the factory and component wiring
-    /// 3. Integration tests                 — require Koina + ONNX model, tagged accordingly
+    /// 3. Component failure handling       — offline, stub components and the local ONNX model
     ///
-    /// [Category("RequiresKoina")]      — needs a live Koina endpoint
-    /// [Category("RequiresOnnxModel")]  — needs the ONNX file on disk
-    /// [Category("Integration")]        — needs both
+    /// Nothing here calls Koina. The live end-to-end tests are in CombinedLibraryModelLiveTests,
+    /// tagged ExternalService + Koina so the required CI job never runs them.
+    ///
+    /// [Category("RequiresOnnxModel")]  — needs the ONNX file on disk (it ships with PredictionClients)
     /// </summary>
     [TestFixture]
     [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -282,137 +286,11 @@ namespace Test.MixedModelTests
         }
 
         // ════════════════════════════════════════════════════════════════════════
-        // 3. Integration tests (require both Koina and ONNX model)
+        // 3. Component failure handling — offline (stubs + local ONNX only)
+        //    The live Koina tests are in CombinedLibraryModelLiveTests.
         // ════════════════════════════════════════════════════════════════════════
 
-        [Test, NUnit.Framework.Category("Integration"), NUnit.Framework.Category("RequiresKoina"), NUnit.Framework.Category("RequiresOnnxModel")]
-        public static async Task RunAsync_CombinedSpectra_ContainBothPrimaryAndInternalIons()
-        {
-            Assume.That(File.Exists(OnnxModelPath), Is.True,
-                $"ONNX model not found at: {OnnxModelPath}");
-            var peptides = new List<string> { "PEPTIDEK", "ELVISLIVESK" };
-            var charges = new List<int> { 2, 2 };
-            var rts = new List<double?> { 100.0, 200.0 };
-
-            var primary = new Prosit2020IntensityHCD();
-            var internal_ = new InternalFragmentIntensityModel(
-                peptides, charges, rts, out _, onnxModelPath: OnnxModelPath);
-
-            var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(primary, internal_, collisionEnergy: 35);
-            var warning = await combined.RunAsync();
-            _ = (warning?.Message);
-            // Add: verify no component failures occurred
-            if (warning != null)
-                Assert.That(warning.Message, Does.Not.Contain("failed"),
-                    $"A component failed unexpectedly: {warning.Message}");
-
-            Assert.That(combined.PredictedSpectra.Count, Is.EqualTo(2));
-
-            foreach (var spectrum in combined.PredictedSpectra)
-            {
-                var primaryIons = spectrum.MatchedFragmentIons.Where(f => !f.IsInternalFragment).ToList();
-                var internalIons = spectrum.MatchedFragmentIons.Where(f => f.IsInternalFragment).ToList();
-
-                Assert.That(primaryIons.Count, Is.GreaterThan(0),
-                    $"{spectrum.Name}: should have primary (b/y) ions from Prosit");
-                Assert.That(internalIons.Count, Is.GreaterThan(0),
-                    $"{spectrum.Name}: should have internal fragment ions from local model");
-            }
-        }
-
-        [Test, Category("Integration"), Category("RequiresKoina"), Category("RequiresOnnxModel")]
-        public static async Task RunAsync_AllIonMzValues_AreChemicallyReasonable()
-        {
-            var peptides = new List<string> { "PEPTIDEK" };
-            var charges = new List<int> { 2 };
-            var rts = new List<double?> { null };
-
-            var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(
-                new Prosit2020IntensityHCD(),
-                new InternalFragmentIntensityModel(peptides, charges, rts, out _,
-                    onnxModelPath: OnnxModelPath),
-                collisionEnergy: 35);
-
-            await combined.RunAsync();
-
-            foreach (var ion in combined.PredictedSpectra.SelectMany(s => s.MatchedFragmentIons))
-            {
-                Assert.That(ion.Mz, Is.GreaterThan(0).And.LessThan(5000));
-                Assert.That(ion.Intensity, Is.GreaterThanOrEqualTo(0));
-                Assert.That(ion.Charge, Is.GreaterThan(0));
-            }
-        }
-
-        [Test, Category("Integration"), Category("RequiresKoina"), Category("RequiresOnnxModel")]
-        public static async Task RunAsync_RetentionTimeTakenFromPrimary_WhenNoRtComponent()
-        {
-            var peptides = new List<string> { "PEPTIDEK" };
-            var charges = new List<int> { 2 };
-            var rts = new List<double?> { 42.5 };
-
-            var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(
-                new Prosit2020IntensityHCD(),
-                new InternalFragmentIntensityModel(peptides, charges, rts, out _,
-                    onnxModelPath: OnnxModelPath),
-                collisionEnergy: 35);
-
-            await combined.RunAsync();
-
-            Assume.That(combined.PredictedSpectra.Count, Is.EqualTo(1));
-            Assert.That(combined.PredictedSpectra[0].RetentionTime, Is.EqualTo(42.5).Within(1e-6),
-                "RT from primary model input should flow through to merged spectrum");
-        }
-
-        [Test, Category("Integration"), Category("RequiresKoina"), Category("RequiresOnnxModel")]
-        public static async Task RunAsync_MspRoundTrip_ParsedSpectraHaveBothIonTypes()
-        {
-            var outPath = Path.Combine(
-                TestContext.CurrentContext.TestDirectory,
-                "combinedLibraryRoundTripTest.msp");
-
-            SpectralLibrary? savedLib = null;
-            try
-            {
-                var peptides = new List<string> { "PEPTIDEK", "SAMPLER" };
-                var charges = new List<int> { 2, 2 };
-                    var rts = new List<double?> { 100.0, 200.0 };
-
-                var combined = CombinedLibraryModel.WithPrimaryAndInternalFragments(
-                    new Prosit2020IntensityHCD(),
-                    new InternalFragmentIntensityModel(peptides, charges, rts, out _,
-                        onnxModelPath: OnnxModelPath),
-                    collisionEnergy: 35,
-                    spectralLibrarySavePath: outPath);
-
-                await combined.RunAsync();
-
-                Assert.That(File.Exists(outPath), Is.True);
-
-                savedLib = new SpectralLibrary(new List<string> { outPath });
-                var savedSpectra = savedLib.GetAllLibrarySpectra().ToList();
-
-                Assert.That(savedSpectra.Count, Is.EqualTo(combined.PredictedSpectra.Count));
-
-                foreach (var spectrum in savedSpectra)
-                {
-                    // After round-trip through MSP, IsInternalFragment should still be correct
-                    var internal_ = spectrum.MatchedFragmentIons.Where(f => f.IsInternalFragment).ToList();
-                    var primary_ = spectrum.MatchedFragmentIons.Where(f => !f.IsInternalFragment).ToList();
-
-                    Assert.That(primary_.Count, Is.GreaterThan(0),
-                        $"{spectrum.Name}: primary ions should survive MSP round-trip");
-                    Assert.That(internal_.Count, Is.GreaterThan(0),
-                        $"{spectrum.Name}: internal ions should survive MSP round-trip");
-                }
-            }
-            finally
-            {
-                savedLib?.CloseConnections();
-                if (File.Exists(outPath)) File.Delete(outPath);
-            }
-        }
-
-        [Test, Category("Integration"), Category("RequiresKoina"), Category("RequiresOnnxModel")]
+        [Test, Category("RequiresOnnxModel")]
         public static async Task RunAsync_KoinaFails_InternalOnlyLibraryStillProduced()
         {
             // Simulate Koina being unavailable by using a broken primary component
@@ -448,6 +326,162 @@ namespace Test.MixedModelTests
             Assert.That(allInternal, Is.True,
                 "All ions should be internal when primary component failed");
         }
+
+        [Test]
+        public static void PrimaryIntensityComponent_ModelThrows_ReturnsFailedResultHoldingTheException()
+        {
+            var fault = new HttpRequestException("Koina unreachable (simulated)");
+            var inputs = new List<FragmentIntensityPredictionInput>
+            {
+                new("PEPTIDEK", 2, 35, null, null),
+            };
+            var component = new PrimaryIntensityComponent(
+                new ThrowingProsit2020IntensityHCD(fault), inputs, new double?[] { null });
+
+            MixedModelResult result = null!;
+            Assert.DoesNotThrowAsync(async () => result = await component.RunAsync(),
+                "A component failure is recorded in the result, not thrown");
+
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Error, Is.SameAs(fault));
+            Assert.That(result.ContributionType, Is.EqualTo(ContributionType.PrimaryFragmentIntensities));
+            Assert.That(result.Spectra, Is.Empty);
+        }
+
+        [Test, Category("RequiresOnnxModel")]
+        public static async Task InternalIntensityComponent_ModelThrows_ReturnsFailedResultHoldingTheException()
+        {
+            var model = new InternalFragmentIntensityModel(
+                new List<string> { "PEPTIDEK" }, new List<int> { 2 }, new List<double?> { null },
+                out _, onnxModelPath: OnnxModelPath);
+            model.Dispose(); // RunInferenceAsync on a disposed model throws ObjectDisposedException
+
+            var result = await new InternalIntensityComponent(model).RunAsync();
+
+            Assert.That(result.Succeeded, Is.False);
+            Assert.That(result.Error, Is.TypeOf<ObjectDisposedException>());
+            Assert.That(result.ContributionType, Is.EqualTo(ContributionType.InternalFragmentIntensities));
+        }
+
+        [Test]
+        public static async Task RunAsync_ComponentResults_KeepTheCapturedException()
+        {
+            var fault = new InvalidOperationException("Simulated component failure");
+            var combined = new CombinedLibraryModel(new List<IMixedModelComponent>
+            {
+                new BrokenComponentStub(ContributionType.PrimaryFragmentIntensities, "Broken", fault),
+                new SucceedingComponentStub(ContributionType.InternalFragmentIntensities, "Internal", InternalOnlySpectrum()),
+            });
+
+            Assert.That(combined.ComponentResults, Is.Empty, "Empty until RunAsync is called");
+
+            await combined.RunAsync();
+
+            Assert.That(combined.ComponentResults.Select(r => r.ComponentName),
+                Is.EqualTo(new[] { "Broken", "Internal" }), "One result per component, in component order");
+            Assert.That(combined.ComponentResults[0].Succeeded, Is.False);
+            Assert.That(combined.ComponentResults[0].Error, Is.SameAs(fault));
+            Assert.That(combined.ComponentResults[1].Succeeded, Is.True);
+        }
+
+        // ── ThrowIfAnyComponentFailed: what the live tests do with a captured error ──
+        // A transport fault must SKIP under ExternalServiceTestHelper.RunAsync; anything else must FAIL.
+
+        private static IEnumerable<TestCaseData> TransportFaults()
+        {
+            yield return new TestCaseData(new HttpRequestException("Request failed with status 503 Service Unavailable"))
+                .SetArgDisplayNames("HttpRequestException");
+            yield return new TestCaseData(new TaskCanceledException("The request was canceled due to the configured HttpClient Timeout"))
+                .SetArgDisplayNames("TaskCanceledException");
+            yield return new TestCaseData(new SocketException((int)SocketError.ConnectionRefused))
+                .SetArgDisplayNames("SocketException");
+        }
+
+        private static async Task<CombinedLibraryModel> RunWithPrimaryFailing(Exception fault)
+        {
+            var combined = new CombinedLibraryModel(new List<IMixedModelComponent>
+            {
+                new BrokenComponentStub(ContributionType.PrimaryFragmentIntensities, "Prosit", fault),
+                new SucceedingComponentStub(ContributionType.InternalFragmentIntensities, "Internal", InternalOnlySpectrum()),
+            });
+            await combined.RunAsync();
+            return combined;
+        }
+
+        private static Task RunUnderExternalServiceHelper(CombinedLibraryModel combined)
+            => ExternalServiceTestHelper.RunAsync("Koina", () =>
+            {
+                CombinedLibraryModelLiveTests.ThrowIfAnyComponentFailed(combined);
+                return Task.CompletedTask;
+            });
+
+        [Test]
+        public static async Task ThrowIfAnyComponentFailed_NoFailure_DoesNotThrow()
+        {
+            var combined = new CombinedLibraryModel(new List<IMixedModelComponent>
+            {
+                new SucceedingComponentStub(ContributionType.InternalFragmentIntensities, "Internal", InternalOnlySpectrum()),
+            });
+            await combined.RunAsync();
+
+            Assert.DoesNotThrow(() => CombinedLibraryModelLiveTests.ThrowIfAnyComponentFailed(combined));
+        }
+
+        [TestCaseSource(nameof(TransportFaults))]
+        public static async Task ThrowIfAnyComponentFailed_TransportFault_IsSkippedByExternalServiceHelper(Exception fault)
+        {
+            var combined = await RunWithPrimaryFailing(fault);
+
+            Assert.ThrowsAsync<IgnoreException>(() => RunUnderExternalServiceHelper(combined));
+        }
+
+        [Test]
+        public static async Task ThrowIfAnyComponentFailed_ContractBreak_FailsUnderExternalServiceHelper()
+        {
+            // What FragmentIntensityModel.ResponseToPredictions throws when Koina answers with something it cannot parse
+            var fault = new Exception("Something went wrong during deserialization of responses.");
+            var combined = await RunWithPrimaryFailing(fault);
+
+            var thrown = Assert.ThrowsAsync<Exception>(() => RunUnderExternalServiceHelper(combined));
+            Assert.That(thrown, Is.SameAs(fault));
+        }
+
+        [Test]
+        public static async Task ThrowIfAnyComponentFailed_TwoFailures_FailsEvenWhenOneIsATransportFault()
+        {
+            var combined = new CombinedLibraryModel(new List<IMixedModelComponent>
+            {
+                new BrokenComponentStub(ContributionType.PrimaryFragmentIntensities, "Prosit",
+                    new HttpRequestException("Koina unreachable (simulated)")),
+                new BrokenComponentStub(ContributionType.InternalFragmentIntensities, "Internal",
+                    new InvalidOperationException("ONNX session broke")),
+            });
+            await combined.RunAsync();
+
+            var thrown = Assert.ThrowsAsync<AggregateException>(() => RunUnderExternalServiceHelper(combined));
+            Assert.That(thrown!.InnerExceptions, Has.Count.EqualTo(2));
+        }
+
+        [Test]
+        public static async Task ThrowIfAnyComponentFailed_FailureWithNoException_Fails()
+        {
+            var combined = new CombinedLibraryModel(new List<IMixedModelComponent>
+            {
+                new SucceedingComponentStub(ContributionType.PrimaryFragmentIntensities, "Prosit",
+                    new MixedModelResult { ComponentName = "Prosit", Succeeded = false }),
+            });
+            await combined.RunAsync();
+
+            var thrown = Assert.ThrowsAsync<InvalidOperationException>(() => RunUnderExternalServiceHelper(combined));
+            Assert.That(thrown!.Message, Does.Contain("Prosit"));
+        }
+
+        private static MixedModelResult InternalOnlySpectrum() =>
+            MixedModelResult.FromSpectra("Internal", ContributionType.InternalFragmentIntensities, new[]
+            {
+                MakeSpectrum("PEPTIDEK", 2, 10.0, ProductType.b, 3, 300.0, 1.0,
+                    secondaryType: ProductType.b, secondaryFragNum: 5),
+            });
     }
 
     // ── Test helper ─────────────────────────────────────────────────────────────
@@ -460,15 +494,51 @@ namespace Test.MixedModelTests
         public string ComponentName { get; }
         public ContributionType ContributionType { get; }
 
-        public BrokenComponentStub(ContributionType type, string name)
+        private readonly Exception _error;
+
+        public BrokenComponentStub(ContributionType type, string name, Exception? error = null)
         {
             ContributionType = type;
             ComponentName = name;
+            _error = error ?? new Exception("Simulated component failure");
         }
 
         public Task<MixedModelResult> RunAsync()
             => Task.FromResult(MixedModelResult.FromError(
-                ComponentName, ContributionType,
-                new Exception("Simulated component failure")));
+                ComponentName, ContributionType, _error));
+    }
+
+    /// <summary>
+    /// A stub component that returns a fixed result, so failure handling can be tested without a model.
+    /// </summary>
+    internal class SucceedingComponentStub : IMixedModelComponent
+    {
+        private readonly MixedModelResult _result;
+        public string ComponentName { get; }
+        public ContributionType ContributionType { get; }
+
+        public SucceedingComponentStub(ContributionType type, string name, MixedModelResult result)
+        {
+            ContributionType = type;
+            ComponentName = name;
+            _result = result;
+        }
+
+        public Task<MixedModelResult> RunAsync() => Task.FromResult(_result);
+    }
+
+    /// <summary>
+    /// Prosit 2020 HCD with the Koina call replaced by a fault, so PrimaryIntensityComponent's
+    /// catch can be exercised offline.
+    /// </summary>
+    internal class ThrowingProsit2020IntensityHCD : Prosit2020IntensityHCD
+    {
+        private readonly Exception _fault;
+
+        public ThrowingProsit2020IntensityHCD(Exception fault) => _fault = fault;
+
+        protected override Task<List<PeptideFragmentIntensityPrediction>> AsyncThrottledPredictor(
+            List<FragmentIntensityPredictionInput> modelInputs)
+            => Task.FromException<List<PeptideFragmentIntensityPrediction>>(_fault);
     }
 }

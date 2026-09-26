@@ -70,6 +70,13 @@ namespace PredictionClients.MixedModels
         public List<LibrarySpectrum> PredictedSpectra { get; private set; } = new();
 
         /// <summary>
+        /// The raw per-component results from the last RunAsync(), in component order.
+        /// A failed component keeps its captured exception in <see cref="MixedModelResult.Error"/>,
+        /// which the returned WarningException only carries as text. Empty until RunAsync() is called.
+        /// </summary>
+        public IReadOnlyList<MixedModelResult> ComponentResults { get; private set; } = Array.Empty<MixedModelResult>();
+
+        /// <summary>
         /// Optional path to write the merged library as an MSP file after inference.
         /// If null, the library is only available in memory via PredictedSpectra.
         /// </summary>
@@ -148,6 +155,7 @@ namespace PredictionClients.MixedModels
             // Fire all components simultaneously
             var results = await Task.WhenAll(
                 _components.Select(c => c.RunAsync()));
+            ComponentResults = results;
 
             // Merge
             var mergedDict = LibrarySpectrumMerger.Merge(results, out var mergeWarning);
