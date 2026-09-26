@@ -160,6 +160,29 @@ public class PtmQtlTests
         var pairs = PtmPairEngine.CoVarying(SiteOccupancyCalculator.Calculate(obs), obs);
         Assert.That(pairs, Is.Empty);
     }
+    [Test]
+    public void StoredOccupancyUsesTheReportedFractionAndFeedsTypeA()
+    {
+        // As MetaMorpheus writes it: the fraction exact, the intensities rounded to 4 significant figures.
+        var s = new ModificationSite("P1", 13, 'S', "Phosphorylation on S");
+        var stored = new SiteRunOccupancy(s, "r1", OccupancyState.Quantified, 1234, 5679, true) { ReportedFraction = 0.2173 };
+        Assert.That(stored.Fraction, Is.EqualTo(0.2173));
+        var floor = new SiteRunOccupancy(s, "r1", OccupancyState.Floor, 0, 5679, true) { ReportedFraction = 0 };
+        Assert.That(floor.Fraction, Is.NaN, "a floor is censored, never a value");
+
+        var t = new ModificationSite("P2", 40, 'S', "Phosphorylation on S");
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 8; r++)
+        {
+            // Rounded intensities whose ratio would order the runs differently from the reported fractions.
+            occupancy.Add(new SiteRunOccupancy(s, $"r{r}", OccupancyState.Quantified, 1000, 2000, true) { ReportedFraction = 0.1 + 0.05 * r });
+            occupancy.Add(new SiteRunOccupancy(t, $"r{r}", OccupancyState.Quantified, 1000 - r, 2000, true) { ReportedFraction = 0.3 + 0.02 * r });
+        }
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()).Single();
+        Assert.That(pair.Statistic, Is.EqualTo(1).Within(1e-12));
+        Assert.That(pair.Overlapping, Is.False);
+    }
+
     private static PtmPair APair(string modA, int posA, string protA, int posB, string protB, double rho, double p, int n) => new()
     {
         ResultType = PairResultType.A, Overlapping = false, Statistic = rho, PValue = p, N = n,

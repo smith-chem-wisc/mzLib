@@ -64,12 +64,23 @@ public sealed record ModificationSite(string ProteinAccession, int Position, cha
 /// A site seen only in modified form in a run has occupancy 1: every quantified form covering it carries the
 /// modification. <see cref="UnmodifiedQuantified"/> is false there, so a caller can treat that 1 as a ceiling
 /// (the unmodified form may be present below detection), as a floor is treated at the other end.
+/// <para>
+/// Occupancy read from a stored table (e.g. MetaMorpheus's <c>IntensityOccupancy_</c> cells, <c>DEF-OCC-CELL</c>)
+/// sets <see cref="ReportedFraction"/>: there the fraction is written exactly while the intensities are rounded,
+/// so their ratio is not the value that was measured.
+/// </para>
 /// </remarks>
 public sealed record SiteRunOccupancy(ModificationSite Site, string Run, OccupancyState State,
     double ModifiedIntensity, double CoveringIntensity, bool UnmodifiedQuantified)
 {
-    /// <summary>ModifiedIntensity / CoveringIntensity when <see cref="State"/> is Quantified; otherwise NaN.</summary>
-    public double Fraction => State == OccupancyState.Quantified ? ModifiedIntensity / CoveringIntensity : double.NaN;
+    /// <summary>The fraction as its producer reported it, when that is more exact than the intensity ratio; otherwise null.</summary>
+    public double? ReportedFraction { get; init; }
+
+    /// <summary>
+    /// When <see cref="State"/> is Quantified: <see cref="ReportedFraction"/> if set, else ModifiedIntensity / CoveringIntensity.
+    /// Otherwise NaN.
+    /// </summary>
+    public double Fraction => State == OccupancyState.Quantified ? ReportedFraction ?? ModifiedIntensity / CoveringIntensity : double.NaN;
 }
 
 /// <summary>
