@@ -378,10 +378,19 @@ namespace Test.InternalIons
         [Explicit("Manual integration harness - requires local data files")]
         public void RunInternalFragmentAnalysis()
         {
+            // A MetaMorpheus search: its filtered-peptides .psmtsv and the folder of the raw files it searched.
+            // Output goes next to the .psmtsv.
+            string? psmTsvPath = Environment.GetEnvironmentVariable("MZLIB_INTERNAL_ION_PSMTSV");
+            string? rawFileFolder = Environment.GetEnvironmentVariable("MZLIB_INTERNAL_ION_RAW_FOLDER");
+            if (string.IsNullOrWhiteSpace(psmTsvPath) || !File.Exists(psmTsvPath))
+                Assert.Ignore($"MZLIB_INTERNAL_ION_PSMTSV not set or not found: '{psmTsvPath}'");
+            if (string.IsNullOrWhiteSpace(rawFileFolder) || !Directory.Exists(rawFileFolder))
+                Assert.Ignore($"MZLIB_INTERNAL_ION_RAW_FOLDER not set or not found: '{rawFileFolder}'");
+
             InternalFragmentAnalysisRunnerTests.RunAll(
-                psmTsvPath: @"F:\MSV000090552_scribe\2026-02-23-14-49-36_nce42\Task1-SearchTask\filteredPeptides_nce42.psmtsv",
-                rawFileFolder: @"F:\MSV000090552_scribe\2026-02-23-13-28-13\Task1-CalibrateTask",
-                outputDirectory: @"F:\MSV000090552_scribe\2026-02-23-14-49-36_nce42\Task1-SearchTask"
+                psmTsvPath: psmTsvPath,
+                rawFileFolder: rawFileFolder,
+                outputDirectory: Path.GetDirectoryName(psmTsvPath)!
             );
         }
     }

@@ -380,14 +380,13 @@ namespace Test.KoinaTests.RetentionTimePrediction
         [Explicit("Manual test - requires local data files")]
         public static void TestPredictRetentionTimesFromTextFile()
         {
-            string inputPath = @"C:\Users\trish\Downloads\falses.txt";
-            string outputPath = @"C:\Users\trish\Downloads\predicted_irts_falses.txt";
+            // One peptide per line. Predictions are written next to it as predicted_irts_<name>.
+            string? inputPath = Environment.GetEnvironmentVariable("MZLIB_IRT_PEPTIDE_LIST");
+            if (string.IsNullOrWhiteSpace(inputPath) || !File.Exists(inputPath))
+                Assert.Ignore($"MZLIB_IRT_PEPTIDE_LIST not set or not found: '{inputPath}'");
 
-            if (!File.Exists(inputPath))
-            {
-                Assert.Ignore($"Input file not found: {inputPath}");
-                return;
-            }
+            string outputPath = Path.Combine(
+                Path.GetDirectoryName(inputPath)!, "predicted_irts_" + Path.GetFileName(inputPath));
 
             var peptides = File.ReadAllLines(inputPath).ToList();
             var model = new Prosit2019iRT();
