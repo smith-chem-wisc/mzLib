@@ -278,8 +278,9 @@ namespace Test.FileReadingTests
         private sealed class RecordingHandler : HttpMessageHandler
         {
             private readonly string _answer;
+            private readonly string _stopReason;
             public List<string> Bodies { get; } = new();
-            public RecordingHandler(string answer) => _answer = answer;
+            public RecordingHandler(string answer, string stopReason = "end_turn") => (_answer, _stopReason) = (answer, stopReason);
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
@@ -288,7 +289,7 @@ namespace Test.FileReadingTests
                 {
                     id = "msg_test", type = "message", role = "assistant", model = "claude-opus-5",
                     content = new[] { new { type = "text", text = _answer } },
-                    stop_reason = "end_turn", stop_sequence = (string?)null,
+                    stop_reason = _stopReason, stop_sequence = (string?)null,
                     usage = new { input_tokens = 1200, output_tokens = 300, cache_read_input_tokens = 900, cache_creation_input_tokens = 0 }
                 });
                 return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(message, Encoding.UTF8, "application/json") };
@@ -314,6 +315,21 @@ namespace Test.FileReadingTests
 
             Assert.That(result.Evidence.Single().Value, Is.EqualTo("female"));
             Assert.That((result.InputTokens, result.OutputTokens, result.CacheReadTokens), Is.EqualTo((1200L, 300L, 900L)));
+        }
+
+        [Test]
+        public async Task ARefusalYieldsNoClaimsEvenWithTextThatWouldPass()
+        {
+            // A refusal can still carry text; a claim that would pass validation must not be kept from it.
+            string answer = Answer(NoDesign, Claim("HumanHFpEF_1.raw", "characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77"));
+            var client = new AnthropicClient { ApiKey = "test-key", HttpClient = new HttpClient(new RecordingHandler(answer, "refusal")), MaxRetries = 0 };
+
+            var result = await new ModelEvidenceReader(client).ReadAsync(Input());
+
+            Assert.That(result.Evidence, Is.Empty);
+            Assert.That(result.StopReason, Is.EqualTo("refusal"));
+            Assert.That(result.Rejected.Single(), Is.EqualTo("no reading: stop reason 'refusal'"));
+            Assert.That(result.InputTokens, Is.EqualTo(1200L), "a refused call still reports what it cost");
         }
 
         [Test]

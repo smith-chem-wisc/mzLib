@@ -104,7 +104,8 @@ namespace SampleEvidenceModel
                 Fallbacks = new Anthropic.Models.Beta.Messages.Default(),
             }, cancellationToken).ConfigureAwait(false);
 
-            string stop = response.StopReason?.ToString() ?? "";
+            // Raw(), the wire string: the SDK's enum wrapper does not ToString() to "refusal", so a refusal's text was read.
+            string stop = response.StopReason?.Raw() ?? "";
             var text = new StringBuilder();
             foreach (var block in response.Content)
                 if (block.TryPickText(out var t)) text.Append(t.Text);
