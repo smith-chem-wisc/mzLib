@@ -84,6 +84,8 @@
     <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0" />
+		<file src="Statistics\bin\Release\net10.0\Statistics.dll" target="lib\net10.0" />
+		<file src="Statistics\bin\Release\net10.0\Statistics.xml" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0" />
@@ -133,6 +135,8 @@
     <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0-windows7.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0-windows7.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0-windows7.0" />
+		<file src="Statistics\bin\Release\net10.0\Statistics.dll" target="lib\net10.0-windows7.0" />
+		<file src="Statistics\bin\Release\net10.0\Statistics.xml" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0-windows7.0" />

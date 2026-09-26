@@ -15,6 +15,7 @@
 	<ItemGroup>
 		<ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
 		<ProjectReference Include="..\Omics\Omics.csproj" />
+		<ProjectReference Include="..\Statistics\Statistics.csproj" />
 	</ItemGroup>
 
 </Project>
