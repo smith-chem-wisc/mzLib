@@ -196,6 +196,8 @@ namespace Test.FileReadingTests
                 Claim("HumanHFpEF_1.raw", "characteristics[age]", "77Y"),
                 new SdrfEvidence("", "TMT127N", "source name", "SCC070", "supplement", "mmc6.xlsx!TMT Metadata!R2", "channel-map",
                     SdrfEvidenceConfidence.Certain),
+                new SdrfEvidence("", "", "characteristics[organism part]", "flower", "paper", "figure: Fig1.jpg", "model",
+                    SdrfEvidenceConfidence.Likely, "*TMT6*"),
             };
             string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "evidence-roundtrip.tsv");
 
@@ -204,9 +206,49 @@ namespace Test.FileReadingTests
 
             Assert.That(back, Is.EqualTo(evidence));
             Assert.That(File.ReadAllLines(path)[0],
-                Is.EqualTo("data file\tlabel\tcolumn\tvalue\tsource\tlocator\tmethod\tconfidence"));
+                Is.EqualTo("data file\tlabel\tcolumn\tvalue\tsource\tlocator\tmethod\tconfidence\tdata file pattern"));
             File.Delete(path);
         }
+
+        [Test]
+        public void AnEvidenceFileWrittenBeforeThePatternColumnStillReads()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "evidence-v1.tsv");
+            File.WriteAllText(path, "data file\tlabel\tcolumn\tvalue\tsource\tlocator\tmethod\tconfidence\n" +
+                "A.raw\t\tcharacteristics[age]\t40Y\tsupplement\tx\tfile-key\tlikely\n");
+
+            Assert.That(SdrfEvidenceFile.Read(path).Single().DataFilePattern, Is.Empty);
+            File.Delete(path);
+        }
+
+        [Test]
+        public void AClaimAboutASetOfFilesFillsEachFileInItAndNoOther()
+        {
+            // G38 pilot: "the flower mix is the TMT6 files" is neither one file nor the whole deposit.
+            string[] files = { "P020835_TMT6_F01.raw", "P020835_TMT6_F02.raw", "P017712_TMT10_F01.raw" };
+            var evidence = new[]
+            {
+                new SdrfEvidence("", "", "characteristics[organism part]", "flower", "paper", "figure: Fig1.jpg", "model",
+                    SdrfEvidenceConfidence.Likely, "*_tmt6_*"),
+                new SdrfEvidence("", "", "characteristics[organism part]", "root", "paper", "x", "model",
+                    SdrfEvidenceConfidence.Likely, "*_iTRAQ_*"),
+            };
+
+            var draft = SdrfDrafter.Draft(Project(), files, evidence);
+
+            Assert.That(Row(draft, "P020835_TMT6_F01.raw").OrganismPart.Value, Is.EqualTo("flower"), "the glob ignores case");
+            Assert.That(Row(draft, "P020835_TMT6_F02.raw").OrganismPart.Value, Is.EqualTo("flower"));
+            Assert.That(Row(draft, "P017712_TMT10_F01.raw").OrganismPart.Source, Is.EqualTo(SdrfDraftSource.NotAvailable));
+            Assert.That(draft.EvidenceNotes.Single().Why, Does.Contain("matches none"));
+        }
+
+        [TestCase("*TMT6*", "P020835_TMT6_F01.raw", true)]
+        [TestCase("P0208??_*", "P020835_TMT6_F01.raw", true)]
+        [TestCase("*TMT6*", "P017712_TMT10_F01.raw", false)]
+        [TestCase("*.raw", "a.mzML", false)]
+        [TestCase("a+b*", "a+b_1.raw", true)]
+        public void AFilePatternIsAGlobOverTheWholeName(string pattern, string file, bool matches) =>
+            Assert.That(SdrfEvidence.GlobMatches(pattern, file), Is.EqualTo(matches));
 
         [Test]
         public void AnEvidenceFileWithoutItsColumnsIsRefused()

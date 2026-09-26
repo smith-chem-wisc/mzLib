@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.RegularExpressions;
 using MzLibUtil;
 
 namespace Readers
@@ -29,6 +30,11 @@ namespace Readers
     /// <param name="Locator">Where exactly, so a reviewer can check it: <c>mmc2.xlsx!Sheet1!R14C3</c>, a section, a quote.</param>
     /// <param name="Method">How it was read: <c>isa-tab</c>, <c>sdrf</c>, <c>file-key</c>, <c>channel-map</c>, <c>text</c>, <c>model</c>.</param>
     /// <param name="Confidence">See <see cref="SdrfEvidenceConfidence"/>.</param>
+    /// <param name="DataFilePattern">
+    /// A set of the deposit's raw files the claim holds for, as a glob over their names (<c>*TMT6*</c>, <c>*_SetA_*</c>;
+    /// <c>*</c> any run of characters, <c>?</c> one, case-insensitive), when it is neither one file nor all of them.
+    /// Empty otherwise; <see cref="DataFile"/> is then empty too.
+    /// </param>
     internal sealed record SdrfEvidence(
         string DataFile,
         string Label,
@@ -37,7 +43,14 @@ namespace Readers
         string Source,
         string Locator,
         string Method,
-        SdrfEvidenceConfidence Confidence);
+        SdrfEvidenceConfidence Confidence,
+        string DataFilePattern = "")
+    {
+        /// <summary>Whether a raw file name matches a <see cref="DataFilePattern"/> glob (the whole name, ignoring case).</summary>
+        internal static bool GlobMatches(string pattern, string fileName) =>
+            Regex.IsMatch(fileName, "^" + Regex.Escape(pattern).Replace(@"\*", ".*").Replace(@"\?", ".") + "$",
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+    }
 
     /// <summary>
     /// A claim the drafter did not apply, and why: it disagrees with a reading the drafter made, conflicts with another
@@ -52,6 +65,9 @@ namespace Readers
     internal static class SdrfEvidenceFile
     {
         internal static readonly string[] Columns = { "data file", "label", "column", "value", "source", "locator", "method", "confidence" };
+
+        /// <summary>Written by every writer, optional to a reader: files written before it existed still read.</summary>
+        internal const string PatternColumn = "data file pattern";
 
         /// <summary>Reads an evidence file. Throws <see cref="MzLibException"/> when a column is missing or a confidence is unknown.</summary>
         internal static IReadOnlyList<SdrfEvidence> Read(string path)
@@ -73,7 +89,7 @@ namespace Readers
                 if (!Enum.TryParse(Get("confidence"), ignoreCase: true, out SdrfEvidenceConfidence confidence))
                     throw new MzLibException($"Evidence file '{path}' line {i + 1}: unknown confidence '{Get("confidence")}'.");
                 claims.Add(new SdrfEvidence(Get("data file"), Get("label"), Get("column"), Get("value"), Get("source"),
-                    Get("locator"), Get("method"), confidence));
+                    Get("locator"), Get("method"), confidence, At(PatternColumn) >= 0 ? Get(PatternColumn) : ""));
             }
             return claims;
         }
@@ -84,10 +100,10 @@ namespace Readers
             if (path == null) throw new ArgumentNullException(nameof(path));
             if (claims == null) throw new ArgumentNullException(nameof(claims));
             static string Clean(string s) => (s ?? "").Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
-            var sb = new StringBuilder(string.Join('\t', Columns)).Append('\n');
+            var sb = new StringBuilder(string.Join('\t', Columns)).Append('\t').Append(PatternColumn).Append('\n');
             foreach (var c in claims)
                 sb.Append(string.Join('\t', new[] { c.DataFile, c.Label, c.Column, c.Value, c.Source, c.Locator, c.Method }.Select(Clean)))
-                  .Append('\t').Append(c.Confidence.ToString().ToLowerInvariant()).Append('\n');
+                  .Append('\t').Append(c.Confidence.ToString().ToLowerInvariant()).Append('\t').Append(Clean(c.DataFilePattern)).Append('\n');
             File.WriteAllText(path, sb.ToString(), new UTF8Encoding(false));
         }
     }
