@@ -651,6 +651,43 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.IsTrue(cleanedSequence.Equals("ASDFASDF"));
         }
 
+        /// <summary>
+        /// An entrapment decoy ("ED") is a decoy for every purpose. <c>ToLibrarySpectrum</c> tested
+        /// <c>== "D"</c> and so wrote ED PSMs into a spectral library as targets.
+        /// </summary>
+        [TestCase("T", false, false)]
+        [TestCase("D", true, false)]
+        [TestCase("ET", false, true)]
+        [TestCase("ED", true, true)]
+        [TestCase("T|ET", false, true)]
+        public static void EntrapmentLabelsReadTheSameOnEveryPath(string label, bool isDecoy, bool isEntrapment)
+        {
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            int column = Array.IndexOf(lines[0].Split('\t'), SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] fields = lines[i].Split('\t');
+                if (fields.Length > column)
+                {
+                    fields[column] = label;
+                    lines[i] = string.Join('\t', fields);
+                }
+            }
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"entrapmentLabel_{label.Replace('|', '_')}.psmtsv");
+            File.WriteAllLines(path, lines);
+
+            PsmFromTsv psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).First();
+            LightWeightSpectralMatch lightweight = LightWeightSpectralMatchReader.ReadTsv(path, out _).First();
+            File.Delete(path);
+
+            NUnit.Framework.Assert.That(psm.DecoyContamTarget, Is.EqualTo(label));
+            NUnit.Framework.Assert.That((psm.IsDecoy, psm.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)));
+            NUnit.Framework.Assert.That(psm.ToLibrarySpectrum().IsDecoy, Is.EqualTo(isDecoy));
+            NUnit.Framework.Assert.That((lightweight.IsDecoy, lightweight.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)),
+                "the lightweight reader must agree with the full one");
+        }
+
         [Test]
         public static void TestSimpleToLibrarySpectrum()
         {

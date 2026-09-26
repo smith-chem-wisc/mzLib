@@ -201,6 +201,37 @@ public class TestOsmReading
             "Custom ThreePrimeTerminus should override original");
     }
 
+    /// <summary>
+    /// The base-class <c>ToLibrarySpectrum</c>, which OSMs use, tested <c>== "D"</c> as the PSM override
+    /// did, and so wrote an entrapment decoy ("ED") into a spectral library as a target.
+    /// </summary>
+    [TestCase("T", false, false)]
+    [TestCase("D", true, false)]
+    [TestCase("ET", false, true)]
+    [TestCase("ED", true, true)]
+    public static void EntrapmentLabelsReadTheSameForOsms(string label, bool isDecoy, bool isEntrapment)
+    {
+        string[] lines = File.ReadAllLines(OsmFilePath);
+        int column = Array.IndexOf(lines[0].Split('\t'), SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+        for (int i = 1; i < lines.Length; i++)
+        {
+            string[] fields = lines[i].Split('\t');
+            if (fields.Length > column)
+            {
+                fields[column] = label;
+                lines[i] = string.Join('\t', fields);
+            }
+        }
+        string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"entrapmentLabel_{label}.osmtsv");
+        File.WriteAllLines(path, lines);
+
+        OsmFromTsv osm = SpectrumMatchTsvReader.ReadOsmTsv(path, out _).First();
+        File.Delete(path);
+
+        Assert.That((osm.IsDecoy, osm.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)));
+        Assert.That(osm.ToLibrarySpectrum().IsDecoy, Is.EqualTo(isDecoy));
+    }
+
     [Test]
     public static void OsmFromTsvFile_LoadsCorrectly()
     {
