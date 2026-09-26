@@ -330,6 +330,85 @@ namespace Test.FileReadingTests
                 Is.EqualTo(new[] { (@"C:\data\a2.raw", 0), (@"C:\data\a3.raw", 1) }), "the searched paths, ranked 1..2");
         }
 
+        /// <summary>
+        /// MetaMorpheus skips rows for files it does not search before it validates anything, so a
+        /// problem confined to such a row must not refuse the design.
+        /// </summary>
+        [Test]
+        public void AProblemInARowTheSearchDoesNotReadDoesNotRefuse()
+        {
+            var searched = new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { "a2.raw", "a3.raw" } };
+
+            var badFraction = SdrfLabelFreeDesign.Read(Document(
+                ("a1.raw", "A", "1", "not available", "1"), ("a2.raw", "A", "1", "1", "1"), ("a3.raw", "A", "2", "1", "1")), searched);
+            Assert.That(badFraction.Refusals, Is.Empty, badFraction.Report());
+            Assert.That(badFraction.Notes, Does.Contain("Line 2 ('a1.raw') dropped: the search does not read that file."));
+            Assert.That(badFraction.Files, Has.Count.EqualTo(2));
+
+            var repeated = SdrfLabelFreeDesign.Read(Document(
+                ("a1.raw", "A", "1", "1", "1"), ("a1.raw", "A", "2", "1", "1"), ("a2.raw", "A", "1", "1", "1"), ("a3.raw", "A", "2", "1", "1")), searched);
+            Assert.That(repeated.Refusals, Is.Empty, repeated.Report());
+
+            var caseCollision = SdrfLabelFreeDesign.Read(Document(
+                ("a1.raw", "a", "1", "1", "1"), ("a2.raw", "A", "1", "1", "1"), ("a3.raw", "A", "2", "1", "1")), searched);
+            Assert.That(caseCollision.Refusals, Is.Empty, caseCollision.Report());
+
+            var emptyFile = SdrfLabelFreeDesign.Read(Document(
+                ("", "A", "1", "1", "1"), ("a2.raw", "A", "1", "1", "1"), ("a3.raw", "A", "2", "1", "1")), searched);
+            Assert.That(emptyFile.Refusals, Is.Empty, emptyFile.Report());
+            Assert.That(emptyFile.Notes, Does.Contain("Line 2 dropped: 'comment[data file]' is empty, so it names no searched file."));
+        }
+
+        /// <summary>
+        /// The same problems in a searched row still refuse: dropping first must not hide them.
+        /// </summary>
+        [Test]
+        public void AProblemInASearchedRowStillRefuses()
+        {
+            var searched = new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { "a1.raw", "a2.raw" } };
+            var design = SdrfLabelFreeDesign.Read(Document(
+                ("a1.raw", "A", "1", "not available", "1"), ("a2.raw", "A", "2", "1", "1")), searched);
+
+            Assert.That(design.Refusals.Single(), Does.Contain("Line 2 (a1.raw)"));
+        }
+
+        /// <summary>
+        /// MetaMorpheus matches each design row to the FIRST searched path with that name, so a second
+        /// same-named file is never defined and quantification is skipped.
+        /// </summary>
+        [Test]
+        public void TwoSearchedFilesSharingANameAreRefused()
+        {
+            var sdrf = Document(("x.raw", "A", "1", "1", "1"), ("y.raw", "A", "2", "1", "1"));
+
+            var design = SdrfLabelFreeDesign.Read(sdrf, new SdrfLabelFreeDesignOptions
+            {
+                SearchedFiles = new[] { @"C:\dir1\x.raw", @"C:\dir2\x.raw", @"C:\dir1\y.raw" }
+            });
+            Assert.That(design.Refusals.Single(), Does.Contain(@"'C:\dir1\x.raw', 'C:\dir2\x.raw' share the name 'x.raw'"));
+            Assert.That(design.Files, Is.Empty);
+
+            var one = SdrfLabelFreeDesign.Read(sdrf, new SdrfLabelFreeDesignOptions
+            {
+                SearchedFiles = new[] { @"C:\dir1\x.raw", @"C:\dir1\x.raw", @"C:\dir1\y.raw" }
+            });
+            Assert.That(one.Refusals, Is.Empty, "the same path listed twice is one file");
+        }
+
+        [Test]
+        public void ASearchedFileListNamingNoFileIsRefused()
+        {
+            foreach (var searched in new[] { Array.Empty<string>(), new[] { " " } })
+            {
+                var design = SdrfLabelFreeDesign.Read(Document(("a1.raw", "A", "1", "1", "1")),
+                    new SdrfLabelFreeDesignOptions { SearchedFiles = searched });
+
+                Assert.That(design.IsValid, Is.False);
+                Assert.That(design.Refusals.Single(), Is.EqualTo("SearchedFiles was given but names no file, so no row could be kept."));
+                Assert.That(design.Files, Is.Empty);
+            }
+        }
+
         [Test]
         public void ASearchedFileWithNoRowIsRefused()
         {

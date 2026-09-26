@@ -26,7 +26,8 @@ namespace Readers
         /// The files the search will read, as paths or bare names. When given, the design is checked
         /// the way MetaMorpheus reads it: each searched file must be named EXACTLY (case and
         /// extension) by one row, and rows naming a file that is not searched are dropped and
-        /// reported. No stem matching happens here: joining searched files to rows is
+        /// reported before any row is checked. Two searched paths sharing a file name, or a list naming
+        /// no file, are refused. No stem matching happens here: joining searched files to rows is
         /// <c>SdrfSearchScope</c>'s job, and it writes the <c>comment[searched data file]</c> this
         /// reader keys on.
         /// </summary>
@@ -203,22 +204,46 @@ namespace Readers
             if (refusals.Count > 0)
                 return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
 
-            // Read every row, collecting every problem rather than stopping at the first.
+            Dictionary<string, string>? searchedByName = null;
+            if (options.SearchedFiles != null)
+            {
+                searchedByName = IndexSearchedFiles(options.SearchedFiles, refusals);
+                if (refusals.Count > 0)
+                    return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
+            }
+
+            // Read every row, collecting every problem rather than stopping at the first. A row for a
+            // file the search does not read is dropped BEFORE it is checked, as MetaMorpheus's reader
+            // skips it: a problem in a row nothing reads must not refuse the design.
             var parsed = new List<ParsedRow>();
             var unreadFiles = new HashSet<string>(StringComparer.Ordinal);
+            var dropped = new List<(int Line, string FileName)>();
             for (int i = 0; i < rows.Count; i++)
             {
-                var row = ParseRow(rows[i], i + 2, keyColumn!, conditionColumns, conditionDeclared, refusals);
+                int line = i + 2;
+                string? fileCell = rows[i][keyColumn!];
+                string fileName = string.IsNullOrWhiteSpace(fileCell) ? string.Empty : Path.GetFileName(fileCell.Trim());
+                if (searchedByName != null && !searchedByName.ContainsKey(fileName))
+                {
+                    dropped.Add((line, fileName));
+                    notes.Add(fileName.Length == 0
+                        ? $"Line {line} dropped: '{keyColumn}' is empty, so it names no searched file."
+                        : $"Line {line} ('{fileName}') dropped: the search does not read that file.");
+                    continue;
+                }
+
+                var row = ParseRow(rows[i], line, keyColumn!, conditionColumns, conditionDeclared, refusals);
                 if (row != null)
                     parsed.Add(row);
-                else if (rows[i][keyColumn!] is { } unread && !string.IsNullOrWhiteSpace(unread))
-                    unreadFiles.Add(Path.GetFileName(unread.Trim()));
+                else if (fileName.Length > 0)
+                    unreadFiles.Add(fileName);
             }
 
             RefuseRepeatedFiles(parsed, refusals);
             RefuseConditionCollisions(parsed, refusals);
 
-            parsed = RestrictToSearchedFiles(parsed, unreadFiles, options.SearchedFiles, refusals, notes);
+            if (searchedByName != null)
+                UseSearchedPaths(parsed, unreadFiles, dropped, searchedByName, refusals);
 
             if (refusals.Count > 0)
                 return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
@@ -382,46 +407,53 @@ namespace Readers
             }
         }
 
-        private static List<ParsedRow> RestrictToSearchedFiles(List<ParsedRow> rows, HashSet<string> unreadFiles,
-            IReadOnlyCollection<string>? searchedFiles, List<string> refusals, List<string> notes)
+        // Exact names, as MetaMorpheus's reader compares them (ordinal, extension included). Two searched
+        // paths with one name are refused: the design names a file by its name alone, and MetaMorpheus
+        // matches each row to the first path of that name, so the other is never defined.
+        private static Dictionary<string, string> IndexSearchedFiles(IReadOnlyCollection<string> searchedFiles,
+            List<string> refusals)
         {
-            if (searchedFiles == null)
-                return rows;
-
-            // Exact names, as MetaMorpheus's reader compares them (ordinal, extension included).
             var searchedByName = new Dictionary<string, string>(StringComparer.Ordinal);
-            foreach (var path in searchedFiles.Where(p => !string.IsNullOrWhiteSpace(p)))
-                searchedByName.TryAdd(Path.GetFileName(path), path);
+            var usable = searchedFiles.Where(p => !string.IsNullOrWhiteSpace(p)).ToList();
+            if (usable.Count == 0)
+            {
+                refusals.Add("SearchedFiles was given but names no file, so no row could be kept.");
+                return searchedByName;
+            }
 
-            var rowsByName = rows.GroupBy(r => r.FileName, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+            foreach (var group in usable.GroupBy(p => Path.GetFileName(p.Trim()), StringComparer.Ordinal))
+            {
+                var paths = group.Distinct(StringComparer.Ordinal).ToList();
+                if (paths.Count > 1)
+                {
+                    refusals.Add($"Searched files {string.Join(", ", paths.Select(p => $"'{p}'"))} share the name '{group.Key}'. " +
+                                 "A design names a file by its name alone, so MetaMorpheus cannot tell them apart; rename them or search them separately.");
+                }
+                searchedByName[group.Key] = paths[0];
+            }
+
+            return searchedByName;
+        }
+
+        private static void UseSearchedPaths(List<ParsedRow> rows, HashSet<string> unreadFiles,
+            List<(int Line, string FileName)> dropped, Dictionary<string, string> searchedByName, List<string> refusals)
+        {
+            var named = new HashSet<string>(rows.Select(r => r.FileName), StringComparer.Ordinal);
 
             // A row already refused for its contents names its file; saying it has no row would be wrong.
-            foreach (var name in searchedByName.Keys.Where(n => !rowsByName.ContainsKey(n) && !unreadFiles.Contains(n)))
+            foreach (var name in searchedByName.Keys.Where(n => !named.Contains(n) && !unreadFiles.Contains(n)))
             {
                 string stem = Path.GetFileNameWithoutExtension(name);
-                var nearly = rows.FirstOrDefault(r => string.Equals(
-                    Path.GetFileNameWithoutExtension(r.FileName), stem, StringComparison.OrdinalIgnoreCase));
-                refusals.Add(nearly == null
+                var nearly = dropped.FirstOrDefault(d => string.Equals(
+                    Path.GetFileNameWithoutExtension(d.FileName), stem, StringComparison.OrdinalIgnoreCase));
+                refusals.Add(nearly.FileName == null
                     ? $"Searched file '{name}' has no SDRF row. MetaMorpheus skips quantification when any searched file is missing from the design."
                     : $"Searched file '{name}' has no SDRF row naming it exactly; line {nearly.Line} names '{nearly.FileName}'. " +
                       "Restrict the SDRF to the searched files first (SdrfSearchScope), which records the searched name.");
             }
 
-            var kept = new List<ParsedRow>();
             foreach (var row in rows)
-            {
-                if (searchedByName.TryGetValue(row.FileName, out var path))
-                {
-                    row.FilePath = path;
-                    kept.Add(row);
-                }
-                else
-                {
-                    notes.Add($"Line {row.Line} ('{row.FileName}') dropped: the search does not read that file.");
-                }
-            }
-
-            return kept;
+                row.FilePath = searchedByName[row.FileName];
         }
 
         // MAP-33: rank the biological replicates within each condition, keeping their order.
