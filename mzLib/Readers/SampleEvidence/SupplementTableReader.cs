@@ -40,10 +40,11 @@ namespace Readers
     /// <para><c>.xlsx</c>/<c>.xlsm</c> and <c>.docx</c> are zipped XML and are read as such, with no spreadsheet
     /// package; <c>.csv</c>, <c>.tsv</c> and <c>.txt</c> (ISA-Tab included) are read quote-aware with the separator
     /// sniffed. Cells are text as written: a whole number stored as <c>3.0</c> becomes <c>3</c>, and nothing else is
-    /// reformatted (a date stays the serial number the file stores). A format with no reader here (<c>.xls</c>, PDF)
+    /// reformatted (a date stays the serial number the file stores). A PDF's tables are found from word positions
+    /// (<c>SupplementTableReader.Pdf.cs</c>). A format with no reader here (<c>.xls</c>)
     /// gives no tables; a file that claims a format and is not in it throws <see cref="MzLibException"/>.</para>
     /// </summary>
-    internal static class SupplementTableReader
+    internal static partial class SupplementTableReader
     {
         /// <summary>Rows read per table before stopping. Sample tables are short; result tables can run to 100,000.</summary>
         internal const int DefaultMaxRows = 5000;
@@ -66,6 +67,7 @@ namespace Readers
                     ".xlsx" or ".xlsm" => ReadWorkbook(path, name, maxRows),
                     ".docx" => ReadDocument(path, name, maxRows),
                     ".csv" or ".tsv" or ".txt" => ReadDelimited(path, name, maxRows),
+                    ".pdf" => ReadPdf(path, name, maxRows),
                     _ => Array.Empty<SupplementTable>()
                 };
             }

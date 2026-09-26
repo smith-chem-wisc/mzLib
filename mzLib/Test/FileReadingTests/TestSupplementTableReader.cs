@@ -8,6 +8,10 @@ using System.Text;
 using MzLibUtil;
 using NUnit.Framework;
 using Readers;
+using UglyToad.PdfPig.Content;
+using UglyToad.PdfPig.Core;
+using UglyToad.PdfPig.Fonts.Standard14Fonts;
+using UglyToad.PdfPig.Writer;
 
 namespace Test.FileReadingTests
 {
@@ -130,13 +134,67 @@ namespace Test.FileReadingTests
         [Test]
         public void AFormatWithNoReaderGivesNothingAndABrokenFileIsRefused()
         {
-            string pdf = Path.Combine(Dir, "figure.pdf");
-            File.WriteAllText(pdf, "%PDF-1.4");
-            Assert.That(SupplementTableReader.Read(pdf), Is.Empty);
+            string xls = Path.Combine(Dir, "legacy.xls");
+            File.WriteAllText(xls, "not read");
+            Assert.That(SupplementTableReader.Read(xls), Is.Empty);
+
+            string pdf = Path.Combine(Dir, "broken.pdf");
+            File.WriteAllText(pdf, "%PDF-1.4 and nothing else");
+            Assert.Throws<MzLibException>(() => SupplementTableReader.Read(pdf));
 
             string broken = Path.Combine(Dir, "broken.xlsx");
             File.WriteAllText(broken, "not a zip");
             Assert.Throws<MzLibException>(() => SupplementTableReader.Read(broken));
+        }
+
+        /// <summary>A one-page PDF with text placed at (x, y) points, 10 pt Helvetica unless a size is given.</summary>
+        private static string Pdf(string name, params (string Text, double X, double Y, double Size)[] words)
+        {
+            var builder = new PdfDocumentBuilder();
+            var page = builder.AddPage(PageSize.A4);
+            var font = builder.AddStandard14Font(Standard14Font.Helvetica);
+            foreach (var (text, x, y, size) in words) page.AddText(text, size, new PdfPoint(x, y), font);
+            string path = Path.Combine(Dir, name);
+            File.WriteAllBytes(path, builder.Build());
+            return path;
+        }
+
+        [Test]
+        public void APdfTableIsReadFromWordPositionsWithItsCaptionAndAWrappedHeader()
+        {
+            // The shape of PXD021990's Table S7: a caption, a header cell wrapped over two lines ("Pediatric" above
+            // "Age Group"), a superscript in a header (m2), and a cell wrapped onto the next line.
+            string pdf = Pdf("s1.pdf",
+                ("Supplementary Table S1. Patient characteristics", 50, 760, 10),
+                ("Pediatric", 200, 730, 10),
+                ("Patient", 50, 718, 10), ("Age", 130, 718, 10), ("Age Group", 200, 718, 10), ("Sex", 300, 718, 10), ("BSA (m", 360, 718, 10), ("2", 398, 722, 6), (")", 402, 718, 10),
+                ("DB85", 50, 700, 10), ("9", 130, 700, 10), ("Child", 200, 700, 10), ("F", 300, 700, 10), ("0.95", 360, 700, 10),
+                ("DB27", 50, 686, 10), ("17", 130, 686, 10), ("Adolescent", 200, 686, 10), ("M", 300, 686, 10), ("2.2", 360, 686, 10),
+                ("(transplant)", 200, 674, 10),
+                ("DB43", 50, 660, 10), ("7", 130, 660, 10), ("Infant", 200, 660, 10), ("M", 300, 660, 10), ("0.24", 360, 660, 10),
+                ("This paragraph follows the table and is prose, set as one run of words across the page.", 50, 620, 10));
+
+            var t = SupplementTableReader.Read(pdf).Single();
+
+            Assert.That(t.Sheet, Is.EqualTo("page 1 table 1"));
+            Assert.That(t.Title, Does.StartWith("Supplementary Table S1."));
+            Assert.That(t.Header, Is.EqualTo(new[] { "Patient", "Age", "Pediatric Age Group", "Sex", "BSA (m 2 )" }));
+            Assert.That(t.Rows.Select(r => r[0]), Is.EqualTo(new[] { "DB85", "DB27", "", "DB43" }), "the wrapped cell is its own row, as in the PDF");
+            Assert.That(t.Rows[1], Is.EqualTo(new[] { "DB27", "17", "Adolescent", "M", "2.2" }));
+            Assert.That(t.Rows[2][2], Is.EqualTo("(transplant)"));
+            Assert.That(t.Locator(0, 2), Is.EqualTo("s1.pdf!page 1 table 1!R3C3"));
+        }
+
+        [Test]
+        public void ProseInAPdfIsNotATable()
+        {
+            string pdf = Pdf("methods.pdf",
+                ("Supplementary Methods", 50, 760, 12),
+                ("Samples were collected from ten patients and ten donors,", 50, 740, 10),
+                ("digested with trypsin and labelled with TMT 10-plex reagents.", 50, 726, 10),
+                ("Each plex was fractionated into twelve fractions.", 50, 712, 10));
+
+            Assert.That(SupplementTableReader.Read(pdf), Is.Empty);
         }
     }
 }
