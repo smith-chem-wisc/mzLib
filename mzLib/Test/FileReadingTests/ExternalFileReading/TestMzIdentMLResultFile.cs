@@ -361,6 +361,22 @@ namespace Test.FileReadingTests.ExternalFileReading
         }
 
         /// <summary>
+        /// Access denied is not an IOException, so it needs naming on its own. Opening a directory as a file is
+        /// denied the same way a file without read permission is, and needs no ACL set-up.
+        /// </summary>
+        [TestCase("denied.mzid")]
+        [TestCase("denied.mzid.gz")]
+        public void AccessDeniedThrowsMzLibExceptionNamingTheFile(string fileName)
+        {
+            string path = Path.Combine(_outputDirectory, fileName);
+            Directory.CreateDirectory(path);
+
+            var e = Assert.Throws<MzLibException>(() => new MzIdentMLResultFile(path).LoadResults());
+            Assert.That(e!.Message, Does.StartWith($"Could not read mzIdentML file '{path}'"));
+            Assert.That(e.InnerException, Is.InstanceOf<UnauthorizedAccessException>());
+        }
+
+        /// <summary>
         /// A plain .mzid is read from disk, not copied into memory first as a .gz must be. The document is
         /// padded with comments the deserializer skips, so reading it allocates far less than its size unless
         /// the whole file is buffered.

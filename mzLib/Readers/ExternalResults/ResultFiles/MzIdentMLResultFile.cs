@@ -141,11 +141,11 @@ public class MzIdentMLResultFile : ResultFile<MzIdentMLRecord>
 
     /// <summary>
     /// Anything that goes wrong reading an existing file: a document no schema version accepts, malformed
-    /// XML, a corrupt gzip, or an I/O fault mid-read. A missing file or directory is not one of these; it
-    /// propagates as it does from the other result-file readers.
+    /// XML, a corrupt gzip, an I/O fault mid-read, or access denied. A missing file or directory is not one of
+    /// these; it propagates as it does from the other result-file readers.
     /// </summary>
     private static bool IsReadFailure(Exception e) =>
-        e is InvalidOperationException or XmlException or InvalidDataException
+        e is InvalidOperationException or XmlException or InvalidDataException or UnauthorizedAccessException
         || e is IOException and not FileNotFoundException and not DirectoryNotFoundException;
 
     /// <summary>
