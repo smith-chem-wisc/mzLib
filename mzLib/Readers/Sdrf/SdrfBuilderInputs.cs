@@ -39,8 +39,11 @@ namespace Readers
         public IReadOnlyDictionary<string, CvParam> Characteristics { get; init; }
             = new Dictionary<string, CvParam>();
 
-        /// <summary>1-based, as SDRF writes them. Note mzLib's SpectraFileInfo stores these 0-based.</summary>
-        public int BiologicalReplicate { get; init; } = 1;
+        /// <summary>
+        /// 1-based, as SDRF writes them. Note mzLib's SpectraFileInfo stores these 0-based. <c>null</c> when nobody
+        /// established it (no experimental design): written <c>not available</c>, never a guessed 1.
+        /// </summary>
+        public int? BiologicalReplicate { get; init; } = 1;
 
         /// <summary>The label for this row: "label free sample", or a TMT channel.</summary>
         public CvParam? Label { get; init; }
@@ -186,11 +189,14 @@ namespace Readers
         /// <summary>DDA/DIA/PRM/SRM, as a PRIDE CV term. The corpus uses PRIDE here, not PSI-MS.</summary>
         public CvParam? AcquisitionMethod { get; init; }
 
-        /// <summary>1-based, as SDRF writes them.</summary>
-        public int TechnicalReplicate { get; init; } = 1;
+        /// <summary>1-based, as SDRF writes them. <c>null</c> when nobody established it: written <c>not available</c>.</summary>
+        public int? TechnicalReplicate { get; init; } = 1;
 
-        /// <summary>1-based. 1 when the sample was not fractionated.</summary>
-        public int Fraction { get; init; } = 1;
+        /// <summary>
+        /// 1-based. 1 when the sample was KNOWN not to be fractionated; <c>null</c> when nobody established it (no
+        /// experimental design): written <c>not available</c>, since 1 would claim the run is a whole sample.
+        /// </summary>
+        public int? Fraction { get; init; } = 1;
     }
 
     /// <summary>One row: a sample paired with the file it was acquired into.</summary>

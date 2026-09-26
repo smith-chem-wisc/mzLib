@@ -325,7 +325,7 @@ namespace Readers
                     cells.Add(SdrfReserved.NotAvailable);
             }
 
-            cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate));
+            cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate, options));
 
             cells.Add(Required(assay.AssayName, AssayName, options));
             cells.Add(TechnologyTypeValue);
@@ -341,8 +341,8 @@ namespace Readers
             cells.Add(ToleranceCell(assay.PrecursorMassTolerance, PrecursorTolerance, options));
             cells.Add(ToleranceCell(assay.ProductMassTolerance, FragmentTolerance, options));
             cells.Add(DissociationCell(assay.DissociationType, options));
-            cells.Add(Positive(assay.Fraction, FractionIdentifier));
-            cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate));
+            cells.Add(Positive(assay.Fraction, FractionIdentifier, options));
+            cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate, options));
             cells.Add(Required(assay.DataFileName, DataFile, options));
             if (searchedColumn)
                 // A row whose search read the acquired file itself names that file again, so the
@@ -553,9 +553,16 @@ namespace Readers
         /// SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
         /// a 0 that every consumer reads as an error.
         /// </summary>
-        private static string Positive(int value, string column) =>
-            value >= 1
-                ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        /// <summary>
+        /// A replicate or fraction number. <c>null</c> is a number nobody established -- a search with no
+        /// experimental design does not know it -- and is treated like any missing value (<see cref="Missing"/>):
+        /// written <c>not available</c>, or refused under RequireSampleMetadata. Writing 1 instead would state that
+        /// every run is its own unfractionated sample, a filled cell no coverage report can flag.
+        /// </summary>
+        private static string Positive(int? value, string column, SdrfBuilderOptions options) =>
+            value is null ? Missing(column, options)
+            : value >= 1
+                ? value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : throw new MzLibException(
                     $"'{column}' must be 1-based and at least 1, but was {value}. mzLib's " +
                     "SpectraFileInfo stores replicates and fractions 0-based; add 1 before passing them.");
