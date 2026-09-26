@@ -62,6 +62,31 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AKnownAcquiredNameThatIsItselfADerivativeStillJoins()
+        {
+            var acquired = new Dictionary<string, string> { ["WT_1-calib-averaged.mzML"] = "WT_1-calib.mzML" };
+
+            var s = SdrfSearchScope.Restrict(Deposit(), new[] { "WT_1-calib-averaged.mzML" }, acquired);
+
+            Assert.That(Row(s.Document, "WT_1.raw")["comment[searched data file]"], Is.EqualTo("WT_1-calib-averaged.mzML"));
+            Assert.That(s.SearchedWithoutRow, Is.Empty);
+            Assert.That(s.DroppedDataFiles, Does.Not.Contain("WT_1.raw"));
+        }
+
+        [Test]
+        public void ARowWithNoDataFileIsDroppedButNotListedAsAFile()
+        {
+            var dep = Doc(
+                new[] { "S1", "1", "run 1", "label free sample", "WT_1.raw", "1" },
+                new[] { "S9", "1", "run 9", "label free sample", "", "1" });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "WT_1.raw" });
+
+            Assert.That(s.Document.Results.Count(), Is.EqualTo(1));
+            Assert.That(s.DroppedDataFiles, Is.Empty);
+        }
+
+        [Test]
         public void ASearchedFileWithNoRowIsReportedNotInvented()
         {
             var s = SdrfSearchScope.Restrict(Deposit(), new[] { "WT_1.raw", "Blank_01.raw" });
