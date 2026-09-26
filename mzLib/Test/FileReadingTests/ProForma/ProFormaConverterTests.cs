@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MzLibUtil;
 using NUnit.Framework;
 using Omics.Modifications;
@@ -335,8 +336,104 @@ namespace Test.FileReadingTests.ProForma
                 _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
             var allModsKnown = new Dictionary<string, Modification> { [nAcetyl.IdWithMotif] = nAcetyl };
 
-            var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown);
+            var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-KPEPTIDE"), allModsKnown);
             Assert.That(dict[1], Is.SameAs(nAcetyl));
+
+            // On a peptide that does not start with K it does not fit, and nothing else resolves.
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown),
+                Throws.TypeOf<MzLibException>());
+        }
+
+        /// <summary>
+        /// Several mods share a name or an accession and differ by residue. At a terminus the one whose
+        /// motif fits the terminal residue wins, whatever the order they were loaded in: taking the first
+        /// terminus-compatible one put N-terminal myristoylation of G back on C.
+        /// </summary>
+        [Test]
+        public void Layer2_TerminalModIsChosenByTheTerminalResidue()
+        {
+            ModificationMotif.TryGetMotif("C", out var motifC);
+            ModificationMotif.TryGetMotif("G", out var motifG);
+            var dr = new Dictionary<string, IList<string>> { ["Unimod"] = new List<string> { "45" } };
+            var onC = new Modification(_originalId: "Myristoyl", _modificationType: "Unimod", _target: motifC,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 210.198366, _databaseReference: dr);
+            var onG = new Modification(_originalId: "Myristoyl", _modificationType: "Unimod", _target: motifG,
+                _locationRestriction: "Peptide N-terminal.", _monoisotopicMass: 210.198366, _databaseReference: dr);
+            var allModsKnown = new Dictionary<string, Modification> { [onC.IdWithMotif] = onC, [onG.IdWithMotif] = onG };
+
+            var byAccession = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[UNIMOD:45]-GPEPTIDE"), allModsKnown);
+            Assert.That(byAccession[1], Is.SameAs(onG));
+
+            var byName = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Myristoyl]-GPEPTIDE"), allModsKnown);
+            Assert.That(byName[1], Is.SameAs(onG));
+
+            var onCTerminus = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[UNIMOD:45]-CPEPTIDE"), allModsKnown);
+            Assert.That(onCTerminus[1], Is.SameAs(onC), "an Anywhere. mod still resolves at a terminus when it fits the residue");
+
+            Assert.That(() => ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[UNIMOD:45]-APEPTIDE"), allModsKnown),
+                Throws.TypeOf<MzLibException>(), "neither fits A");
+        }
+
+        /// <summary>
+        /// Over the modifications mzLib actually loads: every terminus-restricted mod on a single residue
+        /// that is written as an accession must read back as a mod on that same residue. Before the
+        /// terminal residue was consulted, 41 of the 121 came back on another residue.
+        /// </summary>
+        [Test]
+        public void Layer2_LoadedTerminalModsReadBackOnTheirOwnResidue()
+        {
+            var known = Mods.AllModsKnownDictionary;
+            int informative = 0;
+            var wrongResidue = new List<string>();
+            foreach (var mod in known.Values)
+            {
+                char target = (mod.Target?.ToString() ?? "").FirstOrDefault(char.IsUpper);
+                if (target == default || target == 'X')
+                    continue;
+
+                bool nTerm = mod.LocationRestriction is "N-terminal." or "Peptide N-terminal.";
+                bool cTerm = mod.LocationRestriction is "C-terminal." or "Peptide C-terminal.";
+                if (!nTerm && !cTerm)
+                    continue;
+
+                string sequence = nTerm ? target + "PEPTIDE" : "PEPTIDE" + target;
+                var term = ProFormaConverter.ToProFormaTerm(sequence,
+                    new Dictionary<int, Modification> { [nTerm ? 1 : sequence.Length + 2] = mod });
+                var descriptors = nTerm ? term.NTerminalDescriptors : term.CTerminalDescriptors;
+                if (descriptors[0].Key != Tdp.ProFormaKey.Identifier)
+                    continue;
+
+                informative++;
+                var back = ProFormaConverter.ToModificationDictionary(term, known).Values.Single();
+                char backTarget = (back.Target?.ToString() ?? "").FirstOrDefault(char.IsUpper);
+                if (backTarget != target && backTarget != 'X')
+                    wrongResidue.Add($"{mod.IdWithMotif} ({mod.LocationRestriction}) read back as {back.IdWithMotif}");
+            }
+
+            Assert.That(informative, Is.GreaterThan(100), "the population this test exists for must be present");
+            Assert.That(wrongResidue, Is.Empty);
+        }
+
+        /// <summary>
+        /// A terminal mod restricted to its terminus beats an "Anywhere." one on the same residue, and a
+        /// mod on the residue itself beats one on any residue.
+        /// </summary>
+        [Test]
+        public void Layer2_TerminalModPrefersTheTerminusThenTheResidue()
+        {
+            ModificationMotif.TryGetMotif("K", out var motifK);
+            ModificationMotif.TryGetMotif("X", out var motifX);
+            var anywhereK = new Modification(_originalId: "Acetyl", _modificationType: "testMods", _target: motifK,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 42.01057);
+            var terminalX = new Modification(_originalId: "Acetyl", _modificationType: "testMods", _target: motifX,
+                _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
+            var allModsKnown = new Dictionary<string, Modification> { [anywhereK.IdWithMotif] = anywhereK, [terminalX.IdWithMotif] = terminalX };
+            Assert.That(ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-KPEPTIDE"), allModsKnown)[1], Is.SameAs(terminalX));
+
+            var terminalK = new Modification(_originalId: "Acetyl", _modificationType: "testMods", _target: motifK,
+                _locationRestriction: "N-terminal.", _monoisotopicMass: 42.01057);
+            allModsKnown[terminalK.IdWithMotif] = terminalK;
+            Assert.That(ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-KPEPTIDE"), allModsKnown)[1], Is.SameAs(terminalK));
         }
 
         [Test]

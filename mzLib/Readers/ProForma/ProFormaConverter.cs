@@ -75,7 +75,7 @@ namespace Readers.ProForma
             var result = new Dictionary<int, Modification>();
 
             if (term.NTerminalDescriptors is { Count: > 0 })
-                result[1] = Resolve(term.NTerminalDescriptors, residue: null, Terminus.N, allModsKnown, byAccession, term);
+                result[1] = Resolve(term.NTerminalDescriptors, TerminalResidue(sequence, Terminus.N), Terminus.N, allModsKnown, byAccession, term);
 
             if (term.Tags != null)
             {
@@ -97,7 +97,7 @@ namespace Readers.ProForma
             }
 
             if (term.CTerminalDescriptors is { Count: > 0 })
-                result[sequence.Length + 2] = Resolve(term.CTerminalDescriptors, residue: null, Terminus.C, allModsKnown, byAccession, term);
+                result[sequence.Length + 2] = Resolve(term.CTerminalDescriptors, TerminalResidue(sequence, Terminus.C), Terminus.C, allModsKnown, byAccession, term);
 
             return result;
         }
@@ -211,11 +211,14 @@ namespace Readers.ProForma
                 $"at {Where(residue, terminus)} in ProForma term '{term.Sequence}'.");
         }
 
-        /// <summary>Chooses an accession candidate matching the residue motif (interior) or terminus restriction.</summary>
+        /// <summary>
+        /// Chooses an accession candidate matching the residue motif (interior), or at a terminus one
+        /// allowed there whose motif fits the terminal residue, best fit first (see <see cref="TerminalFit"/>).
+        /// </summary>
         private static Modification? SelectCandidate(List<Modification> candidates, char? residue, Terminus terminus)
         {
             if (terminus != Terminus.None)
-                return candidates.FirstOrDefault(m => IsTerminusCompatible(m, terminus));
+                return BestTerminalCandidate(candidates, residue, terminus);
             if (residue.HasValue)
                 return candidates.FirstOrDefault(m => MotifMatches(m, residue.Value));
             return candidates.Count == 1 ? candidates[0] : null;
@@ -230,9 +233,13 @@ namespace Readers.ProForma
         {
             if (terminus != Terminus.None)
             {
-                if (allModsKnown.TryGetValue($"{name} on X", out var onX) && IsTerminusCompatible(onX, terminus))
-                    return onX;
-                return allModsKnown.Values.FirstOrDefault(m => m.OriginalId == name && IsTerminusCompatible(m, terminus));
+                var keyed = new List<Modification>(2);
+                if (residue.HasValue && allModsKnown.TryGetValue($"{name} on {residue}", out var onResidue))
+                    keyed.Add(onResidue);
+                if (allModsKnown.TryGetValue($"{name} on X", out var onX))
+                    keyed.Add(onX);
+                return BestTerminalCandidate(keyed, residue, terminus)
+                    ?? BestTerminalCandidate(allModsKnown.Values.Where(m => m.OriginalId == name), residue, terminus);
             }
             if (residue.HasValue)
             {
@@ -245,6 +252,38 @@ namespace Readers.ProForma
             }
             return allModsKnown.TryGetValue(name, out var bare) ? bare : null;
         }
+
+        /// <summary>
+        /// The terminus-compatible candidate whose motif fits the terminal residue, best fit first; ties keep
+        /// their order. Without a residue (an empty sequence) the first terminus-compatible candidate.
+        /// </summary>
+        private static Modification? BestTerminalCandidate(IEnumerable<Modification> candidates, char? residue, Terminus terminus)
+        {
+            var compatible = candidates.Where(m => IsTerminusCompatible(m, terminus));
+            if (!residue.HasValue)
+                return compatible.FirstOrDefault();
+            return compatible
+                .Where(m => MotifMatches(m, residue.Value))
+                .OrderBy(m => TerminalFit(m, residue.Value))
+                .FirstOrDefault();
+        }
+
+        /// <summary>
+        /// Lower is better: restricted to this terminus on this residue, then restricted to this terminus on
+        /// any residue, then "Anywhere." on this residue, then "Anywhere." on any residue. A mod on another
+        /// residue never fits: accepting one put N-terminal myristoylation of G back on C.
+        /// </summary>
+        private static int TerminalFit(Modification mod, char residue)
+        {
+            bool restricted = mod.LocationRestriction != "Anywhere.";
+            bool exact = MotifTargetResidue(mod) == residue;
+            return (restricted ? 0 : 2) + (exact ? 0 : 1);
+        }
+
+        private static char? TerminalResidue(string sequence, Terminus terminus) =>
+            string.IsNullOrEmpty(sequence) ? null
+            : terminus == Terminus.N ? sequence[0]
+            : sequence[^1];
 
         private static bool MotifMatches(Modification mod, char residue)
         {
