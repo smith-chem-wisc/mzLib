@@ -567,8 +567,8 @@ public class PrideArchiveDownloadTests
     [Test]
     public void DownloadFileAsync_ResponseEndedPrematurely_ThrowsHttpRequestException()
     {
-        // The exact failure aging hit on PXD015239 (2026-09-21): on .NET 10 a connection EBI drops mid-body
-        // surfaces as HttpIOException(ResponseEnded) -- an IOException, not an HttpRequestException.
+        // Seen live on a PXD015239 download: on .NET 10 a connection EBI drops mid-body surfaces as
+        // HttpIOException(ResponseEnded) -- an IOException, not an HttpRequestException.
         var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4,
@@ -738,6 +738,27 @@ public class PrideArchiveDownloadTests
         });
     }
 
+    [Test]
+    public void DownloadFileAsync_InjectedClientCancelsPendingRequests_StaysOperationCanceled()
+    {
+        // A cancellation the caller asks for through the HttpClient they injected, not through the token, is
+        // still not a timeout: only HttpClient.Timeout expiring is reported as PRIDE not responding.
+        var httpClient = new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromSeconds(30) };
+        using var client = new PrideArchiveClient(httpClient);
+        var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
+
+        var download = client.DownloadFileAsync(file, _tempDir);
+        Thread.Sleep(200);
+        httpClient.CancelPendingRequests();
+        var exception = Assert.CatchAsync(async () => await download);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception, Is.InstanceOf<OperationCanceledException>());
+            Assert.That(exception, Is.Not.InstanceOf<HttpRequestException>());
+        });
+    }
+
     /// <summary>Every way a download can fail, each run against a URL whose query string is a credential.</summary>
     private static IEnumerable<TestCaseData> DownloadFailureModes()
     {
@@ -757,8 +778,8 @@ public class PrideArchiveDownloadTests
     [TestCaseSource(nameof(DownloadFailureModes))]
     public void DownloadFileAsync_Failure_NeverPutsUrlInMessage(Func<HttpMessageHandler> handler, int timeoutMs)
     {
-        // PRIDE's reviewer-token route hands out download hrefs whose query string IS the token (phred thread
-        // 001, 2026-09-21). An exception message reaches logs, CI output and pasted issues, so no failure path
+        // PRIDE's reviewer-token route hands out download hrefs whose query string IS the token. An exception
+        // message reaches logs, CI output and pasted issues, so no failure path
         // may carry the URL. Checked over ToString(), which includes every inner exception.
         const string secret = "S3CR3T-REVIEWER-TOKEN";
         using var client = new PrideArchiveClient(new HttpClient(handler()) { Timeout = TimeSpan.FromMilliseconds(timeoutMs) })

@@ -693,8 +693,9 @@ namespace UsefulProteomicsDatabases
         /// When the client's own timeout fires, <see cref="HttpClient"/> throws a
         /// <see cref="TaskCanceledException"/> -- the same type a caller's cancellation produces -- so an EBI
         /// that never answers escaped the documented contract (and <c>ExternalServiceTestHelper</c>, which
-        /// skips only on transport failures). The two are told apart the way the stall window is: only a
-        /// cancellation the caller did NOT ask for is converted.
+        /// skips only on transport failures). HttpClient marks its own timeout with an inner
+        /// <see cref="TimeoutException"/>, so only that is converted; a caller's cancellation, through the token or
+        /// through <see cref="HttpClient.CancelPendingRequests"/> on an injected client, is not.
         /// </remarks>
         /// <param name="requestUri">The URI to fetch.</param>
         /// <param name="completionOption">When the returned task completes.</param>
@@ -707,7 +708,7 @@ namespace UsefulProteomicsDatabases
             {
                 return await _httpClient.GetAsync(requestUri, completionOption, cancellationToken).ConfigureAwait(false);
             }
-            catch (TaskCanceledException e) when (!cancellationToken.IsCancellationRequested)
+            catch (TaskCanceledException e) when (e.InnerException is TimeoutException)
             {
                 throw new HttpRequestException(
                     $"PRIDE did not respond within {_httpClient.Timeout} for {described ?? $"'{requestUri}'"}.", e);
