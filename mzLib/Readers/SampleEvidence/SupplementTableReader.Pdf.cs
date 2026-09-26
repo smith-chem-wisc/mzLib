@@ -56,10 +56,13 @@ namespace Readers
                         var raw = new List<(int Number, List<string> Cells)>();
                         if (caption != null) raw.Add((0, new List<string> { caption }));
                         bool truncated = block.Count > maxRows;
+                        int most = block.Max(l => l.Cells.Count);
+                        int firstFull = block.FindIndex(l => l.Cells.Count == most);
                         var body = new List<(int Number, List<string> Cells)>();
                         for (int i = 0; i < Math.Min(block.Count, maxRows); i++)
-                            body.Add((i + 1, Assign(block[i], columns)));
-                        raw.AddRange(MergeWrappedHeader(body, columns.Count));
+                            body.Add((i + 1, i < firstFull && block[i].Cells.Count < columns.Count
+                                ? AssignHeaderPart(block[i], columns) : Assign(block[i], columns)));
+                        raw.AddRange(MergeWrappedHeader(body, columns.Count, firstFull));
                         var table = Table(file, $"page {pageNumber} table {k + 1}", raw, truncated);
                         if (table == null) continue;
                         tables.Add(table);
@@ -201,10 +204,14 @@ namespace Readers
             var base_ = Merge(block.Where(l => l.Cells.Count == most).SelectMany(l => l.Cells).Select(c => (c.Left, c.Right)));
             // A column only the header or wrapped lines fill (PXD037923's "Colonoscopy Location") is added where it
             // overlaps none of the fullest lines' columns.
-            var extra = block.Where(l => l.Cells.Count >= 2 && l.Cells.Count < most).SelectMany(l => l.Cells)
-                .Select(c => (c.Left, c.Right))
-                .Where(c => !base_.Any(k => Math.Min(c.Right, k.Right) - Math.Max(c.Left, k.Left) > 0));
-            return Merge(base_.Concat(extra));
+            // It must show on two or more lines: a group label set between two columns ("AD" over TMT 127C/127N) is
+            // on one, and is not a column.
+            var extra = block.Where(l => l.Cells.Count < most)
+                .SelectMany((l, n) => l.Cells.Select(c => (Line: n, c.Left, c.Right)))
+                .Where(c => !base_.Any(k => Math.Min(c.Right, k.Right) - Math.Max(c.Left, k.Left) > 0)).ToList();
+            var kept = Merge(extra.Select(c => (c.Left, c.Right)))
+                .Where(m => extra.Where(c => Math.Min(c.Right, m.Right) - Math.Max(c.Left, m.Left) > 0).Select(c => c.Line).Distinct().Count() >= 2);
+            return Merge(base_.Concat(kept));
         }
 
         private static List<(double Left, double Right)> Merge(IEnumerable<(double Left, double Right)> spans)
@@ -226,7 +233,7 @@ namespace Readers
         /// at most five lines) at the first line that is at least three
         /// quarters full, or that is mostly numbers (data).
         /// </summary>
-        private static List<(int Number, List<string> Cells)> MergeWrappedHeader(List<(int Number, List<string> Cells)> rows, int width)
+        private static List<(int Number, List<string> Cells)> MergeWrappedHeader(List<(int Number, List<string> Cells)> rows, int width, int firstFull)
         {
             int top = 0;
             while (top + 1 < rows.Count && top < 5)
@@ -239,7 +246,9 @@ namespace Readers
                 // above left empty; a data line repeats the header's columns.
                 int shared = Enumerable.Range(0, width).Count(k => cells[k].Length > 0 && rows[top + 1].Cells[k].Length > 0);
                 bool complements = shared <= 1 && next.Count < width;
-                if (filled >= 0.75 * width && !complements) break;
+                // Every line above the table's first full line is header (PXD007160: groups, "Batch Number", channels).
+                bool headerZone = top + 1 < firstFull;
+                if (filled >= 0.75 * width && !complements && !headerZone) break;
                 for (int k = 0; k < width; k++)
                     if (cells[k].Length > 0)
                         rows[top + 1].Cells[k] = rows[top + 1].Cells[k].Length > 0 ? cells[k] + " " + rows[top + 1].Cells[k] : cells[k];
@@ -265,6 +274,31 @@ namespace Readers
         }
 
         /// <summary>A line's cells placed in the columns they overlap most; two cells in one column are joined.</summary>
+        /// <summary>
+        /// A line of the header zone (above the table's first fullest line) with fewer cells than columns. A cell
+        /// centred on a column (its centre in the middle half of the column), or aligned with its left or right edge,
+        /// names that column, as a wrapped header does ("Pediatric" over "Age Group", "Batch" over batch numbers). A cell that is not is a group label over the two columns nearest it,
+        /// and names both: PXD007160 sets "AD" between TMT 127C and 127N, and both are AD samples.
+        /// </summary>
+        private static List<string> AssignHeaderPart(PdfLine line, List<(double Left, double Right)> columns)
+        {
+            var cells = Enumerable.Repeat("", columns.Count).ToList();
+            void Put(int k, string text) => cells[k] = cells[k].Length == 0 ? text : cells[k] + " " + text;
+            foreach (var c in line.Cells)
+            {
+                double centre = (c.Left + c.Right) / 2;
+                double slack = line.Height / 2;
+                int home = columns.FindIndex(k => (centre >= k.Left + (k.Right - k.Left) / 4 && centre <= k.Right - (k.Right - k.Left) / 4)
+                    || Math.Abs(c.Left - k.Left) <= slack || Math.Abs(c.Right - k.Right) <= slack);
+                if (home >= 0 || columns.Count < 2) { Put(home >= 0 ? home : Best(c.Left, c.Right, columns), c.Text); continue; }
+                var nearest = Enumerable.Range(0, columns.Count)
+                    .OrderBy(k => Math.Abs((columns[k].Left + columns[k].Right) / 2 - centre)).Take(2).OrderBy(k => k).ToList();
+                if (nearest[1] - nearest[0] != 1) { Put(Best(c.Left, c.Right, columns), c.Text); continue; }
+                foreach (int k in nearest) Put(k, c.Text);
+            }
+            return cells;
+        }
+
         private static List<string> Assign(PdfLine line, List<(double Left, double Right)> columns)
         {
             var cells = Enumerable.Repeat("", columns.Count).ToList();
