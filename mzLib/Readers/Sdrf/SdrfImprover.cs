@@ -128,8 +128,11 @@ namespace Readers
                         r[at] = Written(target, cell);
                         int mark = Ensure($"comment[{target.Name} source]");
                         r[mark] = Word(cell.Source);
-                        if (cell.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(cell.Reference))
-                            r[Ensure($"comment[{target.Name} source reference]")] = cell.Reference;
+                        if (cell.Source == SdrfDraftSource.Publication)
+                        {
+                            if (!string.IsNullOrEmpty(cell.Reference)) r[Ensure($"comment[{target.Name} source reference]")] = cell.Reference;
+                            if (!string.IsNullOrEmpty(cell.Method)) r[Ensure($"comment[{target.Name} source method]")] = cell.Method;
+                        }
                         filled++;
                     }
                     // A project-level summary is weaker evidence than a per-file statement: it may fill a gap,
