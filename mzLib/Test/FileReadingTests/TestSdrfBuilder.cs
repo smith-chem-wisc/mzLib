@@ -378,6 +378,25 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AnUnknownReplicateOrFractionIsNotAvailableNotAGuessedOne()
+        {
+            // MetaMorpheus #2816 review: with no experimental design, writing 1 states that every run is its own
+            // unfractionated sample -- a filled cell that no coverage report can flag.
+            var sample = Sample() with { BiologicalReplicate = null };
+            var assay = Assay() with { TechnicalReplicate = null, Fraction = null };
+            var options = new SdrfBuilderOptions { RequireSampleMetadata = false };
+
+            var row = SdrfBuilder.Build(new[] { new SdrfRowInput(sample, assay) }, options).Results[0];
+
+            Assert.That((row["characteristics[biological replicate]"], row["comment[technical replicate]"], row["comment[fraction identifier]"]),
+                Is.EqualTo(("not available", "not available", "not available")));
+            var thrown = Assert.Throws<MzLibException>(() => SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), assay) }));
+            Assert.That(thrown!.Message, Does.Contain("comment[fraction identifier]"), "refused like any missing fact when metadata is required");
+            Assert.That(SdrfBuilder.Build(new[] { new SdrfRowInput(Sample(), Assay()) }).Results[0]["comment[fraction identifier]"],
+                Is.EqualTo("1"), "the default is still 1");
+        }
+
+        [Test]
         public void AThermoNameOnlyInstrumentIsResolvedAgainstPsiMs()
         {
             // A RAW file yields a name with an empty accession. Resolving it here is correct;
