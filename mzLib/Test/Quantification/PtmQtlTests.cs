@@ -225,4 +225,90 @@ public class PtmQtlTests
         Assert.That(g[0].CombinedZ, Is.EqualTo(0).Within(1e-12));
         Assert.That(g[0].PValue, Is.EqualTo(1).Within(1e-12));
     }
+
+    private static readonly ModificationSite DeamN = new("P1", 10, 'N', "Common Artifact:Deamidation on N");
+
+    private static SiteRunOccupancy Cell(string run, double fraction, OccupancyState state = OccupancyState.Quantified,
+        bool unmodifiedQuantified = true, ModificationSite? site = null, double covering = 100) =>
+        new(site ?? DeamN, run, state, fraction * covering, covering, unmodifiedQuantified) { ReportedFraction = fraction };
+
+    private static double Expit(double x) => 1 / (1 + Math.Exp(-x));
+
+    /// <summary>Six replicates at three trait levels, two runs each: logit = -2 + 0.5·trait + replicate offset ± 0.01.</summary>
+    private static (List<SiteRunOccupancy> occ, Dictionary<string, double> trait, Dictionary<string, string> rep) TraitDesign()
+    {
+        var occ = new List<SiteRunOccupancy>();
+        var trait = new Dictionary<string, double>();
+        var rep = new Dictionary<string, string>();
+        double[] levels = [0.25, 0.25, 1, 1, 2, 2];
+        double[] offset = [0.1, -0.1, 0.05, -0.05, 0.08, -0.08];
+        for (int r = 0; r < 6; r++)
+            for (int inj = 0; inj < 2; inj++)
+            {
+                string run = $"R{r}_{inj}";
+                trait[run] = levels[r];
+                rep[run] = $"R{r}";
+                // The last term keeps a residual once an injection covariate is fitted (else the fit is exact).
+                occ.Add(Cell(run, Expit(-2 + 0.5 * levels[r] + offset[r] + (inj == 0 ? 0.01 : -0.01) + (inj == 1 ? 0.003 * (r % 3 - 1) : 0))));
+            }
+        return (occ, trait, rep);
+    }
+
+    [Test]
+    public void TraitEffectIsRecoveredOnTheLogitScale()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        var e = SiteTraitEffects.Fit(occ, trait, rep, options: new SiteTraitOptions { LogitEpsilon = 1e-12 }).Single();
+        Assert.That(e.Status, Is.EqualTo("Fitted"));
+        Assert.That(e.Runs, Is.EqualTo(12));
+        Assert.That(e.Replicates, Is.EqualTo(6));
+        Assert.That(e.Effect, Is.EqualTo(0.5).Within(0.1));
+        Assert.That(e.DegreesOfFreedom, Is.EqualTo(4));   // trait is constant within a replicate: G - 1 - 1
+        Assert.That(e.Q, Is.EqualTo(e.PValue));
+    }
+
+    [Test]
+    public void TraitFitUsesOnlyQuantifiedNonCeilingCells()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        // Replace one replicate's runs with a floor and a ceiling: both leave the fit, so 10 runs and 5 replicates remain.
+        occ.RemoveAll(o => o.Run.StartsWith("R5_"));
+        occ.Add(Cell("R5_0", double.NaN, OccupancyState.Floor));
+        occ.Add(Cell("R5_1", 1, unmodifiedQuantified: false));
+        var e = SiteTraitEffects.Fit(occ, trait, rep).Single();
+        Assert.That(e.Runs, Is.EqualTo(10));
+        Assert.That(e.Replicates, Is.EqualTo(5));
+
+        var strict = SiteTraitEffects.Fit(occ, trait, rep, options: new SiteTraitOptions { MinReplicates = 6 }).Single();
+        Assert.That(strict.Status, Is.EqualTo("BelowSupport"));
+        Assert.That(strict.PValue, Is.NaN);
+    }
+
+    [Test]
+    public void TraitFitReportsCovariateEffects()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        var cov = trait.Keys.ToDictionary(r => r, r => new[] { r.EndsWith("_0") ? 1.0 : 0.0 });
+        var e = SiteTraitEffects.Fit(occ, trait, rep, cov, ["handling"], new SiteTraitOptions { LogitEpsilon = 1e-12 }).Single();
+        Assert.That(e.Status, Is.EqualTo("Fitted"));
+        Assert.That(e.CovariateEffects, Has.Count.EqualTo(1));
+        Assert.That(e.CovariateEffects[0], Is.EqualTo(0.02).Within(0.005));   // the injection offset, +0.01 vs -0.01
+        Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(occ, trait, rep, null, ["handling"]));
+    }
+
+    [Test]
+    public void PooledOccupancyIsModifiedShareOfCoveringSignal()
+    {
+        var q1 = new ModificationSite("P1", 3, 'Q', "Common Artifact:Deamidation on Q");
+        var q2 = new ModificationSite("P2", 7, 'Q', "Common Artifact:Deamidation on Q");
+        var pooled = SiteTraitEffects.PooledOccupancy(new[]
+        {
+            Cell("r1", 0.1, site: q1, covering: 100),
+            Cell("r1", 0.4, site: q2, covering: 300),
+            Cell("r1", double.NaN, OccupancyState.Floor, site: q2),
+            Cell("r2", 0.2, site: q1, covering: 50),
+        });
+        Assert.That(pooled["r1"], Is.EqualTo((10 + 120) / 400.0).Within(1e-15));
+        Assert.That(pooled["r2"], Is.EqualTo(0.2).Within(1e-15));
+    }
 }
