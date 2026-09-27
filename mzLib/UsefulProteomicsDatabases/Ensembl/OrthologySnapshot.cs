@@ -357,6 +357,17 @@ namespace UsefulProteomicsDatabases.Ensembl
                 species.Select(s => dumpOf[s]).ToList(), pairs, speciesOfGene, duplicates);
         }
 
+        /// <summary>The status as written in a table, e.g. "tree_lacks_target_species".</summary>
+        public static string StatusName(OrthologyStatus status) => status switch
+        {
+            OrthologyStatus.HasOrtholog => "has_ortholog",
+            OrthologyStatus.NoEdgeInSharedTree => "no_edge_in_shared_tree",
+            OrthologyStatus.TreeLacksTargetSpecies => "tree_lacks_target_species",
+            OrthologyStatus.NotInAnyTree => "not_in_any_tree",
+            OrthologyStatus.NotInGeneSet => "not_in_gene_set",
+            _ => throw new ArgumentOutOfRangeException(nameof(status), status, null)
+        };
+
         private void AddOrtholog(string gene, string partnerSpecies, string partner, string type)
         {
             if (!_orthologs.TryGetValue(gene, out var bySpecies))

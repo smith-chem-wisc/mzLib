@@ -5,6 +5,9 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
+using OrthologyStore;
+using Parquet;
 using NUnit.Framework;
 using UsefulProteomicsDatabases.Ensembl;
 
@@ -354,6 +357,127 @@ namespace Test.FileReadingTests
                 new[] { HumanDump(), MouseDump(), RatDump() })).Message, Does.Contain("not one of the species"));
 
             Assert.Throws<ArgumentException>(() => OrthologySnapshot.Build("116", new Dictionary<string, EnsemblGeneSet>(), trees, Array.Empty<ComparaHomologyDump>()));
+        }
+
+        [Test]
+        public void StatusName_IsTheSnakeCaseTheViewsUse()
+        {
+            Assert.That(Enum.GetValues<OrthologyStatus>().Select(OrthologySnapshot.StatusName), Is.EqualTo(new[]
+            {
+                "has_ortholog", "no_edge_in_shared_tree", "tree_lacks_target_species", "not_in_any_tree", "not_in_gene_set"
+            }));
+            foreach (string name in Enum.GetValues<OrthologyStatus>().Take(4).Select(OrthologySnapshot.StatusName))
+            {
+                Assert.That(OrthologySnapshotWriter.ViewsSql(), Does.Contain($"'{name}'"), "views.sql names the same statuses");
+            }
+        }
+
+        // ---- the written snapshot ----
+
+        private static async Task<List<object>> ReadColumn(string path, string column)
+        {
+            await using var reader = await ParquetReader.CreateAsync(path);
+            var field = reader.Schema.GetDataFields().Single(f => f.Name == column);
+            using var rg = reader.OpenRowGroupReader(0);
+            int n = (int)rg.RowCount;
+            if (field.ClrType == typeof(string) || field.ClrType == typeof(ReadOnlyMemory<char>))
+            {
+                var strings = new string[n];
+                await rg.ReadAsync(field, strings.AsMemory());
+                return strings.Cast<object>().ToList();
+            }
+            if (field.ClrType == typeof(double))
+            {
+                var doubles = new double?[n];
+                await rg.ReadAsync<double>(field, doubles.AsMemory());
+                return doubles.Cast<object>().ToList();
+            }
+            if (field.ClrType == typeof(int))
+            {
+                var ints = new int?[n];
+                await rg.ReadAsync<int>(field, ints.AsMemory());
+                return ints.Cast<object>().ToList();
+            }
+            var bools = new bool?[n];
+            await rg.ReadAsync<bool>(field, bools.AsMemory());
+            return bools.Cast<object>().ToList();
+        }
+
+        [Test]
+        public async Task Write_LayoutAndManifest()
+        {
+            string dir = Path.Combine(_dir, "compara-116");
+            var manifest = await OrthologySnapshotWriter.WriteAsync(Standard(), dir);
+
+            Assert.That(manifest.Files.Select(f => f.Path), Is.EqualTo(new[]
+            {
+                "genes/homo_sapiens.parquet", "genes/mus_musculus.parquet", "genes/rattus_norvegicus.parquet",
+                "members/homo_sapiens.parquet", "members/mus_musculus.parquet", "members/rattus_norvegicus.parquet",
+                "pairs/homo_sapiens__homo_sapiens.parquet", "pairs/homo_sapiens__mus_musculus.parquet",
+                "pairs/homo_sapiens__rattus_norvegicus.parquet", "pairs/mus_musculus__mus_musculus.parquet",
+                "pairs/mus_musculus__rattus_norvegicus.parquet", "pairs/rattus_norvegicus__rattus_norvegicus.parquet",
+                "views.sql",
+            }));
+            Assert.That(manifest.Files.Single(f => f.Path == "members/homo_sapiens.parquet").Rows, Is.EqualTo(3), "H4 is in no tree");
+            Assert.That(manifest.Files.Single(f => f.Path == "pairs/homo_sapiens__homo_sapiens.parquet").Rows, Is.Zero);
+            foreach (var f in manifest.Files)
+            {
+                Assert.That(f.Sha256, Is.EqualTo(Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(Path.Combine(dir, f.Path)))).ToLowerInvariant()), f.Path);
+            }
+
+            string json = File.ReadAllText(Path.Combine(dir, "manifest.json"));
+            Assert.That(json, Does.Not.Contain("\r"));
+            using var doc = System.Text.Json.JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            Assert.That(root.GetProperty("format").GetString(), Is.EqualTo("ensembl-orthology-snapshot"));
+            Assert.That(root.GetProperty("snapshot_id").GetString(), Is.EqualTo(manifest.SnapshotId));
+            Assert.That(root.GetProperty("gene_set_sha256").GetProperty(Rat).GetString(), Is.EqualTo(_sets[Rat].SourceSha256));
+            Assert.That(root.GetProperty("inputs").GetArrayLength(), Is.EqualTo(7), "three dumps, the gene trees, three gene sets");
+            Assert.That(root.GetProperty("files").GetArrayLength(), Is.EqualTo(13));
+            Assert.That(File.ReadAllText(Path.Combine(dir, "views.sql")), Does.Contain("CREATE OR REPLACE MACRO pair_status"));
+        }
+
+        [Test]
+        public async Task Write_ValuesVerbatim_NullsStayNull_SideAIsTheFirstSpecies()
+        {
+            string dir = Path.Combine(_dir, "s");
+            await OrthologySnapshotWriter.WriteAsync(Standard(), dir);
+            string hm = Path.Combine(dir, "pairs", "homo_sapiens__mus_musculus.parquet");
+
+            Assert.That(OrthologySnapshotWriter.Columns("pairs"), Has.Count.EqualTo(17));
+            Assert.That(await ReadColumn(hm, "homology_id"), Is.EqualTo(new object[] { "11", "13", "14" }));
+            Assert.That(await ReadColumn(hm, "gene_a"), Is.EqualTo(new object[] { H1, H2, H2 }), "side A is human");
+            Assert.That(await ReadColumn(hm, "identity_a"), Is.EqualTo(new object[] { 91.0, 71.0, 61.0 }));
+            Assert.That(await ReadColumn(hm, "goc_score"), Is.EqualTo(new object[] { 100, null, 100 }));
+            Assert.That(await ReadColumn(hm, "is_high_confidence"), Is.EqualTo(new object[] { true, null, false }));
+            Assert.That(await ReadColumn(hm, "relationship_class"), Is.EqualTo(new object[] { "ortholog", "ortholog", "ortholog" }));
+            Assert.That(await ReadColumn(Path.Combine(dir, "members", "rattus_norvegicus.parquet"), "group_id"),
+                Is.EqualTo(new object[] { "compara-116:ENSGT1", "compara-116:ENSGT2" }));
+            Assert.That(await ReadColumn(Path.Combine(dir, "genes", "homo_sapiens.parquet"), "gene_name"),
+                Is.EqualTo(new object[] { null, null, null, null }), "a gene without a symbol has null, not an empty string");
+        }
+
+        [Test]
+        public async Task Write_TheSameSnapshotGivesTheSameBytes()
+        {
+            var first = await OrthologySnapshotWriter.WriteAsync(Standard(), Path.Combine(_dir, "a"));
+            var second = await OrthologySnapshotWriter.WriteAsync(Standard(), Path.Combine(_dir, "b"));
+
+            Assert.That(second, Is.Not.SameAs(first));
+            Assert.That(second.SnapshotId, Is.EqualTo(first.SnapshotId));
+            Assert.That(second.Files.Select(f => f.Sha256), Is.EqualTo(first.Files.Select(f => f.Sha256)));
+            Assert.That(File.ReadAllBytes(Path.Combine(_dir, "b", "manifest.json")),
+                Is.EqualTo(File.ReadAllBytes(Path.Combine(_dir, "a", "manifest.json"))));
+        }
+
+        [Test]
+        public async Task Write_RefusesADirectoryThatIsNotEmpty()
+        {
+            string dir = Path.Combine(_dir, "s");
+            await OrthologySnapshotWriter.WriteAsync(Standard(), dir);
+
+            Assert.ThrowsAsync<IOException>(() => OrthologySnapshotWriter.WriteAsync(Standard(), dir));
+            Assert.Throws<ArgumentOutOfRangeException>(() => OrthologySnapshotWriter.Columns("orthologs"));
         }
 
         [Test]
