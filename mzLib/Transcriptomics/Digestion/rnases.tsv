@@ -5,9 +5,11 @@
 #		
 # COLUMN DEFINITIONS (tab-separated):		
 # ----------------------------------------------------------------------------		
-# 1. Name                    - Unique identifier for the RNase		
-# 2. Motif                   - Cleavage motif syntax defining where cleavage occurs (see below)		
-# 3. Specificity             - One of: full, semi, none, SingleN, SingleC		
+# 1. Name                    - Unique identifier for the RNase
+# 2. Motif                   - Cleavage motif syntax defining where cleavage occurs (see below)
+# 3. Specificity             - One of: full, semi, none, SingleN, SingleC
+# 4. CleavageModification    - Optional modification name from RnaMods.txt
+# 5. CleavageModificationType - Optional fixed or variable behavior
 #		
 # ============================================================================		
 # CUSTOM RNASES		
@@ -25,8 +27,8 @@
 #		
 # Example custom RNases file:		
 # ----------------------------------------------------------------------------		
-# Name	Motif	Specificity
-# MyCustomRNase	A|,G|	full
+# Name	Motif	Specificity	CleavageModification	CleavageModificationType
+# MyCustomRNase	A|,G|	full	Cyclic Phosphate	variable
 # ----------------------------------------------------------------------------		
 #		
 # ============================================================================		
@@ -77,20 +79,33 @@
 #   ACGU                            GCA		
 #   ACGUG                           CA		
 #   ACGUGC                          A		
-#		
+#
+# Terminal modifications are represented as ordinary RNA modifications. The RNase definition
+# references the modification by name and declares whether it is fixed or variable.
+# Rnase.cs supplies the default internal termini; the modification is applied by digestion.
+#
+# Cleavage modification type:
+#   fixed    = apply the modification to every matching cleaved terminus
+#   variable = generate modified and unmodified alternatives
+#   blank    = no cleavage modification
+#
 # ============================================================================		
 # RNASE DEFINITIONS		
 # ============================================================================		
-Name	Motif	Specificity
-RNase T1	G|	full
-RNase T2	G|,C|,A|,U|	full
-RNase A	C|,U|	full
+Name	Motif	Specificity	CleavageModification	CleavageModificationType	Notes
+RNase T1	G|	full			G, ssRNA
+RNase T2	G|,C|,A|,U|	full			ssRNA
+RNase A	C|,U|	full			ssRNA
 top-down		none
-RNase 1	G|,C|,A|,U|	full
-RNase PhyM	A|,U|	full
-RNase U2	G|,A|	full
-Cusativin	C|	full
-RNase_MC1	|U	full
-colicin_E5	G|U	full
-singleN		SingleN
-singleC		SingleC
+RNase 1	G|,C|,A|,U|	full			Mammalian RNase 1, slight pyrimidine preference
+RNase PhyM (>= 7M urea)	A|,U|	full	Cyclic Phosphate on X	fixed	Up-N/Ap-N; almost exclusive and uniform under 7 M urea
+RNase PhyM (< 7M urea)	A|,U|,G|	full	Cyclic Phosphate on X	fixed	Up-N/Ap-N/Gp-N
+RNase 4	U|A,U|G	full	Cyclic Phosphate on X	variable	U-A slightly preferred over U-G; ssRNA; mixed 3' products
+RNase U2	G|,A|	full			Purines, A preferred over G
+Cusativin	C[C]|,U|A,X|U	full	Cyclic Phosphate on X	variable	Primary sites Cp[A/U/G] and UpA; CpA 70-90%; CpG/CpU 80-100%; CpC resistant; mixed 3' products; Waters 720008488
+RNase_MC1	[G]|U	full	Cyclic Phosphate on X	variable	ApU 70-100%; CpU 80-100%; UpU 45-60%; GpU 1.0-1.5%; mixed 3' products
+colicin_E5	G|U	full	Cyclic Phosphate on X	fixed	Sequence/structure-specific tRNase at anticodon positions 34-35
+RNase I	G|,C|,A|,U|	full			E. coli RNase I; largely sequence-independent ssRNA endonuclease
+non-specific	X|	full			
+singleN		SingleN			
+singleC		SingleC			

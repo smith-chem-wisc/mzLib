@@ -472,6 +472,31 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void Pairing_ResolvesPeptidesThatLostTheirInitiatorMethionine()
+    {
+        // Under the default InitiatorMethionineBehavior.Variable a search also reports every
+        // N-terminal peptide starting at residue 2, with 0 to MaxMissedCleavages missed cleavages.
+        // Each is isomeric with the target's own stripped form, so each must pair back.
+        const string startsWithMethionine = "MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR";
+        var target = new Protein(startsWithMethionine, "P12345");
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        Assert.That(entrapment.BaseSequence, Does.StartWith("M"), "fixture must keep its initiator methionine");
+
+        var pairing = new EntrapmentPairing(target, Tryptic);
+
+        var stripped = entrapment.Digest(Tryptic, new List<Modification>(), new List<Modification>())
+            .Where(p => p.OneBasedStartResidue == 2).Select(p => p.BaseSequence).Distinct().ToList();
+        Assert.That(stripped, Is.Not.Empty, "fixture must yield M-cleaved peptides");
+
+        foreach (string entrapmentPeptide in stripped)
+        {
+            Assert.That(pairing.TryResolve(entrapmentPeptide, out string targetPeptide), Is.True,
+                "'" + entrapmentPeptide + "' should resolve to the target peptide it was built from");
+            Assert.That(startsWithMethionine.Substring(1), Does.StartWith(targetPeptide));
+        }
+    }
+
+    [Test]
     public void Pairing_NeedsNoSideFileBeyondTheTargetDatabase()
     {
         // The whole point of pairing on composition: a search reports a protein accession and a
@@ -878,10 +903,21 @@ public class EntrapmentProteinTests
 
         Assert.That(entrapment.Select(e => e.Accession),
             Is.EquivalentTo(new[] { "Random_foreign_Q9SHARED", "Random_foreign_Q9CLEAN" }));
-        Assert.That(shared.ContainsKey("Q9SHARED"), Is.True,
+        // Keyed by the accession the ENTRY is written under, not the foreign protein's own. The
+        // exclusion sidecar has one `accession` column, and a consumer filtering it against what a
+        // search reported can only match rows keyed the way the database is; keyed by "Q9SHARED"
+        // these rows matched nothing, so the arm's one real hazard was named unusably.
+        string foreignAccession = EntrapmentAccession.FormatForeign("Q9SHARED");
+        Assert.That(foreignAccession, Is.EqualTo("Random_foreign_Q9SHARED"));
+        Assert.That(shared.ContainsKey("Q9SHARED"), Is.False,
+            "the foreign protein's own accession names no entry in the database that was written");
+        Assert.That(shared.ContainsKey(foreignAccession), Is.True,
             "fixture must actually share a peptide, or it proves nothing");
-        Assert.That(shared["Q9SHARED"], Does.Contain(conserved));
-        Assert.That(shared.ContainsKey("Q9CLEAN"), Is.False);
+        Assert.That(shared[foreignAccession], Does.Contain(conserved));
+        Assert.That(shared.ContainsKey(EntrapmentAccession.FormatForeign("Q9CLEAN")), Is.False);
+
+        // The key a consumer filters on is the one the entry carries, so they must agree exactly.
+        Assert.That(entrapment.Select(e => e.Accession), Is.SupersetOf(shared.Keys));
     }
 
     [Test]
@@ -1062,6 +1098,98 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void APartnerDoesNotInheritItsTargetDatabaseReferences()
+    {
+        // A dbReference is not positional, but every one (GO, InterPro, Pfam, PDB) is a claim about
+        // what a sequence is or does, and the partner's sequence was built to be nothing. Carried
+        // across, a tool reading function from the searched database says Random_P12345_f0 does
+        // what P12345 does. Reported by the go project (thread go/001, GO-E1).
+        var references = new List<DatabaseReference>
+        {
+            new DatabaseReference("GO", "GO:0005737",
+                new List<Tuple<string, string>> { new("term", "C:cytoplasm") }),
+            new DatabaseReference("Pfam", "PF00001", new List<Tuple<string, string>>()),
+        };
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR", "P12345",
+            databaseReferences: references);
+        var foreign = new Protein(ForeignSequence, "Q9XYZ1", databaseReferences: references);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        Protein foreignEntry = EntrapmentProteinGenerator.CreateForeign(foreign);
+
+        Assert.That(entrapment.DatabaseReferences, Is.Empty);
+        Assert.That(target.DatabaseReferences, Has.Count.EqualTo(2), "the target keeps its own");
+        Assert.That(foreignEntry.DatabaseReferences, Has.Count.EqualTo(2),
+            "a foreign entry keeps its sequence, so its references are still true of it");
+
+        string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "entrapment_dbreferences.xml");
+        ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+            new List<Protein> { target, entrapment, foreignEntry }, path);
+        List<Protein> reloaded = ProteinDbLoader.LoadProteinXML(path, true, DecoyType.None,
+            new List<Modification>(), false, new List<string>(), out _);
+        File.Delete(path);
+
+        Assert.That(reloaded.Single(p => p.Accession == entrapment.Accession).DatabaseReferences, Is.Empty,
+            "nothing the writer emits may give the partner its target's function");
+        Assert.That(reloaded.Single(p => p.Accession == "P12345").DatabaseReferences.Select(r => r.Id),
+            Is.EquivalentTo(new[] { "GO:0005737", "PF00001" }));
+        Assert.That(reloaded.Single(p => p.Accession == foreignEntry.Accession).DatabaseReferences.Select(r => r.Id),
+            Is.EquivalentTo(new[] { "GO:0005737", "PF00001" }));
+    }
+
+    [Test]
+    public void AFixedModificationMovesWithItsResidue()
+    {
+        // Master's #1342 gave Protein a second positional mod dictionary, OneBasedFixedModifications,
+        // and the copy constructor inherits it when not told otherwise -- so a partner would carry
+        // its target's fixed mods at the TARGET's positions, on whatever residue now sits there. The
+        // keys are 0 for the protein N-terminus, 1..L for residues and L+2 for the C-terminus.
+        const string withHomopolymer = "SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR";
+        ModificationMotif.TryGetMotif("T", out ModificationMotif t);
+        ModificationMotif.TryGetMotif("S", out ModificationMotif s);
+        ModificationMotif.TryGetMotif("X", out ModificationMotif any);
+        var onT = new Modification(_originalId: "FixedT", _modificationType: "Test",
+            _target: t, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.0);
+        var onExcisedTract = new Modification(_originalId: "FixedS", _modificationType: "Test",
+            _target: s, _locationRestriction: "Anywhere.", _monoisotopicMass: 2.0);
+        var nTerm = new Modification(_originalId: "FixedN", _modificationType: "Test",
+            _target: any, _locationRestriction: "N-terminal.", _monoisotopicMass: 3.0);
+        var cTerm = new Modification(_originalId: "FixedC", _modificationType: "Test",
+            _target: any, _locationRestriction: "C-terminal.", _monoisotopicMass: 4.0);
+
+        int length = withHomopolymer.Length;
+        var fixedMods = new Dictionary<int, Modification>
+        {
+            { 0, nTerm }, { 17, onExcisedTract }, { length + 2, cTerm },
+        };
+        for (int oneBased = 1; oneBased <= length; oneBased++)
+        {
+            if (withHomopolymer[oneBased - 1] == 'T')
+            {
+                fixedMods[oneBased] = onT;
+            }
+        }
+        var target = new Protein(withHomopolymer, "P12345", oneBasedFixedModifications: fixedMods);
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        int newLength = entrapment.BaseSequence.Length;
+        Assert.That(newLength, Is.LessThan(length), "the fixture must actually excise something");
+
+        var residueKeys = entrapment.OneBasedFixedModifications.Keys.Where(k => k >= 1 && k <= newLength).ToList();
+        Assert.That(residueKeys.Select(k => entrapment.OneBasedFixedModifications[k]), Is.All.SameAs(onT),
+            "the mod on the excised tract goes with it");
+        Assert.That(residueKeys.Select(k => entrapment.BaseSequence[k - 1]), Is.All.EqualTo('T'),
+            "a fixed mod must land on the residue it was on");
+        Assert.That(residueKeys, Has.Count.EqualTo(withHomopolymer.Count(c => c == 'T')));
+        Assert.That(entrapment.OneBasedFixedModifications[0], Is.SameAs(nTerm));
+        Assert.That(entrapment.OneBasedFixedModifications[newLength + 2], Is.SameAs(cTerm),
+            "the C-terminal key follows the partner's own length");
+        Assert.That(entrapment.OneBasedFixedModifications.Keys,
+            Is.All.Matches<int>(k => k == 0 || k == newLength + 2 || (k >= 1 && k <= newLength)));
+        Assert.That(target.OneBasedFixedModifications, Has.Count.EqualTo(fixedMods.Count), "the target keeps its own");
+    }
+
+    [Test]
     public void AnUnknownResidueDoesNotWriteAZeroMass()
     {
         // MonoisotopicMass is NaN for a sequence holding X or B, and (int)Math.Round(NaN) is 0, so
@@ -1183,5 +1311,211 @@ public class EntrapmentProteinTests
         Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
 
         Assert.That(entrapment.SpliceSites, Is.Empty);
+    }
+
+    // ---- peptide-terminal modifications ------------------------------------
+    //
+    // A restriction that is satisfied per DIGESTION PRODUCT rather than once per entry, and the
+    // reason a piece's own termini are anchored. It is the quietest failure in this class: while a
+    // protein is being built, ModFits is called with the digestion-product index set to zero, so
+    // "Peptide N-terminal." falls through to "fits" and the annotation is transported and written.
+    // It is judged for real only at digestion. So the modification count in equals the count out,
+    // nothing is dropped, no counter moves -- and the entrapment peptide has silently lost a
+    // peptidoform hypothesis its target still has.
+    //
+    // These assert through DIGESTION for that reason. Asserting on the protein object passes
+    // whether or not the anchor exists, which is precisely how this went unnoticed.
+
+    /// <summary>Digestion products of <paramref name="protein"/> carrying <paramref name="id"/>.</summary>
+    private static int PeptidoformsCarrying(Protein protein, IDigestionParams digestion, string id)
+    {
+        var none = new List<Modification>();
+        return protein.Digest(digestion, none, none)
+            .Count(peptide => peptide.AllModsOneIsNterminus.Values.Any(m => m.IdWithMotif == id));
+    }
+
+    [Test]
+    public void Create_KeepsAPeptideNTerminalModificationUsableAfterDigestion()
+    {
+        // The modification sits on the first residue of an INTERIOR piece, which is where the
+        // protein-level anchors do not reach. Under trypsin the last residue of a piece is its
+        // cleavage residue and is pinned already, so the first is the exposed one -- measured at
+        // 69.00% of Arg-C pieces and 65.42% of Glu-C pieces moving it.
+        //
+        // The S is the only one in its piece on purpose. If the piece held several, the unranking
+        // could return an S to position 1 regardless and the test would pass without the anchor.
+        const string sequence = "MAAALGGDRSGGVDTTPFAWENDRQITTLGGYK";
+        var mod = TerminalMod("S", "Peptide N-terminal.", "Water Loss");
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 10, new List<Modification> { mod } }
+            });
+        Assert.That(sequence[9], Is.EqualTo('S'), "fixture: the annotation must sit on the S");
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(PeptidoformsCarrying(target, Tryptic, mod.IdWithMotif), Is.GreaterThan(0),
+            "fixture must actually produce a modified target peptidoform");
+        Assert.That(PeptidoformsCarrying(entrapment, Tryptic, mod.IdWithMotif),
+            Is.EqualTo(PeptidoformsCarrying(target, Tryptic, mod.IdWithMotif)),
+            "the companion must offer the same modified peptidoforms as its target");
+        Assert.That(entrapment.BaseSequence.Substring(9, 1), Is.EqualTo("S"),
+            "the annotated residue must still open its piece");
+    }
+
+    [Test]
+    public void APeptideCTerminalAnnotationNeverSurvivesProteinConstructionAtAll()
+    {
+        // The mirror case cannot be asserted through digestion, because mzLib never lets it get
+        // that far -- and that is worth pinning rather than working around.
+        //
+        // Protein construction validates annotations with ModFits called as
+        // ModFits(mod, sequence, digestionProductOneBasedIndex: 0, digestionProductLength: length, position),
+        // and the two peptide-level cases are not symmetric in the face of that zero:
+        //
+        //     "Peptide N-terminal." when digestionProductOneBasedIndex > 1    ->  0 > 1 is false, survives
+        //     "Peptide C-terminal." when digestionProductOneBasedIndex < length -> 0 < length is true, dropped
+        //
+        // So an XML "Peptide N-terminal." annotation is carried into the protein and judged later at
+        // digestion -- which is the silent failure the piece anchor exists for -- while a
+        // "Peptide C-terminal." one is discarded at construction and can never reach any peptide,
+        // target or entrapment. Anchoring a piece's last residue therefore buys nothing TODAY; it is
+        // done anyway because it is symmetric, because the measured cost is twenty pieces per
+        // proteome arm, and because the day that asymmetry is fixed the anchor is already right.
+        const string sequence = "MAAAGGKSTPFAWENRQDQISTLGGYKCDLLNGGVTTPWE";
+        var target = new Protein(sequence, "P12345",
+            oneBasedModifications: new Dictionary<int, List<Modification>>
+            {
+                { 28, new List<Modification> { TerminalMod("C", "Peptide C-terminal.", "Amidation") } }
+            });
+        Assert.That(sequence[27], Is.EqualTo('C'), "fixture: the annotation must sit on the C");
+
+        Assert.That(target.OneBasedPossibleLocalizedModifications, Is.Empty,
+            "if this ever holds the annotation, the C-terminal half of the anchor becomes testable "
+            + "through digestion and this test should be replaced by that one");
+    }
+
+    [Test]
+    public void Create_HoldsThePieceTerminiWhateverTheProteaseCutsBefore()
+    {
+        // Asp-N cleaves BEFORE D, so every piece opens on a pinned D and it is the LAST residue that
+        // is free -- the mirror of trypsin, where the last residue is the cleavage residue. Measured
+        // on the reviewed human proteome before this anchor: 72.68% of Asp-N pieces moved their last
+        // residue, against 0.00% of Arg-C and Glu-C pieces. Asserted structurally because the
+        // annotation route above is closed.
+        IDigestionParams aspN = new DigestionParams("Asp-N", minPeptideLength: 7, maxMissedCleavages: 0);
+        const string sequence = "MAAAGGKSTPFAWENRQDQISTLGGYKCDLLNGGVTTPWE";
+        var target = new Protein(sequence, "P12345");
+
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, aspN, NothingForbidden);
+
+        Assert.That(entrapment.BaseSequence, Is.Not.EqualTo(sequence), "it must actually rearrange");
+        Assert.That(entrapment.BaseSequence[27], Is.EqualTo('C'),
+            "the last residue of the middle piece must not move");
+        Assert.That(entrapment.BaseSequence[17], Is.EqualTo('D'),
+            "the cleavage residue opening that piece is pinned as before");
+        Assert.That(entrapment.BaseSequence[39], Is.EqualTo('E'),
+            "the protein's own C-terminus was already anchored and stays so");
+    }
+
+    [Test]
+    [TestCase("top-down")]
+    [TestCase("peptidomics")]
+    [TestCase("singleN")]
+    [TestCase("singleC")]
+    public void AnAgentWithAnEmptyMotifIsRefused(string agentName)
+    {
+        // These four have an EMPTY Motif column in proteases.tsv, and `"".Split(',')` yields one
+        // motif whose InducingCleavage is "" -- so DigestionMotif.Fits runs its comparison loop
+        // zero times and returns true at every position. The sequence then partitions into single
+        // residues, every one of which is below MinLength and is kept verbatim, and the
+        // "entrapment" protein is emitted byte for byte identical to its target with
+        // IsEntrapment = true. The length test could not see them: zero is not greater than one.
+        var digestion = new DigestionParams(agentName, minPeptideLength: 7, maxMissedCleavages: 2);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("empty cleavage motif"));
+    }
+
+    [Test]
+    public void AWildcardAgentIsRefused()
+    {
+        // non-specific is 'X|', and MotifMatches returns true for 'X' against any residue, so it
+        // partitions into single residues exactly as an empty motif does. B, J and Z each match a
+        // definite pair of residues and stay allowed -- the positions they pin are still a function
+        // of the sequence, so a rearrangement can neither invent nor destroy one.
+        var digestion = new DigestionParams("non-specific", minPeptideLength: 7, maxMissedCleavages: 2);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("wildcard motif"));
+    }
+
+    [Test]
+    [TestCase("top-down")]
+    [TestCase("non-specific")]
+    public void AnUnpinnableAgentNeverEmitsAnEntrapmentEntryIdenticalToItsTarget(string agentName)
+    {
+        // The assertion the guard exists for, stated over the OUTPUT rather than over the message:
+        // no entry may be flagged IsEntrapment while carrying its target's own sequence. Before the
+        // guard both of these produced exactly that, and every Unpairable* column read 0 because
+        // the report skips pieces below MinLength.
+        var digestion = new DigestionParams(agentName, minPeptideLength: 7, maxMissedCleavages: 2);
+        var target = new Protein(Sequence, "P00001");
+
+        Assert.That(() => EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>(),
+            "an agent that pins every position must be refused, not allowed to emit a copy");
+    }
+
+    [Test]
+    public void ADecoyIsRefusedAsATargetToEntrapFrom()
+    {
+        // A decoy's accession is prefixed, not replaced, so the entry comes out
+        // "Random_DECOY_P00001_f0". ProteinDbLoader decides what an entry is with
+        // accession.StartsWith(decoyIdentifier), from the FRONT, so the entrapment prefix hides the
+        // decoy one and the entry reloads as a target-side entrapment entry -- a shuffle of a
+        // shuffle counted as an entrapment discovery.
+        var decoy = new Protein(Sequence, "DECOY_P00001", isDecoy: true);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentProteinGenerator.Create(decoy, Tryptic, NothingForbidden));
+        Assert.That(ex.Message, Does.Contain("DECOY"));
+
+        // The accession the guard prevents really would have been misread, which is the half of
+        // this that checking the message cannot show.
+        string wouldHaveBeen = EntrapmentAccession.Format("DECOY_P00001", 0);
+        Assert.That(wouldHaveBeen, Is.EqualTo("Random_DECOY_P00001_f0"));
+        Assert.That(wouldHaveBeen.StartsWith("DECOY"), Is.False,
+            "which is precisely why the loader would classify it as a target");
+    }
+
+    [Test]
+    public void ADecoyIsRefusedByTheForeignArmToo()
+    {
+        var decoy = new Protein(ForeignSequence, "DECOY_Q9CLEAN", isDecoy: true);
+
+        Assert.That(() => EntrapmentProteinGenerator.CreateForeign(decoy),
+            Throws.TypeOf<MzLibUtil.MzLibException>());
+    }
+
+    [Test]
+    public void ADecoyReachesTheGeneratorThroughItsOwnConsensusVariant()
+    {
+        // Why the guard is not paranoia: DecoyProteinGenerator passes nonVariantProtein:
+        // decoyConsensus, so a decoy's ConsensusVariant is a decoy and DatabaseEntries -- which
+        // deduplicates by consensus -- yields it as an entry of its own. A caller handing over the
+        // list a loader returned, targets and decoys together, is the ordinary shape.
+        var decoy = new Protein(Sequence, "DECOY_P00001", isDecoy: true);
+
+        Assert.That(EntrapmentProteinGenerator.DatabaseEntries(new[] { decoy }).ToList(),
+            Has.Count.EqualTo(1), "the decoy is its own database entry, so nothing filters it out");
+
+        Assert.That(() => EntrapmentProteinGenerator.GenerateEntrapment(
+                new[] { new Protein(Sequence, "P00001"), decoy }, Tryptic, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>(),
+            "a mixed target-and-decoy list must be refused rather than half-entrapped");
     }
 }

@@ -72,18 +72,15 @@ public static class ModificationOccupancyCalculator
             if (sequence is null) // No form found for this PSM, skip it entirely.
                 continue;
 
+            // A form that starts after the removed initiator Met covers the protein N-terminus (position 1)
+            // but not residue 1 (position 2), so the N-terminus is counted on its own.
+            if (StartsAfterInitiatorMethionine(sequence, bioPolymer))
+                AddToTotals(positionTotals, 1, psm);
+
             int rangeStart = sequence.OneBasedStartResidue + (sequence.OneBasedStartResidue == 1 ? 0 : 1); // Include position 1 if sequence starts at the protein N-terminus
             int rangeEnd = sequence.OneBasedEndResidue + (sequence.OneBasedEndResidue == bioPolymer.Length ? 2 : 1); // Include last position if sequence ends at the protein C-terminus
             for (int i = rangeStart; i <= rangeEnd; i++)
-            {
-                if (!positionTotals.ContainsKey(i))
-                    positionTotals[i] = (0, 0.0);
-                var totals = positionTotals[i];
-                totals.totalCount++;
-                if (psm.Intensities is { Length: 1 })
-                    totals.totalIntensity += psm.Intensities[0];
-                positionTotals[i] = totals;
-            }
+                AddToTotals(positionTotals, i, psm);
         }
 
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
@@ -99,7 +96,7 @@ public static class ModificationOccupancyCalculator
                 if (IsExcludedMod(mod.Value))
                     continue;
 
-                if (!TryGetProteinPosition(mod, sequence, bioPolymer.Length, out int indexInProtein))
+                if (!TryGetProteinPosition(mod, sequence, bioPolymer, out int indexInProtein))
                     continue;
 
                 if (!working.TryGetValue(indexInProtein, out var modsAtPosition))
@@ -148,22 +145,21 @@ public static class ModificationOccupancyCalculator
         IEnumerable<ISpectralMatch> psms)
     {
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
-        var result = new Dictionary<string, Dictionary<int, List<SiteSpecificModificationOccupancy>>>();
 
-        var psmsWithBaseSeq = psmList.Where(p => p.BaseSequence != null).ToList();
+        // Unresolved has two spellings: an implementation may leave BaseSequence null - MetaMorpheus
+        // does, for a PSM ambiguous across base sequences - while BaseSpectralMatch coerces that null
+        // to empty. Both mean the same thing here, and an empty one left in trips the check below.
+        var psmsWithBaseSeq = psmList.Where(p => !string.IsNullOrEmpty(p.BaseSequence)).ToList();
+
+        // Nothing resolved means nothing to attribute a modification to, which is not an error.
+        // Returning here also keeps AllSame() off an empty sequence, where its First() would throw.
+        if (psmsWithBaseSeq.Count == 0)
+            return new Dictionary<int, List<SiteSpecificModificationOccupancy>>();
 
         if (!psmsWithBaseSeq.Select(p => p.BaseSequence).AllSame())
         {
             throw new ArgumentException("All PSMs must have the same BaseSequence for peptide-level occupancy calculation.");
         }
-
-        // Map each PSM to the single form that owns its intensity: matching FullSequence + Accession.
-        // Ambiguous forms (psms without a full sequence match) are filtered out and do not contribute to occupancy.
-        var psmToForm = psmsWithBaseSeq
-            .ToDictionary(
-                p => p,
-                p => p.GetIdentifiedBioPolymersWithSetMods()
-                    .FirstOrDefault(s => s.FullSequence == p.FullSequence));
 
         var totalCount = psmsWithBaseSeq.Count;
         var totalIntensity = psmsWithBaseSeq
@@ -173,7 +169,11 @@ public static class ModificationOccupancyCalculator
         var working = new Dictionary<int, Dictionary<string, SiteSpecificModificationOccupancy>>();
         foreach (var psm in psmsWithBaseSeq)
         {
-            var form = psmToForm[psm];
+            // The form carrying this PSM's modifications. A PSM whose full sequence matches no
+            // identified form is ambiguous: it counts toward the denominator but marks no site.
+            var form = psm.GetIdentifiedBioPolymersWithSetMods()
+                .FirstOrDefault(s => s.FullSequence == psm.FullSequence);
+
             if (form is null)
                 continue;
 
@@ -210,20 +210,47 @@ public static class ModificationOccupancyCalculator
         return working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
     }
 
+    private static void AddToTotals(Dictionary<int, (int totalCount, double totalIntensity)> positionTotals,
+        int position, ISpectralMatch psm)
+    {
+        positionTotals.TryGetValue(position, out var totals);
+        totals.totalCount++;
+        if (psm.Intensities is { Length: 1 })
+            totals.totalIntensity += psm.Intensities[0];
+        positionTotals[position] = totals;
+    }
+
+    /// <summary>
+    /// True when <paramref name="sequence"/> begins at residue 2 because the initiator Met was removed, which is
+    /// the same condition under which digestion produces such a form (Protease: residue 1 must be 'M'). Its
+    /// N-terminus is then the protein N-terminus, and ModificationLocalization places "N-terminal." mods there.
+    /// </summary>
+    /// <remarks>
+    /// Not handled: a protease that cleaves C-terminal to Met (e.g. CNBr, "M|") also yields a form starting at
+    /// residue 2 from a Met-retained molecule. That form has the same base sequence and span as the Met-removed
+    /// N-terminus, so digestion produces one form for both and nothing here can tell them apart; it is counted
+    /// as the protein N-terminus. For such proteases, protein N-terminal occupancy may be understated.
+    /// </remarks>
+    private static bool StartsAfterInitiatorMethionine(IBioPolymerWithSetMods sequence, IBioPolymer bioPolymer)
+        => sequence.OneBasedStartResidue == 2
+           && bioPolymer.BaseSequence.Length > 0
+           && bioPolymer.BaseSequence[0] == 'M';
+
     private static bool TryGetProteinPosition(
         KeyValuePair<int, Modification> mod,
         IBioPolymerWithSetMods sequence,
-        int bioPolymerLength,
+        IBioPolymer bioPolymer,
         out int indexInProtein)
     {
         indexInProtein = 0;
+        int bioPolymerLength = bioPolymer.Length;
 
         if (IsExcludedMod(mod.Value))
             return false;
 
         if (mod.Value.LocationRestriction.Equals("N-terminal."))
         {
-            if (sequence.OneBasedStartResidue != 1)
+            if (sequence.OneBasedStartResidue != 1 && !StartsAfterInitiatorMethionine(sequence, bioPolymer))
                 return false;
 
             indexInProtein = 1;

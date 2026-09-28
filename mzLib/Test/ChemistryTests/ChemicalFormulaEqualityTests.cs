@@ -254,6 +254,28 @@ namespace Test.ChemistryTests
             Assert.IsFalse(formulaB.IsSupersetOf(formulaA));
         }
 
+        /// <summary>
+        /// The count comparison in the isotope half of IsSupersetOf was never reached. The one existing
+        /// case with isotopes (IsSuperSetOf) enters that loop but exits on a missing isotope, which
+        /// short-circuits before the counts are compared.
+        /// </summary>
+        [Test]
+        public static void TestIsSupersetOfWithIsotopes()
+        {
+            ChemicalFormula formulaA = ChemicalFormula.ParseFormula("C{13}3H{2}2");
+
+            // an equal count is still a superset
+            Assert.IsTrue(formulaA.IsSupersetOf(ChemicalFormula.ParseFormula("C{13}3H{2}2")));
+            // a smaller count is a superset
+            Assert.IsTrue(formulaA.IsSupersetOf(ChemicalFormula.ParseFormula("C{13}2")));
+            // a larger count is not
+            Assert.IsFalse(formulaA.IsSupersetOf(ChemicalFormula.ParseFormula("C{13}4")));
+            // an isotope that is absent entirely is not
+            Assert.IsFalse(formulaA.IsSupersetOf(ChemicalFormula.ParseFormula("O{18}")));
+
+            Assert.IsTrue(ChemicalFormula.ParseFormula("C{13}2").IsSubsetOf(formulaA));
+        }
+
         private class PhysicalObjectWithChemicalFormula : IHasChemicalFormula
         {
             public PhysicalObjectWithChemicalFormula(string v)

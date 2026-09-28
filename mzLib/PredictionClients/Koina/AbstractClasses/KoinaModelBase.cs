@@ -117,6 +117,43 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     }
 
     /// <summary>
+    /// How long a whole prediction session is allowed to take: every batch of it at twice this
+    /// model's own benchmarked speed, plus the throttling delay between chunks, rounded up to whole
+    /// minutes and never less than one.
+    /// </summary>
+    /// <remarks>
+    /// Hoisted verbatim from the five model bases, which each carried this expression inline -- and
+    /// two of them (FragmentIntensityModel, RetentionTimeModel) carried it WITHOUT the
+    /// Math.Max(..., 1) the other three had. That divergence was harmless and is preserved as
+    /// harmless rather than fixed as a bug: Math.Ceiling of any positive value is already at least
+    /// 1, and no shipped model declares a benchmarked time of zero, so the clamp never changed an
+    /// outcome. It is kept because it states the floor, and the floor is now load-bearing -- see
+    /// below.
+    ///
+    /// Stated once, it is testable, which five inline copies were not. That matters more than the
+    /// de-duplication: this deadline is the line between "Koina stalled" and "our batching estimate
+    /// is wrong", and the live Koina tests skip on the first while still failing on the second (see
+    /// Test\KoinaTests\KoinaLiveTestFixture.cs). A regression that made this too short would
+    /// otherwise be discovered only as a live test quietly reporting Skipped -- which is exactly the
+    /// mistake that got "out of memory" removed from KoinaServiceException.ServiceFaultMarkers.
+    /// KoinaModelDiscoveryTests.EveryConcreteModel_SessionDeadlineCoversItsOwnBenchmarkedWork
+    /// pins it offline instead, for every model.
+    ///
+    /// The estimate itself, carried over from those copies: two times the benchmarked per-batch
+    /// time gives buffer so a healthy run does not hit the deadline, plus the throttling time
+    /// between chunks. The benchmark covers the whole of Predict(), so it already includes overhead
+    /// beyond the API call. Large requests do not necessarily scale linearly, so this is a rough
+    /// estimate chosen as an aggressive upper bound rather than a tight one.
+    /// </remarks>
+    public TimeSpan SessionDeadline(int batchCount, int chunkCount)
+    {
+        int minutes = (int)Math.Ceiling(
+            (batchCount * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds
+             + ThrottlingDelayInMilliseconds * chunkCount) / 6e4); // 60000ms/min
+        return TimeSpan.FromMinutes(Math.Max(minutes, 1));
+    }
+
+    /// <summary>
     /// Sends a single batch request to the Koina API and returns the raw JSON response.
     /// Seam for testing: overriding this lets the batched prediction pipeline run against a
     /// canned transport instead of the network.

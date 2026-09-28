@@ -90,11 +90,9 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 var batchedRequests = ToBatchedRequests(validInputs);
                 var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4);
-                sessionTimeoutInMinutes = Math.Max(sessionTimeoutInMinutes, 1);
 
                 var responses = new List<string>();
-                using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(sessionTimeoutInMinutes));
+                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count));
 
                 for (int i = 0; i < batchChunks.Count; i++)
                 {

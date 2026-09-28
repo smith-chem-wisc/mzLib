@@ -16,6 +16,8 @@ using FlashLFQ.IsoTracker;
 using System.Threading;
 using FlashLFQ.Interfaces;
 using MassSpectrometry;
+using Transcriptomics.Digestion;
+using Omics.SequenceConversion;
 
 [assembly: InternalsVisibleTo("Test")]
 
@@ -181,7 +183,10 @@ namespace FlashLFQ
             int mcmcBurninSteps = 1000,
             bool useSharedPeptidesForProteinQuant = false,
             bool pairedSamples = false,
-            int? randomSeed = null) :
+            int? randomSeed = null,
+
+            // RNA settings
+            bool rnaMode = false) :
             this(
                 new FlashLfqParameters()
                 {
@@ -193,6 +198,7 @@ namespace FlashLFQ
                     QuantifyAmbiguousPeptides = quantifyAmbiguousPeptides,
                     Silent = silent,
                     MaxThreads = maxThreads,
+                    RnaMode = rnaMode,
                     Normalize = normalize,
                     IsoTracker = isoTracker,
                     IsoTrackerIdFilter = new IsoTrackerIdFilter(motifsList),
@@ -385,19 +391,14 @@ namespace FlashLFQ
         {
             ModifiedSequenceToIsotopicDistribution = new Dictionary<string, List<(double, double)>>();
 
-            // calculate averagine (used for isotopic distributions for unknown modifications)
-            double averageC = 4.9384;
-            double averageH = 7.7583;
-            double averageO = 1.4773;
-            double averageN = 1.3577;
-            double averageS = 0.0417;
-
-            double averagineMass =
-                PeriodicTable.GetElement("C").AverageMass * averageC +
-                PeriodicTable.GetElement("H").AverageMass * averageH +
-                PeriodicTable.GetElement("O").AverageMass * averageO +
-                PeriodicTable.GetElement("N").AverageMass * averageN +
-                PeriodicTable.GetElement("S").AverageMass * averageS;
+            // Reuse the shared averagine models rather than hardcoding compositions here: the amino-acid
+            // averagine for peptides, the ribonucleotide averagine for RNA. The per-residue composition is
+            // scaled by mass to approximate a chemical formula when the exact formula/sequence is missing.
+            Dictionary<char, double> averagineComposition = FlashParams.RnaMode
+                ? new OxyriboAveragine().GetAverageChemicalFormula()
+                : new Averagine().GetAverageChemicalFormula();
+            double averagineMass = averagineComposition
+                .Sum(kvp => PeriodicTable.GetElement(kvp.Key.ToString()).AverageMass * kvp.Value);
 
             // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
@@ -414,33 +415,21 @@ namespace FlashLFQ
                 if(formula is null)
                 {
                     formula = new ChemicalFormula();
-                    if (id.BaseSequence.AllSequenceResiduesAreValid())
+                    if (SequenceResiduesAreValid(id.BaseSequence))
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
-                        formula = new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
+                        formula = GetChemicalFormulaFromIdentification(id);
                         double massDiff = id.MonoisotopicMass;
                         massDiff -= formula.MonoisotopicMass;
 
                         if (Math.Abs(massDiff) > 20)
                         {
-                            double averagines = massDiff / averagineMass;
-
-                            formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                            formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                            formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                            formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                            formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                            AddAveragineToFormula(formula, massDiff, averagineComposition, averagineMass);
                         }
                     }
                     else
                     {
-                        double averagines = id.MonoisotopicMass / averagineMass;
-
-                        formula.Add("C", (int)Math.Round(averagines * averageC, 0));
-                        formula.Add("H", (int)Math.Round(averagines * averageH, 0));
-                        formula.Add("O", (int)Math.Round(averagines * averageO, 0));
-                        formula.Add("N", (int)Math.Round(averagines * averageN, 0));
-                        formula.Add("S", (int)Math.Round(averagines * averageS, 0));
+                        AddAveragineToFormula(formula, id.MonoisotopicMass, averagineComposition, averagineMass);
                     }
                 }
 
@@ -490,6 +479,52 @@ namespace FlashLFQ
                 {
                     identification.PeakfindingMass = identification.MonoisotopicMass + mostAbundantIsotopeShift;
                 }
+            }
+        }
+
+        /// <summary>
+        /// Checks whether every residue in a base sequence is a known amino acid (peptide mode) or
+        /// nucleotide (RNA mode), so that it can be converted to a chemical formula without throwing.
+        /// </summary>
+        private bool SequenceResiduesAreValid(string baseSequence)
+        {
+            if (string.IsNullOrEmpty(baseSequence))
+            {
+                return false;
+            }
+
+            if (FlashParams.RnaMode)
+            {
+                return baseSequence.All(c => Transcriptomics.Nucleotide.TryGetResidue(c, out _));
+            }
+
+            return baseSequence.AllSequenceResiduesAreValid();
+        }
+
+        /// <summary>
+        /// Converts a (validated) base sequence into a chemical formula using the amino acid polymer
+        /// in peptide mode or the RNA polymer in <see cref="FlashLfqParameters.RnaMode"/>.
+        /// </summary>
+        private ChemicalFormula GetChemicalFormulaFromIdentification(Identification id)
+        {
+            return FlashParams.RnaMode
+                ? new OligoWithSetMods(id.ModifiedSequence).ThisChemicalFormula
+                : new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
+        }
+
+        /// <summary>
+        /// Approximates <paramref name="mass"/> daltons of an unknown species by adding averagine atoms
+        /// to <paramref name="formula"/>, scaling the per-residue <paramref name="averagineComposition"/>
+        /// (from <see cref="Averagine"/> / <see cref="OxyriboAveragine"/>) by the number of averagine
+        /// residues that make up the mass and rounding each element to the nearest whole atom.
+        /// </summary>
+        private static void AddAveragineToFormula(ChemicalFormula formula, double mass,
+            Dictionary<char, double> averagineComposition, double averagineMass)
+        {
+            double averagines = mass / averagineMass;
+            foreach (var (element, countPerAveragine) in averagineComposition)
+            {
+                formula.Add(element.ToString(), (int)Math.Round(averagines * countPerAveragine, 0));
             }
         }
 
@@ -589,13 +624,12 @@ namespace FlashLFQ
         /// Used by the match-between-runs algorithm to determine systematic retention time drifts between
         /// chromatographic runs.
         /// </summary>
-        private RetentionTimeCalibDataPoint[] GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, MbrScorer scorer,
+        private RetentionTimeCalibrationCurve GetRtCalSpline(SpectraFileInfo donor, SpectraFileInfo acceptor, MbrScorer scorer,
             out List<ChromatographicPeak> donorFileBestMsmsPeaksOrderedByMass)
         {
             Dictionary<string, ChromatographicPeak> donorFileBestMsmsPeaks = new();
             Dictionary<string, ChromatographicPeak> acceptorFileBestMsmsPeaks = new();
-            List<RetentionTimeCalibDataPoint> rtCalibrationCurve = new();
-            List<double> anchorPeptideRtDiffs = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
+            List<RetentionTimeCalibDataPoint> calibrationDataPoints = new(); // anchor peptides are peptides that were MS2 detected in both the donor and acceptor runs
 
             Dictionary<string, List<ChromatographicPeak>> donorFileAllMsmsPeaks = _results.Peaks[donor]
                 .Where(peak => peak.NumIdentificationsByFullSeq == 1
@@ -646,18 +680,18 @@ namespace FlashLFQ
 
                 if (donorFileBestMsmsPeaks.TryGetValue(peak.Key, out ChromatographicPeak donorFilePeak))
                 {
-                    rtCalibrationCurve.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
-                    if (donorFilePeak.ApexRetentionTime > 0 && acceptorFilePeak.ApexRetentionTime > 0)
-                    {
-                        anchorPeptideRtDiffs.Add(donorFilePeak.ApexRetentionTime - acceptorFilePeak.ApexRetentionTime);
-                    }
+                    calibrationDataPoints.Add(new RetentionTimeCalibDataPoint(donorFilePeak, acceptorFilePeak));
                 }
             }
 
-            scorer.AddRtPredErrorDistribution(donor, anchorPeptideRtDiffs, NumberOfAnchorPeptidesForMbr);
+            // The curve orders its data points by the donor peak's apex retention time, which both the
+            // error distribution and the per-peak prediction below rely on.
+            var rtCalibrationCurve = new RetentionTimeCalibrationCurve(calibrationDataPoints);
+
+            scorer.AddRtPredErrorDistribution(donor, rtCalibrationCurve, NumberOfAnchorPeptidesForMbr);
             donorFileBestMsmsPeaksOrderedByMass = donorFileBestMsmsPeaks.Select(kvp => kvp.Value).OrderBy(p => p.Identifications.First().PeakfindingMass).ToList();
 
-            return rtCalibrationCurve.OrderBy(p => p.DonorFilePeak.Apex.IndexedPeak.RetentionTime).ToArray();
+            return rtCalibrationCurve;
         }
 
         private string DigestionAgentOf(SpectraFileInfo file) => _fileToDigestionAgent.GetValueOrDefault(file);
@@ -777,15 +811,16 @@ namespace FlashLFQ
         /// where all peaks within 30 seconds of the donor peak are matched to peaks with the same associated peptide in the acceptor file,
         /// if such a peak exists.
         /// </summary>
-        /// <param name="rtCalibrationCurve">Array of all shared peaks between the donor and the acceptor file</param>
+        /// <param name="rtCalibrationCurve">The shared peaks between the donor and the acceptor file, ordered by donor apex retention time</param>
         /// <returns> RtInfo object containing the predicted retention time of the acceptor peak and the width of the predicted retention time window </returns>
         internal RtInfo PredictRetentionTime(
-            RetentionTimeCalibDataPoint[] rtCalibrationCurve,
+            RetentionTimeCalibrationCurve rtCalibrationCurve,
             ChromatographicPeak donorPeak,
             SpectraFileInfo acceptorFile,
             bool acceptorSampleIsFractionated,
             bool donorSampleIsFractionated)
         {
+            RetentionTimeCalibDataPoint[] calibrationPoints = rtCalibrationCurve.DataPoints;
             var nearbyCalibrationPoints = new List<RetentionTimeCalibDataPoint>(); // The number of anchor peptides to be used for local alignment (on either side of the donor peptide)
 
             // only compare +- 1 fraction
@@ -802,30 +837,30 @@ namespace FlashLFQ
 
             // binary search for this donor peak in the retention time calibration spline
             RetentionTimeCalibDataPoint testPoint = new RetentionTimeCalibDataPoint(donorPeak, null);
-            int index = Array.BinarySearch(rtCalibrationCurve, testPoint);
+            int index = Array.BinarySearch(calibrationPoints, testPoint);
 
             if (index < 0)
             {
                 index = ~index;
             }
-            if (index >= rtCalibrationCurve.Length && index >= 1)
+            if (index >= calibrationPoints.Length && index >= 1)
             {
-                index = rtCalibrationCurve.Length - 1;
+                index = calibrationPoints.Length - 1;
             }
 
             int numberOfForwardAnchors = 0;
             // gather nearby data points
-            for (int r = index + 1; r < rtCalibrationCurve.Length; r++)
+            for (int r = index + 1; r < calibrationPoints.Length; r++)
             {
-                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
-                if (rtCalibrationCurve[r].AcceptorFilePeak != null
-                    && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
+                double rtDiff = calibrationPoints[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
+                if (calibrationPoints[r].AcceptorFilePeak != null
+                    && calibrationPoints[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
                     if (Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
-                    nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
+                    nearbyCalibrationPoints.Add(calibrationPoints[r]);
                     numberOfForwardAnchors++;
                     if (numberOfForwardAnchors >= NumberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
@@ -837,15 +872,15 @@ namespace FlashLFQ
             int numberOfBackwardsAnchors = 0;
             for (int r = index - 1; r >= 0; r--)
             {
-                double rtDiff = rtCalibrationCurve[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
-                if (rtCalibrationCurve[r].AcceptorFilePeak != null
-                    && rtCalibrationCurve[r].AcceptorFilePeak.ApexRetentionTime > 0)
+                double rtDiff = calibrationPoints[r].DonorFilePeak.Apex.IndexedPeak.RetentionTime - donorPeak.Apex.IndexedPeak.RetentionTime;
+                if (calibrationPoints[r].AcceptorFilePeak != null
+                    && calibrationPoints[r].AcceptorFilePeak.ApexRetentionTime > 0)
                 {
                     if (Math.Abs(rtDiff) > 0.5) // If the rtDiff is too large, it's no longer local alignment
                     {
                         break;
                     }
-                    nearbyCalibrationPoints.Add(rtCalibrationCurve[r]);
+                    nearbyCalibrationPoints.Add(calibrationPoints[r]);
                     numberOfBackwardsAnchors++;
                     if (numberOfBackwardsAnchors >= NumberOfAnchorPeptidesForMbr) // We only want a handful of anchor points
                     {
@@ -860,9 +895,11 @@ namespace FlashLFQ
                 return new RtInfo(predictedRt: donorPeak.Apex.IndexedPeak.RetentionTime, width: 0.25);
             }
 
-            // calculate difference between acceptor and donor RTs for these RT region
+            // calculate difference between donor and acceptor RTs for this RT region. RtDiff is defined as
+            // donor apex RT - acceptor apex RT (see RetentionTimeCalibDataPoint), and every nearby point here
+            // has both a donor and an acceptor peak, so this is exactly that stored value.
             List<double> rtDiffs = nearbyCalibrationPoints
-                .Select(p => p.DonorFilePeak.ApexRetentionTime - p.AcceptorFilePeak.ApexRetentionTime)
+                .Select(p => p.RtDiff)
                 .ToList();
 
             double medianRtDiff = rtDiffs.Median();
@@ -1016,7 +1053,7 @@ namespace FlashLFQ
                 }
 
                 // generate RT calibration curve
-                RetentionTimeCalibDataPoint[] rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, acceptorFile, scorer, out var donorPeaksMassOrdered);
+                RetentionTimeCalibrationCurve rtCalibrationCurve = GetRtCalSpline(donorFilePeakListKvp.Key, acceptorFile, scorer, out var donorPeaksMassOrdered);
 
                 // break if MBR transfers can't be scored
                 if (!scorer.IsValid(donorFilePeakListKvp.Key)) continue;

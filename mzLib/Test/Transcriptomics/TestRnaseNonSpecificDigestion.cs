@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 using Transcriptomics;
 using Transcriptomics.Digestion;
@@ -26,6 +27,21 @@ namespace Test.Transcriptomics
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("singleC"));
             Assert.That(RnaseDictionary.Dictionary["singleN"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.SingleN));
             Assert.That(RnaseDictionary.Dictionary["singleC"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.SingleC));
+        }
+
+        [Test]
+        public void NonSpecificParametersSelectEffectiveRnaseAndRetainSpecificRnase()
+        {
+            var fivePrime = new RnaDigestionParams("RNase T1", fragmentationTerminus: FragmentationTerminus.FivePrime,
+                searchModeType: CleavageSpecificity.None);
+            var threePrime = (RnaDigestionParams)fivePrime.Clone(FragmentationTerminus.ThreePrime);
+
+            Assert.That(fivePrime.DigestionAgent.Name, Is.EqualTo("singleN"));
+            Assert.That(fivePrime.SpecificDigestionAgent.Name, Is.EqualTo("RNase T1"));
+            Assert.That(fivePrime.SpecificRnase.Name, Is.EqualTo("RNase T1"));
+            Assert.That(threePrime.DigestionAgent.Name, Is.EqualTo("singleC"));
+            Assert.That(threePrime.SpecificDigestionAgent.Name, Is.EqualTo("RNase T1"));
+            Assert.That(threePrime.SearchModeType, Is.EqualTo(CleavageSpecificity.None));
         }
 
         /// <summary>
@@ -163,6 +179,102 @@ namespace Test.Transcriptomics
             Assert.That(singleN.All(o => o.BaseSequence.Length >= 5));
             Assert.That(singleC.All(o => o.BaseSequence.Length >= 5));
         }
+
+        #region non-specific (X|, full specificity)
+
+        [Test]
+        public void NonSpecific_IsInDictionary()
+        {
+            Assert.That(RnaseDictionary.Dictionary.ContainsKey("non-specific"));
+            Assert.That(RnaseDictionary.Dictionary["non-specific"].CleavageSpecificity,
+                Is.EqualTo(CleavageSpecificity.Full));
+        }
+
+        /// <summary>
+        /// X| cleaves after every nucleotide. With 0 missed cleavages each residue
+        /// becomes its own single-nucleotide fragment.
+        /// </summary>
+        [Test]
+        public void NonSpecific_ZeroMissedCleavages_ProducesOneFragmentPerResidue()
+        {
+            var rna = new RNA("GUACUGA"); // length 7
+            var digestionParams = new RnaDigestionParams("non-specific", maxMissedCleavages: 0,
+                minLength: 1, maxLength: int.MaxValue);
+
+            var oligos = rna.Digest(digestionParams, NoMods, NoMods).Cast<OligoWithSetMods>().ToList();
+
+            Assert.That(oligos.Count, Is.EqualTo(7));
+            Assert.That(oligos.Select(o => o.BaseSequence),
+                Is.EqualTo(new[] { "G", "U", "A", "C", "U", "G", "A" }));
+        }
+
+        [Test]
+        public void NonSpecific_OneMissedCleavage_AddsAllDimers()
+        {
+            var rna = new RNA("GUACUGA"); // length 7
+            var digestionParams = new RnaDigestionParams("non-specific", maxMissedCleavages: 1,
+                minLength: 1, maxLength: int.MaxValue);
+
+            var oligos = rna.Digest(digestionParams, NoMods, NoMods).Cast<OligoWithSetMods>().ToList();
+
+            // 0 MC: 7 monomers; 1 MC: 6 dimers
+            Assert.That(oligos.Count, Is.EqualTo(13));
+            Assert.That(oligos.Select(o => o.BaseSequence), Does.Contain("GU"));
+            Assert.That(oligos.Select(o => o.BaseSequence), Does.Contain("GA"));
+        }
+
+        [Test]
+        public void NonSpecific_RespectsMinLength()
+        {
+            var rna = new RNA("GUACUGA");
+            var digestionParams = new RnaDigestionParams("non-specific", maxMissedCleavages: 1,
+                minLength: 2, maxLength: int.MaxValue);
+
+            var oligos = rna.Digest(digestionParams, NoMods, NoMods).Cast<OligoWithSetMods>().ToList();
+
+            // Only dimers survive (single-residue fragments are filtered out)
+            Assert.That(oligos.Count, Is.EqualTo(6));
+            Assert.That(oligos.All(o => o.BaseSequence.Length >= 2));
+        }
+
+        /// <summary>
+        /// The first fragment keeps the original 5' terminus; the last keeps the original 3'.
+        /// Every other end gets the rnase-default terminus (H2O4P / O-3P-1).
+        /// </summary>
+        [Test]
+        public void NonSpecific_TerminiAreAssignedCorrectly()
+        {
+            var rna = new RNA("GUACUGA");
+            var digestionParams = new RnaDigestionParams("non-specific", maxMissedCleavages: 0,
+                minLength: 1, maxLength: int.MaxValue);
+
+            var oligos = rna.Digest(digestionParams, NoMods, NoMods).Cast<OligoWithSetMods>().ToList();
+
+            // First residue: original 5', digested 3' (H2O4P)
+            var first = oligos[0]; // "G"
+            Assert.That(first.FivePrimeTerminus, Is.EqualTo(rna.FivePrimeTerminus),
+                "first fragment keeps original 5' terminus");
+            Assert.That(first.ThreePrimeTerminus.MonoisotopicMass,
+                Is.EqualTo(Rnase.DefaultThreePrimeTerminus.MonoisotopicMass).Within(1e-9),
+                "first fragment gets default 3'-phosphate at the cut end");
+
+            // Last residue: digested 5' (O-3P-1), original 3'
+            var last = oligos[^1]; // "A"
+            Assert.That(last.ThreePrimeTerminus, Is.EqualTo(rna.ThreePrimeTerminus),
+                "last fragment keeps original 3' terminus");
+            Assert.That(last.FivePrimeTerminus.MonoisotopicMass,
+                Is.EqualTo(Rnase.DefaultFivePrimeTerminus.MonoisotopicMass).Within(1e-9),
+                "last fragment gets default 5'-OH at the cut end");
+
+            // Interior residue: both termini are the rnase defaults
+            var interior = oligos[3]; // "C"
+            Assert.That(interior.ThreePrimeTerminus.MonoisotopicMass,
+                Is.EqualTo(Rnase.DefaultThreePrimeTerminus.MonoisotopicMass).Within(1e-9));
+            Assert.That(interior.FivePrimeTerminus.MonoisotopicMass,
+                Is.EqualTo(Rnase.DefaultFivePrimeTerminus.MonoisotopicMass).Within(1e-9));
+        }
+
+        #endregion
 
     }
 }

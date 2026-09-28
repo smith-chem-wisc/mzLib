@@ -10,11 +10,31 @@ namespace Omics.Digestion
         int MaxModificationIsoforms { get; set; }
         int MaxMods { get; set; }
         DigestionAgent DigestionAgent { get; }
+
+        /// <summary>
+        /// The agent the caller named. It is the same object as <see cref="DigestionAgent"/> except when
+        /// <see cref="SearchModeType"/> is None: then <see cref="DigestionAgent"/> becomes singleN (FragmentationTerminus N) or
+        /// singleC (anything else) to make the non-specific seeds, and this keeps the named protease, whose sites still
+        /// limit missed cleavages and are written to settings and output.
+        /// </summary>
+        DigestionAgent SpecificDigestionAgent { get; }
+
+        /// <summary>
+        /// Which terminus a search fixes. In digestion it matters only together with a Semi or None
+        /// <see cref="SearchModeType"/>: <see cref="FragmentationTerminus.Both"/> (the default) asks for peptides, while
+        /// <see cref="FragmentationTerminus.N"/> or <see cref="FragmentationTerminus.C"/> asks for seeds fixed at that
+        /// terminus, for a search engine that decides the other end after the search. See <c>DigestionParams.SearchModeType</c>.
+        /// </summary>
         FragmentationTerminus FragmentationTerminus { get; }
+
         /// <summary>
         /// Search mode type refers to the CleavageSpecificity enum and is used for MetaMorpheus to determine if it should perform a non-specific, semi-specific, or fully specific search.
         /// For the initial implementation, RNA will have it hardcoded to a fully specific search.
         /// </summary>
+        /// <remarks>
+        /// Full, Semi or None. With Semi or None the result depends on <see cref="FragmentationTerminus"/>: peptides for
+        /// Both, seeds for N or C. The full table is in the remarks on <c>DigestionParams.SearchModeType</c>.
+        /// </remarks>
         CleavageSpecificity SearchModeType { get; }
 
         /// <summary>

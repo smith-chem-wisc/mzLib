@@ -32,6 +32,54 @@ namespace Test.DatabaseTests
             UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
         }
 
+        private static Modification CreateFixedTestModification(string target = "A")
+        {
+            ModificationMotif.TryGetMotif(target, out var motif);
+            return new Modification("Fixed test", "", "", "", motif, "Anywhere.", ChemicalFormula.ParseFormula("CH2"));
+        }
+
+        [Test]
+        public void VariantProtein_InsertedResidue_ShiftsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { new SequenceVariation(2, "A", "AA", "insertion", null) }, 2)
+                .Single(protein => protein.BaseSequence == "MAAAA");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 4 }));
+        }
+
+        [Test]
+        public void VariantProtein_DeletedResidue_ShiftsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { new SequenceVariation(2, "A", "", "deletion", null) }, 2)
+                .Single(protein => protein.BaseSequence == "MAA");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications.Keys, Is.EquivalentTo(new[] { 2 }));
+        }
+
+        [Test]
+        public void VariantProtein_ReplacedResidue_DropsFixedModification()
+        {
+            var fixedModification = CreateFixedTestModification();
+            var original = new Protein("MAAA", "accession");
+            original = new Protein(original, oneBasedFixedModifications:
+                new Dictionary<int, Modification> { { 3, fixedModification } });
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { new SequenceVariation(3, "A", "U", "substitution", null) }, 2)
+                .Single(protein => protein.BaseSequence == "MAUA");
+
+            ClassicAssert.That(variant.OneBasedFixedModifications, Is.Empty);
+        }
+
         [SetUp]
         public static void Setuppp()
         {
@@ -226,6 +274,40 @@ namespace Test.DatabaseTests
         /// variant proteoform actually ends ...YLPLN with YPSE removed (length - 4), not ...YLPLNYPSE. A bug that
         /// read the native deletion yet failed to apply it would pass SeqVarXmlTest and fail here.
         /// </summary>
+        [Test]
+        public static void SeqVar_AnchoredInsertionWithVariantBorneMod_DoesNotMutateSourceModLists()
+        {
+            // T5 -> TAG keeps T5, so the consensus phospho on T5 is carried onto the variant. The variant also carries its
+            // own mod at 5; merging it in must not write into the consensus protein's list, which the carried-over key
+            // used to share by reference.
+            ModificationMotif.TryGetMotif("T", out ModificationMotif motifT);
+            Modification phospho = new Modification("Phospho", null, "type", null, motifT, "Anywhere.", null, 79.966331, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+            Modification variantBorne = new Modification("VariantBorne", null, "type", null, motifT, "Anywhere.", null, 42.010565, new Dictionary<string, IList<string>>(), null, null, null, null, null);
+
+            var insertion = new SequenceVariation(5, 5, "T", "TAG", "T5TAG",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { variantBorne } } });
+            var substitution = new SequenceVariation(2, 2, "P", "L", "P2L");
+            Protein protein = new Protein("MPEPTIDE", "P00003",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 5, new List<Modification> { phospho } } },
+                sequenceVariations: new List<SequenceVariation> { insertion, substitution });
+
+            List<Protein> variants = null;
+            for (int i = 0; i < 3; i++)
+            {
+                variants = protein.GetVariantBioPolymers();
+            }
+
+            Assert.That(protein.OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(insertion.OneBasedModifications[5], Is.EqualTo(new[] { variantBorne }));
+
+            var bySequence = variants.ToDictionary(p => p.BaseSequence);
+            Assert.That(bySequence.Keys, Is.EquivalentTo(new[] { "MPEPTIDE", "MLEPTIDE", "MPEPTAGIDE", "MLEPTAGIDE" }));
+            Assert.That(bySequence["MPEPTIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(bySequence["MLEPTIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho }));
+            Assert.That(bySequence["MPEPTAGIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho, variantBorne }));
+            Assert.That(bySequence["MLEPTAGIDE"].OneBasedPossibleLocalizedModifications[5], Is.EqualTo(new[] { phospho, variantBorne }));
+        }
+
         [Test]
         public static void SeqVar_NativeCTerminalDeletion_YPSE_AppliesAndShortensProtein()
         {
@@ -644,10 +726,11 @@ namespace Test.DatabaseTests
         ///    position 4, making them partially overlapping. They are applied in descending
         ///    position order (A first, then B):
         ///      MPEPTIDE → (PT→PA at 4–5) → MPEPAIDE → (EP→EA at 3–4) → MPEAAIDE
-        ///    The overlap causes <c>intersectsAppliedRegionIncompletely</c> to fire inside
-        ///    <see cref="ApplySingleVariant"/>. The production fix ensures the intermediate
-        ///    tail ("AIDE") is used rather than the consensus tail ("TIDE"), which would
-        ///    incorrectly revert the T→A mutation at position 5 and yield "MPEATIDE".
+        ///    <see cref="ApplySingleVariant"/> takes the tail unconditionally from the protein it is
+        ///    handed, so the intermediate tail ("AIDE") is used rather than the consensus tail
+        ///    ("TIDE"). Taking the consensus tail when an edit partially overlaps an already-applied
+        ///    one would revert the T→A mutation at position 5 and yield "MPEATIDE"; this test is
+        ///    what pins that behaviour.
         ///
         /// 2. NULL-VCF PATH IN AdjustSequenceVariationIndices
         ///    Variant A carries no <see cref="VariantCallFormat"/> data (null VCF). When B
@@ -713,10 +796,9 @@ namespace Test.DatabaseTests
             //   Step 1: MPEPTIDE + PT→PA(4-5) → MPEPAIDE   (T at pos 5 becomes A)
             //   Step 2: MPEPAIDE + EP→EA(3-4) → MPEAAIDE   (P at pos 4 becomes A; tail "AIDE" preserved)
             //
-            // The overlap at position 4 triggers intersectsAppliedRegionIncompletely = true.
-            // The production fix uses protein.BaseSequence.Substring(afterIdx) = "AIDE"
-            // rather than the buggy protein.ConsensusVariant.BaseSequence.Substring(afterIdx) = "TIDE",
-            // which would incorrectly revert the T→A from variant A, producing "MPEATIDE".
+            // ApplySingleVariant uses protein.BaseSequence.Substring(afterIdx) = "AIDE" unconditionally,
+            // rather than protein.ConsensusVariant.BaseSequence.Substring(afterIdx) = "TIDE", which
+            // would incorrectly revert the T→A from variant A, producing "MPEATIDE".
             var both = variants[3];
             Assert.That(both.BaseSequence, Is.EqualTo("MPEAAIDE"),
                 "Combined: PT→PA mutates pos 5 (T→A) and EP→EA mutates pos 4 (P→A); both changes must survive.");
@@ -869,7 +951,8 @@ namespace Test.DatabaseTests
             var rna = new RNA("GUACUGACU");
             NUnit.Framework.Assert.Throws<ArgumentException>(() =>
             {
-                proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(), "");
+        proteins[0].CreateVariant(proteins[0].BaseSequence, rna, [], [], new Dictionary<int, List<Modification>>(),
+            new Dictionary<int, Modification>(), "");
             });
         }
         /// <summary>
@@ -1342,6 +1425,201 @@ namespace Test.DatabaseTests
             Assert.AreEqual("V", firstDecoyVariation.VariantSequence);
         }
         /// <summary>
+        /// AreValid judges coordinates and nothing else. This pins the two things it deliberately does
+        /// NOT judge, because an earlier revision of this method judged both and was wrong about both.
+        ///
+        /// It does not require the variation to be a real change. GetVariantBioPolymers gates on
+        /// All(v => v.AreValid()), so calling one applicable variation invalid changes how every
+        /// variation on that biopolymer is applied; and reversing a start loss produces a no-op for
+        /// every initiator-methionine loss, whose decoy must survive or one-decoy-per-target breaks for
+        /// that whole variant class.
+        ///
+        /// It does not judge modification positions. OneBasedModifications is keyed in post-edit
+        /// variant-protein coordinates, so a key outside the span is normal -- see the span-4..4,
+        /// modification-at-7 example in TestProteinProperties. IBioPolymer.SelectValidOneBaseMods drops
+        /// modifications that do not survive, against the real post-edit sequence.
+        /// </summary>
+        [Test]
+        public static void AreValidJudgesCoordinatesOnly()
+        {
+            // A no-op applies cleanly, so it is well formed.
+            Assert.That(new SequenceVariation(5, 7, "PEP", "PEP", "no-op").AreValid(), Is.True);
+
+            // The shape DecoyProteinGenerator produces when it reverses an initiator-methionine loss.
+            Assert.That(new SequenceVariation(10, 10, "A", "A", "reversed start loss").AreValid(), Is.True);
+
+            // A real substitution, for contrast.
+            Assert.That(new SequenceVariation(5, 7, "PEP", "AAA", "substitution").AreValid(), Is.True);
+
+            // A modification keyed outside the original span is in the variant frame, not the parent
+            // frame, and is legitimate. Judging it here rejected committed data.
+            var modOutsideSpan = new SequenceVariation(4, 4, "P", "PPP", "insertion",
+                new Dictionary<int, List<Modification>> { { 7, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modOutsideSpan.AreValid(), Is.True,
+                "modification keys are variant-frame; a key past the original span is expected");
+
+            // A deletion is not a termination: residues after it survive, so a modification is placeable.
+            var modAfterDeletion = new SequenceVariation(4, 6, "PTI", "", "deletion",
+                new Dictionary<int, List<Modification>> { { 5, new List<Modification> { new Modification(_originalId: "mod") } } });
+            Assert.That(modAfterDeletion.AreValid(), Is.True,
+                "an empty variant sequence is a deletion, not a stop gain");
+
+            // Coordinates are still checked.
+            Assert.That(new SequenceVariation(0, 7, "PEP", "AAA", "bad begin").AreValid(), Is.False);
+            Assert.That(new SequenceVariation(7, 5, "PEP", "AAA", "end before begin").AreValid(), Is.False);
+        }
+
+        /// <summary>
+        /// A heterozygous A->alt substitution for one sample, with the given REF/ALT allele depths.
+        /// </summary>
+        private static SequenceVariation HeterozygousSubstitution(int position, string alt, int refDepth, int altDepth)
+        {
+            string vcf = $"1\t{position}\t.\tA\t{alt}\t.\tPASS\tANN={alt}||||||||||||||||\tGT:AD:DP\t0/1:{refDepth},{altDepth}:{refDepth + altDepth}";
+            return new SequenceVariation(position, position, "A", alt, "het " + position, vcf);
+        }
+
+        private static List<string> ApplyToMAAAAA(int maxAllowedVariantsForCombinatorics, params SequenceVariation[] variants)
+        {
+            return VariantApplication.ApplyVariants(new Protein("MAAAAA", "acc"), variants, maxAllowedVariantsForCombinatorics, minAlleleDepth: 10)
+                .Select(p => p.BaseSequence).OrderBy(s => s).ToList();
+        }
+
+        /// <summary>
+        /// More heterozygous sites than the cap: branching collapses to the reference plus ONE alternate
+        /// branch that accumulates every deeply covered alternate allele.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_TooManyHeterozygous_DeepRefAndAlt_AccumulateOnSecondBranch()
+        {
+            var result = ApplyToMAAAAA(1,
+                HeterozygousSubstitution(2, "C", 30, 30),
+                HeterozygousSubstitution(4, "D", 30, 30));
+
+            Assert.That(result, Is.EqualTo(new[] { "MAAAAA", "MCADAA" }));
+        }
+
+        [Test]
+        public static void ApplyVariants_HomozygousDeepAlternate_AppliesAlternateBranch()
+        {
+            string vcf = "1\t2\t.\tA\tC\t.\tPASS\tANN=C||||||||||||||||\tGT:AD:DP\t1/1:1,30:31";
+            var variation = new SequenceVariation(2, 2, "A", "C", "homozygous", vcf);
+
+            var result = ApplyToMAAAAA(1, variation);
+
+            Assert.That(result, Is.EqualTo(new[] { "MCAAAA" }));
+        }
+
+        [Test]
+        public void ApplyAllVariantCombinations_InsertionShiftsFixedModsAfterEdit()
+        {
+            var fixedAtE = CreateFixedTestModification("E");
+            var fixedAtT = CreateFixedTestModification("T");
+            var original = new Protein("MPEPTIDEK", "accession",
+                oneBasedFixedModifications: new Dictionary<int, Modification>
+                {
+                    [3] = fixedAtE,
+                    [5] = fixedAtT,
+                });
+            var insertion = new SequenceVariation(2, 2, "P", "PAA", "insertion", null);
+
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { insertion }, 2)
+                .Single(protein => protein.BaseSequence == "MPAAEPTIDEK");
+
+            Assert.That(variant.OneBasedFixedModifications[5], Is.EqualTo(fixedAtE));
+            Assert.That(variant.OneBasedFixedModifications[7], Is.EqualTo(fixedAtT));
+        }
+
+        [Test]
+        public void ApplyAllVariantCombinations_DeletionDropsCoveredAndShiftsFollowingFixedMods()
+        {
+            var fixedAtDeletedE = CreateFixedTestModification("E");
+            var fixedAtT = CreateFixedTestModification("T");
+            var fixedAtFinalE = CreateFixedTestModification("E");
+            var original = new Protein("MPEPTIDEK", "accession",
+                oneBasedFixedModifications: new Dictionary<int, Modification>
+                {
+                    [3] = fixedAtDeletedE,
+                    [5] = fixedAtT,
+                    [8] = fixedAtFinalE,
+                });
+            var deletion = new SequenceVariation(2, 4, "PEP", "P", "deletion", null);
+
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { deletion }, 2)
+                .Single(protein => protein.BaseSequence == "MPTIDEK");
+
+            Assert.That(variant.OneBasedFixedModifications.ContainsKey(3), Is.True);
+            Assert.That(variant.OneBasedFixedModifications[3], Is.EqualTo(fixedAtT));
+            Assert.That(variant.OneBasedFixedModifications[6], Is.EqualTo(fixedAtFinalE));
+            Assert.That(variant.OneBasedFixedModifications.Values.Count, Is.EqualTo(2));
+            Assert.That(variant.OneBasedFixedModifications.Values.Any(modification => modification.Target.Motif == "E"), Is.True);
+        }
+
+        [Test]
+        public void ApplyAllVariantCombinations_IndelRemapsTerminalFixedModifications()
+        {
+            var nTermModification = CreateFixedTestModification("M");
+            var cTermModification = CreateFixedTestModification("A");
+            var original = new Protein("MAAA", "accession",
+                oneBasedFixedModifications: new Dictionary<int, Modification>
+                {
+                    [0] = nTermModification,
+                    [6] = cTermModification,
+                });
+            var insertion = new SequenceVariation(2, 2, "A", "AA", "insertion", null);
+
+            var variant = VariantApplication.ApplyAllVariantCombinations(original,
+                    new List<SequenceVariation> { insertion }, 2)
+                .Single(protein => protein.BaseSequence == "MAAAA");
+
+            Assert.That(variant.OneBasedFixedModifications[0], Is.EqualTo(nTermModification));
+            Assert.That(variant.OneBasedFixedModifications[7], Is.EqualTo(cTermModification));
+        }
+
+        /// <summary>
+        /// Past the cap, a site with a shallow reference allele is taken as alternate on every branch,
+        /// and a site with a shallow alternate allele is not applied at all.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_TooManyHeterozygous_ShallowRef_AppliesAltToEveryBranch()
+        {
+            var result = ApplyToMAAAAA(1,
+                HeterozygousSubstitution(2, "C", 1, 30),
+                HeterozygousSubstitution(4, "D", 1, 30),
+                HeterozygousSubstitution(6, "E", 30, 1));
+
+            Assert.That(result, Is.EqualTo(new[] { "MCADAA" }));
+        }
+
+        /// <summary>
+        /// A cap of zero disables heterozygous application entirely, whatever the depths.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_ZeroCap_AppliesNoHeterozygousVariant()
+        {
+            var result = ApplyToMAAAAA(0,
+                HeterozygousSubstitution(2, "C", 1, 30),
+                HeterozygousSubstitution(4, "D", 30, 30));
+
+            Assert.That(result, Is.EqualTo(new[] { "MAAAAA" }));
+        }
+
+        /// <summary>
+        /// Under the cap, a deep-reference site branches (ref and alt both kept) while a shallow-reference
+        /// site is taken as alternate without keeping the reference branch.
+        /// </summary>
+        [Test]
+        public static void ApplyVariants_UnderCap_ShallowRefDropsReferenceBranch()
+        {
+            var result = ApplyToMAAAAA(4,
+                HeterozygousSubstitution(2, "C", 30, 30),
+                HeterozygousSubstitution(4, "D", 1, 30));
+
+            Assert.That(result, Is.EqualTo(new[] { "MAADAA", "MCADAA" }));
+        }
+
+        /// <summary>
         /// CRITICAL: Tests the AreValid() validation logic for SequenceVariation.
         /// Comprehensively covers valid/invalid position combinations, different
         /// constructor behaviors, and edge cases with null/empty sequences.
@@ -1351,8 +1629,10 @@ namespace Test.DatabaseTests
         public void SequenceVariationIsValidTest()
         {
             // PURPOSE
-            // Validate the minimal, position-only "validity" rules implemented by SequenceVariation.AreValid():
-            //   AreValid() == (OneBasedBeginPosition > 0) && (OneBasedEndPosition >= OneBasedBeginPosition)
+            // Validates the POSITION rule of SequenceVariation.AreValid():
+            //   begin >= 1 and end >= begin
+            // AreValid also requires the variation to be a real change and its modifications to be
+            // positionally possible -- neither is AreValid's job; see AreValidJudgesCoordinatesOnly above. Every construct here changes the sequence, so only the position rule is in play.
             //
             // We cover:
             // 1) Explicit begin/end ctor with typical point mutations → valid.
@@ -1361,7 +1641,7 @@ namespace Test.DatabaseTests
             // 4) One-position convenience ctor behavior for different originalSequence values (null, "", length > 0).
             //    - This ctor derives end as: end = (original == null) ? begin : begin + original.Length - 1.
             //    - Therefore, empty originalSequence "" makes end = begin - 1 → invalid by design.
-            // 5) Content fields (Original/Variant) and OneBasedModifications do NOT affect AreValid(), only positions do.
+            // 5) Every construct below changes the sequence, so it is the position rule being exercised.
             // 6) Optional sanity checks on derived fields (SimpleString and computed end position).
 
             // -----------------------------
@@ -1404,7 +1684,7 @@ namespace Test.DatabaseTests
 
             // -----------------------------
             // 3) Explicit begin/end edge-cases: insertion and deletion modeled by content only
-            //    NOTE: AreValid ignores Original/Variant content; only positions matter.
+            //    NOTE: these all change the sequence, so the position rule is what decides them.
             // -----------------------------
             // Insertion-like (explicit): original is empty (""), variant has content.
             // Valid because we explicitly supply begin == end (positions are valid).
@@ -1443,7 +1723,7 @@ namespace Test.DatabaseTests
             var svPosCtorLength3 = new SequenceVariation(
                 oneBasedPosition: 20,
                 originalSequence: "PEP",   // len = 3
-                variantSequence: "AAA",    // content irrelevant to AreValid
+                variantSequence: "AAA",    // differs from original, so it is a real change
                 description: "pos-ctor length 3");
             Assert.AreEqual(20, svPosCtorLength3.OneBasedBeginPosition);
             Assert.AreEqual(22, svPosCtorLength3.OneBasedEndPosition, "End should be begin + original.Length - 1");
