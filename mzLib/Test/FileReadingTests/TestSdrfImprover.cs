@@ -97,6 +97,25 @@ namespace Test.FileReadingTests
             Assert.That(added["comment[label]"], Is.EqualTo("label free sample"), "a column constant across the deposit is carried");
             Assert.That(added["source name"], Is.Not.EqualTo("p1").And.Not.EqualTo("p2"), "a drafted sample never takes a deposited name");
             Assert.That(i.AddedRows, Is.EqualTo(3));
+            // A drafted row's default is "inferred"; a cell that came from somewhere else says so.
+            Assert.That(added["comment[instrument source]"], Is.EqualTo("pride project record"));
+            Assert.That(added["comment[organism source]"], Is.EqualTo("pride project record"));
+            Assert.That(added["comment[technical replicate source]"], Is.EqualTo(SdrfReserved.NotApplicable), "read off the names: the row default holds");
+        }
+
+        [Test]
+        public void ADraftedRowsDefaultCellIsMarkedDefaultNotInferred()
+        {
+            var withFraction = Columns.Append("comment[fraction identifier]").ToArray();
+            var dep = Doc(withFraction, Deposited().Results.Select(r => r.Cells.Append("1").ToArray()).ToArray());
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var added = Row(i.Document, "POS2.raw");
+            Assert.That(added["comment[fraction identifier]"], Is.EqualTo("1"));
+            Assert.That(added["comment[fraction identifier source]"], Is.EqualTo("default"), "nothing marked a fraction; 1 is a placeholder");
+            Assert.That(Row(i.Document, "POS1.raw")["comment[fraction identifier source]"], Is.EqualTo(SdrfReserved.NotApplicable));
+            Assert.That(i.Document.Results.All(r => r.Cells.All(c => c.Length > 0)), "no empty cell in any row");
         }
 
         [Test]

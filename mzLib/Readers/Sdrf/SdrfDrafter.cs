@@ -273,6 +273,9 @@ namespace Readers
             if (draft == null) throw new ArgumentNullException(nameof(draft));
             if (draft.Rows.Count == 0) throw new ArgumentException("A draft with no rows has no SDRF.", nameof(draft));
             ControlledVocabulary.Pride.TryGetByAccession("MS:1002038", out var labelFree);
+            // "Unique per file": one run listed twice (A.raw and A.mzXML) is one sample, so a shared stem would
+            // give both rows one row key. The later file falls back to its full name, as SdrfImprover does.
+            var usedAssays = new HashSet<string>(StringComparer.Ordinal);
 
             // A column that is a term on one row and free text on another makes the builder throw. Publication
             // evidence is free text, so a column any row states as free text is written as text on EVERY row,
@@ -349,7 +352,9 @@ namespace Readers
                     new SdrfAssay
                     {
                         DataFileName = r.DataFile,
-                        AssayName = "run " + SdrfFileNamePattern.Stem(r.DataFile),
+                        AssayName = usedAssays.Add("run " + SdrfFileNamePattern.Stem(r.DataFile))
+                            ? "run " + SdrfFileNamePattern.Stem(r.DataFile)
+                            : "run " + r.DataFile,
                         Instrument = r.Instrument.Term,
                         Fraction = int.Parse(r.Fraction.Value, System.Globalization.CultureInfo.InvariantCulture),
                         TechnicalReplicate = int.Parse(r.TechnicalReplicate.Value, System.Globalization.CultureInfo.InvariantCulture)
