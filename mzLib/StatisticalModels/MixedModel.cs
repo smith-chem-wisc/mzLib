@@ -325,7 +325,11 @@ namespace StatisticalModels
                 r -= c * b.ResponseSums[g] * s;
                 q -= c * b.ResponseSums[g] * b.ResponseSums[g];
             }
-            var chol = a.Cholesky();
+            // Cancellation in the subtraction above can leave an ill-conditioned a that is not numerically
+            // positive definite. That is a failed evaluation for this θ, never an exception out of the parallel fit.
+            MathNet.Numerics.LinearAlgebra.Factorization.Cholesky<double> chol;
+            try { chol = a.Cholesky(); }
+            catch (ArgumentException) { return new Profile(double.NaN, r, a, double.NaN); }
             var beta = chol.Solve(r);
             double rss = q - r.DotProduct(beta);
             int dfResid = reml ? m - p : m;

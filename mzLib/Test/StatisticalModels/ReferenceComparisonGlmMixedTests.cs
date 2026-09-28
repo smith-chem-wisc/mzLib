@@ -49,9 +49,9 @@ public class ReferenceComparisonGlmMixedTests
         return m;
     }
 
-    private static void Close(double actual, double expected, double tolerance, string what)
+    private static void Close(double actual, double expected, double tolerance, string what, double scaleFloor = 1e-300)
     {
-        double scale = Math.Max(Math.Abs(expected), 1e-300);
+        double scale = Math.Max(Math.Abs(expected), scaleFloor);
         Assert.That(Math.Abs(actual - expected) / scale, Is.LessThan(tolerance), $"{what}: {actual:R} vs reference {expected:R}");
     }
 
@@ -155,9 +155,10 @@ public class ReferenceComparisonGlmMixedTests
             var weighted = PValueCombination.Stouffer(p, w);
             Close(fisher.Statistic, Out("fisher_x"), Tight, $"{name} Fisher X");
             Close(fisher.PValue, Out("fisher_p"), Tight, $"{name} Fisher p");
-            Close(stouffer.Statistic, Out("stouffer_z"), Tight, $"{name} Stouffer Z");
+            // Z is on a unit scale: where opposite studies cancel to ~1e-16, compare it absolutely.
+            Close(stouffer.Statistic, Out("stouffer_z"), Tight, $"{name} Stouffer Z", scaleFloor: 1);
             Close(stouffer.PValue, Out("stouffer_p"), Tight, $"{name} Stouffer p");
-            Close(weighted.Statistic, Out("weighted_z"), Tight, $"{name} weighted Z");
+            Close(weighted.Statistic, Out("weighted_z"), Tight, $"{name} weighted Z", scaleFloor: 1);
             Close(weighted.PValue, Out("weighted_p"), Tight, $"{name} weighted p");
         }
     }

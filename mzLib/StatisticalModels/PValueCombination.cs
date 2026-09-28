@@ -75,7 +75,8 @@ namespace StatisticalModels
                 double w = weights?[i] ?? 1.0;
                 if (!(w > 0) || !double.IsFinite(w))
                     throw new ArgumentException($"Weight {i} must be finite and positive.", nameof(weights));
-                num += w * Normal.InvCDF(0, 1, 1 - pValues[i]);
+                // −Φ⁻¹(p) equals Φ⁻¹(1 − p) but keeps the digits of a small p, where 1 − p would round to 1.
+                num += w * -Normal.InvCDF(0, 1, pValues[i]);
                 den += w * w;
                 k++;
             }
@@ -93,6 +94,10 @@ namespace StatisticalModels
         /// estimated effect: p/2 when the effect is positive, 1 − p/2 when negative, and NaN when the effect is
         /// zero or not finite (no direction to test).
         /// </summary>
+        /// <remarks>
+        /// For a negative effect the result 1 − p/2 is rounded to 1 once p is below about 2e-16, so its z in
+        /// <see cref="Stouffer"/> becomes −∞. Positive effects keep their digits.
+        /// </remarks>
         public static double OneSided(double twoSidedP, double effect)
         {
             if (!double.IsFinite(twoSidedP) || !double.IsFinite(effect) || effect == 0) return double.NaN;
