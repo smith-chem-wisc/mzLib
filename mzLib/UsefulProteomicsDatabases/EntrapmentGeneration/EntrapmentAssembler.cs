@@ -412,6 +412,10 @@ public static class EntrapmentAssembler
     /// <param name="forbiddenSequences">Sequences the partner may not equal.</param>
     /// <param name="minLength">Below this the sequence is not identifiable, so it is kept verbatim
     /// rather than dropped, exactly as a short base piece is.</param>
+    /// <param name="spanBoundaries">Positions the rearrangement may not cross.</param>
+    /// <param name="searchedSpans">The spans a search reports besides the whole protein -- the
+    /// truncation products, as zero-based <c>[Start, End)</c>. Only these are tested for collisions
+    /// with <paramref name="forbiddenSequences"/>; null tests none.</param>
     /// <remarks>
     /// <para>Top-down does not digest, so there are no cleavage sites to hold and no pieces to
     /// assemble: the unit <i>is</i> the protein. Passing no motifs leaves every position free but
@@ -425,7 +429,8 @@ public static class EntrapmentAssembler
     public static EntrapmentAssembly AssembleWholeProtein(string targetSequence,
         IReadOnlySet<string> forbiddenSequences, int minLength = 1,
         int fold = 0, int foldCount = 1, int seed = 1,
-        IReadOnlyCollection<int>? spanBoundaries = null)
+        IReadOnlyCollection<int>? spanBoundaries = null,
+        IReadOnlyCollection<(int Start, int End)>? searchedSpans = null)
     {
         if (string.IsNullOrEmpty(targetSequence))
         {
@@ -505,7 +510,7 @@ public static class EntrapmentAssembler
         // candidate against forbiddenSequences left these neither avoided nor counted, and both
         // collision figures were passed as constants -- so a report over a proteoform database
         // read zero however much it held.
-        List<string> collisions = SpansThatAreRealTargets(assembled, cuts, forbiddenSequences);
+        List<string> collisions = SpansThatAreRealTargets(assembled, searchedSpans, forbiddenSequences);
 
         return new EntrapmentAssembly(targetSequence, assembled, map, pieces, 0, collisions,
             new List<string>());
@@ -535,33 +540,38 @@ public static class EntrapmentAssembler
     }
 
     /// <summary>
-    /// Segment-aligned spans of the assembled partner that are themselves real target sequences.
+    /// Searched spans of the assembled partner that are themselves real target sequences.
     /// </summary>
-    private static List<string> SpansThatAreRealTargets(string assembled, List<int> cuts,
-        IReadOnlySet<string> forbiddenSequences)
+    /// <remarks>
+    /// Only the spans a search reports -- the truncation products -- rather than every pair of
+    /// cuts. The pairwise scan was O(k^2 L) in the cuts, which <c>Protein.AddTruncations</c> can
+    /// push to dozens per protein, and it counted unions of segments no search ever reports. This
+    /// is O(P L) in the products.
+    /// </remarks>
+    private static List<string> SpansThatAreRealTargets(string assembled,
+        IReadOnlyCollection<(int Start, int End)>? searchedSpans, IReadOnlySet<string> forbiddenSequences)
     {
         var collisions = new List<string>();
-        if (forbiddenSequences is null || forbiddenSequences.Count == 0)
+        if (forbiddenSequences is null || forbiddenSequences.Count == 0 || searchedSpans is null)
         {
             return collisions;
         }
 
-        for (int from = 0; from < cuts.Count - 1; from++)
+        var seen = new HashSet<string>();
+        foreach ((int start, int end) in searchedSpans)
         {
-            for (int to = from + 1; to < cuts.Count; to++)
+            // The whole sequence is guaranteed distinct by the generator already, and a span outside
+            // the protein names nothing.
+            if (start < 0 || end > assembled.Length || start >= end
+                || (start == 0 && end == assembled.Length))
             {
-                // The whole sequence is guaranteed distinct by the generator already, so only
-                // proper spans are worth testing.
-                if (from == 0 && to == cuts.Count - 1)
-                {
-                    continue;
-                }
+                continue;
+            }
 
-                string span = assembled.Substring(cuts[from], cuts[to] - cuts[from]);
-                if (forbiddenSequences.Contains(span) && !collisions.Contains(span))
-                {
-                    collisions.Add(span);
-                }
+            string span = assembled.Substring(start, end - start);
+            if (forbiddenSequences.Contains(span) && seen.Add(span))
+            {
+                collisions.Add(span);
             }
         }
 

@@ -1284,6 +1284,34 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void ProteoformTestsOnlyTheSpansASearchReports()
+    {
+        // Top-down searches the whole protein and its truncation products, not every union of
+        // segments. Testing every pair of cuts cost O(k^2 L) -- quadratic in the cuts that
+        // AddTruncations multiplies -- and counted collisions no search could ever report. Same
+        // fixture as above without the 1-40 product: that span is now no searched species.
+        const string sequence = "MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYTKSSPQIVWEN";
+        var target = new Protein(sequence, "P12345",
+            proteolysisProducts: new List<TruncationProduct>
+            {
+                new(1, 25, "signal peptide"),
+                new(26, 40, "propeptide"),
+                new(41, sequence.Length, "chain"),
+            });
+
+        Protein unconstrained = EntrapmentProteinGenerator.CreateProteoform(
+            target, NothingForbidden, out _);
+        string unionOfSegments = unconstrained.BaseSequence.Substring(0, 40);
+
+        Protein rebuilt = EntrapmentProteinGenerator.CreateProteoform(target,
+            new HashSet<string> { unionOfSegments }, out EntrapmentAssembly assembly);
+
+        Assert.That(rebuilt.BaseSequence, Is.EqualTo(unconstrained.BaseSequence));
+        Assert.That(assembly.UnrepairableRunCollisionPeptides, Is.Empty,
+            "a union of segments that is no truncation product is never searched, so never counted");
+    }
+
+    [Test]
     public void ProteoformDoesNotHandBackTheTargetAsItsOwnEntrapment()
     {
         // A single residue has exactly one arrangement. Kept verbatim, it emitted the target itself

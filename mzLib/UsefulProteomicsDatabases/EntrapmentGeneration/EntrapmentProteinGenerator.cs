@@ -59,6 +59,7 @@ public static class EntrapmentProteinGenerator
         // isomeric with the one it stands opposite has silently changed the candidate-site count
         // this mode exists to preserve.
         var spanBoundaries = new List<int>();
+        var searchedSpans = new List<(int Start, int End)>();
         foreach (TruncationProduct product in target.TruncationProducts ?? Enumerable.Empty<TruncationProduct>())
         {
             // One-based, inclusive begin; the cut sits before that residue.
@@ -71,10 +72,16 @@ public static class EntrapmentProteinGenerator
             {
                 spanBoundaries.Add(product.OneBasedEndPosition.Value);
             }
+
+            // A product is a searched species only when both of its ends are known.
+            if (product.OneBasedBeginPosition.HasValue && product.OneBasedEndPosition.HasValue)
+            {
+                searchedSpans.Add((product.OneBasedBeginPosition.Value - 1, product.OneBasedEndPosition.Value));
+            }
         }
 
         assembly = EntrapmentAssembler.AssembleWholeProtein(target.BaseSequence, forbiddenSequences,
-            minLength, fold, foldCount, seed, spanBoundaries);
+            minLength, fold, foldCount, seed, spanBoundaries, searchedSpans);
 
         if (assembly.EntrapmentSequence.Length == 0)
         {
