@@ -1341,6 +1341,18 @@ public class EntrapmentProteinTests
         Assert.That(entrapment.SpliceSites, Is.Empty);
     }
 
+    [Test]
+    public void ProteoformRefusesADecoy()
+    {
+        // The same prefix-hides-the-decoy misclassification Create refuses: the partner would be
+        // "Random_DECOY_P00001_f0" and reload as a target-side entrapment entry.
+        var decoy = new Protein(Sequence, "DECOY_P00001", isDecoy: true);
+
+        var ex = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentProteinGenerator.CreateProteoform(decoy, NothingForbidden, out _));
+        Assert.That(ex.Message, Does.Contain("DECOY"));
+    }
+
     // ---- peptide-terminal modifications ------------------------------------
     //
     // A restriction that is satisfied per DIGESTION PRODUCT rather than once per entry, and the

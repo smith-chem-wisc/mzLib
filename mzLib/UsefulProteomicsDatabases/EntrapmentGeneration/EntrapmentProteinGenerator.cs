@@ -52,6 +52,7 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build an entrapment proteoform from a null target.");
         }
+        RefuseDecoy(target);
 
         // Every truncation-span endpoint becomes a boundary the rearrangement is confined within,
         // so each span keeps its own composition rather than only the whole protein keeping its.
