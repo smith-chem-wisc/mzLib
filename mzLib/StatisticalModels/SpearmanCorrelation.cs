@@ -4,7 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Distributions;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>How a Spearman p-value was computed.</summary>
     public enum SpearmanPValueMethod

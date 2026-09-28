@@ -4,7 +4,7 @@ using System.Linq;
 using MathNet.Numerics;
 using MathNet.Numerics.Distributions;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>Which rule combined the p-values.</summary>
     public enum PValueCombinationMethod

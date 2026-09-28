@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>How the variance components of a mixed model are estimated.</summary>
     public enum VarianceEstimator

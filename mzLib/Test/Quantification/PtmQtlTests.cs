@@ -1,6 +1,6 @@
 using NUnit.Framework;
 using Quantification.PtmQtl;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;

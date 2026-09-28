@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>Why a feature does or does not carry a fitted model.</summary>
     public enum FeatureFitStatus
@@ -124,8 +124,8 @@ namespace Statistics
     public static class LinearModel
     {
         /// <summary>
-        /// Relative tolerance below which a diagonal element of R marks the restricted design as rank
-        /// deficient.
+        /// Relative tolerance below which a diagonal element of R, measured against the norm of its own
+        /// design column, marks the restricted design as rank deficient.
         /// </summary>
         public const double RankTolerance = 1e-7;
 
@@ -227,14 +227,22 @@ namespace Statistics
             fit.StatusValues[f] = FeatureFitStatus.Fitted;
         }
 
+        /// <summary>
+        /// A column is redundant when its part orthogonal to the columns before it, |R[j,j]|, is negligible
+        /// against the column's own length. Q is orthonormal, so the norm of column j of R equals the norm of
+        /// design column j, and the test is independent of each column's units (a covariate on a 1e8 scale
+        /// beside an intercept is not redundant).
+        /// </summary>
         internal static bool IsFullRank(Matrix<double> m)
         {
             var r = m.RowCount == m.ColumnCount && IsUpperTriangular(m) ? m : m.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Thin).R;
-            double max = 0;
-            for (int j = 0; j < r.ColumnCount; j++) max = Math.Max(max, Math.Abs(r[j, j]));
-            if (max == 0) return false;
             for (int j = 0; j < r.ColumnCount; j++)
-                if (Math.Abs(r[j, j]) <= RankTolerance * max) return false;
+            {
+                double norm = 0;
+                for (int i = 0; i <= j; i++) norm += r[i, j] * r[i, j];
+                norm = Math.Sqrt(norm);
+                if (norm == 0 || Math.Abs(r[j, j]) <= RankTolerance * norm) return false;
+            }
             return true;
         }
 

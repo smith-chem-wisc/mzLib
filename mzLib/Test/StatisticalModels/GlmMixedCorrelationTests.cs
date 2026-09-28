@@ -1,11 +1,11 @@
 using MathNet.Numerics.Distributions;
 using NUnit.Framework;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Test.Statistics;
+namespace Test.StatisticalModels;
 
 /// <summary>
 /// Closed-form values, textbook formulas, simulations that recover known parameters, and thread-count
