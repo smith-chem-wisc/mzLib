@@ -1248,39 +1248,39 @@ public class EntrapmentProteinTests
         // The top-down counterpart of a run collision. Only the whole-sequence candidate was tested
         // against forbiddenSequences, and both collision figures were passed as constants, so a
         // report over a proteoform database read zero however much it held.
+        //
+        // The forbidden span must be one the per-segment generator CANNOT avoid, or the test only
+        // ever sees it moved away: 1-40 is a searched product and the union of two segments (cuts
+        // at 25 and 40), while each segment is tested against the forbidden set only as itself.
         const string sequence = "MADCQVLGYTTPDNRAWEDSFLCGKQPTMLNDVAHERGGLYTKSSPQIVWEN";
         var target = new Protein(sequence, "P12345",
             proteolysisProducts: new List<TruncationProduct>
             {
                 new(1, 25, "signal peptide"),
-                new(26, sequence.Length, "chain"),
+                new(26, 40, "propeptide"),
+                new(41, sequence.Length, "chain"),
+                new(1, 40, "precursor"),
             });
 
-        // Build once with nothing forbidden to learn what the first span actually becomes, then
-        // forbid exactly that and rebuild.
+        // Build once with nothing forbidden to learn what the span actually becomes, then forbid
+        // exactly that and rebuild.
         Protein unconstrained = EntrapmentProteinGenerator.CreateProteoform(
             target, NothingForbidden, out _);
         Assert.That(unconstrained, Is.Not.Null);
-        string firstSpan = unconstrained.BaseSequence.Substring(0, 25);
+        string unavoidable = unconstrained.BaseSequence.Substring(0, 40);
 
         Protein rebuilt = EntrapmentProteinGenerator.CreateProteoform(target,
-            new HashSet<string> { firstSpan }, out EntrapmentAssembly assembly);
+            new HashSet<string> { unavoidable }, out EntrapmentAssembly assembly);
 
-        // The whole point: it may keep the span or move away from it, but it may not keep it
-        // SILENTLY. Before this, only the whole-sequence candidate was tested against
-        // forbiddenSequences and both collision figures were passed as constants, so a proteoform
-        // report read zero however much the database held.
-        bool kept = rebuilt is not null && rebuilt.BaseSequence.StartsWith(firstSpan, StringComparison.Ordinal);
-        if (kept)
-        {
-            Assert.That(assembly.UnrepairableRunCollisionPeptides, Does.Contain(firstSpan),
-                "a span kept despite being a real target sequence must be named, not passed over");
-        }
-        else
-        {
-            Assert.That(rebuilt, Is.Null.Or.Property("BaseSequence").Not.StartsWith(firstSpan),
-                "the forbidden span was avoided");
-        }
+        Assert.That(rebuilt.BaseSequence, Is.EqualTo(unconstrained.BaseSequence),
+            "fixture must keep the span -- no segment on its own equals it");
+        Assert.That(assembly.UnrepairableRunCollisionPeptides, Is.EqualTo(new[] { unavoidable }),
+            "a span kept despite being a real target sequence must be named, not passed over");
+
+        // And a non-empty forbidden set with nothing in it to hit reports nothing.
+        EntrapmentProteinGenerator.CreateProteoform(target,
+            new HashSet<string> { sequence.Substring(0, 40) }, out EntrapmentAssembly clean);
+        Assert.That(clean.UnrepairableRunCollisionPeptides, Is.Empty);
     }
 
     [Test]
