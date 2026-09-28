@@ -270,6 +270,20 @@ namespace Test.FileReadingTests
             File.Delete(path);
         }
 
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("7")]
+        public void AnEvidenceFileRefusesANumericConfidence(string confidence)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"evidence-numeric-{confidence}.tsv");
+            File.WriteAllText(path, "data file\tlabel\tcolumn\tvalue\tsource\tlocator\tmethod\tconfidence\n"
+                + $"A.raw\t\tcharacteristics[age]\t40Y\tpaper\tx\tfile-key\t{confidence}\n");
+
+            var e = Assert.Throws<MzLibException>(() => SdrfEvidenceFile.Read(path));
+            Assert.That(e!.Message, Does.Contain("line 2"));
+            File.Delete(path);
+        }
+
         [Test]
         public void AFilePatternWithManyWildcardsThatMatchesNothingReturnsQuickly()
         {

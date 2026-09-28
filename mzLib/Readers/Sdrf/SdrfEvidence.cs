@@ -88,8 +88,10 @@ namespace Readers
                 if (lines[i].Length == 0) continue;
                 var cells = lines[i].Split('\t');
                 string Get(string c) => At(c) < cells.Length ? cells[At(c)] : "";
-                if (!Enum.TryParse(Get("confidence"), ignoreCase: true, out SdrfEvidenceConfidence confidence))
+                // By name only: Enum.TryParse would also take a number, including one no confidence has.
+                if (!Enum.GetNames<SdrfEvidenceConfidence>().Contains(Get("confidence").Trim(), StringComparer.OrdinalIgnoreCase))
                     throw new MzLibException($"Evidence file '{path}' line {i + 1}: unknown confidence '{Get("confidence")}'.");
+                var confidence = Enum.Parse<SdrfEvidenceConfidence>(Get("confidence").Trim(), ignoreCase: true);
                 claims.Add(new SdrfEvidence(Get("data file"), Get("label"), Get("column"), Get("value"), Get("source"),
                     Get("locator"), Get("method"), confidence, At(PatternColumn) >= 0 ? Get(PatternColumn) : ""));
             }
