@@ -225,8 +225,10 @@ namespace Test.DatabaseTests
         {
             // Not in Europe PMC, with a PMCID Europe PMC does not list: no full text, so nothing is ever requested.
             const string notHeld = """{"resultList":{"result":[{"pmid":"1","pmcid":"PMC1","inEPMC":"N","fullTextIdList":{"fullTextId":["PMC9"]}}]}}""";
-            // Listed without the inEPMC flag: held.
-            const string listed = """{"resultList":{"result":[{"pmid":"2","pmcid":"PMC2","inEPMC":"N","fullTextIdList":{"fullTextId":["PMC2"]}}]}}""";
+            // Open access and listed without the inEPMC flag: held.
+            const string listed = """{"resultList":{"result":[{"pmid":"2","pmcid":"PMC2","isOpenAccess":"Y","inEPMC":"N","fullTextIdList":{"fullTextId":["PMC2"]}}]}}""";
+            // Held in Europe PMC but not open access: its full text is a 500, so it is not held for this client.
+            const string closed = """{"resultList":{"result":[{"pmid":"3","pmcid":"PMC3","isOpenAccess":"N","inEPMC":"Y","fullTextIdList":{"fullTextId":["PMC3"]}}]}}""";
             // No identifiers at all: every string is empty, never null.
             const string bare = """{"resultList":{"result":[{"source":"MED"}]}}""";
 
@@ -238,8 +240,99 @@ namespace Test.DatabaseTests
 
             Assert.That((await Find(notHeld)).HasFullText, Is.False);
             Assert.That((await Find(listed)).HasFullText, Is.True);
+            Assert.That((await Find(closed)).HasFullText, Is.False);
             var b = await Find(bare);
             Assert.That((b.PubMedId, b.PmcId, b.Doi, b.Title, b.HasFullText, b.IsOpenAccess), Is.EqualTo(("", "", "", "", false, false)));
+        }
+
+        // Captured live on 2026-09-28 from search?query=EXT_ID:23408684 AND SRC:MED&resultType=lite, trimmed: a closed
+        // article Europe PMC still marks inEPMC and lists -- its fullTextXML answers HTTP 500.
+        private const string ClosedHit = """
+            {"version":"6.9","hitCount":1,"resultList":{"result":[{"id":"23408684","source":"MED","pmid":"23408684","pmcid":"PMC3650345",
+            "fullTextIdList":{"fullTextId":["PMC3650345"]},"doi":"10.1074/mcp.m112.023986","journalTitle":"Mol Cell Proteomics",
+            "isOpenAccess":"N","inEPMC":"Y","inPMC":"Y"}]}}
+            """;
+
+        [Test]
+        public async Task AClosedArticleThatEuropePmcListsHasNoFullTextAndIsNeverAsked()
+        {
+            string dir = TempDir();
+            var handler = new StubHandler(r => r.RequestUri!.AbsolutePath.EndsWith("/search")
+                ? Text(ClosedHit)
+                : Text("", HttpStatusCode.InternalServerError));
+            using var client = new EuropePmcClient(new HttpClient(handler));
+
+            var (found, article) = await client.TryFindArticleAsync(23408684, "");
+            Assert.That(found, Is.True);
+            Assert.That((article.PmcId, article.IsOpenAccess, article.HasFullText), Is.EqualTo(("PMC3650345", false, false)));
+
+            Assert.That((await client.TryDownloadFullTextXmlAsync(article, dir)).Found, Is.False);
+            Assert.That((await client.TryDownloadSupplementaryFilesAsync(article, dir)).Found, Is.False);
+            Assert.That(handler.RequestedUris, Has.Count.EqualTo(1), "only the search: a closed article's full text is a 500");
+        }
+
+        /// <summary>Waits for the request's own token, as a server that never answers does.</summary>
+        private sealed class HangingHandler : HttpMessageHandler
+        {
+            protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            {
+                await Task.Delay(Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                return null!;
+            }
+        }
+
+        [Test]
+        public void AServerTimeoutIsAnOutageAndACallerCancellationIsNot()
+        {
+            using var client = new EuropePmcClient(new HttpClient(new HangingHandler()) { Timeout = TimeSpan.FromMilliseconds(200) });
+
+            var search = Assert.ThrowsAsync<HttpRequestException>(() => client.TryFindArticleAsync(31836719, ""));
+            Assert.That(search!.Message, Does.Contain("search").And.Not.Contain("http"));
+            var download = Assert.ThrowsAsync<HttpRequestException>(() => client.TryDownloadFullTextXmlAsync(Open, TempDir()));
+            Assert.That(download!.Message, Does.Contain("full text").And.Not.Contain("http"));
+
+            using var patient = new EuropePmcClient(new HttpClient(new HangingHandler()) { Timeout = TimeSpan.FromSeconds(30) });
+            using var cts = new CancellationTokenSource(TimeSpan.FromMilliseconds(200));
+            var e = Assert.CatchAsync(() => patient.TryFindArticleAsync(31836719, "", cts.Token));
+            Assert.That(e, Is.InstanceOf<OperationCanceledException>());
+        }
+
+        /// <summary>Delivers a few bytes and then drops the connection.</summary>
+        private sealed class DroppingStream : Stream
+        {
+            private bool _sent;
+            public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                if (_sent) throw new HttpIOException(HttpRequestError.ResponseEnded);
+                _sent = true;
+                buffer.Span[0] = (byte)'<';
+                return ValueTask.FromResult(1);
+            }
+
+            public override int Read(byte[] buffer, int offset, int count) => ReadAsync(buffer.AsMemory(offset, count)).AsTask().GetAwaiter().GetResult();
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        [Test]
+        public void AConnectionDroppedMidBodyIsAnOutageAndLeavesNoFile()
+        {
+            string dir = TempDir();
+            var handler = new StubHandler(_ => new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new DroppingStream()) });
+            using var client = new EuropePmcClient(new HttpClient(handler));
+
+            var e = Assert.ThrowsAsync<HttpRequestException>(() => client.TryDownloadFullTextXmlAsync(Open, dir));
+
+            Assert.That(e!.InnerException, Is.InstanceOf<IOException>());
+            Assert.That(e.Message, Does.Contain("full text").And.Not.Contain("http"));
+            Assert.That(Directory.GetFiles(dir), Is.Empty);
         }
 
         [Test]

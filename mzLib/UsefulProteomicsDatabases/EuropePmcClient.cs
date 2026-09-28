@@ -33,8 +33,10 @@ namespace UsefulProteomicsDatabases
         public bool IsOpenAccess { get; init; }
 
         /// <summary>
-        /// True when Europe PMC holds the paper's full text, so <see cref="EuropePmcClient.TryDownloadFullTextXmlAsync"/>
-        /// and <see cref="EuropePmcClient.TryDownloadSupplementaryFilesAsync"/> may ask for it.
+        /// True when the paper's full text can be fetched through the REST API -- it is open access and Europe PMC holds
+        /// it -- so <see cref="EuropePmcClient.TryDownloadFullTextXmlAsync"/> and
+        /// <see cref="EuropePmcClient.TryDownloadSupplementaryFilesAsync"/> may ask for it. A closed paper Europe PMC
+        /// holds (<c>inEPMC=Y</c>, <c>isOpenAccess=N</c>) is false: its full text is answered with HTTP 500.
         /// </summary>
         public bool HasFullText { get; init; }
     }
@@ -53,13 +55,15 @@ namespace UsefulProteomicsDatabases
     /// so a changed contract fails instead of skipping. Messages name the endpoint, never the URL.
     /// <para>
     /// <b>Two Europe PMC habits it guards against.</b> A closed article's full text is answered with HTTP 500 -- an
-    /// outage by every rule above -- so full text is only requested when <see cref="EuropePmcArticle.HasFullText"/>
-    /// says it exists. And "no supplements" is a 200 carrying an XML error page, so a supplement download is kept
+    /// outage by every rule above -- even when Europe PMC marks it held (<c>inEPMC=Y</c>) and lists its PMCID, so full
+    /// text is only requested when <see cref="EuropePmcArticle.HasFullText"/> says it is open and held. And "no supplements" is a 200 carrying an XML error page, so a supplement download is kept
     /// only if it is a zip archive; an error body is never written to disk.
     /// </para>
     /// <para>
     /// A downloaded file already on disk is reused unless <c>overwrite</c> is true (the PRIDE client's cheap resume),
-    /// which makes a folder of downloads a cache. Downloads stream to <c>.partial</c> and are moved into place.
+    /// which makes a folder of downloads a cache. A download's body is buffered in memory, checked (XML, or a zip), then
+    /// written to <c>.partial</c> and moved into place, so a failed or rejected body never reaches disk. Full text and
+    /// supplement zips are small; this is not the pattern for a large file.
     /// </para>
     /// </remarks>
     public sealed class EuropePmcClient : IDisposable
@@ -123,7 +127,7 @@ namespace UsefulProteomicsDatabases
             cancellationToken.ThrowIfCancellationRequested();
 
             string requestUri = "search?format=json&resultType=lite&query=" + Uri.EscapeDataString(query);
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, "search", cancellationToken).ConfigureAwait(false);
             ThrowIfFailed(response, "search");
             string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -136,6 +140,7 @@ namespace UsefulProteomicsDatabases
             if (hit == null) return (false, null);
 
             string pmcid = (string)hit["pmcid"] ?? string.Empty;
+            bool openAccess = string.Equals((string)hit["isOpenAccess"], "Y", StringComparison.OrdinalIgnoreCase);
             bool inEpmc = string.Equals((string)hit["inEPMC"], "Y", StringComparison.OrdinalIgnoreCase);
             bool listed = hit["fullTextIdList"]?["fullTextId"] is JArray ids && ids.Any(i => string.Equals((string)i, pmcid, StringComparison.OrdinalIgnoreCase));
             return (true, new EuropePmcArticle
@@ -144,8 +149,8 @@ namespace UsefulProteomicsDatabases
                 PmcId = pmcid,
                 Doi = (string)hit["doi"] ?? string.Empty,
                 Title = (string)hit["title"] ?? string.Empty,
-                IsOpenAccess = string.Equals((string)hit["isOpenAccess"], "Y", StringComparison.OrdinalIgnoreCase),
-                HasFullText = pmcid.Length > 0 && (inEpmc || listed)
+                IsOpenAccess = openAccess,
+                HasFullText = pmcid.Length > 0 && openAccess && (inEpmc || listed)
             });
         }
 
@@ -205,13 +210,29 @@ namespace UsefulProteomicsDatabases
         {
             cancellationToken.ThrowIfCancellationRequested();
             using HttpResponseMessage response =
-                await _httpClient.GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+                await GetAsync(requestUri, HttpCompletionOption.ResponseHeadersRead, what, cancellationToken).ConfigureAwait(false);
             if (response.StatusCode == HttpStatusCode.NotFound) return null;
             ThrowIfFailed(response, what);
             using var buffer = new MemoryStream();
             using (Stream body = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
                 await CopyUntilStalledAsync(body, buffer, what, cancellationToken).ConfigureAwait(false);
             return buffer.ToArray();
+        }
+
+        /// <summary>
+        /// Sends the request. <see cref="HttpClient.Timeout"/> expiring surfaces as a <see cref="TaskCanceledException"/>,
+        /// the same type as the caller's own cancellation, so it is rethrown as the outage it is (mzLib #1350).
+        /// </summary>
+        private async Task<HttpResponseMessage> GetAsync(string requestUri, HttpCompletionOption completion, string what, CancellationToken cancellationToken)
+        {
+            try
+            {
+                return await _httpClient.GetAsync(requestUri, completion, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException e) when (!cancellationToken.IsCancellationRequested)
+            {
+                throw new HttpRequestException($"The Europe PMC {what} request timed out.", e);
+            }
         }
 
         private static void ThrowIfFailed(HttpResponseMessage response, string what)
@@ -262,6 +283,11 @@ namespace UsefulProteomicsDatabases
                     catch (OperationCanceledException e) when (stallWindow.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
                     {
                         throw new HttpRequestException($"The Europe PMC {what} response delivered nothing for {BodyStallTimeout}.", e);
+                    }
+                    catch (IOException e)
+                    {
+                        // A connection dropped mid-body (HttpIOException) is an outage, not a local I/O failure.
+                        throw new HttpRequestException($"The Europe PMC {what} response ended before it was complete.", e);
                     }
                 }
                 if (read == 0) return;
