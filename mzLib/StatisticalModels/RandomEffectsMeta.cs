@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Distributions;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>One pooled estimate across studies.</summary>
     public sealed class MetaAnalysisResult

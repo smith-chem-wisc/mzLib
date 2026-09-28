@@ -284,7 +284,20 @@ namespace UsefulProteomicsDatabases
         {
             if (string.IsNullOrEmpty(sequence))
                 return 0;
-            return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            try
+            {
+                return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            }
+            catch (ArgumentException)
+            {
+                // RNA and MODOMICS XML sequences are parsed by RnaDbLoader later;
+                // their sequence metadata mass is not required for RNA construction.
+                return 0;
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return 0;
+            }
         }
         /// <summary>
         /// Handles the end of an XML element during protein database parsing and updates the internal state or finalizes objects as needed.
@@ -487,7 +500,8 @@ namespace UsefulProteomicsDatabases
             if (Accession != null && Sequence != null)
             {
                 // sanitize the sequence 
-                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence, transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>());
+                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence,
+                    transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>(), out var fixedModifications);
                 // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
@@ -511,7 +525,7 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
                     isContaminant, isDecoy, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName,
-                    isEntrapment);
+                    isEntrapment, fixedModifications);
             }
             Clear();
             return result;

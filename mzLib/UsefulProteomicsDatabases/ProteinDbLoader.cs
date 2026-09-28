@@ -53,6 +53,20 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public const string NcbiTaxonomyDatabaseReferenceType = Protein.NcbiTaxonomyDatabaseReferenceType;
 
+        /// <summary>
+        /// The dbReference type UniProt uses for Gene Ontology annotations. Re-exported here for the
+        /// same reason as the taxonomy type: a caller that already references the loader should not
+        /// have to reach into Proteomics for the string. Read the terms themselves from
+        /// <see cref="Protein.GoTerms"/>, which filters and deduplicates them.
+        /// </summary>
+        public const string GeneOntologyDatabaseReferenceType = Protein.GeneOntologyDatabaseReferenceType;
+
+        /// <summary>
+        /// The dbReference type UniProt uses for Ensembl transcript/gene links. Re-exported for the same
+        /// reason as the taxonomy and GO types. Read the genes from <see cref="Protein.EnsemblGeneIds"/>.
+        /// </summary>
+        public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
+
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);

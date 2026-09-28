@@ -1,4 +1,4 @@
-# Reference outputs for mzLib's Statistics project, from the published implementations.
+# Reference outputs for mzLib's StatisticalModels project, from the published implementations.
 #
 # Run ONCE, in CI (a manual-dispatch job on a throwaway branch), and the outputs checked in beside
 # this script. R is never a runtime or test dependency of mzLib: the tests read the frozen TSVs.

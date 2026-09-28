@@ -6,7 +6,7 @@ using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Statistics;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>How the variance prior's hyperparameters (d0, s0²) are estimated.</summary>
     public enum VariancePriorEstimator

@@ -3,7 +3,7 @@ using System.Linq;
 using MathNet.Numerics;
 using MathNet.Numerics.LinearAlgebra;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>
     /// Maximum marginal likelihood of the variance prior, with each feature's own residual degrees of freedom.

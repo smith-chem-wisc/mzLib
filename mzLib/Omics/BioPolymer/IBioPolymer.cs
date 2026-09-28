@@ -27,6 +27,7 @@ namespace Omics
         /// </summary>
         List<Tuple<string, string>> GeneNames { get; }
         new IDictionary<int, List<Modification>> OneBasedPossibleLocalizedModifications { get; } // new keyword is to define inheritance from IHasSequenceVariants to IBioPolymer
+        IDictionary<int, Modification> OneBasedFixedModifications { get; }
         char this[int zeroBasedIndex] => BaseSequence[zeroBasedIndex];
 
         IEnumerable<IBioPolymerWithSetMods> Digest(IDigestionParams digestionParams, List<Modification> allKnownFixedModifications,

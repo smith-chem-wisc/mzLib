@@ -1,7 +1,7 @@
 using System;
 using MathNet.Numerics;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>
     /// The trigamma function and its inverse, which empirical-Bayes variance moderation needs and

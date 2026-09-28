@@ -1,6 +1,6 @@
 using MathNet.Numerics.Distributions;
 using NUnit.Framework;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -8,7 +8,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 
-namespace Test.Statistics;
+namespace Test.StatisticalModels;
 
 /// <summary>
 /// The maximum-marginal-likelihood variance prior (<see cref="VariancePriorEstimator.MarginalLikelihood"/>):
@@ -21,7 +21,7 @@ namespace Test.Statistics;
 public class MarginalLikelihoodPriorTests
 {
     private static string DataDirectory =>
-        Path.Combine(TestContext.CurrentContext.TestDirectory, "Statistics", "ReferenceData");
+        Path.Combine(TestContext.CurrentContext.TestDirectory, "StatisticalModels", "ReferenceData");
 
     private static double Parse(string s) => double.Parse(s, NumberStyles.Float, CultureInfo.InvariantCulture);
 
