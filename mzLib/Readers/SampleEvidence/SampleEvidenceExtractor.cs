@@ -10,8 +10,10 @@ namespace Readers
     /// <para>Four rules, tried in this order, and a claim a stronger rule made is never repeated by a weaker one:</para>
     /// <list type="bullet">
     ///   <item><b>isa-tab</b> (Certain): an ISA-Tab study (<c>Sample Name</c>, <c>Characteristics[...]</c>) joined to its
-    ///   assay's <c>Raw Data File</c>.</item>
-    ///   <item><b>sdrf</b> (Certain): a supplement that is itself an SDRF; only rows naming this deposit's files.</item>
+    ///   assay's <c>Raw Spectral Data File</c> (an MS assay, per the ISA-Tab spec) or <c>Raw Data File</c>; a row
+    ///   with a <c>Label</c> is a claim about that channel.</item>
+    ///   <item><b>sdrf</b> (Certain): a supplement that is itself an SDRF; only rows naming this deposit's files, each
+    ///   a claim about its <c>comment[label]</c> channel when it has one.</item>
     ///   <item><b>channel-map</b> (Likely): an isobaric table giving each plex channel its sample, the plex named as a token
     ///   of the raw-file names -- in its own column, or in one cell with the channel (<c>TMT05_TMT-129</c>).</item>
     ///   <item><b>file-key</b> (Likely): a table with a column equal to the raw-file stems; its other columns mapped to
@@ -42,9 +44,19 @@ namespace Readers
             foreach (var t in list.Where(t => !IsResultTable(t)))
                 claims.AddRange(FileKey(t, index, rawFiles.Count));
 
-            // One claim per file, channel and column: the first rule to make it wins.
-            var seen = new HashSet<(string, string, string)>();
-            return claims.Where(c => seen.Add((c.DataFile, c.Label, c.Column))).ToList();
+            // A file, channel and column a stronger rule claimed is never repeated by a weaker one. Within the rule that
+            // claimed it, every distinct value is kept, so two rows or tables that disagree reach the drafter, which
+            // fills nothing and says why; an agreeing repeat collapses.
+            var owner = new Dictionary<(string, string, string), string>();
+            var seen = new HashSet<(string, string, string, string)>();
+            var kept = new List<SdrfEvidence>();
+            foreach (var c in claims)
+            {
+                var key = (c.DataFile, c.Label, c.Column);
+                if (!owner.TryAdd(key, c.Method) && owner[key] != c.Method) continue;
+                if (seen.Add((c.DataFile, c.Label, c.Column, c.Value.ToLowerInvariant()))) kept.Add(c);
+            }
+            return kept;
         }
 
         // ---------------- the rules ----------------
@@ -67,20 +79,22 @@ namespace Readers
                 for (int k = 0; k < study.Rows.Count; k++) rowOf.TryAdd(study.Rows[k][sample].Trim(), k);
                 foreach (var assay in tables.Where(t => IsaAssay.IsMatch(t.File)))
                 {
-                    int aSample = Find(assay.Header, "Sample Name"), raw = Find(assay.Header, "Raw Data File");
+                    int aSample = Find(assay.Header, "Sample Name"), label = Find(assay.Header, "Label");
+                    int raw = Find(assay.Header, "Raw Spectral Data File");
+                    if (raw < 0) raw = Find(assay.Header, "Raw Data File");
                     if (aSample < 0 || raw < 0) continue;
                     for (int k = 0; k < assay.Rows.Count; k++)
                     {
                         var files = index.Match(FileStem(assay.Rows[k][raw]));
                         if (files.Count != 1 || !rowOf.TryGetValue(assay.Rows[k][aSample].Trim(), out int s)) continue;
-                        string file = files.First();
+                        string file = files.First(), channel = label < 0 ? "" : ChannelLabel(assay.Rows[k][label]);
                         var srow = study.Rows[s];
                         string loc = assay.Locator(k, raw);
                         if (source >= 0 && srow[source].Trim().Length > 0)
-                            yield return Claim(file, "", "source name", srow[source].Trim(), loc, "isa-tab", SdrfEvidenceConfidence.Certain);
+                            yield return Claim(file, channel, "source name", srow[source].Trim(), loc, "isa-tab", SdrfEvidenceConfidence.Certain);
                         foreach (var (j, column) in characteristics)
                             if (Usable(srow[j]))
-                                yield return Claim(file, "", column, srow[j].Trim(), study.Locator(s, j), "isa-tab", SdrfEvidenceConfidence.Certain);
+                                yield return Claim(file, channel, column, srow[j].Trim(), study.Locator(s, j), "isa-tab", SdrfEvidenceConfidence.Certain);
                     }
                 }
             }
@@ -93,18 +107,20 @@ namespace Readers
                 var header = t.Header.Select(h => h.Trim().ToLowerInvariant()).ToList();
                 int data = header.FindIndex(h => h.StartsWith("comment[data file", StringComparison.Ordinal));
                 if (data < 0 || !header.Contains("source name")) continue;
+                int label = header.IndexOf("comment[label]");
                 for (int k = 0; k < t.Rows.Count; k++)
                 {
                     var files = index.Match(FileStem(t.Rows[k][data]));
                     if (files.Count != 1) continue;
+                    string channel = label < 0 ? "" : ChannelLabel(t.Rows[k][label]);
                     for (int j = 0; j < header.Count; j++)
                     {
-                        if (j == data || !Usable(t.Rows[k][j])) continue;
+                        if (j == data || j == label || !Usable(t.Rows[k][j])) continue;
                         var m = SdrfColumn.Match(header[j]);
                         string column = header[j] == "source name" ? "source name"
                             : m.Success && m.Groups[2].Value.Length > 0 ? $"{m.Groups[1].Value}[{m.Groups[2].Value}]" : "";
                         if (column.Length > 0)
-                            yield return Claim(files.First(), "", column, t.Rows[k][j].Trim(), t.Locator(k, j), "sdrf", SdrfEvidenceConfidence.Certain);
+                            yield return Claim(files.First(), channel, column, t.Rows[k][j].Trim(), t.Locator(k, j), "sdrf", SdrfEvidenceConfidence.Certain);
                     }
                 }
             }
@@ -160,7 +176,7 @@ namespace Readers
         {
             string value = t.Rows[row][sample].Trim();
             if (files.Count == 0 || value.Length == 0) yield break;
-            string label = (Regex.IsMatch(tag, "^(11[3-9]|121)$") ? "iTRAQ" : "TMT") + tag.ToUpperInvariant();
+            string label = Channel(tag);
             foreach (var file in files.OrderBy(f => f, StringComparer.Ordinal))
             {
                 yield return Claim(file, label, "source name", value, t.Locator(row, sample), "channel-map", SdrfEvidenceConfidence.Likely);
@@ -230,6 +246,17 @@ namespace Readers
                 && HeaderMap.ColumnFor(t.Header[j]) is "source name" or "characteristics[individual]", -1);
 
         // ---------------- helpers ----------------
+
+        private static string Channel(string tag) => (Regex.IsMatch(tag, "^(11[3-9]|121)$") ? "iTRAQ" : "TMT") + tag.ToUpperInvariant();
+
+        /// <summary>A label cell as a claim's channel (<c>TMT 127N</c> -> <c>TMT127N</c>); empty for a label-free row.</summary>
+        private static string ChannelLabel(string value)
+        {
+            string v = value.Trim();
+            if (!Usable(v) || v.Contains("label free", StringComparison.OrdinalIgnoreCase)) return "";
+            var m = Tag.Match(v.Replace(" ", ""));
+            return m.Success ? Channel(m.Groups[1].Value) : v;
+        }
 
         private static SdrfEvidence Claim(string file, string label, string column, string value, string locator, string method, SdrfEvidenceConfidence confidence) =>
             new(file, label, column, value, Supplement, locator, method, confidence);
