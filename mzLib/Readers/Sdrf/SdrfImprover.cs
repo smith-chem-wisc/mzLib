@@ -181,6 +181,21 @@ namespace Readers
             {
                 int at = Ensure(required);
                 foreach (var r in rows) r[at] = required == TechnologyType ? TechnologyTypeValue : SdrfReserved.NotAvailable;
+                // Except assay name: once it exists the validator checks row keys, and one "not available" on
+                // every row would make two fractions of one sample one key. It is the run's name, per file, as
+                // a drafted row gets it; a stem two files share falls back to the file name.
+                if (required == AssayName)
+                {
+                    var runOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    var used = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (var r in rows)
+                    {
+                        string file = r[Col(DataFile)];
+                        if (!runOf.TryGetValue(file, out var run))
+                            runOf[file] = run = used.Add("run " + SdrfFileNamePattern.Stem(file)) ? "run " + SdrfFileNamePattern.Stem(file) : "run " + file;
+                        r[at] = run;
+                    }
+                }
             }
 
             // ---- raw files the deposit does not list ----

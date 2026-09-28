@@ -238,6 +238,38 @@ namespace Test.FileReadingTests
             Assert.That(i.Document.Results.All(r => r.Cells.Count == h.Count), "never ragged");
         }
 
+        /// <summary>
+        /// The validator checks row keys only once both source name and assay name exist, so adding a missing
+        /// assay name as "not available" on every row turned two fractions of one sample into a duplicate key.
+        /// An added assay name is the run's, per file, as the drafted rows get it.
+        /// </summary>
+        [Test]
+        public void AnAddedAssayNameIsUniquePerFileSoNoRowKeyRepeats()
+        {
+            var cols = new[] { "source name", "characteristics[biological replicate]", "comment[data file]", "comment[fraction identifier]" };
+            var dep = Doc(cols,
+                new[] { "p1", "1", "NEG1.raw", "1" }, new[] { "p1", "1", "NEG1.mzML", "1" }, new[] { "p1", "1", "NEG1_F2.raw", "2" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var errors = SdrfValidator.Validate(i.Document).Errors.ToList();
+            Assert.That(errors.Where(e => e.Rule == "RowKeyUniqueness"), Is.Empty, string.Join("\n", errors.Select(e => e.ToString())));
+            Assert.That(Row(i.Document, "NEG1_F2.raw")["assay name"], Is.EqualTo("run NEG1_F2"));
+            Assert.That(Row(i.Document, "NEG1.mzML")["assay name"], Is.EqualTo("run NEG1.mzML"), "a stem two files share falls back to the file name");
+        }
+
+        [Test]
+        public void ADepositMissingSourceAndAssayNameValidatesNoWorse()
+        {
+            var cols = new[] { "characteristics[organism]", "comment[data file]" };
+            var dep = Doc(cols, new[] { "homo sapiens", "NEG1.raw" }, new[] { "homo sapiens", "NEG1rep.raw" }, new[] { "homo sapiens", "POS1.raw" });
+            int before = SdrfValidator.Validate(dep).Errors.Count();
+
+            var after = SdrfValidator.Validate(SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files)).Document).Errors.ToList();
+
+            Assert.That(after.Count, Is.LessThanOrEqualTo(before), string.Join("\n", after.Select(e => e.ToString())));
+        }
+
         [Test]
         public void AColumnWrittenInOtherCasingIsNeverShadowedByALowercaseCopy()
         {
