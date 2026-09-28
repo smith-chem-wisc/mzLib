@@ -270,6 +270,32 @@ public class PtmQtlTests
         Assert.That(g[0].PValue, Is.EqualTo(1).Within(1e-12));
     }
 
+    [Test]
+    public void GlobalPoolingSurvivesZeroAndPerfectCorrelations()
+    {
+        (string, PtmPair) Scope(string scope, double rho, double p) => (scope, APair(Phos, 13, "P1", 43, "P2", rho, p, 10));
+        GlobalPtmPair g = null!;
+
+        // ρ = 0 in every scope: no direction to combine, so no test, and no exception.
+        Assert.DoesNotThrow(() => g = GlobalPairEngine.Combine(new[] { Scope("D1", 0, 1), Scope("D2", 0, 1) }, Canonical).Single());
+        Assert.That(g.CombinedZ, Is.NaN);
+        Assert.That(g.PValue, Is.NaN);
+        Assert.That(g.Q, Is.NaN);
+        Assert.That(g.ScopesAgreeing, Is.EqualTo(0));
+
+        // Spearman's asymptotic p is 0 at |ρ| = 1; opposite perfect scopes, or opposite tiny p, cancel instead of NaN.
+        Assert.DoesNotThrow(() => g = GlobalPairEngine.Combine(new[] { Scope("D1", 1, 0), Scope("D2", -1, 0) }, Canonical).Single());
+        Assert.That(g.CombinedZ, Is.EqualTo(0).Within(1e-12));
+        Assert.That(g.PValue, Is.EqualTo(1).Within(1e-12));
+        g = GlobalPairEngine.Combine(new[] { Scope("D1", 0.9, 1e-20), Scope("D2", -0.9, 1e-20) }, Canonical).Single();
+        Assert.That(g.CombinedZ, Is.EqualTo(0).Within(1e-12));
+
+        // One scope at p = 0 against a discordant one: finite Z, not an infinity that erases the other scope.
+        g = GlobalPairEngine.Combine(new[] { Scope("D1", 1, 0), Scope("D2", -0.5, 0.2) }, Canonical).Single();
+        Assert.That(double.IsFinite(g.CombinedZ), Is.True);
+        Assert.That(g.ScopesAgreeing, Is.EqualTo(1));
+    }
+
     private static readonly ModificationSite DeamN = new("P1", 10, 'N', "Common Artifact:Deamidation on N");
 
     private static SiteRunOccupancy Cell(string run, double fraction, OccupancyState state = OccupancyState.Quantified,

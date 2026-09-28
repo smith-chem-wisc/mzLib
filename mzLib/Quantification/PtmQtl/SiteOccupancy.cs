@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using MzLibUtil;
+using Omics.Modifications;
 
 namespace Quantification.PtmQtl;
 
@@ -23,8 +25,14 @@ namespace Quantification.PtmQtl;
 /// when it was identified by MS/MS in the run but not quantified. Match-between-runs transfers must NOT be
 /// supplied: intensity-based occupancy is MS/MS-only (<c>DEF-OCC-INT</c>).
 /// </param>
+/// <param name="PreviousResidue">
+/// The protein residue before the peptide (MetaMorpheus's "Previous Residue"), or null when unknown. A peptide
+/// starting at residue 2 is the protein N-terminus only after removal of an initiator Met, so when this is
+/// given and is not 'M', an N-terminal modification on such a peptide is not a protein N-terminal site. When
+/// null, the caller guarantees that residue 1 is Met for every peptide starting at residue 2.
+/// </param>
 public sealed record PeptidoformObservation(string Run, string FullSequence, string ProteinAccession,
-    int StartResidue, int EndResidue, double Intensity);
+    int StartResidue, int EndResidue, double Intensity, char? PreviousResidue = null);
 
 /// <summary>What an occupancy value is, for one site in one run.</summary>
 public enum OccupancyState
@@ -99,7 +107,11 @@ public sealed record SiteRunOccupancy(ModificationSite Site, string Run, Occupan
 /// <para>
 /// As in <c>DEF-OCC-PSMS</c>: modifications of category <c>Common Variable</c> and <c>Common Fixed</c> are
 /// excluded, as are peptide-terminal modifications. A protein N-terminal modification counts only on a
-/// peptide starting at residue 1 or 2 (after removal of the initiator methionine). Two modifications at one
+/// peptide starting at residue 1, or at residue 2 after removal of the initiator methionine (see
+/// <see cref="PeptidoformObservation.PreviousResidue"/>). Whether a modification written before the first
+/// residue is peptide- or protein-terminal is read from its location restriction in the mzLib modification
+/// registry (<see cref="Mods"/>), matched on <c>Category:IdWithMotif</c>, else on <c>IdWithMotif</c>; a
+/// modification the registry does not know is treated as protein N-terminal. Two modifications at one
 /// position are two sites sharing one denominator.
 /// </para>
 /// <para>
@@ -112,6 +124,7 @@ public sealed record SiteRunOccupancy(ModificationSite Site, string Run, Occupan
 public static class SiteOccupancyCalculator
 {
     private static readonly string[] ExcludedCategories = ["Common Variable", "Common Fixed"];
+    private static readonly ConcurrentDictionary<string, bool> PeptideNTerminalCache = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Computes every site's occupancy state in every run where it was identified or covered.
@@ -192,6 +205,8 @@ public static class SiteOccupancyCalculator
             {
                 // N-terminal: a protein N-terminal modification only when the peptide is the protein's N-terminus.
                 if (o.StartResidue > 2) continue;
+                if (o.StartResidue == 2 && o.PreviousResidue is char previous && previous != 'M') continue;
+                if (IsPeptideNTerminal(mod)) continue;
                 position = o.StartResidue;
                 residue = baseSeq[0];
             }
@@ -208,4 +223,19 @@ public static class SiteOccupancyCalculator
         }
         return sites;
     }
+
+    /// <summary>
+    /// True when the registry knows <paramref name="mod"/> (<c>Category:IdWithMotif</c>) only as a peptide
+    /// N-terminal modification: matched on the full name first, else on <c>IdWithMotif</c> alone.
+    /// </summary>
+    internal static bool IsPeptideNTerminal(string mod) => PeptideNTerminalCache.GetOrAdd(mod, name =>
+    {
+        var candidates = Mods.AllProteinModsList.Where(m => $"{m.ModificationType}:{m.IdWithMotif}" == name).ToList();
+        if (candidates.Count == 0)
+        {
+            string idWithMotif = name.Contains(':') ? name[(name.IndexOf(':') + 1)..] : name;
+            candidates = Mods.AllProteinModsList.Where(m => m.IdWithMotif == idWithMotif).ToList();
+        }
+        return candidates.Count > 0 && candidates.All(m => m.LocationRestriction == "Peptide N-terminal.");
+    });
 }
