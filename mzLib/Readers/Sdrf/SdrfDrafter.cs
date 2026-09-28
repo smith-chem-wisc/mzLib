@@ -107,13 +107,24 @@ namespace Readers
             var factorFamilies = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Select(s => s.Family).Distinct().ToList();
             var markerSlots = anchored || factorFamilies.Count != 1 ? new HashSet<int>()
                 : MarkerSlots(names.Where(n => byName[n].Family == factorFamilies[0]).ToList(), byName, markerOf);
-            IReadOnlyList<string> LevelsOf(string file) => anchored
-                ? anchors.LevelsByFile[file].Select(l => l.Length == 0 ? SdrfReserved.NotAvailable : l).ToList()
-                : byName[file].FactorLevels.Where((_, i) => !markerSlots.Contains(i)).ToList();
+            // One column per factor slot, across every family. A file fills only its own family's columns and
+            // is not available in the rest, so row i's level always sits under the column (and cites the slot)
+            // it was read from.
+            var factorSlots = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Where((_, i) => !markerSlots.Contains(i)).ToList();
             var factorEvidence = anchored
                 ? anchors.Factors.Select(f => f.Evidence).ToList()
-                : structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Where((_, i) => !markerSlots.Contains(i)).Select(s => s.Evidence).ToList();
+                : factorSlots.Select(s => s.Evidence).ToList();
             int factorCount = factorEvidence.Count;
+            IReadOnlyList<string> LevelsOf(string file)
+            {
+                if (anchored)
+                    return anchors.LevelsByFile[file].Select(l => l.Length == 0 ? SdrfReserved.NotAvailable : l).ToList();
+                var own = byName[file].FactorLevels.Where((_, i) => !markerSlots.Contains(i)).ToList();
+                var cells = new string[factorCount];
+                for (int c = 0, j = 0; c < factorCount; c++)
+                    cells[c] = factorSlots[c].Family == byName[file].Family && j < own.Count ? own[j++] : SdrfReserved.NotAvailable;
+                return cells;
+            }
             var factorColumns = Enumerable.Range(0, factorCount)
                 .Select(i => i == 0 ? "factor value[condition]" : $"factor value[condition {i + 1}]").ToList();
             bool conditionKnown = factorCount > 0;
