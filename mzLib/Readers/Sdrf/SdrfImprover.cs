@@ -209,10 +209,18 @@ namespace Readers
             // A drafted row's default is "inferred"; a cell from the project record, or a placeholder nothing
             // marked, says where it really came from, as ToDocument writes it (D39). Its column is added now,
             // before the drafted rows are built at the header's width.
-            static bool Overrides(SdrfDraftCell cell) => cell.Source is SdrfDraftSource.PrideProjectRecord or SdrfDraftSource.Default;
+            // A publication cell carries its reference and method beside it, as a filled gap does.
+            static bool Overrides(SdrfDraftCell cell) => cell.Source is not (SdrfDraftSource.Inferred or SdrfDraftSource.NotAvailable);
             var draftedRows = draft.Rows.Where(d => !listed.Contains(SdrfFileNamePattern.Stem(d.DataFile))).ToList();
-            foreach (var target in Targets.Where(t => Col(t.Column) >= 0 && draftedRows.Any(d => Overrides(t.Cell(d)))))
-                Ensure($"comment[{target.Name} source]");
+            foreach (var target in Targets.Where(t => Col(t.Column) >= 0))
+            {
+                var cells = draftedRows.Select(d => target.Cell(d)).ToList();
+                if (cells.Any(Overrides)) Ensure($"comment[{target.Name} source]");
+                if (cells.Any(c => c.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(c.Reference)))
+                    Ensure($"comment[{target.Name} source reference]");
+                if (cells.Any(c => c.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(c.Method)))
+                    Ensure($"comment[{target.Name} source method]");
+            }
             // An ASSAY-WIDE column every deposited row fills with one value is carried to drafted rows (a label,
             // a cleavage agent). Nothing else: a one-row deposit makes every column "constant", and a file URI
             // or a sample's individual is not the drafted file's. By POSITION: SDRF repeats columns.
@@ -250,7 +258,13 @@ namespace Readers
                         row[Col(h)] = SdrfReserved.NotAvailable;
                 added.Add(row);
                 foreach (var target in Targets.Where(t => Col(t.Column) >= 0 && Overrides(t.Cell(d))))
-                    row[Col($"comment[{target.Name} source]")] = Word(target.Cell(d).Source);
+                {
+                    var cell = target.Cell(d);
+                    row[Col($"comment[{target.Name} source]")] = Word(cell.Source);
+                    if (cell.Source != SdrfDraftSource.Publication) continue;
+                    if (!string.IsNullOrEmpty(cell.Reference)) row[Col($"comment[{target.Name} source reference]")] = cell.Reference;
+                    if (!string.IsNullOrEmpty(cell.Method)) row[Col($"comment[{target.Name} source method]")] = cell.Method;
+                }
             }
 
             // An override column's empty cell means "no override on this row" -- not applicable, as the
