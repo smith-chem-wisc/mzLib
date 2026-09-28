@@ -104,8 +104,9 @@ namespace Readers
             // A name part the resolver read as a replicate marker (CT10A..C) is not also a condition: left in,
             // every replicate would sit alone in its own condition.
             // Only within one name family: slot i of one family's levels is not slot i of another's.
-            bool oneFamily = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Select(s => s.Family).Distinct().Count() == 1;
-            var markerSlots = anchored || !oneFamily ? new HashSet<int>() : MarkerSlots(names, byName, markerOf);
+            var factorFamilies = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Select(s => s.Family).Distinct().ToList();
+            var markerSlots = anchored || factorFamilies.Count != 1 ? new HashSet<int>()
+                : MarkerSlots(names.Where(n => byName[n].Family == factorFamilies[0]).ToList(), byName, markerOf);
             IReadOnlyList<string> LevelsOf(string file) => anchored
                 ? anchors.LevelsByFile[file].Select(l => l.Length == 0 ? SdrfReserved.NotAvailable : l).ToList()
                 : byName[file].FactorLevels.Where((_, i) => !markerSlots.Contains(i)).ToList();
@@ -168,7 +169,8 @@ namespace Readers
                 var factors = levels.Select((l, i) => l == SdrfReserved.NotAvailable
                     ? SdrfDraftCell.NotAvailable("this file carries none of the condition's levels")
                     : new SdrfDraftCell(l, SdrfDraftSource.Inferred, factorEvidence[i])).ToList();
-                var rowDisease = split && disease.Term != null
+                // A file with no known level (a blank, a QC pool) is in neither arm: it keeps the project's cell.
+                var rowDisease = split && disease.Term != null && hasCondition
                     ? levels.Any(CaseControlArm.IsMatch)
                         ? new SdrfDraftCell("normal", SdrfDraftSource.Inferred, "the control arm of a case/control split in the file names (D34)")
                         : disease with { Source = SdrfDraftSource.Inferred, Evidence = "a case arm of a case/control split; the project's disease (D34)" }
