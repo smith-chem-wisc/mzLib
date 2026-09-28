@@ -1,12 +1,12 @@
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using NUnit.Framework;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Test.Statistics;
+namespace Test.StatisticalModels;
 
 /// <summary>
 /// Closed-form and simulation checks of the per-feature statistics engine. Reference values from

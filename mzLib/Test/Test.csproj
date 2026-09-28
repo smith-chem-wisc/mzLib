@@ -46,11 +46,11 @@
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
     <ProjectReference Include="..\Quantification\Quantification.csproj" />
-    <ProjectReference Include="..\Statistics\Statistics.csproj" />
+    <ProjectReference Include="..\StatisticalModels\StatisticalModels.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="Statistics\ReferenceData\*.tsv">
+    <None Update="StatisticalModels\ReferenceData\*.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

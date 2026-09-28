@@ -5,7 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>Why a feature does or does not carry a fitted model.</summary>
     public enum FeatureFitStatus
