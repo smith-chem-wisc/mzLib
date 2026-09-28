@@ -253,13 +253,14 @@ namespace Readers
         }
 
         /// <summary>
-        /// A name's family shape: its parts, each as letters (A), digits (N) or mixed (M). WT_A_1 is AAN and
-        /// 20200101_run_X1 is NAM -- the same part count, different families. (Grouping by part count alone
-        /// put them together, and the family then refused itself over a part that was a number in one and a
-        /// word in the other; found by improving the whole curated corpus.)
+        /// A name's family shape: its parts, each as a number (N) or a word (A, anything with a letter). WT_A_1
+        /// is AAN and 20200101_run_X1 is NAA -- the same part count, different families. (Grouping by part
+        /// count alone put them together, and the family then refused itself over a part that was a number in
+        /// one and a word in the other; found by improving the whole curated corpus.) Letters and digits mixed
+        /// (IL6, p53KO) are still a word, so such a level stays in the family of Ctrl and TNF.
         /// </summary>
         private static string Shape(string run) => string.Concat(Tokenize(run, SplitMode.None).Select(p =>
-            p.All(char.IsAsciiLetter) ? 'A' : p.All(char.IsAsciiDigit) ? 'N' : 'M'));
+            p.All(char.IsAsciiDigit) ? 'N' : 'A'));
 
         private static SdrfFileNameReading Alone(string run) =>
             new(run, run, Array.Empty<string>(), null, null, null, null, null, false);

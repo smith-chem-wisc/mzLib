@@ -321,5 +321,87 @@ namespace Test.FileReadingTests
 
             Assert.That(SupplementTableReader.Read(pdf), Is.Empty);
         }
+
+        [Test]
+        public void AMergedWordCellKeepsEveryLaterCellInItsGridColumn()
+        {
+            // A cell merged across columns is one <w:tc> with a gridSpan; a row can also skip leading grid columns
+            // (gridBefore). Every value must stay in its own grid column.
+            const string w = "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+            string Cell(string t) => $"<w:tc><w:p><w:r><w:t>{t}</w:t></w:r></w:p></w:tc>";
+            string Span(string t, int n) => $"<w:tc><w:tcPr><w:gridSpan w:val=\"{n}\"/></w:tcPr><w:p><w:r><w:t>{t}</w:t></w:r></w:p></w:tc>";
+            string path = Zip("span.docx", ("word/document.xml", $@"<w:document xmlns:w=""{w}""><w:body>
+                <w:tbl><w:tr>{Cell("Sample")}{Span("Demographics", 2)}{Cell("Outcome")}</w:tr>
+                <w:tr><w:trPr><w:gridBefore w:val=""1""/></w:trPr>{Cell("Age")}{Cell("Sex")}{Cell("")}</w:tr>
+                <w:tr>{Cell("P1")}{Cell("34")}{Cell("F")}{Cell("case")}</w:tr>
+                <w:tr>{Cell("P2")}{Span("not recorded", 2)}{Cell("control")}</w:tr></w:tbl>
+                </w:body></w:document>"));
+
+            var t = SupplementTableReader.Read(path).Single();
+
+            Assert.That(t.Header, Is.EqualTo(new[] { "Sample", "Demographics", "", "Outcome" }));
+            Assert.That(t.Rows[0], Is.EqualTo(new[] { "", "Age", "Sex", "" }), "gridBefore skips a column");
+            Assert.That(t.Rows[1], Is.EqualTo(new[] { "P1", "34", "F", "case" }));
+            Assert.That(t.Rows[2], Is.EqualTo(new[] { "P2", "not recorded", "", "control" }), "control stays under Outcome");
+        }
+
+        [Test]
+        public void AnEmptySharedStringKeepsItsIndex()
+        {
+            // <si/> is schema-valid (t is optional) and still takes an index.
+            string path = Zip("empty-si.xlsx",
+                ("xl/workbook.xml", $@"<workbook xmlns=""{Ns}"" xmlns:r=""{Rel}""><sheets><sheet name=""S"" sheetId=""1"" r:id=""rId1""/></sheets></workbook>"),
+                ("xl/_rels/workbook.xml.rels", @"<Relationships xmlns=""http://schemas.openxmlformats.org/package/2006/relationships""><Relationship Id=""rId1"" Target=""worksheets/sheet1.xml"" Type=""x""/></Relationships>"),
+                ("xl/sharedStrings.xml", $@"<sst xmlns=""{Ns}""><si><t>id</t></si><si/><si><t>sex</t></si><si><t>P1</t></si><si><t>female</t></si></sst>"),
+                ("xl/worksheets/sheet1.xml", $@"<worksheet xmlns=""{Ns}""><sheetData>
+                    <row r=""1""><c r=""A1"" t=""s""><v>0</v></c><c r=""B1"" t=""s""><v>2</v></c></row>
+                    <row r=""2""><c r=""A2"" t=""s""><v>3</v></c><c r=""B2"" t=""s""><v>4</v></c></row>
+                    </sheetData></worksheet>"));
+
+            var t = SupplementTableReader.Read(path).Single();
+
+            Assert.That(t.Header, Is.EqualTo(new[] { "id", "sex" }));
+            Assert.That(t.Rows[0], Is.EqualTo(new[] { "P1", "female" }));
+        }
+
+        [Test]
+        public void AHeaderWithAnEmptyCornerIsNotFoldedIntoTheFirstTextRow()
+        {
+            string pdf = Pdf("corner.pdf",
+                ("Sex", 150, 730, 10), ("Group", 250, 730, 10),
+                ("P1", 50, 716, 10), ("F", 150, 716, 10), ("case", 250, 716, 10),
+                ("P2", 50, 702, 10), ("M", 150, 702, 10), ("control", 250, 702, 10),
+                ("P3", 50, 688, 10), ("F", 150, 688, 10), ("case", 250, 688, 10));
+
+            var t = SupplementTableReader.Read(pdf).Single();
+
+            Assert.That(t.Header, Is.EqualTo(new[] { "", "Sex", "Group" }));
+            Assert.That(t.Rows.Select(r => r[0]), Is.EqualTo(new[] { "P1", "P2", "P3" }));
+        }
+
+        [Test]
+        public void APageSetInTwoTextColumnsIsNotATable()
+        {
+            string[] left =
+            {
+                "Samples were collected from ten patients", "and ten healthy donors at the clinic under", "an approved protocol with informed consent",
+                "from every participant before the study.", "Proteins were extracted in a urea buffer", "reduced, alkylated and digested overnight",
+                "with trypsin at an enzyme ratio of one to", "fifty before desalting on C18 cartridges."
+            };
+            string[] right =
+            {
+                "Peptides were separated on a fifty cm", "column over a two hour gradient and were", "analysed on an Orbitrap mass spectrometer",
+                "in data dependent mode with the top twenty", "precursors selected for fragmentation by", "higher energy collisional dissociation and",
+                "the resulting spectra were searched with", "MetaMorpheus against the human proteome."
+            };
+            var words = new List<(string, double, double, double)>();
+            for (int i = 0; i < left.Length; i++)
+            {
+                words.Add((left[i], 50, 740 - 14 * i, 10));
+                words.Add((right[i], 310, 740 - 14 * i, 10));
+            }
+
+            Assert.That(SupplementTableReader.Read(Pdf("twocol.pdf", words.ToArray())), Is.Empty);
+        }
     }
 }
