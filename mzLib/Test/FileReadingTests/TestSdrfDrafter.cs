@@ -450,6 +450,33 @@ namespace Test.FileReadingTests
             Assert.That(d.Rows.Select(r => r.SourceName.Value).Distinct().Count(), Is.EqualTo(2 * letters.Length));
         }
 
+        /// <summary>
+        /// A numbered blank or QC run sits in a family with no factor slots, so it must not keep a letter
+        /// marker alive as a condition in the family that has them.
+        /// </summary>
+        [TestCase("Blank_1.raw", "Blank_2.raw")]
+        [TestCase("QC_01.raw", "QC_02.raw", "QC_03.raw")]
+        public void ANumberedRunOutsideTheFactorFamilyKeepsTheLetterMarkerOutOfTheCondition(params string[] extra)
+        {
+            var files = new[] { "CT10", "KO10" }.SelectMany(a => new[] { "A", "B", "C" }.Select(l => a + l + ".raw")).Concat(extra).ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(1), string.Join(", ", d.FactorColumns));
+            Assert.That(Row(d, "KO10C.raw").BiologicalReplicate.Value, Is.EqualTo("3"));
+        }
+
+        [Test]
+        public void ARunWithNoConditionInACaseControlSplitIsNotCalledACaseArm()
+        {
+            var files = CovidFiles().Append("Blank.raw").ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(Row(d, "Blank.raw").Disease.Evidence, Does.Not.Contain("case arm"));
+            Assert.That(Row(d, "POS1.raw").Disease.Evidence, Does.Contain("case arm"));
+        }
+
         [Test]
         public void MalformedArgumentsThrow()
         {
