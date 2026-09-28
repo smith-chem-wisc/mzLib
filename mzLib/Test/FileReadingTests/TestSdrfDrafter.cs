@@ -250,6 +250,24 @@ namespace Test.FileReadingTests
             Assert.That(wt.Factors.Count(f => f.Source != SdrfDraftSource.NotAvailable), Is.EqualTo(2), "its own family's two factors");
         }
 
+        /// <summary>
+        /// A condition written in letters and digits (IL6) is the same factor as one written in letters
+        /// (Ctrl, TNF): a blank beside them must not split the arms into two families.
+        /// </summary>
+        [Test]
+        public void AConditionWithDigitsInItsNameStaysInTheFamilyWhenABlankIsPresent()
+        {
+            var files = new[] { "Ctrl", "TNF", "IL6" }.SelectMany(g => Enumerable.Range(1, 3).Select(i => $"{g}_{i}.raw"))
+                .Append("Blank.raw").ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(1));
+            Assert.That(Row(d, "IL6_2.raw").Factors[0].Value, Is.EqualTo("IL6"));
+            Assert.That(d.Rows.Where(r => r.DataFile != "Blank.raw").Select(r => r.Factors[0].Value).Distinct(),
+                Is.EquivalentTo(new[] { "Ctrl", "TNF", "IL6" }));
+        }
+
         [Test]
         public void ASidecarFileIsNotARow()
         {
@@ -430,6 +448,33 @@ namespace Test.FileReadingTests
             Assert.That(d.Rows.Select(r => r.Factors[0].Value).Distinct().Count(), Is.EqualTo(2), "the arms are the condition");
             Assert.That(Row(d, arm2 + letters[^1] + ".raw").BiologicalReplicate.Value, Is.EqualTo(letters.Length.ToString()));
             Assert.That(d.Rows.Select(r => r.SourceName.Value).Distinct().Count(), Is.EqualTo(2 * letters.Length));
+        }
+
+        /// <summary>
+        /// A numbered blank or QC run sits in a family with no factor slots, so it must not keep a letter
+        /// marker alive as a condition in the family that has them.
+        /// </summary>
+        [TestCase("Blank_1.raw", "Blank_2.raw")]
+        [TestCase("QC_01.raw", "QC_02.raw", "QC_03.raw")]
+        public void ANumberedRunOutsideTheFactorFamilyKeepsTheLetterMarkerOutOfTheCondition(params string[] extra)
+        {
+            var files = new[] { "CT10", "KO10" }.SelectMany(a => new[] { "A", "B", "C" }.Select(l => a + l + ".raw")).Concat(extra).ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(1), string.Join(", ", d.FactorColumns));
+            Assert.That(Row(d, "KO10C.raw").BiologicalReplicate.Value, Is.EqualTo("3"));
+        }
+
+        [Test]
+        public void ARunWithNoConditionInACaseControlSplitIsNotCalledACaseArm()
+        {
+            var files = CovidFiles().Append("Blank.raw").ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(Row(d, "Blank.raw").Disease.Evidence, Does.Not.Contain("case arm"));
+            Assert.That(Row(d, "POS1.raw").Disease.Evidence, Does.Contain("case arm"));
         }
 
         [Test]
