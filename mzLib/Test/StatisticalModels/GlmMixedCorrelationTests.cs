@@ -332,6 +332,33 @@ public class GlmMixedCorrelationTests
         Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, design, new[] { "a", "b", "", "d" }));
     }
 
+    [Test]
+    public void IllConditionedFeatureGetsAStatusWithoutAbortingTheOthers()
+    {
+        // 6 groups of 3 with a group-level covariate: 0 in group 0, 1e7 + g in groups 1-5. Feature 1 is missing
+        // group 0, so its covariate spans 1e7 .. 1e7 + 4: full rank by the QR test, but XᵀX − Σ c_g s_g s_gᵀ
+        // cancels to a matrix that is not numerically positive definite, and the Cholesky factorization throws.
+        int G = 6, k = 3, n = G * k;
+        var rng = new Random(11);
+        var design = new double[n, 2];
+        var y = new double[2, n];
+        var groups = new string[n];
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; design[s, 1] = g == 0 ? 0 : 1e7 + g;
+            groups[s] = $"g{g}";
+            y[0, s] = 1 + g * 0.3 + Normal.Sample(rng, 0, 0.5);
+            y[1, s] = g == 0 ? double.NaN : 1 + g * 0.3 + Normal.Sample(rng, 0, 0.5);
+        }
+        MixedModelFit fit = null!;
+        Assert.DoesNotThrow(() => fit = MixedModel.Fit(y, design, groups));
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        // The θ values where the factorization fails are failed evaluations; the search keeps the best finite one.
+        Assert.That(fit.Status[1], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(double.IsFinite(fit.Coefficient(1, 1)) && double.IsFinite(fit.StandardError(1, 1)), Is.True);
+    }
+
     // ---------------------------------------------------------------- determinism
 
     [Test]
