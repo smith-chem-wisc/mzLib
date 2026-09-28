@@ -327,6 +327,15 @@ namespace MzLibUtil
         }
 
         /// <summary>
+        /// Parses an accession that may name a proteoform with applied variants ("P12345_S70N") into its
+        /// entry and variant suffix. See <see cref="ProteoformAccession.Parse"/>: parse, never repair.
+        /// </summary>
+        public static ProteoformAccession ParseProteoformAccession(this string accession)
+        {
+            return ProteoformAccession.Parse(accession);
+        }
+
+        /// <summary>
         /// Determines if all characters in the string are lowercase letters.
         /// </summary>
         public static bool IsAllLower(this string str)
