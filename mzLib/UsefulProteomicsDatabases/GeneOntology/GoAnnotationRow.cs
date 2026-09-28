@@ -51,18 +51,22 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// <param name="GoId">The primary GO id, or null on a term-less row.</param>
     /// <param name="GoName">The term's name in the pinned ontology release, or null on a term-less row.</param>
     /// <param name="Aspect">The term's aspect in the pinned release, or null on a term-less row.</param>
-    /// <param name="Evidence">ECO codes, in ordinal order: for a term a member carries directly, that
-    /// annotation's codes; for a propagated term, the codes of the direct descendant annotations that produced
-    /// it, so an evidence filter still bites after propagation.</param>
-    /// <param name="Inherited">True when every carrying member is a UniProt isoform (P04406-2) absent from the
+    /// <param name="Evidence">ECO codes, in ordinal order, POOLED over every carrying member and every
+    /// annotation that produced the term for it: a member's own annotation to the term and its annotations to
+    /// descendants, so an evidence filter still bites after propagation. Pooled, so it cannot be combined
+    /// with n_with: one member's IDA does not make the others experimental. Use
+    /// <paramref name="EvidenceByMember"/> for a per-member filter.</param>
+    /// <param name="Inherited">A group-level summary: true when every carrying member is a UniProt isoform (P04406-2) absent from the
     /// annotation database that took the term from its entry (P04406); null on a term-less row. An entry is not
     /// necessarily the isoform's sequence, so the consumer decides whether inherited rows count. Inherited
     /// cellular component terms are usually right, but a location is a positive claim and a wrong one costs
     /// the most: a consumer making organelle claims can rest them on rows where this is false and report the
     /// figure with inherited rows beside it. Nothing here is blanked, and waiting will not fix it: GOA maps
-    /// isoform-level subcellular annotation up to the main entry.</param>
-    /// <param name="Propagated">True when no carrying member is annotated to the term itself, only to a
-    /// descendant; null on a term-less row. A boolean, never a distance: GO is a DAG, so there is no one path
+    /// isoform-level subcellular annotation up to the main entry. Which members inherited it is
+    /// <paramref name="AccessionInherited"/>.</param>
+    /// <param name="Propagated">A group-level summary: true when no carrying member is annotated to the term
+    /// itself, only to a descendant; null on a term-less row. Which members are annotated to the term itself
+    /// is <paramref name="AccessionDirect"/>. A boolean, never a distance: GO is a DAG, so there is no one path
     /// to measure.</param>
     /// <param name="NMembers">Number of members in the group.</param>
     /// <param name="NWith">Number of members carrying the term; always AccessionUsed.Count.</param>
@@ -72,6 +76,15 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// <param name="GoOboSha256">sha256 of the go.obo read.</param>
     /// <param name="AnnotationDbSha256">sha256 of the database the GO terms were read from, as the caller
     /// gave it. It need not be the database that was searched.</param>
+    /// <param name="AccessionDirect">The members of <paramref name="AccessionUsed"/> annotated to the term
+    /// itself rather than only to a descendant, in ordinal order. Empty on a term-less row. A consensus of
+    /// direct annotations is AccessionDirect.Count == NMembers.</param>
+    /// <param name="AccessionInherited">The members of <paramref name="AccessionUsed"/> that carry the term
+    /// only because they are UniProt isoforms that took their entry's terms, in ordinal order. Empty on a
+    /// term-less row.</param>
+    /// <param name="EvidenceByMember">Each carrying member's own ECO codes for the term: its annotation to the
+    /// term and to any descendant that produced it. Keys are exactly <paramref name="AccessionUsed"/>. Empty
+    /// on a term-less row.</param>
     public sealed record GoAnnotationRow(
         string ProteinGroup,
         IReadOnlyList<string> AccessionUsed,
@@ -87,5 +100,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
         double QValue,
         string GoRelease,
         string GoOboSha256,
-        string AnnotationDbSha256);
+        string AnnotationDbSha256,
+        IReadOnlyList<string> AccessionDirect,
+        IReadOnlyList<string> AccessionInherited,
+        IReadOnlyDictionary<string, IReadOnlyList<string>> EvidenceByMember);
 }

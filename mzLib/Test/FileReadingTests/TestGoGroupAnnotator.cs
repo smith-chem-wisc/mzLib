@@ -138,6 +138,73 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void PerMember_DirectMembers_AreNamed_SoConsensusCanRequireDirect()
+        {
+            // propagated is a group-level summary (false once ANY member is direct), so "n_with == n_members
+            // and propagated == false" kept a row where only P1 is annotated to mitochondrion itself.
+            // accession_direct says which members are.
+            var mito = Row(Annotator(
+                    P("P1", Go(Mitochondrion, "ECO:0000269")),
+                    P("P2", Go(InnerMembrane, "ECO:0000314")))
+                .Annotate(Group("P1|P2")), Mitochondrion);
+
+            Assert.That(mito.NWith, Is.EqualTo(mito.NMembers));
+            Assert.That(mito.AccessionDirect, Is.EqualTo(new[] { "P1" }));
+            Assert.That(mito.AccessionInherited, Is.Empty);
+        }
+
+        [Test]
+        public void PerMember_Evidence_IsKeptPerMember_SoConsensusCanRequireExperimental()
+        {
+            // One member IDA, the other only IEA: the pooled evidence {IDA, IEA} passed an "experimental" filter
+            // for the whole group. Per member, P2 fails it.
+            const string Ida = "ECO:0000314";
+            const string Iea = "ECO:0000501";
+            var nucleus = Row(Annotator(P("P1", Go(Nucleus, Ida)), P("P2", Go(Nucleus, Iea)))
+                .Annotate(Group("P1|P2")), Nucleus);
+
+            Assert.That(nucleus.Evidence, Is.EqualTo(new[] { Ida, Iea }), "the pooled column is unchanged");
+            Assert.That(nucleus.EvidenceByMember.Keys, Is.EquivalentTo(nucleus.AccessionUsed));
+            Assert.That(nucleus.EvidenceByMember["P1"], Is.EqualTo(new[] { Ida }));
+            Assert.That(nucleus.EvidenceByMember["P2"], Is.EqualTo(new[] { Iea }));
+        }
+
+        [Test]
+        public void PerMember_Evidence_OfAPropagatedTerm_IsThatMembersOwnCodes()
+        {
+            // 314 is P2's inner-membrane code, not anyone's mitochondrion code: per member it stays P2's.
+            var mito = Row(Annotator(
+                    P("P1", Go(Mitochondrion, "ECO:0000269")),
+                    P("P2", Go(InnerMembrane, "ECO:0000314")))
+                .Annotate(Group("P1|P2")), Mitochondrion);
+
+            Assert.That(mito.EvidenceByMember["P1"], Is.EqualTo(new[] { "ECO:0000269" }));
+            Assert.That(mito.EvidenceByMember["P2"], Is.EqualTo(new[] { "ECO:0000314" }));
+        }
+
+        [Test]
+        public void PerMember_InheritedMembers_AreNamed_SoConsensusCanExcludeThem()
+        {
+            // A canonical member and an isoform that inherited the term: the group-level inherited flag is
+            // false (not EVERY member inherited), so it cannot say the isoform's support is inherited.
+            var nucleus = Row(Annotator(P("P04406", Go(Nucleus)))
+                .Annotate(Group("P04406|P04406-2")), Nucleus);
+
+            Assert.That(nucleus.Inherited, Is.False);
+            Assert.That(nucleus.AccessionInherited, Is.EqualTo(new[] { "P04406-2" }));
+        }
+
+        [Test]
+        public void PerMember_TermlessRow_HasEmptyPerMemberFields()
+        {
+            var row = Annotator(P("P1")).Annotate(Group("P1")).Single();
+
+            Assert.That(row.AccessionDirect, Is.Empty);
+            Assert.That(row.AccessionInherited, Is.Empty);
+            Assert.That(row.EvidenceByMember, Is.Empty);
+        }
+
+        [Test]
         public void Rows_NameAndAspectComeFromTheOntology_NotFromUniProtsText()
         {
             var row = Row(Annotator(P("P1", Go(Gapdh))).Annotate(Group("P1")), Gapdh);

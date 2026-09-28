@@ -22,8 +22,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// filtered: every group is in the file, and the consumer filters.
     ///
     /// This is a data-interchange table, so its column names and header keys are a contract with whoever
-    /// ingests it. Long format: one term per row. Set-valued cells (accession_used, evidence) are
-    /// ';'-joined, and a member containing ';' is refused rather than written ambiguously. Groups keep input
+    /// ingests it. Long format: one term per row. Set-valued cells (accession_used, accession_direct,
+    /// accession_inherited, evidence) are ';'-joined, and a member containing ';' is refused rather than
+    /// written ambiguously. evidence_by_member is "member=code,code;member=code", members in ordinal order,
+    /// so a member or code containing ';', '=' or ',' is refused there too. Groups keep input
     /// order; terms within a group are in ordinal order; lines end in "\n" on every platform.
     /// </summary>
     public static class GoAnnotationTsv
@@ -39,10 +41,13 @@ namespace UsefulProteomicsDatabases.GeneOntology
         {
             new TsvColumn<GoAnnotationRow>("protein_group", r => r.ProteinGroup),
             new TsvColumn<GoAnnotationRow>("accession_used", r => JoinSet(r.AccessionUsed)),
+            new TsvColumn<GoAnnotationRow>("accession_direct", r => JoinSet(r.AccessionDirect)),
+            new TsvColumn<GoAnnotationRow>("accession_inherited", r => JoinSet(r.AccessionInherited)),
             new TsvColumn<GoAnnotationRow>("go_id", r => r.GoId),
             new TsvColumn<GoAnnotationRow>("go_name", r => r.GoName),
             new TsvColumn<GoAnnotationRow>("aspect", r => AspectName(r.Aspect)),
             new TsvColumn<GoAnnotationRow>("evidence", r => JoinSet(r.Evidence)),
+            new TsvColumn<GoAnnotationRow>("evidence_by_member", r => JoinEvidenceByMember(r.EvidenceByMember)),
             new TsvColumn<GoAnnotationRow>("inherited", r => Bool(r.Inherited)),
             new TsvColumn<GoAnnotationRow>("propagated", r => Bool(r.Propagated)),
             new TsvColumn<GoAnnotationRow>("n_members", r => r.NMembers.ToString(CultureInfo.InvariantCulture)),
@@ -103,6 +108,9 @@ namespace UsefulProteomicsDatabases.GeneOntology
             {
                 RejectSetSeparators(row.AccessionUsed, "accession_used", row);
                 RejectSetSeparators(row.Evidence, "evidence", row);
+                RejectSetSeparators(row.AccessionDirect, "accession_direct", row);
+                RejectSetSeparators(row.AccessionInherited, "accession_inherited", row);
+                RejectEvidenceByMemberSeparators(row);
                 foreach (var column in Schema)
                 {
                     TsvHeader.RejectSeparators(column.GetValue(row), column.Header);
@@ -140,6 +148,28 @@ namespace UsefulProteomicsDatabases.GeneOntology
         };
 
         private static string JoinSet(IReadOnlyList<string> members) => members == null ? null : string.Join(';', members);
+
+        private static string JoinEvidenceByMember(IReadOnlyDictionary<string, IReadOnlyList<string>> evidenceByMember) =>
+            evidenceByMember == null ? null : string.Join(';', evidenceByMember
+                .OrderBy(m => m.Key, StringComparer.Ordinal)
+                .Select(m => m.Key + "=" + string.Join(',', m.Value ?? Array.Empty<string>())));
+
+        private static void RejectEvidenceByMemberSeparators(GoAnnotationRow row)
+        {
+            if (row.EvidenceByMember == null)
+            {
+                return;
+            }
+            var separators = new[] { ';', '=', ',' };
+            foreach (var (member, codes) in row.EvidenceByMember)
+            {
+                if (member.IndexOfAny(separators) >= 0 || (codes ?? Array.Empty<string>()).Any(c => c != null && c.IndexOfAny(separators) >= 0))
+                {
+                    throw new ArgumentException(
+                        $"An evidence_by_member entry of group '{row.ProteinGroup}' contains ';', '=' or ',', the separators.");
+                }
+            }
+        }
 
         private static string Count(int n) => n.ToString(CultureInfo.InvariantCulture);
 

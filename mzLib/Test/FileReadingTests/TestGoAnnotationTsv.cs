@@ -176,9 +176,10 @@ namespace Test.FileReadingTests
             string text = WriteAnnotation(Annotator().AnnotateAll(new[] { Group("P1|P2", 0.001), Group("P3", 0.0042) }));
             string columnLine = text.Split('\n').First(l => !l.StartsWith("#!", StringComparison.Ordinal));
 
-            Assert.That(columnLine, Is.EqualTo(string.Join('\t', "protein_group", "accession_used", "go_id", "go_name", "aspect",
-                "evidence", "inherited", "propagated", "n_members", "n_with", "annotation_status", "q_value",
-                "go_release", "go_obo_sha256", "annotation_db_sha256")));
+            Assert.That(columnLine, Is.EqualTo(string.Join('\t', "protein_group", "accession_used", "accession_direct",
+                "accession_inherited", "go_id", "go_name", "aspect", "evidence", "evidence_by_member", "inherited",
+                "propagated", "n_members", "n_with", "annotation_status", "q_value", "go_release", "go_obo_sha256",
+                "annotation_db_sha256")));
 
             var rows = RowsOf(text);
             var nucleus = rows.Single(r => r["go_id"] == "GO:0005634");
@@ -186,6 +187,9 @@ namespace Test.FileReadingTests
             Assert.That(nucleus["go_name"], Is.EqualTo("nucleus"));
             Assert.That(nucleus["aspect"], Is.EqualTo("cellular_component"));
             Assert.That(nucleus["evidence"], Is.EqualTo("ECO:0000314;ECO:0000501"));
+            Assert.That(nucleus["evidence_by_member"], Is.EqualTo("P1=ECO:0000314;P2=ECO:0000501"));
+            Assert.That(nucleus["accession_direct"], Is.EqualTo("P1;P2"));
+            Assert.That(nucleus["accession_inherited"], Is.Empty);
             Assert.That(nucleus["inherited"], Is.EqualTo("false"));
             Assert.That(nucleus["propagated"], Is.EqualTo("false"));
             Assert.That(nucleus["n_members"], Is.EqualTo("2"));
@@ -198,6 +202,8 @@ namespace Test.FileReadingTests
             var termless = rows.Single(r => r["protein_group"] == "P3");
             Assert.That(termless["go_id"], Is.Empty);
             Assert.That(termless["accession_used"], Is.Empty);
+            Assert.That(termless["accession_direct"], Is.Empty);
+            Assert.That(termless["evidence_by_member"], Is.Empty);
             Assert.That(termless["inherited"], Is.Empty);
             Assert.That(termless["propagated"], Is.Empty);
             Assert.That(termless["n_with"], Is.EqualTo("0"));
@@ -271,11 +277,17 @@ namespace Test.FileReadingTests
         [Test]
         public void Rows_NullSet_IsAnEmptyCell()
         {
-            var row = Annotator().Annotate(Group("P3", 0.001))[0] with { AccessionUsed = null, Evidence = null };
+            var row = Annotator().Annotate(Group("P3", 0.001))[0] with
+            {
+                AccessionUsed = null, Evidence = null, AccessionDirect = null, AccessionInherited = null, EvidenceByMember = null
+            };
 
             var written = RowsOf(WriteAnnotation(new[] { row }))[0];
             Assert.That(written["accession_used"], Is.Empty);
             Assert.That(written["evidence"], Is.Empty);
+            Assert.That(written["accession_direct"], Is.Empty);
+            Assert.That(written["accession_inherited"], Is.Empty);
+            Assert.That(written["evidence_by_member"], Is.Empty);
         }
 
         [Test]
@@ -303,6 +315,33 @@ namespace Test.FileReadingTests
             var row = Annotator().Annotate(Group("P1", 0.001))[0] with { AccessionUsed = new[] { "P1;P2" } };
 
             Assert.Throws<ArgumentException>(() => WriteAnnotation(new[] { row }));
+        }
+
+        [TestCase("P1=X", "ECO:1")]
+        [TestCase("P1,X", "ECO:1")]
+        [TestCase("P1;X", "ECO:1")]
+        [TestCase("P1", "ECO:1,ECO:2")]
+        [TestCase("P1", "ECO:1=2")]
+        [TestCase("P1", "ECO:1;ECO:2")]
+        public void Writer_RejectsSeparatorInsideEvidenceByMember(string member, string code)
+        {
+            // evidence_by_member is "member=code,code;member=code": any of the three inside a value would misparse.
+            var row = Annotator().Annotate(Group("P1", 0.001))[0] with
+            {
+                EvidenceByMember = new Dictionary<string, IReadOnlyList<string>> { [member] = new[] { code } }
+            };
+
+            Assert.Throws<ArgumentException>(() => WriteAnnotation(new[] { row }));
+        }
+
+        [Test]
+        public void Writer_RejectsSemicolonInsideADirectOrInheritedMember()
+        {
+            var direct = Annotator().Annotate(Group("P1", 0.001))[0] with { AccessionDirect = new[] { "P1;P2" } };
+            var inherited = Annotator().Annotate(Group("P1", 0.001))[0] with { AccessionInherited = new[] { "P1;P2" } };
+
+            Assert.Throws<ArgumentException>(() => WriteAnnotation(new[] { direct }));
+            Assert.Throws<ArgumentException>(() => WriteAnnotation(new[] { inherited }));
         }
 
         [Test]

@@ -12,7 +12,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
     ///
     /// For each group it emits one row per GO term held by ANY member -- directly, or by propagation up is_a
     /// and part_of -- and each row records which members carry the term (accession_used) and how many
-    /// (n_with of n_members). No member is privileged: MetaMorpheus never chooses a leading protein, and
+    /// (n_with of n_members). Which of those members carry it directly, which inherited it, and each one's
+    /// evidence are per member too, so a consensus view can be combined with any of them. No member is privileged: MetaMorpheus never chooses a leading protein, and
     /// union, consensus (n_with == n_members) or any other view is a filter the consumer applies to rows.
     ///
     /// Every non-decoy group gets at least one row. A group with no term gets a single term-less row whose
@@ -102,7 +103,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 throw new ArgumentException($"Group '{group.Name}' has no members.", nameof(group));
             }
 
-            // term -> (carrying members, members carrying it directly, members carrying it only by inheritance, evidence)
+            // term -> (carrying members, members carrying it directly, members carrying it only by inheritance,
+            // pooled evidence, and each member's own evidence)
             var byTerm = new SortedDictionary<string, TermAccumulator>(StringComparer.Ordinal);
             bool anyMemberMissing = false;
 
@@ -132,7 +134,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 {
                     new GoAnnotationRow(group.Name, Array.Empty<string>(), null, null, null, Array.Empty<string>(),
                         null, null, members.Count, 0, status, group.QValue, _ontology.Release, _ontology.SourceSha256,
-                        _annotationDbSha256)
+                        _annotationDbSha256, Array.Empty<string>(), Array.Empty<string>(),
+                        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal))
                 };
             }
 
@@ -145,7 +148,11 @@ namespace UsefulProteomicsDatabases.GeneOntology
                     Inherited: accumulated.InheritedMembers.Count == accumulated.Members.Count,
                     Propagated: accumulated.DirectMembers.Count == 0,
                     members.Count, accumulated.Members.Count, GoAnnotationStatus.Annotated, group.QValue,
-                    _ontology.Release, _ontology.SourceSha256, _annotationDbSha256);
+                    _ontology.Release, _ontology.SourceSha256, _annotationDbSha256,
+                    AccessionDirect: accumulated.DirectMembers.ToList(),
+                    AccessionInherited: accumulated.InheritedMembers.ToList(),
+                    EvidenceByMember: accumulated.EvidenceByMember.ToDictionary(
+                        m => m.Key, m => (IReadOnlyList<string>)m.Value.ToList(), StringComparer.Ordinal));
             }).ToList();
         }
 
@@ -198,6 +205,12 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 accumulator.InheritedMembers.Add(member);
             }
             accumulator.Evidence.UnionWith(evidence);
+            if (!accumulator.EvidenceByMember.TryGetValue(member, out var memberEvidence))
+            {
+                memberEvidence = new SortedSet<string>(StringComparer.Ordinal);
+                accumulator.EvidenceByMember.Add(member, memberEvidence);
+            }
+            memberEvidence.UnionWith(evidence);
         }
 
         private sealed class TermAccumulator
@@ -206,6 +219,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
             public SortedSet<string> DirectMembers { get; } = new(StringComparer.Ordinal);
             public SortedSet<string> InheritedMembers { get; } = new(StringComparer.Ordinal);
             public SortedSet<string> Evidence { get; } = new(StringComparer.Ordinal);
+            public SortedDictionary<string, SortedSet<string>> EvidenceByMember { get; } = new(StringComparer.Ordinal);
         }
     }
 }
