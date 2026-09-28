@@ -241,6 +241,21 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AnAddedTechnologyTypeFollowsAnAssayNameWrittenInOtherCasing()
+        {
+            var cols = new[] { "source name", "characteristics[organism]", "Assay Name", "comment[label]", "comment[data file]" };
+            var dep = Doc(cols,
+                new[] { "p1", "homo sapiens", "run 1", "label free sample", "NEG1.raw" },
+                new[] { "p2", "homo sapiens", "run 2", "label free sample", "POS1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var h = i.Document.Header.ToList();
+            Assert.That(h.IndexOf("technology type"), Is.EqualTo(h.IndexOf("Assay Name") + 1), string.Join(" | ", h));
+            Assert.That(SdrfValidator.Validate(i.Document).Warnings.Where(w => w.Rule == "ColumnOrdering"), Is.Empty);
+        }
+
+        [Test]
         public void ADraftedRowCarriesOnlyAssayWideColumns()
         {
             var cols = new[] { "source name", "characteristics[organism]", "characteristics[individual]", "assay name",

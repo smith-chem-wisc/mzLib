@@ -227,7 +227,8 @@ namespace Readers
                 var factors = levels.Select((l, i) => l == SdrfReserved.NotAvailable
                     ? SdrfDraftCell.NotAvailable("this file carries none of the condition's levels")
                     : new SdrfDraftCell(l, SdrfDraftSource.Inferred, factorEvidence[i])).ToList();
-                var rowDisease = split && disease.Term != null
+                // A file with no known level (a blank, a QC pool) is in neither arm: it keeps the project's cell.
+                var rowDisease = split && disease.Term != null && hasCondition
                     ? levels.Any(CaseControlArm.IsMatch)
                         ? new SdrfDraftCell("normal", SdrfDraftSource.Inferred, "the control arm of a case/control split in the file names (D34)")
                         : disease with { Source = SdrfDraftSource.Inferred, Evidence = "a case arm of a case/control split; the project's disease (D34)" }

@@ -97,11 +97,7 @@ namespace Readers
             // A column the depositor wrote in other casing (Source Name, Characteristics[organism]) is still that
             // column: filled in place, never shadowed by a lowercase copy the validator and joins would read
             // instead. Its spelling is kept, so the validator's casing hint still reaches the curator.
-            int Col(string name)
-            {
-                int exact = header.IndexOf(name);
-                return exact >= 0 ? exact : header.FindIndex(h => string.Equals(h, name, StringComparison.OrdinalIgnoreCase));
-            }
+            int Col(string name) => IndexOf(header, name);
             int Ensure(string name)
             {
                 int at = Col(name);
@@ -280,6 +276,13 @@ namespace Readers
             return string.Equals(name, drafted.Value, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>A column by its exact name, else in any casing (a depositor's Assay Name is still assay name).</summary>
+        private static int IndexOf(List<string> header, string name)
+        {
+            int exact = header.IndexOf(name);
+            return exact >= 0 ? exact : header.FindIndex(h => string.Equals(h, name, StringComparison.OrdinalIgnoreCase));
+        }
+
         /// <summary>Where a new column belongs: a characteristic before the biological replicate, a comment before the factors.</summary>
         private static int InsertAt(List<string> header, string name)
         {
@@ -293,12 +296,12 @@ namespace Readers
             }
             if (name == TechnologyType)
             {
-                int assay = header.IndexOf(AssayName);
+                int assay = IndexOf(header, AssayName);
                 if (assay >= 0) return assay + 1;
             }
             if (name.StartsWith("characteristics[", StringComparison.OrdinalIgnoreCase))
             {
-                int bio = header.IndexOf(BiologicalReplicate);
+                int bio = IndexOf(header, BiologicalReplicate);
                 if (bio >= 0 && name != BiologicalReplicate) return bio;
                 int last = header.FindLastIndex(h => h.StartsWith("characteristics[", StringComparison.OrdinalIgnoreCase));
                 return last >= 0 ? last + 1 : Math.Min(1, header.Count);

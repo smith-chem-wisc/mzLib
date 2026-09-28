@@ -162,6 +162,29 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// An earlier search's comment[searched data file] records which searched file read the row, so a
+        /// re-search of the same files joins on it when the acquired name shares no stem with it.
+        /// </summary>
+        [Test]
+        public void AnEarlierSearchsColumnJoinsWhenTheDataFileStemDoesNot()
+        {
+            var header = new SdrfHeader(Columns.Append("comment[searched data file]"));
+            var old = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "S1", "1", "run 1", "label free sample", "WT_3.raw", "1", "sample_A.mzML" }),
+                new SdrfRow(header, new[] { "S2", "1", "run 2", "label free sample", "WT_4.raw", "1", "sample_B.mzML" }),
+            });
+
+            var s = SdrfSearchScope.Restrict(old, new[] { "sample_A.mzML" });
+
+            var kept = s.Document.Results.Single();
+            Assert.That(kept["comment[data file]"], Is.EqualTo("WT_3.raw"));
+            Assert.That(kept["comment[searched data file]"], Is.EqualTo("sample_A.mzML"));
+            Assert.That(s.SearchedWithoutRow, Is.Empty);
+            Assert.That(s.DroppedDataFiles, Is.EqualTo(new[] { "WT_4.raw" }));
+        }
+
+        /// <summary>
         /// The whole chain for one deposit: draft from PRIDE, improve the deposited SDRF with it, restrict to a
         /// calibrated search of part of it. The grouping the search quantifies with is exactly the improved
         /// SDRF's (the D36 invariant, on the SDRF side), and the result validates.
