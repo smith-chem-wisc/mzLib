@@ -46,10 +46,12 @@ namespace Readers
         SdrfEvidenceConfidence Confidence,
         string DataFilePattern = "")
     {
-        /// <summary>Whether a raw file name matches a <see cref="DataFilePattern"/> glob (the whole name, ignoring case).</summary>
+        /// <summary>Whether a raw file name matches a <see cref="DataFilePattern"/> glob (the whole name, ignoring case).
+        /// Non-backtracking: a pattern comes from an evidence file or a model, and a backtracking match of many
+        /// wildcards that fails takes time exponential in their count.</summary>
         internal static bool GlobMatches(string pattern, string fileName) =>
             Regex.IsMatch(fileName, "^" + Regex.Escape(pattern).Replace(@"\*", ".*").Replace(@"\?", ".") + "$",
-                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+                RegexOptions.IgnoreCase | RegexOptions.CultureInvariant | RegexOptions.NonBacktracking);
     }
 
     /// <summary>

@@ -271,6 +271,17 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AFilePatternWithManyWildcardsThatMatchesNothingReturnsQuickly()
+        {
+            // A backtracking glob took 36 s on this pattern: exponential in the wildcards (review of #1377).
+            string pattern = string.Concat(Enumerable.Repeat("*0", 10)) + "*ZZZ.raw";
+            string file = "20200101_QE_HF_" + new string('0', 30) + "_x.raw";
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.That(SdrfEvidence.GlobMatches(pattern, file), Is.False);
+            Assert.That(watch.Elapsed.TotalSeconds, Is.LessThan(2));
+        }
+
+        [Test]
         public void AnEvidenceFileWithoutItsColumnsIsRefused()
         {
             string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, "evidence-bad.tsv");
