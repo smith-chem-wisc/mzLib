@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -7,7 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 
-namespace Test.Statistics;
+namespace Test.StatisticalModels;
 
 /// <summary>
 /// Compares LogisticRegression, MixedModel, SpearmanCorrelation and PValueCombination against frozen
@@ -29,7 +29,7 @@ public class ReferenceComparisonGlmMixedTests
     private const double Lme = 1e-5;
 
     private static string DataDirectory =>
-        Path.Combine(TestContext.CurrentContext.TestDirectory, "Statistics", "ReferenceData");
+        Path.Combine(TestContext.CurrentContext.TestDirectory, "StatisticalModels", "ReferenceData");
 
     private static (string[] Header, List<string[]> Rows) ReadTsv(string name)
     {

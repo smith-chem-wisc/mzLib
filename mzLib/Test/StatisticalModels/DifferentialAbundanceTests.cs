@@ -1,12 +1,12 @@
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.Random;
 using NUnit.Framework;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
-namespace Test.Statistics;
+namespace Test.StatisticalModels;
 
 /// <summary>
 /// Closed-form and simulation checks of the per-feature statistics engine. Reference values from
@@ -94,6 +94,24 @@ public class DifferentialAbundanceTests
     }
 
     [Test]
+    public void LinearModel_RankTestIsIndependentOfColumnUnits()
+    {
+        // An intercept beside a covariate on a raw-intensity scale (about 1e8, e.g. total ion current). R[0,0] is
+        // sqrt(12) = 3.5 while the covariate's diagonal element is about 1.2e8, so a tolerance relative to the
+        // largest diagonal element (1e-7 * 1.2e8 = 12) called the intercept redundant and refused the design.
+        double[] tic = Enumerable.Range(0, 12).Select(i => 1e8 * (1 + 0.1 * i)).ToArray();
+        var y = ToMatrix(1, 12, (_, s) => 2.0 + 3e-8 * tic[s] + (s % 2 == 0 ? 0.05 : -0.05));
+        var raw = LinearModel.Fit(y, InterceptAndSlope(tic));
+        var rescaled = LinearModel.Fit(y, InterceptAndSlope(tic.Select(t => t / 1e8).ToArray()));
+
+        Assert.That(raw.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(raw.Coefficient(0, 0), Is.EqualTo(rescaled.Coefficient(0, 0)).Within(1e-9));
+        Assert.That(raw.Coefficient(0, 1) * 1e8, Is.EqualTo(rescaled.Coefficient(0, 1)).Within(1e-9));
+        // A genuinely redundant pair on the same scale is still refused.
+        Assert.Throws<ArgumentException>(() => LinearModel.Fit(y, ToMatrix(12, 2, (i, j) => j == 0 ? tic[i] : 2 * tic[i])));
+    }
+
+    [Test]
     public void LinearModel_OutputDoesNotDependOnThreadCount()
     {
         var (y, design) = SimulatedAgeStudy(features: 500, samples: 12, trueSlope: 0.2, seed: 7);
@@ -129,6 +147,32 @@ public class DifferentialAbundanceTests
         Assert.That(double.IsNaN(q[1]));
         Assert.That(q[0], Is.EqualTo(0.02).Within(1e-15));   // m = 2, not 3
         Assert.That(q[2], Is.EqualTo(0.02).Within(1e-15));
+    }
+
+    /// <summary>
+    /// The two worked examples above are already monotone, so they would also pass a naive p·m/rank. Here the
+    /// step-up must act. Expected values are R's p.adjust(p, "BH").
+    /// </summary>
+    [Test]
+    public void BenjaminiHochberg_StepUpLowersAnOutOfOrderValue()
+    {
+        // Raw p·m/rank: 0.9, 0.08, 0.004, 0.0547 (sorted ranks 4, 2, 1, 3). The running minimum from the top
+        // lowers rank 2's 0.08 to rank 3's 0.0547.
+        var q = MultipleTesting.BenjaminiHochberg(new[] { 0.9, 0.04, 0.001, 0.041 });
+        Assert.That(q[0], Is.EqualTo(0.9).Within(1e-15));
+        Assert.That(q[1], Is.EqualTo(0.041 * 4 / 3).Within(1e-15));
+        Assert.That(q[2], Is.EqualTo(0.004).Within(1e-15));
+        Assert.That(q[3], Is.EqualTo(0.041 * 4 / 3).Within(1e-15));
+    }
+
+    [Test]
+    public void BenjaminiHochberg_RawValueAboveOneIsBroughtDown()
+    {
+        // Rank 1's raw p·m/rank is 0.6 · 2 = 1.2; the step-up returns rank 2's 0.61 for both, never above 1.
+        var q = MultipleTesting.BenjaminiHochberg(new[] { 0.61, 0.6 });
+        Assert.That(q[0], Is.EqualTo(0.61).Within(1e-15));
+        Assert.That(q[1], Is.EqualTo(0.61).Within(1e-15));
+        Assert.That(q.All(v => v <= 1));
     }
 
     // ---- RandomEffectsMeta ----------------------------------------------------------------------

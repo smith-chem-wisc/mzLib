@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>
     /// Per-feature logistic regressions of one design against many binary features. Estimator: maximum
