@@ -25,7 +25,8 @@ namespace Readers
     /// the derivative suffixes MetaMorpheus writes (<c>-calib</c>, <c>-averaged</c>, in any order and
     /// number), so a converted <c>.mzML</c> finds its <c>.raw</c>. Where the caller KNOWS a searched file's
     /// acquisition -- MetaMorpheus can read it from the mzML's own <c>sourceFile</c> (D26) -- that name wins
-    /// over the suffix rule. The searched name is written to <c>comment[searched data file]</c>, directly
+    /// over the suffix rule. A row whose acquired stem joins no searched file is tried once more by the
+    /// stem of an earlier search's <c>comment[searched data file]</c>. The searched name is written to <c>comment[searched data file]</c>, directly
     /// after <c>comment[data file]</c> as <see cref="SdrfBuilder"/> places it; a column an earlier search
     /// wrote is replaced, because it is this search's field.</para>
     ///
@@ -90,6 +91,13 @@ namespace Readers
                 var cells = row.Cells.Concat(Enumerable.Repeat("", Math.Max(0, header.Count - row.Cells.Count))).ToList();
                 string acquired = cells[dataFile];
                 string stem = Derivative.Replace(SdrfFileNamePattern.Stem(acquired), "");
+                // Else the earlier search's own record of which searched file read this row (SearchedDataFileName's rule).
+                if (!readerOf.ContainsKey(stem))
+                    foreach (int i in oldSearched.OrderBy(i => i))
+                    {
+                        string before = Derivative.Replace(SdrfFileNamePattern.Stem(FileName(cells[i])), "");
+                        if (before.Length > 0 && readerOf.ContainsKey(before)) { stem = before; break; }
+                    }
                 if (!readerOf.TryGetValue(stem, out var reader))
                 {
                     if (!string.IsNullOrWhiteSpace(acquired) && !dropped.Contains(acquired, StringComparer.OrdinalIgnoreCase)) dropped.Add(acquired);
