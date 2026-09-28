@@ -250,6 +250,24 @@ namespace Test.FileReadingTests
             Assert.That(wt.Factors.Count(f => f.Source != SdrfDraftSource.NotAvailable), Is.EqualTo(2), "its own family's two factors");
         }
 
+        /// <summary>
+        /// A condition written in letters and digits (IL6) is the same factor as one written in letters
+        /// (Ctrl, TNF): a blank beside them must not split the arms into two families.
+        /// </summary>
+        [Test]
+        public void AConditionWithDigitsInItsNameStaysInTheFamilyWhenABlankIsPresent()
+        {
+            var files = new[] { "Ctrl", "TNF", "IL6" }.SelectMany(g => Enumerable.Range(1, 3).Select(i => $"{g}_{i}.raw"))
+                .Append("Blank.raw").ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(1));
+            Assert.That(Row(d, "IL6_2.raw").Factors[0].Value, Is.EqualTo("IL6"));
+            Assert.That(d.Rows.Where(r => r.DataFile != "Blank.raw").Select(r => r.Factors[0].Value).Distinct(),
+                Is.EquivalentTo(new[] { "Ctrl", "TNF", "IL6" }));
+        }
+
         [Test]
         public void ASidecarFileIsNotARow()
         {
