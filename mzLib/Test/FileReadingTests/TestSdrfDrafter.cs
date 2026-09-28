@@ -360,6 +360,42 @@ namespace Test.FileReadingTests
             Assert.That(Row(d, "POS1.raw").Disease.Evidence, Does.Contain("case arm"));
         }
 
+        /// <summary>
+        /// Two name families each carry their own factor: each family's level goes in that family's own
+        /// column, with that slot's evidence, and every row fills every column.
+        /// </summary>
+        [Test]
+        public void EachNameFamilyFillsItsOwnFactorColumnAndEveryRowIsFullWidth()
+        {
+            var files = new[] { "A_1.raw", "A_2.raw", "B_1.raw", "B_2.raw", "X_P_1.raw", "X_P_2.raw", "X_Q_1.raw", "X_Q_2.raw" };
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(2), string.Join(", ", d.FactorColumns));
+            Assert.That(d.Rows.Select(r => r.Factors.Count), Is.All.EqualTo(d.FactorColumns.Count));
+            int ab = Row(d, "A_1.raw").Factors.Select(c => c.Value).ToList().IndexOf("A");
+            int pq = Row(d, "X_P_1.raw").Factors.Select(c => c.Value).ToList().IndexOf("P");
+            Assert.That(new[] { ab, pq }, Is.EquivalentTo(new[] { 0, 1 }), "the two families' levels sit in different columns");
+            Assert.That(Row(d, "A_1.raw").Factors[pq].Value, Is.EqualTo(SdrfReserved.NotAvailable));
+            Assert.That(Row(d, "X_Q_2.raw").Factors[ab].Value, Is.EqualTo(SdrfReserved.NotAvailable));
+            Assert.That(Row(d, "X_P_1.raw").Factors[pq].Evidence, Is.Not.EqualTo(Row(d, "A_1.raw").Factors[ab].Evidence),
+                "each cell cites its own family's slot");
+        }
+
+        [TestCase("Blank_1.raw", "Blank_2.raw")]
+        [TestCase("QC_01.raw", "QC_02.raw", "QC_03.raw")]
+        public void ARunOutsideTheFactorFamilyHasNotAvailableFactorCells(params string[] extra)
+        {
+            var files = new[] { "CT10", "KO10" }.SelectMany(a => new[] { "A", "B", "C" }.Select(l => a + l + ".raw")).Concat(extra).ToList();
+
+            var d = SdrfDrafter.Draft(Covid(), files);
+
+            Assert.That(d.FactorColumns, Has.Count.EqualTo(1));
+            Assert.That(Row(d, "KO10A.raw").Factors.Select(c => c.Value), Is.EqualTo(new[] { "KO" }));
+            foreach (var blank in extra)
+                Assert.That(Row(d, blank).Factors.Select(c => c.Value), Is.EqualTo(new[] { SdrfReserved.NotAvailable }), blank);
+        }
+
         [Test]
         public void MalformedArgumentsThrow()
         {
