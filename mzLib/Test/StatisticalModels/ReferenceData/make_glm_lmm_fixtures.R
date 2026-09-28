@@ -123,12 +123,14 @@ w(fmt(do.call(rbind, sp_out)), "spearman_results.tsv")
 # ---- Fisher and Stouffer -----------------------------------------------------------------------------
 cmb_in <- list(); cmb_out <- list()
 cases <- list(few = c(0.04, 0.2, 0.5), tiny = c(1e-12, 0.3, 0.8, 0.02), one = c(0.037),
-              many = runif(12), mixed = c(0.001, 0.999, 0.5, 0.05, 0.95))
+              many = runif(12), mixed = c(0.001, 0.999, 0.5, 0.05, 0.95), tail = c(1e-20, 0.3, 0.6))
 for (nm in names(cases)) {
   p <- cases[[nm]]; wt <- seq_along(p) + 0.5
   cmb_in[[nm]] <- data.frame(case = nm, p = p, weight = wt)
   x <- -2 * sum(log(p))
-  z <- sum(qnorm(1 - p)) / sqrt(length(p)); zw <- sum(wt * qnorm(1 - p)) / sqrt(sum(wt^2))
+  # Upper-tail quantile: qnorm(1 - p) loses the digits of a small p (1 - 1e-20 is 1).
+  zp <- qnorm(p, lower.tail = FALSE)
+  z <- sum(zp) / sqrt(length(p)); zw <- sum(wt * zp) / sqrt(sum(wt^2))
   cmb_out[[nm]] <- data.frame(case = nm, fisher_x = x, fisher_p = pchisq(x, 2 * length(p), lower.tail = FALSE),
                               stouffer_z = z, stouffer_p = pnorm(z, lower.tail = FALSE),
                               weighted_z = zw, weighted_p = pnorm(zw, lower.tail = FALSE))

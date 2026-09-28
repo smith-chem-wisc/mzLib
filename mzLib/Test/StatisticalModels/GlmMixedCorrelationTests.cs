@@ -77,6 +77,19 @@ public class GlmMixedCorrelationTests
         Assert.That(cancel.PValue, Is.EqualTo(0.5).Within(1e-12));
     }
 
+    [Test]
+    public void StoufferKeepsTheDigitsOfTinyPValues()
+    {
+        // R: qnorm(1e-20, lower.tail = FALSE) = 9.2623400897984052. 1 − 1e-20 rounds to 1, so Φ⁻¹(1 − p) is +∞
+        // and one study would set Z = ∞ and p = 0 whatever the others say.
+        double z = 9.2623400897984052 / 2;
+        var r = PValueCombination.Stouffer(new[] { 1e-20, 0.5, 0.5, 0.5 });
+        Assert.That(r.Statistic, Is.EqualTo(z).Within(1e-12));
+        Assert.That(r.PValue, Is.EqualTo(Normal.CDF(0, 1, -z)).Within(1e-10 * Normal.CDF(0, 1, -z)));
+        // R: qnorm(1e-12, lower.tail = FALSE) = 7.0344838253011321; qnorm(1 − 1e-12) = 7.0344869100478356.
+        Assert.That(PValueCombination.Stouffer(new[] { 1e-12 }).Statistic, Is.EqualTo(7.0344838253011321).Within(1e-12));
+    }
+
     // ---------------------------------------------------------------- Spearman
 
     [Test]
