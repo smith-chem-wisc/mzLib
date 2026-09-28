@@ -2,6 +2,7 @@
 using MzLibUtil;
 using Omics.Digestion;
 using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -59,33 +60,58 @@ public sealed class EntrapmentPairing
         int minLength = digestionParams.MinLength;
         int maxLength = digestionParams.MaxLength;
 
+        // The initiator methionine, by the same rule DigestionAgent.FullDigestion applies: a run
+        // beginning at the protein's first residue is also emitted from residue 2 unless the
+        // behaviour is Retain, and is emitted only from residue 2 when it is Cleave. Nothing extra
+        // when the opening piece is a lone M, since the run from residue 2 is then an ordinary one.
+        string sequence = target.BaseSequence;
+        InitiatorMethionineBehavior initiatorMethionine =
+            (digestionParams as DigestionParams)?.InitiatorMethionineBehavior ?? InitiatorMethionineBehavior.Variable;
+        bool startsWithMethionine = sequence.Length > 0 && sequence[0] == 'M';
+        bool retainMethionine = initiatorMethionine != InitiatorMethionineBehavior.Cleave || !startsWithMethionine;
+        bool cleaveMethionine = initiatorMethionine != InitiatorMethionineBehavior.Retain && startsWithMethionine
+                                && sites.Count > 1 && sites[1] != 1;
+
         for (int first = 0; first < sites.Count - 1; first++)
         {
             for (int pieces = 1; pieces <= maxPieces && first + pieces < sites.Count; pieces++)
             {
                 int start = sites[first];
-                int length = sites[first + pieces] - start;
-                if (length < minLength || length > maxLength)
+                int end = sites[first + pieces];
+                if (first != 0 || retainMethionine)
                 {
-                    continue;
+                    Index(start, end);
                 }
-
-                string peptide = target.BaseSequence.Substring(start, length);
-                string key = KeyOf(peptide);
-
-                if (_byKey.TryGetValue(key, out string? existing))
+                if (first == 0 && cleaveMethionine)
                 {
-                    if (existing != peptide)
-                    {
-                        collided.Add(key);
-                        _ambiguous.Add(existing);
-                        _ambiguous.Add(peptide);
-                    }
-                    continue;
+                    Index(1, end);
                 }
-
-                _byKey[key] = peptide;
             }
+        }
+
+        void Index(int start, int end)
+        {
+            int length = end - start;
+            if (length < minLength || length > maxLength)
+            {
+                return;
+            }
+
+            string peptide = sequence.Substring(start, length);
+            string key = KeyOf(peptide);
+
+            if (_byKey.TryGetValue(key, out string? existing))
+            {
+                if (existing != peptide)
+                {
+                    collided.Add(key);
+                    _ambiguous.Add(existing);
+                    _ambiguous.Add(peptide);
+                }
+                return;
+            }
+
+            _byKey[key] = peptide;
         }
 
         foreach (string key in collided)
@@ -102,7 +128,8 @@ public sealed class EntrapmentPairing
 
     /// <summary>
     /// Distinct peptides of this protein a search could report -- runs of up to
-    /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds. This is the population
+    /// <c>MaxMissedCleavages + 1</c> base pieces, within the length bounds, plus the forms of the
+    /// N-terminal runs a search reports without their initiator methionine. This is the population
     /// an FDP estimator's <c>r</c> is over, and the denominator an ambiguity rate needs: the
     /// report's own peptide counts are over <i>base pieces</i>, which is a different and smaller
     /// population, and dividing one by the other gives a rate of nothing.

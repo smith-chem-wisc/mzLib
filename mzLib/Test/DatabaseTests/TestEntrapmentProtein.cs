@@ -456,6 +456,31 @@ public class EntrapmentProteinTests
     }
 
     [Test]
+    public void Pairing_ResolvesPeptidesThatLostTheirInitiatorMethionine()
+    {
+        // Under the default InitiatorMethionineBehavior.Variable a search also reports every
+        // N-terminal peptide starting at residue 2, with 0 to MaxMissedCleavages missed cleavages.
+        // Each is isomeric with the target's own stripped form, so each must pair back.
+        const string startsWithMethionine = "MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDR";
+        var target = new Protein(startsWithMethionine, "P12345");
+        Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        Assert.That(entrapment.BaseSequence, Does.StartWith("M"), "fixture must keep its initiator methionine");
+
+        var pairing = new EntrapmentPairing(target, Tryptic);
+
+        var stripped = entrapment.Digest(Tryptic, new List<Modification>(), new List<Modification>())
+            .Where(p => p.OneBasedStartResidue == 2).Select(p => p.BaseSequence).Distinct().ToList();
+        Assert.That(stripped, Is.Not.Empty, "fixture must yield M-cleaved peptides");
+
+        foreach (string entrapmentPeptide in stripped)
+        {
+            Assert.That(pairing.TryResolve(entrapmentPeptide, out string targetPeptide), Is.True,
+                "'" + entrapmentPeptide + "' should resolve to the target peptide it was built from");
+            Assert.That(startsWithMethionine.Substring(1), Does.StartWith(targetPeptide));
+        }
+    }
+
+    [Test]
     public void Pairing_NeedsNoSideFileBeyondTheTargetDatabase()
     {
         // The whole point of pairing on composition: a search reports a protein accession and a

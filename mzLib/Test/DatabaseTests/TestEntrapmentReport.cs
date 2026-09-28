@@ -414,8 +414,26 @@ public class EntrapmentReportTests
 
         var pairing = new EntrapmentPairing(protein, digestion);
 
-        // four base pieces, all >= 7, plus runs of two and of three
-        Assert.That(pairing.SearchablePeptideCount, Is.EqualTo(4 + 3 + 2));
+        // four base pieces, all >= 7, plus runs of two and of three -- and, because the protein
+        // opens with M, the three N-terminal runs again without it
+        Assert.That(pairing.SearchablePeptideCount, Is.EqualTo(4 + 3 + 2 + 3));
+    }
+
+    [TestCase(InitiatorMethionineBehavior.Variable)]
+    [TestCase(InitiatorMethionineBehavior.Retain)]
+    [TestCase(InitiatorMethionineBehavior.Cleave)]
+    public void SearchablePeptideCountIsWhatDigestionEmits(InitiatorMethionineBehavior initiatorMethionine)
+    {
+        // The count is the population an FDP estimator's r is over, so the oracle is digestion
+        // itself: every distinct peptide a search would consider, M-cleaved forms included.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+            initiatorMethionineBehavior: initiatorMethionine);
+        var protein = new Protein("MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P00001");
+
+        int digested = protein.Digest(digestion, new List<Modification>(), new List<Modification>())
+            .Select(p => p.BaseSequence).Distinct().Count();
+
+        Assert.That(new EntrapmentPairing(protein, digestion).SearchablePeptideCount, Is.EqualTo(digested));
     }
 
     [Test]
@@ -430,8 +448,8 @@ public class EntrapmentReportTests
         builder.Add(protein, 0, assembly);
         EntrapmentReport report = builder.Build();
 
-        Assert.That(report.Total.SearchSpacePeptides, Is.EqualTo(9),
-            "runs of one, two and three base pieces");
+        Assert.That(report.Total.SearchSpacePeptides, Is.EqualTo(12),
+            "runs of one, two and three base pieces, and the three N-terminal ones without their M");
         Assert.That(report.Total.SearchSpacePeptides, Is.GreaterThan(report.Total.TargetPeptides),
             "the search space must exceed the base pieces it is built from");
 
