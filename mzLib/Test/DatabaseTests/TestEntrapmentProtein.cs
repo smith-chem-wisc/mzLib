@@ -1353,6 +1353,44 @@ public class EntrapmentProteinTests
         Assert.That(ex.Message, Does.Contain("DECOY"));
     }
 
+    [Test]
+    public void ProteoformMovesAFixedModificationWithItsResidue()
+    {
+        // The copy constructor inherits OneBasedFixedModifications unmoved when not handed any, so a
+        // rearranged partner would carry each fixed mod at the TARGET's position, on whatever
+        // residue now sits there. Nothing is excised here, so the termini keep their keys.
+        ModificationMotif.TryGetMotif("T", out ModificationMotif t);
+        ModificationMotif.TryGetMotif("X", out ModificationMotif any);
+        var onT = new Modification(_originalId: "FixedT", _modificationType: "Test",
+            _target: t, _locationRestriction: "Anywhere.", _monoisotopicMass: 1.0);
+        var nTerm = new Modification(_originalId: "FixedN", _modificationType: "Test",
+            _target: any, _locationRestriction: "N-terminal.", _monoisotopicMass: 3.0);
+        var cTerm = new Modification(_originalId: "FixedC", _modificationType: "Test",
+            _target: any, _locationRestriction: "C-terminal.", _monoisotopicMass: 4.0);
+
+        int length = Sequence.Length;
+        var fixedMods = new Dictionary<int, Modification> { { 0, nTerm }, { length + 2, cTerm } };
+        for (int oneBased = 1; oneBased <= length; oneBased++)
+        {
+            if (Sequence[oneBased - 1] == 'T')
+            {
+                fixedMods[oneBased] = onT;
+            }
+        }
+        var target = new Protein(Sequence, "P12345", oneBasedFixedModifications: fixedMods);
+
+        Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+        Assert.That(entrapment.BaseSequence, Has.Length.EqualTo(length));
+
+        var residueKeys = entrapment.OneBasedFixedModifications.Keys.Where(k => k >= 1 && k <= length).ToList();
+        Assert.That(residueKeys, Has.Count.EqualTo(Sequence.Count(c => c == 'T')));
+        Assert.That(residueKeys.Select(k => entrapment.BaseSequence[k - 1]), Is.All.EqualTo('T'),
+            "a fixed mod must land on the residue it was on");
+        Assert.That(entrapment.OneBasedFixedModifications[0], Is.SameAs(nTerm));
+        Assert.That(entrapment.OneBasedFixedModifications[length + 2], Is.SameAs(cTerm));
+        Assert.That(target.OneBasedFixedModifications, Has.Count.EqualTo(fixedMods.Count), "the target keeps its own");
+    }
+
     // ---- peptide-terminal modifications ------------------------------------
     //
     // A restriction that is satisfied per DIGESTION PRODUCT rather than once per entry, and the

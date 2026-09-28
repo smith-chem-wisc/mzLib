@@ -100,6 +100,10 @@ public static class EntrapmentProteinGenerator
             isEntrapment: true,
             uniProtSequenceAttributes: DescribeSequence(target, assembly.EntrapmentSequence),
             oneBasedModifications: movedMods,
+            // The copy constructor inherits fixed modifications unmoved when not handed any, which
+            // would leave each on whatever residue now sits at its target's position.
+            oneBasedFixedModifications: MoveFixedModifications(target.OneBasedFixedModifications,
+                map, target.Length, assembly.EntrapmentSequence.Length),
             sequenceVariations: new List<SequenceVariation>(),
             appliedSequenceVariations: new List<SequenceVariation>(),
             proteolysisProducts: target.TruncationProducts.ToList(),
