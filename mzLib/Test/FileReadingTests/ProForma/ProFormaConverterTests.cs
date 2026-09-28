@@ -466,5 +466,35 @@ namespace Test.FileReadingTests.ProForma
             var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown);
             Assert.That(dict[1], Is.SameAs(nAcetyl));
         }
+
+        /// <summary>
+        /// The four Mods.txt entries given a Unimod accession (five modifications, since Myristoylation on
+        /// "C or K" expands per residue) are written as [UNIMOD:n] and must read back on the same residue
+        /// with the same accession and mass. Several loaded mods share each accession on the same residue,
+        /// so the one read back may be the Unimod entry rather than mzLib's own; that is accession
+        /// ambiguity, not a wrong modification.
+        /// </summary>
+        [TestCase("Myristoylation on G", "45", "GPEPTIDE", 1)]
+        [TestCase("Myristoylation on C", "45", "PCEPTIDE", 3)]
+        [TestCase("Myristoylation on K", "45", "PKEPTIDE", 3)]
+        [TestCase("GG (Ubiquitination Site) on K", "121", "PKEPTIDE", 3)]
+        [TestCase("EQIGG (sumoylation (SMT-3) Site yeast) on K", "846", "PKEPTIDE", 3)]
+        public void Layer2_NewlyAccessionedModsRoundTripOnTheirOwnResidue(string idWithMotif, string unimod,
+            string sequence, int position)
+        {
+            var known = Mods.AllModsKnownDictionary;
+            var mod = known[idWithMotif];
+
+            var term = ProFormaConverter.ToProFormaTerm(sequence, new Dictionary<int, Modification> { [position] = mod });
+            var descriptor = position == 1 ? term.NTerminalDescriptors[0] : term.Tags.Single().Descriptors[0];
+            Assert.That(descriptor.Key, Is.EqualTo(Tdp.ProFormaKey.Identifier));
+            Assert.That(descriptor.Value, Is.EqualTo($"UNIMOD:{unimod}"));
+
+            var back = ProFormaConverter.ToModificationDictionary(term, known)[position];
+            TestContext.WriteLine($"{idWithMotif} read back as {back.IdWithMotif}");
+            Assert.That(back.Target.ToString(), Is.EqualTo(mod.Target.ToString()), back.IdWithMotif);
+            Assert.That(back.DatabaseReference["Unimod"], Does.Contain(unimod), back.IdWithMotif);
+            Assert.That(back.MonoisotopicMass, Is.EqualTo(mod.MonoisotopicMass).Within(1e-5), back.IdWithMotif);
+        }
     }
 }
