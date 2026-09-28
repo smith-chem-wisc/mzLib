@@ -153,6 +153,10 @@ public sealed class EntrapmentAssembly
     /// a piece that is distinct from every target peptide can still have an M-stripped form that is
     /// not. Every other piece is checked as itself and that is enough; this one is checked as itself
     /// and as itself minus a residue.</para>
+    /// <para>This list covers the opening piece ON ITS OWN. Digestion also strips the methionine from
+    /// every missed-cleavage run that begins at the opening piece; those are runs, so the run test
+    /// checks them and an unavoidable one is named in
+    /// <see cref="UnrepairableRunCollisionPeptides"/>, like any other run.</para>
     /// <para>The route survives a build at <c>MaxMissedCleavages = 0</c>, which deletes the run
     /// route entirely, so it is the only way a real target peptide reaches the entrapment set there.
     /// Measured on the reviewed human proteome before this check existed: two peptides under Arg-C
@@ -595,12 +599,24 @@ public static class EntrapmentAssembler
         }
 
         int longest = Math.Min(maxMissedCleavages, placed.Count);
-        var runs = new string[longest];
+        var runs = new List<string>(longest + 1);
         var builder = new StringBuilder();
         for (int back = 1; back <= longest; back++)
         {
             builder.Insert(0, placed[placed.Count - back]);
-            runs[back - 1] = builder.ToString();
+            runs.Add(builder.ToString());
+        }
+
+        // A run that begins at the protein's opening piece is emitted a second time without its
+        // initiator methionine: digestion yields (2, end) for every missed-cleavage count, not only
+        // for the opening piece alone. placed[0] opens the entrapment protein, so that run exists
+        // whenever it is within the missed-cleavage limit. Skipped when the opening piece is a lone
+        // M, because digestion then emits nothing extra -- the stripped run is the ordinary run that
+        // starts one piece later, already in the list.
+        string opening = placed[0];
+        if (placed.Count <= maxMissedCleavages && opening.Length > 1 && opening[0] == 'M')
+        {
+            runs.Add(runs[placed.Count - 1].Substring(1));
         }
 
         // Returns *every* offending run rather than the first, and only runs a search could report.

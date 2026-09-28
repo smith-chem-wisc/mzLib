@@ -469,4 +469,71 @@ public class EntrapmentAssemblyTests
         Assert.That(assembly.InitiatorMethionineCollisions, Is.Zero);
         Assert.That(assembly.InitiatorMethionineCollisionPeptides, Is.Empty);
     }
+
+    [Test]
+    public void Assemble_RefusesACandidateCompletingAnInitiatorMethionineStrippedRun()
+    {
+        // Digestion emits the M-cleaved form of every missed-cleavage peptide that starts at the
+        // protein's N-terminus, not only of the opening piece: (2, end) for each count up to the
+        // maximum. So E1+E2 without its M is a peptide a search reports, and it must be tested
+        // like any other run.
+        const string target = "MSTQAEVDLNSGWKGGVDTTPFAWENDR";
+        IDigestionParams digestion = Tryptic();
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        Assert.That(free.Pieces[0].EntrapmentPiece_, Does.StartWith("M"),
+            "fixture must open with the initiator methionine");
+        string strippedRun = (free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_).Substring(1);
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(target, digestion,
+            new HashSet<string> { strippedRun });
+
+        Assert.That(guarded.Pieces[0].EntrapmentPiece_, Is.EqualTo(free.Pieces[0].EntrapmentPiece_),
+            "the opening piece is not what collides, so it must not move");
+        Assert.That((guarded.Pieces[0].EntrapmentPiece_ + guarded.Pieces[1].EntrapmentPiece_).Substring(1),
+            Is.Not.EqualTo(strippedRun), "the candidate completing the stripped run must be refused");
+        Assert.That(Sorted(guarded.Pieces[1].EntrapmentPiece_), Is.EqualTo(Sorted(free.Pieces[1].TargetPiece)));
+        Assert.That(guarded.UnrepairableRunCollisions, Is.Zero,
+            "another arrangement existed, so nothing is left to report");
+    }
+
+    [Test]
+    public void AnInitiatorMethionineStrippedRunOnAPieceWithNoAlternativeIsNamed()
+    {
+        // "AAR" has exactly one arrangement, so a stripped run it completes cannot be avoided. It
+        // is named in the same list as every other unrepairable run, which is what the exclusion
+        // sidecar reads.
+        IDigestionParams digestion = Tryptic();
+        const string target = "MSTQAEVDLNSGWKAAR";
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        Assert.That(free.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooShort),
+            "fixture must end in a piece with no alternative arrangement");
+        string strippedRun = (free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_).Substring(1);
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(target, digestion,
+            new HashSet<string> { strippedRun });
+
+        Assert.That(guarded.UnrepairableRunCollisionPeptides, Is.EqualTo(new[] { strippedRun }));
+        Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence),
+            "nothing is silently repaired -- the sequence is unchanged and the collision is reported");
+    }
+
+    [Test]
+    public void TheStrippedRunIsOnlyTheOneThatStartsAtTheProteinsFirstPiece()
+    {
+        // Only a run beginning at the N-terminus loses its methionine in a search. An interior run
+        // whose first piece starts with M must not be tested in stripped form.
+        const string target = "GGVDTTPFAWENDRMSTQAEVDLNSGWKQITTLGGYK";
+        IDigestionParams digestion = Tryptic();
+
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(target, digestion, NothingForbidden);
+        string interiorStrippedRun = (free.Pieces[1].EntrapmentPiece_ + free.Pieces[2].EntrapmentPiece_).Substring(1);
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(target, digestion,
+            new HashSet<string> { interiorStrippedRun });
+
+        Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence));
+        Assert.That(guarded.UnrepairableRunCollisions, Is.Zero);
+    }
 }
