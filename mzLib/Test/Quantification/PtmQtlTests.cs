@@ -148,6 +148,36 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void SharedPeptideSitesOnDifferentProteinsAreOverlapping()
+    {
+        // One peptide mapped to an isoform pair and to a third protein at another position (one row per protein):
+        // all three sites take their occupancy from the same peptidoforms, so ρ = 1 by construction. A distinct
+        // peptide on P2 is a genuine inter-protein pair.
+        var obs = new List<PeptidoformObservation>();
+        var rng = new Random(3);
+        for (int r = 0; r < 10; r++)
+        {
+            string run = $"r{r}";
+            double occ = 0.1 + 0.08 * r;
+            foreach (var (protein, start) in new[] { ("P1", 10), ("P1-2", 10), ("P9", 50) })
+            {
+                obs.Add(Obs(run, $"PEPS[{Phos}]K", start, 100 * occ, protein));
+                obs.Add(Obs(run, "PEPSK", start, 100 * (1 - occ), protein));
+            }
+            double other = rng.NextDouble();
+            obs.Add(Obs(run, $"GGS[{Phos}]R", 40, 100 * other, "P2"));
+            obs.Add(Obs(run, "GGSR", 40, 100 * (1 - other), "P2"));
+        }
+        var pairs = PtmPairEngine.CoVarying(SiteOccupancyCalculator.Calculate(obs), obs);
+        Assert.That(pairs, Has.Count.EqualTo(6));
+        var shared = pairs.Where(p => p.SiteA.ProteinAccession != "P2" && p.SiteB.ProteinAccession != "P2").ToList();
+        Assert.That(shared, Has.Count.EqualTo(3));
+        Assert.That(shared.All(p => p.Overlapping && double.IsNaN(p.Q)), Is.True, "shared-peptide pairs stay out of A:inter");
+        var distinct = pairs.Except(shared).ToList();
+        Assert.That(distinct.All(p => !p.Overlapping && p.FdrFamily == "A:inter" && !double.IsNaN(p.Q)), Is.True);
+    }
+
+    [Test]
     public void SitesQuantifiedInTooFewRunsDoNotEnterTypeA()
     {
         var obs = new List<PeptidoformObservation>();

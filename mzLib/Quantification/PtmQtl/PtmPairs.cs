@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MzLibUtil;
 using StatisticalModels;
 
 namespace Quantification.PtmQtl;
@@ -30,9 +31,10 @@ public sealed record PtmPair
     /// <summary>Both sites on the same protein accession.</summary>
     public bool SameProtein => SiteA.ProteinAccession == SiteB.ProteinAccession;
     /// <summary>
-    /// Some peptidoform covers both positions. For type A the two occupancies then share peptides and can be
-    /// anti-correlated by construction, so overlapping pairs are reported but excluded from the A family's
-    /// multiple-testing adjustment (q is NaN).
+    /// Some peptide covers both sites: one span covering both positions of one protein, or one peptide mapped to
+    /// both proteins (a shared peptide, e.g. between isoforms). For type A the two occupancies then share
+    /// peptides and are correlated or anti-correlated by construction, so overlapping pairs are reported but
+    /// excluded from the A family's multiple-testing adjustment (q is NaN).
     /// </summary>
     public required bool Overlapping { get; init; }
     /// <summary>
@@ -144,12 +146,16 @@ public static class PtmPairEngine
         var sites = vectors.Where(kv => kv.Value.Count(double.IsFinite) >= needed).Select(kv => kv.Key)
             .OrderBy(s => s.Key, StringComparer.Ordinal).ToList();
 
-        // Spans covered by one peptidoform, per protein, to flag overlapping pairs.
-        var spans = observations.GroupBy(o => o.ProteinAccession, StringComparer.Ordinal)
-            .ToDictionary(g => g.Key, g => g.Select(o => (o.StartResidue, o.EndResidue)).Distinct().ToList(), StringComparer.Ordinal);
-        bool Overlap(ModificationSite a, ModificationSite b) =>
-            a.ProteinAccession == b.ProteinAccession && spans.TryGetValue(a.ProteinAccession, out var s)
-            && s.Any(sp => Math.Min(a.Position, b.Position) >= sp.StartResidue && Math.Max(a.Position, b.Position) <= sp.EndResidue);
+        // The peptides (base sequences) covering each site, on any protein they map to. Two sites overlap when one
+        // peptide covers both: one span on one protein, or one shared peptide mapped to both proteins.
+        var spans = observations
+            .Select(o => (o.ProteinAccession, o.StartResidue, o.EndResidue, Peptide: o.FullSequence.GetBaseSequenceFromFullSequence()))
+            .Distinct().GroupBy(o => o.ProteinAccession, StringComparer.Ordinal)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.Ordinal);
+        var coveringPeptides = sites.ToDictionary(s => s, s => spans.TryGetValue(s.ProteinAccession, out var sp)
+            ? sp.Where(o => o.StartResidue <= s.Position && s.Position <= o.EndResidue).Select(o => o.Peptide).ToHashSet(StringComparer.Ordinal)
+            : new HashSet<string>(StringComparer.Ordinal));
+        bool Overlap(ModificationSite a, ModificationSite b) => coveringPeptides[a].Overlaps(coveringPeptides[b]);
 
         var result = new List<PtmPair>();
         foreach (var (a, b) in Pairs(sites))
