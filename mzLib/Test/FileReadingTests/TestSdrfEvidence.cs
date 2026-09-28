@@ -191,6 +191,28 @@ namespace Test.FileReadingTests
             Assert.That(improved["comment[organism part source method]"], Is.EqualTo("rules"));
         }
 
+        /// <summary>A row the improver drafts for a file the deposit does not list says "publication" too.</summary>
+        [Test]
+        public void ADraftedRowsPublicationCellSaysPublication()
+        {
+            var header = new SdrfHeader(new[] { "source name", "characteristics[organism]", "characteristics[organism part]",
+                "characteristics[biological replicate]", "assay name", "comment[label]", "comment[data file]", "comment[technical replicate]" });
+            var deposited = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "s1", "homo sapiens", "heart", "1", "run 1", "label free sample", "HumanHFpEF_1.raw", "1" })
+            });
+            var draft = SdrfDrafter.Draft(Project(), Files,
+                new[] { Claim("HumanControl_1.raw", "characteristics[organism part]", "heart left ventricle") });
+
+            var doc = SdrfImprover.Improve(deposited, draft).Document;
+            var added = Written(doc, "HumanControl_1.raw");
+
+            Assert.That(added["characteristics[organism part]"], Is.EqualTo("heart left ventricle"));
+            Assert.That(SourceOf(doc, added, "organism part"), Is.EqualTo("publication"));
+            Assert.That(added["comment[organism part source reference]"], Is.EqualTo("mmc1.xlsx!DatasetS1!R2C4"));
+            Assert.That(added["comment[organism part source method]"], Is.EqualTo("rules"));
+        }
+
         [Test]
         public void TheEvidenceFileRoundTrips()
         {
