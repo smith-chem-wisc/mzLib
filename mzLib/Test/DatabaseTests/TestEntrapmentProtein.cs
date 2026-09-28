@@ -1391,6 +1391,24 @@ public class EntrapmentProteinTests
         Assert.That(target.OneBasedFixedModifications, Has.Count.EqualTo(fixedMods.Count), "the target keeps its own");
     }
 
+    [Test]
+    public void ProteoformDoesNotInheritItsTargetDatabaseReferences()
+    {
+        // Each reference (GO, InterPro, Pfam, PDB) is a claim about what the target's sequence is or
+        // does; the partner's sequence was built to be nothing (GO-E1).
+        var references = new List<DatabaseReference>
+        {
+            new DatabaseReference("GO", "GO:0005737",
+                new List<Tuple<string, string>> { new("term", "C:cytoplasm") }),
+        };
+        var target = new Protein(Sequence, "P12345", databaseReferences: references);
+
+        Protein entrapment = EntrapmentProteinGenerator.CreateProteoform(target, NothingForbidden, out _);
+
+        Assert.That(entrapment.DatabaseReferences, Is.Empty);
+        Assert.That(target.DatabaseReferences, Has.Count.EqualTo(1), "the target keeps its own");
+    }
+
     // ---- peptide-terminal modifications ------------------------------------
     //
     // A restriction that is satisfied per DIGESTION PRODUCT rather than once per entry, and the

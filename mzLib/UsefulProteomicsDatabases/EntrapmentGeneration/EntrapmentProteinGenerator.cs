@@ -114,7 +114,10 @@ public static class EntrapmentProteinGenerator
             // JUNCTION between adjacent residues -- ProteinXmlEntry takes its begin/end from the
             // flanking pair -- so once the two are mapped independently they are no longer adjacent
             // and the annotation asserts nothing at all. Dropping it says the true thing.
-            spliceSites: new List<SpliceSite>());
+            spliceSites: new List<SpliceSite>(),
+            // Each database reference is a claim about what the target's sequence is or does, and
+            // the partner's was built to be nothing (GO-E1).
+            databaseReferences: new List<DatabaseReference>());
     }
 
     /// <summary>
