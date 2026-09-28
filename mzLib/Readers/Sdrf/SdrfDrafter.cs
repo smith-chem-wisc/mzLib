@@ -116,7 +116,9 @@ namespace Readers
         /// (<see cref="SdrfEvidence"/>). A claim fills a cell the draft left <c>not available</c> or defaulted, and adds
         /// characteristics the draft never writes (age, sex, individual, ...). It never overrides a reading: where it
         /// disagrees, it is reported in <see cref="SdrfDraft.EvidenceNotes"/>. A per-file claim beats a deposit-wide
-        /// one; two claims that disagree fill nothing; a <see cref="SdrfEvidenceConfidence.Guess"/> is never applied.</para>
+        /// one; two claims that disagree fill nothing; a <see cref="SdrfEvidenceConfidence.Guess"/> is never applied.
+        /// Every claim not applied is reported there too: a guess, a blank value, an unknown method, a file the
+        /// deposit does not have, and a deposit-wide claim a per-file one overrode.</para>
         /// </summary>
         public static SdrfDraft Draft(PrideProject project, IEnumerable<string> rawFileNames, IEnumerable<SdrfEvidence>? evidence = null)
         {
@@ -370,7 +372,23 @@ namespace Readers
             var usable = new List<SdrfEvidence>();
             foreach (var e in evidence)
             {
-                if (e == null || e.Confidence == SdrfEvidenceConfidence.Guess) continue;   // a guess is for review only
+                if (e == null) continue;
+                string about = e.DataFilePattern.Length > 0 ? e.DataFilePattern : e.DataFile;
+                if (e.Confidence == SdrfEvidenceConfidence.Guess)
+                {
+                    notes.Add(new(about, e.Column, "", e.Value, "a guess is kept for review, never applied"));
+                    continue;
+                }
+                if (e.Value.Trim().Length == 0)
+                {
+                    notes.Add(new(about, e.Column, "", e.Value, "the claim has no value"));
+                    continue;
+                }
+                if (MethodWord(e.Method) == null)
+                {
+                    notes.Add(new(about, e.Column, "", e.Value, $"the method '{e.Method}' is not one the drafter knows, so its source method cannot be written"));
+                    continue;
+                }
                 if (e.Label.Length > 0)
                 {
                     notes.Add(new(e.DataFile, e.Column, "", e.Value, $"a claim about channel {e.Label} waits for per-channel rows"));
@@ -398,6 +416,10 @@ namespace Readers
                 .GroupBy(e => (File: e.DataFile.Length == 0 ? "" : SdrfFileNamePattern.Stem(e.DataFile).ToLowerInvariant(), e.Column))
                 .ToDictionary(g => g.Key, g => g.ToList());
             var columns = usable.Select(e => e.Column).Distinct(StringComparer.Ordinal).ToList();
+            var stems = new HashSet<string>(draft.Rows.Select(r => SdrfFileNamePattern.Stem(r.DataFile).ToLowerInvariant()), StringComparer.Ordinal);
+            foreach (var ((file, _), claims) in claimsOf.Where(x => x.Key.File.Length > 0 && !stems.Contains(x.Key.File)))
+                foreach (var e in claims)
+                    notes.Add(new(e.DataFile, e.Column, "", e.Value, "the claim names a raw file the deposit does not have"));
 
             var rows = draft.Rows.Select(row =>
             {
@@ -407,7 +429,14 @@ namespace Readers
                 foreach (var column in columns)
                 {
                     // A claim about this file beats a claim about the whole deposit.
-                    if (!claimsOf.TryGetValue((stem, column), out var claims) && !claimsOf.TryGetValue(("", column), out claims)) continue;
+                    if (claimsOf.TryGetValue((stem, column), out var claims))
+                    {
+                        var own = claims.Select(c => c.Value.Trim()).ToHashSet(StringComparer.OrdinalIgnoreCase);
+                        if (claimsOf.TryGetValue(("", column), out var wide))
+                            foreach (var value in wide.Select(c => c.Value.Trim()).Where(v => !own.Contains(v)).Distinct(StringComparer.OrdinalIgnoreCase))
+                                notes.Add(new(row.DataFile, column, "", value, "a claim about this file overrides the deposit-wide claim"));
+                    }
+                    else if (!claimsOf.TryGetValue(("", column), out claims)) continue;
                     var values = claims.Select(c => c.Value.Trim()).Where(v => v.Length > 0).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
                     if (values.Count != 1)
                     {
@@ -417,7 +446,7 @@ namespace Readers
                     }
                     var first = claims.First(c => c.Value.Trim().Equals(values[0], StringComparison.OrdinalIgnoreCase));
                     var cell = new SdrfDraftCell(values[0], SdrfDraftSource.Publication,
-                        $"{first.Method} evidence from the {first.Source}", null, first.Locator, MethodWord(first.Method));
+                        $"{first.Method} evidence from the {first.Source}", null, first.Locator, MethodWord(first.Method)!);
 
                     // Evidence fills what the draft does not know; it never overrides what the draft read.
                     SdrfDraftCell? Fill(SdrfDraftCell current)
@@ -455,12 +484,14 @@ namespace Readers
             return draft with { Rows = rows, EvidenceNotes = notes };
         }
 
-        /// <summary>How a claim was read, as <c>comment[&lt;column&gt; source method]</c> writes it: every rule is <c>rules</c>.</summary>
-        private static string MethodWord(string method) => method.Trim().ToLowerInvariant() switch
+        /// <summary>How a claim was read, as <c>comment[&lt;column&gt; source method]</c> writes it: every rule is
+        /// <c>rules</c>. Null for a method it does not know: a catch-all would write a model's value as <c>rules</c>.</summary>
+        private static string? MethodWord(string method) => method.Trim().ToLowerInvariant() switch
         {
             "model" => "model",
             "curator" => "curator",
-            _ => "rules"
+            "isa-tab" or "sdrf" or "file-key" or "channel-map" or "text" => "rules",
+            _ => null
         };
 
         /// <summary><c>characteristics[age]</c> -> <c>age</c>.</summary>
