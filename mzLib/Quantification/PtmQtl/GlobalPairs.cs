@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics.Distributions;
 using StatisticalModels;
 
 namespace Quantification.PtmQtl;
@@ -49,10 +50,12 @@ public sealed record GlobalPtmPair
 /// UniProt and a GPTMD name for phosphoserine) are one site.
 /// </summary>
 /// <remarks>
-/// Type A: each scope's two-sided Spearman p is made one-sided in the direction of its ρ
-/// (<see cref="PValueCombination.OneSided"/>), and the scopes are combined by weighted Stouffer with weights
-/// √n. Opposite correlations in two scopes therefore cancel instead of reinforcing each other. The combined
-/// two-sided p is 2 min(p, 1 − p) of the combined one-sided p. BH runs within each family (same or
+/// Type A: each scope's two-sided Spearman p is made one-sided in the direction of its ρ, as z = sign(ρ) Φ⁻¹(1 − p/2)
+/// (the z of <see cref="PValueCombination.OneSided"/>, computed in the tail so that both signs keep their digits),
+/// and the scopes are combined by weighted Stouffer with weights √n. Opposite correlations in two scopes therefore
+/// cancel instead of reinforcing each other. A scope with ρ = 0 has no direction and is left out. A scope with
+/// p = 0 (Spearman's asymptotic p at |ρ| = 1) is taken at p = 2 × double.Epsilon, so its z is finite (about 38)
+/// and cannot make the combined Z infinite or NaN. The combined two-sided p is 2 Φ(−|Z|). BH runs within each family (same or
 /// different protein) over the pooled pairs. Only non-overlapping type-A rows are pooled (see
 /// <see cref="PtmPair.Overlapping"/>). Type P is counted, not tested. Scopes are assumed independent, which
 /// holds for separate datasets and not for re-analyses of one sample set.
@@ -98,15 +101,23 @@ public static class GlobalPairEngine
             var first = members[0];
             if (type == PairResultType.A)
             {
-                var oneSided = members.Select(m => PValueCombination.OneSided(m.pair.PValue, m.pair.Statistic)).ToArray();
-                var weights = members.Select(m => Math.Sqrt(m.pair.N)).ToArray();
-                var s = PValueCombination.Stouffer(oneSided, weights);
-                double z = s.Statistic;
-                double two = double.IsNaN(s.PValue) ? double.NaN : Math.Min(1, 2 * Math.Min(s.PValue, 1 - s.PValue));
+                double num = 0, den = 0;
+                foreach (var (pair, _, _) in members)
+                {
+                    double zi = SignedZ(pair.PValue, pair.Statistic);
+                    if (double.IsNaN(zi)) continue;
+                    double w = Math.Sqrt(pair.N);
+                    num += w * zi;
+                    den += w * w;
+                }
+                double z = den > 0 ? num / Math.Sqrt(den) : double.NaN;
+                double two = double.IsNaN(z) ? double.NaN : Math.Min(1, 2 * Normal.CDF(0, 1, -Math.Abs(z)));
                 result.Add(new GlobalPtmPair
                 {
                     ResultType = type, SiteA = a, SiteB = b, ProteinA = first.protA, ProteinB = first.protB, Scopes = scopes,
-                    ScopesAgreeing = members.Count(m => Math.Sign(m.pair.Statistic) == Math.Sign(z) && z != 0),
+                    ScopesAgreeing = double.IsFinite(z) && z != 0
+                        ? members.Count(m => double.IsFinite(m.pair.Statistic) && Math.Sign(m.pair.Statistic) == Math.Sign(z))
+                        : 0,
                     Statistic = Median(members.Select(m => m.pair.Statistic)), CombinedZ = z, PValue = two,
                 });
             }
@@ -127,6 +138,18 @@ public static class GlobalPairEngine
             for (int i = 0; i < members.Count; i++) members[i].Q = q[i];
         }
         return result;
+    }
+
+    /// <summary>
+    /// sign(effect) × Φ⁻¹(1 − p/2) for a two-sided p, computed as −Φ⁻¹(p/2) so a small p keeps its digits for either
+    /// sign; p/2 is floored at double.Epsilon. NaN when p or the effect is not finite or the effect is 0.
+    /// </summary>
+    private static double SignedZ(double twoSidedP, double effect)
+    {
+        if (!double.IsFinite(twoSidedP) || !double.IsFinite(effect) || effect == 0) return double.NaN;
+        if (twoSidedP < 0 || twoSidedP > 1)
+            throw new ArgumentOutOfRangeException(nameof(twoSidedP), twoSidedP, "p-value is outside [0, 1].");
+        return Math.Sign(effect) * -Normal.InvCDF(0, 1, Math.Max(twoSidedP / 2, double.Epsilon));
     }
 
     private static double Median(IEnumerable<double> values)

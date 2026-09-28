@@ -79,6 +79,20 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void PeptideNTerminalModificationsAndNonMetStartsAreNotProteinNTermini()
+    {
+        var occ = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("r1", "[Common Artifact:Ammonia loss on C]CPEPK", 1, 10, "P1"),                   // peptide N-terminal mod at residue 1
+            new PeptidoformObservation("r1", "[UniProt:N-acetylserine on S]SPEPK", "P2", 2, 6, 10, 'K'), // residue 2 after K1: no Met removal
+            new PeptidoformObservation("r1", "[UniProt:N-acetylserine on S]SPEPK", "P3", 2, 6, 10, 'M'), // residue 2 after Met removal
+            Obs("r1", "[UniProt:N-acetylserine on S]SPEPK", 2, 10, "P4"),                            // unknown: the caller guarantees Met
+        });
+        Assert.That(occ.Select(o => o.Site.Key).Distinct(),
+            Is.EquivalentTo(new[] { "P3:S2:UniProt:N-acetylserine on S", "P4:S2:UniProt:N-acetylserine on S" }));
+    }
+
+    [Test]
     public void TwoModificationsAtOnePositionShareTheDenominator()
     {
         const string Glc = "Common Biological:HexNAc on S";
