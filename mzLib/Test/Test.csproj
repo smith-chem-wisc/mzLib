@@ -36,6 +36,7 @@
     <ProjectReference Include="..\PredictionClients\PredictionClients.csproj" />
     <ProjectReference Include="..\MassSpectrometry\MassSpectrometry.csproj" />
     <ProjectReference Include="..\MzIdentML\MzIdentML.csproj" />
+    <ProjectReference Include="..\OrthologyStore\OrthologyStore.csproj" />
     <ProjectReference Include="..\Omics\Omics.csproj" />
     <ProjectReference Include="..\SpectralAveraging\SpectralAveraging.csproj" />
     <ProjectReference Include="..\MzLibUtil\MzLibUtil.csproj" />
