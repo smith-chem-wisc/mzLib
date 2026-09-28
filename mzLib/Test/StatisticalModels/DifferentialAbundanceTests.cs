@@ -94,6 +94,24 @@ public class DifferentialAbundanceTests
     }
 
     [Test]
+    public void LinearModel_RankTestIsIndependentOfColumnUnits()
+    {
+        // An intercept beside a covariate on a raw-intensity scale (about 1e8, e.g. total ion current). R[0,0] is
+        // sqrt(12) = 3.5 while the covariate's diagonal element is about 1.2e8, so a tolerance relative to the
+        // largest diagonal element (1e-7 * 1.2e8 = 12) called the intercept redundant and refused the design.
+        double[] tic = Enumerable.Range(0, 12).Select(i => 1e8 * (1 + 0.1 * i)).ToArray();
+        var y = ToMatrix(1, 12, (_, s) => 2.0 + 3e-8 * tic[s] + (s % 2 == 0 ? 0.05 : -0.05));
+        var raw = LinearModel.Fit(y, InterceptAndSlope(tic));
+        var rescaled = LinearModel.Fit(y, InterceptAndSlope(tic.Select(t => t / 1e8).ToArray()));
+
+        Assert.That(raw.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(raw.Coefficient(0, 0), Is.EqualTo(rescaled.Coefficient(0, 0)).Within(1e-9));
+        Assert.That(raw.Coefficient(0, 1) * 1e8, Is.EqualTo(rescaled.Coefficient(0, 1)).Within(1e-9));
+        // A genuinely redundant pair on the same scale is still refused.
+        Assert.Throws<ArgumentException>(() => LinearModel.Fit(y, ToMatrix(12, 2, (i, j) => j == 0 ? tic[i] : 2 * tic[i])));
+    }
+
+    [Test]
     public void LinearModel_OutputDoesNotDependOnThreadCount()
     {
         var (y, design) = SimulatedAgeStudy(features: 500, samples: 12, trueSlope: 0.2, seed: 7);
