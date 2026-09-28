@@ -276,6 +276,22 @@ namespace Test.FileReadingTests
             Assert.That(row["assay name"], Is.EqualTo("run POS1"));
         }
 
+        /// <summary>
+        /// One run listed in two formats (A.raw and A.mzXML) reads as one sample, so the stem alone would give
+        /// both rows one source name + assay name + label key. The later file falls back to its full name.
+        /// </summary>
+        [Test]
+        public void OneRunListedInTwoFormatsGetsTwoDistinctAssayNames()
+        {
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Covid(), new[] { "A.raw", "A.mzXML", "B.raw" }), "PXD020394");
+
+            var assays = doc.Results.Select(r => r["assay name"]).ToList();
+            Assert.That(assays, Is.Unique);
+            Assert.That(assays, Does.Contain("run B"), "a stem no other file shares keeps its short name");
+            var v = SdrfValidator.Validate(doc);
+            Assert.That(v.Errors.Where(e => e.Rule == "RowKeyUniqueness"), Is.Empty, string.Join("\n", v.Errors.Select(e => e.ToString())));
+        }
+
         [Test]
         public void ARunTheRecordCallsFractionsIsNotCountedAsBiologicalReplicates()
         {
