@@ -132,7 +132,10 @@ namespace Readers
 
         private static readonly Regex[] OneSample =
         {
-            new(@"\bpooled\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+            // Pooling that leaves one sample per group -- not pooling as a protocol step ("the TMT-labelled
+            // samples were pooled", "the two eluates were pooled"), which says nothing about how many samples.
+            new(@"\b(?:lysates?|samples?|extracts?|cells|tissues?|material)\s+(?:\w+\s+){0,2}?pooled\s+(?:within|per|for|by)\s+(?:each\s+)?(?:group|condition|genotype|treatment|strain)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
+            new(@"\ba\s+pool(?:ed)?\s+(?:of|sample|lysate)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\ba\s+single\s+(?:\S+\s+)?(?:lysate|culture|sample|cell\s+line|biosample|extract)", RegexOptions.IgnoreCase | RegexOptions.Compiled),
             new(@"\bone\s+(?:lysate|sample|culture|biosample|extract)\b", RegexOptions.IgnoreCase | RegexOptions.Compiled),
         };
@@ -148,11 +151,12 @@ namespace Readers
             string text = string.Join(" \n ", recordText.Where(t => !string.IsNullOrWhiteSpace(t)));
 
             // Level 1: the last marker of each name.
-            var inner = Markers(names.ToDictionary(n => n, n => SdrfFileNamePattern.Stem(n), StringComparer.Ordinal));
+            var frac = Counts(text, Fractions);
+            var inner = Markers(names.ToDictionary(n => n, n => SdrfFileNamePattern.Stem(n), StringComparer.Ordinal), frac);
             // Level 2: a marker on the BASES that level 1 left (X_2_1 -> base X_2 -> base X, outer 2).
             var bases = inner.Values.Where(m => m.Rank != null).Select(m => m.Base).Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToDictionary(b => b, b => b, StringComparer.OrdinalIgnoreCase);
-            var outer = Markers(bases);
+            var outer = Markers(bases, frac);
 
             var files = names.Select(n =>
             {
@@ -172,7 +176,6 @@ namespace Readers
 
             var bio = Counts(text, Biological);
             var tech = Counts(text, Technical);
-            var frac = Counts(text, Fractions);
 
             var (kind, evidence) = innerCount == 0
                 ? (SdrfReplicateKind.Unstated, "no file name carries a replicate marker")
@@ -181,7 +184,9 @@ namespace Readers
 
             bool statesBiological = bio.Count > 0 || Regex.IsMatch(text, @"\bbiological(?:ly)?\b", RegexOptions.IgnoreCase);
             string? single = OneSample.Select(r => r.Match(text)).FirstOrDefault(m => m.Success)?.Value;
-            if (single == null && tech.Count > 0 && !statesBiological) single = "technical replicates only";
+            // Only words about technical replicates as such: "performed in 50 mM" and "analyzed in 2019" match
+            // a technical count too, and say nothing about how many samples there are.
+            single ??= Technical.Take(2).Select(r => r.Match(text)).FirstOrDefault(m => m.Success)?.Value;
             bool one = single != null && !statesBiological;
 
             files = files.Select(f => f.Number != null && f.Kind == SdrfReplicateKind.Unstated ? f with { Kind = kind } : f).ToList();
@@ -195,7 +200,7 @@ namespace Readers
         /// Stem -> its final marker, ranked within its base. A base qualifies only with two or more members
         /// whose marker values are distinct and run contiguously.
         /// </summary>
-        private static Dictionary<string, Marker> Markers(IReadOnlyDictionary<string, string> stems)
+        private static Dictionary<string, Marker> Markers(IReadOnlyDictionary<string, string> stems, HashSet<int> statedFractions)
         {
             var parsed = stems.ToDictionary(kv => kv.Key, kv => Parse(kv.Value), StringComparer.Ordinal);
             var result = parsed.ToDictionary(kv => kv.Key, kv => new Marker(kv.Value.Base ?? stems[kv.Key], null), StringComparer.Ordinal);
@@ -217,8 +222,9 @@ namespace Readers
                 }
                 if (values.Where((v, i) => v != values[0] + i).Any()) continue;
                 // No study has more than a dozen replicates of one condition: a longer run whose own word
-                // says nothing is a run counter (Phospho_final_01..40). Fractions often run to 24 or more.
-                if (members.Count > MaxReplicates && members[0].Value.Kind != SdrfReplicateKind.Fraction) continue;
+                // says nothing is a run counter (Phospho_final_01..40) -- unless the record states that many
+                // fractions, which often run to 24 or more; Decide then reads the run as one.
+                if (members.Count > MaxReplicates && !statedFractions.Contains(members.Count)) continue;
                 for (int i = 0; i < members.Count; i++)
                     result[members[i].Key] = new Marker(members[i].Value.Base!, i + 1, members[i].Value.Kind);
             }

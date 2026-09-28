@@ -101,12 +101,18 @@ namespace Readers
 
             // ---- conditions: anchored in the record first, else what the names alone showed ----
             bool anchored = anchors.Factors.Count > 0;
+            // A name part the resolver read as a replicate marker (CT10A..C) is not also a condition: left in,
+            // every replicate would sit alone in its own condition.
+            // Only within one name family: slot i of one family's levels is not slot i of another's.
+            var factorFamilies = structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Select(s => s.Family).Distinct().ToList();
+            var markerSlots = anchored || factorFamilies.Count != 1 ? new HashSet<int>()
+                : MarkerSlots(names.Where(n => byName[n].Family == factorFamilies[0]).ToList(), byName, markerOf);
             IReadOnlyList<string> LevelsOf(string file) => anchored
                 ? anchors.LevelsByFile[file].Select(l => l.Length == 0 ? SdrfReserved.NotAvailable : l).ToList()
-                : byName[file].FactorLevels;
+                : byName[file].FactorLevels.Where((_, i) => !markerSlots.Contains(i)).ToList();
             var factorEvidence = anchored
                 ? anchors.Factors.Select(f => f.Evidence).ToList()
-                : structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Select(s => s.Evidence).ToList();
+                : structure.Slots.Where(s => s.Role == SdrfFileNameRole.Factor).Where((_, i) => !markerSlots.Contains(i)).Select(s => s.Evidence).ToList();
             int factorCount = factorEvidence.Count;
             var factorColumns = Enumerable.Range(0, factorCount)
                 .Select(i => i == 0 ? "factor value[condition]" : $"factor value[condition {i + 1}]").ToList();
@@ -163,7 +169,8 @@ namespace Readers
                 var factors = levels.Select((l, i) => l == SdrfReserved.NotAvailable
                     ? SdrfDraftCell.NotAvailable("this file carries none of the condition's levels")
                     : new SdrfDraftCell(l, SdrfDraftSource.Inferred, factorEvidence[i])).ToList();
-                var rowDisease = split && disease.Term != null
+                // A file with no known level (a blank, a QC pool) is in neither arm: it keeps the project's cell.
+                var rowDisease = split && disease.Term != null && hasCondition
                     ? levels.Any(CaseControlArm.IsMatch)
                         ? new SdrfDraftCell("normal", SdrfDraftSource.Inferred, "the control arm of a case/control split in the file names (D34)")
                         : disease with { Source = SdrfDraftSource.Inferred, Evidence = "a case arm of a case/control split; the project's disease (D34)" }
@@ -271,7 +278,10 @@ namespace Readers
         {
             string key = found ? "T:" + t.SampleKey : "F:" + SdrfFileNamePattern.Stem(file);
             string keyWhy = found ? "files the names read as one sample" : "no structure in the names, so each file is its own sample";
+            // No study has more than a dozen replicates of one condition (the resolver's own limit): a longer
+            // count in the names is a run counter or a fraction index, and the rules below decide instead.
             int? bio = t.BiologicalReplicate ?? t.Replicate, tech = t.TechnicalReplicate, frac = t.Fraction;
+            if (bio > SdrfReplicateResolver.MaxReplicates) bio = null;
             string bioWhy = bio == null ? ""
                 : ranked ? "a replicate count in the file names, ranked from 1 within each condition because the names do not count from 1 in every condition"
                 : "a replicate count in the file names";
@@ -283,6 +293,10 @@ namespace Readers
                 if (all.SingleBiologicalSample && kind is SdrfReplicateKind.Unstated or SdrfReplicateKind.Biological)
                     kind = SdrfReplicateKind.Technical;
                 if (m.Outer != null) { bio = m.Outer; bioWhy = "the outer of two replicate markers in the names"; }
+                // The names' unlabelled replicate count is this same marker: read as a re-injection or a fraction,
+                // it is not also a biological replicate. One the names label biological (BR2_F1) stays.
+                else if (kind is SdrfReplicateKind.Technical or SdrfReplicateKind.Fraction && t.BiologicalReplicate == null)
+                    { bio = null; bioWhy = ""; }
                 switch (kind)
                 {
                     case SdrfReplicateKind.Technical:
@@ -301,6 +315,28 @@ namespace Readers
                 }
             }
             return new Replicates(key, keyWhy, bio, bioWhy, tech, techWhy, frac, fracWhy);
+        }
+
+        /// <summary>
+        /// The structure's factor slots whose level, in every file carrying a single replicate marker, is that
+        /// marker (the A of CT10A). Needs two such files; a file with no marker does not keep the slot alive.
+        /// </summary>
+        private static HashSet<int> MarkerSlots(IReadOnlyList<string> names, IReadOnlyDictionary<string, SdrfFileNameReading> byName,
+            IReadOnlyDictionary<string, SdrfReplicateReading> markerOf)
+        {
+            static string? MarkerText(string file, SdrfReplicateReading m)
+            {
+                string stem = SdrfFileNamePattern.Stem(file);
+                return m.Number != null && m.Outer == null && stem.Length > m.Base.Length && stem.StartsWith(m.Base, StringComparison.OrdinalIgnoreCase)
+                    ? stem[m.Base.Length..].Trim('_', '-', '.', ' ')
+                    : null;
+            }
+            var marked = names.Select(n => (Levels: byName[n].FactorLevels, Marker: MarkerText(n, markerOf[n]))).Where(x => x.Marker != null).ToList();
+            if (marked.Count < 2) return new HashSet<int>();
+            int slots = marked.Min(x => x.Levels.Count);
+            return Enumerable.Range(0, slots)
+                .Where(i => marked.All(x => string.Equals(x.Levels[i], x.Marker, StringComparison.OrdinalIgnoreCase)))
+                .ToHashSet();
         }
 
         /// <summary>A project fact, only when PRIDE lists exactly one value for it (D27).</summary>

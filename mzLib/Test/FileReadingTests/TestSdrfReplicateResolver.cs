@@ -217,6 +217,40 @@ namespace Test.FileReadingTests
             Assert.That(r.SingleBiologicalSample, Is.False);
         }
 
+        [TestCase("Digestion was performed in 50 mM ammonium bicarbonate.")]
+        [TestCase("Samples were analyzed in 2019 on an Orbitrap.")]
+        [TestCase("The TMT-labelled samples were pooled and fractionated.")]
+        [TestCase("The two eluates were pooled before injection.")]
+        public void ProtocolWordingDoesNotMakeTheRecordOneBiologicalSample(string text)
+        {
+            var names = new[] { "CT10A", "CT10B", "CT10C", "KO10A", "KO10B", "KO10C" };
+
+            var r = SdrfReplicateResolver.Read(names, new[] { text });
+
+            Assert.That(r.SingleBiologicalSample, Is.False, r.SingleSampleEvidence);
+            Assert.That(r.MarkerKind, Is.EqualTo(SdrfReplicateKind.Unstated));
+        }
+
+        [Test]
+        public void TheSingleSampleEvidenceQuotesTheRecord()
+        {
+            var r = SdrfReplicateResolver.Read(new[] { "x_F1", "x_F2" },
+                new[] { "The biosample was run with three technical replicates." });
+
+            Assert.That(r.SingleSampleEvidence, Does.Contain("three technical replicates"));
+        }
+
+        [Test]
+        public void ALongUnlabelledRunIsAFractionWhenTheRecordStatesThatManyFractions()
+        {
+            var names = new[] { "WT", "KO" }.SelectMany(a => Enumerable.Range(1, 16).Select(i => $"{a}_{i:00}")).ToList();
+
+            var r = SdrfReplicateResolver.Read(names, new[] { "Peptides were separated into 16 fractions." });
+
+            Assert.That(r.MarkerKind, Is.EqualTo(SdrfReplicateKind.Fraction), r.MarkerEvidence);
+            Assert.That(File(r, "KO_16").Number, Is.EqualTo(16));
+        }
+
         [Test]
         public void MalformedArgumentsThrow()
         {
