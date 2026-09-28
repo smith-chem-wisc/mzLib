@@ -122,6 +122,82 @@ namespace Test.FileReadingTests
             Assert.That(e.All(x => x.Method == "sdrf"));
         }
 
+        [Test]
+        public void AnIsaTabMassSpectrometryAssayJoinsThroughItsRawSpectralDataFile()
+        {
+            // The ISA-Tab spec names an MS assay's file column "Raw Spectral Data File", not "Raw Data File".
+            var study = Table("isa1__s_study.txt", "", new[] { "Source Name", "Characteristics[organism part]", "Sample Name" },
+                new[] { "mouse 1", "heart", "M1_heart" });
+            var assay = Table("isa1__a_ms.txt", "", new[] { "Sample Name", "Assay Name", "Raw Spectral Data File" },
+                new[] { "M1_heart", "a1", "m1_heart.raw" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { study, assay }, new[] { "m1_heart.raw" });
+
+            Assert.That(One(e, "m1_heart.raw", "characteristics[organism part]").Value, Is.EqualTo("heart"));
+        }
+
+        [Test]
+        public void AMultiplexedSdrfSupplementGivesEachChannelItsOwnClaims()
+        {
+            // One raw file, three TMT channels, three patients: no channel's sex or age is the file's.
+            var t = Table("sdrf.tsv", "", new[] { "source name", "characteristics[sex]", "characteristics[age]", "comment[label]", "comment[data file]" },
+                new[] { "p1", "male", "70Y", "TMT126", "plex1_F1.raw" },
+                new[] { "p2", "female", "40Y", "TMT127N", "plex1_F1.raw" },
+                new[] { "p3", "female", "55Y", "TMT127C", "plex1_F1.raw" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { t }, new[] { "plex1_F1.raw" });
+
+            Assert.That(e.Where(x => x.Label == ""), Is.Empty, "every row is one channel, so no claim is about the whole file");
+            Assert.That(One(e, "plex1_F1.raw", "characteristics[sex]", "TMT127N").Value, Is.EqualTo("female"));
+            Assert.That(One(e, "plex1_F1.raw", "characteristics[age]", "TMT126").Value, Is.EqualTo("70Y"));
+            Assert.That(e.Select(x => x.Label).Distinct(), Is.EquivalentTo(new[] { "TMT126", "TMT127N", "TMT127C" }));
+            Assert.That(e.Select(x => x.Column), Has.No.Member("comment[label]"), "the label is the claim's channel, not a claim");
+        }
+
+        [Test]
+        public void AMultiplexedIsaTabAssayGivesEachChannelItsOwnClaims()
+        {
+            var study = Table("isa1__s_study.txt", "", new[] { "Source Name", "Characteristics[sex]", "Sample Name" },
+                new[] { "p1", "male", "S1" }, new[] { "p2", "female", "S2" });
+            var assay = Table("isa1__a_ms.txt", "", new[] { "Sample Name", "Label", "Raw Spectral Data File" },
+                new[] { "S1", "TMT 126", "plex1.raw" }, new[] { "S2", "TMT 127N", "plex1.raw" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { study, assay }, new[] { "plex1.raw" });
+
+            Assert.That(e.Where(x => x.Label == ""), Is.Empty);
+            Assert.That(One(e, "plex1.raw", "characteristics[sex]", "TMT127N").Value, Is.EqualTo("female"));
+        }
+
+        [Test]
+        public void TwoTablesThatDisagreeAboutAFileBothReachTheDrafter()
+        {
+            var files = new[] { "A1.raw", "A2.raw" };
+            var a = Table("a.xlsx", "S1", new[] { "File", "Sex" }, new[] { "A1", "male" }, new[] { "A2", "male" });
+            var b = Table("b.xlsx", "S1", new[] { "File", "Sex" }, new[] { "A1", "female" }, new[] { "A2", "male" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { a, b }, files);
+
+            Assert.That(e.Where(x => x.DataFile == "A1.raw" && x.Column == "characteristics[sex]").Select(x => x.Value),
+                Is.EquivalentTo(new[] { "male", "female" }), "the disagreement is kept so the drafter can report it");
+            Assert.That(e.Count(x => x.DataFile == "A2.raw" && x.Column == "characteristics[sex]"), Is.EqualTo(1), "an agreeing repeat collapses");
+            var draft = SdrfDrafter.Draft(new UsefulProteomicsDatabases.PrideProject { Accession = "PXD000001" }, files, e);
+            Assert.That(draft.Rows.Single(r => r.DataFile == "A1.raw").Characteristics!.ContainsKey("characteristics[sex]"), Is.False);
+            Assert.That(draft.EvidenceNotes.Any(n => n.DataFile == "A1.raw" && n.Why.Contains("disagree")));
+        }
+
+        [Test]
+        public void AStrongerRulesClaimStillHidesAWeakerRulesRepeat()
+        {
+            // The SDRF supplement (Certain) and a file-keyed table (Likely) both speak about A1's sex: the SDRF wins.
+            var sdrf = Table("sdrf.tsv", "", new[] { "source name", "characteristics[sex]", "comment[data file]" },
+                new[] { "p1", "male", "A1.raw" }, new[] { "p2", "male", "A2.raw" });
+            var key = Table("a.xlsx", "S1", new[] { "File", "Sex" }, new[] { "A1", "female" }, new[] { "A2", "male" });
+
+            var e = SampleEvidenceExtractor.Extract(new[] { sdrf, key }, new[] { "A1.raw", "A2.raw" });
+
+            Assert.That(One(e, "A1.raw", "characteristics[sex]").Method, Is.EqualTo("sdrf"));
+        }
+
         [TestCase("Organism", "Not correct", null)]
         [TestCase("Organism", "Escherichia coli", "Escherichia coli")]
         [TestCase("Biological replicate", "lung_1w_F", null)]

@@ -160,7 +160,9 @@ namespace Readers
                 // ReadElementContentAsString leaves the reader on the NEXT node, so only Read() when nothing was consumed.
                 if (r.NodeType == XmlNodeType.Element && r.LocalName == "rPh") { r.Skip(); continue; }   // a reading aid, not the text
                 if (r.NodeType == XmlNodeType.Element && r.LocalName == "t" && current != null) { current.Append(r.ReadElementContentAsString()); continue; }
-                if (r.NodeType == XmlNodeType.Element && r.LocalName == "si") current = new StringBuilder();
+                // A self-closing <si/> (t is optional) has no end element, but still takes an index.
+                if (r.NodeType == XmlNodeType.Element && r.LocalName == "si" && r.IsEmptyElement) strings.Add("");
+                else if (r.NodeType == XmlNodeType.Element && r.LocalName == "si") current = new StringBuilder();
                 else if (r.NodeType == XmlNodeType.EndElement && r.LocalName == "si" && current != null) { strings.Add(Clean(current.ToString())); current = null; }
                 r.Read();
             }
@@ -280,20 +282,33 @@ namespace Readers
             int depth = row.Depth;
             while (row.Read())
             {
+                // A row that starts past the first grid column (trPr/gridBefore) leaves those columns empty.
+                if (row.NodeType == XmlNodeType.Element && row.LocalName == "gridBefore" && row.Depth == depth + 2)
+                    cells.AddRange(Enumerable.Repeat("", GridCount(row)));
                 if (row.NodeType != XmlNodeType.Element || row.LocalName != "tc" || row.Depth != depth + 1) continue;
                 var text = new StringBuilder();
+                int span = 1;
                 using var tc = row.ReadSubtree();
                 tc.Read();
+                int cellDepth = tc.Depth;
                 while (!tc.EOF)
                 {
                     if (tc.NodeType == XmlNodeType.Element && tc.LocalName == "t") { text.Append(tc.ReadElementContentAsString()); continue; }
+                    // A cell merged across grid columns (tcPr/gridSpan) is one <w:tc>; its own tcPr only, not a nested table's.
+                    if (tc.NodeType == XmlNodeType.Element && tc.LocalName == "gridSpan" && tc.Depth == cellDepth + 2) span = Math.Max(1, GridCount(tc));
                     if (tc.NodeType == XmlNodeType.EndElement && tc.LocalName == "p") text.Append(' ');
                     tc.Read();
                 }
+                // The text goes in the first column it covers and the rest are empty, as a merged workbook cell reads.
                 cells.Add(Clean(text.ToString()));
+                cells.AddRange(Enumerable.Repeat("", span - 1));
             }
             return cells;
         }
+
+        /// <summary>The <c>w:val</c> of a gridSpan/gridBefore element, capped at 64; 1 when absent or unreadable.</summary>
+        private static int GridCount(XmlReader r) =>
+            int.TryParse(r.GetAttribute("val", WordNs), NumberStyles.None, CultureInfo.InvariantCulture, out int n) ? Math.Min(n, 64) : 1;
 
         // ---------------- delimited text ----------------
 

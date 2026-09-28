@@ -51,7 +51,7 @@ namespace Readers
                     foreach (var (start, found, caption) in Blocks(lines))
                     {
                         var columns = Columns(found);
-                        if (columns.Count < 2) continue;
+                        if (columns.Count < 2 || TwoColumnsOfProse(found, columns)) continue;
                         var block = WithHeaderAbove(lines, start, found, columns, caption);
                         var raw = new List<(int Number, List<string> Cells)>();
                         if (caption != null) raw.Add((0, new List<string> { caption }));
@@ -249,6 +249,10 @@ namespace Readers
                 // Every line above the table's first full line is header (PXD007160: groups, "Batch Number", channels).
                 bool headerZone = top + 1 < firstFull;
                 if (filled >= 0.75 * width && !complements && !headerZone) break;
+                // A header complete but for an empty top-left corner (a stub column) is the header, not the upper half of
+                // one: in a narrow table it is under three quarters full, and the text row below it is data.
+                bool emptyCorner = filled >= 2 && filled == width - 1 && cells[0].Length == 0 && rows[top + 1].Cells[0].Length > 0;
+                if (emptyCorner && !complements && !headerZone) break;
                 for (int k = 0; k < width; k++)
                     if (cells[k].Length > 0)
                         rows[top + 1].Cells[k] = rows[top + 1].Cells[k].Length > 0 ? cells[k] + " " + rows[top + 1].Cells[k] : cells[k];
@@ -323,6 +327,19 @@ namespace Readers
                 foreach (int k in nearest) Put(k, c.Text);
             }
             return cells;
+        }
+
+        /// <summary>
+        /// A page set in two text columns: two columns whose cells both run to five words or more on average. A sample
+        /// table's cells are IDs, codes and short labels; a term-and-definition table keeps a short left column.
+        /// </summary>
+        private static bool TwoColumnsOfProse(List<PdfLine> block, List<(double Left, double Right)> columns)
+        {
+            if (columns.Count != 2) return false;
+            var rows = block.Select(l => Assign(l, columns)).ToList();
+            return Enumerable.Range(0, 2).All(k =>
+                rows.Select(r => r[k]).Where(c => c.Length > 0).Select(c => c.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length)
+                    .DefaultIfEmpty(0).Average() >= 5);
         }
 
         private static List<string> Assign(PdfLine line, List<(double Left, double Right)> columns)

@@ -78,6 +78,9 @@ namespace Test.FileReadingTests
         [TestCase("curator", "curator")]
         [TestCase("channel-map", "rules")]
         [TestCase("isa-tab", "rules")]
+        [TestCase("sdrf", "rules")]
+        [TestCase("file-key", "rules")]
+        [TestCase("text", "rules")]
         public void TheSourceMethodSaysWhetherRulesACuratorOrAModelReadIt(string method, string word)
         {
             var claim = new SdrfEvidence("HumanHFpEF_1.raw", "", "characteristics[age]", "77Y", "paper", "PMC1/sec:methods", method, SdrfEvidenceConfidence.Likely);
@@ -268,6 +271,65 @@ namespace Test.FileReadingTests
             File.WriteAllText(path, "");
             Assert.Throws<MzLibException>(() => SdrfEvidenceFile.Read(path));
             File.Delete(path);
+        }
+
+        [TestCase("0")]
+        [TestCase("2")]
+        [TestCase("7")]
+        public void AnEvidenceFileRefusesANumericConfidence(string confidence)
+        {
+            string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"evidence-numeric-{confidence}.tsv");
+            File.WriteAllText(path, "data file\tlabel\tcolumn\tvalue\tsource\tlocator\tmethod\tconfidence\n"
+                + $"A.raw\t\tcharacteristics[age]\t40Y\tpaper\tx\tfile-key\t{confidence}\n");
+
+            var e = Assert.Throws<MzLibException>(() => SdrfEvidenceFile.Read(path));
+            Assert.That(e!.Message, Does.Contain("line 2"));
+            File.Delete(path);
+        }
+
+        [TestCase("llm")]
+        [TestCase("curated")]
+        [TestCase("")]
+        public void AClaimReadByAnUnknownMethodIsReportedNotWrittenAsRules(string method)
+        {
+            var claim = Claim("HumanHFpEF_1.raw", "characteristics[age]", "77Y") with { Method = method };
+            var draft = SdrfDrafter.Draft(Project(), Files, new[] { claim });
+
+            Assert.That(Row(draft, "HumanHFpEF_1.raw").Characteristics!.ContainsKey("characteristics[age]"), Is.False);
+            Assert.That(draft.EvidenceNotes.Single(n => n.Column == "characteristics[age]").Why, Does.Contain("method"));
+        }
+
+        [Test]
+        public void EveryClaimTheDrafterDoesNotApplyIsReported()
+        {
+            var evidence = new[]
+            {
+                Claim("HumanHFpEF_1_typo.raw", "characteristics[age]", "50Y"),                                  // names no file
+                Claim("HumanHFpEF_2.raw", "characteristics[age]", "60Y", confidence: SdrfEvidenceConfidence.Guess), // a guess
+                Claim("HumanHFpEF_2.raw", "characteristics[sex]", " "),                                          // no value
+                Claim("", "characteristics[strain]", "B6"),                                                      // deposit-wide ...
+                Claim("HumanControl_1.raw", "characteristics[strain]", "C57"),                                   // ... overridden here
+            };
+            var draft = SdrfDrafter.Draft(Project(), Files, evidence);
+            var notes = draft.EvidenceNotes;
+
+            Assert.That(notes.Any(n => n.DataFile == "HumanHFpEF_1_typo.raw" && n.EvidenceValue == "50Y"), "a claim naming no raw file");
+            Assert.That(notes.Any(n => n.DataFile == "HumanHFpEF_2.raw" && n.EvidenceValue == "60Y"), "a guess");
+            Assert.That(notes.Any(n => n.DataFile == "HumanHFpEF_2.raw" && n.Column == "characteristics[sex]"), "a claim with no value");
+            Assert.That(notes.Any(n => n.DataFile == "HumanControl_1.raw" && n.EvidenceValue == "B6"), "a deposit-wide claim a file claim overrode");
+            Assert.That(Row(draft, "HumanControl_1.raw").Characteristics!["characteristics[strain]"].Value, Is.EqualTo("C57"));
+            Assert.That(notes.Count(n => n.EvidenceValue == "B6"), Is.EqualTo(1), "only the overridden file gets the note");
+        }
+
+        [Test]
+        public void AFilePatternWithManyWildcardsThatMatchesNothingReturnsQuickly()
+        {
+            // A backtracking glob took 36 s on this pattern: exponential in the wildcards (review of #1377).
+            string pattern = string.Concat(Enumerable.Repeat("*0", 10)) + "*ZZZ.raw";
+            string file = "20200101_QE_HF_" + new string('0', 30) + "_x.raw";
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            Assert.That(SdrfEvidence.GlobMatches(pattern, file), Is.False);
+            Assert.That(watch.Elapsed.TotalSeconds, Is.LessThan(2));
         }
 
         [Test]
