@@ -156,8 +156,14 @@ namespace UsefulProteomicsDatabases
         /// <remarks>
         /// This always fetches the whole file (~37 MB): there is no conditional request. Call it to move to a
         /// new release on purpose; <see cref="LoadGeneOntology"/> never calls it once a file exists, so a
-        /// pinned release stays pinned.
+        /// pinned release stays pinned. The body is streamed to disk, not buffered, and is bounded by
+        /// <paramref name="cancellationToken"/> and by <see cref="GeneOntologyStallTimeout"/> of silence, not
+        /// by the shared client's 100 s: at 3 Mbit/s the file alone takes longer than that.
         /// </remarks>
+        /// <exception cref="HttpRequestException">A non-success status, or the body stalled for
+        /// <see cref="GeneOntologyStallTimeout"/>. Any existing file is left untouched.</exception>
+        /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.
+        /// Any existing file is left untouched.</exception>
         public static void UpdateGeneOntology(string geneOntologyLocation, CancellationToken cancellationToken = default) =>
             UpdateGeneOntology(geneOntologyLocation, DownloadClient, cancellationToken);
 
@@ -176,7 +182,7 @@ namespace UsefulProteomicsDatabases
             {
                 File.Delete(temp);
             }
-            DownloadContent(GeneOntologyUrl, temp, httpClient, cancellationToken);
+            DownloadStreaming(GeneOntologyUrl, temp, httpClient, cancellationToken);
             if (!File.Exists(geneOntologyLocation))
             {
                 File.Move(temp, geneOntologyLocation);
@@ -283,9 +289,11 @@ namespace UsefulProteomicsDatabases
         /// <remarks>
         /// The timeout is stated rather than left implicit. It happens to equal HttpClient's own default, but
         /// relying on that default is what made an unreachable ontology host hang for 100 seconds per call
-        /// with nothing in the code saying so. 100 seconds is generous for files of this size (the largest is
-        /// a few MB) and matches the value <see cref="PrideArchiveClient"/> settled on; it is a backstop
-        /// against a stalled connection, not a latency budget.
+        /// with nothing in the code saying so. 100 seconds is generous for the files <see cref="DownloadContent(string,string,CancellationToken)"/>
+        /// fetches (the largest is a few MB) and matches the value <see cref="PrideArchiveClient"/> settled on;
+        /// it is a backstop against a stalled connection, not a latency budget. go.obo (~37 MB) is the
+        /// exception: <see cref="UpdateGeneOntology(string,CancellationToken)"/> streams it, so this timeout
+        /// covers only its response headers.
         /// </remarks>
         private static readonly HttpClient DownloadClient = new() { Timeout = TimeSpan.FromSeconds(100) };
 
@@ -351,6 +359,64 @@ namespace UsefulProteomicsDatabases
             {
                 using FileStream stream = new(outputFile, FileMode.CreateNew);
                 httpResponseMessage.Content.CopyToAsync(stream, cancellationToken).GetAwaiter().GetResult();
+            }
+            catch
+            {
+                TryDeletePartialDownload(outputFile);
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// How long the go.obo body may deliver nothing before the download is abandoned. Each read gets a
+        /// fresh window, so a slow transfer that keeps delivering runs as long as it needs to. Settable for
+        /// tests, as <see cref="ProteinDbRetriever"/>'s BodyStallTimeout is.
+        /// </summary>
+        internal static TimeSpan GeneOntologyStallTimeout = TimeSpan.FromMinutes(2);
+
+        /// <summary>
+        /// <see cref="DownloadContent(string,string,HttpClient,CancellationToken)"/> for a file too large to
+        /// buffer or to fit the client's timeout: the request completes at the response headers, and the body
+        /// is copied to disk as it arrives, bounded by <paramref name="cancellationToken"/> and by
+        /// <see cref="GeneOntologyStallTimeout"/> of silence. Same status check, same partial-file cleanup.
+        /// </summary>
+        private static void DownloadStreaming(string url, string outputFile, HttpClient httpClient,
+            CancellationToken cancellationToken)
+        {
+            using HttpResponseMessage response = httpClient
+                .GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).GetAwaiter().GetResult();
+
+            if (!response.IsSuccessStatusCode)
+            {
+                throw new HttpRequestException(
+                    $"Download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{url}'.");
+            }
+
+            try
+            {
+                using Stream body = response.Content.ReadAsStream(cancellationToken);
+                using FileStream file = new(outputFile, FileMode.CreateNew);
+                byte[] buffer = new byte[81920];
+                while (true)
+                {
+                    using var window = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    window.CancelAfter(GeneOntologyStallTimeout);
+                    int read;
+                    try
+                    {
+                        read = body.ReadAsync(buffer.AsMemory(), window.Token).AsTask().GetAwaiter().GetResult();
+                    }
+                    catch (OperationCanceledException e) when (!cancellationToken.IsCancellationRequested)
+                    {
+                        throw new HttpRequestException(
+                            $"The download from '{url}' delivered nothing for {GeneOntologyStallTimeout}.", e);
+                    }
+                    if (read == 0)
+                    {
+                        return;
+                    }
+                    file.Write(buffer, 0, read);
+                }
             }
             catch
             {

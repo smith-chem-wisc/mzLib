@@ -376,6 +376,137 @@ namespace Test.FileReadingTests
             Assert.That(Directory.GetFiles(_dir, "go.obo*"), Has.Length.EqualTo(2), "the replaced release is kept");
         }
 
+        [Test]
+        public void UpdateGeneOntology_BodySlowerThanTheClientTimeout_StreamsToDiskAndCompletes()
+        {
+            // go.obo is ~37 MB; on a slow link the body outlasts HttpClient.Timeout. Buffering the whole body
+            // inside that timeout (ResponseContentRead) failed with TaskCanceledException. Here the body takes
+            // several times the client's timeout but never stalls, so it must complete.
+            string path = Path.Combine(_dir, "go.obo");
+            byte[] body = File.ReadAllBytes(FixturePath);
+            using var client = new HttpClient(new StreamingResponseHandler(() =>
+                new SlowStream(body, chunkSize: body.Length / 8 + 1, delay: TimeSpan.FromMilliseconds(100))))
+            {
+                Timeout = TimeSpan.FromMilliseconds(250)
+            };
+
+            Loaders.UpdateGeneOntology(path, client);
+
+            Assert.That(GeneOntologyGraph.Load(path).Count, Is.EqualTo(29));
+            Assert.That(File.Exists(path + ".temp"), Is.False);
+        }
+
+        [Test]
+        public void UpdateGeneOntology_BodyStalls_FailsAndLeavesTheExistingFileAlone()
+        {
+            string path = Path.Combine(_dir, "go.obo");
+            File.Copy(FixturePath, path);
+            byte[] body = File.ReadAllBytes(FixturePath);
+            var saved = Loaders.GeneOntologyStallTimeout;
+            Loaders.GeneOntologyStallTimeout = TimeSpan.FromMilliseconds(200);
+            try
+            {
+                using var client = new HttpClient(new StreamingResponseHandler(() =>
+                    new SlowStream(body, chunkSize: 1024, delay: TimeSpan.Zero, stallAfterChunks: 1)));
+
+                var ex = Assert.Throws<HttpRequestException>(() => Loaders.UpdateGeneOntology(path, client));
+
+                Assert.That(ex.Message, Does.Contain("delivered nothing"));
+            }
+            finally
+            {
+                Loaders.GeneOntologyStallTimeout = saved;
+            }
+            Assert.That(File.Exists(path + ".temp"), Is.False, "the partial download is removed");
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(body), "the existing release is untouched");
+            Assert.That(Directory.GetFiles(_dir, "go.obo*"), Has.Length.EqualTo(1));
+        }
+
+        [Test]
+        public void UpdateGeneOntology_CancelledMidDownload_RemovesTempAndLeavesTheExistingFileAlone()
+        {
+            string path = Path.Combine(_dir, "go.obo");
+            File.Copy(FixturePath, path);
+            byte[] body = File.ReadAllBytes(FixturePath);
+            using var cts = new CancellationTokenSource();
+            using var client = new HttpClient(new StreamingResponseHandler(() =>
+                new SlowStream(body, chunkSize: 1024, delay: TimeSpan.Zero, stallAfterChunks: 1, onStall: cts.Cancel)));
+
+            Assert.That(() => Loaders.UpdateGeneOntology(path, client, cts.Token),
+                Throws.InstanceOf<OperationCanceledException>());
+
+            Assert.That(File.Exists(path + ".temp"), Is.False, "the partial download is removed");
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(body), "the existing release is untouched");
+            Assert.That(Directory.GetFiles(_dir, "go.obo*"), Has.Length.EqualTo(1));
+        }
+
+        private sealed class StreamingResponseHandler : HttpMessageHandler
+        {
+            private readonly Func<Stream> _body;
+            public StreamingResponseHandler(Func<Stream> body) => _body = body;
+
+            protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken) =>
+                Task.FromResult(new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(_body()) });
+        }
+
+        /// <summary>
+        /// Delivers <c>chunkSize</c> bytes per read after <c>delay</c>; after <c>stallAfterChunks</c> reads it
+        /// delivers nothing until cancelled (calling <c>onStall</c> once), like a connection gone quiet.
+        /// </summary>
+        private sealed class SlowStream : Stream
+        {
+            private readonly byte[] _data;
+            private readonly int _chunkSize;
+            private readonly TimeSpan _delay;
+            private readonly int _stallAfterChunks;
+            private readonly Action _onStall;
+            private int _position;
+            private int _chunks;
+
+            public SlowStream(byte[] data, int chunkSize, TimeSpan delay, int stallAfterChunks = int.MaxValue, Action onStall = null)
+            {
+                _data = data;
+                _chunkSize = chunkSize;
+                _delay = delay;
+                _stallAfterChunks = stallAfterChunks;
+                _onStall = onStall;
+            }
+
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                if (_chunks >= _stallAfterChunks)
+                {
+                    _onStall?.Invoke();
+                    await Task.Delay(Timeout.Infinite, cancellationToken);
+                }
+                if (_delay > TimeSpan.Zero)
+                {
+                    await Task.Delay(_delay, cancellationToken);
+                }
+                int n = Math.Min(Math.Min(_chunkSize, buffer.Length), _data.Length - _position);
+                _data.AsSpan(_position, n).CopyTo(buffer.Span);
+                _position += n;
+                _chunks++;
+                return n;
+            }
+
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken) =>
+                ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+
+            public override int Read(byte[] buffer, int offset, int count) =>
+                ReadAsync(buffer, offset, count, CancellationToken.None).GetAwaiter().GetResult();
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position { get => throw new NotSupportedException(); set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
         private sealed class FixedResponseHandler : HttpMessageHandler
         {
             private readonly string _body;
