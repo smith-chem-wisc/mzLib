@@ -1,5 +1,5 @@
 using NUnit.Framework;
-using Statistics;
+using StatisticalModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
@@ -7,10 +7,10 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 
-namespace Test.Statistics;
+namespace Test.StatisticalModels;
 
 /// <summary>
-/// Compares the Statistics project against frozen outputs of the published implementations: limma's
+/// Compares the StatisticalModels project against frozen outputs of the published implementations: limma's
 /// lmFit and eBayes (legacy = TRUE, the method-of-moments prior this project implements) and metafor's
 /// DerSimonian-Laird rma. The outputs, the R script that made them and its versions are in
 /// ReferenceData (PROVENANCE.txt). R is never run by these tests.
@@ -22,7 +22,7 @@ public class ReferenceComparisonTests
     private const double Tolerance = 1e-8;
 
     private static string DataDirectory =>
-        Path.Combine(TestContext.CurrentContext.TestDirectory, "Statistics", "ReferenceData");
+        Path.Combine(TestContext.CurrentContext.TestDirectory, "StatisticalModels", "ReferenceData");
 
     private static (string[] Header, List<string[]> Rows) ReadTsv(string name)
     {

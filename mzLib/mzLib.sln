@@ -41,7 +41,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Quantification", "Quantific
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PredictionClients", "PredictionClients\PredictionClients.csproj", "{9DD8E48A-8A6F-D546-3B4D-A20D488457A4}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Statistics", "Statistics\Statistics.csproj", "{CDB46347-F094-4FE3-94F2-BA33273EACAB}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "StatisticalModels", "StatisticalModels\StatisticalModels.csproj", "{CDB46347-F094-4FE3-94F2-BA33273EACAB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

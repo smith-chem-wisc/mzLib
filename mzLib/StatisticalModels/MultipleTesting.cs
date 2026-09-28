@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>Multiple-testing adjustment of p-values.</summary>
     /// <remarks>

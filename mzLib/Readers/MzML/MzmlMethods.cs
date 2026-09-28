@@ -237,11 +237,12 @@ namespace Readers
             // spectrometer produced the data. Reading such a file back reported no instrument at
             // all, and the loss was invisible because MS:1000031 looks like a real declaration.
             var instrumentModel = myMsDataFile.SourceFile.InstrumentModel;
+            var serialNumber = myMsDataFile.SourceFile.InstrumentSerialNumber;
 
             // One configuration is still emitted per mass analyzer present, which is not
             // necessarily how the original file was organised. Recovering the true configuration
-            // list (multiple instruments, sources, detectors, serial numbers) needs SourceFile to
-            // carry more than the model, and is left for later.
+            // list (multiple instruments, sources, detectors) needs SourceFile to carry more than
+            // the model and serial number, and is left for later.
             mzML.instrumentConfigurationList = new Generated.InstrumentConfigurationListType
             {
                 count = analyzersInThisFile.Count.ToString(),
@@ -257,7 +258,7 @@ namespace Readers
                 {
                     id = "IC" + (i + 1).ToString(),
                     componentList = new Generated.ComponentListType(),
-                    cvParam = new Generated.CVParamType[1]
+                    cvParam = new Generated.CVParamType[serialNumber is null ? 1 : 2]
                 };
 
                 // A specific model when we have an ACCESSIONED one, otherwise the bare parent term
@@ -293,6 +294,21 @@ namespace Readers
                             name = "instrument model",
                             value = ""
                         };
+
+                // The serial number beside the model, as ProteoWizard writes it. Unlike a RAW-read
+                // model it needs no lookup -- the accession is fixed and the serial is the value -- so
+                // it survives a write from either source. Its value is what keeps a reader from
+                // mistaking it for the model.
+                if (serialNumber is not null)
+                {
+                    mzML.instrumentConfigurationList.instrumentConfiguration[i].cvParam[1] = new Generated.CVParamType
+                    {
+                        cvRef = "MS",
+                        accession = "MS:1000529",
+                        name = "instrument serial number",
+                        value = serialNumber
+                    };
+                }
 
                 mzML.instrumentConfigurationList.instrumentConfiguration[i].componentList = new Generated.ComponentListType
                 {
@@ -383,6 +399,15 @@ namespace Readers
                 defaultInstrumentConfigurationRef = analyzersInThisFileDict[analyzersInThisFile[0]],
                 id = idTitle
             };
+
+            // startTimeStamp is a non-nullable DateTime in the generated type; the Specified flag is
+            // what emits or omits it. XmlSerializer writes the Kind back as it was read: "Z" for
+            // Utc, no offset for Unspecified (see SourceFile.AcquisitionStartTime).
+            if (myMsDataFile.SourceFile.AcquisitionStartTime is { } acquisitionStartTime)
+            {
+                mzML.run.startTimeStamp = acquisitionStartTime;
+                mzML.run.startTimeStampSpecified = true;
+            }
 
             mzML.run.chromatogramList = new Generated.ChromatogramListType
             {

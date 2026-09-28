@@ -6,7 +6,7 @@ using MathNet.Numerics.Distributions;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.Statistics;
 
-namespace Statistics
+namespace StatisticalModels
 {
     /// <summary>
     /// The prior distribution of per-feature residual variances: s²_g ~ s0² · χ²(d0)/d0, fitted across

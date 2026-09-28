@@ -51,6 +51,8 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid", SupportedFileType.MzIdentML);
             yield return new TestCaseData(@"DataFiles\SmallCalibratible_Yeast.mzID", SupportedFileType.MzIdentML);
             yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid.gz", SupportedFileType.MzIdentMLGz);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_1.1.11_AllQuantifiedProteinGroups.tsv", SupportedFileType.MetaMorpheusQuantifiedProteinGroups);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv", SupportedFileType.FlashLFQQuantifiedPeptide);
         }
 
         private static IEnumerable<SupportedFileType> EnumTestCases() => Enum.GetValues<SupportedFileType>();
