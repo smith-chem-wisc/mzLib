@@ -244,10 +244,13 @@ namespace SampleEvidenceModel
 
             string corpus = Norm(string.Join("\n", input.RecordText, input.PaperText, PublicationText.Tables(input.Tables, int.MaxValue, int.MaxValue, int.MaxValue, int.MaxValue)));
             var files = input.RawFiles.ToDictionary(f => f, f => f, StringComparer.OrdinalIgnoreCase);
-            var refs = new HashSet<string>(input.Tables.SelectMany(t => Enumerable.Range(0, t.Rows.Count)
-                .Select(k => $"{(t.Sheet.Length > 0 ? $"{t.File}!{t.Sheet}" : t.File)}!R{t.RowNumbers[k]}")), StringComparer.Ordinal);
+            // Each row label, with that row's own text: a quote citing a row must be in THAT row.
+            var refs = new Dictionary<string, string>(StringComparer.Ordinal);
+            foreach (var t in input.Tables)
+                for (int k = 0; k < t.Rows.Count; k++)
+                    refs.TryAdd($"{(t.Sheet.Length > 0 ? $"{t.File}!{t.Sheet}" : t.File)}!R{t.RowNumbers[k]}", Norm(string.Join(" | ", t.Rows[k])));
             var evidence = new List<SdrfEvidence>();
-            var seen = new HashSet<(string, string, string)>();
+            var seen = new HashSet<(string, string, string, string)>();
 
             if (root.TryGetProperty("claims", out var claims) && claims.ValueKind == JsonValueKind.Array)
                 foreach (var c in claims.EnumerateArray())
@@ -262,16 +265,24 @@ namespace SampleEvidenceModel
                     if (label.Length > 0 && !Label.IsMatch(label)) { rejected.Add($"{what}: not a channel label"); continue; }
                     if (file.Length > 0 && !files.TryGetValue(file, out file!)) { rejected.Add($"{what}: not one of the deposit's raw files"); continue; }
                     if (pattern.Length > 0 && file.Length > 0) { rejected.Add($"{what}: names both a file and a file pattern"); continue; }
+                    // A model-written glob becomes a backtracking regex; many wildcards that fail to match take minutes.
+                    if (pattern.Count(ch => ch == '*') > MaxPatternWildcards) { rejected.Add($"{what}: the file pattern has more than {MaxPatternWildcards} '*' wildcards"); continue; }
                     if (pattern.Length > 0 && !input.RawFiles.Any(f => SdrfEvidence.GlobMatches(pattern, f))) { rejected.Add($"{what}: the file pattern matches none of the deposit's raw files"); continue; }
-                    string rowRef = RowRef.Match(quote) is { Success: true } m && refs.Contains(m.Groups[1].Value) ? m.Groups[1].Value : "";
+                    string rowRef = RowRef.Match(quote) is { Success: true } m && refs.ContainsKey(m.Groups[1].Value) ? m.Groups[1].Value : "";
                     string bare = Norm(RowRef.Replace(quote, " "));
-                    if (bare.Length < 3 || !corpus.Contains(bare, StringComparison.Ordinal)) { rejected.Add($"{what}: the quote is not in the given text"); continue; }
-                    if (!seen.Add((file + "|" + pattern, label, column))) continue;
+                    // A row's cells can be short ("P1 | F"), so a cited row anchors a short quote; free text needs a phrase.
+                    if (bare.Length < (rowRef.Length > 0 ? 1 : MinQuoteLength)) { rejected.Add($"{what}: the quote is too short to check"); continue; }
+                    if (!corpus.Contains(bare, StringComparison.Ordinal)) { rejected.Add($"{what}: the quote is not in the given text"); continue; }
+                    if (rowRef.Length > 0 && !refs[rowRef].Contains(bare, StringComparison.Ordinal)) { rejected.Add($"{what}: the quote is not in the row it cites"); continue; }
+                    // The value is in the key: two claims that disagree both reach the drafter, which fills nothing from them.
+                    if (!seen.Add((file + "|" + pattern, label, column, value.ToLowerInvariant()))) continue;
 
+                    // Real text is not enough: a quote that does not state the value is kept only for review.
+                    bool stated = QuoteStates(bare, column, value);
                     string locator = rowRef.Length > 0 ? rowRef : $"{source}: \"{Truncate(quote, 160)}\"";
                     evidence.Add(new SdrfEvidence(file, label, column, value,
                         source is "paper" or "supplement" or "pride record" ? source : "paper", locator, "model",
-                        confidence == "guess" ? SdrfEvidenceConfidence.Guess : SdrfEvidenceConfidence.Likely, pattern));
+                        confidence == "guess" || !stated ? SdrfEvidenceConfidence.Guess : SdrfEvidenceConfidence.Likely, pattern));
                 }
 
             StatedDesign? design = null;
@@ -306,6 +317,34 @@ namespace SampleEvidenceModel
                     design = new StatedDesign(groups, plexes, tech, fractions, runs, quotes);
             }
             return new ModelEvidenceResult(evidence, rejected, design, stopReason, 0, 0, 0);
+        }
+
+        /// <summary>The shortest free-text quote checked: shorter ("and", "Human") occurs in any text and proves nothing.</summary>
+        internal const int MinQuoteLength = 10;
+
+        /// <summary>The most '*' wildcards a model's file pattern may carry (see <see cref="SdrfEvidence.GlobMatches"/>).</summary>
+        internal const int MaxPatternWildcards = 4;
+
+        private static readonly Regex AgeOrNumber = new(@"^(\d+)(\.\d+)?\s*([ymwd])?$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+        private static readonly Regex Word = new(@"[a-z0-9]+", RegexOptions.Compiled);
+        private static readonly HashSet<string> StopWords = new(StringComparer.Ordinal) { "and", "the", "with", "from", "for", "not", "of", "in" };
+
+        /// <summary>
+        /// Whether a (normalised) quote states the claim's value: sex by its words or letter code, an age or count by its
+        /// number (<see cref="States"/>), anything else by a word of the value (its first five letters, so "ventricle"
+        /// is stated by "ventricular").
+        /// </summary>
+        internal static bool QuoteStates(string quote, string column, string value)
+        {
+            string q = Norm(quote), v = Norm(value);
+            if (column == "characteristics[sex]" && v is "male" or "female")
+                return Regex.IsMatch(q, v == "male" ? @"\b(m|males?|man|men|boys?)\b" : @"\b(f|females?|wom[ae]n|girls?)\b");
+            if (AgeOrNumber.Match(v) is { Success: true } n)
+                return n.Groups[2].Success ? q.Contains(n.Groups[1].Value + n.Groups[2].Value, StringComparison.Ordinal)
+                    : int.TryParse(n.Groups[1].Value, out int k) && States(q, k);
+            var words = Word.Matches(v).Select(w => w.Value).Where(w => w.Length >= 3 && !StopWords.Contains(w)).ToList();
+            if (words.Count == 0) return Regex.IsMatch(q, $@"(?<![a-z0-9]){Regex.Escape(v)}(?![a-z0-9])");
+            return words.Any(w => q.Contains(w.Length > 5 ? w[..5] : w, StringComparison.Ordinal));
         }
 
         private static readonly string[] NumberWords =

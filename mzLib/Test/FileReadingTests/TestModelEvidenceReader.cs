@@ -170,6 +170,68 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void TwoClaimsThatDisagreeBothReachTheDrafter()
+        {
+            // pcruzparri on #1377: the key had no value, so the second, disagreeing claim was dropped and nothing said so.
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign,
+                Claim("HumanControl_1.raw", "characteristics[sex]", "male", "[JAH3-s001.xlsx!Data!R3] HumanControl_1 | male | 72", confidence: "guess"),
+                Claim("HumanControl_1.raw", "characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77"),
+                Claim("HumanControl_1.raw", "characteristics[sex]", "MALE", "[JAH3-s001.xlsx!Data!R3] HumanControl_1 | male | 72")), Input());
+
+            Assert.That(r.Evidence.Select(e => e.Value), Is.EqualTo(new[] { "male", "female" }), "a case-insensitive repeat still collapses");
+            Assert.That(r.Rejected, Is.Empty);
+        }
+
+        [TestCase("and", "the quote is too short to check")]
+        [TestCase("Human", "the quote is too short to check")]
+        public void ATrivialQuoteIsRejected(string quote, string why)
+        {
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("HumanHFpEF_1.raw", "characteristics[disease]", "type 2 diabetes mellitus", quote)), Input());
+
+            Assert.That(r.Evidence, Is.Empty);
+            Assert.That(r.Rejected.Single(), Does.EndWith(why));
+        }
+
+        [Test]
+        public void AQuoteMustBeInTheRowItCites()
+        {
+            // R3 says male; the quoted text is R2's. The locator would have sent a checker to the wrong row.
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("HumanControl_1.raw", "characteristics[sex]", "female",
+                "[JAH3-s001.xlsx!Data!R3] HumanHFpEF_1 | female")), Input());
+
+            Assert.That(r.Evidence, Is.Empty);
+            Assert.That(r.Rejected.Single(), Does.EndWith("the quote is not in the row it cites"));
+        }
+
+        [TestCase("characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77", true)]
+        [TestCase("characteristics[sex]", "male", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77", false)]
+        [TestCase("characteristics[age]", "77Y", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77", true)]
+        [TestCase("characteristics[age]", "35Y", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77", false)]
+        [TestCase("characteristics[organism part]", "heart left ventricle", "Left ventricular biopsies were collected", true)]
+        [TestCase("characteristics[disease]", "type 2 diabetes mellitus", "Left ventricular biopsies were collected", false)]
+        public void AClaimWhoseValueItsQuoteDoesNotStateIsOnlyAGuess(string column, string value, string quote, bool stated)
+        {
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("HumanHFpEF_1.raw", column, value, quote)), Input());
+
+            Assert.That(r.Evidence.Single().Confidence, Is.EqualTo(stated ? SdrfEvidenceConfidence.Likely : SdrfEvidenceConfidence.Guess));
+        }
+
+        [Test]
+        public void AFilePatternWithManyWildcardsIsRejectedWithoutBeingTried()
+        {
+            // pcruzparri on #1377: '*0' x 12 + '*ZZZ.raw' took 54 s against one 48-character name in a backtracking regex.
+            string pattern = string.Concat(Enumerable.Repeat("*0", 12)) + "*ZZZ.raw";
+            var input = Input() with { RawFiles = new[] { new string('0', 44) + ".raw", "HumanHFpEF_1.raw" } };
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("", "characteristics[disease]", "HFpEF",
+                "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77", pattern: pattern)), input);
+
+            Assert.That(clock.Elapsed, Is.LessThan(TimeSpan.FromSeconds(1)));
+            Assert.That(r.Rejected.Single(), Does.EndWith("the file pattern has more than 4 '*' wildcards"));
+        }
+
+        [Test]
         public void AnAnswerThatIsNotJsonIsRejectedNotThrown()
         {
             var r = ModelEvidenceReader.Interpret("I could not find anything.", Input());
@@ -241,6 +303,7 @@ namespace Test.FileReadingTests
                 "[proteins.xlsx!S1!R201] P10200 | GENE200 | 1.5 | 0.01", confidence: "guess")), input);
 
             Assert.That(r.Rejected, Is.Empty);
+            Assert.That(r.Evidence.Single().Confidence, Is.EqualTo(SdrfEvidenceConfidence.Guess), "the row is real, but it does not state the organism");
         }
 
         [Test]
