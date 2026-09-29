@@ -192,6 +192,19 @@ namespace Readers
         /// <summary>Data files named by the document that were not found. Empty when no directory was given.</summary>
         public IReadOnlyList<string> UnmatchedDataFiles { get; init; } = [];
 
+        /// <summary>
+        /// Data files that are not on disk under their ACQUIRED name, but whose
+        /// <c>comment[searched data file]</c> derivative is. A subset of
+        /// <see cref="UnmatchedDataFiles"/>.
+        ///
+        /// This is the normal state of a calibrated analysis, not an error: the search read
+        /// <c>X-calib.mzML</c> and that is what sits beside the results, while the acquired
+        /// <c>X.raw</c> lives in the repository. Without this the audit reports every file missing,
+        /// and it is wrong in the one direction a curator acts on -- they go looking for data that
+        /// is already there.
+        /// </summary>
+        public IReadOnlyList<string> UnmatchedButSearchedFileOnDisk { get; init; } = [];
+
         /// <summary>True when a data directory was searched at all, so "0 matched" can be told from "not looked".</summary>
         public bool SearchedForDataFiles { get; init; }
 
@@ -225,7 +238,10 @@ namespace Readers
             if (RaggedRows > 0)
                 text.AppendLine($"  ragged rows       : {RaggedRows}");
             if (SearchedForDataFiles)
-                text.AppendLine($"  data files        : {MatchedDataFiles.Count} found, {UnmatchedDataFiles.Count} missing");
+                text.AppendLine($"  data files        : {MatchedDataFiles.Count} found, {UnmatchedDataFiles.Count} missing"
+                                + (UnmatchedButSearchedFileOnDisk.Count == 0
+                                    ? string.Empty
+                                    : $" ({UnmatchedButSearchedFileOnDisk.Count} present only as the file the search read)"));
 
             text.AppendLine("  facts:");
             foreach (var fact in Facts)
@@ -282,6 +298,7 @@ namespace Readers
 
         private const string LabelColumn = "comment[label]";
         private const string DataFileColumn = "comment[data file]";
+        private const string SearchedDataFileColumn = "comment[searched data file]";
         private const string ModificationColumn = "comment[modification parameters]";
 
         private static readonly HashSet<string> ReservedWords = new(StringComparer.OrdinalIgnoreCase)
@@ -316,13 +333,23 @@ namespace Readers
             var spellings = new List<string>();
             var pairCounts = new Dictionary<(string File, string Label), int>();
             var rowsPerFile = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+            // The acquired name a row states, to the name the search actually read. Keyed the way
+            // the audit keys everything else -- on the ACQUIRED file, because this audits the
+            // deposition, not the analysis.
+            var searchedFor = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             int bare = 0, accessioned = 0;
 
             foreach (var row in rows)
             {
                 string? dataFile = Value(row, DataFileColumn);
                 if (dataFile != null)
+                {
                     rowsPerFile[dataFile] = rowsPerFile.GetValueOrDefault(dataFile) + 1;
+
+                    string? searched = Value(row, SearchedDataFileColumn);
+                    if (searched != null && !searchedFor.ContainsKey(dataFile))
+                        searchedFor[dataFile] = searched;
+                }
 
                 foreach (string cell in row.All(LabelColumn))
                 {
@@ -380,7 +407,8 @@ namespace Readers
                 .Select(kv => new SdrfDuplicateRows(kv.Key.File, kv.Key.Label, kv.Value))
                 .ToList();
 
-            (var matched, var unmatched) = MatchDataFiles(rowsPerFile.Keys, dataDirectory);
+            (var matched, var unmatched, var derivativeOnly) =
+                MatchDataFiles(rowsPerFile.Keys, searchedFor, dataDirectory);
 
             return new SdrfQuantAudit
             {
@@ -402,6 +430,7 @@ namespace Readers
                 RaggedRows = rows.Count(r => r.Cells.Count != header.Count),
                 MatchedDataFiles = matched,
                 UnmatchedDataFiles = unmatched,
+                UnmatchedButSearchedFileOnDisk = derivativeOnly,
                 SearchedForDataFiles = dataDirectory != null
             };
         }
@@ -437,9 +466,11 @@ namespace Readers
                     return (SdrfPlexSource.Column, column, values!);
             }
 
-            // No filename inference is attempted. The project measured the source-name partition at
-            // 3 correct out of 9 where ground truth exists, failing by OVER-splitting, and no bulk
-            // dataset in the curated corpus carries a usable batch column. Reporting "none stated" is
+            // No plex is inferred, from file names or otherwise: an audit reports what the file states.
+            // The nearest measurement of inference -- partitioning files by their set of source-name
+            // values -- was right in 3 of the 9 files with a plex column, failing by OVER-splitting, and
+            // no bulk dataset in the curated corpus carries a usable batch column. File-name inference
+            // itself is unmeasured (that 3 of 9 never looked at file names). Reporting "none stated" is
             // the honest answer; guessing here would manufacture plexes that are not in the file.
             return (SdrfPlexSource.None, null, []);
         }
@@ -546,11 +577,13 @@ namespace Readers
             return ReservedWords.Contains(raw) ? null : raw;
         }
 
-        private static (IReadOnlyList<string> Matched, IReadOnlyList<string> Unmatched) MatchDataFiles(
-            IEnumerable<string> dataFiles, string? dataDirectory)
+        private static (IReadOnlyList<string> Matched, IReadOnlyList<string> Unmatched,
+            IReadOnlyList<string> DerivativeOnly) MatchDataFiles(
+            IEnumerable<string> dataFiles, IReadOnlyDictionary<string, string> searchedFor,
+            string? dataDirectory)
         {
             if (dataDirectory == null || !Directory.Exists(dataDirectory))
-                return ([], []);
+                return ([], [], []);
 
             var onDisk = Directory
                 .EnumerateFiles(dataDirectory, "*", SearchOption.AllDirectories)
@@ -560,14 +593,28 @@ namespace Readers
 
             var matched = new List<string>();
             var unmatched = new List<string>();
+            var derivativeOnly = new List<string>();
             foreach (string named in dataFiles.OrderBy(f => f, StringComparer.OrdinalIgnoreCase))
             {
                 // The column may carry a path or a bare name; the file on disk is matched by name,
                 // because a downloaded copy rarely sits where the submitter's did.
                 string name = Path.GetFileName(named.Replace('\\', '/'));
-                (onDisk.Contains(name) ? matched : unmatched).Add(named);
+                if (onDisk.Contains(name))
+                {
+                    matched.Add(named);
+                    continue;
+                }
+
+                unmatched.Add(named);
+
+                // Still missing as deposited -- the audit does not pretend otherwise -- but say so
+                // in a way a curator can act on, because "missing" and "here under the name the
+                // search gave it" are different problems and only one of them needs a download.
+                if (searchedFor.TryGetValue(named, out string? searched)
+                    && onDisk.Contains(Path.GetFileName(searched.Replace('\\', '/'))))
+                    derivativeOnly.Add(named);
             }
-            return (matched, unmatched);
+            return (matched, unmatched, derivativeOnly);
         }
     }
 }

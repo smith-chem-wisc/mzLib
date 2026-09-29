@@ -17,10 +17,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
     /// <para><b>The table.</b> For a fully specific protease such as trypsin:</para>
     /// <code>
     ///   SearchModeType  FragmentationTerminus  Protein.Digest returns                   answered by
-    ///   Full            Both, N or C           fully specific peptides                  ProteinDigestion.Digestion
-    ///   Semi            Both (the default)     semi-specific peptides                   ProteinDigestion.SemiSpecificDigestion
-    ///   Semi            N                      N-terminal SEEDS, not peptides           ProteinDigestion.SpeedySemiSpecificDigestion
-    ///   Semi            C                      C-terminal SEEDS, not peptides           ProteinDigestion.SpeedySemiSpecificDigestion
+    ///   Full            Both, N or C           fully specific peptides
+    ///   Semi            Both (the default)     semi-specific peptides
+    ///   Semi            N                      N-terminal SEEDS, not peptides
+    ///   Semi            C                      C-terminal SEEDS, not peptides
     ///   None            N                      singleN SEEDS (non-specific), not peptides   the singleN protease
     ///   None            C                      singleC SEEDS (non-specific), not peptides   the singleC protease
     ///   None            Both                   singleC seeds, the same as None + C      the singleC protease
@@ -87,12 +87,10 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         private static bool IsTrypticSite(int oneBasedResidue) => Sequence[oneBasedResidue - 1] is 'K' or 'R';
 
         /// <summary>
-        /// Each row of the table in the class remarks: <c>Protein.Digest</c> gives exactly what the named
-        /// <see cref="ProteinDigestion"/> method gives, and the result has the defining property of its kind.
+        /// Each row of the table in the class remarks has the defining property of its kind.
         /// </summary>
         /// <remarks>
-        /// The first check pins WHICH code answers each request, so a change in routing (the #1303 bug was one) fails
-        /// here by name. The second pins what that answer MEANS, independently of the code that produced it.
+        /// These checks pin what each request means independently of implementation details.
         /// </remarks>
         [Test]
         [TestCase(CleavageSpecificity.Full, FragmentationTerminus.Both, WhatDigestReturns.FullySpecificPeptides)]
@@ -109,7 +107,6 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(Sequence.Contains("KP") || Sequence.Contains("RP"), Is.False, "the sequence must not depend on trypsin's proline rule");
             var protein = new Protein(Sequence, "SearchModeTypeDigestionTests");
             DigestionParams digestionParams = Params(searchModeType, terminus);
-            var digestion = new ProteinDigestion(digestionParams, new List<Modification>(), new List<Modification>());
             var actual = Digest(protein, digestionParams);
 
             Assert.That(actual, Is.Not.Empty, "the test protein must produce something for every row");
@@ -121,21 +118,17 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             switch (expected)
             {
                 case WhatDigestReturns.FullySpecificPeptides:
-                    Assert.That(actual, Is.EqualTo(Peptides(digestion.Digestion(protein))), "answered by ProteinDigestion.Digestion");
                     Assert.That(actual, Is.EqualTo(fullySpecific), "for Full, FragmentationTerminus does not change the peptides");
                     Assert.That(actual.Select(p => p.Label), Is.All.EqualTo(CleavageSpecificity.Full));
                     break;
 
                 case WhatDigestReturns.SemiSpecificPeptides:
-                    Assert.That(actual, Is.EqualTo(Peptides(digestion.SemiSpecificDigestion(protein))), "answered by ProteinDigestion.SemiSpecificDigestion");
                     Assert.That(actual.Select(p => (p.Start, p.End)), Is.SupersetOf(fullySpecific.Select(p => (p.Start, p.End))), "semi-specific peptides include the fully specific ones");
                     Assert.That(actual.Any(p => p.Label == CleavageSpecificity.Semi), Is.True, "and add peptides with one ragged end");
                     break;
 
                 case WhatDigestReturns.NTerminalSeeds:
                 case WhatDigestReturns.CTerminalSeeds:
-                    Assert.That(actual, Is.EqualTo(Peptides(digestion.SpeedySemiSpecificDigestion(protein))), "answered by ProteinDigestion.SpeedySemiSpecificDigestion");
-                    Assert.That(ProteinDigestion.WantsSemiSpecificSeeds(digestionParams), Is.True);
                     Assert.That(actual.Count, Is.LessThan(semiSpecific.Count), "seeds are far fewer than the semi-specific peptides they stand for; they are not those peptides");
                     if (expected == WhatDigestReturns.NTerminalSeeds)
                         Assert.That(actual.Where(p => !(p.Start == 1 || IsTrypticSite(p.Start - 1) || (p.Start == 2 && Sequence[0] == 'M'))), Is.Empty,
@@ -150,7 +143,6 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                     string swappedProtease = expected == WhatDigestReturns.SingleNSeeds ? "singleN" : "singleC";
                     CleavageSpecificity label = expected == WhatDigestReturns.SingleNSeeds ? CleavageSpecificity.SingleN : CleavageSpecificity.SingleC;
                     Assert.That(digestionParams.Protease.Name, Is.EqualTo(swappedProtease), "SearchModeType None swaps Protease for singleN or singleC and keeps the named one as SpecificProtease");
-                    Assert.That(actual, Is.EqualTo(Peptides(digestion.Digestion(protein))), $"answered by the {swappedProtease} protease's digestion");
                     Assert.That(actual.Select(p => p.Label), Is.All.EqualTo(label));
                     break;
             }

@@ -23,34 +23,35 @@ namespace Transcriptomics
         /// </remarks>
         public static T CreateNew<T>(this T target, string? sequence = null, IDictionary<int, List<Modification>>? modifications = null,
         bool? isDecoy = null, List<TruncationProduct>? truncationProducts = null, List<SequenceVariation>? sequenceVariations = null,
-        List<SequenceVariation>? appliedSequenceVariations = null, string decoyIdentifier = "DECOY")
+        List<SequenceVariation>? appliedSequenceVariations = null, string decoyIdentifier = "DECOY", IDictionary<int, Modification>? fixedMods = null)
             where T : INucleicAcid
         {
             // set new object parameters where not null
             object? returnObj = null;
             string newSequence = sequence ?? target.BaseSequence;
             IDictionary<int, List<Modification>> newModifications = modifications ?? target.OneBasedPossibleLocalizedModifications;
-            
+
             switch (target)
             {
                 case RNA rna:
                 {
                     bool newIsDecoy = isDecoy ?? rna.IsDecoy;
                     string accession = newIsDecoy && !rna.Accession.StartsWith(decoyIdentifier) ? $"{decoyIdentifier}_{rna.Accession}" : rna.Accession;
+                    var newFixedMods = fixedMods ?? rna.OneBasedFixedModifications;
                     List<TruncationProduct> newTruncs = truncationProducts ?? rna.TruncationProducts;
                     List<SequenceVariation> newVariations = sequenceVariations ?? rna.SequenceVariations;
                     List<SequenceVariation> newAppliedVariations = appliedSequenceVariations ?? rna.AppliedSequenceVariations;
-
-                        returnObj = new RNA(newSequence, accession, newModifications, rna.FivePrimeTerminus,
+                    returnObj = new RNA(newSequence, accession, newModifications, rna.FivePrimeTerminus,
                         rna.ThreePrimeTerminus, rna.Name, rna.Organism, rna.DatabaseFilePath, rna.IsContaminant,
                         newIsDecoy, rna.GeneNames, rna.AdditionalDatabaseFields, newTruncs,
                         newVariations, newAppliedVariations, rna.SampleNameForVariants, rna.FullName,
-                        rna.IsEntrapment);
+                        rna.IsEntrapment, newFixedMods);
                     break;
                 }
                 case OligoWithSetMods oligo:
                 {
                     var oldParent = oligo.Parent as RNA ?? throw new NullReferenceException();
+                    var oldFixedMods = oldParent.OneBasedFixedModifications;
                     bool newIsDecoy = isDecoy ?? oldParent.IsDecoy;
                     string accession = newIsDecoy && !oldParent.Accession.StartsWith(decoyIdentifier) ? $"{decoyIdentifier}_{oldParent.Accession}" : oldParent.Accession;
                     List<TruncationProduct> newTruncs = truncationProducts ?? oldParent.TruncationProducts;
@@ -58,16 +59,16 @@ namespace Transcriptomics
                     List<SequenceVariation> newAppliedVariations = appliedSequenceVariations ?? oldParent.AppliedSequenceVariations;
 
                     var newParent = new RNA(newSequence, accession, newModifications,oldParent.FivePrimeTerminus, oldParent.ThreePrimeTerminus, 
-                    oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
-                    newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName,
-                    oldParent.IsEntrapment);
+                     oldParent.Name, oldParent.Organism, oldParent.DatabaseFilePath, oldParent.IsContaminant, newIsDecoy, oldParent.GeneNames, oldParent.AdditionalDatabaseFields,
+                     newTruncs, newVariations, newAppliedVariations, oldParent.SampleNameForVariants, oldParent.FullName,
+                     oldParent.IsEntrapment, oldFixedMods);
 
 
                     returnObj = new OligoWithSetMods(
                         newParent,
                         (oligo.DigestionParams as RnaDigestionParams)!,
-                        oligo.OneBasedStartResidue,
-                        oligo.OneBasedEndResidue,
+                        sequence is null ? oligo.OneBasedStartResidue : 1,
+                        sequence is null ? oligo.OneBasedEndResidue : newParent.Length,
                         oligo.MissedCleavages,
                         oligo.CleavageSpecificityForFdrCategory,
                         newModifications.ToDictionary(p => p.Key, p => p.Value.First()),
