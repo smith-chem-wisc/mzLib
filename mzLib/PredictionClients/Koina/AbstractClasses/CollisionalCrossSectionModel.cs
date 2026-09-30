@@ -28,8 +28,8 @@ namespace PredictionClients.Koina.AbstractClasses
     )
     {
         /// <summary>
-        /// Optional parser for <see cref="FullSequence"/>'s source format. Null (default) preserves
-        /// current mzLib-only behavior; see <see cref="RetentionTimePredictionInput.SequenceParser"/>
+        /// Optional parser for <see cref="FullSequence"/>'s source format. Null (default) uses the model's
+        /// own converter parser (mzLib syntax); see <see cref="RetentionTimePredictionInput.SequenceParser"/>
         /// for the full contract.
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }

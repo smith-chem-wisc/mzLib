@@ -13,7 +13,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents a retention time prediction result for a single peptide sequence.
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
-    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
+    /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
@@ -29,7 +29,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the input parameters for retention time prediction models from the Koina API.
     /// This record captures the input information required for peptide retention time prediction.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
+    /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another</param>
     public record RetentionTimePredictionInput(string FullSequence)
     {
         /// <summary>
