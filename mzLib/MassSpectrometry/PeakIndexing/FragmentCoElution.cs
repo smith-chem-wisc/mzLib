@@ -39,6 +39,8 @@ namespace MassSpectrometry
             return smoothed;
         }
 
+        public static double[] SavitzkyGolay9(IReadOnlyList<double> trace) => throw new NotImplementedException();
+
         /// <summary>
         /// The fragment whose trace, over scans <paramref name="from"/> to <paramref name="to"/>, has the largest summed
         /// Pearson correlation with the other fragments (negative or undefined correlations count as 0). Its smoothed
