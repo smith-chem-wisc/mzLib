@@ -7,13 +7,19 @@ namespace Readers
     /// </summary>
     /// <param name="Document">Rows only for acquisitions the search read, each naming the searched file.</param>
     /// <param name="SearchedWithoutRow">Searched files the SDRF has no row for. Reported, never invented.</param>
-    /// <param name="DroppedDataFiles">Acquired files the SDRF describes but this search did not read.</param>
+    /// <param name="DroppedDataFiles">Acquired files the SDRF describes but this search did not read. A row naming no
+    /// file is dropped too, and not listed: it names nothing to report.</param>
     /// <param name="Ambiguous">Acquisitions two or more searched files claimed; the first, in name order, was kept.</param>
+    /// <param name="SharedStem">Searched files whose rows name two or more DIFFERENT acquired files -- one run the SDRF
+    /// lists twice, as <c>X.raw</c> and <c>X.mzML</c> (PXD001587) or beside a deposited <c>X-calib.mzML</c>. Every such
+    /// row is kept, since only the depositor can say which is right, and reported here as
+    /// <c>searched: acquired, acquired</c>. The channel rows of one multiplexed file name one file, so are not listed.</param>
     internal sealed record SdrfSearchScoping(
         SdrfDocument Document,
         IReadOnlyList<string> SearchedWithoutRow,
         IReadOnlyList<string> DroppedDataFiles,
-        IReadOnlyList<string> Ambiguous);
+        IReadOnlyList<string> Ambiguous,
+        IReadOnlyList<string> SharedStem);
 
     /// <summary>
     /// Restricts an SDRF -- deposited, improved or drafted -- to the files ONE SEARCH read (sdrf D36): the
@@ -24,7 +30,8 @@ namespace Readers
     /// the derivative suffixes MetaMorpheus writes (<c>-calib</c>, <c>-averaged</c>, in any order and
     /// number), so a converted <c>.mzML</c> finds its <c>.raw</c>. Where the caller KNOWS a searched file's
     /// acquisition -- MetaMorpheus can read it from the mzML's own <c>sourceFile</c> (D26) -- that name wins
-    /// over the suffix rule. The searched name is written to <c>comment[searched data file]</c>, directly
+    /// over the suffix rule. A row whose acquired stem joins no searched file is tried once more by the
+    /// stem of an earlier search's <c>comment[searched data file]</c>. The searched name is written to <c>comment[searched data file]</c>, directly
     /// after <c>comment[data file]</c> as <see cref="SdrfBuilder"/> places it; a column an earlier search
     /// wrote is replaced, because it is this search's field.</para>
     ///
@@ -83,18 +90,27 @@ namespace Readers
 
             var kept = new List<SdrfRow>();
             var dropped = new List<string>();
-            var joined = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            // stem -> the distinct acquired names of the rows it kept, in row order
+            var joined = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
             foreach (var row in sdrf.Results)
             {
                 var cells = row.Cells.Concat(Enumerable.Repeat("", Math.Max(0, header.Count - row.Cells.Count))).ToList();
                 string acquired = cells[dataFile];
                 string stem = Derivative.Replace(SdrfFileNamePattern.Stem(acquired), "");
+                // Else the earlier search's own record of which searched file read this row (SearchedDataFileName's rule).
+                if (!readerOf.ContainsKey(stem))
+                    foreach (int i in oldSearched.OrderBy(i => i))
+                    {
+                        string before = Derivative.Replace(SdrfFileNamePattern.Stem(FileName(cells[i])), "");
+                        if (before.Length > 0 && readerOf.ContainsKey(before)) { stem = before; break; }
+                    }
                 if (!readerOf.TryGetValue(stem, out var reader))
                 {
-                    if (!dropped.Contains(acquired, StringComparer.OrdinalIgnoreCase)) dropped.Add(acquired);
+                    if (!string.IsNullOrWhiteSpace(acquired) && !dropped.Contains(acquired, StringComparer.OrdinalIgnoreCase)) dropped.Add(acquired);
                     continue;
                 }
-                joined.Add(stem);
+                if (!joined.TryGetValue(stem, out var names)) joined[stem] = names = new List<string>();
+                if (!names.Contains(acquired, StringComparer.OrdinalIgnoreCase)) names.Add(acquired);
                 var outCells = new List<string>();
                 for (int i = 0; i < header.Count; i++)
                 {
@@ -105,14 +121,16 @@ namespace Readers
                 kept.Add(new SdrfRow(sdrfHeader, outCells));
             }
 
-            var withoutRow = bySearched.Where(g => !joined.Contains(g.Key)).Select(g => FileName(g.First())).ToList();
-            return new SdrfSearchScoping(new SdrfDocument(sdrfHeader, kept), withoutRow, dropped, ambiguous);
+            var withoutRow = bySearched.Where(g => !joined.ContainsKey(g.Key)).Select(g => FileName(g.First())).ToList();
+            var sharedStem = joined.Where(j => j.Value.Count > 1).Select(j => $"{readerOf[j.Key]}: {string.Join(", ", j.Value)}").ToList();
+            return new SdrfSearchScoping(new SdrfDocument(sdrfHeader, kept), withoutRow, dropped, ambiguous, sharedStem);
         }
 
         private static string AcquiredStem(string searched, IReadOnlyDictionary<string, string>? acquiredNameOf)
         {
             if (acquiredNameOf != null && acquiredNameOf.TryGetValue(searched, out var acquired) && !string.IsNullOrWhiteSpace(acquired))
-                return SdrfFileNamePattern.Stem(FileName(acquired));
+                // Normalised like the row side: a known name may itself be a derivative (WT_1-calib.mzML).
+                return Derivative.Replace(SdrfFileNamePattern.Stem(FileName(acquired)), "");
             return Derivative.Replace(SdrfFileNamePattern.Stem(FileName(searched)), "");
         }
 

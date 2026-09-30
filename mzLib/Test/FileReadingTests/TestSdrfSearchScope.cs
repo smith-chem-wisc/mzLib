@@ -62,6 +62,31 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void AKnownAcquiredNameThatIsItselfADerivativeStillJoins()
+        {
+            var acquired = new Dictionary<string, string> { ["WT_1-calib-averaged.mzML"] = "WT_1-calib.mzML" };
+
+            var s = SdrfSearchScope.Restrict(Deposit(), new[] { "WT_1-calib-averaged.mzML" }, acquired);
+
+            Assert.That(Row(s.Document, "WT_1.raw")["comment[searched data file]"], Is.EqualTo("WT_1-calib-averaged.mzML"));
+            Assert.That(s.SearchedWithoutRow, Is.Empty);
+            Assert.That(s.DroppedDataFiles, Does.Not.Contain("WT_1.raw"));
+        }
+
+        [Test]
+        public void ARowWithNoDataFileIsDroppedButNotListedAsAFile()
+        {
+            var dep = Doc(
+                new[] { "S1", "1", "run 1", "label free sample", "WT_1.raw", "1" },
+                new[] { "S9", "1", "run 9", "label free sample", "", "1" });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "WT_1.raw" });
+
+            Assert.That(s.Document.Results.Count(), Is.EqualTo(1));
+            Assert.That(s.DroppedDataFiles, Is.Empty);
+        }
+
+        [Test]
         public void ASearchedFileWithNoRowIsReportedNotInvented()
         {
             var s = SdrfSearchScope.Restrict(Deposit(), new[] { "WT_1.raw", "Blank_01.raw" });
@@ -105,6 +130,40 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
+        /// One run the deposit lists twice (X.raw and X.mzML, or a deposited X-calib.mzML): both rows join the one
+        /// searched file. Only the depositor can say which is right, so both are kept and the collision reported.
+        /// </summary>
+        [TestCase("WT_1.mzML")]
+        [TestCase("WT_1-calib.mzML")]
+        public void TwoAcquiredNamesForOneSearchedFileAreKeptAndReported(string alsoListed)
+        {
+            var dep = Doc(
+                new[] { "S1", "1", "run 1", "label free sample", "WT_1.raw", "1" },
+                new[] { "S1b", "1", "run 1b", "label free sample", alsoListed, "1" },
+                new[] { "S2", "2", "run 2", "label free sample", "WT_2.raw", "1" });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "WT_1-calib.mzML", "WT_2-calib.mzML" });
+
+            Assert.That(s.Document.Results.Count, Is.EqualTo(3));
+            Assert.That(s.SharedStem, Has.Count.EqualTo(1));
+            Assert.That(s.SharedStem[0], Does.Contain("WT_1-calib.mzML").And.Contain("WT_1.raw").And.Contain(alsoListed));
+            Assert.That(s.Ambiguous, Is.Empty);
+        }
+
+        [Test]
+        public void ChannelRowsOfOneMultiplexedFileAreNotACollision()
+        {
+            var dep = Doc(
+                new[] { "S1", "1", "run 1", "TMT126", "plex1.raw", "1" },
+                new[] { "S2", "2", "run 1", "TMT127", "plex1.raw", "1" });
+
+            var s = SdrfSearchScope.Restrict(dep, new[] { "plex1-calib.mzML" });
+
+            Assert.That(s.Document.Results.Count, Is.EqualTo(2));
+            Assert.That(s.SharedStem, Is.Empty);
+        }
+
+        /// <summary>
         /// D40: an SDRF MetaMorpheus wrote names the SEARCHED file in comment[data file], so the suffix can be on
         /// the ROW side. Read back for a later search -- of the same derivative, the original raw file, or a
         /// further derivative -- the row must still join.
@@ -134,6 +193,29 @@ namespace Test.FileReadingTests
 
             Assert.That(s.Document.Results.Single()["comment[searched data file]"], Is.EqualTo("WT_1-calib.mzML"));
             Assert.That(s.Document.Header.Count(h => h == "comment[searched data file]"), Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// An earlier search's comment[searched data file] records which searched file read the row, so a
+        /// re-search of the same files joins on it when the acquired name shares no stem with it.
+        /// </summary>
+        [Test]
+        public void AnEarlierSearchsColumnJoinsWhenTheDataFileStemDoesNot()
+        {
+            var header = new SdrfHeader(Columns.Append("comment[searched data file]"));
+            var old = new SdrfDocument(header, new[]
+            {
+                new SdrfRow(header, new[] { "S1", "1", "run 1", "label free sample", "WT_3.raw", "1", "sample_A.mzML" }),
+                new SdrfRow(header, new[] { "S2", "1", "run 2", "label free sample", "WT_4.raw", "1", "sample_B.mzML" }),
+            });
+
+            var s = SdrfSearchScope.Restrict(old, new[] { "sample_A.mzML" });
+
+            var kept = s.Document.Results.Single();
+            Assert.That(kept["comment[data file]"], Is.EqualTo("WT_3.raw"));
+            Assert.That(kept["comment[searched data file]"], Is.EqualTo("sample_A.mzML"));
+            Assert.That(s.SearchedWithoutRow, Is.Empty);
+            Assert.That(s.DroppedDataFiles, Is.EqualTo(new[] { "WT_4.raw" }));
         }
 
         /// <summary>
