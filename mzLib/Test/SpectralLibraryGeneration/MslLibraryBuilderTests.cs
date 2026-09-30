@@ -119,17 +119,17 @@ public class MslLibraryBuilderTests
     [Test]
     public void ASharedPeptideListsEveryAccessionAndSurvivesASave()
     {
-        var proteins = new List<Protein> { new("MAAAAKSHAREDPEPR", "P2"), new("MGGGGKSHAREDPEPR", "P1") };
+        var proteins = new List<Protein> { new("MAAAAKSHAMEDPEPR", "P2"), new("MGGGGKSHAMEDPEPR", "P1") };
 
         var entries = Builder().Build(proteins, Parameters(), out _);
 
-        var shared = entries.Where(e => !e.IsDecoy && e.BaseSequence == "SHAREDPEPR").ToList();
+        var shared = entries.Where(e => !e.IsDecoy && e.BaseSequence == "SHAMEDPEPR").ToList();
         Assert.That(shared, Is.Not.Empty);
         Assert.That(shared.All(e => e.ProteinAccession == "P1|P2"));
         string path = Path.Combine(_directory, "shared.msl");
         MslLibrary.Save(path, entries);
         using var library = MslLibrary.Load(path);
-        Assert.That(library.GetAllEntries().Where(e => !e.IsDecoy && e.BaseSequence == "SHAREDPEPR").Select(e => e.ProteinAccession),
+        Assert.That(library.GetAllEntries().Where(e => !e.IsDecoy && e.BaseSequence == "SHAMEDPEPR").Select(e => e.ProteinAccession),
             Is.All.EqualTo("P1|P2"));
     }
 
