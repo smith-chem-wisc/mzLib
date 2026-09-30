@@ -297,6 +297,23 @@ namespace Test.DatabaseTests
             Assert.That(e, Is.InstanceOf<OperationCanceledException>());
         }
 
+        [Test]
+        public void AnInjectedClientCancellingPendingRequestsStaysACancellation()
+        {
+            // The caller cancels through its own HttpClient and leaves the token untouched; only HttpClient.Timeout
+            // is an outage (pride 016, as #1350's PrideArchiveClient).
+            using var http = new HttpClient(new HangingHandler()) { Timeout = TimeSpan.FromSeconds(30) };
+            using var client = new EuropePmcClient(http);
+
+            var search = client.TryFindArticleAsync(31836719, "");
+            var download = client.TryDownloadFullTextXmlAsync(Open, TempDir());
+            Thread.Sleep(200);
+            http.CancelPendingRequests();
+
+            Assert.That(Assert.CatchAsync(() => search), Is.InstanceOf<OperationCanceledException>());
+            Assert.That(Assert.CatchAsync(() => download), Is.InstanceOf<OperationCanceledException>());
+        }
+
         /// <summary>Delivers a few bytes and then drops the connection.</summary>
         private sealed class DroppingStream : Stream
         {
