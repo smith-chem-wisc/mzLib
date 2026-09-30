@@ -221,7 +221,9 @@ namespace UsefulProteomicsDatabases
 
         /// <summary>
         /// Sends the request. <see cref="HttpClient.Timeout"/> expiring surfaces as a <see cref="TaskCanceledException"/>,
-        /// the same type as the caller's own cancellation, so it is rethrown as the outage it is (mzLib #1350).
+        /// the same type as the caller's own cancellation, so it is rethrown as the outage it is (mzLib #1350). Only the
+        /// timeout carries a <see cref="TimeoutException"/>: a caller cancelling through an injected client's
+        /// <see cref="HttpClient.CancelPendingRequests"/> leaves the token untouched and stays a cancellation.
         /// </summary>
         private async Task<HttpResponseMessage> GetAsync(string requestUri, HttpCompletionOption completion, string what, CancellationToken cancellationToken)
         {
@@ -229,7 +231,7 @@ namespace UsefulProteomicsDatabases
             {
                 return await _httpClient.GetAsync(requestUri, completion, cancellationToken).ConfigureAwait(false);
             }
-            catch (TaskCanceledException e) when (!cancellationToken.IsCancellationRequested)
+            catch (TaskCanceledException e) when (e.InnerException is TimeoutException)
             {
                 throw new HttpRequestException($"The Europe PMC {what} request timed out.", e);
             }
