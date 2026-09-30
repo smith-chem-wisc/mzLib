@@ -47,6 +47,60 @@ namespace Test.FileReadingTests
         /// one apart), so a lysate whose first band was never uploaded must keep its bands' own numbers.
         /// Renumbering it from 1 would line its band 2 up with the other lysate's band 1 (MAP-34).
         /// </summary>
+        /// <summary>
+        /// PXD049018 writes the sample letter straight onto the word: <c>MSB67868ABand_01</c> is sample
+        /// MSB67868A, band 1. The word is still read, at the camel-case boundary.
+        /// </summary>
+        [Test]
+        public void ABandWordGluedToItsSampleIsStillAFraction()
+        {
+            var names = Names("MSB{0}ABand_{1:00}.raw", ("67868", 10), ("67869", 10));
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Select(f => f.Fraction), Is.EquivalentTo(Enumerable.Range(1, 10).Concat(Enumerable.Range(1, 10)).Select(i => (int?)i)));
+            Assert.That(Slot(s, SdrfFileNameRole.Fraction).Evidence, Does.Contain("'Band'"));
+        }
+
+        /// <summary>
+        /// A sample ID is neither a count nor a condition. MSB67868 and MSB67869 are contiguous, so
+        /// ranking them would make two unreplicated samples "replicates 1 and 2". And each ID is shared
+        /// only by its own sample's bands, so calling it a condition would invent a comparison.
+        /// </summary>
+        [Test]
+        public void ASampleIdRepeatedOnlyAcrossItsOwnBandsIsNeitherACountNorACondition()
+        {
+            var names = Names("MSB{0}_Band_{1:00}.raw", ("67868", 10), ("67869", 10));
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Files.Select(f => f.SampleKey).Distinct().Count(), Is.EqualTo(2), "20 files, 2 samples");
+            Assert.That(s.Slots.Select(x => x.Role), Has.No.Member(SdrfFileNameRole.Replicate), "an ID is not a count");
+            Assert.That(s.Slots.Select(x => x.Role), Has.No.Member(SdrfFileNameRole.Factor), "an ID is not a condition");
+        }
+
+        /// <summary>A WORD shared only across one sample's bands still states a condition.</summary>
+        [Test]
+        public void AWordRepeatedAcrossOneSamplesBandsIsStillACondition()
+        {
+            var names = Names("{0}_Band_{1:00}.raw", ("Control", 5), ("Treated", 5));
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(new[] { "Control", "Treated" }));
+        }
+
+        /// <summary><c>InGel</c> is an in-gel digestion, not a gel band (PXD004131).</summary>
+        [Test]
+        public void AnInGelDigestIsNotAGelBand()
+        {
+            var s = SdrfFileNamePattern.Read(Names("MCF7_InGel_{1:00}.raw", ("", 3)));
+
+            Assert.That(s.Slots.Select(x => x.Role), Has.No.Member(SdrfFileNameRole.Fraction));
+        }
+
         [Test]
         public void AMissingBandLeavesAGapAndDoesNotShiftTheOthers()
         {
@@ -228,6 +282,7 @@ namespace Test.FileReadingTests
         [TestCase("HP_C10", "HP_C10_rr")]
         [TestCase("Cat_1_long", "Cat_1_long2")]
         [TestCase("Run1_0_13C", "Run1_0_13C_2")]
+        [TestCase("C_Day14_1", "C_Day14_1R")]
         public void AReinjectionMarkerIsReadWhereverItStandsWhenTheUnmarkedNameExists(string first, string again)
         {
             var names = new[] { first, again, first.Replace("1", "9"), again.Replace("1", "9") }.Distinct().ToList();
