@@ -65,6 +65,22 @@ public static class IrtCalibration
         return model with { ResidualSd = InlierSd(Residuals(x, y, model)), AnchorCount = anchors.Count };
     }
 
+    /// <summary>
+    /// The straight line through two stated points, for a search's first pass before any anchors exist (for example, the
+    /// library's iRT range laid over the run's gradient). It has measured nothing, so its ResidualSd is NaN.
+    /// </summary>
+    /// <exception cref="ArgumentException">The points share a retention time, or iRT does not increase between them.</exception>
+    public static IrtCalibrationModel Line((RtMinutes Rt, Irt Irt) first, (RtMinutes Rt, Irt Irt) second)
+    {
+        double run = second.Rt.Value - first.Rt.Value;
+        if (!(run != 0) || !double.IsFinite(run))
+            throw new ArgumentException("The two points must be at different, finite retention times.");
+        double slope = (second.Irt.Value - first.Irt.Value) / run;
+        double intercept = first.Irt.Value - slope * first.Rt.Value;
+        var ordered = new[] { first.Rt.Value, second.Rt.Value }.Order().ToArray();
+        return LineModel(ordered, intercept, slope) with { ResidualSd = double.NaN, AnchorCount = 0 };
+    }
+
     private static IrtCalibrationModel FitLinear(double[] x, double[] y, double[] weights, int iterations)
     {
         var (intercept, slope) = WeightedLine(x, y, weights, 0, x.Length);
