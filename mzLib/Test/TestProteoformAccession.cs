@@ -9,9 +9,10 @@ using Proteomics;
 namespace Test
 {
     /// <summary>
-    /// A proteoform accession split into its entry and variant suffix, so a variant proteoform joins to
-    /// anything keyed by its entry. On a reviewed human proteome loaded with variants (52,359 proteins
-    /// from 20,416 entries), every variant proteoform's gene answer equals its entry's.
+    /// VariantApplication.ParseAccession, the inverse of GetAccession: an accession read back into its parent
+    /// entry and applied variants, so a variant proteoform links to anything stored per entry without losing
+    /// its variants. On a reviewed human proteome loaded with variants (52,359 proteins from 20,416 entries),
+    /// every variant proteoform's gene answer equals its entry's.
     /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -24,7 +25,7 @@ namespace Test
         [TestCase("A0A087X1C5_S70N", "A0A087X1C5", "S70N")]
         public void AVariantProteoformSplitsIntoItsEntry(string accession, string entry, string variants)
         {
-            var a = accession.ParseProteoformAccession();
+            var a = VariantApplication.ParseAccession(accession);
 
             Assert.That(a.Verbatim, Is.EqualTo(accession));
             Assert.That((a.Entry.EntryAccession, a.Entry.Namespace), Is.EqualTo((entry, AccessionNamespace.UniProt)));
@@ -35,7 +36,7 @@ namespace Test
         [Test]
         public void AnIsoformProteoformKeepsItsIsoform()
         {
-            var a = "P12345-2_S70N".ParseProteoformAccession();
+            var a = VariantApplication.ParseAccession("P12345-2_S70N");
 
             Assert.That((a.Entry.EntryAccession, a.Entry.Isoform, a.AppliedVariants), Is.EqualTo(("P12345", (int?)2, "S70N")));
             Assert.That(a.Entry.Verbatim, Is.EqualTo("P12345-2"));
@@ -45,18 +46,18 @@ namespace Test
         public void ARefSeqUnderscoreIsNotAVariantSuffix()
         {
             // "Text before the first _" would turn NP_000537 into NP.
-            var a = "NP_000537.3_R72P".ParseProteoformAccession();
+            var a = VariantApplication.ParseAccession("NP_000537.3_R72P");
             Assert.That((a.Entry.EntryAccession, a.Entry.Version, a.AppliedVariants, a.Entry.Namespace),
                 Is.EqualTo(("NP_000537", (int?)3, "R72P", AccessionNamespace.RefSeq)));
 
-            var plain = "NP_000537".ParseProteoformAccession();
+            var plain = VariantApplication.ParseAccession("NP_000537");
             Assert.That((plain.Entry.EntryAccession, plain.HasAppliedVariants), Is.EqualTo(("NP_000537", false)));
         }
 
         [Test]
         public void AnEntryIsItsOwnEntry_WithNoVariants()
         {
-            var a = "P12345-1".ParseProteoformAccession();
+            var a = VariantApplication.ParseAccession("P12345-1");
 
             Assert.That(a.Entry, Is.EqualTo("P12345-1".ParseProteinAccession()));
             Assert.That(a.AppliedVariants, Is.Null);
@@ -76,7 +77,7 @@ namespace Test
         [TestCase("")]
         public void ANameThatOnlyLooksLikeAProteoformIsUnrecognized_AndKeptVerbatim(string accession)
         {
-            var a = accession.ParseProteoformAccession();
+            var a = VariantApplication.ParseAccession(accession);
 
             Assert.That(a.Entry.Namespace, Is.EqualTo(AccessionNamespace.Unrecognized));
             Assert.That((a.Verbatim, a.Entry.EntryAccession), Is.EqualTo((accession, accession)));
@@ -86,7 +87,7 @@ namespace Test
         [Test]
         public void NullParsesAsUnrecognizedEmpty()
         {
-            var a = ((string)null).ParseProteoformAccession();
+            var a = VariantApplication.ParseAccession(null);
             Assert.That((a.Verbatim, a.Entry.Namespace, a.AppliedVariants),
                 Is.EqualTo(("", AccessionNamespace.Unrecognized, (string)null)));
         }
@@ -111,7 +112,7 @@ namespace Test
 
             foreach (var p in proteoforms)
             {
-                var a = p.Accession.ParseProteoformAccession();
+                var a = VariantApplication.ParseAccession(p.Accession);
                 Assert.That(a.Entry.EntryAccession, Is.EqualTo("P12345"), p.Accession);
                 Assert.That(a.AppliedVariants.Split('_'), Has.Length.EqualTo(p.AppliedSequenceVariations.Count), p.Accession);
             }
