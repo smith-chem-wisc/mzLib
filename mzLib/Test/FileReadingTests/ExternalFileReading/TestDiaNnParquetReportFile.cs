@@ -186,6 +186,84 @@ internal class TestDiaNnParquetReportFile
         Assert.That(e!.Message, Is.EqualTo("Parquet file type not supported"));
     }
 
+    /// <summary>
+    /// Precursor.Id and Stripped.Sequence alone are not enough. DIA-NN's matrix outputs carry them
+    /// too, so Run is required as well: detection must refuse the file, and a direct load must name
+    /// the missing column.
+    /// </summary>
+    [Test]
+    public async Task AParquetWithoutARunColumnIsNotADiaNnReport()
+    {
+        string path = Path.Combine(_outputDirectory, "no_run_column.parquet");
+        var schema = new ParquetSchema(new DataField<string>("Precursor.Id"), new DataField<string>("Stripped.Sequence"));
+        await using (var stream = File.Create(path))
+        await using (var writer = await ParquetWriter.CreateAsync(schema, stream))
+        using (var rowGroup = writer.CreateRowGroup())
+        {
+            await rowGroup.WriteAsync(schema.DataFields[0], new[] { "PEPTIDEK2" });
+            await rowGroup.WriteAsync(schema.DataFields[1], new[] { "PEPTIDEK" });
+        }
+
+        var detection = Assert.Throws<MzLibException>(() => path.ParseFileType());
+        Assert.That(detection!.Message, Is.EqualTo("Parquet file type not supported"));
+
+        var load = Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(path).LoadResults());
+        Assert.That(load!.Message, Does.Contain("missing column(s) Run"));
+    }
+
+    /// <summary>
+    /// Nulls in a DIA-NN column follow the same rule as absent columns: a nullable property reads
+    /// null, a non-nullable double reads NaN, and a present value in a nullable column still reads
+    /// through.
+    /// </summary>
+    [Test]
+    public async Task NullsInAReportReadAsNotReported()
+    {
+        string path = Path.Combine(_outputDirectory, "nullable_report.parquet");
+        var schema = new ParquetSchema(
+            new DataField<string>("Precursor.Id"),
+            new DataField<string>("Stripped.Sequence"),
+            new DataField<string>("Run"),
+            new DataField<long?>("Precursor.Charge"),
+            new DataField<float?>("Q.Value"),
+            new DataField<float?>("Genes.MaxLFQ"));
+        await using (var stream = File.Create(path))
+        await using (var writer = await ParquetWriter.CreateAsync(schema, stream))
+        using (var rowGroup = writer.CreateRowGroup())
+        {
+            await rowGroup.WriteAsync(schema.DataFields[0], new[] { "PEPTIDEK2" });
+            await rowGroup.WriteAsync(schema.DataFields[1], new[] { "PEPTIDEK" });
+            await rowGroup.WriteAsync(schema.DataFields[2], new[] { "run1" });
+            await rowGroup.WriteAsync<long>(schema.DataFields[3], new long?[] { 2 });
+            await rowGroup.WriteAsync<float>(schema.DataFields[4], new float?[] { null });
+            await rowGroup.WriteAsync<float>(schema.DataFields[5], new float?[] { null });
+        }
+
+        DiaNnPrecursor only = new DiaNnParquetReportFile(path).Single();
+
+        Assert.That(only.PrecursorCharge, Is.EqualTo(2));
+        Assert.That(only.QValue, Is.NaN);
+        Assert.That(only.GenesMaxLfq, Is.Null);
+    }
+
+    [Test]
+    public void DetectionRefusesAFileThatIsNotParquet()
+    {
+        string fakePath = Path.Combine(_outputDirectory, "text_named_like.parquet");
+        File.WriteAllText(fakePath, "Precursor.Id\tStripped.Sequence\tRun\n");
+
+        var e = Assert.Throws<MzLibException>(() => fakePath.ParseFileType());
+        Assert.That(e!.Message, Is.EqualTo("Parquet file type not supported"));
+    }
+
+    [Test]
+    public void DetectionOfAMissingFileThrowsFileNotFound()
+    {
+        string missing = Path.Combine(_outputDirectory, "missing_detection.parquet");
+
+        Assert.Throws<FileNotFoundException>(() => missing.ParseFileType());
+    }
+
     [Test]
     public void AFileThatIsNotParquetIsRefusedByName()
     {
