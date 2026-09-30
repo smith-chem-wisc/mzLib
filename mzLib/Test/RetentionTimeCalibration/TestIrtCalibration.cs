@@ -218,6 +218,30 @@ public class TestIrtCalibration
         Assert.Throws<ArgumentOutOfRangeException>(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(RobustnessIterations: -1)));
     }
 
+    /// <summary>The smallest legal values of each option are accepted, not only the defaults.</summary>
+    [Test]
+    public void TheSmallestLegalOptionsAreAccepted()
+    {
+        var anchors = Anchors(TrueIrt, 100, noiseSd: 0.5);
+
+        Assert.DoesNotThrow(() => IrtCalibration.Fit(anchors.Take(3).ToList(), new IrtCalibrationOptions(Kind: IrtCalibrationKind.Linear, MinimumAnchors: 3)));
+        Assert.DoesNotThrow(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(Knots: 3)));
+        Assert.DoesNotThrow(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(Bandwidth: 1)));
+        Assert.DoesNotThrow(() => IrtCalibration.Fit(anchors, new IrtCalibrationOptions(RobustnessIterations: 0)));
+    }
+
+    /// <summary>The first and last anchors are inside the fitted range; only beyond them is extrapolated.</summary>
+    [Test]
+    public void TheAnchorsThemselvesAreNotExtrapolated()
+    {
+        var model = IrtCalibration.Fit(Anchors(TrueIrt, 200, noiseSd: 0.5));
+
+        Assert.That(model.IsExtrapolated(model.FirstAnchor), Is.False);
+        Assert.That(model.IsExtrapolated(model.LastAnchor), Is.False);
+        Assert.That(model.IsExtrapolated(new RtMinutes(model.FirstAnchor.Value - 1e-9)), Is.True);
+        Assert.That(model.IsExtrapolated(new RtMinutes(model.LastAnchor.Value + 1e-9)), Is.True);
+    }
+
     [Test]
     public void TheModelReportsWhatItWasFittedOn()
     {
