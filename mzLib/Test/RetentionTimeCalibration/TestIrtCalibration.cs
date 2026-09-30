@@ -121,6 +121,51 @@ public class TestIrtCalibration
         Assert.That(model.IsExtrapolated(new RtMinutes(20)), Is.False);
     }
 
+    /// <summary>
+    /// An isocratic hold: for five minutes nothing elutes at a new iRT, so noisy local fits dip. The map must still be
+    /// increasing and invertible there.
+    /// </summary>
+    [Test]
+    public void AFlatStretchStillGivesAnIncreasingInvertibleMap()
+    {
+        Func<double, double> hold = rt => rt < 18 ? 4 * rt : rt < 23 ? 72 : 72 + 4 * (rt - 23);
+        var model = IrtCalibration.Fit(Anchors(hold, 1500, noiseSd: 3.0, seed: 5), new IrtCalibrationOptions(Knots: 200, Bandwidth: 0.05));
+
+        double previous = double.NegativeInfinity;
+        for (double rt = 1; rt <= 40; rt += 0.01)
+        {
+            double irt = model.ToIrt(new RtMinutes(rt)).Value;
+            Assert.That(irt, Is.GreaterThan(previous), $"increasing at {rt:F2} min");
+            Assert.That(model.ToRtMinutes(new Irt(irt)).Value, Is.EqualTo(rt).Within(1e-6));
+            previous = irt;
+        }
+    }
+
+    /// <summary>
+    /// A gradient that bends sharply, with wrong anchors clustered where it bends. Per-bin medians smear the bend, so
+    /// starting weights mistrust good anchors there. Robustness iterations re-weight against the fitted curve and recover it.
+    /// </summary>
+    [Test]
+    public void RobustnessIterationsRecoverASharpBendThatMediansSmear()
+    {
+        Func<double, double> bend = rt => rt < 20 ? 2 * rt : 40 + 9 * (rt - 20);
+        var anchors = Anchors(bend, 1500, noiseSd: 0.5, seed: 11);
+        var random = new Random(12);
+        for (int i = 0; i < 80; i++) // about 30% of the anchors in the bend: a local minority, as wrong IDs are
+        {
+            double rt = 18 + random.NextDouble() * 5;
+            anchors.Add((new RtMinutes(rt), new Irt(bend(rt) + 25 + 10 * random.NextDouble())));
+        }
+
+        double Error(int iterations) => Enumerable.Range(0, 60).Select(i => 17 + i * 0.1)
+            .Max(rt => Math.Abs(IrtCalibration.Fit(anchors, new IrtCalibrationOptions(Bandwidth: 0.1, RobustnessIterations: iterations))
+                .ToIrt(new RtMinutes(rt)).Value - bend(rt)));
+
+        double withoutIterations = Error(0), withIterations = Error(3);
+        Assert.That(withIterations, Is.LessThan(withoutIterations), $"iterations must help: {withIterations:F2} vs {withoutIterations:F2}");
+        Assert.That(withIterations, Is.LessThan(4.0));
+    }
+
     [Test]
     public void TheFitDoesNotDependOnAnchorOrder()
     {
@@ -182,6 +227,30 @@ public class TestIrtCalibration
         Assert.That(model.Kind, Is.EqualTo(IrtCalibrationKind.Lowess));
         Assert.That(model.FirstAnchor.Value, Is.InRange(2, 2.5));
         Assert.That(model.LastAnchor.Value, Is.InRange(37.5, 38));
+    }
+
+    /// <summary>
+    /// Before any anchors exist, a search needs a provisional map: the straight line through two known points (for example,
+    /// the library's iRT range laid over the run's gradient).
+    /// </summary>
+    [Test]
+    public void AProvisionalLineRunsThroughItsTwoPoints()
+    {
+        var line = IrtCalibration.Line((new RtMinutes(2), new Irt(-10)), (new RtMinutes(42), new Irt(110)));
+
+        Assert.That(line.ToIrt(new RtMinutes(2)).Value, Is.EqualTo(-10).Within(1e-12));
+        Assert.That(line.ToIrt(new RtMinutes(22)).Value, Is.EqualTo(50).Within(1e-12));
+        Assert.That(line.ToRtMinutes(new Irt(170)).Value, Is.EqualTo(62).Within(1e-12));
+        Assert.That(line.Kind, Is.EqualTo(IrtCalibrationKind.Linear));
+        Assert.That(line.AnchorCount, Is.Zero);
+        Assert.That(line.ResidualSd, Is.NaN, "a line through two stated points has measured nothing");
+    }
+
+    [Test]
+    public void AProvisionalLineMustIncrease()
+    {
+        Assert.Throws<ArgumentException>(() => IrtCalibration.Line((new RtMinutes(2), new Irt(50)), (new RtMinutes(42), new Irt(10))));
+        Assert.Throws<ArgumentException>(() => IrtCalibration.Line((new RtMinutes(2), new Irt(10)), (new RtMinutes(2), new Irt(50))));
     }
 
     /// <summary>iRT and run minutes are different quantities; only a calibration model converts between them.</summary>
