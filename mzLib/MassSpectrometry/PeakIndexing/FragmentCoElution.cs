@@ -15,11 +15,97 @@ namespace MassSpectrometry
     /// </summary>
     public static class FragmentCoElution
     {
-        public static double[] Smooth(IReadOnlyList<double> trace) => throw new NotImplementedException();
+        /// <summary>
+        /// Smooths a trace with weights 0.25/0.5/0.25. An end point uses the one neighbour it has, renormalized (2/3, 1/3),
+        /// so a peak at the edge is not pulled toward zero.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="trace"/> is null.</exception>
+        public static double[] Smooth(IReadOnlyList<double> trace)
+        {
+            ArgumentNullException.ThrowIfNull(trace);
+            int n = trace.Count;
+            var smoothed = new double[n];
+            if (n == 1)
+                smoothed[0] = trace[0];
+            for (int i = 0; i < n && n > 1; i++)
+            {
+                if (i == 0)
+                    smoothed[i] = (0.5 * trace[0] + 0.25 * trace[1]) / 0.75;
+                else if (i == n - 1)
+                    smoothed[i] = (0.5 * trace[i] + 0.25 * trace[i - 1]) / 0.75;
+                else
+                    smoothed[i] = 0.25 * trace[i - 1] + 0.5 * trace[i] + 0.25 * trace[i + 1];
+            }
+            return smoothed;
+        }
 
-        public static int BestFragment(IReadOnlyList<double[]> traces, int from, int to) => throw new NotImplementedException();
+        /// <summary>
+        /// The fragment whose trace, over scans <paramref name="from"/> to <paramref name="to"/>, has the largest summed
+        /// Pearson correlation with the other fragments (negative or undefined correlations count as 0). Its smoothed
+        /// trace makes a robust elution profile to score the others against (<see cref="CorrelationsTo"/>): one reliable
+        /// fragment is harder to corrupt than an average that an interfered fragment drags along. Ties go to the lower index.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="traces"/> is null.</exception>
+        /// <exception cref="ArgumentException">There are no traces, or they differ in length.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The range is empty or outside the traces.</exception>
+        public static int BestFragment(IReadOnlyList<double[]> traces, int from, int to)
+        {
+            int length = ValidateTraces(traces);
+            if (traces.Count == 0)
+                throw new ArgumentException("There are no fragment traces.", nameof(traces));
+            CheckRange(from, to, length);
 
-        public static double[] CorrelationsTo(IReadOnlyList<double[]> traces, IReadOnlyList<double> reference, int from, int to) => throw new NotImplementedException();
+            int best = 0;
+            double bestSum = double.NegativeInfinity;
+            for (int f = 0; f < traces.Count; f++)
+            {
+                double sum = 0;
+                for (int g = 0; g < traces.Count; g++)
+                    if (g != f)
+                        sum += ClippedPearson(traces[f], traces[g], from, to);
+                if (sum > bestSum)
+                {
+                    bestSum = sum;
+                    best = f;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// Each fragment's Pearson correlation with <paramref name="reference"/> over scans <paramref name="from"/> to
+        /// <paramref name="to"/>, in trace order. Negative correlations, and flat or silent traces, count as 0.
+        /// </summary>
+        /// <exception cref="ArgumentNullException">An argument is null.</exception>
+        /// <exception cref="ArgumentException">A trace and the reference differ in length.</exception>
+        /// <exception cref="ArgumentOutOfRangeException">The range is empty or outside the traces.</exception>
+        public static double[] CorrelationsTo(IReadOnlyList<double[]> traces, IReadOnlyList<double> reference, int from, int to)
+        {
+            int length = ValidateTraces(traces);
+            ArgumentNullException.ThrowIfNull(reference);
+            if (traces.Count > 0 && reference.Count != length)
+                throw new ArgumentException($"The reference has {reference.Count} scans but the traces have {length}.", nameof(reference));
+            CheckRange(from, to, reference.Count);
+
+            var referenceArray = reference as double[] ?? reference.ToArray();
+            return traces.Select(trace => ClippedPearson(trace, referenceArray, from, to)).ToArray();
+        }
+
+        private static void CheckRange(int from, int to, int length)
+        {
+            if (from < 0 || to >= length || from > to)
+                throw new ArgumentOutOfRangeException(nameof(from), $"Scan range [{from}, {to}] is not within the traces' {length} scans.");
+        }
+
+        /// <summary>Pearson over [from, to]; negative, flat or undefined counts as 0.</summary>
+        private static double ClippedPearson(double[] a, double[] b, int from, int to)
+        {
+            int points = to - from + 1;
+            if (points < 2)
+                return 0;
+            double r = Correlation.Pearson(a.Skip(from).Take(points), b.Skip(from).Take(points));
+            return double.IsFinite(r) && r > 0 ? r : 0;
+        }
 
         /// <summary>
         /// Mean, over fragments, of the Pearson correlation between each fragment's trace and the sum of the other
