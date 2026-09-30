@@ -3,7 +3,9 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using FlashLFQ;
+using MassSpectrometry;
 using MzLibUtil;
 using NUnit.Framework;
 using Parquet;
@@ -65,11 +67,13 @@ internal class TestDiaNnParquetReportFile
     /// must drop them.
     /// </summary>
     [Test]
-    public void DecoyRowsAreNotLoaded()
+    public async Task DecoyRowsAreNotLoaded()
     {
-        long rowsInFile;
-        using (var reader = ParquetReader.CreateAsync(TestFilePath).GetAwaiter().GetResult())
-            rowsInFile = Enumerable.Range(0, reader.RowGroupCount).Sum(i => reader.OpenRowGroupReader(i).RowCount);
+        long rowsInFile = 0;
+        await using (var reader = await ParquetReader.CreateAsync(TestFilePath))
+            for (int i = 0; i < reader.RowGroupCount; i++)
+                using (var rowGroup = reader.OpenRowGroupReader(i))
+                    rowsInFile += rowGroup.RowCount;
         Assert.That(rowsInFile, Is.EqualTo(RowsInFile), "the fixture must still hold its decoys for this test to mean anything");
 
         var file = new DiaNnParquetReportFile(TestFilePath);
@@ -166,16 +170,16 @@ internal class TestDiaNnParquetReportFile
     }
 
     [Test]
-    public void AParquetFromAnotherToolIsRefused()
+    public async Task AParquetFromAnotherToolIsRefused()
     {
         string otherPath = Path.Combine(_outputDirectory, "not_diann.parquet");
         var schema = new ParquetSchema(new DataField<int>("id"), new DataField<string>("name"));
-        using (var stream = File.Create(otherPath))
-        using (var writer = ParquetWriter.CreateAsync(schema, stream).GetAwaiter().GetResult())
+        await using (var stream = File.Create(otherPath))
+        await using (var writer = await ParquetWriter.CreateAsync(schema, stream))
         using (var rowGroup = writer.CreateRowGroup())
         {
-            rowGroup.WriteAsync(schema.DataFields[0], new[] { 1 }).GetAwaiter().GetResult();
-            rowGroup.WriteAsync(schema.DataFields[1], new[] { "a" }).GetAwaiter().GetResult();
+            await rowGroup.WriteAsync<int>(schema.DataFields[0], new[] { 1 });
+            await rowGroup.WriteAsync(schema.DataFields[1], new[] { "a" });
         }
 
         var e = Assert.Throws<MzLibException>(() => otherPath.ParseFileType());
