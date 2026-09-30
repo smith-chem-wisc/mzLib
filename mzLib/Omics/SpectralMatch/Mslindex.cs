@@ -79,9 +79,20 @@ public readonly struct MslPrecursorIndexEntry : IComparable<MslPrecursorIndexEnt
 
 	/// <summary>
 	/// Packed flags byte (1 byte). Bits 0–1 encode <see cref="MslFormat.MoleculeType"/>;
-	/// bits 2–7 are reserved for future use and must be written as zero.
+	/// bit 2 is the entrapment flag (see <see cref="IsEntrapment"/>);
+	/// bits 3–7 are reserved for future use and must be written as zero.
 	/// </summary>
 	public readonly byte Flags;
+
+	/// <summary>Bit of <see cref="Flags"/> that marks an entrapment precursor.</summary>
+	public const byte FlagIsEntrapment = 0b_0000_0100;
+
+	/// <summary>
+	/// True for entrapment precursors. Unlike decoys, entrapment precursors are NOT filtered by
+	/// <see cref="MslIndex.QueryWindow"/>'s <c>includeDecoys</c> switch: they compete as targets,
+	/// and callers separate them when estimating the false discovery proportion.
+	/// </summary>
+	public bool IsEntrapment => (Flags & FlagIsEntrapment) != 0;
 
 	// ── Constructor ──────────────────────────────────────────────────────
 
@@ -575,7 +586,8 @@ public sealed class MslIndex : IDisposable
 				elutionGroupId: e.ElutionGroupId,
 				charge: (short)e.ChargeState,
 				isDecoy: (byte)(e.IsDecoy ? 1 : 0),
-				flags: (byte)((int)e.MoleculeType & 0x03));
+				flags: (byte)(((int)e.MoleculeType & 0x03)
+							  | (e.IsEntrapment ? MslPrecursorIndexEntry.FlagIsEntrapment : 0)));
 		}
 
 		return new MslIndex(raw, loader, deferSeqChargeIndex: deferSeqChargeIndex);

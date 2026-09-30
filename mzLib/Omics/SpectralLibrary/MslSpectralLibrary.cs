@@ -221,12 +221,16 @@ public static class MslFormat
 	// ──────────────────────────────────────────────────────────────────────
 	// bit 0     : is_decoy
 	// bit 1     : is_proteotypic
-	// bit 2     : rt_is_calibrated – 0 = stored as iRT; 1 = run-specific RT in minutes
-	// bits 3–7  : reserved
+	// bit 2     : rt_is_calibrated – 0 = the RT field holds iRT; 1 = run-specific RT in minutes
+	// bit 3     : is_entrapment    – entrapment precursor (with bit 0: 00 = T, 01 = D, 10 = ET, 11 = ED);
+	//                                readers that predate this bit ignore it and see a target/decoy by bit 0,
+	//                                so it was added without a format-version bump
+	// bits 4–7  : reserved         – must be written as 0; ignored on read
 
 	private const byte PrecFlagIsDecoy = 0b_0000_0001;
 	private const byte PrecFlagIsProteotypic = 0b_0000_0010;
 	private const byte PrecFlagRtCalibrated = 0b_0000_0100;
+	private const byte PrecFlagIsEntrapment = 0b_0000_1000;
 
 	// ──────────────────────────────────────────────────────────────────────
 	// File-level flags int32 layout (bytes 8–11 of file header)
@@ -405,6 +409,21 @@ public static class MslFormat
 	/// </param>
 	/// <returns>A single byte with bits set according to the parameters above.</returns>
 	public static byte EncodePrecursorFlags(bool isDecoy, bool isProteotypic, bool rtCalibrated)
+		=> EncodePrecursorFlags(isDecoy, isProteotypic, rtCalibrated, isEntrapment: false);
+
+	/// <summary>
+	/// Encodes the precursor flags byte including the entrapment bit (bit 3).
+	/// See <see cref="EncodePrecursorFlags(bool, bool, bool)"/> for bits 0–2.
+	/// </summary>
+	/// <param name="isDecoy">Sets bit 0.</param>
+	/// <param name="isProteotypic">Sets bit 1.</param>
+	/// <param name="rtCalibrated">Sets bit 2 (the RT field holds run-specific minutes, not iRT).</param>
+	/// <param name="isEntrapment">
+	///   True for entrapment precursors. Sets bit 3. Combined with bit 0 this encodes the
+	///   T / D / ET / ED target-decoy-entrapment label.
+	/// </param>
+	/// <returns>A single byte with bits set according to the parameters above.</returns>
+	public static byte EncodePrecursorFlags(bool isDecoy, bool isProteotypic, bool rtCalibrated, bool isEntrapment)
 	{
 		// Build the flag byte by ORing individual bit constants
 		byte result = 0;
@@ -417,6 +436,9 @@ public static class MslFormat
 
 		if (rtCalibrated)
 			result |= PrecFlagRtCalibrated;
+
+		if (isEntrapment)
+			result |= PrecFlagIsEntrapment;
 
 		return result;
 	}
@@ -446,6 +468,13 @@ public static class MslFormat
 
 		return (isDecoy, isProteotypic, rtCalibrated);
 	}
+
+	/// <summary>
+	/// Returns true when the entrapment bit (bit 3) of a precursor flags byte is set.
+	/// Kept separate from <see cref="DecodePrecursorFlags"/> so that method's tuple shape is unchanged.
+	/// </summary>
+	/// <param name="flags">The raw precursor flags byte read from offset 54 of an MslPrecursorRecord.</param>
+	public static bool DecodeIsEntrapment(byte flags) => (flags & PrecFlagIsEntrapment) != 0;
 
 	/// <summary>
 	/// Maps a neutral-loss mass in daltons to the nearest named

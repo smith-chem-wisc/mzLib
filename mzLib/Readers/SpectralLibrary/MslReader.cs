@@ -886,8 +886,9 @@ public static class MslReader
 		MslProteinRecord[] proteins,
 		List<MslFragmentIon> fragments)
 	{
-		// Decode the single flags byte into three named Booleans
-		var (isDecoy, isProteotypic, _) = MslFormat.DecodePrecursorFlags(p.PrecursorFlags);
+		// Decode the single flags byte into its named Booleans
+		var (isDecoy, isProteotypic, rtCalibrated) = MslFormat.DecodePrecursorFlags(p.PrecursorFlags);
+		bool isEntrapment = MslFormat.DecodeIsEntrapment(p.PrecursorFlags);
 
 		// Resolve the optional protein record (ProteinIdx == -1 means no protein)
 		bool hasProtein = p.ProteinIdx >= 0 && p.ProteinIdx < proteins.Length;
@@ -902,8 +903,10 @@ public static class MslReader
 			// short → int: explicit cast required (no implicit narrowing in C#)
 			ChargeState = (int)p.Charge,
 			RetentionTime = p.Irt,
+			RtIsCalibrated = rtCalibrated,
 			IonMobility = p.IonMobility,
 			IsDecoy = isDecoy,
+			IsEntrapment = isEntrapment,
 			IsProteotypic = isProteotypic,
 			QValue = p.QValue,
 			ElutionGroupId = p.ElutionGroupId,
