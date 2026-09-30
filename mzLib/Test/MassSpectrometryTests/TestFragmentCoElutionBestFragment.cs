@@ -111,6 +111,27 @@ public class TestFragmentCoElutionBestFragment
         Assert.That(apexes[0], Is.EqualTo(20));
         Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(traces, library, 3, maxCount: 0));
     }
+    /// <summary>
+    /// The per-scan apex score is public, so a caller can judge how much the best peak stands out from the rest of the
+    /// window. FindApex is its arg-max, and a scan without signal scores 0.
+    /// </summary>
+    [Test]
+    public void ApexScoresArePerScanAndFindApexIsTheirMaximum()
+    {
+        double[] library = [1.0, 0.6, 0.3];
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => s < 5 ? 0 : l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 30) / 2.0, 2)) + 200 * Math.Exp(-0.5 * Math.Pow((s - 10) / 2.0, 2)))).ToArray()).ToList();
+
+        double[] scores = FragmentCoElution.ApexScores(traces, library, 3);
+
+        Assert.That(scores, Has.Length.EqualTo(41));
+        Assert.That(scores.Take(5), Is.All.EqualTo(0), "no signal, no score");
+        int argMax = Array.IndexOf(scores, scores.Max());
+        Assert.That(argMax, Is.EqualTo(FragmentCoElution.FindApex(traces, library, 3)));
+        Assert.That(scores[30], Is.GreaterThan(scores[10]));
+        Assert.Throws<ArgumentException>(() => FragmentCoElution.ApexScores(traces, [1.0], 3));
+    }
+
     [Test]
     public void ArgumentsAreChecked()
     {

@@ -233,7 +233,23 @@ namespace MassSpectrometry
             return true;
         }
 
-        /// <summary>The apex score of every scan: cosine to the library × co-elution around it × log(1 + signal); 0 without signal.</summary>
+        /// <summary>
+        /// The apex score of every scan (see <see cref="FindApex"/>): cosine to the library × co-elution around it ×
+        /// log(1 + signal), and 0 without signal. It lets a caller judge how far the best peak stands out from the rest of
+        /// the window, as PECAN's deltaSn or a z-score does.
+        /// </summary>
+        /// <exception cref="ArgumentException">The traces differ in length, or there is not one library intensity per trace.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="halfWidth"/> is negative.</exception>
+        public static double[] ApexScores(IReadOnlyList<double[]> traces, IReadOnlyList<double> libraryIntensities, int halfWidth)
+        {
+            int length = ValidateTraces(traces);
+            ArgumentNullException.ThrowIfNull(libraryIntensities);
+            if (libraryIntensities.Count != traces.Count)
+                throw new ArgumentException("There must be one library intensity per fragment trace.", nameof(libraryIntensities));
+            ArgumentOutOfRangeException.ThrowIfNegative(halfWidth);
+            return ApexScores(traces, libraryIntensities.ToArray(), halfWidth, length);
+        }
+
         private static double[] ApexScores(IReadOnlyList<double[]> traces, double[] library, int halfWidth, int length)
         {
             var values = new double[length];
