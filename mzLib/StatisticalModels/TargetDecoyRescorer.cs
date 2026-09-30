@@ -98,7 +98,8 @@ namespace StatisticalModels
                 if (test.Length == 0)
                     continue;
 
-                Func<double[], double> scorer = BestSingleFeature(features, isDecoy, train, positiveQValue);
+                var seed = BestSingleFeature(features, isDecoy, train, positiveQValue);
+                Func<double[], double> scorer = x => seed.Sign * x[seed.Feature];
                 bool trained = false;
                 for (int iteration = 0; iteration < iterations; iteration++)
                 {
@@ -144,7 +145,7 @@ namespace StatisticalModels
         /// Groups sorted by key (ordinal) and dealt round-robin, so a group stays whole and the assignment depends only on the
         /// keys, never on the labels or the row order.
         /// </summary>
-        private static int[] AssignFolds(IReadOnlyList<string> groupKeys, int folds)
+        internal static int[] AssignFolds(IReadOnlyList<string> groupKeys, int folds)
         {
             var foldOfGroup = groupKeys.Distinct().Order(StringComparer.Ordinal)
                 .Select((key, index) => (key, index))
@@ -163,7 +164,7 @@ namespace StatisticalModels
         /// seeds a first model, as Percolator and mokapot do. It affects only which training rows are positives; the reported
         /// q-values are the caller's.
         /// </summary>
-        private static double TrainingCutoff(double[] q, bool[] isDecoy, double requested)
+        internal static double TrainingCutoff(double[] q, bool[] isDecoy, double requested)
         {
             int Passing(double cutoff) => Enumerable.Range(0, q.Length).Count(t => !isDecoy[t] && q[t] <= cutoff);
             if (Passing(requested) >= MinimumPositives)
@@ -180,7 +181,7 @@ namespace StatisticalModels
         /// passes anywhere, go to the larger standardized target-minus-decoy mean difference. That difference always carries the
         /// right sign, so a direction is never chosen by the order the features happen to be in.
         /// </summary>
-        private static Func<double[], double> BestSingleFeature(IReadOnlyList<double[]> features, IReadOnlyList<bool> isDecoy, int[] train, double cutoff)
+        internal static (int Feature, int Sign) BestSingleFeature(IReadOnlyList<double[]> features, IReadOnlyList<bool> isDecoy, int[] train, double cutoff)
         {
             bool[] decoy = train.Select(i => isDecoy[i]).ToArray();
             int p = features.Count == 0 ? 0 : features[0].Length;
@@ -201,11 +202,11 @@ namespace StatisticalModels
                 .ThenByDescending(k => k.Separation)
                 .ThenBy(k => k.Feature).ThenByDescending(k => k.Sign)
                 .First();
-            return x => best.Sign * x[best.Feature];
+            return (best.Feature, best.Sign);
         }
 
         /// <summary>(mean of targets − mean of decoys) / pooled SD; 0 when either class is missing or the feature is constant.</summary>
-        private static double StandardizedMeanDifference(double[] values, bool[] isDecoy)
+        internal static double StandardizedMeanDifference(double[] values, bool[] isDecoy)
         {
             double[] targets = values.Where((_, t) => !isDecoy[t]).ToArray();
             double[] decoys = values.Where((_, t) => isDecoy[t]).ToArray();
