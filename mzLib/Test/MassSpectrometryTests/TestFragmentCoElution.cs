@@ -189,6 +189,85 @@ public class TestFragmentCoElution
         Assert.That(FragmentCoElution.FindApex(traces, [1.0, 0.5, 0.2], halfWidth: 3), Is.EqualTo(-1));
     }
 
+    /// <summary>Exactly how much a missing fragment costs: with six fragments and one silent, the score is five sixths.</summary>
+    [Test]
+    public void AMissingFragmentCostsExactlyItsShare()
+    {
+        var traces = new[] { 1.0, 0.8, 0.6, 0.5, 0.3 }.Select(h => Gaussian(20, 1000 * h)).Append(new double[Scans]).ToArray();
+
+        Assert.That(FragmentCoElution.Score(traces, 14, 26), Is.EqualTo(5.0 / 6).Within(0.01));
+    }
+
+    [Test]
+    public void TwoCoElutingFragmentsAreEnough()
+    {
+        Assert.That(FragmentCoElution.Score([Gaussian(20, 1000), Gaussian(20, 300)], 14, 26), Is.GreaterThan(0.99));
+    }
+
+    [Test]
+    public void ThreeScansAreEnoughAndOneIsNot()
+    {
+        double[] a = [1, 3, 1], b = [2, 6, 2];
+
+        Assert.That(FragmentCoElution.Score([a, b], 0, 2), Is.EqualTo(1).Within(1e-12));
+        Assert.That(FragmentCoElution.Score([a, b], 1, 1), Is.EqualTo(0), "a single scan has no elution profile");
+    }
+
+    [Test]
+    public void TheScoreIsNeverNegative()
+    {
+        // Two fragments that anti-correlate
+        Assert.That(FragmentCoElution.Score([Gaussian(10, 1000), Gaussian(30, 1000)], 0, Scans - 1), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void ArgumentsAreChecked()
+    {
+        var traces = new[] { Gaussian(20, 1), Gaussian(20, 1) };
+
+        Assert.That(Assert.Throws<ArgumentNullException>(() => FragmentCoElution.Score(null!, 0, 1))!.ParamName, Is.EqualTo("traces"));
+        Assert.That(Assert.Throws<ArgumentNullException>(() => FragmentCoElution.FindApex(traces, null!, 2))!.ParamName, Is.EqualTo("libraryIntensities"));
+        Assert.Throws<ArgumentException>(() => FragmentCoElution.FindApex(traces, [1.0], 2));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApex(traces, [1.0, 1.0], -1));
+        Assert.That(Assert.Throws<ArgumentNullException>(() => FragmentCoElution.PeakBounds(null!, 0))!.ParamName, Is.EqualTo("trace"));
+        Assert.That(Assert.Throws<ArgumentNullException>(() => FragmentCoElution.TopIndices(null!, 1))!.ParamName, Is.EqualTo("values"));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.TopIndices([1.0], -1));
+    }
+
+    /// <summary>Signal on one fragment alone does not co-elute with anything, so it is no apex.</summary>
+    [Test]
+    public void ASpikeOnOneFragmentAloneIsNoApex()
+    {
+        var traces = new[] { Spike(12, 5000), new double[Scans], new double[Scans] };
+
+        Assert.That(FragmentCoElution.FindApex(traces, [1.0, 0.5, 0.2], halfWidth: 3), Is.EqualTo(-1));
+    }
+
+    [Test]
+    public void PeakBoundsFindTheValleyOnTheRightToo()
+    {
+        var trace = Gaussian(12, 1000).Zip(Gaussian(28, 800), (a, b) => a + b).ToArray();
+
+        var (start, end) = FragmentCoElution.PeakBounds(trace, 12);
+        int valley = ExtractedIonChromatogram.FindPeakBoundaries(AsPeaks(trace), 12).Single(b => b.ZeroBasedScanIndex > 12).ZeroBasedScanIndex;
+
+        Assert.That(start, Is.EqualTo(0));
+        Assert.That(valley, Is.InRange(15, 25), "the valley lies between the two peaks");
+        Assert.That(end, Is.EqualTo(valley - 1), "the peak ends just inside the valley");
+    }
+
+    [Test]
+    public void PeakBoundsAcceptAnApexAtTheFirstScan()
+    {
+        Assert.That(FragmentCoElution.PeakBounds(Gaussian(0, 1000), 0).Start, Is.EqualTo(0));
+    }
+
+    [Test]
+    public void TopIndicesBreakTiesByEarlierIndex()
+    {
+        Assert.That(FragmentCoElution.TopIndices([1.0, 0.5, 0.5], 2), Is.EqualTo(new[] { 0, 1 }));
+    }
+
     [Test]
     public void TopIndicesAreTheLargestInOriginalOrder()
     {
