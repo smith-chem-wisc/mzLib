@@ -46,6 +46,13 @@
     <ProjectReference Include="..\Transcriptomics\Transcriptomics.csproj" />
     <ProjectReference Include="..\UsefulProteomicsDatabases\UsefulProteomicsDatabases.csproj" />
     <ProjectReference Include="..\Quantification\Quantification.csproj" />
+    <ProjectReference Include="..\StatisticalModels\StatisticalModels.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="StatisticalModels\ReferenceData\*.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -428,6 +435,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\match_output_Lumos_Orbi.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\SdrfDraftFixtures\**\*">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\TmtChannelLevel.sdrf.tsv">
