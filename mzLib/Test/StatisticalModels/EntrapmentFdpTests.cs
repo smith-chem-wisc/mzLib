@@ -221,11 +221,20 @@ public class EntrapmentFdpTests
         Assert.Throws<ArgumentOutOfRangeException>(() => EntrapmentFdp.Sweep(Targets, Entrapments, r, [0.01]));
     }
 
+    /// <summary>
+    /// A bad r is refused up front, not only when some threshold has discoveries to estimate.
+    /// </summary>
+    [Test]
+    public void ABadRatioIsRefusedEvenWhenNothingIsDiscovered()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => EntrapmentFdp.Sweep(Targets, Entrapments, 0.0, [0.0001]));
+    }
+
     [Test]
     public void NullInputsThrow()
     {
-        Assert.Throws<ArgumentNullException>(() => EntrapmentFdp.Sweep(null!, Entrapments, 1.0, [0.01]));
-        Assert.Throws<ArgumentNullException>(() => EntrapmentFdp.Sweep(Targets, null!, 1.0, [0.01]));
-        Assert.Throws<ArgumentNullException>(() => EntrapmentFdp.Sweep(Targets, Entrapments, 1.0, null!));
+        Assert.That(Assert.Throws<ArgumentNullException>(() => EntrapmentFdp.Sweep(null!, Entrapments, 1.0, [0.01]))!.ParamName, Is.EqualTo("targets"));
+        Assert.That(Assert.Throws<ArgumentNullException>(() => EntrapmentFdp.Sweep(Targets, null!, 1.0, [0.01]))!.ParamName, Is.EqualTo("entrapments"));
+        Assert.That(Assert.Throws<ArgumentNullException>(() => EntrapmentFdp.Sweep(Targets, Entrapments, 1.0, null!))!.ParamName, Is.EqualTo("qValueThresholds"));
     }
 }
