@@ -49,6 +49,9 @@ namespace Readers
         private const string SourceName = "source name";
         private const string RowSource = "comment[characteristics source]";
         private const string BiologicalReplicate = "characteristics[biological replicate]";
+        private const string AssayName = "assay name";
+        private const string TechnologyType = "technology type";
+        private const string TechnologyTypeValue = "proteomic profiling by mass spectrometry";
 
         private sealed record Target(string Column, string Name, bool PerFile, bool Characteristic, Func<SdrfDraftRow, SdrfDraftCell> Cell);
 
@@ -91,7 +94,10 @@ namespace Readers
             int addedColumns = 0, filled = 0;
             var disagreements = new List<SdrfDisagreement>();
 
-            int Col(string name) => header.IndexOf(name);
+            // A column the depositor wrote in other casing (Source Name, Characteristics[organism]) is still that
+            // column: filled in place, never shadowed by a lowercase copy the validator and joins would read
+            // instead. Its spelling is kept, so the validator's casing hint still reaches the curator.
+            int Col(string name) => IndexOf(header, name);
             int Ensure(string name)
             {
                 int at = Col(name);
@@ -164,6 +170,31 @@ namespace Readers
                     if (!draftByStem.TryGetValue(StemOf(r), out var d) || Multiplexed(r)) continue;
                     for (int k = 0; k < draft.FactorColumns.Count; k++)
                         if (d.Factors[k].Source != SdrfDraftSource.NotAvailable) { r[Col(draft.FactorColumns[k])] = d.Factors[k].Value; filled++; }
+                }
+            }
+
+            // ---- every column the specification requires (G29) ----
+            // A deposit missing one is not improved where it most visibly could be. Added in its block,
+            // "not available" on every row -- except technology type, whose one specified value every
+            // mass-spectrometry deposit has. Added before the drafted rows, so they carry it too.
+            foreach (var required in SdrfValidator.RequiredColumns.Where(c => Col(c) < 0))
+            {
+                int at = Ensure(required);
+                foreach (var r in rows) r[at] = required == TechnologyType ? TechnologyTypeValue : SdrfReserved.NotAvailable;
+                // Except assay name: once it exists the validator checks row keys, and one "not available" on
+                // every row would make two fractions of one sample one key. It is the run's name, per file, as
+                // a drafted row gets it; a stem two files share falls back to the file name.
+                if (required == AssayName)
+                {
+                    var runOf = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    var used = new HashSet<string>(StringComparer.Ordinal);
+                    foreach (var r in rows)
+                    {
+                        string file = r[Col(DataFile)];
+                        if (!runOf.TryGetValue(file, out var run))
+                            runOf[file] = run = used.Add("run " + SdrfFileNamePattern.Stem(file)) ? "run " + SdrfFileNamePattern.Stem(file) : "run " + file;
+                        r[at] = run;
+                    }
                 }
             }
 
@@ -261,12 +292,32 @@ namespace Readers
             return string.Equals(name, drafted.Value, StringComparison.OrdinalIgnoreCase);
         }
 
+        /// <summary>A column by its exact name, else in any casing (a depositor's Assay Name is still assay name).</summary>
+        private static int IndexOf(List<string> header, string name)
+        {
+            int exact = header.IndexOf(name);
+            return exact >= 0 ? exact : header.FindIndex(h => string.Equals(h, name, StringComparison.OrdinalIgnoreCase));
+        }
+
         /// <summary>Where a new column belongs: a characteristic before the biological replicate, a comment before the factors.</summary>
         private static int InsertAt(List<string> header, string name)
         {
+            // The order SdrfBuilder writes: source name, characteristics..., biological replicate, assay name,
+            // technology type, the comment block, the factors.
+            if (name == SourceName) return 0;
+            if (name == AssayName)
+            {
+                int lastCharacteristic = header.FindLastIndex(h => h.StartsWith("characteristics[", StringComparison.OrdinalIgnoreCase));
+                return lastCharacteristic >= 0 ? lastCharacteristic + 1 : Math.Min(1, header.Count);
+            }
+            if (name == TechnologyType)
+            {
+                int assay = IndexOf(header, AssayName);
+                if (assay >= 0) return assay + 1;
+            }
             if (name.StartsWith("characteristics[", StringComparison.OrdinalIgnoreCase))
             {
-                int bio = header.IndexOf(BiologicalReplicate);
+                int bio = IndexOf(header, BiologicalReplicate);
                 if (bio >= 0 && name != BiologicalReplicate) return bio;
                 int last = header.FindLastIndex(h => h.StartsWith("characteristics[", StringComparison.OrdinalIgnoreCase));
                 return last >= 0 ? last + 1 : Math.Min(1, header.Count);

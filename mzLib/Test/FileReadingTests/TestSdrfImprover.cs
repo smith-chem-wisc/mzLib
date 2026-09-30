@@ -216,6 +216,96 @@ namespace Test.FileReadingTests
             Assert.That(SdrfValidator.Validate(i.Document).Errors.Where(e => e.Rule == "RowKeyUniqueness"), Is.Empty);
         }
 
+        /// <summary>
+        /// G29, found by the draft -> improve -> restrict chain: a deposit missing columns the specification
+        /// requires stayed missing them. They are added, filled "not available" -- except technology type,
+        /// whose one specified value every mass-spectrometry deposit has.
+        /// </summary>
+        [Test]
+        public void EveryRequiredColumnIsPresentAfterImprovement()
+        {
+            var cols = new[] { "source name", "characteristics[biological replicate]", "assay name", "comment[data file]" };
+            var dep = Doc(cols, new[] { "p1", "1", "run 1", "NEG1.raw" }, new[] { "p2", "1", "run 2", "POS1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            Assert.That(SdrfValidator.Validate(i.Document).Errors.Where(e => e.Rule == "RequiredColumn"), Is.Empty);
+            var h = i.Document.Header.ToList();
+            Assert.That(h.IndexOf("technology type"), Is.EqualTo(h.IndexOf("assay name") + 1));
+            Assert.That(h.IndexOf("characteristics[organism part]"), Is.LessThan(h.IndexOf("assay name")));
+            Assert.That(Row(i.Document, "NEG1.raw")["technology type"], Is.EqualTo("proteomic profiling by mass spectrometry"));
+            Assert.That(Row(i.Document, "NEG1.raw")["comment[cleavage agent details]"], Is.EqualTo("not available"));
+            Assert.That(i.Document.Results.All(r => r.Cells.Count == h.Count), "never ragged");
+        }
+
+        /// <summary>
+        /// The validator checks row keys only once both source name and assay name exist, so adding a missing
+        /// assay name as "not available" on every row turned two fractions of one sample into a duplicate key.
+        /// An added assay name is the run's, per file, as the drafted rows get it.
+        /// </summary>
+        [Test]
+        public void AnAddedAssayNameIsUniquePerFileSoNoRowKeyRepeats()
+        {
+            var cols = new[] { "source name", "characteristics[biological replicate]", "comment[data file]", "comment[fraction identifier]" };
+            var dep = Doc(cols,
+                new[] { "p1", "1", "NEG1.raw", "1" }, new[] { "p1", "1", "NEG1.mzML", "1" }, new[] { "p1", "1", "NEG1_F2.raw", "2" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var errors = SdrfValidator.Validate(i.Document).Errors.ToList();
+            Assert.That(errors.Where(e => e.Rule == "RowKeyUniqueness"), Is.Empty, string.Join("\n", errors.Select(e => e.ToString())));
+            Assert.That(Row(i.Document, "NEG1_F2.raw")["assay name"], Is.EqualTo("run NEG1_F2"));
+            Assert.That(Row(i.Document, "NEG1.mzML")["assay name"], Is.EqualTo("run NEG1.mzML"), "a stem two files share falls back to the file name");
+        }
+
+        [Test]
+        public void ADepositMissingSourceAndAssayNameValidatesNoWorse()
+        {
+            var cols = new[] { "characteristics[organism]", "comment[data file]" };
+            var dep = Doc(cols, new[] { "homo sapiens", "NEG1.raw" }, new[] { "homo sapiens", "NEG1rep.raw" }, new[] { "homo sapiens", "POS1.raw" });
+            int before = SdrfValidator.Validate(dep).Errors.Count();
+
+            var after = SdrfValidator.Validate(SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files)).Document).Errors.ToList();
+
+            Assert.That(after.Count, Is.LessThanOrEqualTo(before), string.Join("\n", after.Select(e => e.ToString())));
+        }
+
+        [Test]
+        public void AColumnWrittenInOtherCasingIsNeverShadowedByALowercaseCopy()
+        {
+            var cols = new[] { "Source Name", "Characteristics[organism]", "characteristics[biological replicate]", "Assay Name",
+                "Technology Type", "Comment[label]", "comment[data file]" };
+            var dep = Doc(cols,
+                new[] { "p1", "not available", "1", "run 1", "proteomic profiling by mass spectrometry", "label free sample", "NEG1.raw" },
+                new[] { "p2", "homo sapiens", "1", "run 2", "proteomic profiling by mass spectrometry", "label free sample", "POS1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var h = i.Document.Header.ToList();
+            foreach (var name in cols)
+                Assert.That(h.Count(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase)), Is.EqualTo(1), name);
+            var neg = Row(i.Document, "NEG1.raw");
+            Assert.That((neg["Source Name"], neg["Assay Name"], neg["Comment[label]"]), Is.EqualTo(("p1", "run 1", "label free sample")));
+            Assert.That(neg["Characteristics[organism]"], Is.EqualTo("homo sapiens"), "the gap is filled in the depositor's own column");
+            Assert.That(SdrfValidator.Validate(i.Document).Errors.Where(e => e.Rule == "RequiredColumn").Select(e => e.Message),
+                Has.Some.Contains("differs only in casing"), "the curator still hears about the casing");
+        }
+
+        [Test]
+        public void AnAddedTechnologyTypeFollowsAnAssayNameWrittenInOtherCasing()
+        {
+            var cols = new[] { "source name", "characteristics[organism]", "Assay Name", "comment[label]", "comment[data file]" };
+            var dep = Doc(cols,
+                new[] { "p1", "homo sapiens", "run 1", "label free sample", "NEG1.raw" },
+                new[] { "p2", "homo sapiens", "run 2", "label free sample", "POS1.raw" });
+
+            var i = SdrfImprover.Improve(dep, SdrfDrafter.Draft(Project(), Files));
+
+            var h = i.Document.Header.ToList();
+            Assert.That(h.IndexOf("technology type"), Is.EqualTo(h.IndexOf("Assay Name") + 1), string.Join(" | ", h));
+            Assert.That(SdrfValidator.Validate(i.Document).Warnings.Where(w => w.Rule == "ColumnOrdering"), Is.Empty);
+        }
+
         [Test]
         public void ADraftedRowCarriesOnlyAssayWideColumns()
         {
@@ -296,7 +386,7 @@ namespace Test.FileReadingTests
 
             int files = 0, crashed = 0, filled = 0, addedRows = 0, disagreements = 0, worse = 0, joined = 0;
             var crashes = new List<string>();
-            var byColumn = new Dictionary<string, int>(); var examples = new List<string>(); var samples = new List<string>(); int manyAdded = 0;
+            var byColumn = new Dictionary<string, int>(); var examples = new List<string>(); var samples = new List<string>(); int manyAdded = 0, requiredFixed = 0;
             foreach (var path in System.IO.Directory.GetFiles(corpus!, "*.sdrf.tsv", System.IO.SearchOption.AllDirectories))
             {
                 string acc = System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(path))!;
@@ -313,6 +403,7 @@ namespace Test.FileReadingTests
                     if (!deposited.Header.Contains("comment[data file]") || raw.Count == 0) continue;
                     joined++;
                     int before = SdrfValidator.Validate(deposited).Errors.Count();
+                    int requiredBefore = SdrfValidator.Validate(deposited).Errors.Count(e => e.Rule == "RequiredColumn");
                     var i = SdrfImprover.Improve(deposited, SdrfDrafter.Draft(project, raw));
                     filled += i.FilledCells; addedRows += i.AddedRows; disagreements += i.Disagreements.Count;
                     foreach (var g in i.Disagreements.GroupBy(x => x.Column)) byColumn[g.Key] = byColumn.GetValueOrDefault(g.Key) + g.Count();
@@ -320,6 +411,7 @@ namespace Test.FileReadingTests
                     foreach (var x in i.Disagreements.Where(x => x.Column == "characteristics[organism]" || x.Column == "comment[instrument]").Take(1))
                         if (samples.Count < 8) samples.Add($"{acc} {x.Column}: deposited '{x.Deposited}' vs drafted '{x.Drafted}'");
                     var afterErrors = SdrfValidator.Validate(i.Document).Errors.ToList();
+                    if (requiredBefore > 0 && afterErrors.All(e => e.Rule != "RequiredColumn")) requiredFixed++;
                     if (afterErrors.Count > before)
                     {
                         worse++;
@@ -336,6 +428,7 @@ namespace Test.FileReadingTests
             }
             TestContext.Progress.WriteLine($"{files} corpus SDRFs with a cached PRIDE project; {joined} improved; {crashed} crashed");
             TestContext.Progress.WriteLine($"cells filled {filled}; rows added {addedRows}; disagreements reported {disagreements}; validator worse on {worse}");
+            TestContext.Progress.WriteLine($"files that were missing a required column and now have them all: {requiredFixed}");
             foreach (var c in crashes) TestContext.Progress.WriteLine("  CRASH " + c);
             foreach (var (c, n) in byColumn.OrderByDescending(kv => kv.Value)) TestContext.Progress.WriteLine($"  disagree {n,7} {c}");
             TestContext.Progress.WriteLine($"  deposits with more rows added than they had: {manyAdded}");
