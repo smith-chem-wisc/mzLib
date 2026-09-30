@@ -39,7 +39,28 @@ namespace MassSpectrometry
             return smoothed;
         }
 
-        public static double[] SavitzkyGolay9(IReadOnlyList<double> trace) => throw new NotImplementedException();
+        private static readonly double[] SavitzkyGolay9Weights = [-21, 14, 39, 54, 59, 54, 39, 14, -21];
+
+        /// <summary>
+        /// Smooths a trace with the 9-point quadratic/cubic Savitzky–Golay filter (weights −21, 14, 39, 54, 59, 54, 39, 14, −21
+        /// over 231), as EncyclopeDIA and Skyline smooth fragment chromatograms before picking peaks. It keeps peak height and
+        /// width better than a moving average. Points within four scans of an end are left unchanged, and negative ringing
+        /// beside sharp spikes is clipped to 0.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="trace"/> is null.</exception>
+        public static double[] SavitzkyGolay9(IReadOnlyList<double> trace)
+        {
+            ArgumentNullException.ThrowIfNull(trace);
+            var smoothed = trace.ToArray();
+            for (int s = 4; s < trace.Count - 4; s++)
+            {
+                double sum = 0;
+                for (int w = 0; w < 9; w++)
+                    sum += SavitzkyGolay9Weights[w] * trace[s - 4 + w];
+                smoothed[s] = Math.Max(0, sum / 231);
+            }
+            return smoothed;
+        }
 
         /// <summary>
         /// The fragment whose trace, over scans <paramref name="from"/> to <paramref name="to"/>, has the largest summed
