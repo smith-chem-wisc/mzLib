@@ -15,6 +15,12 @@ namespace MassSpectrometry
     /// </summary>
     public static class FragmentCoElution
     {
+        public static double[] Smooth(IReadOnlyList<double> trace) => throw new NotImplementedException();
+
+        public static int BestFragment(IReadOnlyList<double[]> traces, int from, int to) => throw new NotImplementedException();
+
+        public static double[] CorrelationsTo(IReadOnlyList<double[]> traces, IReadOnlyList<double> reference, int from, int to) => throw new NotImplementedException();
+
         /// <summary>
         /// Mean, over fragments, of the Pearson correlation between each fragment's trace and the sum of the other
         /// fragments' traces over scans <paramref name="from"/> to <paramref name="to"/> inclusive. Before summing, each
