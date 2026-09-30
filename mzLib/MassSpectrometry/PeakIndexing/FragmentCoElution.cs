@@ -181,10 +181,63 @@ namespace MassSpectrometry
                 throw new ArgumentException("There must be one library intensity per fragment trace.", nameof(libraryIntensities));
             ArgumentOutOfRangeException.ThrowIfNegative(halfWidth);
 
-            double[] library = libraryIntensities.ToArray();
-            var observed = new double[traces.Count];
+            double[] values = ApexScores(traces, libraryIntensities.ToArray(), halfWidth, length);
             int apex = -1;
             double best = 0;
+            for (int s = 0; s < length; s++)
+            {
+                if (values[s] > best)
+                {
+                    best = values[s];
+                    apex = s;
+                }
+            }
+            return apex;
+        }
+
+        /// <summary>
+        /// Candidate apexes: scans whose apex score (see <see cref="FindApex"/>) is a local maximum, more than
+        /// <paramref name="halfWidth"/> scans from any better candidate, best first, at most <paramref name="maxCount"/>.
+        /// The first is <see cref="FindApex"/>'s apex. Scoring several candidates lets a caller recover a precursor whose
+        /// true peak scores second to interference.
+        /// </summary>
+        /// <exception cref="ArgumentException">The traces differ in length, or there is not one library intensity per trace.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="halfWidth"/> is negative or <paramref name="maxCount"/> is less than 1.</exception>
+        public static int[] FindApexes(IReadOnlyList<double[]> traces, IReadOnlyList<double> libraryIntensities, int halfWidth, int maxCount)
+        {
+            int length = ValidateTraces(traces);
+            ArgumentNullException.ThrowIfNull(libraryIntensities);
+            if (libraryIntensities.Count != traces.Count)
+                throw new ArgumentException("There must be one library intensity per fragment trace.", nameof(libraryIntensities));
+            ArgumentOutOfRangeException.ThrowIfNegative(halfWidth);
+            ArgumentOutOfRangeException.ThrowIfLessThan(maxCount, 1);
+
+            double[] values = ApexScores(traces, libraryIntensities.ToArray(), halfWidth, length);
+            var chosen = new List<int>();
+            foreach (int s in Enumerable.Range(0, length).Where(s => values[s] > 0 && IsLocalMaximum(values, s, halfWidth)).OrderByDescending(s => values[s]).ThenBy(s => s))
+            {
+                if (chosen.All(c => Math.Abs(c - s) > halfWidth))
+                    chosen.Add(s);
+                if (chosen.Count == maxCount)
+                    break;
+            }
+            return chosen.ToArray();
+        }
+
+        /// <summary>True when no scan within <paramref name="halfWidth"/> scores higher, and none earlier scores the same.</summary>
+        private static bool IsLocalMaximum(double[] values, int s, int halfWidth)
+        {
+            for (int t = Math.Max(0, s - halfWidth); t <= Math.Min(values.Length - 1, s + halfWidth); t++)
+                if (values[t] > values[s] || (t < s && values[t] == values[s]))
+                    return false;
+            return true;
+        }
+
+        /// <summary>The apex score of every scan: cosine to the library × co-elution around it × log(1 + signal); 0 without signal.</summary>
+        private static double[] ApexScores(IReadOnlyList<double[]> traces, double[] library, int halfWidth, int length)
+        {
+            var values = new double[length];
+            var observed = new double[traces.Count];
             for (int s = 0; s < length; s++)
             {
                 double signal = 0;
@@ -195,17 +248,11 @@ namespace MassSpectrometry
                 }
                 if (signal <= 0)
                     continue;
-
-                double value = SpectralSimilarity.CosineOfAlignedVectors(observed, library)
+                values[s] = SpectralSimilarity.CosineOfAlignedVectors(observed, library)
                     * Score(traces, Math.Max(0, s - halfWidth), Math.Min(length - 1, s + halfWidth))
                     * Math.Log(1 + signal);
-                if (value > best)
-                {
-                    best = value;
-                    apex = s;
-                }
             }
-            return apex;
+            return values;
         }
 
         /// <summary>

@@ -77,6 +77,40 @@ public class TestFragmentCoElutionBestFragment
         Assert.That(FragmentCoElution.BestFragment([trace, Gaussian(10, 3)], 5, 15), Is.EqualTo(0));
     }
 
+    /// <summary>
+    /// Candidate peaks: every local maximum of FindApex's apex score, at least a half-width apart, best first. A
+    /// precursor whose true peak scores second to interference is then still in the running.
+    /// </summary>
+    [Test]
+    public void CandidateApexesAreTheDistinctLocalMaximaBestFirst()
+    {
+        double[] library = [1.0, 0.6, 0.3];
+        // Two peak groups in library proportions: a big one at scan 30 and a smaller one at scan 10
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 30) / 2.0, 2)) + 200 * Math.Exp(-0.5 * Math.Pow((s - 10) / 2.0, 2)))).ToArray()).ToList();
+
+        int[] apexes = FragmentCoElution.FindApexes(traces, library, halfWidth: 3, maxCount: 5);
+
+        Assert.That(apexes, Is.EqualTo(new[] { 30, 10 }));
+        Assert.That(apexes[0], Is.EqualTo(FragmentCoElution.FindApex(traces, library, 3)), "the best candidate is FindApex's apex");
+        Assert.That(FragmentCoElution.FindApexes(traces, library, 3, maxCount: 1), Is.EqualTo(new[] { 30 }));
+        Assert.That(FragmentCoElution.FindApexes(library.Select(_ => new double[41]).ToList(), library, 3, 5), Is.Empty, "no signal, no candidates");
+    }
+
+    /// <summary>Within a half-width of a better scan there is no second candidate, whatever small bumps the score has.</summary>
+    [Test]
+    public void CandidatesAreAtLeastAHalfWidthApart()
+    {
+        double[] library = [1.0, 0.5];
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 20) / 3.0, 2)) + (s == 22 ? 50 : 0))).ToArray()).ToList();
+
+        int[] apexes = FragmentCoElution.FindApexes(traces, library, halfWidth: 3, maxCount: 5);
+
+        Assert.That(apexes.Zip(apexes.Skip(1)).All(pair => Math.Abs(pair.First - pair.Second) > 3));
+        Assert.That(apexes[0], Is.EqualTo(20));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(traces, library, 3, maxCount: 0));
+    }
     [Test]
     public void ArgumentsAreChecked()
     {
