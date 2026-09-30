@@ -132,6 +132,23 @@ public class TestFragmentCoElutionBestFragment
         Assert.Throws<ArgumentException>(() => FragmentCoElution.ApexScores(traces, [1.0], 3));
     }
 
+    /// <summary>Candidates from precomputed apex scores are the candidates from the traces, so a caller scores each scan once.</summary>
+    [Test]
+    public void CandidatesFromPrecomputedScoresMatchCandidatesFromTraces()
+    {
+        double[] library = [1.0, 0.6, 0.3];
+        var traces = library.Select(l => Enumerable.Range(0, 41)
+            .Select(s => l * (1000 * Math.Exp(-0.5 * Math.Pow((s - 30) / 2.0, 2)) + 200 * Math.Exp(-0.5 * Math.Pow((s - 10) / 2.0, 2)))).ToArray()).ToList();
+
+        double[] scores = FragmentCoElution.ApexScores(traces, library, 3);
+
+        Assert.That(FragmentCoElution.FindApexes(scores, 3, 5), Is.EqualTo(FragmentCoElution.FindApexes(traces, library, 3, 5)));
+        Assert.That(FragmentCoElution.FindApexes(new double[10], 3, 5), Is.Empty);
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(scores, -1, 5));
+        Assert.Throws<ArgumentOutOfRangeException>(() => FragmentCoElution.FindApexes(scores, 3, 0));
+        Assert.Throws<ArgumentNullException>(() => FragmentCoElution.FindApexes(null!, 3, 5));
+    }
+
     [Test]
     public void ArgumentsAreChecked()
     {

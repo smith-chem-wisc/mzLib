@@ -212,7 +212,22 @@ namespace MassSpectrometry
             ArgumentOutOfRangeException.ThrowIfNegative(halfWidth);
             ArgumentOutOfRangeException.ThrowIfLessThan(maxCount, 1);
 
-            double[] values = ApexScores(traces, libraryIntensities.ToArray(), halfWidth, length);
+            return FindApexes(ApexScores(traces, libraryIntensities.ToArray(), halfWidth, length), halfWidth, maxCount);
+        }
+
+        /// <summary>
+        /// Candidate apexes from precomputed apex scores (<see cref="ApexScores(IReadOnlyList{double[]}, IReadOnlyList{double}, int)"/>),
+        /// so a caller that also needs the scores computes them once. Same rules as the overload on traces.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="apexScores"/> is null.</exception>
+        /// <exception cref="ArgumentOutOfRangeException"><paramref name="halfWidth"/> is negative or <paramref name="maxCount"/> is less than 1.</exception>
+        public static int[] FindApexes(IReadOnlyList<double> apexScores, int halfWidth, int maxCount)
+        {
+            ArgumentNullException.ThrowIfNull(apexScores);
+            ArgumentOutOfRangeException.ThrowIfNegative(halfWidth);
+            ArgumentOutOfRangeException.ThrowIfLessThan(maxCount, 1);
+            double[] values = apexScores as double[] ?? apexScores.ToArray();
+            int length = values.Length;
             var chosen = new List<int>();
             foreach (int s in Enumerable.Range(0, length).Where(s => values[s] > 0 && IsLocalMaximum(values, s, halfWidth)).OrderByDescending(s => values[s]).ThenBy(s => s))
             {
