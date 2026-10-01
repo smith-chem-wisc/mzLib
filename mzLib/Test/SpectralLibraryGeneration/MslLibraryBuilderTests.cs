@@ -115,6 +115,24 @@ public class MslLibraryBuilderTests
         Assert.That(result.DecoysDroppedAsTargetSequences, Is.EqualTo(2));
     }
 
+    /// <summary>
+    /// I and L have the same mass, so a decoy equal to a target once I = L has the target's spectrum: it too is a target in
+    /// disguise, and when that target is in the sample it scores like a real identification. Reversed, P1 yields QIQQK
+    /// (P2's QLQQK) and P2 yields QQLQK (P1's QQIQK); both decoys are dropped and counted.
+    /// </summary>
+    [Test]
+    public void ADecoyEqualToATargetWithIEqualToLIsDroppedAndCounted()
+    {
+        var proteins = new List<Protein> { new("MSSSSKQQIQK", "P1"), new("MGGGGKQLQQK", "P2") };
+
+        var entries = Builder().Build(proteins, Parameters(), out var result);
+
+        var targets = entries.Where(e => !e.IsDecoy).Select(e => e.BaseSequence.Replace('I', 'L')).ToHashSet();
+        Assert.That(entries.Where(e => e.IsDecoy).Select(e => e.BaseSequence.Replace('I', 'L')), Has.None.AnyOf(targets.ToArray()));
+        Assert.That(entries.Where(e => !e.IsDecoy).Select(e => e.BaseSequence), Is.SupersetOf(new[] { "QQIQK", "QLQQK" }), "targets keep their sequences");
+        Assert.That(result.DecoysDroppedAsTargetSequences, Is.EqualTo(4), "two decoy peptides at two charges");
+    }
+
     /// <summary>A peptide in several proteins lists every accession, sorted and '|'-joined, and that survives a save.</summary>
     [Test]
     public void ASharedPeptideListsEveryAccessionAndSurvivesASave()

@@ -36,8 +36,8 @@ namespace PredictionClients.SpectralLibraryGeneration
     /// <param name="NotPredicted">Precursors a model rejected, for example too long or carrying a modification it cannot take.</param>
     /// <param name="NoFragments">Precursors predicted, but with no fragment above the intensity filter.</param>
     /// <param name="DecoysDroppedAsTargetSequences">
-    /// Decoy precursors whose sequence is also a target's. The target keeps the sequence; a decoy identical to a target
-    /// would be a target in disguise.
+    /// Decoy precursors whose sequence is also a target's, with I and L counted as the same residue (same mass, same
+    /// spectrum). The target keeps the sequence; such a decoy would be a target in disguise.
     /// </param>
     public sealed record MslLibraryBuildResult(int TargetPrecursors, int DecoyPrecursors, int NotPredicted, int NoFragments,
         int DecoysDroppedAsTargetSequences);
@@ -97,7 +97,9 @@ namespace PredictionClients.SpectralLibraryGeneration
 
             var targetPeptides = Digest(proteins, parameters);
             var decoyPeptides = Digest(decoyProteins, parameters);
-            var clashes = decoyPeptides.Keys.Where(targetPeptides.ContainsKey).ToList();
+            // I = L: a decoy with a target's sequence up to I/L has the target's spectrum
+            var targetSequences = targetPeptides.Keys.Select(LeucineEquivalent).ToHashSet(StringComparer.Ordinal);
+            var clashes = decoyPeptides.Keys.Where(sequence => targetSequences.Contains(LeucineEquivalent(sequence))).ToList();
             foreach (var sequence in clashes)
                 decoyPeptides.Remove(sequence);
 
@@ -165,6 +167,20 @@ namespace PredictionClients.SpectralLibraryGeneration
                 noFragments,
                 clashes.Count * parameters.PrecursorCharges.Count);
             return entries;
+        }
+
+        /// <summary>The full sequence with every residue I read as L; modification names in brackets are left alone.</summary>
+        private static string LeucineEquivalent(string fullSequence)
+        {
+            var chars = fullSequence.ToCharArray();
+            int depth = 0;
+            for (int i = 0; i < chars.Length; i++)
+            {
+                if (chars[i] == '[') depth++;
+                else if (chars[i] == ']') depth--;
+                else if (depth == 0 && chars[i] == 'I') chars[i] = 'L';
+            }
+            return new string(chars);
         }
 
         private sealed record Precursor(string FullSequence, int Charge, bool IsDecoy, string Accessions, string Genes);
