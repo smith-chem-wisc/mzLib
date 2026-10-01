@@ -446,18 +446,15 @@ namespace FlashLFQ
             {
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
-                    // set up peptide intensity table
-                    // top row is the column effects, left column is the row effects
-                    // the other cells are peptide intensity measurements
+                    // one row per peptide, one column per sample (condition + biological replicate)
                     int numSamples = SpectraFiles.Select(p => p.Condition + p.BiologicalReplicate).Distinct().Count();
-                    double[][] peptideIntensityMatrix = new double[peptidesForThisProtein.Count + 1][];
-                    for (int i = 0; i < peptideIntensityMatrix.Length; i++)
+                    double[][] peptideIntensities = new double[peptidesForThisProtein.Count][];
+                    for (int i = 0; i < peptideIntensities.Length; i++)
                     {
-                        peptideIntensityMatrix[i] = new double[numSamples + 1];
+                        peptideIntensities[i] = new double[numSamples];
                     }
 
-                    // populate matrix w/ log2-transformed peptide intensities
-                    // if a value is missing, it will be filled with NaN
+                    // populate the sample intensity of each peptide; 0 means not observed
                     int sampleN = 0;
                     foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
                     {
@@ -498,79 +495,14 @@ namespace FlashLFQ
                                     }
                                 }
 
-                                int sampleNumber = sample.Key;
-
-                                if (sampleIntensity == 0)
-                                {
-                                    sampleIntensity = double.NaN;
-                                }
-                                else
-                                {
-                                    sampleIntensity = Math.Log(sampleIntensity, 2);
-                                }
-
-                                peptideIntensityMatrix[peptidesForThisProtein.IndexOf(peptide) + 1][sampleN + 1] = sampleIntensity;
+                                peptideIntensities[peptidesForThisProtein.IndexOf(peptide)][sampleN] = sampleIntensity;
                             }
 
                             sampleN++;
                         }
                     }
 
-                    // if there are any peptides that have only one measurement, mark them as NaN
-                    // unless we have ONLY peptides with one measurement
-                    var peptidesWithMoreThanOneMmt = peptideIntensityMatrix.Skip(1).Count(row => row.Skip(1).Count(cell => !double.IsNaN(cell)) > 1);
-                    if (peptidesWithMoreThanOneMmt > 0)
-                    {
-                        for (int i = 1; i < peptideIntensityMatrix.Length; i++)
-                        {
-                            int validValueCount = peptideIntensityMatrix[i].Count(p => !double.IsNaN(p) && p != 0);
-
-                            if (validValueCount < 2 && numSamples >= 2)
-                            {
-                                for (int j = 1; j < peptideIntensityMatrix[0].Length; j++)
-                                {
-                                    peptideIntensityMatrix[i][j] = double.NaN;
-                                }
-                            }
-                        }
-                    }
-
-                    // do median polish protein quantification
-                    // row effects in a protein can be considered ~ relative ionization efficiency
-                    // column effects are differences between conditions
-                    MedianPolish(peptideIntensityMatrix);
-
-                    double overallEffect = peptideIntensityMatrix[0][0];
-                    double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
-                    double referenceProteinIntensity = Math.Pow(2, overallEffect) * peptidesForThisProtein.Count;
-
-                    // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
-                    // the protein is still not quantifiable because there are not peptides to compare across runs
-                    List<string> possibleUnquantifiableSample = new List<string>();
-                    sampleN = 0;
-                    foreach (var group in SpectraFiles.GroupBy(p => p.Condition).OrderBy(p => p.Key))
-                    {
-                        foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
-                        {
-                            bool isMissingValue = true;
-
-                            foreach (SpectraFileInfo spectraFile in sample)
-                            {
-                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
-                                {
-                                    isMissingValue = false;
-                                    break;
-                                }
-                            }
-
-                            if (!isMissingValue && columnEffects[sampleN] == 0)
-                            {
-                                possibleUnquantifiableSample.Add(group.Key + "_" + sample.Key);
-                            }
-
-                            sampleN++;
-                        }
-                    }
+                    double[] proteinIntensities = MedianPolishProteinIntensities(peptideIntensities);
 
                     // set the sample protein intensities
                     sampleN = 0;
@@ -578,43 +510,125 @@ namespace FlashLFQ
                     {
                         foreach (var sample in group.GroupBy(p => p.BiologicalReplicate).OrderBy(p => p.Key))
                         {
-                            // this step un-logs the protein "intensity". in reality this value is more like a fold-change 
-                            // than an intensity, but unlike a fold-change it's not relative to a particular sample.
-                            // by multiplying this value by the reference protein intensity calculated earlier, then we get 
-                            // a protein intensity value
-                            double columnEffect = columnEffects[sampleN];
-                            double sampleProteinIntensity = Math.Pow(2, columnEffect) * referenceProteinIntensity;
-
-                            // the column effect can be 0 in some cases. sometimes it's a valid value and sometimes it's not.
-                            // so we need to check to see if it is actually a valid value
-                            bool isMissingValue = true;
-
-                            foreach (SpectraFileInfo spectraFile in sample)
-                            {
-                                if (peptidesForThisProtein.Any(p => p.GetIntensity(spectraFile) != 0))
-                                {
-                                    isMissingValue = false;
-                                    break;
-                                }
-                            }
-
-                            if (!isMissingValue)
-                            {
-                                if (possibleUnquantifiableSample.Count > 1 && possibleUnquantifiableSample.Contains(group.Key + "_" + sample.Key))
-                                {
-                                    proteinGroup.SetIntensity(sample.First(), double.NaN);
-                                }
-                                else
-                                {
-                                    proteinGroup.SetIntensity(sample.First(), sampleProteinIntensity);
-                                }
-                            }
-
+                            proteinGroup.SetIntensity(sample.First(), proteinIntensities[sampleN]);
                             sampleN++;
                         }
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// Quantifies one protein from the intensities of its peptides using the median polish algorithm.
+        /// This is the per-protein step of <see cref="CalculateProteinResultsMedianPolish"/>, exposed so that
+        /// callers holding a plain peptide-by-sample table (e.g., the Quantification project's roll-ups) can
+        /// use it without FlashLFQ's peptide and protein group objects.
+        /// </summary>
+        /// <param name="peptideIntensities">One row per peptide, one column per sample, all rows the same length.
+        /// Values are un-logged intensities; a value that is not positive means the peptide was not observed.</param>
+        /// <returns>One protein intensity per sample: 0 where no peptide was observed, NaN where peptides were
+        /// observed but the protein is unquantifiable in that sample, and the median polish estimate otherwise.</returns>
+        public static double[] MedianPolishProteinIntensities(double[][] peptideIntensities)
+        {
+            int numPeptides = peptideIntensities.Length;
+            int numSamples = numPeptides == 0 ? 0 : peptideIntensities[0].Length;
+            double[] proteinIntensities = new double[numSamples];
+
+            if (numPeptides == 0)
+            {
+                return proteinIntensities;
+            }
+
+            // set up peptide intensity table
+            // top row is the column effects, left column is the row effects
+            // the other cells are log2-transformed peptide intensity measurements
+            // if a value is missing, it will be filled with NaN
+            double[][] peptideIntensityMatrix = new double[numPeptides + 1][];
+            peptideIntensityMatrix[0] = new double[numSamples + 1];
+            bool[] sampleIsObserved = new bool[numSamples];
+
+            for (int p = 0; p < numPeptides; p++)
+            {
+                peptideIntensityMatrix[p + 1] = new double[numSamples + 1];
+
+                for (int s = 0; s < numSamples; s++)
+                {
+                    double sampleIntensity = peptideIntensities[p][s];
+
+                    if (sampleIntensity > 0)
+                    {
+                        peptideIntensityMatrix[p + 1][s + 1] = Math.Log(sampleIntensity, 2);
+                        sampleIsObserved[s] = true;
+                    }
+                    else
+                    {
+                        peptideIntensityMatrix[p + 1][s + 1] = double.NaN;
+                    }
+                }
+            }
+
+            // if there are any peptides that have only one measurement, mark them as NaN
+            // unless we have ONLY peptides with one measurement
+            var peptidesWithMoreThanOneMmt = peptideIntensityMatrix.Skip(1).Count(row => row.Skip(1).Count(cell => !double.IsNaN(cell)) > 1);
+            if (peptidesWithMoreThanOneMmt > 0)
+            {
+                for (int i = 1; i < peptideIntensityMatrix.Length; i++)
+                {
+                    int validValueCount = peptideIntensityMatrix[i].Count(p => !double.IsNaN(p) && p != 0);
+
+                    if (validValueCount < 2 && numSamples >= 2)
+                    {
+                        for (int j = 1; j < peptideIntensityMatrix[0].Length; j++)
+                        {
+                            peptideIntensityMatrix[i][j] = double.NaN;
+                        }
+                    }
+                }
+            }
+
+            // do median polish protein quantification
+            // row effects in a protein can be considered ~ relative ionization efficiency
+            // column effects are differences between conditions
+            MedianPolish(peptideIntensityMatrix);
+
+            double overallEffect = peptideIntensityMatrix[0][0];
+            double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
+            double referenceProteinIntensity = Math.Pow(2, overallEffect) * numPeptides;
+
+            // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
+            // the protein is still not quantifiable because there are not peptides to compare across runs.
+            // the column effect can be 0 in some cases. sometimes it's a valid value and sometimes it's not.
+            int possibleUnquantifiableSampleCount = 0;
+            for (int s = 0; s < numSamples; s++)
+            {
+                if (sampleIsObserved[s] && columnEffects[s] == 0)
+                {
+                    possibleUnquantifiableSampleCount++;
+                }
+            }
+
+            for (int s = 0; s < numSamples; s++)
+            {
+                if (!sampleIsObserved[s])
+                {
+                    continue;
+                }
+
+                if (possibleUnquantifiableSampleCount > 1 && columnEffects[s] == 0)
+                {
+                    proteinIntensities[s] = double.NaN;
+                }
+                else
+                {
+                    // this step un-logs the protein "intensity". in reality this value is more like a fold-change
+                    // than an intensity, but unlike a fold-change it's not relative to a particular sample.
+                    // by multiplying this value by the reference protein intensity calculated earlier, then we get
+                    // a protein intensity value
+                    proteinIntensities[s] = Math.Pow(2, columnEffects[s]) * referenceProteinIntensity;
+                }
+            }
+
+            return proteinIntensities;
         }
 
         public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
