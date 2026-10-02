@@ -86,6 +86,7 @@ public class GlmMixedCorrelationTests
         Assert.That(PValueCombination.OneSided(0.1, 2.0), Is.EqualTo(0.05));
         Assert.That(PValueCombination.OneSided(0.1, -2.0), Is.EqualTo(0.95));
         Assert.That(PValueCombination.OneSided(0.1, 0), Is.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => PValueCombination.OneSided(1.5, 1));
         // Opposite effects cancel under Stouffer instead of reinforcing each other.
         var cancel = PValueCombination.Stouffer(new[] { PValueCombination.OneSided(0.01, 1), PValueCombination.OneSided(0.01, -1) });
         Assert.That(cancel.PValue, Is.EqualTo(0.5).Within(1e-12));
@@ -147,6 +148,7 @@ public class GlmMixedCorrelationTests
         var constant = SpearmanCorrelation.Correlate(new[] { 1.0, 1, 1, 1 }, new[] { 1.0, 2, 3, 4 });
         Assert.That(constant.Rho, Is.NaN);
         Assert.That(constant.PValue, Is.NaN);
+        Assert.Throws<ArgumentException>(() => SpearmanCorrelation.Correlate(new[] { 1.0, 2, 3 }, new[] { 1.0, 2 }));
     }
 
     [Test]
@@ -250,6 +252,51 @@ public class GlmMixedCorrelationTests
     }
 
     [Test]
+    public void LogisticReportsRankDeficientAndUnconvergedFeatures()
+    {
+        // Feature 0 is observed only where group = 0, so the group coefficient cannot be estimated.
+        var design = new double[8, 2];
+        var y = new double[2, 8];
+        for (int s = 0; s < 8; s++)
+        {
+            design[s, 0] = 1; design[s, 1] = s < 4 ? 0 : 1;
+            y[0, s] = s < 4 ? s % 2 : double.NaN;
+            y[1, s] = s % 3 == 0 ? 1 : 0;
+        }
+        var fit = LogisticRegression.Fit(y, design, new[] { "Intercept", "group" });
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.RankDeficient));
+        Assert.That(fit.Status[1], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.IndexOf("group"), Is.EqualTo(1));
+        Assert.Throws<ArgumentException>(() => fit.IndexOf("age"));
+        var once = LogisticRegression.Fit(y, design, maxIterations: 1);
+        Assert.That(once.Status[1], Is.EqualTo(FeatureFitStatus.NotConverged));
+        Assert.That(once.Coefficient(1, 1), Is.NaN);
+    }
+
+    [Test]
+    public void LogisticAndMixedModelRejectInvalidDesigns()
+    {
+        var y = new double[1, 4] { { 0, 1, 1, 0 } };
+        var good = new double[4, 2] { { 1, 0 }, { 1, 1 }, { 1, 2 }, { 1, 3 } };
+        var groups = new[] { "a", "a", "b", "b" };
+        var badDesigns = new[]
+        {
+            new double[3, 2] { { 1, 0 }, { 1, 1 }, { 1, 2 } },                          // wrong row count
+            new double[4, 0],                                                       // no columns
+            new double[4, 2] { { 1, 0 }, { 1, double.NaN }, { 1, 2 }, { 1, 3 } },   // not finite
+            new double[4, 2] { { 1, 2 }, { 1, 2 }, { 1, 2 }, { 1, 2 } },            // redundant column
+        };
+        foreach (var d in badDesigns)
+        {
+            Assert.Throws<ArgumentException>(() => LogisticRegression.Fit(y, d));
+            Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, d, groups));
+        }
+        Assert.Throws<ArgumentException>(() => LogisticRegression.Fit(y, good, new[] { "only one" }));
+        Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, good, groups, new[] { "only one" }));
+        Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, good, new[] { "a", "b" }));
+    }
+
+    [Test]
     public void LogisticRejectsNonBinaryResponses()
     {
         var design = new double[4, 1] { { 1 }, { 1 }, { 1 }, { 1 } };
@@ -343,6 +390,8 @@ public class GlmMixedCorrelationTests
         Assert.That(fit.DegreesOfFreedom(0, 2), Is.EqualTo(G - 1 - 1), "group-level covariate");
         Assert.That(fit.DegreesOfFreedom(0, 0), Is.EqualTo(n - G - 1));
         Assert.That(fit.Groups[0], Is.EqualTo(G));
+        Assert.That(fit.IndexOf("site"), Is.EqualTo(2));
+        Assert.Throws<ArgumentException>(() => fit.IndexOf("sex"));
 
         // Without a constant column no between-group df goes to an intercept (nlme's rule).
         var noIntercept = new double[n, 2];
@@ -413,6 +462,17 @@ public class GlmMixedCorrelationTests
         Assert.That(singletons.Status[0], Is.EqualTo(FeatureFitStatus.TooFewGroups));
         Assert.That(singletons.Coefficient(0, 0), Is.NaN);
         Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, design, new[] { "a", "b", "", "d" }));
+
+        // Per feature: one observation for one coefficient, and a covariate constant over the observed samples.
+        var design2 = new double[6, 2] { { 1, 0 }, { 1, 0 }, { 1, 0 }, { 1, 0 }, { 1, 1 }, { 1, 1 } };
+        var y2 = new double[2, 6]
+        {
+            { 1, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN },
+            { 1, 2, 3, 4, double.NaN, double.NaN },
+        };
+        var perFeature = MixedModel.Fit(y2, design2, new[] { "a", "a", "b", "b", "c", "c" });
+        Assert.That(perFeature.Status[0], Is.EqualTo(FeatureFitStatus.TooFewObservations));
+        Assert.That(perFeature.Status[1], Is.EqualTo(FeatureFitStatus.RankDeficient));
     }
 
     [Test]
