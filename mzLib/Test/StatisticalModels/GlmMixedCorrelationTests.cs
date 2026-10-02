@@ -67,11 +67,26 @@ public class GlmMixedCorrelationTests
     }
 
     [Test]
+    public void StoufferChecksEveryWeightAndReportsContradictoryCertaintiesAsNaN()
+    {
+        // A weight is checked even where its p-value is missing and omitted.
+        Assert.Throws<ArgumentException>(() => PValueCombination.Stouffer(new[] { 0.1, double.NaN }, new[] { 1.0, double.NaN }));
+        Assert.Throws<ArgumentException>(() => PValueCombination.Stouffer(new[] { 0.1, 0.2 }, new[] { 1.0 }));
+        Assert.That(PValueCombination.Stouffer(new[] { 0.0, 0.4 }).PValue, Is.EqualTo(0));
+        Assert.That(PValueCombination.Stouffer(new[] { 1.0, 0.4 }).PValue, Is.EqualTo(1));
+        var both = PValueCombination.Stouffer(new[] { 0.0, 1.0 });
+        Assert.That(both.Statistic, Is.NaN);
+        Assert.That(both.PValue, Is.NaN);
+        Assert.That(both.Studies, Is.EqualTo(2));
+    }
+
+    [Test]
     public void OneSidedFollowsTheSignOfTheEffect()
     {
         Assert.That(PValueCombination.OneSided(0.1, 2.0), Is.EqualTo(0.05));
         Assert.That(PValueCombination.OneSided(0.1, -2.0), Is.EqualTo(0.95));
         Assert.That(PValueCombination.OneSided(0.1, 0), Is.NaN);
+        Assert.Throws<ArgumentOutOfRangeException>(() => PValueCombination.OneSided(1.5, 1));
         // Opposite effects cancel under Stouffer instead of reinforcing each other.
         var cancel = PValueCombination.Stouffer(new[] { PValueCombination.OneSided(0.01, 1), PValueCombination.OneSided(0.01, -1) });
         Assert.That(cancel.PValue, Is.EqualTo(0.5).Within(1e-12));
@@ -133,6 +148,7 @@ public class GlmMixedCorrelationTests
         var constant = SpearmanCorrelation.Correlate(new[] { 1.0, 1, 1, 1 }, new[] { 1.0, 2, 3, 4 });
         Assert.That(constant.Rho, Is.NaN);
         Assert.That(constant.PValue, Is.NaN);
+        Assert.Throws<ArgumentException>(() => SpearmanCorrelation.Correlate(new[] { 1.0, 2, 3 }, new[] { 1.0, 2 }));
     }
 
     [Test]
@@ -192,6 +208,92 @@ public class GlmMixedCorrelationTests
         Assert.That(fit.Coefficient(0, 1), Is.NaN);
         Assert.That(fit.Status[1], Is.EqualTo(FeatureFitStatus.Separated));
         Assert.That(fit.Status[2], Is.EqualTo(FeatureFitStatus.TooFewObservations));
+    }
+
+    [Test]
+    public void LogisticReportsQuasiSeparationAtLargeN()
+    {
+        // x = 1: 5 events of 5; x = 0: 2500 events of 5000. The deviance rule is relative to a deviance that
+        // grows with n, so IRLS stops at β ≈ 20 with μ ≈ 1e-9, short of SeparationThreshold.
+        int n0 = 5000, n1 = 5, n = n0 + n1;
+        var design = new double[n, 2];
+        var y = new double[1, n];
+        for (int s = 0; s < n; s++)
+        {
+            design[s, 0] = 1;
+            design[s, 1] = s < n0 ? 0 : 1;
+            y[0, s] = s < n0 ? s % 2 : 1;
+        }
+        var fit = LogisticRegression.Fit(y, design);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Separated));
+        Assert.That(fit.Coefficient(0, 1), Is.NaN);
+    }
+
+    [Test]
+    public void LogisticKeepsAGenuineFitWhoseFittedValuesAreExtreme()
+    {
+        // x spans ±10 with slope 1.6, so |η| reaches 16 at the ends, but the outcomes overlap around x = 0 and
+        // the estimate exists: the separation probe must leave it fitted.
+        var rng = new Random(20261002);
+        int n = 2000;
+        double b1 = 1.6;
+        var design = new double[n, 2];
+        var y = new double[1, n];
+        for (int s = 0; s < n; s++)
+        {
+            double x = -10 + 20.0 * s / (n - 1);
+            design[s, 0] = 1; design[s, 1] = x;
+            y[0, s] = rng.NextDouble() < 1 / (1 + Math.Exp(-b1 * x)) ? 1 : 0;
+        }
+        var fit = LogisticRegression.Fit(y, design);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(Math.Abs(fit.Coefficient(0, 1) * 10), Is.GreaterThan(15), "the probe was exercised");
+        Assert.That(fit.Coefficient(0, 1), Is.EqualTo(b1).Within(4 * fit.StandardError(0, 1)));
+    }
+
+    [Test]
+    public void LogisticReportsRankDeficientAndUnconvergedFeatures()
+    {
+        // Feature 0 is observed only where group = 0, so the group coefficient cannot be estimated.
+        var design = new double[8, 2];
+        var y = new double[2, 8];
+        for (int s = 0; s < 8; s++)
+        {
+            design[s, 0] = 1; design[s, 1] = s < 4 ? 0 : 1;
+            y[0, s] = s < 4 ? s % 2 : double.NaN;
+            y[1, s] = s % 3 == 0 ? 1 : 0;
+        }
+        var fit = LogisticRegression.Fit(y, design, new[] { "Intercept", "group" });
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.RankDeficient));
+        Assert.That(fit.Status[1], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(fit.IndexOf("group"), Is.EqualTo(1));
+        Assert.Throws<ArgumentException>(() => fit.IndexOf("age"));
+        var once = LogisticRegression.Fit(y, design, maxIterations: 1);
+        Assert.That(once.Status[1], Is.EqualTo(FeatureFitStatus.NotConverged));
+        Assert.That(once.Coefficient(1, 1), Is.NaN);
+    }
+
+    [Test]
+    public void LogisticAndMixedModelRejectInvalidDesigns()
+    {
+        var y = new double[1, 4] { { 0, 1, 1, 0 } };
+        var good = new double[4, 2] { { 1, 0 }, { 1, 1 }, { 1, 2 }, { 1, 3 } };
+        var groups = new[] { "a", "a", "b", "b" };
+        var badDesigns = new[]
+        {
+            new double[3, 2] { { 1, 0 }, { 1, 1 }, { 1, 2 } },                          // wrong row count
+            new double[4, 0],                                                       // no columns
+            new double[4, 2] { { 1, 0 }, { 1, double.NaN }, { 1, 2 }, { 1, 3 } },   // not finite
+            new double[4, 2] { { 1, 2 }, { 1, 2 }, { 1, 2 }, { 1, 2 } },            // redundant column
+        };
+        foreach (var d in badDesigns)
+        {
+            Assert.Throws<ArgumentException>(() => LogisticRegression.Fit(y, d));
+            Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, d, groups));
+        }
+        Assert.Throws<ArgumentException>(() => LogisticRegression.Fit(y, good, new[] { "only one" }));
+        Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, good, groups, new[] { "only one" }));
+        Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, good, new[] { "a", "b" }));
     }
 
     [Test]
@@ -288,6 +390,36 @@ public class GlmMixedCorrelationTests
         Assert.That(fit.DegreesOfFreedom(0, 2), Is.EqualTo(G - 1 - 1), "group-level covariate");
         Assert.That(fit.DegreesOfFreedom(0, 0), Is.EqualTo(n - G - 1));
         Assert.That(fit.Groups[0], Is.EqualTo(G));
+        Assert.That(fit.IndexOf("site"), Is.EqualTo(2));
+        Assert.Throws<ArgumentException>(() => fit.IndexOf("sex"));
+
+        // Without a constant column no between-group df goes to an intercept (nlme's rule).
+        var noIntercept = new double[n, 2];
+        for (int s = 0; s < n; s++) { noIntercept[s, 0] = design[s, 1]; noIntercept[s, 1] = 1 + design[s, 2]; }
+        var fit0 = MixedModel.Fit(y, noIntercept, groups, new[] { "age", "site" });
+        Assert.That(fit0.DegreesOfFreedom(0, 0), Is.EqualTo(n - G - 1), "within-group covariate");
+        Assert.That(fit0.DegreesOfFreedom(0, 1), Is.EqualTo(G - 1), "group-level covariate, no intercept");
+    }
+
+    [Test]
+    public void VarianceRatioBeyondTheSearchIsFlaggedNotClamped()
+    {
+        // Two near-identical replicates per group: τ²/σ² ≈ 1e10, far beyond the search's e¹² ≈ 1.6e5.
+        int G = 8, k = 2, n = G * k;
+        var rng = new Random(3);
+        var design = new double[n, 1];
+        var y = new double[1, n];
+        var groups = new string[n];
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; groups[s] = $"g{g}";
+            y[0, s] = 10 * g + Normal.Sample(rng, 0, 1e-4);
+        }
+        var fit = MixedModel.Fit(y, design, groups);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.VarianceRatioAtLimit));
+        Assert.That(fit.Coefficient(0, 0), Is.NaN);
+        Assert.That(fit.GroupVariance[0], Is.NaN);
     }
 
     [Test]
@@ -330,6 +462,17 @@ public class GlmMixedCorrelationTests
         Assert.That(singletons.Status[0], Is.EqualTo(FeatureFitStatus.TooFewGroups));
         Assert.That(singletons.Coefficient(0, 0), Is.NaN);
         Assert.Throws<ArgumentException>(() => MixedModel.Fit(y, design, new[] { "a", "b", "", "d" }));
+
+        // Per feature: one observation for one coefficient, and a covariate constant over the observed samples.
+        var design2 = new double[6, 2] { { 1, 0 }, { 1, 0 }, { 1, 0 }, { 1, 0 }, { 1, 1 }, { 1, 1 } };
+        var y2 = new double[2, 6]
+        {
+            { 1, double.NaN, double.NaN, double.NaN, double.NaN, double.NaN },
+            { 1, 2, 3, 4, double.NaN, double.NaN },
+        };
+        var perFeature = MixedModel.Fit(y2, design2, new[] { "a", "a", "b", "b", "c", "c" });
+        Assert.That(perFeature.Status[0], Is.EqualTo(FeatureFitStatus.TooFewObservations));
+        Assert.That(perFeature.Status[1], Is.EqualTo(FeatureFitStatus.RankDeficient));
     }
 
     [Test]

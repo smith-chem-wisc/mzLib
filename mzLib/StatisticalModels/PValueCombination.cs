@@ -60,21 +60,27 @@ namespace StatisticalModels
 
         /// <summary>Stouffer's method: Z = Σ wᵢ zᵢ / √(Σ wᵢ²), zᵢ = Φ⁻¹(1 − pᵢ), Z ~ N(0, 1) under the joint null.</summary>
         /// <param name="pValues">One ONE-SIDED p-value per test, in [0, 1]. Non-finite values are omitted with their weight.</param>
-        /// <param name="weights">Optional weight per test (finite, positive), e.g. √n. Unweighted when null.</param>
+        /// <param name="weights">Optional weight per test (finite, positive, including those of omitted tests), e.g. √n. Unweighted when null.</param>
+        /// <remarks>
+        /// A p-value of 0 gives zᵢ = +∞ and one of 1 gives zᵢ = −∞. Either alone decides the result (p = 0 or 1);
+        /// both together contradict each other with infinite weight, and Z and the p-value are NaN while
+        /// <see cref="CombinedPValue.Studies"/> still counts every finite input.
+        /// </remarks>
         public static CombinedPValue Stouffer(IReadOnlyList<double> pValues, IReadOnlyList<double>? weights = null)
         {
             ArgumentNullException.ThrowIfNull(pValues);
             if (weights != null && weights.Count != pValues.Count)
                 throw new ArgumentException($"{weights.Count} weights for {pValues.Count} p-values.", nameof(weights));
             Finite(pValues);
+            for (int i = 0; i < (weights?.Count ?? 0); i++)
+                if (!(weights![i] > 0) || !double.IsFinite(weights[i]))
+                    throw new ArgumentException($"Weight {i} must be finite and positive.", nameof(weights));
             double num = 0, den = 0;
             int k = 0;
             for (int i = 0; i < pValues.Count; i++)
             {
                 if (!double.IsFinite(pValues[i])) continue;
                 double w = weights?[i] ?? 1.0;
-                if (!(w > 0) || !double.IsFinite(w))
-                    throw new ArgumentException($"Weight {i} must be finite and positive.", nameof(weights));
                 // −Φ⁻¹(p) equals Φ⁻¹(1 − p) but keeps the digits of a small p, where 1 − p would round to 1.
                 num += w * -Normal.InvCDF(0, 1, pValues[i]);
                 den += w * w;

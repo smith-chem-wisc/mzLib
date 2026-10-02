@@ -139,15 +139,18 @@ namespace StatisticalModels
     /// Estimation: σ² is profiled out and the likelihood (REML or ML, <see cref="VarianceEstimator"/>) is
     /// maximized over the variance ratio θ = τ²/σ² ≥ 0, a one-dimensional search, using the closed-form
     /// inverse and determinant of each group's compound-symmetric block. θ = 0 (no between-group variance)
-    /// is admitted as a boundary estimate. Fixed effects are then generalized least squares at θ̂.
+    /// is admitted as a boundary estimate. The search stops at θ = e¹²; a likelihood still improving there
+    /// (residual variance negligible beside the group variance) is reported
+    /// <see cref="FeatureFitStatus.VarianceRatioAtLimit"/> with NaN values rather than a clamped θ̂. Fixed
+    /// effects are then generalized least squares at θ̂.
     /// </para>
     /// <para>
     /// Degrees of freedom follow nlme's containment rule for one grouping level: a coefficient whose column
     /// varies within some group is tested with m − G − p_within df; one that is constant within every group
-    /// (a group-level covariate) with G − 1 − p_between df; a column constant over all observed samples
-    /// (the intercept) takes the within-group df. Here m is the feature's observed samples and G its
-    /// observed groups. The rule is exact for balanced designs and an approximation otherwise (Satterthwaite
-    /// or Kenward-Roger are the refinements, not implemented).
+    /// (a group-level covariate) with G − 1 − p_between df, or G − p_between when the design has no constant
+    /// column; a column constant over all observed samples (the intercept) takes the within-group df. Here m
+    /// is the feature's observed samples and G its observed groups. The rule is the conventional one and an
+    /// approximation (Satterthwaite or Kenward-Roger are the refinements, not implemented).
     /// </para>
     /// Output does not depend on the thread count.
     /// </remarks>
@@ -278,7 +281,12 @@ namespace StatisticalModels
             bool reml = estimator == VarianceEstimator.Reml;
             int dfResid = reml ? m - p : m;
 
-            double theta = MaximizeOverTheta(blocks, m, p, reml);
+            var (theta, atLimit) = MaximizeOverTheta(blocks, m, p, reml);
+            if (atLimit)
+            {
+                fit.StatusValues[f] = FeatureFitStatus.VarianceRatioAtLimit;
+                return;
+            }
             var best = Evaluate(blocks, theta, m, p, reml);
             if (!double.IsFinite(best.Objective) || !(best.Rss > 0))
             {
@@ -341,9 +349,10 @@ namespace StatisticalModels
 
         /// <summary>
         /// θ̂ ≥ 0 minimizing the profiled objective: a grid over log θ brackets the minimum, Brent's method
-        /// refines it, and the boundary θ = 0 is kept when it is at least as good.
+        /// refines it, and the boundary θ = 0 is kept when it is at least as good. <c>atLimit</c> is true when the
+        /// minimum is pressed against the top of the search, θ = e¹², so θ̂ is a clamp, not an estimate.
         /// </summary>
-        private static double MaximizeOverTheta(Blocks b, int m, int p, bool reml)
+        private static (double theta, bool atLimit) MaximizeOverTheta(Blocks b, int m, int p, bool reml)
         {
             double Obj(double u) => Evaluate(b, Math.Exp(u), m, p, reml).Objective is var o && double.IsFinite(o) ? o : double.MaxValue;
 
@@ -359,7 +368,8 @@ namespace StatisticalModels
             double thetaStar = Math.Exp(uStar);
             double atZero = Evaluate(b, 0, m, p, reml).Objective;
             double atStar = Evaluate(b, thetaStar, m, p, reml).Objective;
-            return double.IsFinite(atZero) && atZero <= atStar ? 0 : thetaStar;
+            if (double.IsFinite(atZero) && atZero <= atStar) return (0, false);
+            return (thetaStar, hi - uStar < 1e-6);
         }
 
         /// <summary>Brent's (1973) derivative-free minimizer on [a, b].</summary>
@@ -410,7 +420,7 @@ namespace StatisticalModels
         {
             int p = x.ColumnCount;
             var isBetween = new bool[p];
-            int pWithin = 0, pBetween = 0;
+            int pWithin = 0, pBetween = 0, intercept = 0;
             for (int j = 0; j < p; j++)
             {
                 bool constantOverall = true, variesWithin = false;
@@ -422,11 +432,11 @@ namespace StatisticalModels
                     if (first[g] is double v0) { if (x[i, j] != v0) variesWithin = true; }
                     else first[g] = x[i, j];
                 }
-                if (constantOverall) continue;          // intercept: tested at the within-group df, counted at neither level
+                if (constantOverall) { intercept = 1; continue; }   // intercept: tested at the within-group df, uses one between-group df
                 if (variesWithin) pWithin++;
                 else { pBetween++; isBetween[j] = true; }
             }
-            return (m - G - pWithin, G - 1 - pBetween, isBetween);
+            return (m - G - pWithin, G - intercept - pBetween, isBetween);
         }
     }
 }

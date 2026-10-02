@@ -31,6 +31,12 @@ namespace StatisticalModels
         /// cannot be told apart from the residual variance.
         /// </summary>
         TooFewGroups,
+        /// <summary>
+        /// Mixed model only: the variance ratio τ²/σ² ran to the top of its search (e¹²), so the estimate would be
+        /// a clamped value rather than a maximum. Typically the residual variance is negligible beside the group
+        /// variance, e.g. near-identical replicates within each group.
+        /// </summary>
+        VarianceRatioAtLimit,
     }
 
     /// <summary>
