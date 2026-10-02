@@ -40,7 +40,8 @@ namespace Readers
         MzIdentML,
         MzIdentMLGz,
         MetaMorpheusQuantifiedProteinGroups,
-        FlashLFQQuantifiedPeptide
+        FlashLFQQuantifiedPeptide,
+        DiaNnReportParquet
     }
 
     public static class SupportedFileTypeExtensions
@@ -102,6 +103,9 @@ namespace Readers
                 SupportedFileType.MzIdentMLGz => ".mzid.gz",
                 SupportedFileType.MetaMorpheusQuantifiedProteinGroups => "QuantifiedProteinGroups.tsv",
                 SupportedFileType.FlashLFQQuantifiedPeptide => "QuantifiedPeptides.tsv",
+                // As with DiaNnReport, only the conventional name WriteResults would use: the report is
+                // recognized by its columns, whatever it is called.
+                SupportedFileType.DiaNnReportParquet => "report.parquet",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -247,6 +251,13 @@ namespace Readers
                         return SupportedFileType.MzIdentMLGz;
                     throw new MzLibException("Gz file type not supported");
 
+                case ".parquet":
+                    // DIA-NN 2.x writes its main report only as parquet and lets the user name it anything, so,
+                    // like the TSV report, it is recognized by its columns rather than its name.
+                    if (DiaNnParquetReportFile.HasDiaNnReportColumns(filePath))
+                        return SupportedFileType.DiaNnReportParquet;
+                    throw new MzLibException("Parquet file type not supported");
+
                 case ".mztab":
                     using (var reader = new StreamReader(filePath))
                     {
@@ -311,6 +322,7 @@ namespace Readers
                 SupportedFileType.MzIdentMLGz => typeof(MzIdentMLResultFile),
                 SupportedFileType.MetaMorpheusQuantifiedProteinGroups => typeof(ProteinGroupFromTsvFile),
                 SupportedFileType.FlashLFQQuantifiedPeptide => typeof(QuantifiedPeptideFile),
+                SupportedFileType.DiaNnReportParquet => typeof(DiaNnParquetReportFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
