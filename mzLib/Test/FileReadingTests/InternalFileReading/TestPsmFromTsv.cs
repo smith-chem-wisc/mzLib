@@ -660,9 +660,10 @@ namespace Test.FileReadingTests.InternalFileReading
         [TestCase("ET", false, true)]
         [TestCase("ED", true, true)]
         [TestCase("T|ET", false, true)]
+        [TestCase("T|D", true, false)]
         public static void EntrapmentLabelsReadTheSameOnEveryPath(string label, bool isDecoy, bool isEntrapment)
         {
-            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SearchResults", "TDGPTMDSearchResults.psmtsv");
             string[] lines = File.ReadAllLines(template);
             int column = Array.IndexOf(lines[0].Split('\t'), SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
             for (int i = 1; i < lines.Length; i++)
@@ -677,9 +678,17 @@ namespace Test.FileReadingTests.InternalFileReading
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"entrapmentLabel_{label.Replace('|', '_')}.psmtsv");
             File.WriteAllLines(path, lines);
 
-            PsmFromTsv psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).First();
-            LightWeightSpectralMatch lightweight = LightWeightSpectralMatchReader.ReadTsv(path, out _).First();
-            File.Delete(path);
+            PsmFromTsv psm;
+            LightWeightSpectralMatch lightweight;
+            try
+            {
+                psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).First();
+                lightweight = LightWeightSpectralMatchReader.ReadTsv(path, out _).First();
+            }
+            finally
+            {
+                File.Delete(path);
+            }
 
             NUnit.Framework.Assert.That(psm.DecoyContamTarget, Is.EqualTo(label));
             NUnit.Framework.Assert.That((psm.IsDecoy, psm.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)));

@@ -225,8 +225,15 @@ public class TestOsmReading
         string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"entrapmentLabel_{label}.osmtsv");
         File.WriteAllLines(path, lines);
 
-        OsmFromTsv osm = SpectrumMatchTsvReader.ReadOsmTsv(path, out _).First();
-        File.Delete(path);
+        OsmFromTsv osm;
+        try
+        {
+            osm = SpectrumMatchTsvReader.ReadOsmTsv(path, out _).First();
+        }
+        finally
+        {
+            File.Delete(path);
+        }
 
         Assert.That((osm.IsDecoy, osm.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)));
         Assert.That(osm.ToLibrarySpectrum().IsDecoy, Is.EqualTo(isDecoy));

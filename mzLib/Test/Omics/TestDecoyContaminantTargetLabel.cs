@@ -33,19 +33,21 @@ public class TestDecoyContaminantTargetLabel
     /// Readers test for a letter, never for equality: a PSM mapping to several parents joins their
     /// labels with '|', and <c>== "D"</c> reads an entrapment decoy as a target.
     /// </summary>
-    [TestCase("T", false, false)]
-    [TestCase("D", true, false)]
-    [TestCase("C", false, false)]
-    [TestCase("ET", false, true)]
-    [TestCase("ED", true, true)]
-    [TestCase("T|ET", false, true)]
-    [TestCase("ED|D", true, true)]
-    [TestCase("T|C", false, false)]
-    [TestCase("", false, false)]
-    [TestCase(null, false, false)]
-    public void ReadingALabelFindsDecoyAndEntrapmentAnywhereInIt(string? label, bool isDecoy, bool isEntrapment)
+    [TestCase("T", false, false, false)]
+    [TestCase("D", true, false, false)]
+    [TestCase("C", false, true, false)]
+    [TestCase("ET", false, false, true)]
+    [TestCase("ED", true, false, true)]
+    [TestCase("T|ET", false, false, true)]
+    [TestCase("ED|D", true, false, true)]
+    [TestCase("T|C", false, true, false)]
+    [TestCase("C|D", true, true, false)]
+    [TestCase("", false, false, false)]
+    [TestCase(null, false, false, false)]
+    public void ReadingALabelFindsEachLetterAnywhereInIt(string? label, bool isDecoy, bool isContaminant, bool isEntrapment)
     {
         Assert.That(DecoyContaminantTargetLabel.IsDecoy(label), Is.EqualTo(isDecoy));
+        Assert.That(DecoyContaminantTargetLabel.IsContaminant(label), Is.EqualTo(isContaminant));
         Assert.That(DecoyContaminantTargetLabel.IsEntrapment(label), Is.EqualTo(isEntrapment));
     }
 }

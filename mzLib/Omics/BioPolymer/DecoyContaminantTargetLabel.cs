@@ -43,6 +43,15 @@ public static class DecoyContaminantTargetLabel
     /// <summary>True when any parent named by the label is a decoy, entrapment decoys included.</summary>
     public static bool IsDecoy(string? label) => label?.Contains('D') ?? false;
 
+    /// <summary>True when any parent named by the label is a contaminant.</summary>
+    public static bool IsContaminant(string? label) => label?.Contains('C') ?? false;
+
     /// <summary>True when any parent named by the label is entrapment.</summary>
+    /// <remarks>
+    /// "Any parent" is deliberate. A peptide shared by a target and its own entrapment partner
+    /// (<c>T|ET</c>, typically short) is counted as an entrapment discovery, which can only raise an
+    /// entrapment FDP estimate: the error is conservative, never optimistic. A caller that wants
+    /// such shared peptides out of the count should exclude labels that also name a target.
+    /// </remarks>
     public static bool IsEntrapment(string? label) => label?.Contains('E') ?? false;
 }

@@ -95,7 +95,7 @@ public class ProteinGroupFromTsv
     }
 
     [Ignore] public bool IsDecoy => DecoyContaminantTargetLabel.IsDecoy(DecoyContaminantTarget);
-    [Ignore] public bool IsContaminant => DecoyContaminantTarget == DecoyContaminantTargetLabel.Contaminant;
+    [Ignore] public bool IsContaminant => DecoyContaminantTargetLabel.IsContaminant(DecoyContaminantTarget);
     [Ignore] public bool IsEntrapment => DecoyContaminantTargetLabel.IsEntrapment(DecoyContaminantTarget);
 
     /// <summary>
