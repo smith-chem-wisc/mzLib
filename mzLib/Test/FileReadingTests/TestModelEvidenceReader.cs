@@ -130,7 +130,8 @@ namespace Test.FileReadingTests
 
             Assert.That(r.Design, Is.Null, "nothing countable is left");
             Assert.That(r.Rejected, Does.Contain("design plexes = 20: the quote does not state it"));
-            Assert.That(r.Rejected, Has.Count.EqualTo(1), "'five' states 5, so the fractions number itself passes the check");
+            Assert.That(r.Rejected, Does.Contain("design fractions = 5: the quote does not say 'fraction' near the number"),
+                "'five' states 5, but of age groups, not of fractions");
         }
 
         [TestCase("each injected twice", 2, true)]
@@ -200,7 +201,7 @@ namespace Test.FileReadingTests
                 "[JAH3-s001.xlsx!Data!R3] HumanHFpEF_1 | female")), Input());
 
             Assert.That(r.Evidence, Is.Empty);
-            Assert.That(r.Rejected.Single(), Does.EndWith("the quote is not in the row it cites"));
+            Assert.That(r.Rejected.Single(), Does.EndWith("the quote is not whole cells of the row it cites"));
         }
 
         [TestCase("characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77", true)]
@@ -347,15 +348,29 @@ namespace Test.FileReadingTests
 
             protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
             {
-                Bodies.Add(await request.Content!.ReadAsStringAsync(cancellationToken));
-                string message = System.Text.Json.JsonSerializer.Serialize(new
+                string body = await request.Content!.ReadAsStringAsync(cancellationToken);
+                Bodies.Add(body);
+                var usage = new { input_tokens = 1200, output_tokens = 300, cache_read_input_tokens = 900, cache_creation_input_tokens = 0 };
+                if (!System.Text.Json.JsonDocument.Parse(body).RootElement.TryGetProperty("stream", out var s) || !s.GetBoolean())
                 {
-                    id = "msg_test", type = "message", role = "assistant", model = "claude-opus-5",
-                    content = new[] { new { type = "text", text = _answer } },
-                    stop_reason = _stopReason, stop_sequence = (string?)null,
-                    usage = new { input_tokens = 1200, output_tokens = 300, cache_read_input_tokens = 900, cache_creation_input_tokens = 0 }
-                });
-                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(message, Encoding.UTF8, "application/json") };
+                    string message = System.Text.Json.JsonSerializer.Serialize(new
+                    {
+                        id = "msg_test", type = "message", role = "assistant", model = "claude-opus-5",
+                        content = new[] { new { type = "text", text = _answer } },
+                        stop_reason = _stopReason, stop_sequence = (string?)null, usage
+                    });
+                    return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(message, Encoding.UTF8, "application/json") };
+                }
+                // The streamed form: the same message as server-sent events.
+                static string Event(string name, object data) => $"event: {name}\ndata: {System.Text.Json.JsonSerializer.Serialize(data)}\n\n";
+                var sse = new StringBuilder()
+                    .Append(Event("message_start", new { type = "message_start", message = new { id = "msg_test", type = "message", role = "assistant", model = "claude-opus-5", content = Array.Empty<object>(), stop_reason = (string?)null, stop_sequence = (string?)null, usage = new { input_tokens = 1200, output_tokens = 1, cache_read_input_tokens = 900, cache_creation_input_tokens = 0 } } }))
+                    .Append(Event("content_block_start", new { type = "content_block_start", index = 0, content_block = new { type = "text", text = "" } }))
+                    .Append(Event("content_block_delta", new { type = "content_block_delta", index = 0, delta = new { type = "text_delta", text = _answer } }))
+                    .Append(Event("content_block_stop", new { type = "content_block_stop", index = 0 }))
+                    .Append(Event("message_delta", new { type = "message_delta", delta = new { stop_reason = _stopReason, stop_sequence = (string?)null }, usage }))
+                    .Append(Event("message_stop", new { type = "message_stop" }));
+                return new HttpResponseMessage(HttpStatusCode.OK) { Content = new StringContent(sse.ToString(), Encoding.UTF8, "text/event-stream") };
             }
         }
 
@@ -394,6 +409,130 @@ namespace Test.FileReadingTests
             Assert.That(result.Rejected.Single(), Is.EqualTo("no reading: stop reason 'refusal'"));
             Assert.That(result.InputTokens, Is.EqualTo(1200L), "a refused call still reports what it cost");
         }
+
+        // ---------------- Alexander-Sol's review of #1377 (2026-10-01) ----------------
+
+        [TestCase("characteristics[sex]", "male", "[JAH3-s001.xlsx!Data!R2] male")]
+        [TestCase("characteristics[age]", "7Y", "[JAH3-s001.xlsx!Data!R2] 7")]
+        public void ARowQuoteMustBeWholeCellsOfThatRow(string column, string value, string quote)
+        {
+            // R2 is HumanHFpEF_1 | female | 77: "male" is inside "female", "7" inside "77", and neither is a cell.
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("HumanHFpEF_1.raw", column, value, quote)), Input());
+
+            Assert.That(r.Evidence, Is.Empty);
+            Assert.That(r.Rejected.Single(), Does.EndWith("the quote is not whole cells of the row it cites"));
+        }
+
+        [Test]
+        public void ARowAboutAnotherSampleOnlyMakesAGuess()
+        {
+            // R2 is HumanHFpEF_1's row; nothing in it names HumanControl_1.
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign,
+                Claim("HumanControl_1.raw", "characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] female"),
+                Claim("HumanHFpEF_1.raw", "characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] female")), Input());
+
+            Assert.That(r.Evidence.Select(e => (e.DataFile, e.Confidence)), Is.EqualTo(new[]
+            {
+                ("HumanControl_1.raw", SdrfEvidenceConfidence.Guess),
+                ("HumanHFpEF_1.raw", SdrfEvidenceConfidence.Likely)
+            }), "a row names its own file, not another's");
+        }
+
+        [Test]
+        public void ADesignNumberNeedsAFullQuoteThatSaysWhatItCounts()
+        {
+            var input = Input() with { PaperText = "Peptides from twelve donors were pooled and separated into twelve fractions." };
+
+            var r = ModelEvidenceReader.Interpret(Answer(Design(fractions: 12, fractionsQuote: "twelve")), input);
+            Assert.That(r.Rejected, Does.Contain("design fractions = 12: the quote is too short to check"));
+
+            var r2 = ModelEvidenceReader.Interpret(Answer(Design(fractions: 12, fractionsQuote: "Peptides from twelve donors were pooled")), input);
+            Assert.That(r2.Rejected, Does.Contain("design fractions = 12: the quote does not say 'fraction' near the number"));
+
+            var r3 = ModelEvidenceReader.Interpret(Answer(Design(fractions: 12, fractionsQuote: "separated into twelve fractions")), input);
+            Assert.That(r3.Rejected, Is.Empty);
+        }
+
+        [TestCase("characteristics[disease]", "normal", "intensities were normalized to the median", false)]
+        [TestCase("characteristics[disease]", "normal", "normal tissue adjacent to the tumour", true)]
+        [TestCase("factor value[treatment]", "control", "kept in a temperature controlled room", false)]
+        [TestCase("characteristics[disease]", "type 2 diabetes mellitus", "the cell type was not recorded", false)]
+        [TestCase("characteristics[disease]", "type 2 diabetes mellitus", "patients with type 2 diabetes", true)]
+        [TestCase("characteristics[organism part]", "heart left ventricle", "left ventricular biopsies were collected", true)]
+        [TestCase("characteristics[age]", "35Y", "separated on a 35 min gradient", false)]
+        [TestCase("characteristics[age]", "35Y", "a 35-year-old donor", true)]
+        [TestCase("characteristics[age]", "35Y", "patients aged 35 at biopsy", true)]
+        [TestCase("characteristics[age]", "9M", "mice were 9 years old", false)]
+        [TestCase("characteristics[age]", "9M", "mice at 9 months of age", true)]
+        [TestCase("characteristics[age]", "77Y", "humanhfpef_1 | female | 77", true)]
+        [TestCase("characteristics[biological replicate]", "2", "the second of 2 replicates", true)]
+        public void AQuoteStatesAValueAsAWordOrAnAgeNotAsAFragment(string column, string value, string quote, bool states) =>
+            Assert.That(ModelEvidenceReader.QuoteStates(quote, column, value), Is.EqualTo(states));
+
+        [Test]
+        public void LigaturesAndSoftHyphensInAPdfDoNotRejectATrueQuote()
+        {
+            var input = Input() with { PaperText = "Left ven­tricular biopsies were ﬁxed in formalin." };
+
+            var r = ModelEvidenceReader.Interpret(Answer(NoDesign, Claim("", "characteristics[organism part]", "heart left ventricle",
+                "Left ventricular biopsies were fixed in formalin", source: "paper")), input);
+
+            Assert.That(r.Rejected, Is.Empty);
+            Assert.That(r.Evidence, Has.Count.EqualTo(1));
+        }
+
+        [Test]
+        public void APaperLongerThanTheCapIsCutInThePromptButStillChecked()
+        {
+            const string tail = "Each sample was injected in triplicate at the very end.";
+            var input = Input() with { PaperText = new string('x', ModelEvidenceReader.MaxPaperChars) + " collected from 10 HFpEF patients. " + tail };
+
+            string prompt = ModelEvidenceReader.UserPrompt(input);
+
+            Assert.That(prompt.Length, Is.LessThan(ModelEvidenceReader.MaxPaperChars + 10_000));
+            Assert.That(prompt, Does.Contain("[paper cut at"));
+            Assert.That(prompt, Does.Not.Contain(tail));
+            var d = ModelEvidenceReader.Interpret(Answer(Design(Group("HFpEF", 10, "collected from 10 HFpEF patients"), tech: 3, techQuote: tail)), input).Design!;
+            Assert.That(d.TechnicalReplicates, Is.EqualTo(3), "the quote check reads the whole paper");
+        }
+
+        [Test]
+        public async Task AnAnswerCutOffAtTheOutputLimitSaysSoAndKeepsNothing()
+        {
+            // A large deposit (PXD007160: 1,688 channel claims) can outrun max_tokens; the JSON then ends mid-claim.
+            string full = Answer(NoDesign, Claim("HumanHFpEF_1.raw", "characteristics[sex]", "female", "[JAH3-s001.xlsx!Data!R2] HumanHFpEF_1 | female | 77"));
+            var handler = new RecordingHandler(full[..(full.Length / 2)], "max_tokens");
+            var client = new AnthropicClient { ApiKey = "test-key", HttpClient = new HttpClient(handler), MaxRetries = 0 };
+
+            var result = await new ModelEvidenceReader(client).ReadAsync(Input());
+
+            Assert.That(result.StopReason, Is.EqualTo("max_tokens"));
+            Assert.That(result.Evidence, Is.Empty);
+            Assert.That(result.Rejected.Single(), Does.StartWith("no reading: the answer was cut off at the output limit"));
+            Assert.That(result.OutputTokens, Is.EqualTo(300L), "a cut-off call still reports what it cost");
+            using var request = System.Text.Json.JsonDocument.Parse(handler.Bodies.Single());
+            Assert.That(request.RootElement.GetProperty("stream").GetBoolean(), Is.True, "streamed, so a long answer cannot time out");
+            Assert.That(request.RootElement.GetProperty("max_tokens").GetInt32(), Is.EqualTo(ModelEvidenceReader.MaxOutputTokens));
+        }
+
+        /// <summary>
+        /// The one live call: catches drift in what the recorded stub cannot (the model id, the beta header, the fallback
+        /// and adaptive thinking). Runs in the external-service job when ANTHROPIC_API_KEY is set; skipped otherwise.
+        /// </summary>
+        [Test]
+        [Category("ExternalService")]
+        public async Task LiveTheApiAcceptsTheRequestThisReaderSends()
+        {
+            string? key = Environment.GetEnvironmentVariable("ANTHROPIC_API_KEY");
+            if (string.IsNullOrWhiteSpace(key)) Assert.Ignore("ANTHROPIC_API_KEY is not set; the live model check is skipped.");
+
+            var result = await new ModelEvidenceReader(new AnthropicClient { ApiKey = key }).ReadAsync(Input());
+
+            Assert.That(result.StopReason, Is.EqualTo("end_turn"), string.Join("; ", result.Rejected));
+            Assert.That(result.Rejected, Has.None.StartsWith("not JSON"));
+            Assert.That(result.InputTokens, Is.GreaterThan(0));
+        }
+
 
         [Test]
         public void TheMethodsAndTablesOfAJatsArticleAreKeptAndTheReferencesAreNot()
