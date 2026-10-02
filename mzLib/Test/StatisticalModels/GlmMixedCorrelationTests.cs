@@ -346,6 +346,27 @@ public class GlmMixedCorrelationTests
     }
 
     [Test]
+    public void VarianceRatioBeyondTheSearchIsFlaggedNotClamped()
+    {
+        // Two near-identical replicates per group: τ²/σ² ≈ 1e10, far beyond the search's e¹² ≈ 1.6e5.
+        int G = 8, k = 2, n = G * k;
+        var rng = new Random(3);
+        var design = new double[n, 1];
+        var y = new double[1, n];
+        var groups = new string[n];
+        for (int s = 0; s < n; s++)
+        {
+            int g = s / k;
+            design[s, 0] = 1; groups[s] = $"g{g}";
+            y[0, s] = 10 * g + Normal.Sample(rng, 0, 1e-4);
+        }
+        var fit = MixedModel.Fit(y, design, groups);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.VarianceRatioAtLimit));
+        Assert.That(fit.Coefficient(0, 0), Is.NaN);
+        Assert.That(fit.GroupVariance[0], Is.NaN);
+    }
+
+    [Test]
     public void MixedModelRecoversSimulatedParameters()
     {
         var rng = new Random(20260924);

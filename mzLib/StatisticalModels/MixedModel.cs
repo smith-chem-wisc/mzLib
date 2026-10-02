@@ -139,7 +139,10 @@ namespace StatisticalModels
     /// Estimation: σ² is profiled out and the likelihood (REML or ML, <see cref="VarianceEstimator"/>) is
     /// maximized over the variance ratio θ = τ²/σ² ≥ 0, a one-dimensional search, using the closed-form
     /// inverse and determinant of each group's compound-symmetric block. θ = 0 (no between-group variance)
-    /// is admitted as a boundary estimate. Fixed effects are then generalized least squares at θ̂.
+    /// is admitted as a boundary estimate. The search stops at θ = e¹²; a likelihood still improving there
+    /// (residual variance negligible beside the group variance) is reported
+    /// <see cref="FeatureFitStatus.VarianceRatioAtLimit"/> with NaN values rather than a clamped θ̂. Fixed
+    /// effects are then generalized least squares at θ̂.
     /// </para>
     /// <para>
     /// Degrees of freedom follow nlme's containment rule for one grouping level: a coefficient whose column
@@ -278,7 +281,12 @@ namespace StatisticalModels
             bool reml = estimator == VarianceEstimator.Reml;
             int dfResid = reml ? m - p : m;
 
-            double theta = MaximizeOverTheta(blocks, m, p, reml);
+            var (theta, atLimit) = MaximizeOverTheta(blocks, m, p, reml);
+            if (atLimit)
+            {
+                fit.StatusValues[f] = FeatureFitStatus.VarianceRatioAtLimit;
+                return;
+            }
             var best = Evaluate(blocks, theta, m, p, reml);
             if (!double.IsFinite(best.Objective) || !(best.Rss > 0))
             {
@@ -341,9 +349,10 @@ namespace StatisticalModels
 
         /// <summary>
         /// θ̂ ≥ 0 minimizing the profiled objective: a grid over log θ brackets the minimum, Brent's method
-        /// refines it, and the boundary θ = 0 is kept when it is at least as good.
+        /// refines it, and the boundary θ = 0 is kept when it is at least as good. <c>atLimit</c> is true when the
+        /// minimum is pressed against the top of the search, θ = e¹², so θ̂ is a clamp, not an estimate.
         /// </summary>
-        private static double MaximizeOverTheta(Blocks b, int m, int p, bool reml)
+        private static (double theta, bool atLimit) MaximizeOverTheta(Blocks b, int m, int p, bool reml)
         {
             double Obj(double u) => Evaluate(b, Math.Exp(u), m, p, reml).Objective is var o && double.IsFinite(o) ? o : double.MaxValue;
 
@@ -359,7 +368,8 @@ namespace StatisticalModels
             double thetaStar = Math.Exp(uStar);
             double atZero = Evaluate(b, 0, m, p, reml).Objective;
             double atStar = Evaluate(b, thetaStar, m, p, reml).Objective;
-            return double.IsFinite(atZero) && atZero <= atStar ? 0 : thetaStar;
+            if (double.IsFinite(atZero) && atZero <= atStar) return (0, false);
+            return (thetaStar, hi - uStar < 1e-6);
         }
 
         /// <summary>Brent's (1973) derivative-free minimizer on [a, b].</summary>
