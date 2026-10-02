@@ -156,6 +156,7 @@ public static class ModificationLoader
         Dictionary<string, IList<string>> _databaseReference = null;
         Dictionary<string, IList<string>> _taxonomicRange = null;
         List<string> _keywords = null;
+        MonosaccharideComposition _monosaccharideComposition = null;
         Dictionary<DissociationType, List<double>> _neutralLosses = null;
         Dictionary<DissociationType, List<double>> _diagnosticIons = null;
         string _fileOrigin = ptmListLocation;
@@ -273,6 +274,18 @@ public static class ModificationLoader
                         _keywords = new List<string>(modValue.TrimEnd('.').Split(new string[] { "; " }, StringSplitOptions.None));
                         break;
 
+                    case "GC": // Monosaccharide composition of a glycan, e.g. Hex(1)HexNAc(1)
+                        // Throws on a value it cannot read, as the CF and BL cases do. A composition that
+                        // failed to parse and was then ignored would silently relax whatever cleavage rule
+                        // depends on it, which is worse than refusing the record.
+                        if (!MonosaccharideComposition.TryParse(modValue, out _monosaccharideComposition))
+                        {
+                            throw new MzLibException("Invalid monosaccharide composition '" + modValue
+                                + "' for " + _id + ". Write it as monosaccharide-and-count pairs, for "
+                                + "example Hex(1)HexNAc(1).");
+                        }
+                        break;
+
                     // NOW CUSTOM FIELDS:
 
                     case "NL": // Netural Losses. when field doesn't exist, single equal to 0. these must all be on one line;
@@ -383,7 +396,7 @@ public static class ModificationLoader
                             else
                             {
 
-                                yield return new Modification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin);
+                                yield return new Modification(_id, _accession, _modificationType, _featureType, motif, _locationRestriction, _chemicalFormula, _monoisotopicMass, _databaseReference, _taxonomicRange, _keywords, _neutralLosses, _diagnosticIons, _fileOrigin, _monosaccharideComposition);
                             }
                         }
                         break;

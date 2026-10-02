@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using MzLibUtil;
 
 namespace Omics.Digestion
@@ -14,12 +14,47 @@ namespace Omics.Digestion
         public readonly int CutIndex;
         public readonly string ExcludeFromWildcard;
 
-        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard)
+        /// <summary>
+        /// A modification this motif REQUIRES at one subsite before it will sever its bond, or null when
+        /// the motif is satisfied by sequence alone -- which is every motif that ships today. See
+        /// <see cref="CleavageRequirement"/> for why the requirement carries a subsite address rather
+        /// than a flag.
+        /// </summary>
+        /// <remarks>
+        /// Readonly and constructor-set, like the four fields above it: a motif is immutable once built,
+        /// and a requirement that could be changed afterwards would let a digestion agent's rule drift
+        /// out from under a cached digest. The constructor parameter is optional so that the four-argument
+        /// form every existing call site uses -- <see cref="ParseDigestionMotifsFromString"/>,
+        /// ProteaseDictionary, RnaseDictionary and the test fixtures -- keeps compiling unchanged.
+        /// </remarks>
+        public readonly IReadOnlyList<CleavageRequirement> CleavageRequirements;
+
+        /// <summary>True when this motif is satisfied by sequence alone, as every shipped motif but the
+        /// glycoproteases is.</summary>
+        public bool HasCleavageRequirement => CleavageRequirements is { Count: > 0 };
+
+        private static readonly CleavageRequirement[] NoRequirements = new CleavageRequirement[0];
+
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            CleavageRequirement cleavageRequirement = null)
+            : this(inducingCleavage, preventingCleavage, cutIndex, excludeFromWildcard,
+                cleavageRequirement is null ? null : new[] { cleavageRequirement })
+        {
+        }
+
+        /// <param name="cleavageRequirements">
+        /// Every subsite condition this motif imposes, ALL of which must hold before the bond is severed.
+        /// A motif can need more than one: IMPa requires a glycan at P1' and forbids one at P1, and those
+        /// are two conditions on two different residues, not one rule with a sign.
+        /// </param>
+        public DigestionMotif(string inducingCleavage, string preventingCleavage, int cutIndex, string excludeFromWildcard,
+            IReadOnlyList<CleavageRequirement> cleavageRequirements)
         {
             this.InducingCleavage = inducingCleavage;
             this.PreventingCleavage = preventingCleavage;
             this.CutIndex = cutIndex;
             this.ExcludeFromWildcard = excludeFromWildcard;
+            this.CleavageRequirements = cleavageRequirements ?? NoRequirements;
         }
 
         // parsing cleavage rules syntax
@@ -139,13 +174,22 @@ namespace Omics.Digestion
                 prevents = true;
                 for (int n = 0; n < PreventingCleavage.Length && prevents; n++)
                 {
-                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + n < 0)
+                    // Only the index actually read may be bounds-checked. Checking both, as this did,
+                    // silently abandons the prevention whenever the OTHER end of the sequence is near --
+                    // so a cut-after motif at position 0 never prevented anything, and shipped trypsin|P
+                    // digested RPAAAAK into "R" + "PAAAAK", making the very R|P cut it exists to forbid.
+                    // A cut-before motif has the mirror hazard at the C-terminus.
+                    int preventingIndex = CutIndex != 0
+                        ? location + m + n
+                        : location - PreventingCleavage.Length + n;
+
+                    if (preventingIndex < 0 || preventingIndex >= sequence.Length)
                     {
                         prevents = false;
                     }
                     else
                     {
-                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + n];
+                        currentResidue = sequence[preventingIndex];
                         if (!MotifMatches(PreventingCleavage[n], currentResidue))
                         {
                             prevents = false;
@@ -158,6 +202,98 @@ namespace Omics.Digestion
 
             return (fits, prevents);
         }
+
+        /// <summary>
+        /// True when this motif severs the bond C-TERMINAL to <paramref name="residue"/> -- that is,
+        /// when the residue whose own C-side bond the cut index falls after matches. Trypsin's "K|"
+        /// and "R|" report true for K and R; Asp-N's "|D" and Lys-N's "|K" report false for every
+        /// residue, because they cut N-terminal to their recognition residue and sever nothing after it.
+        /// </summary>
+        /// <remarks>
+        /// Residue-level only: a preventing-cleavage rule (trypsin|P's "K[P]|") is deliberately not
+        /// consulted, because that rule depends on the sequence context of a particular site and this
+        /// question is about the protease alone. Ambiguity codes and the wildcard are honoured through
+        /// the same matcher digestion itself uses, so "X|" reports true for every residue.
+        ///
+        /// This is exactly the P1 subsite question, so it delegates to
+        /// <see cref="NonPrimeSubsiteAccepts"/> rather than deriving InducingCleavage[CutIndex - 1] a
+        /// second time. The two are equivalent by construction: a CutIndex below 1 or above the
+        /// recognition sequence's length puts P1 outside the motif, which is the same rejection the
+        /// explicit bounds check used to make.
+        /// </remarks>
+        public bool CleavesCTerminalTo(char residue) => NonPrimeSubsiteAccepts(1, residue);
+
+        /// <summary>
+        /// Where this motif's recognition sequence sits relative to the bond it severs. See
+        /// <see cref="CleavageSide"/> for why this has three values and not two -- a motif may straddle
+        /// the bond, naming residues on both sides, and four such motifs ship today.
+        /// </summary>
+        public CleavageSide Side =>
+            CutIndex <= 0 ? CleavageSide.NTerminal
+            : CutIndex >= (InducingCleavage?.Length ?? 0) ? CleavageSide.CTerminal
+            : CleavageSide.Straddling;
+
+        /// <summary>
+        /// The residue this motif requires at the non-prime subsite P<paramref name="position"/> --
+        /// P1 being the residue immediately BEFORE the cut, P2 the one before that, in the
+        /// Schechter-Berger convention. The null character when the motif says nothing there, either
+        /// because the subsite lies outside the recognition sequence or because
+        /// <paramref name="position"/> is not a subsite number.
+        /// </summary>
+        /// <remarks>
+        /// Returns the motif character as written, so it may be an ambiguity code or the wildcard 'X'
+        /// rather than a literal residue -- StcE-trypsin's "TX|T" answers 'X' at P1 and 'T' at P2. Use
+        /// <see cref="NonPrimeSubsiteAccepts"/> to ask whether a given residue satisfies the subsite,
+        /// which honours those codes; comparing this char directly does not.
+        /// </remarks>
+        public char NonPrimeSubsite(int position) =>
+            position < 1 ? '\0' : SubsiteAt(CutIndex - position);
+
+        /// <summary>
+        /// The residue this motif requires at the prime subsite P<paramref name="position"/>' --
+        /// P1' being the residue immediately AFTER the cut. The null character when the motif says
+        /// nothing there. Asp-N's "|D" answers 'D' at P1'.
+        /// </summary>
+        /// <remarks>
+        /// As for <see cref="NonPrimeSubsite"/>, the character is the motif's own, ambiguity codes
+        /// included. Prefer <see cref="PrimeSubsiteAccepts"/> for matching.
+        /// </remarks>
+        public char PrimeSubsite(int position) =>
+            position < 1 ? '\0' : SubsiteAt(CutIndex + position - 1);
+
+        /// <summary>
+        /// True when <paramref name="residue"/> satisfies this motif's requirement at the non-prime
+        /// subsite P<paramref name="position"/>. False when the motif constrains nothing there -- an
+        /// unconstrained subsite is not a match, because the caller is asking whether the motif DEMANDS
+        /// this residue, not whether it tolerates it.
+        /// </summary>
+        public bool NonPrimeSubsiteAccepts(int position, char residue) =>
+            SubsiteAccepts(NonPrimeSubsite(position), residue);
+
+        /// <summary>
+        /// True when <paramref name="residue"/> satisfies this motif's requirement at the prime subsite
+        /// P<paramref name="position"/>'. False when the motif constrains nothing there.
+        /// </summary>
+        public bool PrimeSubsiteAccepts(int position, char residue) =>
+            SubsiteAccepts(PrimeSubsite(position), residue);
+
+        /// <summary>
+        /// The motif character at a zero-based index into the recognition sequence, or the null
+        /// character when the index falls outside it.
+        /// </summary>
+        private char SubsiteAt(int index) =>
+            InducingCleavage is null || index < 0 || index >= InducingCleavage.Length
+                ? '\0'
+                : InducingCleavage[index];
+
+        /// <summary>
+        /// Matches a subsite's motif character against a sequence residue through the same matcher
+        /// digestion itself uses, so the wildcard and the B/J/Z ambiguity codes are honoured. The null
+        /// character -- an unconstrained subsite -- never matches, and must be rejected here rather
+        /// than handed to <see cref="MotifMatches"/>, which would compare it literally.
+        /// </summary>
+        private bool SubsiteAccepts(char motifResidue, char residue) =>
+            motifResidue != '\0' && MotifMatches(motifResidue, residue);
 
         private bool MotifMatches(char motifChar, char sequenceChar)
         {

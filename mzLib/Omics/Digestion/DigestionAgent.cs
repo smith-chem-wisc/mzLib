@@ -238,11 +238,36 @@ namespace Omics.Digestion
             }
         }
 
-        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, bool cleaveFirstResidue, bool retainFirstResidue, CleavageSpecificity truncationSpecificity, string initialDescription)
+        protected IEnumerable<DigestionProduct> FullDigestion(IBioPolymer parent, int maximumMissedCleavages, int minLength, int maxLength, bool cleaveFirstResidue, bool retainFirstResidue, CleavageSpecificity truncationSpecificity, string initialDescription,
+            bool respectCleavageRequirements = false, IEnumerable<Modification> configuredModifications = null)
         {
             List<int> cleavageIndices = GetDigestionSiteIndices(parent.BaseSequence);
 
-            for (int missedCleavages = 0; missedCleavages <= maximumMissedCleavages; missedCleavages++)
+            // A digestion agent whose motif requires a modification has no site where that modification
+            // cannot be. Removing those sites HERE rather than dropping peptidoforms later is what keeps
+            // product spans and missed-cleavage counts correct: the read-through across a site that is not
+            // a site is simply the ordinary product between the sites that remain, and needs no slack.
+            if (respectCleavageRequirements)
+            {
+                cleavageIndices = FilterToFeasibleCleavageSites(cleavageIndices, parent, configuredModifications);
+            }
+
+            // The second half of the promoting correction needs generation slack, and for the opposite
+            // reason to the filter above. A site that survives the filter is feasible but may still be
+            // UNOCCUPIED in a given peptidoform, and there the agent could not have cut either -- so the
+            // read-through across it is a real product carrying one fewer real missed cleavage than its
+            // span suggests. At the caller's budget it was never enumerated, which is why the
+            // unglycosylated form of a glycoprotease substrate used to vanish instead of surviving intact
+            // (truth-set STCE-08). Slack buys those spans; ProteolyticPeptide then discounts the
+            // unoccupied sites back out of the reported count and drops anything still over budget.
+            int generationMissedCleavages = maximumMissedCleavages;
+            if (respectCleavageRequirements)
+            {
+                generationMissedCleavages += ReadThroughGenerationSlack(cleavageIndices, parent.BaseSequence, maxLength,
+                    maximumMissedCleavages);
+            }
+
+            for (int missedCleavages = 0; missedCleavages <= generationMissedCleavages; missedCleavages++)
             {
                 for (int i = 0; i < cleavageIndices.Count - missedCleavages - 1; i++)
                 {
@@ -561,6 +586,389 @@ namespace Omics.Digestion
         }
 
         #region Digestion Helpers
+
+        /// <summary>
+        /// True when this agent cleaves the bond C-TERMINAL to <paramref name="residue"/>, under any of
+        /// its motifs. Trypsin reports true for K and R; Glu-C reports true for E alone; Asp-N and Lys-N
+        /// report false for every residue, because they cut N-terminal to their recognition residue.
+        ///
+        /// This is what makes a cleavage-blocking modification a question about the PAIR rather than
+        /// about the modification alone: an acetylated lysine abolishes a trypsin site and abolishes
+        /// nothing at all in a Glu-C digest.
+        /// </summary>
+        /// <remarks>
+        /// Residue-level, context-free -- see <see cref="DigestionMotif.CleavesCTerminalTo"/> for what
+        /// that does and does not take into account.
+        /// </remarks>
+        /// <summary>
+        /// True when at least one of this agent's motifs will not cleave unless a modification is present
+        /// at one of its subsites -- that is, when this is a glycoprotease rather than an ordinary
+        /// sequence-directed protease. False for every agent that ships today.
+        /// </summary>
+        /// <remarks>
+        /// The inertness gate for the whole cleavage-promoting correction, and the counterpart of
+        /// CleavageBlockingPolicy.For's gate. It matters because the discharge
+        /// runs once per generated peptidoform, in the same loop as
+        /// <see cref="Modifications.ModificationLocalization.ModFits"/> -- roughly 8.8 billion calls in a
+        /// bottom-up run -- so a digest with no glycoprotease must pay nothing at all for a feature it
+        /// cannot use.
+        /// </remarks>
+        public bool HasCleavageRequirement
+        {
+            get
+            {
+                if (DigestionMotifs is null)
+                {
+                    return false;
+                }
+
+                foreach (DigestionMotif motif in DigestionMotifs)
+                {
+                    if (motif is not null && motif.HasCleavageRequirement)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Removes from <paramref name="oneBasedIndicesToCleaveAfter"/> every internal site that no motif
+        /// can justify, because the modification a motif REQUIRES at one of its subsites cannot be
+        /// present there at all. Returns the list unchanged when this agent requires nothing.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Why the filter belongs here and not after digestion.</b> A site that is not a site
+        /// must never enter the enumeration in the first place. Dropping the peptidoforms afterwards
+        /// removes the two fragments either side of a bad cut but does NOT produce the read-through
+        /// peptide that replaces them -- that peptide carries one more missed cleavage and, at
+        /// MaxMissedCleavages = 0, was never generated. Filtering here instead means peptide spans,
+        /// missed-cleavage counts and read-throughs all come out right with no generation slack at all.</para>
+        ///
+        /// <para><b>Feasibility, not occupancy.</b> This asks whether the parent COULD carry a satisfying
+        /// modification at the constrained residue, using the localized modifications the database
+        /// declares. It cannot ask whether a particular peptidoform DOES carry one, because peptidoforms
+        /// do not exist yet. A site kept here may still be refused per-peptidoform later; a site dropped
+        /// here could never have been real. Being wrong in that direction only ever keeps peptides.</para>
+        ///
+        /// <para>The first and last entries are the sequence's own termini rather than cleavage sites, so
+        /// they are always kept: removing them would discard the peptide that runs to the end of the
+        /// protein.</para>
+        /// </remarks>
+        public List<int> FilterToFeasibleCleavageSites(List<int> oneBasedIndicesToCleaveAfter, IBioPolymer parent,
+            IEnumerable<Modification> configuredModifications = null)
+        {
+            if (!HasCleavageRequirement || oneBasedIndicesToCleaveAfter is null || parent is null)
+            {
+                return oneBasedIndicesToCleaveAfter;
+            }
+
+            string sequence = parent.BaseSequence;
+            var feasible = new List<int>(oneBasedIndicesToCleaveAfter.Count);
+
+            for (int i = 0; i < oneBasedIndicesToCleaveAfter.Count; i++)
+            {
+                int site = oneBasedIndicesToCleaveAfter[i];
+
+                // The injected termini are not cleavage events and are never filtered.
+                if (i == 0 || i == oneBasedIndicesToCleaveAfter.Count - 1 || site <= 0 || site >= sequence.Length)
+                {
+                    feasible.Add(site);
+                    continue;
+                }
+
+                if (AnyMotifCouldJustify(site, sequence, parent, configuredModifications))
+                {
+                    feasible.Add(site);
+                }
+            }
+
+            return feasible;
+        }
+
+        /// <summary>
+        /// True when some motif both matches the sequence at this cut and could have its requirement met
+        /// there. A motif carrying no requirement justifies any cut it matches, which is what lets a
+        /// composite agent keep cutting at its ordinary sequence motifs.
+        /// </summary>
+        private bool AnyMotifCouldJustify(int cutAfterOneBasedResidue, string sequence, IBioPolymer parent,
+            IEnumerable<Modification> configuredModifications)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif is null)
+                {
+                    continue;
+                }
+
+                // Fits takes a ZERO-based index into the sequence handed to it, and the motif's
+                // recognition sequence begins CutIndex residues before the bond it severs.
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0 || motifStartZeroBased + motif.InducingCleavage.Length > sequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(sequence, motifStartZeroBased);
+                if (!fits || prevented)
+                {
+                    continue;
+                }
+
+                // EVERY condition this motif imposes has to be satisfiable at once. A motif with none is
+                // satisfied by sequence alone and justifies the cut outright.
+                bool everyConditionCouldHold = true;
+                foreach (CleavageRequirement requirement in motif.CleavageRequirements)
+                {
+                    // A FORBIDDEN condition is always satisfiable at site-finding time: the residue can
+                    // simply be unoccupied, and whether it is in a particular peptidoform is an occupancy
+                    // question that belongs downstream. Treating it as infeasible here would delete the
+                    // site outright and with it every peptide either side of it.
+                    if (requirement.IsForbidden)
+                    {
+                        continue;
+                    }
+
+                    // Subsites count outward from the bond, which falls after cutAfterOneBasedResidue:
+                    // Pk is (cut - k + 1) and Pk' is (cut + k), both one-based in the parent.
+                    int constrainedResidue = requirement.IsPrimeSide
+                        ? cutAfterOneBasedResidue + requirement.Subsite
+                        : cutAfterOneBasedResidue - requirement.Subsite + 1;
+
+                    if (constrainedResidue < 1 || constrainedResidue > sequence.Length
+                        || !CouldCarrySatisfyingModification(requirement, constrainedResidue, sequence, parent, configuredModifications))
+                    {
+                        everyConditionCouldHold = false;
+                        break;
+                    }
+                }
+
+                if (everyConditionCouldHold)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when this agent could cut after <paramref name="cutAfterOneBasedResidue"/> in
+        /// <paramref name="parent"/> -- that is, when the site would survive
+        /// <see cref="FilterToFeasibleCleavageSites"/> and therefore appears in the site list digestion
+        /// actually enumerated.
+        /// </summary>
+        /// <remarks>
+        /// Needed by the missed-cleavage discount, which has to tell three kinds of internal position
+        /// apart: a position that is no site at all (never in the list, so never a missed cleavage), a
+        /// site that is real for this peptidoform (a genuine missed cleavage), and a site that is feasible
+        /// but unoccupied here (in the list, but not a cleavage the agent could have made, so it must be
+        /// discounted). Only the middle one may count against the caller's budget.
+        /// </remarks>
+        public bool IsFeasibleCleavageSite(int cutAfterOneBasedResidue, IBioPolymer parent,
+            IEnumerable<Modification> configuredModifications = null)
+        {
+            if (parent is null || cutAfterOneBasedResidue < 1 || cutAfterOneBasedResidue >= parent.BaseSequence.Length)
+            {
+                return false;
+            }
+
+            return AnyMotifCouldJustify(cutAfterOneBasedResidue, parent.BaseSequence, parent, configuredModifications);
+        }
+
+        /// <summary>
+        /// The length, in residues, within which every read-through is guaranteed reachable when the
+        /// caller sets no maximum peptide length.
+        /// </summary>
+        /// <remarks>
+        /// The slack has to be finite. Under the occupancy model a glycosite may independently be bare, so
+        /// a peptide spanning ANY number of unoccupied sites is a real product -- and buying slack for all
+        /// of them makes span enumeration quadratic in the number of sites. On a 220-residue synthetic
+        /// mucin that was 188,937 peptidoforms in 9.7 s, and real mucins run to thousands of residues.
+        /// MetaMorpheus's default DigestionParams set no length limit, so this is the ordinary path, not an
+        /// edge case. With it, enumeration is linear: every read-through up to this many residues is
+        /// reached, and a longer one only if it spans no more unoccupied sites than one of that length
+        /// can. A caller who sets a maximum length gets exactly that length instead.
+        /// </remarks>
+        public const int ReadThroughLengthWithoutLengthLimit = 60;
+
+        /// <summary>
+        /// The generation slack the cleavage-promoting correction needs: the most internal sites a
+        /// read-through can skip BECAUSE they are unoccupied, in any peptide the caller could receive.
+        /// </summary>
+        /// <param name="oneBasedIndicesToCleaveAfter">The site list, termini included, after the
+        /// feasibility filter.</param>
+        /// <param name="sequence">The parent sequence the sites index.</param>
+        /// <param name="maxPeptideLength">The caller's length limit; int.MaxValue means none, and is
+        /// replaced by <see cref="ReadThroughLengthWithoutLengthLimit"/>.</param>
+        /// <param name="maximumMissedCleavages">The ordinary missed-cleavage budget the enumeration
+        /// already has, before this slack.</param>
+        /// <remarks>
+        /// <para><b>Why the slack is not MaxMods, unlike the blocking mirror.</b> A blocked site is a site
+        /// carrying a modification, and a peptidoform carries at most MaxMods of them, so MaxMods bounds
+        /// the blocking slack exactly. An unjustified site is the COMPLEMENT -- a feasible site with NO
+        /// modification on it -- and nothing about the modification budget limits how many of those a
+        /// peptide may span. So the bound has to come from the sequence and the length limit instead.</para>
+        ///
+        /// <para><b>Only requirement-only sites buy slack.</b> A site some requirement-free motif can cut
+        /// -- a tryptic K or R inside StcE-trypsin -- is justified in every peptidoform, is never
+        /// discounted, and so always counts as a real missed cleavage. Counting it here only enumerated
+        /// spans that were then dropped as over budget.</para>
+        ///
+        /// <para>So the slack is the most requirement-only internal sites in any window of sites that is
+        /// no longer than the length limit and holds no more ordinary internal sites than
+        /// <paramref name="maximumMissedCleavages"/> allows. Any peptide that can survive the promoting
+        /// drop lies in such a window, so this is exact for the length it is computed at. A span it buys
+        /// that is still over budget for the peptidoform at hand is dropped by the discount afterwards;
+        /// with no length limit set, those spans are not rejected before a peptide object is built, which
+        /// is why the length has to be finite.</para>
+        /// </remarks>
+        public int ReadThroughGenerationSlack(List<int> oneBasedIndicesToCleaveAfter, string sequence,
+            int maxPeptideLength, int maximumMissedCleavages)
+        {
+            if (oneBasedIndicesToCleaveAfter is null || oneBasedIndicesToCleaveAfter.Count < 3 || sequence is null)
+            {
+                return 0;
+            }
+
+            int lengthLimit = maxPeptideLength == int.MaxValue ? ReadThroughLengthWithoutLengthLimit : maxPeptideLength;
+
+            // Classified once per site, not once per window.
+            var requirementOnly = new bool[oneBasedIndicesToCleaveAfter.Count];
+            for (int i = 1; i < oneBasedIndicesToCleaveAfter.Count - 1; i++)
+            {
+                requirementOnly[i] = !AnyRequirementFreeMotifCuts(oneBasedIndicesToCleaveAfter[i], sequence);
+            }
+
+            // Two pointers over the site list; the internal sites of window [start, end] are start+1 .. end-1.
+            // Both constraints only loosen as start advances, so one pass suffices.
+            int most = 0;
+            int start = 0;
+            int ordinaryInside = 0;
+            int requirementOnlyInside = 0;
+            for (int end = 1; end < oneBasedIndicesToCleaveAfter.Count; end++)
+            {
+                int newlyInternal = end - 1;
+                if (newlyInternal > start)
+                {
+                    if (requirementOnly[newlyInternal]) requirementOnlyInside++; else ordinaryInside++;
+                }
+
+                while (start < end
+                       && (oneBasedIndicesToCleaveAfter[end] - oneBasedIndicesToCleaveAfter[start] > lengthLimit
+                           || ordinaryInside > maximumMissedCleavages))
+                {
+                    int leaving = start + 1;
+                    if (leaving < end)
+                    {
+                        if (requirementOnly[leaving]) requirementOnlyInside--; else ordinaryInside--;
+                    }
+
+                    start++;
+                }
+
+                if (requirementOnlyInside > most)
+                {
+                    most = requirementOnlyInside;
+                }
+            }
+
+            return most;
+        }
+
+        /// <summary>
+        /// True when a motif carrying no cleavage requirement matches the sequence at the cut after
+        /// <paramref name="cutAfterOneBasedResidue"/>, so that cut needs no modification to explain it.
+        /// </summary>
+        private bool AnyRequirementFreeMotifCuts(int cutAfterOneBasedResidue, string sequence)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif is null || motif.HasCleavageRequirement)
+                {
+                    continue;
+                }
+
+                int motifStartZeroBased = cutAfterOneBasedResidue - motif.CutIndex;
+                if (motifStartZeroBased < 0 || motifStartZeroBased + motif.InducingCleavage.Length > sequence.Length)
+                {
+                    continue;
+                }
+
+                (bool fits, bool prevented) = motif.Fits(sequence, motifStartZeroBased);
+                if (fits && !prevented)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// True when a modification satisfying <paramref name="requirement"/> could occupy
+        /// <paramref name="constrainedResidue"/> -- either because the database annotates one there, or
+        /// because the search configures one that fits there.
+        /// </summary>
+        /// <remarks>
+        /// <para><b>Both sources have to be consulted, and consulting only the first is a real defect.</b>
+        /// Database annotations answer "this protein is known to be glycosylated here"; configured variable
+        /// and fixed modifications answer "this search is willing to place a glycan wherever it fits". A
+        /// search supplying an O-glycan as a variable modification against an unannotated database -- the
+        /// ordinary MetaMorpheus configuration -- has every motif site feasible, and judging it on
+        /// annotations alone found none of them, filtered away every site, and returned the undigested
+        /// protein as the only product. The protease was silently switched off.</para>
+        ///
+        /// <para>Feasibility from a configured modification is deliberately weak: a variable modification
+        /// that fits anywhere makes every site feasible, so the filter stops discriminating and the
+        /// per-peptidoform occupancy check downstream does the work instead. That is the correct division --
+        /// "could be anywhere" genuinely is no constraint on the site list -- and it is why this filter
+        /// bites hardest exactly where the evidence is strongest, on a database with localized glycosites.</para>
+        /// </remarks>
+        private static bool CouldCarrySatisfyingModification(CleavageRequirement requirement, int constrainedResidue,
+            string sequence, IBioPolymer parent, IEnumerable<Modification> configuredModifications)
+        {
+            if (parent.OneBasedPossibleLocalizedModifications is not null
+                && parent.OneBasedPossibleLocalizedModifications.TryGetValue(constrainedResidue, out var candidates)
+                && candidates is not null
+                && candidates.Any(requirement.IsSatisfiedBy))
+            {
+                return true;
+            }
+
+            if (configuredModifications is null)
+            {
+                return false;
+            }
+
+            foreach (Modification configured in configuredModifications)
+            {
+                // The whole parent is passed as the "product" because this asks whether the modification
+                // could ever sit at this residue of this sequence, not whether it sits on some peptide.
+                if (requirement.IsSatisfiedBy(configured)
+                    && ModificationLocalization.ModFits(configured, sequence, constrainedResidue, sequence.Length, constrainedResidue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        public bool CleavesCTerminalTo(char residue)
+        {
+            foreach (DigestionMotif motif in DigestionMotifs)
+            {
+                if (motif.CleavesCTerminalTo(residue))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
 
         /// <summary>
         /// Is length of given peptide okay, given minimum and maximum?
