@@ -466,9 +466,11 @@ namespace Readers
                     return (SdrfPlexSource.Column, column, values!);
             }
 
-            // No filename inference is attempted. The project measured the source-name partition at
-            // 3 correct out of 9 where ground truth exists, failing by OVER-splitting, and no bulk
-            // dataset in the curated corpus carries a usable batch column. Reporting "none stated" is
+            // No plex is inferred, from file names or otherwise: an audit reports what the file states.
+            // The nearest measurement of inference -- partitioning files by their set of source-name
+            // values -- was right in 3 of the 9 files with a plex column, failing by OVER-splitting, and
+            // no bulk dataset in the curated corpus carries a usable batch column. File-name inference
+            // itself is unmeasured (that 3 of 9 never looked at file names). Reporting "none stated" is
             // the honest answer; guessing here would manufacture plexes that are not in the file.
             return (SdrfPlexSource.None, null, []);
         }

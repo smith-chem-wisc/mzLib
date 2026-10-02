@@ -27,26 +27,108 @@ namespace Readers
         /// database states it, and mzLib retains it as <c>Protein.NcbiTaxonomyId</c> plus
         /// <c>Protein.Organism</c>. Null only when the database supplied neither.
         /// </summary>
-        public CvParam Organism { get; init; }
+        public CvParam? Organism { get; init; }
 
         /// <summary>
         /// Sample characteristics keyed by SDRF column name, e.g. "characteristics[organism part]".
         /// Values are terms, not free text (D13).
+        /// Not <c>characteristics[organism]</c> or <c>characteristics[biological replicate]</c>:
+        /// those are written from <see cref="Organism"/> and <see cref="BiologicalReplicate"/>, and a
+        /// key naming either throws rather than writing the column twice.
         /// </summary>
         public IReadOnlyDictionary<string, CvParam> Characteristics { get; init; }
             = new Dictionary<string, CvParam>();
 
-        /// <summary>1-based, as SDRF writes them. Note mzLib's SpectraFileInfo stores these 0-based.</summary>
-        public int BiologicalReplicate { get; init; } = 1;
+        /// <summary>
+        /// 1-based, as SDRF writes them. Note mzLib's SpectraFileInfo stores these 0-based. <c>null</c> when nobody
+        /// established it (no experimental design): written <c>not available</c>, never a guessed 1.
+        /// </summary>
+        public int? BiologicalReplicate { get; init; } = 1;
 
         /// <summary>The label for this row: "label free sample", or a TMT channel.</summary>
-        public CvParam Label { get; init; }
+        public CvParam? Label { get; init; }
+
+        /// <summary>
+        /// Sample characteristics whose values are FREE TEXT, keyed by the same SDRF column names as
+        /// <see cref="Characteristics"/>.
+        ///
+        /// D13 says a writer prefers a CV term to free text, and that is still true of facts this
+        /// stack KNOWS. These are facts it does not: cells lifted out of somebody else's SDRF by
+        /// <see cref="SdrfSampleBlock"/> and carried through unchanged (REQ-2). Coercing them would
+        /// mean either resolving a term nobody asserted or dropping the cell, and the deposited
+        /// wording is the only evidence of what the depositor meant.
+        ///
+        /// Values are written verbatim, reserved words included -- a config-built SDRF's
+        /// <c>not available</c> (D27) is a statement, not an absence. A value cannot contain a tab or
+        /// a newline, because it came out of a tab-separated file.
+        ///
+        /// A column that is a term on one row and free text on another -- whether the same row puts
+        /// it in both dictionaries or two rows each put it in a different one -- is a caller error
+        /// and throws: the two dictionaries share one column space, and silently preferring one is
+        /// how a column comes to mean two different things in one document.
+        ///
+        /// <para><b>Not the two columns the builder writes itself.</b> A deposited
+        /// <c>characteristics[organism]</c> or <c>characteristics[biological replicate]</c> goes in
+        /// <see cref="Organism"/> or <see cref="BiologicalReplicate"/>; a key naming either throws,
+        /// as it does in <see cref="Characteristics"/>. <see cref="SdrfSampleBlock.CharacteristicColumns"/>
+        /// includes both, so a caller copying a block in skips them.</para>
+        ///
+        /// <para><b>One value per column, so a REPEATED column cannot be carried.</b> SDRF lets a
+        /// column repeat, and nine corpus files repeat <c>characteristics[organism part]</c>;
+        /// <see cref="SdrfSampleBlock.All"/> keeps every value, but this dictionary holds one and the
+        /// builder writes one column per name. A caller copying a block in with its indexer carries
+        /// the FIRST value only. That is a deliberate scope boundary, not an oversight: writing
+        /// repeats needs a list-valued input and a header that repeats the column, and nine files in
+        /// 1,236 do not yet justify that. A caller that must not lose the others can check
+        /// <c>block.All(column).Count &gt; 1</c> and decide.</para>
+        /// </summary>
+        public IReadOnlyDictionary<string, string> RawCharacteristics { get; init; }
+            = new Dictionary<string, string>();
 
         /// <summary>Free-text factor value, or null. The experimental variable under study.</summary>
-        public string FactorValue { get; init; }
+        /// <remarks>
+        /// The one-factor shorthand for <see cref="FactorValues"/>. Setting both throws.
+        /// </remarks>
+        public string? FactorValue { get; init; }
 
         /// <summary>The SDRF column the factor value belongs under, e.g. "factor value[disease]".</summary>
-        public string FactorValueColumn { get; init; }
+        public string? FactorValueColumn { get; init; }
+
+        /// <summary>
+        /// Every factor value for this sample, keyed by column -- <c>factor value[disease]</c>,
+        /// <c>factor value[treatment]</c>, and so on.
+        ///
+        /// Plural because the corpus is: 129 curated files carry <c>factor value[phenotype]</c>, 78
+        /// <c>factor value[disease]</c>, 77 <c>factor value[organism part]</c>, and a study that
+        /// varied two things says so in two columns. Carrying only the first would silently discard
+        /// the second variable of a factorial design.
+        ///
+        /// <see cref="FactorValue"/> with <see cref="FactorValueColumn"/> is the one-entry shorthand.
+        /// Setting both throws rather than merging them: two ways to state one row's factors that
+        /// disagree is a caller error, and choosing between them here would hide it.
+        ///
+        /// One value per column, for the reason given on <see cref="RawCharacteristics"/>: a repeated
+        /// factor column is carried as its first value.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> FactorValues { get; init; }
+            = new Dictionary<string, string>();
+
+        /// <summary>
+        /// Extension <c>comment[...]</c> columns for this row, keyed by column name, written verbatim in
+        /// the comment block AFTER the assay columns and before the factor values.
+        ///
+        /// The first users are the provenance columns: <c>comment[characteristics source]</c>, the row's
+        /// default source, and <c>comment[&lt;characteristic&gt; source]</c>, an override only where one
+        /// cell's source differs (sdrf D29/D31). They cannot travel in <see cref="RawCharacteristics"/>:
+        /// that would write them in the sample block, BEFORE <c>assay name</c>, and the reference
+        /// validator rejects a comment column there.
+        ///
+        /// Every row's keys join one union. A row without a key writes <c>not applicable</c> -- for an
+        /// override column, "no override here, the row default holds". A key must be a
+        /// <c>comment[...]</c> column and must not be one the builder already writes; either throws.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> Comments { get; init; }
+            = new Dictionary<string, string>();
     }
 
     /// <summary>
@@ -95,7 +177,7 @@ namespace Readers
         /// all in another. Never read the column's ABSENCE as "nothing was transformed anywhere" --
         /// it means only that no row in that document set it.</para>
         /// </summary>
-        public string SearchedDataFileName { get; init; }
+        public string? SearchedDataFileName { get; init; }
 
         /// <summary>The run identifier. Unique per file within the document.</summary>
         public required string AssayName { get; init; }
@@ -104,17 +186,17 @@ namespace Readers
         /// Where the instrument comes from. mzML carries it already accessioned; a Thermo RAW gives
         /// a name with an empty accession, which the builder resolves against PSI-MS.
         /// </summary>
-        public CvParam Instrument { get; init; }
+        public CvParam? Instrument { get; init; }
 
-        public Tolerance PrecursorMassTolerance { get; init; }
-        public Tolerance ProductMassTolerance { get; init; }
+        public Tolerance? PrecursorMassTolerance { get; init; }
+        public Tolerance? ProductMassTolerance { get; init; }
 
         /// <summary>
         /// The cleavage agent. A <see cref="Protease"/> carries its own PSI-MS accession; any other
         /// <see cref="DigestionAgent"/> contributes a name with no accession, which the SDRF
         /// specification permits.
         /// </summary>
-        public DigestionAgent CleavageAgent { get; init; }
+        public DigestionAgent? CleavageAgent { get; init; }
 
         public IReadOnlyList<Modification> FixedModifications { get; init; } = new List<Modification>();
         public IReadOnlyList<Modification> VariableModifications { get; init; } = new List<Modification>();
@@ -122,13 +204,16 @@ namespace Readers
         public DissociationType DissociationType { get; init; } = DissociationType.Unknown;
 
         /// <summary>DDA/DIA/PRM/SRM, as a PRIDE CV term. The corpus uses PRIDE here, not PSI-MS.</summary>
-        public CvParam AcquisitionMethod { get; init; }
+        public CvParam? AcquisitionMethod { get; init; }
 
-        /// <summary>1-based, as SDRF writes them.</summary>
-        public int TechnicalReplicate { get; init; } = 1;
+        /// <summary>1-based, as SDRF writes them. <c>null</c> when nobody established it: written <c>not available</c>.</summary>
+        public int? TechnicalReplicate { get; init; } = 1;
 
-        /// <summary>1-based. 1 when the sample was not fractionated.</summary>
-        public int Fraction { get; init; } = 1;
+        /// <summary>
+        /// 1-based. 1 when the sample was KNOWN not to be fractionated; <c>null</c> when nobody established it (no
+        /// experimental design): written <c>not available</c>, since 1 would claim the run is a whole sample.
+        /// </summary>
+        public int? Fraction { get; init; } = 1;
     }
 
     /// <summary>One row: a sample paired with the file it was acquired into.</summary>
@@ -144,16 +229,16 @@ namespace Readers
         /// comment[proteomexchange accession number], and it is what ties our assay parameters back
         /// to somebody else's samples when the two halves come from different places.
         /// </summary>
-        public string ProteomeXchangeAccession { get; init; }
+        public string? ProteomeXchangeAccession { get; init; }
 
         /// <summary>
         /// The software that produced the file, e.g. MetaMorpheus. MS:1002826 is MetaMorpheus's own
         /// PSI-MS accession. Null omits the column.
         /// </summary>
-        public CvParam Software { get; init; }
+        public CvParam? Software { get; init; }
 
         /// <summary>Version string of that software, recorded alongside it.</summary>
-        public string SoftwareVersion { get; init; }
+        public string? SoftwareVersion { get; init; }
 
         /// <summary>
         /// Stamped into comment[sdrf version]. Defaults to the specification version this builder

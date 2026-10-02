@@ -38,11 +38,19 @@ namespace Readers
         Sdrf,
         PytheasResult,
         MzIdentML,
-        MzIdentMLGz
+        MzIdentMLGz,
+        MetaMorpheusQuantifiedProteinGroups,
+        FlashLFQQuantifiedPeptide
     }
 
     public static class SupportedFileTypeExtensions
     {
+        /// <summary>
+        /// The suffix every MetaMorpheus protein-group table name shares. <see cref="GetFileExtension"/> gives
+        /// the quantified name, which is the one written back out.
+        /// </summary>
+        private const string MetaMorpheusProteinGroupsSuffix = "ProteinGroups.tsv";
+
         /// <summary>
         /// Returns the extension for the file type
         /// </summary>
@@ -92,6 +100,8 @@ namespace Readers
                 SupportedFileType.Sdrf => ".sdrf.tsv",
                 SupportedFileType.MzIdentML => ".mzid",
                 SupportedFileType.MzIdentMLGz => ".mzid.gz",
+                SupportedFileType.MetaMorpheusQuantifiedProteinGroups => "QuantifiedProteinGroups.tsv",
+                SupportedFileType.FlashLFQQuantifiedPeptide => "QuantifiedPeptides.tsv",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -133,6 +143,16 @@ namespace Readers
                 case ".tsv":
                 {
                     // these tsv cases have a specialized ending before the .tsv
+                    // MetaMorpheus/FlashLFQ quantification tables first: MsFragger's "protein.tsv" and
+                    // "peptide.tsv" are matched case-insensitively below, so a longer suffix must win here.
+                    if (filePath.EndsWith(SupportedFileType.MetaMorpheusQuantifiedProteinGroups.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MetaMorpheusQuantifiedProteinGroups;
+                    // The same table under MetaMorpheus's other names: AllProteinGroups.tsv when label-free
+                    // quantification is off, and <file>_ProteinGroups.tsv for each file's individual results.
+                    if (filePath.EndsWith(MetaMorpheusProteinGroupsSuffix, StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MetaMorpheusQuantifiedProteinGroups;
+                    if (filePath.EndsWith(SupportedFileType.FlashLFQQuantifiedPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FlashLFQQuantifiedPeptide;
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
                     if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
@@ -289,6 +309,8 @@ namespace Readers
                 SupportedFileType.PytheasResult => typeof(PytheasResultFile),
                 SupportedFileType.MzIdentML => typeof(MzIdentMLResultFile),
                 SupportedFileType.MzIdentMLGz => typeof(MzIdentMLResultFile),
+                SupportedFileType.MetaMorpheusQuantifiedProteinGroups => typeof(ProteinGroupFromTsvFile),
+                SupportedFileType.FlashLFQQuantifiedPeptide => typeof(QuantifiedPeptideFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
