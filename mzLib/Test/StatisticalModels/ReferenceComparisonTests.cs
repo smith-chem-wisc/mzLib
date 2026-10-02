@@ -30,7 +30,12 @@ public class ReferenceComparisonTests
         return (lines[0].Split('\t'), lines.Skip(1).Select(l => l.Split('\t')).ToList());
     }
 
-    private static double Parse(string s) => double.Parse(s, NumberStyles.Float, CultureInfo.InvariantCulture);
+    private static double Parse(string s) => s switch
+    {
+        "Inf" => double.PositiveInfinity,                  // how R's sprintf writes an infinite df.prior
+        "-Inf" => double.NegativeInfinity,
+        _ => double.Parse(s, NumberStyles.Float, CultureInfo.InvariantCulture),
+    };
 
     private static double[] Column(string name, string column)
     {
@@ -50,6 +55,11 @@ public class ReferenceComparisonTests
                 Assert.That(actual[i], Is.NaN, $"{what}[{i}]");
                 continue;
             }
+            if (double.IsInfinity(expected[i]))
+            {
+                Assert.That(actual[i], Is.EqualTo(expected[i]), $"{what}[{i}]");
+                continue;
+            }
             // Relative, so a p-value of 1e-12 is held to the same number of digits as a coefficient.
             double scale = Math.Max(Math.Abs(expected[i]), 1e-300);
             Assert.That(Math.Abs(actual[i] - expected[i]) / scale, Is.LessThan(Tolerance),
@@ -57,11 +67,12 @@ public class ReferenceComparisonTests
         }
     }
 
-    private static LinearModelFit FitReferenceData()
+    /// <param name="firstFeatures">Fit only the first this many features (all when null).</param>
+    private static LinearModelFit FitReferenceData(int? firstFeatures = null)
     {
         var (_, responseRows) = ReadTsv("limma_responses.tsv");
         var (designHeader, designRows) = ReadTsv("limma_design.tsv");
-        int features = responseRows.Count, samples = designRows.Count, p = designHeader.Length;
+        int features = firstFeatures ?? responseRows.Count, samples = designRows.Count, p = designHeader.Length;
         var responses = new double[features, samples];
         for (int f = 0; f < features; f++)
             for (int s = 0; s < samples; s++)
@@ -105,6 +116,36 @@ public class ReferenceComparisonTests
         AssertClose(test.T, Column(file, "t_age"), "t");
         AssertClose(test.PValue, Column(file, "p_age"), "p.value");
         AssertClose(test.BenjaminiHochbergAdjusted, Column(file, "bh_age"), "BH");
+    }
+
+    /// <summary>
+    /// With few features limma's default trend spline is smaller (1 + (n ≥ 3) + (n ≥ 6) + (n ≥ 30) basis
+    /// functions), so the first n features of the fixture are moderated at each step of that rule and
+    /// compared with <c>eBayes(trend = TRUE, legacy = TRUE)</c> on the same rows (make_small_n_fixtures.R).
+    /// </summary>
+    [TestCase(3)]
+    [TestCase(5)]
+    [TestCase(6)]
+    [TestCase(20)]
+    [TestCase(29)]
+    [TestCase(30)]
+    public void TrendOnFewFeaturesMatchesLimmaEBayesLegacy(int n)
+    {
+        var test = EmpiricalBayes.Moderate(FitReferenceData(n), "age_decades", trend: true);
+        const string file = "limma_ebayes_trend_small_n.tsv";
+        var (header, rows) = ReadTsv(file);
+        var mine = rows.Where(r => r[0] == n.ToString(CultureInfo.InvariantCulture)).ToList();
+        double[] Expected(string column) => mine.Select(r => Parse(r[Array.IndexOf(header, column)])).ToArray();
+        var (priorHeader, priorRows) = ReadTsv("limma_ebayes_trend_small_n_prior.tsv");
+        double df0 = Parse(priorRows.Single(r => r[0] == n.ToString(CultureInfo.InvariantCulture))[Array.IndexOf(priorHeader, "df_prior")]);
+
+        Assert.That(test.Prior.SplineBasisCount, Is.EqualTo(EmpiricalBayes.TrendBasisCount(n, n, null)));
+        AssertClose(new[] { test.Prior.Df }, new[] { df0 }, "df.prior");
+        AssertClose(test.Prior.Scale, Expected("s2_prior"), "s2.prior");
+        AssertClose(test.PosteriorVariance, Expected("s2_post"), "s2.post");
+        AssertClose(test.DfTotal, Expected("df_total"), "df.total");
+        AssertClose(test.T, Expected("t_age"), "t");
+        AssertClose(test.PValue, Expected("p_age"), "p.value");
     }
 
     [Test]
