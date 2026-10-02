@@ -4,6 +4,7 @@ using System.Linq;
 using System.Numerics;
 using NUnit.Framework;
 using Omics.Digestion;
+using UsefulProteomicsDatabases;
 using UsefulProteomicsDatabases.EntrapmentGeneration;
 
 namespace Test.DatabaseTests;
@@ -273,7 +274,88 @@ public class EntrapmentPeptideGeneratorTests
         Assert.That(result.Succeeded, Is.False);
         Assert.That(result.Failure, Is.EqualTo(EntrapmentFailure.AllPermutationsTaken),
             "here the database really did take them, which is the other side of the test above");
-        Assert.That(result.ProbesUsed, Is.EqualTo(3),
-            "the whole space was examined, and the count is the evidence of it");
+        Assert.That(result.ProbesUsed, Is.EqualTo(2),
+            "both non-identity arrangements were examined, and the count is the evidence of it; "
+            + "the identity is never in a fold's share, so it is not probed");
+    }
+
+    [Test]
+    public void EveryFoldGetsACandidateWheneverTheSpaceCoversTheFoldCount()
+    {
+        // Alexander-Sol's repro on #1271. With the termini anchored, MAAABAK frees AAABA: five
+        // arrangements, the identity at rank 1. Contiguous stretches of size / foldCount = 1 gave
+        // fold 1 only the identity and left ranks 3 and 4 unused, so fold 1 was excised as
+        // SpaceTooSmallForFoldCount although four non-identity arrangements existed for three folds.
+        const string target = "MAAABAK";
+        int[] anchors = { 0, target.Length - 1 };
+
+        Assert.That(DecoySequenceValidator.PermutationSpaceSize(target, Trypsin, anchors),
+            Is.EqualTo(new BigInteger(5)), "fixture must really have a space of five");
+        Assert.That(DecoySequenceValidator.RankPermutation(target, Trypsin, anchors),
+            Is.EqualTo(BigInteger.One), "fixture must put the identity at rank 1");
+
+        var partners = new HashSet<string>();
+        for (int seed = 1; seed <= 20; seed++)
+        {
+            partners.Clear();
+            for (int fold = 0; fold < 3; fold++)
+            {
+                EntrapmentPeptide result = EntrapmentPeptideGenerator.Create(target, Trypsin,
+                    NothingForbidden, fold: fold, foldCount: 3, seed: seed, alsoHeldInPlace: anchors);
+
+                Assert.That(result.Succeeded, Is.True, $"seed {seed}, fold {fold}: {result.Failure}");
+                Assert.That(result.EntrapmentSequence, Is.Not.EqualTo(target));
+                partners.Add(result.EntrapmentSequence!);
+            }
+
+            Assert.That(partners, Has.Count.EqualTo(3), "folds draw on disjoint shares, so never repeat");
+        }
+
+        // And the boundary from the test above: two folds over AAGK's two non-identity arrangements.
+        for (int fold = 0; fold < 2; fold++)
+        {
+            Assert.That(EntrapmentPeptideGenerator.Create("AAGK", Trypsin, NothingForbidden,
+                fold: fold, foldCount: 2).Succeeded, Is.True);
+        }
+    }
+
+    [Test]
+    public void ASingleFoldIsNotConfinedToOneBlockOfTheLexicographicOrder()
+    {
+        // Alexander-Sol, #1271: with the termini anchored, AEGLSVTK frees EGLSVT -- 720
+        // arrangements. Contiguous stretches gave fold 0 of r = 9 only the first 80, so it always
+        // put E second, and fold 8 always put V there, whatever the seed. A per-fold estimate then
+        // sampled a skewed population. Interleaved shares span the whole order, so the seed decides.
+        const string target = "AEGLSVTK";
+        int[] anchors = { 0, target.Length - 1 };
+        for (int fold = 0; fold < 9; fold++)
+        {
+            var secondResidues = new HashSet<char>();
+            for (int seed = 1; seed <= 40; seed++)
+            {
+                EntrapmentPeptide result = EntrapmentPeptideGenerator.Create(target, Trypsin,
+                    NothingForbidden, fold: fold, foldCount: 9, seed: seed, alsoHeldInPlace: anchors);
+                Assert.That(result.Succeeded, Is.True);
+                secondResidues.Add(result.EntrapmentSequence![1]);
+            }
+
+            Assert.That(secondResidues.Count, Is.GreaterThan(1),
+                $"fold {fold} put the same residue second under every seed");
+        }
+    }
+
+    [Test]
+    public void RankPermutationIsTheInverseOfUnrankAtTheIdentity()
+    {
+        string[] sequences = { "AEGLSVTK", "MAAABAK", "AAGK", "PEPTIDEKAAR", "SSSSSSR", "K", "LIHTGVKLIHTVGK" };
+        foreach (string sequence in sequences)
+        {
+            foreach (int[]? anchors in new[] { null, new[] { 0, sequence.Length - 1 } })
+            {
+                BigInteger rank = DecoySequenceValidator.RankPermutation(sequence, Trypsin, anchors);
+                string back = DecoySequenceValidator.UnrankPermutation(sequence, Trypsin, rank, out _, anchors);
+                Assert.That(back, Is.EqualTo(sequence), sequence);
+            }
+        }
     }
 }

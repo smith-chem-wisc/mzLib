@@ -52,6 +52,30 @@ public static class EntrapmentProteinGenerator
     }
 
     /// <summary>
+    /// Refuses an entrapment entry handed in as a target, the same way and for the same reason as
+    /// <see cref="RefuseDecoy"/>.
+    /// </summary>
+    /// <remarks>
+    /// Regenerating from a loaded target-plus-entrapment database otherwise permutes the entrapment
+    /// entries too, minting <c>Random_Random_P12345_f0_f0</c>: a shuffle of a shuffle, whose
+    /// "target" is itself an entrapment entry and which pairs back to nothing a search reports as a
+    /// target. Refused rather than skipped, so a count never quietly disagrees with its input.
+    /// </remarks>
+    private static void RefuseEntrapment(Protein protein)
+    {
+        if (!protein.IsEntrapment)
+        {
+            return;
+        }
+
+        throw new MzLibException(
+            $"'{protein.Accession}' is already an ENTRAPMENT entry, and permuting it would mint a "
+            + "partner of a partner. Generate entrapment entries from the TARGET proteins only -- "
+            + "filter out IsEntrapment entries when regenerating from a database that already holds "
+            + "some.");
+    }
+
+    /// <summary>
     /// Entrapment entries taken from a foreign proteome, and the peptides they share with the
     /// target database.
     /// </summary>
@@ -94,6 +118,7 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("The sharing check needs the target database's peptides.");
         }
+        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
 
         var shared = new Dictionary<string, IReadOnlyCollection<string>>();
         var entrapment = new List<Protein>();
@@ -139,6 +164,7 @@ public static class EntrapmentProteinGenerator
             throw new MzLibException("Cannot build a foreign entrapment entry from a null protein.");
         }
         RefuseDecoy(foreign);
+        RefuseEntrapment(foreign);
 
         // The sequence is untouched, so unlike the permutation path the positional annotations still
         // describe it and are kept. Sequence variations are the exception: applying them would
@@ -157,7 +183,8 @@ public static class EntrapmentProteinGenerator
     /// <param name="digestionParams">Supplies the cleavage sites, and the minimum peptide length
     /// below which a piece is not identifiable on its own.</param>
     /// <param name="forbiddenSequences">Sequences no partner peptide may equal, normally every
-    /// target peptide in the database.</param>
+    /// target peptide in the database -- build it with <see cref="TargetPeptides"/>. <b>Null forbids
+    /// nothing</b>, so partners may then equal real target peptides.</param>
     /// <param name="foldCount">Partners per target -- the <c>r</c> of an r-fold database.</param>
     /// <param name="seed">Changes every choice reproducibly.</param>
     /// <remarks>
@@ -208,14 +235,20 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build entrapment proteins from a null target list.");
         }
+        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+        // Checked here and not left to Create: at zero or below the fold loop never runs, so Create's
+        // own check never fires and the call returned an empty database instead of an error.
+        if (foldCount < 1)
+        {
+            throw new MzLibException($"Fold count must be at least 1, but was {foldCount}.");
+        }
 
         // Refused here as well as inside the assembler. The assembler's copy fires on the first
         // protein so nothing is wasted either way, but a throw from that depth reaches a GUI user
         // as a crash part-way through a run rather than as "this agent cannot be used", and this
         // is the call they actually made.
         EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld(
-            digestionParams?.DigestionAgent?.Name ?? string.Empty,
-            digestionParams?.DigestionAgent?.DigestionMotifs ?? new List<DigestionMotif>());
+            digestionParams.DigestionAgent.Name, digestionParams.DigestionAgent.DigestionMotifs);
 
         var entrapment = new List<Protein>();
         foreach (Protein entry in DatabaseEntries(targets))
@@ -251,6 +284,43 @@ public static class EntrapmentProteinGenerator
         }
 
         return entrapment;
+    }
+
+    /// <summary>
+    /// The set to pass as <c>forbiddenSequences</c>: every peptide a search of
+    /// <paramref name="targets"/> could report, so that no partner equals a real target peptide.
+    /// </summary>
+    /// <remarks>
+    /// <para>Every generator entry point reads a null set as "nothing is forbidden", which is right
+    /// for a caller with no target database and silently wrong for everyone else: partners are then
+    /// free to equal real peptides, and a search counts those as entrapment discoveries. This is the
+    /// set those callers mean.</para>
+    /// <para>It digests the loaded proteins <b>and</b> their <see cref="DatabaseEntries"/>, because
+    /// the entries are what gets permuted and a loaded list is not guaranteed to contain its own
+    /// consensus objects; digesting only the list can leave an entry's own peptides unforbidden.
+    /// Digestion is <see cref="Protein.Digest"/> itself, so initiator-methionine forms and
+    /// truncation-product peptides are included by the same rules a search uses.</para>
+    /// </remarks>
+    public static HashSet<string> TargetPeptides(IEnumerable<Protein> targets, IDigestionParams digestionParams)
+    {
+        if (targets is null)
+        {
+            throw new MzLibException("Cannot collect target peptides from a null target list.");
+        }
+        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+
+        List<Protein> loaded = targets.Where(t => t is not null).ToList();
+        var peptides = new HashSet<string>();
+        var noMods = new List<Modification>();
+        foreach (Protein protein in loaded.Concat(DatabaseEntries(loaded)))
+        {
+            foreach (var peptide in protein.Digest(digestionParams, noMods, noMods))
+            {
+                peptides.Add(peptide.BaseSequence);
+            }
+        }
+
+        return peptides;
     }
 
     /// <summary>
@@ -295,7 +365,8 @@ public static class EntrapmentProteinGenerator
     /// <param name="digestionParams">Supplies the cleavage sites, and the minimum peptide length
     /// below which a piece is not identifiable on its own.</param>
     /// <param name="forbiddenSequences">Sequences no partner peptide may equal, normally every
-    /// target peptide in the database.</param>
+    /// target peptide in the database -- build it with <see cref="TargetPeptides"/>. <b>Null forbids
+    /// nothing</b>, so partners may then equal real target peptides.</param>
     /// <param name="fold">Zero-based fold, in <c>[0, foldCount)</c>.</param>
     /// <param name="foldCount">Partners per target -- the <c>r</c> of an r-fold database.</param>
     /// <param name="seed">Changes every choice reproducibly.</param>
@@ -325,7 +396,9 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build an entrapment protein from a null target.");
         }
+        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
         RefuseDecoy(target);
+        RefuseEntrapment(target);
 
         assembly = EntrapmentAssembler.Assemble(target.BaseSequence, digestionParams,
             forbiddenSequences, fold, foldCount, seed);

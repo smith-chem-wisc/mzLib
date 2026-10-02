@@ -1,5 +1,6 @@
 #nullable enable
 using MzLibUtil;
+using Omics.Modifications;
 using Omics.Digestion;
 using Proteomics;
 using Proteomics.ProteolyticDigestion;
@@ -29,6 +30,7 @@ public sealed class EntrapmentPairing
     private readonly Dictionary<string, string> _byKey;
     private readonly HashSet<string> _ambiguous;
     private readonly List<DigestionMotif> _motifs;
+    private readonly HashSet<string> _truncationProductPeptides = new();
 
     /// <summary>Indexes a target protein's peptides, missed cleavages included, by composition and pinned pattern.</summary>
     public EntrapmentPairing(Protein target, IDigestionParams digestionParams)
@@ -37,10 +39,12 @@ public sealed class EntrapmentPairing
         {
             throw new MzLibException("Cannot build a pairing without a target protein.");
         }
+        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
 
         _byKey = new Dictionary<string, string>();
         _ambiguous = new HashSet<string>();
         var collided = new HashSet<string>();
+        var indexed = new HashSet<string>();
 
         _motifs = digestionParams.DigestionAgent.DigestionMotifs;
         List<int> sites = digestionParams.DigestionAgent.GetDigestionSiteIndices(target.BaseSequence);
@@ -98,6 +102,7 @@ public sealed class EntrapmentPairing
             }
 
             string peptide = sequence.Substring(start, length);
+            indexed.Add(peptide);
             string key = KeyOf(peptide);
 
             if (_byKey.TryGetValue(key, out string? existing))
@@ -118,7 +123,34 @@ public sealed class EntrapmentPairing
         {
             _byKey.Remove(key);
         }
+
+        // Peptides a search reports at signal-peptide, propeptide and chain boundaries. Digestion
+        // emits them because the target carries those truncation products; a partner carries none
+        // (positional annotations do not survive the rearrangement), so they have no partner and
+        // never will. Counted and named rather than indexed, so the r computed from this class is
+        // honest about the population it covers. Protein.Digest is the oracle, so this is exactly
+        // what a search adds and nothing else.
+        if (target.TruncationProducts.Any())
+        {
+            var noMods = new List<Modification>();
+            foreach (var peptide in target.Digest(digestionParams, noMods, noMods))
+            {
+                if (!indexed.Contains(peptide.BaseSequence))
+                {
+                    _truncationProductPeptides.Add(peptide.BaseSequence);
+                }
+            }
+        }
     }
+
+    /// <summary>
+    /// Target peptides a search reports only because of the target's truncation products -- they
+    /// begin or end at a signal-peptide, propeptide or chain boundary rather than at a cleavage
+    /// site. A partner carries no truncation products, so these have no partner, and they are left
+    /// out of <see cref="SearchablePeptideCount"/>. A paired estimator should exclude them as it
+    /// excludes <see cref="AmbiguousPeptides"/>.
+    /// </summary>
+    public IReadOnlyCollection<string> TruncationProductPeptides => _truncationProductPeptides;
 
     /// <summary>
     /// Target peptides sharing a composition-and-pinning key with another peptide of the same
@@ -133,6 +165,10 @@ public sealed class EntrapmentPairing
     /// an FDP estimator's <c>r</c> is over, and the denominator an ambiguity rate needs: the
     /// report's own peptide counts are over <i>base pieces</i>, which is a different and smaller
     /// population, and dividing one by the other gives a rate of nothing.
+    /// <para>Peptides at truncation-product boundaries are <b>not</b> included, although a search of
+    /// an XML database reports them: they have no partner, so counting them would measure r over a
+    /// population no partner can reach. They are in <see cref="TruncationProductPeptides"/>
+    /// instead, so the two together are what the search actually covers.</para>
     /// </summary>
     public int SearchablePeptideCount => _byKey.Count + _ambiguous.Count;
 
@@ -168,7 +204,15 @@ public sealed class EntrapmentPairing
             return false;
         }
 
-        return _byKey.TryGetValue(KeyOf(entrapmentPeptide), out targetPeptide!);
+        // Through a local, so a miss leaves the documented empty string rather than the null that
+        // TryGetValue writes to its out parameter -- this one is declared non-nullable.
+        if (!_byKey.TryGetValue(KeyOf(entrapmentPeptide), out string? found))
+        {
+            return false;
+        }
+
+        targetPeptide = found;
+        return true;
     }
 
     /// <summary>

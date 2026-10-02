@@ -214,6 +214,20 @@ public sealed class EntrapmentReport
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> AmbiguousPeptidesByAccession { get; }
 
     /// <summary>
+    /// Target peptides with no partner because they begin or end at a truncation-product boundary
+    /// (signal peptide, propeptide, chain), by target accession.
+    /// </summary>
+    /// <remarks>
+    /// A search of an XML database reports these, and a partner carries no truncation products, so
+    /// none of them can ever pair. They are left out of <see cref="EntrapmentStratum.SearchSpacePeptides"/>,
+    /// which is why they are named here: the achieved r is over the population without them, and a
+    /// paired estimator has to exclude the same peptides. Empty for a FASTA database.
+    /// See <see cref="EntrapmentPairing.TruncationProductPeptides"/>.
+    /// </remarks>
+    public IReadOnlyDictionary<string, IReadOnlyCollection<string>> TruncationProductPeptidesByAccession { get; internal set; }
+        = new Dictionary<string, IReadOnlyCollection<string>>();
+
+    /// <summary>
     /// Entrapment missed-cleavage peptides that are also real target peptides, by the accession of
     /// the ENTRAPMENT protein holding them (<c>Random_&lt;target&gt;_f&lt;fold&gt;</c>) -- the accession a
     /// search reports them under, and so the one a consumer can filter on.
@@ -325,6 +339,7 @@ public sealed class EntrapmentReport
         }
 
         Section(AmbiguousPeptidesByAccession, "ambiguous", TargetSide);
+        Section(TruncationProductPeptidesByAccession, "truncationProductPeptide", TargetSide);
         Section(UnrepairableRunCollisionsByAccession, "unrepairableRunCollision", EntrapmentSide);
         Section(InitiatorMethionineCollisionsByAccession, "initiatorMethionineCollision", EntrapmentSide);
         Section(ForeignPeptidesSharedWithTarget, "sharedWithTarget", EntrapmentSide);
@@ -402,6 +417,12 @@ public sealed class EntrapmentReport
         {
             text.AppendLine($"# entriesIdenticalToTarget\t{EntriesIdenticalToTarget.ToString(CultureInfo.InvariantCulture)}");
         }
+        // Only an XML database carries truncation products, so a FASTA report is unchanged.
+        int truncationProductPeptides = TruncationProductPeptidesByAccession.Sum(kv => kv.Value.Count);
+        if (truncationProductPeptides > 0)
+        {
+            text.AppendLine($"# truncationProductPeptides\t{truncationProductPeptides.ToString(CultureInfo.InvariantCulture)}");
+        }
         // The foreign arm contributes entries that no permutation figure describes, so
         // without these the provenance describes only half a database that has one, and the
         // arm's r is not recoverable from the report at all. Emitted only when it was used,
@@ -463,6 +484,7 @@ public sealed class EntrapmentReportBuilder
     private readonly Dictionary<int, EntrapmentStratum> _strata = new();
     private readonly HashSet<string> _countedTargetPieces = new();
     private readonly Dictionary<string, HashSet<string>> _ambiguousByAccession = new();
+    private readonly Dictionary<string, IReadOnlyCollection<string>> _truncationProductsByAccession = new();
     private readonly Dictionary<string, List<string>> _unrepairableByAccession = new();
     private readonly Dictionary<string, List<string>> _initiatorMethionineByAccession = new();
     private readonly MassGroupComparison? _massGroups;
@@ -528,6 +550,7 @@ public sealed class EntrapmentReportBuilder
             var pairing = new EntrapmentPairing(target, _digestionParams);
             ambiguous = pairing.AmbiguousPeptides.ToHashSet();
             _ambiguousByAccession[target.Accession] = ambiguous;
+            _truncationProductsByAccession[target.Accession] = pairing.TruncationProductPeptides;
 
             foreach (string peptide in ambiguous)
             {
@@ -545,7 +568,8 @@ public sealed class EntrapmentReportBuilder
 
         foreach (EntrapmentPiece piece in assembly.Pieces)
         {
-            if (piece.TargetPiece.Length < _digestionParams.MinLength)
+            if (piece.TargetPiece.Length < _digestionParams.MinLength
+                || piece.TargetPiece.Length > _digestionParams.MaxLength)
             {
                 continue;   // never identified on its own, so not part of any ratio here
             }
@@ -565,8 +589,9 @@ public sealed class EntrapmentReportBuilder
 
             switch (piece.Outcome)
             {
+                // Pieces kept verbatim are outside the length bounds, so the guard above has
+                // already skipped them; only a permuted piece reaches here as a partner.
                 case PieceOutcome.Permuted:
-                case PieceOutcome.KeptVerbatimTooShort:
                     stratum.EntrapmentPeptides++;
                     break;
                 case PieceOutcome.Excised when piece.Failure == EntrapmentFailure.NoPermutationExists:
@@ -745,6 +770,9 @@ public sealed class EntrapmentReportBuilder
                 .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
             _massGroups)
         {
+            TruncationProductPeptidesByAccession = _truncationProductsByAccession
+                .Where(kv => kv.Value.Count > 0)
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value.ToList()),
             ForeignEntries = _foreignEntries,
             EntriesYieldingNoPartner = _entriesYieldingNoPartner,
             EntriesIdenticalToTarget = _entriesIdenticalToTarget,

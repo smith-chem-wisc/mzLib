@@ -22,11 +22,18 @@ public enum PieceOutcome
     KeptVerbatimTooShort,
 
     /// <summary>
-    /// Has no usable rearrangement and *is* long enough to be identified, so it is dropped from the
+    /// Has no usable rearrangement and *is* within the length bounds, so it is dropped from the
     /// entrapment sequence. Emitting it unchanged would place a genuine target peptide inside the
     /// entrapment database, where every hit is supposed to be false.
     /// </summary>
-    Excised
+    Excised,
+
+    /// <summary>
+    /// Has no usable rearrangement, but is longer than the maximum peptide length, so neither it nor
+    /// any run containing it is ever identified. Kept exactly as it was, for the same reasons as
+    /// <see cref="KeptVerbatimTooShort"/>. Appended last so existing values keep their numbers.
+    /// </summary>
+    KeptVerbatimTooLong
 }
 
 /// <summary>One base piece of the target and what happened to it.</summary>
@@ -126,10 +133,11 @@ public sealed class EntrapmentAssembly
     /// nothing to reorder. There is no candidate to move to, so the collision stands.</para>
     /// <para>Repairing it would mean backtracking into an already-placed piece or excising a
     /// perfectly good one, and this project counts collisions rather than silently repairing them.
-    /// Measured on the reviewed human proteome: 1,794 such peptides, 0.065% of the target set,
-    /// 97.9% of them ending in a piece with no alternative and 80% exactly at the minimum
-    /// searchable length of seven residues. A search that matches one counts a real peptide as an
-    /// entrapment discovery, so anyone reading an entrapment count needs this number beside it.</para>
+    /// Measured on the reviewed human proteome at r = 1 and two missed cleavages (8ebf01c5): 24,784
+    /// such peptides, 0.87% of the target set. Anchoring each piece's own termini raised it from
+    /// 1,973, because it leaves short pieces nothing to reorder. A search that matches one counts a
+    /// real peptide as an entrapment discovery, so anyone reading an entrapment count needs this
+    /// number beside it.</para>
     /// </remarks>
     public int UnrepairableRunCollisions => UnrepairableRunCollisionPeptides.Count;
 
@@ -200,7 +208,8 @@ public sealed class EntrapmentAssembly
 
     public int ExcisedCount => Pieces.Count(p => p.Outcome == PieceOutcome.Excised);
 
-    public int KeptVerbatimCount => Pieces.Count(p => p.Outcome == PieceOutcome.KeptVerbatimTooShort);
+    public int KeptVerbatimCount => Pieces.Count(p =>
+        p.Outcome is PieceOutcome.KeptVerbatimTooShort or PieceOutcome.KeptVerbatimTooLong);
 }
 
 /// <summary>
@@ -221,6 +230,20 @@ public static class EntrapmentAssembler
 {
     /// <summary>Stands in for a null exclusion set, so "nothing is forbidden" costs no allocation.</summary>
     private static readonly IReadOnlySet<string> NoForbiddenSequences = new HashSet<string>();
+
+    /// <summary>
+    /// A null <see cref="IDigestionParams"/> named as such, rather than reached as a
+    /// NullReferenceException deep in the assembler or reported as an agent with no motifs.
+    /// </summary>
+    internal static void RefuseNullDigestionParams(IDigestionParams digestionParams)
+    {
+        if (digestionParams?.DigestionAgent is null)
+        {
+            throw new MzLibException(
+                "Entrapment generation needs digestion parameters with a digestion agent: they supply "
+                + "the cleavage sites held in place and the peptide length bounds.");
+        }
+    }
 
     /// <summary>
     /// Builds the entrapment sequence for one fold.
@@ -244,6 +267,7 @@ public static class EntrapmentAssembler
         // Read as "nothing is forbidden", matching EntrapmentPeptideGenerator.Create. Passed on
         // unvalidated, a null set reached `.Contains` there as a NullReferenceException.
         forbiddenSequences ??= NoForbiddenSequences;
+        RefuseNullDigestionParams(digestionParams);
 
         List<DigestionMotif> motifs = digestionParams.DigestionAgent.DigestionMotifs;
         RefuseAgentsWhoseSitesCannotBeHeld(digestionParams.DigestionAgent.Name, motifs);
@@ -301,8 +325,16 @@ public static class EntrapmentAssembler
             }
 
             // Too short to be identified on its own: keep it, unchanged, rather than tearing a hole
-            // in the protein for a piece nobody could have matched anyway.
-            if (piece.Length < digestionParams.MinLength)
+            // in the protein for a piece nobody could have matched anyway. Too long is the same
+            // case from the other side (Alexander-Sol, #1271): every run containing the piece is
+            // longer still, so nothing searchable comes of keeping it -- Q156A1, a methionine and
+            // 79 glutamines, was excised whole for nothing. The one exception is an opening piece
+            // whose initiator-methionine-stripped form drops back inside the bounds and is a real
+            // peptide; that one is still excised.
+            bool tooShort = piece.Length < digestionParams.MinLength;
+            bool tooLong = piece.Length > digestionParams.MaxLength
+                           && strippedOfInitiatorMethionine?.Invoke(piece) is null;
+            if (tooShort || tooLong)
             {
                 AppendPiece(entrapment, map, start, piece, Identity(piece.Length));
                 placed.Add(piece);
@@ -326,7 +358,8 @@ public static class EntrapmentAssembler
                     initiatorMethionineCollisions.Add(strippedCollision);
                 }
                 pieces.Add(new EntrapmentPiece(index, piece, piece,
-                    PieceOutcome.KeptVerbatimTooShort, partner.Failure, start, entrapmentStart));
+                    tooShort ? PieceOutcome.KeptVerbatimTooShort : PieceOutcome.KeptVerbatimTooLong,
+                    partner.Failure, start, entrapmentStart));
                 retainedTargetIndices.Add(index);
                 continue;
             }
@@ -561,8 +594,10 @@ public static class EntrapmentAssembler
             }
         }
 
-        // Ordered, because this becomes part of the pinned-position pattern that the pairing key
-        // compares and a set's enumeration order is not a contract.
+        // Ordered only so the array reads the same every time; the unranker puts it into a set. The
+        // pairing key does NOT include these anchors -- EntrapmentPairing.KeyOf pins cleavage sites
+        // only. It needs nothing more: an anchored residue is still in the partner, so it is in the
+        // free-residue multiset on both sides, and a key that ignores where it sits still matches.
         int[] ordered = anchors.ToArray();
         Array.Sort(ordered);
         return ordered;

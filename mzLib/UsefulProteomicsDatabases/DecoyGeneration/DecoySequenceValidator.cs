@@ -350,6 +350,61 @@ public static class DecoySequenceValidator
         return new string(rearranged);
     }
 
+    /// <summary>
+    /// The index at which <see cref="UnrankPermutation"/> returns <paramref name="sequence"/> itself:
+    /// where the identity sits in the lexicographic order of its own rearrangements.
+    /// </summary>
+    /// <remarks>
+    /// The inverse of <see cref="UnrankPermutation"/> at the one arrangement every caller has to
+    /// avoid. Knowing its rank lets a caller share out only the arrangements that differ from the
+    /// input, rather than walking into the identity and refusing it.
+    /// </remarks>
+    /// <param name="alsoHeldInPlace">Must match what was passed to <see cref="PermutationSpaceSize"/>
+    /// and <see cref="UnrankPermutation"/>, or the rank will not mean the same thing.</param>
+    public static BigInteger RankPermutation(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace = null)
+    {
+        if (string.IsNullOrEmpty(sequence))
+        {
+            return BigInteger.Zero;
+        }
+
+        HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
+        SortedDictionary<char, int> counts = FreeResidueCounts(sequence, motifs, alsoHeldInPlace);
+        List<char> residues = counts.Keys.ToList();
+        BigInteger remainingPermutations = Multinomial(counts);
+        int remainingPositions = counts.Values.Sum();
+        BigInteger rank = BigInteger.Zero;
+
+        for (int slot = 0; slot < sequence.Length; slot++)
+        {
+            if (pinned.Contains(slot))
+            {
+                continue;
+            }
+
+            // Every arrangement that puts a smaller residue in this slot comes first.
+            char actual = sequence[slot];
+            foreach (char residue in residues)
+            {
+                if (residue == actual)
+                {
+                    break;
+                }
+                if (counts[residue] > 0)
+                {
+                    rank += remainingPermutations * counts[residue] / remainingPositions;
+                }
+            }
+
+            remainingPermutations = remainingPermutations * counts[actual] / remainingPositions;
+            counts[actual]--;
+            remainingPositions--;
+        }
+
+        return rank;
+    }
+
     /// <summary>Every position held still: the cleavage sites, plus anything the caller anchored.</summary>
     private static HashSet<int> HeldPositions(string sequence, List<DigestionMotif> motifs,
         IReadOnlyCollection<int>? alsoHeldInPlace)

@@ -1269,4 +1269,89 @@ public class EntrapmentProteinTests
             Throws.TypeOf<MzLibUtil.MzLibException>(),
             "a mixed target-and-decoy list must be refused rather than half-entrapped");
     }
+
+    // ---- input guards (Alexander-Sol, #1271) ------------------------------------
+
+    [TestCase(0)]
+    [TestCase(-1)]
+    public void AFoldCountBelowOneIsRefusedRatherThanReturningNothing(int foldCount)
+    {
+        // The fold loop never ran, so Create's own check never fired and the call returned an empty
+        // database instead of an error.
+        Assert.That(() => EntrapmentProteinGenerator.GenerateEntrapment(
+                new[] { new Protein(Sequence, "P00001") }, Tryptic, NothingForbidden, foldCount: foldCount),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("Fold count"));
+    }
+
+    [Test]
+    public void NullDigestionParamsAreNamedAtEveryEntryPoint()
+    {
+        var protein = new Protein(Sequence, "P00001");
+        static void Named(TestDelegate call) =>
+            Assert.That(call, Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("digestion parameters"));
+
+        Named(() => EntrapmentProteinGenerator.GenerateEntrapment(new[] { protein }, null!, NothingForbidden));
+        Named(() => EntrapmentProteinGenerator.Create(protein, null!, NothingForbidden));
+        Named(() => EntrapmentAssembler.Assemble(Sequence, null!, NothingForbidden));
+        Named(() => new EntrapmentPairing(protein, null!));
+        Named(() => EntrapmentProteinGenerator.TargetPeptides(new[] { protein }, null!));
+    }
+
+    [Test]
+    public void AnEntrapmentEntryIsRefusedAsATarget()
+    {
+        // Regenerating from a loaded target-plus-entrapment database minted Random_Random_X_f0_f0.
+        Protein partner = EntrapmentProteinGenerator.Create(new Protein(Sequence, "P00001"), Tryptic,
+            NothingForbidden);
+        Assert.That(partner.IsEntrapment, Is.True, "fixture must really be an entrapment entry");
+
+        Assert.That(() => EntrapmentProteinGenerator.Create(partner, Tryptic, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains(partner.Accession));
+        Assert.That(() => EntrapmentProteinGenerator.CreateForeign(partner),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains(partner.Accession));
+    }
+
+    [Test]
+    public void APieceLongerThanAnyPeptideIsKeptRatherThanExcised()
+    {
+        // Alexander-Sol, #1271: Q156A1 -- a methionine and 79 glutamines -- has one arrangement once
+        // its termini are anchored, and was excised whole although nothing of it is searchable.
+        string sequence = "M" + new string('Q', 79);
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+            maxPeptideLength: 50);
+
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
+
+        Assert.That(assembly.Pieces.Single().Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooLong));
+        Assert.That(assembly.EntrapmentSequence, Is.EqualTo(sequence));
+        Assert.That(assembly.KeptVerbatimCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void AnOverLengthOpeningPieceIsStillExcisedWhenItsMetStrippedFormIsARealPeptide()
+    {
+        // One residue over the bound: without its initiator methionine the piece is searchable, and
+        // kept verbatim it would be a real peptide in the entrapment database.
+        string sequence = "M" + new string('Q', 50);
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+            maxPeptideLength: 50);
+        HashSet<string> forbidden = EntrapmentProteinGenerator.TargetPeptides(
+            new[] { new Protein(sequence, "P00001") }, digestion);
+        Assert.That(forbidden, Does.Contain(sequence.Substring(1)), "fixture: the stripped form is searchable");
+
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, forbidden);
+
+        Assert.That(assembly.Pieces.Single().Outcome, Is.EqualTo(PieceOutcome.Excised));
+    }
+
+    [Test]
+    public void TargetPeptidesIsWhatASearchOfTheTargetsReports()
+    {
+        var protein = new Protein(Sequence, "P00001");
+        var noMods = new List<Modification>();
+        var digested = protein.Digest(Tryptic, noMods, noMods).Select(p => p.BaseSequence).ToHashSet();
+
+        Assert.That(EntrapmentProteinGenerator.TargetPeptides(new[] { protein }, Tryptic),
+            Is.EquivalentTo(digested));
+    }
 }

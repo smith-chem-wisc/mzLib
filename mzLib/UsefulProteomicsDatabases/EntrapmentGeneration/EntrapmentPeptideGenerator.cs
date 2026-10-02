@@ -20,7 +20,7 @@ public enum EntrapmentFailure
     None,
 
     /// <summary>
-    /// Every arrangement in this fold's stretch was refused for something outside the piece itself:
+    /// Every arrangement in this fold's share was refused for something outside the piece itself:
     /// it would have made a <b>missed-cleavage</b> peptide equal to a real target peptide, or -- for
     /// the piece that opens a protein -- its <b>initiator-methionine-stripped</b> form would have
     /// been one.
@@ -92,7 +92,7 @@ public sealed class EntrapmentPeptide
 
     /// <summary>
     /// Candidates examined, including the one returned. One means the first choice was free; on a
-    /// failure it is the whole stretch, which is what makes the failure a proof. Saturates at
+    /// failure it is the whole share, which is what makes the failure a proof. Saturates at
     /// <see cref="int.MaxValue"/> rather than overflowing, being a diagnostic.
     /// </summary>
     public int ProbesUsed { get; }
@@ -191,38 +191,39 @@ public static class EntrapmentPeptideGenerator
             return Failed(targetSequence, fold, size, 0, EntrapmentFailure.SpaceTooSmallForFoldCount);
         }
 
-        // Give each fold its own contiguous stretch of the space. Disjoint stretches make the folds
-        // distinct by construction and independent of one another -- neither has to know what the
-        // others chose, so they can be produced in any order, in parallel, or years apart.
-        BigInteger stretch = size / foldCount;
-
-        BigInteger start = fold * stretch;
-        BigInteger offset = DeriveOffset(targetSequence, seed, stretch);
+        // Share out only the arrangements that differ from the target, and share them by residue
+        // class modulo the fold count: fold f owns non-identity ranks f, f + foldCount, f + 2·foldCount,
+        // ... Disjoint shares make the folds distinct by construction and independent of one
+        // another -- neither has to know what the others chose, so they can be produced in any
+        // order, in parallel, or years apart.
+        //
+        // Interleaved rather than contiguous, for two reasons (Alexander-Sol, #1271). Contiguous
+        // blocks of a lexicographic order fix the leading free residues by fold, so fold 0 of
+        // AEGLSVTK always put E second and fold 8 always put V there: pooled over folds that is
+        // fine, but a single fold, or an estimate per fold, drew from a skewed population. And
+        // `size / foldCount` left the remainder unused while the identity still sat inside one
+        // fold's block, so at a block of one that fold was excised as SpaceTooSmallForFoldCount
+        // although unused arrangements remained. Skipping the identity's rank and spreading the
+        // remainder over the low folds removes both: every fold now holds at least one candidate
+        // whenever the guard above passes.
+        BigInteger usable = size - BigInteger.One;
+        BigInteger share = (usable - fold + foldCount - 1) / foldCount;
+        BigInteger identity = DecoySequenceValidator.RankPermutation(targetSequence, motifs, alsoHeldInPlace);
+        BigInteger offset = DeriveOffset(targetSequence, seed, share);
 
         bool anyRejectedOnlyByContext = false;
-        bool rejectedAsIdentity = false;
-        bool rejectedAsForbidden = false;
         BigInteger probes = BigInteger.Zero;
 
-        for (BigInteger step = BigInteger.Zero; step < stretch; step++)
+        for (BigInteger step = BigInteger.Zero; step < share; step++)
         {
             probes = step + BigInteger.One;
-            BigInteger index = start + (offset + step) % stretch;
+            BigInteger nonIdentityRank = fold + foldCount * ((offset + step) % share);
+            BigInteger index = nonIdentityRank < identity ? nonIdentityRank : nonIdentityRank + BigInteger.One;
             string candidate = DecoySequenceValidator.UnrankPermutation(targetSequence, motifs, index,
                 out int[] swapped, alsoHeldInPlace);
 
-            if (candidate == targetSequence)
-            {
-                // Refused because it IS the target, which is a property of the stretch this fold was
-                // handed rather than of a crowded database. Tracked apart so that a stretch holding
-                // nothing but the identity is reported as a fold count too large.
-                rejectedAsIdentity = true;
-                continue;
-            }
-
             if (forbiddenSequences.Contains(candidate))
             {
-                rejectedAsForbidden = true;
                 continue;
             }
 
@@ -237,17 +238,16 @@ public static class EntrapmentPeptideGenerator
                 Probes(probes), EntrapmentFailure.None);
         }
 
-        // The stretch was walked end to end, so this is a proof rather than an abandoned search --
+        // The share was walked end to end, so this is a proof rather than an abandoned search --
         // and which proof it is depends on what did the refusing. Reporting a run collision as
         // "all permutations taken" would send a caller after a different target database when the
-        // answer is a different seed. The probe count is the whole stretch, not zero: it is the
+        // answer is a different seed. The probe count is the whole share, not zero: it is the
         // evidence the walk was exhaustive, and it is on the failure paths that a reader most wants
-        // to know how much was examined.
+        // to know how much was examined. The identity is never in a share, so a fold count too
+        // large for the space is decided by the guard above and cannot reach here.
         EntrapmentFailure reason = anyRejectedOnlyByContext
             ? EntrapmentFailure.RunCollisionsExhaustedTheSpace
-            : rejectedAsIdentity && !rejectedAsForbidden
-                ? EntrapmentFailure.SpaceTooSmallForFoldCount
-                : EntrapmentFailure.AllPermutationsTaken;
+            : EntrapmentFailure.AllPermutationsTaken;
 
         return Failed(targetSequence, fold, size, Probes(probes), reason);
     }
@@ -256,7 +256,7 @@ public static class EntrapmentPeptideGenerator
     /// The probe count as a diagnostic <see cref="int"/>, saturating rather than throwing.
     /// </summary>
     /// <remarks>
-    /// The walk is over a <see cref="BigInteger"/> stretch, which a lightly-pinned peptide can make
+    /// The walk is over a <see cref="BigInteger"/> share, which a lightly-pinned peptide can make
     /// larger than <see cref="int.MaxValue"/>. An explicit conversion is checked, so a walk that
     /// ever got that far would throw <see cref="OverflowException"/> out of a report build whose job
     /// was to classify the outcome -- trading a usable answer for a crash, over a number that is
@@ -271,14 +271,14 @@ public static class EntrapmentPeptideGenerator
         new(targetSequence, null, null, fold, size, probesUsed, failure);
 
     /// <summary>
-    /// Where in a fold's stretch to start looking, derived from the sequence and the seed.
+    /// Where in a fold's share to start looking, derived from the sequence and the seed.
     /// </summary>
     /// <remarks>
     /// SHA-256 rather than <see cref="string.GetHashCode()"/> or a home-made hash: its output is
     /// fixed by specification, so a database regenerated on another machine, another runtime or in
     /// another decade is byte-identical. String hash codes are explicitly not stable across runs.
     /// </remarks>
-    private static BigInteger DeriveOffset(string sequence, int seed, BigInteger stretch)
+    private static BigInteger DeriveOffset(string sequence, int seed, BigInteger share)
     {
         // Format the seed invariantly. Interpolation uses the current culture, and a negative
         // seed renders its sign as U+002D under en-US but U+2212 MINUS SIGN under sv-SE, fi-FI and
@@ -292,6 +292,6 @@ public static class EntrapmentPeptideGenerator
         byte[] unsigned = new byte[digest.Length + 1];
         Array.Copy(digest, unsigned, digest.Length);
 
-        return new BigInteger(unsigned) % stretch;
+        return new BigInteger(unsigned) % share;
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
@@ -434,6 +435,55 @@ public class EntrapmentReportTests
             .Select(p => p.BaseSequence).Distinct().Count();
 
         Assert.That(new EntrapmentPairing(protein, digestion).SearchablePeptideCount, Is.EqualTo(digested));
+    }
+
+    [Test]
+    public void TruncationProductPeptidesAreNamedRatherThanCountedAsPairable()
+    {
+        // Alexander-Sol, #1271: a search of an XML database also reports peptides at signal-peptide,
+        // chain and propeptide boundaries, and a partner carries no truncation products, so those
+        // can never pair. The count leaves them out; they must at least be named.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+        const string sequence = "MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK";
+        var plain = new Protein(sequence, "P00001");
+        // A chain beginning at residue 18 (mid-piece) opens peptides no cleavage site produces.
+        var withChain = new Protein(sequence, "P00001",
+            proteolysisProducts: new List<TruncationProduct> { new(18, sequence.Length, "chain") });
+
+        var plainPairing = new EntrapmentPairing(plain, digestion);
+        var chainPairing = new EntrapmentPairing(withChain, digestion);
+
+        Assert.That(plainPairing.TruncationProductPeptides, Is.Empty);
+        Assert.That(chainPairing.SearchablePeptideCount, Is.EqualTo(plainPairing.SearchablePeptideCount),
+            "the pairable population does not change; the new peptides are reported beside it");
+
+        var noMods = new List<Modification>();
+        var digested = withChain.Digest(digestion, noMods, noMods).Select(p => p.BaseSequence).ToHashSet();
+        Assert.That(chainPairing.TruncationProductPeptides, Is.Not.Empty);
+        Assert.That(chainPairing.TruncationProductPeptides, Is.SubsetOf(digested));
+        Assert.That(chainPairing.SearchablePeptideCount + chainPairing.TruncationProductPeptides.Count,
+            Is.EqualTo(digested.Count), "the two together are what the search covers");
+
+        var builder = new EntrapmentReportBuilder(digestion, foldCount: 1, seed: 1,
+            EntrapmentReport.CountResidues("ST"));
+        builder.Add(withChain, 0, EntrapmentAssembler.Assemble(sequence, digestion, new HashSet<string>()));
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.TruncationProductPeptidesByAccession["P00001"],
+            Is.EquivalentTo(chainPairing.TruncationProductPeptides));
+        Assert.That(report.ToTabSeparated(), Does.Contain(
+            "# truncationProductPeptides\t" + chainPairing.TruncationProductPeptides.Count));
+        Assert.That(report.ExclusionsToTabSeparated(), Does.Contain("\ttruncationProductPeptide\ttarget"));
+    }
+
+    [Test]
+    public void AMissLeavesTheOutParameterEmptyNotNull()
+    {
+        var pairing = new EntrapmentPairing(new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P00001"),
+            new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2));
+
+        Assert.That(pairing.TryResolve("WWWWWWWWK", out string targetPeptide), Is.False);
+        Assert.That(targetPeptide, Is.Not.Null.And.Empty);
     }
 
     [Test]
