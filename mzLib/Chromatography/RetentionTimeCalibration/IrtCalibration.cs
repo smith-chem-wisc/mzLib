@@ -18,12 +18,19 @@ public enum IrtCalibrationKind
 /// <param name="Bandwidth">LOWESS only: the fraction of anchors in each local fit, in (0, 1].</param>
 /// <param name="Knots">LOWESS only: how many points along the run the curve is evaluated at.</param>
 /// <param name="RobustnessIterations">Rounds of downweighting anchors with large residuals.</param>
+/// <param name="MinimumBinShare">
+/// The anchors' time span is cut into <see cref="IrtCalibration.DensityBins"/> equal stretches, and anchors in a stretch holding
+/// fewer than this share of the busiest stretch's anchors are set aside: the curve is extrapolated there from where the
+/// anchors are. A handful of wrong identifications where nothing elutes otherwise bend it (PXD022589: 20% of precursors
+/// lost). Anchors spread thinly but evenly are all kept. 0 keeps every anchor.
+/// </param>
 public sealed record IrtCalibrationOptions(
     IrtCalibrationKind Kind = IrtCalibrationKind.Lowess,
     int MinimumAnchors = 20,
     double Bandwidth = 0.3,
     int Knots = 100,
-    int RobustnessIterations = 3);
+    int RobustnessIterations = 3,
+    double MinimumBinShare = 0.05);
 
 /// <summary>
 /// Fits one run's retention times onto a library's iRT scale from anchors: the observed apex RT, in minutes, of
@@ -33,6 +40,9 @@ public sealed record IrtCalibrationOptions(
 public static class IrtCalibration
 {
     private const int StartingBins = 20;
+
+    /// <summary>Equal stretches of the anchors' time span over which <see cref="IrtCalibrationOptions.MinimumBinShare"/> is judged.</summary>
+    public const int DensityBins = 20;
 
     /// <exception cref="ArgumentNullException"><paramref name="anchors"/> is null.</exception>
     /// <exception cref="ArgumentOutOfRangeException">An option is out of range.</exception>
@@ -49,7 +59,7 @@ public static class IrtCalibration
         if (anchors.Any(a => !double.IsFinite(a.Rt.Value) || !double.IsFinite(a.Irt.Value)))
             throw new ArgumentException("Every anchor's retention time and iRT must be finite.", nameof(anchors));
 
-        var sorted = anchors.OrderBy(a => a.Rt.Value).ThenBy(a => a.Irt.Value).ToArray();
+        var sorted = Dense(anchors.OrderBy(a => a.Rt.Value).ThenBy(a => a.Irt.Value).ToArray(), options);
         double[] x = sorted.Select(a => a.Rt.Value).ToArray();
         double[] y = sorted.Select(a => a.Irt.Value).ToArray();
         if (x[^1] <= x[0])
@@ -62,7 +72,25 @@ public static class IrtCalibration
             ? FitLinear(x, y, weights, options.RobustnessIterations)
             : FitLowess(x, y, weights, options);
 
-        return model with { ResidualSd = InlierSd(Residuals(x, y, model)), AnchorCount = anchors.Count };
+        return model with { ResidualSd = InlierSd(Residuals(x, y, model)), AnchorCount = sorted.Length };
+    }
+
+    /// <summary>
+    /// The anchors outside sparse stretches of their time span (see <see cref="IrtCalibrationOptions.MinimumBinShare"/>). If
+    /// fewer than <see cref="IrtCalibrationOptions.MinimumAnchors"/> would remain, all are kept.
+    /// </summary>
+    private static (RtMinutes Rt, Irt Irt)[] Dense((RtMinutes Rt, Irt Irt)[] sorted, IrtCalibrationOptions options)
+    {
+        double first = sorted[0].Rt.Value, span = sorted[^1].Rt.Value - first;
+        if (options.MinimumBinShare <= 0 || !(span > 0))
+            return sorted;
+        int Bin(double rt) => Math.Min(DensityBins - 1, (int)((rt - first) / span * DensityBins));
+        var counts = new int[DensityBins];
+        foreach (var anchor in sorted)
+            counts[Bin(anchor.Rt.Value)]++;
+        double floor = options.MinimumBinShare * counts.Max();
+        var dense = sorted.Where(a => counts[Bin(a.Rt.Value)] >= floor).ToArray();
+        return dense.Length >= options.MinimumAnchors ? dense : sorted;
     }
 
     /// <summary>
@@ -261,6 +289,8 @@ public static class IrtCalibration
             throw new ArgumentOutOfRangeException(nameof(options), options.Knots, "Knots must be at least 3.");
         if (options.RobustnessIterations < 0)
             throw new ArgumentOutOfRangeException(nameof(options), options.RobustnessIterations, "RobustnessIterations cannot be negative.");
+        if (!(options.MinimumBinShare >= 0 && options.MinimumBinShare < 1))
+            throw new ArgumentOutOfRangeException(nameof(options), options.MinimumBinShare, "MinimumBinShare must be in [0, 1).");
     }
 }
 
