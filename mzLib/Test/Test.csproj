@@ -216,6 +216,9 @@
     <None Update="DataFiles\Ontologies\unimod_tables.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
+    <None Update="DataFiles\Ontologies\go-trimmed.obo">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
     <None Update="DatabaseTests\ranges1.xml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
@@ -451,6 +454,12 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\TmtAuditFixture\data\plexA_fr1.raw">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\SdrfDesign\PXD067622.sdrf.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\SdrfDesign\PXD049018.sdrf.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv">
