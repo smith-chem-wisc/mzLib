@@ -192,7 +192,7 @@ namespace Test.FileReadingTests
 
             Assert.That(columnLine, Is.EqualTo(string.Join('\t', "protein_group", "accession_used", "accession_direct",
                 "accession_inherited", "go_id", "go_name", "aspect", "evidence", "evidence_by_member", "inherited",
-                "propagated", "n_members", "n_with", "annotation_status", "q_value", "go_release", "go_obo_sha256",
+                "propagated", "n_members", "n_with", "entrapment_members", "annotation_status", "q_value", "go_release", "go_obo_sha256",
                 "annotation_db_sha256")));
 
             var rows = RowsOf(text);
@@ -208,6 +208,7 @@ namespace Test.FileReadingTests
             Assert.That(nucleus["propagated"], Is.EqualTo("false"));
             Assert.That(nucleus["n_members"], Is.EqualTo("2"));
             Assert.That(nucleus["n_with"], Is.EqualTo("2"));
+            Assert.That(nucleus["entrapment_members"], Is.Empty);
             Assert.That(nucleus["annotation_status"], Is.EqualTo("annotated"));
             Assert.That(nucleus["q_value"], Is.EqualTo("0.001"));
             Assert.That(rows.Single(r => r["go_id"] == "GO:0043226")["propagated"], Is.EqualTo("true"));
@@ -221,6 +222,7 @@ namespace Test.FileReadingTests
             Assert.That(termless["inherited"], Is.Empty);
             Assert.That(termless["propagated"], Is.Empty);
             Assert.That(termless["n_with"], Is.EqualTo("0"));
+            Assert.That(termless["entrapment_members"], Is.Empty);
             Assert.That(termless["annotation_status"], Is.EqualTo("no_go_terms"));
             Assert.That(termless["q_value"], Is.EqualTo("0.0042"));
         }
@@ -233,6 +235,22 @@ namespace Test.FileReadingTests
             Assert.That(rows.Select(r => r["protein_group"]).Distinct(), Is.EqualTo(new[] { "P3", "P1" }));
             var ids = rows.Where(r => r["protein_group"] == "P1").Select(r => r["go_id"]).ToList();
             Assert.That(ids, Is.EqualTo(ids.OrderBy(i => i, StringComparer.Ordinal).ToList()));
+        }
+
+        [Test]
+        public void EntrapmentMembers_JoinedOnEveryRowOfTheGroup_AndAddNoCounter()
+        {
+            string text = WriteAnnotation(Annotator().AnnotateAll(new[] { Group("P1|Random_P1_f0|Random_P9_f0", 0.001) }));
+
+            var rows = RowsOf(text);
+            Assert.That(rows, Is.Not.Empty);
+            Assert.That(rows.Select(r => r["entrapment_members"]).Distinct(), Is.EqualTo(new[] { "Random_P1_f0;Random_P9_f0" }));
+            Assert.That(rows.Select(r => r["annotation_status"]).Distinct(), Is.EqualTo(new[] { "annotated" }),
+                "entrapment is a label, not a status: a row with a term is always annotated (D19)");
+
+            // D26: five counters and no more; entrapment is not one of them.
+            var counters = HeaderOf(text).Keys.Where(k => k.StartsWith("n_", StringComparison.Ordinal) || k.StartsWith("status_", StringComparison.Ordinal));
+            Assert.That(counters.Count(), Is.EqualTo(5));
         }
 
         [Test]
