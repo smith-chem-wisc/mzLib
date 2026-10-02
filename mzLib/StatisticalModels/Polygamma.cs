@@ -8,13 +8,14 @@ namespace StatisticalModels
     /// MathNet.Numerics 5.0.0 does not provide (it has <see cref="SpecialFunctions.DiGamma"/> only).
     /// </summary>
     /// <remarks>
-    /// Both polygammas use the upward recurrence to move the argument above 10 and then the standard
-    /// asymptotic series, which is accurate to about 1e-15 there. They are defined for x &gt; 0 only,
+    /// Both polygammas use the upward recurrence to move the argument above 20 and then the standard
+    /// asymptotic series through the B₁₀ term. The first omitted term is below 1e-16 relative there
+    /// (at 10 it would be about 2e-13), so rounding in the recurrence, not truncation, sets the error. They are defined for x &gt; 0 only,
     /// which is the only domain moderation calls them on (half a degrees-of-freedom value).
     /// </remarks>
     internal static class Polygamma
     {
-        private const double AsymptoticThreshold = 10.0;
+        private const double AsymptoticThreshold = 20.0;
         private const int MaxNewtonIterations = 100;
         private const double NewtonRelativeTolerance = 1e-12;
         /// <summary>Below this, Trigamma(y) = x has y = 1/x to double precision.</summary>
