@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.CCSModels;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
@@ -77,6 +78,43 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(1));
             Assert.That(predictions[0].DetectabilityProbabilities, Is.Not.Null);
             Assert.That(predictions[0].DetectabilityProbabilities!.Value.HighDetectability, Is.EqualTo(0.4));
+        }
+
+        [Test]
+        public void EveryFamily_Predict_ParsesWithTheInputsOwnSequenceParser()
+        {
+            // Each family's validation loop must hand the input record's parser to TryCleanSequence, not null.
+            var fragmentParser = new CountingParser();
+            var rtParser = new CountingParser();
+            var ccsParser = new CountingParser();
+            var detectabilityParser = new CountingParser();
+
+            new FakeFragmentModel().Predict(new List<FragmentIntensityPredictionInput> { new("PEPTIDEK", 2, 30, null, null) { SequenceParser = fragmentParser } });
+            new FakeRtModel().Predict(new List<RetentionTimePredictionInput> { new("PEPTIDEK") { SequenceParser = rtParser } });
+            new FakeCcsModel().Predict(new List<CCSPredictionInput> { new("PEPTIDEK", 2) { SequenceParser = ccsParser } });
+            new FakeDetectabilityModel().Predict(new List<DetectabilityPredictionInput> { new("PEPTIDEK") { SequenceParser = detectabilityParser } });
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fragmentParser.Calls, Is.EqualTo(1), "fragment intensity");
+                Assert.That(rtParser.Calls, Is.EqualTo(1), "retention time");
+                Assert.That(ccsParser.Calls, Is.EqualTo(1), "CCS");
+                Assert.That(detectabilityParser.Calls, Is.EqualTo(1), "detectability");
+            });
+        }
+
+        private sealed class CountingParser : ISequenceParser
+        {
+            public int Calls { get; private set; }
+            public string FormatName => MzLibSequenceParser.Instance.FormatName;
+            public SequenceFormatSchema Schema => MzLibSequenceParser.Instance.Schema;
+            public bool CanParse(string input) => MzLibSequenceParser.Instance.CanParse(input);
+
+            public CanonicalSequence? Parse(string input, ConversionWarnings? warnings = null, SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException)
+            {
+                Calls++;
+                return MzLibSequenceParser.Instance.Parse(input, warnings, mode);
+            }
         }
 
         // ── canned-transport subclasses of real models ─────────────────────────────

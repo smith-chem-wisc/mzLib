@@ -20,7 +20,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MaxPeptideLength => 30;
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => true;
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Unused for validation: AcceptsAllUnimodModifications below is authoritative.
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public Prosit2025iRT22PTM(

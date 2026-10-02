@@ -19,7 +19,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MaxPeptideLength => 500; // Model has no upper limit; 500 is a practical bound
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => true;
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Unused for validation: AcceptsAllUnimodModifications below is authoritative.
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public AlphaPeptDeepRTGeneric(

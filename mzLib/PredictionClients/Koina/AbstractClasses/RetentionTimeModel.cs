@@ -13,7 +13,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents a retention time prediction result for a single peptide sequence.
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
-    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
+    /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
@@ -29,9 +29,14 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the input parameters for retention time prediction models from the Koina API.
     /// This record captures the input information required for peptide retention time prediction.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
+    /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another</param>
     public record RetentionTimePredictionInput(string FullSequence)
     {
+        /// <summary>
+        /// Optional parser for <see cref="FullSequence"/>'s source format; null (default) uses the model's
+        /// own converter parser. E.g. set to <c>ProFormaSequenceParser.Instance</c> for ProForma input.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
     }
@@ -122,7 +127,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
 
                 if (cleanedSequence != null && apiSequence != null)
                 {
@@ -313,7 +318,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             try
             {
-                var cleaned = TryCleanSequence(peptide.FullSequence, out var apiSequence, out _);
+                var cleaned = TryCleanSequence(peptide.FullSequence, null, out var apiSequence, out _);
                 if (cleaned != null && apiSequence != null)
                     return apiSequence;
             }

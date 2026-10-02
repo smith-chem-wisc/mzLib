@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Text;
 using System.Text.RegularExpressions;
 using Omics.Modifications;
 using Omics.SequenceConversion;
@@ -64,10 +65,26 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <summary>
     /// Unimod modification IDs accepted by the model when converting sequences.
     /// Used by the modification converter layer (not parameter validation).
-    /// empty = no modifications are accepted.
+    /// empty = no modifications are accepted, UNLESS <see cref="AcceptsAllUnimodModifications"/> is true.
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
+    /// <summary>
+    /// True when this model accepts any UNIMOD-identified modification instead of restricting to
+    /// <see cref="AllowedUnimodIds"/>. Models built via <see cref="CreateUnimodConverterAcceptAll"/>
+    /// must override this to true, since an empty <see cref="AllowedUnimodIds"/> otherwise means
+    /// "reject every modification".
+    /// </summary>
+    public virtual bool AcceptsAllUnimodModifications => false;
+
+    /// <summary>
+    /// UNIMOD IDs of the N-terminal modification this model requires.
+    /// null = no N-terminal modification is required.
+    /// empty = an N-terminal modification IS required, and any one the model allows will do
+    /// (unlike <see cref="AllowedUnimodIds"/>, where empty means none).
+    /// populated = the N-terminal modification must be one of these IDs, each of which must also be allowed.
+    /// </summary>
+    public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
 
     /// <summary>
     /// Gets the regex pattern for validating amino acid sequences.
@@ -164,21 +181,32 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
     #region Validation and Modification Handling
     /// <summary>
-    /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
-    /// Handles incompatible modifications according to the specified ModHandlingMode.
+    /// Validates a peptide sequence against model constraints and builds the sequence sent to Koina, in four steps:
+    /// separate the modifications from the residues using the source format's own brackets; check the residues;
+    /// resolve every modification and check it is allowed, and that any required one is present; serialize.
+    /// Incompatible modifications are handled according to <see cref="ModHandlingMode"/>.
     /// </summary>
+    /// <param name="sequence">The raw input sequence string, in the format <paramref name="sourceParser"/> (or the
+    /// model's default converter parser, when null) understands.</param>
+    /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser. The model's
+    /// own serializer always produces the output, regardless of which parser is used here.</param>
     protected virtual string? TryCleanSequence(
         string sequence,
+        ISequenceParser? sourceParser,
         out string? apiSequence,
         out WarningException? warning)
     {
         apiSequence = null;
         warning = null;
+        var parser = sourceParser ?? SequenceConverter.Parser;
 
-        var rawBase = BaseStripper.Replace(sequence, string.Empty);
-        if (!Regex.IsMatch(rawBase, AllowedAminoAcidPattern))
+        var residues = SeparateResidues(sequence, parser.Schema);
+        if (!IsValidBaseSequence(residues, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
         {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
+            var message = $"Invalid base sequence '{residues}': residues must match {AllowedAminoAcidPattern} " +
+                          $"and be {MinPeptideLength}-{MaxPeptideLength} long.";
+            HandleFailure(ModHandlingMode, message);
+            warning = new WarningException(message);
             return null;
         }
 
@@ -186,7 +214,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         CanonicalSequence? canonical;
         try
         {
-            canonical = SequenceConverter.Parse(sequence, conversionWarnings, ModHandlingMode);
+            canonical = parser.Parse(sequence, conversionWarnings, ModHandlingMode);
             if (!canonical.HasValue)
             {
                 HandleFailure(ModHandlingMode, "Failed to parse sequence.");
@@ -201,12 +229,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
-        if (!IsValidBaseSequence(canonical.Value.BaseSequence, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
-        {
-            HandleFailure(ModHandlingMode, "Invalid base sequence.");
-            return null;
-        }
-
         var cleaned = canonical.Value;
         if (ModHandlingMode == SequenceConversionHandlingMode.UsePrimarySequence && cleaned.HasModifications)
         {
@@ -214,9 +236,51 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             conversionWarnings.AddWarning("Sequence modifications were removed for prediction.");
         }
 
+        // Resolve every modification here rather than during serialization, so modifications from any source
+        // format (pre-identified ProForma UNIMOD:N tokens or mzLib names) pass through the same check.
+        var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        var incompatible = new List<CanonicalModification>();
+        foreach (var mod in cleaned.Modifications)
+        {
+            var resolved = ResolveModification(mod);
+            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+                accepted.Add(resolved);
+            else
+                incompatible.Add(resolved);
+        }
+
+        if (incompatible.Count > 0)
+        {
+            foreach (var mod in incompatible)
+                conversionWarnings.AddIncompatibleItem(mod.ToString());
+
+            if (ModHandlingMode != SequenceConversionHandlingMode.RemoveIncompatibleElements)
+            {
+                HandleFailure(ModHandlingMode, $"Sequence contains unsupported modifications: {string.Join(", ", incompatible)}");
+                warning = BuildWarning(conversionWarnings, null);
+                return null;
+            }
+
+            foreach (var mod in incompatible)
+                conversionWarnings.AddWarning($"Removing unsupported modification: {mod}");
+        }
+        cleaned = cleaned.WithModifications(accepted);
+
+        if (RequiredNTerminalUnimodIds is { } required
+            && (cleaned.NTerminalModification?.UnimodId is not int nTermId || (required.Count > 0 && !required.Contains(nTermId))))
+        {
+            var message = required.Count == 0
+                ? "Sequence must carry an N-terminal modification."
+                : $"Sequence must carry one of these N-terminal modifications: {string.Join(", ", required.Order().Select(i => $"UNIMOD:{i}"))}.";
+            HandleFailure(ModHandlingMode, message);
+            warning = BuildWarning(conversionWarnings, message);
+            return null;
+        }
+
         string? serialized;
         try
         {
+            // Always the model's own serializer, never sourceParser: it alone owns the Koina-bound target format.
             serialized = SequenceConverter.Serialize(cleaned, conversionWarnings, ModHandlingMode);
         }
         catch (SequenceConversionException ex)
@@ -235,6 +299,91 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         apiSequence = serialized;
         warning = BuildWarning(conversionWarnings, null);
         return apiSequence;
+    }
+
+    /// <summary>
+    /// Returns what is left of a sequence once its modifications are lifted out using the source format's schema:
+    /// each complete bracketed span, plus the terminal separator joining a terminal modification. Whether those
+    /// modifications are well formed is the parser's call; anything that isn't a complete span stays in the
+    /// result for the residue check.
+    /// </summary>
+    private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
+    {
+        var residues = new StringBuilder(sequence.Length);
+        var nTermSeparator = schema.NTermSeparator;
+        var cTermSeparator = schema.CTermSeparator;
+
+        int i = SkipModifications(sequence, 0, schema);
+        if (i > 0 && !string.IsNullOrEmpty(nTermSeparator) && sequence.AsSpan(i).StartsWith(nTermSeparator))
+            i += nTermSeparator.Length;
+
+        while (i < sequence.Length)
+        {
+            int afterModifications = SkipModifications(sequence, i, schema);
+            if (afterModifications > i)
+            {
+                i = afterModifications;
+                continue;
+            }
+
+            if (!string.IsNullOrEmpty(cTermSeparator) && sequence.AsSpan(i).StartsWith(cTermSeparator))
+            {
+                int modificationsStart = i + cTermSeparator.Length;
+                int afterCTerm = SkipModifications(sequence, modificationsStart, schema);
+                if (afterCTerm > modificationsStart && afterCTerm == sequence.Length)
+                    break;
+            }
+
+            residues.Append(sequence[i]);
+            i++;
+        }
+
+        return residues.ToString();
+    }
+
+    /// <summary>
+    /// Returns the index just past the complete bracketed modifications starting at <paramref name="start"/>, or
+    /// <paramref name="start"/> itself when none starts there.
+    /// </summary>
+    private static int SkipModifications(string sequence, int start, SequenceFormatSchema schema)
+    {
+        int i = start;
+        while (i < sequence.Length && sequence[i] == schema.ModOpenBracket)
+        {
+            int depth = 0;
+            int end = -1;
+            for (int k = i; k < sequence.Length && end < 0; k++)
+            {
+                if (sequence[k] == schema.ModOpenBracket)
+                    depth++;
+                else if (sequence[k] == schema.ModCloseBracket && --depth == 0)
+                    end = k + 1;
+            }
+
+            if (end < 0)
+                break;
+            i = end;
+        }
+        return i;
+    }
+
+    /// <summary>
+    /// Resolves a modification through the model's serializer lookup, merged the same way the serializer enriches
+    /// the modifications it resolves. Returns the modification unchanged when it needs no resolution or none matches.
+    /// </summary>
+    private CanonicalModification ResolveModification(CanonicalModification mod)
+    {
+        var serializer = SequenceConverter.Serializer;
+        if (!serializer.ShouldResolveMod(mod) || serializer.ModificationLookup?.TryResolve(mod) is not { } match)
+            return mod;
+
+        return match with
+        {
+            PositionType = mod.PositionType,
+            ResidueIndex = mod.ResidueIndex,
+            TargetResidue = mod.TargetResidue ?? match.TargetResidue,
+            OriginalRepresentation = mod.OriginalRepresentation
+        };
     }
 
     #endregion

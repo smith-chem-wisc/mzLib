@@ -12,7 +12,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the prediction results for a single peptide, containing detectability probability scores
     /// for each detectability class from a detectability prediction model.
     /// </summary>
-    /// <param name="FullSequence">Original peptide sequence provided by the user (mzLib format)</param>
+    /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
     /// <param name="DetectabilityProbabilities">Probability scores for each detectability class (Not Detectable, Low, Intermediate, High)</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideDetectabilityPrediction(
@@ -29,11 +29,17 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Represents the input parameters for detectability prediction models from the Koina API.
     /// This record captures the input information required for peptide detectability prediction.
     /// </summary>
-    /// <param name="FullSequence">Peptide sequence with modifications in mzLib format</param>
+    /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another</param>
     public record DetectabilityPredictionInput(
         string FullSequence
     )
     {
+        /// <summary>
+        /// Optional parser for <see cref="FullSequence"/>'s source format. Null (default) uses the model's
+        /// own converter parser (mzLib syntax); see <see cref="RetentionTimePredictionInput.SequenceParser"/>
+        /// for the full contract.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
     }
@@ -134,7 +140,7 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
+                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
 
                 if (cleanedSequence != null && apiSequence != null)
                 {
