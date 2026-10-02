@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using MassSpectrometry.MzSpectra;
-using MathNet.Numerics.Statistics;
 
 namespace MassSpectrometry
 {
@@ -126,9 +125,39 @@ namespace MassSpectrometry
             int points = to - from + 1;
             if (points < 2)
                 return 0;
-            double r = Correlation.Pearson(a.Skip(from).Take(points), b.Skip(from).Take(points));
+            double r = Pearson(a.AsSpan(from, points), b.AsSpan(from, points));
             return double.IsFinite(r) && r > 0 ? r : 0;
         }
+
+        /// <summary>
+        /// Pearson's r; NaN when either side is flat. Flat includes a spread that is only rounding: the sum of the other
+        /// fragments' scaled traces, when one of them is a constant, varies by 1e-16 and would otherwise correlate with anything.
+        /// </summary>
+        private static double Pearson(ReadOnlySpan<double> a, ReadOnlySpan<double> b)
+        {
+            double meanA = 0, meanB = 0, squaresA = 0, squaresB = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                meanA += a[i];
+                meanB += b[i];
+                squaresA += a[i] * a[i];
+                squaresB += b[i] * b[i];
+            }
+            meanA /= a.Length;
+            meanB /= a.Length;
+            double cov = 0, varA = 0, varB = 0;
+            for (int i = 0; i < a.Length; i++)
+            {
+                double da = a[i] - meanA, db = b[i] - meanB;
+                cov += da * db;
+                varA += da * da;
+                varB += db * db;
+            }
+            return varA > FlatFraction * squaresA && varB > FlatFraction * squaresB ? cov / Math.Sqrt(varA * varB) : double.NaN;
+        }
+
+        /// <summary>Spread below this fraction of a vector's sum of squares is rounding, not signal.</summary>
+        private const double FlatFraction = 1e-20;
 
         /// <summary>
         /// Mean, over fragments, of the Pearson correlation between each fragment's trace and the sum of the other
@@ -153,32 +182,46 @@ namespace MassSpectrometry
             int points = to - from + 1;
             if (traces.Count < 2 || points < 3)
                 return 0;
+            return Score(traces, from, to, new double[(traces.Count + 2) * points]);
+        }
+
+        /// <summary><see cref="Score(IReadOnlyList{double[]}, int, int)"/> on valid input, with a caller's buffer of at least
+        /// (fragments + 2) x points, so that scoring every scan of a trace allocates nothing.</summary>
+        private static double Score(IReadOnlyList<double[]> traces, int from, int to, double[] buffer)
+        {
+            int points = to - from + 1;
+            if (traces.Count < 2 || points < 3)
+                return 0;
 
             // Each trace scaled to its own maximum over the range, and their sum
-            var scaled = new double[traces.Count][];
-            var total = new double[points];
+            var total = buffer.AsSpan(0, points);
+            var others = buffer.AsSpan(points, points);
+            total.Clear();
             for (int f = 0; f < traces.Count; f++)
             {
+                var scaled = buffer.AsSpan((f + 2) * points, points);
                 double max = 0;
                 for (int s = from; s <= to; s++)
                     max = Math.Max(max, traces[f][s]);
-                scaled[f] = new double[points];
                 if (max <= 0)
+                {
+                    scaled.Clear();
                     continue;
+                }
                 for (int s = 0; s < points; s++)
                 {
-                    scaled[f][s] = traces[f][from + s] / max;
-                    total[s] += scaled[f][s];
+                    scaled[s] = traces[f][from + s] / max;
+                    total[s] += scaled[s];
                 }
             }
 
             double sum = 0;
-            var others = new double[points];
             for (int f = 0; f < traces.Count; f++)
             {
+                var scaled = buffer.AsSpan((f + 2) * points, points);
                 for (int s = 0; s < points; s++)
-                    others[s] = total[s] - scaled[f][s];
-                double r = Correlation.Pearson(scaled[f], others);
+                    others[s] = total[s] - scaled[s];
+                double r = Pearson(scaled, others);
                 // A flat trace (no signal, or no signal elsewhere) has no correlation to report
                 if (double.IsFinite(r) && r > 0)
                     sum += r;
@@ -292,6 +335,7 @@ namespace MassSpectrometry
         {
             var values = new double[length];
             var observed = new double[traces.Count];
+            var buffer = new double[(traces.Count + 2) * (2 * halfWidth + 1)];
             for (int s = 0; s < length; s++)
             {
                 double signal = 0;
@@ -303,7 +347,7 @@ namespace MassSpectrometry
                 if (signal <= 0)
                     continue;
                 values[s] = SpectralSimilarity.CosineOfAlignedVectors(observed, library)
-                    * Score(traces, Math.Max(0, s - halfWidth), Math.Min(length - 1, s + halfWidth))
+                    * Score(traces, Math.Max(0, s - halfWidth), Math.Min(length - 1, s + halfWidth), buffer)
                     * Math.Log(1 + signal);
             }
             return values;
