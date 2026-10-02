@@ -143,6 +143,7 @@ public class PtmQtlTests
         Assert.That(p.ResultType, Is.EqualTo(PairResultType.P));
         Assert.That(string.CompareOrdinal(p.SiteA.Key, p.SiteB.Key), Is.LessThan(0), "written once, a < b");
         Assert.That(p.N, Is.EqualTo(2), "identified together in two runs");
+        Assert.That(p.StatisticN, Is.EqualTo(1), "quantified in one of them");
         Assert.That(p.Statistic, Is.EqualTo(0.25).Within(1e-15), "25 of 100 covering both positions, in the one quantified run");
     }
 
@@ -168,6 +169,7 @@ public class PtmQtlTests
         var pairs = PtmPairEngine.CoVarying(occupancy, obs);
         var cross = pairs.Single(p => p.SiteA.ProteinAccession != p.SiteB.ProteinAccession && p.SiteA.Position == 13);
         Assert.That(cross.Statistic, Is.EqualTo(1).Within(1e-12));
+        Assert.That(cross.StatisticN, Is.EqualTo(cross.N));
         Assert.That(cross.FdrFamily, Is.EqualTo("A:inter"));
         Assert.That(cross.Q, Is.Not.NaN);
         var overlapping = pairs.Single(p => p.SiteA.Position == 62 && p.SiteB.Position == 64

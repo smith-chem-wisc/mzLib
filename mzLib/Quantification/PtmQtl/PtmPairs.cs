@@ -51,6 +51,11 @@ public sealed record PtmPair
     public string FdrFamily => $"{ResultType}:{(SameProtein ? "intra" : "inter")}";
     /// <summary>Type P: runs where a doubly modified peptidoform was identified. Type A: runs where both occupancies were quantified.</summary>
     public required int N { get; init; }
+    /// <summary>
+    /// Runs <see cref="Statistic"/> was computed on. Type P: runs where the doubly modified form and the forms
+    /// covering both positions were quantified, at most <see cref="N"/>. Type A: equal to <see cref="N"/>.
+    /// </summary>
+    public int StatisticN { get; init; }
     /// <summary>Type A: how the Spearman p-value was computed. Type P: null.</summary>
     public SpearmanPValueMethod? SpearmanMethod { get; init; }
 }
@@ -107,7 +112,7 @@ public static class PtmPairEngine
             result.Add(new PtmPair
             {
                 ResultType = PairResultType.P, SiteA = a, SiteB = b, Overlapping = true,
-                Statistic = Median(coOccupancy), PValue = double.NaN, N = runs.Count,
+                Statistic = Median(coOccupancy), PValue = double.NaN, N = runs.Count, StatisticN = coOccupancy.Count,
             });
         }
         return result;
@@ -167,7 +172,7 @@ public static class PtmPairEngine
             result.Add(new PtmPair
             {
                 ResultType = PairResultType.A, SiteA = a, SiteB = b, Overlapping = Overlap(a, b),
-                Statistic = r.Rho, PValue = r.PValue, N = r.N, SpearmanMethod = r.Method,
+                Statistic = r.Rho, PValue = r.PValue, N = r.N, StatisticN = r.N, SpearmanMethod = r.Method,
             });
         }
         foreach (var family in result.Where(p => !p.Overlapping).GroupBy(p => p.FdrFamily))
