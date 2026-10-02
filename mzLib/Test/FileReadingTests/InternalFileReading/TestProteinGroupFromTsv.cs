@@ -193,6 +193,38 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(ex!.Message, Does.Contain(path));
         }
 
+        [TestCase("T", false, false)]
+        [TestCase("D", true, false)]
+        [TestCase("ET", false, true)]
+        [TestCase("ED", true, true)]
+        public void EntrapmentGroupLabelsAreRead(string label, bool isDecoy, bool isEntrapment)
+        {
+            string path = Path.Combine(_outputDirectory, $"Entrapment{label}_AllProteinGroups.tsv");
+            File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nRandom_P1_f0\t{label}\t0.001\n");
+
+            var row = new ProteinGroupFromTsvFile(path).Single();
+            Assert.That((row.IsDecoy, row.IsEntrapment, row.IsContaminant), Is.EqualTo((isDecoy, isEntrapment, false)));
+        }
+
+        /// <summary>
+        /// A group whose members carry different labels joins them with '|', so contaminant is read as a
+        /// letter like decoy and entrapment: <c>== "C"</c> read <c>T|C</c> as non-contaminant.
+        /// </summary>
+        [TestCase("C", true)]
+        [TestCase("T|C", true)]
+        [TestCase("C|T", true)]
+        [TestCase("T", false)]
+        [TestCase("D", false)]
+        [TestCase("T|ET", false)]
+        public void ContaminantIsReadAnywhereInAJoinedLabel(string label, bool isContaminant)
+        {
+            string path = Path.Combine(_outputDirectory, $"Contaminant{label.Replace('|', '_')}_AllProteinGroups.tsv");
+            File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nP1|P2\t{label}\t0.001\n");
+
+            var row = new ProteinGroupFromTsvFile(path).Single();
+            Assert.That(row.IsContaminant, Is.EqualTo(isContaminant));
+        }
+
         /// <summary>
         /// The reader is the inverse of mzLib's own writer. Groups are rendered by
         /// <see cref="BioPolymerGroupTsvSchema"/> (the "BioPolymer ..." vocabulary) and read back.

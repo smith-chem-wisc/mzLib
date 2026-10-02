@@ -1,4 +1,5 @@
 ﻿using Easy.Common.Extensions;
+using Omics.BioPolymer;
 using Omics.Fragmentation;
 using System.Globalization;
 using System.Text.RegularExpressions;
@@ -114,8 +115,8 @@ namespace Readers
         public int OneBasedScanNumber => Ms2ScanNumber;
         public string BaseSequence => BaseSeq;
         public int ChargeState => PrecursorCharge;
-        public bool IsDecoy => DecoyContamTarget.Contains('D');
-        public bool IsEntrapment => DecoyContamTarget.Contains('E');
+        public bool IsDecoy => DecoyContaminantTargetLabel.IsDecoy(DecoyContamTarget);
+        public bool IsEntrapment => DecoyContaminantTargetLabel.IsEntrapment(DecoyContamTarget);
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
@@ -748,7 +749,8 @@ namespace Readers
 
         public virtual LibrarySpectrum ToLibrarySpectrum()
         {
-            bool isDecoy = this.DecoyContamTarget == "D";
+            // Not == "D": that reads an entrapment decoy ("ED") as a target spectrum.
+            bool isDecoy = IsDecoy;
 
             List<MatchedFragmentIon> fragments = new List<MatchedFragmentIon>();
 
