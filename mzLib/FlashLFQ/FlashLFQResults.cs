@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using MassSpectrometry;
 using FlashLFQ.IsoTracker;
+using Quantification.Strategies;
 
 namespace FlashLFQ
 {
@@ -502,7 +503,7 @@ namespace FlashLFQ
                         }
                     }
 
-                    double[] proteinIntensities = MedianPolishProteinIntensities(peptideIntensities);
+                    double[] proteinIntensities = MedianPolishRollUp.QuantifyGroup(peptideIntensities);
 
                     // set the sample protein intensities
                     sampleN = 0;
@@ -516,119 +517,6 @@ namespace FlashLFQ
                     }
                 }
             }
-        }
-
-        /// <summary>
-        /// Quantifies one protein from the intensities of its peptides using the median polish algorithm.
-        /// This is the per-protein step of <see cref="CalculateProteinResultsMedianPolish"/>, exposed so that
-        /// callers holding a plain peptide-by-sample table (e.g., the Quantification project's roll-ups) can
-        /// use it without FlashLFQ's peptide and protein group objects.
-        /// </summary>
-        /// <param name="peptideIntensities">One row per peptide, one column per sample, all rows the same length.
-        /// Values are un-logged intensities; a value that is not positive means the peptide was not observed.</param>
-        /// <returns>One protein intensity per sample: 0 where no peptide was observed, NaN where peptides were
-        /// observed but the protein is unquantifiable in that sample, and the median polish estimate otherwise.</returns>
-        public static double[] MedianPolishProteinIntensities(double[][] peptideIntensities)
-        {
-            int numPeptides = peptideIntensities.Length;
-            int numSamples = numPeptides == 0 ? 0 : peptideIntensities[0].Length;
-            double[] proteinIntensities = new double[numSamples];
-
-            if (numPeptides == 0)
-            {
-                return proteinIntensities;
-            }
-
-            // set up peptide intensity table
-            // top row is the column effects, left column is the row effects
-            // the other cells are log2-transformed peptide intensity measurements
-            // if a value is missing, it will be filled with NaN
-            double[][] peptideIntensityMatrix = new double[numPeptides + 1][];
-            peptideIntensityMatrix[0] = new double[numSamples + 1];
-            bool[] sampleIsObserved = new bool[numSamples];
-
-            for (int p = 0; p < numPeptides; p++)
-            {
-                peptideIntensityMatrix[p + 1] = new double[numSamples + 1];
-
-                for (int s = 0; s < numSamples; s++)
-                {
-                    double sampleIntensity = peptideIntensities[p][s];
-
-                    if (sampleIntensity > 0)
-                    {
-                        peptideIntensityMatrix[p + 1][s + 1] = Math.Log(sampleIntensity, 2);
-                        sampleIsObserved[s] = true;
-                    }
-                    else
-                    {
-                        peptideIntensityMatrix[p + 1][s + 1] = double.NaN;
-                    }
-                }
-            }
-
-            // if there are any peptides that have only one measurement, mark them as NaN
-            // unless we have ONLY peptides with one measurement
-            var peptidesWithMoreThanOneMmt = peptideIntensityMatrix.Skip(1).Count(row => row.Skip(1).Count(cell => !double.IsNaN(cell)) > 1);
-            if (peptidesWithMoreThanOneMmt > 0)
-            {
-                for (int i = 1; i < peptideIntensityMatrix.Length; i++)
-                {
-                    int validValueCount = peptideIntensityMatrix[i].Count(p => !double.IsNaN(p) && p != 0);
-
-                    if (validValueCount < 2 && numSamples >= 2)
-                    {
-                        for (int j = 1; j < peptideIntensityMatrix[0].Length; j++)
-                        {
-                            peptideIntensityMatrix[i][j] = double.NaN;
-                        }
-                    }
-                }
-            }
-
-            // do median polish protein quantification
-            // row effects in a protein can be considered ~ relative ionization efficiency
-            // column effects are differences between conditions
-            MedianPolish(peptideIntensityMatrix);
-
-            double overallEffect = peptideIntensityMatrix[0][0];
-            double[] columnEffects = peptideIntensityMatrix[0].Skip(1).ToArray();
-            double referenceProteinIntensity = Math.Pow(2, overallEffect) * numPeptides;
-
-            // check for unquantifiable proteins; these are proteins w/ quantified peptides, but
-            // the protein is still not quantifiable because there are not peptides to compare across runs.
-            // the column effect can be 0 in some cases. sometimes it's a valid value and sometimes it's not.
-            int possibleUnquantifiableSampleCount = 0;
-            for (int s = 0; s < numSamples; s++)
-            {
-                if (sampleIsObserved[s] && columnEffects[s] == 0)
-                {
-                    possibleUnquantifiableSampleCount++;
-                }
-            }
-
-            for (int s = 0; s < numSamples; s++)
-            {
-                if (!sampleIsObserved[s])
-                {
-                    continue;
-                }
-
-                if (possibleUnquantifiableSampleCount > 1 && columnEffects[s] == 0)
-                {
-                    proteinIntensities[s] = double.NaN;
-                }
-                else
-                {
-                    // this step un-logs the protein "intensity". in reality this value is more like a fold-change
-                    // than an intensity, but unlike a fold-change it's not relative to a particular sample.
-                    // by multiplying this value by the reference protein intensity calculated earlier, then we get
-                    // a protein intensity value
-                    proteinIntensities[s] = Math.Pow(2, columnEffects[s]) * referenceProteinIntensity;
-                }
-            }
-
-            return proteinIntensities;
         }
 
         public void WriteResults(string peaksOutputPath, string modPeptideOutputPath, string proteinOutputPath, string bayesianProteinQuantOutput, bool silent)
@@ -761,82 +649,13 @@ namespace FlashLFQ
             }
         }
 
+        /// <summary>
+        /// The median polish fit itself. Kept here for existing callers; the implementation is
+        /// <see cref="MedianPolishRollUp.MedianPolish"/> in the Quantification project.
+        /// </summary>
         public static void MedianPolish(double[][] table, int maxIterations = 10, double improvementCutoff = 0.0001)
         {
-            // technically, this is weighted mean polish and not median polish.
-            // but it should give similar results while being more robust to issues
-            // arising from missing values.
-            // the weights are inverse square difference to median.
-
-            // subtract overall effect
-            List<double> allValues = table.SelectMany(p => p.Where(p => !double.IsNaN(p) && p != 0)).ToList();
-
-            if (allValues.Any())
-            {
-                double overallEffect = allValues.Median();
-                table[0][0] += overallEffect;
-
-                for (int r = 1; r < table.Length; r++)
-                {
-                    for (int c = 1; c < table[0].Length; c++)
-                    {
-                        table[r][c] -= overallEffect;
-                    }
-                }
-            }
-
-            double sumAbsoluteResiduals = double.MaxValue;
-
-            for (int i = 0; i < maxIterations; i++)
-            {
-                // subtract row effects
-                for (int r = 0; r < table.Length; r++)
-                {
-                    List<double> rowValues = table[r].Skip(1).Where(p => !double.IsNaN(p)).ToList();
-
-                    if (rowValues.Any())
-                    {
-                        double rowMedian = rowValues.Median();
-                        double[] weights = rowValues.Select(p => 1.0 / Math.Max(0.0001, Math.Pow(p - rowMedian, 2))).ToArray();
-                        double rowEffect = rowValues.Sum(p => p * weights[rowValues.IndexOf(p)]) / weights.Sum();
-                        table[r][0] += rowEffect;
-
-                        for (int c = 1; c < table[0].Length; c++)
-                        {
-                            table[r][c] -= rowEffect;
-                        }
-                    }
-                }
-
-                // subtract column effects
-                for (int c = 0; c < table[0].Length; c++)
-                {
-                    List<double> colValues = table.Skip(1).Select(p => p[c]).Where(p => !double.IsNaN(p)).ToList();
-
-                    if (colValues.Any())
-                    {
-                        double colMedian = colValues.Median();
-                        double[] weights = colValues.Select(p => 1.0 / Math.Max(0.0001, Math.Pow(p - colMedian, 2))).ToArray();
-                        double colEffect = colValues.Sum(p => p * weights[colValues.IndexOf(p)]) / weights.Sum();
-                        table[0][c] += colEffect;
-
-                        for (int r = 1; r < table.Length; r++)
-                        {
-                            table[r][c] -= colEffect;
-                        }
-                    }
-                }
-
-                // calculate sum of absolute residuals and end the algorithm if it is not improving
-                double iterationSumAbsoluteResiduals = table.Skip(1).SelectMany(p => p.Skip(1)).Where(p => !double.IsNaN(p)).Sum(p => Math.Abs(p));
-
-                if (Math.Abs((iterationSumAbsoluteResiduals - sumAbsoluteResiduals) / sumAbsoluteResiduals) < improvementCutoff)
-                {
-                    break;
-                }
-
-                sumAbsoluteResiduals = iterationSumAbsoluteResiduals;
-            }
+            MedianPolishRollUp.MedianPolish(table, maxIterations, improvementCutoff);
         }
 
         /// <summary>
