@@ -1,4 +1,4 @@
-using System.Text.RegularExpressions;
+﻿using System.Text.RegularExpressions;
 using MzLibUtil;
 
 namespace Omics.Digestion
@@ -139,13 +139,22 @@ namespace Omics.Digestion
                 prevents = true;
                 for (int n = 0; n < PreventingCleavage.Length && prevents; n++)
                 {
-                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + n < 0)
+                    // Only the index actually read may be bounds-checked. Testing BOTH ends, as this did,
+                    // abandons the prevention whenever the OTHER end of the sequence is out of range --
+                    // so a cut-after motif at position 0 computed location - 1 = -1 and cut anyway, and
+                    // trypsin|P digested RPAAAAK into "R" + "PAAAAK", the exact R|P cleavage that entry
+                    // exists to forbid. A cut-before motif has the mirror fault at the C-terminus.
+                    int preventingIndex = CutIndex != 0
+                        ? location + m + n
+                        : location - PreventingCleavage.Length + n;
+
+                    if (preventingIndex < 0 || preventingIndex >= sequence.Length)
                     {
                         prevents = false;
                     }
                     else
                     {
-                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + n];
+                        currentResidue = sequence[preventingIndex];
                         if (!MotifMatches(PreventingCleavage[n], currentResidue))
                         {
                             prevents = false;
