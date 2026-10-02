@@ -67,6 +67,20 @@ public class GlmMixedCorrelationTests
     }
 
     [Test]
+    public void StoufferChecksEveryWeightAndReportsContradictoryCertaintiesAsNaN()
+    {
+        // A weight is checked even where its p-value is missing and omitted.
+        Assert.Throws<ArgumentException>(() => PValueCombination.Stouffer(new[] { 0.1, double.NaN }, new[] { 1.0, double.NaN }));
+        Assert.Throws<ArgumentException>(() => PValueCombination.Stouffer(new[] { 0.1, 0.2 }, new[] { 1.0 }));
+        Assert.That(PValueCombination.Stouffer(new[] { 0.0, 0.4 }).PValue, Is.EqualTo(0));
+        Assert.That(PValueCombination.Stouffer(new[] { 1.0, 0.4 }).PValue, Is.EqualTo(1));
+        var both = PValueCombination.Stouffer(new[] { 0.0, 1.0 });
+        Assert.That(both.Statistic, Is.NaN);
+        Assert.That(both.PValue, Is.NaN);
+        Assert.That(both.Studies, Is.EqualTo(2));
+    }
+
+    [Test]
     public void OneSidedFollowsTheSignOfTheEffect()
     {
         Assert.That(PValueCombination.OneSided(0.1, 2.0), Is.EqualTo(0.05));
