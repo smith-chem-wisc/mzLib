@@ -24,7 +24,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
     ///
     /// This is a data-interchange table, so its column names and header keys are a contract with whoever
     /// ingests it. Long format: one term per row. Set-valued cells (accession_used, accession_direct,
-    /// accession_inherited, evidence) are ';'-joined, and a member containing ';' is refused rather than
+    /// accession_inherited, evidence, entrapment_members) are ';'-joined, and a member containing ';' is refused rather than
     /// written ambiguously. evidence_by_member is "member=code,code;member=code", members in ordinal order,
     /// so a member or code containing ';', '=' or ',' is refused there too. Groups keep input
     /// order; terms within a group are in ordinal order; lines end in "\n" on every platform.
@@ -53,6 +53,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
             new TsvColumn<GoAnnotationRow>("propagated", r => Bool(r.Propagated)),
             new TsvColumn<GoAnnotationRow>("n_members", r => r.NMembers.ToString(CultureInfo.InvariantCulture)),
             new TsvColumn<GoAnnotationRow>("n_with", r => r.NWith.ToString(CultureInfo.InvariantCulture)),
+            new TsvColumn<GoAnnotationRow>("entrapment_members", r => JoinSet(r.EntrapmentMembers)),
             new TsvColumn<GoAnnotationRow>("annotation_status", r => StatusName(r.Status)),
             new TsvColumn<GoAnnotationRow>("q_value", r => r.QValue.ToString("R", CultureInfo.InvariantCulture)),
             new TsvColumn<GoAnnotationRow>("go_release", r => r.GoRelease),
@@ -114,6 +115,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 RejectSetSeparators(row.Evidence, "evidence", row);
                 RejectSetSeparators(row.AccessionDirect, "accession_direct", row);
                 RejectSetSeparators(row.AccessionInherited, "accession_inherited", row);
+                RejectSetSeparators(row.EntrapmentMembers, "entrapment_members", row);
                 RejectEvidenceByMemberSeparators(row);
                 foreach (var column in Schema)
                 {
