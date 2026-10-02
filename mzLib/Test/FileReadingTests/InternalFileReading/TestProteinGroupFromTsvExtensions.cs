@@ -135,6 +135,30 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(entrapmentByGroup["Q96L96|Random_Q96L96_f0"], Is.EqualTo("Random_Q96L96_f0"));
         }
 
+        /// <summary>
+        /// MetaMorpheus 1.1.11 wrote P18524|P18527 and Q8K458|Q9JKL1 twice, byte for byte, in PXD057545's
+        /// AllQuantifiedProteinGroups.tsv (aging thread 031). Annotated twice, they doubled 69 rows.
+        /// </summary>
+        [Test]
+        public void Adapter_AGroupWrittenTwiceIdentically_IsReturnedOnce_AtItsFirstPosition()
+        {
+            string path = WriteTable("Duplicated_AllProteinGroups.tsv",
+                "P18524|P18527\tT\t0.44", "P1\tT\t0.001", "P18524|P18527\tT\t0.44", "P2\tC\t0.002");
+
+            var groups = new ProteinGroupFromTsvFile(path).ToGoAnnotationGroups().ToList();
+
+            Assert.That(groups.Select(g => g.Name), Is.EqualTo(new[] { "P18524|P18527", "P1", "P2" }));
+        }
+
+        [Test]
+        public void Adapter_TwoRowsSharingANameButDiffering_AreRefused()
+        {
+            string path = WriteTable("Conflicting_AllProteinGroups.tsv", "P1|P2\tT\t0.001", "P1|P2\tT\t0.3");
+
+            var ex = Assert.Throws<InvalidDataException>(() => new ProteinGroupFromTsvFile(path).ToGoAnnotationGroups().ToList());
+            Assert.That(ex!.Message, Does.Contain("P1|P2"));
+        }
+
         [Test]
         public void ToGoAnnotationGroup_KeepsTheDecoyFlag_SoTheAnnotatorCanRefuseIt()
         {
