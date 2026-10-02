@@ -87,9 +87,11 @@ public class PtmQtlTests
             new PeptidoformObservation("r1", "[UniProt:N-acetylserine on S]SPEPK", "P2", 2, 6, 10, 'K'), // residue 2 after K1: no Met removal
             new PeptidoformObservation("r1", "[UniProt:N-acetylserine on S]SPEPK", "P3", 2, 6, 10, 'M'), // residue 2 after Met removal
             Obs("r1", "[UniProt:N-acetylserine on S]SPEPK", 2, 10, "P4"),                            // unknown: the caller guarantees Met
+            Obs("r1", "[Renamed:Ammonia loss on C]CPEPK", 1, 10, "P5"),                              // unknown category: matched on IdWithMotif
+            Obs("r1", "[Renamed:Unregistered on C]CPEPK", 1, 10, "P6"),                              // unknown to the registry: protein N-terminal
         });
         Assert.That(occ.Select(o => o.Site.Key).Distinct(),
-            Is.EquivalentTo(new[] { "P3:S2:UniProt:N-acetylserine on S", "P4:S2:UniProt:N-acetylserine on S" }));
+            Is.EquivalentTo(new[] { "P3:S2:UniProt:N-acetylserine on S", "P4:S2:UniProt:N-acetylserine on S", "P6:C1:Renamed:Unregistered on C" }));
     }
 
     [Test]
@@ -115,6 +117,28 @@ public class PtmQtlTests
     {
         Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(new[]
             { new PeptidoformObservation("r1", "PEPSK", "P1", 10, 20, 5) }));
+    }
+
+    [Test]
+    public void MalformedObservationsAreRefused()
+    {
+        void Refused(PeptidoformObservation o) =>
+            Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(new[] { o }), o?.ToString() ?? "null row");
+        Assert.Throws<ArgumentNullException>(() => SiteOccupancyCalculator.Calculate(null!));
+        Refused(null!);
+        Refused(new PeptidoformObservation("", "PEPSK", "P1", 10, 14, 5));
+        Refused(new PeptidoformObservation("r1", "PEPSK", "", 10, 14, 5));
+        Refused(new PeptidoformObservation("r1", "PEPSK", "P1", 0, 4, 5));
+        Refused(Obs("r1", "PEPSK", 10, -1));
+        Refused(Obs("r1", "PEPSK", 10, double.PositiveInfinity));
+    }
+
+    [Test]
+    public void CTerminalModificationsAreNotSites()
+    {
+        // Protein length is not supplied, so a C-terminal modification cannot be placed; the residue it follows is not its site.
+        var occ = SiteOccupancyCalculator.Calculate(new[] { Obs("r1", "PEPSK-[Common Biological:Amidation on K]", 10, 30), Obs("r1", "PEPSK", 10, 70) });
+        Assert.That(occ, Is.Empty);
     }
 
     [Test]
@@ -336,6 +360,44 @@ public class PtmQtlTests
         Assert.That(g, Has.Count.EqualTo(1));
         Assert.That(g[0].CombinedZ, Is.EqualTo(0).Within(1e-12));
         Assert.That(g[0].PValue, Is.EqualTo(1).Within(1e-12));
+    }
+
+    [Test]
+    public void GlobalTypePIsCountedAndUntestableARowsAreLeftOut()
+    {
+        PtmPair PPair(double coOccupancy, int n) => APair(Phos, 13, "P1", 20, "P1", coOccupancy, double.NaN, n) with
+            { ResultType = PairResultType.P, Overlapping = true };
+        var pairs = new[]
+        {
+            ("D1", PPair(0.25, 3)), ("D2", PPair(0.5, 2)), ("D3", PPair(double.NaN, 1)),   // D3: never quantified
+            ("D1", APair(Phos, 13, "P1", 43, "P2", 0.8, 0.01, 16) with { Overlapping = true }),
+            ("D2", APair(Phos, 13, "P1", 43, "P2", 0.8, 0.01, 16) with { Overlapping = true }),
+            ("D1", APair(Phos, 30, "P1", 43, "P2", double.NaN, double.NaN, 2)),
+            ("D2", APair(Phos, 30, "P1", 43, "P2", double.NaN, double.NaN, 2)),
+            ("D1", APair("UniProt:Phosphoserine on S", 43, "P2", 43, "P2", 0.9, 0.01, 16)),   // one site under two names
+            ("D2", APair("UniProt:Phosphoserine on S", 43, "P2", 43, "P2", 0.9, 0.01, 16)),
+        };
+        var g = GlobalPairEngine.Combine(pairs, Canonical).Single();
+        Assert.That(g.ResultType, Is.EqualTo(PairResultType.P));
+        Assert.That(g.Scopes, Is.EqualTo(new[] { "D1", "D2", "D3" }));
+        Assert.That(g.ScopesAgreeing, Is.EqualTo(3));
+        Assert.That(g.Statistic, Is.EqualTo(0.375).Within(1e-15), "median of 0.25 and 0.5; D3's NaN is not a value");
+        Assert.That(g.CombinedZ, Is.NaN);
+        Assert.That(g.PValue, Is.NaN);
+        Assert.That(g.Q, Is.NaN);
+        Assert.That(g.FdrFamily, Is.EqualTo("P:intra"));
+        Assert.That(g.Method, Is.EqualTo("recurrence count"));
+        Assert.That(GlobalPairEngine.Combine(pairs, Canonical, minScopes: 4), Is.Empty);
+    }
+
+    [Test]
+    public void GlobalPoolingRefusesBadArguments()
+    {
+        var pairs = new[] { ("D1", APair(Phos, 13, "P1", 43, "P2", 0.8, 1.5, 16)), ("D2", APair(Phos, 13, "P1", 43, "P2", 0.8, 0.01, 16)) };
+        Assert.Throws<ArgumentNullException>(() => GlobalPairEngine.Combine(null!, Canonical));
+        Assert.Throws<ArgumentNullException>(() => GlobalPairEngine.Combine(pairs, null!));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GlobalPairEngine.Combine(pairs, Canonical, minScopes: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => GlobalPairEngine.Combine(pairs, Canonical), "p = 1.5 is not a p-value");
     }
 
     [Test]
