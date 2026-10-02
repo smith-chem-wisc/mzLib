@@ -411,6 +411,52 @@ namespace Test.FileReadingTests
             Assert.That(Row(rows, Gapdh).Inherited, Is.False);
         }
 
+        [TestCase("P04406_A20T")]
+        [TestCase("P04406_A20T_G31")]
+        [TestCase("P04406-2_A20T")]
+        public void SequenceVariant_InheritsItsEntrysTerms_FlaggedInherited(string variant)
+        {
+            // mzLib names an applied variant P04406_A20T. An annotation database loaded without variants applied
+            // has only P04406, so without the fallback every variant member would read no_entry.
+            var rows = Annotator(P("P04406", Go(Nucleus, "ECO:0000314"))).Annotate(Group(variant));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.True);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { variant }), "the member as the search named it");
+            Assert.That(nucleus.AccessionInherited, Is.EqualTo(new[] { variant }));
+        }
+
+        [Test]
+        public void VariantOfAnIsoform_PrefersTheIsoformsOwnEntry()
+        {
+            var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406-2", Go(Gapdh))).Annotate(Group("P04406-2_A20T"));
+
+            Assert.That(rows.Any(r => r.GoId == Nucleus), Is.False);
+            Assert.That(Row(rows, Gapdh).Inherited, Is.True);
+        }
+
+        [Test]
+        public void SequenceVariant_PresentInTheDatabase_UsesItsOwnEntry()
+        {
+            var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406_A20T", Go(Gapdh))).Annotate(Group("P04406_A20T"));
+
+            Assert.That(rows.Any(r => r.GoId == Nucleus), Is.False);
+            Assert.That(Row(rows, Gapdh).Inherited, Is.False);
+        }
+
+        [TestCase("Random_P04406_f1")]
+        [TestCase("Random_foreign_P04406")]
+        [TestCase("P04406_notavariant")]
+        [TestCase("NP_000001_A20T")]
+        public void UnderscoreThatIsNotAVariantSuffix_NeverInherits(string member)
+        {
+            // Entrapment partners (Random_...) must never take a target's terms, and a RefSeq accession's own
+            // underscore is not a variant suffix.
+            var rows = Annotator(P("P04406", Go(Nucleus)), P("NP", Go(Nucleus))).Annotate(Group(member));
+
+            Assert.That(rows.Single().Status, Is.EqualTo(GoAnnotationStatus.NoEntry));
+        }
+
         [Test]
         public void AccessionOutsideUniProtsGrammar_NeverInherits()
         {

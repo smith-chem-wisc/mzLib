@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using MzLibUtil;
 using Proteomics;
 
@@ -167,11 +168,21 @@ namespace UsefulProteomicsDatabases.GeneOntology
         }
 
         /// <summary>
-        /// A member's own terms when the database has its accession; otherwise, for a UniProt isoform
-        /// (P04406-2), its entry's terms, flagged inherited. ProteinAccession parses and never repairs, so an
-        /// accession outside UniProt's grammar -- a decoy or contaminant prefix, a hyphenated name -- never
-        /// inherits. Whether an inherited term holds for the isoform is the consumer's call: an isoform can
-        /// differ from its entry precisely in cellular component, which is why the row says so.
+        /// The suffix mzLib appends to a sequence-variant protein's accession
+        /// (VariantApplication.GetAccession): one or more "_{original}{position}{variant}" pieces, as in
+        /// P04406_A20T or P04406-2_A20T_G31.
+        /// </summary>
+        private static readonly Regex SequenceVariantSuffix = new(@"^(?<base>[^_]+)(?:_[A-Z*]*\d+[A-Z*]*)+$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// A member's own terms when the database has its accession. Otherwise, flagged inherited:
+        /// for a sequence variant (P04406_A20T, mzLib's variant accession), the terms of the accession it was
+        /// applied to; for a UniProt isoform (P04406-2), its entry's terms; and for a variant of an isoform,
+        /// the isoform's or else the entry's. Variants are found when the annotation database was loaded
+        /// without variants applied, or is not the one searched. ProteinAccession parses and never repairs, so
+        /// an accession outside UniProt's grammar -- a decoy, contaminant or entrapment prefix, a hyphenated
+        /// name, a RefSeq NP_ -- never inherits. Whether an inherited term holds is the consumer's call: an
+        /// isoform can differ from its entry precisely in cellular component, which is why the row says so.
         /// </summary>
         private bool TryGetTerms(string member, out Dictionary<string, SortedSet<string>> terms, out bool inherited)
         {
@@ -180,14 +191,18 @@ namespace UsefulProteomicsDatabases.GeneOntology
             {
                 return true;
             }
-            var accession = ProteinAccession.Parse(member);
-            if (accession.Namespace == AccessionNamespace.UniProt && accession.Isoform != null
-                && _direct.TryGetValue(accession.EntryAccession, out terms))
+            inherited = true;
+            var variant = SequenceVariantSuffix.Match(member);
+            var accession = ProteinAccession.Parse(variant.Success ? variant.Groups["base"].Value : member);
+            if (accession.Namespace != AccessionNamespace.UniProt)
             {
-                inherited = true;
+                return false;
+            }
+            if (variant.Success && _direct.TryGetValue(accession.Verbatim, out terms))
+            {
                 return true;
             }
-            return false;
+            return accession.Isoform != null && _direct.TryGetValue(accession.EntryAccession, out terms);
         }
 
         private static void Accumulate(SortedDictionary<string, TermAccumulator> byTerm, string termId, string member,

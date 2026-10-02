@@ -56,9 +56,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// descendants, so an evidence filter still bites after propagation. Pooled, so it cannot be combined
     /// with n_with: one member's IDA does not make the others experimental. Use
     /// <paramref name="EvidenceByMember"/> for a per-member filter.</param>
-    /// <param name="Inherited">A group-level summary: true when every carrying member is a UniProt isoform (P04406-2) absent from the
-    /// annotation database that took the term from its entry (P04406); null on a term-less row. An entry is not
-    /// necessarily the isoform's sequence, so the consumer decides whether inherited rows count. Inherited
+    /// <param name="Inherited">A group-level summary: true when every carrying member is a UniProt isoform (P04406-2) or a
+    /// sequence variant (P04406_A20T) absent from the annotation database that took the term from its entry
+    /// (P04406); null on a term-less row. An entry is not necessarily the member's sequence, so the consumer
+    /// decides whether inherited rows count. Inherited
     /// cellular component terms are usually right, but a location is a positive claim and a wrong one costs
     /// the most: a consumer making organelle claims can rest them on rows where this is false and report the
     /// figure with inherited rows beside it. Nothing here is blanked, and waiting will not fix it: GOA maps
@@ -80,7 +81,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// itself rather than only to a descendant, in ordinal order. Empty on a term-less row. A consensus of
     /// direct annotations is AccessionDirect.Count == NMembers.</param>
     /// <param name="AccessionInherited">The members of <paramref name="AccessionUsed"/> that carry the term
-    /// only because they are UniProt isoforms that took their entry's terms, in ordinal order. Empty on a
+    /// only because they are UniProt isoforms or sequence variants that took their entry's terms, in ordinal order. Empty on a
     /// term-less row.</param>
     /// <param name="EvidenceByMember">Each carrying member's own ECO codes for the term: its annotation to the
     /// term and to any descendant that produced it. Keys are exactly <paramref name="AccessionUsed"/>. Empty
