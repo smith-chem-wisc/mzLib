@@ -129,7 +129,10 @@ public static class SiteOccupancyCalculator
     /// <summary>
     /// Computes every site's occupancy state in every run where it was identified or covered.
     /// </summary>
-    /// <param name="observations">MS/MS identifications, one row per (run, peptidoform, protein).</param>
+    /// <param name="observations">
+    /// MS/MS identifications, one row per (run, peptidoform, protein); a repeated row (e.g. one per PSM) is refused,
+    /// since it would count the form's intensity several times.
+    /// </param>
     /// <param name="includeModification">
     /// Optional filter on the modification name (<c>Category:IdWithMotif</c>), e.g. biological modifications
     /// only. Applied after the <c>DEF-OCC-PSMS</c> exclusions.
@@ -137,22 +140,7 @@ public static class SiteOccupancyCalculator
     public static IReadOnlyList<SiteRunOccupancy> Calculate(IEnumerable<PeptidoformObservation> observations,
         Func<string, bool>? includeModification = null)
     {
-        ArgumentNullException.ThrowIfNull(observations);
-        var parsed = new List<(PeptidoformObservation obs, string baseSeq, List<ModificationSite> sites)>();
-        foreach (var o in observations)
-        {
-            if (o is null) throw new ArgumentException("An observation is null.", nameof(observations));
-            if (string.IsNullOrEmpty(o.Run) || string.IsNullOrEmpty(o.FullSequence) || string.IsNullOrEmpty(o.ProteinAccession))
-                throw new ArgumentException("Every observation needs a run, a full sequence and a protein accession.", nameof(observations));
-            string baseSeq = o.FullSequence.GetBaseSequenceFromFullSequence();
-            if (o.StartResidue < 1 || o.EndResidue - o.StartResidue + 1 != baseSeq.Length)
-                throw new ArgumentException(
-                    $"'{o.FullSequence}' has {baseSeq.Length} residues but spans {o.StartResidue}-{o.EndResidue} of {o.ProteinAccession}.",
-                    nameof(observations));
-            if (double.IsInfinity(o.Intensity) || o.Intensity < 0)
-                throw new ArgumentException($"Intensity of '{o.FullSequence}' in {o.Run} must be finite and non-negative, or NaN.", nameof(observations));
-            parsed.Add((o, baseSeq, SitesOf(o, baseSeq, includeModification)));
-        }
+        var parsed = Parse(observations, includeModification);
 
         var result = new List<SiteRunOccupancy>();
         // Sites of one protein are only ever covered by that protein's rows.
@@ -189,6 +177,37 @@ public static class SiteOccupancyCalculator
             }
         }
         return result;
+    }
+
+    /// <summary>
+    /// Validates the observations (no null rows, coordinates matching the sequence, intensity finite and
+    /// non-negative or NaN, one row per (run, peptidoform, protein, start)) and parses each one's sites.
+    /// </summary>
+    internal static List<(PeptidoformObservation obs, string baseSeq, List<ModificationSite> sites)> Parse(
+        IEnumerable<PeptidoformObservation> observations, Func<string, bool>? includeModification)
+    {
+        ArgumentNullException.ThrowIfNull(observations);
+        var parsed = new List<(PeptidoformObservation obs, string baseSeq, List<ModificationSite> sites)>();
+        var seen = new HashSet<(string, string, string, int)>();
+        foreach (var o in observations)
+        {
+            if (o is null) throw new ArgumentException("An observation is null.", nameof(observations));
+            if (string.IsNullOrEmpty(o.Run) || string.IsNullOrEmpty(o.FullSequence) || string.IsNullOrEmpty(o.ProteinAccession))
+                throw new ArgumentException("Every observation needs a run, a full sequence and a protein accession.", nameof(observations));
+            string baseSeq = o.FullSequence.GetBaseSequenceFromFullSequence();
+            if (o.StartResidue < 1 || o.EndResidue - o.StartResidue + 1 != baseSeq.Length)
+                throw new ArgumentException(
+                    $"'{o.FullSequence}' has {baseSeq.Length} residues but spans {o.StartResidue}-{o.EndResidue} of {o.ProteinAccession}.",
+                    nameof(observations));
+            if (double.IsInfinity(o.Intensity) || o.Intensity < 0)
+                throw new ArgumentException($"Intensity of '{o.FullSequence}' in {o.Run} must be finite and non-negative, or NaN.", nameof(observations));
+            if (!seen.Add((o.Run, o.FullSequence, o.ProteinAccession, o.StartResidue)))
+                throw new ArgumentException(
+                    $"'{o.FullSequence}' at {o.ProteinAccession} {o.StartResidue} appears twice in {o.Run}; supply one row per (run, peptidoform, protein), not one per PSM.",
+                    nameof(observations));
+            parsed.Add((o, baseSeq, SitesOf(o, baseSeq, includeModification)));
+        }
+        return parsed;
     }
 
     /// <summary>The sites a peptidoform carries, in protein coordinates, after the exclusions.</summary>

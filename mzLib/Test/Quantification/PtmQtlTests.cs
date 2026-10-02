@@ -113,6 +113,21 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void PsmLevelRowsAreRefused()
+    {
+        // Two PSMs of one peptidoform in one run would count its intensity twice (occupancy 60/90, not 30/60).
+        var psms = new[] { Obs("r1", $"PEPS[{Phos}]K", 10, 30), Obs("r1", $"PEPS[{Phos}]K", 10, 30), Obs("r1", "PEPSK", 10, 30) };
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(psms));
+
+        // The same peptidoform in another run, or on another protein, is a row of its own.
+        var occ = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("r1", $"PEPS[{Phos}]K", 10, 30), Obs("r2", $"PEPS[{Phos}]K", 10, 30), Obs("r1", $"PEPS[{Phos}]K", 10, 30, "P2"),
+        });
+        Assert.That(occ, Has.Count.EqualTo(3));
+    }
+
+    [Test]
     public void PhysicalPairsCarryCoOccupancy()
     {
         const string Acet = "Common Biological:Acetylation on K";
