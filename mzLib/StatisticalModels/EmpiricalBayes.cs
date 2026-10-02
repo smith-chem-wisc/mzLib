@@ -156,8 +156,9 @@ namespace StatisticalModels
         public const int DefaultSplineBasisCount = 4;
 
         /// <summary>
-        /// Fits the variance prior by matching moments of e_g = log s²_g − ψ(d_g/2) + log(d_g/2), whose
-        /// variance is ψ′(d_g/2) + ψ′(d0/2).
+        /// Fits the variance prior (d0, s0²) with the chosen <paramref name="estimator"/>: by default by matching
+        /// moments of e_g = log s²_g − ψ(d_g/2) + log(d_g/2), whose variance is ψ′(d_g/2) + ψ′(d0/2), or by
+        /// maximum marginal likelihood.
         /// </summary>
         /// <param name="variances">Residual variances s²_g; non-finite or negative entries are ignored.</param>
         /// <param name="df">Residual degrees of freedom d_g; entries &lt;= 0 are ignored.</param>
