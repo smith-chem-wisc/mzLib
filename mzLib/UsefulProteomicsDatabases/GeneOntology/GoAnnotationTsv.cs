@@ -16,7 +16,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// The header states the provenance every row shares -- format version first, then the mzLib build that
     /// wrote the file and its release ("none" for a local build), then the go.obo release
     /// and sha256, the annotation database's sha256 and, when there is one, the sha256 of the results file
-    /// the groups were read from -- and five run counters: the number of multi-member groups and the number
+    /// the groups were read from, and the number of GO ids the annotator dropped as absent from the release
+    /// when it was told to skip them (no line when none were) -- and five run counters: the number of multi-member groups and the number
     /// of groups in each annotation status. The counters count GROUPS, not rows, and only groups at
     /// q_value &lt;= <see cref="CounterQValueMax"/>; the header says so on its own line. The rows are not
     /// filtered: every group is in the file, and the consumer filters.
@@ -65,11 +66,13 @@ namespace UsefulProteomicsDatabases.GeneOntology
         /// describe itself falsely.
         /// </summary>
         /// <param name="sourceFileSha256">sha256 of the results file the groups came from, or null to omit the line.</param>
+        /// <param name="unresolvedGoIds">The annotator's <see cref="GoGroupAnnotator.UnresolvedGoIds"/>. Their count
+        /// is written as unresolved_go_ids; null or empty omits the line, so a strict run's file is unchanged.</param>
         /// <exception cref="ArgumentNullException">output, rows or ontology is null.</exception>
         /// <exception cref="ArgumentException">A row's release, go.obo sha256 or annotation database sha256
         /// differs from the header's; a value contains a tab or line break; or a set member contains ';'.</exception>
         public static void Write(TextWriter output, IEnumerable<GoAnnotationRow> rows, GeneOntologyGraph ontology,
-            string annotationDbSha256, string sourceFileSha256 = null)
+            string annotationDbSha256, string sourceFileSha256 = null, IReadOnlyCollection<string> unresolvedGoIds = null)
         {
             ArgumentNullException.ThrowIfNull(output);
             ArgumentNullException.ThrowIfNull(rows);
@@ -95,6 +98,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
             TsvHeader.Write(output, "go_obo_sha256", ontology.SourceSha256);
             TsvHeader.Write(output, "annotation_db_sha256", annotationDbSha256);
             TsvHeader.Write(output, "source_file_sha256", sourceFileSha256);
+            TsvHeader.Write(output, "unresolved_go_ids", unresolvedGoIds is { Count: > 0 } ? Count(unresolvedGoIds.Count) : null);
             TsvHeader.Write(output, "counter_q_value_max", CounterQValueMax.ToString("R", CultureInfo.InvariantCulture));
             TsvHeader.Write(output, "n_multi_member_groups", Count(counted.Count(r => r.NMembers > 1)));
             foreach (var status in new[] { GoAnnotationStatus.Annotated, GoAnnotationStatus.NoGoTerms,

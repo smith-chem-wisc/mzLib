@@ -32,17 +32,31 @@ namespace UsefulProteomicsDatabases.GeneOntology
         /// <summary>accession -> primary GO id -> evidence codes of the member's own annotation to that term.</summary>
         private readonly Dictionary<string, Dictionary<string, SortedSet<string>>> _direct = new(StringComparer.Ordinal);
 
+        /// <summary>
+        /// The GO ids the annotation database cites that the ontology release does not have, in ordinal order.
+        /// Always empty unless the annotator was built with skipUnknownGoIds; pass it to
+        /// <see cref="GoAnnotationTsv.Write"/> so the file says terms were dropped.
+        /// </summary>
+        public IReadOnlyList<string> UnresolvedGoIds { get; }
+
         /// <param name="ontology">The pinned ontology release terms are resolved and propagated against.</param>
         /// <param name="annotationProteins">Proteins whose GO terms annotate the groups -- typically every target
         /// protein of a UniProt XML. Decoys are ignored. An accession present twice (a target and a contaminant
         /// copy) has its terms unioned.</param>
         /// <param name="annotationDbSha256">sha256 of the database the proteins came from, stamped on every row.</param>
+        /// <param name="skipUnknownGoIds">
+        /// False (the default) refuses a database that cites a GO id the release lacks. True drops each such id
+        /// from its protein and lists it in <see cref="UnresolvedGoIds"/>, so one term newer than a pinned go.obo
+        /// does not cost the whole run. A protein whose only terms were dropped then reads no_go_terms.
+        /// </param>
         /// <exception cref="ArgumentNullException">A required argument is null.</exception>
         /// <exception cref="InvalidDataException">
-        /// A protein cites a GO id absent from the ontology release -- usually a UniProt release newer than the
-        /// pinned go.obo. Every missing id is named. A term that is merely obsolete is kept.
+        /// Unless <paramref name="skipUnknownGoIds"/>, a protein cites a GO id absent from the ontology release --
+        /// usually a UniProt release newer than the pinned go.obo. Every missing id is named. A term that is
+        /// merely obsolete is kept.
         /// </exception>
-        public GoGroupAnnotator(GeneOntologyGraph ontology, IEnumerable<Protein> annotationProteins, string annotationDbSha256)
+        public GoGroupAnnotator(GeneOntologyGraph ontology, IEnumerable<Protein> annotationProteins, string annotationDbSha256,
+            bool skipUnknownGoIds = false)
         {
             _ontology = ontology ?? throw new ArgumentNullException(nameof(ontology));
             ArgumentNullException.ThrowIfNull(annotationProteins);
@@ -76,12 +90,14 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 }
             }
 
-            if (missing.Count > 0)
+            if (missing.Count > 0 && !skipUnknownGoIds)
             {
                 throw new InvalidDataException(
                     $"The annotation database cites {missing.Count} GO id(s) absent from Gene Ontology release " +
-                    $"{ontology.Release ?? "(unversioned)"}: {string.Join(", ", missing)}. Load a go.obo release at least as new as the database.");
+                    $"{ontology.Release ?? "(unversioned)"}: {string.Join(", ", missing)}. Load a go.obo release at least " +
+                    "as new as the database (Loaders.UpdateGeneOntology), or skip unknown ids and report them.");
             }
+            UnresolvedGoIds = missing.ToList();
         }
 
         /// <summary>

@@ -97,6 +97,20 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Header_UnresolvedGoIds_CountedOnlyWhenTheAnnotatorSkippedSome()
+        {
+            var lenient = new GoGroupAnnotator(_go,
+                new[] { P("P1", Go("GO:0005634"), Go("GO:9999998")), P("P2", Go("GO:9999999")) }, DbSha, skipUnknownGoIds: true);
+            using var writer = new StringWriter();
+            GoAnnotationTsv.Write(writer, lenient.AnnotateAll(new[] { Group("P1", 0.001), Group("P2", 0.001) }), _go, DbSha,
+                unresolvedGoIds: lenient.UnresolvedGoIds);
+
+            Assert.That(HeaderOf(writer.ToString())["unresolved_go_ids"], Is.EqualTo("2"));
+            Assert.That(HeaderOf(WriteAnnotation(Annotator().Annotate(Group("P1", 0.001)))).ContainsKey("unresolved_go_ids"),
+                Is.False, "a strict run's file is unchanged");
+        }
+
+        [Test]
         public void Header_NamesTheMzLibBuild_SecondAndThird()
         {
             string version = typeof(GoAnnotationTsv).Assembly

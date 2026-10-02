@@ -246,6 +246,25 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Annotator_SkipUnknownGoIds_DropsThemListsThem_AndKeepsTheRest()
+        {
+            var annotator = new GoGroupAnnotator(_go,
+                new[] { P("P1", Go("GO:9999998")), P("P2", Go("GO:9999999"), Go(Nucleus)) }, DbSha, skipUnknownGoIds: true);
+
+            Assert.That(annotator.UnresolvedGoIds, Is.EqualTo(new[] { "GO:9999998", "GO:9999999" }));
+            Assert.That(annotator.Annotate(Group("P2")).Any(r => r.GoId == Nucleus), Is.True);
+            Assert.That(annotator.Annotate(Group("P2")).Any(r => r.GoId == "GO:9999999"), Is.False);
+            Assert.That(annotator.Annotate(Group("P1")).Single().Status, Is.EqualTo(GoAnnotationStatus.NoGoTerms),
+                "only unknown terms: nothing left to annotate with");
+        }
+
+        [Test]
+        public void Annotator_Strict_HasNoUnresolvedIds()
+        {
+            Assert.That(Annotator(P("P1", Go(Nucleus))).UnresolvedGoIds, Is.Empty);
+        }
+
+        [Test]
         public void EveryNonDecoyGroup_GetsAtLeastOneRow_NoGoTerms()
         {
             var rows = Annotator(P("P1")).Annotate(Group("P1"));
