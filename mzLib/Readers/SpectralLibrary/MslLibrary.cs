@@ -863,7 +863,7 @@ public sealed class MslLibrary : IDisposable
 	/// </param>
 	/// <param name="intercept">
 	///   Intercept of the linear iRT → calibrated RT regression (in the same units as the
-	///   calibrated RT axis, typically minutes or seconds depending on the experiment).
+	///   calibrated RT axis; minutes, matching the format's rt_is_calibrated convention).
 	/// </param>
 	/// <returns>
 	///   A new <see cref="MslLibrary"/> whose precursor index entries have transformed
@@ -941,8 +941,11 @@ public sealed class MslLibrary : IDisposable
 	/// <b>Source-type flag:</b> entries that were present in the original library and are kept
 	/// unchanged retain their original <see cref="MslFormat.SourceType"/>. Entries that are
 	/// replaced by or newly added from the incoming spectra are tagged
-	/// <see cref="MslFormat.SourceType.Empirical"/>, and if RT normalisation was applied their
-	/// <c>RtIsCalibrated</c> flag is set to <see langword="true"/>.
+	/// <see cref="MslFormat.SourceType.Empirical"/>. When RT normalisation was applied, their
+	/// observed RT is mapped onto the library's iRT scale and <see cref="MslLibraryEntry.RtIsCalibrated"/>
+	/// is <see langword="false"/>; when it was not applied (too few anchors), the raw run RT in minutes
+	/// is stored and <see cref="MslLibraryEntry.RtIsCalibrated"/> is <see langword="true"/>, so readers
+	/// can tell the two apart.
 	/// </para>
 	///
 	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
@@ -1056,6 +1059,7 @@ public sealed class MslLibrary : IDisposable
 					replacement.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 															  rtSlope, rtIntercept,
 															  rtNormalisationApplied);
+					replacement.RtIsCalibrated = !rtNormalisationApplied;
 					replacement.Source = MslFormat.SourceType.Empirical;
 
 					// Preserve rich metadata that LibrarySpectrum cannot carry.
@@ -1063,6 +1067,7 @@ public sealed class MslLibrary : IDisposable
 					replacement.ProteinAccession = originalEntry.ProteinAccession;
 					replacement.IsProteotypic = originalEntry.IsProteotypic;
 					replacement.IsDecoy = originalEntry.IsDecoy;
+					replacement.IsEntrapment = originalEntry.IsEntrapment;
 					replacement.MoleculeType = originalEntry.MoleculeType;
 
 					mergedEntries.Add(replacement);
@@ -1093,6 +1098,7 @@ public sealed class MslLibrary : IDisposable
 			novel.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 													  rtSlope, rtIntercept,
 													  rtNormalisationApplied);
+			novel.RtIsCalibrated = !rtNormalisationApplied;
 			novel.Source = MslFormat.SourceType.Empirical;
 
 			mergedEntries.Add(novel);

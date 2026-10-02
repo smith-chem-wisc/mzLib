@@ -380,7 +380,8 @@ public static class MslWriter
 						PrecursorFlags = MslFormat.EncodePrecursorFlags(
 											   isDecoy: entry.IsDecoy,
 											   isProteotypic: entry.IsProteotypic,
-											   rtCalibrated: false),
+											   rtCalibrated: entry.RtIsCalibrated,
+											   isEntrapment: entry.IsEntrapment),
 						SourceType = (byte)entry.Source,
 						PrecursorMz = (float)entry.PrecursorMz,
 						Irt = (float)entry.RetentionTime,
@@ -1004,7 +1005,8 @@ public static class MslWriter
 				PrecursorFlags = MslFormat.EncodePrecursorFlags(
 										   isDecoy: entry.IsDecoy,
 										   isProteotypic: entry.IsProteotypic,
-										   rtCalibrated: false),
+										   rtCalibrated: entry.RtIsCalibrated,
+										   isEntrapment: entry.IsEntrapment),
 				SourceType = (byte)entry.Source
 			};
 
