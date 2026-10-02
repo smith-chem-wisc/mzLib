@@ -86,6 +86,12 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// <param name="EvidenceByMember">Each carrying member's own ECO codes for the term: its annotation to the
     /// term and to any descendant that produced it. Keys are exactly <paramref name="AccessionUsed"/>. Empty
     /// on a term-less row.</param>
+    /// <param name="EntrapmentMembers">Every member of the group that is entrapment, in ordinal order, repeated on
+    /// each of the group's rows -- term-less rows included. Group-level, unlike AccessionUsed's subsets: it
+    /// lists entrapment members whether or not they carry the term. Empty for a group with none. Entrapment is
+    /// neither target nor decoy, so the group stays in the file and is labelled here; a consumer drops
+    /// all-entrapment groups (EntrapmentMembers.Count == NMembers), or terms only entrapment members carry
+    /// (AccessionUsed a subset of EntrapmentMembers), as it chooses.</param>
     public sealed record GoAnnotationRow(
         string ProteinGroup,
         IReadOnlyList<string> AccessionUsed,
@@ -104,5 +110,6 @@ namespace UsefulProteomicsDatabases.GeneOntology
         string AnnotationDbSha256,
         IReadOnlyList<string> AccessionDirect,
         IReadOnlyList<string> AccessionInherited,
-        IReadOnlyDictionary<string, IReadOnlyList<string>> EvidenceByMember);
+        IReadOnlyDictionary<string, IReadOnlyList<string>> EvidenceByMember,
+        IReadOnlyList<string> EntrapmentMembers);
 }
