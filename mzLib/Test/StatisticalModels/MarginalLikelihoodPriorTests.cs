@@ -171,7 +171,7 @@ public class MarginalLikelihoodPriorTests
     }
 
     [Test]
-    public void LikelihoodIsConcaveEnoughToFindTheSameOptimumFromAnywhere()
+    public void NudgingTheDataSlightlyMovesTheOptimumSlightly()
     {
         // The profile over d0 is found by grid + Brent: nudging the data slightly moves d0 slightly.
         var rng = new Random(21);
