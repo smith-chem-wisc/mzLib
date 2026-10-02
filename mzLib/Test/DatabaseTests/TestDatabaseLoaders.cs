@@ -345,53 +345,56 @@ namespace Test.DatabaseTests
             Directory.CreateDirectory(testDirectory);
             var psiModOboLocation = Path.Combine(testDirectory, "psi-mod.obo");
 
-            using (StringWriter sw = new())
+            // RunAsync turns an outage into Assert.Ignore, which leaves this body at whichever download failed.
+            // Console.Out and the download folder are process-wide, so both are restored in finally: a skip that
+            // left Console.Out on a disposed StringWriter failed every later test's TearDown, and a leftover
+            // psi-mod.obo would fail the next run's "did not exist" assertion.
+            TextWriter originalOut = Console.Out;
+            try
             {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
 
-                string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
+                    string expected = "psi-mod.obo database did not exist, writing to disk\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
+
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                    string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
+
+                //create and empty obo that will be seen as different from the downloaded file and then be updated.
+                File.WriteAllText(psiModOboLocation, "");
+
+                using (StringWriter sw = new())
+                {
+                    Console.SetOut(sw);
+                    Loaders.UpdatePsiModObo(psiModOboLocation);
+
+                    string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
+                    Assert.AreEqual(expected, sw.ToString());
+                }
             }
-
-            using (StringWriter sw = new())
+            finally
             {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
-
-                string expected = "psi-mod.obo database is up to date, doing nothing\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
+                Console.SetOut(originalOut);
+                if (Directory.Exists(testDirectory))
+                {
+                    foreach (string file in Directory.GetFiles(testDirectory))
+                    {
+                        File.SetAttributes(file, FileAttributes.Normal);
+                        File.Delete(file);
+                    }
+                    Directory.Delete(testDirectory, false);
+                }
             }
-
-            //create and empty obo that will be seen as different from the downloaded file and then be updated.
-            File.WriteAllText(psiModOboLocation, "");
-
-            using (StringWriter sw = new())
-            {
-                Console.SetOut(sw);
-                Loaders.UpdatePsiModObo(psiModOboLocation);
-
-                string expected = "psi-mod.obo database updated, saving old version as backup\r\n";
-                Assert.AreEqual(expected, sw.ToString());
-                sw.Close();
-            }
-
-            string[] files = Directory.GetFiles(testDirectory);
-            foreach (string file in files)
-            {
-                File.SetAttributes(file, FileAttributes.Normal);
-                File.Delete(file);
-            }
-            Directory.Delete(testDirectory, false);
-
-            // Now you have to restore default output stream
-            var standardOutput = new StreamWriter(Console.OpenStandardOutput())
-            {
-                AutoFlush = true
-            };
-            Console.SetOut(standardOutput);
             return Task.CompletedTask;
         });
 
