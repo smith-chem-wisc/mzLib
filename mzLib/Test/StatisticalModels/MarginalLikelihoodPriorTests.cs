@@ -15,6 +15,7 @@ namespace Test.StatisticalModels;
 /// recovery of known hyperparameters with unequal residual df, the d0 = ∞ limit, agreement with the moment
 /// estimator where both are consistent, and agreement BOUNDS with limma's current default eBayes on the
 /// synthetic fixture (a benchmark, not parity: mzLib does not implement limma's fitFDistUnequalDF1).
+/// The limma_default_*.tsv fixtures are made by ReferenceData/legacy_vs_default.R (PROVENANCE_limma_default.txt).
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
