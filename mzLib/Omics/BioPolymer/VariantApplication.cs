@@ -1,4 +1,5 @@
-﻿using MzLibUtil;
+﻿using System.Text.RegularExpressions;
+using MzLibUtil;
 using Omics.BioPolymer;
 using Omics.Modifications;
 
@@ -78,6 +79,49 @@ namespace Omics.BioPolymer
         {
             return protein.ConsensusVariant.Accession +
                    (appliedSequenceVariations.IsNullOrEmpty() ? "" : $"_{CombineSimpleStrings(appliedSequenceVariations)}");
+        }
+
+        /// <summary>
+        /// One or more "_{original}{position}{variant}" tokens, as <see cref="GetAccession"/> writes them through
+        /// SequenceVariation.SimpleString: the original residues are never empty, and the variant residues are
+        /// empty for a deletion.
+        /// </summary>
+        private static readonly Regex AppliedVariantSuffix = new(@"^(.+?)((?:_[A-Z]+\d+[A-Z]*)+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// The inverse of <see cref="GetAccession"/>: reads an accession back into its parent entry and the variants
+        /// that were applied to it, so a variant biopolymer can be linked to anything stored per entry (genes,
+        /// orthologs, GO terms) without losing which variants it carries.
+        /// </summary>
+        /// <remarks>
+        /// The entry must match the full UniProt or RefSeq grammar; the name is never cut at the first "_", which
+        /// would turn "NP_000537" into "NP". Parses, never repairs: a name that only looks like a variant accession
+        /// is Unrecognized and kept verbatim. That includes ProteinDbLoader's collision counter "P12345_2", which
+        /// names a DIFFERENT entry whose accession collided, and decoy, contaminant and entrapment prefixes.
+        /// </remarks>
+        /// <param name="accession">An accession as a search reports it; may be null.</param>
+        /// <returns>The verbatim accession, its parent entry, and its applied variants (null when there are none).</returns>
+        public static ProteoformAccession ParseAccession(string? accession)
+        {
+            accession ??= "";
+
+            var plain = ProteinAccession.Parse(accession);
+            if (plain.Namespace != AccessionNamespace.Unrecognized)
+            {
+                return new ProteoformAccession(accession, plain, null);
+            }
+
+            var m = AppliedVariantSuffix.Match(accession);
+            if (m.Success)
+            {
+                var entry = ProteinAccession.Parse(m.Groups[1].Value);
+                if (entry.Namespace != AccessionNamespace.Unrecognized)
+                {
+                    return new ProteoformAccession(accession, entry, m.Groups[2].Value.Substring(1));
+                }
+            }
+
+            return new ProteoformAccession(accession, plain, null);
         }
 
         /// <summary>
