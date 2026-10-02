@@ -147,10 +147,10 @@ namespace StatisticalModels
     /// <para>
     /// Degrees of freedom follow nlme's containment rule for one grouping level: a coefficient whose column
     /// varies within some group is tested with m − G − p_within df; one that is constant within every group
-    /// (a group-level covariate) with G − 1 − p_between df; a column constant over all observed samples
-    /// (the intercept) takes the within-group df. Here m is the feature's observed samples and G its
-    /// observed groups. The rule is exact for balanced designs and an approximation otherwise (Satterthwaite
-    /// or Kenward-Roger are the refinements, not implemented).
+    /// (a group-level covariate) with G − 1 − p_between df, or G − p_between when the design has no constant
+    /// column; a column constant over all observed samples (the intercept) takes the within-group df. Here m
+    /// is the feature's observed samples and G its observed groups. The rule is the conventional one and an
+    /// approximation (Satterthwaite or Kenward-Roger are the refinements, not implemented).
     /// </para>
     /// Output does not depend on the thread count.
     /// </remarks>
@@ -420,7 +420,7 @@ namespace StatisticalModels
         {
             int p = x.ColumnCount;
             var isBetween = new bool[p];
-            int pWithin = 0, pBetween = 0;
+            int pWithin = 0, pBetween = 0, intercept = 0;
             for (int j = 0; j < p; j++)
             {
                 bool constantOverall = true, variesWithin = false;
@@ -432,11 +432,11 @@ namespace StatisticalModels
                     if (first[g] is double v0) { if (x[i, j] != v0) variesWithin = true; }
                     else first[g] = x[i, j];
                 }
-                if (constantOverall) continue;          // intercept: tested at the within-group df, counted at neither level
+                if (constantOverall) { intercept = 1; continue; }   // intercept: tested at the within-group df, uses one between-group df
                 if (variesWithin) pWithin++;
                 else { pBetween++; isBetween[j] = true; }
             }
-            return (m - G - pWithin, G - 1 - pBetween, isBetween);
+            return (m - G - pWithin, G - intercept - pBetween, isBetween);
         }
     }
 }

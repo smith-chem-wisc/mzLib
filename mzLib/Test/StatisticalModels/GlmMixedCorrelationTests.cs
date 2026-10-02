@@ -343,6 +343,13 @@ public class GlmMixedCorrelationTests
         Assert.That(fit.DegreesOfFreedom(0, 2), Is.EqualTo(G - 1 - 1), "group-level covariate");
         Assert.That(fit.DegreesOfFreedom(0, 0), Is.EqualTo(n - G - 1));
         Assert.That(fit.Groups[0], Is.EqualTo(G));
+
+        // Without a constant column no between-group df goes to an intercept (nlme's rule).
+        var noIntercept = new double[n, 2];
+        for (int s = 0; s < n; s++) { noIntercept[s, 0] = design[s, 1]; noIntercept[s, 1] = 1 + design[s, 2]; }
+        var fit0 = MixedModel.Fit(y, noIntercept, groups, new[] { "age", "site" });
+        Assert.That(fit0.DegreesOfFreedom(0, 0), Is.EqualTo(n - G - 1), "within-group covariate");
+        Assert.That(fit0.DegreesOfFreedom(0, 1), Is.EqualTo(G - 1), "group-level covariate, no intercept");
     }
 
     [Test]
