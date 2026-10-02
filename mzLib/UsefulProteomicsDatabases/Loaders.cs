@@ -194,14 +194,31 @@ namespace UsefulProteomicsDatabases
             }
             else
             {
-                File.Move(geneOntologyLocation, geneOntologyLocation + DateTime.Now.ToString("dd-MMM-yyyy-HH-mm-ss"));
+                File.Move(geneOntologyLocation, GeneOntologyBackupPath(geneOntologyLocation));
                 File.Move(temp, geneOntologyLocation);
             }
         }
 
         /// <summary>
+        /// A backup name that sorts by time in any culture (no month names) and never overwrites an earlier
+        /// backup: two updates in the same millisecond get a counter.
+        /// </summary>
+        internal static string GeneOntologyBackupPath(string geneOntologyLocation)
+        {
+            string stamped = geneOntologyLocation + "." + DateTime.Now.ToString("yyyyMMdd-HHmmss-fff", CultureInfo.InvariantCulture);
+            string path = stamped;
+            for (int n = 2; File.Exists(path); n++)
+            {
+                path = stamped + "-" + n.ToString(CultureInfo.InvariantCulture);
+            }
+            return path;
+        }
+
+        /// <summary>
         /// Loads go.obo from <paramref name="geneOntologyLocation"/>, downloading it first only if no file is
-        /// there. An existing file is never refreshed here: that keeps a pinned release pinned. Use
+        /// there. That first download is from <see cref="GeneOntologyUrl"/>, a moving PURL, so which release a
+        /// fresh install gets depends on the day it runs; <see cref="GeneOntologyGraph.Release"/> says which.
+        /// To reproduce a run, keep the file. An existing file is never refreshed here: that keeps a pinned release pinned. Use
         /// <see cref="UpdateGeneOntology(string,CancellationToken)"/> to move to a newer one.
         /// </summary>
         public static GeneOntologyGraph LoadGeneOntology(string geneOntologyLocation)

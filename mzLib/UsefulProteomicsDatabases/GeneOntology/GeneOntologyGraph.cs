@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Frozen;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -81,7 +82,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
 
         /// <summary>
         /// Every term reachable from <paramref name="goId"/> over is_a and part_of, excluding the term
-        /// itself, as primary ids. An alternative id is resolved first. An obsolete term has none.
+        /// itself, as primary ids. An alternative id is resolved first. An obsolete term has none. The set is
+        /// cached and shared across calls, so it is frozen: a caller cannot change what the next caller sees.
         /// </summary>
         /// <exception cref="ArgumentException">
         /// The id is not in this release. A UniProt entry can cite a term newer than the pinned go.obo, and
@@ -115,14 +117,16 @@ namespace UsefulProteomicsDatabases.GeneOntology
             // GO has no cycles, but a malformed file might; the visited set is what terminates the walk, and a
             // term that reaches itself is still not its own ancestor.
             found.Remove(id);
-            return found;
+            return found.ToFrozenSet(StringComparer.Ordinal);
         }
 
         private static IEnumerable<string> Parents(GeneOntologyTerm term) => term.IsAParents.Concat(term.PartOfParents);
 
         /// <summary>
         /// Reads a go.obo file. [Typedef] and [Instance] stanzas are skipped; every [Term] is kept, obsolete
-        /// terms included. Tag values have their trailing "! comment" and "{qualifier}" removed.
+        /// terms included. Tag values have their trailing "! comment" and "{qualifier}" removed. Of an obsolete
+        /// term's pointers only replace_by is kept (<see cref="GeneOntologyTerm.ReplacedBy"/>); consider: tags,
+        /// GO's weaker "one of these may fit", are dropped.
         /// </summary>
         /// <exception cref="FileNotFoundException">The file does not exist.</exception>
         /// <exception cref="InvalidDataException">

@@ -156,11 +156,14 @@ namespace UsefulProteomicsDatabases.GeneOntology
             }).ToList();
         }
 
-        /// <summary>Annotates every group, in input order.</summary>
-        public IEnumerable<GoAnnotationRow> AnnotateAll(IEnumerable<GoAnnotationGroup> groups)
+        /// <summary>
+        /// Annotates every group, in input order. The rows are materialized, so handing the same result to both
+        /// <see cref="GoAnnotationTsv"/> and <see cref="GoCategoryTsv"/> annotates once.
+        /// </summary>
+        public IReadOnlyList<GoAnnotationRow> AnnotateAll(IEnumerable<GoAnnotationGroup> groups)
         {
             ArgumentNullException.ThrowIfNull(groups);
-            return groups.SelectMany(Annotate);
+            return groups.SelectMany(Annotate).ToList();
         }
 
         /// <summary>

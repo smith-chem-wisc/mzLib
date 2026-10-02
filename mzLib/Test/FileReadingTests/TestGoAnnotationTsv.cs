@@ -440,7 +440,18 @@ namespace Test.FileReadingTests
             // another would silently mis-assign, so the writer refuses.
             var row = Annotator().Annotate(Group("P1", 0.001))[0] with { GoRelease = "releases/1999-01-01" };
 
-            Assert.Throws<ArgumentException>(() => WriteCategories(Resolver("nuc\t\tGO:0005634\n"), new[] { row }));
+            var ex = Assert.Throws<ArgumentException>(() => WriteCategories(Resolver("nuc\t\tGO:0005634\n"), new[] { row }));
+            Assert.That(ex.Message, Does.Contain("go_release").And.Contain("releases/1999-01-01"));
+        }
+
+        [Test]
+        public void CategoryTable_GoOboSha256Mismatch_IsNamedAsSuch()
+        {
+            // Same release, different file: the message must not blame the release.
+            var row = Annotator().Annotate(Group("P1", 0.001))[0] with { GoOboSha256 = "not-the-file" };
+
+            var ex = Assert.Throws<ArgumentException>(() => WriteCategories(Resolver("nuc\t\tGO:0005634\n"), new[] { row }));
+            Assert.That(ex.Message, Does.Contain("go_obo_sha256").And.Contain("not-the-file"));
         }
 
         [Test]

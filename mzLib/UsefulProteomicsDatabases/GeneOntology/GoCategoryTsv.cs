@@ -43,13 +43,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
             var terms = new SortedSet<string>(StringComparer.Ordinal);
             foreach (var row in rows)
             {
-                if (!string.Equals(row.GoRelease, ontology.Release, StringComparison.Ordinal)
-                    || !string.Equals(row.GoOboSha256, ontology.SourceSha256, StringComparison.Ordinal))
-                {
-                    throw new ArgumentException(
-                        $"Row for group '{row.ProteinGroup}' comes from Gene Ontology release '{row.GoRelease}', " +
-                        $"but the category map is applied against '{ontology.Release}'.");
-                }
+                RequireSame(row.GoRelease, ontology.Release, "go_release", row);
+                RequireSame(row.GoOboSha256, ontology.SourceSha256, "go_obo_sha256", row);
                 if (row.GoId != null)
                 {
                     terms.Add(row.GoId);
@@ -69,6 +64,16 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 {
                     output.Write($"{goId}\t{category.Category}\t{category.Subcategory}" + "\n");
                 }
+            }
+        }
+
+        private static void RequireSame(string actual, string expected, string field, GoAnnotationRow row)
+        {
+            if (!string.Equals(actual, expected, StringComparison.Ordinal))
+            {
+                throw new ArgumentException(
+                    $"Row for group '{row.ProteinGroup}' has {field} '{actual}', but the category map is applied " +
+                    $"against {field} '{expected}'.");
             }
         }
     }

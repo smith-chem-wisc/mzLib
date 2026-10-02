@@ -186,6 +186,17 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Ancestors_CachedSetCannotBeChangedByACaller()
+        {
+            var go = GeneOntologyGraph.Load(FixturePath);
+
+            // The set is memoised and shared, so a caller that cast it back to a mutable set would change every
+            // later answer.
+            Assert.That(go.Ancestors(MitochondrialInnerMembrane), Is.Not.InstanceOf<System.Collections.Generic.HashSet<string>>());
+            Assert.That(go.Ancestors(MitochondrialInnerMembrane), Is.InstanceOf<System.Collections.Frozen.FrozenSet<string>>());
+        }
+
+        [Test]
         public void Ancestors_TermWithTwoParents_ReturnsBoth()
         {
             var go = GeneOntologyGraph.Load(FixturePath);
@@ -374,6 +385,23 @@ namespace Test.FileReadingTests
 
             Assert.That(GeneOntologyGraph.Load(path).Release, Is.EqualTo("releases/2026-07-26"));
             Assert.That(Directory.GetFiles(_dir, "go.obo*"), Has.Length.EqualTo(2), "the replaced release is kept");
+        }
+
+        [Test]
+        public void UpdateGeneOntology_BackupNameAlreadyTaken_DoesNotOverwriteIt()
+        {
+            // Two replacements within one timestamp tick used to collide on the backup name.
+            string path = Path.Combine(_dir, "go.obo");
+            File.WriteAllText(path, "data-version: releases/old\n");
+            string taken = Loaders.GeneOntologyBackupPath(path);
+            File.WriteAllText(taken, "an earlier backup");
+
+            Assert.That(Loaders.GeneOntologyBackupPath(path), Is.Not.EqualTo(taken));
+            using var client = new HttpClient(new FixedResponseHandler(File.ReadAllText(FixturePath)));
+            Loaders.UpdateGeneOntology(path, client);
+
+            Assert.That(File.ReadAllText(taken), Is.EqualTo("an earlier backup"));
+            Assert.That(Directory.GetFiles(_dir, "go.obo*"), Has.Length.EqualTo(3));
         }
 
         [Test]

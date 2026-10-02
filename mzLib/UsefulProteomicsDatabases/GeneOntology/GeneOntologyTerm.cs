@@ -44,7 +44,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
         /// <summary>Secondary ids merged into this term. They resolve to it in <see cref="GeneOntologyGraph.TryGetTerm"/>.</summary>
         public IReadOnlyList<string> AltIds { get; }
 
-        /// <summary>For an obsolete term, the term(s) GO says replace it. Empty otherwise.</summary>
+        /// <summary>
+        /// For an obsolete term, the term(s) GO says replace it. Empty otherwise. GO's consider: tags (candidates,
+        /// not replacements) are not read.
+        /// </summary>
         public IReadOnlyList<string> ReplacedBy { get; }
 
         /// <summary>Direct is_a parents, in file order.</summary>
