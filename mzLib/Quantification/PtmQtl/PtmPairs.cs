@@ -66,17 +66,13 @@ public static class PtmPairEngine
 
     /// <summary>
     /// Type P: every pair of sites carried together by at least one peptidoform, with the runs it was
-    /// identified in and its median co-occupancy.
+    /// identified in and its median co-occupancy. The observations are validated as in
+    /// <see cref="SiteOccupancyCalculator.Calculate"/>.
     /// </summary>
     public static IReadOnlyList<PtmPair> Physical(IEnumerable<PeptidoformObservation> observations,
         Func<string, bool>? includeModification = null)
     {
-        ArgumentNullException.ThrowIfNull(observations);
-        var obs = observations.Select(o =>
-        {
-            string baseSeq = MzLibUtil.ClassExtensions.GetBaseSequenceFromFullSequence(o.FullSequence);
-            return (o, sites: SiteOccupancyCalculator.SitesOf(o, baseSeq, includeModification));
-        }).ToList();
+        var obs = SiteOccupancyCalculator.Parse(observations, includeModification).Select(p => (o: p.obs, p.sites)).ToList();
 
         var runsTogether = new Dictionary<(ModificationSite, ModificationSite), HashSet<string>>();
         foreach (var (o, sites) in obs)

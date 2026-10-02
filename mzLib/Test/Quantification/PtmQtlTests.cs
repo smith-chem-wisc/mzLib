@@ -118,6 +118,7 @@ public class PtmQtlTests
         // Two PSMs of one peptidoform in one run would count its intensity twice (occupancy 60/90, not 30/60).
         var psms = new[] { Obs("r1", $"PEPS[{Phos}]K", 10, 30), Obs("r1", $"PEPS[{Phos}]K", 10, 30), Obs("r1", "PEPSK", 10, 30) };
         Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(psms));
+        Assert.Throws<ArgumentException>(() => PtmPairEngine.Physical(psms), "type P validates as occupancy does");
 
         // The same peptidoform in another run, or on another protein, is a row of its own.
         var occ = SiteOccupancyCalculator.Calculate(new[]
