@@ -156,6 +156,21 @@ public class MarginalLikelihoodPriorTests
     }
 
     [Test]
+    public void ProfileNeverAcceptsAStepWhoseLikelihoodIsNaN()
+    {
+        // Started far above every s², the Newton step is so long that e^{−τ} overflows at every halving and
+        // the log-likelihood there is NaN. Such a step must be refused, not taken because NaN < ll is false.
+        var s2 = new[] { 0.5, 1.0, 2.0, 4.0 };
+        var df = new[] { 3.0, 4.0, 5.0, 6.0 };
+        var basis = MathNet.Numerics.LinearAlgebra.Matrix<double>.Build.Dense(s2.Length, 1, 1.0);
+        var start = MathNet.Numerics.LinearAlgebra.Vector<double>.Build.Dense(1, 50.0);
+        Assert.That(double.IsNaN(VariancePriorLikelihood.LogLik(s2, df, basis, 4, start - 1e15)), "the overflow is real");
+        var (logLik, gamma) = VariancePriorLikelihood.Profile(s2, df, basis, 4, start);
+        Assert.That(double.IsFinite(logLik), Is.True);
+        Assert.That(double.IsFinite(gamma[0]), Is.True);
+    }
+
+    [Test]
     public void LikelihoodIsConcaveEnoughToFindTheSameOptimumFromAnywhere()
     {
         // The profile over d0 is found by grid + Brent: nudging the data slightly moves d0 slightly.

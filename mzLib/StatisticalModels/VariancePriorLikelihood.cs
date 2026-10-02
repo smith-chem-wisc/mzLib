@@ -68,12 +68,13 @@ namespace StatisticalModels
             {
                 var (grad, hess) = Derivatives(s2, df, basis, d0, gamma);
                 var step = (-hess).Cholesky().Solve(grad);
-                // Concave objective: the full Newton step is almost always accepted; halve it if not.
+                // Concave objective: the full Newton step is almost always accepted; halve it if not. Written as
+                // !(llNext >= ll) so that a step overflowing e^{−τ}, whose log-likelihood is NaN, is never accepted.
                 double t = 1, llNext;
                 Vector<double> next;
                 do { next = gamma + t * step; llNext = LogLik(s2, df, basis, d0, next); t /= 2; }
-                while (llNext < ll && t > 1e-10);
-                if (llNext < ll) break;
+                while (!(llNext >= ll) && t > 1e-10);
+                if (!(llNext >= ll)) break;
                 double gain = llNext - ll;
                 gamma = next;
                 ll = llNext;
