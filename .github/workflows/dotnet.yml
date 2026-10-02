@@ -85,6 +85,11 @@ jobs:
     - name: Build (Test)
       run: cd mzLib && dotnet build --no-restore ./Test/Test.csproj
     - name: Test (external services)
+      # With an ANTHROPIC_API_KEY secret, this also runs the one live check of the opt-in model reader
+      # (TestModelEvidenceReader.LiveTheApiAcceptsTheRequestThisReaderSends, one small call). Without the
+      # secret -- and on a fork's PR, which never sees secrets -- that test is skipped, not failed.
+      env:
+        ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       run: cd mzLib && dotnet test --no-build --verbosity normal --filter "Category=ExternalService" ./Test/Test.csproj
   integration:
     runs-on: windows-latest
