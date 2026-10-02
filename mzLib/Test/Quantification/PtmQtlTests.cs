@@ -103,6 +103,11 @@ public class PtmQtlTests
         var at13 = occ.Where(o => o.Site.Position == 13).ToList();
         Assert.That(at13, Has.Count.EqualTo(2));
         Assert.That(at13.Sum(o => o.Fraction), Is.EqualTo(0.5).Within(1e-15));
+
+        // With no unmodified form, each modification still sees the other: neither is a ceiling.
+        var noUnmodified = SiteOccupancyCalculator.Calculate(new[] { Obs("r1", $"PEPS[{Phos}]K", 10, 20), Obs("r1", $"PEPS[{Glc}]K", 10, 30) });
+        Assert.That(noUnmodified.Single(o => o.Site.Modification == Phos).Fraction, Is.EqualTo(0.4).Within(1e-15));
+        Assert.That(noUnmodified.All(o => o.UnmodifiedQuantified), Is.True);
     }
 
     [Test]

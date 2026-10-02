@@ -71,7 +71,10 @@ public sealed record ModificationSite(string ProteinAccession, int Position, cha
 /// <remarks>
 /// A site seen only in modified form in a run has occupancy 1: every quantified form covering it carries the
 /// modification. <see cref="UnmodifiedQuantified"/> is false there, so a caller can treat that 1 as a ceiling
-/// (the unmodified form may be present below detection), as a floor is treated at the other end.
+/// (the unmodified form may be present below detection), as a floor is treated at the other end. Despite its
+/// name, <see cref="SiteOccupancyCalculator.Calculate"/> sets <see cref="UnmodifiedQuantified"/> true whenever some quantified form covering the position does not
+/// carry this modification there: the unmodified form, or a form with another modification at the same position
+/// (including one excluded from the sites, e.g. <c>Common Variable</c>).
 /// <para>
 /// Occupancy read from a stored table (e.g. MetaMorpheus's <c>IntensityOccupancy_</c> cells, <c>DEF-OCC-CELL</c>)
 /// sets <see cref="ReportedFraction"/>: there the fraction is written exactly while the intensities are rounded,
