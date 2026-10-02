@@ -305,10 +305,14 @@ namespace Readers
                 // its own word wherever that differs -- `default` when nothing marked it (D39).
                 if (!comments.TryGetValue("comment[characteristics source]", out var rowWord) || rowWord != SourceWord(r.BiologicalReplicate.Source))
                     comments["comment[biological replicate source]"] = SourceWord(r.BiologicalReplicate.Source);
-                // Where a publication stated it: the D31 grain's `source reference` beside the source word.
+                // Where a publication stated it: the D31 grain's `source reference` beside the source word. The word
+                // is written even when it equals the row default, or the builder fills it `not applicable` beside a
+                // reference and a method, which reads as a contradiction (G42, dataRepo 024/025).
                 foreach (var (name, cell) in stated.Append(("biological replicate", r.BiologicalReplicate)))
                     if (cell.Source == SdrfDraftSource.Publication)
                     {
+                        if (!string.IsNullOrEmpty(cell.Reference) || !string.IsNullOrEmpty(cell.Method))
+                            comments[$"comment[{name} source]"] = SourceWord(cell.Source);
                         if (!string.IsNullOrEmpty(cell.Reference)) comments[$"comment[{name} source reference]"] = cell.Reference;
                         if (!string.IsNullOrEmpty(cell.Method)) comments[$"comment[{name} source method]"] = cell.Method;
                     }
