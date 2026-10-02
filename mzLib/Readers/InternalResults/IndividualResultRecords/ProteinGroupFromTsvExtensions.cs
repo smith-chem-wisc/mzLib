@@ -13,8 +13,10 @@ public static class ProteinGroupFromTsvExtensions
     /// is privileged), the decoy and contaminant marks, and the group's q-value.
     /// </summary>
     /// <remarks>The flags are the reader's: <see cref="ProteinGroupFromTsv.IsDecoy"/> is true for D and
-    /// for an entrapment decoy (ED); <see cref="ProteinGroupFromTsv.IsContaminant"/> only for C. An
-    /// entrapment target (ET) is neither, and the descriptor carries no entrapment mark.</remarks>
+    /// for an entrapment decoy (ED); <see cref="ProteinGroupFromTsv.IsContaminant"/> only for C. The
+    /// descriptor carries no entrapment mark because the label cannot be trusted for one: MetaMorpheus
+    /// writes T for an entrapment group. The annotator finds entrapment members from their accessions
+    /// and names them on every row.</remarks>
     /// <exception cref="ArgumentNullException">row is null.</exception>
     public static GoAnnotationGroup ToGoAnnotationGroup(this ProteinGroupFromTsv row)
     {

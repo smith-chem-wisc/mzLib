@@ -95,8 +95,7 @@ namespace Test.FileReadingTests.InternalFileReading
 
         /// <summary>
         /// The reader's IsDecoy is "the label contains D", so an entrapment decoy (ED) is a decoy and never
-        /// reaches the annotator, which refuses decoys. An entrapment target (ET) is not a decoy and is kept:
-        /// the descriptor has no entrapment field, so it is annotated like any other target.
+        /// reaches the annotator, which refuses decoys. An entrapment target (ET) is not a decoy and is kept.
         /// </summary>
         [Test]
         public void Adapter_EntrapmentDecoy_IsRejected()
@@ -109,6 +108,31 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(groups.Select(g => g.Name), Is.EqualTo(new[] { "P1", "P2", "P5" }));
             Assert.That(groups.Select(g => g.IsContaminant), Is.EqualTo(new[] { false, true, false }));
             Assert.That(groups.All(g => !g.IsDecoy));
+        }
+
+        /// <summary>
+        /// What MetaMorpheus actually writes for an entrapment search: T and D only, never ET or ED
+        /// (entrapment thread 002). The row shapes are entrapment's PXD001468 fixture's: a multi-member
+        /// entrapment group, a target grouped with its own permuted partner, and a decoy of entrapment.
+        /// Every entrapment group is annotated and labelled from its accessions; the decoy is dropped.
+        /// </summary>
+        [Test]
+        public void Adapter_MetaMorpheusEntrapmentTable_LabelledFromAccessions()
+        {
+            string path = WriteTable("EntrapmentSearch_AllProteinGroups.tsv",
+                "P84157\tT\t0.001", "Random_P21108_f0|Random_P60891_f0\tT\t0.003",
+                "Q96L96|Random_Q96L96_f0\tT\t0.02", "DECOY_Random_Q9P2M7_f0\tD\t0.4");
+
+            var groups = new ProteinGroupFromTsvFile(path).ToGoAnnotationGroups().ToList();
+            var rows = new GoGroupAnnotator(GeneOntologyGraph.Load(OntologyPath), Array.Empty<Protein>(), "0123abcd")
+                .AnnotateAll(groups);
+
+            Assert.That(groups.Select(g => g.Name),
+                Is.EqualTo(new[] { "P84157", "Random_P21108_f0|Random_P60891_f0", "Q96L96|Random_Q96L96_f0" }));
+            var entrapmentByGroup = rows.ToDictionary(r => r.ProteinGroup, r => string.Join(';', r.EntrapmentMembers));
+            Assert.That(entrapmentByGroup["P84157"], Is.Empty);
+            Assert.That(entrapmentByGroup["Random_P21108_f0|Random_P60891_f0"], Is.EqualTo("Random_P21108_f0;Random_P60891_f0"));
+            Assert.That(entrapmentByGroup["Q96L96|Random_Q96L96_f0"], Is.EqualTo("Random_Q96L96_f0"));
         }
 
         [Test]

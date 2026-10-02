@@ -21,6 +21,14 @@ namespace UsefulProteomicsDatabases.GeneOntology
     /// status says why: no member carries GO, a member is absent from the annotation database, or the
     /// group is a contaminant.
     ///
+    /// Entrapment is neither target nor decoy, so an entrapment group is annotated, never dropped, and every
+    /// row names the group's entrapment members (<see cref="GoAnnotationRow.EntrapmentMembers"/>). A member
+    /// is entrapment by the loader's own rule (<see cref="ProteinDbLoader.IsEntrapmentAccession"/>), which
+    /// is the only signal a stored MetaMorpheus file carries, or when the annotation database marks its
+    /// protein entrapment. An entrapment member contributes its own entry's terms like any other member: a
+    /// foreign-proteome entrapment protein's GO is true of its sequence, and the label lets the consumer
+    /// decide whether it counts.
+    ///
     /// The annotator takes proteins already loaded (ProteinDbLoader.LoadProteinXML mutates static state and
     /// is not safe to call from here) and never filters on q-value or evidence: both travel on every row.
     /// </summary>
@@ -31,6 +39,9 @@ namespace UsefulProteomicsDatabases.GeneOntology
 
         /// <summary>accession -> primary GO id -> evidence codes of the member's own annotation to that term.</summary>
         private readonly Dictionary<string, Dictionary<string, SortedSet<string>>> _direct = new(StringComparer.Ordinal);
+
+        /// <summary>Accessions the annotation database marks entrapment, which the accession rule may not see.</summary>
+        private readonly HashSet<string> _entrapment = new(StringComparer.Ordinal);
 
         /// <summary>
         /// The GO ids the annotation database cites that the ontology release does not have, in ordinal order.
@@ -73,6 +84,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
                 {
                     terms = new Dictionary<string, SortedSet<string>>(StringComparer.Ordinal);
                     _direct.Add(protein.Accession, terms);
+                }
+                if (protein.IsEntrapment)
+                {
+                    _entrapment.Add(protein.Accession);
                 }
                 foreach (var goTerm in protein.GoTerms)
                 {
@@ -123,6 +138,10 @@ namespace UsefulProteomicsDatabases.GeneOntology
             // term -> (carrying members, members carrying it directly, members carrying it only by inheritance,
             // pooled evidence, and each member's own evidence)
             var byTerm = new SortedDictionary<string, TermAccumulator>(StringComparer.Ordinal);
+            var entrapmentMembers = members
+                .Where(m => ProteinDbLoader.IsEntrapmentAccession(m) || _entrapment.Contains(m))
+                .OrderBy(m => m, StringComparer.Ordinal)
+                .ToList();
             bool anyMemberMissing = false;
 
             foreach (string member in members)
@@ -152,7 +171,7 @@ namespace UsefulProteomicsDatabases.GeneOntology
                     new GoAnnotationRow(group.Name, Array.Empty<string>(), null, null, null, Array.Empty<string>(),
                         null, null, members.Count, 0, status, group.QValue, _ontology.Release, _ontology.SourceSha256,
                         _annotationDbSha256, Array.Empty<string>(), Array.Empty<string>(),
-                        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal))
+                        new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal), entrapmentMembers)
                 };
             }
 
@@ -169,7 +188,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
                     AccessionDirect: accumulated.DirectMembers.ToList(),
                     AccessionInherited: accumulated.InheritedMembers.ToList(),
                     EvidenceByMember: accumulated.EvidenceByMember.ToDictionary(
-                        m => m.Key, m => (IReadOnlyList<string>)m.Value.ToList(), StringComparer.Ordinal));
+                        m => m.Key, m => (IReadOnlyList<string>)m.Value.ToList(), StringComparer.Ordinal),
+                    EntrapmentMembers: entrapmentMembers);
             }).ToList();
         }
 
@@ -197,7 +217,8 @@ namespace UsefulProteomicsDatabases.GeneOntology
         /// the isoform's or else the entry's. Variants are found when the annotation database was loaded
         /// without variants applied, or is not the one searched. ProteinAccession parses and never repairs, so
         /// an accession outside UniProt's grammar -- a decoy, contaminant or entrapment prefix, a hyphenated
-        /// name, a RefSeq NP_ -- never inherits. Whether an inherited term holds is the consumer's call: an
+        /// name, a RefSeq NP_ -- never inherits. So an entrapment member absent from the database reads
+        /// no_entry rather than borrowing the GO of the target it was made from. Whether an inherited term holds is the consumer's call: an
         /// isoform can differ from its entry precisely in cellular component, which is why the row says so.
         /// </summary>
         private bool TryGetTerms(string member, out Dictionary<string, SortedSet<string>> terms, out bool inherited)
