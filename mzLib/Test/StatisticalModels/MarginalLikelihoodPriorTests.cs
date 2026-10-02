@@ -147,6 +147,8 @@ public class MarginalLikelihoodPriorTests
         // With a trend, the prior variance at the ends of the intensity range depends on the curve: a natural
         // spline here, lowess in limma. That, not the prior estimator, sets the worst-case difference, and the
         // legacy estimator (same spline) shows it too. So the extremes are bounded more loosely with a trend.
+        // These bounds are a regression benchmark sized to this fixture (measured: 0.135 and 0.405), not a
+        // claim that the two agree at the extremes: a 0.4 difference in log10 p is not parity.
         Assert.That(scaleRatio.Max(), Is.LessThan(trend ? 0.2 : 0.02));
         Assert.That(dLogP.Max(), Is.LessThan(trend ? 0.5 : 0.05));
         // At the worst feature, never further from limma's default than the legacy estimator is. (At the median
