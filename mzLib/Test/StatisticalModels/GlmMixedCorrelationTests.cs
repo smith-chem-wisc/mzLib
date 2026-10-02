@@ -195,6 +195,47 @@ public class GlmMixedCorrelationTests
     }
 
     [Test]
+    public void LogisticReportsQuasiSeparationAtLargeN()
+    {
+        // x = 1: 5 events of 5; x = 0: 2500 events of 5000. The deviance rule is relative to a deviance that
+        // grows with n, so IRLS stops at β ≈ 20 with μ ≈ 1e-9, short of SeparationThreshold.
+        int n0 = 5000, n1 = 5, n = n0 + n1;
+        var design = new double[n, 2];
+        var y = new double[1, n];
+        for (int s = 0; s < n; s++)
+        {
+            design[s, 0] = 1;
+            design[s, 1] = s < n0 ? 0 : 1;
+            y[0, s] = s < n0 ? s % 2 : 1;
+        }
+        var fit = LogisticRegression.Fit(y, design);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Separated));
+        Assert.That(fit.Coefficient(0, 1), Is.NaN);
+    }
+
+    [Test]
+    public void LogisticKeepsAGenuineFitWhoseFittedValuesAreExtreme()
+    {
+        // x spans ±10 with slope 1.6, so |η| reaches 16 at the ends, but the outcomes overlap around x = 0 and
+        // the estimate exists: the separation probe must leave it fitted.
+        var rng = new Random(20261002);
+        int n = 2000;
+        double b1 = 1.6;
+        var design = new double[n, 2];
+        var y = new double[1, n];
+        for (int s = 0; s < n; s++)
+        {
+            double x = -10 + 20.0 * s / (n - 1);
+            design[s, 0] = 1; design[s, 1] = x;
+            y[0, s] = rng.NextDouble() < 1 / (1 + Math.Exp(-b1 * x)) ? 1 : 0;
+        }
+        var fit = LogisticRegression.Fit(y, design);
+        Assert.That(fit.Status[0], Is.EqualTo(FeatureFitStatus.Fitted));
+        Assert.That(Math.Abs(fit.Coefficient(0, 1) * 10), Is.GreaterThan(15), "the probe was exercised");
+        Assert.That(fit.Coefficient(0, 1), Is.EqualTo(b1).Within(4 * fit.StandardError(0, 1)));
+    }
+
+    [Test]
     public void LogisticRejectsNonBinaryResponses()
     {
         var design = new double[4, 1] { { 1 }, { 1 }, { 1 }, { 1 } };

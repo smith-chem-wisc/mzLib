@@ -102,12 +102,19 @@ namespace StatisticalModels
     /// below <c>tolerance</c>. Standard errors come from the inverse Fisher information and tests are
     /// Wald z. When the outcomes are separated by the design the estimate does not exist; the feature is
     /// reported <see cref="FeatureFitStatus.Separated"/> with NaN values rather than the arbitrarily large
-    /// coefficients an unchecked IRLS returns. Output does not depend on the thread count.
+    /// coefficients an unchecked IRLS returns. Because the deviance rule is relative to a deviance that grows
+    /// with n, IRLS can stop on a quasi-separated feature before μ reaches <see cref="SeparationThreshold"/>;
+    /// a converged fit with |η| above 15 is therefore stepped further, and is reported separated if μ then
+    /// crosses the threshold. Output does not depend on the thread count.
     /// </remarks>
     public static class LogisticRegression
     {
         /// <summary>Fitted probabilities closer than this to 0 or 1 mark a separated fit.</summary>
         public const double SeparationThreshold = 1e-10;
+
+        // A converged fit with a linear predictor this extreme (μ ≈ 3e-7) is probed for separation.
+        private const double ProbeEta = 15;
+        private const int ProbeIterations = 20;
 
         /// <summary>Fits one design matrix against every feature (row) of <paramref name="responses"/>.</summary>
         /// <param name="responses">
@@ -202,21 +209,26 @@ namespace StatisticalModels
             while (iter < maxIterations)
             {
                 iter++;
-                var w = mu.Map(u => u * (1 - u));
-                var z = eta + (y - mu).PointwiseDivide(w);
-                var sw = w.PointwiseSqrt();
-                var xw = Matrix<double>.Build.Dense(m, p, (i, j) => x[i, j] * sw[i]);
-                var zw = z.PointwiseMultiply(sw);
-                beta = xw.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Thin).Solve(zw);
-                eta = x * beta;
-                mu = eta.Map(Inverse);
+                (beta, eta, mu) = Step(x, y, eta, mu);
                 devOld = dev;
                 dev = Deviance(y, mu);
                 if (Math.Abs(dev - devOld) / (Math.Abs(dev) + 0.1) < tolerance) { converged = true; break; }
             }
             fit.IterationValues[f] = iter;
 
-            bool extreme = mu.Any(u => u < SeparationThreshold || u > 1 - SeparationThreshold);
+            bool extreme = IsExtreme(mu);
+            // Quasi-separation at large n: IRLS can stop with a coefficient still running off (β ≈ 20, μ ≈ 1e-9).
+            // Stepped further, a genuine estimate stays put while a separated one grows by about 1 per step until
+            // μ crosses the threshold. The probe only decides the status; a fit that passes reports the estimate above.
+            if (!extreme && converged && eta.AbsoluteMaximum() > ProbeEta)
+            {
+                var (probeEta, probeMu) = (eta, mu);
+                for (int k = 0; k < ProbeIterations && !extreme; k++)
+                {
+                    (_, probeEta, probeMu) = Step(x, y, probeEta, probeMu);
+                    extreme = IsExtreme(probeMu);
+                }
+            }
             if (extreme)
             {
                 fit.StatusValues[f] = FeatureFitStatus.Separated;
@@ -242,6 +254,23 @@ namespace StatisticalModels
             fit.DevianceValues[f] = dev;
             fit.StatusValues[f] = FeatureFitStatus.Fitted;
         }
+
+        /// <summary>One IRLS step: weighted least squares of the working response on X.</summary>
+        private static (Vector<double> beta, Vector<double> eta, Vector<double> mu) Step(Matrix<double> x, Vector<double> y,
+            Vector<double> eta, Vector<double> mu)
+        {
+            int m = x.RowCount, p = x.ColumnCount;
+            var w = mu.Map(u => u * (1 - u));
+            var z = eta + (y - mu).PointwiseDivide(w);
+            var sw = w.PointwiseSqrt();
+            var xw = Matrix<double>.Build.Dense(m, p, (i, j) => x[i, j] * sw[i]);
+            var zw = z.PointwiseMultiply(sw);
+            var beta = xw.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Thin).Solve(zw);
+            var newEta = x * beta;
+            return (beta, newEta, newEta.Map(Inverse));
+        }
+
+        private static bool IsExtreme(Vector<double> mu) => mu.Any(u => u < SeparationThreshold || u > 1 - SeparationThreshold);
 
         private static double Logit(double u) => Math.Log(u / (1 - u));
 
