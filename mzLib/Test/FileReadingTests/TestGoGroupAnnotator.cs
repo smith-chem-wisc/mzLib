@@ -430,6 +430,32 @@ namespace Test.FileReadingTests
             Assert.That(Row(rows, Gapdh).Inherited, Is.False);
         }
 
+        [Test]
+        public void Isoform_InTheDatabaseWithNoGoOfItsOwn_InheritsItsEntrysTerms()
+        {
+            // A database searched with isoforms as separate entries holds P04406-2 with no GO: UniProt puts GO
+            // on the entry. Annotating with the searched database must not switch inheritance off (aging's
+            // PXD007188 lamin isoform P02545-2 read no_go_terms that way).
+            var rows = Annotator(P("P04406", Go(Nucleus, "ECO:0000314")), P("P04406-2")).Annotate(Group("P04406-2"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.True);
+            Assert.That(nucleus.AccessionInherited, Is.EqualTo(new[] { "P04406-2" }));
+            Assert.That(nucleus.Status, Is.EqualTo(GoAnnotationStatus.Annotated));
+        }
+
+        [Test]
+        public void Isoform_InTheDatabaseWithNoGo_InAGroupWithItsEntry_IsACarryingMember()
+        {
+            var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406-2")).Annotate(Group("P04406|P04406-2"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { "P04406", "P04406-2" }));
+            Assert.That(nucleus.AccessionDirect, Is.EqualTo(new[] { "P04406", "P04406-2" }), "direct means annotated to the term itself, not own-entry");
+            Assert.That(nucleus.AccessionInherited, Is.EqualTo(new[] { "P04406-2" }));
+            Assert.That(nucleus.Inherited, Is.False, "the entry carries it on its own");
+        }
+
         [TestCase("P04406_A20T")]
         [TestCase("P04406_A20T_G31")]
         [TestCase("P04406-2_A20T")]

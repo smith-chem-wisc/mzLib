@@ -220,12 +220,26 @@ namespace UsefulProteomicsDatabases.GeneOntology
         /// name, a RefSeq NP_ -- never inherits. So an entrapment member absent from the database reads
         /// no_entry rather than borrowing the GO of the target it was made from. Whether an inherited term holds is the consumer's call: an
         /// isoform can differ from its entry precisely in cellular component, which is why the row says so.
+        ///
+        /// A UniProt isoform that IS in the database but carries no GO of its own also takes its entry's terms.
+        /// UniProt writes GO on the entry, not on its isoforms, so a database searched with isoforms as separate
+        /// entries holds every isoform with none; reading that as "no GO" would make inheritance depend on
+        /// whether the searched database was used. An isoform with GO of its own keeps it.
         /// </summary>
         private bool TryGetTerms(string member, out Dictionary<string, SortedSet<string>> terms, out bool inherited)
         {
             inherited = false;
             if (_direct.TryGetValue(member, out terms))
             {
+                if (terms.Count == 0
+                    && !SequenceVariantSuffix.IsMatch(member)
+                    && ProteinAccession.Parse(member) is { Namespace: AccessionNamespace.UniProt, Isoform: not null } isoform
+                    && _direct.TryGetValue(isoform.EntryAccession, out var entryTerms)
+                    && entryTerms.Count > 0)
+                {
+                    terms = entryTerms;
+                    inherited = true;
+                }
                 return true;
             }
             inherited = true;
