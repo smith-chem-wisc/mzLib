@@ -67,6 +67,26 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         public const string EnsemblDatabaseReferenceType = Protein.EnsemblDatabaseReferenceType;
 
+        /// <summary>
+        /// Whether an accession is entrapment by the rule the loaders apply when no whole-database flag is
+        /// given: it contains <paramref name="entrapmentIdentifier"/> anywhere, ignoring case. A caller holding
+        /// only accessions -- a stored results file, which MetaMorpheus writes T/D/C without an entrapment
+        /// mark -- gets the same answer the search did. A decoy of an entrapment protein (DECOY_Random_X) is
+        /// entrapment too, so test decoy status separately. A database loaded with isEntrapment = true marks
+        /// proteins this cannot see: use <see cref="Protein.IsEntrapment"/> when the protein is at hand.
+        /// </summary>
+        /// <returns>False for a null or empty accession.</returns>
+        /// <exception cref="ArgumentException">The identifier is null or empty, which would make every accession entrapment.</exception>
+        public static bool IsEntrapmentAccession(string accession, string entrapmentIdentifier = "Random")
+        {
+            if (string.IsNullOrEmpty(entrapmentIdentifier))
+            {
+                throw new ArgumentException("An empty entrapment identifier would match every accession.", nameof(entrapmentIdentifier));
+            }
+            return !string.IsNullOrEmpty(accession)
+                && accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
         public static readonly FastaHeaderFieldRegex EnsemblAccessionRegex = new FastaHeaderFieldRegex("accession", @"([A-Z0-9_.]+)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblFullNameRegex = new FastaHeaderFieldRegex("fullName", @"(pep:.*)", 0, 1);
         public static readonly FastaHeaderFieldRegex EnsemblGeneNameRegex = new FastaHeaderFieldRegex("geneName", @"gene:([^ ]+)", 0, 1);
