@@ -204,6 +204,34 @@ public class PtmQtlTests
         var pairs = PtmPairEngine.CoVarying(SiteOccupancyCalculator.Calculate(obs), obs);
         Assert.That(pairs, Is.Empty);
     }
+
+    [Test]
+    public void CeilingCellsStayOutOfTypeAByDefault()
+    {
+        // Two sites opposed in five runs, and both seen only modified (ceilings at 1) in three low-load runs.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 5; r++)
+        {
+            occupancy.Add(Cell($"r{r}", 0.1 * (r + 1), site: s));
+            occupancy.Add(Cell($"r{r}", 0.1 * (5 - r), site: t));
+        }
+        for (int r = 5; r < 8; r++)
+        {
+            occupancy.Add(Cell($"r{r}", 1, unmodifiedQuantified: false, site: s));
+            occupancy.Add(Cell($"r{r}", 1, unmodifiedQuantified: false, site: t));
+        }
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), 0.5).Single();
+        Assert.That(pair.N, Is.EqualTo(5));
+        Assert.That(pair.Statistic, Is.EqualTo(-1).Within(1e-12));
+
+        // Kept, the shared ceilings tie at rank 7 in both sites: ρ = 20 / 40 from detection alone.
+        var withCeiling = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), 0.5, excludeCeiling: false).Single();
+        Assert.That(withCeiling.N, Is.EqualTo(8));
+        Assert.That(withCeiling.Statistic, Is.EqualTo(0.5).Within(1e-12));
+    }
+
     [Test]
     public void StoredOccupancyUsesTheReportedFractionAndFeedsTypeA()
     {

@@ -120,14 +120,21 @@ public static class PtmPairEngine
     /// <summary>
     /// Type A: Spearman correlation across runs between the occupancies of every pair of sites quantified in
     /// at least <paramref name="minQuantifiedFraction"/> of the scope's runs, on the runs where both are
-    /// quantified. Floors and undetected runs are not values and are left out. BH within each family, with
-    /// overlapping pairs excluded from the family.
+    /// quantified. Floors and undetected runs are not values and are left out, and so, by default, are ceilings
+    /// (runs where a site was seen only modified): two unrelated sites both read 1 in low-load runs, which would
+    /// correlate them through detection. BH within each family, with overlapping pairs excluded from the family.
     /// </summary>
     /// <param name="occupancy">Output of <see cref="SiteOccupancyCalculator.Calculate"/> for one scope.</param>
     /// <param name="observations">The same observations, used to decide which pairs overlap.</param>
     /// <param name="minQuantifiedFraction">The pair-scale guard of D4 (default 0.7).</param>
+    /// <param name="excludeCeiling">
+    /// Leave out a run where the site was seen only modified (occupancy 1 as a ceiling,
+    /// <see cref="SiteRunOccupancy.UnmodifiedQuantified"/> false), as <see cref="SiteTraitOptions.ExcludeCeiling"/>
+    /// does for traits. Default true.
+    /// </param>
     public static IReadOnlyList<PtmPair> CoVarying(IReadOnlyList<SiteRunOccupancy> occupancy,
-        IEnumerable<PeptidoformObservation> observations, double minQuantifiedFraction = DefaultMinQuantifiedFraction)
+        IEnumerable<PeptidoformObservation> observations, double minQuantifiedFraction = DefaultMinQuantifiedFraction,
+        bool excludeCeiling = true)
     {
         ArgumentNullException.ThrowIfNull(occupancy);
         ArgumentNullException.ThrowIfNull(observations);
@@ -136,7 +143,7 @@ public static class PtmPairEngine
         var runs = occupancy.Select(o => o.Run).Distinct().OrderBy(r => r, StringComparer.Ordinal).ToArray();
         var runIndex = runs.Select((r, i) => (r, i)).ToDictionary(t => t.r, t => t.i, StringComparer.Ordinal);
         var vectors = new Dictionary<ModificationSite, double[]>();
-        foreach (var o in occupancy.Where(o => o.State == OccupancyState.Quantified))
+        foreach (var o in occupancy.Where(o => o.State == OccupancyState.Quantified && (!excludeCeiling || o.UnmodifiedQuantified)))
         {
             if (!vectors.TryGetValue(o.Site, out var v))
                 vectors[o.Site] = v = Enumerable.Repeat(double.NaN, runs.Length).ToArray();
