@@ -302,6 +302,23 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void TwoNamesForOneSiteWithEqualRunsKeepTheFirstEngineKeyNotTheSmallerP()
+    {
+        // D1 has the pair under two names with equal N; "Common Biological:…" sorts before "UniProt:…" and is kept
+        // although the UniProt row has the smaller p, in either input order.
+        var common = ("D1", APair(Phos, 13, "P1", 43, "P2", 0.5, 0.1, 16));
+        var uniProt = ("D1", APair("UniProt:Phosphoserine on S", 13, "P1", 43, "P2", 0.8, 0.01, 16));
+        var d2 = ("D2", APair(Phos, 13, "P1", 43, "P2", 0.6, 0.04, 9));
+        double z1 = MathNet.Numerics.Distributions.Normal.InvCDF(0, 1, 1 - 0.05), z2 = MathNet.Numerics.Distributions.Normal.InvCDF(0, 1, 1 - 0.02);
+        foreach (var input in new[] { new[] { common, uniProt, d2 }, new[] { uniProt, common, d2 } })
+        {
+            var g = GlobalPairEngine.Combine(input, Canonical).Single();
+            Assert.That(g.CombinedZ, Is.EqualTo((4 * z1 + 3 * z2) / 5).Within(1e-10));
+            Assert.That(g.Statistic, Is.EqualTo(0.55).Within(1e-12), "median of 0.5 and 0.6");
+        }
+    }
+
+    [Test]
     public void OppositeCorrelationsCancelAndSingleDatasetPairsAreLeftOut()
     {
         var pairs = new[]

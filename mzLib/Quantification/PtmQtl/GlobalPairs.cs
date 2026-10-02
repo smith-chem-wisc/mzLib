@@ -74,7 +74,8 @@ public static class GlobalPairEngine
         if (minScopes < 1) throw new ArgumentOutOfRangeException(nameof(minScopes));
 
         // One row per (type, canonical pair, scope). Two engine names at one site can give one scope two
-        // rows for one canonical pair; the row with the most runs is kept, then the smaller p.
+        // rows for one canonical pair; the row with the most runs is kept, then the one whose engine site keys come
+        // first in ordinal order (not the smaller p, which would favour whichever name tested better).
         var rows = new Dictionary<(PairResultType, string, string), Dictionary<string, (PtmPair pair, string protA, string protB)>>();
         foreach (var (scope, p) in pairs)
         {
@@ -87,7 +88,7 @@ public static class GlobalPairEngine
             var key = (p.ResultType, a, b);
             if (!rows.TryGetValue(key, out var byScope)) rows[key] = byScope = new(StringComparer.Ordinal);
             if (!byScope.TryGetValue(scope, out var existing)
-                || p.N > existing.pair.N || (p.N == existing.pair.N && p.PValue < existing.pair.PValue))
+                || p.N > existing.pair.N || (p.N == existing.pair.N && EngineKeyOrder(p, existing.pair) < 0))
                 byScope[scope] = (p, pa, pb);
         }
 
@@ -150,6 +151,13 @@ public static class GlobalPairEngine
         if (twoSidedP < 0 || twoSidedP > 1)
             throw new ArgumentOutOfRangeException(nameof(twoSidedP), twoSidedP, "p-value is outside [0, 1].");
         return Math.Sign(effect) * -Normal.InvCDF(0, 1, Math.Max(twoSidedP / 2, double.Epsilon));
+    }
+
+    /// <summary>Ordinal order of two pairs by their engine site keys, first site then second.</summary>
+    private static int EngineKeyOrder(PtmPair x, PtmPair y)
+    {
+        int c = string.CompareOrdinal(x.SiteA.Key, y.SiteA.Key);
+        return c != 0 ? c : string.CompareOrdinal(x.SiteB.Key, y.SiteB.Key);
     }
 
     private static double Median(IEnumerable<double> values)
