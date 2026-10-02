@@ -173,7 +173,8 @@ public static class EntrapmentPeptideGenerator
         // about which argument was wrong.
         forbiddenSequences ??= NoForbiddenSequences;
 
-        BigInteger size = DecoySequenceValidator.PermutationSpaceSize(targetSequence, motifs, alsoHeldInPlace);
+        BigInteger identity = DecoySequenceValidator.RankPermutation(targetSequence, motifs, alsoHeldInPlace,
+            out BigInteger size);
 
         // One arrangement means the identity and nothing else. No fold count and no seed can help.
         if (size <= BigInteger.One)
@@ -208,7 +209,6 @@ public static class EntrapmentPeptideGenerator
         // whenever the guard above passes.
         BigInteger usable = size - BigInteger.One;
         BigInteger share = (usable - fold + foldCount - 1) / foldCount;
-        BigInteger identity = DecoySequenceValidator.RankPermutation(targetSequence, motifs, alsoHeldInPlace);
         BigInteger offset = DeriveOffset(targetSequence, seed, share);
 
         bool anyRejectedOnlyByContext = false;

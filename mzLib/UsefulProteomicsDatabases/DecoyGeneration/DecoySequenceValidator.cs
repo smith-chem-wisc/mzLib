@@ -362,17 +362,37 @@ public static class DecoySequenceValidator
     /// <param name="alsoHeldInPlace">Must match what was passed to <see cref="PermutationSpaceSize"/>
     /// and <see cref="UnrankPermutation"/>, or the rank will not mean the same thing.</param>
     public static BigInteger RankPermutation(string sequence, List<DigestionMotif> motifs,
-        IReadOnlyCollection<int>? alsoHeldInPlace = null)
+        IReadOnlyCollection<int>? alsoHeldInPlace = null) =>
+        RankPermutation(sequence, motifs, alsoHeldInPlace, out _);
+
+    /// <summary>
+    /// <see cref="RankPermutation(string, List{DigestionMotif}, IReadOnlyCollection{int})"/> and
+    /// <see cref="PermutationSpaceSize"/> together, from one pass over the held positions. The
+    /// entrapment generator needs both for every (piece, fold), and computing them separately found
+    /// the cleavage sites three times.
+    /// </summary>
+    internal static BigInteger RankPermutation(string sequence, List<DigestionMotif> motifs,
+        IReadOnlyCollection<int>? alsoHeldInPlace, out BigInteger size)
     {
         if (string.IsNullOrEmpty(sequence))
         {
+            size = BigInteger.One;
             return BigInteger.Zero;
         }
 
         HashSet<int> pinned = HeldPositions(sequence, motifs, alsoHeldInPlace);
-        SortedDictionary<char, int> counts = FreeResidueCounts(sequence, motifs, alsoHeldInPlace);
+        var counts = new SortedDictionary<char, int>();
+        for (int i = 0; i < sequence.Length; i++)
+        {
+            if (!pinned.Contains(i))
+            {
+                counts.TryGetValue(sequence[i], out int seen);
+                counts[sequence[i]] = seen + 1;
+            }
+        }
         List<char> residues = counts.Keys.ToList();
         BigInteger remainingPermutations = Multinomial(counts);
+        size = remainingPermutations;
         int remainingPositions = counts.Values.Sum();
         BigInteger rank = BigInteger.Zero;
 
