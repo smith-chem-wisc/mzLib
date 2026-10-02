@@ -21,7 +21,8 @@ namespace StatisticalModels
         /// Maximum marginal likelihood: s²_g / s0²_g ~ F(d_g, d0) with each feature's OWN residual df, maximized
         /// over d0 (∞ allowed) and s0² (or its trend). Unequal df, as omitting missing values produces, are
         /// handled exactly by the likelihood. An independent estimator, not limma's <c>fitFDistUnequalDF1</c>,
-        /// so its numbers differ from default limma's.
+        /// so its numbers differ from default limma's. d0 is searched from about 0.05 upward, so a reported
+        /// d0 at e^-3 ≈ 0.05 is that floor, not an interior optimum.
         /// </summary>
         MarginalLikelihood,
     }

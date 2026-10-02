@@ -30,7 +30,11 @@ namespace StatisticalModels
     /// </remarks>
     internal static class VariancePriorLikelihood
     {
-        /// <summary>Range searched for log d0 before refinement: d0 from about 0.05 to 1.2 million.</summary>
+        /// <summary>
+        /// Range searched for log d0: d0 from e^-3 (about 0.05) to e^14 (about 1.2 million). The result is
+        /// clamped to it: a likelihood still rising below the floor is reported as d0 ≈ e^-3, and above the
+        /// ceiling the choice is between e^14 and ∞.
+        /// </summary>
         private const double LogDfLow = -3, LogDfHigh = 14, LogDfStep = 0.25;
 
         /// <summary>Fits (γ, d0). Returns the prior df and the fitted log s0² per feature.</summary>
