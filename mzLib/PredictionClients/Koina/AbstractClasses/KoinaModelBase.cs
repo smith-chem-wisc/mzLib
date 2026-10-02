@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Text.RegularExpressions;
@@ -167,6 +167,11 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
     /// Handles incompatible modifications according to the specified ModHandlingMode.
     /// </summary>
+    /// <param name="apiSequence">The sequence as sent to Koina, in the model's API notation (for example UNIMOD).</param>
+    /// <returns>
+    /// The cleaned sequence in mzLib notation, exactly as predicted: the input's own modification labels, minus any
+    /// modification the handling mode removed. Null when the sequence is invalid for this model.
+    /// </returns>
     protected virtual string? TryCleanSequence(
         string sequence,
         out string? apiSequence,
@@ -233,8 +238,18 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         }
 
         apiSequence = serialized;
+
+        // The same sequence in mzLib notation, so a caller can rebuild the peptide that was predicted. When incompatible
+        // modifications were removed, keep only those the model's serializer accepts on their own: its rule, not a second one.
+        var predicted = ModHandlingMode == SequenceConversionHandlingMode.RemoveIncompatibleElements && cleaned.HasModifications
+            ? cleaned.WithModifications(cleaned.Modifications.Where(modification =>
+                SequenceConverter.Serialize(cleaned.WithModifications(new[] { modification }), new ConversionWarnings(),
+                    SequenceConversionHandlingMode.ReturnNull) != null))
+            : cleaned;
+        string? cleanedFullSequence = MzLibSequenceSerializer.Instance.Serialize(predicted, conversionWarnings, SequenceConversionHandlingMode.ThrowException);
+
         warning = BuildWarning(conversionWarnings, null);
-        return apiSequence;
+        return cleanedFullSequence;
     }
 
     #endregion
