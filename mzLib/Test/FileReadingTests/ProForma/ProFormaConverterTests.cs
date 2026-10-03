@@ -210,6 +210,22 @@ namespace Test.FileReadingTests.ProForma
         }
 
         [Test]
+        public void Layer2_LoadedPsiModAccession_IsWrittenWithOnePrefixAndReadsBack()
+        {
+            // The ptmlist loader stores a PSI-MOD reference already prefixed ("MOD:01956"), unlike the bare
+            // Unimod and RESID ids, so prefixing it again wrote "MOD:MOD:01956".
+            var known = Mods.AllModsKnownDictionary;
+            var mod = known["(3R)-3-hydroxyarginine on R"];
+            Assert.That(mod.DatabaseReference["PSI-MOD"], Does.Contain("MOD:01956"));
+
+            var term = ProFormaConverter.ToProFormaTerm("PERK", new Dictionary<int, Modification> { [4] = mod });
+            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("PER[MOD:01956]K"));
+
+            var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:01956]K"), known);
+            Assert.That(back[4], Is.SameAs(mod));
+        }
+
+        [Test]
         public void Layer2_RoundTrips_TerminalNameMods()
         {
             var nAcetyl = MakeTerminalMod("Acetyl", "N-terminal.", 42.01057);

@@ -152,12 +152,21 @@ namespace Readers.ProForma
                         if (DbKeyToProFormaPrefix.TryGetValue(dbKey, out var p)
                             && string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase)
                             && ids is { Count: > 0 })
-                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], $"{prefix}:{ids[0]}");
+                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], ToAccession(prefix, ids[0]));
                     }
                 }
             }
             return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, mod.OriginalId);
         }
+
+        /// <summary>
+        /// The ProForma accession for a database-reference id. PSI-MOD ids are stored already prefixed
+        /// (<c>"MOD:00304"</c>, from the ptmlist line <c>DR   PSI-MOD; MOD:00304.</c>), while Unimod and
+        /// RESID ids are bare (<c>"35"</c>, <c>"AA0299"</c>), so the prefix is added only when it is missing.
+        /// Prefixing unconditionally wrote <c>MOD:MOD:00304</c>.
+        /// </summary>
+        private static string ToAccession(string prefix, string id) =>
+            id.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ? id : $"{prefix}:{id}";
 
         /// <summary>
         /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).
@@ -174,7 +183,7 @@ namespace Readers.ProForma
                     if (!DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix)) continue;
                     foreach (var id in ids)
                     {
-                        string key = $"{prefix}:{id}".ToUpperInvariant();
+                        string key = ToAccession(prefix, id).ToUpperInvariant();
                         if (!index.TryGetValue(key, out var list))
                             index[key] = list = new List<Modification>();
                         list.Add(mod);
