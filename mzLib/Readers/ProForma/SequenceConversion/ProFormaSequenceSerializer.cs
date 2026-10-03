@@ -28,10 +28,16 @@ namespace Readers.ProForma
         /// </summary>
         private readonly Lazy<IModificationLookup> _lookup;
 
+        /// <summary>
+        /// The default lookup is <see cref="GlobalModificationLookup"/>, as for every other serializer.
+        /// <see cref="MzLibModificationLookup"/> searches only the MetaMorpheus modifications, so a
+        /// UniProt-named modification (<c>[UniProt:N-acetylserine on S]</c>) never resolved and was
+        /// written by name even when it has a UNIMOD accession.
+        /// </summary>
         private ProFormaSequenceSerializer(IModificationLookup? lookup = null)
         {
             _lookup = lookup is null
-                ? new Lazy<IModificationLookup>(() => MzLibModificationLookup.Instance)
+                ? new Lazy<IModificationLookup>(() => GlobalModificationLookup.Instance)
                 : new Lazy<IModificationLookup>(() => lookup);
         }
 
