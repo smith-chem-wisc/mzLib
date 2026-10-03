@@ -74,8 +74,17 @@ namespace Test.KoinaTests
             var method = model.GetType().GetMethod("TryCleanSequence", BindingFlags.NonPublic | BindingFlags.Instance)!;
             var args = new object?[] { sequence, parser, null, null };
             var result = (string?)method.Invoke(model, args);
-            apiSequence = (string?)args[2];
             warning = (WarningException?)args[3];
+
+            // The crosslink models send the validated sequence as it is.
+            if (model is CrosslinkFragmentIntensityModel)
+                apiSequence = result;
+            else if (args[2] is CanonicalSequence cleaned)
+                apiSequence = (string?)model.GetType()
+                    .GetMethod("SerializeKoinaSequence", BindingFlags.NonPublic | BindingFlags.Instance)!
+                    .Invoke(model, new object?[] { cleaned, null });
+            else
+                apiSequence = null;
             return result;
         }
     }
@@ -145,8 +154,9 @@ namespace Test.KoinaTests
             var fromMzLib = model.Clean("PEPTM[Common Variable:Oxidation on M]IDEK", null, out var mzLibApi, out var mzLibWarning);
             var fromProForma = model.Clean("PEPTM[UNIMOD:35]IDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
 
-            Assert.That(fromMzLib, Is.EqualTo("PEPTM[UNIMOD:35]IDEK"));
-            Assert.That(fromProForma, Is.EqualTo(fromMzLib));
+            Assert.That(fromMzLib, Is.EqualTo("PEPTM[Common Variable:Oxidation on M]IDEK"));
+            Assert.That(fromProForma, Is.EqualTo("PEPTM[UNIMOD:35]IDEK"));
+            Assert.That(mzLibApi, Is.EqualTo("PEPTM[UNIMOD:35]IDEK"));
             Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
             Assert.That(mzLibWarning, Is.Null);
             Assert.That(proFormaWarning, Is.Null);
@@ -165,6 +175,7 @@ namespace Test.KoinaTests
 
             Assert.That(fromMzLib, Is.EqualTo(expected));
             Assert.That(fromProForma, Is.EqualTo(expected));
+            Assert.That(mzLibApi, Is.EqualTo(expected));
             Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
             Assert.That(mzLibWarning, Is.Not.Null);
             Assert.That(proFormaWarning, Is.Not.Null);
@@ -186,27 +197,30 @@ namespace Test.KoinaTests
         {
             var model = new HcdProbe(SequenceConversionHandlingMode.RemoveIncompatibleElements);
 
-            var fromMzLib = model.Clean("PEP[Unimod:Oxidation on P]TM[Common Variable:Oxidation on M]IDEK", null, out _, out var mzLibWarning);
-            var fromProForma = model.Clean("PEP[UNIMOD:35]TM[UNIMOD:35]IDEK", ProFormaSequenceParser.Instance, out _, out var proFormaWarning);
+            var fromMzLib = model.Clean("PEP[Unimod:Oxidation on P]TM[Common Variable:Oxidation on M]IDEK", null, out var mzLibApi, out var mzLibWarning);
+            var fromProForma = model.Clean("PEP[UNIMOD:35]TM[UNIMOD:35]IDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
 
-            Assert.That(fromMzLib, Is.EqualTo("PEPTM[UNIMOD:35]IDEK"));
-            Assert.That(fromProForma, Is.EqualTo(fromMzLib));
+            Assert.That(fromMzLib, Is.EqualTo("PEPTM[Common Variable:Oxidation on M]IDEK"));
+            Assert.That(fromProForma, Is.EqualTo("PEPTM[UNIMOD:35]IDEK"));
+            Assert.That(mzLibApi, Is.EqualTo("PEPTM[UNIMOD:35]IDEK"));
+            Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
             Assert.That(mzLibWarning?.Message, Does.Contain("Oxidation on P"));
             Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:35"));
         }
 
         // The TMT label is allowed and required at the N-terminus, and has a token on K but none on S.
-        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
-        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[UNIMOD:737]-PEPSIDEK[UNIMOD:737]")]
-        public void Tmt_LabelOnUndeclaredResidue_LeavesTheRequiredNTerminalLabelAlone(SequenceConversionHandlingMode mode, string? expected)
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, null, null)]
+        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[Multiplex Label:TMT6-plex on X]PEPSIDEK[Multiplex Label:TMT6-plex on K]", "[UNIMOD:737]-PEPSIDEK[UNIMOD:737]")]
+        public void Tmt_LabelOnUndeclaredResidue_LeavesTheRequiredNTerminalLabelAlone(SequenceConversionHandlingMode mode, string? expectedMzLib, string? expected)
         {
             var model = new TmtProbe(mode);
 
             var fromMzLib = model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Unimod:TMT6plex on S]IDEK[Multiplex Label:TMT6-plex on K]", null, out var mzLibApi, out _);
             var fromProForma = model.Clean("[UNIMOD:737]-PEPS[UNIMOD:737]IDEK[UNIMOD:737]", ProFormaSequenceParser.Instance, out var proFormaApi, out _);
 
-            Assert.That(fromMzLib, Is.EqualTo(expected));
+            Assert.That(fromMzLib, Is.EqualTo(expectedMzLib));
             Assert.That(fromProForma, Is.EqualTo(expected));
+            Assert.That(mzLibApi, Is.EqualTo(expected));
             Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
         }
 
@@ -216,7 +230,11 @@ namespace Test.KoinaTests
                 : base(modHandlingMode: mode) { }
 
             public string? Clean(string sequence, ISequenceParser? sourceParser, out string? api, out WarningException? warning)
-                => TryCleanSequence(sequence, sourceParser, out api, out warning);
+            {
+                var validated = TryCleanSequence(sequence, sourceParser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
         }
 
         private sealed class TmtProbe : Prosit2020IntensityTMT
@@ -225,7 +243,11 @@ namespace Test.KoinaTests
                 : base(modHandlingMode: mode) { }
 
             public string? Clean(string sequence, ISequenceParser? sourceParser, out string? api, out WarningException? warning)
-                => TryCleanSequence(sequence, sourceParser, out api, out warning);
+            {
+                var validated = TryCleanSequence(sequence, sourceParser, out var koinaSequence, out warning);
+                api = koinaSequence is { } cleaned ? SerializeKoinaSequence(cleaned, out _) : null;
+                return validated;
+            }
         }
     }
 

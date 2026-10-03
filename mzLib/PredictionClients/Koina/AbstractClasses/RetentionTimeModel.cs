@@ -14,6 +14,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
+    /// <param name="ValidatedFullSequence">The sequence that was predicted, in the same format as FullSequence (see <see cref="SequenceParser"/>), with modifications equivalent to those sent to Koina, minus any that mod handling removed. Modifications the input identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity resolved for Koina (ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); names the format's serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes <c>Multiplex Label:TMT6-plex on X</c>). Null if the input was invalid for the model. This is not the string sent to Koina, which the model writes in its own notation.</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
@@ -23,7 +24,14 @@ namespace PredictionClients.Koina.AbstractClasses
         double? PredictedRetentionTime,
         bool? IsIndexed,
         WarningException? Warning = null
-    );
+    )
+    {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
+        /// Null means mzLib syntax, as on <see cref="RetentionTimePredictionInput.SequenceParser"/>.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
+    }
 
     /// <summary>
     /// Represents the input parameters for retention time prediction models from the Koina API.
@@ -37,8 +45,14 @@ namespace PredictionClients.Koina.AbstractClasses
         /// own converter parser. E.g. set to <c>ProFormaSequenceParser.Instance</c> for ProForma input.
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
+        /// <summary>
+        /// The cleaned sequence in <see cref="FullSequence"/>'s format with equivalent modifications, set during prediction; see
+        /// <see cref="PeptideRTPrediction.ValidatedFullSequence"/>.
+        /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
+        internal CanonicalSequence? CleanedSequence { get; init; }
+        internal string? KoinaSequence { get; init; }
     }
 
     /// <summary>
@@ -60,7 +74,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Derived classes need to implement:
     /// - Model metadata (name, batch size, constraints)
     /// - Constructor that handles input data properties (sequences)
-    /// - Request formatting method (ToBatchedRequests)
+    /// - Request formatting method (ToBatchedRequests), reading each input's sequence with <see cref="GetKoinaSequence"/>
     /// - Model-specific modification handling if needed
     ///
     /// Thread safety: instances are NOT thread-safe. Predict/PredictRetentionTimeEquivalent/PredictRetentionTimeEquivalents
@@ -74,6 +88,14 @@ namespace PredictionClients.Koina.AbstractClasses
             : base(sequenceConverter)
         {
         }
+
+        /// <summary>
+        /// The sequence to send to Koina for <paramref name="input"/>, in the model's own notation. Implementations of
+        /// ToBatchedRequests read it here, not from ValidatedFullSequence, which is in the input's own format; it is set
+        /// for every input the prediction pipeline passes to ToBatchedRequests.
+        /// </summary>
+        protected static string GetKoinaSequence(RetentionTimePredictionInput input) =>
+            input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
         #region Model-Specific Properties
         /// <summary>
@@ -123,17 +145,15 @@ namespace PredictionClients.Koina.AbstractClasses
 
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
-            var validInputs = new List<RetentionTimePredictionInput>();
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning);
+                var validatedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var koinaSequence, out var modHandlingWarning);
 
-                if (cleanedSequence != null && apiSequence != null)
+                if (validatedSequence != null && koinaSequence != null)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = validatedSequence, CleanedSequence = koinaSequence, SequenceWarning = modHandlingWarning };
                     ValidInputsMask[i] = true;
-                    validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
@@ -142,6 +162,23 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
             #endregion
+
+            var validInputs = new List<RetentionTimePredictionInput>();
+            for (int i = 0; i < ModelInputs.Count; i++)
+            {
+                if (!ValidInputsMask[i])
+                    continue;
+
+                var koinaSequence = SerializeKoinaSequence(ModelInputs[i].CleanedSequence!.Value, out var serializationWarning);
+                if (koinaSequence == null)
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = serializationWarning };
+                    ValidInputsMask[i] = false;
+                    continue;
+                }
+                ModelInputs[i] = ModelInputs[i] with { KoinaSequence = koinaSequence };
+                validInputs.Add(ModelInputs[i]);
+            }
 
             var predictions = new List<PeptideRTPrediction>();
             if (validInputs.Count > 0)
@@ -192,7 +229,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         PredictedRetentionTime: null,
                         IsIndexed: null,
                         Warning: ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
-                    ));
+                    ) { SequenceParser = ModelInputs[i].SequenceParser });
                 }
             }
             #endregion
@@ -273,7 +310,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     PredictedRetentionTime: Convert.ToDouble(rtOutputs[i]),
                     IsIndexed: IsIndexedRetentionTimeModel,
                     Warning: requestInputs[i].SequenceWarning
-                ));
+                ) { SequenceParser = requestInputs[i].SequenceParser });
             }
 
             return predictions;
@@ -318,8 +355,8 @@ namespace PredictionClients.Koina.AbstractClasses
 
             try
             {
-                var cleaned = TryCleanSequence(peptide.FullSequence, null, out var apiSequence, out _);
-                if (cleaned != null && apiSequence != null)
+                var cleaned = TryCleanSequence(peptide.FullSequence, null, out var koinaSequence, out _);
+                if (cleaned != null && koinaSequence != null && SerializeKoinaSequence(koinaSequence.Value, out _) is { } apiSequence)
                     return apiSequence;
             }
             catch (Exception)

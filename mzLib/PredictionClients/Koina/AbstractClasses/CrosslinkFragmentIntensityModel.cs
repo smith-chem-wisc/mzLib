@@ -107,26 +107,25 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 // Crosslink inputs never go through ISequenceParser (see the TryCleanSequence override
                 // below), so there is no per-input source parser to thread through here.
-                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out var apiAlpha, out var alphaWarning);
+                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out _, out var alphaWarning);
 
                 string? cleanedBeta = null;
-                string? apiBeta = null;
                 WarningException? betaWarning = null;
                 bool betaOk = true;
                 if (RequiresBetaSequence && ModelInputs[i].BetaSequence != null)
                 {
-                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out apiBeta, out betaWarning);
-                    betaOk = cleanedBeta != null && apiBeta != null;
+                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out _, out betaWarning);
+                    betaOk = cleanedBeta != null;
                 }
 
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var parameterWarning);
 
-                if (cleanedAlpha != null && apiAlpha != null && betaOk && validModelParams)
+                if (cleanedAlpha != null && betaOk && validModelParams)
                 {
                     ModelInputs[i] = ModelInputs[i] with
                     {
-                        ValidatedAlphaSequence = apiAlpha,
-                        ValidatedBetaSequence = apiBeta,
+                        ValidatedAlphaSequence = cleanedAlpha,
+                        ValidatedBetaSequence = cleanedBeta,
                         AlphaSequenceWarning = alphaWarning,
                         BetaSequenceWarning = betaWarning,
                         ParameterWarning = parameterWarning
@@ -218,7 +217,8 @@ namespace PredictionClients.Koina.AbstractClasses
         }
 
         /// <summary>
-        /// Override to preserve crosslink modification annotations in the API sequence.
+        /// Override to preserve crosslink modification annotations in the API sequence, which is the input itself: it
+        /// is returned unchanged when valid, and there is no <paramref name="koinaSequence"/>.
         /// The standard converter would strip the crosslink UNIMOD markers (e.g. UNIMOD:1881,
         /// UNIMOD:1896, UNIMOD:1898) because they aren't in the mzLib local mod database — but
         /// Koina's helper models require those markers in place to determine the crosslink
@@ -234,10 +234,10 @@ namespace PredictionClients.Koina.AbstractClasses
         protected override string? TryCleanSequence(
             string sequence,
             ISequenceParser? sourceParser,
-            out string? apiSequence,
+            out CanonicalSequence? koinaSequence,
             out WarningException? warning)
         {
-            apiSequence = null;
+            koinaSequence = null;
             warning = null;
 
             var rawBase = BaseStripper.Replace(sequence, string.Empty);
@@ -275,8 +275,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 return null;
             }
 
-            apiSequence = sequence;
-            return apiSequence;
+            return sequence;
         }
 
         protected virtual bool ValidateModelSpecificInputs(CrosslinkIntensityPredictionInput input, out WarningException? warning)

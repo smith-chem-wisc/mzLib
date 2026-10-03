@@ -1,4 +1,6 @@
 ﻿using MzLibUtil;
+using Omics.Digestion;
+using Omics.Modifications;
 using Omics.SequenceConversion;
 using Omics.Fragmentation;
 using Omics.SpectrumMatch;
@@ -7,6 +9,7 @@ using Readers.SpectralLibrary;
 using System.ComponentModel;
 using Chemistry;
 using PredictionClients.Koina.Interfaces;
+using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Easy.Common.Extensions;
 using PredictionClients.Koina.Util;
@@ -45,7 +48,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">Validated and cleaned peptide sequence that was actually used for prediction (Unimod format). This may also differ from the original FullSequence if modifications were removed or if the sequence was deemed invalid for the model. This is the sequence that reflects the actual input to the model.</param>
+    /// <param name="ValidatedFullSequence">The sequence that was predicted, in the same format as FullSequence (see <see cref="SequenceParser"/>), with modifications equivalent to those sent to Koina, minus any that mod handling removed. Modifications the input identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity resolved for Koina (ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); names the format's serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes <c>Multiplex Label:TMT6-plex on X</c>). Null if the input was invalid for the model. This is not the string sent to Koina, which the model writes in its own notation.</param>
     /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
@@ -58,7 +61,14 @@ namespace PredictionClients.Koina.AbstractClasses
         List<double>? FragmentMZs,
         List<double>? FragmentIntensities,
         WarningException? Warning = null
-    );
+    )
+    {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
+        /// Null means mzLib syntax, as on <see cref="FragmentIntensityPredictionInput.SequenceParser"/>.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
+    }
 
     /// <summary>
     /// Represents all input parameters for the fragment intensity prediction models from the Koina API.
@@ -86,9 +96,15 @@ namespace PredictionClients.Koina.AbstractClasses
         /// for the full contract.
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
+        /// <summary>
+        /// The cleaned sequence in <see cref="FullSequence"/>'s format with equivalent modifications, set during prediction; see
+        /// <see cref="PeptideFragmentIntensityPrediction.ValidatedFullSequence"/>.
+        /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
+        internal CanonicalSequence? CleanedSequence { get; init; }
+        internal string? KoinaSequence { get; init; }
     }
 
     /// <summary>
@@ -103,7 +119,8 @@ namespace PredictionClients.Koina.AbstractClasses
     /// peptide for large amounts of peptides, socket exhaustion may occur.
     /// 
     /// In most cases, users will only need to implement a constructor to properly set up the model parameters
-    /// and a ToBatchedRequests method to batch requests according to the specific model's input format.
+    /// and a ToBatchedRequests method to batch requests according to the specific model's input format, reading each
+    /// input's sequence with <see cref="GetKoinaSequence"/>.
     ///
     /// Thread safety: instances are NOT thread-safe. Predict and related methods
     /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
@@ -117,6 +134,14 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
+
+        /// <summary>
+        /// The sequence to send to Koina for <paramref name="input"/>, in the model's own notation. Implementations of
+        /// ToBatchedRequests read it here, not from ValidatedFullSequence, which is in the input's own format; it is set
+        /// for every input the prediction pipeline passes to ToBatchedRequests.
+        /// </summary>
+        protected static string GetKoinaSequence(FragmentIntensityPredictionInput input) =>
+            input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
         #region Additional Model-Type Constraints
         /// <summary>
@@ -190,7 +215,9 @@ namespace PredictionClients.Koina.AbstractClasses
         /// This is used for realigning predictions back to the original input list and for filtering out invalid inputs from the prediction results.
         /// The mask is populated during the PredictAsync workflow after validating each input against the model's constraints (e.g., allowed precursor charges, collision energies, etc.). 
         /// A value of 'true' at index i indicates that the input at index i in ModelInputs was valid and included in the prediction process, 
-        /// while 'false' indicates that it was filtered out due to incompatibility with the model. 
+        /// while 'false' indicates that it was filtered out due to incompatibility with the model, or, under
+        /// <see cref="FragmentIonMappingMode.MapToInputFullSequence"/>, that its peptide couldn't be built to map the
+        /// predicted fragments onto. 
         /// This allows for better handling of mixed input lists where some entries may not meet the model's requirements, without losing track of their original positions in the input list.
         /// </summary>
         public bool[] ValidInputsMask { get; protected set; } = Array.Empty<bool>();
@@ -303,16 +330,14 @@ namespace PredictionClients.Koina.AbstractClasses
 
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
-            var validInputs = new List<FragmentIntensityPredictionInput>();
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var apiSequence, out var modHandlingWarning); // mod handling happens here
+                var validatedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var koinaSequence, out var modHandlingWarning); // mod handling happens here
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var modelParametersWarning);
-                if (cleanedSequence != null && apiSequence != null && validModelParams)
+                if (validatedSequence != null && koinaSequence != null && validModelParams)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = validatedSequence, CleanedSequence = koinaSequence, SequenceWarning = modHandlingWarning, ParameterWarning = modelParametersWarning };
                     ValidInputsMask[i] = true;
-                    validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
@@ -321,6 +346,23 @@ namespace PredictionClients.Koina.AbstractClasses
                 }
             }
             #endregion
+
+            var validInputs = new List<FragmentIntensityPredictionInput>();
+            for (int i = 0; i < ModelInputs.Count; i++)
+            {
+                if (!ValidInputsMask[i])
+                    continue;
+
+                var koinaSequence = SerializeKoinaSequence(ModelInputs[i].CleanedSequence!.Value, out var serializationWarning);
+                if (koinaSequence == null)
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = serializationWarning };
+                    ValidInputsMask[i] = false;
+                    continue;
+                }
+                ModelInputs[i] = ModelInputs[i] with { KoinaSequence = koinaSequence };
+                validInputs.Add(ModelInputs[i]);
+            }
 
             var predictions = new List<PeptideFragmentIntensityPrediction>();
             if (validInputs.Count > 0)
@@ -356,7 +398,10 @@ namespace PredictionClients.Koina.AbstractClasses
             {
                 if (ValidInputsMask[i])
                 {
-                    realignedPredictions.Add(predictions[predictionIndex]);
+                    var prediction = predictions[predictionIndex];
+                    // ResponseToPredictions returns no fragments for a prediction it could not map onto its peptide.
+                    ValidInputsMask[i] = prediction.FragmentAnnotations != null;
+                    realignedPredictions.Add(prediction);
                     predictionIndex++;
                 }
                 else
@@ -370,7 +415,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         FragmentMZs: null,
                         FragmentIntensities: null,
                         Warning: ModelInputs[i].ParameterWarning ?? ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
-                    ));
+                    ) { SequenceParser = ModelInputs[i].SequenceParser });
                 }
             }
             #endregion
@@ -477,7 +522,7 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = peptide.SequenceWarning });
+                        { Warning = peptide.SequenceWarning, SequenceParser = peptide.SequenceParser });
                     }
                 }
                 else // FragmentIonMappingMode == FragmentIonMappingMode.MapToInputFullSequence
@@ -485,7 +530,20 @@ namespace PredictionClients.Koina.AbstractClasses
                     for (int i = 0; i < batchPeptides.Count; i++)
                     {
                         var peptide = batchPeptides[i];
-                        var pwsm = new PeptideWithSetModifications(peptide.FullSequence);
+                        var pwsm = TryBuildPeptide(peptide.FullSequence, peptide.SequenceParser, out var buildWarning);
+                        if (pwsm == null)
+                        {
+                            predictions.Add(new PeptideFragmentIntensityPrediction(
+                                peptide.FullSequence,
+                                peptide.ValidatedFullSequence!,
+                                peptide.PrecursorCharge,
+                                null,
+                                null,
+                                null,
+                                buildWarning
+                            ) { SequenceParser = peptide.SequenceParser });
+                            continue;
+                        }
                         List<Product> theoreticalProducts = new();
                         pwsm.Fragment(MassSpectrometry.DissociationType.HCD, FragmentationTerminus.Both, theoreticalProducts, fragmentationParams: _noMIonParams);
                         Dictionary<string, Product> tpLookup = theoreticalProducts.DistinctBy(tp => tp.Annotation).ToDictionary(tp => tp.Annotation);
@@ -532,11 +590,133 @@ namespace PredictionClients.Koina.AbstractClasses
                             fragmentMZs,
                             predictedIntensities
                         ) with
-                        { Warning = peptide.SequenceWarning });
+                        { Warning = peptide.SequenceWarning, SequenceParser = peptide.SequenceParser });
                     }
                 }
             }
             return predictions;
+        }
+
+        /// <summary>
+        /// Builds the peptide whose fragments a prediction is mapped onto, from a sequence in the format
+        /// <paramref name="sequenceParser"/> reads (null: the model's own parser, mzLib syntax): each modification is
+        /// resolved to a <see cref="Modification"/> (see <see cref="ResolveModificationObject"/>) and keyed where it
+        /// was parsed (see <see cref="BuildPeptide"/>). When it can't, throws in ThrowException mode and otherwise
+        /// returns null with a warning.
+        /// </summary>
+        private PeptideWithSetModifications? TryBuildPeptide(string sequence, ISequenceParser? sequenceParser, out WarningException? warning)
+        {
+            warning = null;
+            string reason;
+            try
+            {
+                var canonical = (sequenceParser ?? SequenceConverter.Parser).Parse(sequence, null, SequenceConversionHandlingMode.ThrowException)!.Value;
+                var modifications = canonical.Modifications
+                    .Select(mod => (Parsed: mod, Modification: ResolveModificationObject(mod)))
+                    .ToList();
+                var unresolved = modifications.Where(m => m.Modification == null).Select(m => m.Parsed.ToString()).ToList();
+                if (unresolved.Count == 0)
+                    return BuildPeptide(canonical.BaseSequence, modifications.Select(m => (m.Parsed, m.Modification!)));
+                reason = $"no modification found for {string.Join(", ", unresolved)}";
+            }
+            catch (SequenceConversionException ex)
+            {
+                reason = ex.Message;
+            }
+
+            var message = $"Could not build the peptide '{sequence}' to map its predicted fragments onto: {reason}";
+            HandleFailure(ModHandlingMode, message);
+            warning = new WarningException(message);
+            return null;
+        }
+
+        /// <summary>
+        /// Finds the mzLib <see cref="Modification"/> a parsed modification stands for, to build a peptide from.
+        /// <para>An mzLib name is a modification mzLib knows when its text, or else its text after the first colon, is
+        /// an id of mzLib's protein modification dictionary. Of the modifications with that id, the first that can sit
+        /// where the modification does is used, in this order: the dictionaries' own entry (what reading the name in
+        /// mzLib syntax gives) if it has the name's type, the others of the name's type (so the peptide's full
+        /// sequence repeats the name), the dictionaries' entry under its own type, and the rest. Any modification can
+        /// sit on a residue, as when reading the name; at a terminus, only one of that terminus's class.</para>
+        /// <para>Anything else (ProForma ids, names and masses; mzLib names mzLib doesn't know or whose modifications
+        /// can't sit there) is resolved through the model's own lookup, as it was for Koina, and failing that through
+        /// all of UNIMOD and then all of mzLib's protein catalogs (UNIMOD, UniProt and MetaMorpheus's protein
+        /// modifications), which find the modifications the model doesn't allow but an input that mod handling cleaned
+        /// still carries. Only protein modifications are considered. Null when none finds it.</para>
+        /// </summary>
+        private Modification? ResolveModificationObject(CanonicalModification mod)
+        {
+            if (mod.MzLibId is { } name && KnownModification(name) is { } named)
+            {
+                var sameId = KnownModificationsById.Value[named.Id];
+                var sameType = sameId.Where(m => named.Type == null || m.ModificationType == named.Type).ToList();
+                var candidates = sameType.Contains(named.DictionaryEntry) ? sameType.Prepend(named.DictionaryEntry) : sameType;
+                if (candidates.Append(named.DictionaryEntry).Concat(sameId).FirstOrDefault(m => CanSit(m, mod)) is { } known)
+                    return known;
+            }
+
+            return SequenceConverter.Serializer.ModificationLookup?.TryResolve(mod)?.MzLibModification
+                ?? UnimodModificationLookup.Instance.TryResolve(mod)?.MzLibModification
+                ?? ProteinModificationLookup.Instance.TryResolve(mod)?.MzLibModification;
+        }
+
+        private static (string? Type, string Id, Modification DictionaryEntry)? KnownModification(string name)
+        {
+            if (TryGetDictionaryEntry(name.Trim(), out var whole))
+                return (null, name.Trim(), whole);
+
+            var separator = name.IndexOf(':');
+            if (separator <= 0)
+                return null;
+            var id = name[(separator + 1)..].Trim();
+            return TryGetDictionaryEntry(id, out var entry) ? (name[..separator].Trim(), id, entry) : null;
+        }
+
+        private static bool TryGetDictionaryEntry(string id, out Modification modification) =>
+            Mods.AllKnownProteinModsDictionary.TryGetValue(id, out modification!);
+
+        private static readonly Lazy<ILookup<string, Modification>> KnownModificationsById = new(() =>
+            Mods.AllProteinModsList
+                .Where(m => !string.IsNullOrEmpty(m.IdWithMotif))
+                .ToLookup(m => m.IdWithMotif));
+
+        private static bool CanSit(Modification modification, CanonicalModification mod) =>
+            mod.PositionType switch
+            {
+                ModificationPositionType.NTerminus => IsNTerminal(modification),
+                ModificationPositionType.CTerminus => IsCTerminal(modification),
+                _ => true
+            };
+
+        private static bool IsNTerminal(Modification modification) =>
+            modification.LocationRestriction?.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) == true;
+
+        private static bool IsCTerminal(Modification modification) =>
+            modification.LocationRestriction?.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) == true;
+
+        /// <summary>
+        /// Builds a peptide from its base sequence and modification objects, keyed the way
+        /// <see cref="PeptideWithSetModifications"/> numbers them: the N-terminus is 1, the residue at zero-based index i
+        /// is i + 2, and the C-terminus is the length + 2. Like reading a full sequence, a C-terminal modification
+        /// written on the last residue is keyed at the C-terminus, unless a modification is there already.
+        /// </summary>
+        private static PeptideWithSetModifications BuildPeptide(string baseSequence,
+            IEnumerable<(CanonicalModification Parsed, Modification Modification)> modifications)
+        {
+            var list = modifications.ToList();
+            var cTerminusTaken = list.Any(m => m.Parsed.PositionType == ModificationPositionType.CTerminus);
+            var allModsOneIsNterminus = list.ToDictionary(
+                m => m.Parsed.PositionType switch
+                {
+                    ModificationPositionType.NTerminus => 1,
+                    ModificationPositionType.CTerminus => baseSequence.Length + 2,
+                    _ when !cTerminusTaken && IsCTerminal(m.Modification) && m.Parsed.ResidueIndex == baseSequence.Length - 1 => baseSequence.Length + 2,
+                    _ => m.Parsed.ResidueIndex!.Value + 2
+                },
+                m => m.Modification);
+            var protein = new Protein(baseSequence, "KoinaPrediction");
+            return new PeptideWithSetModifications(protein, null, 1, baseSequence.Length, CleavageSpecificity.Full, null, 0,
+                allModsOneIsNterminus, 0, baseSequence);
         }
         #endregion
 
@@ -676,13 +856,22 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <remarks>
         /// The conversion process:
-        /// 1. Converts sequence format: UNIMOD -> mzLib -> mass-only for Peptide object creation
+        /// 1. Builds the peptide from ValidatedFullSequence (or FullSequence, per FragmentIonMappingMode), read with the
+        ///    prediction's SequenceParser, from modification objects kept where they were parsed. A prediction whose
+        ///    peptide can't be built throws in ThrowException mode; otherwise it is skipped, and the reason recorded in
+        ///    the warning.
         /// 2. Parses each fragment annotation to determine ion properties
         /// 3. Creates MatchedFragmentIon objects with experimental m/z and predicted intensities
         /// 4. Builds LibrarySpectrum with precursor information and fragment data
         /// 5. Validates uniqueness of generated spectra by name
+        ///
+        /// Each spectrum is labeled with the built peptide's full sequence, <c>Type:Id</c> for each modification. An mzLib
+        /// name keeps its text when mzLib has a modification of that type and id; a known id under a type mzLib doesn't
+        /// pair it with is labeled with mzLib's own type (<c>Common Fixed:TMT6plex on K</c> becomes
+        /// <c>Unimod:TMT6plex on K</c>); and modifications from other formats, or mzLib names mzLib doesn't know, are
+        /// labeled with the names the modification lookup picks.
         /// </remarks>
-        /// <exception cref="WarningException">Recorded in the out parameter when duplicate spectra are detected in predictions</exception>
+        /// <exception cref="WarningException">Recorded in the out parameter when predictions are skipped or duplicate spectra are detected</exception>
         public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double?[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)
         {
             warning = null;
@@ -708,13 +897,19 @@ namespace PredictionClients.Koina.AbstractClasses
             }
 
             var predictedSpectra = new List<LibrarySpectrum>();
+            var messages = new List<string>();
             for (int predictionIndex = 0; predictionIndex < predictions.Count; predictionIndex++)
             {
                 var prediction = predictions[predictionIndex];
 
-                PeptideWithSetModifications peptide = FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence 
-                    ? new PeptideWithSetModifications(prediction.ValidatedFullSequence) 
-                    : new PeptideWithSetModifications(prediction.FullSequence);
+                var peptide = TryBuildPeptide(
+                    FragmentIonMappingMode == FragmentIonMappingMode.MapToValidatedFullSequence ? prediction.ValidatedFullSequence : prediction.FullSequence,
+                    prediction.SequenceParser, out var buildWarning);
+                if (peptide == null)
+                {
+                    messages.Add(buildWarning!.Message);
+                    continue;
+                }
                 List<MatchedFragmentIon> fragmentIons = new();
 
                 List<Product> theoreticalProducts = new();
@@ -794,16 +989,13 @@ namespace PredictionClients.Koina.AbstractClasses
             var unique = predictedSpectra.DistinctBy(p => p.Name).ToList();
             if (unique.Count != predictedSpectra.Count)
             {
-                warning = new WarningException($"Duplicate spectra found in predictions. Reduced from {predictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
+                messages.Add($"Duplicate spectra found in predictions. Reduced from {predictedSpectra.Count} predicted spectra to {unique.Count} unique spectra.");
                 predictedSpectra = unique;
             }
 
 			if (filepath == null)
 			{
-				var noFilePathMessage = "No file path provided for spectral library output. Generated spectra will not be saved to disk.";
-				warning = warning == null
-					? new WarningException(noFilePathMessage)
-					: new WarningException($"{warning.Message} {noFilePathMessage}");
+				messages.Add("No file path provided for spectral library output. Generated spectra will not be saved to disk.");
 			}
 			else if (MslFileTypeHandler.IsMslFile(filepath))
 			{
@@ -816,6 +1008,7 @@ namespace PredictionClients.Koina.AbstractClasses
 				spectralLibrary.WriteResults(filepath);
 			}
 
+			warning = messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
 			return predictedSpectra;
         }
         #endregion

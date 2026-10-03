@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Omics.Modifications;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.Client;
+using Readers.ProForma;
 
 namespace PredictionClients.Koina.AbstractClasses;
 
@@ -108,7 +109,8 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <returns>List of request dictionaries, each containing a batch of sequences and parameters</returns>
     /// <remarks>
     /// Each dictionary in the returned list represents one API request batch and should contain:
-    /// - Peptide sequences (formatted according to model requirements)
+    /// - Peptide sequences (formatted according to model requirements): each input's Koina sequence, from the model
+    ///   family's GetKoinaSequence, not its ValidatedFullSequence, which is in the input's own format
     /// - Model-specific parameters (e.g., charge states, collision energies, NCE values)
     /// - Any additional metadata required by the specific Koina model
     /// Must ensure that only the validated sequences that meet the model's constraints are included in the batches. 
@@ -188,24 +190,41 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
     #region Validation and Modification Handling
     /// <summary>
-    /// Validates a peptide sequence against model constraints and builds the sequence sent to Koina, in four steps:
-    /// separate the modifications from the residues using the source format's own brackets; check the residues;
-    /// resolve every modification and check it is allowed, and that any required one is present; serialize.
-    /// Incompatible modifications are handled according to <see cref="ModHandlingMode"/>.
+    /// Validates a peptide sequence against model constraints and cleans it, in four steps: separate the
+    /// modifications from the residues using the source format's own brackets; check the residues; resolve every
+    /// modification and check it is allowed, and that any required one is present; write the cleaned sequence back
+    /// in the source format. Incompatible modifications are handled according to <see cref="ModHandlingMode"/>.
     /// </summary>
     /// <param name="sequence">The raw input sequence string, in the format <paramref name="sourceParser"/> (or the
     /// model's default converter parser, when null) understands.</param>
-    /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser. The model's
-    /// own serializer always produces the output, regardless of which parser is used here.</param>
+    /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser.</param>
+    /// <param name="koinaSequence">The cleaned sequence with every modification resolved, which
+    /// <see cref="SerializeKoinaSequence"/> turns into the sequence sent to Koina.</param>
+    /// <returns>The cleaned sequence in the source format, written with the serializer registered for the parser's
+    /// format, with modifications equivalent to those in <paramref name="koinaSequence"/>. Modifications the input
+    /// identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity
+    /// resolved for Koina (a ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); and names the format's
+    /// serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes
+    /// <c>Multiplex Label:TMT6-plex on X</c>). Null when the sequence is invalid for this model.</returns>
     protected virtual string? TryCleanSequence(
         string sequence,
         ISequenceParser? sourceParser,
-        out string? apiSequence,
+        out CanonicalSequence? koinaSequence,
         out WarningException? warning)
     {
-        apiSequence = null;
+        koinaSequence = null;
         warning = null;
         var parser = sourceParser ?? SequenceConverter.Parser;
+
+        var sourceSerializer = GetSourceSerializer(parser);
+        if (sourceSerializer == null)
+        {
+            var message = $"No sequence serializer is registered for the '{parser.FormatName}' format, " +
+                          "so the validated sequence can't be written in it.";
+            HandleFailure(ModHandlingMode, message);
+            warning = new WarningException(message);
+            return null;
+        }
 
         var residues = SeparateResidues(sequence, parser.Schema);
         if (!IsValidBaseSequence(residues, AllowedAminoAcidPattern, MinPeptideLength, MaxPeptideLength))
@@ -246,13 +265,19 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         // Resolve every modification here rather than during serialization, so modifications from any source
         // format (pre-identified ProForma UNIMOD:N tokens or mzLib names) pass through the same check.
         var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
+        var acceptedAsParsed = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id))
                 && AllowedModificationTokens?.Contains(ModificationToken(resolved, id, cleaned.BaseSequence)) != false)
+            {
                 accepted.Add(resolved);
+                // A mass alone could be resolved again by the source serializer into a different modification, so it
+                // carries the UNIMOD identity Koina is sent.
+                acceptedAsParsed.Add(IsMassOnly(mod) ? mod with { UnimodId = resolved.UnimodId } : mod);
+            }
             else
                 incompatible.Add(resolved);
         }
@@ -272,10 +297,10 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             foreach (var mod in incompatible)
                 conversionWarnings.AddWarning($"Removing unsupported modification: {mod}");
         }
-        cleaned = cleaned.WithModifications(accepted);
+        var resolvedSequence = cleaned.WithModifications(accepted);
 
         if (RequiredNTerminalUnimodIds is { } required
-            && (cleaned.NTerminalModification?.UnimodId is not int nTermId || (required.Count > 0 && !required.Contains(nTermId))))
+            && (resolvedSequence.NTerminalModification?.UnimodId is not int nTermId || (required.Count > 0 && !required.Contains(nTermId))))
         {
             var message = required.Count == 0
                 ? "Sequence must carry an N-terminal modification."
@@ -285,11 +310,38 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
+        // Written from the modifications as parsed rather than as resolved, which carry the lookup's names, and strictly,
+        // so it can't silently lose a modification that Koina is sent.
+        string? validated;
+        try
+        {
+            validated = sourceSerializer.Serialize(cleaned.WithModifications(acceptedAsParsed), conversionWarnings,
+                SequenceConversionHandlingMode.ThrowException);
+        }
+        catch (SequenceConversionException ex)
+        {
+            var message = $"Failed to write the cleaned sequence in the {sourceSerializer.FormatName} format: {ex.Message}";
+            HandleFailure(ModHandlingMode, message);
+            warning = BuildWarning(conversionWarnings, message);
+            return null;
+        }
+
+        koinaSequence = resolvedSequence;
+        warning = BuildWarning(conversionWarnings, null);
+        return validated;
+    }
+
+    /// <summary>
+    /// Serializes a sequence cleaned by <see cref="TryCleanSequence"/> into the sequence sent to Koina, with the
+    /// model's own serializer. Returns null with a warning when it can't, and throws in ThrowException mode.
+    /// </summary>
+    private protected string? SerializeKoinaSequence(CanonicalSequence koinaSequence, out WarningException? warning)
+    {
+        var conversionWarnings = new ConversionWarnings();
         string? serialized;
         try
         {
-            // Always the model's own serializer, never sourceParser: it alone owns the Koina-bound target format.
-            serialized = SequenceConverter.Serialize(cleaned, conversionWarnings, ModHandlingMode);
+            serialized = SequenceConverter.Serialize(koinaSequence, conversionWarnings, ModHandlingMode);
         }
         catch (SequenceConversionException ex)
         {
@@ -298,16 +350,28 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
-        if (serialized == null)
-        {
-            warning = BuildWarning(conversionWarnings, null);
-            return null;
-        }
-
-        apiSequence = serialized;
-        warning = BuildWarning(conversionWarnings, null);
-        return apiSequence;
+        warning = BuildWarning(conversionWarnings, serialized == null ? "Failed to serialize the sequence for Koina." : null);
+        return serialized;
     }
+
+    private static bool IsMassOnly(CanonicalModification mod) =>
+        mod.HasMass && !mod.UnimodId.HasValue && mod.MzLibId == null && !mod.IsResolved;
+
+    // The serializer registered for the parser's format, except that the mzLib and ProForma ones resolve against
+    // protein modifications only: their registered lookups include mzLib's RNA modifications.
+    private static ISequenceSerializer? GetSourceSerializer(ISequenceParser parser)
+    {
+        ProFormaSequenceConversion.RegisterWithDefault();
+        return SequenceConversionService.Default.GetSerializer(parser.FormatName) switch
+        {
+            MzLibSequenceSerializer => ProteinMzLibSerializer.Value,
+            ProFormaSequenceSerializer => ProteinProFormaSerializer.Value,
+            var registered => registered
+        };
+    }
+
+    private static readonly Lazy<MzLibSequenceSerializer> ProteinMzLibSerializer = new(() => new MzLibSequenceSerializer(ProteinModificationLookup.Instance));
+    private static readonly Lazy<ProFormaSequenceSerializer> ProteinProFormaSerializer = new(() => ProFormaSequenceSerializer.WithLookup(MzLibModificationLookup.ProteinOnly));
 
     /// <summary>
     /// Returns what is left of a sequence once its modifications are lifted out using the source format's schema:
@@ -517,6 +581,17 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
         return messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
     }
+}
+
+/// <summary>
+/// Resolves against every protein modification mzLib knows (UNIMOD, UniProt and MetaMorpheus's), with the mzLib
+/// serializer's default lookup's tolerance: that lookup without its RNA modifications.
+/// </summary>
+internal sealed class ProteinModificationLookup() : ModificationLookupBase(Mods.AllProteinModsList, 0.001)
+{
+    public static ProteinModificationLookup Instance { get; } = new();
+
+    public override string Name => "Protein (all protein mods)";
 }
 
 /// <summary>

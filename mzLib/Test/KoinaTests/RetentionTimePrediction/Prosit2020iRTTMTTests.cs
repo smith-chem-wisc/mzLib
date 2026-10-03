@@ -37,7 +37,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
             for (int i = 0; i < modelInputs.Count; i++)
             {
                 Assert.That(modelInputs[i].ValidatedFullSequence, Is.Not.Null);
-                Assert.That(modelInputs[i].ValidatedFullSequence, Does.StartWith("[UNIMOD:"));
+                Assert.That(modelInputs[i].KoinaSequence, Does.StartWith("[UNIMOD:"));
                 Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence), $"Prediction sequence should match original input for index {i}");
             }
         }
@@ -209,10 +209,10 @@ namespace Test.KoinaTests.RetentionTimePrediction
             Assert.That(predictions.All(p => p.PredictedRetentionTime != null), Is.True, "All should have predictions");
 
             // Verify each N-terminal modification type is correctly converted
-            Assert.That(modelInputs[0].ValidatedFullSequence, Does.StartWith("[UNIMOD:737]-")); // TMT6plex
-            Assert.That(modelInputs[1].ValidatedFullSequence, Does.StartWith("[UNIMOD:2016]-")); // TMTpro
-            Assert.That(modelInputs[2].ValidatedFullSequence, Does.StartWith("[UNIMOD:214]-")); // iTRAQ4plex
-            Assert.That(modelInputs[3].ValidatedFullSequence, Does.StartWith("[UNIMOD:730]-")); // iTRAQ8plex
+            Assert.That(modelInputs[0].KoinaSequence, Does.StartWith("[UNIMOD:737]-")); // TMT6plex
+            Assert.That(modelInputs[1].KoinaSequence, Does.StartWith("[UNIMOD:2016]-")); // TMTpro
+            Assert.That(modelInputs[2].KoinaSequence, Does.StartWith("[UNIMOD:214]-")); // iTRAQ4plex
+            Assert.That(modelInputs[3].KoinaSequence, Does.StartWith("[UNIMOD:730]-")); // iTRAQ8plex
 
             Assert.That(predictions[0].FullSequence, Is.EqualTo(modelInputs[0].FullSequence));
             Assert.That(predictions[1].FullSequence, Is.EqualTo(modelInputs[1].FullSequence));
@@ -249,19 +249,19 @@ namespace Test.KoinaTests.RetentionTimePrediction
             for (int i = 0; i < modelInputs.Count; i++)
             {
                 Assert.That(modelInputs[i].ValidatedFullSequence, Is.Not.Null);
-                Assert.That(modelInputs[i].ValidatedFullSequence, Does.StartWith("[UNIMOD:"), $"Validated sequence missing UNIMOD prefix for index {i}");
+                Assert.That(modelInputs[i].KoinaSequence, Does.StartWith("[UNIMOD:"), $"Koina sequence missing UNIMOD prefix for index {i}");
                 Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence));
             }
 
-            // Check that side-chain modifications are kept in the validated sequence and correctly identified as valid
-            Assert.That(modelInputs[1].ValidatedFullSequence, Does.Contain("[UNIMOD:35]")); // Oxidation
-            Assert.That(modelInputs[2].ValidatedFullSequence, Does.Contain("[UNIMOD:4]"));  // Carbamidomethyl
-            Assert.That(modelInputs[3].ValidatedFullSequence, Does.Contain("[UNIMOD:737]")); // TMT6plex on K
-            Assert.That(modelInputs[4].ValidatedFullSequence, Does.Contain("[UNIMOD:2016]")); // TMTpro on K
-            Assert.That(modelInputs[5].ValidatedFullSequence, Does.Contain("[UNIMOD:214]")); // iTRAQ4plex on K
-            Assert.That(modelInputs[6].ValidatedFullSequence, Does.Contain("[UNIMOD:730]")); // iTRAQ8plex on K
-            Assert.That(modelInputs[7].ValidatedFullSequence, Does.Contain("[UNIMOD:259]")); // SILAC K
-            Assert.That(modelInputs[8].ValidatedFullSequence, Does.Contain("[UNIMOD:267]")); // SILAC R
+            // Check that side-chain modifications are kept in the sequence sent to Koina and correctly identified as valid
+            Assert.That(modelInputs[1].KoinaSequence, Does.Contain("[UNIMOD:35]")); // Oxidation
+            Assert.That(modelInputs[2].KoinaSequence, Does.Contain("[UNIMOD:4]"));  // Carbamidomethyl
+            Assert.That(modelInputs[3].KoinaSequence, Does.Contain("[UNIMOD:737]")); // TMT6plex on K
+            Assert.That(modelInputs[4].KoinaSequence, Does.Contain("[UNIMOD:2016]")); // TMTpro on K
+            Assert.That(modelInputs[5].KoinaSequence, Does.Contain("[UNIMOD:214]")); // iTRAQ4plex on K
+            Assert.That(modelInputs[6].KoinaSequence, Does.Contain("[UNIMOD:730]")); // iTRAQ8plex on K
+            Assert.That(modelInputs[7].KoinaSequence, Does.Contain("[UNIMOD:259]")); // SILAC K
+            Assert.That(modelInputs[8].KoinaSequence, Does.Contain("[UNIMOD:267]")); // SILAC R
 
             Assert.That(predictions[1].FullSequence, Does.Contain("[Common Variable:Oxidation on M]"));
             Assert.That(predictions[2].FullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));
@@ -374,7 +374,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
             foreach (var input in modelInputs)
             {
                 Assert.That(input.ValidatedFullSequence, Is.Not.Null);
-                Assert.That(input.ValidatedFullSequence, Does.StartWith("[UNIMOD:"));
+                Assert.That(input.KoinaSequence, Does.StartWith("[UNIMOD:"));
                 Assert.That(input.SequenceWarning, Is.Null, $"Valid input should not have warnings for: {input.FullSequence}");
             }
         }
@@ -496,7 +496,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
                 Assert.That(predictions[i].FullSequence, Is.EqualTo(modelInputs[i].FullSequence));
                 if (predictions[i].PredictedRetentionTime != null)
                 {
-                    Assert.That(modelInputs[i].ValidatedFullSequence, Does.StartWith("[UNIMOD:"));
+                    Assert.That(modelInputs[i].KoinaSequence, Does.StartWith("[UNIMOD:"));
                 }
                 else
                 {

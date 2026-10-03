@@ -55,7 +55,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
@@ -68,15 +68,15 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             return batchedRequests;
         }
 
-        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
+        protected override string? TryCleanSequence(string sequence, ISequenceParser? sourceParser, out CanonicalSequence? koinaSequence, out WarningException? warning)
         {
-            var sanitized = base.TryCleanSequence(sequence, sourceParser, out apiSequence, out warning);
-            if (sanitized == null || apiSequence == null)
+            var sanitized = base.TryCleanSequence(sequence, sourceParser, out koinaSequence, out warning);
+            if (sanitized == null || koinaSequence == null)
             {
                 return sanitized;
             }
 
-            if (!HasAllowedNTerminalLabel(apiSequence))
+            if (!HasAllowedNTerminalLabel(koinaSequence.Value))
             {
                 var message = "Sequence must contain a supported N-terminal TMT/iTRAQ label.";
                 switch (ModHandlingMode)
@@ -96,12 +96,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             return sanitized;
         }
 
-        private static bool HasAllowedNTerminalLabel(string apiSequence)
+        private static bool HasAllowedNTerminalLabel(CanonicalSequence koinaSequence)
         {
-            return apiSequence.StartsWith("[UNIMOD:737]-")
-                   || apiSequence.StartsWith("[UNIMOD:2016]-")
-                   || apiSequence.StartsWith("[UNIMOD:214]-")
-                   || apiSequence.StartsWith("[UNIMOD:730]-");
+            return koinaSequence.NTerminalModification?.UnimodId is 737 or 2016 or 214 or 730;
         }
     }
 }

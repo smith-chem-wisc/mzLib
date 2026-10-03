@@ -8,6 +8,8 @@ using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
+using Proteomics.ProteolyticDigestion;
+using Readers.ProForma;
 
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
@@ -249,6 +251,103 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             Assert.That(spectra.Count, Is.EqualTo(1));
             Assert.That(spectra[0].Sequence, Is.EqualTo("PEPMTIDEK"),
                 "Spectrum label must match the sequence the masses were built from (validated), not the requested FullSequence.");
+        }
+
+        // Predictions seeded by hand, the way a consumer's tests stand in for a Koina round trip: the sequences are read
+        // with the prediction's own parser (null: mzLib), so an mzLib string and a ProForma UNIMOD string both build.
+        [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToInputFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, "PEPTIDEC[Unimod:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, "PEPTIDEC[Unimod:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToInputFullSequence)]
+        public void GenerateLibrarySpectra_HandSeededPrediction_IsReadWithItsOwnParser(string sequence, bool proForma, string expectedLabel, FragmentIonMappingMode mappingMode)
+        {
+            var model = new CoverageModel(mappingMode);
+            var prediction = new PeptideFragmentIntensityPrediction(
+                sequence, sequence, 2,
+                FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
+                FragmentMZs: new List<double> { 0.0, 0.0 },
+                FragmentIntensities: new List<double> { 0.9, 0.4 })
+            { SequenceParser = proForma ? ProFormaSequenceParser.Instance : null };
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);
+
+            Assert.That(spectra.Count, Is.EqualTo(1));
+            Assert.That(spectra[0].Sequence, Is.EqualTo(expectedLabel));
+            Assert.That(spectra[0].PrecursorMz,
+                Is.EqualTo(new PeptideWithSetModifications("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K").MonoisotopicMass.ToMz(2)).Within(1e-4));
+        }
+
+        // Koina resolves protein modifications only, so an RNA modification's name isn't one mzLib knows here: the
+        // prediction is skipped with a warning rather than built with the RNA modification.
+        [Test]
+        public void GenerateLibrarySpectra_RnaModificationName_IsNotResolved()
+        {
+            var model = new CoverageModel(FragmentIonMappingMode.MapToValidatedFullSequence);
+            var prediction = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEA[Biological:N6,2'-O-dimethyladenosine on A]K", "PEPTIDEA[Biological:N6,2'-O-dimethyladenosine on A]K", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out var warning);
+
+            Assert.That(spectra, Is.Empty);
+            Assert.That(warning?.Message, Does.Contain("N6,2'-O-dimethyladenosine on A"));
+        }
+
+        // An mzLib id with a colon in it is read whole, not as a type and an id.
+        [Test]
+        public void GenerateLibrarySpectra_MzLibIdContainingAColon_IsReadWhole()
+        {
+            var model = new CoverageModel(FragmentIonMappingMode.MapToValidatedFullSequence);
+            var prediction = new PeptideFragmentIntensityPrediction(
+                "GLSE[Cation:Na on E]DEFK", "GLSE[Cation:Na on E]DEFK", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out var warning);
+
+            Assert.That(spectra.Count, Is.EqualTo(1), warning?.Message);
+            Assert.That(spectra[0].Sequence, Is.EqualTo("GLSE[Unimod:Cation:Na on E]DEFK"));
+        }
+
+        // A modification with no mzLib definition (UNIMOD:2114, absent from the bundled unimod.xml) can't be built into a
+        // peptide, so only its own prediction is skipped, with a warning naming it; the rest still produce spectra.
+        [Test]
+        public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_IsSkippedAloneWithAWarning(
+            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode,
+            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
+        {
+            var model = new CoverageModel(mappingMode) { ModHandlingMode = mode };
+            var unreadable = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEK[UNIMOD:2114]", "PEPTIDEK[UNIMOD:2114]", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 })
+            { SequenceParser = ProFormaSequenceParser.Instance };
+            var readable = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEK", "PEPTIDEK", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { unreadable, readable }, new[] { true, true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0, 31.0 }, out var warning);
+
+            Assert.That(spectra.Select(s => s.Sequence), Is.EqualTo(new[] { "PEPTIDEK" }));
+            Assert.That(spectra[0].RetentionTime, Is.EqualTo(31.0));
+            Assert.That(warning?.Message, Does.Contain("PEPTIDEK[UNIMOD:2114]").And.Contain("No file path"));
+        }
+
+        [Test]
+        public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_ThrowsInThrowExceptionMode(
+            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode)
+        {
+            var model = new CoverageModel(mappingMode) { ModHandlingMode = SequenceConversionHandlingMode.ThrowException };
+            var unreadable = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEK[UNIMOD:2114]", "PEPTIDEK[UNIMOD:2114]", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 })
+            { SequenceParser = ProFormaSequenceParser.Instance };
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { unreadable }, new[] { true });
+
+            Assert.That(() => model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _),
+                Throws.ArgumentException.With.Message.Contains("PEPTIDEK[UNIMOD:2114]"));
         }
 
         [Test]
