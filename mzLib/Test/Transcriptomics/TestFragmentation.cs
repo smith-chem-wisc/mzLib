@@ -212,7 +212,7 @@ namespace Test.Transcriptomics
                 bool isThreePrime = product.ProductType.GetRnaTerminusType() == FragmentationTerminus.ThreePrime;
 
                 int fragmentNumber = i + 1;
-                int residuePosition = isThreePrime ? rna.Length - fragmentNumber : fragmentNumber;
+                int residuePosition = isThreePrime ? rna.Length - fragmentNumber + 1 : fragmentNumber;
 
                 Assert.That(product.FragmentNumber, Is.EqualTo(fragmentNumber));
                 Assert.That(product.ResiduePosition, Is.EqualTo(residuePosition));
