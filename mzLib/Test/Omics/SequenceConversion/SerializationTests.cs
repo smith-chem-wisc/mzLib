@@ -412,6 +412,22 @@ public class SerializationTests
         Assert.That(readBack.AllModsOneIsNterminus[10].MonoisotopicMass, Is.EqualTo(homoserineLactone.MonoisotopicMass).Within(1e-5));
     }
 
+    [Test]
+    [TestCase("CNBr", "AAAMPEPTIDEMKKK", "PEPTIDEM", 9, 10)]
+    [TestCase("CNBr_N", "AAAMPEPTIDE", "MPEPTIDE", 2, 2)]
+    public void MzLibSerializer_CnbrFullSequence_RoundTripsUnchanged(string protease, string protein, string baseSequence, int digestedIndex, int readBackIndex)
+    {
+        var peptide = Digested(protein, baseSequence, null, protease);
+        Assert.That(peptide.AllModsOneIsNterminus.Keys, Is.EquivalentTo(new[] { digestedIndex }));
+        var lactone = peptide.AllModsOneIsNterminus[digestedIndex];
+
+        Assert.That(MzLibSequenceSerializer.Instance.Serialize(Written(peptide, "FullSequence")), Is.EqualTo(peptide.FullSequence));
+        Assert.That(SequenceConversionService.Default.Convert(peptide.FullSequence, "mzLib", "mzLib"), Is.EqualTo(peptide.FullSequence));
+        var readBack = new PeptideWithSetModifications(peptide.FullSequence);
+        Assert.That(readBack.AllModsOneIsNterminus.Keys, Is.EquivalentTo(new[] { readBackIndex }));
+        Assert.That(readBack.AllModsOneIsNterminus[readBackIndex].MonoisotopicMass, Is.EqualTo(lactone.MonoisotopicMass).Within(1e-5));
+    }
+
     // The default instance resolves an oligo's masses among RNA modifications too, so mzLib's oligo writer output
     // reads back as the same oligo.
     [Test]

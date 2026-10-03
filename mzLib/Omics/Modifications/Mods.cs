@@ -29,6 +29,11 @@ public static class Mods
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
 
+        // Digestion writes proteases' cleavage modifications into full sequences, so reading those back needs their
+        // names. They stay out of AllProteinModsList, where they would compete with the entries a mass resolves to.
+        foreach (var cleavageMod in ProteaseCleavageModifications)
+            AllKnownProteinModsDictionary.TryAdd(cleavageMod.IdWithMotif, cleavageMod);
+
         LoadAllRnaModifications();
         AllRnaModsList = MetaMorpheusRnaModifications.Concat(ModomicsRnaModifications).ToList();
         AllKnownRnaModsDictionary = AllRnaModsList
@@ -70,6 +75,7 @@ public static class Mods
     public static List<Modification> MetaMorpheusModifications { get; private set; } = [];
     public static List<Modification> UnimodModifications { get; private set; } = [];
     public static List<Modification> IsobaricLabelModifications { get; private set; } = [];
+    private static List<Modification> ProteaseCleavageModifications { get; set; } = [];
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
@@ -155,7 +161,13 @@ public static class Mods
         IsobaricLabelModifications = ModificationLoader.ReadModsFromFile(isobaricReader, formalChargeDict,
             out _).ToList();
 
-        // 6. Build isobaric label dictionary
+        // 6. Load protease cleavage modifications (a copy of Proteomics' protease_mods.txt)
+        var proteaseModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.protease_mods.txt");
+        using var proteaseModsReader = new StreamReader(proteaseModsStream!);
+        ProteaseCleavageModifications = ModificationLoader.ReadModsFromFile(proteaseModsReader, formalChargeDict,
+            out _).ToList();
+
+        // 7. Build isobaric label dictionary
         IsobaricLabelModsDictionary = IsobaricLabelModifications
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
