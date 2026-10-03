@@ -486,5 +486,38 @@ namespace Test.FlashLFQ
             var massIndexingEngine = MassIndexingEngine.InitializeMassIndexingEngine(scans.ToArray(), deconParameters);
             Assert.That(massIndexingEngine, Is.Null);
         }
+
+        /// <summary>
+        /// GetIndexedPeak is called billions of times by DIA extraction, and each call allocated a bin list, a LINQ index list
+        /// and a closure. The allocation-free lookup must return exactly the peak the original composition did (bins in range,
+        /// then a binary search in each, then the closest peak across bins), on dense random spectra with near-duplicate m/z.
+        /// </summary>
+        [Test]
+        public static void GetIndexedPeakMatchesTheOriginalLookupExactly()
+        {
+            var random = new Random(17);
+            var scans = new MsDataScan[40];
+            for (int s = 0; s < scans.Length; s++)
+            {
+                double[] mz = Enumerable.Range(0, 3000).Select(_ => 400 + random.NextDouble() * 50).Order().ToArray();
+                double[] intensity = mz.Select(_ => 1e4 + random.NextDouble() * 1e6).ToArray();
+                scans[s] = new MsDataScan(new MzSpectrum(mz, intensity, false), s + 1, 1, true, Polarity.Positive, 1.0 + s / 10.0,
+                    new MzRange(400, 1600), "f", MZAnalyzerType.Orbitrap, intensity.Sum(), 1.0, null, "scan=" + (s + 1));
+            }
+            var engine = PeakIndexingEngine.InitializeIndexingEngine(scans)!;
+
+            for (int trial = 0; trial < 5000; trial++)
+            {
+                double target = 399.5 + random.NextDouble() * 51;
+                int scan = random.Next(0, scans.Length);
+                var tolerance = new PpmTolerance(new[] { 2.0, 10, 20, 50 }[trial % 4]);
+                var bins = engine.GetBinsInRange(target, tolerance);
+                var expected = bins.Count == 0 ? null
+                    : PeakIndexingEngine.GetBestPeakFromBins(bins, target, scan,
+                        bins.Select(b => PeakIndexingEngine.BinarySearchForIndexedPeak(b, scan)).ToList(), tolerance);
+
+                Assert.AreSame(expected, engine.GetIndexedPeak(target, scan, tolerance), $"trial {trial}: {target} in scan {scan} at {tolerance}");
+            }
+        }
     }
 }
