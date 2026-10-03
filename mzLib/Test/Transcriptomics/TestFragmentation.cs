@@ -12,6 +12,8 @@ using Omics.Modifications;
 using Transcriptomics.Digestion;
 using Chemistry;
 using Omics.Modifications.IO;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 
 namespace Test.Transcriptomics
 {
@@ -218,6 +220,53 @@ namespace Test.Transcriptomics
                 Assert.That(product.ResiduePosition, Is.EqualTo(residuePosition));
             }
 
+        }
+
+        [Test]
+        public void SevenMerPeptideAndOligo_HaveMatchingTerminalFragmentPositions()
+        {
+            const string peptideSequence = "PEPTIDE";
+            const string oligoSequence = "GUACUGA";
+            var protein = new Protein(peptideSequence, "test");
+            var peptide = protein.Digest(
+                    new DigestionParams(minPeptideLength: peptideSequence.Length, maxPeptideLength: peptideSequence.Length),
+                    new List<Modification>(), new List<Modification>())
+                .Single();
+            var oligo = new RNA(oligoSequence)
+                .Digest(new RnaDigestionParams(), new List<Modification>(), new List<Modification>())
+                .First() as OligoWithSetMods ?? throw new NullReferenceException();
+
+            List<Product> peptideProducts = new();
+            peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, peptideProducts);
+
+            List<Product> oligoFivePrimeProducts = oligo.GetNeutralFragments(ProductType.b)
+                .Cast<Product>()
+                .Where(product => product.ProductType == ProductType.b)
+                .OrderBy(product => product.FragmentNumber)
+                .ToList();
+            List<Product> peptideNTerminalProducts = peptideProducts
+                .Where(product => product.ProductType == ProductType.b)
+                .OrderBy(product => product.FragmentNumber)
+                .ToList();
+
+            List<Product> oligoThreePrimeProducts = oligo.GetNeutralFragments(ProductType.y)
+                .Cast<Product>()
+                .Where(product => product.ProductType == ProductType.y)
+                .OrderBy(product => product.FragmentNumber)
+                .ToList();
+            List<Product> peptideCTerminalProducts = peptideProducts
+                .Where(product => product.ProductType == ProductType.y)
+                .OrderBy(product => product.FragmentNumber)
+                .ToList();
+
+            Assert.That(peptideNTerminalProducts, Is.Not.Empty);
+            Assert.That(oligoFivePrimeProducts, Is.Not.Empty);
+            Assert.That(peptideCTerminalProducts, Is.Not.Empty);
+            Assert.That(oligoThreePrimeProducts, Is.Not.Empty);
+            Assert.That(oligoFivePrimeProducts.Select(product => (product.FragmentNumber, product.ResiduePosition)),
+                Is.EqualTo(peptideNTerminalProducts.Select(product => (product.FragmentNumber, product.ResiduePosition))));
+            Assert.That(oligoThreePrimeProducts.Select(product => (product.FragmentNumber, product.ResiduePosition)),
+                Is.EqualTo(peptideCTerminalProducts.Select(product => (product.FragmentNumber, product.ResiduePosition))));
         }
 
         [Test]
