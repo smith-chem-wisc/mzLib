@@ -155,11 +155,11 @@ namespace Test.KoinaTests
         [Test]
         public void Tmt_IrtTryCleanSequence_AcceptsSupportedNTerminalLabel()
         {
-            var result = new IrtTmtProbe().Clean("[Common Fixed:TMTpro on N-terminus]PEPTIDEK", out var api, out var warning);
+            var result = new IrtTmtProbe().Clean("[Multiplex Label:TMT18 on X]PEPTIDEK", out var api, out var warning);
 
             Assert.That(result, Is.Not.Null);
             Assert.That(warning, Is.Null);
-            Assert.That(api, Does.StartWith("[UNIMOD:2016]-"), "TMTpro on N-terminus should serialize to UNIMOD:2016.");
+            Assert.That(api, Does.StartWith("[UNIMOD:2016]-"), "TMT18 on X should serialize to UNIMOD:2016.");
         }
 
         [Test]
@@ -175,11 +175,11 @@ namespace Test.KoinaTests
         {
             // Positive branch: a supported N-terminal TMT label must survive cleaning (offline).
             var model = new TmtProbe();
-            var result = model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", out var api, out var warning);
+            var result = model.Clean("[Multiplex Label:TMT6-plex on X]PEPTIDEK", out var api, out var warning);
 
             Assert.That(result, Is.Not.Null, "A supported N-terminal TMT label must survive cleaning.");
             Assert.That(warning, Is.Null);
-            Assert.That(api, Does.StartWith("[UNIMOD:737]-"), "TMT6plex on N-terminus should serialize to UNIMOD:737.");
+            Assert.That(api, Does.StartWith("[UNIMOD:737]-"), "TMT6-plex on X should serialize to UNIMOD:737.");
         }
 
         [Test]

@@ -200,12 +200,9 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser.</param>
     /// <param name="koinaSequence">The cleaned sequence with every modification resolved, which
     /// <see cref="SerializeKoinaSequence"/> turns into the sequence sent to Koina.</param>
-    /// <returns>The cleaned sequence in the source format, written with the serializer registered for the parser's
-    /// format, with modifications equivalent to those in <paramref name="koinaSequence"/>. Modifications the input
-    /// identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity
-    /// resolved for Koina (a ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); and names the format's
-    /// serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes
-    /// <c>Multiplex Label:TMT6-plex on X</c>). Null when the sequence is invalid for this model.</returns>
+    /// <returns>The cleaned sequence written back in the source format, with the same modifications as
+    /// <paramref name="koinaSequence"/> (see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>). Null when
+    /// the sequence is invalid for this model.</returns>
     protected virtual string? TryCleanSequence(
         string sequence,
         ISequenceParser? sourceParser,
@@ -274,9 +271,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
                 && AllowedModificationTokens?.Contains(ModificationToken(resolved, id, cleaned.BaseSequence)) != false)
             {
                 accepted.Add(resolved);
-                // A mass alone could be resolved again by the source serializer into a different modification, so it
-                // carries the UNIMOD identity Koina is sent.
-                acceptedAsParsed.Add(IsMassOnly(mod) ? mod with { UnimodId = resolved.UnimodId } : mod);
+                acceptedAsParsed.Add(mod);
             }
             else
                 incompatible.Add(resolved);
@@ -354,24 +349,16 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return serialized;
     }
 
-    private static bool IsMassOnly(CanonicalModification mod) =>
-        mod.HasMass && !mod.UnimodId.HasValue && mod.MzLibId == null && !mod.IsResolved;
+    // mzLib and ProForma input is written with Koina's own serializers for those formats, whose lookups hold protein
+    // modifications only (the registered ones also hold mzLib's RNA modifications); any other format with the serializer
+    // registered for it.
+    private static ISequenceSerializer? GetSourceSerializer(ISequenceParser parser) =>
+        string.Equals(parser.FormatName, ProteinMzLibSerializer.FormatName, StringComparison.OrdinalIgnoreCase) ? ProteinMzLibSerializer
+        : string.Equals(parser.FormatName, ProteinProFormaSerializer.FormatName, StringComparison.OrdinalIgnoreCase) ? ProteinProFormaSerializer
+        : SequenceConversionService.Default.GetSerializer(parser.FormatName);
 
-    // The serializer registered for the parser's format, except that the mzLib and ProForma ones resolve against
-    // protein modifications only: their registered lookups include mzLib's RNA modifications.
-    private static ISequenceSerializer? GetSourceSerializer(ISequenceParser parser)
-    {
-        ProFormaSequenceConversion.RegisterWithDefault();
-        return SequenceConversionService.Default.GetSerializer(parser.FormatName) switch
-        {
-            MzLibSequenceSerializer => ProteinMzLibSerializer.Value,
-            ProFormaSequenceSerializer => ProteinProFormaSerializer.Value,
-            var registered => registered
-        };
-    }
-
-    private static readonly Lazy<MzLibSequenceSerializer> ProteinMzLibSerializer = new(() => new MzLibSequenceSerializer(ProteinModificationLookup.Instance));
-    private static readonly Lazy<ProFormaSequenceSerializer> ProteinProFormaSerializer = new(() => ProFormaSequenceSerializer.WithLookup(MzLibModificationLookup.ProteinOnly));
+    private static readonly MzLibSequenceSerializer ProteinMzLibSerializer = new(GlobalModificationLookup.ProteinOnly);
+    private static readonly ProFormaSequenceSerializer ProteinProFormaSerializer = ProFormaSequenceSerializer.WithLookup(MzLibModificationLookup.ProteinOnly);
 
     /// <summary>
     /// Returns what is left of a sequence once its modifications are lifted out using the source format's schema:
@@ -581,17 +568,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
         return messages.Count > 0 ? new WarningException(string.Join(" ", messages)) : null;
     }
-}
-
-/// <summary>
-/// Resolves against every protein modification mzLib knows (UNIMOD, UniProt and MetaMorpheus's), with the mzLib
-/// serializer's default lookup's tolerance: that lookup without its RNA modifications.
-/// </summary>
-internal sealed class ProteinModificationLookup() : ModificationLookupBase(Mods.AllProteinModsList, 0.001)
-{
-    public static ProteinModificationLookup Instance { get; } = new();
-
-    public override string Name => "Protein (all protein mods)";
 }
 
 /// <summary>

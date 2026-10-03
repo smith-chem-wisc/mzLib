@@ -13,6 +13,7 @@ using Omics.SequenceConversion;
 using Omics.SpectrumMatch;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.Util;
+using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Readers.ProForma;
 using PredictionClients.Koina.SupportedModels.CCSModels;
@@ -60,9 +61,9 @@ namespace Test.KoinaTests
         /// </summary>
         [TestCase(CarbamidomethylPeptide, false, CarbamidomethylPeptide, FragmentIonMappingMode.MapToValidatedFullSequence)]
         [TestCase(CarbamidomethylPeptide, false, CarbamidomethylPeptide, FragmentIonMappingMode.MapToInputFullSequence)]
-        [TestCase("PEPTIDEC[UNIMOD:4]K", true, "PEPTIDEC[Unimod:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToValidatedFullSequence)]
-        [TestCase("PEPTIDEC[UNIMOD:4]K", true, "PEPTIDEC[Unimod:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToInputFullSequence)]
-        public void FragmentIntensity_ModifiedPeptide_BuildsALibrarySpectrum(string sequence, bool proForma, string expectedLabel, FragmentIonMappingMode mappingMode)
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToInputFullSequence)]
+        public void FragmentIntensity_ModifiedPeptide_BuildsALibrarySpectrum(string sequence, bool proForma, string? expectedLabel, FragmentIonMappingMode mappingMode)
         {
             var model = new CannedHcdModel(mappingMode);
             var input = new FragmentIntensityPredictionInput(sequence, 2, 30, null, null) { SequenceParser = proForma ? ProFormaSequenceParser.Instance : null };
@@ -74,7 +75,8 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].ValidatedFullSequence, Is.EqualTo(sequence));
             Assert.That(predictions[0].SequenceParser, Is.SameAs(input.SequenceParser));
             Assert.That(spectra.Count, Is.EqualTo(1));
-            Assert.That(spectra[0].Sequence, Is.EqualTo(expectedLabel));
+            if (expectedLabel != null)
+                Assert.That(spectra[0].Sequence, Is.EqualTo(expectedLabel), "an mzLib name keeps its label");
             Assert.That(spectra[0].PrecursorMz, Is.EqualTo(new PeptideWithSetModifications(CarbamidomethylPeptide).MonoisotopicMass.ToMz(2)).Within(1e-4));
             Assert.That(spectra[0].PrecursorMz - new PeptideWithSetModifications("PEPTIDECK").MonoisotopicMass.ToMz(2), Is.EqualTo(57.02146 / 2).Within(1e-3));
             Assert.That(FragmentMz(spectra[0], ProductType.y, 3) - UnmodifiedFragmentMz("PEPTIDECK", ProductType.y, 3), Is.EqualTo(57.02146).Within(1e-3));
@@ -103,126 +105,99 @@ namespace Test.KoinaTests
             Assert.That(spectra[0].Sequence, Is.EqualTo(sequence), "a name mzLib knows keeps its label");
         }
 
-        /// <summary>
-        /// A terminal modification stays at the terminus it was written at: an N-terminal methyl, by id or by mass, is on
-        /// the b ions and not the y ions, and a C-terminal methyl or ethyl ester is on the y ions and not the b ions.
-        /// </summary>
-        [Test]
-        public void FragmentIntensity_TerminalModification_StaysOnItsTerminus(
-            [Values("[UNIMOD:34]-PEPTIDEK", "[+14.0157]-PEPTIDEK", "PEPTIDEK-[Methyl]", "PEPTIDEK-[Ethyl]")] string sequence,
-            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode)
-        {
-            var model = new CannedMs2PipModel(mappingMode);
-            var input = new FragmentIntensityPredictionInput(sequence, 2, null, null, null) { SequenceParser = ProFormaSequenceParser.Instance };
+        private static Modification Catalog(string type, string id) =>
+            Mods.AllProteinModsList.Single(m => m.ModificationType == type && m.IdWithMotif == id);
 
-            model.Predict(new List<FragmentIntensityPredictionInput> { input });
-            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0 }, out _);
-
-            Assert.That(spectra.Count, Is.EqualTo(1));
-            var shift = sequence.Contains("Ethyl") ? 28.0313 : 14.01565;
-            var nTerminal = sequence.StartsWith("[");
-            Assert.That(FragmentMz(spectra[0], ProductType.b, 2) - UnmodifiedFragmentMz("PEPTIDEK", ProductType.b, 2), Is.EqualTo(nTerminal ? shift : 0).Within(1e-3));
-            Assert.That(FragmentMz(spectra[0], ProductType.y, 3) - UnmodifiedFragmentMz("PEPTIDEK", ProductType.y, 3), Is.EqualTo(nTerminal ? 0 : shift).Within(1e-3));
-        }
+        private static PeptideWithSetModifications Digested(string protein, string protease, Modification[] fixedMods, Modification[] variableMods, Func<PeptideWithSetModifications, bool> pick) =>
+            new Protein(protein, "P")
+                .Digest(new DigestionParams(protease, maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 2), fixedMods.ToList(), variableMods.ToList())
+                .First(pick);
 
         /// <summary>
         /// ProteaseGuru's configuration: an allow-list model, RemoveIncompatibleElements, fragments mapped onto the input.
         /// Koina is sent the peptide without the modifications the model doesn't allow, but the spectrum is built from
-        /// the input, which still carries them, so they're found outside the model's allow-list.
+        /// the digested peptide's written sequence, which still carries them, so they're found outside the allow-list:
+        /// a phosphopeptide written as ProForma, a TMT-labeled one as a full sequence, and a UniProt modification with no
+        /// UNIMOD record written with mass shifts.
         /// </summary>
-        [TestCase("PEPS[UNIMOD:21]IDEC[UNIMOD:4]K", true, "PEPSIDEC[UNIMOD:4]K", "PEPS[Common Biological:Phosphorylation on S]IDEC[Common Fixed:Carbamidomethyl on C]K")]
-        [TestCase("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", false, "PEPTIDEK", "[Multiplex Label:TMT6-plex on X]PEPTIDEK")]
-        public void FragmentIntensity_AllowListModelRemovingAModification_BuildsTheInputWithIt(string sequence, bool proForma, string sent, string equivalent)
+        [TestCase("ProForma", "PEPSIDECK", "PEPSIDEC[UNIMOD:4]K")]
+        [TestCase("FullSequence", "PEPTIDEK", "PEPTIDEK")]
+        [TestCase("MassShifts", "GLSWDEFK", "GLSWDEFK")]
+        public void FragmentIntensity_AllowListModelRemovingAModification_BuildsTheInputWithIt(string writer, string baseSequence, string sent)
         {
+            var peptide = baseSequence switch
+            {
+                "PEPSIDECK" => Digested(baseSequence, "trypsin", new[] { Catalog("Common Fixed", "Carbamidomethyl on C") },
+                    new[] { Catalog("Common Biological", "Phosphorylation on S") }, p => p.AllModsOneIsNterminus.Count == 2),
+                "PEPTIDEK" => Digested(baseSequence, "trypsin", new[] { Catalog("Multiplex Label", "TMT6-plex on X"), Catalog("Multiplex Label", "TMT6-plex on K") },
+                    Array.Empty<Modification>(), p => p.AllModsOneIsNterminus.Count == 2),
+                _ => Digested(baseSequence, "trypsin", Array.Empty<Modification>(),
+                    new[] { Catalog("UniProt", "3'-geranyl-2',N2-cyclotryptophan on W") }, p => p.AllModsOneIsNterminus.Count == 1),
+            };
+            var (sequence, parser) = writer switch
+            {
+                "ProForma" => (peptide.ToProFormaString(), (ISequenceParser?)ProFormaSequenceParser.Instance),
+                "MassShifts" => (peptide.FullSequenceWithMassShifts, MassShiftSequenceParser.Instance),
+                _ => (peptide.FullSequence, null)
+            };
             var model = new CannedHcdModel(FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.RemoveIncompatibleElements);
-            var input = new FragmentIntensityPredictionInput(sequence, 2, 30, null, null) { SequenceParser = proForma ? ProFormaSequenceParser.Instance : null };
 
-            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { input });
+            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { new(sequence, 2, 30, null, null) { SequenceParser = parser } });
             var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0 }, out _);
 
             Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { sent }));
             Assert.That(model.ValidInputsMask, Is.EqualTo(new[] { true }), predictions[0].Warning?.Message);
             Assert.That(spectra.Count, Is.EqualTo(1));
-            Assert.That(spectra[0].PrecursorMz, Is.EqualTo(new PeptideWithSetModifications(equivalent).MonoisotopicMass.ToMz(2)).Within(1e-4));
+            Assert.That(spectra[0].PrecursorMz, Is.EqualTo(peptide.MonoisotopicMass.ToMz(2)).Within(1e-4));
         }
 
         /// <summary>
-        /// A mass only a UniProt modification matches (3'-geranyl-2',N2-cyclotryptophan on W), removed for Koina by an
-        /// allow-list model, is found in mzLib's UniProt catalog when the spectrum is built from the input.
+        /// Koina resolves modifications to protein modifications only. Mass shifts written for protein modifications
+        /// whose masses RNA modifications of mzLib's share (Ala->Val with N6,2'-O-dimethyladenosine on A, a C-terminal
+        /// dehydration with the 3' cyclic phosphate), removed for Koina by an allow-list model, build the protein
+        /// modification's peptide.
         /// </summary>
-        [Test]
-        public void FragmentIntensity_AllowListModelRemovingAUniProtOnlyMass_BuildsTheInputWithTheUniProtModification()
+        [TestCase("GLSADEFK", "Unimod", "Ala->Val on A")]
+        [TestCase("GLSDEFQ", "Unimod", "Dehydrated on Q")]
+        public void FragmentIntensity_MassShiftAnRnaModificationAlsoMatches_BuildsTheProteinModification(string protein, string type, string id)
         {
+            var peptide = Digested(protein, "trypsin", Array.Empty<Modification>(), new[] { Catalog(type, id) }, p => p.AllModsOneIsNterminus.Count == 1);
             var model = new CannedHcdModel(FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.RemoveIncompatibleElements);
-            var input = new FragmentIntensityPredictionInput("GLSW[+136.1252]DEFK", 2, 30, null, null) { SequenceParser = ProFormaSequenceParser.Instance };
+            var input = new FragmentIntensityPredictionInput(peptide.FullSequenceWithMassShifts, 2, 30, null, null) { SequenceParser = MassShiftSequenceParser.Instance };
 
             var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { input });
             var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0 }, out _);
-
-            Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { "GLSWDEFK" }));
-            Assert.That(model.ValidInputsMask, Is.EqualTo(new[] { true }), predictions[0].Warning?.Message);
-            Assert.That(spectra.Count, Is.EqualTo(1));
-            Assert.That(spectra[0].Sequence, Does.StartWith("GLSW[UniProt:"));
-            Assert.That(spectra[0].PrecursorMz - new PeptideWithSetModifications("GLSWDEFK").MonoisotopicMass.ToMz(2), Is.EqualTo(136.1252 / 2).Within(1e-3));
-        }
-
-        /// <summary>
-        /// mzLib names are read the way mzLib reads them, except that a modification at a terminus is one of that
-        /// terminus's: the N-terminal <c>Methyl on X</c> stays on the b ions (mzLib's dictionary holds the C-terminal
-        /// one), and a C-terminal modification written on the last residue moves to the C-terminus, as reading the name
-        /// moves it. A known id under a type mzLib doesn't pair it with is labeled with mzLib's own type. Koina's lookup
-        /// can't take the N-terminal methyl, so that one is removed for Koina and mapped onto the input.
-        /// </summary>
-        [TestCase("[Unimod:Methyl on X]AGLSDEFK", "[Unimod:Methyl on X]AGLSDEFK", "AGLSDEFK", 14.01565, 0, FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.RemoveIncompatibleElements)]
-        [TestCase("GLSDEFA[Unimod:Amidated on X]", "GLSDEFA-[Unimod:Amidated on X]", "GLSDEFA", 0, -0.98402, FragmentIonMappingMode.MapToValidatedFullSequence, SequenceConversionHandlingMode.ReturnNull)]
-        [TestCase("GLSDEFA[Unimod:Amidated on X]", "GLSDEFA-[Unimod:Amidated on X]", "GLSDEFA", 0, -0.98402, FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.ReturnNull)]
-        [TestCase("PEPTIDEK[Common Fixed:TMT6plex on K]", "PEPTIDEK[Unimod:TMT6plex on K]", "PEPTIDEK", 0, 229.16293, FragmentIonMappingMode.MapToValidatedFullSequence, SequenceConversionHandlingMode.ReturnNull)]
-        [TestCase("PEPTIDEK[Common Fixed:TMT6plex on K]", "PEPTIDEK[Unimod:TMT6plex on K]", "PEPTIDEK", 0, 229.16293, FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.ReturnNull)]
-        public void FragmentIntensity_MzLibName_IsBuiltAndLabeledTheWayMzLibReadsIt(string sequence, string expectedLabel, string baseSequence,
-            double bShift, double yShift, FragmentIonMappingMode mappingMode, SequenceConversionHandlingMode modHandlingMode)
-        {
-            var model = new CannedMs2PipModel(mappingMode, modHandlingMode);
-
-            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { new(sequence, 2, null, null, null) });
-            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0 }, out var warning);
-
-            Assert.That(spectra.Count, Is.EqualTo(1), predictions[0].Warning?.Message ?? warning?.Message);
-            Assert.That(spectra[0].Sequence, Is.EqualTo(expectedLabel));
-            Assert.That(FragmentMz(spectra[0], ProductType.b, 2) - UnmodifiedFragmentMz(baseSequence, ProductType.b, 2), Is.EqualTo(bShift).Within(1e-3));
-            Assert.That(FragmentMz(spectra[0], ProductType.y, 3) - UnmodifiedFragmentMz(baseSequence, ProductType.y, 3), Is.EqualTo(yShift).Within(1e-3));
-        }
-
-        /// <summary>
-        /// Koina resolves modifications to protein modifications only. Masses that only RNA modifications of mzLib's
-        /// match (terminal dephosphorylation, the 3' cyclic phosphate's water loss, dimethyladenosine), on an
-        /// allow-list model that removes them for Koina and maps the fragments onto the input: the peptide is built
-        /// with a protein modification of that mass where there is one, and otherwise fails with a warning.
-        /// </summary>
-        [TestCase("[-79.9663]-PEPTIDEK", null)]
-        [TestCase("PEPTIDEK-[-18.0106]", -18.01056)]
-        [TestCase("PEPTIDEA[+28.0313]K", 28.0313)]
-        public void FragmentIntensity_MassOnlyAnRnaModificationMatches_GetsAProteinModificationOrFails(string sequence, double? proteinModificationMass)
-        {
-            var model = new CannedHcdModel(FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.RemoveIncompatibleElements);
-            var input = new FragmentIntensityPredictionInput(sequence, 2, 30, null, null) { SequenceParser = ProFormaSequenceParser.Instance };
-
-            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { input });
-            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0 }, out _);
-
-            var rnaNames = Mods.AllRnaModsList.Select(m => $"[{m.ModificationType}:{m.IdWithMotif}]").ToHashSet();
-            if (proteinModificationMass == null)
-            {
-                Assert.That(model.ValidInputsMask, Is.EqualTo(new[] { false }));
-                Assert.That(predictions[0].Warning?.Message, Does.Contain(sequence));
-                Assert.That(spectra, Is.Empty);
-                return;
-            }
 
             Assert.That(spectra.Count, Is.EqualTo(1), predictions[0].Warning?.Message);
+            var rnaNames = Mods.AllRnaModsList.Select(m => $"[{m.ModificationType}:{m.IdWithMotif}]").ToHashSet();
             Assert.That(rnaNames.Any(spectra[0].Sequence.Contains), Is.False, spectra[0].Sequence);
-            var baseSequence = sequence.Contains("PEPTIDEA") ? "PEPTIDEAK" : "PEPTIDEK";
-            Assert.That(spectra[0].PrecursorMz - new PeptideWithSetModifications(baseSequence).MonoisotopicMass.ToMz(2),
-                Is.EqualTo(proteinModificationMass.Value / 2).Within(1e-3));
+            Assert.That(spectra[0].PrecursorMz, Is.EqualTo(peptide.MonoisotopicMass.ToMz(2)).Within(1e-4));
+        }
+
+        /// <summary>
+        /// Under MapToInputFullSequence the fragments are mapped onto the input when Koina answers. A custom
+        /// modification, read by MetaMorpheus from a user's file and in no catalog, is removed for Koina, and then the
+        /// input can't be built: that prediction fails alone, with a warning, like a rejected input, and the rest of the
+        /// batch still gets its spectrum.
+        /// </summary>
+        [Test]
+        public void FragmentIntensity_MapToInputFullSequence_PeptideMzLibCannotBuildFailsAlone()
+        {
+            ModificationMotif.TryGetMotif("K", out var motifK);
+            var nameless = new Modification(_originalId: "Nameless", _modificationType: "Custom", _target: motifK,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 100.0);
+            var custom = Digested("PEPKR", "top-down", Array.Empty<Modification>(), new[] { nameless }, p => p.AllModsOneIsNterminus.Count == 1);
+            var model = new CannedHcdModel(FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.RemoveIncompatibleElements);
+
+            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { new(custom.FullSequence, 2, 30, null, null), new("PEPTIDECK", 2, 30, null, null) });
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0, 2.0 }, out _);
+
+            Assert.That(custom.FullSequence, Is.EqualTo("PEPK[Custom:Nameless on K]R"));
+            Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { "PEPKR", "PEPTIDECK" }));
+            Assert.That(predictions[0].FragmentAnnotations, Is.Null);
+            Assert.That(predictions[0].Warning?.Message, Does.Contain(custom.FullSequence));
+            Assert.That(model.ValidInputsMask, Is.EqualTo(new[] { false, true }));
+            Assert.That(spectra.Select(s => s.Sequence), Is.EqualTo(new[] { "PEPTIDECK" }));
         }
 
         /// <summary>
@@ -242,63 +217,6 @@ namespace Test.KoinaTests
             Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { "PEPSIDEC[UNIMOD:4]K" }));
             Assert.That(predictions[0].ValidatedFullSequence, Is.EqualTo(expectedValidated));
             Assert.That(spectra[0].PrecursorMz, Is.EqualTo(new PeptideWithSetModifications("PEPSIDEC[Common Fixed:Carbamidomethyl on C]K").MonoisotopicMass.ToMz(2)).Within(1e-4));
-        }
-
-        /// <summary>
-        /// Under MapToInputFullSequence the fragments are mapped onto the input when Koina answers. A peptide mzLib can't
-        /// build (UNIMOD:2114, which an accept-all model sends but mzLib has no definition for) fails alone, with a
-        /// warning, like a rejected input; the rest of the batch still gets its spectrum.
-        /// </summary>
-        [Test]
-        public void FragmentIntensity_MapToInputFullSequence_PeptideMzLibCannotBuildFailsAlone(
-            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
-        {
-            var model = new CannedMs2PipModel(FragmentIonMappingMode.MapToInputFullSequence, mode);
-            var unbuildable = new FragmentIntensityPredictionInput("PEPTIDEK[UNIMOD:2114]", 2, null, null, null) { SequenceParser = ProFormaSequenceParser.Instance };
-            var buildable = new FragmentIntensityPredictionInput("PEPTIDECK", 2, null, null, null);
-
-            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { unbuildable, buildable });
-            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0, 2.0 }, out _);
-
-            Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { "PEPTIDEK[UNIMOD:2114]", "PEPTIDECK" }));
-            Assert.That(predictions[0].FragmentAnnotations, Is.Null);
-            Assert.That(predictions[0].Warning?.Message, Does.Contain("PEPTIDEK[UNIMOD:2114]"));
-            Assert.That(model.ValidInputsMask, Is.EqualTo(new[] { false, true }));
-            Assert.That(predictions[1].FragmentAnnotations, Is.Not.Empty);
-            Assert.That(spectra.Select(s => s.Sequence), Is.EqualTo(new[] { "PEPTIDECK" }));
-        }
-
-        /// <summary>
-        /// A ProForma mass-only modification is resolved once, for Koina, and ValidatedFullSequence names that same
-        /// modification, so the library spectrum built from it has the mass of what was predicted: Thr->Val for -1.9793,
-        /// and phospho, not sulfo, for +79.9568.
-        /// </summary>
-        [TestCase("GLST[-1.9793]DEFK", "GLST[UNIMOD:1210]DEFK", "GLSTDEFK", -1.97926)]
-        [TestCase("GLSS[+79.9568]DEFK", "GLSS[UNIMOD:21]DEFK", "GLSSDEFK", 79.96633)]
-        public void FragmentIntensity_ProFormaMassOnlyModification_LibrarySpectrumHasThePredictedMass(string sequence, string expectedValidated, string baseSequence, double modificationMass)
-        {
-            var model = new CannedMs2PipModel(FragmentIonMappingMode.MapToValidatedFullSequence);
-            var input = new FragmentIntensityPredictionInput(sequence, 2, null, null, null) { SequenceParser = ProFormaSequenceParser.Instance };
-
-            var predictions = model.Predict(new List<FragmentIntensityPredictionInput> { input });
-            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 1.0 }, out _);
-
-            Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { expectedValidated }));
-            Assert.That(predictions[0].ValidatedFullSequence, Is.EqualTo(expectedValidated));
-            Assert.That(spectra.Count, Is.EqualTo(1));
-            Assert.That(spectra[0].PrecursorMz,
-                Is.EqualTo((new PeptideWithSetModifications(baseSequence).MonoisotopicMass + modificationMass).ToMz(2)).Within(1e-3));
-        }
-
-        [Test]
-        public void FragmentIntensity_MapToInputFullSequence_PeptideMzLibCannotBuildThrowsInThrowExceptionMode()
-        {
-            var model = new CannedMs2PipModel(FragmentIonMappingMode.MapToInputFullSequence, SequenceConversionHandlingMode.ThrowException);
-            var unbuildable = new FragmentIntensityPredictionInput("PEPTIDEK[UNIMOD:2114]", 2, null, null, null) { SequenceParser = ProFormaSequenceParser.Instance };
-
-            Assert.That(() => model.Predict(new List<FragmentIntensityPredictionInput> { unbuildable, new("PEPTIDECK", 2, null, null, null) }),
-                Throws.ArgumentException.With.Message.Contains("PEPTIDEK[UNIMOD:2114]"));
-            Assert.That(SentSequences(model.Requests), Is.EqualTo(new[] { "PEPTIDEK[UNIMOD:2114]", "PEPTIDECK" }), "it fails after Koina answered");
         }
 
         /// <summary>

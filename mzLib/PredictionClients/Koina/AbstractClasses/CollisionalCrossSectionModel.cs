@@ -11,7 +11,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <summary>
     /// Represents a collisional cross section prediction result for a single peptide.
     /// </summary>
-    /// <param name="ValidatedFullSequence">The sequence that was predicted, in the same format as FullSequence (see <see cref="SequenceParser"/>), with modifications equivalent to those sent to Koina, minus any that mod handling removed. Modifications the input identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity resolved for Koina (ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); names the format's serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes <c>Multiplex Label:TMT6-plex on X</c>). Null if the input was invalid for the model. This is not the string sent to Koina, which the model writes in its own notation.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
     public record PeptideCCSPrediction(
         string FullSequence,
         string ValidatedFullSequence,
@@ -42,8 +42,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
         /// <summary>
-        /// The cleaned sequence in <see cref="FullSequence"/>'s format with equivalent modifications, set during prediction; see
-        /// <see cref="PeptideCCSPrediction.ValidatedFullSequence"/>.
+        /// The cleaned sequence, set during prediction; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.
         /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }

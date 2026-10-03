@@ -14,7 +14,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">The sequence that was predicted, in the same format as FullSequence (see <see cref="SequenceParser"/>), with modifications equivalent to those sent to Koina, minus any that mod handling removed. Modifications the input identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity resolved for Koina (ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); names the format's serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes <c>Multiplex Label:TMT6-plex on X</c>). Null if the input was invalid for the model. This is not the string sent to Koina, which the model writes in its own notation.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
@@ -46,8 +46,10 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
         /// <summary>
-        /// The cleaned sequence in <see cref="FullSequence"/>'s format with equivalent modifications, set during prediction; see
-        /// <see cref="PeptideRTPrediction.ValidatedFullSequence"/>.
+        /// The cleaned sequence that was predicted, set during prediction: <see cref="FullSequence"/> in its own format
+        /// (see <see cref="SequenceParser"/>), written back from the parsed modifications the model accepted, minus any
+        /// that mod handling removed. Null when the input is invalid for the model. It is not the string sent to Koina,
+        /// which the model writes in its own notation when the requests are built.
         /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }

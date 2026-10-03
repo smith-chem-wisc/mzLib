@@ -1,5 +1,4 @@
 ﻿using MzLibUtil;
-using Omics.Digestion;
 using Omics.Modifications;
 using Omics.SequenceConversion;
 using Omics.Fragmentation;
@@ -9,7 +8,6 @@ using Readers.SpectralLibrary;
 using System.ComponentModel;
 using Chemistry;
 using PredictionClients.Koina.Interfaces;
-using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using Easy.Common.Extensions;
 using PredictionClients.Koina.Util;
@@ -48,7 +46,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">The sequence that was predicted, in the same format as FullSequence (see <see cref="SequenceParser"/>), with modifications equivalent to those sent to Koina, minus any that mod handling removed. Modifications the input identified, by id or by name, keep their text; a mass-only modification is written with the UNIMOD identity resolved for Koina (ProForma <c>[+79.9568]</c> on S becomes <c>[UNIMOD:21]</c>); names the format's serializer can't write back are normalized (MetaMorpheus-style <c>Common Fixed:TMT6plex on N-terminus</c> becomes <c>Multiplex Label:TMT6-plex on X</c>). Null if the input was invalid for the model. This is not the string sent to Koina, which the model writes in its own notation.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
     /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
@@ -97,8 +95,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
         /// <summary>
-        /// The cleaned sequence in <see cref="FullSequence"/>'s format with equivalent modifications, set during prediction; see
-        /// <see cref="PeptideFragmentIntensityPrediction.ValidatedFullSequence"/>.
+        /// The cleaned sequence, set during prediction; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.
         /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
@@ -599,10 +596,12 @@ namespace PredictionClients.Koina.AbstractClasses
 
         /// <summary>
         /// Builds the peptide whose fragments a prediction is mapped onto, from a sequence in the format
-        /// <paramref name="sequenceParser"/> reads (null: the model's own parser, mzLib syntax): each modification is
-        /// resolved to a <see cref="Modification"/> (see <see cref="ResolveModificationObject"/>) and keyed where it
-        /// was parsed (see <see cref="BuildPeptide"/>). When it can't, throws in ThrowException mode and otherwise
-        /// returns null with a warning.
+        /// <paramref name="sequenceParser"/> reads (null: the model's own parser, mzLib syntax), with
+        /// <see cref="PeptideWithSetModifications.FromCanonicalSequence"/>: each modification is the catalog entry the
+        /// parser attached, else what the model's own lookup resolves (as for Koina), else what all of UNIMOD and then
+        /// all of mzLib's protein catalogs resolve, which finds the modifications the model doesn't allow but an input
+        /// that mod handling cleaned still carries; it stays where it was parsed. When it can't, throws in ThrowException
+        /// mode and otherwise returns null with a warning.
         /// </summary>
         private PeptideWithSetModifications? TryBuildPeptide(string sequence, ISequenceParser? sequenceParser, out WarningException? warning)
         {
@@ -611,13 +610,7 @@ namespace PredictionClients.Koina.AbstractClasses
             try
             {
                 var canonical = (sequenceParser ?? SequenceConverter.Parser).Parse(sequence, null, SequenceConversionHandlingMode.ThrowException)!.Value;
-                var modifications = canonical.Modifications
-                    .Select(mod => (Parsed: mod, Modification: ResolveModificationObject(mod)))
-                    .ToList();
-                var unresolved = modifications.Where(m => m.Modification == null).Select(m => m.Parsed.ToString()).ToList();
-                if (unresolved.Count == 0)
-                    return BuildPeptide(canonical.BaseSequence, modifications.Select(m => (m.Parsed, m.Modification!)));
-                reason = $"no modification found for {string.Join(", ", unresolved)}";
+                return PeptideWithSetModifications.FromCanonicalSequence(canonical, ModificationLookups);
             }
             catch (SequenceConversionException ex)
             {
@@ -630,94 +623,10 @@ namespace PredictionClients.Koina.AbstractClasses
             return null;
         }
 
-        /// <summary>
-        /// Finds the mzLib <see cref="Modification"/> a parsed modification stands for, to build a peptide from.
-        /// <para>An mzLib name is a modification mzLib knows when its text, or else its text after the first colon, is
-        /// an id of mzLib's protein modification dictionary. Of the modifications with that id, the first that can sit
-        /// where the modification does is used, in this order: the dictionaries' own entry (what reading the name in
-        /// mzLib syntax gives) if it has the name's type, the others of the name's type (so the peptide's full
-        /// sequence repeats the name), the dictionaries' entry under its own type, and the rest. Any modification can
-        /// sit on a residue, as when reading the name; at a terminus, only one of that terminus's class.</para>
-        /// <para>Anything else (ProForma ids, names and masses; mzLib names mzLib doesn't know or whose modifications
-        /// can't sit there) is resolved through the model's own lookup, as it was for Koina, and failing that through
-        /// all of UNIMOD and then all of mzLib's protein catalogs (UNIMOD, UniProt and MetaMorpheus's protein
-        /// modifications), which find the modifications the model doesn't allow but an input that mod handling cleaned
-        /// still carries. Only protein modifications are considered. Null when none finds it.</para>
-        /// </summary>
-        private Modification? ResolveModificationObject(CanonicalModification mod)
-        {
-            if (mod.MzLibId is { } name && KnownModification(name) is { } named)
-            {
-                var sameId = KnownModificationsById.Value[named.Id];
-                var sameType = sameId.Where(m => named.Type == null || m.ModificationType == named.Type).ToList();
-                var candidates = sameType.Contains(named.DictionaryEntry) ? sameType.Prepend(named.DictionaryEntry) : sameType;
-                if (candidates.Append(named.DictionaryEntry).Concat(sameId).FirstOrDefault(m => CanSit(m, mod)) is { } known)
-                    return known;
-            }
-
-            return SequenceConverter.Serializer.ModificationLookup?.TryResolve(mod)?.MzLibModification
-                ?? UnimodModificationLookup.Instance.TryResolve(mod)?.MzLibModification
-                ?? ProteinModificationLookup.Instance.TryResolve(mod)?.MzLibModification;
-        }
-
-        private static (string? Type, string Id, Modification DictionaryEntry)? KnownModification(string name)
-        {
-            if (TryGetDictionaryEntry(name.Trim(), out var whole))
-                return (null, name.Trim(), whole);
-
-            var separator = name.IndexOf(':');
-            if (separator <= 0)
-                return null;
-            var id = name[(separator + 1)..].Trim();
-            return TryGetDictionaryEntry(id, out var entry) ? (name[..separator].Trim(), id, entry) : null;
-        }
-
-        private static bool TryGetDictionaryEntry(string id, out Modification modification) =>
-            Mods.AllKnownProteinModsDictionary.TryGetValue(id, out modification!);
-
-        private static readonly Lazy<ILookup<string, Modification>> KnownModificationsById = new(() =>
-            Mods.AllProteinModsList
-                .Where(m => !string.IsNullOrEmpty(m.IdWithMotif))
-                .ToLookup(m => m.IdWithMotif));
-
-        private static bool CanSit(Modification modification, CanonicalModification mod) =>
-            mod.PositionType switch
-            {
-                ModificationPositionType.NTerminus => IsNTerminal(modification),
-                ModificationPositionType.CTerminus => IsCTerminal(modification),
-                _ => true
-            };
-
-        private static bool IsNTerminal(Modification modification) =>
-            modification.LocationRestriction?.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) == true;
-
-        private static bool IsCTerminal(Modification modification) =>
-            modification.LocationRestriction?.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) == true;
-
-        /// <summary>
-        /// Builds a peptide from its base sequence and modification objects, keyed the way
-        /// <see cref="PeptideWithSetModifications"/> numbers them: the N-terminus is 1, the residue at zero-based index i
-        /// is i + 2, and the C-terminus is the length + 2. Like reading a full sequence, a C-terminal modification
-        /// written on the last residue is keyed at the C-terminus, unless a modification is there already.
-        /// </summary>
-        private static PeptideWithSetModifications BuildPeptide(string baseSequence,
-            IEnumerable<(CanonicalModification Parsed, Modification Modification)> modifications)
-        {
-            var list = modifications.ToList();
-            var cTerminusTaken = list.Any(m => m.Parsed.PositionType == ModificationPositionType.CTerminus);
-            var allModsOneIsNterminus = list.ToDictionary(
-                m => m.Parsed.PositionType switch
-                {
-                    ModificationPositionType.NTerminus => 1,
-                    ModificationPositionType.CTerminus => baseSequence.Length + 2,
-                    _ when !cTerminusTaken && IsCTerminal(m.Modification) && m.Parsed.ResidueIndex == baseSequence.Length - 1 => baseSequence.Length + 2,
-                    _ => m.Parsed.ResidueIndex!.Value + 2
-                },
-                m => m.Modification);
-            var protein = new Protein(baseSequence, "KoinaPrediction");
-            return new PeptideWithSetModifications(protein, null, 1, baseSequence.Length, CleavageSpecificity.Full, null, 0,
-                allModsOneIsNterminus, 0, baseSequence);
-        }
+        private IModificationLookup[] ModificationLookups =>
+            SequenceConverter.Serializer.ModificationLookup is { } own
+                ? [own, UnimodModificationLookup.Instance, GlobalModificationLookup.ProteinOnly]
+                : [UnimodModificationLookup.Instance, GlobalModificationLookup.ProteinOnly];
         #endregion
 
         /// <summary>
@@ -865,11 +774,9 @@ namespace PredictionClients.Koina.AbstractClasses
         /// 4. Builds LibrarySpectrum with precursor information and fragment data
         /// 5. Validates uniqueness of generated spectra by name
         ///
-        /// Each spectrum is labeled with the built peptide's full sequence, <c>Type:Id</c> for each modification. An mzLib
-        /// name keeps its text when mzLib has a modification of that type and id; a known id under a type mzLib doesn't
-        /// pair it with is labeled with mzLib's own type (<c>Common Fixed:TMT6plex on K</c> becomes
-        /// <c>Unimod:TMT6plex on K</c>); and modifications from other formats, or mzLib names mzLib doesn't know, are
-        /// labeled with the names the modification lookup picks.
+        /// Each spectrum is labeled with the built peptide's full sequence, <c>Type:Id</c> for each modification: an mzLib
+        /// name from mzLib's catalogs keeps its text, and a modification from another format is labeled with the catalog
+        /// entry the lookups pick.
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when predictions are skipped or duplicate spectra are detected</exception>
         public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double?[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)

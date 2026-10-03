@@ -20,9 +20,9 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENS"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]SEQENS"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTING")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -51,8 +51,8 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMT10pro on N-terminus]TESTING")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT10 on X]TESTING")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -83,10 +83,10 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid - has N-term
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"), // Valid - has N-term
                 new RetentionTimePredictionInput("PEPTIDE"), // Invalid - no N-term mod
-                new RetentionTimePredictionInput("PEPTK[Common Fixed:TMT6plex on K]IDE"), // Invalid - only K-TMT, no N-term
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING"), // Valid - has N-term
+                new RetentionTimePredictionInput("PEPTK[Multiplex Label:TMT6-plex on K]IDE"), // Invalid - only K-TMT, no N-term
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]TESTING"), // Valid - has N-term
                 new RetentionTimePredictionInput("M[Common Variable:Oxidation on M]SEQUENCE") // Invalid - only oxidation, no N-term
             };
 
@@ -166,11 +166,11 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"), // Valid
                 new RetentionTimePredictionInput("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // Invalid - too long (and no N-term)
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEP*TIDE"), // Invalid - has N-term but invalid character
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]PEP*TIDE"), // Invalid - has N-term but invalid character
                 new RetentionTimePredictionInput("SEQUENS"), // Invalid - no N-term mod (and noncanonical U)
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING") // Valid
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTING") // Valid
             };
 
             var model = new Prosit2020iRTTMT();
@@ -196,10 +196,10 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENCE"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]ANTHER")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]SEQENCE"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTING"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-8plex on X]ANTHER")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -229,15 +229,15 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]M[Common Variable:Oxidation on M]SEQENS"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTC[Common Fixed:Carbamidomethyl on C]ING"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]PEPTK[Common Fixed:TMT6plex on K]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Fixed:TMTpro on K]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEPTK[Common Fixed:iTRAQ4plex on K]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]PEPTK[Common Fixed:iTRAQ8plex on K]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]PEPTK[Common Variable:Label:13C(6)15N(2) on K]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTR[Common Variable:Label:13C(6)15N(4) on R]IDE")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]M[Common Variable:Oxidation on M]SEQENS"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTC[Common Fixed:Carbamidomethyl on C]ING"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-8plex on X]PEPTK[Multiplex Label:TMT6-plex on K]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTK[Multiplex Label:TMT18 on K]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]PEPTK[Multiplex Label:iTRAQ-4plex on K]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]PEPTK[Multiplex Label:iTRAQ-8plex on K]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-8plex on X]PEPTK[Unimod:Label:13C(6)15N(2) on K]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTR[Unimod:Label:13C(6)15N(4) on R]IDE")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -265,12 +265,12 @@ namespace Test.KoinaTests.RetentionTimePrediction
 
             Assert.That(predictions[1].FullSequence, Does.Contain("[Common Variable:Oxidation on M]"));
             Assert.That(predictions[2].FullSequence, Does.Contain("[Common Fixed:Carbamidomethyl on C]"));
-            Assert.That(predictions[3].FullSequence, Does.Contain("[Common Fixed:TMT6plex on K]"));
-            Assert.That(predictions[4].FullSequence, Does.Contain("[Common Fixed:TMTpro on K]"));
-            Assert.That(predictions[5].FullSequence, Does.Contain("[Common Fixed:iTRAQ4plex on K]"));
-            Assert.That(predictions[6].FullSequence, Does.Contain("[Common Fixed:iTRAQ8plex on K]"));
-            Assert.That(predictions[7].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(2) on K]"));
-            Assert.That(predictions[8].FullSequence, Does.Contain("[Common Variable:Label:13C(6)15N(4) on R]"));
+            Assert.That(predictions[3].FullSequence, Does.Contain("[Multiplex Label:TMT6-plex on K]"));
+            Assert.That(predictions[4].FullSequence, Does.Contain("[Multiplex Label:TMT18 on K]"));
+            Assert.That(predictions[5].FullSequence, Does.Contain("[Multiplex Label:iTRAQ-4plex on K]"));
+            Assert.That(predictions[6].FullSequence, Does.Contain("[Multiplex Label:iTRAQ-8plex on K]"));
+            Assert.That(predictions[7].FullSequence, Does.Contain("[Unimod:Label:13C(6)15N(2) on K]"));
+            Assert.That(predictions[8].FullSequence, Does.Contain("[Unimod:Label:13C(6)15N(4) on R]"));
 
 
         }
@@ -284,11 +284,11 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"), // Valid
                 new RetentionTimePredictionInput("SEQUENC[InvalidMod]E"), // Invalid - no N-term AND invalid mod
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING"), // Valid
-                new RetentionTimePredictionInput("PEPTK[Common Fixed:Acetyl on K]IDE"), // Invalid - no N-term (acetylation also not supported)
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]PEPTK[Common Fixed:Acetyl on K]IDE") // Invalid - has N-term but acetylation not supported
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]TESTING"), // Valid
+                new RetentionTimePredictionInput("PEPTK[Common Biological:Acetylation on K]IDE"), // Invalid - no N-term (acetylation also not supported)
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]PEPTK[Common Biological:Acetylation on K]IDE") // Invalid - has N-term but acetylation not supported
             };
 
             var model = new Prosit2020iRTTMT();
@@ -310,10 +310,10 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ8plex on N-terminus]PEPTIDE")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-8plex on X]PEPTIDE")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -326,7 +326,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
             // Check that N-terminal modifications are converted correctly
             for (int i = 0; i < modelInputs.Count; i++)
             {
-                Assert.That(modelInputs[i].FullSequence.StartsWith("[Common Fixed:"), Is.True);
+                Assert.That(modelInputs[i].FullSequence.StartsWith("[Multiplex Label:"), Is.True);
             }
         }
 
@@ -338,9 +338,9 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Variable:Label:13C(6)15N(2) on K]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]PEPTR[Common Variable:Label:13C(6)15N(4) on R]IDE"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTK[Common Variable:Label:13C(6)15N(2) on K]R[Common Variable:Label:13C(6)15N(4) on R]ING")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTK[Unimod:Label:13C(6)15N(2) on K]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]PEPTR[Unimod:Label:13C(6)15N(4) on R]IDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTK[Unimod:Label:13C(6)15N(2) on K]R[Unimod:Label:13C(6)15N(4) on R]ING")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -361,9 +361,9 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTK[Common Fixed:TMT6plex on K]IDEC[Common Fixed:Carbamidomethyl on C]"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]M[Common Variable:Oxidation on M]EPTK[Common Fixed:TMTpro on K]IDEC[Common Fixed:Carbamidomethyl on C]"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTK[Common Variable:Label:13C(6)15N(2) on K]R[Common Variable:Label:13C(6)15N(4) on R]C[Common Fixed:Carbamidomethyl on C]ING")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTK[Multiplex Label:TMT6-plex on K]IDEC[Common Fixed:Carbamidomethyl on C]"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]M[Common Variable:Oxidation on M]EPTK[Multiplex Label:TMT18 on K]IDEC[Common Fixed:Carbamidomethyl on C]"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTK[Unimod:Label:13C(6)15N(2) on K]R[Unimod:Label:13C(6)15N(4) on R]C[Common Fixed:Carbamidomethyl on C]ING")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -388,9 +388,9 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENS"),
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTING")
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"),
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]SEQENS"),
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTING")
             };
 
             var model = new Prosit2020iRTTMT();
@@ -414,7 +414,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
 
             while (peptides.Count < numberOfSequences)
             {
-                var pep = "[Common Fixed:TMT6plex on N-terminus]" + new string(Random.Shared.GetItems(aminoacids, seqLength));
+                var pep = "[Multiplex Label:TMT6-plex on X]" + new string(Random.Shared.GetItems(aminoacids, seqLength));
                 peptides.Add(pep);
             }
 
@@ -437,7 +437,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
             var modelInputs = new List<RetentionTimePredictionInput>();
             for (int i = 0; i < 1000; i++)
             {
-                modelInputs.Add(new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"));
+                modelInputs.Add(new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"));
             }
 
             var model = new Prosit2020iRTTMT();
@@ -474,11 +474,11 @@ namespace Test.KoinaTests.RetentionTimePrediction
         {
             var modelInputs = new List<RetentionTimePredictionInput>
             {
-                new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"), // Valid
+                new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]PEPTIDE"), // Valid
                 new RetentionTimePredictionInput("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"), // Invalid - too long AND no N-term
-                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]SEQENS"), // Valid
+                new RetentionTimePredictionInput("[Multiplex Label:TMT18 on X]SEQENS"), // Valid
                 new RetentionTimePredictionInput("INVALID*"), // Invalid - bad character AND no N-term
-                new RetentionTimePredictionInput("[Common Fixed:iTRAQ4plex on N-terminus]TESTINGTWICE"), // Valid
+                new RetentionTimePredictionInput("[Multiplex Label:iTRAQ-4plex on X]TESTINGTWICE"), // Valid
                 new RetentionTimePredictionInput("INVALIDPEPTIDE[BadMod]"), // Invalid - bad mod AND no N-term
                 new RetentionTimePredictionInput("VALIDSEQENCE") // Invalid - no N-term mod
             };
@@ -553,7 +553,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
             }
             foreach (var peptide in peptides)
             {
-                modelInputs.Add(new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]" + peptide));
+                modelInputs.Add(new RetentionTimePredictionInput("[Multiplex Label:TMT6-plex on X]" + peptide));
             }
             var model = new Prosit2020iRTTMT();
             var watch = System.Diagnostics.Stopwatch.StartNew();
