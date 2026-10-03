@@ -14,7 +14,8 @@ namespace Omics.SequenceConversion;
 /// - Multiple modifications: "PEP[Oxidation on M]TID[Phospho on S]E"
 /// 
 /// A modification written <c>Type:Id</c> whose Id names an entry of mzLib's own catalogs carries that
-/// <see cref="Modification"/> and the UNIMOD id it cites (see <see cref="FindCatalogModification"/>).
+/// <see cref="Modification"/> (see <see cref="FindCatalogModification"/>), and the UNIMOD id it cites when that
+/// UNIMOD record has its mass (see <see cref="Mods.MatchesUnimodRecordMass"/>).
 /// 
 /// Note: For mass shift notation (e.g., "[+15.995]"), use MassShiftSequenceParser instead.
 /// </summary>
@@ -91,7 +92,8 @@ public class MzLibSequenceParser : SequenceParserBase
             residueIndex,
             extractedResidue ?? targetResidue,
             modString,
-            UnimodId: modification is null ? null : CanonicalModification.UnimodIdOf(modification),
+            UnimodId: modification is not null && CanonicalModification.UnimodIdOf(modification) is int unimodId
+                      && Mods.MatchesUnimodRecordMass(modification, unimodId) ? unimodId : null,
             MzLibId: mzLibId,
             MzLibModification: modification);
     }

@@ -138,6 +138,7 @@ namespace Readers.ProForma
         /// <summary>
         /// Emits an accession (Identifier) descriptor like <c>[UNIMOD:35]</c> when the modification
         /// carries a recognized ontology reference, otherwise a Name descriptor like <c>[Oxidation]</c>.
+        /// A UNIMOD reference whose record has a different mass is skipped (see <see cref="Mods.MatchesUnimodRecordMass"/>).
         /// </summary>
         internal static Tdp.ProFormaDescriptor BuildDescriptor(Modification mod)
         {
@@ -151,13 +152,21 @@ namespace Readers.ProForma
                     {
                         if (DbKeyToProFormaPrefix.TryGetValue(dbKey, out var p)
                             && string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase)
-                            && ids is { Count: > 0 })
-                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], $"{prefix}:{ids[0]}");
+                            && ids is { Count: > 0 }
+                            && !(prefix == "UNIMOD" && int.TryParse(ids[0], out var unimodId) && !Mods.MatchesUnimodRecordMass(mod, unimodId)))
+                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], Accession(prefix, ids[0]));
                     }
                 }
             }
             return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Name, mod.OriginalId);
         }
+
+        /// <summary>
+        /// The ProForma accession for a database reference, adding the prefix only when the id doesn't carry it already
+        /// (PSI-MOD ids are stored as "MOD:01892", UNIMOD ids as "35").
+        /// </summary>
+        private static string Accession(string prefix, string id) =>
+            id.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ? id : $"{prefix}:{id}";
 
         /// <summary>
         /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).
@@ -174,10 +183,13 @@ namespace Readers.ProForma
                     if (!DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix)) continue;
                     foreach (var id in ids)
                     {
-                        string key = $"{prefix}:{id}".ToUpperInvariant();
-                        if (!index.TryGetValue(key, out var list))
-                            index[key] = list = new List<Modification>();
-                        list.Add(mod);
+                        // A PSI-MOD id, stored as "MOD:01892", is indexed as "MOD:01892" and as "MOD:MOD:01892".
+                        foreach (var key in new[] { Accession(prefix, id), $"{prefix}:{id}" }.Select(k => k.ToUpperInvariant()).Distinct())
+                        {
+                            if (!index.TryGetValue(key, out var list))
+                                index[key] = list = new List<Modification>();
+                            list.Add(mod);
+                        }
                     }
                 }
             }

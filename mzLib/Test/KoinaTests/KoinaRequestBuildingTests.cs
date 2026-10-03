@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -458,6 +458,22 @@ namespace Test.KoinaTests
             Assert.That(result, Is.EqualTo(expected));
             Assert.That(api, Is.EqualTo(expected));
             Assert.That(warning, Is.Null);
+        }
+
+        [Test]
+        public void AcceptAllModel_UniProtModificationCitingAUnimodRecordOfAnotherMass_IsNotSentAsThatId()
+        {
+            // UniProt's N,N-dimethylproline (+28.031) cites UNIMOD:529 (+29.039).
+            var localized = new Dictionary<int, List<Modification>> { [1] = new() { CatalogMod("UniProt", "N,N-dimethylproline on P") } };
+            var fullSequence = new Protein("PEPTIDEK", "P", oneBasedModifications: localized)
+                .Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1), new List<Modification>(), new List<Modification>())
+                .Single(p => p.AllModsOneIsNterminus.Count == 1).FullSequence;
+
+            var result = new Ms2PipProbe(SequenceConversionHandlingMode.ReturnNull).Clean(fullSequence, out _, out var warning);
+
+            Assert.That(fullSequence, Is.EqualTo("[UniProt:N,N-dimethylproline on P]PEPTIDEK"));
+            Assert.That(result, Is.Null);
+            Assert.That(warning?.Message, Does.Contain("UniProt:N,N-dimethylproline on P"));
         }
 
         [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]

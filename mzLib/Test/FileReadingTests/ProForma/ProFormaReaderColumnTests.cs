@@ -1,7 +1,13 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Omics.Modifications;
+using Omics.SequenceConversion;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using Readers;
+using Readers.ProForma;
 
 namespace Test.FileReadingTests.ProForma
 {
@@ -81,6 +87,57 @@ namespace Test.FileReadingTests.ProForma
         public void ProFormaFromFullSequence_ConvertsMetaMorpheusNotation(string fullSequence, string expected)
         {
             Assert.That(SpectrumMatchFromTsv.ProFormaFromFullSequence(fullSequence), Is.EqualTo(expected));
+        }
+
+        private static PeptideWithSetModifications DigestWithUniProtMod(string sequence, string idWithMotif, int position)
+        {
+            var mod = Mods.UniprotModifications.Single(m => m.IdWithMotif == idWithMotif);
+            var localized = new Dictionary<int, List<Modification>> { [position] = new() { mod } };
+            return new Protein(sequence, "P", oneBasedModifications: localized)
+                .Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1), new List<Modification>(), new List<Modification>())
+                .Cast<PeptideWithSetModifications>()
+                .First(p => p.AllModsOneIsNterminus.Count == 1);
+        }
+
+        private static double ReadBackMass(string proForma) =>
+            ProFormaConverter.ToModificationDictionary(ProFormaReader.Read(proForma), Mods.AllKnownProteinModsDictionary)
+                .Values.Single().MonoisotopicMass!.Value;
+
+        [Test]
+        public void ProForma_PsiModReference_IsWrittenWithOnePrefixAndReadsBack()
+        {
+            // UniProt's N6-crotonyllysine cites PSI-MOD (stored as "MOD:01892") and no UNIMOD record.
+            var peptide = DigestWithUniProtMod("PEPKIDEK", "N6-crotonyllysine on K", 4);
+            var mass = peptide.AllModsOneIsNterminus.Values.Single().MonoisotopicMass!.Value;
+            Assert.That(peptide.FullSequence, Is.EqualTo("PEPK[UniProt:N6-crotonyllysine on K]"));
+
+            foreach (var proForma in new[] { SpectrumMatchFromTsv.ProFormaFromFullSequence(peptide.FullSequence)!, peptide.ToProFormaString() })
+            {
+                Assert.That(proForma, Is.EqualTo("PEPK[MOD:01892]"));
+                Assert.That(ReadBackMass(proForma), Is.EqualTo(mass).Within(1e-6));
+            }
+
+            // The accession with its prefix doubled reads as the same modification.
+            Assert.That(ReadBackMass("PEPK[MOD:MOD:01892]"), Is.EqualTo(mass).Within(1e-6));
+        }
+
+        [Test]
+        public void ProForma_UnimodReferenceOfAnotherMass_IsNotWrittenOrParsedAsUnimodId()
+        {
+            // UniProt's N,N-dimethylproline (+28.031) cites UNIMOD:529, whose record is +29.039.
+            var peptide = DigestWithUniProtMod("PEPTIDEK", "N,N-dimethylproline on P", 1);
+            var dimethylproline = peptide.AllModsOneIsNterminus.Values.Single();
+            Assert.That(peptide.FullSequence, Is.EqualTo("[UniProt:N,N-dimethylproline on P]PEPTIDEK"));
+
+            var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value.Modifications.Single();
+            Assert.That(parsed.MzLibModification, Is.SameAs(dimethylproline));
+            Assert.That(parsed.UnimodId, Is.Null);
+
+            foreach (var proForma in new[] { SpectrumMatchFromTsv.ProFormaFromFullSequence(peptide.FullSequence)!, peptide.ToProFormaString() })
+            {
+                Assert.That(proForma, Does.Not.Contain("UNIMOD:529"));
+                Assert.That(ReadBackMass(proForma), Is.EqualTo(dimethylproline.MonoisotopicMass!.Value).Within(1e-6), proForma);
+            }
         }
 
         [TestCase(null)]

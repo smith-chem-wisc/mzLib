@@ -186,6 +186,26 @@ public static class Mods
     #region Public Methods
 
     /// <summary>
+    /// Whether the bundled UNIMOD record <paramref name="unimodId"/> has the modification's monoisotopic mass, within
+    /// 0.01 Da. The catalogs' UNIMOD cross-references either agree within 0.0032 Da (isotope-label definitions such as
+    /// iTRAQ 8-plex) or are off by a whole chemical group (1.008 Da or more, e.g. UniProt's N,N-dimethylproline citing
+    /// UNIMOD:529), and the tolerance only has to tell those apart. True when there is nothing to compare: the bundled
+    /// unimod.xml has no record of that id, or the modification has no mass.
+    /// </summary>
+    public static bool MatchesUnimodRecordMass(Modification modification, int unimodId) =>
+        !modification.MonoisotopicMass.HasValue
+        || !UnimodRecordMasses.Value.TryGetValue(unimodId, out var recordMass)
+        || Math.Abs(recordMass - modification.MonoisotopicMass.Value) <= 0.01;
+
+    private static readonly Lazy<Dictionary<int, double>> UnimodRecordMasses = new(() =>
+        UnimodModifications
+            .Where(m => m.ModificationType == "Unimod" && m.MonoisotopicMass.HasValue)
+            .Select(m => (Id: SequenceConversion.CanonicalModification.UnimodIdOf(m), Mass: m.MonoisotopicMass!.Value))
+            .Where(r => r.Id.HasValue)
+            .GroupBy(r => r.Id!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Mass));
+
+    /// <summary>
     /// Gets a modification by IdWithMotif or OriginalId
     /// </summary>
     public static Modification? GetModification(string id, bool searchProteinMods = true, bool searchRnaMods = true)
