@@ -5,7 +5,11 @@ using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using Chemistry;
+using Omics;
 using Omics.SequenceConversion;
+using Readers.ProForma;
+using System;
+using System.Linq;
 
 namespace Test.Omics.SequenceConversion;
 [TestFixture]
@@ -234,6 +238,223 @@ public class PeptideAndProteinConversion
         Assert.That(originalFormula.Equals(UnimodFormula), Is.True);
         Assert.That(originalFormula.Equals(finalFormula), Is.True);
         Assert.That(originalTarget, Is.EqualTo(finalTarget));
+    }
+
+    #endregion
+
+    #region Full sequences written for digested peptides
+
+    /// <summary>
+    /// Peptides digested from proteins that carry each protein modification mzLib's catalogs define (MetaMorpheus,
+    /// TMT, UniProt, UNIMOD) where its motif fits: as a variable modification, and as a localized one on a target
+    /// and on a decoy protein (decoys put localized modifications on residues whatever their location restriction).
+    /// </summary>
+    private static readonly Lazy<List<PeptideWithSetModifications>> DigestedCatalogPeptides = new(() =>
+    {
+        var peptides = new List<PeptideWithSetModifications>();
+        var digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1,
+            maxModsForPeptides: 2, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+        var catalogs = Mods.MetaMorpheusProteinModifications.Concat(Mods.IsobaricLabelModifications)
+            .Concat(Mods.UniprotModifications).Concat(Mods.UnimodModifications);
+        foreach (var mod in catalogs.Where(m => m.Target != null && m.MonoisotopicMass.HasValue && m.ValidModification))
+        {
+            var residues = new string(mod.Target.ToString().Select(c => c is 'X' or 'x' ? 'A' : char.ToUpperInvariant(c)).ToArray());
+            var sequence = residues + "GGGGK" + residues + "GGGGK" + "GGG" + residues;
+            Dictionary<int, List<Modification>> Localized() => new[] { 1, residues.Length + 6, sequence.Length }
+                .ToDictionary(position => position, _ => new List<Modification> { mod });
+            var proteins = new[]
+            {
+                (Protein: new Protein(sequence, "P"), Variable: new List<Modification> { mod }),
+                (Protein: new Protein(sequence, "P", oneBasedModifications: Localized()), Variable: new List<Modification>()),
+                (Protein: new Protein(sequence, "DECOY_P", isDecoy: true, oneBasedModifications: Localized()), Variable: new List<Modification>())
+            };
+            foreach (var (protein, variable) in proteins)
+            {
+                peptides.AddRange(protein.Digest(digestionParams, new List<Modification>(), variable)
+                    .Cast<PeptideWithSetModifications>()
+                    .Where(p => p.AllModsOneIsNterminus.Count > 0));
+            }
+        }
+        return peptides;
+    });
+
+    private static int KeyOf(CanonicalModification mod, int length) => mod.PositionType switch
+    {
+        ModificationPositionType.NTerminus => 1,
+        ModificationPositionType.CTerminus => length + 2,
+        _ => mod.ResidueIndex!.Value + 2
+    };
+
+    [Test]
+    public static void MzLibParser_DigestedCatalogModification_CarriesItsCatalogEntryAndUnimodId()
+    {
+        int identical = 0, sameNamedEntry = 0;
+        foreach (var peptide in DigestedCatalogPeptides.Value)
+        {
+            var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
+            Assert.That(parsed.Modifications.Length, Is.EqualTo(peptide.AllModsOneIsNterminus.Count), peptide.FullSequence);
+            foreach (var mod in parsed.Modifications)
+            {
+                var original = peptide.AllModsOneIsNterminus[KeyOf(mod, parsed.BaseSequence.Length)];
+                var attached = mod.MzLibModification;
+                Assert.That(attached, Is.Not.Null, peptide.FullSequence);
+                Assert.That(mod.UnimodId, Is.EqualTo(CanonicalModification.UnimodIdOf(original)), peptide.FullSequence);
+                if (ReferenceEquals(attached, original))
+                {
+                    identical++;
+                    continue;
+                }
+
+                // The name can't tell apart entries that share it and differ only in location restriction
+                // (UNIMOD's N-terminal and peptide N-terminal Acetyl on X); at a terminus the entry still has its class.
+                sameNamedEntry++;
+                Assert.That(attached!.ModificationType, Is.EqualTo(original.ModificationType), peptide.FullSequence);
+                Assert.That(attached.IdWithMotif, Is.EqualTo(original.IdWithMotif), peptide.FullSequence);
+                Assert.That(attached.MonoisotopicMass, Is.EqualTo(original.MonoisotopicMass), peptide.FullSequence);
+                // On a residue, digestion leaves terminal modifications of decoys (and protease products) where they
+                // were: an N-terminal one on the first residue, a C-terminal one on the last, keeps that class.
+                var firstResidueNTerminal = mod.PositionType == ModificationPositionType.Residue && mod.ResidueIndex == 0
+                                            && ModificationLocalization.IsNTerminal(original);
+                var lastResidueCTerminal = mod.PositionType == ModificationPositionType.Residue && mod.ResidueIndex == parsed.BaseSequence.Length - 1
+                                           && ModificationLocalization.IsCTerminal(original);
+                if (mod.PositionType == ModificationPositionType.NTerminus || firstResidueNTerminal)
+                    Assert.That(ModificationLocalization.IsNTerminal(attached), peptide.FullSequence);
+                if (mod.PositionType == ModificationPositionType.CTerminus || lastResidueCTerminal)
+                    Assert.That(ModificationLocalization.IsCTerminal(attached), peptide.FullSequence);
+            }
+        }
+        Assert.That(identical, Is.GreaterThan(20000));
+        Assert.That(sameNamedEntry, Is.LessThan(identical / 100));
+    }
+
+    [TestCase("Less Common", "Methylation on X", "N-terminal.")]
+    [TestCase("Less Common", "Methylation on X", "C-terminal.")]
+    [TestCase("Unimod", "Methyl on X", "N-terminal.")]
+    [TestCase("Unimod", "Methyl on X", "Peptide C-terminal.")]
+    [TestCase("Unimod", "Ethyl on X", "N-terminal.")]
+    [TestCase("Unimod", "Ethyl on X", "Peptide C-terminal.")]
+    [TestCase("Unimod", "Propyl on X", "Peptide N-terminal.")]
+    [TestCase("Unimod", "Propyl on X", "C-terminal.")]
+    public static void MzLibParserAndBuilder_NameSharedByTerminalEntries_KeepTheEntryForItsTerminus(string type, string id, string restriction)
+    {
+        // Mods.txt defines "Less Common:Methylation on X" twice and UNIMOD has several "Methyl on X"; reading the
+        // full sequence through a dictionary keyed by IdWithMotif gives every one of them the same entry.
+        var mod = Mods.AllProteinModsList.Single(m => m.ModificationType == type && m.IdWithMotif == id && m.LocationRestriction == restriction);
+        var digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1);
+        var peptide = new Protein("AGGGGKAGGGGKGGGA", "P")
+            .Digest(digestionParams, new List<Modification>(), new List<Modification> { mod })
+            .Cast<PeptideWithSetModifications>()
+            .First(p => p.AllModsOneIsNterminus.Count == 1);
+        var (key, original) = peptide.AllModsOneIsNterminus.Single();
+
+        var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
+        var attached = parsed.Modifications.Single().MzLibModification!;
+        var built = PeptideWithSetModifications.FromCanonicalSequence(parsed);
+
+        Assert.That(ModificationLocalization.IsNTerminal(attached), Is.EqualTo(ModificationLocalization.IsNTerminal(original)));
+        Assert.That(ModificationLocalization.IsCTerminal(attached), Is.EqualTo(ModificationLocalization.IsCTerminal(original)));
+        Assert.That(built.FullSequence, Is.EqualTo(peptide.FullSequence));
+        Assert.That(built.AllModsOneIsNterminus.Keys, Is.EqualTo(new[] { key }));
+        Assert.That(built.AllModsOneIsNterminus[key], Is.SameAs(attached));
+    }
+
+    [Test]
+    public static void FromCanonicalSequence_DigestedPeptides_MatchTheOriginalPeptide()
+    {
+        // Targets and decoys alike, including the C-terminal modifications decoys and protease products keep on the
+        // last residue. The objects differ only where entries share a name (see the parser test).
+        int digested = 0;
+        foreach (var peptide in DigestedCatalogPeptides.Value)
+        {
+            var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
+            var built = PeptideWithSetModifications.FromCanonicalSequence(parsed);
+
+            Assert.That(built.BaseSequence, Is.EqualTo(peptide.BaseSequence));
+            Assert.That(built.FullSequence, Is.EqualTo(peptide.FullSequence));
+            Assert.That(built.MonoisotopicMass, Is.EqualTo(peptide.MonoisotopicMass).Within(1e-6), peptide.FullSequence);
+            Assert.That(built.AllModsOneIsNterminus.Keys.Order(), Is.EqualTo(peptide.AllModsOneIsNterminus.Keys.Order()), peptide.FullSequence);
+            foreach (var (key, mod) in built.AllModsOneIsNterminus)
+                Assert.That(mod, Is.SameAs(parsed.Modifications.Single(m => KeyOf(m, parsed.BaseSequence.Length) == key).MzLibModification));
+            digested++;
+        }
+        Assert.That(digested, Is.GreaterThan(19000));
+    }
+
+    [Test]
+    public static void FromCanonicalSequence_DecoyWithCTerminalModificationsOnTheLastResidueAndTheCTerminus_KeepsBoth()
+    {
+        // A decoy keeps its localized C-terminal amide on the last residue while a variable C-terminal modification
+        // takes the C-terminus; both stay where they were written.
+        var amide = Mods.UniprotModifications.Single(m => m.IdWithMotif == "Arginine amide on R");
+        var amidation = Mods.MetaMorpheusProteinModifications.Single(m => m.IdWithMotif == "Amidation on X");
+        var localized = new Dictionary<int, List<Modification>> { [12] = new() { amide } };
+        var peptide = new Protein("APEPTIDEKAAR", "DECOY_P", isDecoy: true, oneBasedModifications: localized)
+            .Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 2),
+                new List<Modification>(), new List<Modification> { amidation })
+            .Cast<PeptideWithSetModifications>()
+            .Single(p => p.AllModsOneIsNterminus.Count == 2);
+        Assert.That(peptide.FullSequence, Is.EqualTo("AAR[UniProt:Arginine amide on R]-[Less Common:Amidation on X]"));
+
+        var built = PeptideWithSetModifications.FromCanonicalSequence(MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value);
+
+        Assert.That(built.FullSequence, Is.EqualTo(peptide.FullSequence));
+        Assert.That(built.AllModsOneIsNterminus[4], Is.SameAs(amide));
+        Assert.That(built.AllModsOneIsNterminus[5], Is.SameAs(amidation));
+    }
+
+    [Test]
+    public static void FromCanonicalSequence_ProFormaWrittenPeptide_ResolvesThroughTheFallbackLookup()
+    {
+        // The ProForma parser carries UNIMOD ids, not modification objects, so every modification goes to a lookup.
+        var oxidation = Mods.MetaMorpheusProteinModifications.Single(m => m.ModificationType == "Common Variable" && m.IdWithMotif == "Oxidation on M");
+        var phospho = Mods.MetaMorpheusProteinModifications.Single(m => m.ModificationType == "Common Biological" && m.IdWithMotif == "Phosphorylation on S");
+        var peptide = new Protein("PEPMSIDEK", "P")
+            .Digest(new DigestionParams(protease: "trypsin", maxModsForPeptides: 2), new List<Modification>(), new List<Modification> { oxidation, phospho })
+            .Cast<PeptideWithSetModifications>()
+            .Single(p => p.AllModsOneIsNterminus.Count == 2);
+
+        var proForma = peptide.ToProFormaString();
+        var parsed = ProFormaSequenceParser.Instance.Parse(proForma)!.Value;
+        Assert.That(parsed.Modifications.All(m => m.MzLibModification == null), proForma);
+
+        var byDefault = PeptideWithSetModifications.FromCanonicalSequence(parsed);
+        var byUnimod = PeptideWithSetModifications.FromCanonicalSequence(parsed, UnimodModificationLookup.Instance);
+
+        foreach (var built in new[] { byDefault, byUnimod })
+        {
+            Assert.That(built.AllModsOneIsNterminus.Keys.Order(), Is.EqualTo(peptide.AllModsOneIsNterminus.Keys.Order()));
+            Assert.That(built.MonoisotopicMass, Is.EqualTo(peptide.MonoisotopicMass).Within(1e-6));
+        }
+        Assert.That(byUnimod.AllModsOneIsNterminus.Values.Select(m => m.ModificationType), Is.All.EqualTo("Unimod"));
+    }
+
+    [Test]
+    public static void FromCanonicalSequence_ProteaseCleavageModification_ThrowsNamingIt()
+    {
+        // CNBr's homoserine lactone is defined by the protease, in none of mzLib's modification catalogs.
+        var peptide = new Protein("AAAMPEPTIDEMKKK", "P")
+            .Digest(new DigestionParams(protease: "CNBr", maxMissedCleavages: 0, minPeptideLength: 1), new List<Modification>(), new List<Modification>())
+            .Cast<PeptideWithSetModifications>()
+            .First(p => p.AllModsOneIsNterminus.Count > 0);
+        var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
+
+        Assert.That(parsed.Modifications.Single().MzLibModification, Is.Null);
+        Assert.That(() => PeptideWithSetModifications.FromCanonicalSequence(parsed),
+            Throws.TypeOf<SequenceConversionException>().With.Message.Contains("Protease:Homoserine lactone on M"));
+    }
+
+    [Test]
+    public static void GlobalModificationLookupProteinOnly_LeavesOutRnaModifications()
+    {
+        var rnaOnly = Mods.MetaMorpheusRnaModifications.First(m => Mods.AllProteinModsList.All(p => p.IdWithMotif != m.IdWithMotif));
+        var rnaName = $"{rnaOnly.ModificationType}:{rnaOnly.IdWithMotif}";
+        var rnaMod = CanonicalModification.AtResidue(0, rnaOnly.Target.ToString()[0], rnaName, mzLibId: rnaName);
+        var acetyllysine = Mods.UniprotModifications.Single(m => m.IdWithMotif == "N6-acetyllysine on K");
+        var proteinMod = CanonicalModification.AtResidue(0, 'K', "UniProt:N6-acetyllysine on K", mzLibId: "UniProt:N6-acetyllysine on K");
+
+        Assert.That(GlobalModificationLookup.Instance.TryResolve(rnaMod)?.MzLibModification, Is.SameAs(rnaOnly));
+        Assert.That(GlobalModificationLookup.ProteinOnly.TryResolve(rnaMod), Is.Null);
+        Assert.That(GlobalModificationLookup.ProteinOnly.TryResolve(proteinMod)?.MzLibModification, Is.SameAs(acetyllysine));
     }
 
     #endregion

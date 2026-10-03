@@ -1,16 +1,18 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
-using NUnit.Framework.Constraints;
+using Omics.Modifications;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
+using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using Readers.ProForma;
 
 namespace Test.KoinaTests
@@ -408,6 +410,113 @@ namespace Test.KoinaTests
             Assert.That(predictions.Count, Is.EqualTo(1));
             Assert.That(predictions[0].FragmentIntensities, Is.Null);
             Assert.That(predictions[0].Warning, Is.Not.Null);
+        }
+
+        // ── MetaMorpheus full sequences: catalog names carry their UNIMOD ids ─────────────
+
+        private static Modification CatalogMod(string type, string id) =>
+            Mods.AllProteinModsList.Single(m => m.ModificationType == type && m.IdWithMotif == id);
+
+        /// <summary>
+        /// Full sequences of real digests, the way MetaMorpheus writes them: variable oxidation and phosphorylation,
+        /// a UniProt N-terminal acetylation and C-terminal amidation, and fixed TMT labels.
+        /// </summary>
+        private static string Digested(string peptide)
+        {
+            var oxidation = CatalogMod("Common Variable", "Oxidation on M");
+            var phospho = CatalogMod("Common Biological", "Phosphorylation on S");
+            var tmt = CatalogMod("Multiplex Label", "TMT6-plex on X");
+            var tmtK = CatalogMod("Multiplex Label", "TMT6-plex on K");
+            var localized = new Dictionary<int, List<Modification>>
+            {
+                [1] = new() { CatalogMod("UniProt", "N-acetylalanine on A") },
+                [12] = new() { CatalogMod("UniProt", "Arginine amide on R") }
+            };
+            var digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 2);
+            var peptides = new Protein("PEPMSIDEK", "P").Digest(digestionParams, new List<Modification>(), new List<Modification> { oxidation, phospho })
+                .Concat(new Protein("PEPMSIDEK", "P").Digest(digestionParams, new List<Modification> { tmt, tmtK }, new List<Modification> { oxidation, phospho }))
+                .Concat(new Protein("APEPTIDEKAAR", "P", oneBasedModifications: localized).Digest(digestionParams, new List<Modification>(), new List<Modification>()))
+                .Select(p => p.FullSequence);
+            return peptides.Single(s => s == peptide);
+        }
+
+        private const string OxidizedPhosphopeptide = "PEPM[Common Variable:Oxidation on M]S[Common Biological:Phosphorylation on S]IDEK";
+        private const string AcetylatedNTerminus = "[UniProt:N-acetylalanine on A]APEPTIDEK";
+        private const string AmidatedCTerminus = "AAR-[UniProt:Arginine amide on R]";
+        private const string TmtLabeled = "[Multiplex Label:TMT6-plex on X]PEPMSIDEK[Multiplex Label:TMT6-plex on K]";
+        private const string TmtLabeledOxidizedPhosphopeptide =
+            "[Multiplex Label:TMT6-plex on X]PEPM[Common Variable:Oxidation on M]S[Common Biological:Phosphorylation on S]IDEK[Multiplex Label:TMT6-plex on K]";
+
+        [TestCase(OxidizedPhosphopeptide, "PEPM[UNIMOD:35]S[UNIMOD:21]IDEK")]
+        [TestCase(AcetylatedNTerminus, "[UNIMOD:1]APEPTIDEK")]
+        [TestCase(AmidatedCTerminus, "AAR-[UNIMOD:2]")]
+        [TestCase(TmtLabeled, "[UNIMOD:737]PEPMSIDEK[UNIMOD:737]")]
+        public void AcceptAllModel_MetaMorpheusFullSequence_SendsTheCatalogUnimodIds(string fullSequence, string expected)
+        {
+            var result = new Ms2PipProbe(SequenceConversionHandlingMode.ThrowException).Clean(Digested(fullSequence), out var api, out var warning);
+
+            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(api, Is.EqualTo(expected));
+            Assert.That(warning, Is.Null);
+        }
+
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
+        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "PEPM[UNIMOD:35]SIDEK")]
+        [TestCase(SequenceConversionHandlingMode.UsePrimarySequence, "PEPMSIDEK")]
+        public void AllowListModel_MetaMorpheusPhosphopeptide_KeepsOxidationAndHandlesPhosphoPerMode(SequenceConversionHandlingMode mode, string? expected)
+        {
+            var result = new PrositHcdProbe(mode).Clean(Digested(OxidizedPhosphopeptide), out var api, out var warning);
+
+            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(api, Is.EqualTo(expected));
+            if (mode != SequenceConversionHandlingMode.UsePrimarySequence)
+                Assert.That(warning?.Message, Does.Contain("Common Biological:Phosphorylation on S"));
+        }
+
+        [TestCase(OxidizedPhosphopeptide)]
+        [TestCase(AcetylatedNTerminus)]
+        [TestCase(AmidatedCTerminus)]
+        [TestCase(TmtLabeled)]
+        public void AllowListModel_MetaMorpheusModificationItDoesNotAllow_ThrowsInThrowMode(string fullSequence)
+        {
+            Assert.That(() => new PrositHcdProbe(SequenceConversionHandlingMode.ThrowException).Clean(Digested(fullSequence), out _, out _),
+                Throws.ArgumentException.With.Message.Contains("unsupported modifications"));
+        }
+
+        [TestCase(SequenceConversionHandlingMode.ThrowException, "[UNIMOD:737]-PEPMSIDEK[UNIMOD:737]")]
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, "[UNIMOD:737]-PEPMSIDEK[UNIMOD:737]")]
+        public void TmtModel_MetaMorpheusTmtLabels_AreTheRequiredNTerminalLabel(SequenceConversionHandlingMode mode, string expected)
+        {
+            var result = new TmtProbe(mode).Clean(Digested(TmtLabeled), out _, out var warning);
+
+            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(warning, Is.Null);
+        }
+
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
+        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[UNIMOD:737]-PEPM[UNIMOD:35]SIDEK[UNIMOD:737]")]
+        public void TmtModel_MetaMorpheusTmtPhosphopeptide_HandlesPhosphoPerMode(SequenceConversionHandlingMode mode, string? expected)
+        {
+            var result = new TmtProbe(mode).Clean(Digested(TmtLabeledOxidizedPhosphopeptide), out _, out var warning);
+
+            Assert.That(result, Is.EqualTo(expected));
+            Assert.That(warning?.Message, Does.Contain("Common Biological:Phosphorylation on S"));
+        }
+
+        private sealed class Ms2PipProbe : Ms2PipHCD2021
+        {
+            public Ms2PipProbe(SequenceConversionHandlingMode mode) : base(modHandlingMode: mode) { }
+
+            public string? Clean(string sequence, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, null, out api, out warning);
+        }
+
+        private sealed class PrositHcdProbe : Prosit2020IntensityHCD
+        {
+            public PrositHcdProbe(SequenceConversionHandlingMode mode) : base(modHandlingMode: mode) { }
+
+            public string? Clean(string sequence, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, null, out api, out warning);
         }
 
         private sealed class TmtProbe : Prosit2020IntensityTMT

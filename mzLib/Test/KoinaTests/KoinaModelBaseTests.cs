@@ -313,9 +313,8 @@ public class KoinaModelBaseTests
         Assert.That(apiSequence, Does.Contain("UNIMOD:35"));
     }
 
-    // Oxidation (UNIMOD:35) is outside the allow-list. The mzLib parser leaves UnimodId unset, so the
-    // serializer judges it; ProForma pre-identifies it, so the explicit allow-list check does. Every
-    // mode must end the same way for both sources.
+    // Oxidation (UNIMOD:35) is outside the allow-list. Every mode must end the same way whether it is read
+    // from an mzLib name or from a ProForma UNIMOD id.
     [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
     [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "PEPMIDE")]
     [TestCase(SequenceConversionHandlingMode.UsePrimarySequence, "PEPMIDE")]

@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Omics.Modifications;
 
 
 namespace Omics.SequenceConversion;
@@ -11,6 +12,9 @@ namespace Omics.SequenceConversion;
 /// - Residue modifications: "PEP[Oxidation on M]TIDE"
 /// - Terminal modifications: "[Acetyl]PEPTIDE" and "PEPTIDE-[Amidated]"
 /// - Multiple modifications: "PEP[Oxidation on M]TID[Phospho on S]E"
+/// 
+/// A modification written <c>Type:Id</c> whose Id names an entry of mzLib's own catalogs carries that
+/// <see cref="Modification"/> and the UNIMOD id it cites (see <see cref="FindCatalogModification"/>).
 /// 
 /// Note: For mass shift notation (e.g., "[+15.995]"), use MassShiftSequenceParser instead.
 /// </summary>
@@ -80,11 +84,73 @@ public class MzLibSequenceParser : SequenceParserBase
             }
         }
 
+        var modification = FindCatalogModification(modString, positionType, residueIndex);
+
         return new CanonicalModification(
             positionType,
             residueIndex,
             extractedResidue ?? targetResidue,
             modString,
-            MzLibId: mzLibId);
+            UnimodId: modification is null ? null : CanonicalModification.UnimodIdOf(modification),
+            MzLibId: mzLibId,
+            MzLibModification: modification);
     }
+
+    /// <summary>
+    /// The modification mzLib's own catalogs define for a <c>Type:Id</c> name, where Id is an IdWithMotif. The
+    /// parser reads peptides and oligonucleotides alike, so the candidates are the entries of the protein and RNA
+    /// catalogs (<see cref="Mods.AllProteinModsList"/>, <see cref="Mods.AllRnaModsList"/>) and of the dictionaries
+    /// peptides and oligonucleotides read full sequences with (<see cref="Mods.AllKnownProteinModsDictionary"/>,
+    /// <see cref="Mods.AllKnownRnaModsDictionary"/>, which can gain entries at run time).
+    /// <para>An entry whose ModificationType is Type comes first, so the name is written back unchanged. Then one whose
+    /// location restriction fits where the modification was parsed, since entries can share a name (UNIMOD's
+    /// "Methyl on X" is a peptide C-terminal, an N-terminal and a peptide N-terminal modification): at a terminus,
+    /// that terminus's class; on a residue, one allowed anywhere, else the N-terminal class on the first residue and
+    /// the C-terminal class on any other, which is where digestion leaves the terminal modifications of decoys and
+    /// protease products. Ties go to catalog order, protein before RNA.</para>
+    /// Null when the name has no type or no catalog has its Id.
+    /// </summary>
+    private static Modification? FindCatalogModification(string name, ModificationPositionType positionType, int? residueIndex)
+    {
+        var separator = name.IndexOf(':');
+        if (separator <= 0 || separator == name.Length - 1)
+            return null;
+
+        var type = name[..separator].Trim();
+        var id = name[(separator + 1)..].Trim();
+
+        var candidates = new List<Modification>();
+        if (Mods.AllKnownProteinModsDictionary.TryGetValue(id, out var proteinEntry))
+            candidates.Add(proteinEntry);
+        if (Mods.AllKnownRnaModsDictionary.TryGetValue(id, out var rnaEntry))
+            candidates.Add(rnaEntry);
+        foreach (var entry in CatalogById.Value[id])
+        {
+            if (!candidates.Any(c => ReferenceEquals(c, entry)))
+                candidates.Add(entry);
+        }
+
+        return candidates
+            .OrderBy(m => m.ModificationType == type ? 0 : 1)
+            .ThenBy(m => PositionRank(m, positionType, residueIndex))
+            .FirstOrDefault();
+    }
+
+    private static int PositionRank(Modification modification, ModificationPositionType positionType, int? residueIndex)
+    {
+        var nTerminal = ModificationLocalization.IsNTerminal(modification);
+        var cTerminal = ModificationLocalization.IsCTerminal(modification);
+        return positionType switch
+        {
+            ModificationPositionType.NTerminus => nTerminal ? 0 : 1,
+            ModificationPositionType.CTerminus => cTerminal ? 0 : 1,
+            _ when !nTerminal && !cTerminal => 0,
+            _ => (residueIndex == 0 ? nTerminal : cTerminal) ? 1 : 2
+        };
+    }
+
+    private static readonly Lazy<ILookup<string, Modification>> CatalogById = new(() =>
+        Mods.AllProteinModsList.Concat(Mods.AllRnaModsList)
+            .Where(m => !string.IsNullOrEmpty(m.IdWithMotif))
+            .ToLookup(m => m.IdWithMotif));
 }

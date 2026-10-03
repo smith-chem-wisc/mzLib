@@ -70,11 +70,12 @@ namespace Test.FileReadingTests.ProForma
         [TestCase("[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AK", "[UNIMOD:385]-C[UNIMOD:4]AK",
             TestName = "FullSequence_LeadingBracket_IsNTerminal")]
         [TestCase("PEPD[Metal:Calcium on D]K", "PEPD[UNIMOD:951]K", TestName = "FullSequence_CalciumOnD_Converts")]
-        // No UNIMOD accession in mzLib's modification set: written by name rather than dropped or thrown.
-        [TestCase("[UniProt:N-acetylalanine on A]AAAGEAR", "[UniProt:N-acetylalanine on A]-AAAGEAR",
-            TestName = "FullSequence_NTerminalModWithoutAccession_KeepsName")]
+        // A UniProt modification carries its catalog entry's Unimod cross-reference.
+        [TestCase("[UniProt:N-acetylalanine on A]AAAGEAR", "[UNIMOD:1]-AAAGEAR",
+            TestName = "FullSequence_UniProtNTerminalMod_BecomesUnimodAccession")]
         // MetaMorpheus writes a C-terminal modification after a '-', which is a terminus marker, not a residue.
-        [TestCase("KPVADYFL-[Common Artifact:Leucine methyl ester on L]", "KPVADYFL-[Common Artifact:Leucine methyl ester on L]",
+        // mzLib's catalogs define this name only as a UniProt modification, which cites UNIMOD:34.
+        [TestCase("KPVADYFL-[Common Artifact:Leucine methyl ester on L]", "KPVADYFL-[UNIMOD:34]",
             TestName = "FullSequence_CTerminalMod_StaysOnTheCTerminus")]
         [TestCase("PEPK[Custom:Nameless on K]R", "PEPK[Custom:Nameless on K]R", TestName = "FullSequence_UnknownMod_KeepsName")]
         public void ProFormaFromFullSequence_ConvertsMetaMorpheusNotation(string fullSequence, string expected)
