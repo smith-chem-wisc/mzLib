@@ -455,6 +455,70 @@ namespace Test.FileReadingTests
                 Is.EqualTo(Enumerable.Range(1, 12).Select(i => i.ToString())));
         }
 
+        /// <summary>
+        /// PXD002081 names each fraction of a tumour with its TCGA barcode: a patient (3554), an aliquot
+        /// (22 or 31) and a plate well (6G). A sample's fractions made the aliquot and the well letter look
+        /// shared, so they were read as conditions, and patients sharing one were ranked 2, 3... as
+        /// replicates where the curated SDRF has no factor at all (G34). They are codes.
+        /// </summary>
+        [Test]
+        public void BarcodePartsThatEachSitOnOneSampleAreCodesNotConditions()
+        {
+            var barcodes = new[]
+            {
+                "3554-01A-22_W_VU_A0218_6G", "3558-01A-22_W_VU_A0218_6A", "3561-01A-22_W_VU_A0218_1I",
+                "3664-01A-22_W_VU_A0218_9C", "3666-01A-31_W_VU_A0218_5F", "3672-01A-22_W_VU_A0218_7J",
+                "3684-01A-31_W_VU_A0218_4H", "3695-01A-22_W_VU_A0218_9I", "3710-01A-22_W_VU_A0218_2H",
+                "3715-01A-22_W_VU_A0218_2E",
+            };
+            var names = barcodes.SelectMany(b => Enumerable.Range(1, 3).Select(f => $"TCGA-AA-{b}_R_FR{f:00}.raw")).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Where(x => x.Role == SdrfFileNameRole.Factor), Is.Empty,
+                "a barcode names a sample; none of its parts is a condition");
+            Assert.That(s.Files.Select(f => f.SampleKey).Distinct().Count(), Is.EqualTo(10), "one sample per patient");
+            Assert.That(s.Files.Select(f => f.Fraction).Distinct(), Is.EquivalentTo(new int?[] { 1, 2, 3 }));
+            Assert.That(s.Slots.Where(x => x.Role == SdrfFileNameRole.Sample).Select(x => x.Evidence),
+                Has.Some.Contains("a code"));
+        }
+
+        /// <summary>
+        /// The code reading needs three or more values. Two treatments, one sample each, are still a
+        /// condition, and so is a control beside two drugs.
+        /// </summary>
+        [TestCase("Control", "Treated")]
+        [TestCase("Ctrl", "DrugA", "DrugB")]
+        public void UnreplicatedConditionsAreNotReadAsCodes(params string[] conditions)
+        {
+            var names = conditions.SelectMany(c => Enumerable.Range(1, 4).Select(f => $"{c}_Band_{f:00}.raw")).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(conditions));
+        }
+
+        /// <summary>
+        /// aging's PXD027318 fixture starts its names with a US-style date (<c>02-01-18_</c>). Read as three
+        /// numbers, it became three conditions (G34); it is one acquisition date.
+        /// </summary>
+        [Test]
+        public void ALeadingShortDateIsOneDateNotThreeConditions()
+        {
+            // Each genotype acquired on its own day, as PXD027318's groups were.
+            var names = new[] { ("02-01-18", "WT"), ("11-20-17", "KO") }
+                .SelectMany(x => Enumerable.Range(1, 2).Select(r => $"{x.Item1}_{x.Item2}_D{r}.raw"))
+                .ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(Slot(s, SdrfFileNameRole.Batch).Levels, Is.EquivalentTo(new[] { "20180201", "20171120" }));
+            Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(new[] { "WT", "KO" }));
+        }
+
         // ---- The refusals: each of these would be an over-split. ----
 
         [TestCase(new[] { "HeLa_A", "HeLa_B", "HeLa_C", "HeLa_D" }, "identifier", TestName = "A word that names every file differently is an identifier")]

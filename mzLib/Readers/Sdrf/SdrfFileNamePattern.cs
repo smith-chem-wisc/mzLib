@@ -312,7 +312,13 @@ namespace Readers
 
         private static readonly Regex DashedDate = new(@"(?<!\d)(20\d{2})[-_.](\d{2})[-_.](\d{2})(?!\d)", RegexOptions.Compiled);
 
-        private static string Normalize(string stem) => DashedDate.Replace(stem, "$1$2$3");
+        // A leading two-digit date, 02-01-18_... (month first, else day first), which would otherwise be three
+        // numbers read as categories.
+        private static readonly Regex LeadingShortDate = new(@"^(\d{2})-(\d{2})-(\d{2})(?=[_\-\.\s])", RegexOptions.Compiled);
+
+        private static string Normalize(string stem) => LeadingShortDate.Replace(DashedDate.Replace(stem, "$1$2$3"), m =>
+            DateTime.TryParseExact(m.Value, new[] { "MM-dd-yy", "dd-MM-yy" }, CultureInfo.InvariantCulture, DateTimeStyles.None, out var d)
+                ? d.ToString("yyyyMMdd", CultureInfo.InvariantCulture) : m.Value);
 
         /// <summary>
         /// Reads ONE family of like-shaped runs. Null, with the reason, when the evidence does not decide.
@@ -398,6 +404,17 @@ namespace Readers
                 .Select(t => string.Join("\u001f", designPositions.Where(q => q != p && !withinSample.Contains(q))
                     .Select(q => t[q].ToUpperInvariant())))
                 .Distinct().Count() >= 2);
+            int SamplesWith(int p, IEnumerable<string[]> files) => files
+                .Select(t => string.Join("\u001f", designPositions.Where(q => q != p && !withinSample.Contains(q))
+                    .Select(q => t[q].ToUpperInvariant())))
+                .Distinct().Count();
+            int LevelCount(int p) => tokens.Select(t => t[p]).Distinct(StringComparer.OrdinalIgnoreCase).Count();
+            int SingleSampleLevels(int p) =>
+                tokens.GroupBy(t => t[p], StringComparer.OrdinalIgnoreCase).Count(g => SamplesWith(p, g) == 1);
+            // A code takes three or more values, three in four of them on one sample each. A replicate marker
+            // (rep1..rep4) is not one, and neither is a part with a control level: Ctrl beside two drugs is a design.
+            bool IsCode(int p) => LevelCount(p) >= 3 && 4 * SingleSampleLevels(p) >= 3 * LevelCount(p)
+                && !tokens.All(t => CountMarker(t[p])) && !tokens.Any(t => ControlLevel.IsMatch(t[p]));
 
             foreach (int p in unnamed.Where(p => p != countCandidate))
                 (SharedBySamples(p) ? factors : identity).Add(p);
@@ -442,6 +459,25 @@ namespace Readers
                 slots.Add(new SdrfFileNameSlot(p, role, Sorted(tokens.Select(t => t[p])),
                     $"part {p + 1} counts {Distinct(rank)} within each group" + word +
                     (renumbered ? "; renumbered from 1 within each group" : "")) { Renumbered = renumbered });
+            }
+
+            // A word shared only by the files of one sample is a CODE, not a condition (G34): TCGA barcodes
+            // carry a patient (A00H), an aliquot (22) and a plate well (6G) in one name, and a sample's
+            // fractions made every one look shared, so patients were grouped into fake conditions and ranked
+            // 2, 3... as replicates. Two levels never earn the code reading, so Control_Band_01 beside
+            // Treated_Band_01 stays a condition. Once the names are shown to carry codes, a number read as a
+            // category in the same family is read as part of the code (the drafter already drops numeric
+            // categories whenever the record anchors a condition).
+            var codes = factors.Where(p => !IsNumber(tokens[0][p]) && IsCode(p)).ToList();
+            if (codes.Count > 0)
+                codes.AddRange(factors.Where(p => IsNumber(tokens[0][p])));
+            foreach (int p in codes)
+            {
+                factors.Remove(p);
+                identity.Add(p);
+                identityWord[p] = IsNumber(tokens[0][p])
+                    ? ", read as part of a code because another part of the same names is one"
+                    : $", a code: {SingleSampleLevels(p)} of its {LevelCount(p)} values each sit on one sample";
             }
 
             foreach (int p in factors.OrderBy(p => p))
@@ -612,6 +648,14 @@ namespace Readers
                 if (values[0].v != 1) renumbered = true;
             }
             return true;
+        }
+
+        /// <summary>A count word with its number stuck on (<c>rep1</c>, <c>BR2</c>, <c>F3</c>): a replicate or
+        /// fraction marker the replicate resolver reads, never a code.</summary>
+        private static bool CountMarker(string token)
+        {
+            var m = WordThenNumber.Match(token);
+            return m.Success && IndexWords.TryGetValue(m.Groups["w"].Value, out var role) && role != SdrfFileNameRole.Sample;
         }
 
         private static bool IsNumber(string token) => token.Length is > 0 and <= 9 && token.All(char.IsAsciiDigit);
