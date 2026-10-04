@@ -102,6 +102,52 @@ namespace Test.FileReadingTests
             Assert.That(r.Organism.Value, Is.EqualTo("homo sapiens"));
         }
 
+        // Shaped after PXD016662 (G43): PRIDE lists rat and human, the rat runs say so, the HeLa runs mostly do not.
+        private static PrideProject RatAndHuman() => new()
+        {
+            Accession = "PXD016662",
+            Title = "A compact quadrupole-Orbitrap with FAIMS",
+            Organisms = { Term("NEWT", "NEWT:10116", "Rattus norvegicus (rat)"), Term("NEWT", "NEWT:9606", "Homo sapiens (human)") },
+        };
+
+        [Test]
+        public void AMixedOrganismDepositTakesEachRowsOrganismFromItsName()
+        {
+            var files = new List<string>
+            {
+                "20191002_DIAprot_Heart_Rat1_21min_01.raw", "20191002_DIAprot_Heart_Rat2_21min_01.raw",
+                "20190524_HeLa_500ng_15k_01.raw", "20190524_SDS_500ng_15k_02.raw"
+            };
+
+            var d = SdrfDrafter.Draft(RatAndHuman(), files);
+
+            var rat = Row(d, "20191002_DIAprot_Heart_Rat1_21min_01.raw").Organism;
+            Assert.That(rat.Term!.Accession, Is.EqualTo("NCBITaxon:10116"));
+            Assert.That(rat.Value, Is.EqualTo("rattus norvegicus"));
+            Assert.That(rat.Source, Is.EqualTo(SdrfDraftSource.Inferred));
+            Assert.That(rat.Evidence, Does.Contain("Rat1"));
+            Assert.That(Row(d, "20190524_HeLa_500ng_15k_01.raw").Organism.Term!.Accession, Is.EqualTo("NCBITaxon:9606"),
+                "a cell line names its organism");
+            Assert.That(Row(d, "20190524_SDS_500ng_15k_02.raw").Organism.Source, Is.EqualTo(SdrfDraftSource.NotAvailable),
+                "a name with no cue is not given the other organism by elimination");
+
+            var doc = SdrfDrafter.ToDocument(d);
+            var written = doc.Results.Single(r => r["comment[data file]"] == "20191002_DIAprot_Heart_Rat1_21min_01.raw");
+            Assert.That(written["characteristics[organism]"], Does.Contain("NCBITaxon:10116"));
+        }
+
+        [TestCase("20191002_Mouse_Heart_01.raw", Description = "the record does not list mouse")]
+        [TestCase("Human_Rat_mix_01.raw", Description = "two of the record's organisms")]
+        [TestCase("UPS1_Rat_lysate_01.raw", Description = "a human spike-in standard in a rat background")]
+        [TestCase("Ratio_Heart_01.raw", Description = "a cue is a whole name part, never part of a word")]
+        [TestCase("Run4_Rat268_13C_400ng.raw", Description = "a long number is a stock code, not a replicate count (PXD023693)")]
+        public void AMixedOrganismDepositWritesNoOrganismWithoutOneUnambiguousCue(string file)
+        {
+            var d = SdrfDrafter.Draft(RatAndHuman(), new[] { file });
+
+            Assert.That(Row(d, file).Organism.Source, Is.EqualTo(SdrfDraftSource.NotAvailable));
+        }
+
         /// <summary>
         /// G31 / pride 006 (SDRF-P6): 17 of 692 PRIDE part and disease terms carry the wrong cvLabel, so the
         /// ontology is read from the accession's prefix. pride's named examples.

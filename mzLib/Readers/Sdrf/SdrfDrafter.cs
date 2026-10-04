@@ -205,6 +205,10 @@ namespace Readers
 
             // ---- project facts (D27), disease (D34) ----
             var organism = One(project.Organisms, "organism", Organism);
+            // Several organisms (G43): a row takes one of THEM from its own name, or stays not available.
+            var organisms = project.Organisms.Select(Organism).GroupBy(t => t.Accession, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First()).ToList();
+            SdrfDraftCell OrganismOf(string file) => organisms.Count > 1 ? OrganismFromName(file, organisms) ?? organism : organism;
             var part = OfKind(One(project.OrganismParts, "organism part", ByPrefix), "organism part", NotOrganismPart);
             var instrument = One(project.Instruments, "instrument", ByPrefix);
             var disease = OfKind(One(project.Diseases, "disease", ByPrefix), "disease", NotDisease);
@@ -238,7 +242,7 @@ namespace Readers
                 rows.Add(new SdrfDraftRow(
                     n,
                     new SdrfDraftCell(sourceName[r.Key], SdrfDraftSource.Inferred, r.KeyWhy),
-                    organism, part, rowDisease, instrument,
+                    OrganismOf(n), part, rowDisease, instrument,
                     new SdrfDraftCell(bio.ToString(System.Globalization.CultureInfo.InvariantCulture), bioSource, bioWhy),
                     new SdrfDraftCell((r.Tech ?? 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
                         r.Tech == null ? SdrfDraftSource.Default : SdrfDraftSource.Inferred, r.TechWhy),
@@ -609,6 +613,58 @@ namespace Readers
                     : $"PRIDE's project record lists {distinct.Count} values for {what}, so none is written per sample");
             var term = normalise(distinct[0]);
             return new SdrfDraftCell(term.Name, SdrfDraftSource.PrideProjectRecord, $"the one {what} PRIDE's project record lists", term);
+        }
+
+        /// <summary>
+        /// Name parts that say which organism a run came from: the organism itself, or a cell line or strain that names
+        /// it. Several taxa where PRIDE records a species under more than one (yeast as 4932 or S288C 559292).
+        /// Measured on the 210 cached deposits whose record lists several organisms (G43, 2026-10-04): the rule names
+        /// the organism of 1,801 rows in 27 of them, and changes no other cell. Of the 1,156 rows a curated SDRF also
+        /// describes, 1,129 agree; the other 27 are one curated SDRF (PXD011189) that gives all its rows, HeLa and
+        /// E. coli runs included, one organism. The spike-in and long-number refusals below removed 38 disagreements
+        /// (PXD001587, PXD070151, PXD023693).
+        /// </summary>
+        private static readonly Dictionary<string, int[]> OrganismCues = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["human"] = [9606], ["hela"] = [9606], ["hek"] = [9606], ["hek293"] = [9606], ["hek293t"] = [9606], ["k562"] = [9606],
+            ["a549"] = [9606], ["jurkat"] = [9606], ["mcf7"] = [9606], ["u2os"] = [9606], ["hepg2"] = [9606], ["hct116"] = [9606],
+            ["thp1"] = [9606],
+            ["rat"] = [10116], ["rats"] = [10116], ["rattus"] = [10116],
+            ["mouse"] = [10090], ["mice"] = [10090], ["murine"] = [10090],
+            ["yeast"] = [4932, 559292], ["ecoli"] = [562, 83333],
+            ["arabidopsis"] = [3702], ["drosophila"] = [7227], ["zebrafish"] = [7955],
+        };
+
+        /// <summary>A spike-in standard (UPS1/UPS2) is another organism's proteins in the run: its name names a mixture.</summary>
+        private static readonly HashSet<string> SpikeIn = new(StringComparer.OrdinalIgnoreCase) { "ups", "ups1", "ups2", "spike", "spikein" };
+
+        private static readonly Regex NamePart = new(@"[A-Za-z0-9]+", RegexOptions.Compiled);
+        private static readonly Regex TrailingCount = new(@"^([A-Za-z]+)[0-9]{1,2}$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// One of the record's organisms, when the file's name names exactly one of them (<c>Rat1</c>, <c>HeLa</c>);
+        /// null when it names none, several, one the record does not list, or a spike-in standard. Never an organism
+        /// the record does not list.
+        /// </summary>
+        private static SdrfDraftCell? OrganismFromName(string file, IReadOnlyList<CvParam> organisms)
+        {
+            var found = new Dictionary<string, (CvParam Term, string Part)>(StringComparer.OrdinalIgnoreCase);
+            foreach (Match m in NamePart.Matches(SdrfFileNamePattern.Stem(file)))
+            {
+                string part = m.Value;
+                if (SpikeIn.Contains(part)) return null;
+                // A replicate number may follow the word (Rat1, Rat12); a cell line's own digits (HEK293) are looked up whole
+                // first. A longer number is a strain or stock code (PXD023693's Ecoli268, a spike into B. subtilis), not a count.
+                if (!OrganismCues.TryGetValue(part, out var taxa) && !(TrailingCount.Match(part) is { Success: true } c
+                        && OrganismCues.TryGetValue(c.Groups[1].Value, out taxa)))
+                    continue;
+                foreach (var term in organisms.Where(t => taxa.Any(x => t.Accession.Equals($"NCBITaxon:{x}", StringComparison.OrdinalIgnoreCase))))
+                    found.TryAdd(term.Accession, (term, part));
+            }
+            if (found.Count != 1) return null;
+            var (organism, cue) = found.Values.Single();
+            return new SdrfDraftCell(organism.Name, SdrfDraftSource.Inferred,
+                $"the file name says '{cue}', one of the organisms PRIDE's project record lists", organism);
         }
 
         /// <summary>
