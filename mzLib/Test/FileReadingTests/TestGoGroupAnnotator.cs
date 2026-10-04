@@ -430,6 +430,32 @@ namespace Test.FileReadingTests
             Assert.That(Row(rows, Gapdh).Inherited, Is.False);
         }
 
+        [Test]
+        public void Isoform_InTheDatabaseWithNoGoOfItsOwn_InheritsItsEntrysTerms()
+        {
+            // A database searched with isoforms as separate entries holds P04406-2 with no GO: UniProt puts GO
+            // on the entry. Annotating with the searched database must not switch inheritance off (aging's
+            // PXD007188 lamin isoform P02545-2 read no_go_terms that way).
+            var rows = Annotator(P("P04406", Go(Nucleus, "ECO:0000314")), P("P04406-2")).Annotate(Group("P04406-2"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.Inherited, Is.True);
+            Assert.That(nucleus.AccessionInherited, Is.EqualTo(new[] { "P04406-2" }));
+            Assert.That(nucleus.Status, Is.EqualTo(GoAnnotationStatus.Annotated));
+        }
+
+        [Test]
+        public void Isoform_InTheDatabaseWithNoGo_InAGroupWithItsEntry_IsACarryingMember()
+        {
+            var rows = Annotator(P("P04406", Go(Nucleus)), P("P04406-2")).Annotate(Group("P04406|P04406-2"));
+
+            var nucleus = Row(rows, Nucleus);
+            Assert.That(nucleus.AccessionUsed, Is.EqualTo(new[] { "P04406", "P04406-2" }));
+            Assert.That(nucleus.AccessionDirect, Is.EqualTo(new[] { "P04406", "P04406-2" }), "direct means annotated to the term itself, not own-entry");
+            Assert.That(nucleus.AccessionInherited, Is.EqualTo(new[] { "P04406-2" }));
+            Assert.That(nucleus.Inherited, Is.False, "the entry carries it on its own");
+        }
+
         [TestCase("P04406_A20T")]
         [TestCase("P04406_A20T_G31")]
         [TestCase("P04406-2_A20T")]
@@ -498,6 +524,67 @@ namespace Test.FileReadingTests
         public void Group_WithNoMembers_Throws()
         {
             Assert.Throws<ArgumentException>(() => Annotator().Annotate(new GoAnnotationGroup("", Array.Empty<string>(), false, false, 0)));
+        }
+
+        // Entrapment (go D32) is its own class: never dropped like a decoy, never passed off as a target.
+        // MetaMorpheus labels an entrapment group T, so the members' accessions are the signal.
+
+        [Test]
+        public void Entrapment_OrdinaryGroup_NamesNoEntrapmentMember()
+        {
+            var rows = Annotator(P("P1", Go(Nucleus))).Annotate(Group("P1|P2"));
+
+            Assert.That(rows.All(r => r.EntrapmentMembers.Count == 0));
+        }
+
+        [Test]
+        public void Entrapment_AllEntrapmentGroup_IsAnnotatedAndEveryRowNamesItsMembers()
+        {
+            // A foreign-proteome entrapment protein's GO is true of its sequence (entrapment GO-E6): kept, labelled.
+            var rows = Annotator(P("Random_foreign_Q1", Go(Nucleus))).Annotate(Group("Random_foreign_Q1|Random_P2_f0"));
+
+            Assert.That(rows.Select(r => r.GoId), Does.Contain(Nucleus));
+            Assert.That(rows.All(r => r.Status == GoAnnotationStatus.Annotated));
+            foreach (var row in rows)
+            {
+                Assert.That(row.EntrapmentMembers, Is.EqualTo(new[] { "Random_P2_f0", "Random_foreign_Q1" }));
+                Assert.That(row.EntrapmentMembers.Count, Is.EqualTo(row.NMembers), "an all-entrapment group");
+            }
+        }
+
+        [Test]
+        public void Entrapment_MixedGroup_NamesOnlyTheEntrapmentMember_EvenWhereItCarriesNoTerm()
+        {
+            // Entrapment's one mixed group: a target with its own permuted partner, labelled T by MetaMorpheus.
+            var rows = Annotator(P("Q96L96", Go(Mitochondrion)), P("Random_Q96L96_f0"))
+                .Annotate(Group("Q96L96|Random_Q96L96_f0"));
+
+            var mito = Row(rows, Mitochondrion);
+            Assert.That(mito.AccessionUsed, Is.EqualTo(new[] { "Q96L96" }));
+            Assert.That(mito.EntrapmentMembers, Is.EqualTo(new[] { "Random_Q96L96_f0" }), "group-level, not a subset of accession_used");
+        }
+
+        [Test]
+        public void Entrapment_TermlessGroup_StillLabelled_AndNeverBorrowsItsTargetsTerms()
+        {
+            // The partner is absent from the database. It must not inherit its target's GO through the
+            // accession grammar: it reads no_entry, labelled.
+            var row = Annotator(P("P12345", Go(Nucleus))).Annotate(Group("random_P12345_f0")).Single();
+
+            Assert.That(row.Status, Is.EqualTo(GoAnnotationStatus.NoEntry));
+            Assert.That(row.GoId, Is.Null);
+            Assert.That(row.EntrapmentMembers, Is.EqualTo(new[] { "random_P12345_f0" }));
+        }
+
+        [Test]
+        public void Entrapment_MarkedByTheAnnotationDatabase_WithoutTheIdentifier_IsNamed()
+        {
+            // A database loaded with isEntrapment = true marks proteins whose accession says nothing.
+            var flagged = new Protein("PEPTIDEK", "X1", isEntrapment: true, databaseReferences: new List<DatabaseReference> { Go(Nucleus) });
+
+            var rows = Annotator(flagged, P("P2")).Annotate(Group("X1|P2"));
+
+            Assert.That(rows.All(r => r.EntrapmentMembers.SequenceEqual(new[] { "X1" })));
         }
     }
 }
