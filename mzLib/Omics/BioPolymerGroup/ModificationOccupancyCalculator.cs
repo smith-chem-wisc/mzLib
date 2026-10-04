@@ -33,9 +33,19 @@ public static class ModificationOccupancyCalculator
     /// PSMs whose <see cref="ISpectralMatch.Intensities"/> is a single-element array contribute
     /// to intensity-based stoichiometry; others contribute only to count-based metrics.
     /// </param>
+    /// <param name="sitesToReport">
+    /// Optional (position, <see cref="Modification.IdWithMotif"/>) pairs, in protein AllModsOneIsNterminus
+    /// coordinates, to report wherever <paramref name="psms"/> cover the position, even when none of them
+    /// carries the modification there: such a pair is reported as 0/TotalCount. Typically the pairs seen
+    /// modified anywhere in the search (<see cref="GetSitesSeenModified"/> over all of its PSMs), so that a
+    /// sample group which covered a site without modifying it says so instead of omitting it. A pair whose
+    /// position no PSM covers is still omitted. Null (the default) reports only the pairs observed modified
+    /// in <paramref name="psms"/>.
+    /// </param>
     public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateParentLevelOccupancy(
         IBioPolymer bioPolymer,
-        IEnumerable<ISpectralMatch> psms)
+        IEnumerable<ISpectralMatch> psms,
+        IEnumerable<(int Position, string ModificationIdWithMotif)>? sitesToReport = null)
     {
         var psmList = psms as IList<ISpectralMatch> ?? psms.ToList();
 
@@ -124,7 +134,52 @@ public static class ModificationOccupancyCalculator
             }
         }
 
-        return working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
+        if (sitesToReport is null)
+            return working.ToDictionary(kvp => kvp.Key, kvp => kvp.Value.Values.ToList());
+
+        // Covered but not modified in these PSMs: 0 of the position's total, not absent.
+        foreach (var (position, modIdWithMotif) in sitesToReport)
+        {
+            if (!positionTotals.TryGetValue(position, out var posTotals))
+                continue; // Not covered here, so there is nothing to report.
+
+            if (!working.TryGetValue(position, out var modsAtPosition))
+            {
+                modsAtPosition = new Dictionary<string, SiteSpecificModificationOccupancy>();
+                working[position] = modsAtPosition;
+            }
+
+            if (!modsAtPosition.ContainsKey(modIdWithMotif))
+            {
+                modsAtPosition[modIdWithMotif] = new SiteSpecificModificationOccupancy(position, modIdWithMotif)
+                {
+                    TotalCount = posTotals.totalCount,
+                    TotalIntensity = posTotals.totalIntensity
+                };
+            }
+        }
+
+        // Ordered by modification so that every sample group lists a position's entries alike, whichever of
+        // them it happened to see modified first.
+        return working.ToDictionary(kvp => kvp.Key,
+            kvp => kvp.Value.Values.OrderBy(o => o.ModificationIdWithMotif, StringComparer.Ordinal).ToList());
+    }
+
+    /// <summary>
+    /// The (position, <see cref="Modification.IdWithMotif"/>) pairs that <paramref name="psms"/> observe modified
+    /// on <paramref name="bioPolymer"/>, in the coordinates and with the exclusions of
+    /// <see cref="CalculateParentLevelOccupancy"/>. Passed back to it as <c>sitesToReport</c>, it makes each sample
+    /// group report 0/N for a site it covered but did not see modified.
+    /// </summary>
+    public static HashSet<(int Position, string ModificationIdWithMotif)> GetSitesSeenModified(
+        IBioPolymer bioPolymer,
+        IEnumerable<ISpectralMatch> psms)
+    {
+        return CalculateParentLevelOccupancy(bioPolymer, psms)
+            .SelectMany(kvp => kvp.Value
+                .Where(o => o.ModifiedCount > 0)
+                .Select(o => (kvp.Key, o.ModificationIdWithMotif)))
+            .ToHashSet();
     }
 
     /// <summary>
