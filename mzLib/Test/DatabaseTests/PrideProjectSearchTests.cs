@@ -641,7 +641,7 @@ public class PrideProjectSearchTests
     public void SearchProjectsAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
         var handler = new StubHandler(_ => JsonResponse("", HttpStatusCode.InternalServerError));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
 
         Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProjectsAsync("liver"));
     }

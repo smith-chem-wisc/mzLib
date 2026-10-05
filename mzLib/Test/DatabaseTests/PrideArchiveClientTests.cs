@@ -697,7 +697,7 @@ public class PrideArchiveClientTests
     public void GetProjectFilesAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
         var handler = new StubHandler(_ => JsonResponse("server error", HttpStatusCode.InternalServerError));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
         Assert.That(async () => await client.GetProjectFilesAsync("PXD012345"), Throws.InstanceOf<HttpRequestException>());
     }
 

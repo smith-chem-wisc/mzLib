@@ -170,7 +170,7 @@ public class PrideFtpListingTests
             uri.EndsWith("/projects/PXD000001", StringComparison.Ordinal)
                 ? Ok(ProjectJson)
                 : new HttpResponseMessage(HttpStatusCode.ServiceUnavailable));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
 
         Assert.ThrowsAsync<HttpRequestException>(async () =>
             await client.GetProjectFilesFromFtpAsync("PXD000001"));

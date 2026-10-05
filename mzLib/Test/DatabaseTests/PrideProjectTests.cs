@@ -492,7 +492,10 @@ public class PrideProjectTests
         [Values(HttpStatusCode.InternalServerError, HttpStatusCode.ServiceUnavailable,
                 HttpStatusCode.RequestTimeout, HttpStatusCode.TooManyRequests)] HttpStatusCode status)
     {
-        using var client = ClientReturning("upstream failure", status);
+        using var client = new PrideArchiveClient(new HttpClient(new StubHandler(_ => JsonResponse("upstream failure", status))))
+        {
+            MaxRetries = 0
+        };
 
         Assert.That(async () => await client.TryGetProjectAsync("PXD012345"),
             Throws.InstanceOf<HttpRequestException>());
