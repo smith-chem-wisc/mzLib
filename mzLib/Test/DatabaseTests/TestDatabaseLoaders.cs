@@ -1601,6 +1601,53 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        [TestCase("Random_P12345_f0", true)]
+        [TestCase("Random_foreign_P12345", true)]
+        [TestCase("random_p12345", true, Description = "case-insensitive")]
+        [TestCase("P12345_RANDOM", true, Description = "anywhere, not only a prefix")]
+        [TestCase("DECOY_Random_P12345_f0", true, Description = "a decoy of entrapment is still entrapment")]
+        [TestCase("P12345", false)]
+        [TestCase("DECOY_P12345", false)]
+        [TestCase("", false)]
+        [TestCase(null, false)]
+        public static void IsEntrapmentAccession_IsTheLoadersRule(string accession, bool expected)
+        {
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession(accession), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public static void IsEntrapmentAccession_TakesTheIdentifier_AndRefusesAnEmptyOne()
+        {
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession("Shuffled_P1", "shuffled"), Is.True);
+            Assert.That(ProteinDbLoader.IsEntrapmentAccession("Random_P1", "Shuffled"), Is.False);
+            Assert.Throws<ArgumentException>(() => ProteinDbLoader.IsEntrapmentAccession("P1", ""));
+            Assert.Throws<ArgumentException>(() => ProteinDbLoader.IsEntrapmentAccession("P1", null));
+        }
+
+        /// <summary>
+        /// The predicate restates a rule the loaders write inline, so this pins the two together: for every
+        /// accession, it answers what LoadProteinFasta decided when it marked the protein.
+        /// </summary>
+        [Test]
+        public static void IsEntrapmentAccession_AgreesWithLoadProteinFasta()
+        {
+            string[] accessions = { "Random_PROT1_f0", "random_prot2", "PROT3_Random", "PROT4", "RANDOMPROT5", "PROT6" };
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_predicate.fasta");
+            File.WriteAllText(fastapath, string.Concat(accessions.Select(a => $">sp|{a}|{a} desc\nPEPTIDEK\n")));
+
+            var proteins = ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out var errors);
+            File.Delete(fastapath);
+
+            Assert.That(errors, Is.Empty);
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(accessions));
+            foreach (var protein in proteins)
+            {
+                Assert.That(ProteinDbLoader.IsEntrapmentAccession(protein.Accession), Is.EqualTo(protein.IsEntrapment), protein.Accession);
+            }
+            Assert.That(proteins.Count(p => p.IsEntrapment), Is.EqualTo(4));
+        }
+
+        [Test]
         public static void EntrapmentFasta_NoDoublePrefixing()
         {
             string fastacontent = ">sp|Random_PROTEIN1|Prot1 desc\nPEPTIDEK";
