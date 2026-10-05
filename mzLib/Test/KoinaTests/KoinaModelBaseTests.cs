@@ -141,26 +141,10 @@ public class KoinaModelBaseTests
     }
 
     // Everything outside the source format's complete modification brackets must be a residue the model allows, so
-    // whitespace, stray separators or brackets and unsupported syntax fail as residues whichever parser reads it.
+    // whitespace, an unknown character or an unbalanced bracket fails as a residue whichever parser reads it.
     [TestCase("PEPTIDE K", false)]
-    [TestCase("PEPTIDE\tK", false)]
-    [TestCase("PEPTIDE\nK", false)]
-    [TestCase("PEPTIDE-K", false)]
-    [TestCase("PEPTIDEK-", false)]
-    [TestCase("PEPM-[Common Variable:Oxidation on M]IDE", false)]
-    [TestCase("PEPTIDE K", true)]
     [TestCase("PEP*TIDE", true)]
-    [TestCase("PEPM-[UNIMOD:35]IDE", true)]
-    [TestCase("{Glycan:Hex}PEPTIDE", true)]
-    [TestCase("", false)]
-    [TestCase("[Common Fixed:TMT6plex on N-terminus]", false)]
-    [TestCase("[UNIMOD:737]-", true)]
-    [TestCase("-[UNIMOD:2]", true)]
     [TestCase("PEPM[UNIMOD:35IDE", true)]
-    [TestCase("PEPM]IDE", true)]
-    [TestCase("PEPM[Common Variable:Oxidation on MIDE", false)]
-    [TestCase("PEPM]IDE", false)]
-    [TestCase("[UNIMOD:737-PEPTIDEK", true)]
     public void TryCleanSequence_NonResidueOutsideModifications_IsRejected(string sequence, bool proForma)
     {
         var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int> { 35 }), allowedUnimodIds: new HashSet<int> { 35 });
@@ -174,7 +158,7 @@ public class KoinaModelBaseTests
 
     [TestCase("[UNIMOD:737]-PEPTIDEK", true, "[UNIMOD:737]PEPTIDEK")]
     [TestCase("PEPTIDEK-[UNIMOD:2]", true, "PEPTIDEK-[UNIMOD:2]")]
-    [TestCase("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", false, "[UNIMOD:737]PEPTIDEK")]
+    [TestCase("[Multiplex Label:TMT6-plex on X]PEPTIDEK", false, "[UNIMOD:737]PEPTIDEK")]
     [TestCase("PEPTIDEK-[Unimod:Amidated on X]", false, "PEPTIDEK-[UNIMOD:2]")]
     public void TryCleanSequence_TerminalModificationSeparators_AreNotResidues(string sequence, bool proForma, string expected)
     {

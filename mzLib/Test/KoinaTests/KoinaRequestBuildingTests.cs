@@ -175,7 +175,7 @@ namespace Test.KoinaTests
             // apiSequence as the equivalent mzLib-sourced input, via the production converter.
             var model = new TmtProbe();
 
-            var mzLibResult = model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", out var mzLibApi, out var mzLibWarning);
+            var mzLibResult = model.Clean("[Multiplex Label:TMT6-plex on X]PEPTIDEK", out var mzLibApi, out var mzLibWarning);
             var proFormaResult = model.CleanWithParser("[UNIMOD:737]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
 
             Assert.That(mzLibResult, Is.Not.Null);
@@ -203,7 +203,7 @@ namespace Test.KoinaTests
         {
             var model = new IrtTmtProbe();
 
-            var mzLib = model.Clean("[Common Fixed:TMTpro on N-terminus]PEPTIDEK", out var mzLibApi, out _);
+            var mzLib = model.Clean("[Multiplex Label:TMT18 on X]PEPTIDEK", out var mzLibApi, out _);
             var proForma = model.CleanWithParser("[UNIMOD:2016]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out _);
             var unlabeled = model.CleanWithParser("PEPTIDEK", ProFormaSequenceParser.Instance, out _, out var unlabeledWarning);
 
@@ -320,7 +320,7 @@ namespace Test.KoinaTests
         {
             var model = new TmtProbe(mode);
 
-            var fromMzLib = model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPS[Common Biological:Phosphorylation on S]IDEK", out var mzLibApi, out _);
+            var fromMzLib = model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Common Biological:Phosphorylation on S]IDEK", out var mzLibApi, out _);
             var fromProForma = model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
 
             Assert.That(fromMzLib, Is.EqualTo(expected));
@@ -334,7 +334,7 @@ namespace Test.KoinaTests
         {
             var model = new TmtProbe(SequenceConversionHandlingMode.ThrowException);
 
-            Assert.Throws<ArgumentException>(() => model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPS[Common Biological:Phosphorylation on S]IDEK", out _, out _));
+            Assert.Throws<ArgumentException>(() => model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Common Biological:Phosphorylation on S]IDEK", out _, out _));
             Assert.Throws<ArgumentException>(() => model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out _, out _));
         }
 
