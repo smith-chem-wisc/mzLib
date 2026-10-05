@@ -1,4 +1,5 @@
-﻿using Omics.SpectralMatch.MslSpectralLibrary;
+﻿using Microsoft.Win32.SafeHandles;
+using Omics.SpectralMatch.MslSpectralLibrary;
 using System.IO.MemoryMappedFiles;
 
 namespace Readers.SpectralLibrary;
@@ -31,10 +32,16 @@ public sealed class MslLibraryData : IDisposable
 	private FileStream? _onDemandStream;
 
 	/// <summary>
-	/// Read-only memory map of the file, created in index-only mode. Fragment blocks are copied
-	/// straight out of <see cref="_fragmentView"/>: no system call and no shared file position,
-	/// so concurrent callers need no lock and do not wait on each other. A 64-bit view has no
-	/// 2 GB limit.
+	/// True when fragment blocks are read from <see cref="_fragmentView"/>; false when they are
+	/// read with positional reads from <see cref="_onDemandHandle"/>.
+	/// </summary>
+	private readonly bool _memoryMapped;
+
+	/// <summary>
+	/// Read-only memory map of the file, created in index-only mode for files on local fixed
+	/// drives. Fragment blocks are copied straight out of <see cref="_fragmentView"/>: no system
+	/// call and no shared file position, so concurrent callers need no lock and do not wait on
+	/// each other. A 64-bit view has no 2 GB limit.
 	/// </summary>
 	private MemoryMappedFile? _fragmentMap;
 
@@ -50,6 +57,13 @@ public sealed class MslLibraryData : IDisposable
 	/// bounds-checked against this instead.
 	/// </summary>
 	private readonly long _fileLength;
+
+	/// <summary>
+	/// Handle of <see cref="_onDemandStream"/> for positional reads, used when the file is not
+	/// memory-mapped (network or removable drives, where a failed read must stay a catchable
+	/// <see cref="IOException"/>). Positional reads share no file position, so they need no lock.
+	/// </summary>
+	private readonly SafeFileHandle? _onDemandHandle;
 
 	/// <summary>
 	/// Snapshot of all raw precursor records kept for index-only on-demand reads.
@@ -127,6 +141,9 @@ public sealed class MslLibraryData : IDisposable
 	/// reserved sentinel (0.0). Pass <see cref="Array.Empty{T}"/> for version-1 files or
 	/// files that contain no custom neutral losses.
 	/// </param>
+	/// <param name="memoryMapFragments">
+	/// True to read fragment blocks from a memory map of the file; false for positional reads.
+	/// </param>
 	/// <exception cref="ArgumentNullException">Any required parameter is null.</exception>
 	internal MslLibraryData(
 		List<MslLibraryEntry> entries,
@@ -135,7 +152,8 @@ public sealed class MslLibraryData : IDisposable
 		string[] strings,
 		MslProteinRecord[] proteins,
 		FileStream onDemandStream,
-		double[] customLossMasses)
+		double[] customLossMasses,
+		bool memoryMapFragments = true)
 	{
 		Entries = entries ?? throw new ArgumentNullException(nameof(entries));
 		Header = header;
@@ -144,17 +162,25 @@ public sealed class MslLibraryData : IDisposable
 		_proteins = proteins ?? throw new ArgumentNullException(nameof(proteins));
 		_onDemandStream = onDemandStream ?? throw new ArgumentNullException(nameof(onDemandStream));
 		_fileLength = onDemandStream.Length;
-		_fragmentMap = MemoryMappedFile.CreateFromFile(onDemandStream, mapName: null, capacity: 0,
-			MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
-		try
+		_memoryMapped = memoryMapFragments;
+		if (memoryMapFragments)
 		{
-			_fragmentView = _fragmentMap.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+			_fragmentMap = MemoryMappedFile.CreateFromFile(onDemandStream, mapName: null, capacity: 0,
+				MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
+			try
+			{
+				_fragmentView = _fragmentMap.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+			}
+			catch
+			{
+				// The caller disposes the stream on failure; the map is ours to release
+				_fragmentMap.Dispose();
+				throw;
+			}
 		}
-		catch
+		else
 		{
-			// The caller disposes the stream on failure; the map is ours to release
-			_fragmentMap.Dispose();
-			throw;
+			_onDemandHandle = onDemandStream.SafeFileHandle;
 		}
 		_customLossMasses = customLossMasses ?? Array.Empty<double>();
 		_isIndexOnly = true;
@@ -212,7 +238,8 @@ public sealed class MslLibraryData : IDisposable
 	/// </para>
 	///
 	/// <para>Thread-safe: multiple callers may request precursors concurrently. Each block is
-	/// copied from a memory map of the file, so callers do not wait on each other.</para>
+	/// copied from a memory map of the file (local drives) or read with a positional read
+	/// (other drives), so callers do not wait on each other.</para>
 	/// </summary>
 	/// <param name="precursorIndex">
 	/// Zero-based index into <see cref="Entries"/>. Must be in range [0, Count).
@@ -241,17 +268,21 @@ public sealed class MslLibraryData : IDisposable
 			throw new ArgumentOutOfRangeException(nameof(precursorIndex),
 				$"Index {precursorIndex} is out of range [0, {Count}).");
 
-		MemoryMappedViewAccessor? view = Volatile.Read(ref _fragmentView);
-		if (view is null)
-			throw DisposedException();
+		MslPrecursorRecord record = _precursorRecords![precursorIndex];
 
 		try
 		{
-			return MslReader.ReadFragmentBlockAt(
-				view,
-				_fileLength,
-				_precursorRecords![precursorIndex],
-				_customLossMasses);
+			if (_memoryMapped)
+			{
+				MemoryMappedViewAccessor? view = Volatile.Read(ref _fragmentView);
+				if (view is null)
+					throw DisposedException();
+				return MslReader.ReadFragmentBlockAt(view, _fileLength, record, _customLossMasses);
+			}
+
+			if (Volatile.Read(ref _onDemandStream) is null)
+				throw DisposedException();
+			return MslReader.ReadFragmentBlockAt(_onDemandHandle!, record, _customLossMasses);
 		}
 		catch (ObjectDisposedException)
 		{

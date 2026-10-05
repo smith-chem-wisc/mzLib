@@ -232,6 +232,168 @@ public sealed class TestMslStreamedReads
 		return ~crc;
 	}
 
+	// ── Review fixes ──────────────────────────────────────────────────────────
+
+	private const double CustomLoss = -203.0794;  // HexNAc: not a named loss, so stored in the ext table
+
+	private static List<MslLibraryEntry> MakeEntriesWithCustomLoss(int count)
+	{
+		List<MslLibraryEntry> entries = MakeEntries(count);
+		foreach (MslLibraryEntry e in entries)
+			e.MatchedFragmentIons[0].NeutralLoss = CustomLoss;
+		return entries;
+	}
+
+	private static void AssertCustomLossesRead(MslLibraryData data)
+	{
+		for (int i = 0; i < data.Count; i++)
+		{
+			List<MslFragmentIon> ions = data.IsIndexOnly ? data.LoadFragmentsOnDemand(i) : data.Entries[i].MatchedFragmentIons;
+			Assert.That(ions[0].NeutralLoss, Is.EqualTo(CustomLoss).Within(1e-9), $"entry {i}");
+		}
+	}
+
+	/// <summary>
+	/// The int32 header field cannot hold the custom-loss table's offset in a file over 2 GB, so
+	/// the writer stores 0 there and readers locate the table from the layout. Zeroing the field
+	/// (what a &gt;2 GB file carries) or filling it with garbage must not change what is read.
+	/// </summary>
+	[TestCase(0, 0)]
+	[TestCase(0, 12345)]
+	[TestCase(3, 0)]
+	public void CustomLossTable_IsFoundFromLayout_NotFromHeaderField(int compressionLevel, int headerFieldValue)
+	{
+		string path = TempPath($"{nameof(CustomLossTable_IsFoundFromLayout_NotFromHeaderField)}_{compressionLevel}_{headerFieldValue}");
+		MslWriter.Write(path, MakeEntriesWithCustomLoss(40), compressionLevel);
+
+		byte[] bytes = File.ReadAllBytes(path);
+		BitConverter.GetBytes(headerFieldValue).CopyTo(bytes, 28);  // ExtAnnotationTableOffset
+		RecomputeCrc(bytes);
+		File.WriteAllBytes(path, bytes);
+
+		AssertCustomLossesRead(MslReader.Load(path));
+		using MslLibraryData indexOnly = MslReader.LoadIndexOnly(path);
+		AssertCustomLossesRead(indexOnly);
+	}
+
+	/// <summary>
+	/// The located table must end exactly where the offset table begins; a corrupt count is
+	/// rejected rather than read as masses.
+	/// </summary>
+	[Test]
+	public void CustomLossTable_CountDisagreesWithLayout_Throws()
+	{
+		string path = TempPath(nameof(CustomLossTable_CountDisagreesWithLayout_Throws));
+		MslWriter.Write(path, MakeEntriesWithCustomLoss(10));
+
+		byte[] bytes = File.ReadAllBytes(path);
+		int tableStart = BitConverter.ToInt32(bytes, 28);
+		int count = BitConverter.ToInt32(bytes, tableStart);
+		BitConverter.GetBytes(count + 1).CopyTo(bytes, tableStart);
+		RecomputeCrc(bytes);
+		File.WriteAllBytes(path, bytes);
+
+		Assert.That(() => MslReader.Load(path), Throws.TypeOf<FormatException>());
+		Assert.That(() => MslReader.LoadIndexOnly(path), Throws.TypeOf<FormatException>());
+	}
+
+	/// <summary>
+	/// When writing compressed fragments fails part-way, the caller must see the original
+	/// exception, not the zstd "pledged size" error from closing the incomplete frame, and no
+	/// temp files may be left behind.
+	/// </summary>
+	[Test]
+	public void CompressedWrite_FailurePartWay_SurfacesOriginalException()
+	{
+		string path = TempPath(nameof(CompressedWrite_FailurePartWay_SurfacesOriginalException));
+		List<MslLibraryEntry> entries = MakeEntries(20);
+		entries[10].MatchedFragmentIons = null!;  // the layout tolerates null; writing records does not
+
+		Assert.That(() => MslWriter.Write(path, entries, compressionLevel: 3), Throws.TypeOf<NullReferenceException>());
+		Assert.That(Directory.GetFiles(OutputDirectory, Path.GetFileName(path) + "*"), Is.Empty);
+	}
+
+	/// <summary>
+	/// TotalBodyBytes in the string-table header is informational: strings are parsed from their
+	/// length prefixes, so a writer that leaves it 0 still produces a readable file in both modes.
+	/// </summary>
+	[Test]
+	public void StringTable_TotalBodyBytesZero_StillReads()
+	{
+		string path = TempPath(nameof(StringTable_TotalBodyBytesZero_StillReads));
+		List<MslLibraryEntry> written = MakeEntries(30);
+		MslWriter.Write(path, written);
+
+		long stringTable = MslReader.ReadHeaderOnly(path).StringTableOffset;
+		byte[] bytes = File.ReadAllBytes(path);
+		BitConverter.GetBytes(0).CopyTo(bytes, (int)stringTable + 4);
+		RecomputeCrc(bytes);
+		File.WriteAllBytes(path, bytes);
+
+		AssertSameFragments(written, MslReader.Load(path).Entries);
+		using MslLibraryData indexOnly = MslReader.LoadIndexOnly(path);
+		Assert.That(indexOnly.Entries.Select(e => e.FullSequence), Is.EquivalentTo(written.Select(e => e.FullSequence)));
+	}
+
+	/// <summary>
+	/// The compressed section must decode to exactly the uncompressed size in the descriptor.
+	/// Declaring less or more than the frame holds is rejected, as the old whole-buffer decode did.
+	/// </summary>
+	[TestCase(-20)]
+	[TestCase(20)]
+	public void CompressedLoad_DeclaredUncompressedSizeWrong_Throws(int delta)
+	{
+		string path = TempPath($"{nameof(CompressedLoad_DeclaredUncompressedSizeWrong_Throws)}_{delta}");
+		MslWriter.Write(path, MakeEntries(50), compressionLevel: 3);
+
+		byte[] bytes = File.ReadAllBytes(path);
+		long declared = BitConverter.ToInt64(bytes, MslFormat.HeaderSize + 8);
+		BitConverter.GetBytes(declared + delta).CopyTo(bytes, MslFormat.HeaderSize + 8);
+		RecomputeCrc(bytes);
+		File.WriteAllBytes(path, bytes);
+
+		Assert.That(() => MslReader.Load(path), Throws.Exception);
+	}
+
+	/// <summary>
+	/// Files that are not memory-mapped (network or removable drives) are read with positional
+	/// reads; that path must match the full load under concurrency, and fail cleanly after Dispose.
+	/// </summary>
+	[Test]
+	public void LoadIndexOnly_PositionalReads_ParallelMatchFullLoad()
+	{
+		string path = TempPath(nameof(LoadIndexOnly_PositionalReads_ParallelMatchFullLoad));
+		List<MslLibraryEntry> written = MakeEntriesWithCustomLoss(300);
+		MslWriter.Write(path, written);
+
+		MslLibraryData full = MslReader.Load(path);
+		MslLibraryData positional = MslReader.LoadIndexOnly(path, memoryMapFragments: false);
+
+		int mismatches = 0;
+		Parallel.For(0, 4 * written.Count, new ParallelOptions { MaxDegreeOfParallelism = 8 }, k =>
+		{
+			int i = k % written.Count;
+			if (!positional.LoadFragmentsOnDemand(i).Select(f => (float)f.Mz).SequenceEqual(FragmentMzs(full.Entries[i])))
+				Interlocked.Increment(ref mismatches);
+		});
+		Assert.That(mismatches, Is.EqualTo(0));
+		AssertCustomLossesRead(positional);
+
+		positional.Dispose();
+		Assert.That(() => positional.LoadFragmentsOnDemand(0), Throws.TypeOf<ObjectDisposedException>());
+	}
+
+	/// <summary>
+	/// A UNC path is a network share, so it is never memory-mapped; an ordinary path is decided
+	/// without throwing.
+	/// </summary>
+	[Test]
+	public void IsOnLocalFixedDrive_UncPathIsNotLocal()
+	{
+		Assert.That(MslReader.IsOnLocalFixedDrive(@"\\server\share\library.msl"), Is.False);
+		Assert.That(() => MslReader.IsOnLocalFixedDrive(TempPath("any")), Throws.Nothing);
+	}
+
 	private static void RecomputeCrc(byte[] bytes)
 	{
 		int footerStart = bytes.Length - MslFormat.FooterSize;

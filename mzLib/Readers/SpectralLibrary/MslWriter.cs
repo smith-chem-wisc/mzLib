@@ -509,7 +509,10 @@ public static class MslWriter
 					NProteins = nProteins,
 					NElutionGroups = nElutionGroups,
 					NStrings = nStrings,
-					ExtAnnotationTableOffset = hasCustomLosses ? (int)extAnnotTableOffset : 0,
+					// Readers locate the table from the layout; this int32 field is kept for older
+					// readers and is 0 when the offset does not fit (files over 2 GB)
+					ExtAnnotationTableOffset = hasCustomLosses && extAnnotTableOffset <= int.MaxValue
+												   ? (int)extAnnotTableOffset : 0,
 					ProteinTableOffset = proteinTableOffset,
 					StringTableOffset = stringTableOffset,
 					PrecursorSectionOffset = precursorSectionOffset,
@@ -904,7 +907,9 @@ public static class MslWriter
 			NProteins = layout.NProteins,
 			NElutionGroups = layout.NElutionGroups,
 			NStrings = layout.NStrings,
-			ExtAnnotationTableOffset = layout.HasCustomLosses
+			// Readers locate the table from the layout; this int32 field is kept for older
+			// readers and is 0 when the offset does not fit (files over 2 GB)
+			ExtAnnotationTableOffset = layout.HasCustomLosses && layout.ExtAnnotationTableOffset <= int.MaxValue
 										   ? (int)layout.ExtAnnotationTableOffset : 0,
 			ProteinTableOffset = layout.ProteinTableOffset,
 			StringTableOffset = layout.StringTableOffset,
@@ -1075,10 +1080,20 @@ public static class MslWriter
 	{
 		using (var dest = new FileStream(destPath, FileMode.Create, FileAccess.Write,
 										 FileShare.None, bufferSize: 1 << 20, FileOptions.SequentialScan))
-		using (var zstd = new CompressionStream(dest, compressionLevel, leaveOpen: true))
 		{
-			zstd.SetPledgedSrcSize((ulong)uncompressedSize);
-			writeUncompressed(zstd);
+			var zstd = new CompressionStream(dest, compressionLevel, leaveOpen: true);
+			try
+			{
+				zstd.SetPledgedSrcSize((ulong)uncompressedSize);
+				writeUncompressed(zstd);
+			}
+			catch
+			{
+				// Ending the frame would fail on the pledged-size mismatch and hide the real error
+				try { zstd.Dispose(); } catch (Exception) { }
+				throw;
+			}
+			zstd.Dispose();
 		}
 
 		return new FileInfo(destPath).Length;
