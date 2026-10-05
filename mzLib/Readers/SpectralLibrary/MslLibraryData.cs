@@ -1,4 +1,5 @@
 ﻿using Omics.SpectralMatch.MslSpectralLibrary;
+using System.IO.MemoryMappedFiles;
 
 namespace Readers.SpectralLibrary;
 
@@ -30,11 +31,25 @@ public sealed class MslLibraryData : IDisposable
 	private FileStream? _onDemandStream;
 
 	/// <summary>
-	/// Synchronization lock that serialises seek+read sequences against
-	/// <see cref="_onDemandStream"/> so concurrent callers of
-	/// <see cref="LoadFragmentsOnDemand"/> do not interleave their I/O.
+	/// Read-only memory map of the file, created in index-only mode. Fragment blocks are copied
+	/// straight out of <see cref="_fragmentView"/>: no system call and no shared file position,
+	/// so concurrent callers need no lock and do not wait on each other. A 64-bit view has no
+	/// 2 GB limit.
 	/// </summary>
-	private readonly object _streamLock = new();
+	private MemoryMappedFile? _fragmentMap;
+
+	/// <summary>
+	/// View over the whole of <see cref="_fragmentMap"/>. Set to null by <see cref="Dispose"/>.
+	/// Reads still in flight when it is disposed finish first (the view's handle is
+	/// reference-counted).
+	/// </summary>
+	private MemoryMappedViewAccessor? _fragmentView;
+
+	/// <summary>
+	/// File length in bytes. The view's capacity is rounded up to a whole page, so reads are
+	/// bounds-checked against this instead.
+	/// </summary>
+	private readonly long _fileLength;
 
 	/// <summary>
 	/// Snapshot of all raw precursor records kept for index-only on-demand reads.
@@ -128,6 +143,19 @@ public sealed class MslLibraryData : IDisposable
 		_strings = strings ?? throw new ArgumentNullException(nameof(strings));
 		_proteins = proteins ?? throw new ArgumentNullException(nameof(proteins));
 		_onDemandStream = onDemandStream ?? throw new ArgumentNullException(nameof(onDemandStream));
+		_fileLength = onDemandStream.Length;
+		_fragmentMap = MemoryMappedFile.CreateFromFile(onDemandStream, mapName: null, capacity: 0,
+			MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
+		try
+		{
+			_fragmentView = _fragmentMap.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+		}
+		catch
+		{
+			// The caller disposes the stream on failure; the map is ours to release
+			_fragmentMap.Dispose();
+			throw;
+		}
 		_customLossMasses = customLossMasses ?? Array.Empty<double>();
 		_isIndexOnly = true;
 	}
@@ -183,8 +211,8 @@ public sealed class MslLibraryData : IDisposable
 	/// calling this method on a full-load instance throws <see cref="InvalidOperationException"/>.
 	/// </para>
 	///
-	/// <para>Thread-safe: multiple callers may request different precursors concurrently.
-	/// The seek+read sequence is protected by an internal lock on the shared stream.</para>
+	/// <para>Thread-safe: multiple callers may request precursors concurrently. Each block is
+	/// copied from a memory map of the file, so callers do not wait on each other.</para>
 	/// </summary>
 	/// <param name="precursorIndex">
 	/// Zero-based index into <see cref="Entries"/>. Must be in range [0, Count).
@@ -213,17 +241,22 @@ public sealed class MslLibraryData : IDisposable
 			throw new ArgumentOutOfRangeException(nameof(precursorIndex),
 				$"Index {precursorIndex} is out of range [0, {Count}).");
 
-		// Serialise the seek+read so concurrent callers on different threads do not interleave
-		lock (_streamLock)
-		{
-			if (_onDemandStream is null)
-				throw new ObjectDisposedException(nameof(MslLibraryData),
-					"Cannot load fragments: the library has been disposed.");
+		MemoryMappedViewAccessor? view = Volatile.Read(ref _fragmentView);
+		if (view is null)
+			throw DisposedException();
 
-			return MslReader.ReadFragmentBlockFromStream(
-				_onDemandStream,
+		try
+		{
+			return MslReader.ReadFragmentBlockAt(
+				view,
+				_fileLength,
 				_precursorRecords![precursorIndex],
 				_customLossMasses);
+		}
+		catch (ObjectDisposedException)
+		{
+			// Dispose ran on another thread between the check above and the read
+			throw DisposedException();
 		}
 	}
 
@@ -238,13 +271,12 @@ public sealed class MslLibraryData : IDisposable
 	/// </summary>
 	public void Dispose()
 	{
-		// Null the stream inside the lock so in-flight LoadFragmentsOnDemand callers
-		// that are waiting will see null and throw ObjectDisposedException rather than
-		// attempting to use an already-closed stream.
-		lock (_streamLock)
-		{
-			_onDemandStream?.Dispose();
-			_onDemandStream = null;
-		}
+		// Later LoadFragmentsOnDemand callers see null and throw ObjectDisposedException
+		Interlocked.Exchange(ref _fragmentView, null)?.Dispose();
+		Interlocked.Exchange(ref _fragmentMap, null)?.Dispose();
+		Interlocked.Exchange(ref _onDemandStream, null)?.Dispose();
 	}
+
+	private static ObjectDisposedException DisposedException() =>
+		new(nameof(MslLibraryData), "Cannot load fragments: the library has been disposed.");
 }
