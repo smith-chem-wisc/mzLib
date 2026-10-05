@@ -39,6 +39,9 @@ namespace Test.KoinaTests
         public static IReadOnlySet<int> AllowedIds(object model) =>
             (IReadOnlySet<int>)model.GetType().GetProperty("AllowedUnimodIds")!.GetValue(model)!;
 
+        public static bool AcceptsAllIds(object model) =>
+            (bool)model.GetType().GetProperty("AcceptsAllUnimodModifications")!.GetValue(model)!;
+
         public static int IdOf(string token) => int.Parse(Regex.Match(token, @"\d+").Value);
 
         /// <summary>
@@ -80,72 +83,33 @@ namespace Test.KoinaTests
     [TestFixture]
     public class KoinaModificationTokenTests
     {
-        private static readonly int[] PtmsGlIds =
-        {
-            1, 4, 7, 21, 27, 28, 34, 35, 36, 37, 43, 56, 58, 59, 121, 214, 267, 312, 411,
-            535, 730, 737, 1263, 1289, 1293, 1848, 1990, 2016, 2062, 5634, 12118, 19903, 129317
-        };
-
-        // What each model's AllowedUnimodIds listed before it was derived from the tokens.
-        private static readonly Dictionary<string, int[]> IdsAllowedBeforeTokens = new()
-        {
-            ["Prosit2019Intensity"] = new[] { 35, 4 },
-            ["Prosit2020IntensityCID"] = new[] { 35, 4 },
-            ["Prosit2020IntensityHCD"] = new[] { 35, 4 },
-            ["Prosit2023IntensityTimsTOF"] = new[] { 35, 4 },
-            ["Altimeter2024Intensities"] = new[] { 35, 4 },
-            ["ChronologerRT"] = new[] { 35, 4 },
-            ["Prosit2019iRT"] = new[] { 35, 4 },
-            ["Prosit2020IntensityTMT"] = new[] { 35, 4, 259, 267, 737, 2016, 214, 730 },
-            ["Prosit2020iRTTMT"] = new[] { 35, 4, 259, 267, 737, 2016, 214, 730 },
-            ["Prosit2024IntensityCit"] = new[] { 35, 4, 7 },
-            ["Prosit2024iRTCit"] = new[] { 35, 4, 7 },
-            ["Prosit2024IntensityPTMsGl"] = PtmsGlIds,
-            ["Prosit2024iRTPTMsGl"] = PtmsGlIds,
-            ["Prosit2025IntensityLac"] = new[] { 35, 4, 2114 },
-            ["Prosit2025iRTLac"] = new[] { 35, 4, 2114 },
-            ["Prosit2025IntensityPtm2"] = new[] { 4, 35, 9990 },
-            ["Prosit2023IntensityXLCMS2"] = new[] { 4, 35, 1896 },
-            ["Prosit2023IntensityXLCMS3"] = new[] { 4, 35, 1881 },
-            ["Prosit2024IntensityXLNMS2"] = new[] { 4, 35, 1898 },
-        };
-
-        // Ids a model allowed before and no longer does, because Koina answers 400 to their only token.
-        private static readonly Dictionary<string, int[]> IdsNoLongerAllowed = new()
-        {
-            ["Prosit2024IntensityPTMsGl"] = new[] { 267, 12118, 19903, 129317 },
-            ["Prosit2024iRTPTMsGl"] = new[] { 267, 12118, 19903, 129317 },
-        };
-
+        // UniSpec's preprocessing keys on the id alone, so it has no residue tokens to declare.
         [Test]
-        public void EveryModelThatListedItsIds_NowDeclaresTokens()
+        public void EveryModelThatListsItsIds_DeclaresTokens_ExceptUniSpec()
         {
-            var declaring = ModificationTokenCases.TokenDeclaringModels().Select(t => t.Name);
+            var listingIdsWithoutTokens = ModificationTokenCases.AllModels()
+                .Where(t =>
+                {
+                    var model = ModificationTokenCases.Instantiate(t);
+                    return !ModificationTokenCases.AcceptsAllIds(model)
+                        && ModificationTokenCases.AllowedIds(model).Count > 0
+                        && ModificationTokenCases.Tokens(model) == null;
+                })
+                .Select(t => t.Name);
 
-            Assert.That(declaring, Is.EquivalentTo(IdsAllowedBeforeTokens.Keys));
+            Assert.That(listingIdsWithoutTokens, Is.EquivalentTo(new[] { nameof(UniSpec) }));
         }
 
-        [TestCaseSource(typeof(ModificationTokenCases), nameof(ModificationTokenCases.AllModels))]
-        public void ModificationTokens_AllowNoIdTheModelDidNotAllowBefore(Type modelType)
+        [TestCaseSource(typeof(ModificationTokenCases), nameof(ModificationTokenCases.TokenDeclaringModels))]
+        public void AllowedUnimodIds_AreTheIdsOfTheDeclaredTokens(Type modelType)
         {
             var model = ModificationTokenCases.Instantiate(modelType);
-            var tokens = ModificationTokenCases.Tokens(model);
-            if (tokens == null)
-            {
-                Assert.That(IdsAllowedBeforeTokens.ContainsKey(modelType.Name), Is.False);
-                return;
-            }
+            var tokens = ModificationTokenCases.Tokens(model)!;
 
             // A residue or the N-terminus with one id: the only forms a single modification can take.
             Assert.That(tokens, Has.All.Match(@"^([A-Z]\[UNIMOD:\d+\]|\[UNIMOD:\d+\]-)$"));
-            var tokenIds = tokens.Select(ModificationTokenCases.IdOf).Distinct().ToList();
-            Assert.That(ModificationTokenCases.AllowedIds(model), Is.EquivalentTo(tokenIds));
-            Assert.That((bool)modelType.GetProperty("AcceptsAllUnimodModifications")!.GetValue(model)!, Is.False);
-            if (IdsAllowedBeforeTokens.TryGetValue(modelType.Name, out var before))
-            {
-                Assert.That(tokenIds, Is.SubsetOf(before));
-                Assert.That(before.Except(tokenIds), Is.EquivalentTo(IdsNoLongerAllowed.GetValueOrDefault(modelType.Name, Array.Empty<int>())));
-            }
+            Assert.That(ModificationTokenCases.AllowedIds(model), Is.EquivalentTo(tokens.Select(ModificationTokenCases.IdOf).Distinct()));
+            Assert.That(ModificationTokenCases.AcceptsAllIds(model), Is.False);
         }
 
         [TestCaseSource(typeof(ModificationTokenCases), nameof(ModificationTokenCases.TokenDeclaringModels))]
@@ -267,8 +231,8 @@ namespace Test.KoinaTests
 
     /// <summary>
     /// Sends every declared token of every token-declaring model to Koina in one request per model, together with
-    /// one peptide carrying an allowed id on a residue the model has no token for. Koina fails a whole request over
-    /// one sequence it cannot encode, so the request only succeeds if that peptide was held back.
+    /// one peptide carrying an allowed id on a residue the model has no token for. Every declared token must come
+    /// back predicted, and that last peptide unpredicted with mzLib's own unsupported-modification warning.
     /// </summary>
     [TestFixture]
     [Category("ExternalService")]

@@ -30,7 +30,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
             "[UNIMOD:737]-", "[UNIMOD:2016]-", "[UNIMOD:214]-", "[UNIMOD:730]-"
         };
         private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
-        private static readonly IReadOnlySet<int> NTerminalLabelIds = new HashSet<int> { 737, 2016, 214, 730 };
+        private static readonly IReadOnlySet<int> NTerminalLabelIds = UnimodIdsOf(SupportedModificationTokens.Where(t => t.EndsWith('-')));
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(TmtSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2020_intensity_TMT";

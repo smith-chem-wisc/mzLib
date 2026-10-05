@@ -10,7 +10,7 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
     /// </summary>
     public class Prosit2023IntensityXLCMS2 : CrosslinkFragmentIntensityModel
     {
-        // Koina: ALPHABET_MOD in models/Prosit_XL/XL_Prosit_Preprocess_peptide_CMS2/1/sequence_conversion.py
+        // Koina: the subset mzLib allows of ALPHABET_MOD in models/Prosit_XL/XL_Prosit_Preprocess_peptide_CMS2/1/sequence_conversion.py
         private static readonly IReadOnlySet<string> Cms2ModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:1896]" };
         private static readonly IReadOnlySet<int> Cms2UnimodIds = UnimodIdsOf(Cms2ModificationTokens);
         private static readonly ISequenceConverter Cms2Converter = CreateUnimodConverter(CrosslinkSchema, Cms2UnimodIds);

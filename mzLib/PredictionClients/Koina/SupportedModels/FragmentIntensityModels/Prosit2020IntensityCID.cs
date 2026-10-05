@@ -20,7 +20,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// </remarks>
     public class Prosit2020IntensityCID : FragmentIntensityModel
     {
-        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide/1/sequence_conversion.py
+        // Koina: the subset mzLib allows of ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide/1/sequence_conversion.py
         private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]" };
         private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
