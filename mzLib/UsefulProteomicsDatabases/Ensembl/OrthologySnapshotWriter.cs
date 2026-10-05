@@ -9,9 +9,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using Parquet;
 using Parquet.Schema;
-using UsefulProteomicsDatabases.Ensembl;
 
-namespace OrthologyStore
+namespace UsefulProteomicsDatabases.Ensembl
 {
     /// <summary>One file of a written snapshot. Rows is null for a file that is not a table.</summary>
     public sealed record SnapshotFile(string Path, long? Rows, long Bytes, string Sha256);
@@ -156,7 +155,7 @@ namespace OrthologyStore
         /// <summary>The DuckDB table macros written beside every snapshot.</summary>
         public static string ViewsSql()
         {
-            using var stream = typeof(OrthologySnapshotWriter).Assembly.GetManifestResourceStream("OrthologyStore.views.sql")
+            using var stream = typeof(OrthologySnapshotWriter).Assembly.GetManifestResourceStream("UsefulProteomicsDatabases.Ensembl.views.sql")
                 ?? throw new InvalidOperationException("views.sql is not embedded in the assembly.");
             using var reader = new StreamReader(stream);
             return reader.ReadToEnd().Replace("\r\n", "\n");
