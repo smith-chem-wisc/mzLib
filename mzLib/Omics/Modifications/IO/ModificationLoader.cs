@@ -355,6 +355,7 @@ public static class ModificationLoader
                         break;
 
                     case "//":
+                        _databaseReference = AddUniprotUnimodCrossReference(_accession, _databaseReference);
                         if (_target == null || _target.Count == 0) //This happens for FT=CROSSLINK modifications. We ignore these for now.
                         {
                             _target = new List<ModificationMotif> { null };
@@ -393,6 +394,61 @@ public static class ModificationLoader
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Unimod cross-references for UniProt modifications that UniProt itself does not link to Unimod,
+    /// keyed by UniProt PTM accession (embedded resource UniprotUnimodCrossReferences.tsv; its header
+    /// says when a row may be added).
+    /// </summary>
+    internal static IReadOnlyDictionary<string, string> UniprotUnimodCrossReferences => LazyUniprotUnimodCrossReferences.Value;
+
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> LazyUniprotUnimodCrossReferences = new(() =>
+    {
+        var assembly = typeof(ModificationLoader).Assembly;
+        using var stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Resources.UniprotUnimodCrossReferences.tsv");
+        using var reader = new StreamReader(stream!);
+        return ReadUnimodCrossReferences(reader);
+    });
+
+    /// <summary>
+    /// Reads "UniProt PTM accession TAB Unimod record id [TAB name ...]" lines; '#' lines and blank lines
+    /// are skipped. Columns after the second are for human review and are ignored.
+    /// </summary>
+    internal static Dictionary<string, string> ReadUnimodCrossReferences(TextReader reader)
+    {
+        var crossReferences = new Dictionary<string, string>();
+        string? line;
+        int lineNumber = 0;
+        while ((line = reader.ReadLine()) != null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                continue;
+            var fields = line.Split('\t');
+            if (fields.Length < 2 || !fields[0].StartsWith("PTM-")
+                || !int.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out _))
+                throw new MzLibException($"Unimod cross-reference line {lineNumber} is not 'PTM-nnnn<TAB>unimod id': '{line}'");
+            crossReferences.Add(fields[0], fields[1]);
+        }
+        return crossReferences;
+    }
+
+    /// <summary>
+    /// Adds the curated Unimod cross-reference for a UniProt accession to the entry's database references,
+    /// unless the entry already has a Unimod reference of its own, which always wins. Every motif expansion
+    /// of the entry shares the returned dictionary, so all of them get it.
+    /// </summary>
+    private static Dictionary<string, IList<string>> AddUniprotUnimodCrossReference(string accession, Dictionary<string, IList<string>> databaseReference)
+    {
+        if (accession == null || !UniprotUnimodCrossReferences.TryGetValue(accession, out string unimodId))
+            return databaseReference;
+        if (databaseReference != null && databaseReference.ContainsKey("Unimod"))
+            return databaseReference;
+
+        databaseReference ??= new Dictionary<string, IList<string>>();
+        databaseReference.Add("Unimod", new List<string> { unimodId });
+        return databaseReference;
     }
 
     /// <summary>

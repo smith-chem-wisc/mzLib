@@ -335,4 +335,94 @@ public static class ModificationTest
         Assert.Throws<MzLibUtil.MzLibException>(() =>
             ModificationLoader.ReadFormalChargesDictionary(new System.IO.StringReader("MOD:00083\t1+\n")));
     }
+
+    /// <summary>
+    /// Every curated UniProt-to-Unimod cross-reference must name an entry mzLib loads, and a Unimod record
+    /// of the same composition (against the formula mzLib holds, after the formal-charge correction) that
+    /// lists the entry's residue among its sites. Sameness of chemistry beyond that is a review decision,
+    /// recorded in the table's header.
+    /// </summary>
+    [Test]
+    public static void UniprotUnimodCrossReferencesCiteTheSameCompositionOnTheSameResidue()
+    {
+        var unimodRecords = Mods.UnimodModifications
+            .Where(m => m.ModificationType == "Unimod" && m.DatabaseReference != null && m.DatabaseReference.ContainsKey("Unimod"))
+            .ToLookup(m => m.DatabaseReference["Unimod"].First());
+
+        var problems = new List<string>();
+        foreach (var (accession, unimodId) in ModificationLoader.UniprotUnimodCrossReferences)
+        {
+            var entries = Mods.UniprotModifications.Where(m => m.Accession == accession).ToList();
+            if (entries.Count == 0)
+            {
+                problems.Add($"{accession}: no loaded UniProt modification has this accession");
+                continue;
+            }
+            var cited = unimodRecords[unimodId].ToList();
+            if (cited.Count == 0)
+            {
+                problems.Add($"{accession}: UNIMOD:{unimodId} is not in the embedded unimod.xml");
+                continue;
+            }
+            foreach (var entry in entries)
+            {
+                if (!cited.Any(u => u.ChemicalFormula != null && u.ChemicalFormula.Equals(entry.ChemicalFormula)))
+                    problems.Add($"'{entry.IdWithMotif}' ({entry.ChemicalFormula?.Formula}) cites UNIMOD:{unimodId} " +
+                                 $"({cited.First().ChemicalFormula?.Formula}), a different composition");
+                if (!cited.Any(u => u.Target?.ToString() == entry.Target?.ToString()))
+                    problems.Add($"'{entry.IdWithMotif}' cites UNIMOD:{unimodId}, which does not list {entry.Target} as a site");
+                if (!entry.DatabaseReference["Unimod"].Contains(unimodId))
+                    problems.Add($"'{entry.IdWithMotif}' did not receive UNIMOD:{unimodId}");
+            }
+        }
+
+        Assert.That(ModificationLoader.UniprotUnimodCrossReferences, Is.Not.Empty);
+        Assert.That(problems, Is.Empty, string.Join(Environment.NewLine, problems));
+    }
+
+    /// <summary>
+    /// The curated table only fills a gap. An entry that carries its own Unimod reference keeps it, and an
+    /// entry with no database references at all gets one.
+    /// </summary>
+    [Test]
+    public static void UniprotUnimodCrossReferenceIsAddedOnlyWhenUniProtHasNone()
+    {
+        static Modification Read(string dr) => ModificationLoader.ReadModsFromFile(
+            new System.IO.StreamReader(new System.IO.MemoryStream(System.Text.Encoding.UTF8.GetBytes(
+                "ID   N6-succinyllysine\r\nAC   PTM-0438\r\nFT   MOD_RES\r\nTG   Lysine.\r\nPP   Anywhere.\r\n" +
+                "CF   C4 H4 O3\r\nMM   100.016044\r\n" + dr + "//"))),
+            new Dictionary<string, int>(), out _).Single();
+
+        Assert.That(Read("").DatabaseReference["Unimod"], Is.EqualTo(new[] { "64" }));
+        Assert.That(Read("DR   PSI-MOD; MOD:01819.\r\n").DatabaseReference["Unimod"], Is.EqualTo(new[] { "64" }));
+        Assert.That(Read("DR   Unimod; 999.\r\n").DatabaseReference["Unimod"], Is.EqualTo(new[] { "999" }),
+            "UniProt's own Unimod reference wins over the curated one");
+    }
+
+    /// <summary>
+    /// The point of the table: a MetaMorpheus full-sequence name for a UniProt modification resolves to its
+    /// Unimod accession.
+    /// </summary>
+    [Test]
+    public static void SuccinyllysineResolvesToItsUnimodAccession()
+    {
+        var resolved = global::Omics.SequenceConversion.GlobalModificationLookup.Instance.TryResolve("UniProt:N6-succinyllysine on K");
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.UnimodId, Is.EqualTo(64));
+    }
+
+    [Test]
+    public static void ReadUnimodCrossReferencesSkipsCommentsAndRefusesBadLines()
+    {
+        var crossReferences = ModificationLoader.ReadUnimodCrossReferences(
+            new System.IO.StringReader("# header\n\nPTM-0438\t64\tN6-succinyllysine\tSuccinyl\n"));
+
+        Assert.That(crossReferences, Has.Count.EqualTo(1));
+        Assert.That(crossReferences["PTM-0438"], Is.EqualTo("64"));
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadUnimodCrossReferences(new System.IO.StringReader("PTM-0438 64\n")));
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadUnimodCrossReferences(new System.IO.StringReader("PTM-0438\tUNIMOD:64\n")));
+    }
 }
