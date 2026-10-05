@@ -99,6 +99,11 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
 
             CollectionAssert.AreEqual(new[] { "AAA", "TA" }, Digest("AAATA", "bounds-cut-before"),
                 "with alanine before it the same bond is cut, so the rule is still doing its job");
+
+            // The backward index's own end: a Thr at position 0 has no residue before it to forbid the cut,
+            // so the rule reads nothing (index -1) and the site is the N-terminus the sequence starts at anyway.
+            CollectionAssert.AreEqual(new[] { "TAAAA" }, Digest("TAAAA", "bounds-cut-before"),
+                "a recognition residue at position 0 must be checked against the N-terminus, not read at index -1");
         }
     }
 }
