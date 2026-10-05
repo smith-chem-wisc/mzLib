@@ -149,20 +149,6 @@ namespace Test.KoinaTests
         }
 
         [Test]
-        public void Tmt_Construction_RejectsUsePrimarySequence()
-        {
-            // Every sequence would lose its required N-terminal label, so the mode is refused up front,
-            // through both the constructor and an object initializer.
-            const SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.UsePrimarySequence;
-            static IResolveConstraint RejectsMode() => Throws.ArgumentException.With.Message.Contains("UsePrimarySequence");
-
-            Assert.That(() => new Prosit2020IntensityTMT(mode), RejectsMode());
-            Assert.That(() => new Prosit2020IntensityTMT { ModHandlingMode = mode }, RejectsMode());
-            Assert.That(() => new Prosit2020iRTTMT(mode), RejectsMode());
-            Assert.That(() => new Prosit2020iRTTMT { ModHandlingMode = mode }, RejectsMode());
-        }
-
-        [Test]
         public void Tmt_Construction_AcceptsModesThatKeepTheLabel(
             [Values(SequenceConversionHandlingMode.ThrowException, SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
         {
@@ -246,6 +232,35 @@ namespace Test.KoinaTests
 
                     var allowed = (IReadOnlySet<int>)modelType.GetProperty("AllowedUnimodIds")!.GetValue(model)!;
                     Assert.That(required, Is.SubsetOf(allowed), modelType.Name);
+                    checkedModels++;
+                }
+            });
+            Assert.That(checkedModels, Is.GreaterThanOrEqualTo(2), "Expected at least the two Prosit 2020 TMT models to declare required N-terminal mods.");
+        }
+
+        [Test]
+        public void EveryModel_RequiringAModification_RejectsUsePrimarySequenceAtConstruction()
+        {
+            // UsePrimarySequence strips the required mod from every sequence, so the model must refuse it up front.
+            var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
+            var checkedModels = 0;
+            Assert.Multiple(() =>
+            {
+                foreach (var modelType in models)
+                {
+                    var model = Instantiate(modelType);
+                    if (modelType.GetProperty("RequiredNTerminalUnimodIds")!.GetValue(model) == null)
+                        continue;
+
+                    var ctor = modelType.GetConstructors().First(c => c.GetParameters().All(p => p.HasDefaultValue)
+                        && c.GetParameters().Any(p => p.ParameterType == typeof(SequenceConversionHandlingMode)));
+                    var args = ctor.GetParameters()
+                        .Select(p => p.ParameterType == typeof(SequenceConversionHandlingMode) ? SequenceConversionHandlingMode.UsePrimarySequence : p.DefaultValue)
+                        .ToArray();
+                    Assert.That(() => ctor.Invoke(args),
+                        Throws.TypeOf<TargetInvocationException>().With.InnerException.TypeOf<ArgumentException>(), modelType.Name);
+                    Assert.That(() => modelType.GetProperty("ModHandlingMode")!.SetValue(Instantiate(modelType), SequenceConversionHandlingMode.UsePrimarySequence),
+                        Throws.TypeOf<TargetInvocationException>().With.InnerException.TypeOf<ArgumentException>(), modelType.Name + " (init)");
                     checkedModels++;
                 }
             });
