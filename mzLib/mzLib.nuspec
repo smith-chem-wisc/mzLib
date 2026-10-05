@@ -32,7 +32,7 @@
     <dependency id="Newtonsoft.Json" version="13.0.4" />
     <dependency id="Parquet.Net" version="6.1.0" />
     <dependency id="TopDownProteomics" version="0.0.299" />
-    <dependency id="ZstdSharp.Port" version="0.8.7" />
+    <dependency id="ZstdSharp.Port" version="0.8.8" />
   </group>
   <group targetFramework="net10.0-windows7.0">
     <!--net10.0 target with OxyPlot-->
@@ -55,7 +55,7 @@
     <dependency id="Newtonsoft.Json" version="13.0.4" />
     <dependency id="Parquet.Net" version="6.1.0" />
     <dependency id="TopDownProteomics" version="0.0.299" />
-    <dependency id="ZstdSharp.Port" version="0.8.7" />
+    <dependency id="ZstdSharp.Port" version="0.8.8" />
   </group>
 </dependencies>
   </metadata>
