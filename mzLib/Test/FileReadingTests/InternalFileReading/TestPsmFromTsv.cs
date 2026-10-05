@@ -697,6 +697,42 @@ namespace Test.FileReadingTests.InternalFileReading
                 "the lightweight reader must agree with the full one");
         }
 
+        /// <summary>
+        /// A PSM read from a file counts as the share of an entrapment discovery its own label and
+        /// full sequence give it. T|ET is half an entrapment PSM when the two sequences differ, and
+        /// none when both proteins carry the same peptide.
+        /// </summary>
+        [TestCase("ET", "PEPTIDEK", 1.0)]
+        [TestCase("T|ET", "PEPTIDEK|PEPTLDEK", 0.5)]
+        [TestCase("T|ET", "PEPTIDEK", 0.0)]
+        [TestCase("T|D", "PEPTIDEK|PEPTLDEK", 0.0)]
+        public static void APsmReadsItsShareOfAnEntrapmentDiscovery(string label, string fullSequence, double expected)
+        {
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SearchResults", "TDGPTMDSearchResults.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            string[] header = lines[0].Split('\t');
+            int labelColumn = Array.IndexOf(header, SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+            int sequenceColumn = Array.IndexOf(header, SpectrumMatchFromTsvHeader.FullSequence);
+            string[] fields = lines.Skip(1).Select(l => l.Split('\t')).First(f => f.Length == header.Length);
+            fields[labelColumn] = label;
+            fields[sequenceColumn] = fullSequence;
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"entrapmentFraction_{label.Replace('|', '_')}_{fullSequence.Replace('|', '_')}.psmtsv");
+            File.WriteAllLines(path, new[] { lines[0], string.Join('\t', fields) });
+
+            PsmFromTsv psm;
+            try
+            {
+                psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).Single();
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+
+            NUnit.Framework.Assert.That(psm.EntrapmentFraction, Is.EqualTo(expected).Within(1e-12));
+        }
+
         [Test]
         public static void TestSimpleToLibrarySpectrum()
         {

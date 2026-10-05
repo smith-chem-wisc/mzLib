@@ -48,10 +48,87 @@ public static class DecoyContaminantTargetLabel
 
     /// <summary>True when any parent named by the label is entrapment.</summary>
     /// <remarks>
-    /// "Any parent" is deliberate. A peptide shared by a target and its own entrapment partner
-    /// (<c>T|ET</c>, typically short) is counted as an entrapment discovery, which can only raise an
-    /// entrapment FDP estimate: the error is conservative, never optimistic. A caller that wants
-    /// such shared peptides out of the count should exclude labels that also name a target.
+    /// This answers "does any parent belong to entrapment", not "how much of this PSM is an
+    /// entrapment discovery". To count entrapment discoveries, for an FDP estimate, use
+    /// <see cref="EntrapmentFraction"/>: a shared <c>T|ET</c> is half a discovery when the two
+    /// sequences differ, and none when both proteins carry the same peptide.
     /// </remarks>
     public static bool IsEntrapment(string? label) => label?.Contains('E') ?? false;
+
+    /// <summary>
+    /// The label of each parent, in the order the writer joined them; empty when the value is not
+    /// a label at all (a blank cell, or MetaMorpheus's "Output too long for Excel").
+    /// </summary>
+    /// <remarks>A label collapsed to one value (every candidate alike) names a single parent.</remarks>
+    public static IReadOnlyList<string> Parents(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return Array.Empty<string>();
+        }
+
+        string[] parents = label.Split('|').Select(p => p.Trim()).ToArray();
+        return parents.All(IsKnown) ? parents : Array.Empty<string>();
+    }
+
+    /// <summary>The share of the PSM that FDR counts as a decoy: decoy parents over all parents.</summary>
+    /// <remarks>
+    /// MetaMorpheus adds each candidate of a shared PSM as 1/n of a target or a decoy by its own
+    /// parent (FdrAnalysisEngine.CalculateQValue), so <c>T|T|D</c> is a third of a decoy. Use
+    /// <see cref="IsDecoy"/> for the question MetaMorpheus's SpectralMatch.IsDecoy answers: is any
+    /// parent a decoy.
+    /// </remarks>
+    public static double DecoyFraction(string? label)
+    {
+        IReadOnlyList<string> parents = Parents(label);
+        return parents.Count == 0 ? 0 : parents.Count(p => p.Contains('D')) / (double)parents.Count;
+    }
+
+    /// <summary>
+    /// The share of the PSM that is an entrapment discovery: entrapment-target candidates whose
+    /// full sequence no target or contaminant candidate also carries, over all candidates.
+    /// </summary>
+    /// <param name="label">The Decoy/Contaminant/Target value.</param>
+    /// <param name="fullSequence">The Full Sequence value, '|'-joined in the same order.</param>
+    /// <returns>
+    /// NaN when the two columns name different numbers of candidates and neither is collapsed, since
+    /// they cannot then be lined up.
+    /// </returns>
+    /// <remarks>
+    /// <para>MetaMorpheus searches entrapment as a target, so a peptide present in both a target
+    /// and its entrapment partner is written <c>T|ET</c> with a single full sequence. That is the
+    /// real peptide, not an ambiguity, and counts as target. Only when the sequences differ is the
+    /// PSM truly shared, and then the entrapment candidates count as their share, as decoys do for
+    /// FDR (<see cref="DecoyFraction"/>).</para>
+    /// <para>Either column collapses to one value when every candidate agrees, and then applies to
+    /// all of them. A decoy candidate is never entrapment (<c>ED</c> is a decoy) and claims no
+    /// sequence.</para>
+    /// </remarks>
+    public static double EntrapmentFraction(string? label, string? fullSequence)
+    {
+        IReadOnlyList<string> parents = Parents(label);
+        string[] sequences = (fullSequence ?? string.Empty).Split('|');
+        int candidates = Math.Max(parents.Count, sequences.Length);
+        if (parents.Count == 0)
+        {
+            return 0;
+        }
+        if ((parents.Count != 1 && parents.Count != candidates) || (sequences.Length != 1 && sequences.Length != candidates))
+        {
+            return double.NaN;
+        }
+
+        string ParentOf(int i) => parents.Count == 1 ? parents[0] : parents[i];
+        string SequenceOf(int i) => sequences.Length == 1 ? sequences[0] : sequences[i];
+
+        var claimedByRealProteins = new HashSet<string>(Enumerable.Range(0, candidates)
+            .Where(i => ParentOf(i) is Target or Contaminant)
+            .Select(SequenceOf));
+        int entrapment = Enumerable.Range(0, candidates)
+            .Count(i => ParentOf(i) == EntrapmentTarget && !claimedByRealProteins.Contains(SequenceOf(i)));
+        return entrapment / (double)candidates;
+    }
+
+    private static bool IsKnown(string part) =>
+        part is Target or Decoy or Contaminant or EntrapmentTarget or EntrapmentDecoy;
 }

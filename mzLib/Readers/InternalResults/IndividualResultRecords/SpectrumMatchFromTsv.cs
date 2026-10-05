@@ -117,6 +117,8 @@ namespace Readers
         public int ChargeState => PrecursorCharge;
         public bool IsDecoy => DecoyContaminantTargetLabel.IsDecoy(DecoyContamTarget);
         public bool IsEntrapment => DecoyContaminantTargetLabel.IsEntrapment(DecoyContamTarget);
+        /// <summary>The share of this PSM that is an entrapment discovery; see <see cref="DecoyContaminantTargetLabel.EntrapmentFraction"/>.</summary>
+        public double EntrapmentFraction => DecoyContaminantTargetLabel.EntrapmentFraction(DecoyContamTarget, FullSequence);
         public double MonoisotopicMass => double.TryParse(MonoisotopicMassString.Split('|')[0], CultureInfo.InvariantCulture, out double monoMass) ? monoMass : -1;
         private List<(string proteinAccessions, string geneName, string organism)>? _proteinGroupInfos;
         public List<(string proteinAccessions, string geneName, string organism)> ProteinGroupInfos
