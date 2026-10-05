@@ -3,6 +3,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
+using Omics.Fragmentation;
 using Omics.Modifications;
 using Transcriptomics;
 using Transcriptomics.Digestion;
@@ -26,6 +27,21 @@ namespace Test.Transcriptomics
             Assert.That(RnaseDictionary.Dictionary.ContainsKey("singleC"));
             Assert.That(RnaseDictionary.Dictionary["singleN"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.SingleN));
             Assert.That(RnaseDictionary.Dictionary["singleC"].CleavageSpecificity, Is.EqualTo(CleavageSpecificity.SingleC));
+        }
+
+        [Test]
+        public void NonSpecificParametersSelectEffectiveRnaseAndRetainSpecificRnase()
+        {
+            var fivePrime = new RnaDigestionParams("RNase T1", fragmentationTerminus: FragmentationTerminus.FivePrime,
+                searchModeType: CleavageSpecificity.None);
+            var threePrime = (RnaDigestionParams)fivePrime.Clone(FragmentationTerminus.ThreePrime);
+
+            Assert.That(fivePrime.DigestionAgent.Name, Is.EqualTo("singleN"));
+            Assert.That(fivePrime.SpecificDigestionAgent.Name, Is.EqualTo("RNase T1"));
+            Assert.That(fivePrime.SpecificRnase.Name, Is.EqualTo("RNase T1"));
+            Assert.That(threePrime.DigestionAgent.Name, Is.EqualTo("singleC"));
+            Assert.That(threePrime.SpecificDigestionAgent.Name, Is.EqualTo("RNase T1"));
+            Assert.That(threePrime.SearchModeType, Is.EqualTo(CleavageSpecificity.None));
         }
 
         /// <summary>

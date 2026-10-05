@@ -26,14 +26,14 @@ namespace FlashLFQ
                 double monoisotopicMass = record.MonoisotopicMass;
                 int precursorChargeState = record.ChargeState;
 
-                // Get the spectra file info from the dictionary using the file name
-                if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile))
+                // Get the spectra file info from the dictionary using the file name. A result file can
+                // reference more spectra files than are supplied for quantification (e.g. an .osmtsv or
+                // .psmtsv covering runs the user did not load). Skip identifications for any file that was
+                // not supplied rather than aborting the whole read - this matches the legacy PsmReader path (in the FlashLFQ Standalone),
+                // which returns null for PSMs whose spectrum file has no data input.
+                if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile) || spectraFile is null)
                 {
-                    throw new Exception($"Spectra file not found for file name: {record.FileName}");
-                }
-                else
-                {
-                    spectraFile = allSpectraFiles[record.FileName];
+                    continue;
                 }
 
                 List<ProteinGroup> proteinGroups = new();

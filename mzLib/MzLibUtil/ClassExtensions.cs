@@ -318,6 +318,15 @@ namespace MzLibUtil
         }
 
         /// <summary>
+        /// Parses one accession into its entry, isoform or version, and grammar. See
+        /// <see cref="ProteinAccession.Parse"/>: parse, never repair.
+        /// </summary>
+        public static ProteinAccession ParseProteinAccession(this string accession)
+        {
+            return ProteinAccession.Parse(accession);
+        }
+
+        /// <summary>
         /// Determines if all characters in the string are lowercase letters.
         /// </summary>
         public static bool IsAllLower(this string str)

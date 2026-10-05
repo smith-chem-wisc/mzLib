@@ -86,6 +86,139 @@ namespace Test.Omics.SampleInfo
                 Is.EqualTo(new[] { "126", "127N", "127C" }));
         }
 
+        /// <summary>
+        /// One channel of one file listed twice is refused, naming the channel and both samples.
+        ///
+        /// The shape is PXD040455's, a public TMT × SILAC SDRF that lists a light and a heavy sample
+        /// under one reporter channel 551 times. Quantification indexes columns by sample, and a sample
+        /// name takes no part in equality, so the two would merge into one column carrying one of the
+        /// names over both. Refusing here is what makes leaving the name out of equality safe.
+        /// </summary>
+        [Test]
+        public void Add_RejectsOneChannelListedTwice_NamingBothSamples()
+        {
+            const string path = @"C:\Data\Chip1_F2.raw";
+            var light = new IsobaricQuantSampleInfo(path, "Control", 1, 1, 0, 1, "127N", 127.12476, false) { SampleName = "Chip1_F2_TMT127N_light" };
+            var heavy = new IsobaricQuantSampleInfo(path, "Control", 1, 1, 0, 1, "127N", 127.12476, false) { SampleName = "Chip1_F2_TMT127N_heavy" };
+
+            var ex = Assert.Throws<ArgumentException>(() => new SampleExperimentalDesign().Add(path, light, heavy));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex.Message, Does.Contain("channel 127N"));
+                Assert.That(ex.Message, Does.Contain("'Chip1_F2_TMT127N_light'"));
+                Assert.That(ex.Message, Does.Contain("'Chip1_F2_TMT127N_heavy'"));
+            });
+        }
+
+        /// <summary>
+        /// FromSamples — the entry point a design projected from SDRF will use — refuses it too.
+        /// </summary>
+        [Test]
+        public void FromSamples_RejectsOneChannelListedTwice()
+        {
+            const string path = @"C:\Data\tmt.raw";
+            var samples = new ISampleInfo[] { Channel(path, "126", 126.12776), Channel(path, "126", 126.12776) };
+
+            var ex = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(samples));
+            Assert.That(ex.Message, Does.Contain("channel 126 of 'tmt.raw' is listed 2 times"));
+        }
+
+        /// <summary>
+        /// The rule is not isobaric-only: one label-free sample listed twice for its file is refused
+        /// the same way, by Add and by FromSamples, and named by its file. Master accepted both, and the
+        /// second entry took the first one's column.
+        /// </summary>
+        [Test]
+        public void Add_AndFromSamples_RejectOneLabelFreeSampleListedTwice()
+        {
+            const string path = @"C:\Data\run7.raw";
+
+            var fromAdd = Assert.Throws<ArgumentException>(() => new SampleExperimentalDesign().Add(path, File(path), File(path)));
+            var fromSamples = Assert.Throws<ArgumentException>(() => SampleExperimentalDesign.FromSamples(new ISampleInfo[] { File(path), File(path) }));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(fromAdd.Message, Does.Contain("sample 'run7.raw' is listed 2 times"));
+                Assert.That(fromAdd.ParamName, Is.EqualTo("samples"));
+                Assert.That(fromSamples.Message, Does.Contain("sample 'run7.raw' is listed 2 times"));
+            });
+        }
+
+        /// <summary>
+        /// An input that breaks an older rule as well as the repeat rule keeps the older rule's message.
+        /// The repeat check runs last in Add, so a file added twice is still reported as already in the
+        /// design, against the file parameter, even when its second samples also repeat.
+        /// </summary>
+        [Test]
+        public void Add_ReportsAnAlreadyAddedFileBeforeARepeatedSample()
+        {
+            const string path = @"C:\Data\tmt.raw";
+            var design = new SampleExperimentalDesign();
+            design.Add(path, Channel(path, "126", 126.12776));
+
+            var ex = Assert.Throws<ArgumentException>(
+                () => design.Add(path, Channel(path, "126", 126.12776), Channel(path, "126", 126.12776)));
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(ex.Message, Does.Contain("already in this design"));
+                Assert.That(ex.ParamName, Is.EqualTo("fileNameOrPath"));
+            });
+        }
+
+        /// <summary>
+        /// Null entries are skipped rather than counted as one sample repeated. Add refuses nulls before
+        /// asking, but the engine asks the rule of any design, whose arrays may hold them.
+        /// </summary>
+        [Test]
+        public void DescribeRepeatedSample_IgnoresNullEntries()
+        {
+            Assert.That(SampleExperimentalDesign.DescribeRepeatedSample(new ISampleInfo[] { null, Channel(@"C:\Data\tmt.raw", "126", 126.12776), null }),
+                Is.Null);
+        }
+
+        /// <summary>
+        /// The repeated channel's names are listed in ordinal order, not in the order they arrive, so the
+        /// message is the same whatever order the caller's collection enumerates in. The engine asks the
+        /// rule of a Dictionary's values, whose order is not guaranteed.
+        /// </summary>
+        [Test]
+        public void DescribeRepeatedSample_ListsTheNamesInOrdinalOrder_NotArrivalOrder()
+        {
+            var samples = new ISampleInfo[]
+            {
+                new IsobaricQuantSampleInfo(@"C:\Data\tmt.raw", "Control", 1, 1, 0, 1, "126", 126.12776, false) { SampleName = "Pt3" },
+                new IsobaricQuantSampleInfo(@"C:\Data\tmt.raw", "Control", 2, 1, 0, 1, "126", 126.12776, false) { SampleName = "Pt1" }
+            };
+
+            Assert.That(SampleExperimentalDesign.DescribeRepeatedSample(samples),
+                Is.EqualTo("channel 126 of 'tmt.raw' is listed 2 times, as 'Pt1' and 'Pt3'"));
+        }
+
+        /// <summary>
+        /// One sample on the same channel of every plex is a bridge design, not a repeat. PXD008841 puts
+        /// a sample named "pool" in 131N of every plex; the channels are in different files, so they are
+        /// different samples however they are named.
+        ///
+        /// Asked of the rule directly, not through FromSamples. FromSamples groups by file before the
+        /// rule ever runs, so two plexes' pool channels never meet there and a rule that ignored the
+        /// file entirely would still pass that way. The engine does hand the rule every file's samples
+        /// at once, and its fixture repeats each channel label in both files, so every successful engine
+        /// run is the same case end to end.
+        /// </summary>
+        [Test]
+        public void DescribeRepeatedSample_OneSampleOnTheSameChannelOfEveryPlex_IsNotARepeat()
+        {
+            var samples = new ISampleInfo[]
+            {
+                new IsobaricQuantSampleInfo(@"C:\Data\TMTpool1_fr01.raw", "Pool", 1, 1, 1, 1, "131N", 131.13, true) { SampleName = "pool" },
+                new IsobaricQuantSampleInfo(@"C:\Data\TMTpool2_fr01.raw", "Pool", 1, 1, 1, 2, "131N", 131.13, true) { SampleName = "pool" }
+            };
+
+            Assert.That(SampleExperimentalDesign.DescribeRepeatedSample(samples), Is.Null);
+        }
+
         [Test]
         public void Add_RejectsAnEmptySampleArray()
         {

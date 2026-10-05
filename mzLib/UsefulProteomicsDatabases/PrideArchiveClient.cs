@@ -263,10 +263,11 @@ namespace UsefulProteomicsDatabases
                 throw new MzLibException(
                     $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUri}'; the listing may be cyclic.");
 
-            using HttpResponseMessage response = await _httpClient.GetAsync(directoryUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await GetAsync(directoryUri.AbsoluteUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException(
-                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.");
+                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.",
+                    null, response.StatusCode);
 
             string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -429,7 +430,7 @@ namespace UsefulProteomicsDatabases
             // This endpoint shares the v3 BaseAddress, so a relative URI resolves correctly (unlike PROXI,
             // which sits under a different path root and needs an absolute URI).
             string requestUri = $"projects/{Uri.EscapeDataString(accession)}";
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
 
             // 404 is the ONE expected "no" and is reported as a value. It is checked before the general
             // status guard so that every other failure still throws.
@@ -438,7 +439,8 @@ namespace UsefulProteomicsDatabases
 
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException(
-                    $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+                    $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.",
+                    null, response.StatusCode);
 
             string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -614,7 +616,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentNullException">The file is null.</exception>
         /// <exception cref="ArgumentException">The destination directory is blank, the file has no name, or the file name is not a bare file name (contains a path separator, a "..", or a root).</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only).</exception>
-        /// <exception cref="HttpRequestException">The download returned a non-success status code, or the response body delivered nothing for <see cref="BodyStallTimeout"/>.</exception>
+        /// <exception cref="HttpRequestException">The download returned a non-success status code (carried in <see cref="HttpRequestException.StatusCode"/>), PRIDE did not answer within the client's timeout, the connection dropped while the body was being read, or the body delivered nothing for <see cref="BodyStallTimeout"/>. The message names the file and host, never the URL.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled. A stall is NOT reported this way — see <see cref="BodyStallTimeout"/>.</exception>
         public async Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
             bool overwrite = true, CancellationToken cancellationToken = default)
@@ -644,14 +646,16 @@ namespace UsefulProteomicsDatabases
                 return destinationPath;
 
             string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
+            string described = DescribeDownload(url, safeFileName);
 
             Directory.CreateDirectory(destinationDirectory);
 
-            using HttpResponseMessage response =
-                await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await GetAsync(url, HttpCompletionOption.ResponseHeadersRead,
+                cancellationToken, described).ConfigureAwait(false);
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException(
-                    $"PRIDE download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{url}'.");
+                    $"PRIDE download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for {described}.",
+                    null, response.StatusCode);
 
             string partialPath = destinationPath + ".partial";
             try
@@ -661,17 +665,69 @@ namespace UsefulProteomicsDatabases
                 {
                     // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
                     // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
-                    await CopyUntilStalledAsync(httpStream, fileStream, url, cancellationToken).ConfigureAwait(false);
+                    await CopyUntilStalledAsync(httpStream, fileStream, described, cancellationToken).ConfigureAwait(false);
                 }
                 File.Move(partialPath, destinationPath, overwrite: true);
             }
             finally
             {
-                if (File.Exists(partialPath))
-                    File.Delete(partialPath);
+                // Cleanup must never replace the exception that caused it: on Windows a locked scratch file
+                // makes Delete throw, and an exception from a finally block discards the real one.
+                // ProteinDbRetriever.WriteResponseToFile guards its delete the same way.
+                try
+                {
+                    if (File.Exists(partialPath))
+                        File.Delete(partialPath);
+                }
+                catch (IOException) { }
+                catch (UnauthorizedAccessException) { }
             }
 
             return destinationPath;
+        }
+
+        /// <summary>
+        /// Sends a GET, reporting <see cref="HttpClient.Timeout"/> expiring as the transport failure it is.
+        /// </summary>
+        /// <remarks>
+        /// When the client's own timeout fires, <see cref="HttpClient"/> throws a
+        /// <see cref="TaskCanceledException"/> -- the same type a caller's cancellation produces -- so an EBI
+        /// that never answers escaped the documented contract (and <c>ExternalServiceTestHelper</c>, which
+        /// skips only on transport failures). HttpClient marks its own timeout with an inner
+        /// <see cref="TimeoutException"/>, so only that is converted; a caller's cancellation, through the token or
+        /// through <see cref="HttpClient.CancelPendingRequests"/> on an injected client, is not.
+        /// </remarks>
+        /// <param name="requestUri">The URI to fetch.</param>
+        /// <param name="completionOption">When the returned task completes.</param>
+        /// <param name="cancellationToken">The caller's token; its cancellation is never converted.</param>
+        /// <param name="described">How the request is named in the message; defaults to the URI itself.</param>
+        private async Task<HttpResponseMessage> GetAsync(string requestUri, HttpCompletionOption completionOption,
+            CancellationToken cancellationToken, string described = null)
+        {
+            try
+            {
+                return await _httpClient.GetAsync(requestUri, completionOption, cancellationToken).ConfigureAwait(false);
+            }
+            catch (TaskCanceledException e) when (e.InnerException is TimeoutException)
+            {
+                throw new HttpRequestException(
+                    $"PRIDE did not respond within {_httpClient.Timeout} for {described ?? $"'{requestUri}'"}.", e);
+            }
+        }
+
+        /// <summary>
+        /// Names a download for an exception message by its file name and host only -- never the URL itself.
+        /// </summary>
+        /// <remarks>
+        /// A download URL can carry a credential: PRIDE's reviewer-token route hands out hrefs whose query
+        /// string IS the token. An exception message ends up in logs, CI output and pasted issues, so the URL
+        /// never goes into one. The public route's URLs are harmless, but a rule that holds only for harmless
+        /// URLs is not a rule.
+        /// </remarks>
+        internal static string DescribeDownload(string url, string fileName)
+        {
+            string host = Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ? uri.Host : "an unparseable URL";
+            return $"'{fileName}' from {host}";
         }
 
         /// <summary>
@@ -686,7 +742,7 @@ namespace UsefulProteomicsDatabases
         /// <see cref="OperationCanceledException"/> they asked for, because reporting that as a transport
         /// failure would make <c>ExternalServiceTestHelper</c> skip a test that was deliberately cancelled.
         /// </remarks>
-        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string url,
+        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string described,
             CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[81920];
@@ -704,7 +760,18 @@ namespace UsefulProteomicsDatabases
                                                                && !cancellationToken.IsCancellationRequested)
                     {
                         throw new HttpRequestException(
-                            $"The PRIDE response body for '{url}' delivered nothing for {BodyStallTimeout}.", e);
+                            $"The PRIDE response body for {described} delivered nothing for {BodyStallTimeout}.", e);
+                    }
+                    catch (IOException e)
+                    {
+                        // A connection EBI drops mid-body arrives here as an IOException (HttpIOException on
+                        // .NET 10, "The response ended prematurely"), not as the HttpRequestException the
+                        // contract promises -- so a caller catching "try again later" missed the phase where a
+                        // large download actually breaks, and a live test reddened instead of skipping. Only
+                        // the READ is wrapped: a failure writing the local file is the caller's disk, not an
+                        // outage, and stays an IOException.
+                        throw new HttpRequestException(
+                            $"The PRIDE response body for {described} ended before the download completed.", e);
                     }
                 }
 
@@ -779,11 +846,12 @@ namespace UsefulProteomicsDatabases
             // GetProjectFilesAsync pattern) would resolve to the wrong path. An absolute PROXI URI overrides the
             // client's BaseAddress. resultType=full asks PROXI for the peak arrays, not just the metadata.
             string requestUri = $"{DefaultProxiBaseAddress}spectra?usi={Uri.EscapeDataString(usi)}&resultType=full";
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
 
             if (!response.IsSuccessStatusCode)
                 throw new HttpRequestException(
-                    $"PRIDE PROXI request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+                    $"PRIDE PROXI request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.",
+                    null, response.StatusCode);
 
             string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -886,11 +954,12 @@ namespace UsefulProteomicsDatabases
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 string requestUri = requestUriForPage(page);
-                using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+                using HttpResponseMessage response = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
 
                 if (!response.IsSuccessStatusCode)
                     throw new HttpRequestException(
-                        $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+                        $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.",
+                        null, response.StatusCode);
 
                 string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 List<T> pageItems =

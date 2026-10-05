@@ -16,6 +16,7 @@ namespace Proteomics.ProteolyticDigestion
             int maxModificationIsoforms = 1024, InitiatorMethionineBehavior initiatorMethionineBehavior = InitiatorMethionineBehavior.Variable,
             int maxModsForPeptides = 2, CleavageSpecificity searchModeType = CleavageSpecificity.Full, FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
             bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false)
+
         {
             Protease = ProteaseDictionary.Dictionary[protease];
             MaxMissedCleavages = maxMissedCleavages;
@@ -27,6 +28,7 @@ namespace Proteomics.ProteolyticDigestion
             SearchModeType = searchModeType;
             FragmentationTerminus = fragmentationTerminus;
             RecordSpecificProtease();
+
             GeneratehUnlabeledProteinsForSilac = generateUnlabeledProteinsForSilac;
             KeepNGlycopeptide = keepNGlycopeptide;
             KeepOGlycopeptide = keepOGlycopeptide;
@@ -39,6 +41,7 @@ namespace Proteomics.ProteolyticDigestion
         public int MaxLength { get; set; }
         public int MaxMods { get; set; }
         public DigestionAgent DigestionAgent => Protease;
+        public DigestionAgent SpecificDigestionAgent => SpecificProtease;
 
         /// <summary>
         /// The kind of search: <see cref="CleavageSpecificity.Full"/> (the default), <see cref="CleavageSpecificity.Semi"/>
@@ -178,7 +181,6 @@ namespace Proteomics.ProteolyticDigestion
                 MaxModificationIsoforms, InitiatorMethionineBehavior, MaxMods, SearchModeType, terminus,
                 GeneratehUnlabeledProteinsForSilac, KeepNGlycopeptide, KeepOGlycopeptide);
         }
-            
 
         private void RecordSpecificProtease()
         {

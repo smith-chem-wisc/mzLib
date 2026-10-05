@@ -44,7 +44,7 @@ namespace Omics.BioPolymer
             }
 
             // Otherwise, do genotype/allele-depth-aware application with combinatorics limited for heterozygous sites
-            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinitorics: maxAllowedVariantsForCombinatorics, minAlleleDepth);
+            return ApplyVariants(protein, protein.SequenceVariations, maxAllowedVariantsForCombinatorics: maxAllowedVariantsForCombinatorics, minAlleleDepth);
         }
 
         /// <summary>
@@ -81,19 +81,28 @@ namespace Omics.BioPolymer
         }
 
         /// <summary>
-        /// Determines if a specific 1-based position in the variant biopolymer lies within a particular variation's range.
+        /// Determines if a specific 1-based position in the variant biopolymer lies on a residue the variation actually edits.
+        /// Residues an anchored indel keeps unchanged (the T of T -> TAG, the P of P -> AGP) are not edited, so a mod there
+        /// belongs to the biopolymer, not the variation; this matches how <see cref="AdjustModificationIndices"/> carries them over.
         /// </summary>
         /// <param name="appliedVariant">The variation of interest; may be null.</param>
         /// <param name="variantProteinIndex">1-based position in the current (possibly already-edited) variant sequence.</param>
-        /// <returns>True if the position is included by the variation; otherwise false.</returns>
+        /// <returns>True if the position is on an edited residue of the variation; otherwise false.</returns>
         public static bool IsSequenceVariantModification(SequenceVariation? appliedVariant, int variantProteinIndex)
         {
-            return appliedVariant != null && appliedVariant.Includes(variantProteinIndex);
+            if (appliedVariant == null)
+            {
+                return false;
+            }
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(appliedVariant);
+            return appliedVariant.OneBasedBeginPosition + keptPrefix <= variantProteinIndex
+                && variantProteinIndex <= appliedVariant.OneBasedEndPosition - keptSuffix;
         }
 
         /// <summary>
         /// Maps a modification index from the edited (variant) sequence back to the original consensus index by subtracting the
-        /// net length changes of all applied variations that ended before the queried position.
+        /// net length changes of all applied variations that ended before the queried position. A position on a residue an
+        /// anchored indel keeps at its end (the P of P -> AGP) counts as after that variation.
         /// </summary>
         /// <param name="protein">The variant-capable biopolymer containing applied variations.</param>
         /// <param name="variantProteinModificationIndex">1-based index in the variant sequence.</param>
@@ -101,25 +110,25 @@ namespace Omics.BioPolymer
         public static int RestoreModificationIndex(IHasSequenceVariants protein, int variantProteinModificationIndex)
         {
             return variantProteinModificationIndex - protein.AppliedSequenceVariations
-                .Where(v => v.OneBasedEndPosition < variantProteinModificationIndex)
+                .Where(v => v.OneBasedEndPosition - CountKeptFlanks(v).KeptSuffix < variantProteinModificationIndex)
                 .Sum(v => v.VariantSequence.Length - v.OriginalSequence.Length);
         }
 
         /// <summary>
         /// Applies a set of sequence variations in a genotype- and allele-depth-aware fashion for all individuals found in the VCF payloads.
-        /// Heterozygous sites can produce combinatorial branches up to <paramref name="maxAllowedVariantsForCombinitorics"/> per individual.
+        /// Heterozygous sites can produce combinatorial branches up to <paramref name="maxAllowedVariantsForCombinatorics"/> per individual.
         /// Results are deduplicated by final base sequence.
         /// </summary>
         /// <typeparam name="TBioPolymerType">A biopolymer type that supports sequence variants.</typeparam>
         /// <param name="protein">The base biopolymer to which variations will be applied.</param>
         /// <param name="sequenceVariations">Candidate variations. Duplicates by effect are collapsed using <see cref="SequenceVariation.SimpleString"/>.</param>
-        /// <param name="maxAllowedVariantsForCombinitorics">
+        /// <param name="maxAllowedVariantsForCombinatorics">
         /// Upper cap for heterozygous combinatorial branching. If an individual has more heterozygous variants than this number,
         /// the algorithm limits branching to control explosion.
         /// </param>
         /// <param name="minAlleleDepth">Minimum AD (Allele Depth) per sample for an allele to be considered in application.</param>
         /// <returns>A list of concrete variant biopolymers across all individuals encoded in the VCF payloads.</returns>
-        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinitorics, int minAlleleDepth)
+        public static List<TBioPolymerType> ApplyVariants<TBioPolymerType>(TBioPolymerType protein, IEnumerable<SequenceVariation> sequenceVariations, int maxAllowedVariantsForCombinatorics, int minAlleleDepth)
             where TBioPolymerType : IHasSequenceVariants
         {
             // Remove duplicate effects (by SimpleString), require variants with genotype data, apply from higher to lower positions
@@ -131,7 +140,10 @@ namespace Omics.BioPolymer
                 .ToList();
 
             // A shallow "base" variant to branch from (no applied variants yet)
-            TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts, protein.OneBasedPossibleLocalizedModifications, null);
+            TBioPolymerType proteinCopy = protein.CreateVariant(protein.BaseSequence, protein, null, protein.TruncationProducts,
+                protein.OneBasedPossibleLocalizedModifications, protein is IBioPolymer baseBioPolymer
+                    ? baseBioPolymer.OneBasedFixedModifications
+                    : new Dictionary<int, Modification>(), null);
 
             if (uniqueEffectsToApply.Count == 0)
             {
@@ -149,7 +161,7 @@ namespace Omics.BioPolymer
                 newVariantProteins.Add(proteinCopy);
 
                 // Whether to limit combinatorial branching for this individual
-                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.VariantCallFormatDataString.Heterozygous[individual]) > maxAllowedVariantsForCombinitorics;
+                bool tooManyHeterozygousVariants = uniqueEffectsToApply.Count(v => v.VariantCallFormatDataString.Heterozygous[individual]) > maxAllowedVariantsForCombinatorics;
 
                 foreach (var variant in uniqueEffectsToApply)
                 {
@@ -175,17 +187,17 @@ namespace Omics.BioPolymer
                         // Limit branching: either keep ref, take alt, or update second branch if already present
                         if (isDeepAlternateAllele && isDeepReferenceAllele)
                         {
-                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinitorics > 0)
+                            if (newVariantProteins.Count == 1 && maxAllowedVariantsForCombinatorics > 0)
                             {
                                 TBioPolymerType variantProtein = ApplySingleVariant(variant, newVariantProteins[0], individual);
                                 newVariantProteins.Add(variantProtein);
                             }
-                            else if (maxAllowedVariantsForCombinitorics > 0)
+                            else if (maxAllowedVariantsForCombinatorics > 0)
                             {
                                 newVariantProteins[1] = ApplySingleVariant(variant, newVariantProteins[1], individual);
                             }
                         }
-                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                        else if (isDeepAlternateAllele && maxAllowedVariantsForCombinatorics > 0)
                         {
                             newVariantProteins = newVariantProteins.Select(p => ApplySingleVariant(variant, p, individual)).ToList();
                         }
@@ -197,7 +209,9 @@ namespace Omics.BioPolymer
 
                         foreach (var ppp in newVariantProteins)
                         {
-                            if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0 && isDeepReferenceAllele)
+                            // The alternate allele is deep (branch guard), and the cap is at least 1: this variant is
+                            // heterozygous, so the heterozygous count is >= 1 and, not being too many, <= the cap.
+                            if (isDeepReferenceAllele)
                             {
                                 if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
                                 {
@@ -205,13 +219,9 @@ namespace Omics.BioPolymer
                                 }
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual)); // alternate branch
                             }
-                            else if (isDeepAlternateAllele && maxAllowedVariantsForCombinitorics > 0)
+                            else
                             {
                                 combinitoricProteins.Add(ApplySingleVariant(variant, ppp, individual));
-                            }
-                            else if (variant.VariantCallFormatDataString.Genotypes[individual].Contains("0"))
-                            {
-                                combinitoricProteins.Add(ppp);
                             }
                         }
                         newVariantProteins = combinitoricProteins;
@@ -254,12 +264,12 @@ namespace Omics.BioPolymer
                 vcf,
                 variantGettingApplied.OneBasedModifications.ToDictionary(kv => kv.Key, kv => kv.Value));
 
-            // If an already-applied variation partially overlaps the current edit, use the consensus tail to avoid index corruption
-            bool intersectsAppliedRegionIncompletely =
-                protein.AppliedSequenceVariations != null
-                && protein.AppliedSequenceVariations.Any(x => variantGettingApplied.Intersects(x) && !variantGettingApplied.Includes(x));
-
             IEnumerable<SequenceVariation> appliedVariations = new[] { variantAfterApplication };
+            // The tail always comes from BaseSequence, never from ConsensusVariant.BaseSequence. Variations are
+            // applied in descending position order, so BaseSequence already carries every edit downstream of this
+            // one and the consensus tail would revert them. Do not reintroduce a branch here on whether an
+            // already-applied variation partially overlaps this edit and take the consensus tail in that case -
+            // that is the bug OverlappingVariants_NullVcf_ProducesCorrectCombinedSequence exists to pin.
             string seqAfter = protein.BaseSequence.Length - afterIdx <= 0 ? "" : protein.BaseSequence.Substring(afterIdx);
             // Keep every previously applied variation. Overlapping edits are spliced into one sequence rather
             // than replacing one another, so an earlier edit stays in the sequence and has to stay in the
@@ -280,7 +290,12 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> adjustedModifications = AdjustModificationIndices(variantGettingApplied, variantSequence, protein);
             List<SequenceVariation> adjustedAppliedVariations = AdjustSequenceVariationIndices(variantGettingApplied, variantSequence, appliedVariations);
 
-            return protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations, adjustedProteolysisProducts, adjustedModifications, individual);
+            Dictionary<int, Modification> adjustedFixedModifications = protein is IBioPolymer bioPolymer
+                ? AdjustFixedModificationIndices(variantGettingApplied, variantSequence, bioPolymer)
+                : new Dictionary<int, Modification>();
+            TBioPolymerType variant = protein.CreateVariant(variantSequence, protein, adjustedAppliedVariations,
+                adjustedProteolysisProducts, adjustedModifications, adjustedFixedModifications, individual);
+            return variant;
         }
 
         /// <summary>
@@ -432,22 +447,28 @@ namespace Omics.BioPolymer
             Dictionary<int, List<Modification>> mods = new Dictionary<int, List<Modification>>();
             int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
 
+            // An anchored indel keeps some residues unchanged (T -> TAG keeps the leading T; P -> AGP keeps the
+            // trailing P). Those residues are not edited, so their mods survive. Count the unchanged prefix first,
+            // then the unchanged suffix of what remains, so no residue is counted twice.
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
+
             // Re-base original modifications
             if (modificationDictionary != null)
             {
                 foreach (KeyValuePair<int, List<Modification>> kv in modificationDictionary)
                 {
-                    if (kv.Key > variantAppliedProteinSequence.Length)
+                    if (kv.Key == protein.BaseSequence.Length + 2)
                     {
-                        continue; // drop if beyond new end
+                        mods.Add(variantAppliedProteinSequence.Length + 2, new List<Modification>(kv.Value));
                     }
-                    else if (kv.Key < variant.OneBasedBeginPosition)
+                    else if (kv.Key < variant.OneBasedBeginPosition + keptPrefix)
                     {
-                        mods.Add(kv.Key, kv.Value); // unaffected positions
+                        mods.Add(kv.Key, new List<Modification>(kv.Value)); // before the edit, or on a residue the variant keeps at its start
                     }
-                    else if (variant.OneBasedEndPosition < kv.Key && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
+                    else if (variant.OneBasedEndPosition - keptSuffix < kv.Key
+                        && kv.Key + sequenceLengthChange <= variantAppliedProteinSequence.Length)
                     {
-                        mods.Add(kv.Key + sequenceLengthChange, kv.Value); // shift after the edit
+                        mods.Add(kv.Key + sequenceLengthChange, new List<Modification>(kv.Value)); // after the edit, or on a residue the variant keeps at its end
                     }
                 }
             }
@@ -463,12 +484,65 @@ namespace Omics.BioPolymer
                     }
                     else
                     {
-                        mods.Add(kv.Key, kv.Value);
+                        mods.Add(kv.Key, new List<Modification>(kv.Value));
                     }
                 }
             }
 
             return mods;
+        }
+
+        /// <summary>
+        /// Re-bases fixed modifications through one applied sequence variation.
+        /// Modifications on residues replaced by the variation are dropped.
+        /// </summary>
+        public static Dictionary<int, Modification> AdjustFixedModificationIndices(
+            SequenceVariation variant, string variantAppliedSequence, IBioPolymer bioPolymer)
+        {
+            Dictionary<int, Modification> fixedMods = new Dictionary<int, Modification>();
+            int sequenceLengthChange = variant.VariantSequence.Length - variant.OriginalSequence.Length;
+            (int keptPrefix, int keptSuffix) = CountKeptFlanks(variant);
+
+            foreach (KeyValuePair<int, Modification> entry in bioPolymer.OneBasedFixedModifications)
+            {
+                if (entry.Key == bioPolymer.Length + 2)
+                {
+                    fixedMods.Add(variantAppliedSequence.Length + 2, entry.Value);
+                }
+                else if (entry.Key < variant.OneBasedBeginPosition + keptPrefix)
+                {
+                    fixedMods.Add(entry.Key, entry.Value);
+                }
+                else if (variant.OneBasedEndPosition - keptSuffix < entry.Key
+                    && entry.Key + sequenceLengthChange <= variantAppliedSequence.Length)
+                {
+                    fixedMods.Add(entry.Key + sequenceLengthChange, entry.Value);
+                }
+            }
+
+            return fixedMods;
+        }
+
+        /// <summary>
+        /// Counts the residues an indel leaves unchanged at its start and then at its end (T -> TAG keeps one at the start,
+        /// P -> AGP one at the end). The suffix is counted only over what the prefix left, so no residue is counted twice.
+        /// </summary>
+        private static (int KeptPrefix, int KeptSuffix) CountKeptFlanks(SequenceVariation variant)
+        {
+            string original = variant.OriginalSequence;
+            string alternate = variant.VariantSequence;
+            int keptPrefix = 0;
+            while (keptPrefix < original.Length && keptPrefix < alternate.Length && original[keptPrefix] == alternate[keptPrefix])
+            {
+                keptPrefix++;
+            }
+            int keptSuffix = 0;
+            while (keptSuffix < original.Length - keptPrefix && keptSuffix < alternate.Length - keptPrefix
+                   && original[original.Length - 1 - keptSuffix] == alternate[alternate.Length - 1 - keptSuffix])
+            {
+                keptSuffix++;
+            }
+            return (keptPrefix, keptSuffix);
         }
 
         /// <summary>
