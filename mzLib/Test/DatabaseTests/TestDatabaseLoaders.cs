@@ -849,8 +849,8 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
-        /// The other half of the sign: a negative formal charge has to ADD a proton to the MM line and a
-        /// hydrogen to the formula, mirroring the trimethyllysine case above. The entry is synthetic, a
+        /// The other half of the sign: a negative formal charge has to ADD a hydrogen to the formula, and so
+        /// about a proton to the mass, mirroring the trimethyllysine case above. The entry is synthetic, a
         /// carboxylate written as the anion, because no current ptmlist entry cross-references a negatively
         /// charged PSI-MOD term; that is why the flipped sign has so far been silent.
         /// </summary>
@@ -872,9 +872,13 @@ namespace Test.DatabaseTests
             Modification adjusted = ReadSingleModification(anionEntry, formalCharges);
             Modification unadjusted = ReadSingleModification(anionEntry, new Dictionary<string, int>());
 
+            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "a 1- charge puts a hydrogen back on the formula");
+            Assert.That(adjusted.MonoisotopicMass, Is.EqualTo(adjusted.ChemicalFormula.MonoisotopicMass).Within(1e-9),
+                "and the mass is the corrected formula's");
+            // The MM line is the anion's mass, rounded to six decimals, so it is one proton below the result
+            // to within that rounding.
             Assert.That(adjusted.MonoisotopicMass - unadjusted.MonoisotopicMass,
-                Is.EqualTo(Constants.ProtonMass).Within(1e-9), "a 1- charge puts a proton back on the MM line");
-            Assert.AreEqual("C2H4O2", adjusted.ChemicalFormula.Formula, "and a hydrogen back on the formula");
+                Is.EqualTo(Constants.ProtonMass).Within(1e-6), "which is a proton above the anion's MM line");
         }
 
         /// <summary>

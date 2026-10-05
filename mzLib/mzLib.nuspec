@@ -73,7 +73,7 @@
     <file src="Omics\Resources\substitutions.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\surfactants.txt" target="modificationData\Mods" />
     <file src="Omics\Resources\ptmlist.txt" target="modificationData\Data" />
-    <file src="Omics\Resources\PSI-MOD.obo.xml" target="modificationData\Data" />
+    <file src="Omics\Resources\PsiModFormalCharges.tsv" target="modificationData\Data" />
     <file src="Omics\Resources\unimod.xml" target="modificationData\Data" />
     <!--net10.0 target-->
     <file src="BayesianEstimation\bin\Release\net10.0\BayesianEstimation.dll" target="lib\net10.0" />
