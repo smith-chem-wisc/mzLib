@@ -1,4 +1,5 @@
 using System.Globalization;
+using Omics.Modifications;
 using Omics.SequenceConversion;
 using Tdp = TopDownProteomics.ProForma;
 
@@ -90,24 +91,29 @@ namespace Readers.ProForma
 
             if (term.NTerminalDescriptors is { Count: > 0 })
             {
-                var (representation, unimodId, mass) = Describe(term.NTerminalDescriptors, warnings, term);
-                builder.AddNTerminalModification(representation, mass, formula: null, unimodId: unimodId);
+                var (representation, unimodId, mass, modification) = Describe(term.NTerminalDescriptors,
+                    ModificationPositionType.NTerminus, null, warnings, term);
+                builder.AddNTerminalModification(representation, mass, formula: null, unimodId: unimodId,
+                    mzLibModification: modification);
             }
 
             if (term.Tags is not null)
             {
                 foreach (var tag in term.Tags)
                 {
-                    var (representation, unimodId, mass) = Describe(tag.Descriptors, warnings, term);
+                    var (representation, unimodId, mass, modification) = Describe(tag.Descriptors,
+                        ModificationPositionType.Residue, tag.ZeroBasedStartIndex, warnings, term);
                     builder.AddResidueModification(tag.ZeroBasedStartIndex, representation, mass,
-                        formula: null, unimodId: unimodId);
+                        formula: null, unimodId: unimodId, mzLibModification: modification);
                 }
             }
 
             if (term.CTerminalDescriptors is { Count: > 0 })
             {
-                var (representation, unimodId, mass) = Describe(term.CTerminalDescriptors, warnings, term);
-                builder.AddCTerminalModification(representation, mass, formula: null, unimodId: unimodId);
+                var (representation, unimodId, mass, modification) = Describe(term.CTerminalDescriptors,
+                    ModificationPositionType.CTerminus, null, warnings, term);
+                builder.AddCTerminalModification(representation, mass, formula: null, unimodId: unimodId,
+                    mzLibModification: modification);
             }
 
             // The flat model allows only one modification per position; ProForma does not.
@@ -161,9 +167,13 @@ namespace Readers.ProForma
         /// resolvable) over a name over a mass. ProForma permits several descriptors on one tag
         /// (e.g. <c>[Phospho|UNIMOD:21]</c>); the canonical model does not, so the surplus is
         /// reported as a warning — the information is still intact in the Layer-1 term.
+        /// <para>An accession of another ontology than UNIMOD (<c>MOD:01892</c>, <c>RESID:AA0055</c>) has no id the
+        /// canonical model carries, so the protein modification mzLib's catalog lists under it for this residue or
+        /// terminus is attached instead (see <see cref="ProFormaConverter.FindCatalogModification"/>).</para>
         /// </summary>
-        private static (string Representation, int? UnimodId, double? Mass) Describe(
-            IList<Tdp.ProFormaDescriptor> descriptors, ConversionWarnings warnings, Tdp.ProFormaTerm term)
+        private static (string Representation, int? UnimodId, double? Mass, Modification? Modification) Describe(
+            IList<Tdp.ProFormaDescriptor> descriptors, ModificationPositionType position, int? residueIndex,
+            ConversionWarnings warnings, Tdp.ProFormaTerm term)
         {
             Tdp.ProFormaDescriptor? preferred = null;
             int? unimodId = null;
@@ -193,7 +203,11 @@ namespace Readers.ProForma
                     $"{descriptors.Count} descriptors; the canonical model keeps one ('{preferred?.Value}').");
             }
 
-            return (preferred?.Value ?? string.Empty, unimodId, mass);
+            var modification = unimodId is null && preferred is { Key: Tdp.ProFormaKey.Identifier }
+                ? ProFormaConverter.FindCatalogModification(preferred.Value, term.Sequence, position, residueIndex)
+                : null;
+
+            return (preferred?.Value ?? string.Empty, unimodId, mass, modification);
         }
 
         /// <summary>Extracts 35 from "UNIMOD:35". Returns null for any other ontology.</summary>

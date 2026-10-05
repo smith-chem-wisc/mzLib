@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using MzLibUtil;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 using Tdp = TopDownProteomics.ProForma;
 
 namespace Readers.ProForma
@@ -51,6 +52,13 @@ namespace Readers.ProForma
         /// </summary>
         private static readonly ConditionalWeakTable<Dictionary<string, Modification>, Dictionary<string, List<Modification>>>
             AccessionIndexCache = new();
+
+        /// <summary>
+        /// The accession index of every protein modification in mzLib's catalogs. <see cref="Mods.AllKnownProteinModsDictionary"/>
+        /// holds one entry per IdWithMotif, which leaves out UniProt's "Deoxyhypusine on K" (MOD:01880) for UNIMOD's.
+        /// </summary>
+        private static readonly Lazy<Dictionary<string, List<Modification>>> CatalogAccessionIndex =
+            new(() => BuildAccessionIndex(Mods.AllProteinModsList));
 
         /// <summary>
         /// Converts a term into the (one-is-N-terminus) modification dictionary mzLib uses.
@@ -167,6 +175,25 @@ namespace Readers.ProForma
         /// </summary>
         private static string Accession(string prefix, string id) =>
             id.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ? id : $"{prefix}:{id}";
+
+        /// <summary>
+        /// The protein modification mzLib's catalog lists under an accession (<c>MOD:01892</c>, <c>RESID:AA0055</c>)
+        /// for a residue or terminus of <paramref name="sequence"/>, chosen as <see cref="ToModificationDictionary"/>
+        /// chooses among its candidates. Null when none fits there.
+        /// </summary>
+        internal static Modification? FindCatalogModification(string accession, string sequence,
+            ModificationPositionType position, int? residueIndex)
+        {
+            if (!CatalogAccessionIndex.Value.TryGetValue(accession, out var candidates))
+                return null;
+
+            return position switch
+            {
+                ModificationPositionType.NTerminus => SelectCandidate(candidates, TerminalResidue(sequence, Terminus.N), Terminus.N),
+                ModificationPositionType.CTerminus => SelectCandidate(candidates, TerminalResidue(sequence, Terminus.C), Terminus.C),
+                _ => SelectCandidate(candidates, sequence[residueIndex!.Value], Terminus.None),
+            };
+        }
 
         /// <summary>
         /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).

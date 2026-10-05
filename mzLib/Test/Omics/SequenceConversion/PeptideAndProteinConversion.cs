@@ -440,18 +440,66 @@ public class PeptideAndProteinConversion
     }
 
     [Test]
-    public static void FromCanonicalSequence_ProteaseCleavageModification_ThrowsNamingIt()
+    public static void ProFormaParser_DigestedCatalogModificationWrittenByAccession_CarriesItsCatalogEntry()
     {
-        // CNBr's homoserine lactone is defined by the protease, in none of mzLib's modification catalogs.
-        var peptide = new Protein("AAAMPEPTIDEMKKK", "P")
-            .Digest(new DigestionParams(protease: "CNBr", maxMissedCleavages: 0, minPeptideLength: 1), new List<Modification>(), new List<Modification>())
+        // Modifications without a usable UNIMOD id are written by PSI-MOD accession, from the peptide and from its
+        // full sequence alike.
+        int identical = 0, sameAccessionEntry = 0;
+        foreach (var peptide in DigestedCatalogPeptides.Value)
+        {
+            var fromFullSequence = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
+            var written = new[]
+            {
+                (ProForma: peptide.ToProFormaString(), Mods: (IDictionary<int, Modification>)peptide.AllModsOneIsNterminus),
+                (ProForma: ProFormaSequenceSerializer.Instance.Serialize(fromFullSequence),
+                    Mods: fromFullSequence.Modifications.ToDictionary(m => KeyOf(m, fromFullSequence.BaseSequence.Length), m => m.MzLibModification!))
+            };
+            foreach (var (proForma, mods) in written.Where(w => w.ProForma!.Contains("[MOD:") || w.ProForma.Contains("[RESID:")))
+            {
+                var parsed = ProFormaSequenceParser.Instance.Parse(proForma!)!.Value;
+                Assert.That(parsed.Modifications.Length, Is.EqualTo(mods.Count), proForma);
+                foreach (var mod in parsed.Modifications)
+                {
+                    var original = mods[KeyOf(mod, parsed.BaseSequence.Length)];
+                    var attached = mod.MzLibModification;
+                    Assert.That(attached, Is.Not.Null, proForma);
+                    Assert.That(mod.UnimodId, Is.Null, proForma);
+                    if (ReferenceEquals(attached, original))
+                    {
+                        identical++;
+                        continue;
+                    }
+
+                    // The accession can't tell apart entries that share it on one residue (UniProt lists MOD:00165 for
+                    // N-linked (Hex) and N-linked (Man) tryptophan).
+                    sameAccessionEntry++;
+                    Assert.That(ProFormaConverter.BuildDescriptor(attached!).Value, Is.EqualTo(mod.OriginalRepresentation), proForma);
+                    Assert.That(attached.Target.ToString(), Is.EqualTo(original.Target.ToString()), proForma);
+                    Assert.That(attached.LocationRestriction, Is.EqualTo(original.LocationRestriction), proForma);
+                    Assert.That(attached.MonoisotopicMass, Is.EqualTo(original.MonoisotopicMass), proForma);
+                }
+            }
+        }
+        Assert.That(identical, Is.GreaterThan(1600));
+        Assert.That(sameAccessionEntry, Is.LessThan(identical / 50));
+    }
+
+    [Test]
+    public static void FromCanonicalSequence_ModificationInNoCatalog_ThrowsNamingIt()
+    {
+        // A custom modification, read by MetaMorpheus from a user's file, is in none of mzLib's modification catalogs.
+        ModificationMotif.TryGetMotif("K", out var motifK);
+        var custom = new Modification(_originalId: "Nameless", _modificationType: "Custom", _target: motifK,
+            _locationRestriction: "Anywhere.", _monoisotopicMass: 100.0);
+        var peptide = new Protein("PEPKR", "P")
+            .Digest(new DigestionParams(protease: "top-down", minPeptideLength: 1), new List<Modification>(), new List<Modification> { custom })
             .Cast<PeptideWithSetModifications>()
             .First(p => p.AllModsOneIsNterminus.Count > 0);
         var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
 
         Assert.That(parsed.Modifications.Single().MzLibModification, Is.Null);
         Assert.That(() => PeptideWithSetModifications.FromCanonicalSequence(parsed),
-            Throws.TypeOf<SequenceConversionException>().With.Message.Contains("Protease:Homoserine lactone on M"));
+            Throws.TypeOf<SequenceConversionException>().With.Message.Contains("Custom:Nameless on K"));
     }
 
     [Test]
