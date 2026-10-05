@@ -21,6 +21,7 @@
     <dependency id="NetSerializer" version="4.1.2" />
     <dependency id="OpenMcdf" version="2.3.1" />
     <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="PdfPig" version="0.1.16" />
     <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
     <dependency id="CsvHelper" version="32.0.3" />
@@ -42,6 +43,7 @@
     <dependency id="NetSerializer" version="4.1.2" />
     <dependency id="OpenMcdf" version="2.3.1" />
     <dependency id="OpenMcdf.Extensions" version="2.3.1" />
+    <dependency id="PdfPig" version="0.1.16" />
     <dependency id="OxyPlot.Wpf" version="2.0.0" />
     <dependency id="SharpLearning.Optimization" version="[0.28.0]" />
     <dependency id="System.Data.SQLite.Core" version="1.0.118" />
@@ -86,6 +88,8 @@
     <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.dll" target="lib\net10.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.xml" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0" />
@@ -137,6 +141,8 @@
     <file src="FlashLFQ\bin\Release\net10.0\FlashLFQ.xml" target="lib\net10.0-windows7.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.dll" target="lib\net10.0-windows7.0" />
     <file src="Quantification\bin\Release\net10.0\Quantification.xml" target="lib\net10.0-windows7.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.dll" target="lib\net10.0-windows7.0" />
+		<file src="StatisticalModels\bin\Release\net10.0\StatisticalModels.xml" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.dll" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\MassSpectrometry.xml" target="lib\net10.0-windows7.0" />
     <file src="MassSpectrometry\bin\Release\net10.0\isodeclib.dll" target="lib\net10.0-windows7.0" />

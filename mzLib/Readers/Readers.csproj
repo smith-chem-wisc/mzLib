@@ -13,6 +13,8 @@
 		<!-- Pinned to 2.x: Thermo CommonCore links 2.x, and 3.x is an incompatible rewrite. -->
 		<PackageReference Include="OpenMcdf" Version="2.3.1" />
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
+		<!-- Apache-2.0, managed only: tables in supplementary PDFs (sdrf G36). -->
+		<PackageReference Include="PdfPig" Version="0.1.16" />
 		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
 		<PackageReference Include="TopDownProteomics" Version="0.0.299" />
 		<PackageReference Include="ZstdSharp.Port" Version="0.8.7" />
@@ -41,6 +43,10 @@
 	<ItemGroup>
 		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
 			<_Parameter1>Test</_Parameter1>
+		</AssemblyAttribute>
+		<!-- The opt-in model reader builds SdrfEvidence from SupplementTables (sdrf D43). -->
+		<AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
+			<_Parameter1>SampleEvidenceModel</_Parameter1>
 		</AssemblyAttribute>
 	</ItemGroup>
 
