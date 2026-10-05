@@ -10,15 +10,32 @@
 # mzLib holds for the UniProt entry (after the PSI-MOD formal-charge correction), the residue is one of its
 # sites, and the chemistry is the same. A record that merely shares the formula (an isomer, an amino-acid
 # substitution, an unrelated adduct) is not a cross-reference. ModificationTest checks the first two rules.
+PTM-0024	425	3,4-dihydroxyproline	Dioxidation
 PTM-0028	35	3-hydroxyasparagine	Oxidation
+PTM-0029	35	3-hydroxyaspartate	Oxidation
+PTM-0111	35	D-4-hydroxyvaline	Oxidation
+PTM-0336	425	(3R,4R)-4,5-dihydroxyisoleucine	Dioxidation
+PTM-0337	35	(3R,4S)-4-hydroxyisoleucine	Oxidation
+PTM-0340	425	(4R)-4,5-dihydroxyleucine	Dioxidation
+PTM-0343	425	(3S,4R)-3,4-dihydroxyisoleucine	Dioxidation
+PTM-0346	35	3-hydroxyphenylalanine	Oxidation
+PTM-0347	35	3-hydroxyvaline (Val)	Oxidation
 PTM-0355	213	N6-(ADP-ribosyl)lysine	ADP-Ribosyl
+PTM-0356	34	O-methylthreonine	Methyl
+PTM-0368	425	(3R,4R)-3,4-dihydroxyproline	Dioxidation
 PTM-0370	35	(3S)-3-hydroxyasparagine	Oxidation
 PTM-0400	2139	O-(2-cholinephosphoryl)serine	Phosphocholine
 PTM-0408	130	Diiodotyrosine	Diiodo
 PTM-0411	129	Iodotyrosine	Iodo
+PTM-0412	34	Threonine methyl ester	Methyl
+PTM-0427	35	7'-hydroxytryptophan	Oxidation
+PTM-0432	34	N-methylserine	Methyl
 PTM-0434	354	3'-nitrotyrosine	Nitro
 PTM-0438	64	N6-succinyllysine	Succinyl
+PTM-0453	35	4-hydroxyglutamate	Oxidation
+PTM-0459	36	N2,N2-dimethylarginine	Dimethyl
 PTM-0467	747	N6-malonyllysine	Malonyl
+PTM-0472	35	(5S)-5-hydroxylysine	Oxidation
 PTM-0473	35	(3S)-3-hydroxyaspartate	Oxidation
 PTM-0475	1363	N6-crotonyllysine	Crotonyl
 PTM-0476	35	(3R)-3-hydroxyarginine	Oxidation
@@ -28,7 +45,76 @@ PTM-0491	35	(4R)-5-hydroxyleucine	Oxidation
 PTM-0492	1918	(4R)-5-oxoleucine	Carbonyl
 PTM-0493	431	O-palmitoleoyl serine	Palmitoleyl
 PTM-0497	213	ADP-ribosyl aspartic acid	ADP-Ribosyl
+PTM-0506	910	N-linked (DATDGlc) asparagine	Bacillosamine
+PTM-0512	43	N-linked (GalNAc) asparagine	HexNAc
+PTM-0517	41	N-linked (Glc) asparagine	Hex
+PTM-0535	41	N-linked (Man) tryptophan	Hex
+PTM-0536	41	N-linked (Hex) arginine	Hex
+PTM-0540	41	N-linked (Hex) asparagine	Hex
+PTM-0542	43	N-linked (HexNAc) asparagine	HexNAc
+PTM-0544	41	N-linked (Hex) tryptophan	Hex
+PTM-0560	41	O-linked (Gal) serine	Hex
+PTM-0562	41	O-linked (Gal) threonine	Hex
+PTM-0573	41	O-linked (Glc) serine	Hex
+PTM-0580	43	O-linked (GlcNAc) serine	HexNAc
+PTM-0582	43	O-linked (GlcNAc) threonine	HexNAc
+PTM-0587	428	O-linked (GlcNAc6P) serine	PhosphoHexNAc
+PTM-0588	41	O-linked (Man) serine	Hex
+PTM-0591	41	O-linked (Man) threonine	Hex
+PTM-0596	429	O-linked (Man6P) threonine	PhosphoHex
+PTM-0598	1425	O-linked (Xyl) serine	Pentose
+PTM-0606	907	O-linked (Hex) hydroxylysine	Galactosyl
+PTM-0610	41	O-linked (Hex) serine	Hex
+PTM-0612	41	O-linked (Hex) threonine	Hex
+PTM-0614	41	O-linked (Hex) tyrosine	Hex
+PTM-0618	43	O-linked (HexNAc) serine	HexNAc
+PTM-0620	43	O-linked (HexNAc) threonine	HexNAc
+PTM-0624	41	S-linked (Gal) cysteine	Hex
+PTM-0628	43	S-linked (GlcNAc) cysteine	HexNAc
+PTM-0630	41	S-linked (Hex) cysteine	Hex
+PTM-0632	43	S-linked (HexNAc) cysteine	HexNAc
 PTM-0646	213	ADP-ribosyl glutamic acid	ADP-Ribosyl
 PTM-0651	405	O-AMP-serine	Phosphoadenosine
 PTM-0663	35	(3S)-3-hydroxylysine	Oxidation
+PTM-0665	35	(2S)-4-hydroxyleucine	Oxidation
+PTM-0666	425	(4S)-4,5-dihydroxyleucine	Dioxidation
+PTM-0668	35	2-hydroxyproline	Oxidation
+PTM-0675	5	N6-carbamoyllysine	Carbamyl
+PTM-0680	41	N-linked (Glc) (glycation) arginine	Hex
+PTM-0684	1041	Deoxyhypusine	Deoxyhypusine
+PTM-0688	34	3-methylisoleucine	Methyl
+PTM-0691	34	N4-methyl-D-asparagine	Methyl
+PTM-0693	34	(3S)-3-methylglutamine	Methyl
+PTM-0694	35	3-hydroxy-D-valine	Oxidation
+PTM-0700	41	O-linked (Glc) threonine	Hex
+PTM-0701	43	O-alpha-linked (GlcNAc) threonine	HexNAc
 PTM-0706	1992	5-glutamyl serotonin	serotonylation
+PTM-0723	490	O-alpha-linked (D-glycero-D-manno-heptose) serine	Hep
+PTM-0724	490	O-alpha-linked (glycero-D-manno-heptose) serine	Hep
+PTM-0725	490	O-alpha-linked (glycero-D-manno-heptose) threonine	Hep
+PTM-0727	34	N-methylthreonine	Methyl
+PTM-0728	34	N-methylaspartate	Methyl
+PTM-0729	34	N-methylhistidine	Methyl
+PTM-0745	309	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAcl-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(3)HexNAc(4)
+PTM-0746	310	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(4)HexNAc(4)
+PTM-0747	310	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(4)HexNAc(4)
+PTM-0748	311	N-linked ([beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(5)HexNAc(4)
+PTM-0749	1409	N-linked ([alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(5)HexNAc(4)NeuAc(1)
+PTM-0750	1408	N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(5)HexNAc(4)NeuAc(2)
+PTM-0751	1772	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(3)HexNAc(5)
+PTM-0752	1496	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(4)HexNAc(5)
+PTM-0753	1496	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(4)HexNAc(5)
+PTM-0754	1780	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(5)HexNAc(5)
+PTM-0755	1551	N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(4)HexNAc(5)NeuAc(1)
+PTM-0756	1551	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-beta-D-GlcNAc) (complex) asparagine	Hex(4)HexNAc(5)NeuAc(1)
+PTM-0760	305	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(3)HexNAc(4)
+PTM-0761	307	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(4)HexNAc(4)
+PTM-0762	307	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(4)HexNAc(4)
+PTM-0763	308	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(5)HexNAc(4)
+PTM-0764	1410	N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(5)HexNAc(4)NeuAc(1)
+PTM-0765	1410	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(5)HexNAc(4)NeuAc(1)
+PTM-0766	1411	N-linked (alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[alpha-Neu5Ac-(2->6)-beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(5)HexNAc(4)NeuAc(2)
+PTM-0767	1775	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(3)HexNAc(5)
+PTM-0768	1519	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(4)HexNAc(5)
+PTM-0769	1519	N-linked (beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(4)HexNAc(5)
+PTM-0770	1555	N-linked (beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->3)-[beta-D-GlcNAc-(1->4)]-[beta-D-Gal-(1->4)-beta-D-GlcNAc-(1->2)-alpha-D-Man-(1->6)]-beta-D-Man-(1->4)-beta-D-GlcNAc-(1->4)-[alpha-L-Fuc-(1->6)]-beta-D-GlcNAc) (complex) asparagine	dHex(1)Hex(5)HexNAc(5)
