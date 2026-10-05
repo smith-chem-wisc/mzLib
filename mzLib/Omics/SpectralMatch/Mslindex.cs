@@ -406,6 +406,13 @@ public sealed class MslIndex : IDisposable
 	private readonly ConcurrentQueue<int> _lruOrder;
 
 	/// <summary>
+	/// Number of entries in <see cref="_lruCache"/>, maintained with <see cref="Interlocked"/>.
+	/// <see cref="ConcurrentDictionary{TKey,TValue}.Count"/> takes every bucket lock, so reading it
+	/// on each miss serialised all threads calling <see cref="GetEntry"/>.
+	/// </summary>
+	private int _lruCount;
+
+	/// <summary>
 	/// Running count of <see cref="GetEntry"/> calls that found the requested entry
 	/// already present in <see cref="_lruCache"/>. Incremented with
 	/// <see cref="Interlocked.Increment"/> to allow lock-free observation.
@@ -451,6 +458,8 @@ public sealed class MslIndex : IDisposable
 	/// <param name="maxBufferSize">
 	/// Maximum number of full entries kept in the LRU cache. Default is 10,000.
 	/// Larger values trade memory for reduced loader invocations in index-only mode.
+	/// Zero or less disables the cache: <see cref="GetEntry"/> calls the loader directly and
+	/// the LRU counters stay at zero. Use this when the loader is already an in-memory lookup.
 	/// </param>
 	/// <exception cref="ArgumentNullException">
 	/// Thrown when <paramref name="entries"/> or <paramref name="entryLoader"/> is null.
@@ -551,6 +560,10 @@ public sealed class MslIndex : IDisposable
 	/// Should return <c>entries[idx]</c> when <c>idx</c> is in range, null otherwise.
 	/// Must not be null.
 	/// </param>
+	/// <param name="maxBufferSize">
+	/// LRU cache capacity, as on the constructor. Pass 0 when <paramref name="loader"/> is an
+	/// in-memory lookup (full load), so <see cref="GetEntry"/> skips the cache.
+	/// </param>
 	/// <returns>A fully-built <see cref="MslIndex"/> instance.</returns>
 	/// <exception cref="ArgumentNullException">
 	/// Thrown when <paramref name="entries"/> or <paramref name="loader"/> is null.
@@ -558,7 +571,8 @@ public sealed class MslIndex : IDisposable
 	public static MslIndex Build(
 		IReadOnlyList<MslLibraryEntry> entries,
 		Func<int, MslLibraryEntry?> loader,
-		bool deferSeqChargeIndex = false)
+		bool deferSeqChargeIndex = false,
+		int maxBufferSize = 10_000)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
 		if (loader is null) throw new ArgumentNullException(nameof(loader));
@@ -578,7 +592,7 @@ public sealed class MslIndex : IDisposable
 				flags: (byte)((int)e.MoleculeType & 0x03));
 		}
 
-		return new MslIndex(raw, loader, deferSeqChargeIndex: deferSeqChargeIndex);
+		return new MslIndex(raw, loader, maxBufferSize, deferSeqChargeIndex);
 	}
 
 	// ── Query: m/z range (zero-allocation) ───────────────────────────────────
@@ -843,6 +857,10 @@ public sealed class MslIndex : IDisposable
 	{
 		ThrowIfDisposed();
 
+		// Cache disabled: the loader is an in-memory lookup, so caching would only add contention
+		if (_maxBufferSize <= 0)
+			return _entryLoader(precursorIdx);
+
 		// Cache hit: return the cached entry without calling the loader
 		if (_lruCache.TryGetValue(precursorIdx, out MslLibraryEntry? cached))
 		{
@@ -858,15 +876,18 @@ public sealed class MslIndex : IDisposable
 			return null;
 
 		// Evict the oldest entry when the cache is at capacity
-		if (_lruCache.Count >= _maxBufferSize)
+		if (Volatile.Read(ref _lruCount) >= _maxBufferSize)
 		{
-			if (_lruOrder.TryDequeue(out int oldestKey))
-				_lruCache.TryRemove(oldestKey, out _);
+			if (_lruOrder.TryDequeue(out int oldestKey) && _lruCache.TryRemove(oldestKey, out _))
+				Interlocked.Decrement(ref _lruCount);
 		}
 
 		// Add the new entry to the cache and record its insertion order
 		if (_lruCache.TryAdd(precursorIdx, loaded))
+		{
+			Interlocked.Increment(ref _lruCount);
 			_lruOrder.Enqueue(precursorIdx);
+		}
 
 		return loaded;
 	}
@@ -987,6 +1008,7 @@ public sealed class MslIndex : IDisposable
 			return;  // Already disposed
 
 		_lruCache.Clear();
+		Volatile.Write(ref _lruCount, 0);
 
 		// Drain the eviction queue (no finalizer needed; all resources are managed)
 		while (_lruOrder.TryDequeue(out _)) { }

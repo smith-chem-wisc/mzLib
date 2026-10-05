@@ -693,6 +693,68 @@ public class TestMslIndex
 		Assert.That(result, Is.Null);
 	}
 
+	/// <summary>
+	/// Verifies that a zero <c>maxBufferSize</c> disables the LRU cache: every
+	/// <see cref="MslIndex.GetEntry"/> call goes straight to the loader and the LRU
+	/// counters stay at zero. This is the full-load configuration, where the loader is
+	/// already an in-memory array lookup.
+	/// </summary>
+	[Test]
+	public void GetEntry_ZeroBufferSize_BypassesCache()
+	{
+		var entries = BuildEntries(
+			("A", 2, 300.0f, 10.0f, 0f),
+			("B", 2, 400.0f, 10.0f, 0f));
+		int loaderCalls = 0;
+		using var index = MslIndex.Build(entries,
+			i => { Interlocked.Increment(ref loaderCalls); return i < entries.Count ? entries[i] : null; },
+			maxBufferSize: 0);
+		int callsAfterBuild = loaderCalls;  // the constructor reads sequences through the loader
+
+		for (int round = 0; round < 5; round++)
+		{
+			Assert.That(index.GetEntry(0), Is.SameAs(entries[0]));
+			Assert.That(index.GetEntry(1), Is.SameAs(entries[1]));
+		}
+		Assert.That(index.GetEntry(9999), Is.Null);
+
+		var stats = index.GetStatistics();
+		Assert.That(loaderCalls - callsAfterBuild, Is.EqualTo(11));
+		Assert.That(stats.LruHits, Is.EqualTo(0));
+		Assert.That(stats.LruMisses, Is.EqualTo(0));
+	}
+
+	/// <summary>
+	/// Verifies that the bounded LRU cache stays correct when many threads miss at once:
+	/// every call returns the right entry, every call is counted as exactly one hit or one
+	/// miss, and eviction keeps working (re-reading the first entries misses again).
+	/// </summary>
+	[Test]
+	public void GetEntry_ParallelMisses_ReturnCorrectEntriesAndKeepCountsConsistent()
+	{
+		const int entryCount = 2_000;
+		const int calls = 50_000;
+		var entries = BuildEntries(Enumerable.Range(0, entryCount)
+			.Select(i => ($"PEPTIDE{i}", 2, 300.0f + i * 0.01f, 10.0f, 0f))
+			.ToArray());
+		var raw = BuildRaw(entries);
+		using var index = new MslIndex(raw, i => i < entries.Count ? entries[i] : null, maxBufferSize: 64);
+
+		int wrong = 0;
+		Parallel.For(0, calls, new ParallelOptions { MaxDegreeOfParallelism = 8 }, k =>
+		{
+			int idx = (int)((k * 7919L) % entryCount);
+			if (!ReferenceEquals(index.GetEntry(idx), entries[idx]))
+				Interlocked.Increment(ref wrong);
+		});
+
+		var stats = index.GetStatistics();
+		Assert.That(wrong, Is.EqualTo(0));
+		Assert.That(stats.LruHits + stats.LruMisses, Is.EqualTo(calls));
+		Assert.That(stats.LruMisses, Is.GreaterThan(calls / 2),
+			"A 64-entry cache over 2,000 entries must miss most of the time; if it doesn't, eviction stopped.");
+	}
+
 	// ═══════════════════════════════════════════════════════════════════════
 	// Statistics tests
 	// ═══════════════════════════════════════════════════════════════════════
