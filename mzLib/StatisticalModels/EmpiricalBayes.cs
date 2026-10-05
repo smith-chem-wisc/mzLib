@@ -8,6 +8,25 @@ using MathNet.Numerics.Statistics;
 
 namespace StatisticalModels
 {
+    /// <summary>How the variance prior's hyperparameters (d0, s0²) are estimated.</summary>
+    public enum VariancePriorEstimator
+    {
+        /// <summary>
+        /// Method of moments on log variances (Smyth 2004), as limma's <c>eBayes(legacy = TRUE)</c>. Exact when
+        /// every feature has the same residual df; with unequal df it treats them through an averaged trigamma
+        /// term and can return d0 = ∞ where the data do not support it.
+        /// </summary>
+        MomentsLegacy,
+        /// <summary>
+        /// Maximum marginal likelihood: s²_g / s0²_g ~ F(d_g, d0) with each feature's OWN residual df, maximized
+        /// over d0 (∞ allowed) and s0² (or its trend). Unequal df, as omitting missing values produces, are
+        /// handled exactly by the likelihood. An independent estimator, not limma's <c>fitFDistUnequalDF1</c>,
+        /// so its numbers differ from default limma's. d0 is searched from about 0.05 upward, so a reported
+        /// d0 at e^-3 ≈ 0.05 is that floor, not an interior optimum.
+        /// </summary>
+        MarginalLikelihood,
+    }
+
     /// <summary>
     /// The prior distribution of per-feature residual variances: s²_g ~ s0² · χ²(d0)/d0, fitted across
     /// all features. With a trend, s0² depends on a covariate (the feature's average response).
@@ -20,13 +39,18 @@ namespace StatisticalModels
         /// </summary>
         public const double ZeroVarianceFloor = 1e-5;
 
-        internal VariancePrior(double df, double[] scale, bool trended, int splineBasisCount)
+        internal VariancePrior(double df, double[] scale, bool trended, int splineBasisCount,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy)
         {
+            Estimator = estimator;
             Df = df;
             Scale = Array.AsReadOnly(scale);
             Trended = trended;
             SplineBasisCount = splineBasisCount;
         }
+
+        /// <summary>How d0 and s0² were estimated.</summary>
+        public VariancePriorEstimator Estimator { get; }
 
         /// <summary>Prior degrees of freedom d0. Positive infinity when the observed variances are no more
         /// dispersed than sampling alone explains, in which case every feature takes the prior variance.</summary>
@@ -75,9 +99,10 @@ namespace StatisticalModels
         public IReadOnlyList<FeatureFitStatus> Status { get; }
         /// <summary>
         /// True when the fitted features do not all have the same residual degrees of freedom, as happens
-        /// whenever missing values are omitted. For such input this result follows limma's legacy estimator
-        /// (<c>eBayes(legacy = TRUE)</c>), and limma 3.61 and later, by default, would give a different
-        /// prior and so different moderated statistics. See <see cref="EmpiricalBayes"/>.
+        /// whenever missing values are omitted. With <see cref="VariancePriorEstimator.MomentsLegacy"/> this
+        /// result then follows limma's legacy estimator (<c>eBayes(legacy = TRUE)</c>), and limma 3.61 and
+        /// later, by default, would give a different prior. <see cref="VariancePriorEstimator.MarginalLikelihood"/>
+        /// handles unequal df exactly. The prior's estimator is <see cref="VariancePrior.Estimator"/>.
         /// </summary>
         public bool ResidualDfDiffer { get; }
         /// <summary>Least-squares estimate of the coefficient (moderation does not change it).</summary>
@@ -116,6 +141,12 @@ namespace StatisticalModels
     /// residual df, default limma also uses the legacy estimator unless asked otherwise.
     /// </para>
     /// <para>
+    /// <see cref="VariancePriorEstimator.MarginalLikelihood"/> is this library's answer to that gap: the
+    /// prior is fitted by maximum marginal likelihood with each feature's own residual df, which handles
+    /// unequal df exactly without porting limma's code. It is a different estimator from limma's default,
+    /// so its numbers are compared with limma's, not required to equal them.
+    /// </para>
+    /// <para>
     /// Not implemented: <c>robust = TRUE</c>, contrasts, the B-statistic, observation weights.
     /// </para>
     /// </remarks>
@@ -129,8 +160,9 @@ namespace StatisticalModels
         public const int DefaultSplineBasisCount = 4;
 
         /// <summary>
-        /// Fits the variance prior by matching moments of e_g = log s²_g − ψ(d_g/2) + log(d_g/2), whose
-        /// variance is ψ′(d_g/2) + ψ′(d0/2).
+        /// Fits the variance prior (d0, s0²) with the chosen <paramref name="estimator"/>: by default by matching
+        /// moments of e_g = log s²_g − ψ(d_g/2) + log(d_g/2), whose variance is ψ′(d_g/2) + ψ′(d0/2), or by
+        /// maximum marginal likelihood.
         /// </summary>
         /// <param name="variances">Residual variances s²_g; non-finite or negative entries are ignored.</param>
         /// <param name="df">Residual degrees of freedom d_g; entries &lt;= 0 are ignored.</param>
@@ -141,8 +173,13 @@ namespace StatisticalModels
         /// Either way it is capped at the distinct covariate values, and knots that tied covariate values
         /// make coincide are merged, which can leave fewer; <see cref="VariancePrior.SplineBasisCount"/>
         /// reports how many were used.</param>
+        /// <param name="estimator">
+        /// <see cref="VariancePriorEstimator.MomentsLegacy"/> (default, limma legacy parity) or
+        /// <see cref="VariancePriorEstimator.MarginalLikelihood"/> (unequal residual df handled exactly).
+        /// </param>
         public static VariancePrior FitPrior(IReadOnlyList<double> variances, IReadOnlyList<double> df,
-            IReadOnlyList<double>? covariate = null, int? splineBasisCount = null)
+            IReadOnlyList<double>? covariate = null, int? splineBasisCount = null,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy)
         {
             ArgumentNullException.ThrowIfNull(variances);
             ArgumentNullException.ThrowIfNull(df);
@@ -161,6 +198,9 @@ namespace StatisticalModels
             // A variance of exactly zero has no logarithm. Offset them away from zero relative to the median.
             double median = use.Select(i => variances[i]).Median();
             double floor = median > 0 ? VariancePrior.ZeroVarianceFloor * median : VariancePrior.ZeroVarianceFloor;
+            if (estimator == VariancePriorEstimator.MarginalLikelihood)
+                return FitPriorByLikelihood(variances, df, covariate, splineBasisCount, use, floor, scale);
+
             double[] e = use.Select(i =>
                 Math.Log(Math.Max(variances[i], floor)) - SpecialFunctions.DiGamma(df[i] / 2) + Math.Log(df[i] / 2)).ToArray();
 
@@ -196,6 +236,26 @@ namespace StatisticalModels
             return new VariancePrior(d0, scale, covariate != null, basis);
         }
 
+        private static VariancePrior FitPriorByLikelihood(IReadOnlyList<double> variances, IReadOnlyList<double> df,
+            IReadOnlyList<double>? covariate, int? splineBasisCount, int[] use, double floor, double[] scale)
+        {
+            double[] s2 = use.Select(i => Math.Max(variances[i], floor)).ToArray();
+            double[] d = use.Select(i => df[i]).ToArray();
+            int basis = 1;
+            Matrix<double> b;
+            if (covariate == null) b = Matrix<double>.Build.Dense(use.Length, 1, 1.0);
+            else
+            {
+                double[] x = use.Select(i => covariate[i]).ToArray();
+                basis = Math.Max(1, Math.Min(TrendBasisCount(use.Length, x.Distinct().Count(), splineBasisCount), use.Length - 1));
+                b = NaturalSplineBasis(x, basis);
+                basis = b.ColumnCount;
+            }
+            var (d0, logScale) = VariancePriorLikelihood.Fit(s2, d, b);
+            for (int k = 0; k < use.Length; k++) scale[use[k]] = Math.Exp(logScale[k]);
+            return new VariancePrior(d0, scale, covariate != null, basis, VariancePriorEstimator.MarginalLikelihood);
+        }
+
         /// <summary>
         /// Moderated t-test of one coefficient: each fitted feature's residual variance is shrunk toward the
         /// prior, s̃² = (d0·s0² + d·s²) / (d0 + d), and t = β / (s̃ · unscaled SD) on d + d0 degrees of freedom.
@@ -205,8 +265,10 @@ namespace StatisticalModels
         /// <param name="trend">Let the prior variance trend with <see cref="LinearModelFit.AverageResponse"/>.</param>
         /// <param name="splineBasisCount">Basis functions for the trend, intercept included; null takes limma's
         /// rule (see <see cref="FitPrior"/>).</param>
+        /// <param name="estimator">How the prior is estimated; see <see cref="VariancePriorEstimator"/>.</param>
         public static ModeratedTest Moderate(LinearModelFit fit, string coefficient, bool trend,
-            int? splineBasisCount = null)
+            int? splineBasisCount = null,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy)
         {
             ArgumentNullException.ThrowIfNull(fit);
             int j = fit.IndexOf(coefficient);
@@ -225,7 +287,7 @@ namespace StatisticalModels
                 s2[f] = ok ? fit.Sigma[f] * fit.Sigma[f] : double.NaN;
                 df[f] = ok ? fit.DfResidual[f] : 0;
             }
-            var prior = FitPrior(s2, df, trend ? fit.AverageResponse : null, splineBasisCount);
+            var prior = FitPrior(s2, df, trend ? fit.AverageResponse : null, splineBasisCount, estimator);
             double pooledDf = fitted.Sum(f => (double)fit.DfResidual[f]);
 
             bool dfDiffer = fitted.Any(f => fit.DfResidual[f] != fit.DfResidual[fitted[0]]);
