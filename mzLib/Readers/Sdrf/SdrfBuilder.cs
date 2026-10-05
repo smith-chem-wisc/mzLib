@@ -58,6 +58,14 @@ namespace Readers
         private const string SoftwareColumn = "comment[software]";
         private const string SdrfVersionColumn = "comment[sdrf version]";
 
+        // The comment columns the builder writes itself; an extension comment may not reuse one.
+        private static readonly HashSet<string> BuiltInComments = new(StringComparer.Ordinal)
+        {
+            AcquisitionMethod, Label, Instrument, CleavageAgent, ModificationParameters, PrecursorTolerance,
+            FragmentTolerance, DissociationMethod, FractionIdentifier, TechnicalReplicate, DataFile,
+            SearchedDataFile, PxAccession, SoftwareColumn, SdrfVersionColumn
+        };
+
         /// <summary>The one value SDRF defines for this column in an MS experiment.</summary>
         private const string TechnologyTypeValue = "proteomic profiling by mass spectrometry";
 
@@ -145,12 +153,20 @@ namespace Readers
             // caller that never sets it gets byte-for-byte the document it got before.
             bool searchedColumn = inputs.Any(r => !string.IsNullOrWhiteSpace(r.Assay.SearchedDataFileName));
 
+            // Extension comments: one union, sorted, like every other multi-row column set. Empty for a
+            // caller that sets none, so its document is unchanged.
+            var commentColumns = inputs
+                .SelectMany(r => r.Sample.Comments.Keys)
+                .Distinct(StringComparer.Ordinal)
+                .OrderBy(c => c, StringComparer.Ordinal)
+                .ToList();
+
             var header = new SdrfHeader(BuildHeader(
-                characteristicColumns, factorColumns, modificationSlots, searchedColumn, options));
+                characteristicColumns, factorColumns, modificationSlots, searchedColumn, commentColumns, options));
 
             var built = inputs
                 .Select(input => new SdrfRow(header,
-                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, searchedColumn, options)))
+                    BuildCells(input, characteristicColumns, factorColumns, modificationSlots, searchedColumn, commentColumns, options)))
                 .ToList();
 
             return new SdrfDocument(header, built);
@@ -189,6 +205,23 @@ namespace Readers
                 throw new ArgumentException(
                     $"Row {index} has a null {nameof(SdrfSample.FactorValues)}; pass an empty " +
                     "dictionary for a sample with no factor values.", nameof(input));
+            if (input.Sample.Comments is null)
+                throw new ArgumentException(
+                    $"Row {index} has a null {nameof(SdrfSample.Comments)}; pass an empty " +
+                    "dictionary for a sample with no extension comments.", nameof(input));
+            foreach (var key in input.Sample.Comments.Keys)
+            {
+                if (string.IsNullOrWhiteSpace(key)
+                    || !key.StartsWith("comment[", StringComparison.Ordinal) || !key.EndsWith(']'))
+                    throw new ArgumentException(
+                        $"Row {index} has an extension comment keyed '{key}'; {nameof(SdrfSample.Comments)} " +
+                        "takes comment[...] columns only. Characteristics go in Characteristics or " +
+                        "RawCharacteristics, factors in FactorValues.", nameof(input));
+                if (BuiltInComments.Contains(key))
+                    throw new ArgumentException(
+                        $"Row {index} has an extension comment '{key}', which the builder already writes " +
+                        "from the assay; set it there instead, so one column is never written twice.", nameof(input));
+            }
 
             // A blank key would become a column with no name. The factor union already drops one,
             // which loses its value silently; refusing all three alike tells the caller instead.
@@ -262,7 +295,7 @@ namespace Readers
 
         private static List<string> BuildHeader(
             IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, IReadOnlyList<string> comments, SdrfBuilderOptions options)
         {
             var names = new List<string> { SourceName, Organism };
             names.AddRange(characteristics);
@@ -287,13 +320,14 @@ namespace Readers
             if (options.Software is not null) names.Add(SoftwareColumn);
             if (!string.IsNullOrWhiteSpace(options.SdrfVersion)) names.Add(SdrfVersionColumn);
 
+            names.AddRange(comments);
             names.AddRange(factors);
             return names;
         }
 
         private static List<string> BuildCells(
             SdrfRowInput input, IReadOnlyList<string> characteristics, IReadOnlyList<string> factors,
-            int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
+            int modificationSlots, bool searchedColumn, IReadOnlyList<string> comments, SdrfBuilderOptions options)
         {
             var sample = input.Sample;
             var assay = input.Assay;
@@ -325,7 +359,7 @@ namespace Readers
                     cells.Add(SdrfReserved.NotAvailable);
             }
 
-            cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate));
+            cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate, options));
 
             cells.Add(Required(assay.AssayName, AssayName, options));
             cells.Add(TechnologyTypeValue);
@@ -341,8 +375,8 @@ namespace Readers
             cells.Add(ToleranceCell(assay.PrecursorMassTolerance, PrecursorTolerance, options));
             cells.Add(ToleranceCell(assay.ProductMassTolerance, FragmentTolerance, options));
             cells.Add(DissociationCell(assay.DissociationType, options));
-            cells.Add(Positive(assay.Fraction, FractionIdentifier));
-            cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate));
+            cells.Add(Positive(assay.Fraction, FractionIdentifier, options));
+            cells.Add(Positive(assay.TechnicalReplicate, TechnicalReplicate, options));
             cells.Add(Required(assay.DataFileName, DataFile, options));
             if (searchedColumn)
                 // A row whose search read the acquired file itself names that file again, so the
@@ -367,6 +401,13 @@ namespace Readers
                 // column, so the malformed value would have gone out silently. The specification
                 // asks for vMAJOR.MINOR.PATCH.
                 cells.Add("v" + options.SdrfVersion.TrimStart('v', 'V'));
+
+            foreach (var column in comments)
+                // A row without this key: for a provenance override column that means "no override,
+                // the row default holds", which is not-applicable rather than not-available.
+                cells.Add(sample.Comments.TryGetValue(column, out var comment) && !string.IsNullOrWhiteSpace(comment)
+                    ? comment
+                    : SdrfReserved.NotApplicable);
 
             foreach (var column in factors)
             {
@@ -549,13 +590,19 @@ namespace Readers
             string.IsNullOrWhiteSpace(value) ? Missing(column, options) : value;
 
         /// <summary>
-        /// 1-based, and validated. SDRF replicate and fraction identifiers start at 1; mzLib's
-        /// SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
+        /// A replicate or fraction number: 1-based, and validated. SDRF replicate and fraction identifiers start
+        /// at 1; mzLib's SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
         /// a 0 that every consumer reads as an error.
+        ///
+        /// <c>null</c> is a number nobody established -- a search with no experimental design does not know it --
+        /// and is treated like any missing value (<see cref="Missing"/>): written <c>not available</c>, or refused
+        /// under RequireSampleMetadata. Writing 1 instead would state that every run is its own unfractionated
+        /// sample, a filled cell no coverage report can flag.
         /// </summary>
-        private static string Positive(int value, string column) =>
-            value >= 1
-                ? value.ToString(System.Globalization.CultureInfo.InvariantCulture)
+        private static string Positive(int? value, string column, SdrfBuilderOptions options) =>
+            value is null ? Missing(column, options)
+            : value >= 1
+                ? value.Value.ToString(System.Globalization.CultureInfo.InvariantCulture)
                 : throw new MzLibException(
                     $"'{column}' must be 1-based and at least 1, but was {value}. mzLib's " +
                     "SpectraFileInfo stores replicates and fractions 0-based; add 1 before passing them.");
