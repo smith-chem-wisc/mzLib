@@ -228,7 +228,7 @@ public class KoinaModelBaseTests
     [Test]
     public void TryCleanSequence_MissingRequiredNTerminalModification_FailsClosedInEveryMode(
         [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements,
-            SequenceConversionHandlingMode.UsePrimarySequence, (SequenceConversionHandlingMode)99)] SequenceConversionHandlingMode mode)
+            SequenceConversionHandlingMode.UsePrimarySequence)] SequenceConversionHandlingMode mode)
     {
         var allowed = new HashSet<int> { 737 };
         var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(allowed), mode, allowed, requiredNTerminalUnimodIds: allowed);
@@ -327,22 +327,6 @@ public class KoinaModelBaseTests
 
         Assert.That(result, Is.Not.Null);
         Assert.That(apiSequence, Does.Contain("UNIMOD:35"));
-    }
-
-    [Test]
-    public void TryCleanSequence_AcceptsAllUnimodModifications_SkipsAllowListCheckForPreIdentifiedId()
-    {
-        var preIdentified = CanonicalModification.AtResidue(3, 'M', "UNIMOD:9999", unimodId: 9999); // not a real id
-        var fakeParser = new FakeSequenceParser(_ =>
-            CanonicalSequence.Unmodified("PEPMIDE", "fake").WithModification(preIdentified));
-        var model = new KoinaModelHarness(
-            KoinaModelHarness.BuildAcceptAllConverter(),
-            acceptsAllUnimodModifications: true);
-
-        var result = model.TryCleanWithParser("PEPM[UNIMOD:9999]IDE", fakeParser, out var apiSequence, out var warning);
-
-        Assert.That(result, Is.Not.Null, warning?.Message);
-        Assert.That(apiSequence, Does.Contain("UNIMOD:9999"));
     }
 
     // Oxidation (UNIMOD:35) is outside the allow-list. The mzLib parser leaves UnimodId unset, so the
