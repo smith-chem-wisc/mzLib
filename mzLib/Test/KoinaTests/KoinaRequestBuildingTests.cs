@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
@@ -113,15 +114,60 @@ namespace Test.KoinaTests
         // ── Model-specific request-building overrides ───────────────────────────────
 
         [Test]
-        public void Tmt_TryCleanSequence_RejectsSequenceWithoutNTerminalLabel()
+        public void Tmt_TryCleanSequence_RejectsSequenceWithoutNTerminalLabel(
+            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
         {
-            var model = new TmtProbe();
             // Return value null = rejected; that's what the prediction pipeline keys off.
-            var result = model.Clean("PEPTIDEK", out _, out var warning);
+            var intensity = new TmtProbe(mode).Clean("PEPTIDEK", out _, out var intensityWarning);
+            var irt = new IrtTmtProbe(mode).Clean("PEPTIDEK", out _, out var irtWarning);
 
-            Assert.That(result, Is.Null);
-            Assert.That(warning, Is.Not.Null);
-            Assert.That(warning!.Message, Does.Contain("N-terminal"));
+            Assert.That(intensity, Is.Null);
+            Assert.That(intensityWarning?.Message, Does.Contain("N-terminal"));
+            Assert.That(irt, Is.Null);
+            Assert.That(irtWarning?.Message, Does.Contain("N-terminal"));
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ThrowExceptionModeThrowsWithoutNTerminalLabel()
+        {
+            const SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException;
+
+            Assert.That(() => new TmtProbe(mode).Clean("PEPTIDEK", out _, out _),
+                Throws.ArgumentException.With.Message.Contains("N-terminal"));
+            Assert.That(() => new IrtTmtProbe(mode).Clean("PEPTIDEK", out _, out _),
+                Throws.ArgumentException.With.Message.Contains("N-terminal"));
+        }
+
+        [Test]
+        public void Tmt_IrtTryCleanSequence_AcceptsSupportedNTerminalLabel()
+        {
+            var result = new IrtTmtProbe().Clean("[Common Fixed:TMTpro on N-terminus]PEPTIDEK", out var api, out var warning);
+
+            Assert.That(result, Is.EqualTo(api));
+            Assert.That(warning, Is.Null);
+            Assert.That(api, Does.StartWith("[UNIMOD:2016]-"), "TMTpro on N-terminus should serialize to UNIMOD:2016.");
+        }
+
+        [Test]
+        public void Tmt_Construction_RejectsUsePrimarySequence()
+        {
+            // Every sequence would lose its required N-terminal label, so the mode is refused up front,
+            // through both the constructor and an object initializer.
+            const SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.UsePrimarySequence;
+            static IResolveConstraint RejectsMode() => Throws.ArgumentException.With.Message.Contains("UsePrimarySequence");
+
+            Assert.That(() => new Prosit2020IntensityTMT(mode), RejectsMode());
+            Assert.That(() => new Prosit2020IntensityTMT { ModHandlingMode = mode }, RejectsMode());
+            Assert.That(() => new Prosit2020iRTTMT(mode), RejectsMode());
+            Assert.That(() => new Prosit2020iRTTMT { ModHandlingMode = mode }, RejectsMode());
+        }
+
+        [Test]
+        public void Tmt_Construction_AcceptsModesThatKeepTheLabel(
+            [Values(SequenceConversionHandlingMode.ThrowException, SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
+        {
+            Assert.That(new Prosit2020IntensityTMT(mode).ModHandlingMode, Is.EqualTo(mode));
+            Assert.That(new Prosit2020iRTTMT(mode).ModHandlingMode, Is.EqualTo(mode));
         }
 
         [Test]
@@ -366,6 +412,9 @@ namespace Test.KoinaTests
 
         private sealed class IrtTmtProbe : Prosit2020iRTTMT
         {
+            public IrtTmtProbe(SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ReturnNull)
+                : base(modHandlingMode: mode) { }
+
             public string? Clean(string sequence, out string? api, out WarningException? warning)
                 => TryCleanSequence(sequence, null, out api, out warning);
 

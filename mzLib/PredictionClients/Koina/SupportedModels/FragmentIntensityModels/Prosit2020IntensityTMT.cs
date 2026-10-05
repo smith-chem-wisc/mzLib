@@ -14,7 +14,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// - Supports peptides with length 1-30 amino acids
     /// - Handles precursor charges 1-6
     /// - Predicts up to 174 fragment ions per peptide
-    /// - Requires N-terminal TMT/iTRAQ labeling
+    /// - Requires N-terminal TMT/iTRAQ labeling, so UsePrimarySequence is rejected at construction
     /// - Supports TMT6plex, TMTpro, iTRAQ4/8plex, SILAC, oxidation, carbamidomethyl
     /// 
     /// API Documentation: https://koina.wilhelmlab.org/docs#post-/Prosit_2020_intensity_TMT/infer
@@ -42,7 +42,14 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
         public override IReadOnlySet<int>? RequiredNTerminalUnimodIds => NTerminalLabelIds;
-        public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
+        private readonly SequenceConversionHandlingMode _modHandlingMode;
+        public override SequenceConversionHandlingMode ModHandlingMode
+        {
+            get => _modHandlingMode;
+            init => _modHandlingMode = value == SequenceConversionHandlingMode.UsePrimarySequence
+                ? throw new ArgumentException($"{ModelName} requires an N-terminal TMT/iTRAQ label, which UsePrimarySequence would strip from every sequence. Use ReturnNull, ThrowException or RemoveIncompatibleElements.", nameof(ModHandlingMode))
+                : value;
+        }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
 
