@@ -308,6 +308,40 @@ public class ModificationLookupBaseTests
         Assert.That(variants.Any(v => v.Contains("TMTpro on K")), Is.True);
     }
 
+    /// <summary>
+    /// TMTpro (304 Da) and TMT (224 Da) are different reagents. The name expansion once deleted "pro"
+    /// from any TMT name, which pooled TMT with TMTpro; on H, S, T and Y both candidates share the
+    /// residue, and the lookup returned TMT.
+    /// </summary>
+    [Test]
+    public void ExpandNameCandidates_NeverTurnsTmtProIntoTmt()
+    {
+        var lookup = new TestLookup(Array.Empty<Modification>());
+
+        var variants = lookup.ExpandNameCandidatesPublic("TMTpro on H", 'H').ToList();
+
+        Assert.That(variants, Does.Contain("TMT18 on H"));
+        Assert.That(variants, Has.None.EqualTo("TMT on H").IgnoreCase);
+    }
+
+    [TestCase('H')]
+    [TestCase('S')]
+    [TestCase('T')]
+    [TestCase('Y')]
+    public void TryResolve_TmtProOnAnyResidueIsNeverTmt(char residue)
+    {
+        var tmt = CreateModification("TMT", residue, monoisotopicMass: 224.152478,
+            chemicalFormula: ChemicalFormula.ParseFormula("H20C12N2O2"));
+        var tmtPro = CreateModification("TMTpro", residue, monoisotopicMass: 304.207146,
+            chemicalFormula: ChemicalFormula.ParseFormula("H25C15N3O3"));
+        var lookup = new TestLookup(new[] { tmt, tmtPro });
+
+        var resolved = lookup.TryResolve($"TMTpro on {residue}", residue);
+
+        Assert.That(resolved, Is.Not.Null);
+        Assert.That(resolved!.Value.MzLibModification, Is.SameAs(tmtPro));
+    }
+
     [Test]
     public void TryResolve_StringPathResolvesToCanonical()
     {
