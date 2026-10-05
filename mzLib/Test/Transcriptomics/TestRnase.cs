@@ -320,23 +320,32 @@ namespace Test.Transcriptomics
 
         #endregion
 
-        #region RNase_MC1 ([G]|U — cleaves before U, except at GU)
+        #region RNase_MC1 ([G]|U and [G]|Y motifs)
 
         /// <summary>
-        /// RNase_MC1 motif [G]|U: cleaves before U only when NOT preceded by G.
+        /// The [G]|Y motif applies to literal Y residues and does not add cleavage sites to a U-only sequence.
         /// </summary>
         [Test]
         public void TestRnaseMC1_CleaveBeforeUridine()
         {
             var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
 
-            // "AAGUAU": U at pos 4 is preceded by G (prevented)
-            //           U at pos 6 is preceded by A (cleaves)
+            // The Y motif does not match this U-only sequence; the existing U motif still skips GU.
             var products = mc1.GetUnmodifiedOligos(new RNA("AAGUAU"), 0, 1, int.MaxValue).ToArray();
 
             var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
             Assert.That(distinct, Is.EqualTo(new[] { "AAGUA", "U" }),
                 "MC1 should skip GU positions");
+        }
+
+        [Test]
+        public void TestRnaseMC1_CleaveBeforeYExceptAfterG()
+        {
+            var mc1 = RnaseDictionary.Dictionary["RNase_MC1"];
+            var products = mc1.GetUnmodifiedOligos(new RNA("AAGYAY"), 0, 1, int.MaxValue).ToArray();
+
+            var distinct = products.Select(p => p.BaseSequence).Distinct().ToArray();
+            Assert.That(distinct, Is.EqualTo(new[] { "AAGYA", "Y" }));
         }
 
         #endregion
