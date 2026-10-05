@@ -78,6 +78,13 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     public virtual bool AcceptsAllUnimodModifications => false;
 
     /// <summary>
+    /// The modified residues and termini the model's preprocessing has a token for, written as Koina writes them
+    /// (e.g. "M[UNIMOD:35]", "[UNIMOD:737]-"). An allowed id anywhere else is not a modification the model accepts.
+    /// null = any residue or terminus will do for an allowed id.
+    /// </summary>
+    public virtual IReadOnlySet<string>? AllowedModificationTokens => null;
+
+    /// <summary>
     /// UNIMOD IDs of the N-terminal modification this model requires.
     /// null = no N-terminal modification is required.
     /// empty = an N-terminal modification IS required, and any one the model allows will do
@@ -243,7 +250,8 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         foreach (var mod in cleaned.Modifications)
         {
             var resolved = ResolveModification(mod);
-            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
+            if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id))
+                && AllowedModificationTokens?.Contains(ModificationToken(resolved, id, cleaned.BaseSequence)) != false)
                 accepted.Add(resolved);
             else
                 incompatible.Add(resolved);
@@ -385,6 +393,16 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             OriginalRepresentation = mod.OriginalRepresentation
         };
     }
+
+    private static string ModificationToken(CanonicalModification mod, int unimodId, string residues) => mod.PositionType switch
+    {
+        ModificationPositionType.NTerminus => $"[UNIMOD:{unimodId}]-",
+        ModificationPositionType.CTerminus => $"-[UNIMOD:{unimodId}]",
+        _ => $"{residues[mod.ResidueIndex!.Value]}[UNIMOD:{unimodId}]"
+    };
+
+    protected static IReadOnlySet<int> UnimodIdsOf(IEnumerable<string> modificationTokens) =>
+        modificationTokens.Select(token => int.Parse(Regex.Match(token, @"UNIMOD:(\d+)").Groups[1].Value)).ToHashSet();
 
     #endregion
 

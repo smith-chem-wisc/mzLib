@@ -10,7 +10,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     public class Prosit2025iRTLac : RetentionTimeModel
     {
         private static readonly UnimodSequenceFormatSchema LacSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4, 2114 };
+        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide_lac/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:2114]", "[UNIMOD:2114]-" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(LacSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2025_irt_lac";
@@ -22,6 +24,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => true;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public Prosit2025iRTLac(

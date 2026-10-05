@@ -33,10 +33,14 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     public class Prosit2020iRTTMT : RetentionTimeModel
     {
         private static readonly UnimodSequenceFormatSchema TmtSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int>
+        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide_2020_TMT/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string>
         {
-            35, 4, 259, 267, 737, 2016, 214, 730 
+            "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:259]", "R[UNIMOD:267]",
+            "K[UNIMOD:737]", "K[UNIMOD:2016]", "K[UNIMOD:214]", "K[UNIMOD:730]",
+            "[UNIMOD:737]-", "[UNIMOD:2016]-", "[UNIMOD:214]-", "[UNIMOD:730]-"
         };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly IReadOnlySet<int> NTerminalLabelIds = new HashSet<int> { 737, 2016, 214, 730 };
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(TmtSchema, SupportedUnimodIds);
 
@@ -74,6 +78,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override bool IsIndexedRetentionTimeModel => true;
 
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override IReadOnlySet<int>? RequiredNTerminalUnimodIds => NTerminalLabelIds;
         private readonly SequenceConversionHandlingMode _modHandlingMode;
         public override SequenceConversionHandlingMode ModHandlingMode
