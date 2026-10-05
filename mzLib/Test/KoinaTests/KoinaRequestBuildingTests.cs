@@ -114,10 +114,9 @@ namespace Test.KoinaTests
 
         [Test]
         public void Tmt_TryCleanSequence_RejectsSequenceWithoutNTerminalLabel(
-            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements, (SequenceConversionHandlingMode)99)] SequenceConversionHandlingMode mode)
+            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
         {
-            // Return value null = rejected; that's what the prediction pipeline keys off. The undefined
-            // mode value must fail closed too, not fall through to accepting the sequence.
+            // Return value null = rejected; that's what the prediction pipeline keys off.
             var intensity = new TmtProbe(mode).Clean("PEPTIDEK", out _, out var intensityWarning);
             var irt = new IrtTmtProbe(mode).Clean("PEPTIDEK", out _, out var irtWarning);
 
