@@ -111,6 +111,32 @@ public class TargetDecoyRescorerTests
     }
 
     [Test]
+    public void TheDiscriminantIsPinnedToTheBit()
+    {
+        // Correlated features, one constant: pins weights and bias exactly, so a speed change that must change nothing cannot
+        var random = new Random(21);
+        var features = new List<double[]>();
+        var positive = new List<bool>();
+        for (int i = 0; i < 3000; i++)
+        {
+            bool target = i % 3 == 0;
+            double shared = random.NextDouble();
+            features.Add(Enumerable.Range(0, 12).Select(j => j == 5 ? 4.0 : shared * (j % 4) + random.NextDouble() * (1 + j) + (target ? 0.3 * j : 0)).ToArray());
+            positive.Add(target);
+        }
+
+        var fit = LinearDiscriminant.Fit(features, positive);
+
+        long[] bits = fit.Weights.Append(fit.Bias).Select(BitConverter.DoubleToInt64Bits).ToArray();
+        TestContext.Out.WriteLine("pinned: " + string.Join(", ", bits));
+        Assert.That(bits, Is.EqualTo(PinnedDiscriminantBits));
+    }
+
+    private static readonly long[] PinnedDiscriminantBits = [-4629063209439380192, 4590518683595660101, 4586681106985497765, 4593786861658844435,
+        4603675463750120478, 0, 4599426323733484923, 4598695496080304840, 4599563267747816079, 4598620038832881131, 4598124823602177322,
+        4597038961658343471, -4599363073103104677];
+
+    [Test]
     public void DiscriminantArgumentsAreChecked()
     {
         Assert.Throws<ArgumentNullException>(() => LinearDiscriminant.Fit(null!, [true]));
