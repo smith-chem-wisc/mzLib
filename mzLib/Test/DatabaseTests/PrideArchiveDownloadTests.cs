@@ -550,7 +550,7 @@ public class PrideArchiveDownloadTests
         {
             Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4))
         });
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
         var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
@@ -574,7 +574,7 @@ public class PrideArchiveDownloadTests
             Content = new StreamContent(new ThrowingStream(bytesBeforeThrow: 4,
                 () => new HttpIOException(HttpRequestError.ResponseEnded, "The response ended prematurely.")))
         });
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
         var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
@@ -596,7 +596,8 @@ public class PrideArchiveDownloadTests
         });
         using var client = new PrideArchiveClient(new HttpClient(handler))
         {
-            BodyStallTimeout = TimeSpan.FromMilliseconds(250)
+            BodyStallTimeout = TimeSpan.FromMilliseconds(250),
+            MaxRetries = 0
         };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
@@ -680,7 +681,7 @@ public class PrideArchiveDownloadTests
         // No PRIDE throw used to set StatusCode, so a caller could only tell a 403 from a 503 by parsing the
         // message. Retrying, and a caller deciding whether to, both need the status as data.
         var handler = new StubHandler(_ => Bytes(Encoding.UTF8.GetBytes("forbidden"), HttpStatusCode.Forbidden));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
         var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
@@ -693,7 +694,7 @@ public class PrideArchiveDownloadTests
     {
         // The REST path shares the rule: every status throw in the client carries the status.
         var handler = new StubHandler(_ => Json("{}", HttpStatusCode.ServiceUnavailable));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
 
         var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.GetProjectFilesAsync("PXD000001"));
 
@@ -705,7 +706,7 @@ public class PrideArchiveDownloadTests
     {
         // HttpClient.Timeout expiring throws TaskCanceledException, indistinguishable by type from a caller's
         // cancellation, so it used to escape the contract as an OperationCanceledException.
-        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) });
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) }) { MaxRetries = 0 };
         var file = MakeFile("run1.raw", "RAW", Ftp("pride/data/x/run1.raw"));
 
         var exception = Assert.ThrowsAsync<HttpRequestException>(async () => await client.DownloadFileAsync(file, _tempDir));
@@ -716,7 +717,7 @@ public class PrideArchiveDownloadTests
     [Test]
     public void GetProjectAsync_ServerNeverAnswers_ThrowsHttpRequestException()
     {
-        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) });
+        using var client = new PrideArchiveClient(new HttpClient(new SilentHandler()) { Timeout = TimeSpan.FromMilliseconds(200) }) { MaxRetries = 0 };
 
         Assert.That(async () => await client.GetProjectAsync("PXD000001"), Throws.InstanceOf<HttpRequestException>());
     }
@@ -784,7 +785,8 @@ public class PrideArchiveDownloadTests
         const string secret = "S3CR3T-REVIEWER-TOKEN";
         using var client = new PrideArchiveClient(new HttpClient(handler()) { Timeout = TimeSpan.FromMilliseconds(timeoutMs) })
         {
-            BodyStallTimeout = TimeSpan.FromMilliseconds(200)
+            BodyStallTimeout = TimeSpan.FromMilliseconds(200),
+            RetryDelay = (_, _) => Task.CompletedTask // retried for real, so the retry path is held to the rule too
         };
         var file = MakeFile("run1.raw", "RAW", ("PRIDE:0000000", $"https://private.example.org/files/run1.raw?token={secret}"));
 
@@ -874,7 +876,8 @@ public class PrideArchiveDownloadLiveTests
     public Task DownloadFileAsync_LiveSmallestFile_WritesRealBytes() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var files = await client.GetProjectFilesAsync("PXD012345");
             var smallest = files.OrderBy(f => f.FileSizeBytes).First(f => f.TryGetHttpsDownloadUrl(out _));
 

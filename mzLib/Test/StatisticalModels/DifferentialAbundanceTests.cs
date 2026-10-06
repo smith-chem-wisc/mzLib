@@ -26,6 +26,10 @@ public class DifferentialAbundanceTests
         Assert.That(Polygamma.Trigamma(0.5), Is.EqualTo(Math.PI * Math.PI / 2).Within(1e-12));
         Assert.That(Polygamma.Trigamma(2), Is.EqualTo(Math.PI * Math.PI / 6 - 1).Within(1e-13));
         Assert.That(Polygamma.Trigamma(1000), Is.EqualTo(1.0 / 1000 + 1.0 / (2 * 1e6) + 1.0 / (6 * 1e9)).Within(1e-15));
+        // Between 10 and 20 the series alone was off by up to 2e-13 relative; the recurrence now runs to 20.
+        // ψ′(10) = π²/6 − Σ_{k=1..9} 1/k².
+        double tri10 = Math.PI * Math.PI / 6 - Enumerable.Range(1, 9).Sum(k => 1.0 / ((double)k * k));
+        Assert.That(Polygamma.Trigamma(10), Is.EqualTo(tri10).Within(1e-14 * tri10));
     }
 
     [Test]
@@ -311,6 +315,83 @@ public class DifferentialAbundanceTests
         double expectedRatio = Math.Exp(-0.3 * (amean[n / 10] - amean[9 * n / 10]));
         Assert.That(trended.Trended);
         Assert.That(low / high, Is.EqualTo(expectedRatio).Within(0.1 * expectedRatio));
+    }
+
+    /// <summary>
+    /// limma's fitFDist sizes the default trend spline by the number of usable features,
+    /// 1 + (n ≥ 3) + (n ≥ 6) + (n ≥ 30), capped at the distinct covariate values; a size the caller
+    /// asks for is capped to leave one residual degree of freedom.
+    /// </summary>
+    [TestCase(2, 2, null, 1)]
+    [TestCase(3, 3, null, 2)]
+    [TestCase(5, 5, null, 2)]
+    [TestCase(6, 6, null, 3)]
+    [TestCase(29, 29, null, 3)]
+    [TestCase(30, 30, null, 4)]
+    [TestCase(5000, 5000, null, 4)]
+    [TestCase(30, 2, null, 2)]
+    [TestCase(30, 1, null, 1)]
+    [TestCase(20, 20, 4, 4)]
+    [TestCase(3, 3, 4, 2)]
+    [TestCase(100, 3, 6, 3)]
+    public void TrendBasisCount_FollowsLimmaWhenNotGiven(int usable, int distinct, int? requested, int expected)
+    {
+        Assert.That(EmpiricalBayes.TrendBasisCount(usable, distinct, requested), Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// Tied covariate values can put two knots on one value, or an interior knot on the upper boundary.
+    /// Either used to give 0/0 or a rank-deficient design and NaN everywhere; the knots are now merged.
+    /// </summary>
+    [TestCase(0.9, 30.0)]    // tied at the top: interior knots land on the upper boundary
+    [TestCase(0.6, 24.0)]    // tied in the middle: both interior knots coincide
+    [TestCase(0.45, 18.0)]   // tied at the bottom: an interior knot lands on the lower boundary
+    public void FitPrior_TiedCovariatesMergeKnotsInsteadOfGivingNaN(double tiedFraction, double tiedValue)
+    {
+        var rng = new MersenneTwister(23);
+        var chi = new ChiSquared(5, rng);
+        int n = 200, tied = (int)(tiedFraction * n);
+        var amean = Enumerable.Range(0, n).Select(g => g < tied ? tiedValue : 18 + 12.0 * rng.NextDouble()).ToArray();
+        var s2 = amean.Select(_ => 0.05 * chi.Sample() / 5).ToArray();
+        var prior = EmpiricalBayes.FitPrior(s2, Enumerable.Repeat(5.0, n).ToArray(), amean);
+
+        Assert.That(prior.Scale.All(double.IsFinite), "every feature gets a finite prior variance");
+        Assert.That(double.IsNaN(prior.Df), Is.False);
+        Assert.That(prior.SplineBasisCount, Is.InRange(2, EmpiricalBayes.DefaultSplineBasisCount));
+    }
+
+    [Test]
+    public void NaturalSplineBasis_MergesCoincidingKnotsAndStaysFullRank()
+    {
+        var x = Enumerable.Repeat(5.0, 8).Concat(new[] { 6.0, 7.0 }).ToArray();   // quantile knots all at 5
+        var basis = EmpiricalBayes.NaturalSplineBasis(x, 4);
+        Assert.That(basis.ColumnCount, Is.LessThan(4));
+        Assert.That(basis.Rank(), Is.EqualTo(basis.ColumnCount));
+        Assert.That(basis.Enumerate().All(double.IsFinite));
+
+        Assert.That(EmpiricalBayes.NaturalSplineBasis(Enumerable.Repeat(3.0, 6).ToArray(), 1).ColumnCount, Is.EqualTo(1));
+    }
+
+    /// <summary>limma refuses a missing covariate; silently dropping the feature hid it.</summary>
+    [TestCase(double.NaN)]
+    [TestCase(double.PositiveInfinity)]
+    public void FitPrior_RefusesANonFiniteCovariateOnAUsableFeature(double bad)
+    {
+        var s2 = new[] { 0.1, 0.2, 0.15, 0.3 };
+        var df = new[] { 4.0, 4, 4, 4 };
+        var ex = Assert.Throws<ArgumentException>(() => EmpiricalBayes.FitPrior(s2, df, new[] { 20, bad, 22, 23 }));
+        Assert.That(ex!.Message, Does.Contain("feature 1"));
+
+        // A feature that is not usable anyway (no df) may carry any covariate.
+        Assert.DoesNotThrow(() => EmpiricalBayes.FitPrior(s2, new[] { 4.0, 0, 4, 4 }, new[] { 20, bad, 22, 23 }));
+    }
+
+    [Test]
+    public void VariancePrior_ScaleCannotBeCastBackAndChanged()
+    {
+        var prior = EmpiricalBayes.FitPrior(new[] { 0.1, 0.2, 0.15, 0.3 }, new[] { 4.0, 4, 4, 4 });
+        Assert.That(prior.Scale, Is.Not.InstanceOf<double[]>());
+        Assert.Throws<NotSupportedException>(() => ((System.Collections.Generic.IList<double>)prior.Scale)[0] = 1);
     }
 
     /// <summary>Under the null, moderated p-values are uniform: about 5% fall below 0.05.</summary>
