@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using MassSpectrometry;
 
 namespace Readers
@@ -41,9 +42,15 @@ namespace Readers
     /// <para><b>Why refuse rather than repair.</b> An invalid <c>ExperimentalDesign.tsv</c> is worse
     /// than none: MetaMorpheus skips quantification with one warning and no error exit. So this reader
     /// checks everything MetaMorpheus's own validator checks (MAP-32), reports all of it at once rather
-    /// than the first failure, and writes nothing when anything fails. It relabels in only two ways,
-    /// both reported in <see cref="Notes"/>: biological replicates are ranked within each condition
-    /// (MAP-33), and rows naming a file the search does not read are dropped.</para>
+    /// than the first failure, and writes nothing when anything fails.</para>
+    ///
+    /// <para><b>Numbers are the SDRF's.</b> A biological replicate number the SDRF gives is written exactly
+    /// as given, never ranked or closed up: replicate 4 of one condition can be the same subject as replicate 4
+    /// of another, and a gap can be a lost sample. Only where the SDRF gives no number (no column, or
+    /// <c>not available</c>) is one added, per sample, never reusing a number the condition already has. That,
+    /// and dropping rows that name a file the search does not read, are the only changes, and both are reported
+    /// in <see cref="Notes"/>, as are gaps in the numbering and a sample name whose one number disagrees with
+    /// its replicate.</para>
     ///
     /// <para><b>Numbering.</b> The model (<see cref="SpectraFileInfo"/>) is 0-based; SDRF and
     /// <c>ExperimentalDesign.tsv</c> are 1-based. The conversion happens once on the way in and once
@@ -91,8 +98,9 @@ namespace Readers
         public IReadOnlyList<string> Refusals { get; }
 
         /// <summary>
-        /// What was relabelled or dropped on the way to a valid design: biological replicates
-        /// renumbered within a condition (with the mapping), and rows whose file is not searched.
+        /// What was added, dropped or worth checking on the way to a valid design: biological replicates added
+        /// where the SDRF gives none (with the numbers), rows whose file is not searched, conditions whose
+        /// replicates are not numbered 1..N, and sample names whose one number disagrees with their replicate.
         /// </summary>
         public IReadOnlyList<string> Notes { get; }
 
@@ -135,9 +143,9 @@ namespace Readers
         }
 
         /// <summary>
-        /// A human-readable account of the projection: the columns used, what was relabelled or
-        /// dropped, and every refusal. Print it wherever the design is built; it is the only record
-        /// of a renumbering (MAP-33).
+        /// A human-readable account of the projection: the columns used, what was added or dropped, and
+        /// every refusal. Print it wherever the design is built; it is the only record of a biological
+        /// replicate number this reader added.
         /// </summary>
         public string Report()
         {
@@ -179,9 +187,6 @@ namespace Readers
             var rows = sdrf.Results.ToList();
 
             string? keyColumn = SdrfDesignRules.ChooseFileKeyColumn(header, refusals);
-
-            if (!header.Contains(BiologicalReplicateColumn))
-                refusals.Add($"The SDRF has no '{BiologicalReplicateColumn}' column. MetaMorpheus needs a biological replicate for every file.");
 
             var conditionColumns = SdrfDesignRules.ResolveConditionColumns(header, options.ConditionColumns, refusals);
             bool conditionDeclared = options.ConditionColumns is { Count: > 0 };
@@ -237,7 +242,7 @@ namespace Readers
             if (refusals.Count > 0)
                 return new SdrfLabelFreeDesign(new List<SpectraFileInfo>(), refusals, notes, keyColumn, conditionColumns);
 
-            var bioreps = RankBiologicalReplicates(parsed, notes);
+            var bioreps = NumberBiologicalReplicates(parsed, rowsWereDropped: dropped.Count > 0, notes);
 
             var files = parsed
                 .Select(r => new SpectraFileInfo(r.FilePath, r.Condition, bioreps[r] - 1, r.TechnicalReplicate - 1, r.Fraction - 1))
@@ -255,7 +260,9 @@ namespace Readers
             public required string FilePath { get; set; }
             public required string Condition { get; init; }
             public required IReadOnlyList<string> FactorValues { get; init; }
-            public required int BiologicalReplicate { get; init; }
+            /// <summary>The SDRF's number, or null where it gives none.</summary>
+            public required int? BiologicalReplicate { get; init; }
+            public required string SourceName { get; init; }
             public required int Fraction { get; init; }
             public required int TechnicalReplicate { get; init; }
         }
@@ -278,7 +285,7 @@ namespace Readers
 
             var factorValues = SdrfDesignRules.ReadFactorValues(row, line, fileName, conditionColumns, conditionDeclared, refusals);
 
-            int biorep = SdrfDesignRules.ReadPositiveInteger(row, BiologicalReplicateColumn, line, fileName, required: true, refusals);
+            int? biorep = ReadBiologicalReplicate(row, line, fileName, refusals);
             int fraction = SdrfDesignRules.ReadPositiveInteger(row, FractionColumn, line, fileName, required: false, refusals);
             int techrep = SdrfDesignRules.ReadPositiveInteger(row, TechnicalReplicateColumn, line, fileName, required: false, refusals);
 
@@ -293,6 +300,7 @@ namespace Readers
                 Condition = SdrfDesignRules.JoinCondition(factorValues),
                 FactorValues = factorValues,
                 BiologicalReplicate = biorep,
+                SourceName = (row[SourceNameColumn] ?? string.Empty).Trim(),
                 Fraction = fraction,
                 TechnicalReplicate = techrep,
             };
@@ -308,28 +316,85 @@ namespace Readers
             }
         }
 
-        // MAP-33: rank the biological replicates within each condition, keeping their order.
-        // Study-wide numbering (control 1-3, treated 4-6) is common and MetaMorpheus rejects it.
-        private static Dictionary<ParsedRow, int> RankBiologicalReplicates(List<ParsedRow> rows, List<string> notes)
+        /// <summary>
+        /// The SDRF's biological replicate number, or null where it gives none: no column, an empty cell, or
+        /// <c>not available</c> / <c>not applicable</c>. Anything else that is not an integer of 1 or more is
+        /// refused, because it is a number the SDRF gives that cannot be kept.
+        /// </summary>
+        private static int? ReadBiologicalReplicate(SdrfRow row, int line, string fileName, List<string> refusals)
         {
-            var ranks = new Dictionary<ParsedRow, int>();
+            string text = (row[BiologicalReplicateColumn] ?? string.Empty).Trim();
+            if (text.Length == 0 || SdrfDesignRules.IsUnknownWord(text))
+                return null;
+
+            if (int.TryParse(text, NumberStyles.None, CultureInfo.InvariantCulture, out int value) && value >= 1)
+                return value;
+
+            refusals.Add($"Line {line}{SdrfDesignRules.Describe(fileName)}: '{BiologicalReplicateColumn}' is '{text}', not an integer of 1 or more.");
+            return null;
+        }
+
+        /// <summary>
+        /// Every row's biological replicate, 1-based. A number the SDRF gives is kept exactly. A sample the SDRF
+        /// gives no number (its rows share a <c>source name</c>; a row without one is a sample of its own) gets the
+        /// lowest number its condition does not already use, in row order. Reports what it added, any condition
+        /// not numbered 1..N, and any sample name whose only number is not its replicate.
+        /// </summary>
+        private static Dictionary<ParsedRow, int> NumberBiologicalReplicates(List<ParsedRow> rows, bool rowsWereDropped, List<string> notes)
+        {
+            var numbers = new Dictionary<ParsedRow, int>();
             foreach (var condition in rows.GroupBy(r => r.Condition, StringComparer.Ordinal))
             {
-                var values = condition.Select(r => r.BiologicalReplicate).Distinct().OrderBy(v => v).ToList();
-                for (int i = 0; i < values.Count; i++)
+                var used = condition.Where(r => r.BiologicalReplicate.HasValue).Select(r => r.BiologicalReplicate!.Value).ToHashSet();
+                foreach (var row in condition.Where(r => r.BiologicalReplicate.HasValue))
+                    numbers[row] = row.BiologicalReplicate!.Value;
+
+                var added = new List<string>();
+                foreach (var sample in condition.Where(r => !r.BiologicalReplicate.HasValue)
+                             .GroupBy(r => r.SourceName.Length > 0 ? r.SourceName : "line " + r.Line, StringComparer.Ordinal))
                 {
-                    foreach (var row in condition.Where(r => r.BiologicalReplicate == values[i]))
-                        ranks[row] = i + 1;
+                    int next = 1;
+                    while (used.Contains(next))
+                        next++;
+                    used.Add(next);
+                    foreach (var row in sample)
+                        numbers[row] = next;
+                    added.Add($"'{sample.Key}' -> {next}");
                 }
 
-                if (values.Select((v, i) => v != i + 1).Any(changed => changed))
+                if (added.Count > 0)
                 {
-                    notes.Add($"Condition '{condition.Key}': biological replicates renumbered " +
-                              string.Join(", ", values.Select((v, i) => $"{v} -> {i + 1}")) + ".");
+                    notes.Add($"Condition '{condition.Key}': the SDRF gives no biological replicate for {added.Count} sample(s), " +
+                              "so these were numbered here: " + string.Join(", ", added) + ".");
+                }
+
+                var present = used.OrderBy(v => v).ToList();
+                if (present.Select((v, i) => v != i + 1).Any(gap => gap))
+                {
+                    notes.Add($"Condition '{condition.Key}': biological replicates {string.Join(", ", present)}, kept as the SDRF numbers them. " +
+                              (rowsWereDropped
+                                  ? "Rows were dropped above, so a missing number may be a sample whose file is not searched."
+                                  : "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+                }
+
+                foreach (var sample in condition.Where(r => r.BiologicalReplicate.HasValue && r.SourceName.Length > 0)
+                             .GroupBy(r => r.SourceName, StringComparer.Ordinal))
+                {
+                    var numbersInName = Regex.Matches(sample.Key, @"\d+");
+                    if (numbersInName.Count != 1
+                        || !int.TryParse(numbersInName[0].Value, NumberStyles.None, CultureInfo.InvariantCulture, out int inName))
+                        continue;
+
+                    var disagreeing = sample.Select(r => r.BiologicalReplicate!.Value).Distinct().Where(v => v != inName).ToList();
+                    if (disagreeing.Count > 0)
+                    {
+                        notes.Add($"Line {sample.First().Line}: '{SourceNameColumn}' is '{sample.Key}', whose only number ({inName}) is not " +
+                                  $"its biological replicate ({string.Join(", ", disagreeing)}). Kept as the SDRF gives it; check which is meant.");
+                    }
                 }
             }
 
-            return ranks;
+            return numbers;
         }
 
         // The checks of MetaMorpheus's ExperimentalDesign.GetErrorsInExperimentalDesign, reporting
