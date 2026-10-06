@@ -332,8 +332,10 @@ public class ModificationLookupBaseTests
     {
         var tmt = CreateModification("TMT", residue, monoisotopicMass: 224.152478,
             chemicalFormula: ChemicalFormula.ParseFormula("H20C12N2O2"));
+        // TMTpro (Unimod 2016) is labeled: H25 C8 13C7 N 15N2 O3. H25C15N3O3 would be TMTpro_zero (2017).
         var tmtPro = CreateModification("TMTpro", residue, monoisotopicMass: 304.207146,
-            chemicalFormula: ChemicalFormula.ParseFormula("H25C15N3O3"));
+            chemicalFormula: ChemicalFormula.ParseFormula("H25C8C{13}7NN{15}2O3"));
+        Assert.That(tmtPro.ChemicalFormula.MonoisotopicMass, Is.EqualTo(304.207146).Within(1e-5));
         var lookup = new TestLookup(new[] { tmt, tmtPro });
 
         var resolved = lookup.TryResolve($"TMTpro on {residue}", residue);
