@@ -81,12 +81,12 @@ namespace Test.FileReadingTests.ProForma
         [TestCase("PEPM[Common Variable:Oxidation on M]K", "PEPM[UNIMOD:35]K",
             TestName = "FullSequence_MetaMorpheusOxidation_StaysUnimod35")]
         // A UniProt modification with a PSI-MOD reference but no Unimod one takes the PSI-MOD accession,
-        // written once: the loader stores the id already prefixed ("MOD:01956"), not as "MOD:MOD:01956".
-        [TestCase("PER[UniProt:(3R)-3-hydroxyarginine on R]K", "PER[MOD:01956]K",
+        // written once: the loader stores the id already prefixed ("MOD:01694"), not as "MOD:MOD:01694".
+        [TestCase("PEC[UniProt:S-(coelenterazin-3a-yl)cysteine on C]K", "PEC[MOD:01694]K",
             TestName = "FullSequence_UniProtModWithOnlyPsiMod_BecomesPsiModAccession")]
         // A UniProt modification with no ontology reference at all is written by name, as
         // ProFormaConverter.ToProFormaTerm writes the same modification.
-        [TestCase("PEK[UniProt:(3S)-3-hydroxylysine on K]K", "PEK[(3S)-3-hydroxylysine]K",
+        [TestCase("PED[UniProt:Cholesterol aspartate ester on D]K", "PED[Cholesterol aspartate ester]K",
             TestName = "FullSequence_UniProtModWithoutAccession_IsWrittenByName")]
         // MetaMorpheus writes a C-terminal modification after a '-', which is a terminus marker, not a residue.
         // The mod is MetaMorpheus's own (not in mzLib's set) and shares its name with the UniProt entry,

@@ -212,20 +212,20 @@ namespace Test.FileReadingTests.ProForma
         [Test]
         public void Layer2_LoadedPsiModAccession_IsWrittenWithOnePrefixAndReadsBack()
         {
-            // The ptmlist loader stores a PSI-MOD reference already prefixed ("MOD:01956"), unlike the bare
-            // Unimod and RESID ids, so prefixing it again wrote "MOD:MOD:01956".
+            // The ptmlist loader stores a PSI-MOD reference already prefixed ("MOD:01694"), unlike the bare
+            // Unimod and RESID ids, so prefixing it again wrote "MOD:MOD:01694".
             var known = Mods.AllModsKnownDictionary;
-            var mod = known["(3R)-3-hydroxyarginine on R"];
-            Assert.That(mod.DatabaseReference["PSI-MOD"], Does.Contain("MOD:01956"));
+            var mod = known["S-(coelenterazin-3a-yl)cysteine on C"];
+            Assert.That(mod.DatabaseReference["PSI-MOD"], Does.Contain("MOD:01694"));
 
-            var term = ProFormaConverter.ToProFormaTerm("PERK", new Dictionary<int, Modification> { [4] = mod });
-            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("PER[MOD:01956]K"));
+            var term = ProFormaConverter.ToProFormaTerm("PECK", new Dictionary<int, Modification> { [4] = mod });
+            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("PEC[MOD:01694]K"));
 
-            var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:01956]K"), known);
+            var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PEC[MOD:01694]K"), known);
             Assert.That(back[4], Is.SameAs(mod));
 
             // mzLib 1.0.590-1.0.593 wrote the doubled prefix, and those files are still on disk.
-            var legacy = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:MOD:01956]K"), known);
+            var legacy = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PEC[MOD:MOD:01694]K"), known);
             Assert.That(legacy[4], Is.SameAs(mod));
         }
 
