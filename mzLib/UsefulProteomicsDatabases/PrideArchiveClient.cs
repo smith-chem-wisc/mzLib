@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -107,6 +108,26 @@ namespace UsefulProteomicsDatabases
         /// </remarks>
         public TimeSpan BodyStallTimeout { get; init; } = TimeSpan.FromMinutes(2);
 
+        /// <summary>
+        /// The wait before each retry of a transient failure: 5 s, 20 s, then 60 s, so a failure that persists
+        /// gives up after about 85 s of backoff. See <see cref="WithRetryAsync{T}"/> for what counts as transient.
+        /// </summary>
+        /// <remarks>
+        /// Deliberately internal. mzLib has no public retry policy anywhere, and nobody has asked for one;
+        /// a knob can be published later, but a published one cannot be taken back.
+        /// </remarks>
+        private static readonly TimeSpan[] RetryBackoff =
+            { TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(20), TimeSpan.FromSeconds(60) };
+
+        /// <summary>The longest <c>Retry-After</c> a 429 or 503 is allowed to make a retry wait.</summary>
+        private static readonly TimeSpan MaxRetryAfter = TimeSpan.FromSeconds(60);
+
+        /// <summary>How many times a transient failure is retried after the first attempt. Tests set 0 to pin a single attempt.</summary>
+        internal int MaxRetries { get; init; } = RetryBackoff.Length;
+
+        /// <summary>Waits out a backoff. Tests replace it to record the schedule instead of sleeping through it.</summary>
+        internal Func<TimeSpan, CancellationToken, Task> RetryDelay { get; init; } = Task.Delay;
+
         /// <summary>Creates a client with its own <see cref="HttpClient"/> pointed at the PRIDE Archive API.</summary>
         public PrideArchiveClient()
             : this(new HttpClient { BaseAddress = new Uri(DefaultBaseAddress), Timeout = TimeSpan.FromSeconds(100) }, ownsHttpClient: true)
@@ -167,7 +188,7 @@ namespace UsefulProteomicsDatabases
         /// </returns>
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
-        /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
+        /// <exception cref="HttpRequestException">The API returned a non-success status code or did not answer. A transient failure of one page is retried, that page alone, as <see cref="DownloadFileAsync"/> describes before this is thrown.</exception>
         /// <exception cref="MzLibException">
         /// PRIDE answered successfully but served a page identical to its predecessor while
         /// <c>total_records</c> reported more remained — a broken contract rather than an outage, so it
@@ -209,7 +230,7 @@ namespace UsefulProteomicsDatabases
         /// <returns>Every file under the project's FTP root, subdirectories included. Never null.</returns>
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="MzLibException">No project has that accession, or it carries no publication date to locate its FTP directory.</exception>
-        /// <exception cref="HttpRequestException">The project or a directory could not be fetched (non-success status), or the directory nesting exceeded the cyclic-listing guard.</exception>
+        /// <exception cref="HttpRequestException">The project or a directory could not be fetched (non-success status), or the project's root directory listed no entries at all, which is EBI serving a bad listing rather than an empty project. Transient failures, an empty root included, are retried as <see cref="DownloadFileAsync"/> describes before this is thrown.</exception>
         /// <exception cref="OperationCanceledException">The operation was cancelled via <paramref name="cancellationToken"/>.</exception>
         public async Task<List<PrideFtpFile>> GetProjectFilesFromFtpAsync(string accession,
             CancellationToken cancellationToken = default)
@@ -229,7 +250,7 @@ namespace UsefulProteomicsDatabases
                 PrideArchiveExtensions.PrideFtpHost, project.PublicationDate, accession);
 
             var files = new List<PrideFtpFile>();
-            await CollectFtpFilesAsync(new Uri(rootUrl), relativePrefix: "", depth: 0, files, cancellationToken)
+            await CollectFtpFilesAsync(accession, new Uri(rootUrl), relativePrefix: "", depth: 0, files, cancellationToken)
                 .ConfigureAwait(false);
             return files;
         }
@@ -249,7 +270,7 @@ namespace UsefulProteomicsDatabases
         /// project root down to this directory, so nested files carry a full relative path;
         /// <paramref name="depth"/> bounds the recursion.
         /// </summary>
-        private async Task CollectFtpFilesAsync(Uri directoryUri, string relativePrefix, int depth,
+        private async Task CollectFtpFilesAsync(string accession, Uri directoryUri, string relativePrefix, int depth,
             List<PrideFtpFile> files, CancellationToken cancellationToken)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -263,14 +284,29 @@ namespace UsefulProteomicsDatabases
                 throw new MzLibException(
                     $"PRIDE FTP directory nesting exceeded {MaxFtpDirectoryDepth} levels at '{directoryUri}'; the listing may be cyclic.");
 
-            using HttpResponseMessage response = await _httpClient.GetAsync(directoryUri, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                throw new HttpRequestException(
-                    $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.");
+            List<(string RawHref, string SizeText)> rows = await WithRetryAsync(async () =>
+            {
+                using HttpResponseMessage response = await GetAsync(directoryUri.AbsoluteUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+                if (!response.IsSuccessStatusCode)
+                    throw StatusFailure(response,
+                        $"PRIDE FTP directory listing failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{directoryUri}'.");
 
-            string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                string html = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+                List<(string RawHref, string SizeText)> listed = ParseAutoIndexRows(html).ToList();
 
-            foreach ((string rawHref, string sizeText) in ParseAutoIndexRows(html))
+                // The project resolved, so its root directory exists and holds at least the files PRIDE was
+                // given. A root that answers 200 with no entries is EBI serving a bad listing, and returning []
+                // for it made PXD058248 (46 files) look like "no such project" to pyMzLib, which does not retry
+                // that. So it is a transport failure, and retried. A SUBDIRECTORY can genuinely be empty
+                // (PXD001174's .wiff directory is), so only the root is held to this.
+                if (depth == 0 && listed.Count == 0)
+                    throw new HttpRequestException(
+                        $"PRIDE FTP listing of project {accession}'s root directory came back empty although the project exists.");
+
+                return listed;
+            }, directoryUri.Host, cancellationToken).ConfigureAwait(false);
+
+            foreach ((string rawHref, string sizeText) in rows)
             {
                 // rawHref is the link's attribute value, still URL-encoded. Resolve HTML entities, then
                 // compose the child URL with Uri joining (which escapes and handles the base's trailing
@@ -290,7 +326,7 @@ namespace UsefulProteomicsDatabases
                 Uri childUri = new(directoryUri, href);
 
                 if (isDirectory)
-                    await CollectFtpFilesAsync(childUri, relativePrefix + name, depth + 1, files, cancellationToken)
+                    await CollectFtpFilesAsync(accession, childUri, relativePrefix + name, depth + 1, files, cancellationToken)
                         .ConfigureAwait(false);
                 else
                     files.Add(new PrideFtpFile(relativePrefix + name, ParseAutoIndexSize(sizeText), childUri.AbsoluteUri));
@@ -429,16 +465,22 @@ namespace UsefulProteomicsDatabases
             // This endpoint shares the v3 BaseAddress, so a relative URI resolves correctly (unlike PROXI,
             // which sits under a different path root and needs an absolute URI).
             string requestUri = $"projects/{Uri.EscapeDataString(accession)}";
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
+            using HttpResponseMessage response = await WithRetryAsync(async () =>
+            {
+                HttpResponseMessage attempt = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
 
-            // 404 is the ONE expected "no" and is reported as a value. It is checked before the general
-            // status guard so that every other failure still throws.
+                // 404 is the ONE expected "no" and is reported as a value, so it is let through here and never
+                // retried. It is checked before the general status guard so that every other failure still throws.
+                if (attempt.IsSuccessStatusCode || attempt.StatusCode == HttpStatusCode.NotFound)
+                    return attempt;
+
+                using (attempt)
+                    throw StatusFailure(attempt,
+                        $"PRIDE Archive request failed with status {(int)attempt.StatusCode} {attempt.ReasonPhrase} for '{requestUri}'.");
+            }, HostOf(requestUri), cancellationToken).ConfigureAwait(false);
+
             if (response.StatusCode == HttpStatusCode.NotFound)
                 return (false, null);
-
-            if (!response.IsSuccessStatusCode)
-                throw new HttpRequestException(
-                    $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
 
             string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -549,7 +591,7 @@ namespace UsefulProteomicsDatabases
         /// The keyword is null, empty, whitespace, or longer than <see cref="MaxKeywordLength"/>.
         /// </exception>
         /// <exception cref="ArgumentOutOfRangeException">The page size is not positive.</exception>
-        /// <exception cref="HttpRequestException">The API returned a non-success status code.</exception>
+        /// <exception cref="HttpRequestException">The API returned a non-success status code or did not answer. A transient failure of one page is retried, that page alone, as <see cref="DownloadFileAsync"/> describes before this is thrown.</exception>
         /// <exception cref="MzLibException">
         /// PRIDE answered successfully but served a page identical to its predecessor while
         /// <c>total_records</c> reported more remained — a broken contract rather than an outage.
@@ -603,6 +645,20 @@ namespace UsefulProteomicsDatabases
         /// ".partial" file and moved into place only on success, so an interrupted transfer never leaves a
         /// truncated file at the destination path.
         /// </summary>
+        /// <remarks>
+        /// A transient failure is retried up to three times, after 5 s, 20 s and 60 s (a 429 or 503 that sends
+        /// <c>Retry-After</c> sets its own wait, capped at 60 s). Transient means a timeout, a dropped or stalled
+        /// body, 408, 429, any 5xx, and 403 from PRIDE's FTP host, which is how EBI rate-limits it.
+        /// <para>
+        /// A retry resumes rather than restarting: it asks only for the bytes the ".partial" lacks, under
+        /// <c>If-Range</c>, so a file that changed on the server is fetched whole instead of spliced. When the
+        /// retries run out the ".partial" is KEPT, beside a ".partial.validator" file recording the validator it
+        /// was served under, and the next call for the same file resumes it. That is what keeps a re-run after a
+        /// failed multi-gigabyte transfer cheap. A ".partial" with no validator (a server that sends neither
+        /// <c>ETag</c> nor <c>Last-Modified</c>) cannot be resumed safely, so it is not kept. After any failure that
+        /// is not transient, both files are deleted.
+        /// </para>
+        /// </remarks>
         /// <param name="file">The file to download. Must not be null and must have a file name.</param>
         /// <param name="destinationDirectory">The directory to write into; created if it does not exist.</param>
         /// <param name="overwrite">
@@ -614,7 +670,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentNullException">The file is null.</exception>
         /// <exception cref="ArgumentException">The destination directory is blank, the file has no name, or the file name is not a bare file name (contains a path separator, a "..", or a root).</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only).</exception>
-        /// <exception cref="HttpRequestException">The download returned a non-success status code, or the response body delivered nothing for <see cref="BodyStallTimeout"/>.</exception>
+        /// <exception cref="HttpRequestException">The download returned a non-success status code (carried in <see cref="HttpRequestException.StatusCode"/>), PRIDE did not answer within the client's timeout, the connection dropped while the body was being read, the body delivered nothing for <see cref="BodyStallTimeout"/>, or the file did not come to the length the server announced. A transient one is thrown only after its retries are spent, as the last attempt's exception. The message names the file and host, never the URL.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled. A stall is NOT reported this way — see <see cref="BodyStallTimeout"/>.</exception>
         public async Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
             bool overwrite = true, CancellationToken cancellationToken = default)
@@ -644,34 +700,376 @@ namespace UsefulProteomicsDatabases
                 return destinationPath;
 
             string url = file.GetHttpsDownloadUrl(); // throws NotSupportedException if unreachable over HTTPS
+            string described = DescribeDownload(url, safeFileName);
 
             Directory.CreateDirectory(destinationDirectory);
 
-            using HttpResponseMessage response =
-                await _httpClient.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
-            if (!response.IsSuccessStatusCode)
-                throw new HttpRequestException(
-                    $"PRIDE download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{url}'.");
-
             string partialPath = destinationPath + ".partial";
+            string validatorPath = partialPath + ValidatorSuffix;
+            string host = HostOf(url);
+
+            // A .partial left by an earlier call is resumable only with the validator it was started under;
+            // without one, nothing proves the bytes on disk are the start of the file the server holds now.
+            var transfer = new ResumableTransfer { Validator = ReadValidator(partialPath, validatorPath) };
+
             try
             {
-                using (var fileStream = new FileStream(partialPath, FileMode.Create, FileAccess.Write, FileShare.None))
+                await WithRetryAsync(() => DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken),
+                    host, cancellationToken).ConfigureAwait(false);
+                File.Move(partialPath, destinationPath, overwrite: true);
+                DeleteQuietly(validatorPath);
+            }
+            catch (HttpRequestException e) when (IsTransient(e, host) && transfer.Validator != null && File.Exists(partialPath))
+            {
+                // Kept on purpose: EBI failed, not the file, and the validator beside it lets the next call
+                // ask only for the bytes that are missing instead of paying for the whole file again.
+                throw;
+            }
+            catch
+            {
+                // Anything else -- a refusal, a broken contract, the caller's disk, the caller's cancellation --
+                // gives no reason to trust the partial bytes, so neither they nor their validator survive.
+                DeleteQuietly(partialPath);
+                DeleteQuietly(validatorPath);
+                throw;
+            }
+
+            return destinationPath;
+        }
+
+        /// <summary>
+        /// The suffix of the sidecar file, beside a <c>.partial</c>, that holds the validator (strong
+        /// <c>ETag</c>, else <c>Last-Modified</c>) the partial bytes were downloaded under.
+        /// </summary>
+        internal const string ValidatorSuffix = ".validator";
+
+        /// <summary>What one download carries from a failed attempt into the next.</summary>
+        private sealed class ResumableTransfer
+        {
+            /// <summary>The validator the partial bytes were served under, or null when they cannot be resumed.</summary>
+            public RangeConditionHeaderValue Validator { get; set; }
+        }
+
+        /// <summary>
+        /// One download attempt into <paramref name="partialPath"/>: a ranged request when the partial can be
+        /// resumed, else a full one. Returns once the partial holds the complete file.
+        /// </summary>
+        /// <remarks>
+        /// Bytes are appended only to a <c>206</c> whose <c>Content-Range</c> starts exactly where the partial
+        /// ends, sent under <c>If-Range</c> so the server answers with the whole file instead if it has changed.
+        /// Any other answer to a ranged request -- a <c>200</c>, a <c>206</c> starting elsewhere, a <c>416</c> --
+        /// starts the file again from zero. The guarantee is that no truncated or spliced file is ever moved
+        /// into place, not that no <c>.partial</c> is ever left behind.
+        /// </remarks>
+        private async Task<bool> DownloadOnceAsync(string url, string described, string partialPath,
+            string validatorPath, ResumableTransfer transfer, CancellationToken cancellationToken)
+        {
+            long resumeFrom = transfer.Validator != null && File.Exists(partialPath) ? new FileInfo(partialPath).Length : 0;
+
+            HttpResponseMessage response = await SendDownloadRequestAsync(url, described, resumeFrom, transfer.Validator, cancellationToken).ConfigureAwait(false);
+            try
+            {
+                bool resumed = resumeFrom > 0
+                    && response.StatusCode == HttpStatusCode.PartialContent
+                    && response.Content.Headers.ContentRange?.From == resumeFrom;
+
+                if (resumeFrom > 0 && !resumed
+                    && response.StatusCode is HttpStatusCode.PartialContent or HttpStatusCode.RequestedRangeNotSatisfiable)
+                {
+                    // A 206 for some other range, or a 416, cannot be spliced onto what is on disk, and its body
+                    // is not the whole file either. Ask again for the whole file.
+                    response.Dispose();
+                    resumeFrom = 0;
+                    response = await SendDownloadRequestAsync(url, described, 0, null, cancellationToken).ConfigureAwait(false);
+                }
+
+                if (!response.IsSuccessStatusCode)
+                    throw StatusFailure(response,
+                        $"PRIDE download failed with status {(int)response.StatusCode} {response.ReasonPhrase} for {described}.");
+
+                long? expectedLength;
+                if (resumed)
+                {
+                    expectedLength = response.Content.Headers.ContentRange.Length;
+                }
+                else
+                {
+                    // A fresh start: whatever is on disk is discarded, and the validator is the new response's.
+                    expectedLength = response.Content.Headers.ContentLength;
+                    transfer.Validator = ValidatorOf(response);
+                    WriteValidator(validatorPath, transfer.Validator);
+                }
+
+                using (var fileStream = new FileStream(partialPath, resumed ? FileMode.Append : FileMode.Create,
+                           FileAccess.Write, FileShare.None))
                 using (Stream httpStream = await response.Content.ReadAsStreamAsync(cancellationToken).ConfigureAwait(false))
                 {
                     // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
                     // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
-                    await CopyUntilStalledAsync(httpStream, fileStream, url, cancellationToken).ConfigureAwait(false);
+                    await CopyUntilStalledAsync(httpStream, fileStream, described, cancellationToken).ConfigureAwait(false);
                 }
-                File.Move(partialPath, destinationPath, overwrite: true);
+
+                long actualLength = new FileInfo(partialPath).Length;
+                if (expectedLength.HasValue && actualLength != expectedLength.Value)
+                {
+                    // The body ended cleanly but the file is not the size the server said it was. These bytes are
+                    // not trusted for a resume either, so they go, and a retry starts from zero.
+                    DeleteQuietly(partialPath);
+                    DeleteQuietly(validatorPath);
+                    transfer.Validator = null;
+                    throw new HttpRequestException(
+                        $"The PRIDE download of {described} came to {actualLength} bytes where the server announced {expectedLength.Value}.");
+                }
+
+                return true;
             }
             finally
             {
-                if (File.Exists(partialPath))
-                    File.Delete(partialPath);
+                response.Dispose();
+            }
+        }
+
+        /// <summary>
+        /// Sends the download GET. A positive <paramref name="resumeFrom"/> asks for the rest of the file only,
+        /// and only if it still matches <paramref name="validator"/>.
+        /// </summary>
+        private Task<HttpResponseMessage> SendDownloadRequestAsync(string url, string described, long resumeFrom,
+            RangeConditionHeaderValue validator, CancellationToken cancellationToken)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, url);
+            if (resumeFrom > 0 && validator != null)
+            {
+                request.Headers.Range = new RangeHeaderValue(resumeFrom, null);
+                request.Headers.IfRange = validator;
             }
 
-            return destinationPath;
+            return SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken, described);
+        }
+
+        /// <summary>
+        /// The validator to resume a response's body under: its strong <c>ETag</c>, else its <c>Last-Modified</c>,
+        /// else null. A weak ETag is not allowed in <c>If-Range</c>.
+        /// </summary>
+        /// <remarks>
+        /// With no validator the bytes cannot be resumed, not even within this call: a <c>Range</c> request with
+        /// no <c>If-Range</c> could splice two versions of a file together. PRIDE's public FTP host sends both
+        /// validators. Its reviewer-token route sends neither (measured 2026-09-29), so a private download
+        /// restarts from zero after a failure.
+        /// </remarks>
+        private static RangeConditionHeaderValue ValidatorOf(HttpResponseMessage response)
+        {
+            if (response.Headers.ETag is { IsWeak: false } etag)
+                return new RangeConditionHeaderValue(etag);
+            if (response.Content.Headers.LastModified is DateTimeOffset lastModified)
+                return new RangeConditionHeaderValue(lastModified);
+            return null;
+        }
+
+        /// <summary>
+        /// Reads the validator a <c>.partial</c> was started under. An orphan -- a partial with no readable
+        /// validator, or a validator with no partial -- is deleted, because it can never be resumed.
+        /// </summary>
+        private static RangeConditionHeaderValue ReadValidator(string partialPath, string validatorPath)
+        {
+            RangeConditionHeaderValue validator = null;
+            try
+            {
+                if (File.Exists(partialPath) && File.Exists(validatorPath))
+                    RangeConditionHeaderValue.TryParse(File.ReadAllText(validatorPath).Trim(), out validator);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+
+            if (validator == null)
+            {
+                DeleteQuietly(partialPath);
+                DeleteQuietly(validatorPath);
+            }
+            return validator;
+        }
+
+        /// <summary>Records <paramref name="validator"/> beside the partial, or removes a stale record when there is none.</summary>
+        private static void WriteValidator(string validatorPath, RangeConditionHeaderValue validator)
+        {
+            if (validator == null)
+                DeleteQuietly(validatorPath);
+            else
+                File.WriteAllText(validatorPath, validator.ToString());
+        }
+
+        /// <summary>
+        /// Deletes a scratch file if it is there. Cleanup must never replace the exception that caused it: on
+        /// Windows a locked file makes Delete throw, and ProteinDbRetriever.WriteResponseToFile guards the same way.
+        /// </summary>
+        private static void DeleteQuietly(string path)
+        {
+            try
+            {
+                if (File.Exists(path))
+                    File.Delete(path);
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
+
+        /// <summary>
+        /// Sends a GET, reporting <see cref="HttpClient.Timeout"/> expiring as the transport failure it is.
+        /// </summary>
+        /// <remarks>
+        /// When the client's own timeout fires, <see cref="HttpClient"/> throws a
+        /// <see cref="TaskCanceledException"/> -- the same type a caller's cancellation produces -- so an EBI
+        /// that never answers escaped the documented contract (and <c>ExternalServiceTestHelper</c>, which
+        /// skips only on transport failures). HttpClient marks its own timeout with an inner
+        /// <see cref="TimeoutException"/>, so only that is converted; a caller's cancellation, through the token or
+        /// through <see cref="HttpClient.CancelPendingRequests"/> on an injected client, is not.
+        /// </remarks>
+        /// <param name="requestUri">The URI to fetch.</param>
+        /// <param name="completionOption">When the returned task completes.</param>
+        /// <param name="cancellationToken">The caller's token; its cancellation is never converted.</param>
+        /// <param name="described">How the request is named in the message; defaults to the URI itself.</param>
+        private Task<HttpResponseMessage> GetAsync(string requestUri, HttpCompletionOption completionOption,
+            CancellationToken cancellationToken, string described = null) =>
+            SendAsync(new HttpRequestMessage(HttpMethod.Get, requestUri), completionOption, cancellationToken,
+                described ?? $"'{requestUri}'");
+
+        /// <summary>
+        /// <see cref="GetAsync"/> for a request that carries headers of its own (a resumed download's
+        /// <c>Range</c>). Takes ownership of <paramref name="request"/>.
+        /// </summary>
+        private async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, HttpCompletionOption completionOption,
+            CancellationToken cancellationToken, string described)
+        {
+            using (request)
+            {
+                try
+                {
+                    return await _httpClient.SendAsync(request, completionOption, cancellationToken).ConfigureAwait(false);
+                }
+                catch (TaskCanceledException e) when (e.InnerException is TimeoutException)
+                {
+                    throw new HttpRequestException(
+                        $"PRIDE did not respond within {_httpClient.Timeout} for {described}.", e);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Fetches <paramref name="requestUri"/> in full, retrying transient failures, and returns the response
+        /// only once it has a success status. Any other status throws, worded by <paramref name="describeFailure"/>.
+        /// </summary>
+        private Task<HttpResponseMessage> GetSuccessAsync(string requestUri,
+            Func<HttpResponseMessage, string> describeFailure, CancellationToken cancellationToken) =>
+            WithRetryAsync(async () =>
+            {
+                HttpResponseMessage response = await GetAsync(requestUri, HttpCompletionOption.ResponseContentRead, cancellationToken).ConfigureAwait(false);
+                if (response.IsSuccessStatusCode)
+                    return response;
+
+                using (response)
+                    throw StatusFailure(response, describeFailure(response));
+            }, HostOf(requestUri), cancellationToken);
+
+        /// <summary>
+        /// The exception for a non-success status: an <see cref="HttpRequestException"/> carrying the status,
+        /// plus the server's <c>Retry-After</c> when it sent one, for <see cref="WithRetryAsync{T}"/> to honour.
+        /// </summary>
+        private static HttpRequestException StatusFailure(HttpResponseMessage response, string message)
+        {
+            var exception = new HttpRequestException(message, null, response.StatusCode);
+            TimeSpan? retryAfter = response.Headers.RetryAfter?.Delta
+                ?? (response.Headers.RetryAfter?.Date is DateTimeOffset date ? date - DateTimeOffset.UtcNow : null);
+            if (retryAfter.HasValue)
+                exception.Data[RetryAfterKey] = retryAfter.Value;
+            return exception;
+        }
+
+        private const string RetryAfterKey = "PrideArchiveClient.RetryAfter";
+
+        /// <summary>
+        /// Runs <paramref name="attempt"/>, retrying it up to <see cref="MaxRetries"/> times while it fails
+        /// transiently, and lets the last failure propagate unchanged: same type, same
+        /// <see cref="HttpRequestException.StatusCode"/>, same message.
+        /// </summary>
+        /// <remarks>
+        /// PR-A made every transport failure an <see cref="HttpRequestException"/>, so the decision is made on
+        /// the exception alone. One with no status is a transport failure (a timeout, a dropped or stalled
+        /// body) and is always transient. One with a status is transient for 408, 429 and every 5xx -- and for
+        /// 403 on the FTP host only, because EBI answers rate limiting there with 403 rather than 429. On the
+        /// REST host a 403 is a real refusal, and retrying it would only delay the answer by 85 s.
+        /// <para>
+        /// Never retried: a <see cref="MzLibException"/> (PRIDE answered, and broke its contract, which a
+        /// second ask will not mend), a write-side <see cref="IOException"/> (the caller's disk) and the
+        /// caller's cancellation, which also ends a backoff in progress.
+        /// </para>
+        /// </remarks>
+        /// <param name="attempt">One complete attempt, from sending the request to checking the status.</param>
+        /// <param name="host">The host the request goes to; decides whether a 403 is transient.</param>
+        /// <param name="cancellationToken">Cancels the attempt and any backoff.</param>
+        private async Task<T> WithRetryAsync<T>(Func<Task<T>> attempt, string host, CancellationToken cancellationToken)
+        {
+            for (int retry = 0; ; retry++)
+            {
+                try
+                {
+                    return await attempt().ConfigureAwait(false);
+                }
+                catch (HttpRequestException e) when (retry < MaxRetries && IsTransient(e, host))
+                {
+                    await RetryDelay(BackoffFor(retry, e), cancellationToken).ConfigureAwait(false);
+                }
+            }
+        }
+
+        /// <summary>Whether <see cref="WithRetryAsync{T}"/> would retry <paramref name="exception"/> against <paramref name="host"/>.</summary>
+        private static bool IsTransient(HttpRequestException exception, string host)
+        {
+            if (exception.StatusCode is not HttpStatusCode status)
+                return true;
+
+            int code = (int)status;
+            return status == HttpStatusCode.RequestTimeout
+                || status == HttpStatusCode.TooManyRequests
+                || code >= 500
+                || (status == HttpStatusCode.Forbidden
+                    && string.Equals(host, PrideArchiveExtensions.PrideFtpHost, StringComparison.OrdinalIgnoreCase));
+        }
+
+        /// <summary>
+        /// The wait before retry <paramref name="retry"/> (zero-based): the server's <c>Retry-After</c> on a
+        /// 429 or 503, capped at <see cref="MaxRetryAfter"/>, else the fixed backoff.
+        /// </summary>
+        private static TimeSpan BackoffFor(int retry, HttpRequestException exception)
+        {
+            if (exception.StatusCode is HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable
+                && exception.Data[RetryAfterKey] is TimeSpan retryAfter)
+            {
+                if (retryAfter < TimeSpan.Zero)
+                    return TimeSpan.Zero;
+                return retryAfter > MaxRetryAfter ? MaxRetryAfter : retryAfter;
+            }
+
+            return RetryBackoff[Math.Min(retry, RetryBackoff.Length - 1)];
+        }
+
+        /// <summary>The host a request URI goes to, resolving a relative one against the client's base address.</summary>
+        private string HostOf(string requestUri) =>
+            Uri.TryCreate(requestUri, UriKind.Absolute, out Uri absolute)
+                ? absolute.Host
+                : _httpClient.BaseAddress?.Host ?? string.Empty;
+
+        /// <summary>
+        /// Names a download for an exception message by its file name and host only -- never the URL itself.
+        /// </summary>
+        /// <remarks>
+        /// A download URL can carry a credential: PRIDE's reviewer-token route hands out hrefs whose query
+        /// string IS the token. An exception message ends up in logs, CI output and pasted issues, so the URL
+        /// never goes into one. The public route's URLs are harmless, but a rule that holds only for harmless
+        /// URLs is not a rule.
+        /// </remarks>
+        internal static string DescribeDownload(string url, string fileName)
+        {
+            string host = Uri.TryCreate(url, UriKind.Absolute, out Uri uri) ? uri.Host : "an unparseable URL";
+            return $"'{fileName}' from {host}";
         }
 
         /// <summary>
@@ -686,7 +1084,7 @@ namespace UsefulProteomicsDatabases
         /// <see cref="OperationCanceledException"/> they asked for, because reporting that as a transport
         /// failure would make <c>ExternalServiceTestHelper</c> skip a test that was deliberately cancelled.
         /// </remarks>
-        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string url,
+        private async Task CopyUntilStalledAsync(Stream source, Stream destination, string described,
             CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[81920];
@@ -704,7 +1102,18 @@ namespace UsefulProteomicsDatabases
                                                                && !cancellationToken.IsCancellationRequested)
                     {
                         throw new HttpRequestException(
-                            $"The PRIDE response body for '{url}' delivered nothing for {BodyStallTimeout}.", e);
+                            $"The PRIDE response body for {described} delivered nothing for {BodyStallTimeout}.", e);
+                    }
+                    catch (IOException e)
+                    {
+                        // A connection EBI drops mid-body arrives here as an IOException (HttpIOException on
+                        // .NET 10, "The response ended prematurely"), not as the HttpRequestException the
+                        // contract promises -- so a caller catching "try again later" missed the phase where a
+                        // large download actually breaks, and a live test reddened instead of skipping. Only
+                        // the READ is wrapped: a failure writing the local file is the caller's disk, not an
+                        // outage, and stays an IOException.
+                        throw new HttpRequestException(
+                            $"The PRIDE response body for {described} ended before the download completed.", e);
                     }
                 }
 
@@ -779,11 +1188,9 @@ namespace UsefulProteomicsDatabases
             // GetProjectFilesAsync pattern) would resolve to the wrong path. An absolute PROXI URI overrides the
             // client's BaseAddress. resultType=full asks PROXI for the peak arrays, not just the metadata.
             string requestUri = $"{DefaultProxiBaseAddress}spectra?usi={Uri.EscapeDataString(usi)}&resultType=full";
-            using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
-
-            if (!response.IsSuccessStatusCode)
-                throw new HttpRequestException(
-                    $"PRIDE PROXI request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+            using HttpResponseMessage response = await GetSuccessAsync(requestUri,
+                r => $"PRIDE PROXI request failed with status {(int)r.StatusCode} {r.ReasonPhrase} for '{requestUri}'.",
+                cancellationToken).ConfigureAwait(false);
 
             string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
 
@@ -886,11 +1293,13 @@ namespace UsefulProteomicsDatabases
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 string requestUri = requestUriForPage(page);
-                using HttpResponseMessage response = await _httpClient.GetAsync(requestUri, cancellationToken).ConfigureAwait(false);
 
-                if (!response.IsSuccessStatusCode)
-                    throw new HttpRequestException(
-                        $"PRIDE Archive request failed with status {(int)response.StatusCode} {response.ReasonPhrase} for '{requestUri}'.");
+                // Only this page's request is retried, never the fetch: restarting would re-read pages
+                // already held and widen the live-index drift window SearchProjectsAsync's dedup absorbs.
+                // About 6% of search requests stall for ~93 s, so without this one slow page lost the lot.
+                using HttpResponseMessage response = await GetSuccessAsync(requestUri,
+                    r => $"PRIDE Archive request failed with status {(int)r.StatusCode} {r.ReasonPhrase} for '{requestUri}'.",
+                    cancellationToken).ConfigureAwait(false);
 
                 string content = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
                 List<T> pageItems =

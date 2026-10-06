@@ -67,10 +67,45 @@ namespace MzIdentML
 
 
         public MzidIdentifications(string mzidFile)
+            : this(() => new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+        {
+        }
+
+        /// <summary>
+        /// Reads an mzIdentML document from a stream, for example a <see cref="System.IO.Compression.GZipStream"/>
+        /// over a .mzid.gz file, without writing it to disk first. The stream is read to its end once and is
+        /// not disposed; the caller owns it. Every schema version, and the legacy ".../1.1.0" namespace, is
+        /// accepted exactly as by the path constructor.
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="mzidStream"/> is null.</exception>
+        public MzidIdentifications(Stream mzidStream)
+            : this(BufferOnce(mzidStream))
+        {
+        }
+
+        /// <summary>
+        /// Copies a stream into memory once so the version cascade below can re-read it per attempt: a
+        /// forward-only stream (GZipStream, a network body) cannot be rewound between arms.
+        /// </summary>
+        private static Func<Stream> BufferOnce(Stream stream)
+        {
+            ArgumentNullException.ThrowIfNull(stream);
+
+            using var buffer = new MemoryStream();
+            stream.CopyTo(buffer);
+            byte[] bytes = buffer.ToArray();
+            return () => new MemoryStream(bytes, writable: false);
+        }
+
+        /// <summary>
+        /// Tries each schema version in turn. <paramref name="openStream"/> is called once per attempt and
+        /// every stream it returns is disposed here.
+        /// </summary>
+        private MzidIdentifications(Func<Stream> openStream)
         {
             try
             {
-                using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (Stream stream = openStream())
                 {
                     XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType110));
                     // Read the XML file into the variable
@@ -81,7 +116,7 @@ namespace MzIdentML
             {
                 try
                 {
-                    using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    using (Stream stream = openStream())
                     {
                         XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML111.Generated.MzIdentMLType111));
                         // Read the XML file into the variable
@@ -92,7 +127,7 @@ namespace MzIdentML
                 {
                     try
                     {
-                        using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        using (Stream stream = openStream())
                         {
                             XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML120.Generated.MzIdentMLType120));
                             // Read the XML file into the variable
@@ -103,7 +138,7 @@ namespace MzIdentML
                     {
                         try
                         {
-                            using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            using (Stream stream = openStream())
                             {
                                 XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML130.Generated.MzIdentMLType130));
                                 // Read the XML file into the variable
@@ -119,7 +154,7 @@ namespace MzIdentML
                             // exactly, so without this arm every attempt above fails and the constructor
                             // throws on files we wrote. It is last because a legacy-namespace rewrite
                             // should never pre-empt a document that parses as a real format version.
-                            using (Stream stream = new FileStream(mzidFile, FileMode.Open, FileAccess.Read, FileShare.Read))
+                            using (Stream stream = openStream())
                             using (LegacyMzidNamespaceReader reader = new LegacyMzidNamespaceReader(stream))
                             {
                                 XmlSerializer _indexedSerializer = new XmlSerializer(typeof(mzIdentML110.Generated.MzIdentMLType110));
@@ -1468,5 +1503,458 @@ namespace MzIdentML
         }
 
         #endregion Public Methods
+
+        #region Spectrum match enumeration
+
+        // The accessors above look every reference up by scanning SequenceCollection on each call, which costs
+        // up to 178 ms per PSM on a Proteome Discoverer file from PRIDE. GetSpectrumMatches indexes the
+        // document once per call instead, and walks every SpectrumIdentificationList rather than only the first.
+
+        private const string SpectrumTitleCvAccession = "MS:1000796";
+        private const string ObsoleteSpectrumTitleCvAccession = "MS:1001416";
+
+        /// <summary>
+        /// Every SpectrumIdentificationItem in every SpectrumIdentificationList, in document order, with its
+        /// result, spectra file, peptide, modifications and peptide evidence resolved. The document's
+        /// SequenceCollection and SpectraData are indexed once per call, so enumerating a large file is linear.
+        /// </summary>
+        public IEnumerable<MzidSpectrumMatch> GetSpectrumMatches()
+        {
+            if (dd110 != null)
+            {
+                return SpectrumMatches110();
+            }
+            else if (dd111 != null)
+            {
+                return SpectrumMatches111();
+            }
+            else if (dd120 != null)
+            {
+                return SpectrumMatches120();
+            }
+            else
+            {
+                return SpectrumMatches130();
+            }
+        }
+
+        /// <summary>
+        /// Every SpectraData entry in the document, in document order. A result references one of them, but a
+        /// writer can name another inside the spectrumID itself: Proteome Discoverer writes "scan=N file=K",
+        /// where K is the id of the RAW file's entry.
+        /// </summary>
+        public IReadOnlyList<MzidSpectraData> GetSpectraData()
+        {
+            if (dd110 != null)
+            {
+                return (dd110.DataCollection?.Inputs?.SpectraData ?? [])
+                    .Select(d => new MzidSpectraData(d.id, d.name, d.location, ToCvParam(d.FileFormat?.cvParam), ToCvParam(d.SpectrumIDFormat?.cvParam)))
+                    .ToList();
+            }
+            else if (dd111 != null)
+            {
+                return (dd111.DataCollection?.Inputs?.SpectraData ?? [])
+                    .Select(d => new MzidSpectraData(d.id, d.name, d.location, ToCvParam(d.FileFormat?.cvParam), ToCvParam(d.SpectrumIDFormat?.cvParam)))
+                    .ToList();
+            }
+            else if (dd120 != null)
+            {
+                return (dd120.DataCollection?.Inputs?.SpectraData ?? [])
+                    .Select(d => new MzidSpectraData(d.id, d.name, d.location, ToCvParam(d.FileFormat?.cvParam), ToCvParam(d.SpectrumIDFormat?.cvParam)))
+                    .ToList();
+            }
+            else
+            {
+                return (dd130.DataCollection?.Inputs?.SpectraData ?? [])
+                    .Select(d => new MzidSpectraData(d.id, d.name, d.location, ToCvParam(d.FileFormat?.cvParam), ToCvParam(d.SpectrumIDFormat?.cvParam)))
+                    .ToList();
+            }
+        }
+
+        private IEnumerable<MzidSpectrumMatch> SpectrumMatches110()
+        {
+            var sequences = dd110.SequenceCollection;
+            var accessions = IndexById(sequences?.DBSequence, d => d.id, d => d.accession);
+            var peptides = IndexById(sequences?.Peptide, p => p.id, p => p);
+            var evidence = IndexById(sequences?.PeptideEvidence, e => e.id, e => (Evidence: new MzidPeptideEvidence(
+                e.id,
+                e.isDecoy,
+                e.dBSequence_ref != null && accessions.TryGetValue(e.dBSequence_ref, out var accession) ? accession : null,
+                e.startSpecified ? e.start : null,
+                e.endSpecified ? e.end : null,
+                e.pre,
+                e.post), PeptideRef: e.peptide_ref));
+            var spectraData = IndexById(dd110.DataCollection?.Inputs?.SpectraData, d => d.id, d => new MzidSpectraData(
+                d.id,
+                d.name,
+                d.location,
+                ToCvParam(d.FileFormat?.cvParam),
+                ToCvParam(d.SpectrumIDFormat?.cvParam)));
+
+            foreach (var list in dd110.DataCollection?.AnalysisData?.SpectrumIdentificationList ?? [])
+            {
+                foreach (var result in list.SpectrumIdentificationResult ?? [])
+                {
+                    var resultCvParams = ToCvParams(result.cvParam);
+                    var resultUserParams = ToUserParams(result.userParam);
+                    spectraData.TryGetValue(result.spectraData_ref ?? "", out var resultSpectraData);
+
+                    foreach (var item in result.SpectrumIdentificationItem ?? [])
+                    {
+                        var itemEvidence = (item.PeptideEvidenceRef ?? [])
+                            .Where(r => r.peptideEvidence_ref != null && evidence.ContainsKey(r.peptideEvidence_ref))
+                            .Select(r => evidence[r.peptideEvidence_ref])
+                            .ToList();
+
+                        // an item without its own peptide_ref is identified through its evidence
+                        string peptideRef = item.peptide_ref
+                            ?? itemEvidence.Select(e => e.PeptideRef).FirstOrDefault(id => id != null);
+                        mzIdentML110.Generated.PeptideType peptide = null;
+                        if (peptideRef != null)
+                        {
+                            peptides.TryGetValue(peptideRef, out peptide);
+                        }
+
+                        yield return new MzidSpectrumMatch
+                        {
+                            SpectrumIdentificationListId = list.id,
+                            SpectrumIdentificationResultId = result.id,
+                            SpectrumIdentificationItemId = item.id,
+                            SpectrumId = result.spectrumID,
+                            SpectraData = resultSpectraData,
+                            SpectrumTitle = SpectrumTitleOf(resultCvParams),
+                            Rank = item.rank,
+                            PassThreshold = item.passThreshold,
+                            ChargeState = item.chargeState,
+                            ExperimentalMassToCharge = item.experimentalMassToCharge,
+                            CalculatedMassToCharge = item.calculatedMassToChargeSpecified ? item.calculatedMassToCharge : null,
+                            PeptideSequence = peptide?.PeptideSequence,
+                            Modifications = (peptide?.Modification ?? [])
+                                .Select(m => new MzidModification
+                                {
+                                    Location = m.locationSpecified ? m.location : null,
+                                    Residues = m.residues ?? [],
+                                    MonoisotopicMassDelta = m.monoisotopicMassDeltaSpecified ? m.monoisotopicMassDelta : null,
+                                    CvParams = ToCvParams(m.cvParam),
+                                })
+                                .ToList(),
+                            HasSubstitutionModifications = peptide?.SubstitutionModification?.Length > 0,
+                            PeptideEvidence = itemEvidence.Select(e => e.Evidence).ToList(),
+                            ResultCvParams = resultCvParams,
+                            ResultUserParams = resultUserParams,
+                            ItemCvParams = ToCvParams(item.cvParam),
+                            ItemUserParams = ToUserParams(item.userParam),
+                        };
+                    }
+                }
+            }
+        }
+
+        private static CvParam ToCvParam(mzIdentML110.Generated.CVParamType cv) =>
+            cv == null ? null : NewCvParam(cv.cvRef, cv.accession, cv.name, cv.value, cv.unitCvRef, cv.unitAccession, cv.unitName);
+
+        private static List<CvParam> ToCvParams(mzIdentML110.Generated.CVParamType[] cvs) =>
+            (cvs ?? []).Select(cv => ToCvParam(cv)).ToList();
+
+        private static List<MzidUserParam> ToUserParams(mzIdentML110.Generated.UserParamType[] userParams) =>
+            (userParams ?? []).Select(u => new MzidUserParam(u.name, u.value, u.type)).ToList();
+
+        private IEnumerable<MzidSpectrumMatch> SpectrumMatches111()
+        {
+            var sequences = dd111.SequenceCollection;
+            var accessions = IndexById(sequences?.DBSequence, d => d.id, d => d.accession);
+            var peptides = IndexById(sequences?.Peptide, p => p.id, p => p);
+            var evidence = IndexById(sequences?.PeptideEvidence, e => e.id, e => (Evidence: new MzidPeptideEvidence(
+                e.id,
+                e.isDecoy,
+                e.dBSequence_ref != null && accessions.TryGetValue(e.dBSequence_ref, out var accession) ? accession : null,
+                e.startSpecified ? e.start : null,
+                e.endSpecified ? e.end : null,
+                e.pre,
+                e.post), PeptideRef: e.peptide_ref));
+            var spectraData = IndexById(dd111.DataCollection?.Inputs?.SpectraData, d => d.id, d => new MzidSpectraData(
+                d.id,
+                d.name,
+                d.location,
+                ToCvParam(d.FileFormat?.cvParam),
+                ToCvParam(d.SpectrumIDFormat?.cvParam)));
+
+            foreach (var list in dd111.DataCollection?.AnalysisData?.SpectrumIdentificationList ?? [])
+            {
+                foreach (var result in list.SpectrumIdentificationResult ?? [])
+                {
+                    var resultCvParams = ToCvParams(result.cvParam);
+                    var resultUserParams = ToUserParams(result.userParam);
+                    spectraData.TryGetValue(result.spectraData_ref ?? "", out var resultSpectraData);
+
+                    foreach (var item in result.SpectrumIdentificationItem ?? [])
+                    {
+                        var itemEvidence = (item.PeptideEvidenceRef ?? [])
+                            .Where(r => r.peptideEvidence_ref != null && evidence.ContainsKey(r.peptideEvidence_ref))
+                            .Select(r => evidence[r.peptideEvidence_ref])
+                            .ToList();
+
+                        // an item without its own peptide_ref is identified through its evidence
+                        string peptideRef = item.peptide_ref
+                            ?? itemEvidence.Select(e => e.PeptideRef).FirstOrDefault(id => id != null);
+                        mzIdentML111.Generated.PeptideType peptide = null;
+                        if (peptideRef != null)
+                        {
+                            peptides.TryGetValue(peptideRef, out peptide);
+                        }
+
+                        yield return new MzidSpectrumMatch
+                        {
+                            SpectrumIdentificationListId = list.id,
+                            SpectrumIdentificationResultId = result.id,
+                            SpectrumIdentificationItemId = item.id,
+                            SpectrumId = result.spectrumID,
+                            SpectraData = resultSpectraData,
+                            SpectrumTitle = SpectrumTitleOf(resultCvParams),
+                            Rank = item.rank,
+                            PassThreshold = item.passThreshold,
+                            ChargeState = item.chargeState,
+                            ExperimentalMassToCharge = item.experimentalMassToCharge,
+                            CalculatedMassToCharge = item.calculatedMassToChargeSpecified ? item.calculatedMassToCharge : null,
+                            PeptideSequence = peptide?.PeptideSequence,
+                            Modifications = (peptide?.Modification ?? [])
+                                .Select(m => new MzidModification
+                                {
+                                    Location = m.locationSpecified ? m.location : null,
+                                    Residues = m.residues ?? [],
+                                    MonoisotopicMassDelta = m.monoisotopicMassDeltaSpecified ? m.monoisotopicMassDelta : null,
+                                    CvParams = ToCvParams(m.cvParam),
+                                })
+                                .ToList(),
+                            HasSubstitutionModifications = peptide?.SubstitutionModification?.Length > 0,
+                            PeptideEvidence = itemEvidence.Select(e => e.Evidence).ToList(),
+                            ResultCvParams = resultCvParams,
+                            ResultUserParams = resultUserParams,
+                            ItemCvParams = ToCvParams(item.cvParam),
+                            ItemUserParams = ToUserParams(item.userParam),
+                        };
+                    }
+                }
+            }
+        }
+
+        private static CvParam ToCvParam(mzIdentML111.Generated.CVParamType cv) =>
+            cv == null ? null : NewCvParam(cv.cvRef, cv.accession, cv.name, cv.value, cv.unitCvRef, cv.unitAccession, cv.unitName);
+
+        private static List<CvParam> ToCvParams(mzIdentML111.Generated.CVParamType[] cvs) =>
+            (cvs ?? []).Select(cv => ToCvParam(cv)).ToList();
+
+        private static List<MzidUserParam> ToUserParams(mzIdentML111.Generated.UserParamType[] userParams) =>
+            (userParams ?? []).Select(u => new MzidUserParam(u.name, u.value, u.type)).ToList();
+
+        private IEnumerable<MzidSpectrumMatch> SpectrumMatches120()
+        {
+            var sequences = dd120.SequenceCollection;
+            var accessions = IndexById(sequences?.DBSequence, d => d.id, d => d.accession);
+            var peptides = IndexById(sequences?.Peptide, p => p.id, p => p);
+            var evidence = IndexById(sequences?.PeptideEvidence, e => e.id, e => (Evidence: new MzidPeptideEvidence(
+                e.id,
+                e.isDecoy,
+                e.dBSequence_ref != null && accessions.TryGetValue(e.dBSequence_ref, out var accession) ? accession : null,
+                e.startSpecified ? e.start : null,
+                e.endSpecified ? e.end : null,
+                e.pre,
+                e.post), PeptideRef: e.peptide_ref));
+            var spectraData = IndexById(dd120.DataCollection?.Inputs?.SpectraData, d => d.id, d => new MzidSpectraData(
+                d.id,
+                d.name,
+                d.location,
+                ToCvParam(d.FileFormat?.cvParam),
+                ToCvParam(d.SpectrumIDFormat?.cvParam)));
+
+            foreach (var list in dd120.DataCollection?.AnalysisData?.SpectrumIdentificationList ?? [])
+            {
+                foreach (var result in list.SpectrumIdentificationResult ?? [])
+                {
+                    var resultCvParams = ToCvParams(result.cvParam);
+                    var resultUserParams = ToUserParams(result.userParam);
+                    spectraData.TryGetValue(result.spectraData_ref ?? "", out var resultSpectraData);
+
+                    foreach (var item in result.SpectrumIdentificationItem ?? [])
+                    {
+                        var itemEvidence = (item.PeptideEvidenceRef ?? [])
+                            .Where(r => r.peptideEvidence_ref != null && evidence.ContainsKey(r.peptideEvidence_ref))
+                            .Select(r => evidence[r.peptideEvidence_ref])
+                            .ToList();
+
+                        // an item without its own peptide_ref is identified through its evidence
+                        string peptideRef = item.peptide_ref
+                            ?? itemEvidence.Select(e => e.PeptideRef).FirstOrDefault(id => id != null);
+                        mzIdentML120.Generated.PeptideType peptide = null;
+                        if (peptideRef != null)
+                        {
+                            peptides.TryGetValue(peptideRef, out peptide);
+                        }
+
+                        yield return new MzidSpectrumMatch
+                        {
+                            SpectrumIdentificationListId = list.id,
+                            SpectrumIdentificationResultId = result.id,
+                            SpectrumIdentificationItemId = item.id,
+                            SpectrumId = result.spectrumID,
+                            SpectraData = resultSpectraData,
+                            SpectrumTitle = SpectrumTitleOf(resultCvParams),
+                            Rank = item.rank,
+                            PassThreshold = item.passThreshold,
+                            ChargeState = item.chargeState,
+                            ExperimentalMassToCharge = item.experimentalMassToCharge,
+                            CalculatedMassToCharge = item.calculatedMassToChargeSpecified ? item.calculatedMassToCharge : null,
+                            PeptideSequence = peptide?.PeptideSequence,
+                            Modifications = (peptide?.Modification ?? [])
+                                .Select(m => new MzidModification
+                                {
+                                    Location = m.locationSpecified ? m.location : null,
+                                    Residues = m.residues ?? [],
+                                    MonoisotopicMassDelta = m.monoisotopicMassDeltaSpecified ? m.monoisotopicMassDelta : null,
+                                    CvParams = ToCvParams(m.cvParam),
+                                })
+                                .ToList(),
+                            HasSubstitutionModifications = peptide?.SubstitutionModification?.Length > 0,
+                            PeptideEvidence = itemEvidence.Select(e => e.Evidence).ToList(),
+                            ResultCvParams = resultCvParams,
+                            ResultUserParams = resultUserParams,
+                            ItemCvParams = ToCvParams(item.cvParam),
+                            ItemUserParams = ToUserParams(item.userParam),
+                        };
+                    }
+                }
+            }
+        }
+
+        private static CvParam ToCvParam(mzIdentML120.Generated.CVParamType cv) =>
+            cv == null ? null : NewCvParam(cv.cvRef, cv.accession, cv.name, cv.value, cv.unitCvRef, cv.unitAccession, cv.unitName);
+
+        private static List<CvParam> ToCvParams(mzIdentML120.Generated.CVParamType[] cvs) =>
+            (cvs ?? []).Select(cv => ToCvParam(cv)).ToList();
+
+        private static List<MzidUserParam> ToUserParams(mzIdentML120.Generated.UserParamType[] userParams) =>
+            (userParams ?? []).Select(u => new MzidUserParam(u.name, u.value, u.type)).ToList();
+
+        private IEnumerable<MzidSpectrumMatch> SpectrumMatches130()
+        {
+            var sequences = dd130.SequenceCollection;
+            var accessions = IndexById(sequences?.DBSequence, d => d.id, d => d.accession);
+            var peptides = IndexById(sequences?.Peptide, p => p.id, p => p);
+            var evidence = IndexById(sequences?.PeptideEvidence, e => e.id, e => (Evidence: new MzidPeptideEvidence(
+                e.id,
+                e.isDecoy,
+                e.dBSequence_ref != null && accessions.TryGetValue(e.dBSequence_ref, out var accession) ? accession : null,
+                e.startSpecified ? e.start : null,
+                e.endSpecified ? e.end : null,
+                e.pre,
+                e.post), PeptideRef: e.peptide_ref));
+            var spectraData = IndexById(dd130.DataCollection?.Inputs?.SpectraData, d => d.id, d => new MzidSpectraData(
+                d.id,
+                d.name,
+                d.location,
+                ToCvParam(d.FileFormat?.cvParam),
+                ToCvParam(d.SpectrumIDFormat?.cvParam)));
+
+            foreach (var list in dd130.DataCollection?.AnalysisData?.SpectrumIdentificationList ?? [])
+            {
+                foreach (var result in list.SpectrumIdentificationResult ?? [])
+                {
+                    var resultCvParams = ToCvParams(result.cvParam);
+                    var resultUserParams = ToUserParams(result.userParam);
+                    spectraData.TryGetValue(result.spectraData_ref ?? "", out var resultSpectraData);
+
+                    foreach (var item in result.SpectrumIdentificationItem ?? [])
+                    {
+                        var itemEvidence = (item.PeptideEvidenceRef ?? [])
+                            .Where(r => r.peptideEvidence_ref != null && evidence.ContainsKey(r.peptideEvidence_ref))
+                            .Select(r => evidence[r.peptideEvidence_ref])
+                            .ToList();
+
+                        // an item without its own peptide_ref is identified through its evidence
+                        string peptideRef = item.peptide_ref
+                            ?? itemEvidence.Select(e => e.PeptideRef).FirstOrDefault(id => id != null);
+                        mzIdentML130.Generated.PeptideType peptide = null;
+                        if (peptideRef != null)
+                        {
+                            peptides.TryGetValue(peptideRef, out peptide);
+                        }
+
+                        yield return new MzidSpectrumMatch
+                        {
+                            SpectrumIdentificationListId = list.id,
+                            SpectrumIdentificationResultId = result.id,
+                            SpectrumIdentificationItemId = item.id,
+                            SpectrumId = result.spectrumID,
+                            SpectraData = resultSpectraData,
+                            SpectrumTitle = SpectrumTitleOf(resultCvParams),
+                            Rank = item.rank,
+                            PassThreshold = item.passThreshold,
+                            ChargeState = item.chargeState,
+                            ExperimentalMassToCharge = item.experimentalMassToCharge,
+                            CalculatedMassToCharge = item.calculatedMassToChargeSpecified ? item.calculatedMassToCharge : null,
+                            PeptideSequence = peptide?.PeptideSequence,
+                            Modifications = (peptide?.Modification ?? [])
+                                .Select(m => new MzidModification
+                                {
+                                    Location = m.locationSpecified ? m.location : null,
+                                    Residues = m.residues ?? [],
+                                    MonoisotopicMassDelta = m.monoisotopicMassDeltaSpecified ? m.monoisotopicMassDelta : null,
+                                    CvParams = ToCvParams(m.cvParam),
+                                })
+                                .ToList(),
+                            HasSubstitutionModifications = peptide?.SubstitutionModification?.Length > 0,
+                            PeptideEvidence = itemEvidence.Select(e => e.Evidence).ToList(),
+                            ResultCvParams = resultCvParams,
+                            ResultUserParams = resultUserParams,
+                            ItemCvParams = ToCvParams(item.cvParam),
+                            ItemUserParams = ToUserParams(item.userParam),
+                        };
+                    }
+                }
+            }
+        }
+
+        private static CvParam ToCvParam(mzIdentML130.Generated.CVParamType cv) =>
+            cv == null ? null : NewCvParam(cv.cvRef, cv.accession, cv.name, cv.value, cv.unitCvRef, cv.unitAccession, cv.unitName);
+
+        private static List<CvParam> ToCvParams(mzIdentML130.Generated.CVParamType[] cvs) =>
+            (cvs ?? []).Select(cv => ToCvParam(cv)).ToList();
+
+        private static List<MzidUserParam> ToUserParams(mzIdentML130.Generated.UserParamType[] userParams) =>
+            (userParams ?? []).Select(u => new MzidUserParam(u.name, u.value, u.type)).ToList();
+
+        /// <summary>
+        /// Indexes a document array by id, keeping the first entry for an id the document repeats. A null
+        /// array, or an entry with no id, contributes nothing.
+        /// </summary>
+        private static Dictionary<string, TValue> IndexById<TSource, TValue>(
+            TSource[] source, Func<TSource, string> id, Func<TSource, TValue> project)
+        {
+            var index = new Dictionary<string, TValue>();
+            foreach (var entry in source ?? [])
+            {
+                string key = id(entry);
+                if (key != null && !index.ContainsKey(key))
+                {
+                    index.Add(key, project(entry));
+                }
+            }
+
+            return index;
+        }
+
+        private static CvParam NewCvParam(string cvRef, string accession, string name, string value,
+            string unitCvRef, string unitAccession, string unitName) =>
+            new(cvRef ?? "", accession ?? "", name ?? "", value ?? "", unitCvRef ?? "", unitAccession ?? "", unitName ?? "");
+
+        /// <summary>The value of the first spectrum title term, or null when there is none or it is empty.</summary>
+        private static string SpectrumTitleOf(IEnumerable<CvParam> cvParams)
+        {
+            var title = cvParams.FirstOrDefault(cv =>
+                cv.Accession == SpectrumTitleCvAccession || cv.Accession == ObsoleteSpectrumTitleCvAccession);
+            return string.IsNullOrEmpty(title?.Value) ? null : title.Value;
+        }
+
+        #endregion
     }
 }

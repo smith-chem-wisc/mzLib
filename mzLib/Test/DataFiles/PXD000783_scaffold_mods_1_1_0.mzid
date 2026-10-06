@@ -1,0 +1,306 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<MzIdentML id="Scaffold mzIdentXML Export" version="1.1.0" xsi:schemaLocation="http://psidev.info/psi/pi/mzIdentML/1.1 http://www.psidev.info/files/mzIdentML1.1.0.xsd" xmlns="http://psidev.info/psi/pi/mzIdentML/1.1" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" creationDate="2014-02-14T11:07:08">
+	<cvList>
+		<cv id="PSI-MS" fullName="Proteomics Standards Initiative Mass Spectrometry Vocabularies" uri="http://psidev.cvs.sourceforge.net/viewvc/checkout/psidev/psi/psi-ms/mzML/controlledVocabulary/psi-ms.obo" version="3.30.0"/>
+		<cv id="UNIMOD" fullName="UNIMOD" uri="http://www.unimod.org/obo/unimod.obo"/>
+		<cv id="UO" fullName="UNIT-ONTOLOGY" uri="http://obo.cvs.sourceforge.net/checkout/obo/obo/ontology/phenotype/unit.obo"/>
+	</cvList>
+	<AnalysisSoftwareList>
+		<AnalysisSoftware id="Mascot" name="Mascot" version="2.4.1" uri="http://www.matrixscience.com/">
+			<ContactRole contact_ref="Mascot_CONTACT">
+				<Role>
+					<cvParam accession="MS:1001267" name="software vendor" cvRef="PSI-MS"/>
+				</Role>
+			</ContactRole>
+			<SoftwareName>
+				<cvParam accession="MS:1001207" name="Mascot" cvRef="PSI-MS"/>
+			</SoftwareName>
+			<Customizations>none</Customizations>
+		</AnalysisSoftware>
+		<AnalysisSoftware id="Scaffold" name="Scaffold" version="Scaffold_4.3.0" uri="www.proteomesoftware.com">
+			<ContactRole contact_ref="Scaffold_CONTACT">
+				<Role>
+					<cvParam accession="MS:1001267" name="software vendor" cvRef="PSI-MS"/>
+				</Role>
+			</ContactRole>
+			<SoftwareName>
+				<cvParam accession="MS:1001561" name="Scaffold" cvRef="PSI-MS"/>
+			</SoftwareName>
+			<Customizations>none</Customizations>
+		</AnalysisSoftware>
+	</AnalysisSoftwareList>
+	<AuditCollection>
+		<Organization id="Mascot_CONTACT" name="Matrix Science"/>
+		<Organization id="Scaffold_CONTACT" name="Proteome Software Inc."/>
+	</AuditCollection>
+	<AnalysisSampleCollection>
+		<Sample id="mascot_daemon_merge (F008897)" name="scaffold:/cw15-HILIC-polyMAC-biorep2-F008897/BioSample+2/mascot_daemon_merge+%2528F008897%2529"/>
+	</AnalysisSampleCollection>
+	<SequenceCollection>
+		<DBSequence id="DBSeq_g1769.t1|PACid:27575686|" accession="g1769.t1|PACid:27575686|" length="146" searchDatabase_ref="Chlamy_phytozome.fasta">
+			<Seq>MALSARSVVASPVSRRSAVKCSAAFTKVSSTSALKSAGGKQVVEVGGQKVLLLDVNGDISAVSNKCSHLGLPIQGKTALFTAEVKDKCVICPAHGTAFDVKTGEVKGEWCPKLPNLPLVGKGPGKKPLPVFQVRISDNGDIEVNV</Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Rieske (2Fe-2S) domain-containing protein"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_BK000554.2|DAA00922.1|" accession="BK000554.2|DAA00922.1|" length="352" searchDatabase_ref="Chlamy_phytozome.fasta">
+			<Seq>MTAILERRENSSLWARFCEWITSTENRLYIGWFGVIMIPCLLTATSVFIIAFIAAPPVDIDGIREPVSGSLLYGNNIITGAVIPTSNAIGLHFYPIWEAASLDEWLYNGGPYQLIVCHFLLGVYCYMGREWELSFRLGMRPWIAVAYSAPVAAASAVFLVYPIGQGSFSDGMPLGISGTFNFMIVFQAEHNILMHPFHMLGVAGVFGGSLFSAMHGSLVTSSLIRETTENESANEGYRFGQEEETYNIVAAHGYFGRLIFQYASFNNSRSLHFFLAAWPVIGIWFTALGLSTMAFNLNGFNFNQSVVDSQGRVLNTWADIINRANLGMEVMHERNAHNFPLDLASTNSSSNN</Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="psbA|photosystem II reaction center protein D1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_BK000554.2|DAA00957.1|" accession="BK000554.2|DAA00957.1|" length="352" searchDatabase_ref="Chlamy_phytozome.fasta">
+			<Seq>MTAILERRENSSLWARFCEWITSTENRLYIGWFGVIMIPCLLTATSVFIIAFIAAPPVDIDGIREPVSGSLLYGNNIITGAVIPTSNAIGLHFYPIWEAASLDEWLYNGGPYQLIVCHFLLGVYCYMGREWELSFRLGMRPWIAVAYSAPVAAASAVFLVYPIGQGSFSDGMPLGISGTFNFMIVFQAEHNILMHPFHMLGVAGVFGGSLFSAMHGSLVTSSLIRETTENESANEGYRFGQEEETYNIVAAHGYFGRLIFQYASFNNSRSLHFFLAAWPVIGIWFTALGLSTMAFNLNGFNFNQSVVDSQGRVLNTWADIINRANLGMEVMHERNAHNFPLDLASTNSSSNN</Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="psbA|photosystem II reaction center protein D1"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_Cre04.g220050.t1.2|PACid:27580697|" accession="Cre04.g220050.t1.2|PACid:27580697|" length="2297" searchDatabase_ref="Chlamy_phytozome.fasta">
+			<Seq>MNIDTDSQHAEKMAAIEAEAGIENVALGAARRPETPEASDFMEDALDSSSNAMPPSSSLQQQQRHSSTAQQALKLKLGRVVGSGTFAIVHKALLNGKLVACKVLRPEFAAHKLVVRMLLKEANLMSWLDHPHIVRCHTLCQVPGGAGGQQDTYALIMEYLEGSSLAHVISKQMKEPRQPLYSDVEGLTWLLQIAEALAYLHARDPVVIHRDIKPANVLLGRPQPQQLQPPPQALIAHPPARLGAKLCDFGLHQTVKALHHRPMIRVNSRVARASNAGVFQTPRVSDDGSIMLPPALLDAAVRVRASIDGDGAAAGGTGTGTGTGTGAGSGSGLNSGLSSWRGGATAGPLSASSSQALAAAAAAAAAAAAAAAASALRAGGGAGGPSSVTDFGSGVSLAAVAGASSSLHRLPSAPGFVVASPRASDATSAAAAAAAALLTSGGAGGGAWPPAASPRTAASGGGGGGGPGSYAGGGGGRDAAAAAAAIAAVAAAYGGGGQQPASFRRAPVTSGPSLQPVSPALLTAQRLEQQQALMQLQQLQQLQQQQQQQQQEFAAGPASDTFMQQQHQHQSHQPQQQQQQLRQQLRQVAQQRVESASSPLDSMPSPEVFTGASPTGRVGVSSPLSNAAYGAPRVPPQQPVTYRQPHAAVHAPLAPLLPHTPSLDSSPPGLHPAHPQQHPHPQQQQQRQQALSSQLAAMMRYTHDSTSTAGTAAAAAAAAAAASISSRAAHHTHHPQQQPQQHPQRAPHSQAQQQAAASGGGGGGGLVAHLGAMFGRGGGGGGGGGGGGQQTQQAPVVASSGRSGPLSSQVSLLHELRRTSETEPLPPGPGRHSGPSHLPHHTHHTPTSPMPTGAGEEAAAAFVQQHYQQGGGLLAQQQQQQQQQQQQQQQQQQQQQQQQQPAASTSSSGRWPLHAWFSRHRASAGTAAEGAGGSGGGAGRGGRGAAEAAAGGGRGRGDMGSGPSGVVRRSSCPRLGTTTTAAESQGLAAVAAAGVGAAVAPAHSAVAVAAAAAEPQQQGLGARGVPGLVATPVSPGPAAAADVTGTAGPMSAAVLPSRMPIGQRHRSLSFGGRGGGGAAIAPFGGGGGDAAVEAAVAAAAVAEVDAVAAAAAAAAAATAAAAAAMAPTPGGGLEIAGLPVIERVFQLSGQCGSSIYMSPEVAQEQPYNDKTDVFSYGIMVFEVMCRTLISHTQAGRDGFGFTRMLVEGRRPLLPPDLDPRVRALIEACWRQDPLERPTMRQVAAEIHYMLYGIARPPREYELLAAAAAAATTGAGASTPPSRSAGTPVSGSTAAAAAAAAPSSSSSGAAGFVALPAMPPPPPSRPSTSLAAAGPAPAGAGFGVGAAAAARPPPSPRGATKPSAVAARTAADAPAFAARGSSTGQLPLRPTPVEVPSVPSLQPPSLTRVSSQTPAGADTPLSPYDRSSSSFVIRGGVAAGALGSSFVVPASSAASAAASAAASAAAARSAAGRASSSAGGSDAVPATVKVSSLAPSAAGRGGGMQPSAFAAAPNAGGGGGGGGGPSGQHRHYFTAAVNAAAATAAAAARASAGVTAGAAATVTPASVRMYHNPLSAASLPAAAAAGSHSAAAAAAAAAAAGPTEEGAARFMRTTQQLSGTLSQQMSPQISQQISQPISSAQVSEHGGHGGGRLPSRTSPQESYGMVVGGGRLLSTSTNTATTSGALATTATPSTTAPGTSRTVSASYGSSLWSANTATAVAAAVAAADAPGGYGGLMFGRMSVPTKSGIPPLPPPPPPPPPSSGTQSSSRSRSMSSQRPPGAALAGSASTPQSSGGGNAAAGGGGGGGGGGGPGPSNASAPLATPAVPASPTTTAAEAEAGLAAEAATVAGDTRSAGRVSSAVGPTAARTGTSTGYTGTLSVGPAAMTPTPVGAASSAPSAANNTPGQHHRPQHQHQHQHQQPSLPPSSSLAPQQAQAQGQGQGLQPLRTQQGSTAAMLTRAANSRKGLIGTSSATSNPNTTRMGPGTGTGAGLAAGGGGADAGASARELTSSSRAAAAAANAAASAVLHPRSSYNSAAAGPGEVDIAASMDSSGGGTEGGGAASAMPPAAPKSLSFSARGGAVPSVLSLFSEVDTSAHGSPRGGGGGGGGGGGGGGVAIGRTGSRGSAGSSVVAATGANASASLNAGAAAAGDGEASVPTPRAFGFGAFAALRSGRRSSVRVAAAAAAGGSVTSPRGSTHSGAGVGVLATGSAAELGVAVAAAASGTAVGAAVATSAGGPAGMSRLASGGRRRGDEAGPAGAAAASAHRAEEEDEGEQADGHKATAGCGRCGCVIS</Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Protein kinase superfamily protein"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_Cre08.g363450.t1.2|PACid:27563246|" accession="Cre08.g363450.t1.2|PACid:27563246|" length="596" searchDatabase_ref="Chlamy_phytozome.fasta">
+			<Seq>MARQKRQRASTTPEDGADLAAEAPPAKVLRRSARVRSITEAAEAKTATVSPAVPAVKEEPEGDDHEEELLPPQQQQRQPGAVAQQQGGPLTQEPQPRQTRAAAAATPSPMVKSEPAASQEPATQEADQQDSEVASEPEPEESEPESEEPPSPKKPATGQKGKKAAKKAAKPKKERKKKTPTRRICLSAAMAQYGLSRKEMDALTDVHLEPNPHHARGAPMRLYLAHQVAELAAKKQERLRYEADHADEIAAAREEEARQRREAAKQAAALRAREAKLAAQAKVAPLRRQSIGDSVPAGATPLPQELWAVVFQRLAATLEPQGGVRGPSVVAEDIVRAGLACRDMFIASRAGLEALAEEVVAKRHLDMQRPPLPVAAPVVDWARWDKALRTPLDCLVPELKSACKDVGTTCSGTKAELVVRLMNHFGLPDGRRCPVSAKLWVALRQEHAQYGHHNGVLTPLLGSALRDLLEVGDAAAARALQYGSLSAFRRRVAAAYGDTAGVMAAHLACLPRLGEIRAERARRAEEERRASEERRRQQYELWQREAEARRGRPQVAANGQLMCACGQMVSAACSLRLCGGCCKRAAKAVPCPKHG</Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="unknown"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_Cre03.g157200.t1.3|PACid:27576148|-R" accession="Cre03.g157200.t1.3|PACid:27576148|-R" length="0" searchDatabase_ref="unreferenced database">
+			<Seq></Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Cre03.g157200.t1.3|PACid:27576148|-R"/>
+		</DBSequence>
+		<DBSequence id="DBSeq_Cre16.g659950.t1.1|PACid:27567512|-R" accession="Cre16.g659950.t1.1|PACid:27567512|-R" length="0" searchDatabase_ref="unreferenced database">
+			<Seq></Seq>
+			<cvParam accession="MS:1001088" name="protein description" cvRef="PSI-MS" value="Cre16.g659950.t1.1|PACid:27567512|-R"/>
+		</DBSequence>
+		<Peptide id="SLS+80FGGR">
+			<PeptideSequence>SLSFGGR</PeptideSequence>
+			<Modification location="3" monoisotopicMassDelta="79.96633" residues="S">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.9769" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="C+57SHLGLPIQGK">
+			<PeptideSequence>CSHLGLPIQGK</PeptideSequence>
+			<Modification location="1" monoisotopicMassDelta="57.021465" residues="C">
+				<cvParam accession="UNIMOD:4" name="Carbamidomethyl" cvRef="UNIMOD"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="AAAAAT+80PSPM+16VK">
+			<PeptideSequence>AAAAATPSPMVK</PeptideSequence>
+			<Modification location="6" monoisotopicMassDelta="79.96633" residues="T">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.9769" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+			<Modification location="10" monoisotopicMassDelta="15.994915" residues="M">
+				<cvParam accession="UNIMOD:35" name="Oxidation" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="63.998283" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="S+80IQ+1LIR">
+			<PeptideSequence>SIQLIR</PeptideSequence>
+			<Modification location="1" monoisotopicMassDelta="79.96633" residues="S">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.9769" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+			<Modification location="3" monoisotopicMassDelta="0.984016" residues="Q">
+				<cvParam accession="UNIMOD:7" name="Deamidated" cvRef="UNIMOD"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="S+80LEIIR">
+			<PeptideSequence>SLEIIR</PeptideSequence>
+			<Modification location="1" monoisotopicMassDelta="79.96633" residues="S">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.9769" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<Peptide id="T+42AILER">
+			<PeptideSequence>TAILER</PeptideSequence>
+			<Modification location="0" monoisotopicMassDelta="42.010567">
+				<cvParam accession="UNIMOD:1" name="Acetyl" cvRef="UNIMOD"/>
+			</Modification>
+			<Modification location="1" monoisotopicMassDelta="79.96633" residues="T">
+				<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				<cvParam accession="MS:1001524" name="fragment neutral loss" cvRef="PSI-MS" value="97.9769" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</Modification>
+		</Peptide>
+		<PeptideEvidence id="Pep_SLS+80FGGR_DBSeq_Cre04.g220050.t1.2|PACid:27580697|" start="1067" end="1073" pre="R" post="G" isDecoy="false" dBSequence_ref="DBSeq_Cre04.g220050.t1.2|PACid:27580697|" peptide_ref="SLS+80FGGR"/>
+		<PeptideEvidence id="Pep_C+57SHLGLPIQGK_DBSeq_g1769.t1|PACid:27575686|" start="66" end="76" pre="K" post="T" isDecoy="false" dBSequence_ref="DBSeq_g1769.t1|PACid:27575686|" peptide_ref="C+57SHLGLPIQGK"/>
+		<PeptideEvidence id="Pep_AAAAAT+80PSPM+16VK_DBSeq_Cre08.g363450.t1.2|PACid:27563246|" start="101" end="112" pre="R" post="S" isDecoy="false" dBSequence_ref="DBSeq_Cre08.g363450.t1.2|PACid:27563246|" peptide_ref="AAAAAT+80PSPM+16VK"/>
+		<PeptideEvidence id="Pep_S+80IQ+1LIR_DBSeq_Cre03.g157200.t1.3|PACid:27576148|-R" start="0" end="0" pre="-" post="-" isDecoy="false" dBSequence_ref="DBSeq_Cre03.g157200.t1.3|PACid:27576148|-R" peptide_ref="S+80IQ+1LIR"/>
+		<PeptideEvidence id="Pep_S+80LEIIR_DBSeq_Cre16.g659950.t1.1|PACid:27567512|-R" start="0" end="0" pre="-" post="-" isDecoy="false" dBSequence_ref="DBSeq_Cre16.g659950.t1.1|PACid:27567512|-R" peptide_ref="S+80LEIIR"/>
+		<PeptideEvidence id="Pep_T+42AILER_DBSeq_BK000554.2|DAA00922.1|" start="2" end="7" pre="M" post="R" isDecoy="false" dBSequence_ref="DBSeq_BK000554.2|DAA00922.1|" peptide_ref="T+42AILER"/>
+		<PeptideEvidence id="Pep_T+42AILER_DBSeq_BK000554.2|DAA00957.1|" start="2" end="7" pre="M" post="R" isDecoy="false" dBSequence_ref="DBSeq_BK000554.2|DAA00957.1|" peptide_ref="T+42AILER"/>
+	</SequenceCollection>
+	<AnalysisCollection>
+		<SpectrumIdentification id="Scaffold_Spectrum_ID_mascot_daemon_merge (F008897)" spectrumIdentificationProtocol_ref="Scaffold_Spectrum_ID_Protocol_mascot_daemon_merge (F008897)" spectrumIdentificationList_ref="Scaffold_Spectrum_ID_List_mascot_daemon_merge (F008897)" activityDate="2013-01-18T14:23:52">
+			<InputSpectra spectraData_ref="mascot_daemon_merge (F008897)"/>
+			<SearchDatabaseRef searchDatabase_ref="Chlamy_Phytozome_20130109.fasta"/>
+			<SearchDatabaseRef searchDatabase_ref="Chlamy_phytozome.fasta"/>
+			<SearchDatabaseRef searchDatabase_ref="unreferenced database"/>
+		</SpectrumIdentification>
+	</AnalysisCollection>
+	<AnalysisProtocolCollection>
+		<SpectrumIdentificationProtocol id="Scaffold_Spectrum_ID_Protocol_mascot_daemon_merge (F008897)" analysisSoftware_ref="Scaffold">
+			<SearchType>
+				<cvParam accession="MS:1001083" name="ms-ms search" cvRef="PSI-MS"/>
+			</SearchType>
+			<ModificationParams>
+				<SearchModification fixedMod="false" massDelta="0.984016" residues="N">
+					<cvParam accession="UNIMOD:7" name="Deamidated" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="0.984016" residues="Q">
+					<cvParam accession="UNIMOD:7" name="Deamidated" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="15.994915" residues="M">
+					<cvParam accession="UNIMOD:35" name="Oxidation" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="42.010567" residues=".">
+					<SpecificityRules>
+						<cvParam accession="MS:1001189" name="modification specificity N-term" cvRef="PSI-MS"/>
+					</SpecificityRules>
+					<cvParam accession="UNIMOD:1" name="Acetyl" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="true" massDelta="57.021465" residues="C">
+					<cvParam accession="UNIMOD:4" name="Carbamidomethyl" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="79.96633" residues="S">
+					<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="79.96633" residues="T">
+					<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				</SearchModification>
+				<SearchModification fixedMod="false" massDelta="79.96633" residues="Y">
+					<cvParam accession="UNIMOD:21" name="Phospho" cvRef="UNIMOD"/>
+				</SearchModification>
+			</ModificationParams>
+			<Enzymes independent="true">
+				<Enzyme id="Trypsin_2_0" missedCleavages="2">
+					<SiteRegexp><![CDATA[(?<=[RK])(?![P])]]></SiteRegexp>
+					<EnzymeName>
+						<userParam name="Enzyme" value="Trypsin"/>
+					</EnzymeName>
+				</Enzyme>
+			</Enzymes>
+			<FragmentTolerance>
+				<cvParam accession="MS:1001412" name="search tolerance plus value" value="0.04" cvRef="PSI-MS" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+				<cvParam accession="MS:1001413" name="search tolerance minus value" value="0.04" cvRef="PSI-MS" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+			</FragmentTolerance>
+			<ParentTolerance>
+				<cvParam accession="MS:1001412" name="search tolerance plus value" value="5.0" cvRef="PSI-MS" unitAccession="UO:0000169" unitName="parts per million" unitCvRef="UO"/>
+				<cvParam accession="MS:1001413" name="search tolerance minus value" value="5.0" cvRef="PSI-MS" unitAccession="UO:0000169" unitName="parts per million" unitCvRef="UO"/>
+			</ParentTolerance>
+			<Threshold>
+				<cvParam accession="MS:1001494" name="no threshold" cvRef="PSI-MS"/>
+			</Threshold>
+		</SpectrumIdentificationProtocol>
+		<ProteinDetectionProtocol id="Scaffold_Protein_ID_Protocol" analysisSoftware_ref="Scaffold">
+			<AnalysisParams>
+				<userParam name="Scaffold:Samples In Mudpit Mode" value="none"/>
+				<userParam name="Scaffold:Samples In Condense Data Mode" value="mascot_daemon_merge (F008897)"/>
+				<userParam name="Scaffold:Show Hidden Proteins" value="true"/>
+				<userParam name="Scaffold:Show Decoy Identifications" value="true"/>
+			</AnalysisParams>
+			<Threshold>
+				<cvParam accession="MS:1001575" name="Scaffold: Minimum Peptide Count" cvRef="PSI-MS" value="1"/>
+				<userParam name="Scaffold:Mascot Threshold" value="Mascot (ion-Identity:15,deltaIon:0.00,ion:+2&gt;15,+3&gt;15,+4&gt;15)"/>
+				<userParam name="Scaffold:Mascot Threshold" value="Mascot (ion-Identity:15,deltaIon:0.00,ion:+2&gt;15,+3&gt;15,+4&gt;15)"/>
+				<cvParam accession="MS:1001412" name="search tolerance plus value" value="10.0" cvRef="PSI-MS" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+				<cvParam accession="MS:1001413" name="search tolerance minus value" value="10.0" cvRef="PSI-MS" unitAccession="UO:0000221" unitName="dalton" unitCvRef="UO"/>
+				<cvParam accession="MS:1001578" name="minimum number of enzymatic termini" cvRef="PSI-MS" value="0"/>
+			</Threshold>
+		</ProteinDetectionProtocol>
+	</AnalysisProtocolCollection>
+	<DataCollection>
+		<Inputs>
+			<SourceFile id="Scaffold_Spectrum_SOURCEFILE_mascot_daemon_merge (F008897)_Mascot" location="Z:\20130118\F008897.dat">
+				<FileFormat>
+					<cvParam accession="MS:1001199" name="Mascot DAT file" cvRef="PSI-MS"/>
+				</FileFormat>
+			</SourceFile>
+			<SearchDatabase id="Chlamy_Phytozome_20130109.fasta" location="" name="Chlamy_Phytozome_20130109.fasta" numDatabaseSequences="19715" version="Unknown">
+				<FileFormat>
+					<cvParam accession="MS:1001348" name="FASTA format" cvRef="PSI-MS"/>
+				</FileFormat>
+				<DatabaseName>
+					<userParam name="name" value="Chlamy_Phytozome_20130109.fasta"/>
+				</DatabaseName>
+				<cvParam accession="MS:1001073" name="database type amino acid" cvRef="PSI-MS"/>
+			</SearchDatabase>
+			<SearchDatabase id="Chlamy_phytozome.fasta" location="R:\hicks_lab\Hongxia\chlamydomonas uniprot database\Chlamy_phytozome.fasta" name="Chlamy_phytozome.fasta" numDatabaseSequences="19603" version="">
+				<FileFormat>
+					<cvParam accession="MS:1001348" name="FASTA format" cvRef="PSI-MS"/>
+				</FileFormat>
+				<DatabaseName>
+					<userParam name="name" value="Chlamy_phytozome.fasta"/>
+				</DatabaseName>
+				<cvParam accession="MS:1001073" name="database type amino acid" cvRef="PSI-MS"/>
+			</SearchDatabase>
+			<SearchDatabase id="unreferenced database" location="unreferenced database" name="unreferenced database" version="Unknown">
+				<FileFormat>
+					<cvParam accession="MS:1001348" name="FASTA format" cvRef="PSI-MS"/>
+				</FileFormat>
+				<DatabaseName>
+					<userParam name="name" value="unreferenced database"/>
+				</DatabaseName>
+				<cvParam accession="MS:1001073" name="database type amino acid" cvRef="PSI-MS"/>
+			</SearchDatabase>
+			<SpectraData id="mascot_daemon_merge (F008897)" location="C:\Users\Owner\Desktop\test2\cw15-HILIC-polyMAC-3 bioreps combine-20130122 mzIdent export 14-Feb-2014 10-53-57-AM\BioSample 2\mascot_daemon_merge_F008897.mzid_mascot_daemon_merge_F008897.MGF">
+				<FileFormat>
+					<cvParam accession="MS:1001062" name="Mascot MGF file" cvRef="PSI-MS"/>
+				</FileFormat>
+				<SpectrumIDFormat>
+					<cvParam accession="MS:1000774" name="multiple peak list nativeID format" cvRef="PSI-MS"/>
+				</SpectrumIDFormat>
+			</SpectraData>
+		</Inputs>
+		<AnalysisData>
+			<SpectrumIdentificationList id="Scaffold_Spectrum_ID_List_mascot_daemon_merge (F008897)" numSequencesSearched="19715">
+				<SpectrumIdentificationResult id="Spec_524963" name="Locus:1.1.1.4113.3 File:&quot;20130114-cw15-HILIC-polyMAC-biorep2-F5.wiff&quot;" spectrumID="index=71" spectraData_ref="mascot_daemon_merge (F008897)">
+					<SpectrumIdentificationItem id="Spec_524963_SLS+80FGGR" calculatedMassToCharge="402.17602674096685" chargeState="2" experimentalMassToCharge="402.17374002909855" peptide_ref="SLS+80FGGR" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_SLS+80FGGR_DBSeq_Cre04.g220050.t1.2|PACid:27580697|"/>
+						<cvParam accession="MS:1001568" name="Scaffold:Peptide Probability" cvRef="PSI-MS" value="0.9946313"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="35.57"/>
+						<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="25.0"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="Locus:1.1.1.4113.3 File:&quot;20130114-cw15-HILIC-polyMAC-biorep2-F5.wiff&quot;"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="Spec_525064" name="Locus:1.1.1.4305.2 File:&quot;20130114-cw15-HILIC-polyMAC-biorep2-F5.wiff&quot;" spectrumID="index=159" spectraData_ref="mascot_daemon_merge (F008897)">
+					<SpectrumIdentificationItem id="Spec_525064_C+57SHLGLPIQGK" calculatedMassToCharge="403.8852211005046" chargeState="3" experimentalMassToCharge="403.88543001939905" peptide_ref="C+57SHLGLPIQGK" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_C+57SHLGLPIQGK_DBSeq_g1769.t1|PACid:27575686|"/>
+						<cvParam accession="MS:1001568" name="Scaffold:Peptide Probability" cvRef="PSI-MS" value="0.72023416"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="21.26"/>
+						<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="26.1595"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="Locus:1.1.1.4305.2 File:&quot;20130114-cw15-HILIC-polyMAC-biorep2-F5.wiff&quot;"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="Spec_525101" name="Locus:1.1.1.3695.2 File:&quot;20130114-cw15-HILIC-polyMAC-biorep2-F15.wiff&quot;" spectrumID="index=164" spectraData_ref="mascot_daemon_merge (F008897)">
+					<SpectrumIdentificationItem id="Spec_525101_AAAAAT+80PSPM+16VK" calculatedMassToCharge="404.1894481634929" chargeState="3" experimentalMassToCharge="404.18721001939906" peptide_ref="AAAAAT+80PSPM+16VK" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_AAAAAT+80PSPM+16VK_DBSeq_Cre08.g363450.t1.2|PACid:27563246|"/>
+						<cvParam accession="MS:1001568" name="Scaffold:Peptide Probability" cvRef="PSI-MS" value="0.5566961"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="24.39"/>
+						<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="31.142773"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="Locus:1.1.1.3695.2 File:&quot;20130114-cw15-HILIC-polyMAC-biorep2-F15.wiff&quot;"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="Spec_525280" name="Locus:1.1.1.4748.2 File:&quot;20130110 cw15-HILIC-polyMAC-biorep1-F1.wiff&quot;" spectrumID="index=311" spectraData_ref="mascot_daemon_merge (F008897)">
+					<SpectrumIdentificationItem id="Spec_525280_S+80IQ+1LIR" calculatedMassToCharge="405.70973474157915" chargeState="2" experimentalMassToCharge="405.70943002909854" peptide_ref="S+80IQ+1LIR" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_S+80IQ+1LIR_DBSeq_Cre03.g157200.t1.3|PACid:27576148|-R"/>
+						<cvParam accession="MS:1001568" name="Scaffold:Peptide Probability" cvRef="PSI-MS" value="0.996511"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="37.44"/>
+						<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="25.0"/>
+					</SpectrumIdentificationItem>
+					<SpectrumIdentificationItem id="Spec_525280_S+80LEIIR" calculatedMassToCharge="405.70972674096686" chargeState="2" experimentalMassToCharge="405.70943002909854" peptide_ref="S+80LEIIR" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_S+80LEIIR_DBSeq_Cre16.g659950.t1.1|PACid:27567512|-R"/>
+						<cvParam accession="MS:1001568" name="Scaffold:Peptide Probability" cvRef="PSI-MS" value="0.996511"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="37.44"/>
+						<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="25.0"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="Locus:1.1.1.4748.2 File:&quot;20130110 cw15-HILIC-polyMAC-biorep1-F1.wiff&quot;"/>
+				</SpectrumIdentificationResult>
+				<SpectrumIdentificationResult id="Spec_525765" name="Locus:1.1.1.4624.2 File:&quot;20130110 cw15-HILIC-polyMAC-biorep2-F2.wiff&quot;" spectrumID="index=1000" spectraData_ref="mascot_daemon_merge (F008897)">
+					<SpectrumIdentificationItem id="Spec_525765_T+42AILER" calculatedMassToCharge="412.69936009667975" chargeState="2" experimentalMassToCharge="412.6981400290985" peptide_ref="T+42AILER" rank="1" passThreshold="false">
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_T+42AILER_DBSeq_BK000554.2|DAA00922.1|"/>
+						<PeptideEvidenceRef peptideEvidence_ref="Pep_T+42AILER_DBSeq_BK000554.2|DAA00957.1|"/>
+						<cvParam accession="MS:1001568" name="Scaffold:Peptide Probability" cvRef="PSI-MS" value="0.99784726"/>
+						<cvParam accession="MS:1001171" name="Mascot:score" cvRef="PSI-MS" value="39.64"/>
+						<cvParam accession="MS:1001371" name="Mascot:identity threshold" cvRef="PSI-MS" value="25.0"/>
+					</SpectrumIdentificationItem>
+					<cvParam accession="MS:1000796" name="spectrum title" cvRef="PSI-MS" value="Locus:1.1.1.4624.2 File:&quot;20130110 cw15-HILIC-polyMAC-biorep2-F2.wiff&quot;"/>
+				</SpectrumIdentificationResult>
+</SpectrumIdentificationList>
+</AnalysisData>
+</DataCollection>
+</MzIdentML>
