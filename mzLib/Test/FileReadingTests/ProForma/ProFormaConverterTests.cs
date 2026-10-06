@@ -223,6 +223,10 @@ namespace Test.FileReadingTests.ProForma
 
             var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:01956]K"), known);
             Assert.That(back[4], Is.SameAs(mod));
+
+            // mzLib 1.0.590-1.0.593 wrote the doubled prefix, and those files are still on disk.
+            var legacy = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:MOD:01956]K"), known);
+            Assert.That(legacy[4], Is.SameAs(mod));
         }
 
         [Test]

@@ -171,6 +171,8 @@ namespace Readers.ProForma
         /// <summary>
         /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).
         /// One accession can map to several modifications differing by motif, so values are lists.
+        /// A PSI-MOD id is also indexed under the doubled <c>"MOD:MOD:01956"</c> that mzLib wrote before
+        /// <see cref="ToAccession"/>, so ProForma strings already on disk still read.
         /// </summary>
         private static Dictionary<string, List<Modification>> BuildAccessionIndex(IEnumerable<Modification> mods)
         {
@@ -183,14 +185,23 @@ namespace Readers.ProForma
                     if (!DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix)) continue;
                     foreach (var id in ids)
                     {
-                        string key = ToAccession(prefix, id).ToUpperInvariant();
-                        if (!index.TryGetValue(key, out var list))
-                            index[key] = list = new List<Modification>();
-                        list.Add(mod);
+                        string key = ToAccession(prefix, id);
+                        AddToIndex(index, key, mod);
+                        string legacyKey = $"{prefix}:{id}";
+                        if (!string.Equals(legacyKey, key, StringComparison.OrdinalIgnoreCase))
+                            AddToIndex(index, legacyKey, mod);
                     }
                 }
             }
             return index;
+        }
+
+        private static void AddToIndex(Dictionary<string, List<Modification>> index, string key, Modification mod)
+        {
+            key = key.ToUpperInvariant();
+            if (!index.TryGetValue(key, out var list))
+                index[key] = list = new List<Modification>();
+            list.Add(mod);
         }
 
         /// <summary>
