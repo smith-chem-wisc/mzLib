@@ -833,7 +833,8 @@ public class PrideArchiveResumeLiveTests
             {
                 var recorder = new RangeRecorder();
                 using var http = new HttpClient(recorder) { Timeout = TimeSpan.FromSeconds(100) };
-                using var client = new PrideArchiveClient(http);
+                // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+                using var client = new PrideArchiveClient(http) { MaxRetries = 0 };
 
                 var files = await client.GetProjectFilesAsync("PXD012345");
                 var smallest = files.OrderBy(f => f.FileSizeBytes).First(f => f.TryGetHttpsDownloadUrl(out _) && f.FileSizeBytes > 1024);

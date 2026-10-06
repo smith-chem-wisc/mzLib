@@ -876,7 +876,8 @@ public class PrideArchiveDownloadLiveTests
     public Task DownloadFileAsync_LiveSmallestFile_WritesRealBytes() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var files = await client.GetProjectFilesAsync("PXD012345");
             var smallest = files.OrderBy(f => f.FileSizeBytes).First(f => f.TryGetHttpsDownloadUrl(out _));
 

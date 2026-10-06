@@ -776,7 +776,8 @@ public class PrideArchiveClientLiveTests
     public Task GetProjectFilesAsync_LivePxd012345_ReturnsFullManifest() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var files = await client.GetProjectFilesAsync("PXD012345");
             Assert.That(files.Count, Is.GreaterThan(1));
             Assert.That(files.All(f => !string.IsNullOrEmpty(f.FileName)));
@@ -798,7 +799,8 @@ public class PrideArchiveClientLiveTests
             const int observedServerCap = 100;
             const int deliberatelyAboveCap = 500;
 
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var atDefault = await client.GetProjectFilesAsync("PXD012345");
             var aboveCap = await client.GetProjectFilesAsync("PXD012345", pageSize: deliberatelyAboveCap);
 
