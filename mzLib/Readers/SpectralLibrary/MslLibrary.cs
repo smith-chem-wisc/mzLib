@@ -189,7 +189,7 @@ public sealed class MslLibrary : IDisposable
 	///
 	/// <para>
 	/// All query APIs produce identical results to those returned by <see cref="Load"/>. The
-	/// difference is that <see cref="GetEntry"/> and <see cref="GetAllEntries"/> trigger disk
+	/// difference is that <see cref="GetEntry(int)"/> and <see cref="GetAllEntries"/> trigger disk
 	/// reads for fragment data rather than returning pre-populated objects.
 	/// </para>
 	///
@@ -244,14 +244,15 @@ public sealed class MslLibrary : IDisposable
 		}
 
 		// Uncompressed index-only path: capture rawLib in the loader closure.
-		// On index cache miss the delegate seeks the open FileStream and reads the fragment block.
+		// On index cache miss the delegate reads the fragment block from the open file.
 		Func<int, MslLibraryEntry?> loader = i =>
 		{
 			if (i < 0 || i >= rawLib.Count)
 				return null;
-			MslLibraryEntry skeleton = rawLib.Entries[i];
-			skeleton.MatchedFragmentIons = rawLib.LoadFragmentsOnDemand(i);
-			return skeleton;
+			// The fragments go on a copy of the skeleton, never on the skeleton itself: rawLib.Entries
+			// lives as long as the library, so fragments stored there would never be released and
+			// the LRU bound would not limit memory.
+			return rawLib.Entries[i].WithFragments(rawLib.LoadFragmentsOnDemand(i));
 		};
 
 		// Defer the sequence/charge dictionary: building it here would call the loader for EVERY entry,
@@ -563,7 +564,7 @@ public sealed class MslLibrary : IDisposable
 	///
 	/// <para>
 	/// This is the hot-path entry point for DIA isolation window queries. To load the
-	/// full entry for a candidate, call <see cref="GetEntry"/> with its
+	/// full entry for a candidate, call <see cref="GetEntry(int)"/> with its
 	/// <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>.
 	/// </para>
 	/// </summary>
@@ -640,6 +641,13 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
+	/// In index-only mode, each load after an eviction returns a new object. Do not key
+	/// dictionaries on the returned reference or compare entries with
+	/// <see cref="object.ReferenceEquals"/>; use <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>
+	/// or <see cref="MslLibraryEntry.Name"/> as the key.
+	/// </para>
+	///
+	/// <para>
 	/// The <see cref="MslPrecursorIndexEntry.PrecursorIdx"/> field returned by
 	/// <see cref="QueryMzWindow"/> and <see cref="QueryWindow"/> is the correct value
 	/// to pass here.
@@ -659,6 +667,58 @@ public sealed class MslLibrary : IDisposable
 	{
 		ThrowIfDisposed();
 		return _index!.GetEntry(precursorIdx);
+	}
+
+	/// <summary>
+	/// Returns the entry for <paramref name="precursorIdx"/>, optionally without reading its
+	/// fragment ions.
+	///
+	/// <para>
+	/// With <paramref name="includeFragments"/> = <see langword="true"/> this is
+	/// <see cref="GetEntry(int)"/>.
+	/// </para>
+	///
+	/// <para>
+	/// With <see langword="false"/>, use it when only precursor metadata is needed: sequence,
+	/// charge, m/z, retention time, decoy flag, protein accession, name and gene.
+	/// <list type="bullet">
+	///   <item>In index-only mode it reads nothing from disk and does not touch the LRU cache.
+	///   <c>MatchedFragmentIons</c> is empty.</item>
+	///   <item>In full-load mode the fragments are already in memory, so it returns the same
+	///   entry as <see cref="GetEntry(int)"/>, fragments included.</item>
+	/// </list>
+	/// Do not rely on <c>MatchedFragmentIons</c> being empty or full when passing
+	/// <see langword="false"/>.
+	/// </para>
+	///
+	/// <para>
+	/// The returned entry is shared. Do not modify it.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorIdx">
+	///   Zero-based precursor index as stored in
+	///   <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>. Out-of-range values return
+	///   <see langword="null"/>.
+	/// </param>
+	/// <param name="includeFragments">
+	///   <see langword="false"/> to skip reading fragment ions in index-only mode.
+	/// </param>
+	/// <returns>
+	///   The entry, or <see langword="null"/> when the index is out of range or the entry
+	///   cannot be loaded.
+	/// </returns>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public MslLibraryEntry? GetEntry(int precursorIdx, bool includeFragments)
+	{
+		ThrowIfDisposed();
+
+		if (includeFragments || _rawLibrary is null || !_rawLibrary.IsIndexOnly)
+			return _index!.GetEntry(precursorIdx);
+
+		// Index-only: the skeleton holds every metadata field and is never given fragments
+		// (the loader copies it), so it can be returned as is.
+		IReadOnlyList<MslLibraryEntry> skeletons = _rawLibrary.Entries;
+		return precursorIdx >= 0 && precursorIdx < skeletons.Count ? skeletons[precursorIdx] : null;
 	}
 
 	// ── Proteoform window query ───────────────────────────────────────────────
@@ -785,6 +845,13 @@ public sealed class MslLibrary : IDisposable
 	/// Because the LRU cache has a finite capacity, do not retain references to previously
 	/// yielded entries if memory is constrained — the fragments backing an evicted entry will
 	/// not be reloaded automatically.
+	/// </para>
+	///
+	/// <para>
+	/// <b>Cost in index-only mode:</b> a full enumeration reads every fragment block in the
+	/// file, one entry at a time. To read only precursor metadata (sequence, charge, protein
+	/// accession), loop over the index and call <see cref="GetEntry(int, bool)"/> with
+	/// <c>includeFragments: false</c>, which reads nothing from disk.
 	/// </para>
 	///
 	/// <para>
