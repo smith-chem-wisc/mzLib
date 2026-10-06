@@ -411,7 +411,7 @@ namespace FlashLFQ
                 var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundancence)>();
 
                 // a supplied formula is used as is; a parsed sequence is topped up with averagine when it is more than
-                // 20 Da from the identified mass; an unparsable one is all averagine
+                // AveragineFormula.DefaultAveragineThreshold (20 Da) from the identified mass; an unparsable one is all averagine
                 double averagineThreshold = double.PositiveInfinity;
                 if(formula is null)
                 {
@@ -421,7 +421,7 @@ namespace FlashLFQ
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
                         formula = GetChemicalFormulaFromIdentification(id);
-                        averagineThreshold = 20;
+                        averagineThreshold = AveragineFormula.DefaultAveragineThreshold;
                     }
                 }
 

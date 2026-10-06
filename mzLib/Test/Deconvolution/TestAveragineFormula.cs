@@ -115,6 +115,57 @@ namespace Test.Deconvolution
             Assert.AreNotEqual(amino.Intensities, ribo.Intensities);
         }
 
+        [TestCase(double.NaN)]
+        [TestCase(double.PositiveInfinity)]
+        [TestCase(double.NegativeInfinity)]
+        public static void ANonFiniteMassThrows(double mass)
+        {
+            var composition = new Averagine().GetAverageChemicalFormula();
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => AveragineFormula.AddAveragine(new ChemicalFormula(), mass, composition));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AveragineFormula.GetAnchoredDistribution(KnownPart, mass, composition, 0.125, 1e-8));
+        }
+
+        [Test]
+        public static void AnEmptyOrMasslessCompositionThrowsWhenAFillIsNeeded()
+        {
+            var empty = new Dictionary<char, double>();
+            var massless = new Dictionary<char, double> { ['C'] = 0 };
+            double monoisotopicMass = KnownPart.MonoisotopicMass + TmtMass;
+
+            Assert.Throws<ArgumentOutOfRangeException>(() => AveragineFormula.AddAveragine(new ChemicalFormula(), 100, empty));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AveragineFormula.AddAveragine(new ChemicalFormula(), 100, massless));
+            Assert.Throws<ArgumentOutOfRangeException>(() => AveragineFormula.GetAnchoredDistribution(KnownPart, monoisotopicMass, empty, 0.125, 1e-8));
+        }
+
+        /// <summary>A negative gap larger than the known formula leaves nothing to distribute: no envelope.</summary>
+        [Test]
+        public static void ANegativeGapLargerThanTheFormulaGivesNoEnvelope()
+        {
+            var known = ChemicalFormula.ParseFormula("C10H20N2O3");
+
+            var (masses, intensities) = AveragineFormula.GetAnchoredDistribution(known, known.MonoisotopicMass - 2000,
+                new Averagine().GetAverageChemicalFormula(), 0.125, 1e-8);
+
+            Assert.IsEmpty(masses);
+            Assert.IsEmpty(intensities);
+        }
+
+        /// <summary>
+        /// Above about 31 kDa at 1e-8 the all-light isotopologue falls below minProbability, so index 0 is not the
+        /// monoisotopic peak; the anchoring still holds, since it uses the filled formula's monoisotopic mass.
+        /// </summary>
+        [Test]
+        public static void AboveAbout31kDaTheFirstMassIsNotMonoisotopic()
+        {
+            double monoisotopicMass = 50000;
+
+            var (masses, _) = AveragineFormula.GetAnchoredDistribution(new ChemicalFormula(), monoisotopicMass,
+                new Averagine().GetAverageChemicalFormula(), 0.125, 1e-8, averagineThreshold: 0);
+
+            Assert.Greater(masses[0] - monoisotopicMass, 4.5);
+        }
+
         [Test]
         public static void NullArgumentsThrow()
         {
