@@ -134,15 +134,56 @@ public class EntrapmentFdpTests
     }
 
     /// <summary>
-    /// "Scored lower" is strict (E > T). A tie adds nothing beyond the entrapment itself.
+    /// An exact tie (equal q and equal score) counts as E > T, the conservative choice for an upper bound.
+    /// FDRBench's ranks are unique; its k-fold path (FDPCalcKFold.getNk, ei &gt;= ti) counts a tie the same way.
+    /// N_T = 1, N_E = 1, N_{E>T>=s} = 1: (1 + 0 + 2) / 2.
     /// </summary>
     [Test]
-    public void ATiedPartnerAddsNothing()
+    public void AnExactTieCountsAsTheEntrapmentRankedAhead()
     {
         var target = new ScoredIdentification(50, 0.001);
         var point = EntrapmentFdp.Sweep([target], [new(50, 0.001, target)], 1.0, [0.01]).Single();
 
+        Assert.That(point.Paired, Is.EqualTo(3.0 / 2).Within(1e-12));
+    }
+
+    /// <summary>
+    /// The pair is ordered as FDRBench ranks discoveries: by q-value, then by score. Here the entrapment has
+    /// the lower q but the lower score, so it is ranked ahead and counts as N_{E>T>=s}: (1 + 0 + 2) / 2.
+    /// </summary>
+    [Test]
+    public void AnEntrapmentWithTheLowerQRanksAheadOfAHigherScoringPartner()
+    {
+        var target = new ScoredIdentification(12, 0.005);
+        var point = EntrapmentFdp.Sweep([target], [new(10, 0.001, target)], 1.0, [0.01]).Single();
+
+        Assert.That(point.Paired, Is.EqualTo(3.0 / 2).Within(1e-12));
+    }
+
+    /// <summary>
+    /// The mirror case: the partner has the lower q but the lower score, so it is ranked ahead and the pair
+    /// adds nothing beyond the entrapment: (1 + 0 + 0) / 2.
+    /// </summary>
+    [Test]
+    public void APartnerWithTheLowerQRanksAheadOfAHigherScoringEntrapment()
+    {
+        var target = new ScoredIdentification(10, 0.001);
+        var point = EntrapmentFdp.Sweep([target], [new(12, 0.005, target)], 1.0, [0.01]).Single();
+
         Assert.That(point.Paired, Is.EqualTo(1.0 / 2).Within(1e-12));
+    }
+
+    /// <summary>
+    /// With equal q-values the score decides, higher first.
+    /// </summary>
+    [TestCase(12, 10, 3.0 / 2)]
+    [TestCase(10, 12, 1.0 / 2)]
+    public void WithEqualQTheHigherScoreRanksAhead(double entrapmentScore, double partnerScore, double expectedPaired)
+    {
+        var target = new ScoredIdentification(partnerScore, 0.004);
+        var point = EntrapmentFdp.Sweep([target], [new(entrapmentScore, 0.004, target)], 1.0, [0.01]).Single();
+
+        Assert.That(point.Paired, Is.EqualTo(expectedPaired).Within(1e-12));
     }
 
     /// <summary>
