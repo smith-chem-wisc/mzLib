@@ -9,8 +9,9 @@ namespace StatisticalModels
     /// </summary>
     /// <remarks>
     /// Both polygammas use the upward recurrence to move the argument above 20 and then the standard
-    /// asymptotic series through the B₁₀ term. The first omitted term is below 1e-16 relative there
-    /// (at 10 it would be about 2e-13), so rounding in the recurrence, not truncation, sets the error. They are defined for x &gt; 0 only,
+    /// asymptotic series through the B₁₀ term. At 20 the first omitted (B₁₂) term is about 6e-17 of
+    /// trigamma and 8e-16 of tetragamma, so truncation costs trigamma less than rounding does and
+    /// tetragamma a few ulps (at 10 they would be 2e-13 and 3e-12). They are defined for x &gt; 0 only,
     /// which is the only domain moderation calls them on (half a degrees-of-freedom value).
     /// </remarks>
     internal static class Polygamma

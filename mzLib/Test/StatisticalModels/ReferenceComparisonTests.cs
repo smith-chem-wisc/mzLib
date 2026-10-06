@@ -122,7 +122,9 @@ public class ReferenceComparisonTests
     /// With few features limma's default trend spline is smaller (1 + (n ≥ 3) + (n ≥ 6) + (n ≥ 30) basis
     /// functions), so the first n features of the fixture are moderated at each step of that rule and
     /// compared with <c>eBayes(trend = TRUE, legacy = TRUE)</c> on the same rows (make_small_n_fixtures.R).
+    /// At n = 2 limma fits no prior at all (d0 = 0), so both features keep their own variance.
     /// </summary>
+    [TestCase(2)]
     [TestCase(3)]
     [TestCase(5)]
     [TestCase(6)]

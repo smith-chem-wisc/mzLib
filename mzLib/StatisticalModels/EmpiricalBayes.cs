@@ -53,7 +53,8 @@ namespace StatisticalModels
         public VariancePriorEstimator Estimator { get; }
 
         /// <summary>Prior degrees of freedom d0. Positive infinity when the observed variances are no more
-        /// dispersed than sampling alone explains, in which case every feature takes the prior variance.</summary>
+        /// dispersed than sampling alone explains, in which case every feature takes the prior variance. Zero with fewer
+        /// than 3 features, as in limma: no prior is fitted and each feature keeps its own variance.</summary>
         public double Df { get; }
 
         /// <summary>Prior variance s0², one per feature (all equal when <see cref="Trended"/> is false).
@@ -194,6 +195,13 @@ namespace StatisticalModels
             var scale = Enumerable.Repeat(double.NaN, n).ToArray();
             if (use.Length < 2)
                 throw new ArgumentException($"A variance prior needs at least 2 usable features; {use.Length} were usable.", nameof(variances));
+            // As limma's squeezeVar: with fewer than 3 features there is no prior to fit, so each feature
+            // keeps its own variance (d0 = 0) and moderation leaves it unchanged.
+            if (n < 3)
+            {
+                foreach (int i in use) scale[i] = variances[i];
+                return new VariancePrior(0, scale, covariate != null, 1, estimator);
+            }
 
             // A variance of exactly zero has no logarithm. Offset them away from zero relative to the median.
             double median = use.Select(i => variances[i]).Median();
