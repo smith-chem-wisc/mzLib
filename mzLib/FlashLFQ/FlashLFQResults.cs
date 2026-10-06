@@ -448,7 +448,7 @@ namespace FlashLFQ
                 if (proteinGroupToPeptides.TryGetValue(proteinGroup, out var peptidesForThisProtein))
                 {
                     // one row per peptide, one column per sample (condition + biological replicate)
-                    int numSamples = SpectraFiles.Select(p => p.Condition + p.BiologicalReplicate).Distinct().Count();
+                    int numSamples = SpectraFiles.Select(p => (p.Condition, p.BiologicalReplicate)).Distinct().Count();
                     double[][] peptideIntensities = new double[peptidesForThisProtein.Count][];
                     for (int i = 0; i < peptideIntensities.Length; i++)
                     {
