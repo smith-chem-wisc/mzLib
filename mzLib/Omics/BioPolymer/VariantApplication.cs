@@ -84,9 +84,9 @@ namespace Omics.BioPolymer
         /// <summary>
         /// One or more "_{original}{position}{variant}" tokens, as <see cref="GetAccession"/> writes them through
         /// SequenceVariation.SimpleString: the original residues are never empty, and the variant residues are
-        /// empty for a deletion.
+        /// empty for a deletion. Either side may carry "*": a stop-gain writes "Q5*", a stop-loss "*70R".
         /// </summary>
-        private static readonly Regex AppliedVariantSuffix = new(@"^(.+?)((?:_[A-Z]+\d+[A-Z]*)+)$", RegexOptions.Compiled);
+        private static readonly Regex AppliedVariantSuffix = new(@"^(.+?)((?:_[A-Z*]+\d+[A-Z*]*)+)$", RegexOptions.Compiled);
 
         /// <summary>
         /// The inverse of <see cref="GetAccession"/>: reads an accession back into its parent entry and the variants

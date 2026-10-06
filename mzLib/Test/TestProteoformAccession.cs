@@ -23,6 +23,9 @@ namespace Test
         [TestCase("P12345_AB70", "P12345", "AB70")]
         [TestCase("P12345_T70TAG", "P12345", "T70TAG")]
         [TestCase("A0A087X1C5_S70N", "A0A087X1C5", "S70N")]
+        [TestCase("P12345_Q5*", "P12345", "Q5*")]
+        [TestCase("P12345_*70R", "P12345", "*70R")]
+        [TestCase("P12345_S3N_Q5*", "P12345", "S3N_Q5*")]
         public void AVariantProteoformSplitsIntoItsEntry(string accession, string entry, string variants)
         {
             var a = VariantApplication.ParseAccession(accession);
@@ -96,25 +99,30 @@ namespace Test
         public void EveryAccessionVariantApplicationWritesParsesBackToItsEntry()
         {
             // The grammar is the producer's: take the names mzLib itself gives applied-variant
-            // proteoforms (a substitution, an insertion, a deletion, and combinations) and read them back.
+            // proteoforms (a substitution, an insertion, a deletion, a stop-gain, and combinations)
+            // and read them back, variants exactly as written.
             var variants = new List<SequenceVariation>
             {
                 new(3, 3, "A", "T", "substitution"),
                 new(6, 6, "G", "GKK", "insertion"),
                 new(9, 10, "AA", "", "deletion"),
+                new(11, 11, "G", "*", "stop-gain"),
             };
-            var protein = new Protein("MAAAAGAAAAG", "P12345", sequenceVariations: variants);
+            var protein = new Protein("MAAAAGAAAAGA", "P12345", sequenceVariations: variants);
 
-            var proteoforms = VariantApplication.ApplyAllVariantCombinations(protein, variants, maxCombinations: 10)
+            var proteoforms = VariantApplication.ApplyAllVariantCombinations(protein, variants, maxCombinations: 20)
                 .Where(p => p.AppliedSequenceVariations.Count > 0)
                 .ToList();
-            Assert.That(proteoforms, Has.Count.EqualTo(7), "every non-empty combination of three variants");
+            Assert.That(proteoforms, Has.Count.EqualTo(15), "every non-empty combination of four variants");
+            Assert.That(proteoforms.Any(p => p.Accession.EndsWith("*")), "a stop-gain proteoform is among them");
 
             foreach (var p in proteoforms)
             {
                 var a = VariantApplication.ParseAccession(p.Accession);
                 Assert.That(a.Entry.EntryAccession, Is.EqualTo("P12345"), p.Accession);
-                Assert.That(a.AppliedVariants.Split('_'), Has.Length.EqualTo(p.AppliedSequenceVariations.Count), p.Accession);
+                Assert.That(a.AppliedVariants, Is.EqualTo(p.Accession.Substring("P12345_".Length)), p.Accession);
+                Assert.That(a.AppliedVariants, Is.EqualTo(string.Join("_", p.AppliedSequenceVariations
+                    .OrderBy(v => v.OneBasedBeginPosition).Select(v => v.SimpleString()))), p.Accession);
             }
         }
     }
