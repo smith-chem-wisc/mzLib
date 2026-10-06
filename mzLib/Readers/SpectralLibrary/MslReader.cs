@@ -305,10 +305,20 @@ public static class MslReader
 	}
 
 	/// <summary>
+	/// Precursor records read per call in <see cref="ReadPrecursorArrayFromStream"/>: 56 MB.
+	/// </summary>
+	internal const int PrecursorReadChunkRecords = 1 << 20;
+
+	/// <summary>
 	/// Reads the precursor array by seeking to <c>header.PrecursorSectionOffset</c>
 	/// and reading exactly <c>NPrecursors × PrecursorRecordSize</c> bytes.
+	/// <para>
+	/// The read is done <paramref name="chunkRecords"/> records at a time: a byte span over the
+	/// whole array overflows its int32 length past about 38 M precursors (2^31 / 56).
+	/// </para>
 	/// </summary>
-	private static MslPrecursorRecord[] ReadPrecursorArrayFromStream(FileStream fs, MslFileHeader header)
+	internal static MslPrecursorRecord[] ReadPrecursorArrayFromStream(FileStream fs, MslFileHeader header,
+		int chunkRecords = PrecursorReadChunkRecords)
 	{
 		int nPrecursors = header.NPrecursors;
 		if (nPrecursors == 0) return Array.Empty<MslPrecursorRecord>();
@@ -316,7 +326,12 @@ public static class MslReader
 		fs.Seek(header.PrecursorSectionOffset, SeekOrigin.Begin);
 
 		var precursors = new MslPrecursorRecord[nPrecursors];
-		fs.ReadExactly(MemoryMarshal.AsBytes(precursors.AsSpan()));
+		for (int start = 0; start < nPrecursors;)
+		{
+			int count = Math.Min(chunkRecords, nPrecursors - start);
+			fs.ReadExactly(MemoryMarshal.AsBytes(precursors.AsSpan(start, count)));
+			start += count;
+		}
 		return precursors;
 	}
 

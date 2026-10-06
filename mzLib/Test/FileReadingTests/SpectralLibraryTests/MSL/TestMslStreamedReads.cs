@@ -384,6 +384,137 @@ public sealed class TestMslStreamedReads
 	}
 
 	/// <summary>
+	/// Mapped reads hold no lock, so Dispose can run while other threads read. Every read must
+	/// then either return the right fragments or throw <see cref="ObjectDisposedException"/>;
+	/// nothing may touch the unmapped view.
+	/// </summary>
+	[Test]
+	public void LoadIndexOnly_MappedReads_DisposeDuringParallelReads_ReadOrThrowDisposed()
+	{
+		string path = TempPath(nameof(LoadIndexOnly_MappedReads_DisposeDuringParallelReads_ReadOrThrowDisposed));
+		List<MslLibraryEntry> written = MakeEntries(300);
+		MslWriter.Write(path, written);
+		float[][] expected = MslReader.Load(path).Entries.Select(FragmentMzs).ToArray();
+
+		MslLibraryData mapped = MslReader.LoadIndexOnly(path, memoryMapFragments: true);
+		Assert.That(mapped.IsMemoryMapped, Is.True);
+
+		const int workers = 8;
+		const int maxReadsPerWorker = 5_000_000;
+		long reads = 0;
+		int mismatches = 0, otherErrors = 0, sawDisposed = 0;
+		Task[] tasks = Enumerable.Range(0, workers).Select(w => Task.Run(() =>
+		{
+			for (int k = 0; k < maxReadsPerWorker; k++)
+			{
+				int i = (w * 37 + k) % expected.Length;
+				try
+				{
+					if (!mapped.LoadFragmentsOnDemand(i).Select(f => (float)f.Mz).SequenceEqual(expected[i]))
+						Interlocked.Increment(ref mismatches);
+					Interlocked.Increment(ref reads);
+				}
+				catch (ObjectDisposedException)
+				{
+					Interlocked.Increment(ref sawDisposed);
+					return;
+				}
+				catch
+				{
+					Interlocked.Increment(ref otherErrors);
+					return;
+				}
+			}
+		})).ToArray();
+
+		SpinWait.SpinUntil(() => Interlocked.Read(ref reads) >= 10_000, TimeSpan.FromSeconds(30));
+		mapped.Dispose();
+		Assert.That(Task.WaitAll(tasks, TimeSpan.FromSeconds(60)), Is.True, "readers did not stop");
+
+		Assert.That(Interlocked.Read(ref reads), Is.GreaterThanOrEqualTo(10_000), "reads had not started");
+		Assert.That(mismatches, Is.EqualTo(0));
+		Assert.That(otherErrors, Is.EqualTo(0));
+		Assert.That(sawDisposed, Is.EqualTo(workers), "every reader ends on ObjectDisposedException");
+	}
+
+	/// <summary>
+	/// When the OS refuses the memory map, the index-only load falls back to positional reads
+	/// instead of failing.
+	/// </summary>
+	[TestCase(typeof(IOException))]
+	[TestCase(typeof(UnauthorizedAccessException))]
+	public void LoadIndexOnly_MapCannotBeCreated_FallsBackToPositionalReads(Type exceptionType)
+	{
+		string path = TempPath(nameof(LoadIndexOnly_MapCannotBeCreated_FallsBackToPositionalReads) + exceptionType.Name);
+		List<MslLibraryEntry> written = MakeEntriesWithCustomLoss(50);
+		MslWriter.Write(path, written);
+		MslLibraryData full = MslReader.Load(path);
+
+		MslLibraryData.CreateMapForTesting = _ => throw (Exception)Activator.CreateInstance(exceptionType, "no map")!;
+		MslLibraryData fallback;
+		try
+		{
+			fallback = MslReader.LoadIndexOnly(path, memoryMapFragments: true);
+		}
+		finally
+		{
+			MslLibraryData.CreateMapForTesting = null;
+		}
+
+		using (fallback)
+		{
+			Assert.That(fallback.IsMemoryMapped, Is.False);
+			for (int i = 0; i < written.Count; i++)
+				Assert.That(fallback.LoadFragmentsOnDemand(i).Select(f => (float)f.Mz), Is.EqualTo(FragmentMzs(full.Entries[i])));
+			AssertCustomLossesRead(fallback);
+		}
+	}
+
+	/// <summary>
+	/// Any other failure while mapping still fails the load.
+	/// </summary>
+	[Test]
+	public void LoadIndexOnly_MapFailsWithUnexpectedException_Throws()
+	{
+		string path = TempPath(nameof(LoadIndexOnly_MapFailsWithUnexpectedException_Throws));
+		MslWriter.Write(path, MakeEntries(5));
+
+		MslLibraryData.CreateMapForTesting = _ => throw new InvalidOperationException("unexpected");
+		try
+		{
+			Assert.That(() => MslReader.LoadIndexOnly(path, memoryMapFragments: true),
+				Throws.TypeOf<InvalidOperationException>());
+		}
+		finally
+		{
+			MslLibraryData.CreateMapForTesting = null;
+		}
+		Assert.That(() => File.Delete(path), Throws.Nothing, "the failed load released the file");
+	}
+
+	/// <summary>
+	/// The precursor section is read in chunks so the byte span never overflows; a chunk size
+	/// that does not divide the count must give the same records as one read.
+	/// </summary>
+	[Test]
+	public void ReadPrecursorArray_InChunks_MatchesSingleRead()
+	{
+		string path = TempPath(nameof(ReadPrecursorArray_InChunks_MatchesSingleRead));
+		MslWriter.Write(path, MakeEntries(300));
+		MslFileHeader header;
+		using (MslLibraryData data = MslReader.LoadIndexOnly(path))
+			header = data.Header;
+
+		using FileStream fs = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+		MslPrecursorRecord[] whole = MslReader.ReadPrecursorArrayFromStream(fs, header, chunkRecords: int.MaxValue);
+		MslPrecursorRecord[] chunked = MslReader.ReadPrecursorArrayFromStream(fs, header, chunkRecords: 7);
+
+		Assert.That(chunked.Length, Is.EqualTo(300));
+		Assert.That(System.Runtime.InteropServices.MemoryMarshal.AsBytes(chunked.AsSpan()).SequenceEqual(
+			System.Runtime.InteropServices.MemoryMarshal.AsBytes(whole.AsSpan())), Is.True);
+	}
+
+	/// <summary>
 	/// A UNC path is a network share, so it is never memory-mapped; an ordinary path is decided
 	/// without throwing.
 	/// </summary>

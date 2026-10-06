@@ -162,28 +162,56 @@ public sealed class MslLibraryData : IDisposable
 		_proteins = proteins ?? throw new ArgumentNullException(nameof(proteins));
 		_onDemandStream = onDemandStream ?? throw new ArgumentNullException(nameof(onDemandStream));
 		_fileLength = onDemandStream.Length;
-		_memoryMapped = memoryMapFragments;
-		if (memoryMapFragments)
-		{
-			_fragmentMap = MemoryMappedFile.CreateFromFile(onDemandStream, mapName: null, capacity: 0,
-				MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
-			try
-			{
-				_fragmentView = _fragmentMap.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
-			}
-			catch
-			{
-				// The caller disposes the stream on failure; the map is ours to release
-				_fragmentMap.Dispose();
-				throw;
-			}
-		}
-		else
-		{
+		// A map that cannot be created (e.g. no virtual address space left for a very large file in
+		// a 32-bit process) falls back to positional reads instead of failing the load.
+		_memoryMapped = memoryMapFragments && TryMapFragments(onDemandStream);
+		if (!_memoryMapped)
 			_onDemandHandle = onDemandStream.SafeFileHandle;
-		}
 		_customLossMasses = customLossMasses ?? Array.Empty<double>();
 		_isIndexOnly = true;
+	}
+
+	/// <summary>
+	/// Replaces <see cref="MemoryMappedFile.CreateFromFile(FileStream, string?, long, MemoryMappedFileAccess, HandleInheritability, bool)"/>
+	/// on the current thread, so tests can make the map fail. Null in production.
+	/// </summary>
+	[ThreadStatic]
+	internal static Func<FileStream, MemoryMappedFile>? CreateMapForTesting;
+
+	/// <summary>
+	/// True when fragment blocks are read from a memory map; false for positional reads.
+	/// </summary>
+	internal bool IsMemoryMapped => _memoryMapped;
+
+	/// <summary>
+	/// Maps <paramref name="stream"/> and opens a view over all of it. Returns false, holding
+	/// nothing, when the OS refuses the map with <see cref="IOException"/> or
+	/// <see cref="UnauthorizedAccessException"/>; other exceptions propagate.
+	/// </summary>
+	private bool TryMapFragments(FileStream stream)
+	{
+		MemoryMappedFile? map = null;
+		try
+		{
+			map = CreateMapForTesting is { } create
+				? create(stream)
+				: MemoryMappedFile.CreateFromFile(stream, mapName: null, capacity: 0,
+					MemoryMappedFileAccess.Read, HandleInheritability.None, leaveOpen: true);
+			_fragmentView = map.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read);
+			_fragmentMap = map;
+			return true;
+		}
+		catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+		{
+			map?.Dispose();
+			return false;
+		}
+		catch
+		{
+			// The caller disposes the stream on failure; the map is ours to release
+			map?.Dispose();
+			throw;
+		}
 	}
 
 	// ── Public properties ─────────────────────────────────────────────────────
