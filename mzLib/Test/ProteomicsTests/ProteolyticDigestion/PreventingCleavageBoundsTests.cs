@@ -93,17 +93,24 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             var motifs = DigestionMotif.ParseDigestionMotifsFromString("[D]|T");
             var protease = new Protease("bounds-cut-before", CleavageSpecificity.Full, null, null, motifs);
             ProteaseDictionary.Dictionary["bounds-cut-before"] = protease;
+            try
+            {
+                CollectionAssert.AreEqual(new[] { "AAADT" }, Digest("AAADT", "bounds-cut-before"),
+                    "the residue before the final Thr is the forbidden Asp, so the bond must not be cut");
 
-            CollectionAssert.AreEqual(new[] { "AAADT" }, Digest("AAADT", "bounds-cut-before"),
-                "the residue before the final Thr is the forbidden Asp, so the bond must not be cut");
+                CollectionAssert.AreEqual(new[] { "AAA", "TA" }, Digest("AAATA", "bounds-cut-before"),
+                    "with alanine before it the same bond is cut, so the rule is still doing its job");
 
-            CollectionAssert.AreEqual(new[] { "AAA", "TA" }, Digest("AAATA", "bounds-cut-before"),
-                "with alanine before it the same bond is cut, so the rule is still doing its job");
-
-            // The backward index's own end: a Thr at position 0 has no residue before it to forbid the cut,
-            // so the rule reads nothing (index -1) and the site is the N-terminus the sequence starts at anyway.
-            CollectionAssert.AreEqual(new[] { "TAAAA" }, Digest("TAAAA", "bounds-cut-before"),
-                "a recognition residue at position 0 must be checked against the N-terminus, not read at index -1");
+                // The backward index's own end: a Thr at position 0 has no residue before it to forbid the cut,
+                // so the rule reads nothing (index -1) and the site is the N-terminus the sequence starts at anyway.
+                CollectionAssert.AreEqual(new[] { "TAAAA" }, Digest("TAAAA", "bounds-cut-before"),
+                    "a recognition residue at position 0 must be checked against the N-terminus, not read at index -1");
+            }
+            finally
+            {
+                // The dictionary is global; leave it as the other fixtures expect to find it.
+                ProteaseDictionary.Dictionary.Remove("bounds-cut-before");
+            }
         }
     }
 }
