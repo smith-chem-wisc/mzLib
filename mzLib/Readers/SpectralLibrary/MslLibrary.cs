@@ -244,7 +244,7 @@ public sealed class MslLibrary : IDisposable
 		}
 
 		// Uncompressed index-only path: capture rawLib in the loader closure.
-		// On index cache miss the delegate seeks the open FileStream and reads the fragment block.
+		// On index cache miss the delegate reads the fragment block from the open file.
 		Func<int, MslLibraryEntry?> loader = i =>
 		{
 			if (i < 0 || i >= rawLib.Count)
