@@ -357,7 +357,7 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Is.Empty, design.Report());
             Assert.That(design.Notes, Does.Contain("Line 2 ('a1.raw') dropped: the search does not read that file."));
             Assert.That(design.Notes, Does.Contain("Condition 'A': biological replicates 2, 3, kept as the SDRF numbers them. " +
-                "Rows were dropped above, so a missing number may be a sample whose file is not searched."));
+                "Rows were dropped from the SDRF, so a missing number may be a sample whose file is not searched."));
             Assert.That(design.Files.Select(f => (f.FullFilePathWithExtension, f.BiologicalReplicate)),
                 Is.EqualTo(new[] { (@"C:\data\a2.raw", 1), (@"C:\data\a3.raw", 2) }), "the searched paths, replicates 2 and 3");
         }
@@ -573,7 +573,10 @@ namespace Test.FileReadingTests
                 "Condition 'A': the SDRF gives no biological replicate for 2 sample(s), so these were numbered here: 'mouse X' -> 1, 'mouse Y' -> 2."));
         }
 
-        /// <summary>A number added beside numbers the SDRF gives takes the lowest one the condition does not use.</summary>
+        /// <summary>
+        /// A number added beside numbers the SDRF gives comes after the highest of them, never into a gap: a gap may
+        /// be a lost sample, and replicate N may be subject N of another condition.
+        /// </summary>
         [TestCase("not available")]
         [TestCase("not applicable")]
         [TestCase("")]
@@ -583,8 +586,59 @@ namespace Test.FileReadingTests
                 ("s1", "1", "a.raw", "A", "1"), ("s3", "3", "b.raw", "A", "1"), ("s?", missing, "c.raw", "A", "1")));
 
             Assert.That(design.Refusals, Is.Empty, design.Report());
-            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 3, 2 }), "1 and 3 kept, 2 added");
-            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), so these were numbered here: 's?' -> 2."));
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 3, 4 }), "1 and 3 kept, 4 added after them");
+            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), so these were numbered here: 's?' -> 4."));
+        }
+
+        /// <summary>
+        /// The gap note is over the numbers the SDRF gives, so a number added beside them cannot hide a gap: given 1, 2
+        /// and 4, the unnumbered sample becomes 5 and the missing 3 is still reported.
+        /// </summary>
+        [Test]
+        public void AnAddedNumberDoesNotHideAGapInTheNumbersGiven()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("s1", "1", "a.raw", "A", "1"), ("s2", "2", "b.raw", "A", "1"), ("s4", "4", "c.raw", "A", "1"),
+                ("s?", "not available", "d.raw", "A", "1")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 2, 4, 5 }));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': biological replicates 1, 2, 4, kept as the SDRF numbers them. " +
+                "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), so these were numbered here: 's?' -> 5."));
+        }
+
+        /// <summary>
+        /// A row with no number whose source name carries exactly one number on its other rows in the condition is the
+        /// same sample, so it takes that number rather than becoming a second sample.
+        /// </summary>
+        [Test]
+        public void AnUnnumberedRowOfANumberedSampleTakesItsNumber()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("mouse X", "2", "x_f1.raw", "A", "1"), ("mouse X", "not available", "x_f2.raw", "A", "2"),
+                ("mouse Y", "1", "y_f1.raw", "A", "1"), ("mouse Y", "1", "y_f2.raw", "A", "2")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 2, 2, 1, 1 }));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), " +
+                "so these were numbered here: 'mouse X' -> 2 (the number its other rows give)."));
+        }
+
+        /// <summary>
+        /// A row with no number whose source name carries several numbers in the condition cannot be placed, so the
+        /// design is refused rather than guessing.
+        /// </summary>
+        [Test]
+        public void AnUnnumberedRowOfASampleWithSeveralNumbersIsRefused()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("mouse X", "1", "x_f1.raw", "A", "1"), ("mouse X", "2", "x_f2.raw", "A", "2"),
+                ("mouse X", "not available", "x_f3.raw", "A", "3")));
+
+            Assert.That(design.IsValid, Is.False);
+            Assert.That(design.Refusals, Does.Contain("Line 4 (x_f3.raw): the SDRF gives no biological replicate, and the other rows of " +
+                "'mouse X' in condition 'A' give several (1, 2), so which one it is cannot be told."));
         }
 
         [TestCase("0")]
