@@ -39,7 +39,7 @@ namespace FlashLFQ
 
         /// <summary>
         /// Like <see cref="MakeIdentifications"/>, but keeps only the matches <see cref="QuantifiedPsmRule"/> quantifies,
-        /// the same rule MetaMorpheus applies to its own quantification:
+        /// the rule MetaMorpheus will adopt for its own quantification:
         /// <list type="bullet">
         /// <item>MetaMorpheus results (<see cref="SpectrumMatchFromTsv"/>, <see cref="LightWeightSpectralMatch"/>): the PEP
         /// q-value when the file's PEP was trained, otherwise the q-value and the notch q-value (where the file has one);</item>
@@ -51,14 +51,22 @@ namespace FlashLFQ
         /// Whether PEP was trained is decided once, over every record in the file. Decoys are kept, as
         /// <see cref="MakeIdentifications"/> keeps them: match-between-runs needs them.
         /// </summary>
+        /// <exception cref="MzLibUtil.MzLibException">PEP was not trained and no record carries a q-value (the file has
+        /// no q-value column), so every match would be dropped.</exception>
         public static List<Identification> MakeQuantifiedIdentifications(this IQuantifiableResultFile quantifiable,
             List<SpectraFileInfo> spectraFiles, double threshold = QuantifiedPsmRule.DefaultThreshold)
         {
             List<IQuantifiableRecord> records = quantifiable.GetQuantifiableResults().ToList();
-            bool usePepQValue = QuantifiedPsmRule.PepQValueIsUsable(records
-                .Select(ConfidenceOf)
-                .Where(confidence => confidence?.PepQValue is not null)
-                .Select(confidence => confidence.Value.PepQValue.Value));
+            List<(double QValue, double? NotchQValue, double? PepQValue)> confidences = records
+                .Select(ConfidenceOf).Where(confidence => confidence is not null).Select(confidence => confidence.Value).ToList();
+            bool usePepQValue = QuantifiedPsmRule.PepQValueIsUsable(confidences
+                .Where(confidence => confidence.PepQValue is not null)
+                .Select(confidence => confidence.PepQValue.Value));
+            if (!usePepQValue && confidences.Count > 0 && confidences.All(confidence => double.IsNaN(confidence.QValue)))
+            {
+                throw new MzLibUtil.MzLibException("No match in the result file has a q-value (is its q-value column missing?), " +
+                    "and its PEP was not trained, so no match could be quantified.");
+            }
 
             List<Identification> identifications = new List<Identification>();
             Dictionary<string, ProteinGroup> allProteinGroups = new Dictionary<string, ProteinGroup>();
@@ -95,7 +103,7 @@ namespace FlashLFQ
         private static (double QValue, double? NotchQValue, double? PepQValue)? ConfidenceOf(IQuantifiableRecord record) => record switch
         {
             SpectrumMatchFromTsv psm => (psm.QValue, psm.QValueNotch, psm.PEP_QValue),
-            LightWeightSpectralMatch light => (light.QValue, null, light.PepQValue),
+            LightWeightSpectralMatch light => (light.QValue, light.QValueNotch, light.PepQValue),
             DiaNnPrecursor diaNn => (diaNn.GlobalQValue, null, null),
             _ => null,
         };
@@ -135,6 +143,12 @@ namespace FlashLFQ
                 qValue = psmFromTsv.QValue;
                 pepQValue = psmFromTsv.PEP_QValue;
                 score = psmFromTsv.Score;
+            }
+            else if (record is LightWeightSpectralMatch light)
+            {
+                qValue = light.QValue;
+                pepQValue = light.PepQValue;
+                score = light.Score;
             }
             else if (record is DiaNnPrecursor diaNnPrecursor)
             {

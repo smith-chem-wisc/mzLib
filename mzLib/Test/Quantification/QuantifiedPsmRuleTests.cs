@@ -6,6 +6,7 @@ using Readers;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using Test.FlashLFQ;
 using System.IO;
 using System.Linq;
 
@@ -82,7 +83,7 @@ namespace Test.Quantification
         /// returns the quantified identifications made from it.
         /// </summary>
         private static List<Identification> Quantify(string name, Action<Func<string[], string, string>, Action<string[], string, string>, List<string[]>> edit,
-            List<SpectraFileInfo> spectraFiles = null)
+            List<SpectraFileInfo> spectraFiles = null, Func<string, IQuantifiableResultFile> open = null)
         {
             string[] lines = File.ReadAllLines(Source);
             string[] header = lines[0].Split('\t');
@@ -93,7 +94,7 @@ namespace Test.Quantification
             File.WriteAllLines(path, new[] { lines[0] }.Concat(rows.Select(row => string.Join('\t', row))));
             try
             {
-                return FileReader.ReadQuantifiableResultFile(path).MakeQuantifiedIdentifications(spectraFiles ?? BothFiles);
+                return (open ?? FileReader.ReadQuantifiableResultFile)(path).MakeQuantifiedIdentifications(spectraFiles ?? BothFiles);
             }
             finally
             {
@@ -114,15 +115,88 @@ namespace Test.Quantification
         [Test]
         public static void WithPepUntrainedTheQValueAndNotchDecide()
         {
-            var ids = Quantify("untrained", (get, set, rows) =>
+            var ids = Quantify("untrained", UntrainedEdit);
+
+            Assert.That(ids.Count, Is.EqualTo(5));
+        }
+
+        private static readonly Action<Func<string[], string, string>, Action<string[], string, string>, List<string[]>> UntrainedEdit =
+            (get, set, rows) =>
             {
                 rows.ForEach(row => set(row, "PEP_QValue", "2"));
                 set(rows[0], "QValue", "0.01");                         // at the threshold: dropped
                 set(rows[1], "QValue Notch", "0.05");                   // notch fails: dropped
                 set(rows[2], "Full Sequence", get(rows[2], "Full Sequence") + "|" + get(rows[2], "Full Sequence")); // ambiguous: dropped
-            });
+            };
+
+        /// <summary>
+        /// The same file gives the same quantified set whichever reader opens it: the lightweight reader reads the
+        /// notch q-value too, so the row whose notch fails is dropped there as well.
+        /// </summary>
+        [Test]
+        public static void TheLightweightReaderQuantifiesTheSameMatches()
+        {
+            var ids = Quantify("untrainedLight", UntrainedEdit, open: path => new LightWeightSpectralMatchFile(path));
 
             Assert.That(ids.Count, Is.EqualTo(5));
+        }
+
+        [Test]
+        public static void TheLightweightReaderCarriesQValueAndScore()
+        {
+            var ids = Quantify("trainedLight", (get, set, rows) => { }, open: path => new LightWeightSpectralMatchFile(path));
+            var heavy = Quantify("trainedHeavy", (get, set, rows) => { });
+
+            Assert.That(ids.Select(id => (id.QValue, id.PsmScore)), Is.EqualTo(heavy.Select(id => (id.QValue, id.PsmScore))));
+            Assert.That(ids.All(id => id.PsmScore > 0), Is.True);
+        }
+
+        /// <summary>A record type that reports no q-value is kept: its tool filtered it.</summary>
+        [Test]
+        public static void ARecordWithNoQValueIsKept()
+        {
+            var record = new MockQuantifiableRecord
+            {
+                BaseSequence = "PEPTIDE",
+                FullSequence = "PEPTIDE",
+                RetentionTime = 5.0,
+                MonoisotopicMass = 800.0,
+                ChargeState = 2,
+                FileName = "file1.mzML",
+                ProteinGroupInfos = new List<(string, string, string)> { ("P1", "Gene1", "Organism1") },
+            };
+            var file = new MockQuantifiableResultFile(new List<IQuantifiableRecord> { record });
+
+            var ids = file.MakeQuantifiedIdentifications(new List<SpectraFileInfo> { new SpectraFileInfo("file1.mzML", "A", 0, 0, 0) });
+
+            Assert.That(ids.Count, Is.EqualTo(1));
+        }
+
+        /// <summary>
+        /// A MetaMorpheus file with no q-value column and an untrained PEP would have every match dropped in
+        /// silence; it is refused instead.
+        /// </summary>
+        [Test]
+        public static void AFileWithNoQValueColumnIsRefused()
+        {
+            string[] lines = File.ReadAllLines(Source);
+            int column = Array.IndexOf(lines[0].Split('	'), "QValue");
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "QuantifiedPsmRule_noQValue.psmtsv");
+            File.WriteAllLines(path, lines.Select(line =>
+            {
+                var cells = line.Split('	').ToList();
+                cells.RemoveAt(column);
+                return string.Join('	', cells);
+            }).Select((line, i) => i == 0 ? line.Replace("PEP_QValue", "PEP_QValue_untrained") : line));
+            try
+            {
+                var file = new LightWeightSpectralMatchFile(path);
+                Assert.That(() => file.MakeQuantifiedIdentifications(BothFiles), Throws.TypeOf<MzLibUtil.MzLibException>());
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
 
         /// <summary>With PEP trained, the PEP q-value alone decides: a poor q-value does not drop a match.</summary>
