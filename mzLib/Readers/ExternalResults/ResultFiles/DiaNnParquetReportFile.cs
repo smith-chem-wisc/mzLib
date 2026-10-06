@@ -16,11 +16,24 @@ namespace Readers;
 /// <item>Removed: File.Name, PG.Quantity, PG.Normalised, Genes.Quantity, Genes.Normalised and MS2.Scan.
 /// Their properties are left "not reported": null for strings and nullable numbers, NaN for
 /// other doubles, and 0 for <see cref="DiaNnPrecursor.Ms2ScanNumber"/>, the one integer.</item>
+/// <item>Also absent from the 2.3.2 schema: Fragment.Quant.Raw, Fragment.Quant.Corrected,
+/// Fragment.Correlations, Fragment.Info, Spectrum.Similarity, Averagine, CScore, Decoy.Evidence,
+/// Decoy.CScore, Precursor.Translated, Translated.Quality and Ms1.Translated. All are strings or
+/// nullable numbers, so they read as null.</item>
 /// <item>Renamed: Lib.Index is now Precursor.Lib.Index.</item>
 /// <item>Added: a Decoy column, written when DIA-NN runs with --report-decoys. Decoy rows are
 /// skipped, because <see cref="DiaNnPrecursor.IsDecoy"/> is always false and a loaded decoy would be
 /// quantified as a target.</item>
 /// </list>
+/// </para>
+/// <para>
+/// <see cref="DiaNnReportFile.ReadFragmentColumns"/> has no effect here: DIA-NN 2.x writes no fragment
+/// columns, so the fragment properties are always null.
+/// </para>
+/// <para>
+/// plexDIA channels are not supported. A multiplexed search writes one row per precursor per run per
+/// Channel, and <see cref="DiaNnPrecursor"/> has no channel field, so those rows cannot be told apart
+/// (https://github.com/smith-chem-wisc/mzLib/issues/1433).
 /// </para>
 /// </summary>
 public class DiaNnParquetReportFile : DiaNnReportFile
@@ -92,7 +105,6 @@ public class DiaNnParquetReportFile : DiaNnReportFile
     /// report. A file that exists but is not a readable parquet gives false rather than throwing.
     /// </summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
-    /// <exception cref="FileNotFoundException">The file does not exist.</exception>
     internal static bool HasDiaNnReportColumns(string filePath)
     {
         if (!File.Exists(filePath))
@@ -163,6 +175,7 @@ public class DiaNnParquetReportFile : DiaNnReportFile
                 if (!fields.TryGetValue(column, out DataField? field))
                     continue;
 
+                // Boxed cells set by reflection: the hot path on large reports (typed setters: issue #1434).
                 object?[] values = ReadColumn(rowGroupReader, field, rowCount);
                 for (int row = 0; row < rowCount; row++)
                     if (!isDecoy[row])
