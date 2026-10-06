@@ -19,6 +19,24 @@ namespace StatisticalModels
         /// observed sample shares one sex so the sex coefficient cannot be estimated.
         /// </summary>
         RankDeficient,
+        /// <summary>
+        /// Logistic regression only: the outcomes are (quasi-)completely separated by the design, so the
+        /// maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
+        /// </summary>
+        Separated,
+        /// <summary>An iterative fit did not converge within its iteration limit.</summary>
+        NotConverged,
+        /// <summary>
+        /// Mixed model only: fewer than two groups, or no group observed twice, so the between-group variance
+        /// cannot be told apart from the residual variance.
+        /// </summary>
+        TooFewGroups,
+        /// <summary>
+        /// Mixed model only: the variance ratio τ²/σ² ran to the top of its search (e¹²), so the estimate would be
+        /// a clamped value rather than a maximum. Typically the residual variance is negligible beside the group
+        /// variance, e.g. near-identical replicates within each group.
+        /// </summary>
+        VarianceRatioAtLimit,
     }
 
     /// <summary>
@@ -221,7 +239,7 @@ namespace StatisticalModels
         /// design column j, and the test is independent of each column's units (a covariate on a 1e8 scale
         /// beside an intercept is not redundant).
         /// </summary>
-        private static bool IsFullRank(Matrix<double> m)
+        internal static bool IsFullRank(Matrix<double> m)
         {
             var r = m.RowCount == m.ColumnCount && IsUpperTriangular(m) ? m : m.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Thin).R;
             for (int j = 0; j < r.ColumnCount; j++)

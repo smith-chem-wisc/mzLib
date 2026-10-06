@@ -8,6 +8,25 @@ using MathNet.Numerics.Statistics;
 
 namespace StatisticalModels
 {
+    /// <summary>How the variance prior's hyperparameters (d0, s0²) are estimated.</summary>
+    public enum VariancePriorEstimator
+    {
+        /// <summary>
+        /// Method of moments on log variances (Smyth 2004), as limma's <c>eBayes(legacy = TRUE)</c>. Exact when
+        /// every feature has the same residual df; with unequal df it treats them through an averaged trigamma
+        /// term and can return d0 = ∞ where the data do not support it.
+        /// </summary>
+        MomentsLegacy,
+        /// <summary>
+        /// Maximum marginal likelihood: s²_g / s0²_g ~ F(d_g, d0) with each feature's OWN residual df, maximized
+        /// over d0 (∞ allowed) and s0² (or its trend). Unequal df, as omitting missing values produces, are
+        /// handled exactly by the likelihood. An independent estimator, not limma's <c>fitFDistUnequalDF1</c>,
+        /// so its numbers differ from default limma's. d0 is searched from about 0.05 upward, so a reported
+        /// d0 at e^-3 ≈ 0.05 is that floor, not an interior optimum.
+        /// </summary>
+        MarginalLikelihood,
+    }
+
     /// <summary>
     /// The prior distribution of per-feature residual variances: s²_g ~ s0² · χ²(d0)/d0, fitted across
     /// all features. With a trend, s0² depends on a covariate (the feature's average response).
@@ -20,16 +39,22 @@ namespace StatisticalModels
         /// </summary>
         public const double ZeroVarianceFloor = 1e-5;
 
-        internal VariancePrior(double df, double[] scale, bool trended, int splineBasisCount)
+        internal VariancePrior(double df, double[] scale, bool trended, int splineBasisCount,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy)
         {
+            Estimator = estimator;
             Df = df;
-            Scale = scale;
+            Scale = Array.AsReadOnly(scale);
             Trended = trended;
             SplineBasisCount = splineBasisCount;
         }
 
+        /// <summary>How d0 and s0² were estimated.</summary>
+        public VariancePriorEstimator Estimator { get; }
+
         /// <summary>Prior degrees of freedom d0. Positive infinity when the observed variances are no more
-        /// dispersed than sampling alone explains, in which case every feature takes the prior variance.</summary>
+        /// dispersed than sampling alone explains, in which case every feature takes the prior variance. Zero with fewer
+        /// than 3 features, as in limma: no prior is fitted and each feature keeps its own variance.</summary>
         public double Df { get; }
 
         /// <summary>Prior variance s0², one per feature (all equal when <see cref="Trended"/> is false).
@@ -75,9 +100,10 @@ namespace StatisticalModels
         public IReadOnlyList<FeatureFitStatus> Status { get; }
         /// <summary>
         /// True when the fitted features do not all have the same residual degrees of freedom, as happens
-        /// whenever missing values are omitted. For such input this result follows limma's legacy estimator
-        /// (<c>eBayes(legacy = TRUE)</c>), and limma 3.61 and later, by default, would give a different
-        /// prior and so different moderated statistics. See <see cref="EmpiricalBayes"/>.
+        /// whenever missing values are omitted. With <see cref="VariancePriorEstimator.MomentsLegacy"/> this
+        /// result then follows limma's legacy estimator (<c>eBayes(legacy = TRUE)</c>), and limma 3.61 and
+        /// later, by default, would give a different prior. <see cref="VariancePriorEstimator.MarginalLikelihood"/>
+        /// handles unequal df exactly. The prior's estimator is <see cref="VariancePrior.Estimator"/>.
         /// </summary>
         public bool ResidualDfDiffer { get; }
         /// <summary>Least-squares estimate of the coefficient (moderation does not change it).</summary>
@@ -116,24 +142,45 @@ namespace StatisticalModels
     /// residual df, default limma also uses the legacy estimator unless asked otherwise.
     /// </para>
     /// <para>
+    /// <see cref="VariancePriorEstimator.MarginalLikelihood"/> is this library's answer to that gap: the
+    /// prior is fitted by maximum marginal likelihood with each feature's own residual df, which handles
+    /// unequal df exactly without porting limma's code. It is a different estimator from limma's default,
+    /// so its numbers are compared with limma's, not required to equal them.
+    /// </para>
+    /// <para>
     /// Not implemented: <c>robust = TRUE</c>, contrasts, the B-statistic, observation weights.
     /// </para>
     /// </remarks>
     public static class EmpiricalBayes
     {
-        /// <summary>Default number of spline basis functions (intercept included) for an intensity trend.</summary>
+        /// <summary>
+        /// The most spline basis functions (intercept included) the default intensity trend uses. As in
+        /// limma's <c>fitFDist</c>, the default is 1 + (n ≥ 3) + (n ≥ 6) + (n ≥ 30) for n usable features,
+        /// capped at the number of distinct covariate values, so it reaches this only from 30 features.
+        /// </summary>
         public const int DefaultSplineBasisCount = 4;
 
         /// <summary>
-        /// Fits the variance prior by matching moments of e_g = log s²_g − ψ(d_g/2) + log(d_g/2), whose
-        /// variance is ψ′(d_g/2) + ψ′(d0/2).
+        /// Fits the variance prior (d0, s0²) with the chosen <paramref name="estimator"/>: by default by matching
+        /// moments of e_g = log s²_g − ψ(d_g/2) + log(d_g/2), whose variance is ψ′(d_g/2) + ψ′(d0/2), or by
+        /// maximum marginal likelihood.
         /// </summary>
         /// <param name="variances">Residual variances s²_g; non-finite or negative entries are ignored.</param>
         /// <param name="df">Residual degrees of freedom d_g; entries &lt;= 0 are ignored.</param>
-        /// <param name="covariate">If given, the prior mean of e_g is a natural cubic spline in this covariate.</param>
-        /// <param name="splineBasisCount">Basis functions for the trend, intercept included.</param>
+        /// <param name="covariate">If given, the prior mean of e_g is a natural cubic spline in this covariate.
+        /// It must be finite for every usable feature (limma refuses a missing covariate too).</param>
+        /// <param name="splineBasisCount">Basis functions for the trend, intercept included. Null (the default)
+        /// takes limma's rule for the number of usable features (see <see cref="DefaultSplineBasisCount"/>).
+        /// Either way it is capped at the distinct covariate values, and knots that tied covariate values
+        /// make coincide are merged, which can leave fewer; <see cref="VariancePrior.SplineBasisCount"/>
+        /// reports how many were used.</param>
+        /// <param name="estimator">
+        /// <see cref="VariancePriorEstimator.MomentsLegacy"/> (default, limma legacy parity) or
+        /// <see cref="VariancePriorEstimator.MarginalLikelihood"/> (unequal residual df handled exactly).
+        /// </param>
         public static VariancePrior FitPrior(IReadOnlyList<double> variances, IReadOnlyList<double> df,
-            IReadOnlyList<double>? covariate = null, int splineBasisCount = DefaultSplineBasisCount)
+            IReadOnlyList<double>? covariate = null, int? splineBasisCount = null,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy)
         {
             ArgumentNullException.ThrowIfNull(variances);
             ArgumentNullException.ThrowIfNull(df);
@@ -142,15 +189,26 @@ namespace StatisticalModels
             if (covariate != null && covariate.Count != n) throw new ArgumentException("covariate and variances differ in length.", nameof(covariate));
 
             var use = Enumerable.Range(0, n).Where(i =>
-                double.IsFinite(variances[i]) && variances[i] >= 0 && df[i] > 0
-                && (covariate == null || double.IsFinite(covariate[i]))).ToArray();
+                double.IsFinite(variances[i]) && variances[i] >= 0 && df[i] > 0).ToArray();
+            if (covariate != null && use.FirstOrDefault(i => !double.IsFinite(covariate[i]), -1) is int bad and >= 0)
+                throw new ArgumentException($"The covariate of feature {bad} is {covariate[bad]}; a trend needs a finite covariate for every usable feature.", nameof(covariate));
             var scale = Enumerable.Repeat(double.NaN, n).ToArray();
             if (use.Length < 2)
                 throw new ArgumentException($"A variance prior needs at least 2 usable features; {use.Length} were usable.", nameof(variances));
+            // As limma's squeezeVar: with fewer than 3 features there is no prior to fit, so each feature
+            // keeps its own variance (d0 = 0) and moderation leaves it unchanged.
+            if (n < 3)
+            {
+                foreach (int i in use) scale[i] = variances[i];
+                return new VariancePrior(0, scale, covariate != null, 1, estimator);
+            }
 
             // A variance of exactly zero has no logarithm. Offset them away from zero relative to the median.
             double median = use.Select(i => variances[i]).Median();
             double floor = median > 0 ? VariancePrior.ZeroVarianceFloor * median : VariancePrior.ZeroVarianceFloor;
+            if (estimator == VariancePriorEstimator.MarginalLikelihood)
+                return FitPriorByLikelihood(variances, df, covariate, splineBasisCount, use, floor, scale);
+
             double[] e = use.Select(i =>
                 Math.Log(Math.Max(variances[i], floor)) - SpecialFunctions.DiGamma(df[i] / 2) + Math.Log(df[i] / 2)).ToArray();
 
@@ -166,9 +224,8 @@ namespace StatisticalModels
             else
             {
                 double[] x = use.Select(i => covariate[i]).ToArray();
-                basis = Math.Min(splineBasisCount, Math.Min(x.Distinct().Count(), e.Length - 1));
-                basis = Math.Max(basis, 1);
-                var design = NaturalSplineBasis(x, basis);
+                var design = NaturalSplineBasis(x, TrendBasisCount(e.Length, x.Distinct().Count(), splineBasisCount));
+                basis = design.ColumnCount;
                 var qr = design.QR(MathNet.Numerics.LinearAlgebra.Factorization.QRMethod.Thin);
                 var ev = Vector<double>.Build.DenseOfArray(e);
                 var fitted = design * qr.Solve(ev);
@@ -187,6 +244,26 @@ namespace StatisticalModels
             return new VariancePrior(d0, scale, covariate != null, basis);
         }
 
+        private static VariancePrior FitPriorByLikelihood(IReadOnlyList<double> variances, IReadOnlyList<double> df,
+            IReadOnlyList<double>? covariate, int? splineBasisCount, int[] use, double floor, double[] scale)
+        {
+            double[] s2 = use.Select(i => Math.Max(variances[i], floor)).ToArray();
+            double[] d = use.Select(i => df[i]).ToArray();
+            int basis = 1;
+            Matrix<double> b;
+            if (covariate == null) b = Matrix<double>.Build.Dense(use.Length, 1, 1.0);
+            else
+            {
+                double[] x = use.Select(i => covariate[i]).ToArray();
+                basis = Math.Max(1, Math.Min(TrendBasisCount(use.Length, x.Distinct().Count(), splineBasisCount), use.Length - 1));
+                b = NaturalSplineBasis(x, basis);
+                basis = b.ColumnCount;
+            }
+            var (d0, logScale) = VariancePriorLikelihood.Fit(s2, d, b);
+            for (int k = 0; k < use.Length; k++) scale[use[k]] = Math.Exp(logScale[k]);
+            return new VariancePrior(d0, scale, covariate != null, basis, VariancePriorEstimator.MarginalLikelihood);
+        }
+
         /// <summary>
         /// Moderated t-test of one coefficient: each fitted feature's residual variance is shrunk toward the
         /// prior, s̃² = (d0·s0² + d·s²) / (d0 + d), and t = β / (s̃ · unscaled SD) on d + d0 degrees of freedom.
@@ -194,9 +271,12 @@ namespace StatisticalModels
         /// <param name="fit">Output of <see cref="LinearModel.Fit"/>.</param>
         /// <param name="coefficient">Name of the coefficient to test, e.g. "age_decades".</param>
         /// <param name="trend">Let the prior variance trend with <see cref="LinearModelFit.AverageResponse"/>.</param>
-        /// <param name="splineBasisCount">Basis functions for the trend, intercept included.</param>
+        /// <param name="splineBasisCount">Basis functions for the trend, intercept included; null takes limma's
+        /// rule (see <see cref="FitPrior"/>).</param>
+        /// <param name="estimator">How the prior is estimated; see <see cref="VariancePriorEstimator"/>.</param>
         public static ModeratedTest Moderate(LinearModelFit fit, string coefficient, bool trend,
-            int splineBasisCount = DefaultSplineBasisCount)
+            int? splineBasisCount = null,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy)
         {
             ArgumentNullException.ThrowIfNull(fit);
             int j = fit.IndexOf(coefficient);
@@ -215,7 +295,7 @@ namespace StatisticalModels
                 s2[f] = ok ? fit.Sigma[f] * fit.Sigma[f] : double.NaN;
                 df[f] = ok ? fit.DfResidual[f] : 0;
             }
-            var prior = FitPrior(s2, df, trend ? fit.AverageResponse : null, splineBasisCount);
+            var prior = FitPrior(s2, df, trend ? fit.AverageResponse : null, splineBasisCount, estimator);
             double pooledDf = fitted.Sum(f => (double)fit.DfResidual[f]);
 
             bool dfDiffer = fitted.Any(f => fit.DfResidual[f] != fit.DfResidual[fitted[0]]);
@@ -249,10 +329,26 @@ namespace StatisticalModels
         }
 
         /// <summary>
+        /// Basis functions for a trend over <paramref name="usable"/> features whose covariate takes
+        /// <paramref name="distinct"/> values. Without a request, limma's <c>fitFDist</c> rule; a request is
+        /// capped so the fit keeps at least one residual degree of freedom.
+        /// </summary>
+        internal static int TrendBasisCount(int usable, int distinct, int? requested)
+        {
+            int count = requested is int r
+                ? Math.Min(r, usable - 1)
+                : 1 + (usable >= 3 ? 1 : 0) + (usable >= 6 ? 1 : 0) + (usable >= 30 ? 1 : 0);
+            return Math.Max(1, Math.Min(count, distinct));
+        }
+
+        /// <summary>
         /// A basis of natural cubic splines (linear beyond the boundary knots) with <paramref name="count"/>
         /// functions including the intercept. Knots: the range of x, plus count − 2 interior knots at evenly
         /// spaced sample quantiles. Only the spanned space matters to a least-squares fit, so any basis of it
         /// gives the same fitted values; this is the truncated-power form, on x rescaled to [0, 1].
+        /// Heavily tied x can put two knots on one value. Coinciding knots are merged, so the basis can
+        /// come back with fewer columns than asked (down to the straight line, or the intercept alone when
+        /// x is constant). R's <c>ns</c> would keep a repeated knot instead, so limma's trend differs there.
         /// </summary>
         internal static Matrix<double> NaturalSplineBasis(double[] x, int count)
         {
@@ -263,12 +359,19 @@ namespace StatisticalModels
             if (count <= 1) return Matrix<double>.Build.Dense(n, 1, 1.0);
             if (count == 2) return Matrix<double>.Build.Dense(n, 2, (i, j) => j == 0 ? 1 : u[i]);
 
+            if (!(hi > lo)) return Matrix<double>.Build.Dense(n, 1, 1.0);
             var sorted = u.OrderBy(v => v).ToArray();
-            int k = count;                       // total knots = basis functions
-            var knots = new double[k];
-            knots[0] = 0; knots[k - 1] = 1;
-            for (int i = 1; i < k - 1; i++)
-                knots[i] = MathNet.Numerics.Statistics.Statistics.QuantileCustom(sorted, (double)i / (k - 1), QuantileDefinition.R7);
+            const double tie = 1e-12;            // on the [0, 1] scale
+            var knotList = new List<double> { 0 };
+            for (int i = 1; i < count - 1; i++)
+            {
+                double q = MathNet.Numerics.Statistics.Statistics.QuantileCustom(sorted, (double)i / (count - 1), QuantileDefinition.R7);
+                if (q > knotList[^1] + tie && q < 1 - tie) knotList.Add(q);
+            }
+            knotList.Add(1);
+            var knots = knotList.ToArray();
+            int k = knots.Length;                // total knots = basis functions
+            if (k == 2) return Matrix<double>.Build.Dense(n, 2, (i, j) => j == 0 ? 1 : u[i]);
 
             double D(double v, int idx)
             {
