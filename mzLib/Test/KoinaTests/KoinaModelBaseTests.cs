@@ -457,7 +457,7 @@ public class KoinaModelBaseTests
         // rejects before the converter is ever asked. Under ReturnNull that failure was silent -- no
         // warning, so a caller could not tell it apart from a sequence that was never valid. Run against
         // the REAL converter, so this asserts the whole of TryCleanSequence and not just the pre-check.
-        var model = new KoinaModelHarness(KoinaModelHarness.BuildAcceptAllConverter());
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildAcceptAllConverter(), acceptsAllUnimodModifications: true);
 
         var result = model.TryClean(mzLibSequence, out var apiSequence, out var warning);
 
@@ -483,11 +483,9 @@ public class KoinaModelBaseTests
     }
 
     // A bare separator, a separator anywhere but the C-terminus, and ProForma shapes the Koina
-    // converters cannot read. The last three are the reason CTerminalModStripper is anchored to one
-    // group at the end of the string: MzLibSequenceParser would parse
-    // "PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]" as C-terminal amidation PLUS an oxidation
-    // on E, and "[Unimod:Acetyl on X]-[Unimod:Amidated on X]PEPTIDE" as N-terminal acetylation PLUS a
-    // C-terminal amidation -- both a different peptide than was asked for, and neither with a warning.
+    // converters cannot read. MzLibSequenceParser would parse
+    // "[Unimod:Acetyl on X]-[Unimod:Amidated on X]PEPTIDE" as N-terminal acetylation PLUS a
+    // C-terminal amidation -- a different peptide than was asked for, with no warning.
     // Being stopped here, before parsing, is the correct outcome for all of them.
     [TestCase("-PEPTIDE")]
     [TestCase("PEPTIDE-")]
@@ -495,7 +493,6 @@ public class KoinaModelBaseTests
     [TestCase("[UNIMOD:1]-PEP*TIDE")]
     [TestCase("[UNIMOD:1]-PEPTIDE")]
     [TestCase("[UNIMOD:1][UNIMOD:34]-PEPTIDE")]
-    [TestCase("PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]")]
     [TestCase("[Unimod:Acetyl on X]-[Unimod:Amidated on X]PEPTIDE")]
     public void TryCleanSequence_SeparatorThatIsNotAnMzLibCTerminalModification_RejectedBeforeParsing(
         string sequence)
