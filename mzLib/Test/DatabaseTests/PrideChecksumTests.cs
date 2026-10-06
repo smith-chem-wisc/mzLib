@@ -431,6 +431,99 @@ public class PrideChecksumTests
             Assert.That(exception.Message, Does.Contain("'run1.raw' from private.example.org"));
         });
     }
+
+    /// <summary>A body stream that cancels <see cref="Source"/> once the last byte has been read.</summary>
+    private sealed class CancelAtEndStream : MemoryStream
+    {
+        public CancellationTokenSource Source { get; }
+        public CancelAtEndStream(byte[] bytes, CancellationTokenSource source) : base(bytes) => Source = source;
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            int read = await base.ReadAsync(buffer, cancellationToken);
+            if (read == 0)
+                Source.Cancel();
+            return read;
+        }
+    }
+
+    [Test]
+    public void DownloadWithChecksum_CancelledWhileVerifying_KeepsThePartialAndValidator()
+    {
+        // The whole file arrives, then the caller cancels during the MD5. A multi-gigabyte transfer is not thrown away.
+        using var cts = new CancellationTokenSource();
+        var handler = new StubHandler(_ =>
+        {
+            var response = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new CancelAtEndStream(Body, cts)) };
+            response.Headers.ETag = EntityTagHeaderValue.Parse("\"v1\"");
+            return response;
+        });
+        using var client = ClientOver(handler);
+
+        Assert.CatchAsync<OperationCanceledException>(async () =>
+            await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+                new PrideFileChecksum("run1.raw", Md5Of(Body), Body.Length), verifyMd5: true, cancellationToken: cts.Token));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Destination), Is.False);
+            Assert.That(File.ReadAllBytes(Destination + ".partial"), Is.EqualTo(Body));
+            Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.True);
+        });
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_CompletePartialFromACancelledCheck_IsCheckedWithoutARequest()
+    {
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Body);
+        File.WriteAllText(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix, "\"v1\"");
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(Body), Body.Length), verifyMd5: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests, Is.Empty);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Body));
+            Assert.That(File.Exists(Destination + ".partial"), Is.False);
+            Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.False);
+        });
+    }
+
+    [Test]
+    public void DownloadWithChecksum_CompletePartialWithTheWrongMd5_IsDeleted()
+    {
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Body);
+        File.WriteAllText(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix, "\"v1\"");
+        using var client = ClientOver(new StubHandler(_ => Download(Body)));
+
+        Assert.ThrowsAsync<MzLibException>(async () =>
+            await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+                new PrideFileChecksum("run1.raw", new string('0', 32), Body.Length), verifyMd5: true));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.Exists(Destination), Is.False);
+            Assert.That(File.Exists(Destination + ".partial"), Is.False);
+            Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.False);
+        });
+    }
+
+    [Test]
+    public void PrideFileChecksum_NullFileNameOrMd5_Throws()
+    {
+        Assert.Multiple(() =>
+        {
+            Assert.That(() => new PrideFileChecksum(null!, Md5Of(Body), 10), Throws.TypeOf<ArgumentNullException>()
+                .With.Property(nameof(ArgumentNullException.ParamName)).EqualTo("fileName"));
+            Assert.That(() => new PrideFileChecksum("run1.raw", null!, 10), Throws.TypeOf<ArgumentNullException>()
+                .With.Property(nameof(ArgumentNullException.ParamName)).EqualTo("md5"));
+        });
+    }
 }
 
 /// <summary>

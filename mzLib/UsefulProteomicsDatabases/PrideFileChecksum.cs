@@ -1,3 +1,5 @@
+using System;
+
 namespace UsefulProteomicsDatabases
 {
     /// <summary>
@@ -15,10 +17,11 @@ namespace UsefulProteomicsDatabases
         /// <param name="fileName">The bare file name (see <see cref="FileName"/>).</param>
         /// <param name="md5">The MD5 as 32 hexadecimal characters (see <see cref="Md5"/>).</param>
         /// <param name="sizeBytes">The exact size in bytes (see <see cref="SizeBytes"/>).</param>
+        /// <exception cref="ArgumentNullException"><paramref name="fileName"/> or <paramref name="md5"/> is null.</exception>
         public PrideFileChecksum(string fileName, string md5, long sizeBytes)
         {
-            FileName = fileName;
-            Md5 = md5;
+            FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
+            Md5 = md5 ?? throw new ArgumentNullException(nameof(md5));
             SizeBytes = sizeBytes;
         }
 

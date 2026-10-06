@@ -540,7 +540,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">The accession is null, empty, or whitespace.</exception>
         /// <exception cref="MzLibException">
         /// No project has that accession, or PRIDE answered with a list this method cannot read: a header other
-        /// than <c>File-Name, File-MD5Checksum, File-Size</c>, a row without exactly those three fields, an MD5 that
+        /// than <c>File-Name, File-MD5Checksum, File-Size</c>, an empty line before the last row, a row without exactly those three fields, an MD5 that
         /// is not 32 hexadecimal characters, a size that is not a whole number of bytes, or a file name listed
         /// twice. These are a broken contract, not an outage, so they are not retried.
         /// </exception>
@@ -806,7 +806,15 @@ namespace UsefulProteomicsDatabases
         /// <para>
         /// A download that fails the check is a broken contract between PRIDE's file and PRIDE's own list, not an
         /// outage, so it throws <see cref="MzLibException"/>, is not retried, and leaves no ".partial" behind.
-        /// A truncated transfer is caught earlier, against the server's <c>Content-Length</c>, and retried.
+        /// A truncated transfer is caught earlier, against the server's <c>Content-Length</c>, and retried. A
+        /// server that sends no <c>Content-Length</c> (a chunked body) gives nothing to catch it against, so there a
+        /// truncation is found only by this size check and is reported as a mismatch, not retried.
+        /// </para>
+        /// <para>
+        /// Cancelling while the downloaded file is being checked keeps its ".partial" and ".partial.validator".
+        /// The next call for the same file with a checksum whose size the ".partial" already has checks it again
+        /// instead of downloading it again, so cancelling the MD5 of a multi-gigabyte file does not throw the
+        /// transfer away.
         /// </para>
         /// </remarks>
         /// <param name="file">The file to download. Must not be null and must have a file name.</param>
@@ -880,17 +888,24 @@ namespace UsefulProteomicsDatabases
             // A .partial left by an earlier call is resumable only with the validator it was started under;
             // without one, nothing proves the bytes on disk are the start of the file the server holds now.
             var transfer = new ResumableTransfer { Validator = ReadValidator(partialPath, validatorPath) };
+            bool verifying = false;
 
             try
             {
-                await WithRetryAsync(() => DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken),
-                    host, cancellationToken).ConfigureAwait(false);
+                // A .partial that already has the listed size was downloaded whole under its validator by a call
+                // cancelled while checking it (see the catch below): check it again rather than fetch it again.
+                bool alreadyComplete = expected != null && transfer.Validator != null
+                    && new FileInfo(partialPath).Length == expected.SizeBytes;
+                if (!alreadyComplete)
+                    await WithRetryAsync(() => DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken),
+                        host, cancellationToken).ConfigureAwait(false);
 
                 // Checked before the move, so a file that fails never reaches the destination path. An
                 // MzLibException falls to the catch-all below, which deletes the partial and its validator:
                 // bytes that disagree with PRIDE's own list are not worth resuming.
                 if (expected != null)
                 {
+                    verifying = true;
                     string mismatch = await ChecksumMismatchAsync(partialPath, expected, verifyMd5, cancellationToken).ConfigureAwait(false);
                     if (mismatch != null)
                         throw new MzLibException($"The PRIDE download of {described} {mismatch}.");
@@ -903,6 +918,12 @@ namespace UsefulProteomicsDatabases
             {
                 // Kept on purpose: EBI failed, not the file, and the validator beside it lets the next call
                 // ask only for the bytes that are missing instead of paying for the whole file again.
+                throw;
+            }
+            catch (OperationCanceledException) when (verifying && transfer.Validator != null && File.Exists(partialPath))
+            {
+                // Kept on purpose: the caller stopped the check, not the transfer, and the whole file is on disk.
+                // Deleting it would throw away a complete multi-gigabyte download.
                 throw;
             }
             catch
