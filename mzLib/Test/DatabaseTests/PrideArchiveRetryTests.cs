@@ -364,6 +364,8 @@ public class PrideArchiveRetryTests
             .SetArgDisplayNames("paged request");
         yield return new TestCaseData((Func<PrideArchiveClient, Task>)(c => c.GetProxiSpectrumAsync("mzspec:PXD000001:run:scan:1")))
             .SetArgDisplayNames("PROXI");
+        yield return new TestCaseData((Func<PrideArchiveClient, Task>)(c => c.GetFileChecksumsAsync("PXD000001")))
+            .SetArgDisplayNames("checksum list");
     }
 
     [TestCaseSource(nameof(StatusThrowSites))]
