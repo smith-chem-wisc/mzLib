@@ -1,4 +1,5 @@
 ﻿using FlashLFQ.BoundedNelderMeadOptimizer;
+using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using SharpLearning.Optimization;
 using System;
@@ -95,8 +96,14 @@ namespace FlashLFQ
 
                             if (!foldChanges.Any())
                             {
-                                // TODO: throw an exception?
-                                return;
+                                // no peptide in common with the first techrep: leave this one as it is, and go on
+                                // to the rest rather than abandoning them
+                                if (!silent)
+                                {
+                                    Console.WriteLine("Warning: technical replicate " + (techreps[t].TechnicalReplicate + 1) + " of condition \"" + condition.Key
+                                        + "\" biorep " + (biorep.Key + 1) + " shares no peptides with the first technical replicate, so it was not normalized");
+                                }
+                                continue;
                             }
 
                             double medianFoldChange = foldChanges.Median();
@@ -133,18 +140,20 @@ namespace FlashLFQ
 
             var peptides = results.PeptideModifiedSequences.Select(v => v.Value).ToList();
             var conditions = results.SpectraFiles.Select(p => p.Condition).Distinct().OrderBy(p => p).ToList();
-            var filesForCond1Biorep1 = results.SpectraFiles.Where(p => p.Condition == conditions[0] && p.BiologicalReplicate == 0 && p.TechnicalReplicate == 0).ToList();
+
+            // the reference is the first condition's lowest-numbered biorep, which need not be biorep 1 if a sample was lost
+            int referenceBiorep = results.SpectraFiles.Where(p => p.Condition == conditions[0]).Min(p => p.BiologicalReplicate);
+            var filesForCond1Biorep1 = FirstTechrepOfEachFraction(results.SpectraFiles.Where(p => p.Condition == conditions[0] && p.BiologicalReplicate == referenceBiorep));
 
             foreach (var condition in conditions)
             {
                 var filesForThisCondition = results.SpectraFiles.Where(p => p.Condition.Equals(condition)).ToList();
 
-                int numB = filesForThisCondition.Select(p => p.BiologicalReplicate).Distinct().Count();
-
-                for (int b = 0; b < numB; b++)
+                // the bioreps this condition has, by number; a design may skip one
+                foreach (int b in filesForThisCondition.Select(p => p.BiologicalReplicate).Distinct().OrderBy(p => p))
                 {
-                    // condition 1 biorep 1 is the reference, don't normalize it
-                    if (b == 0 && conditions.IndexOf(condition) == 0)
+                    // the reference biorep is not normalized against itself
+                    if (b == referenceBiorep && conditions.IndexOf(condition) == 0)
                     {
                         continue;
                     }
@@ -155,7 +164,7 @@ namespace FlashLFQ
                         Console.WriteLine("Normalizing condition \"" + condition + "\" biorep " + (b + 1));
                     }
 
-                    var filesForThisBiorep = filesForThisCondition.Where(p => p.BiologicalReplicate == b && p.TechnicalReplicate == 0);
+                    var filesForThisBiorep = FirstTechrepOfEachFraction(filesForThisCondition.Where(p => p.BiologicalReplicate == b));
 
                     int numF = Math.Max(filesForCond1Biorep1.Max(p => p.Fraction), filesForThisBiorep.Max(p => p.Fraction)) + 1;
 
@@ -236,6 +245,13 @@ namespace FlashLFQ
         }
 
         /// <summary>
+        /// For each fraction among <paramref name="files"/>, the file with the lowest technical replicate number. Techrep
+        /// numbers start at 0 when nothing is missing, but a design may skip one.
+        /// </summary>
+        private static List<SpectraFileInfo> FirstTechrepOfEachFraction(IEnumerable<SpectraFileInfo> files) =>
+            files.GroupBy(p => p.Fraction).Select(fraction => fraction.OrderBy(p => p.TechnicalReplicate).First()).ToList();
+
+        /// <summary>
         /// This method normalizes peptide intensities so that the median fold-change between any two biological replicates
         /// (regardless of condition) is ~zero. The median is used instead of the average because it is more robust to outliers.
         /// The assumption in this method is that the median fold-change between bioreps of different conditions
@@ -248,7 +264,9 @@ namespace FlashLFQ
 
             double[,] biorepIntensityPair = new double[peptides.Count, 2];
 
-            var firstConditionFirstBiorep = conditions.First().Where(v => v.BiologicalReplicate == 0 && v.TechnicalReplicate == 0);
+            // the reference is the first condition's lowest-numbered biorep, which need not be biorep 1 if a sample was lost
+            int referenceBiorep = conditions.First().Min(v => v.BiologicalReplicate);
+            var firstConditionFirstBiorep = FirstTechrepOfEachFraction(conditions.First().Where(v => v.BiologicalReplicate == referenceBiorep));
 
             foreach (var file in firstConditionFirstBiorep)
             {
@@ -273,7 +291,7 @@ namespace FlashLFQ
 
                     foreach (var fraction in fractions)
                     {
-                        var firstTechrep = fraction.Where(v => v.TechnicalReplicate == 0).First();
+                        var firstTechrep = fraction.OrderBy(v => v.TechnicalReplicate).First();
 
                         for (int p = 0; p < peptides.Count; p++)
                         {
@@ -293,8 +311,14 @@ namespace FlashLFQ
 
                     if (!foldChanges.Any())
                     {
-                        // TODO: throw an exception?
-                        return;
+                        // no peptide in common with the reference: leave this biorep as it is, and go on to the
+                        // rest rather than abandoning them
+                        if (!silent)
+                        {
+                            Console.WriteLine("Warning: condition \"" + condition.Key + "\" biorep " + (biorep.Key + 1)
+                                + " shares no peptides with the reference biorep, so it was not normalized");
+                        }
+                        continue;
                     }
 
                     double medianFoldChange = foldChanges.Median();
