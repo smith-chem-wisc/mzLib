@@ -488,7 +488,7 @@ namespace Test.FileReadingTests.ProForma
         }
 
         /// <summary>
-        /// The four Mods.txt entries given a Unimod accession (five modifications, since Myristoylation on
+        /// The five Mods.txt entries given a Unimod accession (six modifications, since Myristoylation on
         /// "C or K" expands per residue) are written as [UNIMOD:n] and must read back on the same residue
         /// with the same accession and mass. Several loaded mods share each accession on the same residue,
         /// so the one read back may be the Unimod entry rather than mzLib's own; that is accession
@@ -499,6 +499,7 @@ namespace Test.FileReadingTests.ProForma
         [TestCase("Myristoylation on K", "45", "PKEPTIDE", 3)]
         [TestCase("GG (Ubiquitination Site) on K", "121", "PKEPTIDE", 3)]
         [TestCase("EQIGG (sumoylation (SMT-3) Site yeast) on K", "846", "PKEPTIDE", 3)]
+        [TestCase("Lactylation on K", "2114", "PKEPTIDE", 3)]
         public void Layer2_NewlyAccessionedModsRoundTripOnTheirOwnResidue(string idWithMotif, string unimod,
             string sequence, int position)
         {
