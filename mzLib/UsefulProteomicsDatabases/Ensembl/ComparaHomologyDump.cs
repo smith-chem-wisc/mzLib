@@ -198,6 +198,14 @@ namespace UsefulProteomicsDatabases.Ensembl
                         $"{name} line {lineNumber}: homology {id} is a {type} within {speciesA}.");
                 }
 
+                // Parsed before the species filter, so a bad value is refused on a row that is not kept too.
+                double? identityA = Real(c[3], "identity", name, lineNumber);
+                double? identityB = Real(c[8], "homology_identity", name, lineNumber);
+                double? dn = Real(c[9], "dn", name, lineNumber), ds = Real(c[10], "ds", name, lineNumber);
+                int? goc = Whole(c[11], "goc_score", name, lineNumber);
+                double? wga = Real(c[12], "wga_coverage", name, lineNumber);
+                bool? highConfidence = Flag(c[13], name, lineNumber);
+
                 if (!keep.Contains(speciesA) || !keep.Contains(speciesB))
                 {
                     continue;
@@ -205,11 +213,9 @@ namespace UsefulProteomicsDatabases.Ensembl
 
                 rows.Add(new ComparaHomology(
                     id, type, cls,
-                    speciesA, c[0], c[1], Real(c[3], "identity", name, lineNumber),
-                    speciesB, c[5], c[6], Real(c[8], "homology_identity", name, lineNumber),
-                    Real(c[9], "dn", name, lineNumber), Real(c[10], "ds", name, lineNumber),
-                    Whole(c[11], "goc_score", name, lineNumber), Real(c[12], "wga_coverage", name, lineNumber),
-                    Flag(c[13], name, lineNumber), name));
+                    speciesA, c[0], c[1], identityA,
+                    speciesB, c[5], c[6], identityB,
+                    dn, ds, goc, wga, highConfidence, name));
             }
 
             var release = ReleaseInFileName.Match(name);

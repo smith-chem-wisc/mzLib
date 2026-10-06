@@ -384,6 +384,16 @@ namespace Test.FileReadingTests
         }
 
         [Test]
+        public void Dump_ValuesAreCheckedOnRowsThatAreNotKept()
+        {
+            string text = Header + Row("1", "ortholog_one2one", Human, H1, 1, Mouse, M1, 1) +
+                Row("2", "ortholog_one2one", Human, H1, 1, "danio_rerio", "ENSDARG00000000001", 1, high: "yes");
+
+            var ex = Assert.Throws<InvalidDataException>(() => ComparaHomologyDump.Load(WriteGz("bad.tsv.gz", text), new[] { Human, Mouse }));
+            Assert.That(ex.Message, Does.Contain("line 3: is_high_confidence 'yes'"), "the zebrafish row is not kept, and is still refused");
+        }
+
+        [Test]
         public void StatusName_IsTheSnakeCaseTheViewsUse()
         {
             Assert.That(Enum.GetValues<OrthologyStatus>().Select(OrthologySnapshot.StatusName), Is.EqualTo(new[]

@@ -21,9 +21,10 @@ namespace UsefulProteomicsDatabases.Ensembl
     /// gene has no gene of the other species" apart from "it has one, and no ortholog was called", and
     /// it is the only grouping here that is not derived by chaining pairwise calls.
     ///
-    /// The reader refuses rather than guesses: a row without four columns, a flag other than Y or N, a
-    /// gene in two trees, or a kept gene without exactly one canonical protein each throw. In release
-    /// 116 every one of its 4.2 million genes is in one tree with one canonical protein.
+    /// The reader refuses rather than guesses: a row without four columns or a flag other than Y or N
+    /// throws on any row, and a kept gene in two trees or without exactly one canonical protein throws
+    /// too. Genes that are not kept are not held, so those two rules are not checked for them. In
+    /// release 116 every one of its 4.2 million genes is in one tree with one canonical protein.
     /// </summary>
     public sealed class ComparaGeneTreeContent
     {
@@ -79,7 +80,8 @@ namespace UsefulProteomicsDatabases.Ensembl
         /// <summary>
         /// Reads the dump. With <paramref name="restrictTo"/>, only genes in those gene sets are kept, and
         /// their sha256s are recorded in <see cref="RestrictedToGeneSets"/>; without it, every gene is kept
-        /// (millions, for the vertebrate collection). Every row is checked either way.
+        /// (millions, for the vertebrate collection). Every row's layout and flag are checked either way; the
+        /// one-tree and one-canonical-protein rules are checked on the genes kept.
         /// </summary>
         /// <exception cref="FileNotFoundException">The file does not exist.</exception>
         /// <exception cref="InvalidDataException">The file breaks one of the rules in the class summary.</exception>
