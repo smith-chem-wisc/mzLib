@@ -519,5 +519,58 @@ namespace Test.FlashLFQ
                 Assert.AreSame(expected, engine.GetIndexedPeak(target, scan, tolerance), $"trial {trial}: {target} in scan {scan} at {tolerance}");
             }
         }
+
+        [Test]
+        public static void TestIndexFitsInMemory()
+        {
+            // Unknown available memory never fits
+            Assert.That(PeakIndexingEngine.IndexFitsInMemory(1, 0, 0), Is.False);
+            // At the limit fits; one byte over does not
+            Assert.That(PeakIndexingEngine.IndexFitsInMemory(100, 400, 1000), Is.True);
+            Assert.That(PeakIndexingEngine.IndexFitsInMemory(101, 400, 1000), Is.False);
+            // A machine already past the limit keeps nothing
+            Assert.That(PeakIndexingEngine.IndexFitsInMemory(1, 600, 1000), Is.False);
+        }
+
+        [Test]
+        public static void TestSerializeIndexKeepsASmallIndexInMemory()
+        {
+            SpectraFileInfo file = new SpectraFileInfo(_testMzMlFullFilePath, "", 0, 0, 0);
+            string indexPath = Path.ChangeExtension(_testMzMlFullFilePath, ".ind");
+            PeakIndexingEngine indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(file);
+            var peakBefore = indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10));
+
+            // Make sure the GC has measured the machine, so the memory check has numbers to use
+            GC.Collect();
+            indexingEngine.SerializeIndex();
+            Assert.That(File.Exists(indexPath), Is.False);
+
+            indexingEngine.ClearIndex();
+            Assert.That(() => indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10)), Throws.TypeOf<MzLibException>());
+
+            indexingEngine.DeserializeIndex();
+            Assert.That(indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10)), Is.SameAs(peakBefore));
+        }
+
+        [Test]
+        public static void TestIndexWrittenToDiskRoundTrips()
+        {
+            SpectraFileInfo file = new SpectraFileInfo(_testMzMlFullFilePath, "", 0, 0, 0);
+            string indexPath = Path.ChangeExtension(_testMzMlFullFilePath, ".ind");
+            PeakIndexingEngine indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(file);
+            var peakBefore = indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10));
+
+            indexingEngine.WriteIndexToDisk();
+            Assert.That(File.Exists(indexPath), Is.True);
+            indexingEngine.ClearIndex();
+
+            indexingEngine.DeserializeIndex();
+            Assert.That(File.Exists(indexPath), Is.False);
+            var peakAfter = indexingEngine.GetIndexedPeak(501, 4, new PpmTolerance(10));
+            Assert.That(peakAfter, Is.Not.SameAs(peakBefore));
+            Assert.That(peakAfter, Is.EqualTo(peakBefore));
+            Assert.That(peakAfter.Intensity, Is.EqualTo(peakBefore.Intensity));
+            Assert.That(peakAfter.RetentionTime, Is.EqualTo(peakBefore.RetentionTime));
+        }
     }
 }
