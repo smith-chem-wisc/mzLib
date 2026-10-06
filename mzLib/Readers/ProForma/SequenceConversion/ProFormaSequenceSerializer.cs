@@ -29,15 +29,16 @@ namespace Readers.ProForma
         private readonly Lazy<IModificationLookup> _lookup;
 
         /// <summary>
-        /// The default lookup is <see cref="GlobalModificationLookup"/>, as for every other serializer.
-        /// <see cref="MzLibModificationLookup"/> searches only the MetaMorpheus modifications, so a
-        /// UniProt-named modification (<c>[UniProt:N-acetylserine on S]</c>) never resolved and was
-        /// written by name even when it has a UNIMOD accession.
+        /// The default lookup is <see cref="MetaMorpheusFirstLookup"/>. <see cref="MzLibModificationLookup"/>
+        /// alone searches only the MetaMorpheus modifications, so a UniProt-named modification
+        /// (<c>[UniProt:N-acetylserine on S]</c>) never resolved and was written by name even when it has a
+        /// UNIMOD accession. <see cref="GlobalModificationLookup"/> alone resolves a bare mass to whichever
+        /// isobaric Unimod record has the shortest name (deamidation on N became <c>UNIMOD:621</c>, Asn-&gt;Asp).
         /// </summary>
         private ProFormaSequenceSerializer(IModificationLookup? lookup = null)
         {
             _lookup = lookup is null
-                ? new Lazy<IModificationLookup>(() => GlobalModificationLookup.Instance)
+                ? new Lazy<IModificationLookup>(() => MetaMorpheusFirstLookup.Instance)
                 : new Lazy<IModificationLookup>(() => lookup);
         }
 
@@ -157,6 +158,29 @@ namespace Readers.ProForma
                     mass.Value.ToString("+0.####;-0.####", CultureInfo.InvariantCulture));
 
             return null;
+        }
+
+        /// <summary>
+        /// Tries <see cref="MzLibModificationLookup"/> first and falls back to
+        /// <see cref="GlobalModificationLookup"/> only when it finds nothing, so a modification the
+        /// MetaMorpheus set knows keeps the identity it had, and any other is still resolved.
+        /// </summary>
+        internal sealed class MetaMorpheusFirstLookup : IModificationLookup
+        {
+            public static MetaMorpheusFirstLookup Instance { get; } = new();
+
+            private MetaMorpheusFirstLookup() { }
+
+            public string Name => "MetaMorpheus, then Global";
+
+            public CanonicalModification? TryResolve(CanonicalModification mod) =>
+                MzLibModificationLookup.Instance.TryResolve(mod)
+                ?? GlobalModificationLookup.Instance.TryResolve(mod);
+
+            public CanonicalModification? TryResolve(string originalRepresentation, char? targetResidue = null,
+                Chemistry.ChemicalFormula? chemicalFormula = null, ModificationPositionType? positionType = null) =>
+                MzLibModificationLookup.Instance.TryResolve(originalRepresentation, targetResidue, chemicalFormula, positionType)
+                ?? GlobalModificationLookup.Instance.TryResolve(originalRepresentation, targetResidue, chemicalFormula, positionType);
         }
     }
 }

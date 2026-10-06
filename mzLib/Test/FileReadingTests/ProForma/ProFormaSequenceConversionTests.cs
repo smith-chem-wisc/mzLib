@@ -320,10 +320,23 @@ namespace Test.FileReadingTests.ProForma
         }
 
         [Test]
-        public void Instance_DefaultLookup_IsGlobal()
+        public void Instance_DefaultLookup_IsMetaMorpheusFirst()
         {
-            // Matches every other serializer; the MetaMorpheus-only lookup never resolved UniProt mods (#1401).
-            Assert.That(ProFormaSequenceSerializer.Instance.ModificationLookup, Is.SameAs(GlobalModificationLookup.Instance));
+            // The MetaMorpheus-only lookup never resolved UniProt mods (#1401); Global alone moved mass-only mods
+            // to a different isobaric Unimod record. MetaMorpheus first, then Global, does neither.
+            Assert.That(ProFormaSequenceSerializer.Instance.ModificationLookup,
+                Is.SameAs(ProFormaSequenceSerializer.MetaMorpheusFirstLookup.Instance));
+        }
+
+        [TestCase("PEN[+0.984016]K", "MassShift", "PEN[UNIMOD:7]K")]
+        [TestCase("PEQ[+0.984016]K", "MassShift", "PEQ[UNIMOD:7]K")]
+        [TestCase("PEF[+15.9949]K", "ProForma", "PEF[UNIMOD:35]K")]
+        [TestCase("PEK[+42.0470]K", "ProForma", "PEK[UNIMOD:37]K")]
+        [TestCase("PEK[+57.0215]K", "ProForma", "PEK[UNIMOD:4]K")]
+        public void MassOnlyMod_KeepsItsMetaMorpheusIdentity(string sequence, string sourceFormat, string expected)
+        {
+            // With Global alone these became Asn->Asp, Gln->Glu, Phe->Tyr, Propyl and Gly: same mass, other identity.
+            Assert.That(SequenceConversionService.Default.Convert(sequence, sourceFormat, "ProForma"), Is.EqualTo(expected));
         }
 
         /// <summary>
@@ -346,9 +359,9 @@ namespace Test.FileReadingTests.ProForma
         }
 
         [TestCaseSource(nameof(MetaMorpheusModFullSequences))]
-        public void MzLibToProForma_MetaMorpheusMod_IsUnchangedByTheGlobalDefault(string fullSequence)
+        public void MzLibToProForma_MetaMorpheusMod_IsUnchangedByTheDefault(string fullSequence)
         {
-            // The default moved from MzLibModificationLookup to GlobalModificationLookup. A MetaMorpheus
+            // The default moved from MzLibModificationLookup to MetaMorpheusFirstLookup. A MetaMorpheus
             // modification must still resolve to the entry it resolved to before, so its ProForma is unchanged.
             var before = new SequenceConverter(MzLibSequenceParser.Instance,
                 ProFormaSequenceSerializer.WithLookup(MzLibModificationLookup.Instance));
