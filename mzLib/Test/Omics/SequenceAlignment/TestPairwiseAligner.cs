@@ -199,6 +199,24 @@ public class TestPairwiseAligner
         Assert.Throws<ArgumentOutOfRangeException>(() => new PairwiseAligner(gapExtend: 0));
     }
 
+    [Test]
+    public void Constructor_RefusesMaxCellsLargerThanAnArrayCanHold()
+    {
+        // The traceback is one array of MaxCells bytes; past Array.MaxLength it cannot be built.
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PairwiseAligner(maxCells: (long)Array.MaxLength + 1));
+        Assert.That(new PairwiseAligner(maxCells: Array.MaxLength).MaxCells, Is.EqualTo(Array.MaxLength));
+    }
+
+    [TestCase("PEP-TIDE", "PEPTIDE")]
+    [TestCase("PEPTIDE", "PEP.TIDE")]
+    [TestCase("PEP-TIDE", "PEP-TIDE")]
+    public void Align_RefusesAGappedRow(string source, string target)
+    {
+        // A gap character is not a residue; scored as X it would align silently.
+        var ex = Assert.Throws<ArgumentException>(() => new PairwiseAligner().Align(source, target));
+        Assert.That(ex!.Message, Does.Contain("gap"));
+    }
+
     private static IEnumerable<TestCaseData> MalformedMatrices()
     {
         yield return new TestCaseData("  A  R\nA  4 -1\nR  0  5\n", "not symmetric").SetName("Parse_RefusesAnAsymmetricMatrix");

@@ -44,13 +44,15 @@ public sealed class PairwiseAligner
     /// <param name="gapOpen">The cost of opening a gap, charged once per gap. Not negative.</param>
     /// <param name="gapExtend">The cost of each residue in a gap, including the first. Greater than 0.</param>
     /// <param name="freeEndGaps">Whether a gap at either end of either sequence is free.</param>
-    /// <param name="maxCells">The largest <c>(source length + 1) x (target length + 1)</c> aligned with the dynamic programme.</param>
+    /// <param name="maxCells">The largest <c>(source length + 1) x (target length + 1)</c> aligned with the dynamic programme.
+    /// At most <see cref="Array.MaxLength"/>, since the traceback is one array of that many bytes.</param>
     public PairwiseAligner(SubstitutionMatrix? matrix = null, int gapOpen = 11, int gapExtend = 1,
         bool freeEndGaps = true, long maxCells = 200_000_000)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(gapOpen);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(gapExtend);
         ArgumentOutOfRangeException.ThrowIfNegativeOrZero(maxCells);
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(maxCells, Array.MaxLength);
         Matrix = matrix ?? SubstitutionMatrix.Blosum62;
         GapOpen = gapOpen;
         GapExtend = gapExtend;
@@ -85,11 +87,19 @@ public sealed class PairwiseAligner
     /// <param name="source">The first sequence, as single-letter residue codes.</param>
     /// <param name="target">The second sequence.</param>
     /// <exception cref="ArgumentNullException">Either sequence is null.</exception>
-    /// <exception cref="ArgumentException">The table would exceed <see cref="MaxCells"/>.</exception>
+    /// <exception cref="ArgumentException">
+    /// Either sequence contains a gap character (<c>-</c> or <c>.</c>), as an aligned row would, or the table would
+    /// exceed <see cref="MaxCells"/>.
+    /// </exception>
     public PairwiseAlignment Align(string source, string target)
     {
         ArgumentNullException.ThrowIfNull(source);
         ArgumentNullException.ThrowIfNull(target);
+        // The matrix scores an unnamed character as X, so a gapped row would align without error.
+        if (source.AsSpan().IndexOfAny('-', '.') >= 0 || target.AsSpan().IndexOfAny('-', '.') >= 0)
+        {
+            throw new ArgumentException("A sequence contains a gap character ('-' or '.'); pass ungapped residues.");
+        }
 
         if (string.Equals(source, target, StringComparison.OrdinalIgnoreCase)
             && Matrix.IdenticalSequencesAlignToThemselves && !ContainsUnknownOrStop(source))
