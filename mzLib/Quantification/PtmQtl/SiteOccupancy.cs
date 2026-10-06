@@ -200,18 +200,34 @@ public static class SiteOccupancyCalculator
     /// <exception cref="ArgumentException">A run is missing from <paramref name="runToSample"/>, or maps to an empty sample.</exception>
     public static IReadOnlyList<SiteRunOccupancy> Calculate(IEnumerable<PeptidoformObservation> observations,
         IReadOnlyDictionary<string, string> runToSample, Func<string, bool>? includeModification = null)
+        => Calculate(CombineObservations(observations, runToSample), includeModification);
+
+    /// <summary>
+    /// Sums each peptidoform's intensity over a sample's runs (fractions), giving one observation per (sample,
+    /// peptidoform, protein) with <see cref="PeptidoformObservation.Run"/> set to the sample. Feed the result to
+    /// <see cref="Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/> or
+    /// <see cref="PtmPairEngine.Physical"/>, so that both see samples rather than fractions.
+    /// </summary>
+    /// <remarks>
+    /// A peptidoform unquantified (NaN) in every run of a sample stays NaN; quantified in any, it carries the sum of
+    /// the quantified runs. Map only fractions together; technical replicates keep their own key.
+    /// </remarks>
+    /// <param name="observations">Validated per run first, as for <see cref="Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/>.</param>
+    /// <param name="runToSample">Every run's sample.</param>
+    /// <exception cref="ArgumentException">A run is missing from <paramref name="runToSample"/>, or maps to an empty sample.</exception>
+    public static IReadOnlyList<PeptidoformObservation> CombineObservations(IEnumerable<PeptidoformObservation> observations,
+        IReadOnlyDictionary<string, string> runToSample)
     {
         ArgumentNullException.ThrowIfNull(runToSample);
-        var parsed = Parse(observations, includeModification);
-        var combined = parsed
+        return Parse(observations, null)
             .GroupBy(p => (sample: SampleOf(p.obs.Run, runToSample), p.obs.FullSequence, p.obs.ProteinAccession, p.obs.StartResidue))
             .Select(g =>
             {
                 var first = g.First().obs;
                 var quantified = g.Select(p => p.obs.Intensity).Where(i => !double.IsNaN(i)).ToList();
                 return first with { Run = g.Key.sample, Intensity = quantified.Count > 0 ? quantified.Sum() : double.NaN };
-            });
-        return Calculate(combined, includeModification);
+            })
+            .ToList();
     }
 
     /// <summary>

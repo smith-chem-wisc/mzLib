@@ -183,6 +183,27 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void CombinedObservationsFeedSameMoleculePairsPerSample()
+    {
+        const string GG = "Trypsin Digested:GG (Ubiquitination Site) on K";
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K[{GG}]R", 10, 20), Obs("f1", "PEPSKR", 10, 80),
+            Obs("f2", $"PEPS[{Phos}]K[{GG}]R", 10, 10), Obs("f2", "PEPSKR", 10, 90),
+            Obs("g1", $"PEPS[{Phos}]K[{GG}]R", 10, double.NaN),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["g1"] = "B" };
+        var combined = SiteOccupancyCalculator.CombineObservations(obs, map);
+        Assert.That(combined.Count, Is.EqualTo(3));
+        Assert.That(combined.Single(o => o.Run == "A" && o.FullSequence == "PEPSKR").Intensity, Is.EqualTo(170));
+        Assert.That(combined.Single(o => o.Run == "B").Intensity, Is.NaN);
+
+        var p = PtmPairEngine.Physical(combined).Single();
+        Assert.That(p.N, Is.EqualTo(2), "two samples, not three runs");
+        Assert.That(p.Statistic, Is.EqualTo(30.0 / 200).Within(1e-15), "co-occupancy of sample A only; B is unquantified");
+    }
+
+    [Test]
     public void ARunWithoutASampleIsRefused()
     {
         var obs = new[] { Obs("f1", "PEPSK", 10, 1), Obs("f2", "PEPSK", 10, 1) };
