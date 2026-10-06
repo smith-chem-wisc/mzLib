@@ -252,7 +252,7 @@ public sealed class MslLibrary : IDisposable
 			// The fragments go on a copy of the skeleton, never on the skeleton itself: rawLib.Entries
 			// lives as long as the library, so fragments stored there would never be released and
 			// the LRU bound would not limit memory.
-			return CopyWithFragments(rawLib.Entries[i], rawLib.LoadFragmentsOnDemand(i));
+			return rawLib.Entries[i].WithFragments(rawLib.LoadFragmentsOnDemand(i));
 		};
 
 		// Defer the sequence/charge dictionary: building it here would call the loader for EVERY entry,
@@ -641,6 +641,13 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
+	/// In index-only mode, each load after an eviction returns a new object. Do not key
+	/// dictionaries on the returned reference or compare entries with
+	/// <see cref="object.ReferenceEquals"/>; use <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>
+	/// or <see cref="MslLibraryEntry.Name"/> as the key.
+	/// </para>
+	///
+	/// <para>
 	/// The <see cref="MslPrecursorIndexEntry.PrecursorIdx"/> field returned by
 	/// <see cref="QueryMzWindow"/> and <see cref="QueryWindow"/> is the correct value
 	/// to pass here.
@@ -712,35 +719,6 @@ public sealed class MslLibrary : IDisposable
 		// (the loader copies it), so it can be returned as is.
 		IReadOnlyList<MslLibraryEntry> skeletons = _rawLibrary.Entries;
 		return precursorIdx >= 0 && precursorIdx < skeletons.Count ? skeletons[precursorIdx] : null;
-	}
-
-	/// <summary>
-	/// Returns a copy of <paramref name="source"/> with <paramref name="fragments"/> as its
-	/// fragment ions. Every other property is copied as is.
-	/// </summary>
-	internal static MslLibraryEntry CopyWithFragments(MslLibraryEntry source, List<MslFragmentIon> fragments)
-	{
-		return new MslLibraryEntry
-		{
-			FullSequence = source.FullSequence,
-			BaseSequence = source.BaseSequence,
-			PrecursorMz = source.PrecursorMz,
-			ChargeState = source.ChargeState,
-			RetentionTime = source.RetentionTime,
-			IsDecoy = source.IsDecoy,
-			MatchedFragmentIons = fragments,
-			IonMobility = source.IonMobility,
-			ProteinAccession = source.ProteinAccession,
-			ProteinName = source.ProteinName,
-			GeneName = source.GeneName,
-			IsProteotypic = source.IsProteotypic,
-			QValue = source.QValue,
-			ElutionGroupId = source.ElutionGroupId,
-			MoleculeType = source.MoleculeType,
-			Source = source.Source,
-			DissociationType = source.DissociationType,
-			Nce = source.Nce
-		};
 	}
 
 	// ── Proteoform window query ───────────────────────────────────────────────

@@ -181,11 +181,11 @@ public sealed class TestMslGetEntryNoFragments
 	}
 
 	/// <summary>
-	/// Guards the property list in <c>CopyWithFragments</c>: a property added to
+	/// Guards <see cref="MslLibraryEntry.WithFragments"/>: a property added to
 	/// <see cref="MslLibraryEntry"/> later must be copied too, or index-only entries lose it.
 	/// </summary>
 	[Test]
-	public void CopyWithFragments_CopiesEveryWritableProperty()
+	public void WithFragments_CopiesEveryWritableProperty()
 	{
 		var source = new MslLibraryEntry();
 		PropertyInfo[] props = typeof(MslLibraryEntry)
@@ -197,9 +197,11 @@ public sealed class TestMslGetEntryNoFragments
 			p.SetValue(source, NonDefaultValue(p));
 
 		var fragments = new List<MslFragmentIon> { new MslFragmentIon { Mz = 1f } };
-		MslLibraryEntry copy = MslLibrary.CopyWithFragments(source, fragments);
+		MslLibraryEntry copy = source.WithFragments(fragments);
 
+		Assert.That(copy, Is.Not.SameAs(source));
 		Assert.That(copy.MatchedFragmentIons, Is.SameAs(fragments));
+		Assert.That(source.MatchedFragmentIons, Is.Not.SameAs(fragments));
 		foreach (PropertyInfo p in props)
 			Assert.That(p.GetValue(copy), Is.EqualTo(p.GetValue(source)), $"{p.Name} was not copied.");
 	}
