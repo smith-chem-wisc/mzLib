@@ -17,7 +17,7 @@
 		<PackageReference Include="PdfPig" Version="0.1.16" />
 		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
 		<PackageReference Include="TopDownProteomics" Version="0.0.299" />
-		<PackageReference Include="ZstdSharp.Port" Version="0.8.7" />
+		<PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
 	</ItemGroup>
 
 	<ItemGroup>
