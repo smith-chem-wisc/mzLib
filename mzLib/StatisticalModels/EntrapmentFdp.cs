@@ -15,7 +15,9 @@ namespace StatisticalModels
     /// <param name="Partner">
     /// The one original target this entrapment was made from, if the search identified it. Null when it was not
     /// identified, cannot be resolved to one target, or does not exist (foreign-species entrapment).
-    /// Every null partner counts as scoring below the cutoff.
+    /// Every null partner counts as scoring below the cutoff. This is a copy of the target's score and q-value;
+    /// nothing checks that it matches that target's entry in the targets passed to
+    /// <see cref="EntrapmentFdp.Sweep"/>, so the caller must keep the two consistent.
     /// </param>
     /// <param name="IsForeign">
     /// True for entrapment with no target partner by construction (foreign species). Controls only whether
@@ -55,8 +57,10 @@ namespace StatisticalModels
     /// <list type="bullet">
     /// <item>lower bound (eq. 2): N_E / (N_T + N_E). It can only show that a search fails to control the FDR.</item>
     /// <item>combined (eq. 1): N_E (1 + 1/r) / (N_T + N_E). An upper bound; valid evidence of control.</item>
-    /// <item>paired (eq. 4): (N_E + N_{E≥s&gt;T} + 2 N_{E&gt;T≥s}) / (N_T + N_E). A tighter upper bound that needs
-    /// each target paired with exactly one entrapment, so r = 1.</item>
+    /// <item>paired (eq. 4): (N_E + N_{E≥s&gt;T} + 2 N_{E&gt;T≥s}) / (N_T + N_E). A tighter upper bound for
+    /// 1:1 pairing, each target paired with exactly one entrapment (r = 1). FDRBench also implements a k-fold
+    /// paired estimator for k entrapments per target (FDPCalcKFold); this class implements only the r = 1 form,
+    /// as a scope choice.</item>
     /// </list>
     /// The paper's "sample" estimator, N_E / (r N_T), is invalid in both directions and is deliberately absent.
     /// </para>
@@ -87,7 +91,9 @@ namespace StatisticalModels
         /// Eq. 4: (N_E + N_{E≥s&gt;T} + 2 N_{E&gt;T≥s}) / (N_T + N_E). Not capped at 1, as in the paper and FDRBench.
         /// </summary>
         /// <param name="partnerBelowCutoff">Discovered entrapments whose partner was not discovered.</param>
-        /// <param name="partnerDiscoveredButLower">Discovered entrapments whose partner was discovered but scored lower.</param>
+        /// <param name="partnerDiscoveredButLower">
+        /// Discovered entrapments whose partner was discovered but ranked behind it (see <see cref="Sweep"/>).
+        /// </param>
         public static double Paired(int targetCount, int entrapmentCount, int partnerBelowCutoff, int partnerDiscoveredButLower) =>
             (double)(entrapmentCount + partnerBelowCutoff + 2 * partnerDiscoveredButLower) / (targetCount + entrapmentCount);
 
@@ -97,12 +103,16 @@ namespace StatisticalModels
         /// </summary>
         /// <remarks>
         /// <para>
-        /// Paired is null unless r = 1, and null when every entrapment is foreign. With no partner anywhere it collapses
-        /// to 2 N_E / (N_T + N_E), which ignores r and exceeds combined for any r above 1.
+        /// Paired is null unless r is exactly 1.0, and null when every entrapment is foreign. For 1:1 pairing pass
+        /// r = 1.0 itself, not a ratio computed from database sizes after exclusions (0.9998 drops paired). With no
+        /// partner anywhere paired collapses to 2 N_E / (N_T + N_E), which ignores r and exceeds combined for any r
+        /// above 1.
         /// </para>
         /// <para>
-        /// A partner counts as discovered by its own q-value, not by its score. "Scored lower" is strict, so a tied
-        /// partner adds nothing beyond the entrapment itself.
+        /// A partner counts as discovered by its own q-value, not by its score. When both are discovered, the pair is
+        /// ordered as FDRBench ranks discoveries: lower q-value first, then higher score. The entrapment is ranked
+        /// ahead (N_{E&gt;T≥s}) unless its partner comes strictly first, so an exact tie (equal q and equal score)
+        /// counts as E &gt; T, the conservative choice for an upper bound.
         /// </para>
         /// </remarks>
         /// <exception cref="ArgumentNullException">Any argument is null.</exception>
@@ -133,7 +143,7 @@ namespace StatisticalModels
 
                     if (entrapment.Partner is not { } partner || partner.QValue > threshold)
                         partnerBelowCutoff++;
-                    else if (partner.Score < entrapment.Score)
+                    else if (!RanksAhead(partner, entrapment))
                         partnerDiscoveredButLower++;
                 }
 
@@ -166,6 +176,11 @@ namespace StatisticalModels
                 $"Unrecognised entrapment exclusion reason '{reason}'. It must be classified as removing a real target from the " +
                 "entrapment count or as an unpairable target; the two bias the estimate in opposite directions.", nameof(reason)),
         };
+
+        /// <summary>True when the partner is strictly ahead: lower q, or equal q and higher score.</summary>
+        private static bool RanksAhead(ScoredIdentification partner, ScoredEntrapment entrapment) =>
+            partner.QValue < entrapment.QValue
+            || (partner.QValue == entrapment.QValue && partner.Score > entrapment.Score);
 
         private static void ValidateRatio(double r)
         {
