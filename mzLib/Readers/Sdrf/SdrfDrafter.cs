@@ -208,7 +208,16 @@ namespace Readers
             // Several organisms (G43): a row takes one of THEM from its own name, or stays not available.
             var organisms = project.Organisms.Select(Organism).GroupBy(t => t.Accession, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.First()).ToList();
-            SdrfDraftCell OrganismOf(string file) => organisms.Count > 1 ? OrganismFromName(file, organisms) ?? organism : organism;
+            var fromName = organisms.Count > 1
+                ? names.Distinct().ToDictionary(n => n, n => OrganismFromName(n, organisms))
+                : new Dictionary<string, SdrfDraftCell?>();
+            // A record that describes mixed proteomes (a two-proteome benchmark, a spike-in) has runs whose names
+            // give only one of them (PXD014415's human_yaeast, PXD005206's CSF_Ecoli). Its names are trusted only
+            // when they tell two of its organisms apart.
+            if (MixedProteomes.IsMatch($"{project.Title} {project.ProjectDescription} {project.SampleProcessingProtocol}")
+                && fromName.Values.OfType<SdrfDraftCell>().Select(c => c.Term!.Accession).Distinct(StringComparer.OrdinalIgnoreCase).Count() < 2)
+                fromName.Clear();
+            SdrfDraftCell OrganismOf(string file) => fromName.GetValueOrDefault(file) ?? organism;
             var part = OfKind(One(project.OrganismParts, "organism part", ByPrefix), "organism part", NotOrganismPart);
             var instrument = One(project.Instruments, "instrument", ByPrefix);
             var disease = OfKind(One(project.Diseases, "disease", ByPrefix), "disease", NotDisease);
@@ -622,7 +631,9 @@ namespace Readers
         /// the organism of 1,801 rows in 27 of them, and changes no other cell. Of the 1,156 rows a curated SDRF also
         /// describes, 1,129 agree; the other 27 are one curated SDRF (PXD011189) that gives all its rows, HeLa and
         /// E. coli runs included, one organism. The spike-in and long-number refusals below removed 38 disagreements
-        /// (PXD001587, PXD070151, PXD023693).
+        /// (PXD001587, PXD070151, PXD023693). The mixture refusals (review, 2026-10-06) stop 67 rows the records describe
+        /// as mixtures (PXD005206, PXD014415, PXD063416), at the cost of 137 rows a curated SDRF agrees with: PXD049412's
+        /// pure cell-line runs in a two-proteome record, and five <c>Human_mix</c>-style names in PXD028979 and PXD009265.
         /// </summary>
         private static readonly Dictionary<string, int[]> OrganismCues = new(StringComparer.OrdinalIgnoreCase)
         {
@@ -636,15 +647,23 @@ namespace Readers
         };
 
         /// <summary>A spike-in standard (UPS1/UPS2) is another organism's proteins in the run: its name names a mixture.</summary>
-        private static readonly HashSet<string> SpikeIn = new(StringComparer.OrdinalIgnoreCase) { "ups", "ups1", "ups2", "spike", "spikein" };
+        private static readonly HashSet<string> SpikeIn = new(StringComparer.OrdinalIgnoreCase) { "ups", "ups1", "ups2" };
+
+        /// <summary>The words depositors use for a mixed run: mix, mixA, mixture, mixed, spike, spiked, spikein.</summary>
+        private static readonly Regex MixtureWord = new(@"^(mix|spik)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>A record describing runs that mix organisms' proteomes on purpose. Not "multi-species" (PXD028979 is a
+        /// resource of one species per run) and not "spiked" (PXD059754 spikes one recombinant protein).</summary>
+        private static readonly Regex MixedProteomes = new(
+            @"\b(?:two|three|hybrid|mixed)[- ](?:proteome|species|organism)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly Regex NamePart = new(@"[A-Za-z0-9]+", RegexOptions.Compiled);
-        private static readonly Regex TrailingCount = new(@"^([A-Za-z]+)[0-9]{1,2}$", RegexOptions.Compiled);
+        private static readonly Regex TrailingNumber = new(@"^([A-Za-z]+)([0-9]+)$", RegexOptions.Compiled);
 
         /// <summary>
         /// One of the record's organisms, when the file's name names exactly one of them (<c>Rat1</c>, <c>HeLa</c>);
-        /// null when it names none, several, one the record does not list, or a spike-in standard. Never an organism
-        /// the record does not list.
+        /// null when it names none or several, when any cue names an organism the record does not list, and when it
+        /// names a mixture or a spike-in standard. Never an organism the record does not list.
         /// </summary>
         private static SdrfDraftCell? OrganismFromName(string file, IReadOnlyList<CvParam> organisms)
         {
@@ -652,13 +671,19 @@ namespace Readers
             foreach (Match m in NamePart.Matches(SdrfFileNamePattern.Stem(file)))
             {
                 string part = m.Value;
-                if (SpikeIn.Contains(part)) return null;
+                if (SpikeIn.Contains(part) || MixtureWord.IsMatch(part)) return null;
                 // A replicate number may follow the word (Rat1, Rat12); a cell line's own digits (HEK293) are looked up whole
-                // first. A longer number is a strain or stock code (PXD023693's Ecoli268, a spike into B. subtilis), not a count.
-                if (!OrganismCues.TryGetValue(part, out var taxa) && !(TrailingCount.Match(part) is { Success: true } c
-                        && OrganismCues.TryGetValue(c.Groups[1].Value, out taxa)))
-                    continue;
-                foreach (var term in organisms.Where(t => taxa.Any(x => t.Accession.Equals($"NCBITaxon:{x}", StringComparison.OrdinalIgnoreCase))))
+                // first. A longer number is a strain or stock code (PXD023693's Ecoli268, a spike into B. subtilis), not a
+                // count, so the name is refused.
+                if (!OrganismCues.TryGetValue(part, out var taxa))
+                {
+                    if (TrailingNumber.Match(part) is not { Success: true } c || !OrganismCues.TryGetValue(c.Groups[1].Value, out taxa))
+                        continue;
+                    if (c.Groups[2].Length > 2) return null;
+                }
+                var listed = organisms.Where(t => taxa.Any(x => t.Accession.Equals($"NCBITaxon:{x}", StringComparison.OrdinalIgnoreCase))).ToList();
+                if (listed.Count == 0) return null;
+                foreach (var term in listed)
                     found.TryAdd(term.Accession, (term, part));
             }
             if (found.Count != 1) return null;

@@ -137,15 +137,60 @@ namespace Test.FileReadingTests
         }
 
         [TestCase("20191002_Mouse_Heart_01.raw", Description = "the record does not list mouse")]
-        [TestCase("Human_Rat_mix_01.raw", Description = "two of the record's organisms")]
+        [TestCase("Human_Rat_01.raw", Description = "two of the record's organisms")]
         [TestCase("UPS1_Rat_lysate_01.raw", Description = "a human spike-in standard in a rat background")]
         [TestCase("Ratio_Heart_01.raw", Description = "a cue is a whole name part, never part of a word")]
         [TestCase("Run4_Rat268_13C_400ng.raw", Description = "a long number is a stock code, not a replicate count (PXD023693)")]
+        [TestCase("HeLa_10mz_A_mixA.raw", Description = "a mixture that names one of its organisms (PXD063416)")]
+        [TestCase("HeLa_spiked_01.raw", Description = "a spiked run that names its background only")]
+        [TestCase("Mouse_Rat_01.raw", Description = "a second cue names an organism the record does not list")]
+        [TestCase("HeLa_Rat268_01.raw", Description = "a second cue carries a stock code")]
         public void AMixedOrganismDepositWritesNoOrganismWithoutOneUnambiguousCue(string file)
         {
             var d = SdrfDrafter.Draft(RatAndHuman(), new[] { file });
 
             Assert.That(Row(d, file).Organism.Source, Is.EqualTo(SdrfDraftSource.NotAvailable));
+        }
+
+        /// <summary>
+        /// PXD014415 is a two-proteome model: its human_yaeast runs carry yeast the names misspell, beside pure human
+        /// runs. When the record says its runs mix proteomes, the names are trusted only if they tell two of its
+        /// organisms apart; here they name only human, so no row is given one.
+        /// </summary>
+        [Test]
+        public void ATwoProteomeDepositWhoseNamesNameOneOrganismWritesNone()
+        {
+            var p = new PrideProject
+            {
+                Accession = "PXD014415",
+                Title = "Evaluating False Transfer Rates from the Match-Between-Runs algorithm with a two-proteome model",
+                Organisms = { Term("NEWT", "NEWT:4932", "Saccharomyces cerevisiae (baker's yeast)"), Term("NEWT", "NEWT:9606", "Homo sapiens (human)") },
+            };
+            var files = new[] { "a11872_human_yaeast_90min_hrMS2.raw", "a11852_human_90min_hrMS2.raw" };
+
+            var d = SdrfDrafter.Draft(p, files);
+
+            Assert.That(files.Select(f => Row(d, f).Organism.Source), Is.All.EqualTo(SdrfDraftSource.NotAvailable));
+        }
+
+        /// <summary>A two-proteome benchmark whose names tell its organisms apart (PXD028735's pure runs) keeps them.</summary>
+        [Test]
+        public void ATwoProteomeDepositWhoseNamesTellItsOrganismsApartKeepsThem()
+        {
+            var p = new PrideProject
+            {
+                Accession = "PXD028735",
+                Title = "A comprehensive LFQ benchmark",
+                SampleProcessingProtocol = "Two hybrid proteome samples A and B containing Human, Yeast and E.coli peptides",
+                Organisms = { Term("NEWT", "NEWT:562", "Escherichia coli"), Term("NEWT", "NEWT:9606", "Homo sapiens (human)") },
+            };
+            var files = new[] { "LFQ_Orbitrap_Ecoli_01.raw", "LFQ_Orbitrap_Human_01.raw", "LFQ_Orbitrap_Condition_A_01.raw" };
+
+            var d = SdrfDrafter.Draft(p, files);
+
+            Assert.That(Row(d, "LFQ_Orbitrap_Ecoli_01.raw").Organism.Term!.Accession, Is.EqualTo("NCBITaxon:562"));
+            Assert.That(Row(d, "LFQ_Orbitrap_Human_01.raw").Organism.Term!.Accession, Is.EqualTo("NCBITaxon:9606"));
+            Assert.That(Row(d, "LFQ_Orbitrap_Condition_A_01.raw").Organism.Source, Is.EqualTo(SdrfDraftSource.NotAvailable));
         }
 
         /// <summary>
