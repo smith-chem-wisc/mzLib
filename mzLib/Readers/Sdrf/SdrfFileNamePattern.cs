@@ -411,9 +411,19 @@ namespace Readers
             int LevelCount(int p) => tokens.Select(t => t[p]).Distinct(StringComparer.OrdinalIgnoreCase).Count();
             int SingleSampleLevels(int p) =>
                 tokens.GroupBy(t => t[p], StringComparer.OrdinalIgnoreCase).Count(g => SamplesWith(p, g) == 1);
-            // A code takes three or more values, three in four of them on one sample each. A replicate marker
-            // (rep1..rep4) is not one, and neither is a part with a control level: Ctrl beside two drugs is a design.
+            // Most of a code's values carry a digit (A00H, S0353) or are one character (a plate-well row).
+            // Plain words do not: Human / Marmo / Rat, one sample each, are species, not codes.
+            bool LooksCoded(int p)
+            {
+                var values = tokens.Select(t => t[p]).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                return 2 * values.Count(v => v.Length == 1 || v.Any(char.IsAsciiDigit)) > values.Count;
+            }
+            // A code takes three or more values, three in four of them on one sample each, and looks coded. A
+            // replicate marker (rep1..rep4) is not one, and neither is a part with a control level: Ctrl beside
+            // two drugs is a design. An unreplicated design of three or more levels whose values are letters or
+            // carry digits (A..F, MS2 / MS3RTS) is still read as codes; the record has to anchor those.
             bool IsCode(int p) => LevelCount(p) >= 3 && 4 * SingleSampleLevels(p) >= 3 * LevelCount(p)
+                && LooksCoded(p)
                 && !tokens.All(t => CountMarker(t[p])) && !tokens.Any(t => ControlLevel.IsMatch(t[p]));
 
             foreach (int p in unnamed.Where(p => p != countCandidate))
@@ -465,7 +475,7 @@ namespace Readers
             // carry a patient (A00H), an aliquot (22) and a plate well (6G) in one name, and a sample's
             // fractions made every one look shared, so patients were grouped into fake conditions and ranked
             // 2, 3... as replicates. Two levels never earn the code reading, so Control_Band_01 beside
-            // Treated_Band_01 stays a condition. Once the names are shown to carry codes, a number read as a
+            // Treated_Band_01 stays a condition, and nor do plain words (Human / Marmo / Rat). Once the names are shown to carry codes, a number read as a
             // category in the same family is read as part of the code (the drafter already drops numeric
             // categories whenever the record anchors a condition).
             var codes = factors.Where(p => !IsNumber(tokens[0][p]) && IsCode(p)).ToList();

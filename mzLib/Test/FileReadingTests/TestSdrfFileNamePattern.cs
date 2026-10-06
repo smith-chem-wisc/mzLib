@@ -485,11 +485,14 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
-        /// The code reading needs three or more values. Two treatments, one sample each, are still a
-        /// condition, and so is a control beside two drugs.
+        /// The code reading needs three or more values that look coded. Two treatments, one sample each,
+        /// are still a condition, so is a control beside two drugs, and so are three or more plain words
+        /// with no control among them.
         /// </summary>
         [TestCase("Control", "Treated")]
         [TestCase("Ctrl", "DrugA", "DrugB")]
+        [TestCase("DMSO", "Rapamycin", "Torin")]
+        [TestCase("Liver", "Brain", "Kidney", "Heart")]
         public void UnreplicatedConditionsAreNotReadAsCodes(params string[] conditions)
         {
             var names = conditions.SelectMany(c => Enumerable.Range(1, 4).Select(f => $"{c}_Band_{f:00}.raw")).ToList();
@@ -498,6 +501,40 @@ namespace Test.FileReadingTests
 
             Assert.That(s.Found, Is.True, s.NoStructureReason);
             Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(conditions));
+        }
+
+        /// <summary>
+        /// PXD009251 compares rodent and primate synapses, one fractionated sample per species
+        /// (<c>20150423_Human_SCX_Fr_1</c>). The species are plain words, so they stay a condition.
+        /// </summary>
+        [Test]
+        public void UnreplicatedSpeciesAreAConditionNotACode()
+        {
+            var names = new[] { "Human", "Marmo", "Rat" }
+                .SelectMany(sp => Enumerable.Range(1, 6).Select(f => $"20150423_{sp}_SCX_Fr_{f}.raw")).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(new[] { "Human", "Marmo", "Rat" }));
+        }
+
+        /// <summary>
+        /// The other side of the trade: unreplicated levels that are single letters (PXD070428's
+        /// <c>fr_4_A</c>..<c>fr_4_F</c>) look like codes and are read as codes. The record has to anchor them.
+        /// </summary>
+        [Test]
+        public void UnreplicatedSingleLetterLevelsAreReadAsCodes()
+        {
+            var names = new[] { "A", "B", "C", "D", "E", "F" }
+                .SelectMany(l => Enumerable.Range(1, 4).Select(f => $"TMT_fr_{f}_{l}.raw")).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Where(x => x.Role == SdrfFileNameRole.Factor), Is.Empty);
+            Assert.That(s.Slots.Where(x => x.Role == SdrfFileNameRole.Sample).Select(x => x.Evidence),
+                Has.Some.Contains("a code"));
         }
 
         /// <summary>
@@ -516,6 +553,21 @@ namespace Test.FileReadingTests
 
             Assert.That(s.Found, Is.True, s.NoStructureReason);
             Assert.That(Slot(s, SdrfFileNameRole.Batch).Levels, Is.EquivalentTo(new[] { "20180201", "20171120" }));
+            Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(new[] { "WT", "KO" }));
+        }
+
+        /// <summary>A leading <c>31-31-18_</c> reads as a date neither month first nor day first, so it is left
+        /// as written and no acquisition date is invented.</summary>
+        [Test]
+        public void ALeadingShortTripleThatIsNoDateIsNotReadAsOne()
+        {
+            var names = new[] { "WT", "KO" }
+                .SelectMany(c => Enumerable.Range(1, 3).Select(r => $"31-31-18_{c}_D{r}.raw")).ToList();
+
+            var s = SdrfFileNamePattern.Read(names);
+
+            Assert.That(s.Found, Is.True, s.NoStructureReason);
+            Assert.That(s.Slots.Where(x => x.Role == SdrfFileNameRole.Batch), Is.Empty);
             Assert.That(Slot(s, SdrfFileNameRole.Factor).Levels, Is.EquivalentTo(new[] { "WT", "KO" }));
         }
 
