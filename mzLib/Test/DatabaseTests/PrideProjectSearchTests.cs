@@ -641,7 +641,7 @@ public class PrideProjectSearchTests
     public void SearchProjectsAsync_NonSuccessStatus_ThrowsHttpRequestException()
     {
         var handler = new StubHandler(_ => JsonResponse("", HttpStatusCode.InternalServerError));
-        using var client = new PrideArchiveClient(new HttpClient(handler));
+        using var client = new PrideArchiveClient(new HttpClient(handler)) { MaxRetries = 0 };
 
         Assert.ThrowsAsync<HttpRequestException>(() => client.SearchProjectsAsync("liver"));
     }
@@ -699,7 +699,8 @@ public class PrideProjectSearchLiveTests
     public Task SearchProjectsAsync_LiveKeyword_ReturnsPopulatedHits() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             List<PrideProjectSearchResult> hits = await client.SearchProjectsAsync("MetaMorpheus");
 
             Assert.That(hits, Is.Not.Empty);
@@ -721,7 +722,8 @@ public class PrideProjectSearchLiveTests
     public Task SearchProjectsAsync_LiveNoMatches_ReturnsEmpty() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             List<PrideProjectSearchResult> hits =
                 await client.SearchProjectsAsync("zzzzqqqqxxxx-no-such-dataset-zzzzqqqqxxxx");
 
@@ -739,7 +741,8 @@ public class PrideProjectSearchLiveTests
     public Task SearchProjectsAsync_LiveMultiPage_ReturnsMoreThanOnePageOfHits() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             List<PrideProjectSearchResult> hits = await client.SearchProjectsAsync("MetaMorpheus", pageSize: 20);
 
             Assert.That(hits.Count, Is.GreaterThan(20), "search stopped at the first page instead of paging");

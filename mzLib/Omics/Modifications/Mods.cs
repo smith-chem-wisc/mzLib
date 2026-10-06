@@ -200,7 +200,7 @@ public static class Mods
     private static readonly Lazy<Dictionary<int, double>> UnimodRecordMasses = new(() =>
         UnimodModifications
             .Where(m => m.ModificationType == "Unimod" && m.MonoisotopicMass.HasValue)
-            .Select(m => (Id: SequenceConversion.CanonicalModification.UnimodIdOf(m), Mass: m.MonoisotopicMass!.Value))
+            .Select(m => (Id: SequenceConversion.CanonicalModification.GetUnimodId(m), Mass: m.MonoisotopicMass!.Value))
             .Where(r => r.Id.HasValue)
             .GroupBy(r => r.Id!.Value)
             .ToDictionary(g => g.Key, g => g.First().Mass));

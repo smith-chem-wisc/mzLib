@@ -51,7 +51,8 @@ ID   Lactylation
 TG   K
 PP   Anywhere.
 MT   Less Common
-CF   H3 C3 O2
+CF   H4 C3 O2
+DR   Unimod; 2114.
 //
 ID   Formylation
 TG   K
