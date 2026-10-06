@@ -92,7 +92,7 @@ public class MzLibSequenceParser : SequenceParserBase
             residueIndex,
             extractedResidue ?? targetResidue,
             modString,
-            UnimodId: modification is not null && CanonicalModification.UnimodIdOf(modification) is int unimodId
+            UnimodId: modification is not null && CanonicalModification.GetUnimodId(modification) is int unimodId
                       && Mods.MatchesUnimodRecordMass(modification, unimodId) ? unimodId : null,
             MzLibId: mzLibId,
             MzLibModification: modification);

@@ -298,12 +298,12 @@ public class PeptideAndProteinConversion
                 var original = peptide.AllModsOneIsNterminus[KeyOf(mod, parsed.BaseSequence.Length)];
                 var attached = mod.MzLibModification;
                 Assert.That(attached, Is.Not.Null, peptide.FullSequence);
-                var cited = CanonicalModification.UnimodIdOf(original);
+                var cited = CanonicalModification.GetUnimodId(original);
                 if (cited.HasValue && mod.UnimodId == null)
                 {
                     // Left out only when the cited UNIMOD record is another chemical (DiLeu-12plex citing 1327, UniProt
                     // N,N-dimethylproline citing 529, ...).
-                    var recordMass = Mods.UnimodModifications.First(m => m.ModificationType == "Unimod" && CanonicalModification.UnimodIdOf(m) == cited).MonoisotopicMass!.Value;
+                    var recordMass = Mods.UnimodModifications.First(m => m.ModificationType == "Unimod" && CanonicalModification.GetUnimodId(m) == cited).MonoisotopicMass!.Value;
                     Assert.That(Math.Abs(recordMass - original.MonoisotopicMass!.Value), Is.GreaterThan(1), peptide.FullSequence);
                     withoutMismatchedId++;
                 }

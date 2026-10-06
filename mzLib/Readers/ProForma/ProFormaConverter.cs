@@ -162,7 +162,7 @@ namespace Readers.ProForma
                             && string.Equals(p, prefix, StringComparison.OrdinalIgnoreCase)
                             && ids is { Count: > 0 }
                             && !(prefix == "UNIMOD" && int.TryParse(ids[0], out var unimodId) && !Mods.MatchesUnimodRecordMass(mod, unimodId)))
-                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], Accession(prefix, ids[0]));
+                            return new Tdp.ProFormaDescriptor(Tdp.ProFormaKey.Identifier, PrefixToEvidence[prefix], ToAccession(prefix, ids[0]));
                     }
                 }
             }
@@ -170,10 +170,12 @@ namespace Readers.ProForma
         }
 
         /// <summary>
-        /// The ProForma accession for a database reference, adding the prefix only when the id doesn't carry it already
-        /// (PSI-MOD ids are stored as "MOD:01892", UNIMOD ids as "35").
+        /// The ProForma accession for a database-reference id. PSI-MOD ids are stored already prefixed
+        /// (<c>"MOD:00304"</c>, from the ptmlist line <c>DR   PSI-MOD; MOD:00304.</c>), while Unimod and
+        /// RESID ids are bare (<c>"35"</c>, <c>"AA0299"</c>), so the prefix is added only when it is missing.
+        /// Prefixing unconditionally wrote <c>MOD:MOD:00304</c>.
         /// </summary>
-        private static string Accession(string prefix, string id) =>
+        private static string ToAccession(string prefix, string id) =>
             id.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ? id : $"{prefix}:{id}";
 
         /// <summary>
@@ -198,6 +200,8 @@ namespace Readers.ProForma
         /// <summary>
         /// Indexes modifications by their ProForma accession string (e.g. <c>"UNIMOD:35"</c>, upper-cased).
         /// One accession can map to several modifications differing by motif, so values are lists.
+        /// A PSI-MOD id is also indexed under the doubled <c>"MOD:MOD:01956"</c> that mzLib wrote before
+        /// <see cref="ToAccession"/>, so ProForma strings already on disk still read.
         /// </summary>
         private static Dictionary<string, List<Modification>> BuildAccessionIndex(IEnumerable<Modification> mods)
         {
@@ -210,17 +214,23 @@ namespace Readers.ProForma
                     if (!DbKeyToProFormaPrefix.TryGetValue(dbKey, out var prefix)) continue;
                     foreach (var id in ids)
                     {
-                        // A PSI-MOD id, stored as "MOD:01892", is indexed as "MOD:01892" and as "MOD:MOD:01892".
-                        foreach (var key in new[] { Accession(prefix, id), $"{prefix}:{id}" }.Select(k => k.ToUpperInvariant()).Distinct())
-                        {
-                            if (!index.TryGetValue(key, out var list))
-                                index[key] = list = new List<Modification>();
-                            list.Add(mod);
-                        }
+                        string key = ToAccession(prefix, id);
+                        AddToIndex(index, key, mod);
+                        string legacyKey = $"{prefix}:{id}";
+                        if (!string.Equals(legacyKey, key, StringComparison.OrdinalIgnoreCase))
+                            AddToIndex(index, legacyKey, mod);
                     }
                 }
             }
             return index;
+        }
+
+        private static void AddToIndex(Dictionary<string, List<Modification>> index, string key, Modification mod)
+        {
+            key = key.ToUpperInvariant();
+            if (!index.TryGetValue(key, out var list))
+                index[key] = list = new List<Modification>();
+            list.Add(mod);
         }
 
         /// <summary>
