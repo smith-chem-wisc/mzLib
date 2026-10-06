@@ -167,10 +167,11 @@ namespace Omics.Modifications
         /// invalidates the peptide's N-terminus instead -- and is left inert rather than half-corrected.
         ///
         /// Residue-level, not context-level: a protease whose motif restricts cleavage by surrounding
-        /// sequence (trypsin|P's "K[P]|") still reports true for K here, so a blocked K that sits before
-        /// a proline -- and was therefore never a site -- can still discount a missed cleavage. That
-        /// approximation is bounded (the count is clamped at zero) and is all that remains of the much
-        /// wider one this method removes.
+        /// sequence (trypsin|P's "K[P]|") still reports true for K here. Digestion does not stop at this
+        /// answer -- <c>CleavageBlockingPolicy</c> (Proteomics) also requires the
+        /// residue to be one of the protease's real sites in that protein, so a blocked K before a proline
+        /// discounts nothing. A motif whose P1 is a wildcard (StcE's "TX|T") does not count as cutting
+        /// after K at all, since its specificity is not charge-directed.
         /// </remarks>
         public static bool BlocksCleavageBy(Modification modification, DigestionAgent agent) =>
             agent is not null

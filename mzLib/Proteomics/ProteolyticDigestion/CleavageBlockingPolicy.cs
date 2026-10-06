@@ -27,11 +27,20 @@ namespace Proteomics.ProteolyticDigestion
     {
         private readonly DigestionAgent _protease;
 
-        private CleavageBlockingPolicy(DigestionAgent protease, int maxMissedCleavages, int generationSlack)
+        /// <summary>
+        /// Indexed by one-based residue: true when the protease really cuts after that residue in this
+        /// protein AND only because of that residue's side chain, so a blocking modification on it
+        /// abolishes the cut. See <see cref="ChargeDirectedSites"/>.
+        /// </summary>
+        private readonly bool[] _chargeDirectedSites;
+
+        private CleavageBlockingPolicy(DigestionAgent protease, int maxMissedCleavages, int generationSlack,
+            bool[] chargeDirectedSites)
         {
             _protease = protease;
             MaxMissedCleavages = maxMissedCleavages;
             GenerationSlack = generationSlack;
+            _chargeDirectedSites = chargeDirectedSites;
         }
 
         /// <summary>
@@ -43,6 +52,11 @@ namespace Proteomics.ProteolyticDigestion
         /// The VARIABLE modifications configured for the search. Fixed modifications are deliberately not
         /// consulted -- see the remarks.
         /// </param>
+        /// <param name="sequence">
+        /// The base sequence of the protein being digested. The policy is per protein: it records which
+        /// residues are real protease sites there, so a blocked residue that was never a site (a K before
+        /// P under trypsin|P) cannot cancel a genuine missed cleavage.
+        /// </param>
         /// <remarks>
         /// Only variable modifications activate the policy, and only a variable modification can block a
         /// cleavage under it. A fixed blocking modification is unavoidable: it sits on every instance of
@@ -53,7 +67,8 @@ namespace Proteomics.ProteolyticDigestion
         /// modifications therefore stay outside this correction entirely; modelling them means removing
         /// their sites from the protease's site list before enumeration, which is a different mechanism.
         /// </remarks>
-        public static CleavageBlockingPolicy For(DigestionParams digestionParams, IEnumerable<Modification> variableModifications)
+        public static CleavageBlockingPolicy For(DigestionParams digestionParams, IEnumerable<Modification> variableModifications,
+            string sequence)
         {
             if (digestionParams is null
                 || !digestionParams.RespectCleavageBlockingModifications
@@ -63,7 +78,48 @@ namespace Proteomics.ProteolyticDigestion
                 return default;
             }
 
-            return new CleavageBlockingPolicy(digestionParams.Protease, digestionParams.MaxMissedCleavages, digestionParams.MaxMods);
+            return new CleavageBlockingPolicy(digestionParams.Protease, digestionParams.MaxMissedCleavages, digestionParams.MaxMods,
+                ChargeDirectedSites(digestionParams.Protease, sequence ?? string.Empty));
+        }
+
+        /// <summary>
+        /// The residues of <paramref name="sequence"/> after which <paramref name="protease"/> really cuts
+        /// and could be stopped from cutting by a modification of that residue's side chain.
+        /// </summary>
+        /// <remarks>
+        /// Starts from <see cref="DigestionAgent.GetDigestionSiteIndices"/>, the same site list digestion
+        /// enumerates from and counts missed cleavages against, so the discount and the count agree site
+        /// for site. The protein's own termini are not cleavages and are excluded. A site is then removed if
+        /// any motif that fits there does not name the residue literally at P1 -- StcE's "TX|T" cuts
+        /// "TK|T" whatever the lysine carries, so in a StcE-trypsin co-digest that site survives an
+        /// acetylated K even though trypsin's "K|" alone would not.
+        /// </remarks>
+        private static bool[] ChargeDirectedSites(DigestionAgent protease, string sequence)
+        {
+            var sites = new bool[sequence.Length + 1];
+            foreach (int site in protease.GetDigestionSiteIndices(sequence))
+            {
+                if (site > 0 && site < sequence.Length)
+                {
+                    sites[site] = true;
+                }
+            }
+
+            for (int location = 0; location < sequence.Length; location++)
+            {
+                foreach (DigestionMotif motif in protease.DigestionMotifs)
+                {
+                    int site = location + motif.CutIndex;
+                    if (site > 0 && site < sequence.Length && sites[site]
+                        && !motif.CleavesCTerminalTo(sequence[site - 1])
+                        && motif.Fits(sequence, location).Item1)
+                    {
+                        sites[site] = false;
+                    }
+                }
+            }
+
+            return sites;
         }
 
         /// <summary>
@@ -102,10 +158,15 @@ namespace Proteomics.ProteolyticDigestion
         public int MaxMissedCleavages { get; }
 
         /// <summary>
-        /// True when <paramref name="modification"/> abolishes a cleavage the configured protease would
-        /// otherwise have performed. Always false for the inert policy.
+        /// True when <paramref name="modification"/>, sitting on one-based residue
+        /// <paramref name="oneBasedResidue"/> of the protein this policy was built for, abolishes a
+        /// cleavage the configured protease would otherwise have performed there. Always false for the
+        /// inert policy, and false wherever the protease never cut -- so the discount counts real sites only.
         /// </summary>
-        public bool Blocks(Modification modification) =>
-            IsActive && CleavageBlockingModifications.BlocksCleavageBy(modification, _protease);
+        public bool Blocks(Modification modification, int oneBasedResidue) =>
+            IsActive
+            && oneBasedResidue > 0 && oneBasedResidue < _chargeDirectedSites.Length
+            && _chargeDirectedSites[oneBasedResidue]
+            && CleavageBlockingModifications.BlocksCleavageBy(modification, _protease);
     }
 }

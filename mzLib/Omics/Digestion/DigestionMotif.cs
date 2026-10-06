@@ -168,8 +168,12 @@ namespace Omics.Digestion
         /// <remarks>
         /// Residue-level only: a preventing-cleavage rule (trypsin|P's "K[P]|") is deliberately not
         /// consulted, because that rule depends on the sequence context of a particular site and this
-        /// question is about the protease alone. Ambiguity codes and the wildcard are honoured through
-        /// the same matcher digestion itself uses, so "X|" reports true for every residue.
+        /// question is about the protease alone; which sites are real is decided per protein from
+        /// <see cref="DigestionAgent.GetDigestionSiteIndices"/>.
+        ///
+        /// The residue must be named LITERALLY. The wildcard "X" and the ambiguity codes B/J/Z do not
+        /// count: a motif whose P1 is a wildcard (StcE's "TX|T", collagenase, non-specific "X|") is not
+        /// directed by that residue's side chain, so modifying the side chain abolishes nothing there.
         /// </remarks>
         public bool CleavesCTerminalTo(char residue)
         {
@@ -180,7 +184,7 @@ namespace Omics.Digestion
                 return false;
             }
 
-            return MotifMatches(InducingCleavage[CutIndex - 1], residue);
+            return InducingCleavage[CutIndex - 1] == residue;
         }
 
         private bool MotifMatches(char motifChar, char sequenceChar)

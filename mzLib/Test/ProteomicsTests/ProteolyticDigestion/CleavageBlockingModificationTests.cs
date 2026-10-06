@@ -499,7 +499,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             {
                 var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 5,
                     respectCleavageBlockingModifications: respect);
-                return CleavageBlockingPolicy.For(dp, variableMods.ToList());
+                return CleavageBlockingPolicy.For(dp, variableMods.ToList(), "AAAAKAAAAKAAAASAAAAKAAAAKAAAAR");
             }
 
             Assert.That(PolicyFor(respect: false, phospho, succinyl).GenerationSlack, Is.Zero,
@@ -586,8 +586,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsFalse(ProteaseDictionary.Dictionary["Asp-N"].CleavesCTerminalTo('D'));
             Assert.IsFalse(ProteaseDictionary.Dictionary["Lys-N"].CleavesCTerminalTo('K'));
 
-            // The wildcard is honoured through the same matcher digestion itself uses.
-            Assert.IsTrue(ProteaseDictionary.Dictionary["non-specific"].CleavesCTerminalTo('K'));
+            // The residue must be named literally: a wildcard P1 is not directed by the side chain, so an
+            // acylation there abolishes nothing (review, Alexander-Sol: StcE's "TX|T").
+            Assert.IsFalse(ProteaseDictionary.Dictionary["non-specific"].CleavesCTerminalTo('K'));
         }
 
         /// <summary>
@@ -803,5 +804,99 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             }
         }
 
+        /// <summary>
+        /// The reported missed-cleavage count must be EXACT, not just within budget. Review (Alexander-Sol)
+        /// reproduced two ways a residue-level site test under-reported it: a blocked K that was never a site
+        /// (K before P under trypsin|P) cancelled a genuine missed cleavage, and a wildcard P1 (StcE's "TX|T")
+        /// made an acylated K count as blocked though StcE's specificity has nothing to do with lysine charge.
+        /// Both emitted peptides reporting 0 missed cleavages that really had one.
+        /// </summary>
+        /// <param name="chargeDirectedResidues">
+        /// The residues the protease names literally at P1, i.e. the only ones whose cleavage an acylation can
+        /// abolish. Stated by hand rather than derived, so the expectation does not share the code under test.
+        /// </param>
+        [Test]
+        [TestCase("trypsin|P", "AAAAAAAKPAAAAAKAAAAAARAAAAAA", "KR", TestName = "Reported MC is exact when a blocked K precedes P")]
+        [TestCase("trypsin|P", "KPAAAAKAAAAAAR", "KR", TestName = "Reported MC is exact for a blocked K before P at position one")]
+        [TestCase("StcE", "AAAAAATKTAAAAAAAAKAAAA", "", TestName = "Reported MC is exact under a wildcard-P1 protease")]
+        [TestCase("StcE-trypsin", "AAAAAATKTAAAAKAAAAAR", "KR", TestName = "Reported MC is exact where a wildcard and a literal motif share a site")]
+        public static void ReportedMissedCleavages_EqualTheRealUnblockedSitesInsideThePeptide(
+            string proteaseName, string sequence, string chargeDirectedResidues)
+        {
+            var acetyl = MakeKModification("N6-acetyllysine", mass: 42.01057);
+            var protein = new Protein(sequence, "accession");
+            var protease = ProteaseDictionary.Dictionary[proteaseName];
+            var digestionParams = new DigestionParams(protease: proteaseName, maxMissedCleavages: 0, minPeptideLength: 1,
+                initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain, respectCleavageBlockingModifications: true);
+
+            var peptides = protein.Digest(digestionParams, new List<Modification>(), new List<Modification> { acetyl })
+                .Cast<PeptideWithSetModifications>().ToList();
+            Assert.That(peptides, Is.Not.Empty);
+
+            HashSet<int> realSites = new(protease.GetDigestionSiteIndices(sequence));
+            foreach (PeptideWithSetModifications peptide in peptides)
+            {
+                int expected = 0;
+                for (int residue = peptide.OneBasedStartResidue; residue < peptide.OneBasedEndResidue; residue++)
+                {
+                    if (!realSites.Contains(residue))
+                        continue;
+
+                    bool blocked = chargeDirectedResidues.Contains(sequence[residue - 1])
+                        && peptide.AllModsOneIsNterminus.TryGetValue(residue - peptide.OneBasedStartResidue + 2, out Modification mod)
+                        && mod.BlocksCleavage;
+                    if (!blocked)
+                        expected++;
+                }
+
+                Assert.That(peptide.MissedCleavages, Is.EqualTo(expected),
+                    peptide.FullSequence + " must report the real, unblocked sites it spans");
+                Assert.That(peptide.MissedCleavages, Is.LessThanOrEqualTo(0));
+            }
+        }
+
+        /// <summary>
+        /// The drop half of the same review finding. StcE cuts "TK|T" whatever the lysine carries, so the
+        /// peptidoform ending in an acylated K at that site is a real product and must not be dropped -- and a
+        /// protease whose P1 is a wildcard has no charge-directed site at all, so the flag must change nothing.
+        /// </summary>
+        [Test]
+        public static void AWildcardP1_IsNotAChargeDirectedSite()
+        {
+            var acetyl = MakeKModification("N6-acetyllysine", mass: 42.01057);
+            var protein = new Protein("AAAAAATKTAAAAAAAAKAAAA", "accession");
+
+            List<string> Digest(string proteaseName, bool respect) => protein
+                .Digest(new DigestionParams(protease: proteaseName, maxMissedCleavages: 0, minPeptideLength: 1,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                        respectCleavageBlockingModifications: respect),
+                    new List<Modification>(), new List<Modification> { acetyl })
+                .Select(p => p.FullSequence + "|" + p.MissedCleavages).OrderBy(s => s).ToList();
+
+            Assert.That(Digest("StcE", respect: true), Is.EqualTo(Digest("StcE", respect: false)),
+                "StcE's specificity has nothing to do with lysine charge");
+            Assert.That(Digest("StcE", respect: true).Any(s => s.StartsWith("AAAAAATK[")), Is.True,
+                "TK|T is cut whatever the lysine carries, so the acetylated form must survive");
+
+            foreach (string wildcardProtease in new[] { "StcE", "collagenase", "non-specific" })
+            {
+                Assert.IsFalse(ProteaseDictionary.Dictionary[wildcardProtease].CleavesCTerminalTo('K'),
+                    wildcardProtease + " names no residue at P1, so it does not cut charge-directed after K");
+                Assert.IsFalse(CleavageBlockingPolicy.AnyCanBlockCleavage(new[] { acetyl },
+                    ProteaseDictionary.Dictionary[wildcardProtease]), wildcardProtease + " must leave the policy inert");
+            }
+
+            // Composite: the K| motif still makes an acylated K blocking where only trypsin cuts.
+            var composite = new Protein("AAAAAATKTAAAAKAAAAAR", "accession").Digest(
+                    new DigestionParams(protease: "StcE-trypsin", maxMissedCleavages: 0, minPeptideLength: 1,
+                        initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                        respectCleavageBlockingModifications: true),
+                    new List<Modification>(), new List<Modification> { acetyl })
+                .ToList();
+            Assert.That(composite.Any(p => p.BaseSequence == "AAAAAATK" && p.AllModsOneIsNterminus.Count == 1), Is.True,
+                "StcE still cuts TK|T, so the acetylated form ending there is real");
+            Assert.That(composite.Any(p => p.BaseSequence == "TAAAAK" && p.AllModsOneIsNterminus.Count == 1), Is.False,
+                "only trypsin cuts after K14, and the acetyl abolishes that cut");
+        }
     }
 }

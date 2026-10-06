@@ -572,8 +572,8 @@ namespace Omics.Digestion
         /// nothing at all in a Glu-C digest.
         /// </summary>
         /// <remarks>
-        /// Residue-level, context-free -- see <see cref="DigestionMotif.CleavesCTerminalTo"/> for what
-        /// that does and does not take into account.
+        /// Residue-level, context-free, and literal: a motif whose P1 is the wildcard (StcE, collagenase,
+        /// non-specific) reports false -- see <see cref="DigestionMotif.CleavesCTerminalTo"/>.
         /// </remarks>
         public bool CleavesCTerminalTo(char residue)
         {

@@ -161,11 +161,11 @@ namespace Proteomics.ProteolyticDigestion
         /// explains: no slack computed from MaxMods can pay for the read-through a fixed blocking
         /// modification would require, so allowing it to drop would lose the peptide outright.
         ///
-        /// Known approximation, now narrowed to sequence context: cleavage sites are matched at the
-        /// residue level without re-deriving the protease's site list for this protein, so a modified
-        /// K or R whose site was prevented by surrounding sequence (trypsin|P's K[P] rule) can still
-        /// discount a missed cleavage it did not occupy. The count is clamped so it can never go
-        /// negative, and case (1) -- the correctness fix this is here for -- is exact.
+        /// Exact: a modified residue counts only if it is one of the protease's real sites in this protein
+        /// (the same site list <see cref="MissedCleavages"/> was counted from), so a modified K whose site
+        /// was prevented by sequence context (trypsin|P's K[P] rule) discounts nothing, and a site a
+        /// wildcard motif also cuts (StcE's "TX|T") is not blockable. The reported count therefore equals
+        /// the real, unblocked sites the peptidoform spans.
         /// </remarks>
         private bool IsUnreachableThroughBlockedCleavage(Dictionary<int, Modification> variableModPattern,
             int peptideLength, CleavageBlockingPolicy policy, out int openMissedCleavages)
@@ -179,7 +179,9 @@ namespace Proteomics.ProteolyticDigestion
                 // this protease was going to make one there. An acetylated lysine abolishes a trypsin
                 // site and abolishes nothing in a Glu-C digest, where discounting it would hide a missed
                 // cleavage the peptide genuinely has.
-                if (!policy.Blocks(positionAndMod.Value))
+                // Key k sits on parent residue OneBasedStartResidue + k - 2; the policy answers only for a
+                // residue that is a real site of this protease in this protein.
+                if (!policy.Blocks(positionAndMod.Value, OneBasedStartResidue + positionAndMod.Key - 2))
                 {
                     continue;
                 }
