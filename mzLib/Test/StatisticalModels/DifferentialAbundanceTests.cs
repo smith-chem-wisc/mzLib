@@ -343,17 +343,21 @@ public class DifferentialAbundanceTests
     /// Tied covariate values can put two knots on one value, or an interior knot on the upper boundary.
     /// Either used to give 0/0 or a rank-deficient design and NaN everywhere; the knots are now merged.
     /// </summary>
-    [TestCase(0.9, 30.0)]    // tied at the top: interior knots land on the upper boundary
-    [TestCase(0.6, 24.0)]    // tied in the middle: both interior knots coincide
-    [TestCase(0.45, 18.0)]   // tied at the bottom: an interior knot lands on the lower boundary
-    public void FitPrior_TiedCovariatesMergeKnotsInsteadOfGivingNaN(double tiedFraction, double tiedValue)
+    [TestCase(0.9, 30.0, VariancePriorEstimator.MomentsLegacy)]    // tied at the top: interior knots land on the upper boundary
+    [TestCase(0.6, 24.0, VariancePriorEstimator.MomentsLegacy)]    // tied in the middle: both interior knots coincide
+    [TestCase(0.45, 18.0, VariancePriorEstimator.MomentsLegacy)]   // tied at the bottom: an interior knot lands on the lower boundary
+    [TestCase(0.9, 30.0, VariancePriorEstimator.MarginalLikelihood)]
+    [TestCase(0.6, 24.0, VariancePriorEstimator.MarginalLikelihood)]
+    [TestCase(0.45, 18.0, VariancePriorEstimator.MarginalLikelihood)]
+    public void FitPrior_TiedCovariatesMergeKnotsInsteadOfGivingNaN(double tiedFraction, double tiedValue,
+        VariancePriorEstimator estimator)
     {
         var rng = new MersenneTwister(23);
         var chi = new ChiSquared(5, rng);
         int n = 200, tied = (int)(tiedFraction * n);
         var amean = Enumerable.Range(0, n).Select(g => g < tied ? tiedValue : 18 + 12.0 * rng.NextDouble()).ToArray();
         var s2 = amean.Select(_ => 0.05 * chi.Sample() / 5).ToArray();
-        var prior = EmpiricalBayes.FitPrior(s2, Enumerable.Repeat(5.0, n).ToArray(), amean);
+        var prior = EmpiricalBayes.FitPrior(s2, Enumerable.Repeat(5.0, n).ToArray(), amean, estimator: estimator);
 
         Assert.That(prior.Scale.All(double.IsFinite), "every feature gets a finite prior variance");
         Assert.That(double.IsNaN(prior.Df), Is.False);
