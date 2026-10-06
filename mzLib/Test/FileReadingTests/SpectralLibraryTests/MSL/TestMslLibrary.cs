@@ -469,7 +469,7 @@ public sealed class TestMslLibrary
 
 	/// <summary>
 	/// Verifies that after a <see cref="MslLibrary.QueryWindow"/> call in index-only mode,
-	/// <see cref="MslLibrary.GetEntry"/> successfully loads the full fragment data for a
+	/// <see cref="MslLibrary.GetEntry(int)"/> successfully loads the full fragment data for a
 	/// candidate returned by the window query.
 	/// </summary>
 	[Test]

@@ -1648,6 +1648,36 @@ namespace Test.DatabaseTests
         }
 
         [Test]
+        public static void IsEntrapmentAccession_AgreesWithLoadProteinXml()
+        {
+            string[] accessions = { "Random_PROT1_f0", "random_prot2", "PROT3", "PROT4_RANDOM" };
+            string xmlpath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_predicate.xml");
+            ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
+                accessions.Select(a => new Protein("PEPTIDEK", a)).ToList(), xmlpath);
+
+            var proteins = ProteinDbLoader.LoadProteinXML(xmlpath, true, DecoyType.None, null, false, null, out _);
+            File.Delete(xmlpath);
+
+            Assert.That(proteins.Select(p => p.Accession), Is.EqualTo(accessions));
+            Assert.That(proteins.Select(p => p.IsEntrapment), Is.EqualTo(accessions.Select(a => ProteinDbLoader.IsEntrapmentAccession(a))));
+        }
+
+        /// <summary>
+        /// The loaders now share IsEntrapmentAccession, which refuses an empty identifier. Before, an empty
+        /// one matched every accession and silently loaded the whole database as entrapment.
+        /// </summary>
+        [Test]
+        public static void EntrapmentFasta_EmptyIdentifier_Throws()
+        {
+            string fastapath = Path.Combine(TestContext.CurrentContext.TestDirectory, "test_entrapment_empty_identifier.fasta");
+            File.WriteAllText(fastapath, ">sp|PROT1|Prot1 desc\nPEPTIDEK\n");
+
+            Assert.Throws<ArgumentException>(() =>
+                ProteinDbLoader.LoadProteinFasta(fastapath, true, DecoyType.None, false, out _, entrapmentIdentifier: ""));
+            File.Delete(fastapath);
+        }
+
+        [Test]
         public static void EntrapmentFasta_NoDoublePrefixing()
         {
             string fastacontent = ">sp|Random_PROTEIN1|Prot1 desc\nPEPTIDEK";
