@@ -340,7 +340,8 @@ namespace Test.FileReadingTests
         {
             var trees = Trees();
             Assert.That(Assert.Throws<ArgumentException>(() => OrthologySnapshot.Build("117", _sets, trees,
-                new[] { HumanDump(), MouseDump(), RatDump() })).Message, Does.Contain("is from release 116, not 117"));
+                new[] { HumanDump(), MouseDump(), RatDump() })).Message,
+                Does.Contain("vertebrates.GeneTree_content.default.e116.txt.gz names release 116, not 117"));
 
             Assert.That(Assert.Throws<ArgumentException>(() => OrthologySnapshot.Build("116", _sets, trees,
                 new[] { HumanDump(new[] { Human, Rat }), MouseDump(), RatDump() })).Message, Does.Contain("was loaded without mus_musculus"));
@@ -356,6 +357,30 @@ namespace Test.FileReadingTests
                 new[] { HumanDump(), MouseDump(), RatDump() })).Message, Does.Contain("not one of the species"));
 
             Assert.Throws<ArgumentException>(() => OrthologySnapshot.Build("116", new Dictionary<string, EnsemblGeneSet>(), trees, Array.Empty<ComparaHomologyDump>()));
+        }
+
+        [Test]
+        public void Build_AGeneSetNamedForItsOwnRelease_IsAccepted()
+        {
+            // Release 116 publishes the yeast, worm and fly GTFs, imported from Ensembl Genomes, as .63.
+            const string Yeast = "saccharomyces_cerevisiae", Y1 = "YAL001C", Y2 = "YAL002W";
+            var sets = new Dictionary<string, EnsemblGeneSet>
+            {
+                [Human] = _sets[Human],
+                [Yeast] = GeneSet("Saccharomyces_cerevisiae.R64-1-1.63.gtf", Y1, Y2),
+            };
+            var dumps = new[]
+            {
+                ComparaHomologyDump.Load(WriteGz("human.homologies.tsv.gz", Header +
+                    Row("20", "ortholog_one2many", Human, H1, 30, Yeast, Y1, 31)), new[] { Human, Yeast }),
+                ComparaHomologyDump.Load(WriteGz("Compara.116.protein_default.homologies.tsv.gz", Header +
+                    Row("21", "within_species_paralog", Yeast, Y1, 40, Yeast, Y2, 41)), new[] { Human, Yeast }),
+            };
+
+            var snap = OrthologySnapshot.Build("116", sets, Trees(), dumps);
+
+            Assert.That((snap.Release, snap.GeneSets[Yeast].Release), Is.EqualTo(("116", "63")));
+            Assert.That(snap.Orthologs(Human, Yeast).Single().GeneB, Is.EqualTo(Y1));
         }
 
         [Test]

@@ -94,7 +94,7 @@ namespace UsefulProteomicsDatabases.Ensembl
             }
         }
 
-        /// <summary>The Ensembl release every input belongs to.</summary>
+        /// <summary>The Ensembl release of the Compara inputs: the gene trees and the dumps.</summary>
         public string Release { get; }
 
         /// <summary>The species, Ensembl production names (e.g. "homo_sapiens"), in ordinal order.</summary>
@@ -236,13 +236,19 @@ namespace UsefulProteomicsDatabases.Ensembl
         /// <summary>
         /// Builds a snapshot, refusing inputs that would make it wrong rather than incomplete-looking.
         /// </summary>
-        /// <param name="release">The Ensembl release. Every input that names its release must name this one.</param>
-        /// <param name="geneSets">Species (Ensembl production name) -> its primary-assembly gene set.</param>
+        /// <param name="release">The Ensembl release. The gene trees and every dump, when their file names carry a
+        /// release, must carry this one.</param>
+        /// <param name="geneSets">Species (Ensembl production name) -> its primary-assembly gene set. The number in
+        /// a GTF's name is not compared with <paramref name="release"/>: it is the annotation's release, and
+        /// the species Ensembl imports from Ensembl Genomes carry their own (release 116 publishes
+        /// Saccharomyces_cerevisiae.R64-1-1.63.gtf.gz). A gene set is held to the dumps by content instead:
+        /// every gene a homology names must be in it.</param>
         /// <param name="geneTrees">Gene-tree membership, unrestricted or restricted to these same gene sets.</param>
         /// <param name="dumps">Exactly one homology dump per species, each loaded for at least these species.
         /// A pair's relationships sit in either of its two dumps, arbitrarily, so a missing dump would
         /// silently lose them.</param>
-        /// <exception cref="ArgumentException">The inputs do not fit together: a release differs, a dump is
+        /// <exception cref="ArgumentException">The inputs do not fit together: the gene trees or a dump name
+        /// another release, a dump is
         /// missing, repeated or loaded for fewer species, or the gene trees were restricted to other gene sets.</exception>
         /// <exception cref="InvalidDataException">The data breaks the store's rules: a gene in two species'
         /// gene sets, a homology naming a gene its species' gene set does not hold, or one homology id with
@@ -264,7 +270,6 @@ namespace UsefulProteomicsDatabases.Ensembl
             foreach (string s in species)
             {
                 var set = geneSets[s] ?? throw new ArgumentException($"The gene set of {s} is null.", nameof(geneSets));
-                RequireRelease(set.Release, release, set.SourceFileName);
                 foreach (string gene in set.GeneIds)
                 {
                     if (!speciesOfGene.TryAdd(gene, s))
@@ -412,7 +417,7 @@ namespace UsefulProteomicsDatabases.Ensembl
         {
             if (found != null && found != expected)
             {
-                throw new ArgumentException($"{source} is from release {found}, not {expected}.");
+                throw new ArgumentException($"{source} names release {found}, not {expected}.");
             }
         }
 
