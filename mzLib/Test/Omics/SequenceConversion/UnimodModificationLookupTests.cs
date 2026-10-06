@@ -247,6 +247,54 @@ public class UnimodModificationLookupTests
         Assert.That(peptide.AllModsOneIsNterminus[6].IdWithMotif, Is.EqualTo("Oxidation on M"));
     }
 
+    /// <summary>
+    /// A side-chain modification on a protein's first residue reaches the lookup as an N-terminal position. The
+    /// Unimod reference must not move it to a terminal entry on another residue (Deamidated on F [N-terminal.]):
+    /// the converted mod stays on its residue, so the tryptic digest still carries it.
+    /// </summary>
+    [TestCase("NPEPTIDEKAAAR", "Common Artifact", "Deamidation on N", "Deamidated on N")]
+    [TestCase("RPEPTIDEKAAAR", "UniProt", "Citrulline on R", "Deamidated on R")]
+    [TestCase("KPEPTIDEKAAAR", "Common Biological", "Carboxylation on K", "Carboxy on K")]
+    public void ConvertModifications_SideChainModificationOnTheFirstResidue_StaysOnItsResidue(
+        string sequence, string modificationType, string idWithMotif, string expectedIdWithMotif)
+    {
+        var source = KnownMod(modificationType, idWithMotif);
+        var protein = new Protein(sequence, "TestProtein",
+            oneBasedModifications: new Dictionary<int, List<Modification>> { { 1, new List<Modification> { source } } });
+
+        protein.ConvertModifications(new UnimodModificationLookup());
+
+        var converted = protein.OneBasedPossibleLocalizedModifications[1].Single();
+        Assert.That(converted.IdWithMotif, Is.EqualTo(expectedIdWithMotif));
+        Assert.That(converted.Target.ToString(), Is.EqualTo(sequence[..1]));
+        Assert.That(converted.ChemicalFormula, Is.EqualTo(source.ChemicalFormula));
+
+        var firstPeptide = sequence[..(sequence.IndexOf('K', 1) + 1)];
+        var modifiedPeptides = protein.Digest(new DigestionParams(protease: "trypsin"), new List<Modification>(), new List<Modification>())
+            .Where(p => p.BaseSequence == firstPeptide && p.AllModsOneIsNterminus.Values.Contains(converted))
+            .ToList();
+        Assert.That(modifiedPeptides, Is.Not.Empty);
+    }
+
+    /// <summary>
+    /// N-methylglycine on a mid-protein G references Methyl, but no Methyl entry restricted to a terminus may
+    /// answer for a residue position (Methyl on X [Peptide C-terminal.]).
+    /// </summary>
+    [Test]
+    public void TryResolve_NMethylglycineAtAResidue_IsNeverATerminalOnlyEntry()
+    {
+        var source = KnownMod("UniProt", "N-methylglycine on G");
+
+        var resolved = new UnimodModificationLookup().TryResolve(AsConverted(source))?.MzLibModification;
+
+        if (resolved != null)
+        {
+            Assert.That(resolved.LocationRestriction, Does.Not.Contain("terminal").IgnoreCase);
+            Assert.That(resolved.Target.ToString(), Is.AnyOf("G", "X"));
+            Assert.That(resolved.ChemicalFormula, Is.EqualTo(source.ChemicalFormula));
+        }
+    }
+
     private static Modification KnownMod(string modificationType, string idWithMotif) =>
         Mods.AllKnownMods.Single(m => m.ModificationType == modificationType && m.IdWithMotif == idWithMotif);
 

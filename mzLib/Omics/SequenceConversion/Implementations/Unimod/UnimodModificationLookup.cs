@@ -32,6 +32,10 @@ public class UnimodModificationLookup : ModificationLookupBase
     /// N6,N6-dimethyllysine, whose reference is Dimethyl (UNIMOD:36).
     /// The reference only chooses among entries with the source's formula, so it never changes the
     /// mass: N,N-dimethylproline (C2H4) references Delta:H(5)C(2) (C2H5) and keeps the formula path.
+    /// It also keeps only entries that can sit where the source sits (the source's residue or X, and a
+    /// location restriction that allows its position), so it never moves the modification to another
+    /// residue or to a terminus: Deamidation on a protein's first N stays Deamidated on N, not
+    /// Deamidated on F [N-terminal.]. When no entry is left, the formula path answers as before.
     /// </summary>
     protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
     {
@@ -49,7 +53,12 @@ public class UnimodModificationLookup : ModificationLookupBase
 
         var byUnimodId = FilterByUnimodId(CandidateSet, unimodId.Value);
         var formula = mod.ChemicalFormula ?? mod.MzLibModification?.ChemicalFormula;
-        return formula == null ? byUnimodId : FilterByFormula(byUnimodId, formula);
+        var candidates = formula == null ? byUnimodId : FilterByFormula(byUnimodId, formula);
+        return candidates
+            .Where(m => !mod.TargetResidue.HasValue ||
+                        m.Target?.Motif == mod.TargetResidue.Value.ToString() || m.Target?.Motif == "X")
+            .Where(m => MatchesTermRestriction(m.LocationRestriction, mod.PositionType))
+            .ToList();
     }
 
     protected override string NormalizeRepresentation(string representation)
