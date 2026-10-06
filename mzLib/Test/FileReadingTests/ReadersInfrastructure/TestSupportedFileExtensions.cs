@@ -46,6 +46,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Ms2Align_FlashDeconvOpenMs3.0.0_ms2.msalign", SupportedFileType.Ms2Align);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\Casanovo_5.0.0.mztab", SupportedFileType.CasanovoMzTab);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv", SupportedFileType.DiaNnReport);
+            yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\DiaNn2_report.parquet", SupportedFileType.DiaNnReportParquet);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\PXD000070.sdrf.tsv", SupportedFileType.Sdrf);
             yield return new TestCaseData(@"FileReadingTests\ExternalFileTypes\match_output_Lumos_Orbi.txt", SupportedFileType.PytheasResult);
             yield return new TestCaseData(@"DataFiles\PXD078927_msgf_1_1_0.mzid", SupportedFileType.MzIdentML);
@@ -100,6 +101,7 @@ namespace Test.FileReadingTests.ReadersInfrastructure
         [Test]
         [TestCase(@"FileReadingTests\ExternalFileTypes\FraggerPsm_FragPipev21.1_psm.tsv", SupportedFileType.MsFraggerPsm)]
         [TestCase(@"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv", SupportedFileType.DiaNnReport)]
+        [TestCase(@"FileReadingTests\ExternalFileTypes\DiaNn2_report.parquet", SupportedFileType.DiaNnReportParquet)]
         public static void TestIQuantifiableResultFileReaderWorks(string filePath, SupportedFileType expectedType)
         {
             IQuantifiableResultFile resultFile = FileReader.ReadQuantifiableResultFile(filePath);
