@@ -31,7 +31,8 @@ public class TestDecoyContaminantTargetLabel
 
     /// <summary>
     /// Readers test for a letter, never for equality: a PSM mapping to several parents joins their
-    /// labels with '|', and <c>== "D"</c> reads an entrapment decoy as a target.
+    /// labels with '|', and <c>== "D"</c> reads an entrapment decoy as a target. A value that is not
+    /// a label at all names no parents, so the "E" in "Excel" is not entrapment.
     /// </summary>
     [TestCase("T", false, false, false)]
     [TestCase("D", true, false, false)]
@@ -44,6 +45,7 @@ public class TestDecoyContaminantTargetLabel
     [TestCase("C|D", true, true, false)]
     [TestCase("", false, false, false)]
     [TestCase(null, false, false, false)]
+    [TestCase("Output too long for Excel", false, false, false)]
     public void ReadingALabelFindsEachLetterAnywhereInIt(string? label, bool isDecoy, bool isContaminant, bool isEntrapment)
     {
         Assert.That(DecoyContaminantTargetLabel.IsDecoy(label), Is.EqualTo(isDecoy));

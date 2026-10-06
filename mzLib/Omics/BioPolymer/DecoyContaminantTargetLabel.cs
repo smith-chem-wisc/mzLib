@@ -41,19 +41,22 @@ public static class DecoyContaminantTargetLabel
         For(bioPolymer.IsDecoy, bioPolymer.IsContaminant, bioPolymer.IsEntrapment);
 
     /// <summary>True when any parent named by the label is a decoy, entrapment decoys included.</summary>
-    public static bool IsDecoy(string? label) => label?.Contains('D') ?? false;
+    /// <remarks>Reads <see cref="Parents"/>, so a value that is not a label is no parent at all.</remarks>
+    public static bool IsDecoy(string? label) => AnyParentHas(label, 'D');
 
     /// <summary>True when any parent named by the label is a contaminant.</summary>
-    public static bool IsContaminant(string? label) => label?.Contains('C') ?? false;
+    /// <remarks>Reads <see cref="Parents"/>, so a value that is not a label is no parent at all.</remarks>
+    public static bool IsContaminant(string? label) => AnyParentHas(label, 'C');
 
     /// <summary>True when any parent named by the label is entrapment.</summary>
     /// <remarks>
     /// This answers "does any parent belong to entrapment", not "how much of this PSM is an
     /// entrapment discovery". To count entrapment discoveries, for an FDP estimate, use
     /// <see cref="EntrapmentFraction"/>: a shared <c>T|ET</c> is half a discovery when the two
-    /// sequences differ, and none when both proteins carry the same peptide.
+    /// sequences differ, and none when both proteins carry the same peptide. Reads
+    /// <see cref="Parents"/>, so the "E" in "Output too long for Excel" is not entrapment.
     /// </remarks>
-    public static bool IsEntrapment(string? label) => label?.Contains('E') ?? false;
+    public static bool IsEntrapment(string? label) => AnyParentHas(label, 'E');
 
     /// <summary>
     /// The label of each parent, in the order the writer joined them; empty when the value is not
@@ -128,6 +131,9 @@ public static class DecoyContaminantTargetLabel
             .Count(i => ParentOf(i) == EntrapmentTarget && !claimedByRealProteins.Contains(SequenceOf(i)));
         return entrapment / (double)candidates;
     }
+
+    private static bool AnyParentHas(string? label, char letter) =>
+        Parents(label).Any(p => p.Contains(letter));
 
     private static bool IsKnown(string part) =>
         part is Target or Decoy or Contaminant or EntrapmentTarget or EntrapmentDecoy;
