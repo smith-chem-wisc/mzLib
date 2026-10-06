@@ -335,4 +335,23 @@ public static class ModificationTest
         Assert.Throws<MzLibUtil.MzLibException>(() =>
             ModificationLoader.ReadFormalChargesDictionary(new System.IO.StringReader("MOD:00083\t1+\n")));
     }
+
+    [Test]
+    public static void ReadFormalChargesDictionaryReadsAFile()
+    {
+        var path = System.IO.Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ReadFormalChargesDictionaryReadsAFile)}.tsv");
+        System.IO.File.WriteAllText(path, "# accession\tcharge\nMOD:00083\t1\nMOD:00147\t-3\n");
+        try
+        {
+            var charges = ModificationLoader.ReadFormalChargesDictionary(path);
+
+            Assert.That(charges, Has.Count.EqualTo(2));
+            Assert.That(charges["PSI-MOD; MOD:00083"], Is.EqualTo(1));
+            Assert.That(charges["PSI-MOD; MOD:00147"], Is.EqualTo(-3));
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
+    }
 }
