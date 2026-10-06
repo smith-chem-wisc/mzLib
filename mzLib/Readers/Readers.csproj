@@ -15,8 +15,11 @@
 		<PackageReference Include="OpenMcdf.Extensions" Version="2.3.1" />
 		<!-- Apache-2.0, managed only: tables in supplementary PDFs (sdrf G36). -->
 		<PackageReference Include="PdfPig" Version="0.1.16" />
+		<!-- MIT, managed only (no native Arrow runtime): DIA-NN 2.x writes its main report only as parquet. -->
+		<PackageReference Include="Parquet.Net" Version="6.1.0" />
 		<PackageReference Include="System.Data.SQLite.Core" Version="1.0.118" />
 		<PackageReference Include="TopDownProteomics" Version="0.0.299" />
+		<!-- 0.8.8 is the floor Parquet.Net 6 requires; .msl zstd compression (MslWriter/MslReader) uses it too. -->
 		<PackageReference Include="ZstdSharp.Port" Version="0.8.8" />
 	</ItemGroup>
 
