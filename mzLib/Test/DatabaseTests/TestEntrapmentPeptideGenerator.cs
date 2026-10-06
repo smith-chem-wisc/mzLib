@@ -345,6 +345,81 @@ public class EntrapmentPeptideGeneratorTests
     }
 
     [Test]
+    public void ASingleFoldIsNotConfinedToOneOrderOfItsLastFreeResidues()
+    {
+        // Alexander-Sol, #1271 third pass: interleaving by residue class modulo r moved the per-fold
+        // skew to the other end. The low digits of a lexicographic rank encode the relative order of
+        // the LAST free positions, so with nonIdentityRank = fold + r * j, rank mod 2 fixed whether the
+        // last two were ascending and rank mod 6 the order of the last three: at r = 6 every fold of
+        // AEGLSVTK saw one order of positions 4-6 under all 200 seeds, next to the pinned K. A keyed
+        // bijection over the non-identity ranks, applied before the residue-class split, breaks it.
+        const string target = "AEGLSVTK";
+        int[] anchors = { 0, target.Length - 1 };
+        foreach (int foldCount in new[] { 2, 6, 9 })
+        {
+            for (int fold = 0; fold < foldCount; fold++)
+            {
+                var tailOrders = new HashSet<string>();
+                var lastTwoAscending = new HashSet<bool>();
+                for (int seed = 1; seed <= 200; seed++)
+                {
+                    EntrapmentPeptide result = EntrapmentPeptideGenerator.Create(target, Trypsin,
+                        NothingForbidden, fold: fold, foldCount: foldCount, seed: seed, alsoHeldInPlace: anchors);
+                    Assert.That(result.Succeeded, Is.True);
+                    string tail = result.EntrapmentSequence!.Substring(4, 3);
+                    tailOrders.Add(string.Concat(tail.Select(c => tail.Count(o => o < c))));
+                    lastTwoAscending.Add(tail[1] < tail[2]);
+                }
+
+                Assert.That(tailOrders.Count, Is.GreaterThan(1),
+                    $"r = {foldCount}, fold {fold} put its last three free residues in one order under every seed");
+                Assert.That(lastTwoAscending, Has.Count.EqualTo(2),
+                    $"r = {foldCount}, fold {fold} put its last two free residues in one order under every seed");
+            }
+        }
+    }
+
+    [Test]
+    public void TheShuffledSharesStillPartitionEveryNonIdentityArrangement()
+    {
+        // The keyed shuffle has to be a bijection on the non-identity ranks, or folds would overlap
+        // (no longer distinct partners) or leave arrangements no fold can reach (a false proof of
+        // exhaustion). AEGLSK anchored frees EGLS: 24 arrangements,
+        // 23 usable, so the shuffle works over 5 bits and must cycle-walk 32 back into 23 with an
+        // uneven split. Forbid every arrangement but one: exactly one fold must find it.
+        const string target = "AEGLSK";
+        int[] anchors = { 0, target.Length - 1 };
+        BigInteger size = DecoySequenceValidator.PermutationSpaceSize(target, Trypsin, anchors);
+        Assert.That(size, Is.EqualTo(new BigInteger(24)), "fixture must really have a space of 24");
+
+        var arrangements = new List<string>();
+        for (BigInteger i = BigInteger.Zero; i < size; i++)
+        {
+            string arrangement = DecoySequenceValidator.UnrankPermutation(target, Trypsin, i, out _, anchors);
+            if (arrangement != target)
+            {
+                arrangements.Add(arrangement);
+            }
+        }
+
+        foreach (int foldCount in new[] { 1, 3 })
+        {
+            for (int seed = 1; seed <= 3; seed++)
+            {
+                foreach (string onlyFree in arrangements)
+                {
+                    var forbidden = new HashSet<string>(arrangements.Where(a => a != onlyFree));
+                    int foundBy = Enumerable.Range(0, foldCount).Count(fold => EntrapmentPeptideGenerator.Create(
+                        target, Trypsin, forbidden, fold: fold, foldCount: foldCount, seed: seed,
+                        alsoHeldInPlace: anchors).EntrapmentSequence == onlyFree);
+
+                    Assert.That(foundBy, Is.EqualTo(1), $"r = {foldCount}, seed {seed}: {onlyFree}");
+                }
+            }
+        }
+    }
+
+    [Test]
     public void RankPermutationIsTheInverseOfUnrankAtTheIdentity()
     {
         string[] sequences = { "AEGLSVTK", "MAAABAK", "AAGK", "PEPTIDEKAAR", "SSSSSSR", "K", "LIHTGVKLIHTVGK" };

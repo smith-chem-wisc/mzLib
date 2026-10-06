@@ -488,7 +488,10 @@ public static class EntrapmentProteinGenerator
     /// </summary>
     /// <remarks>
     /// Because the rearrangement only moves positions, a modification always lands on the same
-    /// residue it was on, so its motif still fits. A modification whose residue was excised has
+    /// residue it was on, so a motif of that one residue still fits. A contextual motif does not
+    /// always: HexNAc on N-x-S/T moves with its N, but the S/T usually stays put, and digestion
+    /// re-checks the motif and drops the mod from the partner. Holding the context residues in
+    /// place is smith-chem-wisc/mzLib#1436. A modification whose residue was excised has
     /// nowhere to go and is dropped rather than placed somewhere arbitrary -- silently relocating it
     /// would invent a site the target never had.
     /// </remarks>

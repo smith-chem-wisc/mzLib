@@ -42,9 +42,10 @@ public enum EntrapmentFailure
     NoPermutationExists,
 
     /// <summary>
-    /// Arrangements exist, but every one this fold may draw on is already spoken for -- it is a
-    /// target peptide, or it has already been issued. Depends on the database, so a different
-    /// target set may succeed where this one did not.
+    /// Arrangements exist, but every one this fold may draw on is a forbidden sequence -- normally a
+    /// target peptide. Nothing tracks partners already issued: folds draw on disjoint shares, so they
+    /// cannot take one another's. Depends on the database, so a different target set may succeed
+    /// where this one did not.
     /// </summary>
     AllPermutationsTaken,
 
@@ -198,18 +199,24 @@ public static class EntrapmentPeptideGenerator
         // another -- neither has to know what the others chose, so they can be produced in any
         // order, in parallel, or years apart.
         //
-        // Interleaved rather than contiguous, for two reasons (Alexander-Sol, #1271). Contiguous
-        // blocks of a lexicographic order fix the leading free residues by fold, so fold 0 of
-        // AEGLSVTK always put E second and fold 8 always put V there: pooled over folds that is
-        // fine, but a single fold, or an estimate per fold, drew from a skewed population. And
-        // `size / foldCount` left the remainder unused while the identity still sat inside one
-        // fold's block, so at a block of one that fold was excised as SpaceTooSmallForFoldCount
-        // although unused arrangements remained. Skipping the identity's rank and spreading the
-        // remainder over the low folds removes both: every fold now holds at least one candidate
-        // whenever the guard above passes.
+        // Interleaved rather than contiguous (Alexander-Sol, #1271): `size / foldCount` left the
+        // remainder unused while the identity still sat inside one fold's block, so at a block of
+        // one that fold was excised as SpaceTooSmallForFoldCount although unused arrangements
+        // remained. Skipping the identity's rank and spreading the remainder over the low folds
+        // means every fold holds at least one candidate whenever the guard above passes.
+        //
+        // The residue classes are taken in a keyed shuffle of the ranks, never of the ranks
+        // themselves. A lexicographic rank is positional: contiguous blocks fixed the LEADING free
+        // residues by fold (fold 0 of AEGLSVTK always put E second, fold 8 V), and residue classes
+        // fixed the TRAILING ones, since rank mod 2 orders the last two free residues and rank mod 6
+        // the last three (at r = 6 each fold of AEGLSVTK saw one order of them under every seed).
+        // Pooled over folds that is fine, but a single fold, or an estimate per fold, drew from a
+        // skewed population. A bijection keeps the shares disjoint and their sizes unchanged.
         BigInteger usable = size - BigInteger.One;
         BigInteger share = (usable - fold + foldCount - 1) / foldCount;
-        BigInteger offset = DeriveOffset(targetSequence, seed, share);
+        byte[] key = DeriveKey(targetSequence, seed);
+        BigInteger offset = ToNonNegative(key) % share;
+        var shuffle = new KeyedShuffle(key, usable);
 
         bool anyRejectedOnlyByContext = false;
         BigInteger probes = BigInteger.Zero;
@@ -217,7 +224,7 @@ public static class EntrapmentPeptideGenerator
         for (BigInteger step = BigInteger.Zero; step < share; step++)
         {
             probes = step + BigInteger.One;
-            BigInteger nonIdentityRank = fold + foldCount * ((offset + step) % share);
+            BigInteger nonIdentityRank = shuffle.Apply(fold + foldCount * ((offset + step) % share));
             BigInteger index = nonIdentityRank < identity ? nonIdentityRank : nonIdentityRank + BigInteger.One;
             string candidate = DecoySequenceValidator.UnrankPermutation(targetSequence, motifs, index,
                 out int[] swapped, alsoHeldInPlace);
@@ -271,14 +278,16 @@ public static class EntrapmentPeptideGenerator
         new(targetSequence, null, null, fold, size, probesUsed, failure);
 
     /// <summary>
-    /// Where in a fold's share to start looking, derived from the sequence and the seed.
+    /// The key every choice for this peptide derives from: where in a fold's share to start looking,
+    /// and the shuffle the shares are taken in. Independent of the fold, so every fold of a peptide
+    /// shares one shuffle and the shares stay disjoint.
     /// </summary>
     /// <remarks>
     /// SHA-256 rather than <see cref="string.GetHashCode()"/> or a home-made hash: its output is
     /// fixed by specification, so a database regenerated on another machine, another runtime or in
     /// another decade is byte-identical. String hash codes are explicitly not stable across runs.
     /// </remarks>
-    private static BigInteger DeriveOffset(string sequence, int seed, BigInteger share)
+    private static byte[] DeriveKey(string sequence, int seed)
     {
         // Format the seed invariantly. Interpolation uses the current culture, and a negative
         // seed renders its sign as U+002D under en-US but U+2212 MINUS SIGN under sv-SE, fi-FI and
@@ -286,12 +295,94 @@ public static class EntrapmentPeptideGenerator
         // database on a differently-configured machine. The reproducibility this method exists for
         // has to survive a culture change, not only a process restart.
         string material = seed.ToString(CultureInfo.InvariantCulture) + ":" + sequence;
-        byte[] digest = SHA256.HashData(Encoding.UTF8.GetBytes(material));
+        return SHA256.HashData(Encoding.UTF8.GetBytes(material));
+    }
 
-        // Leading zero byte keeps BigInteger's two's-complement reading non-negative.
-        byte[] unsigned = new byte[digest.Length + 1];
-        Array.Copy(digest, unsigned, digest.Length);
+    /// <summary>The bytes read as an unsigned little-endian integer.</summary>
+    private static BigInteger ToNonNegative(byte[] bytes) => new(bytes, isUnsigned: true);
 
-        return new BigInteger(unsigned) % share;
+    /// <summary>
+    /// A keyed bijection on <c>[0, domain)</c>: a Feistel network over the fewest bits that hold the
+    /// domain, cycle-walked back into it.
+    /// </summary>
+    /// <remarks>
+    /// <para>Feistel rounds are invertible whatever the round function, so this is a permutation by
+    /// construction, and cycle-walking (re-applying until the value lands inside the domain) keeps it
+    /// one on the domain itself. The width is the fewest bits that hold the domain, so fewer than two
+    /// passes are needed on average. An odd width is split unevenly and the halves swap sizes each
+    /// round, which is still invertible.</para>
+    /// <para>The round function is SHA-256 over the key, the round, a block counter and the right
+    /// half -- fixed by specification, like the key, so the shuffle is part of what regenerates
+    /// byte-identically. An affine map <c>k -> (a k + b) mod domain</c> would be cheaper but keeps
+    /// lattice structure in the low digits, which is the skew this exists to remove.</para>
+    /// </remarks>
+    private sealed class KeyedShuffle
+    {
+        private const int Rounds = 4;
+        private readonly byte[] _key;
+        private readonly BigInteger _domain;
+        private readonly int _bits;
+
+        internal KeyedShuffle(byte[] key, BigInteger domain)
+        {
+            _key = key;
+            _domain = domain;
+            _bits = domain <= BigInteger.One ? 0 : (int)(domain - BigInteger.One).GetBitLength();
+        }
+
+        internal BigInteger Apply(BigInteger value)
+        {
+            if (_bits == 0)
+            {
+                return value;
+            }
+
+            do
+            {
+                value = Encrypt(value);
+            }
+            while (value >= _domain);
+
+            return value;
+        }
+
+        private BigInteger Encrypt(BigInteger value)
+        {
+            int replaced = _bits / 2;
+            for (int round = 0; round < Rounds; round++)
+            {
+                int kept = _bits - replaced;
+                BigInteger left = value >> kept;
+                BigInteger right = value & ((BigInteger.One << kept) - BigInteger.One);
+                value = (right << replaced) | (left ^ RoundFunction(round, right, replaced));
+                replaced = kept;
+            }
+            return value;
+        }
+
+        /// <summary>A pseudo-random value of <paramref name="bits"/> bits, keyed by the round and the half.</summary>
+        private BigInteger RoundFunction(int round, BigInteger right, int bits)
+        {
+            if (bits == 0)
+            {
+                return BigInteger.Zero;
+            }
+
+            int rightLength = right.GetByteCount(isUnsigned: true);
+            byte[] input = new byte[_key.Length + 2 + rightLength];
+            _key.CopyTo(input, 0);
+            input[_key.Length] = (byte)round;
+            right.TryWriteBytes(input.AsSpan(_key.Length + 2), out _, isUnsigned: true);
+
+            int blocks = (bits + 255) / 256;
+            byte[] stream = new byte[blocks * 32];
+            for (int block = 0; block < blocks; block++)
+            {
+                input[_key.Length + 1] = (byte)block;
+                SHA256.HashData(input, stream.AsSpan(block * 32, 32));
+            }
+
+            return new BigInteger(stream, isUnsigned: true) & ((BigInteger.One << bits) - BigInteger.One);
+        }
     }
 }
