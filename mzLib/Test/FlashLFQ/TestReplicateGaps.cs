@@ -181,6 +181,32 @@ namespace Test.FlashLFQ
         }
 
         /// <summary>
+        /// The first technical replicate is the lowest techrep number, not the first file listed: the same files listed
+        /// in another order normalize the same way, and the warning that names "the first technical replicate" is true.
+        /// </summary>
+        [Test]
+        public static void TechrepNormalizationDoesNotDependOnTheOrderFilesAreListed()
+        {
+            var inOrder = new List<(SpectraFileInfo, double)>
+            {
+                (File("a1t1", "a", 0, 0, 0), 1.0), (File("a1t2", "a", 0, 0, 1), 2.0), (File("b1", "b", 0), 0.5),
+            };
+            var reversed = new List<(SpectraFileInfo, double)> { inOrder[1], inOrder[0], inOrder[2] };
+
+            Dictionary<string, double[]> ByName(FlashLfqResults results) => results.SpectraFiles
+                .Zip(Intensities(results), (file, intensities) => (file.FullFilePathWithExtension, intensities))
+                .ToDictionary(x => x.FullFilePathWithExtension, x => x.intensities);
+
+            var expected = ByName(Normalize(Build(inOrder)));
+            var actual = ByName(Normalize(Build(reversed)));
+
+            foreach (var name in expected.Keys)
+            {
+                Assert.That(actual[name], Is.EqualTo(expected[name]).Within(1e-9).Percent, name);
+            }
+        }
+
+        /// <summary>
         /// Two peptides of one protein, three bioreps per condition, condition b about twice condition a. Returns the
         /// Bayesian result for b against a, and its text as written to the fold-change table.
         /// </summary>

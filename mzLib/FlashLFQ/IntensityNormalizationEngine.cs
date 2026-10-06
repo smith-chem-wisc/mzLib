@@ -77,7 +77,7 @@ namespace FlashLFQ
 
                     foreach (var fraction in fractions)
                     {
-                        var techreps = fraction.ToList();
+                        var techreps = fraction.OrderBy(v => v.TechnicalReplicate).ToList();
 
                         for (int t = 1; t < techreps.Count; t++)
                         {
