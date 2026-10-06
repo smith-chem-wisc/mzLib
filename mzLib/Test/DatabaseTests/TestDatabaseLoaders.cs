@@ -882,6 +882,33 @@ namespace Test.DatabaseTests
         }
 
         /// <summary>
+        /// A charged entry with an MM line but no CF line has no formula to correct, so both loaders fall back
+        /// to subtracting one proton per charge from the MM line.
+        /// </summary>
+        [Test]
+        public void FormalChargeWithoutAFormula_SubtractsAProtonFromTheMmLine()
+        {
+            var formalCharges = new Dictionary<string, int> { { "PSI-MOD; MOD:00083", 1 } };
+            const string noFormulaEntry =
+                "ID   Test charged mod without a formula\r\n" +
+                "MT   UniProt\r\n" +
+                "FT   MOD_RES\r\n" +
+                "TG   Lysine.\r\n" +
+                "PP   Anywhere.\r\n" +
+                "MM   43.054227\r\n" +
+                "DR   PSI-MOD; MOD:00083.\r\n" +
+                "//";
+
+            Modification viaModificationLoader = ReadSingleModification(noFormulaEntry, formalCharges);
+            Modification viaPtmListLoader = ReadSingleModificationThroughPtmListLoader(noFormulaEntry, formalCharges);
+
+            Assert.That(viaModificationLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaModificationLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
+            Assert.That(viaPtmListLoader.ChemicalFormula, Is.Null);
+            Assert.That(viaPtmListLoader.MonoisotopicMass, Is.EqualTo(43.054227 - Constants.ProtonMass).Within(1e-9));
+        }
+
+        /// <summary>
         /// Live canary for the Loaders.Load* download-on-first-use path. Its count assertions (>2700 Unimod
         /// modifications, >=300 UniProt PTMs) only mean anything against the real ontologies, so it keeps the
         /// *2 filenames — which are deliberately absent from the output directory, so Load* downloads them.
