@@ -72,6 +72,20 @@ public static class ModificationTest
         }
     }
 
+    /// <summary>
+    /// Lactylation adds lactic acid (C3H6O3) less one water, so C3H4O2. The Mods.txt entry once read
+    /// C3H3O2, a hydrogen short of Unimod 2114 (72.021129), which shares its name.
+    /// </summary>
+    [Test]
+    public static void LactylationAddsLacticAcidLessWater()
+    {
+        var lactylation = Mods.MetaMorpheusProteinModifications.Single(m => m.IdWithMotif == "Lactylation on K");
+
+        Assert.That(lactylation.ChemicalFormula, Is.EqualTo(ChemicalFormula.ParseFormula("C3H4O2")));
+        Assert.That(lactylation.MonoisotopicMass, Is.EqualTo(72.021129).Within(1e-5));
+        Assert.That(lactylation.DatabaseReference["Unimod"], Does.Contain("2114"));
+    }
+
     [Test]
     public static void GetModification_Nonsense()
     {
