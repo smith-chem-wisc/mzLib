@@ -412,6 +412,12 @@ public sealed class MslIndex : IDisposable
 	/// </summary>
 	private int _lruCount;
 
+	/// <summary>Entries currently in the LRU cache (tests only; takes every bucket lock).</summary>
+	internal int LruCacheSizeForTesting => _lruCache.Count;
+
+	/// <summary>The maintained cache counter (tests only).</summary>
+	internal int LruCountForTesting => Volatile.Read(ref _lruCount);
+
 	/// <summary>
 	/// Running count of <see cref="GetEntry"/> calls that found the requested entry
 	/// already present in <see cref="_lruCache"/>. Incremented with

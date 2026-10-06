@@ -734,14 +734,16 @@ public class TestMslIndex
 	{
 		const int entryCount = 2_000;
 		const int calls = 50_000;
+		const int maxBufferSize = 64;
+		const int threads = 8;
 		var entries = BuildEntries(Enumerable.Range(0, entryCount)
 			.Select(i => ($"PEPTIDE{i}", 2, 300.0f + i * 0.01f, 10.0f, 0f))
 			.ToArray());
 		var raw = BuildRaw(entries);
-		using var index = new MslIndex(raw, i => i < entries.Count ? entries[i] : null, maxBufferSize: 64);
+		using var index = new MslIndex(raw, i => i < entries.Count ? entries[i] : null, maxBufferSize: maxBufferSize);
 
 		int wrong = 0;
-		Parallel.For(0, calls, new ParallelOptions { MaxDegreeOfParallelism = 8 }, k =>
+		Parallel.For(0, calls, new ParallelOptions { MaxDegreeOfParallelism = threads }, k =>
 		{
 			int idx = (int)((k * 7919L) % entryCount);
 			if (!ReferenceEquals(index.GetEntry(idx), entries[idx]))
@@ -753,6 +755,12 @@ public class TestMslIndex
 		Assert.That(stats.LruHits + stats.LruMisses, Is.EqualTo(calls));
 		Assert.That(stats.LruMisses, Is.GreaterThan(calls / 2),
 			"A 64-entry cache over 2,000 entries must miss most of the time; if it doesn't, eviction stopped.");
+
+		// Threads that pass the capacity check together can each add one entry, so the cache may
+		// run over by up to the thread count, never more. The counter must match the cache exactly.
+		Assert.That(index.LruCacheSizeForTesting, Is.LessThanOrEqualTo(maxBufferSize + threads));
+		Assert.That(index.LruCountForTesting, Is.EqualTo(index.LruCacheSizeForTesting),
+			"_lruCount drifted from the cache size.");
 	}
 
 	// ═══════════════════════════════════════════════════════════════════════
