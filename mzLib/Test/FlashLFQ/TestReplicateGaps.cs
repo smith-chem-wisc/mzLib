@@ -66,9 +66,9 @@ namespace Test.FlashLFQ
             return results;
         }
 
-        private static FlashLfqResults Normalize(FlashLfqResults results)
+        private static FlashLfqResults Normalize(FlashLfqResults results, bool silent = true)
         {
-            new IntensityNormalizationEngine(results, integrate: false, silent: true, maxThreads: 1).NormalizeResults();
+            new IntensityNormalizationEngine(results, integrate: false, silent: silent, maxThreads: 1).NormalizeResults();
             return results;
         }
 
@@ -204,6 +204,41 @@ namespace Test.FlashLFQ
             {
                 Assert.That(actual[name], Is.EqualTo(expected[name]).Within(1e-9).Percent, name);
             }
+        }
+
+        /// <summary>
+        /// A technical replicate that shares no peptide with the first one cannot be normalized. It is left as it is,
+        /// with a warning naming it, and the technical replicates after it are still normalized.
+        /// </summary>
+        [Test]
+        public static void ATechrepWithNoPeptideInCommonWithTheFirstIsWarnedAboutAndDoesNotStopTheRest()
+        {
+            var lonely = File("a1t2", "a", 0, 0, 1);
+            List<(SpectraFileInfo, double)> design = new()
+            {
+                (File("a1t1", "a", 0, 0, 0), 1.0), (lonely, 5.0), (File("a1t3", "a", 0, 0, 2), 2.0), (File("b1", "b", 0), 0.5),
+            };
+            Func<SpectraFileInfo, int, bool> absent = (file, p) => file == lonely ? p < NumPeptides / 2 : file.Condition == "a" && p >= NumPeptides / 2;
+            var before = Intensities(Build(design, absent));
+
+            var console = Console.Out;
+            var output = new System.IO.StringWriter();
+            FlashLfqResults results;
+            try
+            {
+                Console.SetOut(output);
+                results = Normalize(Build(design, absent), silent: false);
+            }
+            finally
+            {
+                Console.SetOut(console);
+            }
+
+            var intensities = Intensities(results);
+            Assert.That(intensities[1], Is.EqualTo(before[1]), "the lonely techrep is left as it was");
+            Assert.That(intensities[2].Take(NumPeptides / 2), Is.EqualTo(intensities[0].Take(NumPeptides / 2)).Within(1e-9).Percent,
+                "a1t3, after the lonely techrep, is normalized to the first");
+            Assert.That(output.ToString(), Does.Contain("Warning: technical replicate 2 of condition \"a\" biorep 1 shares no peptides with the first technical replicate, so it was not normalized"));
         }
 
         /// <summary>
