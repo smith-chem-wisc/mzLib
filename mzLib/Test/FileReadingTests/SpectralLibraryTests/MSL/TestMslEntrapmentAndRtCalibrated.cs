@@ -275,6 +275,57 @@ public sealed class TestMslEntrapmentAndRtCalibrated
 		Assert.That(novel.RetentionTime, Is.EqualTo(15.0).Within(1e-3), "7.5 min maps onto iRT 15");
 	}
 
+	[Test]
+	public void UpdateAndSave_WithNormalisation_LibraryInMinutes_NewEntriesStayInMinutes()
+	{
+		// Every library entry holds run minutes (RtIsCalibrated = true), e.g. an empirical library.
+		// The regression maps observed RT onto that scale, so the new entries hold minutes too.
+		string path = NewTempMsl(), outPath = NewTempMsl();
+		MslLibrary.Save(path, FourLabels().Select(e => { e.RtIsCalibrated = true; return e; }).ToArray());
+		using MslLibrary lib = MslLibrary.Load(path);
+
+		var incoming = new[]
+		{
+			MakeSpectrum("TARGETK", 500.0, observedRt: 5.0, fragCount: 3), // replaces TARGETK (more ions)
+			MakeSpectrum("DECOYK", 501.0, observedRt: 10.0, fragCount: 1),
+			MakeSpectrum("NOVELK", 510.0, observedRt: 7.5, fragCount: 3),
+		};
+		MslUpdateResult result = lib.UpdateAndSave(incoming, outPath, minRegressionAnchors: 2);
+		Assert.That(result.RtNormalisationApplied, Is.True);
+
+		using MslLibrary updated = MslLibrary.Load(outPath);
+		var bySeq = updated.GetAllEntries(includeDecoys: true).ToDictionary(e => e.BaseSequence);
+		Assert.That(bySeq["TARGETK"].Source, Is.EqualTo(MslFormat.SourceType.Empirical), "TARGETK was replaced");
+		Assert.That(bySeq["TARGETK"].RtIsCalibrated, Is.True, "replacement keeps the library's scale");
+		Assert.That(bySeq["NOVELK"].RtIsCalibrated, Is.True, "novel entry takes the anchors' scale");
+		Assert.That(bySeq["NOVELK"].RetentionTime, Is.EqualTo(15.0).Within(1e-3));
+		Assert.That(updated.GetAllEntries(includeDecoys: true).All(e => e.RtIsCalibrated), Is.True);
+	}
+
+	[Test]
+	public void UpdateAndSave_AnchorsOnDifferentScales_DoesNotNormalise()
+	{
+		// TARGETK is on iRT, ENTRAPDK in minutes: a line through both is meaningless.
+		string path = NewTempMsl(), outPath = NewTempMsl();
+		MslLibrary.Save(path, FourLabels());
+		using MslLibrary lib = MslLibrary.Load(path);
+
+		var incoming = new[]
+		{
+			MakeSpectrum("TARGETK", 500.0, observedRt: 5.0, fragCount: 1),
+			MakeSpectrum("ENTRAPDK", 503.0, observedRt: 10.0, fragCount: 1),
+			MakeSpectrum("NOVELK", 510.0, observedRt: 7.5, fragCount: 3),
+		};
+		MslUpdateResult result = lib.UpdateAndSave(incoming, outPath, minRegressionAnchors: 2);
+		Assert.That(result.AnchorCount, Is.EqualTo(2));
+		Assert.That(result.RtNormalisationApplied, Is.False);
+
+		using MslLibrary updated = MslLibrary.Load(outPath);
+		MslLibraryEntry novel = updated.GetAllEntries(includeDecoys: true).Single(e => e.BaseSequence == "NOVELK");
+		Assert.That(novel.RtIsCalibrated, Is.True);
+		Assert.That(novel.RetentionTime, Is.EqualTo(7.5).Within(1e-3), "raw run minutes are stored");
+	}
+
 	// ── Modification position survives the round trip ─────────────────────────
 
 	[TestCase("AAAQC[Common Fixed:Carbamidomethyl on C]YIDLIIK", "AAAQCYIDLIIK", 'C', 4)]

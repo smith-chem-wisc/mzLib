@@ -911,8 +911,9 @@ public sealed class MslLibrary : IDisposable
 	///       <c>(observedRT, libraryIrt)</c> is collected as a regression anchor.
 	///       An ordinary-least-squares linear fit is computed:
 	///       <code>iRT_predicted = slope × observedRT + intercept</code>
-	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available the
-	///       regression cannot be trusted; in that case the raw observed RT is stored unchanged
+	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available, or the
+	///       anchors mix iRT and run-minute entries (<see cref="MslLibraryEntry.RtIsCalibrated"/>),
+	///       the regression cannot be trusted; in that case the raw observed RT is stored unchanged
 	///       and <see cref="MslUpdateResult.RtNormalisationApplied"/> is <see langword="false"/>.
 	///     </description>
 	///   </item>
@@ -942,10 +943,14 @@ public sealed class MslLibrary : IDisposable
 	/// unchanged retain their original <see cref="MslFormat.SourceType"/>. Entries that are
 	/// replaced by or newly added from the incoming spectra are tagged
 	/// <see cref="MslFormat.SourceType.Empirical"/>. When RT normalisation was applied, their
-	/// observed RT is mapped onto the library's iRT scale and <see cref="MslLibraryEntry.RtIsCalibrated"/>
-	/// is <see langword="false"/>; when it was not applied (too few anchors), the raw run RT in minutes
-	/// is stored and <see cref="MslLibraryEntry.RtIsCalibrated"/> is <see langword="true"/>, so readers
-	/// can tell the two apart.
+	/// observed RT is mapped onto the scale the anchor entries hold, which is iRT
+	/// (<see cref="MslLibraryEntry.RtIsCalibrated"/> = <see langword="false"/>) or run minutes
+	/// (<see langword="true"/>). A replacement keeps the flag of the entry it replaces; a novel
+	/// entry takes the anchors' flag. When normalisation was not applied, the raw run RT in minutes
+	/// is stored and <see cref="MslLibraryEntry.RtIsCalibrated"/> is <see langword="true"/>, so
+	/// readers can tell the two apart. Normalisation is not applied when there are fewer than
+	/// <paramref name="minRegressionAnchors"/> anchors, or when the anchors are on different scales
+	/// (some iRT, some minutes), because a line fitted across two scales is meaningless.
 	/// </para>
 	///
 	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
@@ -1011,6 +1016,12 @@ public sealed class MslLibrary : IDisposable
 		var anchorsObservedRt = new List<double>(incoming.Count);
 		var anchorsLibraryIrt = new List<double>(incoming.Count);
 
+		// The regression maps observed RT onto whatever scale the anchors hold, which is iRT
+		// (RtIsCalibrated = false) or run minutes (true). Record it so new entries are flagged
+		// with that scale, not assumed to be iRT.
+		bool anyAnchorOnIrt = false;
+		bool anyAnchorInMinutes = false;
+
 		foreach (var (key, spectrum) in incoming)
 		{
 			if (TryGetEntry(key.Sequence, key.Charge, out MslLibraryEntry? libEntry)
@@ -1018,10 +1029,15 @@ public sealed class MslLibrary : IDisposable
 			{
 				anchorsObservedRt.Add(spectrum.RetentionTime ?? 0.0);
 				anchorsLibraryIrt.Add(libEntry.RetentionTime);
+				if (libEntry.RtIsCalibrated) anyAnchorInMinutes = true;
+				else anyAnchorOnIrt = true;
 			}
 		}
 
-		bool rtNormalisationApplied = anchorsObservedRt.Count >= minRegressionAnchors;
+		// Anchors on two different scales make the fitted line meaningless: do not normalise.
+		bool anchorsAgree = !(anyAnchorOnIrt && anyAnchorInMinutes);
+		bool anchorScaleIsMinutes = anyAnchorInMinutes;
+		bool rtNormalisationApplied = anchorsObservedRt.Count >= minRegressionAnchors && anchorsAgree;
 		double rtSlope = 1.0;
 		double rtIntercept = 0.0;
 
@@ -1059,7 +1075,8 @@ public sealed class MslLibrary : IDisposable
 					replacement.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 															  rtSlope, rtIntercept,
 															  rtNormalisationApplied);
-					replacement.RtIsCalibrated = !rtNormalisationApplied;
+					// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
+					replacement.RtIsCalibrated = rtNormalisationApplied ? originalEntry.RtIsCalibrated : true;
 					replacement.Source = MslFormat.SourceType.Empirical;
 
 					// Preserve rich metadata that LibrarySpectrum cannot carry.
@@ -1098,7 +1115,7 @@ public sealed class MslLibrary : IDisposable
 			novel.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 													  rtSlope, rtIntercept,
 													  rtNormalisationApplied);
-			novel.RtIsCalibrated = !rtNormalisationApplied;
+			novel.RtIsCalibrated = rtNormalisationApplied ? anchorScaleIsMinutes : true;
 			novel.Source = MslFormat.SourceType.Empirical;
 
 			mergedEntries.Add(novel);
@@ -1367,7 +1384,8 @@ public sealed class MslLibrary : IDisposable
 /// <param name="RtNormalisationApplied">
 ///   <see langword="true"/> when the regression was computed and applied to incoming entries;
 ///   <see langword="false"/> when there were too few anchors (below the
-///   <c>minRegressionAnchors</c> threshold) and raw RT values were stored instead.
+///   <c>minRegressionAnchors</c> threshold), or the anchors were on different RT scales,
+///   and raw RT values were stored instead.
 /// </param>
 /// <param name="RtSlope">
 ///   Slope of the fitted <c>iRT = slope × observedRT + intercept</c> line.
