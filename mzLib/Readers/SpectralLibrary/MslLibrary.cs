@@ -663,6 +663,9 @@ public sealed class MslLibrary : IDisposable
 		return _index!.GetEntry(precursorIdx);
 	}
 
+	/// <summary>Live index statistics, including the <see cref="GetEntry"/> cache counters (tests only).</summary>
+	internal MslIndexStatistics IndexStatisticsForTesting => _index!.GetStatistics();
+
 	// ── Proteoform window query ───────────────────────────────────────────────
 
 	/// <summary>
