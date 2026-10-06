@@ -39,8 +39,9 @@ public static class ModificationOccupancyCalculator
     /// carries the modification there: such a pair is reported as 0/TotalCount. Typically the pairs seen
     /// modified anywhere in the search (<see cref="GetSitesSeenModified"/> over all of its PSMs), so that a
     /// sample group which covered a site without modifying it says so instead of omitting it. A pair whose
-    /// position no PSM covers is still omitted. Null (the default) reports only the pairs observed modified
-    /// in <paramref name="psms"/>.
+    /// position no PSM covers is still omitted, and so is a pair that a covering PSM without an exact form
+    /// may carry (one of its candidate forms has the modification there), since that group cannot tell 0
+    /// from unlocalized. Null (the default) reports only the pairs observed modified in <paramref name="psms"/>.
     /// </param>
     public static Dictionary<int, List<SiteSpecificModificationOccupancy>> CalculateParentLevelOccupancy(
         IBioPolymer bioPolymer,
@@ -59,19 +60,24 @@ public static class ModificationOccupancyCalculator
             .ToArray();
 
         var positionTotals = new Dictionary<int, (int totalCount, double totalIntensity)>();
+        // Pairs that a PSM with no exact form may carry: one of its candidate forms has the modification there.
+        var unlocalizedCandidatePairs = new HashSet<(int Position, string ModificationIdWithMotif)>();
         for (int j = 0; j < psmList.Count; j++)
         {
             var psm = psmList[j];
             var sequence = psmForms[j];
+            List<IBioPolymerWithSetMods>? candidates = null;
             if (sequence is null) // PSM for this protein might be ambiguous (e.g. missing full sequence)
             {
                 try
                 {
                     // Still want to count it toward TotalCount/TotalIntensity for any positions it covers,
                     // so find the best-matching form without the full sequence requirement.
-                    sequence = psm.GetIdentifiedBioPolymersWithSetMods()
-                        .FirstOrDefault(s => s.BaseSequence == psm.BaseSequence
-                            && s.Parent.Accession == bioPolymer.Accession);
+                    candidates = psm.GetIdentifiedBioPolymersWithSetMods()
+                        .Where(s => s.BaseSequence == psm.BaseSequence
+                            && s.Parent.Accession == bioPolymer.Accession)
+                        .ToList();
+                    sequence = candidates.FirstOrDefault();
                 }
                 catch (Exception)
                 {
@@ -81,6 +87,14 @@ public static class ModificationOccupancyCalculator
 
             if (sequence is null) // No form found for this PSM, skip it entirely.
                 continue;
+
+            if (sitesToReport is not null && candidates is not null)
+            {
+                foreach (var candidate in candidates)
+                    foreach (var mod in candidate.AllModsOneIsNterminus)
+                        if (TryGetProteinPosition(mod, candidate, bioPolymer, out int candidatePosition))
+                            unlocalizedCandidatePairs.Add((candidatePosition, mod.Value.IdWithMotif));
+            }
 
             // A form that starts after the removed initiator Met covers the protein N-terminus (position 1)
             // but not residue 1 (position 2), so the N-terminus is counted on its own.
@@ -142,6 +156,9 @@ public static class ModificationOccupancyCalculator
         {
             if (!positionTotals.TryGetValue(position, out var posTotals))
                 continue; // Not covered here, so there is nothing to report.
+
+            if (unlocalizedCandidatePairs.Contains((position, modIdWithMotif)))
+                continue; // A PSM that could not be localized may carry it here, so 0 is not known.
 
             if (!working.TryGetValue(position, out var modsAtPosition))
             {

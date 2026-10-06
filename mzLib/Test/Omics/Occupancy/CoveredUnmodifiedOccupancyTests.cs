@@ -153,6 +153,97 @@ public class CoveredUnmodifiedOccupancyTests
         Assert.That(sites, Is.EquivalentTo(new[] { (4, _phospho.IdWithMotif) }));
     }
 
+    private static Modification PhosphoOn(string residue)
+    {
+        ModificationMotif.TryGetMotif(residue, out var motif);
+        return new Modification("Phosphorylation", null, "Biological", null, motif, "Anywhere.", null, 79.966);
+    }
+
+    /// <summary>A PSM with no full sequence, so no exact form: any one of <paramref name="candidates"/>.</summary>
+    private static MockSpectralMatch Unlocalized(string file, int scan, params MockBioPolymerWithSetMods[] candidates) =>
+        new MockSpectralMatch(file, null, "ACDEF", 1.0, scan, candidates);
+
+    private MockBioPolymerWithSetMods PhosphoFormAt(string residue, int position) =>
+        new MockBioPolymerWithSetMods("ACDEF", $"{"ACDEF"[..(position - 1)]}[Phosphorylation]{"ACDEF"[(position - 1)..]}", _protein, 1, 5,
+            new Dictionary<int, Modification> { { position, PhosphoOn(residue) } });
+
+    [Test]
+    public void AnUnlocalizedPsmThatMayCarryAListedSiteReportsNoZeroThere()
+    {
+        // Phosphorylated on D (position 4) or E (position 5), it cannot say which: neither site is 0.
+        var phosphoE = PhosphoFormAt("E", 5);
+        (int, string)[] both = [(4, _phospho.IdWithMotif), (5, PhosphoOn("E").IdWithMotif)];
+
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
+            _protein, [Unlocalized("a.raw", 1, _modified, phosphoE), Unlocalized("a.raw", 2, _modified, phosphoE)], both);
+
+        Assert.That(result, Is.Empty);
+    }
+
+    [Test]
+    public void AnUnlocalizedPsmThatMayCarryAListedSiteReportsNoZeroThereEvenBesideAnUnmodifiedPsm()
+    {
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
+            _protein, [Unmodified("a.raw", 1), Unlocalized("a.raw", 2, _modified, PhosphoFormAt("E", 5))], PhosphoAtFour);
+
+        Assert.That(result.ContainsKey(4), Is.False);
+    }
+
+    [Test]
+    public void AnUnlocalizedPsmWhoseCandidatesMissTheListedSiteCountsTowardItsZero()
+    {
+        // Phosphorylated on E or F, so unmodified on D whichever it is.
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(
+            _protein, [Unmodified("a.raw", 1), Unlocalized("a.raw", 2, PhosphoFormAt("E", 5), PhosphoFormAt("F", 6))],
+            PhosphoAtFour);
+
+        var site = result[4].Single();
+        Assert.That(site.ModifiedCount, Is.EqualTo(0));
+        Assert.That(site.TotalCount, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void TheProteinNTerminusAfterARemovedMethionineReportsZeroOfN()
+    {
+        // MACDEFGHIK with its Met removed: ACDEF (residues 2-6) covers the protein N-terminus, position 1.
+        var protein = new MockBioPolymer("MACDEFGHIK", "P00002");
+        ModificationMotif.TryGetMotif("X", out var motif);
+        var acetyl = new Modification("Acetylation", null, "Biological", null, motif, "N-terminal.", null, 42.011);
+        var acetylated = new MockBioPolymerWithSetMods("ACDEF", "[Acetylation]ACDEF", protein, 2, 6,
+            new Dictionary<int, Modification> { { 1, acetyl } });
+        var plain = new MockBioPolymerWithSetMods("ACDEF", "ACDEF", protein, 2, 6);
+
+        var sites = ModificationOccupancyCalculator.GetSitesSeenModified(protein,
+            [new MockSpectralMatch("a.raw", "[Acetylation]ACDEF", "ACDEF", 1.0, 1, [acetylated])]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(protein,
+            [new MockSpectralMatch("b.raw", "ACDEF", "ACDEF", 1.0, 2, [plain])], sites);
+
+        Assert.That(sites, Is.EquivalentTo(new[] { (1, acetyl.IdWithMotif) }));
+        var site = result[1].Single();
+        Assert.That(site.ModifiedCount, Is.EqualTo(0));
+        Assert.That(site.TotalCount, Is.EqualTo(1));
+    }
+
+    [Test]
+    public void TheProteinCTerminusReportsZeroOfN()
+    {
+        // ACDEFGHIK's C-terminus is position length + 2 = 11, covered by GHIK (residues 6-9).
+        ModificationMotif.TryGetMotif("X", out var motif);
+        var amidation = new Modification("Amidation", null, "Biological", null, motif, "C-terminal.", null, -0.984);
+        var amidated = new MockBioPolymerWithSetMods("GHIK", "GHIK[Amidation]", _protein, 6, 9,
+            new Dictionary<int, Modification> { { 6, amidation } });
+
+        var sites = ModificationOccupancyCalculator.GetSitesSeenModified(_protein,
+            [new MockSpectralMatch("a.raw", "GHIK[Amidation]", "GHIK", 1.0, 1, [amidated])]);
+        var result = ModificationOccupancyCalculator.CalculateParentLevelOccupancy(_protein,
+            [OtherRegion("b.raw", 2)], sites);
+
+        Assert.That(sites, Is.EquivalentTo(new[] { (11, amidation.IdWithMotif) }));
+        var site = result[11].Single();
+        Assert.That(site.ModifiedCount, Is.EqualTo(0));
+        Assert.That(site.TotalCount, Is.EqualTo(1));
+    }
+
     #endregion
 
     #region BioPolymerGroup
