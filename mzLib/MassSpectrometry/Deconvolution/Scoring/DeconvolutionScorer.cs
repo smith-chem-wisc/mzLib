@@ -277,6 +277,26 @@ namespace MassSpectrometry
             => ComputeScore(ComputeFeatures(envelope, model));
 
         /// <summary>
+        /// Builds a scorer that evaluates an envelope against the spectrum it was found in, for
+        /// callers that hold both. Consensus mass tracing uses this to score every envelope as it
+        /// traces, which is the only point at which the envelope and its spectrum are both
+        /// available without re-reading the file.
+        ///
+        /// This is the spectrum-aware path deliberately: the envelope-only score sees a shape in
+        /// isolation and cannot tell a clean envelope from a clean envelope sitting in a region
+        /// full of unexplained peaks. Because it reads the spectrum, its values are not comparable
+        /// across deconvolution algorithms whose peak picking differs; use the envelope-only
+        /// <see cref="ScoreEnvelope(IsotopicEnvelope, AverageResidue)"/> for cross-algorithm
+        /// comparisons.
+        /// </summary>
+        public static Func<IsotopicEnvelope, MsDataScan, double> SpectrumAwareScorer(AverageResidue model)
+        {
+            if (model == null) throw new ArgumentNullException(nameof(model));
+            return (envelope, scan) =>
+                ComputeScoreWithSpectrumContext(ComputeFeatures(envelope, model, scan.MassSpectrum));
+        }
+
+        /// <summary>
         /// Combines all six features (four envelope-only + two spectrum-aware) into a single
         /// quality score in [0, 1] using a logistic function. Use this in place of
         /// <see cref="ComputeScore"/> when
