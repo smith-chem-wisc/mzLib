@@ -464,7 +464,12 @@ namespace Test.KoinaTests
         public void AcceptAllModel_UniProtModificationCitingAUnimodRecordOfAnotherMass_IsNotSentAsThatId()
         {
             // UniProt's N,N-dimethylproline (+28.031) cites UNIMOD:529 (+29.039).
-            var localized = new Dictionary<int, List<Modification>> { [1] = new() { CatalogMod("UniProt", "N,N-dimethylproline on P") } };
+            var dimethylproline = CatalogMod("UniProt", "N,N-dimethylproline on P");
+            var record529 = Mods.UnimodModifications.First(m => m.ModificationType == "Unimod" && CanonicalModification.GetUnimodId(m) == 529);
+            Assert.That(CanonicalModification.GetUnimodId(dimethylproline) == 529
+                        && Math.Abs(record529.MonoisotopicMass!.Value - dimethylproline.MonoisotopicMass!.Value) > 0.01,
+                "N,N-dimethylproline no longer cites a UNIMOD record of another mass, which is what this test needs.");
+            var localized = new Dictionary<int, List<Modification>> { [1] = new() { dimethylproline } };
             var fullSequence = new Protein("PEPTIDEK", "P", oneBasedModifications: localized)
                 .Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1), new List<Modification>(), new List<Modification>())
                 .Single(p => p.AllModsOneIsNterminus.Count == 1).FullSequence;

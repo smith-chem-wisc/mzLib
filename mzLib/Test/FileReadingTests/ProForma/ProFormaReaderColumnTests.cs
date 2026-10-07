@@ -123,7 +123,7 @@ namespace Test.FileReadingTests.ProForma
         public void ProForma_PsiModReference_IsWrittenWithOnePrefixAndReadsBack()
         {
             // The first UniProt modification of a residue that is written by its PSI-MOD accession (stored with the
-            // prefix, "MOD:01892"): it cites no UNIMOD record, and readers know no other modification by that accession.
+            // "MOD:" prefix): it cites no UNIMOD record, and readers know no other modification by that accession.
             static string? PsiMod(Modification m) =>
                 m.DatabaseReference != null && m.DatabaseReference.TryGetValue("PSI-MOD", out var ids) ? ids.FirstOrDefault() : null;
             var mod = Mods.UniprotModifications
@@ -156,6 +156,10 @@ namespace Test.FileReadingTests.ProForma
         {
             // UniProt's N,N-dimethylproline (+28.031) cites UNIMOD:529, whose record is +29.039.
             var dimethylproline = Mods.UniprotModifications.Single(m => m.IdWithMotif == "N,N-dimethylproline on P");
+            var record529 = Mods.UnimodModifications.First(m => m.ModificationType == "Unimod" && CanonicalModification.GetUnimodId(m) == 529);
+            Assert.That(CanonicalModification.GetUnimodId(dimethylproline) == 529
+                        && Math.Abs(record529.MonoisotopicMass!.Value - dimethylproline.MonoisotopicMass!.Value) > 0.01,
+                "N,N-dimethylproline no longer cites a UNIMOD record of another mass, which is what this test needs.");
             var peptide = DigestWithUniProtMod("PEPTIDEK", dimethylproline, 1);
             Assert.That(peptide.FullSequence, Is.EqualTo("[UniProt:N,N-dimethylproline on P]PEPTIDEK"));
 
