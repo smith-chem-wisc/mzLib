@@ -13,9 +13,10 @@ using System.Linq;
 namespace Test.Quantification
 {
     /// <summary>
-    /// <see cref="QuantifiedPsmRule"/>, and <see cref="MzLibExtensions.MakeQuantifiedIdentifications"/> applying it to
-    /// result files. The file tests rewrite one column of a small MetaMorpheus search (BottomUpExample.psmtsv, eight
-    /// PSMs that all pass) so that each case fails the rule in exactly one way.
+    /// <see cref="QuantifiedPsmRule"/>, and <see cref="MzLibExtensions.MakeQuantifiedIdentifications(IQuantifiableResultFile, List{SpectraFileInfo}, out QuantifiedPsmTier, double)"/>
+    /// applying it to result files. The file tests rewrite columns of a small MetaMorpheus search
+    /// (BottomUpExample.psmtsv, eight target PSMs that all pass, PEP trained) so that each case picks one tier and
+    /// fails it in exactly one way.
     /// </summary>
     [TestFixture]
     [ExcludeFromCodeCoverage]
@@ -23,37 +24,81 @@ namespace Test.Quantification
     {
         #region Rule
 
-        [TestCase(0.009, true)]
-        [TestCase(0.01, false)] // strictly below
-        [TestCase(0.02, false)]
-        public static void ThePepTierReadsOnlyThePepQValue(double pepQValue, bool passes)
-        {
-            Assert.That(QuantifiedPsmRule.PassesConfidence(qValue: 0.5, notchQValue: 0.5, pepQValue, usePepQValue: true), Is.EqualTo(passes));
-        }
+        private static readonly double[] Trained = { 0.0003, 0.006 };
+        private static readonly double[] TrainedPeps = { 2.4e-7, 0.065 };
+        private static readonly double[] Notch = { 0.0001 };
+        private static readonly double[] None = Array.Empty<double>();
 
-        [TestCase(0.009, 0.009, true)]
-        [TestCase(0.009, 0.01, false)] // the notch must pass too
-        [TestCase(0.01, 0.009, false)] // strictly below
-        [TestCase(0.009, null, true)]  // no notch reported: the q-value alone
-        public static void WithoutPepTheQValueAndNotchMustBothPass(double qValue, double? notchQValue, bool passes)
+        [Test]
+        public static void TrainedPepChoosesThePepTier()
         {
-            Assert.That(QuantifiedPsmRule.PassesConfidence(qValue, notchQValue, pepQValue: 0.0, usePepQValue: false), Is.EqualTo(passes));
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch, TrainedPeps), Is.EqualTo(QuantifiedPsmTier.PepQValue));
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, None, TrainedPeps), Is.EqualTo(QuantifiedPsmTier.PepQValue));
         }
 
         [Test]
-        public static void APepTierWithNoPepQValueDropsTheMatch()
+        public static void UntrainedPepFallsBackToTheNotch()
         {
-            Assert.That(QuantifiedPsmRule.PassesConfidence(0.0, 0.0, pepQValue: null, usePepQValue: true), Is.False);
-            Assert.That(QuantifiedPsmRule.PassesConfidence(0.0, 0.0, pepQValue: double.NaN, usePepQValue: true), Is.False);
+            Assert.That(QuantifiedPsmRule.ChooseTier(new[] { 2.0, 2.0 }, Notch, TrainedPeps), Is.EqualTo(QuantifiedPsmTier.QValueNotch),
+                "MetaMorpheus writes 2 when PEP is untrained");
+            Assert.That(QuantifiedPsmRule.ChooseTier(new[] { double.NaN, double.NaN }, Notch), Is.EqualTo(QuantifiedPsmTier.QValueNotch),
+                "a reader fills NaN when the column is absent");
+            Assert.That(QuantifiedPsmRule.ChooseTier(None, Notch), Is.EqualTo(QuantifiedPsmTier.QValueNotch));
+        }
+
+        /// <summary>
+        /// When PEP training fails, MetaMorpheus leaves PEP 0 for every match but still writes PEP q-values in [0, 1].
+        /// Those q-values look usable; the identical PEPs show they are not.
+        /// </summary>
+        [Test]
+        public static void FailedPepTrainingFallsBackToTheNotch()
+        {
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch, new[] { 0.0, 0.0, 0.0 }), Is.EqualTo(QuantifiedPsmTier.QValueNotch));
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch, new[] { 0.3 }), Is.EqualTo(QuantifiedPsmTier.QValueNotch),
+                "a single PEP value cannot show training");
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch, new[] { double.NaN, double.NaN }), Is.EqualTo(QuantifiedPsmTier.PepQValue),
+                "no real PEP to check: the PEP q-values decide");
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch), Is.EqualTo(QuantifiedPsmTier.PepQValue),
+                "a reader that exposes no PEP cannot show the failure");
         }
 
         [Test]
-        public static void PepIsUsableOnlyWhenItWasTrained()
+        public static void NoUsableNotchFallsBackToTheQValue()
         {
-            Assert.That(QuantifiedPsmRule.PepQValueIsUsable(new[] { 2.0, 2.0 }), Is.False, "MetaMorpheus writes 2 when PEP is untrained");
-            Assert.That(QuantifiedPsmRule.PepQValueIsUsable(new[] { double.NaN, double.NaN }), Is.False, "a reader fills NaN when the column is absent");
-            Assert.That(QuantifiedPsmRule.PepQValueIsUsable(Array.Empty<double>()), Is.False);
-            Assert.That(QuantifiedPsmRule.PepQValueIsUsable(new[] { 2.0, 0.3 }), Is.True);
+            Assert.That(QuantifiedPsmRule.ChooseTier(new[] { 2.0 }, None), Is.EqualTo(QuantifiedPsmTier.QValue));
+            Assert.That(QuantifiedPsmRule.ChooseTier(new[] { 2.0 }, new[] { double.NaN, 2.0 }), Is.EqualTo(QuantifiedPsmTier.QValue));
+            Assert.That(QuantifiedPsmRule.ChooseTier(None, None), Is.EqualTo(QuantifiedPsmTier.QValue));
+        }
+
+        [Test]
+        public static void UsabilityNeedsOneValueInTheUnitInterval()
+        {
+            Assert.That(QuantifiedPsmRule.PepIsUsable(new[] { 2.0, 0.3 }), Is.True);
+            Assert.That(QuantifiedPsmRule.PepIsUsable(new[] { 2.0, 0.0 }, new[] { 0.1, 0.2 }), Is.True, "0 and 1 are in range");
+            Assert.That(QuantifiedPsmRule.PepIsUsable(new[] { -0.1, 1.1 }), Is.False);
+            Assert.That(QuantifiedPsmRule.NotchIsUsable(new[] { 2.0, 1.0 }), Is.True);
+            Assert.That(QuantifiedPsmRule.NotchIsUsable(new[] { 2.0, double.NaN }), Is.False);
+        }
+
+        /// <summary>Each tier reads its own value only, strictly below the threshold.</summary>
+        [TestCase(QuantifiedPsmTier.PepQValue, 0.5, 0.5, 0.009, true)]
+        [TestCase(QuantifiedPsmTier.PepQValue, 0.0, 0.0, 0.01, false)]
+        [TestCase(QuantifiedPsmTier.QValueNotch, 0.5, 0.009, 0.5, true)]
+        [TestCase(QuantifiedPsmTier.QValueNotch, 0.0, 0.01, 0.0, false)]
+        [TestCase(QuantifiedPsmTier.QValue, 0.009, 0.5, 0.5, true)]
+        [TestCase(QuantifiedPsmTier.QValue, 0.01, 0.0, 0.0, false)]
+        public static void EachTierReadsOnlyItsValue(QuantifiedPsmTier tier, double qValue, double notchQValue, double pepQValue, bool passes)
+        {
+            Assert.That(QuantifiedPsmRule.PassesConfidence(tier, qValue, notchQValue, pepQValue), Is.EqualTo(passes));
+        }
+
+        [Test]
+        public static void AMatchWithNoValueForItsTierIsDropped()
+        {
+            Assert.That(QuantifiedPsmRule.PassesConfidence(QuantifiedPsmTier.PepQValue, 0.0, 0.0, pepQValue: null), Is.False);
+            Assert.That(QuantifiedPsmRule.PassesConfidence(QuantifiedPsmTier.PepQValue, 0.0, 0.0, pepQValue: double.NaN), Is.False);
+            Assert.That(QuantifiedPsmRule.PassesConfidence(QuantifiedPsmTier.QValueNotch, 0.0, notchQValue: null, 0.0), Is.False);
+            Assert.That(QuantifiedPsmRule.PassesConfidence(QuantifiedPsmTier.QValue, double.NaN, 0.0, 0.0), Is.False);
         }
 
         [TestCase("PEPTIDE", "PEPTIDE", false)]
@@ -78,23 +123,23 @@ namespace Test.Quantification
             new SpectraFileInfo("04-30-13_CAST_Frac4_6uL.raw", "A", 1, 0, 0),
         };
 
-        /// <summary>
-        /// Writes BottomUpExample.psmtsv with <paramref name="edit"/> applied to its rows, column by header name, and
-        /// returns the quantified identifications made from it.
-        /// </summary>
-        private static List<Identification> Quantify(string name, Action<Func<string[], string, string>, Action<string[], string, string>, List<string[]>> edit,
-            List<SpectraFileInfo> spectraFiles = null, Func<string, IQuantifiableResultFile> open = null)
-        {
-            string[] lines = File.ReadAllLines(Source);
-            string[] header = lines[0].Split('\t');
-            var rows = lines.Skip(1).Select(line => line.Split('\t')).ToList();
-            edit((row, column) => row[Array.IndexOf(header, column)], (row, column, value) => row[Array.IndexOf(header, column)] = value, rows);
+        private delegate void Edit(Func<string[], string, string> get, Action<string[], string, string> set, List<string[]> rows);
 
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "QuantifiedPsmRule_" + name + ".psmtsv");
-            File.WriteAllLines(path, new[] { lines[0] }.Concat(rows.Select(row => string.Join('\t', row))));
+        private static readonly Func<string, IQuantifiableResultFile> Full = FileReader.ReadQuantifiableResultFile;
+        private static readonly Func<string, IQuantifiableResultFile> Lightweight = path => new LightWeightSpectralMatchFile(path);
+
+        /// <summary>
+        /// Writes BottomUpExample.psmtsv with <paramref name="edit"/> applied to its rows (column by header name) and
+        /// the <paramref name="drop"/> columns removed, opens it with <paramref name="open"/>, and returns the
+        /// quantified identifications made from it and the tier chosen.
+        /// </summary>
+        private static List<Identification> Quantify(string name, Edit edit, out QuantifiedPsmTier tier,
+            Func<string, IQuantifiableResultFile> open = null, List<SpectraFileInfo> spectraFiles = null, params string[] drop)
+        {
+            string path = Write(name, edit, drop);
             try
             {
-                return (open ?? FileReader.ReadQuantifiableResultFile)(path).MakeQuantifiedIdentifications(spectraFiles ?? BothFiles);
+                return (open ?? Full)(path).MakeQuantifiedIdentifications(spectraFiles ?? BothFiles, out tier);
             }
             finally
             {
@@ -102,53 +147,188 @@ namespace Test.Quantification
             }
         }
 
-        [Test]
-        public static void ASearchWhoseMatchesAllPassKeepsThemAll()
+        private static string Write(string name, Edit edit, params string[] drop)
         {
-            Assert.That(Quantify("allPass", (get, set, rows) => { }).Count, Is.EqualTo(8));
+            string[] lines = File.ReadAllLines(Source);
+            string[] header = lines[0].Split('\t');
+            var rows = lines.Skip(1).Select(line => line.Split('\t')).ToList();
+            edit((row, column) => row[Array.IndexOf(header, column)], (row, column, value) => row[Array.IndexOf(header, column)] = value, rows);
+
+            var kept = Enumerable.Range(0, header.Length).Where(i => !drop.Contains(header[i])).ToList();
+            string Join(string[] cells) => string.Join('\t', kept.Select(i => cells[i]));
+
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "QuantifiedPsmRule_" + name + ".psmtsv");
+            File.WriteAllLines(path, new[] { Join(header) }.Concat(rows.Select(Join)));
+            return path;
         }
 
-        /// <summary>
-        /// With PEP untrained (every PEP_QValue 2), the q-value and notch decide, strictly below 0.01, and an ambiguous
-        /// match is dropped. Filtering on the untrained PEP would have dropped all eight.
-        /// </summary>
-        [Test]
-        public static void WithPepUntrainedTheQValueAndNotchDecide()
-        {
-            var ids = Quantify("untrained", UntrainedEdit);
+        private static readonly Edit NoEdit = (get, set, rows) => { };
 
-            Assert.That(ids.Count, Is.EqualTo(5));
+        /// <summary>PEP untrained: MetaMorpheus writes 2 for every PEP q-value.</summary>
+        private static readonly Edit Untrained = (get, set, rows) => rows.ForEach(row => set(row, "PEP_QValue", "2"));
+
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void ASearchWhoseMatchesAllPassKeepsThemAllOnThePepTier(string reader)
+        {
+            var ids = Quantify("allPass" + reader, NoEdit, out var tier, Open(reader));
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.PepQValue));
+            Assert.That(ids.Count, Is.EqualTo(8));
         }
 
-        private static readonly Action<Func<string[], string, string>, Action<string[], string, string>, List<string[]>> UntrainedEdit =
-            (get, set, rows) =>
+        /// <summary>With PEP trained, the PEP q-value alone decides: a poor q-value or notch does not drop a match.</summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void WithPepTrainedThePepQValueDecides(string reader)
+        {
+            var ids = Quantify("trained" + reader, (get, set, rows) =>
             {
-                rows.ForEach(row => set(row, "PEP_QValue", "2"));
-                set(rows[0], "QValue", "0.01");                         // at the threshold: dropped
-                set(rows[1], "QValue Notch", "0.05");                   // notch fails: dropped
-                set(rows[2], "Full Sequence", get(rows[2], "Full Sequence") + "|" + get(rows[2], "Full Sequence")); // ambiguous: dropped
-            };
+                set(rows[0], "PEP_QValue", "0.01"); // at the threshold: dropped
+                set(rows[1], "QValue", "0.5");      // ignored in the PEP tier: kept
+                set(rows[1], "QValue Notch", "0.5");
+            }, out var tier, Open(reader));
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.PepQValue));
+            Assert.That(ids.Count, Is.EqualTo(7));
+        }
 
         /// <summary>
-        /// The same file gives the same quantified set whichever reader opens it: the lightweight reader reads the
-        /// notch q-value too, so the row whose notch fails is dropped there as well.
+        /// With PEP untrained, the notch q-value alone decides, strictly below 0.01, and an ambiguous match is dropped.
+        /// The same file gives the same set whichever reader opens it. Filtering on the untrained PEP would have
+        /// dropped all eight.
+        /// </summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void WithPepUntrainedTheNotchDecides(string reader)
+        {
+            var ids = Quantify("untrained" + reader, (get, set, rows) =>
+            {
+                Untrained(get, set, rows);
+                set(rows[0], "QValue", "0.5");          // ignored in the notch tier: kept
+                set(rows[1], "QValue Notch", "0.01");   // at the threshold: dropped
+                set(rows[2], "Full Sequence", get(rows[2], "Full Sequence") + "|" + get(rows[2], "Full Sequence")); // ambiguous: dropped
+            }, out var tier, Open(reader));
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValueNotch));
+            Assert.That(ids.Count, Is.EqualTo(6));
+        }
+
+        /// <summary>
+        /// PEP training failed: every PEP is 0, yet the PEP q-values are in range. Both readers see it from PEP and
+        /// fall back to the notch.
+        /// </summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void WithPepTrainingFailedTheNotchDecides(string reader)
+        {
+            var ids = Quantify("failed" + reader, (get, set, rows) =>
+            {
+                rows.ForEach(row => set(row, "PEP", "0"));
+                set(rows[0], "PEP_QValue", "0.5");      // ignored in the notch tier: kept
+                set(rows[1], "QValue Notch", "0.05");   // notch fails: dropped
+            }, out var tier, Open(reader));
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValueNotch));
+            Assert.That(ids.Count, Is.EqualTo(7));
+        }
+
+        /// <summary>With PEP untrained and no notch column, the q-value decides, strictly below 0.01.</summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void WithNoNotchTheQValueDecides(string reader)
+        {
+            var ids = Quantify("noNotch" + reader, (get, set, rows) =>
+            {
+                Untrained(get, set, rows);
+                set(rows[0], "QValue", "0.01");    // at the threshold: dropped
+                set(rows[1], "QValue", "0.0099");  // just below: kept
+            }, out var tier, Open(reader), drop: "QValue Notch");
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValue));
+            Assert.That(ids.Count, Is.EqualTo(7));
+        }
+
+        /// <summary>
+        /// The tier is decided per result file: the same match (a notch of 0.05) is kept in a file whose PEP was trained
+        /// and dropped in one whose PEP was not.
         /// </summary>
         [Test]
-        public static void TheLightweightReaderQuantifiesTheSameMatches()
+        public static void EachResultFileChoosesItsOwnTier()
         {
-            var ids = Quantify("untrainedLight", UntrainedEdit, open: path => new LightWeightSpectralMatchFile(path));
+            Edit notchFails = (get, set, rows) => set(rows[1], "QValue Notch", "0.05");
+            var trained = Quantify("mixedTrained", notchFails, out var trainedTier);
+            var untrained = Quantify("mixedUntrained", (get, set, rows) => { Untrained(get, set, rows); notchFails(get, set, rows); }, out var untrainedTier);
 
-            Assert.That(ids.Count, Is.EqualTo(5));
+            Assert.That((trainedTier, trained.Count), Is.EqualTo((QuantifiedPsmTier.PepQValue, 8)));
+            Assert.That((untrainedTier, untrained.Count), Is.EqualTo((QuantifiedPsmTier.QValueNotch, 7)));
+        }
+
+        /// <summary>
+        /// The tier is chosen from target matches only: a decoy's PEP q-value in range does not make an untrained
+        /// PEP usable. The decoy is still kept, for match-between-runs.
+        /// </summary>
+        [Test]
+        public static void TheTierIsChosenFromTargetsOnly()
+        {
+            var ids = Quantify("decoyPep", (get, set, rows) =>
+            {
+                Untrained(get, set, rows);
+                set(rows[7], "Decoy/Contaminant/Target", "D");
+                set(rows[7], "PEP_QValue", "0.001");
+            }, out var tier);
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValueNotch));
+            Assert.That(ids.Count(id => id.IsDecoy), Is.EqualTo(1));
+        }
+
+        /// <summary>Each identification carries the value its tier filtered on.</summary>
+        [Test]
+        public static void AnIdentificationCarriesItsTiersValue()
+        {
+            var pep = Quantify("valuePep", NoEdit, out _);
+            var notch = Quantify("valueNotch", Untrained, out _);
+            var q = Quantify("valueQ", Untrained, out _, drop: "QValue Notch");
+
+            Assert.That(pep[0].QValue, Is.EqualTo(0.000314465));
+            Assert.That(notch[0].QValue, Is.EqualTo(0.000124));
+            Assert.That(q[0].QValue, Is.EqualTo(0.000121));
         }
 
         [Test]
         public static void TheLightweightReaderCarriesQValueAndScore()
         {
-            var ids = Quantify("trainedLight", (get, set, rows) => { }, open: path => new LightWeightSpectralMatchFile(path));
-            var heavy = Quantify("trainedHeavy", (get, set, rows) => { });
+            var ids = Quantify("trainedLight", NoEdit, out _, Lightweight);
+            var heavy = Quantify("trainedHeavy", NoEdit, out _);
 
             Assert.That(ids.Select(id => (id.QValue, id.PsmScore)), Is.EqualTo(heavy.Select(id => (id.QValue, id.PsmScore))));
             Assert.That(ids.All(id => id.PsmScore > 0), Is.True);
+        }
+
+        [Test]
+        public static void TheLightweightReaderReadsPep()
+        {
+            string path = Write("lightPep", NoEdit);
+            try
+            {
+                var light = new LightWeightSpectralMatchFile(path).Cast<LightWeightSpectralMatch>().ToList();
+                Assert.That(light.Select(psm => psm.Pep).Distinct().Count(), Is.GreaterThan(1));
+                Assert.That(light[1].Pep, Is.EqualTo(0.06503135));
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+
+            path = Write("lightNoPep", NoEdit, "PEP");
+            try
+            {
+                Assert.That(new LightWeightSpectralMatchFile(path).Cast<LightWeightSpectralMatch>().All(psm => double.IsNaN(psm.Pep)), Is.True);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
         }
 
         /// <summary>A record type that reports no q-value is kept: its tool filtered it.</summary>
@@ -173,51 +353,25 @@ namespace Test.Quantification
         }
 
         /// <summary>
-        /// A MetaMorpheus file with no q-value column and an untrained PEP would have every match dropped in
-        /// silence; it is refused instead.
+        /// A MetaMorpheus file with no q-value column, an untrained PEP and no notch would have every match dropped in
+        /// silence; it is refused instead. With a notch it is not: the notch decides and the q-value is not read.
+        /// (Only the lightweight reader accepts a .psmtsv with no q-value column; the full reader requires one.)
         /// </summary>
         [Test]
-        public static void AFileWithNoQValueColumnIsRefused()
+        public static void AFileWithNoQValueColumnIsRefusedOnlyOnTheQValueTier()
         {
-            string[] lines = File.ReadAllLines(Source);
-            int column = Array.IndexOf(lines[0].Split('	'), "QValue");
-            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "QuantifiedPsmRule_noQValue.psmtsv");
-            File.WriteAllLines(path, lines.Select(line =>
-            {
-                var cells = line.Split('	').ToList();
-                cells.RemoveAt(column);
-                return string.Join('	', cells);
-            }).Select((line, i) => i == 0 ? line.Replace("PEP_QValue", "PEP_QValue_untrained") : line));
-            try
-            {
-                var file = new LightWeightSpectralMatchFile(path);
-                Assert.That(() => file.MakeQuantifiedIdentifications(BothFiles), Throws.TypeOf<MzLibUtil.MzLibException>());
-            }
-            finally
-            {
-                File.Delete(path);
-            }
-        }
+            Assert.That(() => Quantify("noQ", Untrained, out _, Lightweight, drop: new[] { "QValue", "QValue Notch" }),
+                Throws.TypeOf<MzLibUtil.MzLibException>());
 
-        /// <summary>With PEP trained, the PEP q-value alone decides: a poor q-value does not drop a match.</summary>
-        [Test]
-        public static void WithPepTrainedThePepQValueDecides()
-        {
-            var ids = Quantify("trained", (get, set, rows) =>
-            {
-                set(rows[0], "PEP_QValue", "0.01"); // at the threshold: dropped
-                set(rows[1], "QValue", "0.5");      // ignored in the PEP tier: kept
-                set(rows[1], "QValue Notch", "0.5");
-            });
-
-            Assert.That(ids.Count, Is.EqualTo(7));
+            var ids = Quantify("noQNotch", Untrained, out var tier, Lightweight, drop: "QValue");
+            Assert.That((tier, ids.Count), Is.EqualTo((QuantifiedPsmTier.QValueNotch, 8)));
         }
 
         [Test]
         public static void MatchesFromASpectraFileNotSuppliedAreSkipped()
         {
-            var ids = Quantify("oneFile", (get, set, rows) => { },
-                new List<SpectraFileInfo> { new SpectraFileInfo("04-30-13_CAST_Frac4_6uL.raw", "A", 0, 0, 0) });
+            var ids = Quantify("oneFile", NoEdit, out _,
+                spectraFiles: new List<SpectraFileInfo> { new SpectraFileInfo("04-30-13_CAST_Frac4_6uL.raw", "A", 0, 0, 0) });
 
             Assert.That(ids.Count, Is.EqualTo(2));
         }
@@ -234,10 +388,11 @@ namespace Test.Quantification
             var spectraFiles = file.Select(p => p.SpectraFilePath).Distinct()
                 .Select((filePath, i) => new SpectraFileInfo(filePath, "PBMC", i, 0, 0)).ToList();
 
-            var quantified = file.MakeQuantifiedIdentifications(spectraFiles);
+            var quantified = file.MakeQuantifiedIdentifications(spectraFiles, out var tier);
             int expected = file.Count(p => p.GlobalQValue < QuantifiedPsmRule.DefaultThreshold);
 
             Assert.That(expected, Is.GreaterThan(0).And.LessThan(file.Count()), "premise: the global q-value keeps some rows and drops some");
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValue));
             Assert.That(quantified.Count, Is.EqualTo(expected));
         }
 
@@ -248,6 +403,8 @@ namespace Test.Quantification
             IQuantifiableResultFile file = FileReader.ReadQuantifiableResultFile(Source);
             Assert.That(file.MakeIdentifications(BothFiles).Count, Is.EqualTo(8));
         }
+
+        private static Func<string, IQuantifiableResultFile> Open(string reader) => reader == "Lightweight" ? Lightweight : Full;
 
         #endregion
     }
