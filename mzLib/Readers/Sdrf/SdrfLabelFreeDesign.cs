@@ -41,8 +41,9 @@ namespace Readers
     ///
     /// <para><b>Why refuse rather than repair.</b> An invalid <c>ExperimentalDesign.tsv</c> is worse
     /// than none: MetaMorpheus skips quantification with one warning and no error exit. So this reader
-    /// checks everything MetaMorpheus's own validator checks (MAP-32), reports all of it at once rather
-    /// than the first failure, and writes nothing when anything fails.</para>
+    /// refuses what MetaMorpheus's own validator refuses (MAP-32): two files at one condition, biological
+    /// replicate, fraction and technical replicate. It reports every such case at once rather than the
+    /// first, and writes nothing when anything fails. A gap in any of the numbers is not refused.</para>
     ///
     /// <para><b>Numbers are the SDRF's.</b> A biological replicate number the SDRF gives is written exactly
     /// as given, never ranked or closed up: replicate 4 of one condition can be the same subject as replicate 4
@@ -50,7 +51,8 @@ namespace Readers
     /// <c>not available</c>) is one added, per sample: the one number the sample's other rows give, or else one after
     /// the highest the condition uses, so an added number never fills a gap. That,
     /// and dropping rows that name a file the search does not read, are the only changes, and both are reported
-    /// in <see cref="Notes"/>, as are gaps in the numbering and a sample name whose one number disagrees with
+    /// in <see cref="Notes"/>, as are gaps in the numbering (biological replicates, fractions and technical
+    /// replicates alike; fractions are copied as given too, because they are matched across samples by number) and a sample name whose one number disagrees with
     /// its replicate.</para>
     ///
     /// <para><b>Numbering.</b> The model (<see cref="SpectraFileInfo"/>) is 0-based; SDRF and
@@ -252,6 +254,7 @@ namespace Readers
                 .ToList();
 
             RefuseWhatMetaMorpheusWouldReject(files, refusals);
+            NoteFractionAndTechrepGaps(files, rowsWereDropped: dropped.Count > 0, notes);
 
             return new SdrfLabelFreeDesign(files, refusals, notes, keyColumn, conditionColumns);
         }
@@ -427,46 +430,54 @@ namespace Readers
             return numbers;
         }
 
-        // The checks of MetaMorpheus's ExperimentalDesign.GetErrorsInExperimentalDesign, reporting
-        // every failure instead of the first: within each condition and biological replicate the
-        // fractions run 1..N with no gap (a missing LAST fraction is fine), within each fraction the
-        // technical replicates run 1..N, and no (condition, biorep, fraction, techrep) repeats.
-        // Its biological replicate rule (each condition numbered 1..N with no gap) is deliberately NOT
-        // mirrored: numbers the SDRF gives are kept, so a gap is reported in Notes, not refused. Current
-        // MetaMorpheus still rejects such a design; it ships with the MetaMorpheus change that turns that
-        // refusal into a warning, together with #1422, which quantifies gapped designs.
+        // The one refusal MetaMorpheus's ExperimentalDesign.GetErrorsInExperimentalDesign makes: two files at one
+        // (condition, biorep, fraction, techrep). Every one is reported, not the first. A gap in fraction or
+        // technical replicate numbers is not refused, any more than a gap in biological replicates: the numbers
+        // are the SDRF's, a gap can be a lost file, and fractions are matched across samples by number. Each gap
+        // is reported in Notes (NoteFractionAndTechrepGaps). MetaMorpheus quantifies such a design with a warning
+        // from the change that ships with this one; current MetaMorpheus still rejects it.
         private static void RefuseWhatMetaMorpheusWouldReject(List<SpectraFileInfo> files, List<string> refusals)
         {
-            foreach (var condition in files.GroupBy(f => f.Condition, StringComparer.Ordinal))
+            foreach (var shared in files
+                         .GroupBy(f => (f.Condition, f.BiologicalReplicate, f.Fraction, f.TechnicalReplicate))
+                         .Where(g => g.Count() > 1)
+                         .OrderBy(g => g.Key.Condition, StringComparer.Ordinal).ThenBy(g => g.Key.BiologicalReplicate)
+                         .ThenBy(g => g.Key.Fraction).ThenBy(g => g.Key.TechnicalReplicate))
+            {
+                refusals.Add($"Condition '{shared.Key.Condition}' biorep {shared.Key.BiologicalReplicate + 1} fraction {shared.Key.Fraction + 1} " +
+                             $"techrep {shared.Key.TechnicalReplicate + 1} is named by {shared.Count()} files: " +
+                             string.Join(", ", shared.Select(f => $"'{Path.GetFileName(f.FullFilePathWithExtension)}'")) +
+                             ". Different samples cannot share one replicate; declare the factor that tells them apart.");
+            }
+        }
+
+        // A biological replicate's fractions, and a fraction's technical replicates, that are not 1..N: kept as the
+        // SDRF numbers them and noted, in the same words as a gap in biological replicates
+        // (NumberBiologicalReplicates). A missing last fraction of one sample is no gap; its own numbers are 1..N.
+        private static void NoteFractionAndTechrepGaps(List<SpectraFileInfo> files, bool rowsWereDropped, List<string> notes)
+        {
+            string why = rowsWereDropped
+                ? "Rows were dropped from the SDRF, so a missing number may be a file that is not searched."
+                : "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files.";
+
+            foreach (var condition in files.GroupBy(f => f.Condition, StringComparer.Ordinal).OrderBy(g => g.Key, StringComparer.Ordinal))
             {
                 foreach (var biorep in condition.GroupBy(f => f.BiologicalReplicate).OrderBy(g => g.Key))
                 {
-                    int fractions = biorep.Max(f => f.Fraction) + 1;
-                    for (int fraction = 0; fraction < fractions; fraction++)
-                    {
-                        var inFraction = biorep.Where(f => f.Fraction == fraction).ToList();
-                        string where = $"Condition '{condition.Key}' biorep {biorep.Key + 1} fraction {fraction + 1}";
-                        if (inFraction.Count == 0)
-                        {
-                            refusals.Add($"{where} is missing. Fractions are copied as they are, never renumbered, " +
-                                         "because they are matched across samples by number.");
-                            continue;
-                        }
+                    string owner = $"Condition '{condition.Key}' biorep {biorep.Key + 1}";
+                    NoteGap(notes, owner, "fractions", biorep.Select(f => f.Fraction), why);
 
-                        int techreps = inFraction.Max(f => f.TechnicalReplicate) + 1;
-                        for (int techrep = 0; techrep < techreps; techrep++)
-                        {
-                            var inTechrep = inFraction.Where(f => f.TechnicalReplicate == techrep).ToList();
-                            if (inTechrep.Count == 0)
-                                refusals.Add($"{where} techrep {techrep + 1} is missing.");
-                            else if (inTechrep.Count > 1)
-                                refusals.Add($"{where} techrep {techrep + 1} is named by {inTechrep.Count} files: " +
-                                             string.Join(", ", inTechrep.Select(f => $"'{Path.GetFileName(f.FullFilePathWithExtension)}'")) +
-                                             ". Different samples cannot share one replicate; declare the factor that tells them apart.");
-                        }
-                    }
+                    foreach (var fraction in biorep.GroupBy(f => f.Fraction).OrderBy(g => g.Key))
+                        NoteGap(notes, $"{owner} fraction {fraction.Key + 1}", "technical replicates", fraction.Select(f => f.TechnicalReplicate), why);
                 }
             }
+        }
+
+        private static void NoteGap(List<string> notes, string owner, string level, IEnumerable<int> zeroBasedNumbers, string why)
+        {
+            var present = zeroBasedNumbers.Select(n => n + 1).Distinct().OrderBy(n => n).ToList();
+            if (present.Select((v, i) => v != i + 1).Any(gap => gap))
+                notes.Add($"{owner}: {level} {string.Join(", ", present)}, kept as the SDRF numbers them. {why}");
         }
 
         private void ThrowIfRefused()

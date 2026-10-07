@@ -173,27 +173,47 @@ namespace Test.FileReadingTests
 
         // ---------------------------------------------------------------- what MetaMorpheus would reject
 
+        // A gap in fractions or technical replicates is kept and noted, like one in biological replicates, and
+        // in the same words. MetaMorpheus quantifies it with a warning (the MetaMorpheus change shipping with this).
         [Test]
-        public void AFractionGapIsRefusedButAMissingLastFractionIsNot()
+        public void AFractionGapIsNotedNotRefusedAndAMissingLastFractionIsNoGap()
         {
             var gap = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "1", "3", "1"),
                 ("b1.raw", "A", "2", "1", "1"), ("b2.raw", "A", "2", "2", "1"), ("b3.raw", "A", "2", "3", "1")));
-            Assert.That(gap.Refusals.Single(), Does.StartWith("Condition 'A' biorep 1 fraction 2 is missing"));
+            Assert.That(gap.Refusals, Is.Empty, gap.Report());
+            Assert.That(gap.Files.Single(f => f.FullFilePathWithExtension == "a3.raw").Fraction, Is.EqualTo(2), "fraction 3, 0-based, as given");
+            Assert.That(gap.Notes, Has.One.EqualTo("Condition 'A' biorep 1: fractions 1, 3, kept as the SDRF numbers them. " +
+                                                   "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files."));
 
             var missingLast = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "1", "2", "1"),
                 ("b1.raw", "A", "2", "1", "1"), ("b2.raw", "A", "2", "2", "1"), ("b3.raw", "A", "2", "3", "1")));
             Assert.That(missingLast.Refusals, Is.Empty, missingLast.Report());
+            Assert.That(missingLast.Notes, Has.None.Contain("fractions"), missingLast.Report());
         }
 
         [Test]
-        public void ATechnicalReplicateGapIsRefused()
+        public void ATechnicalReplicateGapIsNotedNotRefused()
         {
             var design = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "1", "1", "3")));
 
-            Assert.That(design.Refusals.Single(), Is.EqualTo("Condition 'A' biorep 1 fraction 1 techrep 2 is missing."));
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Has.One.EqualTo("Condition 'A' biorep 1 fraction 1: technical replicates 1, 3, kept as the SDRF numbers them. " +
+                                                      "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files."));
+        }
+
+        [Test]
+        public void AFractionGapAfterDroppedRowsSaysTheFileMayNotBeSearched()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(
+                    ("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "1", "2", "1"), ("a3.raw", "A", "1", "3", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { "a1.raw", "a3.raw" } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Has.One.EqualTo("Condition 'A' biorep 1: fractions 1, 3, kept as the SDRF numbers them. " +
+                                                      "Rows were dropped from the SDRF, so a missing number may be a file that is not searched."));
         }
 
         [TestCase("0")]
