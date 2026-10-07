@@ -53,7 +53,6 @@ namespace MassSpectrometry
         /// <summary>
         /// Determines whether a peak should be cut based on the intensity of the surrounding time points.
         /// </summary>
-        /// <typeparam name="T">The type of the time points, which must implement ISingleScanDatum.</typeparam>
         /// <param name="timePoints">The list of time points</param>
         /// <param name="apexTimepointIndex">The index of the apex (most intense, best, whatever) in the list of time points.</param>
         /// <param name="discriminationFactorToCutPeak">The discrimination factor to determine if the peak should be cut. Default is 0.6.</param>

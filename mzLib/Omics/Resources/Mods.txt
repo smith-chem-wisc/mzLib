@@ -51,7 +51,8 @@ ID   Lactylation
 TG   K
 PP   Anywhere.
 MT   Less Common
-CF   H3 C3 O2
+CF   H4 C3 O2
+DR   Unimod; 2114.
 //
 ID   Formylation
 TG   K
@@ -114,7 +115,7 @@ TG   P
 PP   Anywhere.
 MT   Common Biological
 CF   O1
-DI   HCD:170.060123533
+DI   HCD:170.069143
 DR   Unimod; 35.
 //
 ID   Nitrosylation
@@ -506,6 +507,7 @@ MT   Less Common
 PP   N-terminal.
 NL   H0 or H26 C14 O1
 CF   H26 C14 O1
+DR   Unimod; 45.
 //
 ID   Myristoylation
 TG   C or K
@@ -513,6 +515,7 @@ PP   Anywhere.
 MT   Less Common
 NL   H0 or H26 C14 O1
 CF   H26 C14 O1
+DR   Unimod; 45.
 //
 ID   Palmitoylation
 TG   K or S or T or C
@@ -534,7 +537,7 @@ TG   D or E
 PP   Anywhere.
 MT   Less Common
 CF   H-2 C-1 O-1
-DR   Unimod; 914.
+DR   Unimod; 1915.
 //
 ID   Reduction
 TG   D or S or T
@@ -607,6 +610,7 @@ PP   Anywhere.
 MT   Trypsin Digested
 DI   HCD:114.042923533
 CF   H6 C4 N2 O2
+DR   Unimod; 121.
 //
 ID   DVIEVYQEQTGG (SUMO-1 Site human)
 TG   D
@@ -625,6 +629,7 @@ TG   K
 PP   Anywhere.
 MT   Trypsin Digested
 CF   C20 H32 N6 O8
+DR   Unimod; 846.
 //
 ################################## SPECULATIVE/UNCHARACTERIZED
 ID   Carbon Adduct

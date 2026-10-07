@@ -55,7 +55,8 @@ namespace Test.FlashLFQ
             Identification identification1 = identifications[0];
             Assert.That(identification1.BaseSequence, Is.EqualTo("KPVGAAK"));
             Assert.That(identification1.ModifiedSequence, Is.EqualTo("KPVGAAK"));
-            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398));
+            // MSFragger's "Retention" column is in seconds (1.9398), so the expected value in minutes is 1.9398 / 60.
+            Assert.That(identification1.Ms2RetentionTimeInMinutes, Is.EqualTo(1.9398 / 60.0).Within(1e-12));
             Assert.That(identification1.MonoisotopicMass, Is.EqualTo(669.4173));
             Assert.That(identification1.PrecursorChargeState, Is.EqualTo(2));
 
@@ -68,7 +69,7 @@ namespace Test.FlashLFQ
             Identification identification5 = identifications[4];
             Assert.That(identification5.BaseSequence, Is.EqualTo("VVTHGGR"));
             Assert.That(identification5.ModifiedSequence, Is.EqualTo("VVTHGGR"));
-            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114));
+            Assert.That(identification5.Ms2RetentionTimeInMinutes, Is.EqualTo(19.114 / 60.0).Within(1e-12));
             Assert.That(identification5.MonoisotopicMass, Is.EqualTo(724.398));
             Assert.That(identification5.PrecursorChargeState, Is.EqualTo(2));
         }
@@ -287,6 +288,29 @@ namespace Test.FlashLFQ
             Assert.IsFalse(decoyId.UseForProteinQuant);
             Assert.That(decoyId.QValue, Is.EqualTo(2).Within(0.000001));
             Assert.That(decoyId.PsmScore, Is.EqualTo(6.218).Within(0.001));
+        }
+
+        [Test]
+        public static void MakeIdentificationsFromPsmtsv_SkipsRecordsForSpectraFilesThatWereNotProvided()
+        {
+            string psmFilePath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            IQuantifiableResultFile quantifiableResultFile = FileReader.ReadQuantifiableResultFile(psmFilePath);
+
+            SpectraFileInfo providedSpectraFile = new SpectraFileInfo("04-30-13_CAST_Frac5_4uL.raw", "A", 0, 0, 0);
+            string providedFileName = Path.GetFileNameWithoutExtension(providedSpectraFile.FullFilePathWithExtension);
+
+            int totalRecordCount = quantifiableResultFile.GetQuantifiableResults().Count();
+            int expectedRecordCount = quantifiableResultFile.GetQuantifiableResults().Count(p => p.FileName == providedFileName);
+
+            Assert.That(expectedRecordCount, Is.GreaterThan(0));
+            Assert.That(expectedRecordCount, Is.LessThan(totalRecordCount));
+
+            List<Identification> ids = null;
+            Assert.DoesNotThrow(() => ids = quantifiableResultFile.MakeIdentifications(new List<SpectraFileInfo> { providedSpectraFile }));
+
+            Assert.That(ids, Is.Not.Null);
+            Assert.That(ids.Count, Is.EqualTo(expectedRecordCount));
+            Assert.That(ids.All(id => id.FileInfo.Equals(providedSpectraFile)), Is.True);
         }
     }
 

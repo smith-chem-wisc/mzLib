@@ -26,14 +26,14 @@ namespace FlashLFQ
                 double monoisotopicMass = record.MonoisotopicMass;
                 int precursorChargeState = record.ChargeState;
 
-                // Get the spectra file info from the dictionary using the file name
-                if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile))
+                // Get the spectra file info from the dictionary using the file name. A result file can
+                // reference more spectra files than are supplied for quantification (e.g. an .osmtsv or
+                // .psmtsv covering runs the user did not load). Skip identifications for any file that was
+                // not supplied rather than aborting the whole read - this matches the legacy PsmReader path (in the FlashLFQ Standalone),
+                // which returns null for PSMs whose spectrum file has no data input.
+                if (!allSpectraFiles.TryGetValue(record.FileName, out var spectraFile) || spectraFile is null)
                 {
-                    throw new Exception($"Spectra file not found for file name: {record.FileName}");
-                }
-                else
-                {
-                    spectraFile = allSpectraFiles[record.FileName];
+                    continue;
                 }
 
                 List<ProteinGroup> proteinGroups = new();
@@ -53,12 +53,31 @@ namespace FlashLFQ
                 double qValue = 0;
                 double pepQValue = 0;
                 double score = 0;
-                // Populate optional fields currently only supported for MetaMorpheus results
+                // Populate optional fields, which only some result types report
                 if( record is SpectrumMatchFromTsv psmFromTsv)
                 {
                     qValue = psmFromTsv.QValue;
                     pepQValue = psmFromTsv.PEP_QValue;
                     score = psmFromTsv.Score;
+                }
+                else if (record is DiaNnPrecursor diaNnPrecursor)
+                {
+                    // Global.Q.Value, not Q.Value: DIA-NN's Q.Value is scoped to a single run and is
+                    // already filtered below 1%, so it would let every precursor through the
+                    // experiment-wide gates below. Global.Q.Value is the run-spanning figure, which
+                    // is what DonorQValueThreshold is comparing against when it picks MBR donors.
+                    qValue = diaNnPrecursor.GlobalQValue;
+
+                    // DIA-NN's PEP column is the raw per-precursor posterior error probability, i.e.
+                    // the local probability that this one identification is wrong. It is stored as-is,
+                    // unlike MetaMorpheus's PEP_QValue, which is a q-value derived from PEP (a monotone
+                    // cumulative FDR). They are different quantities on different scales, so gating on
+                    // this with usePepQValue is not equivalent to gating on a PEP-derived q-value.
+                    pepQValue = diaNnPrecursor.PosteriorErrorProbability;
+
+                    // CScore is DIA-NN's classifier score, higher being better, which matches how
+                    // DonorCriterion.Score reads PsmScore
+                    score = diaNnPrecursor.CScore ?? 0;
                 }
 
                 Identification id = new Identification(

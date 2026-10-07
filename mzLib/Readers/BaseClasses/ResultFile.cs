@@ -17,7 +17,12 @@ namespace Readers
         {
             get
             {
-                if (!_results.Any())
+                // Only lazy-load from disk when there is a file to read. A factory-built
+                // file (empty/non-existent FilePath) with Results set in memory returns
+                // them directly instead of re-invoking LoadResults on a path that isn't
+                // there -- which would crash, and is why callers no longer need a second
+                // in-memory record store. File.Exists("" or null) is false (no throw).
+                if (!_results.Any() && File.Exists(FilePath))
                     LoadResults();
                 return _results;
             }

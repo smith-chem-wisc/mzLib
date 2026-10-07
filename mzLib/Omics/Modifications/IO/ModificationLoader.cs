@@ -65,7 +65,6 @@ public static class ModificationLoader
     /// <summary>
     /// Reads a list of modifications from a stream reader.
     /// </summary>
-    /// <param name="ptmListLocation"></param>
     /// <returns></returns>
     public static IEnumerable<Modification> ReadModsFromFile(StreamReader uniprot_mods, Dictionary<string, int> formalChargesDictionary, out List<(Modification, string)> filteredModificationsWithWarnings, string? fileLocation = null)
     {
@@ -678,11 +677,19 @@ public static class ModificationLoader
             .OfType<oboTerm>()
             .Where(b => b.xref_analog != null && b.xref_analog.Any(c => c.dbname.Equals("FormalCharge")));
 
-        Regex digitsOnly = new(@"[^\d]");
         return modsWithFormalCharges.ToDictionary(
             b => "PSI-MOD; " + b.id,
-            b => int.Parse(digitsOnly.Replace(
-                b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name, "")));
+            b => ParseFormalCharge(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name));
+    }
+
+    /// <summary>
+    /// PSI-MOD writes a formal charge as magnitude then sign ("1+", "2-"). The sign has to be read
+    /// separately: keeping only the digits turns every negative charge positive.
+    /// </summary>
+    private static int ParseFormalCharge(string formalCharge)
+    {
+        int magnitude = int.Parse(Regex.Replace(formalCharge, @"[^\d]", ""));
+        return formalCharge.Contains('-') ? -magnitude : magnitude;
     }
 
     /// <summary>

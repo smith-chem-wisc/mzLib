@@ -76,7 +76,6 @@ namespace UsefulProteomicsDatabases
         /// <summary>
         /// Reads a list of modifications from a stream reader.
         /// </summary>
-        /// <param name="ptmListLocation"></param>
         /// <returns></returns>
         public static IEnumerable<Modification> ReadModsFromFile(StreamReader uniprot_mods, Dictionary<string, int> formalChargesDictionary, out List<(Modification, string)> filteredModificationsWithWarnings, string? fileLocation = null)
         {

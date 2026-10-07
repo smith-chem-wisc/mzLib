@@ -21,11 +21,14 @@
         ProteomeDiscoverer,
         ProsightPD,
         Chimerys,
+        DiaNn,     // files tested were from DIA-NN 1.8/1.9 long-format report.tsv
+        Pytheas,
 
         // Quantification
         FlashLFQ,
 
         // Other
         Casanovo,
+        MzIdentML, // a PSI standard written by many search engines, like MassSpecFile names a format rather than a tool
     }
 }

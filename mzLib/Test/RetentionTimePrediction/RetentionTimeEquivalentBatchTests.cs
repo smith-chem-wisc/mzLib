@@ -130,7 +130,9 @@ namespace Test.RetentionTimePrediction
                     var singleResult = predictor.PredictRetentionTimeEquivalent(peptide, out var singleReason);
                     var batchResult = batchResults[peptide.BaseSequence];
 
-                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleResult),
+                    // Batched and single-peptide inference run through different libtorch conv/matmul
+                    // kernels (batch size m vs 1), so results match to float32 precision, not bit-exactly.
+                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleResult).Within(1e-4),
                         $"{predictor.PredictorName} batch result differed from single for {peptide.BaseSequence}");
                     Assert.That(batchResult.FailureReason, Is.EqualTo(singleReason),
                         $"{predictor.PredictorName} batch failure reason differed from single for {peptide.BaseSequence}");
@@ -157,7 +159,7 @@ namespace Test.RetentionTimePrediction
                 foreach (var peptide in peptides)
                 {
                     Assert.That(results1[peptide.BaseSequence].PredictedValue,
-                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue),
+                        Is.EqualTo(results2[peptide.BaseSequence].PredictedValue).Within(1e-4),
                         $"{predictor.PredictorName} gave inconsistent batch results for {peptide.BaseSequence}");
                 }
             }
@@ -285,9 +287,19 @@ namespace Test.RetentionTimePrediction
                 var results = predictor.PredictRetentionTimeEquivalents(peptides);
 
                 Assert.That(results.Count, Is.EqualTo(5));
-                var distinctValues = results.Select(r => r.PredictedValue).Distinct().Count();
-                Assert.That(distinctValues, Is.EqualTo(1),
-                    $"{predictor.PredictorName} should return same value for duplicate peptides");
+
+                // Duplicate peptides must predict the same value, compared within a tolerance rather than
+                // bit-exactly. The Chronologer batch path runs the duplicates as identical rows in a single
+                // libtorch forward pass, whose CPU conv/matmul kernels are not guaranteed bit-reproducible
+                // across thread counts / CI runners, so identical rows can differ in the last float32 bits.
+                // The rest of this suite already pins batch agreement to .Within(1e-4); use the same here.
+                var values = results.Select(r => r.PredictedValue).ToList();
+                Assert.That(values, Is.All.Not.Null,
+                    $"{predictor.PredictorName} should predict a value for every duplicate peptide");
+                double reference = values[0]!.Value;
+                foreach (var v in values)
+                    Assert.That(v!.Value, Is.EqualTo(reference).Within(1e-4),
+                        $"{predictor.PredictorName} should return the same value for duplicate peptides");
             }
         }
 
@@ -321,7 +333,9 @@ namespace Test.RetentionTimePrediction
 
                     Assert.That(batchResult.Peptide.BaseSequence, Is.EqualTo(peptides[idx].BaseSequence),
                         $"{predictor.PredictorName} peptide mismatch at index {idx}");
-                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleValue),
+                    // Batched and single-peptide inference run through different libtorch conv/matmul
+                    // kernels (batch size m vs 1), so results match to float32 precision, not bit-exactly.
+                    Assert.That(batchResult.PredictedValue, Is.EqualTo(singleValue).Within(1e-4),
                         $"{predictor.PredictorName} value mismatch at index {idx} for {peptides[idx].BaseSequence}");
                     Assert.That(batchResult.FailureReason, Is.EqualTo(singleReason),
                         $"{predictor.PredictorName} failure reason mismatch at index {idx}");

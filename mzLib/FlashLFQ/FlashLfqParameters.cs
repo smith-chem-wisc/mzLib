@@ -20,6 +20,7 @@ namespace FlashLFQ
             QuantifyAmbiguousPeptides = false;
             Silent = false;
             MaxThreads = -1;
+            RnaMode = false;
 
             // IsoTracker settings
             IsoTracker = false;
@@ -55,6 +56,13 @@ namespace FlashLFQ
         public bool QuantifyAmbiguousPeptides { get; set; }
         public bool Silent { get; set; }
         public int MaxThreads { get; set; }
+        /// <summary>
+        /// When true, FlashLFQ quantifies RNA/oligonucleotides rather than peptides. This switches the
+        /// averagine model and sequence-to-formula conversion used when building theoretical isotope
+        /// distributions from amino acids to ribonucleotides. RNA is typically ionized in negative mode,
+        /// so identifications may carry negative charge states.
+        /// </summary>
+        public bool RnaMode { get; set; }
 
         //IsoTracker settings
         public bool IsoTracker { get; set; }

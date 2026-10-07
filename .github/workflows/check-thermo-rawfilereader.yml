@@ -1,0 +1,132 @@
+name: Check whether Thermo has released a new RawFileReader
+
+# The OpenMcdf advisories are suppressed in Readers.csproj because Thermo's CommonCore
+# binaries link OpenMcdf 2.x and 3.x is an API-incompatible rewrite. A suppression with
+# nothing watching it becomes permanent by accident, so this asks Thermo's repo monthly
+# whether either half of that has changed.
+on:
+  schedule:
+    - cron: "37 7 8 * *"
+  workflow_dispatch:
+
+env:
+  # The RawFileReader build vendored under Readers/Thermo. Must be bumped in the same commit as
+  # those binaries, or this reports drift that does not exist.
+  VENDORED_VERSION: "8.0.37"
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    name: Compare against thermofisherlsms/RawFileReader
+    runs-on: ubuntu-latest
+
+    steps:
+      # No checkout: this job only talks to the GitHub API and raw.githubusercontent.com.
+
+      - name: Ask Thermo what they publish now
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          import json, os, re, subprocess, sys, urllib.request, zipfile, io
+          import xml.etree.ElementTree as ET
+
+          REPO = "thermofisherlsms/RawFileReader"
+          DIR = "Libs/NetCore/Net8"
+          vendored = os.environ["VENDORED_VERSION"]
+
+          proc = subprocess.run(["gh", "api", f"repos/{REPO}/contents/{DIR}"],
+                                capture_output=True, text=True)
+          if proc.returncode != 0:
+              # Whoever reads this once a month has forgotten the job exists; a bare traceback
+              # would not tell them whether it was auth, a rate limit, or a repo rename.
+              print(f"::error::gh api failed for {REPO}/{DIR}: {proc.stderr.strip()}")
+              sys.exit(1)
+          listing = json.loads(proc.stdout)
+
+          by_name = {f["name"]: f for f in listing}
+          names = list(by_name)
+          match = next((n for n in names
+                        if n.startswith("thermofisher.commoncore.rawfilereader.") and n.endswith(".nupkg")), None)
+          if not match:
+              print(f"::error::No rawfilereader nupkg under {DIR}. Layout changed: {names}")
+              sys.exit(1)
+
+          published = match[len("thermofisher.commoncore.rawfilereader."):-len(".nupkg")]
+          print(f"vendored={vendored} published={published}")
+
+          url = by_name[match]["download_url"]
+          with urllib.request.urlopen(url, timeout=180) as r:
+              blob = r.read()
+          with zipfile.ZipFile(io.BytesIO(blob)) as z:
+              spec = next(n for n in z.namelist() if n.endswith(".nuspec"))
+              text = z.read(spec).decode("utf-8", errors="replace")
+
+          # XML rather than a regex: attribute order, quoting and line breaks inside the tag are
+          # all legal and none of them should look like "the dependency is gone".
+          deps = {}
+          try:
+              for dep in ET.fromstring(text).iterfind(".//{*}dependency"):
+                  if dep.get("id"):
+                      deps[dep.get("id")] = dep.get("version")
+          except ET.ParseError as error:
+              print(f"::error::Could not parse {spec} as XML ({error}). This check needs updating; "
+                    f"do NOT treat it as the OpenMcdf pin being gone.")
+              sys.exit(1)
+          openmcdf = deps.get("OpenMcdf")
+
+          def major(version):
+              """Major version of a NuGet version or range: [2.3.0], (2.0,3.0], 2.3.0 -> 2."""
+              if not version:
+                  return None
+              m = re.search(r"(\d+)", version)
+              return int(m.group(1)) if m else None
+          print(f"published RawFileReader {published} depends on OpenMcdf {openmcdf or '(not found)'}")
+
+          problems = []
+          if published != vendored:
+              problems.append(
+                  f"Thermo publishes {published}, we vendor {vendored}. "
+                  f"Consider updating Readers/Thermo and VENDORED_VERSION.")
+
+          # Three outcomes, deliberately distinct. Reading no dependency at all is a parse failure,
+          # not an all-clear: telling someone to drop a security suppression because a regex stopped
+          # matching would be the worst thing this check could do.
+          if openmcdf is None:
+              problems.append(
+                  "Could not find an OpenMcdf dependency in the published nuspec. The format has "
+                  "probably changed, so this run proves nothing either way. Do NOT drop the "
+                  "suppression on the strength of it; fix the parsing first.")
+          elif major(openmcdf) != 2:
+              problems.append(
+                  f"RawFileReader now depends on OpenMcdf {openmcdf} rather than 2.x. The pin and the "
+                  f"NuGetAuditSuppress entries can probably go - verify, then remove them.")
+
+          if problems:
+              for p in problems:
+                  print(f"::error::{p}")
+              sys.exit(1)
+          print(f"No change: still {vendored} and still on OpenMcdf {openmcdf}. Suppression still justified.")
+          PY
+
+      # Scheduled failures email only the workflow file's author, not the maintainers or watchers,
+      # so a monthly check can fail unnoticed for a very long time. File an issue instead.
+      - name: File an issue if something changed
+        if: failure()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          title="Thermo RawFileReader changed - check the OpenMcdf suppression"
+          existing=$(gh issue list --state open --search "$title in:title" --json number --jq '.[0].number // empty')
+          body="The scheduled check found a change: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          Read the log before acting. If it reports that the dependency could not be found, that is a
+          parsing failure and **not** a reason to drop the suppression."
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body "$body"
+          else
+            gh issue create --title "$title" --body "$body"
+          fi
