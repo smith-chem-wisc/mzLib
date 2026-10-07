@@ -40,7 +40,8 @@ public sealed record PtmPair
     /// <summary>
     /// Type P: median over runs of the co-occupancy, the intensity of peptidoforms carrying both modifications
     /// over the intensity of peptidoforms covering both positions (NaN when never quantified).
-    /// Type A: Spearman's ρ of the two occupancies across runs.
+    /// Type A: Spearman's ρ of the two occupancies across runs; the partial ρ given each run's level when
+    /// <see cref="RunLevelRemoved"/>.
     /// </summary>
     public required double Statistic { get; init; }
     /// <summary>Type A: two-sided Spearman p (method in <see cref="SpearmanMethod"/>). Type P: NaN (no test in this version).</summary>
@@ -58,6 +59,11 @@ public sealed record PtmPair
     public int StatisticN { get; init; }
     /// <summary>Type A: how the Spearman p-value was computed. Type P: null.</summary>
     public SpearmanPValueMethod? SpearmanMethod { get; init; }
+    /// <summary>
+    /// Type A: whether <see cref="Statistic"/> and <see cref="PValue"/> are the partial Spearman correlation given
+    /// each run's level (the median occupancy over the scope's sites in that run). Type P: false.
+    /// </summary>
+    public bool RunLevelRemoved { get; init; }
 }
 
 /// <summary>
@@ -68,6 +74,13 @@ public static class PtmPairEngine
 {
     /// <summary>A site enters type A only if its occupancy is quantified in at least this fraction of runs.</summary>
     public const double DefaultMinQuantifiedFraction = 0.7;
+    /// <summary>
+    /// With the run level removed, the fewest runs a pair must share to be tested. The partial test has no exact
+    /// p-value, and its t approximation with n − 3 df calls a perfect ρ at n = 4 or 5 significant; plain Spearman
+    /// is protected there by its exact permutation p. Below this the pair is NotEstimable and left out of the
+    /// adjustment.
+    /// </summary>
+    public const int MinRunsForRunLevel = 10;
 
     /// <summary>
     /// Type P: every pair of sites carried together by at least one peptidoform, with the runs it was
@@ -133,9 +146,18 @@ public static class PtmPairEngine
     /// <see cref="SiteRunOccupancy.UnmodifiedQuantified"/> false), as <see cref="SiteTraitOptions.ExcludeCeiling"/>
     /// does for traits. Default true.
     /// </param>
+    /// <param name="removeRunLevel">
+    /// Correlate given each run's level: the partial Spearman correlation
+    /// (<see cref="SpearmanCorrelation.PartialCorrelate"/>) with the run's median occupancy over every site in
+    /// <paramref name="occupancy"/> that has a value in that run (the same cells the pairs use). A shift that moves
+    /// most sites in the same runs, such as an acquisition batch or sample load, then no longer correlates every pair
+    /// with every other. A pair sharing fewer than <see cref="MinRunsForRunLevel"/> runs is not tested. Default false.
+    /// Batch only: where the run level follows the design (one condition reads higher), removing it tests the
+    /// correlation within conditions instead, which is a different question.
+    /// </param>
     public static IReadOnlyList<PtmPair> CoVarying(IReadOnlyList<SiteRunOccupancy> occupancy,
         IEnumerable<PeptidoformObservation> observations, double minQuantifiedFraction = DefaultMinQuantifiedFraction,
-        bool excludeCeiling = true)
+        bool excludeCeiling = true, bool removeRunLevel = false)
     {
         ArgumentNullException.ThrowIfNull(occupancy);
         ArgumentNullException.ThrowIfNull(observations);
@@ -150,6 +172,9 @@ public static class PtmPairEngine
                 vectors[o.Site] = v = Enumerable.Repeat(double.NaN, runs.Length).ToArray();
             v[runIndex[o.Run]] = o.Fraction;
         }
+        var runLevel = removeRunLevel
+            ? Enumerable.Range(0, runs.Length).Select(i => Median(vectors.Values.Select(v => v[i]).Where(double.IsFinite).ToList())).ToArray()
+            : null;
         int needed = (int)Math.Ceiling(minQuantifiedFraction * runs.Length);
         var sites = vectors.Where(kv => kv.Value.Count(double.IsFinite) >= needed).Select(kv => kv.Key)
             .OrderBy(s => s.Key, StringComparer.Ordinal).ToList();
@@ -168,11 +193,16 @@ public static class PtmPairEngine
         var result = new List<PtmPair>();
         foreach (var (a, b) in Pairs(sites))
         {
-            var r = SpearmanCorrelation.Correlate(vectors[a], vectors[b]);
+            var r = runLevel is null
+                ? SpearmanCorrelation.Correlate(vectors[a], vectors[b])
+                : SpearmanCorrelation.PartialCorrelate(vectors[a], vectors[b], runLevel);
+            bool tooFew = runLevel is not null && r.N < MinRunsForRunLevel;
             result.Add(new PtmPair
             {
                 ResultType = PairResultType.A, SiteA = a, SiteB = b, Overlapping = Overlap(a, b),
-                Statistic = r.Rho, PValue = r.PValue, N = r.N, StatisticN = r.N, SpearmanMethod = r.Method,
+                Statistic = tooFew ? double.NaN : r.Rho, PValue = tooFew ? double.NaN : r.PValue, N = r.N, StatisticN = r.N,
+                SpearmanMethod = tooFew ? SpearmanPValueMethod.NotEstimable : r.Method,
+                RunLevelRemoved = runLevel is not null,
             });
         }
         foreach (var family in result.Where(p => !p.Overlapping).GroupBy(p => p.FdrFamily))

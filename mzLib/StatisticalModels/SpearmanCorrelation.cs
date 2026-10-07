@@ -92,6 +92,47 @@ namespace StatisticalModels
             return result;
         }
 
+        /// <summary>
+        /// Partial Spearman correlation of <paramref name="x"/> and <paramref name="y"/> given one covariate
+        /// <paramref name="z"/>, and its two-sided p-value. Each variable is ranked over the complete triples, and
+        /// ρ_xy·z = (ρ_xy − ρ_xz ρ_yz) / √((1 − ρ_xz²)(1 − ρ_yz²)): the correlation of the ranks of x and y after each
+        /// is regressed on the ranks of z. p: t = ρ √((n − 3) / (1 − ρ²)) referred to Student's t with n − 3 df, as R's
+        /// ppcor::pcor.test(method = "spearman") with one covariate. <see cref="SpearmanResult.Method"/> is
+        /// <see cref="SpearmanPValueMethod.Asymptotic"/>, or NotEstimable with fewer than 4 complete triples, a constant
+        /// variable, or z perfectly rank-correlated with x or y.
+        /// </summary>
+        public static SpearmanResult PartialCorrelate(IReadOnlyList<double> x, IReadOnlyList<double> y, IReadOnlyList<double> z)
+        {
+            ArgumentNullException.ThrowIfNull(x);
+            ArgumentNullException.ThrowIfNull(y);
+            ArgumentNullException.ThrowIfNull(z);
+            if (x.Count != y.Count || x.Count != z.Count)
+                throw new ArgumentException($"x has {x.Count} values, y {y.Count} and z {z.Count}.", nameof(z));
+
+            var xs = new List<double>(x.Count);
+            var ys = new List<double>(x.Count);
+            var zs = new List<double>(x.Count);
+            for (int i = 0; i < x.Count; i++)
+                if (double.IsFinite(x[i]) && double.IsFinite(y[i]) && double.IsFinite(z[i])) { xs.Add(x[i]); ys.Add(y[i]); zs.Add(z[i]); }
+            int n = xs.Count;
+            var result = new SpearmanResult { N = n, Rho = double.NaN, PValue = double.NaN, Method = SpearmanPValueMethod.NotEstimable };
+            if (n < 4) return result;
+
+            var rx = Ranks(xs, out bool tiesX);
+            var ry = Ranks(ys, out bool tiesY);
+            var rz = Ranks(zs, out bool tiesZ);
+            result.HasTies = tiesX || tiesY || tiesZ;
+            double rxy = Pearson(rx, ry), rxz = Pearson(rx, rz), ryz = Pearson(ry, rz);
+            double denominator = (1 - rxz * rxz) * (1 - ryz * ryz);
+            if (double.IsNaN(rxy) || double.IsNaN(rxz) || double.IsNaN(ryz) || !(denominator > 0)) return result;
+            double rho = Math.Clamp((rxy - rxz * ryz) / Math.Sqrt(denominator), -1, 1);
+            result.Rho = rho;
+            result.Method = SpearmanPValueMethod.Asymptotic;
+            double r2 = rho * rho;
+            result.PValue = r2 >= 1 ? 0 : 2 * StudentT.CDF(0, 1, n - 3, -Math.Abs(rho) * Math.Sqrt((n - 3) / (1 - r2)));
+            return result;
+        }
+
         /// <summary>Average ranks, 1-based; ties share the mean of the ranks they span.</summary>
         internal static double[] Ranks(IReadOnlyList<double> v, out bool ties)
         {

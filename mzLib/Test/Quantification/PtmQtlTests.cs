@@ -280,6 +280,54 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void RunLevelRemovalTakesOutABatchShift()
+    {
+        // Twelve runs in two batches; every site reads 0.2 higher in the second. Within a batch, s and t vary
+        // nearly independently (within-batch ρ = 1/35), so almost all their correlation comes from the batch. Four
+        // background sites sit at the batch's centre, so each run's median is its batch level.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var background = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'S', Phos)).ToList();
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            double batch = r < 6 ? 0.1 : 0.3;
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6], site: s));
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6], site: t));
+            foreach (var b in background) occupancy.Add(Cell($"r{r:D2}", batch + 0.035, site: b));
+        }
+        var plain = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()).Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(plain.Statistic, Is.GreaterThan(0.7), "the batch alone correlates the two sites");
+        Assert.That(plain.RunLevelRemoved, Is.False);
+
+        var adjusted = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true)
+            .Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(adjusted.RunLevelRemoved, Is.True);
+        Assert.That(Math.Abs(adjusted.Statistic), Is.LessThan(0.1), "given the batch, the pair is unrelated");
+        Assert.That(adjusted.N, Is.EqualTo(12));
+
+        // The run level is each run's median over the six sites: the background value, batch + 0.035.
+        var level = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.035).ToArray();
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6]).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6]).ToArray();
+        var expected = SpearmanCorrelation.PartialCorrelate(vs, vt, level);
+        Assert.That(adjusted.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+        Assert.That(adjusted.PValue, Is.EqualTo(expected.PValue).Within(1e-12));
+
+        // Below MinRunsForRunLevel shared runs the partial test is not made: t with n − 3 df is too liberal there.
+        var eight = occupancy.Where(o => string.CompareOrdinal(o.Run, "r08") < 0).ToList();
+        var few = PtmPairEngine.CoVarying(eight, Array.Empty<PeptidoformObservation>(), removeRunLevel: true)
+            .Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(few.N, Is.EqualTo(8));
+        Assert.That(few.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.NotEstimable));
+        Assert.That(few.Statistic, Is.NaN);
+        Assert.That(few.Q, Is.NaN, "left out of the adjustment");
+        Assert.That(PtmPairEngine.CoVarying(eight, Array.Empty<PeptidoformObservation>()).Single(p => p.SiteA == s && p.SiteB == t).PValue,
+            Is.Not.NaN, "plain Spearman still tests it");
+    }
+
+    [Test]
     public void StoredOccupancyUsesTheReportedFractionAndFeedsTypeA()
     {
         // As MetaMorpheus writes it: the fraction exact, the intensities rounded to 4 significant figures.
