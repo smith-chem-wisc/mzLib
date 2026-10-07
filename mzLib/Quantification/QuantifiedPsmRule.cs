@@ -20,8 +20,8 @@ namespace Quantification
     }
 
     /// <summary>
-    /// Which spectral matches are quantified. One rule, so that MetaMorpheus and FlashLFQ quantify the same matches
-    /// from the same search:
+    /// Which spectral matches are quantified. One rule, so that every caller (MetaMorpheus, FlashLFQ) follows the same
+    /// order of filters, and falls back the same way when a value is missing:
     /// <list type="bullet">
     /// <item>one confidence value decides, chosen once per search as a fallback (<see cref="ChooseTier"/>): the PEP
     /// q-value when PEP was trained, otherwise the notch q-value when the search reports one, otherwise the q-value;</item>
