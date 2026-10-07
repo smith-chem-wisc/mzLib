@@ -10,17 +10,17 @@ namespace MassSpectrometry
     /// Caller-side helper for locating and caching the FLASHDeconv executable.
     ///
     /// <see cref="RealFLASHDeconvolutionAlgorithm"/> deliberately does NOT search
-    /// for the executable; it uses whatever path is on its parameters object and
-    /// throws if that path is missing or invalid. This class is where the
-    /// "go find FLASHDeconv on this machine" logic lives, so that exe discovery
-    /// is an explicit step the caller performs once -- not a side effect of
-    /// running deconvolution.
+    /// for the executable; it uses the parameters' explicit path if set, otherwise
+    /// <see cref="RegisteredPath"/>. This class is where the "go find FLASHDeconv
+    /// on this machine" logic lives, so that exe discovery is an explicit step the
+    /// caller performs once -- not a side effect of running deconvolution.
     ///
     /// Typical usage (e.g. MetaMorpheus at startup):
     /// <code>
-    /// string exe = FlashDeconvExePathRegistry.Resolve(GlobalSettings.FLASHDeconvExecutablePath);
-    /// // ...later, when configuring deconvolution params...
-    /// var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: exe);
+    /// FlashDeconvExePathRegistry.Register(
+    ///     FlashDeconvExePathRegistry.Resolve(GlobalSettings.FLASHDeconvExecutablePath));
+    /// // ...later; no path needed on the params...
+    /// var p = new RealFLASHDeconvolutionParameters();
     /// </code>
     ///
     /// The registry caches resolved paths so repeated <see cref="Resolve"/>
@@ -35,6 +35,18 @@ namespace MassSpectrometry
 
         private static readonly ConcurrentDictionary<string, string> _validated
             = new ConcurrentDictionary<string, string>();
+
+        private static volatile string? _registeredPath;
+
+        /// <summary>
+        /// The process-wide FLASHDeconv path most recently set via
+        /// <see cref="Register"/>, or null if nothing has been registered.
+        /// <see cref="RealFLASHDeconvolutionAlgorithm"/> uses this whenever
+        /// <see cref="RealFLASHDeconvolutionParameters.FLASHDeconvExePath"/> is
+        /// not set, so a host (e.g. MetaMorpheus) can register the path once at
+        /// startup and leave it off every parameters object.
+        /// </summary>
+        public static string? RegisteredPath => _registeredPath;
 
         /// <summary>
         /// Hardcoded install paths probed by <see cref="Resolve(string?)"/> when no
@@ -53,7 +65,8 @@ namespace MassSpectrometry
         };
 
         /// <summary>
-        /// Register an already-known FLASHDeconv path. Validates that the path
+        /// Register an already-known FLASHDeconv path as the process-wide default
+        /// (see <see cref="RegisteredPath"/>; last registration wins). Validates that the path
         /// (a) is non-empty, (b) names something that looks like FLASHDeconv
         /// (filename starts with "FLASHDeconv", case-insensitive), and
         /// (c) exists on disk, then caches the result so subsequent
@@ -81,6 +94,7 @@ namespace MassSpectrometry
                 throw new FileNotFoundException(
                     $"FLASHDeconv not found at: {path}", path);
             _validated[path] = path;
+            _registeredPath = path;
         }
 
         /// <summary>
@@ -164,7 +178,11 @@ namespace MassSpectrometry
         /// pushes the actual existence check to Process.Start, which surfaces
         /// the same failure with a clear error).
         /// </summary>
-        internal static void Clear() => _validated.Clear();
+        internal static void Clear()
+        {
+            _validated.Clear();
+            _registeredPath = null;
+        }
 
         /// <summary>
         /// Look up a previously-validated resolution. Key is the explicit path

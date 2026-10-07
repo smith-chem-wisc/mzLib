@@ -881,6 +881,72 @@ namespace Test.Deconvolution
                       .With.Message.Contains("FLASHDeconvExePath"));
         }
 
+        [Test]
+        public void Deconvolute_NullParamPath_UsesRegisteredPath()
+        {
+            // Register once; params carry no path; the algorithm must hand the
+            // registered path to the runner.
+            string fakeExe = CreateFakeExeFile();
+            try
+            {
+                Assert.That(FlashDeconvExePathRegistry.RegisteredPath, Is.Null);
+                FlashDeconvExePathRegistry.Register(fakeExe);
+                Assert.That(FlashDeconvExePathRegistry.RegisteredPath, Is.EqualTo(fakeExe));
+
+                var seen = new List<string>();
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(
+                    new RealFLASHDeconvolutionParameters(), BuildCapturingRunner(seen));
+                algorithm.Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000)).ToList();
+
+                Assert.That(seen, Is.EqualTo(new[] { fakeExe }));
+            }
+            finally { File.Delete(fakeExe); }
+        }
+
+        [Test]
+        public void Deconvolute_ParamPath_OverridesRegisteredPath()
+        {
+            string registered = CreateFakeExeFile();
+            string explicitExe = CreateFakeExeFile();
+            try
+            {
+                FlashDeconvExePathRegistry.Register(registered);
+                var seen = new List<string>();
+                var algorithm = new RealFLASHDeconvolutionAlgorithm(
+                    new RealFLASHDeconvolutionParameters(flashDeconvExePath: explicitExe),
+                    BuildCapturingRunner(seen));
+                algorithm.Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000)).ToList();
+
+                Assert.That(seen, Is.EqualTo(new[] { explicitExe }));
+            }
+            finally { File.Delete(registered); File.Delete(explicitExe); }
+        }
+
+        [Test]
+        public void Deconvolute_ExePathValidatedOnce_NotOnEveryDeconCall()
+        {
+            // The explicit path is checked on disk the first time only. Deleting
+            // the file afterwards must not make the next decon call fail at the
+            // path lookup -- proving no per-call resolution/File.Exists probing.
+            string fakeExe = CreateFakeExeFile();
+            var p = new RealFLASHDeconvolutionParameters(flashDeconvExePath: fakeExe);
+            var seen = new List<string>();
+
+            new RealFLASHDeconvolutionAlgorithm(p, BuildCapturingRunner(seen))
+                .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000)).ToList();
+            File.Delete(fakeExe);
+            Assert.That(
+                () => new RealFLASHDeconvolutionAlgorithm(p, BuildCapturingRunner(seen))
+                    .Deconvolute(BuildSyntheticSpectrum(), new MzRange(0, 5000)).ToList(),
+                Throws.Nothing);
+
+            Assert.That(seen, Is.EqualTo(new[] { fakeExe, fakeExe }));
+        }
+
+        private static RealFLASHDeconvolutionAlgorithm.FLASHDeconvRunner BuildCapturingRunner(
+            List<string> seenExePaths)
+            => (exe, inMzml, outFeat, outMs1, outMs2, p) => seenExePaths.Add(exe);
+
         // ── F: Orchestration unit tests with stubbed FLASHDeconvRunner ────────
 
         [Test]

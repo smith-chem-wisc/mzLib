@@ -88,7 +88,7 @@ namespace MassSpectrometry
             range ??= spectrum.Range;
             if (spectrum.Size == 0) return Enumerable.Empty<IsotopicEnvelope>();
 
-            string exePath = RequireExePath(p);
+            string exePath = GetExePath(p);
             string guid = Guid.NewGuid().ToString("N");
             string tmpIn = Path.Combine(p.WorkingDirectory, $"mzlib_fd_{guid}_in.mzML");
             string tmpFeat = Path.Combine(p.WorkingDirectory, $"mzlib_fd_{guid}_feat.tsv");
@@ -135,7 +135,7 @@ namespace MassSpectrometry
                 throw new FileNotFoundException($"mzML not found: {mzmlPath}", mzmlPath);
 
             FLASHDeconvRunner effectiveRunner = runner ?? RunFLASHDeconvDefault;
-            string exePath = RequireExePath(p);
+            string exePath = GetExePath(p);
             string guid = Guid.NewGuid().ToString("N");
             string tmpFeat = Path.Combine(p.WorkingDirectory, $"mzlib_fd_{guid}_feat.tsv");
             string tmpMs1 = Path.Combine(p.WorkingDirectory, $"mzlib_fd_{guid}_ms1.tsv");
@@ -154,25 +154,27 @@ namespace MassSpectrometry
             }
         }
 
-        // ── Exe-path guard ────────────────────────────────────────────────────
+        // ── Exe-path lookup ────────────────────────────────────────────────────
 
         /// <summary>
-        /// The algorithm does NOT locate FLASHDeconv -- it expects the caller to
-        /// have set <see cref="RealFLASHDeconvolutionParameters.FLASHDeconvExePath"/>
-        /// to a valid path. Use <see cref="FlashDeconvExePathRegistry.Resolve"/>
-        /// once at startup to discover the exe and assign the result to params.
+        /// Picks the FLASHDeconv path without any discovery or per-call filesystem
+        /// probing: <see cref="RealFLASHDeconvolutionParameters.FLASHDeconvExePath"/>
+        /// if set (validated once per process via the registry cache), otherwise
+        /// the path registered with <see cref="FlashDeconvExePathRegistry.Register"/>
+        /// (validated at registration). After the first call for a given path this
+        /// is a dictionary lookup -- the exe is never searched for at decon time.
         /// </summary>
-        private static string RequireExePath(RealFLASHDeconvolutionParameters p)
+        private static string GetExePath(RealFLASHDeconvolutionParameters p)
         {
             string? exe = p.FLASHDeconvExePath;
-            if (string.IsNullOrWhiteSpace(exe))
-                throw new MzLibException(
-                    "RealFLASHDeconvolutionParameters.FLASHDeconvExePath is not set. " +
-                    "Call FlashDeconvExePathRegistry.Resolve() once at startup and " +
-                    "assign the result to params.FLASHDeconvExePath before running deconvolution.");
-            if (!File.Exists(exe))
-                throw new FileNotFoundException($"FLASHDeconv not found at: {exe}", exe);
-            return exe!;
+            if (!string.IsNullOrWhiteSpace(exe))
+                return FlashDeconvExePathRegistry.Resolve(exe);
+
+            return FlashDeconvExePathRegistry.RegisteredPath
+                ?? throw new MzLibException(
+                    "No FLASHDeconv path available: RealFLASHDeconvolutionParameters.FLASHDeconvExePath " +
+                    "is not set and nothing has been registered. Call FlashDeconvExePathRegistry.Register(path) " +
+                    "(or Register(FlashDeconvExePathRegistry.Resolve())) once at startup.");
         }
 
         // ── Process invocation ────────────────────────────────────────────────

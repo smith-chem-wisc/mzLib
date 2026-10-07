@@ -8,12 +8,12 @@ namespace MassSpectrometry
     /// Parameters for <see cref="RealFLASHDeconvolutionAlgorithm"/>, which wraps
     /// the official FLASHDeconv executable from OpenMS.
     ///
-    /// <see cref="FLASHDeconvExePath"/> must be set to a valid path before the
-    /// algorithm runs. The algorithm itself does no path discovery -- use
-    /// <see cref="FlashDeconvExePathRegistry.Resolve"/> at startup to locate
-    /// FLASHDeconv (checks an explicit path, well-known install locations, and
-    /// the PATH environment variable), then assign the returned path to
-    /// <see cref="FLASHDeconvExePath"/>.
+    /// The algorithm does no path discovery at decon time. Register the
+    /// executable once per process with <see cref="FlashDeconvExePathRegistry.Register"/>
+    /// (optionally feeding it <see cref="FlashDeconvExePathRegistry.Resolve"/>,
+    /// which checks well-known install locations and PATH) and leave
+    /// <see cref="FLASHDeconvExePath"/> null; or set <see cref="FLASHDeconvExePath"/>
+    /// to override the registered path for this parameters object.
     /// </summary>
     public class RealFLASHDeconvolutionParameters : DeconvolutionParameters
     {
@@ -23,10 +23,10 @@ namespace MassSpectrometry
         // ── Executable location ───────────────────────────────────────────────
 
         /// <summary>
-        /// Full path to FLASHDeconv.exe. Must be set by the caller before the
-        /// algorithm runs -- the algorithm throws if it is null/empty or if the
-        /// file does not exist. Use <see cref="FlashDeconvExePathRegistry.Resolve"/>
-        /// to discover the executable at startup.
+        /// Optional per-parameters override of the FLASHDeconv path. When null the
+        /// algorithm uses <see cref="FlashDeconvExePathRegistry.RegisteredPath"/>,
+        /// and throws if nothing is registered. A path set here is validated once
+        /// per process (cached by the registry), not on every decon call.
         /// </summary>
         public string? FLASHDeconvExePath { get; set; }
 
