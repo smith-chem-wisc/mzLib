@@ -762,10 +762,6 @@ public abstract class ModificationLookupBase : IModificationLookup
             yield return input.Replace("TMTpro", "TMT18", StringComparison.OrdinalIgnoreCase);
         }
 
-        if (input.Contains("TMT", StringComparison.OrdinalIgnoreCase) && input.Contains("pro", StringComparison.OrdinalIgnoreCase))
-        {
-            yield return input.Replace("pro", "", StringComparison.OrdinalIgnoreCase);
-        }
     }
 
     #endregion
