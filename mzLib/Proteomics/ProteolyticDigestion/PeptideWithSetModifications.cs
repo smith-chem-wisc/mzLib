@@ -231,8 +231,10 @@ namespace Proteomics.ProteolyticDigestion
         /// <summary>
         /// Generates theoretical fragments for given dissociation type for this peptide. 
         /// The "products" parameter is filled with these fragments.
+        /// Virtual so that derived types whose topology has no terminal ladder
+        /// (e.g., circular peptides) can refuse it instead of returning linear ions.
         /// </summary>
-        public void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products, IFragmentationParams? fragmentationParams = null)
+        public virtual void Fragment(DissociationType dissociationType, FragmentationTerminus fragmentationTerminus, List<Product> products, IFragmentationParams? fragmentationParams = null)
         {
             // This code is specifically written to be memory- and CPU -efficient because it is 
             // called millions of times for a typical search (i.e., at least once per peptide). 

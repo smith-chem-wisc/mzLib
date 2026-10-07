@@ -1,6 +1,7 @@
 ﻿using Chemistry;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics;
 using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Modifications;
@@ -1183,6 +1184,26 @@ namespace Test
             Assert.That(second.Select(p => p.NeutralMass).ToList(),
                 Is.EqualTo(first.Select(p => p.NeutralMass).ToList()),
                 "Cached fragmentation must yield identical neutral masses.");
+        }
+
+        /// <summary>
+        /// A circular peptide has no free termini, so the linear terminal ladder is
+        /// undefined. Fragment must throw rather than silently return b/y ions, and it
+        /// must do so through every reference type a search engine might hold.
+        /// </summary>
+        [Test]
+        public static void Fragment_OnCircularPeptide_ThrowsThroughEveryReferenceType()
+        {
+            var peptide = GetFullRingPeptide("ACDEFGHIM");
+            var products = new List<Product>();
+
+            Assert.Throws<NotSupportedException>(() =>
+                peptide.Fragment(DissociationType.HCD, FragmentationTerminus.Both, products));
+            Assert.Throws<NotSupportedException>(() =>
+                ((PeptideWithSetModifications)peptide).Fragment(DissociationType.HCD, FragmentationTerminus.Both, products));
+            Assert.Throws<NotSupportedException>(() =>
+                ((IBioPolymerWithSetMods)peptide).Fragment(DissociationType.HCD, FragmentationTerminus.Both, products));
+            Assert.That(products, Is.Empty);
         }
 
         /// <summary>

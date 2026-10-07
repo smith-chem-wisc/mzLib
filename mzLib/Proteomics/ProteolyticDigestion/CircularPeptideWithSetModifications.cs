@@ -29,7 +29,8 @@ namespace Proteomics.ProteolyticDigestion
     ///
     /// FRAGMENTATION
     /// -------------
-    /// Only <see cref="FragmentInternally"/> is supported. A single backbone cleavage
+    /// Only <see cref="FragmentInternally"/> is supported; <see cref="Fragment"/> throws
+    /// <see cref="NotSupportedException"/>. A single backbone cleavage
     /// opens the ring and produces a linear ion mass-equivalent to the precursor — no
     /// additional sequence information is gained and these ions are not scored.
     ///
@@ -143,17 +144,29 @@ namespace Proteomics.ProteolyticDigestion
         /// Equals the parent protein's <see cref="CircularProtein.CyclicMonoisotopicMass"/>
         /// when unmodified.
         /// </summary>
-        /// <summary>
-        /// Monoisotopic mass of the circular peptide: sum of residue and modification
-        /// masses with no added water (no free termini).
-        /// Overrides the base implementation to subtract H2O, reflecting the absence of
-        /// free termini in a head-to-tail cyclized peptide.
-        /// </summary>
         public override double MonoisotopicMass =>
             (double)ClassExtensions.RoundedDouble(
                 base.MonoisotopicMass - WaterMonoisotopicMass);
 
         // ── Fragmentation ─────────────────────────────────────────────────────
+
+        /// <summary>
+        /// Not supported. A circular peptide has no free termini, so the linear
+        /// N-/C-terminal ladder (b/y, c/z, ...) the base implementation produces cannot
+        /// exist for it. Throws rather than returning ions the molecule cannot make.
+        /// Use <see cref="FragmentInternally"/>.
+        /// </summary>
+        /// <exception cref="NotSupportedException">Always.</exception>
+        public override void Fragment(
+            DissociationType dissociationType,
+            FragmentationTerminus fragmentationTerminus,
+            List<Product> products,
+            IFragmentationParams? fragmentationParams = null)
+        {
+            throw new NotSupportedException(
+                $"{nameof(CircularPeptideWithSetModifications)} has no free termini, so terminal " +
+                $"fragmentation is undefined. Use {nameof(FragmentInternally)} instead.");
+        }
 
         /// <summary>
         /// Generates internal fragment ions for this circular peptide.
