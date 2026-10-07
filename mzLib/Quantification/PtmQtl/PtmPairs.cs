@@ -81,6 +81,11 @@ public static class PtmPairEngine
     /// adjustment.
     /// </summary>
     public const int MinRunsForRunLevel = 10;
+    /// <summary>
+    /// With the run level removed, the fewest other sites of a group (the pair's own two left out) that must have a
+    /// value in a run for that run to have a level. Below this the run is left out of the pair's test.
+    /// </summary>
+    public const int MinSitesForRunLevel = 3;
 
     /// <summary>
     /// Type P: every pair of sites carried together by at least one peptidoform, with the runs it was
@@ -148,16 +153,25 @@ public static class PtmPairEngine
     /// </param>
     /// <param name="removeRunLevel">
     /// Correlate given each run's level: the partial Spearman correlation
-    /// (<see cref="SpearmanCorrelation.PartialCorrelate"/>) with the run's median occupancy over every site in
-    /// <paramref name="occupancy"/> that has a value in that run (the same cells the pairs use). A shift that moves
-    /// most sites in the same runs, such as an acquisition batch or sample load, then no longer correlates every pair
-    /// with every other. A pair sharing fewer than <see cref="MinRunsForRunLevel"/> runs is not tested. Default false.
+    /// (<see cref="SpearmanCorrelation.PartialCorrelate(IReadOnlyList{double}, IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>)
+    /// with the run's median occupancy over the other tested sites of the pair's group (see
+    /// <paramref name="runLevelGroup"/>; the sites that pass <paramref name="minQuantifiedFraction"/>) that have a value in
+    /// that run, the same cells the pairs use. The pair's own two sites are left out of the
+    /// median, so a small group is not mostly the pair itself; a run whose group has fewer than
+    /// <see cref="MinSitesForRunLevel"/> other sites there has no level. A shift that moves the group's sites in the same
+    /// runs, such as an acquisition batch or sample load, then no longer correlates every pair with every other. A pair
+    /// sharing fewer than <see cref="MinRunsForRunLevel"/> runs with a level is not tested. Default false.
     /// Batch only: where the run level follows the design (one condition reads higher), removing it tests the
     /// correlation within conditions instead, which is a different question.
     /// </param>
+    /// <param name="runLevelGroup">
+    /// With <paramref name="removeRunLevel"/>: the group whose run level applies to a site, for example its
+    /// modification's chemistry. A pair within one group is correlated given that group's level; a pair across two
+    /// groups, given both. Null (default): one group, every site.
+    /// </param>
     public static IReadOnlyList<PtmPair> CoVarying(IReadOnlyList<SiteRunOccupancy> occupancy,
         IEnumerable<PeptidoformObservation> observations, double minQuantifiedFraction = DefaultMinQuantifiedFraction,
-        bool excludeCeiling = true, bool removeRunLevel = false)
+        bool excludeCeiling = true, bool removeRunLevel = false, Func<ModificationSite, string>? runLevelGroup = null)
     {
         ArgumentNullException.ThrowIfNull(occupancy);
         ArgumentNullException.ThrowIfNull(observations);
@@ -172,12 +186,31 @@ public static class PtmPairEngine
                 vectors[o.Site] = v = Enumerable.Repeat(double.NaN, runs.Length).ToArray();
             v[runIndex[o.Run]] = o.Fraction;
         }
-        var runLevel = removeRunLevel
-            ? Enumerable.Range(0, runs.Length).Select(i => Median(vectors.Values.Select(v => v[i]).Where(double.IsFinite).ToList())).ToArray()
-            : null;
         int needed = (int)Math.Ceiling(minQuantifiedFraction * runs.Length);
         var sites = vectors.Where(kv => kv.Value.Count(double.IsFinite) >= needed).Select(kv => kv.Key)
             .OrderBy(s => s.Key, StringComparer.Ordinal).ToList();
+        // Per group and run, the sorted values of the group's tested sites (the ones that enter pairs) with a value there.
+        // Using only these keeps a run's level over the same sites in every run; sites seen in a few runs would make it
+        // track which sites were detected.
+        string GroupOf(ModificationSite s) => runLevelGroup?.Invoke(s) ?? "";
+        var sortedByGroup = removeRunLevel
+            ? sites.Select(st => (st, v: vectors[st])).GroupBy(t => GroupOf(t.st), StringComparer.Ordinal).ToDictionary(g => g.Key,
+                g => Enumerable.Range(0, runs.Length).Select(i => g.Select(t => t.v[i]).Where(double.IsFinite).OrderBy(v => v).ToArray()).ToArray(),
+                StringComparer.Ordinal)
+            : null;
+        double[] Level(string group, ModificationSite a, ModificationSite b)
+        {
+            var perRun = sortedByGroup![group];
+            var level = new double[runs.Length];
+            for (int i = 0; i < runs.Length; i++)
+            {
+                var drop = new List<double>(2);
+                if (GroupOf(a) == group && double.IsFinite(vectors[a][i])) drop.Add(vectors[a][i]);
+                if (GroupOf(b) == group && double.IsFinite(vectors[b][i])) drop.Add(vectors[b][i]);
+                level[i] = perRun[i].Length - drop.Count >= MinSitesForRunLevel ? MedianExcluding(perRun[i], drop) : double.NaN;
+            }
+            return level;
+        }
 
         // The peptides (base sequences) covering each site, on any protein they map to. Two sites overlap when one
         // peptide covers both: one span on one protein, or one shared peptide mapped to both proteins.
@@ -193,16 +226,21 @@ public static class PtmPairEngine
         var result = new List<PtmPair>();
         foreach (var (a, b) in Pairs(sites))
         {
-            var r = runLevel is null
-                ? SpearmanCorrelation.Correlate(vectors[a], vectors[b])
-                : SpearmanCorrelation.PartialCorrelate(vectors[a], vectors[b], runLevel);
-            bool tooFew = runLevel is not null && r.N < MinRunsForRunLevel;
+            SpearmanResult r;
+            if (!removeRunLevel)
+                r = SpearmanCorrelation.Correlate(vectors[a], vectors[b]);
+            else
+            {
+                var groups = new[] { GroupOf(a), GroupOf(b) }.Distinct(StringComparer.Ordinal);
+                r = SpearmanCorrelation.PartialCorrelate(vectors[a], vectors[b], groups.Select(g => (IReadOnlyList<double>)Level(g, a, b)).ToList());
+            }
+            bool tooFew = removeRunLevel && r.N < MinRunsForRunLevel;
             result.Add(new PtmPair
             {
                 ResultType = PairResultType.A, SiteA = a, SiteB = b, Overlapping = Overlap(a, b),
                 Statistic = tooFew ? double.NaN : r.Rho, PValue = tooFew ? double.NaN : r.PValue, N = r.N, StatisticN = r.N,
                 SpearmanMethod = tooFew ? SpearmanPValueMethod.NotEstimable : r.Method,
-                RunLevelRemoved = runLevel is not null,
+                RunLevelRemoved = removeRunLevel,
             });
         }
         foreach (var family in result.Where(p => !p.Overlapping).GroupBy(p => p.FdrFamily))
@@ -221,6 +259,29 @@ public static class PtmPairEngine
         for (int i = 0; i < sorted.Count; i++)
             for (int j = i + 1; j < sorted.Count; j++)
                 yield return (sorted[i], sorted[j]);
+    }
+
+    /// <summary>Median of a sorted array after removing one occurrence of each value in <paramref name="drop"/>.</summary>
+    private static double MedianExcluding(double[] sorted, List<double> drop)
+    {
+        var removed = new List<int>(drop.Count);
+        foreach (var d in drop)
+        {
+            int i = Array.BinarySearch(sorted, d);
+            if (i < 0) continue;
+            while (i > 0 && sorted[i - 1] == d) i--;
+            while (removed.Contains(i)) i++;
+            removed.Add(i);
+        }
+        removed.Sort();
+        int m = sorted.Length - removed.Count;
+        if (m <= 0) return double.NaN;
+        double At(int k)
+        {
+            foreach (var r in removed) if (r <= k) k++;
+            return sorted[k];
+        }
+        return m % 2 == 1 ? At(m / 2) : (At(m / 2 - 1) + At(m / 2)) / 2;
     }
 
     private static double Median(List<double> v)

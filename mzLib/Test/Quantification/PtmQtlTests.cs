@@ -328,6 +328,77 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void GroupedRunLevelTakesOutAShiftInOneChemistry()
+    {
+        // Two chemistries in twelve runs. Every "GG" site reads 0.2 higher in the second six runs; the "Phospho"
+        // sites do not move with it. One run level for all sites is half one chemistry and half the other, so only a
+        // level per chemistry removes the GG shift.
+        const string Gg = "Trypsin Digested:GG (Ubiquitination Site) on K";
+        var s = new ModificationSite("P1", 13, 'K', Gg);
+        var t = new ModificationSite("P2", 43, 'K', Gg);
+        var ggBackground = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'K', Gg)).ToList();
+        var phospho = Enumerable.Range(0, 7).Select(i => new ModificationSite($"Q{i}", 9, 'S', Phos)).ToList();
+        double[] noiseS = { 1, 4, 2, 6, 3, 5 }, noiseT = { 6, 2, 1, 4, 3, 5 };
+        double[] phosphoLevel = { 0.30, 0.10, 0.25, 0.15, 0.20, 0.35, 0.12, 0.28, 0.18, 0.33, 0.22, 0.14 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            double batch = r < 6 ? 0.1 : 0.3;
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6], site: s));
+            occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6], site: t));
+            foreach (var b in ggBackground) occupancy.Add(Cell($"r{r:D2}", batch + 0.035, site: b));
+            for (int i = 0; i < phospho.Count; i++) occupancy.Add(Cell($"r{r:D2}", phosphoLevel[r] + 0.001 * i, site: phospho[i]));
+        }
+        PtmPair Pair(IReadOnlyList<PtmPair> pairs) => pairs.Single(p => p.SiteA == s && p.SiteB == t);
+        string Chemistry(ModificationSite site) => site.Modification.Contains("GG") ? "GG" : "phospho";
+
+        var plain = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>()));
+        var oneLevel = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true));
+        var perChemistry = Pair(PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true,
+            runLevelGroup: Chemistry));
+        Assert.That(plain.Statistic, Is.GreaterThan(0.7));
+        Assert.That(Math.Abs(perChemistry.Statistic), Is.LessThan(0.1), "given the GG level, the two GG sites are unrelated");
+        Assert.That(Math.Abs(perChemistry.Statistic), Is.LessThan(Math.Abs(oneLevel.Statistic)));
+
+        // The GG level leaves the pair out: the median of the four background sites, batch + 0.035.
+        var level = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.035).ToArray();
+        var vs = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseS[r % 6]).ToArray();
+        var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6]).ToArray();
+        Assert.That(perChemistry.Statistic, Is.EqualTo(SpearmanCorrelation.PartialCorrelate(vs, vt, level).Rho).Within(1e-12));
+
+        // A cross-chemistry pair is correlated given both levels: two covariates.
+        var cross = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true, runLevelGroup: Chemistry)
+            .Single(p => p.SiteA == s && p.SiteB == phospho[0]);
+        var phosphoOthers = Enumerable.Range(0, 12).Select(r => phosphoLevel[r] + 0.001 * 3.5).ToArray();   // median of sites 1-6
+        var ggWithT = Enumerable.Range(0, 12).Select(r => new[] { (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6] }
+            .Concat(Enumerable.Repeat((r < 6 ? 0.1 : 0.3) + 0.035, 4)).OrderBy(v => v).ElementAt(2)).ToArray();
+        var vp = Enumerable.Range(0, 12).Select(r => phosphoLevel[r]).ToArray();
+        var expected = SpearmanCorrelation.PartialCorrelate(vs, vp, new IReadOnlyList<double>[] { ggWithT, phosphoOthers });
+        Assert.That(cross.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+
+        // A GG site seen in only two runs does not enter pairs, so it does not move the GG level either.
+        var sparse = new ModificationSite("P9", 3, 'K', Gg);
+        var withSparse = occupancy.Concat(new[] { Cell("r00", 0.9, site: sparse), Cell("r01", 0.95, site: sparse) }).ToList();
+        var unchanged = Pair(PtmPairEngine.CoVarying(withSparse, Array.Empty<PeptidoformObservation>(), removeRunLevel: true,
+            runLevelGroup: Chemistry));
+        Assert.That(unchanged.Statistic, Is.EqualTo(perChemistry.Statistic).Within(1e-15));
+    }
+
+    [Test]
+    public void ARunWithTooFewOtherSitesInTheGroupHasNoLevel()
+    {
+        // The group holds the pair and two more sites: leaving the pair out leaves 2, below MinSitesForRunLevel.
+        var sites = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{i}", 5, 'S', Phos)).ToList();
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+            for (int i = 0; i < sites.Count; i++)
+                occupancy.Add(Cell($"r{r:D2}", 0.1 + 0.01 * ((r * (i + 2)) % 7), site: sites[i]));
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true).First();
+        Assert.That(pair.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.NotEstimable));
+        Assert.That(pair.N, Is.EqualTo(0), "no run has a level");
+    }
+
+    [Test]
     public void StoredOccupancyUsesTheReportedFractionAndFeedsTypeA()
     {
         // As MetaMorpheus writes it: the fraction exact, the intensities rounded to 4 significant figures.

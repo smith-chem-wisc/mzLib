@@ -2,6 +2,7 @@ using MathNet.Numerics.Distributions;
 using NUnit.Framework;
 using StatisticalModels;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -192,6 +193,39 @@ public class GlmMixedCorrelationTests
         var plain = SpearmanCorrelation.Correlate(new double[] { 1, 2, 3, 4 }, new double[] { 1, 3, 2, 4 });
         var flat = SpearmanCorrelation.PartialCorrelate(new double[] { 1, 2, 3, 4 }, new double[] { 1, 3, 2, 4 }, new double[] { 1, 2, 2, 1 });
         Assert.That(flat.Rho, Is.EqualTo(plain.Rho).Within(1e-12));
+    }
+
+    [Test]
+    public void PartialSpearmanWithTwoCovariatesIsTheCorrelationOfRankResiduals()
+    {
+        // Independent route: regress the ranks of x and of y on the ranks of both covariates (with intercept).
+        var x = new double[] { 3.1, 1.0, 2.2, 2.5, 5.0, 4.4, 0.3, 6.1, 2.9, 3.8, 1.7, 4.9 };
+        var y = new double[] { 1.0, 0.5, 2.0, 1.5, 3.0, 3.3, 0.1, 2.5, 0.7, 2.2, 1.2, 2.8 };
+        var z1 = new double[] { 0.9, 0.2, 1.1, 0.8, 1.9, 1.4, 0.1, 2.0, 1.5, 1.2, 0.4, 1.7 };
+        var z2 = new double[] { 5, 3, 8, 1, 7, 2, 4, 6, 12, 9, 11, 10.0 };
+        var rx = SpearmanCorrelation.Ranks(x, out _);
+        var ry = SpearmanCorrelation.Ranks(y, out _);
+        var r1 = SpearmanCorrelation.Ranks(z1, out _);
+        var r2 = SpearmanCorrelation.Ranks(z2, out _);
+        var design = Enumerable.Range(0, x.Length).Select(i => new[] { 1.0, r1[i], r2[i] }).ToArray();
+        double[] Residuals(double[] v)
+        {
+            var beta = MathNet.Numerics.Fit.MultiDim(design.Select(d => d[1..]).ToArray(), v, intercept: true);
+            return v.Select((vi, i) => vi - beta[0] - beta[1] * r1[i] - beta[2] * r2[i]).ToArray();
+        }
+        double expected = MathNet.Numerics.Statistics.Correlation.Pearson(Residuals(rx), Residuals(ry));
+
+        var r = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z1, z2 });
+        Assert.That(r.Rho, Is.EqualTo(expected).Within(1e-10));
+        Assert.That(r.N, Is.EqualTo(12));
+        double t = expected * Math.Sqrt(8 / (1 - expected * expected));
+        Assert.That(r.PValue, Is.EqualTo(2 * StudentT.CDF(0, 1, 8, -Math.Abs(t))).Within(1e-10), "n − 2 − k df");
+
+        // One covariate through either overload gives the same answer.
+        var one = SpearmanCorrelation.PartialCorrelate(x, y, z1);
+        var oneList = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z1 });
+        Assert.That(oneList.Rho, Is.EqualTo(one.Rho).Within(1e-15));
+        Assert.Throws<ArgumentException>(() => SpearmanCorrelation.PartialCorrelate(x, y, Array.Empty<IReadOnlyList<double>>()));
     }
 
     [Test]
