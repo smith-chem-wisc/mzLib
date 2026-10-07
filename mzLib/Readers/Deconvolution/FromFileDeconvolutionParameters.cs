@@ -118,8 +118,32 @@ namespace Readers
         /// to see only the features that pass: an unfiltered consensus list runs to roughly 10^6
         /// features per file, most corresponding to no real species, and while target-decoy FDR at
         /// the peptide level absorbs them, everything else that reads the file does not.
+        ///
+        /// Changing the value after the features have been loaded discards the cached list, so the
+        /// next access reloads the file under the new threshold (the same contract as
+        /// <see cref="FilePath"/>). An instance built from an in-memory feature list has no file to
+        /// reload from, so setting a threshold on one throws <see cref="InvalidOperationException"/>.
         /// </summary>
-        public double? MaxFeatureQValue { get; set; }
+        public double? MaxFeatureQValue
+        {
+            get => _maxFeatureQValue;
+            set
+            {
+                if (Nullable.Equals(_maxFeatureQValue, value))
+                    return;
+                if (string.IsNullOrWhiteSpace(_filePath))
+                    throw new InvalidOperationException(
+                        "MaxFeatureQValue is applied when the feature file is loaded; this instance was " +
+                        "built from an in-memory feature list and has no file to reload under a threshold.");
+
+                lock (_featureCacheLock)
+                {
+                    _maxFeatureQValue = value;
+                    _featureCache = null;
+                }
+            }
+        }
+        private double? _maxFeatureQValue;
 
         /// <summary>
         /// Constructs from a feature-file path. Reader is auto-detected from the

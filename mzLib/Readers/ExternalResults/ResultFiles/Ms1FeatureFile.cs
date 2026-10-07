@@ -19,16 +19,31 @@ namespace Readers
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features() => Results.SelectMany(r => r.GetSingleChargeFeatures());
 
         /// <summary>
-        /// Features at or below a q-value threshold. Rows with no q-value are KEPT: an absent
-        /// q-value means the producing tool did not estimate one, not that the feature failed the
-        /// threshold. Dropping them would silently discard every externally-produced TopFD or
-        /// FLASHDeconv feature the moment a threshold was supplied.
+        /// Features at or below a q-value threshold, or every feature when
+        /// <paramref name="maxQValue"/> is null.
         /// </summary>
+        /// <remarks>
+        /// What a row with no q-value means depends on the rest of the file.
+        /// <list type="bullet">
+        ///   <item>No row carries a q-value (an external TopFD or FLASHDeconv file): the producing
+        ///   tool did not estimate one, so every row is KEPT. Dropping them would silently empty
+        ///   the file the moment a threshold was supplied.</item>
+        ///   <item>At least one row carries a q-value (an mzLib file written after
+        ///   <c>ConsensusFeatureFdr.AssignQValues</c>): an empty q-value marks a feature the FDR
+        ///   could not score because the spectrum supports no envelope there, so the row FAILS
+        ///   the threshold. Keeping it would let exactly the least-supported features through.</item>
+        /// </list>
+        /// </remarks>
         public IEnumerable<ISingleChargeMs1Feature> GetMs1Features(double? maxQValue)
-            => maxQValue is null
-                ? GetMs1Features()
-                : Results.Where(r => r.QValue is null || r.QValue <= maxQValue.Value)
-                         .SelectMany(r => r.GetSingleChargeFeatures());
+        {
+            if (maxQValue is null)
+                return GetMs1Features();
+
+            var results = Results;
+            bool fileCarriesQValues = results.Any(r => r.QValue is not null);
+            return results.Where(r => r.QValue is null ? !fileCarriesQValues : r.QValue <= maxQValue.Value)
+                          .SelectMany(r => r.GetSingleChargeFeatures());
+        }
 
         public Ms1FeatureFile(string filePath, Software deconSoftware = Software.Unspecified) : base(filePath,
             deconSoftware)
