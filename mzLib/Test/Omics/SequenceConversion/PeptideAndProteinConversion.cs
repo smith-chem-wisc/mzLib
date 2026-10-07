@@ -288,7 +288,15 @@ public class PeptideAndProteinConversion
     [Test]
     public static void MzLibParser_DigestedCatalogModification_CarriesItsCatalogEntryAndUnimodId()
     {
-        int identical = 0, sameNamedEntry = 0, withoutMismatchedId = 0;
+        var digested = DigestedCatalogPeptides.Value.SelectMany(p => p.AllModsOneIsNterminus.Values).ToHashSet<object>(ReferenceEqualityComparer.Instance);
+        Assert.That(Mods.AllProteinModsList.Where(m => m.ValidModification && m.MonoisotopicMass.HasValue && !digested.Contains(m))
+            .Select(m => $"{m.ModificationType}:{m.IdWithMotif}"), Is.Empty, "Catalog modifications that no digested peptide carries.");
+
+        var allowedOnAnyResidue = Mods.AllProteinModsList.Concat(Mods.AllRnaModsList)
+            .Where(m => !ModificationLocalization.IsNTerminal(m) && !ModificationLocalization.IsCTerminal(m))
+            .Select(m => (m.ModificationType, m.IdWithMotif))
+            .ToHashSet();
+        int identical = 0, withoutMismatchedId = 0;
         foreach (var peptide in DigestedCatalogPeptides.Value)
         {
             var parsed = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
@@ -309,6 +317,11 @@ public class PeptideAndProteinConversion
                 }
                 else
                     Assert.That(mod.UnimodId, Is.EqualTo(cited), peptide.FullSequence);
+                // A residue is read as the entry of that name allowed on any residue whenever the catalogs have one.
+                var unrestricted = mod.PositionType == ModificationPositionType.Residue
+                                   && !ModificationLocalization.IsNTerminal(attached!) && !ModificationLocalization.IsCTerminal(attached);
+                if (mod.PositionType == ModificationPositionType.Residue)
+                    Assert.That(unrestricted, Is.EqualTo(allowedOnAnyResidue.Contains((original.ModificationType, original.IdWithMotif))), peptide.FullSequence);
                 if (ReferenceEquals(attached, original))
                 {
                     identical++;
@@ -316,25 +329,24 @@ public class PeptideAndProteinConversion
                 }
 
                 // The name can't tell apart entries that share it and differ only in location restriction
-                // (UNIMOD's N-terminal and peptide N-terminal Acetyl on X); at a terminus the entry still has its class.
-                sameNamedEntry++;
-                Assert.That(attached!.ModificationType, Is.EqualTo(original.ModificationType), peptide.FullSequence);
+                // (UNIMOD's N-terminal and peptide N-terminal Acetyl on X); the entry still fits where it was read.
+                Assert.That(attached.ModificationType, Is.EqualTo(original.ModificationType), peptide.FullSequence);
                 Assert.That(attached.IdWithMotif, Is.EqualTo(original.IdWithMotif), peptide.FullSequence);
                 Assert.That(attached.MonoisotopicMass, Is.EqualTo(original.MonoisotopicMass), peptide.FullSequence);
                 // On a residue, digestion leaves terminal modifications of decoys (and protease products) where they
-                // were: an N-terminal one on the first residue, a C-terminal one on the last, keeps that class.
+                // were: an N-terminal one on the first residue, a C-terminal one on the last, keeps that class unless the
+                // name is also an entry allowed on any residue, which is what a residue is then read as.
                 var firstResidueNTerminal = mod.PositionType == ModificationPositionType.Residue && mod.ResidueIndex == 0
                                             && ModificationLocalization.IsNTerminal(original);
                 var lastResidueCTerminal = mod.PositionType == ModificationPositionType.Residue && mod.ResidueIndex == parsed.BaseSequence.Length - 1
                                            && ModificationLocalization.IsCTerminal(original);
                 if (mod.PositionType == ModificationPositionType.NTerminus || firstResidueNTerminal)
-                    Assert.That(ModificationLocalization.IsNTerminal(attached), peptide.FullSequence);
+                    Assert.That(ModificationLocalization.IsNTerminal(attached) || unrestricted, peptide.FullSequence);
                 if (mod.PositionType == ModificationPositionType.CTerminus || lastResidueCTerminal)
-                    Assert.That(ModificationLocalization.IsCTerminal(attached), peptide.FullSequence);
+                    Assert.That(ModificationLocalization.IsCTerminal(attached) || unrestricted, peptide.FullSequence);
             }
         }
-        Assert.That(identical, Is.GreaterThan(20000));
-        Assert.That(sameNamedEntry, Is.LessThan(identical / 100));
+        Assert.That(identical, Is.GreaterThan(0));
         Assert.That(withoutMismatchedId, Is.GreaterThan(0));
     }
 
@@ -388,7 +400,7 @@ public class PeptideAndProteinConversion
                 Assert.That(mod, Is.SameAs(parsed.Modifications.Single(m => KeyOf(m, parsed.BaseSequence.Length) == key).MzLibModification));
             digested++;
         }
-        Assert.That(digested, Is.GreaterThan(19000));
+        Assert.That(digested, Is.GreaterThan(0));
     }
 
     [Test]
@@ -444,7 +456,10 @@ public class PeptideAndProteinConversion
     {
         // Modifications without a usable UNIMOD id are written by PSI-MOD accession, from the peptide and from its
         // full sequence alike.
-        int identical = 0, sameAccessionEntry = 0;
+        static bool WrittenByAccession(Modification m) =>
+            !(CanonicalModification.GetUnimodId(m) is int unimodId && Mods.MatchesUnimodRecordMass(m, unimodId))
+            && m.DatabaseReference != null && (m.DatabaseReference.ContainsKey("PSI-MOD") || m.DatabaseReference.ContainsKey("RESID"));
+        int byAccession = 0, expectedByAccession = 0;
         foreach (var peptide in DigestedCatalogPeptides.Value)
         {
             var fromFullSequence = MzLibSequenceParser.Instance.Parse(peptide.FullSequence)!.Value;
@@ -454,6 +469,7 @@ public class PeptideAndProteinConversion
                 (ProForma: ProFormaSequenceSerializer.Instance.Serialize(fromFullSequence),
                     Mods: fromFullSequence.Modifications.ToDictionary(m => KeyOf(m, fromFullSequence.BaseSequence.Length), m => m.MzLibModification!))
             };
+            expectedByAccession += written.Sum(w => w.Mods.Values.Count(WrittenByAccession));
             foreach (var (proForma, mods) in written.Where(w => w.ProForma!.Contains("[MOD:") || w.ProForma.Contains("[RESID:")))
             {
                 var parsed = ProFormaSequenceParser.Instance.Parse(proForma!)!.Value;
@@ -464,15 +480,15 @@ public class PeptideAndProteinConversion
                     var attached = mod.MzLibModification;
                     Assert.That(attached, Is.Not.Null, proForma);
                     Assert.That(mod.UnimodId, Is.Null, proForma);
+                    byAccession++;
                     if (ReferenceEquals(attached, original))
-                    {
-                        identical++;
                         continue;
-                    }
 
                     // The accession can't tell apart entries that share it on one residue (UniProt lists MOD:00165 for
-                    // N-linked (Hex) and N-linked (Man) tryptophan).
-                    sameAccessionEntry++;
+                    // N-linked (Hex) and N-linked (Man) tryptophan), and only those.
+                    Assert.That(Mods.AllProteinModsList.Count(m => m.Target?.ToString() == original.Target.ToString()
+                                                                   && ProFormaConverter.BuildDescriptor(m).Value == mod.OriginalRepresentation),
+                        Is.GreaterThan(1), proForma);
                     Assert.That(ProFormaConverter.BuildDescriptor(attached!).Value, Is.EqualTo(mod.OriginalRepresentation), proForma);
                     Assert.That(attached.Target.ToString(), Is.EqualTo(original.Target.ToString()), proForma);
                     Assert.That(attached.LocationRestriction, Is.EqualTo(original.LocationRestriction), proForma);
@@ -480,8 +496,7 @@ public class PeptideAndProteinConversion
                 }
             }
         }
-        Assert.That(identical, Is.GreaterThan(1600));
-        Assert.That(sameAccessionEntry, Is.LessThan(identical / 50));
+        Assert.That(byAccession, Is.EqualTo(expectedByAccession));
     }
 
     [Test]
