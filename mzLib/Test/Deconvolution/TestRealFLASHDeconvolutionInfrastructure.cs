@@ -943,6 +943,28 @@ namespace Test.Deconvolution
             Assert.That(seen, Is.EqualTo(new[] { fakeExe, fakeExe }));
         }
 
+        [Test]
+        public void GetOpenMsDataPath_InstallLayout_ReturnsSiblingShareDir_ElseNull()
+        {
+            string root = Path.Combine(Path.GetTempPath(), $"openms_layout_{Guid.NewGuid():N}");
+            string bin = Path.Combine(root, "bin");
+            Directory.CreateDirectory(bin);
+            try
+            {
+                string exeNoShare = Path.Combine(bin, "FLASHDeconv_noshare.exe");
+                File.WriteAllText(exeNoShare, "stub");
+                Assert.That(RealFLASHDeconvolutionAlgorithm.GetOpenMsDataPath(exeNoShare), Is.Null);
+
+                string share = Path.Combine(root, "share", "OpenMS");
+                Directory.CreateDirectory(share);
+                string exe = Path.Combine(bin, "FLASHDeconv.exe");
+                File.WriteAllText(exe, "stub");
+                Assert.That(RealFLASHDeconvolutionAlgorithm.GetOpenMsDataPath(exe),
+                    Is.EqualTo(Path.GetFullPath(share)));
+            }
+            finally { Directory.Delete(root, recursive: true); }
+        }
+
         private static RealFLASHDeconvolutionAlgorithm.FLASHDeconvRunner BuildCapturingRunner(
             List<string> seenExePaths)
             => (exe, inMzml, outFeat, outMs1, outMs2, p) => seenExePaths.Add(exe);

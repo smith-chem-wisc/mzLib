@@ -177,6 +177,28 @@ namespace MassSpectrometry
                     "(or Register(FlashDeconvExePathRegistry.Resolve())) once at startup.");
         }
 
+        // ── OpenMS data path ──────────────────────────────────────────────────
+
+        private static readonly System.Collections.Concurrent.ConcurrentDictionary<string, string?>
+            _openMsDataPathByExe = new();
+
+        /// <summary>
+        /// FLASHDeconv needs OPENMS_DATA_PATH (its CV/chemistry files) to start.
+        /// Returns the install's own &lt;exeDir&gt;/../share/OpenMS when it exists, so
+        /// the child process is pointed at the data matching that exe even if the
+        /// machine-wide variable names a different OpenMS version; null otherwise
+        /// (the inherited environment is then left alone). Cached per exe path, so
+        /// the directory probe runs once per process, not per decon call.
+        /// </summary>
+        internal static string? GetOpenMsDataPath(string exePath)
+            => _openMsDataPathByExe.GetOrAdd(exePath, exe =>
+            {
+                string? binDir = Path.GetDirectoryName(Path.GetFullPath(exe));
+                if (binDir == null) return null;
+                string share = Path.GetFullPath(Path.Combine(binDir, "..", "share", "OpenMS"));
+                return Directory.Exists(share) ? share : null;
+            });
+
         // ── Process invocation ────────────────────────────────────────────────
 
         /// <summary>
@@ -226,6 +248,9 @@ namespace MassSpectrometry
                 CreateNoWindow = true,
                 WorkingDirectory = Path.GetDirectoryName(exePath) ?? ""
             };
+            string? openMsData = GetOpenMsDataPath(exePath);
+            if (openMsData != null)
+                proc.StartInfo.EnvironmentVariables["OPENMS_DATA_PATH"] = openMsData;
 
             proc.Start();
             // Drain both streams asynchronously: a synchronous ReadToEnd before
