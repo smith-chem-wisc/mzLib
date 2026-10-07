@@ -13,6 +13,7 @@
   <ItemGroup>
     <PackageReference Include="CsvHelper" Version="32.0.3" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />
+    <PackageReference Include="Parquet.Net" Version="6.1.0" />
     <PackageReference Include="TopDownProteomics" Version="0.0.299" />
   </ItemGroup>
 
@@ -46,6 +47,7 @@
     <EmbeddedResource Include="Resources\pride_cv.obo">
       <CopyToOutputDirectory>Never</CopyToOutputDirectory>
     </EmbeddedResource>
+    <EmbeddedResource Include="Ensembl\views.sql" LogicalName="UsefulProteomicsDatabases.Ensembl.views.sql" />
   </ItemGroup>
 
 </Project>
