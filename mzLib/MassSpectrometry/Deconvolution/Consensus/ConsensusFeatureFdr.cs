@@ -28,11 +28,21 @@ namespace MassSpectrometry.Deconvolution.Consensus
     /// between the real teeth rather than on them.
     /// </para>
     /// <para>
+    /// Between the teeth is only far enough at low mass. Where the decoy comb overlaps the target's
+    /// envelope, each decoy tooth sits half a 13C spacing from a real one: <c>C/(2z)</c> in m/z,
+    /// which is about <c>0.5017 / M</c> in relative terms whatever the charge -- 50 ppm at 10 kDa,
+    /// 20 ppm at 25 kDa, 12.5 ppm at 40 kDa. Once that gap is within twice the matching tolerance
+    /// the decoy's teeth would match the target's real peaks, so for those masses the offset is
+    /// widened until the decoy envelope clears the target envelope entirely (see
+    /// <see cref="MinimumDecoyOffsetDa"/>).
+    /// </para>
+    /// <para>
     /// Displacing the mass, rather than perturbing the isotope spacing as the envelope-level decoy
     /// does, matters at top-down charge states. A spacing perturbation is a fixed offset in neutral
     /// mass, so the matcher, which works in m/z, sees it divided by charge; past roughly z = 4 at a
     /// 20 ppm tolerance the perturbed comb lands back on the real peaks and the decoy stops being
-    /// wrong. A whole-feature displacement of 5 to 50 Da does not shrink with charge.
+    /// wrong. A whole-feature displacement does not shrink with charge, and the envelope-clearing
+    /// rule above keeps it off the real peaks at high mass too.
     /// </para>
     ///
     /// <para><b>What the q-value means, and does not</b></para>
@@ -95,7 +105,8 @@ namespace MassSpectrometry.Deconvolution.Consensus
                 double target = IsotopicEnvelopeProbe.Score(
                     apex.MassSpectrum, f.ConsensusMass, charge, model, tolerancePpm);
 
-                double decoyMass = f.ConsensusMass + DecoyOffset(rng);
+                double decoyMass = f.ConsensusMass
+                    + DecoyOffset(rng, MinimumDecoyOffsetDa(f.ConsensusMass, model, tolerancePpm));
                 double decoy = IsotopicEnvelopeProbe.Score(
                     apex.MassSpectrum, decoyMass, charge, model, tolerancePpm);
 
@@ -122,11 +133,42 @@ namespace MassSpectrometry.Deconvolution.Consensus
             return scored.Count;
         }
 
-        /// <summary>Half-integer multiple of the 13C spacing, 5 to 50 Da, either side.</summary>
-        private static double DecoyOffset(Random rng)
+        /// <summary>
+        /// Smallest decoy displacement, in daltons, that keeps the decoy's teeth off the target's
+        /// real peaks at <paramref name="mass"/>.
+        /// </summary>
+        /// <remarks>
+        /// While the half-spacing gap between interleaved teeth (about <c>0.5017 / M</c> relative)
+        /// is more than twice the tolerance, interleaving is enough and the floor is
+        /// <see cref="MinDecoyOffsetDa"/>. Above that mass the decoy must not overlap the target
+        /// envelope at all, so the floor becomes the model's envelope width at that mass plus two
+        /// 13C spacings of margin (the decoy envelope, a few daltons heavier or lighter, is
+        /// slightly wider or narrower than the target's).
+        /// </remarks>
+        internal static double MinimumDecoyOffsetDa(double mass, AverageResidue model, double tolerancePpm)
         {
-            double magnitude = MinDecoyOffsetDa + rng.NextDouble() * (MaxDecoyOffsetDa - MinDecoyOffsetDa);
+            double halfGapPpm = 0.5 * Constants.C13MinusC12 / mass * 1e6;
+            if (halfGapPpm > 2 * tolerancePpm)
+                return MinDecoyOffsetDa;
+
+            double[] theoretical = model.GetAllTheoreticalMasses(model.GetMostIntenseMassIndex(mass));
+            if (theoretical.Length == 0)
+                return MinDecoyOffsetDa;
+            double width = theoretical.Max() - theoretical.Min();
+            return Math.Max(MinDecoyOffsetDa, width + 2 * Constants.C13MinusC12);
+        }
+
+        /// <summary>
+        /// Half-integer multiple of the 13C spacing, either side, with magnitude drawn from
+        /// [<paramref name="minimumMagnitude"/>, <paramref name="minimumMagnitude"/> + 45 Da]
+        /// (5 to 50 Da wherever interleaving suffices). Rounding to the half-integer never takes it below the drawn magnitude.
+        /// </summary>
+        internal static double DecoyOffset(Random rng, double minimumMagnitude = MinDecoyOffsetDa)
+        {
+            double span = MaxDecoyOffsetDa - MinDecoyOffsetDa;
+            double magnitude = minimumMagnitude + rng.NextDouble() * span;
             double sign = rng.Next(2) == 0 ? -1.0 : 1.0;
+            // k >= magnitude/C - 0.5, so (k + 0.5) * C >= magnitude >= minimumMagnitude.
             double k = Math.Round(magnitude / Constants.C13MinusC12);
             return sign * (k + 0.5) * Constants.C13MinusC12;
         }
