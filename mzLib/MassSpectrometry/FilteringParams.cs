@@ -56,6 +56,6 @@ namespace MassSpectrometry
         public bool NormalizePeaksAcrossAllWindows { get; }
         public bool ApplyTrimmingToMs1 { get; }
         public bool ApplyTrimmingToMsMs { get; }
-        public bool ApplyTrimmingToMsN { get; } //This parameter is for any scans with MS level above 2; it is currently only applied in mzml and thermo raw file readers
+        public bool ApplyTrimmingToMsN { get; } //This parameter is for any scans with MS level above 2; it is applied in the mzml, thermo raw, Bruker and mgf readers
     }
 }

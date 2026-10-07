@@ -1,4 +1,4 @@
-﻿using System.Text.RegularExpressions;
+using System.Text.RegularExpressions;
 using MzLibUtil;
 
 namespace Omics.Digestion
@@ -139,13 +139,13 @@ namespace Omics.Digestion
                 prevents = true;
                 for (int n = 0; n < PreventingCleavage.Length && prevents; n++)
                 {
-                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + 1 + n < 0)
+                    if (location + m + n >= sequence.Length || location - PreventingCleavage.Length + n < 0)
                     {
                         prevents = false;
                     }
                     else
                     {
-                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + 1 + n];
+                        currentResidue = CutIndex != 0 ? sequence[location + m + n] : sequence[location - PreventingCleavage.Length + n];
                         if (!MotifMatches(PreventingCleavage[n], currentResidue))
                         {
                             prevents = false;

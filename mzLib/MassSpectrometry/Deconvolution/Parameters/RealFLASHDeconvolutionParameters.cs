@@ -1,4 +1,5 @@
 ﻿#nullable enable
+using System;
 using System.IO;
 
 namespace MassSpectrometry
@@ -85,5 +86,45 @@ namespace MassSpectrometry
 
         // Decoy deconvolution doesn't apply to the FLASHDeconv exe wrapper.
         public override DeconvolutionParameters? ToDecoyParameters() => null;
+
+        #region IEquatable<RealFLASHDeconvolutionParameters>
+
+        protected override bool EqualProperties(DeconvolutionParameters other)
+        {
+            var o = (RealFLASHDeconvolutionParameters)other;
+            return TolerancePpm.Equals(o.TolerancePpm)
+                && MinMass.Equals(o.MinMass)
+                && MaxMass.Equals(o.MaxMass)
+                && MinIsotopeCosine.Equals(o.MinIsotopeCosine)
+                && string.Equals(FLASHDeconvExePath, o.FLASHDeconvExePath, StringComparison.Ordinal)
+                && string.Equals(WorkingDirectory, o.WorkingDirectory, StringComparison.Ordinal)
+                && ProcessTimeoutSeconds == o.ProcessTimeoutSeconds;
+        }
+
+        protected override void AddHashCodes(HashCode hash)
+        {
+            hash.Add(TolerancePpm);
+            hash.Add(MinMass);
+            hash.Add(MaxMass);
+            hash.Add(MinIsotopeCosine);
+            hash.Add(FLASHDeconvExePath, StringComparer.Ordinal);
+            hash.Add(WorkingDirectory, StringComparer.Ordinal);
+            hash.Add(ProcessTimeoutSeconds);
+        }
+
+        public override RealFLASHDeconvolutionParameters Clone()
+        {
+            return new RealFLASHDeconvolutionParameters(
+                MinAssumedChargeState, MaxAssumedChargeState,
+                TolerancePpm, MinMass, MaxMass, MinIsotopeCosine,
+                Polarity, FLASHDeconvExePath, WorkingDirectory,
+                ProcessTimeoutSeconds, AverageResidueModel)
+            {
+                UseGenericScore = UseGenericScore,
+                ExpectedIsotopeSpacing = ExpectedIsotopeSpacing
+            };
+        }
+
+        #endregion
     }
 }

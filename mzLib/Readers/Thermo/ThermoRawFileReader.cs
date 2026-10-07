@@ -1,7 +1,6 @@
 ﻿using Easy.Common.Extensions;
 using MassSpectrometry;
 using MzLibUtil;
-using System.Collections.Concurrent;
 using System.Globalization;
 using System.Security.Cryptography;
 using ThermoFisher.CommonCore.Data.Business;
@@ -46,52 +45,92 @@ namespace Readers
             // I don't know why this line needs to be here, but it does...
             var temp = RawFileReaderAdapter.FileFactory(FilePath);
 
-            using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
+            // GetSourceFile computes a SHA-1 over the entire raw file, which is roughly half of the total load
+            // time and does not touch the Thermo reader. It is started below - after the file has been validated
+            // - so that it overlaps the scan reading: one thread reads the scans, one thread hashes the file.
+            // It runs on a dedicated long-running thread rather than a pooled one (Task.Run) so the blocking
+            // join at the end cannot starve the thread pool when LoadAllStaticData is itself invoked from a
+            // parallel loop over files.
+            Task<SourceFile> sourceFileTask = null;
+
+            try
             {
-                var rawFileAccessor = threadManager.CreateThreadAccessor();
-
-                if (rawFileAccessor.IsError)
+                using (var threadManager = RawFileReaderFactory.CreateThreadManager(FilePath))
                 {
-                    throw new MzLibException("Error opening RAW file!");
-                }
+                    var rawFileAccessor = threadManager.CreateThreadAccessor();
 
-                if (!rawFileAccessor.IsOpen)
-                {
-                    throw new MzLibException("Unable to access RAW file!");
-                }
+                    ThrowIfNotReadable(rawFileAccessor.IsError, rawFileAccessor.IsOpen, rawFileAccessor.InAcquisition);
 
-                if (rawFileAccessor.InAcquisition)
-                {
-                    throw new MzLibException("RAW file still being acquired!");
-                }
+                    // Start hashing only now that the file is known to be readable and not mid-acquisition.
+                    // Hashing before these guards would checksum a file we are about to refuse - and for an
+                    // in-acquisition file, a checksum of a target that is still being written.
+                    sourceFileTask = Task.Factory.StartNew(GetSourceFile, CancellationToken.None,
+                        TaskCreationOptions.LongRunning, TaskScheduler.Default);
 
-                rawFileAccessor.SelectInstrument(Device.MS, 1);
-                var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
+                    rawFileAccessor.SelectInstrument(Device.MS, 1);
+                    var msDataScans = new MsDataScan[rawFileAccessor.RunHeaderEx.LastSpectrum];
 
-                Parallel.ForEach(Partitioner.Create(0, msDataScans.Length),
-                    new ParallelOptions { MaxDegreeOfParallelism = maxThreads }, (fff, loopState) =>
+                    // Read the scans on a single accessor. The Thermo reader serializes internally, so once the
+                    // SHA-1 above is overlapped, spreading the scan reads across more threads only adds contention
+                    // and is no faster than reading sequentially (benchmarked - see BenchmarkFileReading). The
+                    // maxThreads parameter is retained for API compatibility with the MsDataFile signature.
+                    for (int s = 0; s < msDataScans.Length; s++)
                     {
-                        using (var myThreadDataReader = threadManager.CreateThreadAccessor())
-                        {
-                            myThreadDataReader.SelectInstrument(Device.MS, 1);
+                        msDataScans[s] = GetOneBasedScan(rawFileAccessor, filteringParams, s + 1);
+                    }
 
-                            for (int s = fff.Item1; s < fff.Item2; s++)
-                            {
-                                var scan = GetOneBasedScan(myThreadDataReader, filteringParams, s + 1);
-                                msDataScans[s] = scan;
-                            }
-                        }
-                    });
+                    rawFileAccessor.Dispose();
+                    Scans = msDataScans;
+                }
 
-
-                rawFileAccessor.Dispose();
-                Scans = msDataScans;
-                SourceFile = GetSourceFile();
+                SourceFile = sourceFileTask.GetAwaiter().GetResult();
             }
-            
-            temp.Dispose();
+            finally
+            {
+                // If we are leaving via an exception (e.g. a scan failed to read), the hash may still be running
+                // on its dedicated thread, holding an open read handle that would block the caller from
+                // retrying/deleting/moving the file, and any exception it raised would go unobserved. Join it
+                // here and swallow its exception so it cannot mask the original failure.
+                if (sourceFileTask != null)
+                {
+                    try { sourceFileTask.GetAwaiter().GetResult(); }
+                    catch { /* observed; the original exception from the try block propagates */ }
+                }
+
+                temp.Dispose();
+            }
 
             return this;
+        }
+
+        /// <summary>
+        /// Refuses a raw file whose accessor is not in a state we can read from, in the order the
+        /// states are meaningful: an outright open failure first, then a handle that never opened,
+        /// then a file that is still being written by the instrument.
+        /// </summary>
+        /// <remarks>
+        /// Takes the three accessor flags as primitives rather than the <c>IRawDataPlus</c> itself so
+        /// the guard can be exercised directly by unit tests - these states cannot be provoked through
+        /// Thermo's static <c>RawFileReaderFactory</c>, and the Test project deliberately carries no
+        /// reference to any ThermoFisher assembly.
+        /// </remarks>
+        /// <exception cref="MzLibException">The file cannot be read.</exception>
+        internal static void ThrowIfNotReadable(bool isError, bool isOpen, bool inAcquisition)
+        {
+            if (isError)
+            {
+                throw new MzLibException("Error opening RAW file!");
+            }
+
+            if (!isOpen)
+            {
+                throw new MzLibException("Unable to access RAW file!");
+            }
+
+            if (inAcquisition)
+            {
+                throw new MzLibException("RAW file still being acquired!");
+            }
         }
 
         public override SourceFile GetSourceFile()
@@ -105,16 +144,116 @@ namespace Readers
                     .Replace("-", string.Empty);
             }
 
+            var (instrumentModel, serialNumber, acquisitionStartTime) = GetInstrumentMetadata();
+
             SourceFile sourceFile = new SourceFile(
                 @"Thermo nativeID format",
                 @"Thermo RAW format",
                 sendCheckSum,
                 @"SHA-1",
                 FilePath,
-                Path.GetFileNameWithoutExtension(FilePath));
+                Path.GetFileNameWithoutExtension(FilePath))
+            {
+                InstrumentModel = instrumentModel,
+                InstrumentSerialNumber = serialNumber,
+                AcquisitionStartTime = acquisitionStartTime
+            };
 
             return sourceFile;
         }
+
+        /// <summary>
+        /// The run-level metadata a RAW file records, read on one connection: the instrument model,
+        /// the instrument serial number, and the file's creation date, which is when acquisition
+        /// started.
+        ///
+        /// The model comes back as a NAME-only CvParam (e.g. NT=Orbitrap Fusion Lumos with an empty
+        /// accession). Unlike mzML -- which stores the instrument as an already-accessioned PSI-MS
+        /// cvParam -- a RAW file records only free text, so no accession can be produced here without
+        /// a controlled-vocabulary lookup. Doing that lookup is a separate concern from reading the
+        /// file, and forcing it here would put an ontology dependency into the raw reader. Callers
+        /// that need the accession resolve the name themselves; the empty Accession is the signal
+        /// that they must, and is documented on <see cref="SourceFile.InstrumentModel"/>.
+        ///
+        /// Every value is null rather than an exception when it cannot be read: this is metadata,
+        /// and failing to obtain it must not stop a file being opened. The creation date is read
+        /// separately so that a file whose header cannot be read still reports its instrument.
+        /// </summary>
+        private (CvParam? Model, string? SerialNumber, DateTime? AcquisitionStartTime) GetInstrumentMetadata()
+        {
+            try
+            {
+                using var connection = RawFileReaderAdapter.FileFactory(FilePath);
+                if (connection == null || !connection.IsOpen || connection.IsError)
+                    return (null, null, null);
+
+                DateTime? created = null;
+                try
+                {
+                    created = connection.FileHeader?.CreationDate;
+                }
+                catch (Exception)
+                {
+                    // The header is metadata too; losing it must not lose the instrument.
+                }
+
+                connection.SelectInstrument(Device.MS, 1);
+                var instrument = connection.GetInstrumentData();
+
+                return (BuildInstrumentModel(instrument?.Model, instrument?.Name),
+                    BuildSerialNumber(instrument?.SerialNumber),
+                    BuildAcquisitionStartTime(created));
+            }
+            catch (Exception)
+            {
+                return (null, null, null);
+            }
+        }
+
+        /// <summary>
+        /// Which of the two names a RAW file records is the instrument, as a name-only CvParam.
+        /// Model is the specific instrument ("Orbitrap Fusion Lumos"); Name is often just the
+        /// generic device family ("MS"), so Model is preferred and Name is the fallback. Null when
+        /// the file names no instrument at all -- an empty CvParam would claim to have read one.
+        ///
+        /// Internal rather than private so this choice can be driven directly: every committed
+        /// .raw fixture populates Model, so through a file the fallback is unreachable. The
+        /// parameters are strings rather than IInstrumentData deliberately -- the Test project has
+        /// no ThermoFisher reference and reads the vendor version off the deployed file instead
+        /// (see TestRawFileReaderVersionCompat), which a vendor-typed seam would break.
+        /// </summary>
+        internal static CvParam BuildInstrumentModel(string model, string name)
+        {
+            if (string.IsNullOrWhiteSpace(model))
+                model = name;
+
+            // Empty Accession: a RAW file records no CV term, only the name. See the remarks above.
+            return string.IsNullOrWhiteSpace(model) ? null : new CvParam("MS", "", model.Trim(), "");
+        }
+
+        /// <summary>
+        /// The serial number a RAW file records, trimmed, or null when it records none. Internal and
+        /// string-typed for the same reason as <see cref="BuildInstrumentModel"/>.
+        /// </summary>
+        internal static string? BuildSerialNumber(string? serialNumber) =>
+            string.IsNullOrWhiteSpace(serialNumber) ? null : serialNumber.Trim();
+
+        /// <summary>
+        /// The acquisition start time from a RAW file's creation date, as a wall-clock time with
+        /// <see cref="DateTimeKind.Unspecified"/>, or null when the file records none.
+        ///
+        /// The Thermo library returns the value with Kind Utc, but it is the acquisition computer's
+        /// LOCAL time: for both committed .raw fixtures that have a ProteoWizard mzML beside them
+        /// (sliced_ethcd, sliced-raw), the value read here is exactly five hours earlier than the
+        /// mzML's startTimeStamp, which is US Central daylight time. ProteoWizard converts assuming
+        /// the converting machine's time zone. The RAW file does not record the offset, so the
+        /// instant is unknown and the Kind is cleared rather than trusted. Internal and primitive-
+        /// typed for the same reason as <see cref="BuildInstrumentModel"/>.
+        /// </summary>
+        internal static DateTime? BuildAcquisitionStartTime(DateTime? created) =>
+            created is { } value && value != default
+                ? DateTime.SpecifyKind(value, DateTimeKind.Unspecified)
+                : null;
 
         /// <summary>
         /// Initiates a dynamic connection with a Thermo .raw file. Data can be "streamed" instead of loaded all at once. Use 
@@ -161,24 +300,30 @@ namespace Readers
         /// </summary>
         public override MsDataScan GetOneBasedScanFromDynamicConnection(int oneBasedScanNumber, IFilteringParams filterParams = null)
         {
-            if (CheckIfScansLoaded() && oneBasedScanNumber <= Scans.Length)
-                return GetOneBasedScan(oneBasedScanNumber);
+            if (CheckIfScansLoaded())
+                return oneBasedScanNumber > 0 && oneBasedScanNumber <= Scans.Length
+                    ? GetOneBasedScan(oneBasedScanNumber)
+                    : null;
 
-            var dymConnection = RawFileReaderAdapter.FileFactory(FilePath);
-            dymConnection.SelectInstrument(Device.MS, 1);
-
-            if (dymConnection == null)
+            // IRawDataPlus is stateful and not thread-safe, but the dynamicConnection field is shared across
+            // callers (e.g. MetaDraw reads scans from multiple threads over one MsDataFile). Serialize reads
+            // through the connection so concurrent calls can't interleave header/peak retrieval for different
+            // scans. Matches the DynamicReadingLock usage in the Mzml, MsAlign, Mgf and Bruker readers.
+            lock (DynamicReadingLock)
             {
-                throw new MzLibException("The dynamic connection has not been created yet!");
-            }
+                if (dynamicConnection == null || !dynamicConnection.IsOpen)
+                {
+                    throw new MzLibException("The dynamic connection has not been created yet!");
+                }
 
-            if (oneBasedScanNumber > dymConnection.RunHeaderEx.LastSpectrum ||
-                oneBasedScanNumber < dymConnection.RunHeaderEx.FirstSpectrum)
-            {
-                return null;
-            }
+                if (oneBasedScanNumber > dynamicConnection.RunHeaderEx.LastSpectrum ||
+                    oneBasedScanNumber < dynamicConnection.RunHeaderEx.FirstSpectrum)
+                {
+                    return null;
+                }
 
-            return ThermoRawFileReader.GetOneBasedScan(dymConnection, filterParams, oneBasedScanNumber);
+                return ThermoRawFileReader.GetOneBasedScan(dynamicConnection, filterParams, oneBasedScanNumber);
+            }
         }
 
         /// <summary>

@@ -54,7 +54,7 @@ public class HashSetPool<T>
     public void Return(HashSet<T> hashSet)
     {
         if (hashSet == null) throw new ArgumentNullException(nameof(hashSet));
-        hashSet.Clear(); // Ensure the HashSet is clean before returning it to the pool
+        // the pooling policy clears it on the way in; see the Return override below
         _pool.Return(hashSet);
     }
 

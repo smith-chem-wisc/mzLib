@@ -144,22 +144,16 @@ namespace PredictionClients.Koina.AbstractClasses
                 #region Request Batching, Throttling Setup
                 var batchedRequests = ToBatchedRequests(validInputs);
                 var batchChunks = batchedRequests.Chunk(MaxNumberOfBatchesPerRequest).ToList();
-                // We calculate a dynamic timeout based on the number of batches at (BenchmarkedTimeForOneMaxBatchSizeInMilliseconds x 2)ms/batch
-                // for buffer to ensure we don't hit timeouts during processing plus throttling time.
-                // Note: the time per batch is benchmarked for the entire Predict() method, so it includes some overhead beyond just the API call. Large peptide
-                // requests will not necessarily scale linearly, so this is a rough estimate to provide a reasonable timeout and is an aggressive 
-                // upper bound to avoid timeouts.
-                int sessionTimeoutInMinutes = (int)Math.Ceiling((batchedRequests.Count * 2 * BenchmarkedTimeForOneMaxBatchSizeInMilliseconds + ThrottlingDelayInMilliseconds * batchChunks.Count) / 6e4); // 60000ms/min
                 #endregion
 
                 #region Throttled API Requests and Response Processing
                 var responses = new List<string>();
-                using var _http = new HTTP(timeoutInMinutes: sessionTimeoutInMinutes);
+                using var cts = new CancellationTokenSource(SessionDeadline(batchedRequests.Count, batchChunks.Count));
 
                 for (int i = 0; i < batchChunks.Count; i++)
                 {
                     var batchChunk = batchChunks[i];
-                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => _http.InferenceRequest(ModelName, request)));
+                    var responseChunk = await Task.WhenAll(batchChunk.Select(request => SendInferenceRequestAsync(ModelName, request, cts.Token)));
                     responses.AddRange(responseChunk);
 
                     if (i < batchChunks.Count - 1) // No need to throttle after the last batch
@@ -168,7 +162,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     }
                 }
 
-                predictions = ResponseToPredictions(responses.ToArray(), validInputs);
+                predictions = ResponseToPredictions(responses, validInputs);
                 #endregion
             }
 
@@ -202,9 +196,20 @@ namespace PredictionClients.Koina.AbstractClasses
             return Predictions;
         }
 
+        private readonly object _predictLock = new();
+
         public List<PeptideRTPrediction> Predict(List<RetentionTimePredictionInput> modelInputs)
         {
-            return AsyncThrottledPredictor(modelInputs).GetAwaiter().GetResult();
+            // Offload to Task.Run so the awaited continuations inside AsyncThrottledPredictor run on
+            // the ThreadPool (no SynchronizationContext) rather than trying to resume on a blocked
+            // caller thread. Calling .GetAwaiter().GetResult() directly would deadlock under a
+            // single-threaded SynchronizationContext (WinForms/WPF/ASP.NET non-Core). The lock
+            // serializes concurrent callers against the shared instance state. See
+            // FragmentIntensityModel.Predict for the full rationale (stopgap Option A).
+            lock (_predictLock)
+            {
+                return Task.Run(() => AsyncThrottledPredictor(modelInputs)).GetAwaiter().GetResult();
+            }
         }
 
         /// <summary>

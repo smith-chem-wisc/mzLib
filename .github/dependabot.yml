@@ -1,0 +1,21 @@
+# Dependabot keeps the workflow action pins current so nobody has to go read each action's
+# action.yml to find the first major that actually dropped a deprecated Node runtime. That
+# was #1190, done by hand, and two of the four stale pins were not in the warnings GitHub
+# displayed -- it only annotates the first few per job, so the rest would have surfaced on
+# the next runtime deprecation instead.
+#
+# "directory: /" means .github/workflows for this ecosystem, not the repo root, so it covers
+# release.yml as well -- the workflow PR CI never exercises, and therefore the most likely
+# place for a pin to rot unnoticed.
+#
+# Monthly rather than weekly: action majors do not move often, and weekly would be noise.
+#
+# Deliberately github-actions only. Several NuGet dependencies are pinned for compatibility
+# rather than lag -- the OpenMcdf 2.x pin that check-thermo-rawfilereader.yml watches, for
+# one -- and pointing Dependabot at those is a separate conversation.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"

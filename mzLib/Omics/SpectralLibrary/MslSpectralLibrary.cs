@@ -256,8 +256,9 @@ public static class MslFormat
 
 	/// <summary>
 	/// File-level flag: the extended annotation table section is present (version 2+).
-	/// When set, <c>MslFileHeader.ExtAnnotationTableOffset</c> contains the absolute byte
-	/// offset of the extended annotation table; the table holds custom neutral-loss masses
+	/// When set, the extended annotation table follows the fragment section (its absolute offset
+	/// is also in <c>MslFileHeader.ExtAnnotationTableOffset</c> when it fits in an int32); the
+	/// table holds custom neutral-loss masses
 	/// indexed by <c>MslFragmentRecord.ResiduePosition</c> when <c>neutral_loss_code == Custom</c>.
 	/// </summary>
 	public const int FileFlagHasExtAnnotations = 1 << 4;
@@ -276,7 +277,7 @@ public static class MslFormat
 	/// [int64 UncompressedFragmentSize]  byte count after full decompression
 	/// </code>
 	/// <para>
-	/// Index-only load (<see cref="MslLibrary.LoadIndexOnly"/>) is <b>not available</b> for
+	/// Index-only load (<c>MslLibrary.LoadIndexOnly</c>) is <b>not available</b> for
 	/// compressed files; the reader always performs full decompression regardless of which
 	/// load method was called, and <c>MslLibrary.IsIndexOnly</c> returns <c>false</c>.
 	/// </para>

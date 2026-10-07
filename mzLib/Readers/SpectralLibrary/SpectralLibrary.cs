@@ -1,4 +1,4 @@
-using Chemistry;
+﻿using Chemistry;
 using MzLibUtil;
 using Omics.Fragmentation;
 using System.Globalization;
@@ -679,7 +679,6 @@ namespace Readers.SpectralLibrary
                     if (ind > 0)
                     {
                         bool readingModName = false;
-                        int bracketCount = 0;
 
                         for (int i = ind; i < line.Length; i++)
                         {
@@ -977,7 +976,7 @@ namespace Readers.SpectralLibrary
                         $"C-terminal ResiduePosition values may be inaccurate.");
                 }
                 product = new Product(peakProductType, terminus, experMz.ToMass(fragmentCharge), fragmentNumber,
-                    residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber,
+                    residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber + 1,
                     neutralLoss);
             }
 

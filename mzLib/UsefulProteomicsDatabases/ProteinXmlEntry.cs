@@ -284,12 +284,25 @@ namespace UsefulProteomicsDatabases
         {
             if (string.IsNullOrEmpty(sequence))
                 return 0;
-            return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            try
+            {
+                return (int)Math.Round(new PeptideWithSetModifications(sequence, new Dictionary<string, Modification>()).MonoisotopicMass);
+            }
+            catch (ArgumentException)
+            {
+                // RNA and MODOMICS XML sequences are parsed by RnaDbLoader later;
+                // their sequence metadata mass is not required for RNA construction.
+                return 0;
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return 0;
+            }
         }
         /// <summary>
         /// Handles the end of an XML element during protein database parsing and updates the internal state or finalizes objects as needed.
         /// Depending on the element name, this method processes and stores feature, subfeature, database reference, gene, and organism information.
-        /// When the end of an <entry> element is reached, it finalizes the parsing of the protein entry by:
+        /// When the end of an &lt;entry&gt; element is reached, it finalizes the parsing of the protein entry by:
         ///   - Sanitizing the sequence (replacing invalid amino acids with 'X').
         ///   - Pruning sequence variants whose coordinates exceed the sequence length.
         ///   - Resolving and attaching all annotated modifications, excluding specified types or unknowns.
@@ -297,7 +310,7 @@ namespace UsefulProteomicsDatabases
         ///   - Aggregating all parsed data (gene names, proteolysis products, sequence variations, disulfide bonds, splice sites, database references, and sequence attributes)
         ///     into a new <see cref="Protein"/> instance.
         ///   - Clearing the internal state to prepare for the next entry.
-        /// Returns a constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, returns <c>null</c>.
+        /// Returns a constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present; otherwise, returns <c>null</c>.
         /// </summary>
         /// <param name="xml">The <see cref="XmlReader"/> positioned at the end of the current XML element.</param>
         /// <param name="modTypesToExclude">A collection of modification types to exclude from the protein.</param>
@@ -306,7 +319,7 @@ namespace UsefulProteomicsDatabases
         /// <param name="proteinDbLocation">The file path or identifier of the protein database source.</param>
         /// <param name="decoyIdentifier">A string used to identify decoy proteins (default: "DECOY").</param>
         /// <returns>
-        /// A constructed <see cref="Protein"/> object if the end of an <entry> element is reached and all required data is present; otherwise, <c>null</c>.
+        /// A constructed <see cref="Protein"/> object if the end of an &lt;entry&gt; element is reached and all required data is present; otherwise, <c>null</c>.
         /// </returns>
         public Protein ParseEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications,
             bool isContaminant, string proteinDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
@@ -360,7 +373,7 @@ namespace UsefulProteomicsDatabases
         /// </returns>
         internal RNA ParseRnaEndElement(XmlReader xml, IEnumerable<string> modTypesToExclude,
             Dictionary<string, Modification> unknownModifications,
-            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
+            bool isContaminant, string rnaDbLocation, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false, IList<SequenceTransformationOnRead>? transformationsToApply = null)
         {
             RNA result = null;
             if (xml.Name == "feature")
@@ -385,7 +398,7 @@ namespace UsefulProteomicsDatabases
             }
             else if (xml.Name == "entry")
             {
-                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier, entrapmentIdentifier, isEntrapmentDb);
+                result = ParseRnaEntryEndElement(xml, isContaminant, rnaDbLocation, modTypesToExclude, unknownModifications, decoyIdentifier, entrapmentIdentifier, isEntrapmentDb, transformationsToApply);
             }
             return result;
         }
@@ -434,12 +447,12 @@ namespace UsefulProteomicsDatabases
                     isDecoy = true;
                 }
                 // Detect entrapment: either caller flagged entire DB as entrapment, or accession contains the identifier anywhere
-                isEntrapment = isEntrapmentDb || Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                isEntrapment = isEntrapmentDb || ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier);
                 if (isEntrapment && isContaminant)
                     throw new MzLibUtil.MzLibException($"Protein accession '{Accession}' cannot be both a contaminant and an entrapment protein.",
                         new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                 // Prepend entrapment identifier if accession doesn't already contain it
-                if (isEntrapment && Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                if (isEntrapment && !ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier))
                 {
                     if (isDecoy)
                         Accession = decoyIdentifier + "_" + entrapmentIdentifier + "_" + Accession.Substring(decoyIdentifier.Length).TrimStart('_');
@@ -479,16 +492,16 @@ namespace UsefulProteomicsDatabases
         /// or <c>null</c> if the entry is incomplete.
         /// </returns>
         internal RNA ParseRnaEntryEndElement(XmlReader xml, bool isContaminant, string rnaDbLocation,
-            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false)
+            IEnumerable<string> modTypesToExclude, Dictionary<string, Modification> unknownModifications, string decoyIdentifier = "DECOY", string entrapmentIdentifier = "Random", bool isEntrapmentDb = false, IList<SequenceTransformationOnRead>? transformationsToApply = null)
         {
             RNA result = null;
             bool isDecoy = false;
             bool isEntrapment = false;
             if (Accession != null && Sequence != null)
             {
-                // sanitize the sequence to replace unexpected characters with X (unknown amino acid)
-                // sometimes strange characters get added by RNA sequencing software, etc.
-                Sequence = ProteinDbLoader.SanitizeAminoAcidSequence(Sequence, 'X');
+                // sanitize the sequence 
+                Sequence = RnaDbLoader.SanitizeAndTransform(Sequence,
+                    transformationsToApply ?? Array.Empty<SequenceTransformationOnRead>(), out var fixedModifications);
                 // Prune any sequence variants whose coordinates exceed the known sequence length
                 PruneOutOfRangeSequenceVariants();
                 if (Accession.StartsWith(decoyIdentifier))
@@ -496,12 +509,12 @@ namespace UsefulProteomicsDatabases
                     isDecoy = true;
                 }
                 // Detect entrapment: either caller flagged entire DB as entrapment, or accession contains the identifier anywhere
-                isEntrapment = isEntrapmentDb || Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                isEntrapment = isEntrapmentDb || ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier);
                 if (isEntrapment && isContaminant)
                     throw new MzLibUtil.MzLibException($"RNA accession '{Accession}' cannot be both a contaminant and an entrapment sequence.",
                         new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                 // Prepend entrapment identifier if accession doesn't already contain it
-                if (isEntrapment && Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                if (isEntrapment && !ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier))
                 {
                     if (isDecoy)
                         Accession = decoyIdentifier + "_" + entrapmentIdentifier + "_" + Accession.Substring(decoyIdentifier.Length).TrimStart('_');
@@ -512,7 +525,7 @@ namespace UsefulProteomicsDatabases
                 ParseAnnotatedMods(OneBasedModifications, modTypesToExclude, unknownModifications, AnnotatedMods);
                 result = new RNA(Sequence, Accession, OneBasedModifications, null, null, Name, Organism, rnaDbLocation,
                     isContaminant, isDecoy, GeneNames, [], ProteolysisProducts, SequenceVariations, null, null, FullName,
-                    isEntrapment);
+                    isEntrapment, fixedModifications);
             }
             Clear();
             return result;
@@ -585,7 +598,11 @@ namespace UsefulProteomicsDatabases
                 }
                 ProteolysisProducts.Add(new TruncationProduct(OneBasedBeginPosition, OneBasedEndPosition, type));
             }
-            else if (FeatureType == "sequence variant" && VariationValue != null && VariationValue != "")
+            // A sequence-variant feature encodes a real change when at least one of <original>/<variation>
+            // is non-empty: substitution (both), insertion (empty original), or DELETION (empty variation —
+            // how UniProt natively encodes a deletion, e.g. <original>P</original><variation/>). Requiring a
+            // non-empty <variation> silently dropped every UniProt-native deletion.
+            else if (FeatureType == "sequence variant" && !(string.IsNullOrEmpty(OriginalValue) && string.IsNullOrEmpty(VariationValue)))
             {
                 bool appliesToThisSequence = true;
                 if (!string.IsNullOrEmpty(LocationSequenceId))
@@ -674,9 +691,9 @@ namespace UsefulProteomicsDatabases
         }
 
         /// <summary>
-        /// Clear this object's properties
+        /// Clear this object's properties. Internal so the RNA loader can reset state after a skipped entry.
         /// </summary>
-        private void Clear()
+        internal void Clear()
         {
             EntryAttributes = null;
             Accession = null;

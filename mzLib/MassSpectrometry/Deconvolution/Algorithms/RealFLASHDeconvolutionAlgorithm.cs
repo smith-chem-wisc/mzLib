@@ -80,7 +80,7 @@ namespace MassSpectrometry
         /// spectrum.Range.Maximum may be dropped at the edge. For full-fidelity
         /// results use <see cref="DeconvoluteFile"/>.
         /// </summary>
-        internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
+        protected internal override IEnumerable<IsotopicEnvelope> Deconvolute(MzSpectrum spectrum, MzRange range)
         {
             var p = DeconvolutionParameters as RealFLASHDeconvolutionParameters
                 ?? throw new MzLibException("Deconvolution params and algorithm do not match");

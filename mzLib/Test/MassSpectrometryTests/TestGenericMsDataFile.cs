@@ -17,7 +17,6 @@ namespace Test.MassSpectrometryTests;
 [ExcludeFromCodeCoverage]
 public class TestGenericMsDataFile
 {
-    private MsDataScan[] _testScan;
     private MzSpectrum _mzSpectrumA;
     private MzSpectrum _ms1;
     private MzSpectrum _ms2;

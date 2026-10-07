@@ -41,9 +41,9 @@ namespace Test.DatabaseTests
         [OneTimeSetUp]
         public static void SetUpModifications()
         {
-            var psiModDeserialized = Loaders.LoadPsiMod(Path.Combine(TestContext.CurrentContext.TestDirectory, "PSI-MOD.obo2.xml"));
+            var psiModDeserialized = Loaders.LoadPsiMod(TestOntologies.PsiModXml);
             Dictionary<string, int> formalChargesDictionary = Loaders.GetFormalChargesDictionary(psiModDeserialized);
-            UniProtPtms = Loaders.LoadUniprot(Path.Combine(TestContext.CurrentContext.TestDirectory, "ptmlist2.txt"), formalChargesDictionary).ToList();
+            UniProtPtms = Loaders.LoadUniprot(TestOntologies.PtmList, formalChargesDictionary).ToList();
         }
 
         [SetUp]
@@ -261,6 +261,24 @@ namespace Test.DatabaseTests
             Assert.AreEqual("Histone H4", prots.First().FullName);
             Assert.AreEqual("HIST1H4A", prots.First().GeneNames.First().Item2);
             Assert.AreEqual("Homo sapiens", prots.First().Organism);
+        }
+
+        [Test]
+        public static void LegacyNcbiFastaHeaderYieldsTheAccessionNotConcatenatedFields()
+        {
+            List<Protein> prots = ProteinDbLoader.LoadProteinFasta(
+                Path.Combine(TestContext.CurrentContext.TestDirectory, "DatabaseTests", @"ncbi_gi_legacy.fasta"),
+                true, DecoyType.None, false, out _,
+                ProteinDbLoader.UniprotAccessionRegex, ProteinDbLoader.UniprotFullNameRegex,
+                ProteinDbLoader.UniprotNameRegex, ProteinDbLoader.UniprotGeneNameRegex,
+                ProteinDbLoader.UniprotOrganismRegex);
+
+            Assert.That(prots.Select(p => p.Accession),
+                Is.EqualTo(new[] { "NP_414555.1", "NP_414556.1", "NP_414557.1" }));
+
+            // The accession is the join key in every output file, and "|" is the separator those
+            // files use for multi-valued columns, so a pipe inside one silently misaligns them.
+            Assert.That(prots.Select(p => p.Accession), Has.None.Contains("|"));
         }
 
         [Test]

@@ -20,6 +20,46 @@ namespace Test.FileReadingTests.InternalFileReading
     {
 
         [Test]
+        public static void ProteinGroupInfos_HandlesEmptyAccessionGeneOrganism()
+        {
+            // Regression test: ConstructProteinGroupInfo split Accession/Gene Name/Organism Name without a null
+            // check, but GetOptionalValue returns null for empty cells, so a PSM row with no protein annotation
+            // threw a NullReferenceException when ProteinGroupInfos was accessed (e.g. on the FlashLFQ
+            // MakeIdentifications path over a real AllPSMs file). Build such a row from a real file and verify it
+            // no longer throws and yields empty strings instead of null.
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults", "BottomUpExample.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            string[] header = lines[0].Split('\t');
+            int acc = Array.IndexOf(header, "Protein Accession");
+            int gene = Array.IndexOf(header, "Gene Name");
+            int org = Array.IndexOf(header, "Organism Name");
+            NUnit.Framework.Assert.That(acc >= 0 && gene >= 0 && org >= 0, "template is missing an expected column");
+
+            string[] cells = lines[1].Split('\t');
+            cells[acc] = cells[gene] = cells[org] = ""; // empty cells -> GetOptionalValue returns null for these fields
+            string tempPath = Path.Combine(Path.GetTempPath(), "EmptyProteinFields_" + Guid.NewGuid().ToString("N") + ".psmtsv");
+            File.WriteAllLines(tempPath, new[] { lines[0], string.Join("\t", cells) });
+
+            try
+            {
+                List<PsmFromTsv> psms = SpectrumMatchTsvReader.ReadPsmTsv(tempPath, out _);
+                NUnit.Framework.Assert.That(psms.Count, Is.EqualTo(1));
+
+                List<(string proteinAccessions, string geneName, string organism)> infos = null;
+                NUnit.Framework.Assert.DoesNotThrow(() => infos = psms[0].ProteinGroupInfos);
+                NUnit.Framework.Assert.That(infos.Count, Is.EqualTo(1));
+                NUnit.Framework.Assert.That(infos[0].proteinAccessions, Is.EqualTo(""));
+                NUnit.Framework.Assert.That(infos[0].geneName, Is.EqualTo(""));
+                NUnit.Framework.Assert.That(infos[0].organism, Is.EqualTo(""));
+            }
+            finally
+            {
+                File.Delete(tempPath);
+            }
+        }
+
+        [Test]
         [TestCase("oglycoSinglePsms.psmtsv", 2)] // oglyco
         [TestCase("oGlycoAllPsms.psmtsv", 10)] // oglyco - AllPsms
         [TestCase("nglyco_f5.psmtsv", 5)] // nglyco
@@ -414,6 +454,143 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         [Test]
+        public static void PrecursorMostAbundantMass_OptionalColumn_ReadsAndSurvivesDisambiguation()
+        {
+            string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+
+            // A file WITHOUT the optional column: the property reads back null, so monoisotopic-mode
+            // output is unaffected and old files still read.
+            List<PsmFromTsv> withoutColumn = SpectrumMatchTsvReader.ReadPsmTsv(baseFile, out _);
+            NUnit.Framework.Assert.That(withoutColumn.First().PrecursorMostAbundantMass, Is.Null);
+
+            // Build a synthetic copy carrying "Precursor Most Abundant Mass" as the last column. Unlike the
+            // mass-error column this is an observation of the precursor envelope, not a per-hypothesis value:
+            // one number per row, never "|"-separated, even for an ambiguous match.
+            string[] lines = File.ReadAllLines(baseFile);
+            int headerWidth = lines[0].Split('\t').Length;
+            var outLines = new List<string>
+            {
+                lines[0] + "\t" + SpectrumMatchFromTsvHeader.PrecursorMostAbundantMass
+            };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                // Only append to rows that are exactly header-width, so the value always lands at the
+                // registered column index. A ragged/short row would otherwise place it at that row's own
+                // column count and the reader would map the wrong cell (mirrors the sibling test's guard).
+                if (lines[i].Split('\t').Length != headerWidth)
+                {
+                    outLines.Add(lines[i]);
+                    continue;
+                }
+                outLines.Add(lines[i] + "\t" + "1234.5678");
+            }
+            string syntheticFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "PrecursorMostAbundantMass_synthetic.psmtsv");
+            File.WriteAllLines(syntheticFile, outLines);
+
+            try
+            {
+                List<PsmFromTsv> withColumn = SpectrumMatchTsvReader.ReadPsmTsv(syntheticFile, out _);
+
+                PsmFromTsv psm = withColumn.First();
+                NUnit.Framework.Assert.That(psm.PrecursorMostAbundantMass, Is.EqualTo(1234.5678).Within(1e-6));
+
+                // The monoisotopic precursor mass is untouched by the new column.
+                NUnit.Framework.Assert.That(psm.PrecursorMass,
+                    Is.EqualTo(withoutColumn.First().PrecursorMass).Within(1e-6));
+
+                // Disambiguating an ambiguous match carries the observation through unchanged - the envelope
+                // apex is a property of the scan, so every hypothesis of the match shares it. Anchor the
+                // ambiguous row's value to the concrete expectation first, so a null on either side fails
+                // rather than letting the comparison degenerate to null == null.
+                PsmFromTsv ambiguous = withColumn.First(p => p.FullSequence.Contains('|'));
+                NUnit.Framework.Assert.That(ambiguous.PrecursorMostAbundantMass, Is.EqualTo(1234.5678).Within(1e-6));
+                PsmFromTsv disambiguated = new(ambiguous, ambiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambiguated.PrecursorMostAbundantMass,
+                    Is.EqualTo(ambiguous.PrecursorMostAbundantMass));
+            }
+            finally
+            {
+                File.Delete(syntheticFile);
+            }
+        }
+
+        [Test]
+        public static void MostAbundantMassDiffPpm_OptionalColumn_ReadsAndDisambiguates()
+        {
+            string baseFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
+
+            // A file WITHOUT the optional column: the property reads back null. The reader only
+            // looks for the column when it is present, so monoisotopic-mode output is unaffected.
+            List<PsmFromTsv> withoutColumn = SpectrumMatchTsvReader.ReadPsmTsv(baseFile, out _);
+            NUnit.Framework.Assert.That(withoutColumn.First().MostAbundantMassDiffPpm, Is.Null);
+
+            // Build a synthetic copy that DOES carry "Most Abundant Mass Diff (ppm)" as the last column.
+            // Each row's cell mirrors the "|"-cardinality of that row's monoisotopic-mass cell, so an
+            // ambiguous match disambiguates to the correct segment exactly as MassDiffPpm does.
+            string[] lines = File.ReadAllLines(baseFile);
+            string[] headerCells = lines[0].Split('\t');
+            int monoIdx = Array.IndexOf(headerCells, SpectrumMatchFromTsvHeader.PeptideMonoMass);
+            var outLines = new List<string>
+            {
+                lines[0] + "\t" + SpectrumMatchFromTsvHeader.MostAbundantMassDiffPpm
+            };
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] cells = lines[i].Split('\t');
+                if (cells.Length <= monoIdx) // blank or ragged line: leave it for the reader to skip
+                {
+                    outLines.Add(lines[i]);
+                    continue;
+                }
+                int segments = cells[monoIdx].Split('|').Length;
+                string cell = string.Join("|", Enumerable.Range(0, segments).Select(k => $"{10 + k}.5"));
+                outLines.Add(lines[i] + "\t" + cell);
+            }
+            string syntheticFile = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                "MostAbundantMassDiffPpm_synthetic.psmtsv");
+            File.WriteAllLines(syntheticFile, outLines);
+
+            try
+            {
+                List<PsmFromTsv> withColumn = SpectrumMatchTsvReader.ReadPsmTsv(syntheticFile, out _);
+
+                // Main-constructor read of the present optional column (single-segment, unambiguous row).
+                PsmFromTsv single = withColumn.First(p => !p.FullSequence.Contains('|'));
+                NUnit.Framework.Assert.That(single.MostAbundantMassDiffPpm, Is.EqualTo("10.5"));
+
+                // Non-ambiguous disambiguation copies the value straight through.
+                PsmFromTsv clone = new(single, single.FullSequence, 0);
+                NUnit.Framework.Assert.That(clone.MostAbundantMassDiffPpm, Is.EqualTo(single.MostAbundantMassDiffPpm));
+
+                // Ambiguous row with a single monoisotopic-mass segment -> the "count == 1" branch
+                // resolves the optional column to segment [0].
+                PsmFromTsv singleMonoAmbiguous = withColumn.First(p =>
+                    p.FullSequence.Contains('|') && p.MonoisotopicMassString != null
+                    && !p.MonoisotopicMassString.Contains('|') && p.MostAbundantMassDiffPpm != null);
+                PsmFromTsv disambSingle = new(singleMonoAmbiguous, singleMonoAmbiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambSingle.MostAbundantMassDiffPpm,
+                    Is.EqualTo(singleMonoAmbiguous.MostAbundantMassDiffPpm.Split('|')[0]));
+
+                // Ambiguous row with multiple monoisotopic-mass segments -> the "else" branch resolves
+                // the optional column to the chosen index (0 here) segment.
+                PsmFromTsv multiMonoAmbiguous = withColumn.First(p =>
+                    p.FullSequence.Contains('|') && p.MonoisotopicMassString != null
+                    && p.MonoisotopicMassString.Contains('|')
+                    && p.MostAbundantMassDiffPpm != null && p.MostAbundantMassDiffPpm.Contains('|'));
+                PsmFromTsv disambMulti = new(multiMonoAmbiguous, multiMonoAmbiguous.FullSequence.Split('|')[0], 0);
+                NUnit.Framework.Assert.That(disambMulti.MostAbundantMassDiffPpm,
+                    Is.EqualTo(multiMonoAmbiguous.MostAbundantMassDiffPpm.Split('|')[0]));
+            }
+            finally
+            {
+                File.Delete(syntheticFile);
+            }
+        }
+
+        [Test]
         public static void TestParseModification()
         {
             string psmTsvPath = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\SearchResults\TDGPTMDSearchResults.psmtsv");
@@ -727,6 +904,34 @@ namespace Test.FileReadingTests.InternalFileReading
             List<PsmFromTsv> results = new PsmFromTsvFile(psmFilePath, parsingParams).Results;
             foreach (var psm in results)
                 NUnit.Framework.Assert.That(psm.MatchedIons, Is.Null.Or.Empty, $"Expected no matched ions but got {psm.MatchedIons?.Count ?? 0}");
+        }
+
+        [Test]
+        public static void CTerminalResiduePositions_AgreeWithDocumentedOneBasedPosition()
+        {
+            string searchResultsDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults");
+            var psms = SpectrumMatchTsvReader.ReadPsmTsv(
+                    Path.Combine(searchResultsDirectory, "BottomUpExample.psmtsv"), out _)
+                .Cast<SpectrumMatchFromTsv>()
+                .Concat(SpectrumMatchTsvReader.ReadGlycoPsmTsv(
+                    Path.Combine(searchResultsDirectory, "oglyco.psmtsv"), out _));
+
+            var cTerminalIons = psms
+                .Where(psm => !psm.BaseSeq.Contains('|'))
+                .SelectMany(psm => psm.MatchedIons
+                    .Where(ion => ion.NeutralTheoreticalProduct.Terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime)
+                    .Select(ion => (Psm: psm, Ion: ion)))
+                .ToList();
+
+            NUnit.Framework.Assert.That(cTerminalIons, Is.Not.Empty);
+            foreach (var match in cTerminalIons)
+            {
+                int sequenceLength = match.Psm.BaseSeq.Length;
+                NUnit.Framework.Assert.That(match.Ion.NeutralTheoreticalProduct.ResiduePosition,
+                    Is.EqualTo(sequenceLength - match.Ion.NeutralTheoreticalProduct.FragmentNumber + 1),
+                    match.Ion.Annotation);
+            }
         }
     }
 }

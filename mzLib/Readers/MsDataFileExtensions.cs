@@ -5,7 +5,7 @@ namespace Readers
 {
     public static class MsDataFileExtensions
     {
-        // <summary>
+        /// <summary>
         /// Extracts an ion chromatogram from the spectra file, given a mass, charge, retention time, and mass tolerance.
         /// </summary>
         public static ExtractedIonChromatogram ExtractIonChromatogram(this MsDataFile file, double neutralMass, int charge, Tolerance massTolerance, double retentionTimeInMinutes, int msOrder = 1, double retentionTimeWindowWidthInMinutes = 5)
@@ -42,6 +42,17 @@ namespace Readers
         public static void ExportAsMzML(this MsDataFile file, string destinationPath, bool writeIndexed)
         {
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(file, destinationPath, writeIndexed);
+        }
+
+        /// <summary>
+        /// Writes the file as Mascot Generic Format. MGF carries a single precursor m/z per spectrum, so
+        /// the deconvoluted monoisotopic guess is preferred over the selected ion m/z where available.
+        /// Scans with no peaks are skipped. See <see cref="MgfMethods"/> for the field mapping, and for
+        /// why <paramref name="includeMs1Scans"/> trades portability against precursor fidelity.
+        /// </summary>
+        public static void ExportAsMgf(this MsDataFile file, string destinationPath, bool includeMs1Scans = true)
+        {
+            MgfMethods.WriteMgf(file, destinationPath, includeMs1Scans);
         }
 
         /// <summary>
@@ -180,7 +191,16 @@ namespace Readers
                 originalFile.SourceFile.FileChecksumType,
                 originalFile.SourceFile.Uri,
                 originalFile.SourceFile.Id,
-                originalFile.SourceFile.FileName);
+                originalFile.SourceFile.FileName)
+            {
+                // Carried explicitly: this is a field-by-field COPY of SourceFile, so an init-only
+                // property added later is silently dropped here even though no constructor call
+                // changed. Omitting it meant every snipped mzML still lost the instrument -- the
+                // exact loss the writer fix exists to prevent.
+                InstrumentModel = originalFile.SourceFile.InstrumentModel,
+                InstrumentSerialNumber = originalFile.SourceFile.InstrumentSerialNumber,
+                AcquisitionStartTime = originalFile.SourceFile.AcquisitionStartTime
+            };
 
             var dataFile = new GenericMsDataFile(scansForTheNewFile.ToArray(), sourceFile);
             MzmlMethods.CreateAndWriteMyMzmlWithCalibratedSpectra(dataFile, outPath, false);

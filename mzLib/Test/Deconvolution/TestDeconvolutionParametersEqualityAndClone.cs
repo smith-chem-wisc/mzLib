@@ -349,10 +349,28 @@ namespace Test
         }
 
         [Test]
-        public void FromFile_Equal_DifferentFeatureCount_AreNotEqual()
+        public void FromFile_Equal_DifferentFeatureCount_AreEqualWhenNoFilePath()
         {
+            // Two instances built with the in-memory feature ctor (no FilePath) must
+            // be equal under the new config-only equality contract: FilePath is the
+            // sole FromFile-specific identity, and feature count is now load-derived
+            // state, not configuration. Feature count no longer participates in
+            // equality (it would force eager I/O on every hash/equals call).
             var a = new FromFileDeconvolutionParameters(new[] { Feature(), Feature(601.0, 3) }, 1, 60);
             var b = new FromFileDeconvolutionParameters(new[] { Feature() }, 1, 60);
+            Assert.That(a, Is.EqualTo(b));
+        }
+
+        [Test]
+        public void FromFile_Equal_DifferentFilePaths_AreNotEqual()
+        {
+            // The new config-only identity is FilePath. Two in-memory instances with
+            // no FilePath are equal; assigning different FilePaths must distinguish
+            // them. Build in-memory, set FilePath post-construction, then compare.
+            var a = new FromFileDeconvolutionParameters(new[] { Feature() }, 1, 60);
+            var b = new FromFileDeconvolutionParameters(new[] { Feature() }, 1, 60);
+            a.FilePath = "featureA.ms1.feature";
+            b.FilePath = "featureB.ms1.feature";
             Assert.That(a, Is.Not.EqualTo(b));
         }
 
@@ -404,6 +422,42 @@ namespace Test
             };
             var clone = original.Clone();
             Assert.That(clone.UseGenericScore, Is.True);
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // RealFLASHDeconvolutionParameters
+        // ══════════════════════════════════════════════════════════════════════
+
+        [Test]
+        public void RealFLASH_Clone_EqualsOriginalButIsNewReference()
+        {
+            var original = new RealFLASHDeconvolutionParameters(
+                minCharge: 2, maxCharge: 40, tolerancePpm: 7.5, minMass: 500, maxMass: 60_000,
+                minIsotopeCosine: 0.9, polarity: Polarity.Negative,
+                flashDeconvExePath: @"C:\x\FLASHDeconv.exe", workingDirectory: @"C:\tmp",
+                processTimeoutSeconds: 42)
+            {
+                UseGenericScore = true,
+                ExpectedIsotopeSpacing = 1.002
+            };
+            var clone = original.Clone();
+            Assert.That(clone, Is.Not.SameAs(original));
+            Assert.That(clone, Is.EqualTo(original));
+            Assert.That(clone.GetHashCode(), Is.EqualTo(original.GetHashCode()));
+        }
+
+        [Test]
+        public void RealFLASH_Equals_DetectsEachSubclassProperty()
+        {
+            var a = new RealFLASHDeconvolutionParameters();
+            Assert.That(new RealFLASHDeconvolutionParameters(), Is.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { TolerancePpm = 5 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { MinMass = 1 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { MaxMass = 1 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { MinIsotopeCosine = 0.1 }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { FLASHDeconvExePath = "FLASHDeconv" }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { WorkingDirectory = "elsewhere" }, Is.Not.EqualTo(a));
+            Assert.That(new RealFLASHDeconvolutionParameters { ProcessTimeoutSeconds = 1 }, Is.Not.EqualTo(a));
         }
     }
 }

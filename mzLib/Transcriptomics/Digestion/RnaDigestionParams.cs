@@ -1,4 +1,4 @@
-using Omics.Digestion;
+﻿using Omics.Digestion;
 using Omics.Fragmentation;
 
 namespace Transcriptomics.Digestion
@@ -13,7 +13,8 @@ namespace Transcriptomics.Digestion
 
         public RnaDigestionParams(string rnase = "top-down", int maxMissedCleavages = 0, int minLength = 3,
             int maxLength = int.MaxValue, int maxModificationIsoforms = 1024, int maxMods = 2,
-            FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both)
+            FragmentationTerminus fragmentationTerminus = FragmentationTerminus.Both,
+            CleavageSpecificity searchModeType = CleavageSpecificity.Full)
         {
             Rnase = RnaseDictionary.Dictionary[rnase];
             MaxMissedCleavages = maxMissedCleavages;
@@ -22,6 +23,15 @@ namespace Transcriptomics.Digestion
             MaxMods = maxMods;
             MaxModificationIsoforms = maxModificationIsoforms;
             FragmentationTerminus = fragmentationTerminus;
+            SearchModeType = searchModeType;
+
+            SpecificRnase = Rnase;
+            if (SearchModeType == CleavageSpecificity.None) //nonspecific searches, which might have a specific protease
+            {
+                Rnase = FragmentationTerminus is FragmentationTerminus.N or FragmentationTerminus.FivePrime ?
+                   RnaseDictionary.Dictionary["singleN"] :
+                   RnaseDictionary.Dictionary["singleC"];
+            }
         }
 
         public int MaxMissedCleavages { get; set; }
@@ -30,16 +40,19 @@ namespace Transcriptomics.Digestion
         public int MaxModificationIsoforms { get; set; }
         public int MaxMods { get; set; }
         public DigestionAgent DigestionAgent => Rnase;
+        public DigestionAgent SpecificDigestionAgent  => SpecificRnase;
         public Rnase Rnase { get; private set; }
+        public DigestionAgent SpecificRnase { get; private set; }
         public FragmentationTerminus FragmentationTerminus { get; set; }
-        public CleavageSpecificity SearchModeType { get; set; } = CleavageSpecificity.Full;
+        public CleavageSpecificity SearchModeType { get; set; }
         public IDigestionParams Clone(FragmentationTerminus? newTerminus = null)
         {
-            return newTerminus.HasValue
-                ? new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
-                    MaxModificationIsoforms, MaxMods, newTerminus.Value)
-                : new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
-                    MaxModificationIsoforms, MaxMods, FragmentationTerminus);
+            var terminus = newTerminus ?? FragmentationTerminus;
+            if (SearchModeType == CleavageSpecificity.None)
+                return new RnaDigestionParams(SpecificDigestionAgent.Name, MaxMissedCleavages, MinLength, MaxLength,
+                    MaxModificationIsoforms, MaxMods, terminus, SearchModeType);
+            return new RnaDigestionParams(Rnase.Name, MaxMissedCleavages, MinLength, MaxLength,
+                MaxModificationIsoforms, MaxMods, terminus, SearchModeType);
         }
 
         #region Equality
@@ -59,6 +72,7 @@ namespace Transcriptomics.Digestion
                    && MaxModificationIsoforms == other.MaxModificationIsoforms
                    && MaxMods == other.MaxMods
                    && Rnase.Equals(other.Rnase)
+                   && SpecificDigestionAgent.Equals(other.SpecificDigestionAgent)
                    && FragmentationTerminus == other.FragmentationTerminus
                    && SearchModeType == other.SearchModeType;
         }
@@ -72,11 +86,14 @@ namespace Transcriptomics.Digestion
             hash.Add(MaxModificationIsoforms);
             hash.Add(MaxMods);
             hash.Add(Rnase);
+            hash.Add(SpecificDigestionAgent);
             hash.Add((int)FragmentationTerminus);
             hash.Add((int)SearchModeType);
             return hash.ToHashCode();
         }
 
         #endregion
+
     }
 }
+

@@ -54,7 +54,7 @@ public class DictionaryPool<TKey, TValue> where TKey : notnull
     public void Return(Dictionary<TKey, TValue> dictionary)
     {
         if (dictionary == null) throw new ArgumentNullException(nameof(dictionary));
-        dictionary.Clear(); // Ensure the Dictionary is clean before returning it to the pool
+        // the pooling policy clears it on the way in; see the Return override below
         _pool.Return(dictionary);
     }
 

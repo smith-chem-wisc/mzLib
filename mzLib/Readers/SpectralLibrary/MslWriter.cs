@@ -110,6 +110,7 @@ public static class MslWriter
 				"compressionLevel must be in [0, 22]. Use 0 for no compression.");
 
 		string tempPath = outputPath + ".tmp~";
+		string compressedTempPath = outputPath + ".zfrags~";
 
 		try
 		{
@@ -121,13 +122,17 @@ public static class MslWriter
 
 			// Pre-compress the fragment data when compression is requested.
 			// This gives us the exact compressed size before writing the descriptor.
-			byte[]? compressedFragmentData = null;
 			if (layout.IsCompressed)
 			{
-				compressedFragmentData = BuildAndCompressFragmentBuffer(layout, entries);
 				// Store sizes in layout so WriteHeader / WriteCompressionDescriptor can use them
-				layout.CompressedFragmentSize = compressedFragmentData.Length;
-				// UncompressedFragmentSize was already set during Pass 1
+				// (UncompressedFragmentSize was already set during Pass 1)
+				layout.CompressedFragmentSize = CompressToFile(
+					compressedTempPath, layout.CompressionLevel, layout.UncompressedFragmentSize,
+					zstd =>
+					{
+						using var fragWriter = new BinaryWriter(zstd, Encoding.UTF8, leaveOpen: true);
+						WriteFragmentRecords(fragWriter, layout, entries);
+					});
 			}
 
 			// ── Pass 2a: write all sections except the footer ─────────────────
@@ -144,9 +149,15 @@ public static class MslWriter
 				WritePrecursorArray(writer, layout, entries);
 
 				if (layout.IsCompressed)
-					writer.Write(compressedFragmentData!);   // already compressed above
+				{
+					// already compressed above
+					writer.Flush();
+					CopyFile(compressedTempPath, writer.BaseStream);
+				}
 				else
+				{
 					WriteFragmentRecords(writer, layout, entries);  // uncompressed path
+				}
 
 				WriteExtAnnotationTable(writer, layout);
 				WriteOffsetTable(writer, layout);
@@ -169,6 +180,10 @@ public static class MslWriter
 			if (File.Exists(tempPath))
 				File.Delete(tempPath);
 			throw;
+		}
+		finally
+		{
+			TryDeleteFile(compressedTempPath);
 		}
 	}
 
@@ -252,6 +267,7 @@ public static class MslWriter
 		string fragmentTempPath = outputPath + ".frags~";
 		string spillTempPath = outputPath + ".spill~";
 		string outputTempPath = outputPath + ".tmp~";
+		string compressedTempPath = outputPath + ".zfrags~";
 
 		try
 		{
@@ -364,7 +380,7 @@ public static class MslWriter
 						ModifiedSeqStringIdx = modSeqIdx,
 						StrippedSeqStringIdx = stripSeqIdx,
 						ProteinIdx = proteinSlotIndex.TryGetValue(acc, out int pIdx) ? pIdx : -1,
-						FragmentCount = (short)frags.Count,
+						FragmentCount = ToFragmentCount(frags.Count, entry.FullSequence),
 						FragmentBlockOffset = fragOffset,
 
 						// Entry scalar fields — copied directly from the entry object.
@@ -420,18 +436,13 @@ public static class MslWriter
 			// the file-flags bitmask and the compressed/uncompressed size fields.
 			long compressedFragmentSize = 0L;
 			long uncompressedFragmentSize = runningFragmentOffset; // raw byte count
-			byte[]? compressedFragmentBytes = null;
 
 			if (compressionLevel > 0)
 			{
-				// Read the entire fragment temp file into memory for compression.
-				// For very large files this is the dominant memory cost; however, the
-				// zstd compression itself may produce output significantly smaller.
-				byte[] rawFragmentBytes = File.ReadAllBytes(fragmentTempPath);
-
-				using var compressor = new ZstdSharp.Compressor(compressionLevel);
-				compressedFragmentBytes = compressor.Wrap(rawFragmentBytes).ToArray();
-				compressedFragmentSize = compressedFragmentBytes.Length;
+				// Compress the fragment temp file as a stream, so no buffer holds the whole section
+				compressedFragmentSize = CompressToFile(
+					compressedTempPath, compressionLevel, uncompressedFragmentSize,
+					zstd => CopyFile(fragmentTempPath, zstd));
 				fileFlags |= MslFormat.FileFlagIsCompressed;
 			}
 
@@ -498,7 +509,10 @@ public static class MslWriter
 					NProteins = nProteins,
 					NElutionGroups = nElutionGroups,
 					NStrings = nStrings,
-					ExtAnnotationTableOffset = hasCustomLosses ? (int)extAnnotTableOffset : 0,
+					// Readers locate the table from the layout; this int32 field is kept for older
+					// readers and is 0 when the offset does not fit (files over 2 GB)
+					ExtAnnotationTableOffset = hasCustomLosses && extAnnotTableOffset <= int.MaxValue
+												   ? (int)extAnnotTableOffset : 0,
 					ProteinTableOffset = proteinTableOffset,
 					StringTableOffset = stringTableOffset,
 					PrecursorSectionOffset = precursorSectionOffset,
@@ -587,19 +601,9 @@ public static class MslWriter
 				}
 
 				// 6. Fragment section — either raw or compressed bytes from the fragment temp file
-				if (isCompressed)
-				{
-					// compressedFragmentBytes is non-null when isCompressed is true
-					outWriter.Write(compressedFragmentBytes!);
-				}
-				else
-				{
-					// Copy the fragment temp file verbatim with a 1 MB I/O buffer
-					using var fragReadStream = new FileStream(fragmentTempPath, FileMode.Open,
-															  FileAccess.Read, FileShare.None,
-															  bufferSize: 1 << 20, FileOptions.SequentialScan);
-					fragReadStream.CopyTo(outWriter.BaseStream, 1 << 20);
-				}
+				// Copy the (compressed or raw) fragment temp file verbatim
+				outWriter.Flush();
+				CopyFile(isCompressed ? compressedTempPath : fragmentTempPath, outWriter.BaseStream);
 				// 6b. Extended annotation table — present only when custom neutral losses exist
 				if (hasCustomLosses)
 				{
@@ -656,11 +660,12 @@ public static class MslWriter
 		}
 		finally
 		{
-			// Always delete all three temp files regardless of success or failure.
+			// Always delete all temp files regardless of success or failure.
 			// Use try/catch per file so a failure to delete one does not prevent the others.
 			TryDeleteFile(fragmentTempPath);
 			TryDeleteFile(spillTempPath);
 			TryDeleteFile(outputTempPath);
+			TryDeleteFile(compressedTempPath);
 		}
 	}
 
@@ -813,6 +818,28 @@ public static class MslWriter
 	/// Returns a list of human-readable error strings. An empty list means all entries
 	/// are safe to pass to <see cref="Write"/>.
 	/// </summary>
+	/// <summary>
+	/// Maximum number of fragment ions a single entry may hold, bounded by the on-disk
+	/// <see cref="MslPrecursorRecord.FragmentCount"/> field (a signed 16-bit int).
+	/// </summary>
+	internal const int MaxFragmentsPerEntry = short.MaxValue;   // 32,767
+
+	/// <summary>
+	/// Safely narrows a fragment count to the on-disk int16 field, throwing a clear, actionable
+	/// error instead of silently wrapping to a negative value. A wrapped (negative) count produced
+	/// a file that threw an OverflowException only later, on read; this fails fast on write.
+	/// </summary>
+	private static short ToFragmentCount(int count, string fullSequence)
+	{
+		if (count > MaxFragmentsPerEntry)
+			throw new ArgumentException(
+				$"Entry '{fullSequence}' has {count} fragment ions, which exceeds the .msl " +
+				$"per-entry limit of {MaxFragmentsPerEntry} (FragmentCount is a 16-bit field in " +
+				$"MslPrecursorRecord). Reduce the fragment count for this entry, or widen the " +
+				$"format's FragmentCount field (a versioned format change).");
+		return (short)count;
+	}
+
 	public static List<string> ValidateEntries(IReadOnlyList<MslLibraryEntry> entries)
 	{
 		if (entries is null) throw new ArgumentNullException(nameof(entries));
@@ -880,7 +907,9 @@ public static class MslWriter
 			NProteins = layout.NProteins,
 			NElutionGroups = layout.NElutionGroups,
 			NStrings = layout.NStrings,
-			ExtAnnotationTableOffset = layout.HasCustomLosses
+			// Readers locate the table from the layout; this int32 field is kept for older
+			// readers and is 0 when the offset does not fit (files over 2 GB)
+			ExtAnnotationTableOffset = layout.HasCustomLosses && layout.ExtAnnotationTableOffset <= int.MaxValue
 										   ? (int)layout.ExtAnnotationTableOffset : 0,
 			ProteinTableOffset = layout.ProteinTableOffset,
 			StringTableOffset = layout.StringTableOffset,
@@ -967,7 +996,7 @@ public static class MslWriter
 				Irt = (float)entry.RetentionTime,
 				IonMobility = (float)entry.IonMobility,
 				Charge = (short)entry.ChargeState,
-				FragmentCount = (short)entry.MatchedFragmentIons.Count,
+				FragmentCount = ToFragmentCount(entry.MatchedFragmentIons.Count, entry.FullSequence),
 				ElutionGroupId = entry.ElutionGroupId,
 				ProteinIdx = pl.ProteinIdx,
 				ModifiedSeqStringIdx = pl.ModifiedSeqStringIdx,
@@ -1018,9 +1047,8 @@ public static class MslWriter
 		return (short)(nce * 10);
 	}
 	/// <summary>
-	/// Writes raw <see cref="MslFragmentRecord"/> structs directly to the output stream
-	/// (uncompressed path only).
-	/// For the compressed path, <see cref="BuildAndCompressFragmentBuffer"/> is used instead.
+	/// Writes raw <see cref="MslFragmentRecord"/> structs to <paramref name="writer"/>: the output
+	/// file when uncompressed, or the zstd stream inside <see cref="CompressToFile"/> when compressed.
 	/// </summary>
 	private static void WriteFragmentRecords(BinaryWriter writer, MslWriteLayout layout,
 		IReadOnlyList<MslLibraryEntry> entries)
@@ -1035,31 +1063,51 @@ public static class MslWriter
 	}
 
 	/// <summary>
-	/// Serializes all fragment records into an in-memory buffer, then compresses the buffer
-	/// with zstd at <see cref="MslWriteLayout.CompressionLevel"/>. Returns the compressed bytes.
-	/// Called during Pass 1 (before the output file is opened) so that
-	/// <see cref="MslWriteLayout.CompressedFragmentSize"/> is known when writing the header.
+	/// Compresses the bytes produced by <paramref name="writeUncompressed"/> into a single zstd
+	/// frame at <paramref name="destPath"/>, as a stream, so the fragment section is never held
+	/// in one buffer (a <c>byte[]</c> cannot exceed 2 GB). The frame records its content size,
+	/// as <see cref="Compressor.Wrap(ReadOnlySpan{byte})"/> did, so earlier readers still decode it.
 	/// </summary>
-	private static byte[] BuildAndCompressFragmentBuffer(MslWriteLayout layout,
-		IReadOnlyList<MslLibraryEntry> entries)
+	/// <param name="destPath">Temp file that receives the compressed frame.</param>
+	/// <param name="compressionLevel">zstd level, 1–22.</param>
+	/// <param name="uncompressedSize">
+	/// Exact number of bytes <paramref name="writeUncompressed"/> will write; zstd rejects a mismatch.
+	/// </param>
+	/// <param name="writeUncompressed">Writes the uncompressed fragment section to the given stream.</param>
+	/// <returns>Size of the compressed frame in bytes.</returns>
+	private static long CompressToFile(string destPath, int compressionLevel, long uncompressedSize,
+		Action<Stream> writeUncompressed)
 	{
-		int bufferSize = (int)layout.UncompressedFragmentSize;
-		using var ms = new MemoryStream(bufferSize);
-		using var writer = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: false);
-
-		foreach (MslLibraryEntry entry in entries)
+		using (var dest = new FileStream(destPath, FileMode.Create, FileAccess.Write,
+										 FileShare.None, bufferSize: 1 << 20, FileOptions.SequentialScan))
 		{
-			foreach (MslFragmentIon frag in entry.MatchedFragmentIons)
+			var zstd = new CompressionStream(dest, compressionLevel, leaveOpen: true);
+			try
 			{
-				WriteFragmentRecord(writer, layout, frag);
+				zstd.SetPledgedSrcSize((ulong)uncompressedSize);
+				writeUncompressed(zstd);
 			}
+			catch
+			{
+				// Ending the frame would fail on the pledged-size mismatch and hide the real error
+				try { zstd.Dispose(); } catch (Exception) { }
+				throw;
+			}
+			zstd.Dispose();
 		}
 
-		writer.Flush();
-		byte[] uncompressed = ms.ToArray();
+		return new FileInfo(destPath).Length;
+	}
 
-		using var compressor = new Compressor(layout.CompressionLevel);
-		return compressor.Wrap(uncompressed).ToArray();
+	/// <summary>
+	/// Appends the whole of <paramref name="sourcePath"/> to <paramref name="destination"/>
+	/// with a 1 MB I/O buffer.
+	/// </summary>
+	private static void CopyFile(string sourcePath, Stream destination)
+	{
+		using var source = new FileStream(sourcePath, FileMode.Open, FileAccess.Read,
+										  FileShare.None, bufferSize: 1 << 20, FileOptions.SequentialScan);
+		source.CopyTo(destination, 1 << 20);
 	}
 
 	/// <summary>
@@ -1187,12 +1235,12 @@ public static class MslWriter
 
 	/// <summary>
 	/// Computes the CRC-32/ISO-HDLC checksum over bytes 0..(dataEndOffset−1) of the file.
-	/// Reads in 64 KiB chunks. Uses the standard reflected polynomial 0xEDB88320.
+	/// Reads in 1 MiB chunks. See <see cref="MslCrc32"/>.
 	/// </summary>
 	private static uint ComputeCrc32(string filePath, long dataEndOffset)
 	{
-		const int ChunkSize = 65536;
-		uint crc = 0xFFFF_FFFFu;
+		const int ChunkSize = 1 << 20;
+		uint crc = MslCrc32.Initial;
 		byte[] buffer = ArrayPool<byte>.Shared.Rent(ChunkSize);
 
 		try
@@ -1207,8 +1255,7 @@ public static class MslWriter
 				int read = fs.Read(buffer, 0, toRead);
 				if (read == 0) break;
 
-				for (int i = 0; i < read; i++)
-					crc = (crc >> 8) ^ Crc32Table[(crc ^ buffer[i]) & 0xFF];
+				crc = MslCrc32.Update(crc, buffer.AsSpan(0, read));
 
 				remaining -= read;
 			}
@@ -1218,38 +1265,15 @@ public static class MslWriter
 			ArrayPool<byte>.Shared.Return(buffer);
 		}
 
-		return crc ^ 0xFFFF_FFFFu;
-	}
-
-	private static readonly uint[] Crc32Table = BuildCrc32Table();
-
-	private static uint[] BuildCrc32Table()
-	{
-		const uint Polynomial = 0xEDB8_8320u;
-		var table = new uint[256];
-
-		for (uint i = 0; i < 256; i++)
-		{
-			uint entry = i;
-			for (int bit = 0; bit < 8; bit++)
-				entry = (entry & 1u) != 0 ? (entry >> 1) ^ Polynomial : entry >> 1;
-			table[i] = entry;
-		}
-
-		return table;
+		return MslCrc32.Finish(crc);
 	}
 
 	/// <summary>
 	/// Computes CRC-32 over a byte array segment.
 	/// Used by the test suite to independently verify the footer CRC.
 	/// </summary>
-	internal static uint ComputeCrc32OfArray(byte[] data, int length)
-	{
-		uint crc = 0xFFFF_FFFFu;
-		for (int i = 0; i < length; i++)
-			crc = (crc >> 8) ^ Crc32Table[(crc ^ data[i]) & 0xFF];
-		return crc ^ 0xFFFF_FFFFu;
-	}
+	internal static uint ComputeCrc32OfArray(byte[] data, int length) =>
+		MslCrc32.Compute(data.AsSpan(0, length));
 
 	// ────────────────────────────────────────────────────────────────────────
 	// Intensity normalization
@@ -1372,7 +1396,7 @@ public static class MslWriter
 
 		/// <summary>
 		/// Byte count of the compressed zstd frame.
-		/// Set by <see cref="MslWriter.Write"/> after <see cref="BuildAndCompressFragmentBuffer"/>
+		/// Set by <see cref="MslWriter.Write"/> after <see cref="CompressToFile"/>
 		/// returns; used by <see cref="WriteCompressionDescriptor"/> and, for compressed files,
 		/// to compute <see cref="OffsetTableOffset"/>. 0 until set.
 		/// </summary>
