@@ -6,7 +6,7 @@ namespace Readers
 {
     /// <summary>
     /// A lightweight PSM record that implements only <see cref="Omics.SpectralMatch.ISpectralMatch"/> and <see cref="IQuantifiableRecord"/>.
-    /// Parses only the ~15 columns required by those interfaces plus QValue, QValue Notch and PEP_QValue,
+    /// Parses only the ~15 columns required by those interfaces plus QValue, QValue Notch, PEP and PEP_QValue,
     /// making it significantly faster to construct than <see cref="SpectrumMatchFromTsv"/>.
     /// </summary>
     public class LightWeightSpectralMatch : Omics.SpectralMatch.ISpectralMatch, IQuantifiableRecord
@@ -36,6 +36,9 @@ namespace Readers
         // Additional fields for filtering / downstream use
         public double QValue { get; }
         public double PepQValue { get; }
+
+        /// <summary>The posterior error probability, or NaN when the file has no PEP column or the cell does not parse.</summary>
+        public double Pep { get; }
 
         /// <summary>The notch q-value, or null when the file has no QValue Notch column or the cell does not parse.</summary>
         public double? QValueNotch { get; }
@@ -126,6 +129,12 @@ namespace Readers
             // PEP_QValue
             PepQValue = parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue] >= 0
                 ? double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture)
+                : double.NaN;
+
+            // PEP (optional)
+            Pep = parsedHeader.TryGetValue(SpectrumMatchFromTsvHeader.PEP, out int pepIndex) && pepIndex >= 0
+                && double.TryParse(spl[pepIndex].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double pep)
+                ? pep
                 : double.NaN;
 
             // QValue Notch (optional)
