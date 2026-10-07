@@ -102,6 +102,7 @@ public sealed class ShuffledAveragine : AverageResidue
 
     private readonly AverageResidue _real;
     private readonly double[][] _shuffledIntensities;
+    private readonly bool[] _isDegenerate;
 
     /// <summary>The seed used to build this model's permutations.</summary>
     public int ShuffleSeed { get; }
@@ -119,6 +120,7 @@ public sealed class ShuffledAveragine : AverageResidue
         ShuffleSeed = shuffleSeed;
 
         _shuffledIntensities = new double[NumAveraginesToGenerate][];
+        _isDegenerate = new bool[NumAveraginesToGenerate];
         var rng = new Random(shuffleSeed);
 
         for (int i = 0; i < NumAveraginesToGenerate; i++)
@@ -128,8 +130,9 @@ public sealed class ShuffledAveragine : AverageResidue
 
             // Fisher-Yates over indices 1..n-1, leaving the apex at index 0 in place.
             // An envelope with fewer than three peaks has nothing to permute below the apex,
-            // so it is left identical to the real model rather than silently passed off as a
-            // decoy -- see IsDegenerate.
+            // and an unbiased shuffle returns the identity with probability 1/(n-1)! (50% for
+            // a three-peak envelope). Either way the entry is identical to the real model, so
+            // it is flagged rather than silently passed off as a decoy -- see IsDegenerate.
             for (int j = shuffled.Length - 1; j > 1; j--)
             {
                 int k = rng.Next(1, j + 1);
@@ -137,15 +140,18 @@ public sealed class ShuffledAveragine : AverageResidue
             }
 
             _shuffledIntensities[i] = shuffled;
+            _isDegenerate[i] = shuffled.AsSpan().SequenceEqual(real);
         }
     }
 
     /// <summary>
-    /// True when the envelope at <paramref name="index"/> is too short to permute (fewer than
-    /// three peaks), so this model returns the real intensities and is not a decoy there.
+    /// True when this model's intensities at <paramref name="index"/> are identical to the real
+    /// model's, so it is not a decoy there. That happens when the envelope is too short to
+    /// permute (fewer than three peaks), when the seeded shuffle happened to be the identity,
+    /// or when the swapped values are equal. Decided from the shuffled result, not the length.
     /// Exposed so that callers computing FDR can exclude these rather than count them as decoys.
     /// </summary>
-    public bool IsDegenerate(int index) => _real.GetAllTheoreticalIntensities(index).Length < 3;
+    public bool IsDegenerate(int index) => _isDegenerate[index];
 
     /// <inheritdoc />
     public override int GetMostIntenseMassIndex(double testMass)

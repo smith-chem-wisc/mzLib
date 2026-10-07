@@ -28,13 +28,13 @@ namespace Test.Deconvolution
         private static readonly Averagine RealModel = new();
         private static readonly ShuffledAveragine ShuffledModel = new(new Averagine());
 
-        /// <summary>An index whose envelope is long enough to actually permute.</summary>
+        /// <summary>An index whose shuffled envelope actually differs from the real one.</summary>
         private static int FirstNonDegenerateIndex()
         {
             for (int i = 0; i < TableSize; i++)
-                if (RealModel.GetAllTheoreticalIntensities(i).Length >= 3)
+                if (!ShuffledModel.IsDegenerate(i))
                     return i;
-            Assert.Fail("no averagine entry with >= 3 peaks");
+            Assert.Fail("no averagine entry was actually permuted");
             return -1;
         }
 
@@ -129,16 +129,40 @@ namespace Test.Deconvolution
         }
 
         [Test]
-        public void B6_DegenerateEnvelopesAreReportedAsSuch()
+        public void B6_DegenerateMeansIdenticalToTheRealModel()
         {
-            // Envelopes with fewer than three peaks have nothing to permute below the apex, so
-            // they are not decoys. The model must say so rather than pass them off silently.
-            for (int i = 0; i < TableSize; i += 97)
+            // An entry is a decoy only if its intensities differ from the real model's. That
+            // fails for envelopes too short to permute AND for envelopes whose seeded shuffle
+            // happened to be the identity, so degeneracy is judged on the result, not the length.
+            for (int i = 0; i < TableSize; i++)
             {
-                bool degenerate = RealModel.GetAllTheoreticalIntensities(i).Length < 3;
-                Assert.That(ShuffledModel.IsDegenerate(i), Is.EqualTo(degenerate),
-                    $"IsDegenerate disagrees with envelope length at index {i}");
+                bool identical = RealModel.GetAllTheoreticalIntensities(i)
+                    .SequenceEqual(ShuffledModel.GetAllTheoreticalIntensities(i));
+                Assert.That(ShuffledModel.IsDegenerate(i), Is.EqualTo(identical),
+                    $"IsDegenerate disagrees with 'shuffled equals real' at index {i}");
             }
+        }
+
+        [Test]
+        public void B7_IdentityShufflesOfLongEnvelopesAreDegenerate()
+        {
+            // A three-peak envelope's shuffle is the identity half the time. Find seeds where a
+            // >= 3-peak entry came back unchanged and check it is reported, not passed off.
+            int found = 0;
+            for (int seed = 0; seed < 20 && found == 0; seed++)
+            {
+                var model = new ShuffledAveragine(new Averagine(), seed);
+                for (int i = 0; i < TableSize; i++)
+                {
+                    double[] real = RealModel.GetAllTheoreticalIntensities(i);
+                    if (real.Length < 3 || !real.SequenceEqual(model.GetAllTheoreticalIntensities(i)))
+                        continue;
+                    found++;
+                    Assert.That(model.IsDegenerate(i), Is.True,
+                        $"seed {seed} index {i}: {real.Length}-peak entry is identical to the real model but not flagged");
+                }
+            }
+            Assert.That(found, Is.GreaterThan(0), "fixture never produced an identity shuffle of a >= 3-peak entry");
         }
 
         // ── C: Determinism ────────────────────────────────────────────────────
