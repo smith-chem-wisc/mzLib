@@ -11,7 +11,9 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
     /// </summary>
     public class Prosit2023IntensityXLCMS3 : CrosslinkFragmentIntensityModel
     {
-        private static readonly IReadOnlySet<int> Cms3UnimodIds = new HashSet<int> { 4, 35, 1881 };
+        // Koina: the subset mzLib allows of ALPHABET_MOD in models/Prosit_XL/XL_Prosit_Preprocess_peptide_CMS3/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> Cms3ModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:1881]" };
+        private static readonly IReadOnlySet<int> Cms3UnimodIds = UnimodIdsOf(Cms3ModificationTokens);
         private static readonly ISequenceConverter Cms3Converter = CreateUnimodConverter(CrosslinkSchema, Cms3UnimodIds);
 
         public override string ModelName => "Prosit_2023_intensity_XL_CMS3";
@@ -27,6 +29,7 @@ namespace PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels
         public override bool RequiresBetaSequence => false;
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => Cms3UnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => Cms3ModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
 

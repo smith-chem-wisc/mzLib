@@ -61,6 +61,16 @@
             return false;
         }
 
+        public static bool IsNTerminal(Modification modification) =>
+            modification.LocationRestriction is { } restriction &&
+            (restriction.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) ||
+             restriction.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase));
+
+        public static bool IsCTerminal(Modification modification) =>
+            modification.LocationRestriction is { } restriction &&
+            (restriction.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) ||
+             restriction.Contains("3'-terminal", StringComparison.OrdinalIgnoreCase));
+
         private static bool MotifMatches(char motifChar, char sequenceChar)
         {
             char upperMotifChar = char.ToUpper(motifChar);
