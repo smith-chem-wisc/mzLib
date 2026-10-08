@@ -273,19 +273,12 @@ public class SerializationTests
     private static Modification KnownMod(string modificationType, string idWithMotif, string locationRestriction) =>
         Mods.AllKnownMods.First(m => m.ModificationType == modificationType && m.IdWithMotif == idWithMotif && m.LocationRestriction == locationRestriction);
 
-    /// <summary>
-    /// The peptide with <paramref name="baseSequence"/> that digesting <paramref name="protein"/> produces with
-    /// <paramref name="variableMod"/> (if any) on it.
-    /// </summary>
     private static PeptideWithSetModifications Digested(string protein, string baseSequence, Modification? variableMod, string protease = "trypsin") =>
         new Protein(protein, "P")
             .Digest(new DigestionParams(protease: protease, maxMissedCleavages: 0, minPeptideLength: 1, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain),
                 new List<Modification>(), variableMod == null ? new List<Modification>() : new List<Modification> { variableMod })
             .Single(p => p.BaseSequence == baseSequence && p.AllModsOneIsNterminus.Count > 0);
 
-    /// <summary>
-    /// The peptide as one of mzLib's writers puts it, read back by the parser for that writer's format.
-    /// </summary>
     private static CanonicalSequence Written(PeptideWithSetModifications peptide, string writer) => writer switch
     {
         "ProFormaWriter" => ProFormaSequenceParser.Instance.Parse(ProFormaSequenceSerializer.Instance.Serialize(peptide.ToCanonicalSequence())!)!.Value,
@@ -334,9 +327,6 @@ public class SerializationTests
         AssertFailsPerHandlingMode(canonical.Value, "PEPNK");
     }
 
-    // Each modification is written by a real writer. What the lookup resolves it to from that text, or the
-    // dictionary entry its written name reads as, has no name that reads back as it, or would be read back at
-    // another position.
     [Test]
     [TestCase("ProFormaWriter", "Less Common", "Methylation on X", "N-terminal.", "AGGGGK", "AGGGGK")]
     [TestCase("ProFormaWriter", "Less Common", "Ethylation on X", "Peptide N-terminal.", "AGGGGK", "AGGGGK")]
@@ -381,7 +371,6 @@ public class SerializationTests
     [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements)]
     public void MzLibSerializer_CnbrDigestedPeptide_ReadsBackWithItsHomoserineLactoneAtTheCTerminus(SequenceConversionHandlingMode mode)
     {
-        // Digestion puts the protease's C-terminal homoserine lactone on the last residue, not at the C-terminus.
         var homoserineLactone = ProteaseDictionary.Dictionary["CNBr"].CleavageMod;
         var peptide = Digested("AAAMPEPTIDEMKKK", "PEPTIDEM", null, "CNBr");
         Assert.That(peptide.AllModsOneIsNterminus.Keys, Is.EquivalentTo(new[] { 9 }));
@@ -398,8 +387,6 @@ public class SerializationTests
     [Test]
     public void MzLibSerializer_CnbrPeptideWrittenAsProForma_ConvertsBackWithItsHomoserineLactoneAtTheCTerminus()
     {
-        // The ProForma writer puts the lactone on the last residue as its UNIMOD id; the lookup resolves that to a
-        // C-terminal entry, which must stay writable there.
         var homoserineLactone = ProteaseDictionary.Dictionary["CNBr"].CleavageMod;
         var peptide = Digested("AAAMPEPTIDEMKKK", "PEPTIDEM", null, "CNBr");
         var proForma = ProFormaSequenceSerializer.Instance.Serialize(peptide.ToCanonicalSequence());
@@ -428,8 +415,6 @@ public class SerializationTests
         Assert.That(readBack.AllModsOneIsNterminus[readBackIndex].MonoisotopicMass, Is.EqualTo(lactone.MonoisotopicMass).Within(1e-5));
     }
 
-    // The default instance resolves an oligo's masses among RNA modifications too, so mzLib's oligo writer output
-    // reads back as the same oligo.
     [Test]
     [TestCase("Biological", "2'-O-Methyladenosine on A", "GUAACUG")]
     [TestCase("Metal", "Sodium on A", "GUAACUG")]
@@ -473,8 +458,6 @@ public class SerializationTests
     [Test]
     public void MzLibSerializer_AttachedModificationEquivalentToTheDictionaryEntry_IsWrittenByName()
     {
-        // MetaMorpheus's own oxidation is not the dictionary's (UNIMOD's) entry for its name, but reads back with
-        // the same mass and terminus. A lookup with no candidates leaves the attached modification as the only answer.
         var metaMorpheusOxidation = KnownMod("Common Variable", "Oxidation on M", "Anywhere.");
         Assert.That(metaMorpheusOxidation, Is.Not.SameAs(Mods.AllKnownProteinModsDictionary["Oxidation on M"]));
         var peptide = Digested("PEPMIDEK", "PEPMIDEK", metaMorpheusOxidation);
@@ -485,8 +468,7 @@ public class SerializationTests
         Assert.That(result, Is.EqualTo("PEPM[Common Variable:Oxidation on M]IDEK"));
     }
 
-    // The ProForma writers give these the UNIMOD id from their database reference, whose UNIMOD entry has another
-    // mass, so the ProForma text itself names a different modification.
+    // The ProForma writer gives these a UNIMOD id whose UNIMOD entry has another mass.
     private static readonly HashSet<string> ProFormaAccessionWithAnotherMass = new()
     {
         "N6,N6,N6-trimethyl-5-hydroxylysine on K",
@@ -496,9 +478,6 @@ public class SerializationTests
     [Test]
     public void MzLibSerializer_EveryProteinModification_WrittenAsProForma_ConvertsToAnMzLibSequenceThatReadsBackAsIt()
     {
-        // Each protein modification is put on a peptide by digestion and written by the ProForma writer. A conversion
-        // either fails per the handling mode or reads back where and as heavy as the digested modification (a
-        // C-terminal one digestion put on the last residue reads back at the C-terminus).
         var converted = 0;
         Assert.Multiple(() =>
         {
