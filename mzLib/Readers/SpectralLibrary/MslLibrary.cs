@@ -165,7 +165,8 @@ public sealed class MslLibrary : IDisposable
 		// array index lookup because all fragments are already in memory.
 		MslIndex index = MslIndex.Build(
 			rawLib.Entries,
-			i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+			i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null,
+			maxBufferSize: 0);
 
 		// Build the proteoform index when the library contains proteoform entries.
 		MslProteoformIndex? proteoformIndex = BuildProteoformIndexIfNeeded(
@@ -232,7 +233,8 @@ public sealed class MslLibrary : IDisposable
 			// same as the MslLibrary.Load path. Do not call LoadFragmentsOnDemand.
 			index = MslIndex.Build(
 				rawLib.Entries,
-				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null,
+				maxBufferSize: 0);
 
 			proteoformIndex = BuildProteoformIndexIfNeeded(
 				rawLib.Entries,
@@ -720,6 +722,9 @@ public sealed class MslLibrary : IDisposable
 		IReadOnlyList<MslLibraryEntry> skeletons = _rawLibrary.Entries;
 		return precursorIdx >= 0 && precursorIdx < skeletons.Count ? skeletons[precursorIdx] : null;
 	}
+
+	/// <summary>Live index statistics, including the <see cref="GetEntry(int)"/> cache counters (tests only).</summary>
+	internal MslIndexStatistics IndexStatisticsForTesting => _index!.GetStatistics();
 
 	// ── Proteoform window query ───────────────────────────────────────────────
 
