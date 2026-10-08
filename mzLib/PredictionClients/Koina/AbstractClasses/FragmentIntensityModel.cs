@@ -85,7 +85,9 @@ namespace PredictionClients.Koina.AbstractClasses
         string? FragmentationType
     )
     {
-        /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
         /// <summary>The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.</summary>
         public string? ValidatedFullSequence { get; set; }
