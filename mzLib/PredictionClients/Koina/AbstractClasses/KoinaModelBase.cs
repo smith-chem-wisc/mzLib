@@ -94,8 +94,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <returns>List of request dictionaries, each containing a batch of sequences and parameters</returns>
     /// <remarks>
     /// Each dictionary in the returned list represents one API request batch and should contain:
-    /// - Peptide sequences (formatted according to model requirements): each input's Koina sequence, from the model
-    ///   family's GetKoinaSequence, not its ValidatedFullSequence, which is in the input's own format
+    /// - Peptide sequences (formatted according to model requirements)
     /// - Model-specific parameters (e.g., charge states, collision energies, NCE values)
     /// - Any additional metadata required by the specific Koina model
     /// Must ensure that only the validated sequences that meet the model's constraints are included in the batches. 
@@ -175,19 +174,9 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
     #region Validation and Modification Handling
     /// <summary>
-    /// Validates a peptide sequence against model constraints and cleans it, in four steps: separate the
-    /// modifications from the residues using the source format's own brackets; check the residues; resolve every
-    /// modification and check it is allowed, and that any required one is present; write the cleaned sequence back
-    /// in the source format. Incompatible modifications are handled according to <see cref="ModHandlingMode"/>.
+    /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
+    /// Handles incompatible modifications according to the specified ModHandlingMode.
     /// </summary>
-    /// <param name="sequence">The raw input sequence string, in the format <paramref name="sourceParser"/> (or the
-    /// model's default converter parser, when null) understands.</param>
-    /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser.</param>
-    /// <param name="koinaSequence">The cleaned sequence with every modification resolved, which
-    /// <see cref="SerializeKoinaSequence"/> turns into the sequence sent to Koina.</param>
-    /// <returns>The cleaned sequence written back in the source format, with the same modifications as
-    /// <paramref name="koinaSequence"/> (see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>). Null when
-    /// the sequence is invalid for this model.</returns>
     protected virtual string? TryCleanSequence(
         string sequence,
         ISequenceParser? sourceParser,
@@ -289,8 +278,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             return null;
         }
 
-        // Written from the modifications as parsed rather than as resolved, which carry the lookup's names, and strictly,
-        // so it can't silently lose a modification that Koina is sent.
+        // As parsed, so modifications keep their own text; strict, so it can't silently lose one that Koina is sent.
         string? validated;
         try
         {
@@ -310,10 +298,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return validated;
     }
 
-    /// <summary>
-    /// Serializes a sequence cleaned by <see cref="TryCleanSequence"/> into the sequence sent to Koina, with the
-    /// model's own serializer. Returns null with a warning when it can't, and throws in ThrowException mode.
-    /// </summary>
     private protected string? SerializeKoinaSequence(CanonicalSequence koinaSequence, out WarningException? warning)
     {
         var conversionWarnings = new ConversionWarnings();
@@ -333,9 +317,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return serialized;
     }
 
-    // mzLib and ProForma input is written with Koina's own serializers for those formats, whose lookups hold protein
-    // modifications only (the registered ones also hold mzLib's RNA modifications); any other format with the serializer
-    // registered for it.
+    // Not the registered mzLib and ProForma serializers: their lookups also hold RNA modifications.
     private static ISequenceSerializer? GetSourceSerializer(ISequenceParser parser) =>
         string.Equals(parser.FormatName, ProteinMzLibSerializer.FormatName, StringComparison.OrdinalIgnoreCase) ? ProteinMzLibSerializer
         : string.Equals(parser.FormatName, ProteinProFormaSerializer.FormatName, StringComparison.OrdinalIgnoreCase) ? ProteinProFormaSerializer

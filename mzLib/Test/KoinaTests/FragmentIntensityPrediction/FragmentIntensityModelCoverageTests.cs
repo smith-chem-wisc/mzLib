@@ -253,8 +253,6 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 "Spectrum label must match the sequence the masses were built from (validated), not the requested FullSequence.");
         }
 
-        // Predictions seeded by hand, the way a consumer's tests stand in for a Koina round trip: the sequences are read
-        // with the prediction's own parser (null: mzLib), so an mzLib string and a ProForma UNIMOD string both build.
         [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToValidatedFullSequence)]
         [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToInputFullSequence)]
         [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToValidatedFullSequence)]
@@ -279,11 +277,8 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
                 Is.EqualTo(new PeptideWithSetModifications("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K").MonoisotopicMass.ToMz(2)).Within(1e-4));
         }
 
-        // A peptide as MetaMorpheus writes it with a custom modification from a user's file, which no catalog holds.
         private const string CustomModPeptide = "PEPK[Custom:Nameless on K]R";
 
-        // A peptide that can't be built (the custom modification) is skipped alone, with a warning naming it; the rest
-        // still produce spectra.
         [Test]
         public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_IsSkippedAloneWithAWarning(
             [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode,

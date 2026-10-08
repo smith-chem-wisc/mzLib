@@ -50,8 +50,6 @@ public class KoinaModelBaseTests
         public override string FormatName => "braces";
     }
 
-    // Its sequences are written back as ProForma, whose pre-identified UNIMOD:N tokens it stands in for, unless
-    // given a format with no serializer.
     private sealed class FakeSequenceParser : ISequenceParser
     {
         private readonly Func<string, CanonicalSequence?> _parse;
@@ -109,7 +107,6 @@ public class KoinaModelBaseTests
             return TryCleanWithParser(sequence, null, out apiSequence, out warning);
         }
 
-        /// <summary>Also serializes the cleaned sequence the way it is sent to Koina, into <paramref name="apiSequence"/>.</summary>
         public string? TryCleanWithParser(string sequence, ISequenceParser? sourceParser, out string? apiSequence, out WarningException? warning)
         {
             var validated = TryCleanSequence(sequence, sourceParser, out var koinaSequence, out warning);
@@ -372,8 +369,6 @@ public class KoinaModelBaseTests
         Assert.That(apiSequence, Is.EqualTo("PEPMTIDEC[UNIMOD:4]K"));
     }
 
-    // The validated sequence is written back in the input's own format, with its own modification text, while the
-    // payload is the model's UNIMOD string whichever format the input came in.
     [TestCase("PEPM[Common Variable:Oxidation on M]TIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K")]
     [TestCase("PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K", true, "PEPM[UNIMOD:35]TIDEC[UNIMOD:4]K")]
     [TestCase("[Multiplex Label:TMT6-plex on X]PEPTIDEK-[Unimod:Amidated on X]", false, "[UNIMOD:737]PEPTIDEK-[UNIMOD:2]")]
@@ -406,7 +401,6 @@ public class KoinaModelBaseTests
     [Test]
     public void TryCleanSequence_NullSourceParser_WritesInTheConvertersOwnParsersFormat()
     {
-        // With no parser on the input, the model's converter parser reads it, so its format is the one written back.
         var converter = new FakeSequenceConverter(_ => CanonicalSequence.Unmodified("PEPTIDEK", "unwritable"), _ => "PEPTIDEK", "unwritable");
         var model = new KoinaModelHarness(converter);
 
@@ -416,9 +410,7 @@ public class KoinaModelBaseTests
         Assert.That(warning?.Message, Does.Contain("'unwritable'"));
     }
 
-    // ValidatedFullSequence is written by the serializer registered for the input's format, but for mzLib and ProForma
-    // with a lookup over protein modifications only: no mzLib name in the catalogs is normalized to an RNA modification
-    // today, so the choice is pinned on the lookups themselves, with an RNA modification's own name.
+    // No catalog name is normalized to an RNA modification today, so this pins the lookups themselves.
     [Test]
     public void SourceSerializer_ForMzLibAndProForma_ResolvesProteinModificationsOnly(
         [Values("mzLib", "ProForma")] string format)
@@ -523,7 +515,6 @@ public class KoinaModelBaseTests
     [Test]
     public void SerializeKoinaSequence_WhenSerializeThrows_BuildsWarningAndReturnsNull()
     {
-        // Cleaning doesn't serialize for Koina; the model's serializer runs only when the requests are built.
         var converter = new FakeSequenceConverter(
             parse: _ => CanonicalSequence.Unmodified("PEPTIDE", "fake"),
             serialize: _ => throw new SequenceConversionException("serialize failed", ConversionFailureReason.InvalidSequence));

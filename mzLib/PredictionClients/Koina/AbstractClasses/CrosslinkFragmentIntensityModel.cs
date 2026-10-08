@@ -215,8 +215,7 @@ namespace PredictionClients.Koina.AbstractClasses
         }
 
         /// <summary>
-        /// Override to preserve crosslink modification annotations in the API sequence, which is the input itself: it
-        /// is returned unchanged when valid, and there is no <paramref name="koinaSequence"/>.
+        /// Override to preserve crosslink modification annotations in the API sequence.
         /// The standard converter would strip the crosslink UNIMOD markers (e.g. UNIMOD:1881,
         /// UNIMOD:1896, UNIMOD:1898) because they aren't in the mzLib local mod database — but
         /// Koina's helper models require those markers in place to determine the crosslink

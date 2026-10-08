@@ -46,7 +46,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// m/z values, and predicted intensities from a fragment intensity model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     /// <param name="PrecursorCharge">Charge state of the precursor ion used for prediction</param>
     /// <param name="FragmentAnnotations">Fragment ion annotations (e.g., "b5+1", "y3+2")</param>
     /// <param name="FragmentMZs">Theoretical m/z values for each fragment ion</param>
@@ -61,10 +61,7 @@ namespace PredictionClients.Koina.AbstractClasses
         WarningException? Warning = null
     )
     {
-        /// <summary>
-        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
-        /// Null means mzLib syntax, as on <see cref="FragmentIntensityPredictionInput.SequenceParser"/>.
-        /// </summary>
+        /// <summary>Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.</summary>
         public ISequenceParser? SequenceParser { get; init; }
     }
 
@@ -90,9 +87,7 @@ namespace PredictionClients.Koina.AbstractClasses
     {
         /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
         public ISequenceParser? SequenceParser { get; init; }
-        /// <summary>
-        /// The cleaned sequence, set during prediction; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.
-        /// </summary>
+        /// <summary>The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.</summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
@@ -112,8 +107,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// peptide for large amounts of peptides, socket exhaustion may occur.
     /// 
     /// In most cases, users will only need to implement a constructor to properly set up the model parameters
-    /// and a ToBatchedRequests method to batch requests according to the specific model's input format, reading each
-    /// input's sequence with <see cref="GetKoinaSequence"/>.
+    /// and a ToBatchedRequests method to batch requests according to the specific model's input format.
     ///
     /// Thread safety: instances are NOT thread-safe. Predict and related methods
     /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
@@ -128,11 +122,7 @@ namespace PredictionClients.Koina.AbstractClasses
         }
 
 
-        /// <summary>
-        /// The sequence to send to Koina for <paramref name="input"/>, in the model's own notation. Implementations of
-        /// ToBatchedRequests read it here, not from ValidatedFullSequence, which is in the input's own format; it is set
-        /// for every input the prediction pipeline passes to ToBatchedRequests.
-        /// </summary>
+        /// <summary>The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.</summary>
         protected static string GetKoinaSequence(FragmentIntensityPredictionInput input) =>
             input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
@@ -208,9 +198,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// This is used for realigning predictions back to the original input list and for filtering out invalid inputs from the prediction results.
         /// The mask is populated during the PredictAsync workflow after validating each input against the model's constraints (e.g., allowed precursor charges, collision energies, etc.). 
         /// A value of 'true' at index i indicates that the input at index i in ModelInputs was valid and included in the prediction process, 
-        /// while 'false' indicates that it was filtered out due to incompatibility with the model, or, under
-        /// <see cref="FragmentIonMappingMode.MapToInputFullSequence"/>, that its peptide couldn't be built to map the
-        /// predicted fragments onto. 
+        /// while 'false' indicates that it was filtered out due to incompatibility with the model, or that its peptide couldn't be built to map fragments onto.
         /// This allows for better handling of mixed input lists where some entries may not meet the model's requirements, without losing track of their original positions in the input list.
         /// </summary>
         public bool[] ValidInputsMask { get; protected set; } = Array.Empty<bool>();
@@ -590,15 +578,7 @@ namespace PredictionClients.Koina.AbstractClasses
             return predictions;
         }
 
-        /// <summary>
-        /// Builds the peptide whose fragments a prediction is mapped onto, from a sequence in the format
-        /// <paramref name="sequenceParser"/> reads (null: the model's own parser, mzLib syntax), with
-        /// <see cref="PeptideWithSetModifications.FromCanonicalSequence"/>: each modification is the catalog entry the
-        /// parser attached, else what the model's own lookup resolves (as for Koina), else what all of UNIMOD and then
-        /// all of mzLib's protein catalogs resolve, which finds the modifications the model doesn't allow but an input
-        /// that mod handling cleaned still carries; it stays where it was parsed. When it can't, throws in ThrowException
-        /// mode and otherwise returns null with a warning.
-        /// </summary>
+        // The wider lookups find modifications the model doesn't allow but an input mapped under MapToInputFullSequence still carries.
         private PeptideWithSetModifications? TryBuildPeptide(string sequence, ISequenceParser? sequenceParser, out WarningException? warning)
         {
             warning = null;
@@ -761,18 +741,11 @@ namespace PredictionClients.Koina.AbstractClasses
         /// </summary>
         /// <remarks>
         /// The conversion process:
-        /// 1. Builds the peptide from ValidatedFullSequence (or FullSequence, per FragmentIonMappingMode), read with the
-        ///    prediction's SequenceParser, from modification objects kept where they were parsed. A prediction whose
-        ///    peptide can't be built throws in ThrowException mode; otherwise it is skipped, and the reason recorded in
-        ///    the warning.
+        /// 1. Builds the peptide from ValidatedFullSequence (or FullSequence, per FragmentIonMappingMode); one that can't be built is skipped with a warning
         /// 2. Parses each fragment annotation to determine ion properties
         /// 3. Creates MatchedFragmentIon objects with experimental m/z and predicted intensities
         /// 4. Builds LibrarySpectrum with precursor information and fragment data
         /// 5. Validates uniqueness of generated spectra by name
-        ///
-        /// Each spectrum is labeled with the built peptide's full sequence, <c>Type:Id</c> for each modification: an mzLib
-        /// name from mzLib's catalogs keeps its text, and a modification from another format is labeled with the catalog
-        /// entry the lookups pick.
         /// </remarks>
         /// <exception cref="WarningException">Recorded in the out parameter when predictions are skipped or duplicate spectra are detected</exception>
         public List<LibrarySpectrum> GenerateLibrarySpectraFromPredictions(double?[] alignedRetentionTimes, out WarningException? warning, string? filepath=null, double minIntensityFilter=1e-4)

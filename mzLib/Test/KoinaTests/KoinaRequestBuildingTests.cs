@@ -21,8 +21,7 @@ namespace Test.KoinaTests
     /// Drives each concrete model's request-building code (ToBatchedRequests and the
     /// model-specific TryCleanSequence/Validate overrides) without network access, so the Koina
     /// request-construction paths count toward coverage. ToBatchedRequests does no validation —
-    /// it only reads the Koina payload (KoinaSequence, or the crosslink Validated* fields) — so one
-    /// fully-populated input per family is enough.
+    /// it only reads the Koina payload — so one fully-populated input per family is enough.
     /// </summary>
     [TestFixture]
     public class KoinaRequestBuildingTests
@@ -68,7 +67,6 @@ namespace Test.KoinaTests
             Assert.That(count, Is.GreaterThanOrEqualTo(1), $"{model.GetType().Name}.ToBatchedRequests produced no batches");
         }
 
-        // A stand-in for the validated sequence, which is in the input's format and never sent to Koina.
         private const string SourceFormatSequence = "PEPTIDEK[source format]";
 
         [TestCaseSource(nameof(FragmentModels))]

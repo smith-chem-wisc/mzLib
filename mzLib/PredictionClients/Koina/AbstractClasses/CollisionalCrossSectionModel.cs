@@ -11,7 +11,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <summary>
     /// Represents a collisional cross section prediction result for a single peptide.
     /// </summary>
-    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     public record PeptideCCSPrediction(
         string FullSequence,
         string ValidatedFullSequence,
@@ -20,10 +20,7 @@ namespace PredictionClients.Koina.AbstractClasses
         WarningException? Warning = null
     )
     {
-        /// <summary>
-        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
-        /// Null means mzLib syntax, as on <see cref="CCSPredictionInput.SequenceParser"/>.
-        /// </summary>
+        /// <summary>Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.</summary>
         public ISequenceParser? SequenceParser { get; init; }
     }
 
@@ -37,9 +34,7 @@ namespace PredictionClients.Koina.AbstractClasses
     {
         /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
         public ISequenceParser? SequenceParser { get; init; }
-        /// <summary>
-        /// The cleaned sequence, set during prediction; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.
-        /// </summary>
+        /// <summary>The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.</summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
@@ -49,7 +44,6 @@ namespace PredictionClients.Koina.AbstractClasses
 
     /// <summary>
     /// Abstract base class for collisional cross section (CCS) prediction models using the Koina API.
-    /// Derived classes implement ToBatchedRequests, reading each input's sequence with <see cref="GetKoinaSequence"/>.
     ///
     /// Thread safety: instances are NOT thread-safe. Predict and related methods
     /// mutate instance state (ModelInputs, ValidInputsMask, Predictions); callers must not invoke
@@ -63,11 +57,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
-        /// <summary>
-        /// The sequence to send to Koina for <paramref name="input"/>, in the model's own notation. Implementations of
-        /// ToBatchedRequests read it here, not from ValidatedFullSequence, which is in the input's own format; it is set
-        /// for every input the prediction pipeline passes to ToBatchedRequests.
-        /// </summary>
+        /// <summary>The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.</summary>
         protected static string GetKoinaSequence(CCSPredictionInput input) =>
             input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 

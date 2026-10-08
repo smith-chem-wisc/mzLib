@@ -14,7 +14,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Contains the original sequence, predicted retention time, and indexing information.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     /// <param name="PredictedRetentionTime">Predicted retention time value (units depend on model - typically minutes or indexed RT)</param>
     /// <param name="IsIndexed">True if the model predicts indexed retention time (iRT); false for absolute retention time</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
@@ -26,10 +26,7 @@ namespace PredictionClients.Koina.AbstractClasses
         WarningException? Warning = null
     )
     {
-        /// <summary>
-        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
-        /// Null means mzLib syntax, as on <see cref="RetentionTimePredictionInput.SequenceParser"/>.
-        /// </summary>
+        /// <summary>Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.</summary>
         public ISequenceParser? SequenceParser { get; init; }
     }
 
@@ -42,12 +39,7 @@ namespace PredictionClients.Koina.AbstractClasses
     {
         /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
         public ISequenceParser? SequenceParser { get; init; }
-        /// <summary>
-        /// The cleaned sequence that was predicted, set during prediction: <see cref="FullSequence"/> in its own format
-        /// (see <see cref="SequenceParser"/>), written back from the parsed modifications the model accepted, minus any
-        /// that mod handling removed. Null when the input is invalid for the model. It is not the string sent to Koina,
-        /// which the model writes in its own notation when the requests are built.
-        /// </summary>
+        /// <summary>The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.</summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         internal CanonicalSequence? CleanedSequence { get; init; }
@@ -73,7 +65,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// Derived classes need to implement:
     /// - Model metadata (name, batch size, constraints)
     /// - Constructor that handles input data properties (sequences)
-    /// - Request formatting method (ToBatchedRequests), reading each input's sequence with <see cref="GetKoinaSequence"/>
+    /// - Request formatting method (ToBatchedRequests)
     /// - Model-specific modification handling if needed
     ///
     /// Thread safety: instances are NOT thread-safe. Predict/PredictRetentionTimeEquivalent/PredictRetentionTimeEquivalents
@@ -88,11 +80,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
-        /// <summary>
-        /// The sequence to send to Koina for <paramref name="input"/>, in the model's own notation. Implementations of
-        /// ToBatchedRequests read it here, not from ValidatedFullSequence, which is in the input's own format; it is set
-        /// for every input the prediction pipeline passes to ToBatchedRequests.
-        /// </summary>
+        /// <summary>The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.</summary>
         protected static string GetKoinaSequence(RetentionTimePredictionInput input) =>
             input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 

@@ -54,11 +54,6 @@ namespace Test.KoinaTests
 
         private const string CarbamidomethylPeptide = "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K";
 
-        /// <summary>
-        /// A modified peptide goes through prediction into a library spectrum whichever format it came in and whichever
-        /// sequence the fragments are mapped onto. Koina is sent the UNIMOD string, the validated sequence stays in the
-        /// input's format, and the precursor and the C-containing y3 carry the carbamidomethyl mass.
-        /// </summary>
         [TestCase(CarbamidomethylPeptide, false, CarbamidomethylPeptide, FragmentIonMappingMode.MapToValidatedFullSequence)]
         [TestCase(CarbamidomethylPeptide, false, CarbamidomethylPeptide, FragmentIonMappingMode.MapToInputFullSequence)]
         [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToValidatedFullSequence)]
@@ -82,10 +77,6 @@ namespace Test.KoinaTests
             Assert.That(FragmentMz(spectra[0], ProductType.y, 3) - UnmodifiedFragmentMz("PEPTIDECK", ProductType.y, 3), Is.EqualTo(57.02146).Within(1e-3));
         }
 
-        /// <summary>
-        /// The Prosit TMT model takes its required label under mzLib's catalog name and builds the labeled peptide in
-        /// both mapping modes.
-        /// </summary>
         [Test]
         public void FragmentIntensity_TmtLabeledPeptide_BuildsALibrarySpectrum(
             [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode)
@@ -113,13 +104,6 @@ namespace Test.KoinaTests
                 .Digest(new DigestionParams(protease, maxMissedCleavages: 0, minPeptideLength: 1, maxModsForPeptides: 2), fixedMods.ToList(), variableMods.ToList())
                 .First(pick);
 
-        /// <summary>
-        /// ProteaseGuru's configuration: an allow-list model, RemoveIncompatibleElements, fragments mapped onto the input.
-        /// Koina is sent the peptide without the modifications the model doesn't allow, but the spectrum is built from
-        /// the digested peptide's written sequence, which still carries them, so they're found outside the allow-list:
-        /// a phosphopeptide written as ProForma, a TMT-labeled one as a full sequence, and a UniProt modification with no
-        /// UNIMOD record written with mass shifts.
-        /// </summary>
         [TestCase("ProForma", "PEPSIDECK", "PEPSIDEC[UNIMOD:4]K")]
         [TestCase("FullSequence", "PEPTIDEK", "PEPTIDEK")]
         [TestCase("MassShifts", "GLSWDEFK", "GLSWDEFK")]
@@ -151,12 +135,6 @@ namespace Test.KoinaTests
             Assert.That(spectra[0].PrecursorMz, Is.EqualTo(peptide.MonoisotopicMass.ToMz(2)).Within(1e-4));
         }
 
-        /// <summary>
-        /// Koina resolves modifications to protein modifications only. Mass shifts written for protein modifications
-        /// whose masses RNA modifications of mzLib's share (Ala->Val with N6,2'-O-dimethyladenosine on A, a C-terminal
-        /// dehydration with the 3' cyclic phosphate), removed for Koina by an allow-list model, build the protein
-        /// modification's peptide.
-        /// </summary>
         [TestCase("GLSADEFK", "Unimod", "Ala->Val on A")]
         [TestCase("GLSDEFQ", "Unimod", "Dehydrated on Q")]
         public void FragmentIntensity_MassShiftAnRnaModificationAlsoMatches_BuildsTheProteinModification(string protein, string type, string id)
@@ -174,12 +152,6 @@ namespace Test.KoinaTests
             Assert.That(spectra[0].PrecursorMz, Is.EqualTo(peptide.MonoisotopicMass.ToMz(2)).Within(1e-4));
         }
 
-        /// <summary>
-        /// Under MapToInputFullSequence the fragments are mapped onto the input when Koina answers. A custom
-        /// modification, read by MetaMorpheus from a user's file and in no catalog, is removed for Koina, and then the
-        /// input can't be built: that prediction fails alone, with a warning, like a rejected input, and the rest of the
-        /// batch still gets its spectrum.
-        /// </summary>
         [Test]
         public void FragmentIntensity_MapToInputFullSequence_PeptideMzLibCannotBuildFailsAlone()
         {
@@ -200,10 +172,6 @@ namespace Test.KoinaTests
             Assert.That(spectra.Select(s => s.Sequence), Is.EqualTo(new[] { "PEPTIDECK" }));
         }
 
-        /// <summary>
-        /// A dropped modification is gone from the request sent to Koina and from the validated sequence, and the
-        /// spectrum is built without it.
-        /// </summary>
         [TestCase("PEPS[Common Biological:Phosphorylation on S]IDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPSIDEC[Common Fixed:Carbamidomethyl on C]K")]
         [TestCase("PEPS[UNIMOD:21]IDEC[UNIMOD:4]K", true, "PEPSIDEC[UNIMOD:4]K")]
         public void FragmentIntensity_RemoveIncompatibleElements_DropsTheModificationFromWhatIsSentAndValidated(string sequence, bool proForma, string expectedValidated)
@@ -219,11 +187,6 @@ namespace Test.KoinaTests
             Assert.That(spectra[0].PrecursorMz, Is.EqualTo(new PeptideWithSetModifications("PEPSIDEC[Common Fixed:Carbamidomethyl on C]K").MonoisotopicMass.ToMz(2)).Within(1e-4));
         }
 
-        /// <summary>
-        /// The Koina payload is serialized when the requests are built. An input the model's serializer can't write is
-        /// dropped there with a warning and marked invalid, and the rest of the batch is still sent; in ThrowException
-        /// mode it throws instead. The same for every family.
-        /// </summary>
         [Test]
         public void FragmentIntensity_InputThatCannotBeSerializedForKoina_IsDroppedAlone(
             [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
@@ -398,7 +361,6 @@ namespace Test.KoinaTests
             return ((Array)input.GetType().GetProperty("data")!.GetValue(input)!).Cast<string>().ToArray();
         }
 
-        // Answers b2+1 and y3+1 for every peptide in the request, and keeps the request.
         private static Task<string> CannedFragments(List<Dictionary<string, object>> requests, Dictionary<string, object> request)
         {
             requests.Add(request);
@@ -446,7 +408,6 @@ namespace Test.KoinaTests
 
         private const string UnserializableMessage = "This sequence is fine for mzLib but not for Koina.";
 
-        // Answers 1.0 for every peptide in the request (four values per peptide for detectability), and keeps the request.
         private static Task<string> CannedValues(List<Dictionary<string, object>> requests, Dictionary<string, object> request, string name, int valuesPerPeptide = 1)
         {
             requests.Add(request);
@@ -455,7 +416,6 @@ namespace Test.KoinaTests
                 + string.Join(",", Enumerable.Repeat("1.0", values)) + "]}]}");
         }
 
-        // Models whose serializer can't write one base sequence for Koina, though it cleans fine.
         private sealed class UnserializableFragmentModel : FragmentIntensityModel
         {
             public UnserializableFragmentModel(string unserializable)

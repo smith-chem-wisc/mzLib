@@ -13,7 +13,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// for each detectability class from a detectability prediction model.
     /// </summary>
     /// <param name="FullSequence">Original peptide sequence as provided by the user</param>
-    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.</param>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     /// <param name="DetectabilityProbabilities">Probability scores for each detectability class (Not Detectable, Low, Intermediate, High)</param>
     /// <param name="Warning">Warning message if any issues occurred during prediction</param>
     public record PeptideDetectabilityPrediction(
@@ -26,10 +26,7 @@ namespace PredictionClients.Koina.AbstractClasses
         WarningException? Warning = null
     )
     {
-        /// <summary>
-        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
-        /// Null means mzLib syntax, as on <see cref="DetectabilityPredictionInput.SequenceParser"/>.
-        /// </summary>
+        /// <summary>Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.</summary>
         public ISequenceParser? SequenceParser { get; init; }
     }
 
@@ -44,9 +41,7 @@ namespace PredictionClients.Koina.AbstractClasses
     {
         /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
         public ISequenceParser? SequenceParser { get; init; }
-        /// <summary>
-        /// The cleaned sequence, set during prediction; see <see cref="RetentionTimePredictionInput.ValidatedFullSequence"/>.
-        /// </summary>
+        /// <summary>The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.</summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         internal CanonicalSequence? CleanedSequence { get; init; }
@@ -91,11 +86,7 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
-        /// <summary>
-        /// The sequence to send to Koina for <paramref name="input"/>, in the model's own notation. Implementations of
-        /// ToBatchedRequests read it here, not from ValidatedFullSequence, which is in the input's own format; it is set
-        /// for every input the prediction pipeline passes to ToBatchedRequests.
-        /// </summary>
+        /// <summary>The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.</summary>
         protected static string GetKoinaSequence(DetectabilityPredictionInput input) =>
             input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 

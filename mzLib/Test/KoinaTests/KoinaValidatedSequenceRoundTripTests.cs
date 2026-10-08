@@ -16,15 +16,6 @@ using Readers.ProForma;
 
 namespace Test.KoinaTests
 {
-    /// <summary>
-    /// ValidatedFullSequence and the Koina payload must name the same modifications. Every protein modification in
-    /// mzLib's catalogs is put on a peptide by digestion, wherever its motif and location restriction let it go, and the
-    /// peptide is written by mzLib's writers (full sequence, ProForma, mass shifts). On one model per distinct
-    /// modification policy: an accepted ValidatedFullSequence is the full sequence or ProForma string as written (its
-    /// modifications keep their text), re-cleaning it with the same parser gives the same payload, and the peptide
-    /// built from it, and from the input, is the digested peptide: its mass, its modifications at the same places, and
-    /// for the full sequence its label.
-    /// </summary>
     [TestFixture]
     public class KoinaValidatedSequenceRoundTripTests
     {
@@ -66,9 +57,6 @@ namespace Test.KoinaTests
         public void ValidatedFullSequence_RoundTripsToTheDigestedPeptide_MassShifts() =>
             AssertRoundTrips(p => p.FullSequenceWithMassShifts, MassShiftSequenceParser.Instance, minimumAccepted: 1000);
 
-        // Validation is the same in every model; what differs is the modification policy, so one model per policy.
-        // Fragment models carry every policy except detectability's, which allows no modification, and they alone build
-        // peptides. A model with an allow-list is only given the modifications whose mass one of its ids could match.
         private static IEnumerable<(object Model, Func<double, bool> CouldAccept)> ModelsByPolicy()
         {
             var unimodMasses = Mods.UnimodModifications
@@ -112,8 +100,6 @@ namespace Test.KoinaTests
             return $"{(acceptsAll ? "all" : string.Join(",", allowed.Order()))}|{(required == null ? "-" : string.Join(",", required.Order()))}";
         }
 
-        // The checks are independent and the lookups' caches are concurrent, so they run in parallel to keep the
-        // fixture fast.
         private static void AssertRoundTrips(Func<PeptideWithSetModifications, string> write, ISequenceParser? parser, int minimumAccepted,
             bool asWritten = false, bool validatedAsWritten = false)
         {
