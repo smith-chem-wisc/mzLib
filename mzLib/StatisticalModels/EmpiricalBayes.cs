@@ -122,6 +122,74 @@ namespace StatisticalModels
         public IReadOnlyList<double> PosteriorVariance => PosteriorVarianceValues;
     }
 
+    /// <summary>A named contrast: one weight per coefficient of the fit, in <see cref="LinearModelFit.CoefficientNames"/> order.</summary>
+    /// <param name="Name">Unique within one call.</param>
+    /// <param name="Weights">Finite, not all zero; e.g. (0, −1, 1, 0) for the third coefficient minus the second.</param>
+    public sealed record ContrastWeights(string Name, IReadOnlyList<double> Weights);
+
+    /// <summary>
+    /// A moderated test of one contrast across all features, with its confidence interval. Read-only to callers. Every
+    /// per-feature value is NaN for a feature that was not fitted.
+    /// </summary>
+    public sealed class ModeratedContrast
+    {
+        internal ModeratedContrast(string name, IReadOnlyList<double> weights, VariancePrior prior,
+            IReadOnlyList<FeatureFitStatus> status, bool residualDfDiffer, double confidenceLevel)
+        {
+            int n = status.Count;
+            double[] Nan() => Enumerable.Repeat(double.NaN, n).ToArray();
+            Name = name;
+            Weights = weights.ToArray();
+            Prior = prior;
+            Status = status.ToArray();
+            ResidualDfDiffer = residualDfDiffer;
+            ConfidenceLevel = confidenceLevel;
+            EstimateValues = Nan(); StandardErrorValues = Nan(); TValues = Nan(); DfTotalValues = Nan();
+            PValues = Nan(); AdjustedValues = Nan(); PosteriorVarianceValues = Nan(); LowValues = Nan(); HighValues = Nan();
+        }
+
+        internal double[] EstimateValues { get; }
+        internal double[] StandardErrorValues { get; }
+        internal double[] TValues { get; }
+        internal double[] DfTotalValues { get; }
+        internal double[] PValues { get; }
+        internal double[] AdjustedValues { get; }
+        internal double[] PosteriorVarianceValues { get; }
+        internal double[] LowValues { get; }
+        internal double[] HighValues { get; }
+
+        /// <summary>The contrast's name.</summary>
+        public string Name { get; }
+        /// <summary>The contrast's weights, one per coefficient.</summary>
+        public IReadOnlyList<double> Weights { get; }
+        /// <summary>The fitted prior, shared by every contrast of one call.</summary>
+        public VariancePrior Prior { get; }
+        /// <summary>Per-feature status carried over from the fit.</summary>
+        public IReadOnlyList<FeatureFitStatus> Status { get; }
+        /// <summary>As <see cref="ModeratedTest.ResidualDfDiffer"/>.</summary>
+        public bool ResidualDfDiffer { get; }
+        /// <summary>Least-squares estimate of the contrast, c′β (moderation does not change it).</summary>
+        public IReadOnlyList<double> Estimate => EstimateValues;
+        /// <summary>Moderated standard error: sqrt(posterior variance) × sqrt(c′(XᵀX)⁻¹c).</summary>
+        public IReadOnlyList<double> StandardError => StandardErrorValues;
+        /// <summary>Moderated t-statistic.</summary>
+        public IReadOnlyList<double> T => TValues;
+        /// <summary>Degrees of freedom of the moderated t: residual df plus prior df, capped at the pooled residual df.</summary>
+        public IReadOnlyList<double> DfTotal => DfTotalValues;
+        /// <summary>Two-sided p-value.</summary>
+        public IReadOnlyList<double> PValue => PValues;
+        /// <summary>Benjamini–Hochberg adjusted p-values over this contrast's tested features. Not a target-decoy q-value.</summary>
+        public IReadOnlyList<double> BenjaminiHochbergAdjusted => AdjustedValues;
+        /// <summary>Posterior (moderated) residual variance.</summary>
+        public IReadOnlyList<double> PosteriorVariance => PosteriorVarianceValues;
+        /// <summary>The two-sided level of <see cref="ConfidenceLow"/> and <see cref="ConfidenceHigh"/>, e.g. 0.95.</summary>
+        public double ConfidenceLevel { get; }
+        /// <summary>Lower bound: estimate − t-quantile((1 + level)/2, <see cref="DfTotal"/>) × <see cref="StandardError"/>.</summary>
+        public IReadOnlyList<double> ConfidenceLow => LowValues;
+        /// <summary>Upper bound: estimate + the same half-width.</summary>
+        public IReadOnlyList<double> ConfidenceHigh => HighValues;
+    }
+
     /// <summary>
     /// Empirical-Bayes moderation of per-feature variances (Smyth, 2004, Stat. Appl. Genet. Mol. Biol.
     /// 3:3), optionally with a prior variance that trends with average intensity.
@@ -148,7 +216,8 @@ namespace StatisticalModels
     /// so its numbers are compared with limma's, not required to equal them.
     /// </para>
     /// <para>
-    /// Not implemented: <c>robust = TRUE</c>, contrasts, the B-statistic, observation weights.
+    /// Contrasts, with confidence intervals: <see cref="ModerateContrasts"/>. Not implemented: <c>robust = TRUE</c>,
+    /// the B-statistic, observation weights.
     /// </para>
     /// </remarks>
     public static class EmpiricalBayes
@@ -320,6 +389,97 @@ namespace StatisticalModels
             return test;
         }
 
+        /// <summary>
+        /// Moderated tests of contrasts, with confidence intervals, as limma's <c>contrasts.fit</c> + <c>eBayes</c> +
+        /// <c>topTable(confint = …)</c>. The variance prior is fitted once, exactly as <see cref="Moderate"/> fits it,
+        /// and shared by every contrast. For each fitted feature and contrast c: estimate c′β; standard error
+        /// s̃ · sqrt(c′(XᵀX)⁻¹c) with the feature's own (XᵀX)⁻¹ (<see cref="LinearModelFit.ContrastStdevUnscaled"/>);
+        /// t on d + d0 degrees of freedom, capped at the pooled residual df; and the interval
+        /// estimate ± t-quantile((1 + level)/2, df) × SE. As in limma, the cap keeps df finite even when d0 is infinite.
+        /// </summary>
+        /// <remarks>
+        /// A contrast of one coefficient (weight 1 there, 0 elsewhere) gives exactly <see cref="Moderate"/>'s numbers.
+        /// With missing values the unscaled SD is exact per feature, where limma's <c>contrasts.fit</c> approximates it;
+        /// with complete data the two agree.
+        /// </remarks>
+        /// <param name="fit">Output of <see cref="LinearModel.Fit"/>.</param>
+        /// <param name="contrasts">At least one; names unique; one finite weight per coefficient, not all zero.</param>
+        /// <param name="trend">Let the prior variance trend with <see cref="LinearModelFit.AverageResponse"/>.</param>
+        /// <param name="splineBasisCount">Basis functions for the trend, intercept included; null takes limma's rule.</param>
+        /// <param name="estimator">How the prior is estimated; see <see cref="VariancePriorEstimator"/>.</param>
+        /// <param name="confidenceLevel">Two-sided interval level, strictly between 0 and 1. Default 0.95.</param>
+        public static IReadOnlyList<ModeratedContrast> ModerateContrasts(LinearModelFit fit,
+            IReadOnlyList<ContrastWeights> contrasts, bool trend, int? splineBasisCount = null,
+            VariancePriorEstimator estimator = VariancePriorEstimator.MomentsLegacy, double confidenceLevel = 0.95)
+        {
+            ArgumentNullException.ThrowIfNull(fit);
+            ArgumentNullException.ThrowIfNull(contrasts);
+            if (!(confidenceLevel > 0 && confidenceLevel < 1))
+                throw new ArgumentOutOfRangeException(nameof(confidenceLevel), confidenceLevel, "The confidence level must be strictly between 0 and 1.");
+            if (contrasts.Count == 0) throw new ArgumentException("No contrast was given.", nameof(contrasts));
+            var seen = new HashSet<string>(StringComparer.Ordinal);
+            foreach (var c in contrasts)
+            {
+                ArgumentNullException.ThrowIfNull(c);
+                ArgumentException.ThrowIfNullOrWhiteSpace(c.Name, nameof(contrasts));
+                if (!seen.Add(c.Name)) throw new ArgumentException($"Two contrasts are named '{c.Name}'.", nameof(contrasts));
+                fit.ContrastEstimate(0, c.Weights); // length and finiteness, with the coefficient named
+                if (c.Weights.All(w => w == 0))
+                    throw new ArgumentException($"Every weight of contrast '{c.Name}' is zero.", nameof(contrasts));
+            }
+
+            int n = fit.FeatureCount;
+            var fitted = Enumerable.Range(0, n).Where(f => fit.Status[f] == FeatureFitStatus.Fitted).ToArray();
+            if (fitted.Length < 2)
+                throw new ArgumentException(
+                    $"Moderation needs at least 2 fitted features to estimate a variance prior; this fit has {fitted.Length} " +
+                    $"of {n} (the rest are too sparse or rank-deficient).", nameof(fit));
+            var s2 = new double[n];
+            var df = new double[n];
+            for (int f = 0; f < n; f++)
+            {
+                bool ok = fit.Status[f] == FeatureFitStatus.Fitted;
+                s2[f] = ok ? fit.Sigma[f] * fit.Sigma[f] : double.NaN;
+                df[f] = ok ? fit.DfResidual[f] : 0;
+            }
+            var prior = FitPrior(s2, df, trend ? fit.AverageResponse : null, splineBasisCount, estimator);
+            double pooledDf = fitted.Sum(f => (double)fit.DfResidual[f]);
+            bool dfDiffer = fitted.Any(f => fit.DfResidual[f] != fit.DfResidual[fitted[0]]);
+            double upper = (1 + confidenceLevel) / 2;
+
+            var results = new List<ModeratedContrast>(contrasts.Count);
+            foreach (var c in contrasts)
+            {
+                var result = new ModeratedContrast(c.Name, c.Weights, prior, fit.Status, dfDiffer, confidenceLevel);
+                foreach (int f in fitted)
+                {
+                    double post = double.IsPositiveInfinity(prior.Df)
+                        ? prior.Scale[f]
+                        : (prior.Df * prior.Scale[f] + df[f] * s2[f]) / (prior.Df + df[f]);
+                    double dfTotal = Math.Min(df[f] + prior.Df, pooledDf);
+                    double estimate = fit.ContrastEstimate(f, c.Weights);
+                    double se = Math.Sqrt(post) * fit.ContrastStdevUnscaled(f, c.Weights);
+                    double t = estimate / se;
+                    double half = Quantile(upper, dfTotal) * se;
+                    result.EstimateValues[f] = estimate;
+                    result.PosteriorVarianceValues[f] = post;
+                    result.StandardErrorValues[f] = se;
+                    result.TValues[f] = t;
+                    result.DfTotalValues[f] = dfTotal;
+                    result.PValues[f] = TwoSidedP(t, dfTotal);
+                    result.LowValues[f] = estimate - half;
+                    result.HighValues[f] = estimate + half;
+                }
+                var adjusted = MultipleTesting.BenjaminiHochberg(result.PValues);
+                Array.Copy(adjusted, result.AdjustedValues, n);
+                results.Add(result);
+            }
+            return results;
+        }
+
+        /// <summary>The <paramref name="probability"/> quantile of Student's t on <paramref name="df"/> degrees of freedom; normal when df is infinite.</summary>
+        internal static double Quantile(double probability, double df) =>
+            double.IsPositiveInfinity(df) ? Normal.InvCDF(0, 1, probability) : StudentT.InvCDF(0, 1, df, probability);
         internal static double TwoSidedP(double t, double df)
         {
             if (!double.IsFinite(t)) return double.NaN;
