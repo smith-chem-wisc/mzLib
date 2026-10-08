@@ -74,7 +74,9 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// </summary>
     public virtual bool AcceptsAllUnimodModifications => false;
 
-    /// <summary>Modified residues and termini the model has a token for, as Koina writes them ("M[UNIMOD:35]", "[UNIMOD:737]-"); null = anywhere.</summary>
+    /// <summary>
+    /// Modified residues and termini the model has a token for, as Koina writes them ("M[UNIMOD:35]", "[UNIMOD:737]-"); null = anywhere.
+    /// </summary>
     public virtual IReadOnlySet<string>? AllowedModificationTokens => null;
 
     /// <summary>
