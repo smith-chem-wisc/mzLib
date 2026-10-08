@@ -7,6 +7,7 @@ using Omics.Digestion;
 using Omics.Fragmentation;
 using Omics.Fragmentation.Peptide;
 using Omics.Modifications;
+using Omics.SequenceConversion;
 using Proteomics.AminoAcidPolymer;
 using System;
 using System.Collections.Generic;
@@ -86,6 +87,46 @@ namespace Proteomics.ProteolyticDigestion
             {
                 ProteinAccession = p.Accession;
             }
+        }
+
+        /// <summary>
+        /// Builds a peptide from a parsed sequence; a modification that carries no <see cref="Modification"/> goes to the lookups (default <see cref="GlobalModificationLookup.ProteinOnly"/>).
+        /// </summary>
+        public static PeptideWithSetModifications FromCanonicalSequence(CanonicalSequence sequence, params IModificationLookup[] fallbackLookups)
+        {
+            var lookups = fallbackLookups is { Length: > 0 } ? fallbackLookups : [GlobalModificationLookup.ProteinOnly];
+            var baseSequence = sequence.BaseSequence;
+            var allModsOneIsNterminus = new Dictionary<int, Modification>();
+            var unresolved = new List<string>();
+
+            foreach (var parsed in sequence.Modifications)
+            {
+                var modification = parsed.MzLibModification
+                    ?? lookups.Select(lookup => lookup.TryResolve(parsed)?.MzLibModification).FirstOrDefault(m => m != null);
+                if (modification == null)
+                {
+                    unresolved.Add(parsed.ToString());
+                    continue;
+                }
+
+                var key = parsed.PositionType switch
+                {
+                    ModificationPositionType.NTerminus => 1,
+                    ModificationPositionType.CTerminus => baseSequence.Length + 2,
+                    _ => parsed.ResidueIndex!.Value + 2
+                };
+                allModsOneIsNterminus.Add(key, modification);
+            }
+
+            if (unresolved.Count > 0)
+            {
+                throw new SequenceConversionException(
+                    $"No modification found for {string.Join(", ", unresolved)} in '{sequence.BaseSequence}'.",
+                    ConversionFailureReason.IncompatibleModifications, unresolved);
+            }
+
+            return new PeptideWithSetModifications(new Protein(baseSequence, string.Empty), null, 1, baseSequence.Length,
+                CleavageSpecificity.Full, null, 0, allModsOneIsNterminus, 0, baseSequence);
         }
 
         public IDigestionParams DigestionParams => _digestionParams;

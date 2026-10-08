@@ -38,7 +38,7 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
             var result = model.TestTryCleanSequence("PEPTIDEK[UNIMOD:1896]", out var api, out var warning);
 
             Assert.That(result, Is.EqualTo("PEPTIDEK[UNIMOD:1896]"));
-            Assert.That(api, Is.EqualTo("PEPTIDEK[UNIMOD:1896]"));
+            Assert.That(api, Is.Null, "the crosslink sequence sent to Koina is the validated sequence itself");
             Assert.That(warning, Is.Null);
         }
 
@@ -298,8 +298,8 @@ namespace Test.KoinaTests.CrosslinkIntensityPrediction
             protected override List<Dictionary<string, object>> ToBatchedRequests(List<CrosslinkIntensityPredictionInput> validInputs)
                 => new();
 
-            public string? TestTryCleanSequence(string sequence, out string? api, out System.ComponentModel.WarningException? warning)
-                => TryCleanSequence(sequence, out api, out warning);
+            public string? TestTryCleanSequence(string sequence, out global::Omics.SequenceConversion.CanonicalSequence? koinaSequence, out System.ComponentModel.WarningException? warning)
+                => TryCleanSequence(sequence, null, out koinaSequence, out warning);
 
             public bool TestValidate(CrosslinkIntensityPredictionInput input, out System.ComponentModel.WarningException? warning)
                 => ValidateModelSpecificInputs(input, out warning);

@@ -21,7 +21,8 @@ namespace PredictionClients.Koina.SupportedModels.CCSModels
         public override int MaxPeptideLength => 50;
         public override int MinPeptideLength => 1;
         public override HashSet<int>? AllowedPrecursorCharges => new(); // No charge constraint
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
 
@@ -40,7 +41,7 @@ namespace PredictionClients.Koina.SupportedModels.CCSModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<CCSPredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
 
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);

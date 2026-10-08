@@ -105,26 +105,25 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, out var apiAlpha, out var alphaWarning);
+                var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out _, out var alphaWarning);
 
                 string? cleanedBeta = null;
-                string? apiBeta = null;
                 WarningException? betaWarning = null;
                 bool betaOk = true;
                 if (RequiresBetaSequence && ModelInputs[i].BetaSequence != null)
                 {
-                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, out apiBeta, out betaWarning);
-                    betaOk = cleanedBeta != null && apiBeta != null;
+                    cleanedBeta = TryCleanSequence(ModelInputs[i].BetaSequence!, null, out _, out betaWarning);
+                    betaOk = cleanedBeta != null;
                 }
 
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var parameterWarning);
 
-                if (cleanedAlpha != null && apiAlpha != null && betaOk && validModelParams)
+                if (cleanedAlpha != null && betaOk && validModelParams)
                 {
                     ModelInputs[i] = ModelInputs[i] with
                     {
-                        ValidatedAlphaSequence = apiAlpha,
-                        ValidatedBetaSequence = apiBeta,
+                        ValidatedAlphaSequence = cleanedAlpha,
+                        ValidatedBetaSequence = cleanedBeta,
                         AlphaSequenceWarning = alphaWarning,
                         BetaSequenceWarning = betaWarning,
                         ParameterWarning = parameterWarning
@@ -223,14 +222,16 @@ namespace PredictionClients.Koina.AbstractClasses
         /// position. Rather than bypass validation entirely, this override:
         ///   1. Validates the bare amino-acid sequence and length bounds.
         ///   2. Requires every bracketed annotation to be in UNIMOD:N notation.
-        ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>.
+        ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>, or on a residue the model has no token for.
         /// </summary>
+        // sourceParser is unused: crosslink sequences are inspected directly, never parsed.
         protected override string? TryCleanSequence(
             string sequence,
-            out string? apiSequence,
+            ISequenceParser? sourceParser,
+            out CanonicalSequence? koinaSequence,
             out WarningException? warning)
         {
-            apiSequence = null;
+            koinaSequence = null;
             warning = null;
 
             var rawBase = BaseStripper.Replace(sequence, string.Empty);
@@ -252,7 +253,8 @@ namespace PredictionClients.Koina.AbstractClasses
                 var inner = m.Value.Substring(1, m.Value.Length - 2); // strip [ and ]
                 if (!inner.StartsWith("UNIMOD:", StringComparison.OrdinalIgnoreCase)
                     || !int.TryParse(inner.AsSpan(7), out var id)
-                    || !AllowedUnimodIds.Contains(id))
+                    || !AllowedUnimodIds.Contains(id)
+                    || AllowedModificationTokens?.Contains($"{(m.Index > 0 ? sequence[m.Index - 1] : null)}[UNIMOD:{id}]") == false)
                 {
                     disallowed.Add(inner);
                 }
@@ -267,8 +269,7 @@ namespace PredictionClients.Koina.AbstractClasses
                 return null;
             }
 
-            apiSequence = sequence;
-            return apiSequence;
+            return sequence;
         }
 
         protected virtual bool ValidateModelSpecificInputs(CrosslinkIntensityPredictionInput input, out WarningException? warning)

@@ -21,15 +21,23 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Prosit2024IntensityPTMsGl : FragmentIntensityModel
     {
         private static readonly UnimodSequenceFormatSchema PTMSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        // Source of truth: koina repo, models/Prosit/Prosit_Preprocess_ac_gain/1/model.py
-        // and models/Prosit/Prosit_Preprocess_ac_loss/1/model.py — the ensemble step that
-        // encodes per-position modification features. Keys like "K_737" mean residue=K, UNIMOD=737;
-        // this set is the union of UNIMOD ids referenced in both dicts.
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int>
+        // Koina: dictionary keys in models/Prosit/Prosit_Preprocess_ac_gain/1/model.py and ac_loss, minus R_267, K_12118, K_19903, K_129317 (Koina answers 400)
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string>
         {
-            1, 4, 7, 21, 27, 28, 34, 35, 36, 37, 43, 56, 58, 59, 121, 214, 267, 312, 411,
-            535, 730, 737, 1263, 1289, 1293, 1848, 1990, 2016, 2062, 5634, 12118, 19903, 129317
+            "K[UNIMOD:1]", "C[UNIMOD:4]", "K[UNIMOD:4]", "N[UNIMOD:7]", "Q[UNIMOD:7]", "R[UNIMOD:7]",
+            "H[UNIMOD:21]", "P[UNIMOD:21]", "S[UNIMOD:21]", "T[UNIMOD:21]", "Y[UNIMOD:21]", "E[UNIMOD:27]",
+            "Q[UNIMOD:28]", "C[UNIMOD:34]", "D[UNIMOD:34]", "E[UNIMOD:34]", "H[UNIMOD:34]", "I[UNIMOD:34]",
+            "K[UNIMOD:34]", "L[UNIMOD:34]", "N[UNIMOD:34]", "Q[UNIMOD:34]", "R[UNIMOD:34]", "C[UNIMOD:35]",
+            "H[UNIMOD:35]", "K[UNIMOD:35]", "M[UNIMOD:35]", "P[UNIMOD:35]", "W[UNIMOD:35]", "K[UNIMOD:36]",
+            "R[UNIMOD:36]", "K[UNIMOD:37]", "S[UNIMOD:43]", "T[UNIMOD:43]", "K[UNIMOD:56]", "K[UNIMOD:58]",
+            "K[UNIMOD:59]", "K[UNIMOD:121]", "K[UNIMOD:214]", "C[UNIMOD:312]", "K[UNIMOD:535]",
+            "K[UNIMOD:730]", "K[UNIMOD:737]", "C[UNIMOD:1263]", "K[UNIMOD:1263]", "K[UNIMOD:1289]",
+            "K[UNIMOD:1293]", "K[UNIMOD:1848]", "K[UNIMOD:1990]", "K[UNIMOD:2016]", "C[UNIMOD:2062]",
+            "K[UNIMOD:5634]",
+            "[UNIMOD:1]-", "[UNIMOD:58]-", "[UNIMOD:59]-", "[UNIMOD:214]-", "[UNIMOD:411]-", "[UNIMOD:730]-",
+            "[UNIMOD:737]-", "[UNIMOD:2016]-"
         };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(PTMSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2024_intensity_PTMs_gl";
@@ -44,6 +52,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
@@ -65,7 +74,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<FragmentIntensityPredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedCharges = validInputs.Select(p => p.PrecursorCharge).Chunk(MaxBatchSize).ToArray();
             var batchedEnergies = validInputs.Select(p => (float)p.CollisionEnergy!).Chunk(MaxBatchSize).ToArray();
             var batchedFragTypes = validInputs.Select(p => p.FragmentationType ?? "HCD").Chunk(MaxBatchSize).ToArray();

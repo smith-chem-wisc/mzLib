@@ -19,7 +19,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MaxPeptideLength => 500; // Model has no upper limit; 500 is a practical bound
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => true;
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Accepts all UNIMOD modifications
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
+        public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public AlphaPeptDeepRTGeneric(
@@ -35,7 +36,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)
             {

@@ -8,6 +8,8 @@ using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
 using PredictionClients.Koina.Util;
+using Proteomics.ProteolyticDigestion;
+using Readers.ProForma;
 
 namespace Test.KoinaTests.FragmentIntensityPrediction
 {
@@ -249,6 +251,67 @@ namespace Test.KoinaTests.FragmentIntensityPrediction
             Assert.That(spectra.Count, Is.EqualTo(1));
             Assert.That(spectra[0].Sequence, Is.EqualTo("PEPMTIDEK"),
                 "Spectrum label must match the sequence the masses were built from (validated), not the requested FullSequence.");
+        }
+
+        [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", false, "PEPTIDEC[Common Fixed:Carbamidomethyl on C]K", FragmentIonMappingMode.MapToInputFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToValidatedFullSequence)]
+        [TestCase("PEPTIDEC[UNIMOD:4]K", true, null, FragmentIonMappingMode.MapToInputFullSequence)]
+        public void GenerateLibrarySpectra_HandSeededPrediction_IsReadWithItsOwnParser(string sequence, bool proForma, string? expectedLabel, FragmentIonMappingMode mappingMode)
+        {
+            var model = new CoverageModel(mappingMode);
+            var prediction = new PeptideFragmentIntensityPrediction(
+                sequence, sequence, 2,
+                FragmentAnnotations: new List<string> { "b2+1", "y3+1" },
+                FragmentMZs: new List<double> { 0.0, 0.0 },
+                FragmentIntensities: new List<double> { 0.9, 0.4 })
+            { SequenceParser = proForma ? ProFormaSequenceParser.Instance : null };
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { prediction }, new[] { true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _);
+
+            Assert.That(spectra.Count, Is.EqualTo(1));
+            if (expectedLabel != null)
+                Assert.That(spectra[0].Sequence, Is.EqualTo(expectedLabel));
+            Assert.That(spectra[0].PrecursorMz,
+                Is.EqualTo(new PeptideWithSetModifications("PEPTIDEC[Common Fixed:Carbamidomethyl on C]K").MonoisotopicMass.ToMz(2)).Within(1e-4));
+        }
+
+        private const string CustomModPeptide = "PEPK[Custom:Nameless on K]R";
+
+        [Test]
+        public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_IsSkippedAloneWithAWarning(
+            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode,
+            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
+        {
+            var model = new CoverageModel(mappingMode) { ModHandlingMode = mode };
+            var unreadable = new PeptideFragmentIntensityPrediction(
+                CustomModPeptide, CustomModPeptide, 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            var readable = new PeptideFragmentIntensityPrediction(
+                "PEPTIDEK", "PEPTIDEK", 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { unreadable, readable }, new[] { true, true });
+
+            var spectra = model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0, 31.0 }, out var warning);
+
+            Assert.That(spectra.Select(s => s.Sequence), Is.EqualTo(new[] { "PEPTIDEK" }));
+            Assert.That(spectra[0].RetentionTime, Is.EqualTo(31.0));
+            Assert.That(warning?.Message, Does.Contain(CustomModPeptide).And.Contain("No file path"));
+        }
+
+        [Test]
+        public void GenerateLibrarySpectra_PredictionThatCannotBeBuilt_ThrowsInThrowExceptionMode(
+            [Values(FragmentIonMappingMode.MapToValidatedFullSequence, FragmentIonMappingMode.MapToInputFullSequence)] FragmentIonMappingMode mappingMode)
+        {
+            var model = new CoverageModel(mappingMode) { ModHandlingMode = SequenceConversionHandlingMode.ThrowException };
+            var unreadable = new PeptideFragmentIntensityPrediction(
+                CustomModPeptide, CustomModPeptide, 2,
+                new List<string> { "b2+1" }, new List<double> { 0.0 }, new List<double> { 0.9 });
+            model.Seed(new List<PeptideFragmentIntensityPrediction> { unreadable }, new[] { true });
+
+            Assert.That(() => model.GenerateLibrarySpectraFromPredictions(new double?[] { 30.0 }, out _),
+                Throws.ArgumentException.With.Message.Contains(CustomModPeptide));
         }
 
         [Test]

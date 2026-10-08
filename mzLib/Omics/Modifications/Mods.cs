@@ -186,6 +186,22 @@ public static class Mods
     #region Public Methods
 
     /// <summary>
+    /// Whether the bundled UNIMOD record has the modification's mass within 0.01 Da; true when either is missing.
+    /// </summary>
+    public static bool MatchesUnimodRecordMass(Modification modification, int unimodId) =>
+        !modification.MonoisotopicMass.HasValue
+        || !UnimodRecordMasses.Value.TryGetValue(unimodId, out var recordMass)
+        || Math.Abs(recordMass - modification.MonoisotopicMass.Value) <= 0.01;
+
+    private static readonly Lazy<Dictionary<int, double>> UnimodRecordMasses = new(() =>
+        UnimodModifications
+            .Where(m => m.ModificationType == "Unimod" && m.MonoisotopicMass.HasValue)
+            .Select(m => (Id: SequenceConversion.CanonicalModification.GetUnimodId(m), Mass: m.MonoisotopicMass!.Value))
+            .Where(r => r.Id.HasValue)
+            .GroupBy(r => r.Id!.Value)
+            .ToDictionary(g => g.Key, g => g.First().Mass));
+
+    /// <summary>
     /// Gets a modification by IdWithMotif or OriginalId
     /// </summary>
     public static Modification? GetModification(string id, bool searchProteinMods = true, bool searchRnaMods = true)

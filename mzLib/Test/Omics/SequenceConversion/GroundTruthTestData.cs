@@ -211,7 +211,7 @@ namespace Test.Omics.SequenceConversion
             // 12. C-term modification
             new SequenceConversionTestCase(
                 description: "C-terminal amidation",
-                mzLib: "PEPTIDE-[Common Biological:Amidation on X]",
+                mzLib: "PEPTIDE-[Less Common:Amidation on X]",
                 massShift: "PEPTIDE-[-0.984]",
                 chronologer: "-PEPTIDE_",
                 baseSeq: "PEPTIDE",

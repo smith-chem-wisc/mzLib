@@ -9,7 +9,9 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// </summary>
     public class ChronologerRT : RetentionTimeModel
     {
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        // Koina: amino_acid_unimod_map in models/Chronologer/Chronologer_Preprocess/1/sequence_conversion.py ("M-35", "C-4")
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
             UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
 
@@ -22,6 +24,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override int MinPeptideLength => 1;
         public override bool IsIndexedRetentionTimeModel => false;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
 
         public ChronologerRT(
@@ -37,7 +40,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)
             {

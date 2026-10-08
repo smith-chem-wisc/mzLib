@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using Omics.Modifications;
 
 
 namespace Omics.SequenceConversion;
@@ -80,11 +81,61 @@ public class MzLibSequenceParser : SequenceParserBase
             }
         }
 
+        var modification = FindCatalogModification(modString, positionType, residueIndex);
+
         return new CanonicalModification(
             positionType,
             residueIndex,
             extractedResidue ?? targetResidue,
             modString,
-            MzLibId: mzLibId);
+            UnimodId: modification is not null && CanonicalModification.GetUnimodId(modification) is int unimodId
+                      && Mods.MatchesUnimodRecordMass(modification, unimodId) ? unimodId : null,
+            MzLibId: mzLibId,
+            MzLibModification: modification);
     }
+
+    // Entries can share a name: prefer the one of the written type, then the one whose location restriction fits the position.
+    private static Modification? FindCatalogModification(string name, ModificationPositionType positionType, int? residueIndex)
+    {
+        var separator = name.IndexOf(':');
+        if (separator <= 0 || separator == name.Length - 1)
+            return null;
+
+        var type = name[..separator].Trim();
+        var id = name[(separator + 1)..].Trim();
+
+        var candidates = new List<Modification>();
+        if (Mods.AllKnownProteinModsDictionary.TryGetValue(id, out var proteinEntry))
+            candidates.Add(proteinEntry);
+        if (Mods.AllKnownRnaModsDictionary.TryGetValue(id, out var rnaEntry))
+            candidates.Add(rnaEntry);
+        foreach (var entry in CatalogById.Value[id])
+        {
+            if (!candidates.Any(c => ReferenceEquals(c, entry)))
+                candidates.Add(entry);
+        }
+
+        return candidates
+            .OrderBy(m => m.ModificationType == type ? 0 : 1)
+            .ThenBy(m => PositionRank(m, positionType, residueIndex))
+            .FirstOrDefault();
+    }
+
+    private static int PositionRank(Modification modification, ModificationPositionType positionType, int? residueIndex)
+    {
+        var nTerminal = ModificationLocalization.IsNTerminal(modification);
+        var cTerminal = ModificationLocalization.IsCTerminal(modification);
+        return positionType switch
+        {
+            ModificationPositionType.NTerminus => nTerminal ? 0 : 1,
+            ModificationPositionType.CTerminus => cTerminal ? 0 : 1,
+            _ when !nTerminal && !cTerminal => 0,
+            _ => (residueIndex == 0 ? nTerminal : cTerminal) ? 1 : 2
+        };
+    }
+
+    private static readonly Lazy<ILookup<string, Modification>> CatalogById = new(() =>
+        Mods.AllProteinModsList.Concat(Mods.AllRnaModsList)
+            .Where(m => !string.IsNullOrEmpty(m.IdWithMotif))
+            .ToLookup(m => m.IdWithMotif));
 }

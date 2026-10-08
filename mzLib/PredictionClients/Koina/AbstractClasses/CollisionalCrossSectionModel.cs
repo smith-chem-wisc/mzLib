@@ -11,13 +11,20 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <summary>
     /// Represents a collisional cross section prediction result for a single peptide.
     /// </summary>
+    /// <param name="ValidatedFullSequence">The cleaned sequence that was predicted, in the input's format</param>
     public record PeptideCCSPrediction(
         string FullSequence,
         string ValidatedFullSequence,
         int PrecursorCharge,
         double? PredictedCCS,
         WarningException? Warning = null
-    );
+    )
+    {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
+    }
 
     /// <summary>
     /// Input parameters for CCS prediction models.
@@ -27,9 +34,18 @@ namespace PredictionClients.Koina.AbstractClasses
         int PrecursorCharge
     )
     {
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
+        public ISequenceParser? SequenceParser { get; init; }
+        /// <summary>
+        /// The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.
+        /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
+        internal CanonicalSequence? CleanedSequence { get; init; }
+        internal string? KoinaSequence { get; init; }
     }
 
     /// <summary>
@@ -46,6 +62,12 @@ namespace PredictionClients.Koina.AbstractClasses
             : base(sequenceConverter)
         {
         }
+
+        /// <summary>
+        /// The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.
+        /// </summary>
+        protected static string GetKoinaSequence(CCSPredictionInput input) =>
+            input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
         public virtual HashSet<int>? AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
@@ -66,23 +88,38 @@ namespace PredictionClients.Koina.AbstractClasses
 
             ModelInputs = modelInputs;
             ValidInputsMask = new bool[ModelInputs.Count];
-            var validInputs = new List<CCSPredictionInput>();
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                var cleanedSequence = TryCleanSequence(ModelInputs[i].FullSequence, out var apiSequence, out var modHandlingWarning);
+                var validatedSequence = TryCleanSequence(ModelInputs[i].FullSequence, ModelInputs[i].SequenceParser, out var koinaSequence, out var modHandlingWarning);
                 var validModelParams = ValidateModelSpecificInputs(ModelInputs[i], out var parameterWarning);
-                if (cleanedSequence != null && apiSequence != null && validModelParams)
+                if (validatedSequence != null && koinaSequence != null && validModelParams)
                 {
-                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = apiSequence, SequenceWarning = modHandlingWarning, ParameterWarning = parameterWarning };
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = validatedSequence, CleanedSequence = koinaSequence, SequenceWarning = modHandlingWarning, ParameterWarning = parameterWarning };
                     ValidInputsMask[i] = true;
-                    validInputs.Add(ModelInputs[i]);
                 }
                 else
                 {
                     ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = modHandlingWarning, ParameterWarning = parameterWarning };
                     ValidInputsMask[i] = false;
                 }
+            }
+
+            var validInputs = new List<CCSPredictionInput>();
+            for (int i = 0; i < ModelInputs.Count; i++)
+            {
+                if (!ValidInputsMask[i])
+                    continue;
+
+                var koinaSequence = SerializeKoinaSequence(ModelInputs[i].CleanedSequence!.Value, out var serializationWarning);
+                if (koinaSequence == null)
+                {
+                    ModelInputs[i] = ModelInputs[i] with { ValidatedFullSequence = null, SequenceWarning = serializationWarning };
+                    ValidInputsMask[i] = false;
+                    continue;
+                }
+                ModelInputs[i] = ModelInputs[i] with { KoinaSequence = koinaSequence };
+                validInputs.Add(ModelInputs[i]);
             }
 
             var predictions = new List<PeptideCCSPrediction>();
@@ -126,7 +163,7 @@ namespace PredictionClients.Koina.AbstractClasses
                         PrecursorCharge: ModelInputs[i].PrecursorCharge,
                         PredictedCCS: null,
                         Warning: ModelInputs[i].ParameterWarning ?? ModelInputs[i].SequenceWarning ?? new WarningException("Input was invalid and skipped during prediction.")
-                    ));
+                    ) { SequenceParser = ModelInputs[i].SequenceParser });
                 }
             }
 
@@ -226,7 +263,7 @@ namespace PredictionClients.Koina.AbstractClasses
                     PrecursorCharge: requestInputs[i].PrecursorCharge,
                     PredictedCCS: ccsOutputs[i],
                     Warning: requestInputs[i].SequenceWarning
-                ));
+                ) { SequenceParser = requestInputs[i].SequenceParser });
             }
 
             return predictions;

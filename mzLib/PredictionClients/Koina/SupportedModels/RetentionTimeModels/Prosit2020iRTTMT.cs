@@ -1,5 +1,4 @@
-﻿using System.ComponentModel;
-using MzLibUtil;
+﻿using MzLibUtil;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 
@@ -14,7 +13,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// - Supports peptides with length 1-30 amino acids
     /// - Processes up to 1000 peptides per batch
     /// - Predicts indexed retention time (iRT) values for relative comparison
-    /// - Specialized for TMT (Tandem Mass Tag) and iTRAQ labeled peptides
+    /// - Specialized for TMT (Tandem Mass Tag) and iTRAQ labeled peptides; requires an N-terminal label,
+    ///   so UsePrimarySequence is rejected at construction
     /// - Supports various isobaric labeling strategies including TMT6plex, TMTpro, iTRAQ 4-plex and 8-plex
     /// - Also supports SILAC labeling and standard modifications
     /// 
@@ -33,10 +33,15 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     public class Prosit2020iRTTMT : RetentionTimeModel
     {
         private static readonly UnimodSequenceFormatSchema TmtSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int>
+        // Koina: ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide_2020_TMT/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string>
         {
-            35, 4, 259, 267, 737, 2016, 214, 730 
+            "M[UNIMOD:35]", "C[UNIMOD:4]", "K[UNIMOD:259]", "R[UNIMOD:267]",
+            "K[UNIMOD:737]", "K[UNIMOD:2016]", "K[UNIMOD:214]", "K[UNIMOD:730]",
+            "[UNIMOD:737]-", "[UNIMOD:2016]-", "[UNIMOD:214]-", "[UNIMOD:730]-"
         };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
+        private static readonly IReadOnlySet<int> NTerminalLabelIds = UnimodIdsOf(SupportedModificationTokens.Where(t => t.EndsWith('-')));
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(TmtSchema, SupportedUnimodIds);
 
         /// <summary>The Koina API model name identifier for TMT-capable iRT prediction</summary>
@@ -73,7 +78,16 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override bool IsIndexedRetentionTimeModel => true;
 
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
-        public override SequenceConversionHandlingMode ModHandlingMode { get; init; } 
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
+        public override IReadOnlySet<int>? RequiredNTerminalUnimodIds => NTerminalLabelIds;
+        private readonly SequenceConversionHandlingMode _modHandlingMode;
+        public override SequenceConversionHandlingMode ModHandlingMode
+        {
+            get => _modHandlingMode;
+            init => _modHandlingMode = value == SequenceConversionHandlingMode.UsePrimarySequence
+                ? throw new ArgumentException($"{ModelName} requires an N-terminal TMT/iTRAQ label, which UsePrimarySequence would strip from every sequence. Use ReturnNull, ThrowException or RemoveIncompatibleElements.", nameof(ModHandlingMode))
+                : value;
+        }
 
         // Labeling a sequence as invalid when it contains modifications that are not supported by the model seems better than removing unsupported
         // mods and sending a sequence without the required TMT/iTRAQ labels, which would likely lead to crashes.
@@ -112,7 +126,7 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         /// </remarks>
         protected override List<Dictionary<string, object>> ToBatchedRequests(List<RetentionTimePredictionInput> validInputs)
         {
-            var batchedPeptides = validInputs.Select(p => p.ValidatedFullSequence!).Chunk(MaxBatchSize).ToArray();
+            var batchedPeptides = validInputs.Select(p => GetKoinaSequence(p)).Chunk(MaxBatchSize).ToArray();
             var batchedRequests = new List<Dictionary<string, object>>(batchedPeptides.Length);
             for (int i = 0; i < batchedPeptides.Length; i++)
             {
@@ -120,42 +134,6 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
                     new InputField("peptide_sequences", "BYTES", batchedPeptides[i])));
             }
             return batchedRequests;
-        }
-
-        protected override string? TryCleanSequence(string sequence, out string? apiSequence, out WarningException? warning)
-        {
-            var sanitized = base.TryCleanSequence(sequence, out apiSequence, out warning);
-            if (sanitized == null || apiSequence == null)
-            {
-                return sanitized;
-            }
-
-            if (!HasAllowedNTerminalLabel(apiSequence))
-            {
-                var message = "Sequence must contain a supported N-terminal TMT/iTRAQ label.";
-                switch (ModHandlingMode)
-                {
-                    case SequenceConversionHandlingMode.ThrowException:
-                        throw new ArgumentException(message);
-                    case SequenceConversionHandlingMode.ReturnNull:
-                        warning = new WarningException(message);
-                        return null;
-                    case SequenceConversionHandlingMode.RemoveIncompatibleElements:
-                    case SequenceConversionHandlingMode.UsePrimarySequence:
-                        warning = new WarningException(message);
-                        return null;
-                }
-            }
-
-            return apiSequence;
-        }
-
-        private static bool HasAllowedNTerminalLabel(string apiSequence)
-        {
-            return apiSequence.StartsWith("[UNIMOD:737]-")
-                   || apiSequence.StartsWith("[UNIMOD:2016]-")
-                   || apiSequence.StartsWith("[UNIMOD:214]-")
-                   || apiSequence.StartsWith("[UNIMOD:730]-");
         }
     }
 }
