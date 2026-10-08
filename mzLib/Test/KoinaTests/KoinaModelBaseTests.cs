@@ -140,8 +140,6 @@ public class KoinaModelBaseTests
         Assert.That(warning?.Message, Does.Contain("Invalid base sequence 'PEP*TIDE'"));
     }
 
-    // Everything outside the source format's complete modification brackets must be a residue the model allows, so
-    // whitespace, an unknown character or an unbalanced bracket fails as a residue whichever parser reads it.
     [TestCase("PEPTIDE K", false)]
     [TestCase("PEP*TIDE", true)]
     [TestCase("PEPM[UNIMOD:35IDE", true)]
@@ -171,7 +169,6 @@ public class KoinaModelBaseTests
         Assert.That(apiSequence, Is.EqualTo(expected));
     }
 
-    // "none" = null (nothing required), "any" = empty (some N-terminal mod required), otherwise the required ids.
     private static IReadOnlySet<int>? RequiredIds(string required) => required switch
     {
         "none" => null,
@@ -238,8 +235,6 @@ public class KoinaModelBaseTests
     [Test]
     public void TryCleanSequence_RemovedRequiredNTerminalLabel_IsRejectedWithTheRemovalReason()
     {
-        // UNIMOD:739 is outside the allow-list, so RemoveIncompatibleElements drops it, and the peptide is then
-        // missing its required label. The warning must say both.
         var allowed = new HashSet<int> { 737 };
         var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(allowed),
             SequenceConversionHandlingMode.RemoveIncompatibleElements, allowed, requiredNTerminalUnimodIds: allowed);
@@ -264,8 +259,6 @@ public class KoinaModelBaseTests
     [Test]
     public void TryCleanSequence_ExplicitSourceParser_OverridesConvertersOwnParser()
     {
-        // The caller's parser supplies both the brackets that separate modifications from residues and the parse:
-        // under the converter's own mzLib schema, "{note}" would be residues and fail.
         var fakeParser = new FakeSequenceParser(_ => CanonicalSequence.Unmodified("PEPTIDEK", "fake"), new BraceSchema());
         var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(new HashSet<int>()));
 
@@ -279,15 +272,12 @@ public class KoinaModelBaseTests
     [Test]
     public void TryCleanSequence_PreIdentifiedUnimodIdOutsideAllowList_ReturnNullRejectsBeforeSerialization()
     {
-        // Simulates a ProForma-style "UNIMOD:N" token that already carries a resolved UnimodId.
-        // UnimodSequenceSerializer.ShouldResolveMod skips lookup for such mods, so without the
-        // pre-serialization allow-list check this would bypass AllowedUnimodIds and reach Koina.
         var preIdentified = CanonicalModification.AtResidue(3, 'M', "UNIMOD:35", unimodId: 35);
         var fakeParser = new FakeSequenceParser(_ =>
             CanonicalSequence.Unmodified("PEPMIDE", "fake").WithModification(preIdentified));
         var model = new KoinaModelHarness(
             KoinaModelHarness.BuildConverter(new HashSet<int> { 4 }),
-            allowedUnimodIds: new HashSet<int> { 4 }); // 35 not allowed
+            allowedUnimodIds: new HashSet<int> { 4 });
 
         var result = model.TryCleanWithParser("PEPM[UNIMOD:35]IDE", fakeParser, out var apiSequence, out var warning);
 
@@ -347,7 +337,6 @@ public class KoinaModelBaseTests
     [Test]
     public void TryCleanSequence_RemoveIncompatibleElements_KeepsAllowedPreIdentifiedModification()
     {
-        // Only the disallowed modification is dropped; an allowed one on the same peptide survives.
         var model = new KoinaModelHarness(
             KoinaModelHarness.BuildConverter(new HashSet<int> { 4 }),
             SequenceConversionHandlingMode.RemoveIncompatibleElements,
@@ -482,9 +471,7 @@ public class KoinaModelBaseTests
     }
 
     // A bare separator, a separator anywhere but the C-terminus, and ProForma shapes the Koina
-    // converters cannot read. MzLibSequenceParser would parse
-    // "[Unimod:Acetyl on X]-[Unimod:Amidated on X]PEPTIDE" as N-terminal acetylation PLUS a
-    // C-terminal amidation -- a different peptide than was asked for, with no warning.
+    // converters cannot read.
     // Being stopped here, before parsing, is the correct outcome for all of them.
     [TestCase("-PEPTIDE")]
     [TestCase("PEPTIDE-")]
@@ -513,7 +500,7 @@ public class KoinaModelBaseTests
     public void TryCleanSequence_AcceptAllConverter_SerializesKnownModification()
     {
         // CreateUnimodConverterAcceptAll backs ms2pip / AlphaPeptDeep, which accept any UNIMOD mod
-        // regardless of the model's AllowedUnimodIds set; such models declare AcceptsAllUnimodModifications.
+        // regardless of the model's AllowedUnimodIds set.
         var model = new KoinaModelHarness(KoinaModelHarness.BuildAcceptAllConverter(), acceptsAllUnimodModifications: true);
 
         var result = model.TryClean("PEPM[Common Variable:Oxidation on M]IDE", out var apiSequence, out _);

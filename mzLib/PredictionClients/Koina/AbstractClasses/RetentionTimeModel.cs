@@ -32,10 +32,7 @@ namespace PredictionClients.Koina.AbstractClasses
     /// <param name="FullSequence">Peptide sequence with modifications, in mzLib format unless <see cref="SequenceParser"/> names another</param>
     public record RetentionTimePredictionInput(string FullSequence)
     {
-        /// <summary>
-        /// Optional parser for <see cref="FullSequence"/>'s source format; null (default) uses the model's
-        /// own converter parser. E.g. set to <c>ProFormaSequenceParser.Instance</c> for ProForma input.
-        /// </summary>
+        /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
         public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
