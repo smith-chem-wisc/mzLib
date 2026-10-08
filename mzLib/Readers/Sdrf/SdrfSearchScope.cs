@@ -14,7 +14,7 @@ namespace Readers
     /// lists twice, as <c>X.raw</c> and <c>X.mzML</c> (PXD001587) or beside a deposited <c>X-calib.mzML</c>. Every such
     /// row is kept, since only the depositor can say which is right, and reported here as
     /// <c>searched: acquired, acquired</c>. The channel rows of one multiplexed file name one file, so are not listed.</param>
-    internal sealed record SdrfSearchScoping(
+    public sealed record SdrfSearchScoping(
         SdrfDocument Document,
         IReadOnlyList<string> SearchedWithoutRow,
         IReadOnlyList<string> DroppedDataFiles,
@@ -39,9 +39,11 @@ namespace Readers
     /// and 3 says 1 and 3. Ranking replicates for quantification is the design reader's job (MAP-33), and
     /// this type must not do it quietly on the way.</para>
     ///
-    /// <para>Pure. Internal (D19).</para>
+    /// <para>Pure. Public for one named cross-assembly caller (D19): MetaMorpheus's SDRF writer, which joins the
+    /// files a search read to the rows of the input SDRF whose sample columns it copies (<see cref="SdrfSampleCopy"/>).
+    /// A second copy of this join in MetaMorpheus could drift from this one.</para>
     /// </summary>
-    internal static class SdrfSearchScope
+    public static class SdrfSearchScope
     {
         private const string DataFile = "comment[data file]";
         private const string SearchedDataFile = "comment[searched data file]";
