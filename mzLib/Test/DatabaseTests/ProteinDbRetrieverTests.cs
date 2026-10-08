@@ -672,6 +672,20 @@ public class ProteinDbRetrieverTests
         Assert.That(File.Exists(path));
     }
 
+    /// <summary>
+    /// The public GeneCentric overload validates before any request, like the one without it: a blank ID is a wrong
+    /// call, reported without touching UniProt.
+    /// </summary>
+    [Test]
+    public void RetrieveProteome_PublicGeneCentricOverload_RefusesABlankIdBeforeAnyRequest()
+    {
+        var ex = Assert.Throws<ArgumentException>(() => ProteinDbRetriever.RetrieveProteome("  ", _storageDirectory,
+            ProteinDbRetriever.ProteomeFormat.xml, ProteinDbRetriever.Reviewed.all, ProteinDbRetriever.Compress.no,
+            ProteinDbRetriever.IncludeIsoforms.no, ProteinDbRetriever.GeneCentric.yes));
+        Assert.That(ex.ParamName, Is.EqualTo("proteomeID"));
+        Assert.That(Directory.GetFiles(_storageDirectory), Is.Empty);
+    }
+
     /// <summary>An enum value outside the two defined ones must not silently fall through to either.</summary>
     [Test]
     public void RetrieveProteome_UndefinedGeneCentricValue_ThrowsArgumentOutOfRange()
