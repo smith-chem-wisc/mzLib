@@ -111,6 +111,32 @@ public class TargetDecoyRescorerTests
     }
 
     [Test]
+    public void TheDiscriminantIsPinnedToTheBit()
+    {
+        // Correlated features, one constant: pins weights and bias exactly, so a speed change that must change nothing cannot
+        var random = new Random(21);
+        var features = new List<double[]>();
+        var positive = new List<bool>();
+        for (int i = 0; i < 3000; i++)
+        {
+            bool target = i % 3 == 0;
+            double shared = random.NextDouble();
+            features.Add(Enumerable.Range(0, 12).Select(j => j == 5 ? 4.0 : shared * (j % 4) + random.NextDouble() * (1 + j) + (target ? 0.3 * j : 0)).ToArray());
+            positive.Add(target);
+        }
+
+        var fit = LinearDiscriminant.Fit(features, positive);
+
+        long[] bits = fit.Weights.Append(fit.Bias).Select(BitConverter.DoubleToInt64Bits).ToArray();
+        TestContext.Out.WriteLine("pinned: " + string.Join(", ", bits));
+        Assert.That(bits, Is.EqualTo(PinnedDiscriminantBits));
+    }
+
+    private static readonly long[] PinnedDiscriminantBits = [-4629063209439380192, 4590518683595660101, 4586681106985497765, 4593786861658844435,
+        4603675463750120478, 0, 4599426323733484923, 4598695496080304840, 4599563267747816079, 4598620038832881131, 4598124823602177322,
+        4597038961658343471, -4599363073103104677];
+
+    [Test]
     public void DiscriminantArgumentsAreChecked()
     {
         Assert.Throws<ArgumentNullException>(() => LinearDiscriminant.Fit(null!, [true]));
@@ -278,6 +304,365 @@ public class TargetDecoyRescorerTests
         int b = TargetsAtQ(TargetDecoyRescorer.Score(flipped, isDecoy, groups).Scores, isDecoy, 0.01);
 
         Assert.That(b, Is.EqualTo(a).Within(a * 0.05 + 5), "negating a feature changes nothing a linear model cannot absorb");
+    }
+
+    /// <summary>
+    /// With candidate groups (for example several candidate peaks of one precursor), only each group's top-scoring row
+    /// trains the model, as in pyProphet. Every row is still scored. So extra low-ranked rows added to some groups change
+    /// no other row's score.
+    /// </summary>
+    [Test]
+    public void OnlyEachCandidateGroupsTopRowTrainsTheModel()
+    {
+        var (features, isDecoy, groups, _) = Candidates(800, 800, 1600, shift: 1.2);
+        int n = features.Length;
+        int[] candidateGroups = Enumerable.Range(0, n).ToArray();
+        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, candidateGroups: candidateGroups);
+
+        // A second, far worse candidate for every tenth row, in the same sequence group and candidate group
+        var extra = Enumerable.Range(0, n).Where(i => i % 10 == 0).ToArray();
+        var moreFeatures = features.Concat(extra.Select(i => features[i].Select(v => v - 20).ToArray())).ToArray();
+        var moreDecoy = isDecoy.Concat(extra.Select(i => isDecoy[i])).ToArray();
+        var moreGroups = groups.Concat(extra.Select(i => groups[i])).ToArray();
+        var moreCandidates = candidateGroups.Concat(extra).ToArray();
+        var after = TargetDecoyRescorer.Score(moreFeatures, moreDecoy, moreGroups, candidateGroups: moreCandidates);
+
+        for (int i = 0; i < n; i++)
+            Assert.That(after.Scores[i], Is.EqualTo(before.Scores[i]).Within(1e-9), $"row {i}");
+        Assert.That(extra.Select((row, k) => after.Scores[n + k] < after.Scores[row]), Is.All.True, "the added rows are scored, and lower");
+        Assert.That(after.Status, Is.EqualTo(RescoreStatus.Rescored));
+    }
+
+    /// <summary>When every row is its own candidate group, nothing changes.</summary>
+    [Test]
+    public void SingletonCandidateGroupsChangeNothing()
+    {
+        var (features, isDecoy, groups, _) = Candidates(600, 600, 1200, shift: 1.2);
+
+        var plain = TargetDecoyRescorer.Score(features, isDecoy, groups);
+        var grouped = TargetDecoyRescorer.Score(features, isDecoy, groups, candidateGroups: Enumerable.Range(0, features.Length).ToArray());
+
+        Assert.That(grouped.Scores, Is.EqualTo(plain.Scores).Within(1e-12));
+        Assert.Throws<ArgumentException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, candidateGroups: new int[3]));
+    }
+
+    /// <summary>
+    /// The confident training sample, with a positive q cutoff: only targets that pass it (by the linear ranking) are positives,
+    /// at most half the cap, and as many of the top-ranked decoys. Without a cutoff it is the top half-cap of each, as before.
+    /// If no target passes, the sample falls back to that.
+    /// </summary>
+    [Test]
+    public void TheConfidentSampleCanKeepOnlyTargetsThatPassACutoff()
+    {
+        int[] ranked = Enumerable.Range(0, 12).ToArray();
+        double[] scores = ranked.Select(i => 12.0 - i).ToArray();
+        bool[] decoy = [false, false, false, true, false, true, false, true, true, false, true, false];
+        double[] q = TargetDecoyRescorer.QValues(scores, decoy);
+        int[] passing = ranked.Where(i => !decoy[i] && q[i] <= 0.4).ToArray();
+        Assert.That(passing, Is.Not.Empty.And.Length.LessThan(ranked.Count(i => !decoy[i])), "the cutoff must bite in this example");
+
+        int[] withCutoff = TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 10, positiveQValue: 0.4);
+        int[] withoutCutoff = TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 10, positiveQValue: null);
+        int[] noneCanPass = TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 10, positiveQValue: 1e-9);
+
+        Assert.That(withCutoff.Where(i => !decoy[i]), Is.EquivalentTo(passing.Take(5)));
+        Assert.That(withCutoff.Where(i => decoy[i]), Is.EquivalentTo(ranked.Where(i => decoy[i]).Take(Math.Min(5, passing.Length))));
+        Assert.That(withoutCutoff, Is.EquivalentTo(ranked.Where(i => !decoy[i]).Take(5).Concat(ranked.Where(i => decoy[i]).Take(5))));
+        Assert.That(withCutoff, Is.Ordered);
+        Assert.That(noneCanPass, Is.EquivalentTo(withoutCutoff), "no passing target falls back to the plain confident sample");
+    }
+
+    /// <summary>
+    /// The pooled confident sample takes the top rows of the ranking whatever their label: one score threshold, so every
+    /// score band keeps targets and decoys in their own proportion. Equal halves leave a band above the decoys' cutoff and
+    /// below the targets' where only decoys train, and the network learns that faint means decoy.
+    /// </summary>
+    [Test]
+    public void ThePooledConfidentSampleTakesTheTopRowsWhateverTheirLabel()
+    {
+        int[] ranked = Enumerable.Range(0, 20).ToArray();
+        double[] scores = ranked.Select(i => 20.0 - i).ToArray();
+        // Targets dominate the top of the ranking, as real ones lift them
+        bool[] decoy = ranked.Select(i => i >= 6 && i % 2 == 1).ToArray();
+
+        int[] pooled = TargetDecoyRescorer.PooledTrainingRows(ranked, decoy, cap: 10);
+        Assert.That(pooled, Is.EqualTo(ranked.Take(10).Order()));
+        Assert.That(pooled.Count(i => !decoy[i]), Is.GreaterThan(5), "more targets than half when targets lead the ranking");
+
+        var random = new Random(5);
+        var features = ranked.Select(i => new[] { random.NextDouble() + (decoy[i] ? 0 : 0.5), random.NextDouble() }).ToList();
+        var keys = ranked.Select(i => i.ToString()).ToList();
+        var result = TargetDecoyRescorer.Score(features, decoy, keys, model: RescoreModel.NeuralNetworkEnsemble, maxNetworkTrainingRows: 10,
+            networkTrainingSample: NetworkTrainingSample.ConfidentPooled, networkMembers: 2, networkEpochs: 2);
+        Assert.That(result.Scores, Has.All.Matches<double>(double.IsFinite));
+    }
+
+    /// <summary>
+    /// When the top rows of the ranking are all one label the network cannot train on them, so the pooled sample falls back
+    /// to the top targets and the top decoys, half the cap each.
+    /// </summary>
+    [Test]
+    public void ThePooledSampleWithOneLabelFallsBackToEqualHalves()
+    {
+        int[] ranked = Enumerable.Range(0, 20).ToArray();
+        bool[] decoy = ranked.Select(i => i >= 12).ToArray();
+
+        int[] pooled = TargetDecoyRescorer.PooledTrainingRows(ranked, decoy, cap: 10);
+        Assert.That(pooled, Is.EqualTo(new[] { 0, 1, 2, 3, 4, 12, 13, 14, 15, 16 }));
+
+        var random = new Random(5);
+        var features = ranked.Select(i => new[] { random.NextDouble() + (decoy[i] ? 0 : 2), random.NextDouble() }).ToList();
+        var keys = ranked.Select(i => i.ToString()).ToList();
+        var result = TargetDecoyRescorer.Score(features, decoy, keys, model: RescoreModel.NeuralNetworkEnsemble, maxNetworkTrainingRows: 4,
+            networkTrainingSample: NetworkTrainingSample.ConfidentPooled, networkMembers: 2, networkEpochs: 2);
+        Assert.That(result.Scores, Has.All.Matches<double>(double.IsFinite));
+    }
+
+    /// <summary>
+    /// The confident sample's share of targets can be set: at 0.7 a cap of 10 takes the top 7 targets and the top 3 decoys,
+    /// at 0.5 the halves as before, and a share outside (0, 1) is refused.
+    /// </summary>
+    [Test]
+    public void TheConfidentSampleTargetShareCanBeSet()
+    {
+        int[] ranked = Enumerable.Range(0, 20).ToArray();
+        double[] scores = ranked.Select(i => 20.0 - i).ToArray();
+        bool[] decoy = ranked.Select(i => i % 2 == 1).ToArray();
+
+        int[] seventy = TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 10, positiveQValue: null, targetFraction: 0.7);
+        Assert.That(seventy, Is.EquivalentTo(ranked.Where(i => !decoy[i]).Take(7).Concat(ranked.Where(i => decoy[i]).Take(3))));
+        Assert.That(TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 10, positiveQValue: null, targetFraction: 0.5),
+            Is.EqualTo(TargetDecoyRescorer.ConfidentTrainingRows(ranked, scores, decoy, cap: 10, positiveQValue: null)));
+
+        var features = ranked.Select(i => new[] { (double)i }).ToList();
+        var keys = ranked.Select(i => i.ToString()).ToList();
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, decoy, keys, networkTargetFraction: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, decoy, keys, networkTargetFraction: 1));
+    }
+
+    /// <summary>
+    /// The network's hidden layers can be chosen (DIA-NN 2020's 25-20-15-10-5 by default): another architecture gives other
+    /// scores, a wider one still finds non-linear signal a line misses, and an empty or zero-unit layer list is refused.
+    /// </summary>
+    [Test]
+    public void TheNetworkArchitectureCanBeChosen()
+    {
+        var random = new Random(21);
+        var features = new List<double[]>();
+        var isDecoy = new List<bool>();
+        var groups = new List<string>();
+        void Add(bool decoy, bool real, int i)
+        {
+            double spread = real ? 3.0 : 1.0;
+            features.Add([spread * Gaussian(random), spread * Gaussian(random), Gaussian(random)]);
+            isDecoy.Add(decoy);
+            groups.Add($"{(decoy ? "D" : "T")}{i}");
+        }
+        for (int i = 0; i < 2000; i++) Add(false, true, i);
+        for (int i = 0; i < 2000; i++) Add(false, false, 2000 + i);
+        for (int i = 0; i < 4000; i++) Add(true, false, i);
+        bool[] decoys = isDecoy.ToArray();
+
+        var standard = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 3);
+        var wide = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 3,
+            networkLayers: [64, 32, 16]);
+        var linear = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15);
+
+        Assert.That(wide.Scores, Is.Not.EqualTo(standard.Scores));
+        Assert.That(TargetsAtQ(wide.Scores, decoys, 0.01), Is.GreaterThan(TargetsAtQ(linear.Scores, decoys, 0.01) + 200));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, model: RescoreModel.NeuralNetworkEnsemble, networkLayers: []));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, model: RescoreModel.NeuralNetworkEnsemble, networkLayers: [10, 0]));
+    }
+
+    /// <summary>
+    /// True targets that differ from decoys only non-linearly (a larger spread on two features, the same mean): the network
+    /// ensemble finds them, a line cannot. It trains only on each fold's training rows.
+    /// </summary>
+    [Test]
+    public void TheNetworkModelFindsNonLinearSignalTheLineMisses()
+    {
+        var random = new Random(21);
+        var features = new List<double[]>();
+        var isDecoy = new List<bool>();
+        var groups = new List<string>();
+        void Add(bool decoy, bool real, int i)
+        {
+            double spread = real ? 3.0 : 1.0;
+            features.Add([spread * Gaussian(random), spread * Gaussian(random), Gaussian(random)]);
+            isDecoy.Add(decoy);
+            groups.Add($"{(decoy ? "D" : "T")}{i}");
+        }
+        for (int i = 0; i < 2000; i++) Add(false, true, i);
+        for (int i = 0; i < 2000; i++) Add(false, false, 2000 + i);
+        for (int i = 0; i < 4000; i++) Add(true, false, i);
+        bool[] decoys = isDecoy.ToArray();
+
+        var linear = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15);
+        var network = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+
+        int atOnePercentLinear = TargetsAtQ(linear.Scores, decoys, 0.01);
+        int atOnePercentNetwork = TargetsAtQ(network.Scores, decoys, 0.01);
+        Assert.That(atOnePercentNetwork, Is.GreaterThan(atOnePercentLinear + 200), $"network {atOnePercentNetwork} vs line {atOnePercentLinear}");
+    }
+
+    /// <summary>
+    /// The leakage test for the network model, with candidate groups: flipping one held-out row's label, or adding a
+    /// row to its candidate group, never changes how that row is scored. Only other folds train the model that scores it.
+    /// </summary>
+    [Test]
+    public void ACandidatesOwnLabelNeverReachesTheNetworkThatScoresIt()
+    {
+        var (features, isDecoy, groups, _) = Candidates(800, 800, 1600, shift: 1.2);
+        int[] candidateGroups = Enumerable.Range(0, features.Length).ToArray();
+        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, candidateGroups: candidateGroups,
+            model: RescoreModel.NeuralNetworkEnsemble);
+
+        int row = 17;
+        var flipped = isDecoy.ToArray();
+        flipped[row] = !flipped[row];
+        var after = TargetDecoyRescorer.Score(features, flipped, groups, positiveQValue: 0.15, candidateGroups: candidateGroups,
+            model: RescoreModel.NeuralNetworkEnsemble);
+
+        Assert.That(after.Folds[row], Is.EqualTo(before.Folds[row]));
+        Assert.That(after.Scores[row], Is.EqualTo(before.Scores[row]).Within(1e-9), "the flipped label stayed out of the model scoring it");
+        // Every row of the flipped row's fold is scored by the same model, so all of them are unchanged too
+        foreach (int i in Enumerable.Range(0, features.Length).Where(i => before.Folds[i] == before.Folds[row]))
+            Assert.That(after.Scores[i], Is.EqualTo(before.Scores[i]).Within(1e-9), $"row {i} in the same fold");
+    }
+
+    /// <summary>The fixture for the network's training cap: real targets spread wider than decoys (no line separates them).</summary>
+    private static (List<double[]> Features, List<bool> IsDecoy, List<string> Groups) Ring()
+    {
+        var random = new Random(21);
+        var features = new List<double[]>();
+        var isDecoy = new List<bool>();
+        var groups = new List<string>();
+        void Add(bool decoy, bool real, int i)
+        {
+            double spread = real ? 3.0 : 1.0;
+            features.Add([spread * Gaussian(random), spread * Gaussian(random), Gaussian(random)]);
+            isDecoy.Add(decoy);
+            groups.Add($"{(decoy ? "D" : "T")}{i}");
+        }
+        for (int i = 0; i < 2000; i++) Add(false, true, i);
+        for (int i = 0; i < 2000; i++) Add(false, false, 2000 + i);
+        for (int i = 0; i < 4000; i++) Add(true, false, i);
+        return (features, isDecoy, groups);
+    }
+
+    /// <summary>
+    /// The network can train on a random subsample of each fold's training rows. DIA-NN trains on 267k of 3M precursors;
+    /// on a whole-proteome search, training on all 2.6M rows was two thirds of the time. A cap at least the training size
+    /// changes nothing. (Taking the top rows by the linear score instead was tried first and failed ACappedNetworkStillFindsTheSignal:
+    /// where the line misses the signal, its top rows are the wrong ones.)
+    /// </summary>
+    [Test]
+    public void ANetworkTrainingCapAtLeastTheTrainingSizeChangesNothing()
+    {
+        var (features, isDecoy, groups) = Ring();
+
+        var all = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var capped = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            maxNetworkTrainingRows: 1_000_000);
+
+        Assert.That(capped.Scores, Is.EqualTo(all.Scores));
+    }
+
+    /// <summary>A cap well below the training size is applied, and the network still finds what the line misses.</summary>
+    [Test]
+    public void ACappedNetworkStillFindsTheSignal()
+    {
+        var (features, isDecoy, groups) = Ring();
+        bool[] decoys = isDecoy.ToArray();
+
+        var linear = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15);
+        var all = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var capped = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            maxNetworkTrainingRows: 2000);
+
+        Assert.That(capped.Scores, Is.Not.EqualTo(all.Scores), "about 5,300 training rows per fold, capped at 2,000");
+        Assert.That(TargetsAtQ(capped.Scores, decoys, 0.01), Is.GreaterThan(TargetsAtQ(linear.Scores, decoys, 0.01) + 200));
+    }
+
+    /// <summary>The leakage guarantee holds with a cap: the cap only ever picks among the fold's own training rows.</summary>
+    [Test]
+    public void ACandidatesOwnLabelNeverReachesACappedNetwork()
+    {
+        var (features, isDecoy, groups, _) = Candidates(800, 800, 1600, shift: 1.2);
+        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            maxNetworkTrainingRows: 600);
+
+        int row = 17;
+        var flipped = isDecoy.ToArray();
+        flipped[row] = !flipped[row];
+        var after = TargetDecoyRescorer.Score(features, flipped, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            maxNetworkTrainingRows: 600);
+
+        foreach (int i in Enumerable.Range(0, features.Length).Where(i => before.Folds[i] == before.Folds[row]))
+            Assert.That(after.Scores[i], Is.EqualTo(before.Scores[i]).Within(1e-9), $"row {i} in the flipped row's fold");
+    }
+
+    /// <summary>
+    /// The network's random seed is a parameter, so a caller can measure how much a result moves for reasons that are only
+    /// random: the same data with another seed. The default seed reproduces earlier results exactly.
+    /// </summary>
+    [Test]
+    public void TheNetworkSeedIsAParameterAndTheDefaultIsUnchanged()
+    {
+        var (features, isDecoy, groups) = Ring();
+
+        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var seed0 = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, randomSeed: 0);
+        var seed1 = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, randomSeed: 1);
+        var seed1Again = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble, randomSeed: 1);
+
+        Assert.That(seed0.Scores, Is.EqualTo(before.Scores));
+        Assert.That(seed1.Scores, Is.Not.EqualTo(seed0.Scores));
+        Assert.That(seed1Again.Scores, Is.EqualTo(seed1.Scores), "a seed is deterministic");
+    }
+
+    /// <summary>
+    /// The ensemble's size and training length are parameters (DIA-NN uses 12 networks for one epoch; our default is 5 for 10).
+    /// The defaults reproduce earlier results exactly; other values change the scores and still find what a line misses.
+    /// </summary>
+    [Test]
+    public void EnsembleSizeAndEpochsAreParameters()
+    {
+        var (features, isDecoy, groups) = Ring();
+        bool[] decoys = isDecoy.ToArray();
+
+        var before = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+        var defaults = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 5, networkEpochs: 10);
+        var diann = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble,
+            networkMembers: 12, networkEpochs: 1);
+
+        Assert.That(defaults.Scores, Is.EqualTo(before.Scores));
+        Assert.That(diann.Scores, Is.Not.EqualTo(before.Scores));
+        // One epoch underfits a fixture this small (8,000 rows: 202 targets at 1% against the line's 266); DIA-NN trains on
+        // far more rows, so whether one epoch suits a real search is for the real-data comparison to show
+        Assert.That(TargetsAtQ(diann.Scores, decoys, 0.01), Is.GreaterThan(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, model: RescoreModel.NeuralNetworkEnsemble, networkMembers: 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, model: RescoreModel.NeuralNetworkEnsemble, networkEpochs: 0));
+    }
+
+    [Test]
+    public void ANetworkTrainingCapBelowTwoIsRefused()
+    {
+        var (features, isDecoy, groups) = Ring();
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups,
+            model: RescoreModel.NeuralNetworkEnsemble, maxNetworkTrainingRows: 1));
+    }
+
+    /// <summary>The network model must not manufacture discoveries: with nothing real, about 1% at most, as for the line.</summary>
+    [Test]
+    public void TheNetworkModelFindsNothingWhereThereIsNothing()
+    {
+        var (features, isDecoy, groups, _) = Candidates(0, 3000, 3000, shift: 0, seed: 9);
+
+        var result = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, model: RescoreModel.NeuralNetworkEnsemble);
+
+        Assert.That(TargetsAtQ(result.Scores, isDecoy, 0.01), Is.LessThanOrEqualTo(30));
     }
 
     [Test]
@@ -468,6 +853,113 @@ public class TargetDecoyRescorerTests
         var seed = TargetDecoyRescorer.BestSingleFeature(features, decoy, Enumerable.Range(0, 80).ToArray(), 0.01);
 
         Assert.That(seed, Is.EqualTo((1, -1)));
+    }
+
+    #endregion
+
+    #region second network pass
+
+    /// <summary>
+    /// The network trains on each candidate group's top row, picked by the linear model. Where the line cannot tell the real
+    /// candidate from noise (here the real one only spreads wider), the network learns from mostly wrong rows. A second pass,
+    /// as DIA-NN trains its networks twice, re-picks each group's top row with the first network and trains again.
+    /// </summary>
+    [Test]
+    public void ASecondNetworkPassTrainsOnTheRowsTheFirstNetworkPicked()
+    {
+        var random = new Random(31);
+        var features = new List<double[]>();
+        var isDecoy = new List<bool>();
+        var groups = new List<string>();
+        var candidateGroups = new List<int>();
+        int group = 0;
+        void AddGroup(bool decoy, bool hasReal, int i)
+        {
+            for (int c = 0; c < 3; c++)
+            {
+                double spread = hasReal && c == 0 ? 3.0 : 1.0;
+                features.Add([spread * Gaussian(random), spread * Gaussian(random), Gaussian(random)]);
+                isDecoy.Add(decoy);
+                groups.Add($"{(decoy ? "D" : "T")}{i}");
+                candidateGroups.Add(group);
+            }
+            group++;
+        }
+        for (int i = 0; i < 1500; i++) AddGroup(false, true, i);
+        for (int i = 0; i < 1500; i++) AddGroup(false, false, 1500 + i);
+        for (int i = 0; i < 3000; i++) AddGroup(true, false, i);
+
+        int GroupsAtOnePercent(double[] scores)
+        {
+            var best = Enumerable.Range(0, group).Select(g => Enumerable.Range(3 * g, 3).Max(r => scores[r])).ToArray();
+            var decoyGroup = Enumerable.Range(0, group).Select(g => isDecoy[3 * g]).ToArray();
+            return TargetsAtQ(best, decoyGroup, 0.01);
+        }
+        var once = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, candidateGroups: candidateGroups,
+            model: RescoreModel.NeuralNetworkEnsemble);
+        var twice = TargetDecoyRescorer.Score(features, isDecoy, groups, positiveQValue: 0.15, candidateGroups: candidateGroups,
+            model: RescoreModel.NeuralNetworkEnsemble, networkPasses: 2);
+
+        int first = GroupsAtOnePercent(once.Scores), second = GroupsAtOnePercent(twice.Scores);
+        Assert.That(second, Is.GreaterThan(first + 100), $"two passes {second} vs one {first}");
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, networkPasses: 0));
+    }
+
+    #endregion
+
+    #region confident network training sample
+
+    /// <summary>
+    /// A whole-proteome DIA search has about one real target in twenty, so a random training sample teaches the network
+    /// mostly noise against decoys. DIA-NN removes low-confidence identifications first and trains on about 156k targets and
+    /// 138k decoys. The confident sample takes half its rows from the targets the line ranks highest and half from the decoys
+    /// it ranks highest.
+    /// </summary>
+    [Test]
+    public void AConfidentTrainingSampleBeatsARandomOneWhenFewTargetsAreReal()
+    {
+        var (features, isDecoy, groups, _) = Candidates(500, 9500, 10000, shift: 2.5);
+
+        var random = TargetDecoyRescorer.Score(features, isDecoy, groups, model: RescoreModel.NeuralNetworkEnsemble,
+            maxNetworkTrainingRows: 600);
+        var confident = TargetDecoyRescorer.Score(features, isDecoy, groups, model: RescoreModel.NeuralNetworkEnsemble,
+            maxNetworkTrainingRows: 600, networkTrainingSample: NetworkTrainingSample.Confident);
+
+        int byRandom = TargetsAtQ(random.Scores, isDecoy, 0.01), byConfident = TargetsAtQ(confident.Scores, isDecoy, 0.01);
+        Assert.That(byConfident, Is.GreaterThan(byRandom + 30), $"confident {byConfident} vs random {byRandom}");
+    }
+
+    #endregion
+
+    #region sampled normalisation
+
+    /// <summary>
+    /// Each fold scored every training row only to set its normalisation (the 1% threshold and median decoy), twice the work
+    /// of scoring its own held-out rows. A random sample of training groups estimates both. Within a fold the scores remain
+    /// an affine map of the full normalisation's, so the fold's ranking is unchanged; only the pooling across folds can move.
+    /// </summary>
+    [Test]
+    public void ASampleOfTrainingGroupsNormalisesEachFold()
+    {
+        var (features, isDecoy, groups, _) = Candidates(3000, 3000, 6000, shift: 1.5);
+
+        var full = TargetDecoyRescorer.Score(features, isDecoy, groups);
+        var sampled = TargetDecoyRescorer.Score(features, isDecoy, groups, normalizationGroups: 4000);
+
+        for (int f = 0; f < 3; f++)
+        {
+            int[] rows = Enumerable.Range(0, features.Length).Where(i => full.Folds[i] == f).ToArray();
+            var a = rows.Select(i => full.Scores[i]).ToArray();
+            var b = rows.Select(i => sampled.Scores[i]).ToArray();
+            double slope = (b[1] - b[0]) / (a[1] - a[0]);
+            for (int k = 0; k < rows.Length; k++)
+                Assert.That(b[k], Is.EqualTo(b[0] + slope * (a[k] - a[0])).Within(1e-9 * (1 + Math.Abs(b[k]))), $"fold {f}, row {rows[k]}");
+        }
+        int byFull = TargetsAtQ(full.Scores, isDecoy, 0.01), bySample = TargetsAtQ(sampled.Scores, isDecoy, 0.01);
+        // The threshold is the lowest passing training score, an extreme value: on 4,000 groups its noise moves the pooled count
+        // by several percent either way. A real search samples hundreds of thousands, and the real-data A/B judges it.
+        Assert.That(bySample, Is.EqualTo(byFull).Within(0.1 * byFull));
+        Assert.Throws<ArgumentOutOfRangeException>(() => TargetDecoyRescorer.Score(features, isDecoy, groups, normalizationGroups: 0));
     }
 
     #endregion

@@ -78,20 +78,25 @@ namespace StatisticalModels
             if (positives == 0 || positives == isPositive.Count)
                 throw new ArgumentException("Both classes must be present.", nameof(isPositive));
 
-            // Standardize; constant features take no part
+            // Standardize; constant features take no part. Row by row (each row read once, not once per feature); every
+            // feature's sums still add the rows in the same order, so the result is unchanged
             int n = features.Count;
             var mean = new double[p];
             var sd = new double[p];
-            for (int j = 0; j < p; j++)
+            for (int i = 0; i < n; i++)
             {
-                double m = 0;
-                for (int i = 0; i < n; i++) m += features[i][j];
-                m /= n;
-                double v = 0;
-                for (int i = 0; i < n; i++) v += (features[i][j] - m) * (features[i][j] - m);
-                mean[j] = m;
-                sd[j] = Math.Sqrt(v / Math.Max(1, n - 1));
+                var row = features[i];
+                for (int j = 0; j < p; j++) mean[j] += row[j];
             }
+            for (int j = 0; j < p; j++) mean[j] /= n;
+            var squares = new double[p];
+            for (int i = 0; i < n; i++)
+            {
+                var row = features[i];
+                for (int j = 0; j < p; j++) squares[j] += (row[j] - mean[j]) * (row[j] - mean[j]);
+            }
+            for (int j = 0; j < p; j++)
+                sd[j] = Math.Sqrt(squares[j] / Math.Max(1, n - 1));
             int[] active = Enumerable.Range(0, p).Where(j => sd[j] > ConstantTolerance).ToArray();
             var weights = new double[p];
             if (active.Length == 0)
@@ -111,17 +116,26 @@ namespace StatisticalModels
                 for (int a = 0; a < k; a++)
                     classMean[c, a] /= count[c];
 
-            var within = Matrix<double>.Build.Dense(k, k);
+            // The pooled scatter in a flat array, upper triangle only, then mirrored: each cell adds the same products in the same
+            // row order (centered[a] * centered[b] is exactly centered[b] * centered[a]), so the matrix is unchanged; the matrix
+            // indexer over every cell was most of the fit's time
+            var scatter = new double[k * k];
             var centered = new double[k];
             for (int i = 0; i < n; i++)
             {
                 int c = isPositive[i] ? 1 : 0;
+                var row = features[i];
                 for (int a = 0; a < k; a++)
-                    centered[a] = (features[i][active[a]] - mean[active[a]]) / sd[active[a]] - classMean[c, a];
+                    centered[a] = (row[active[a]] - mean[active[a]]) / sd[active[a]] - classMean[c, a];
                 for (int a = 0; a < k; a++)
-                    for (int b = 0; b < k; b++)
-                        within[a, b] += centered[a] * centered[b];
+                {
+                    double x = centered[a];
+                    int at = a * k;
+                    for (int b = a; b < k; b++)
+                        scatter[at + b] += x * centered[b];
+                }
             }
+            var within = Matrix<double>.Build.Dense(k, k, (a, b) => a <= b ? scatter[a * k + b] : scatter[b * k + a]);
             within = within.Divide(Math.Max(1, n - 2));
             for (int a = 0; a < k; a++)
                 within[a, a] += ridge;
