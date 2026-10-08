@@ -5,9 +5,13 @@ using System.ComponentModel;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
+using NUnit.Framework.Constraints;
+using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
 using PredictionClients.Koina.SupportedModels.CrosslinkIntensityModels;
 using PredictionClients.Koina.SupportedModels.FragmentIntensityModels;
+using PredictionClients.Koina.SupportedModels.RetentionTimeModels;
+using Readers.ProForma;
 
 namespace Test.KoinaTests
 {
@@ -110,28 +114,216 @@ namespace Test.KoinaTests
         // ── Model-specific request-building overrides ───────────────────────────────
 
         [Test]
-        public void Tmt_TryCleanSequence_RejectsSequenceWithoutNTerminalLabel()
+        public void Tmt_TryCleanSequence_RejectsSequenceWithoutNTerminalLabel(
+            [Values(SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
         {
-            var model = new TmtProbe();
             // Return value null = rejected; that's what the prediction pipeline keys off.
-            var result = model.Clean("PEPTIDEK", out _, out var warning);
+            var intensity = new TmtProbe(mode).Clean("PEPTIDEK", out _, out var intensityWarning);
+            var irt = new IrtTmtProbe(mode).Clean("PEPTIDEK", out _, out var irtWarning);
 
-            Assert.That(result, Is.Null);
-            Assert.That(warning, Is.Not.Null);
-            Assert.That(warning!.Message, Does.Contain("N-terminal"));
+            Assert.That(intensity, Is.Null);
+            Assert.That(intensityWarning?.Message, Does.Contain("N-terminal"));
+            Assert.That(irt, Is.Null);
+            Assert.That(irtWarning?.Message, Does.Contain("N-terminal"));
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ThrowExceptionModeThrowsWithoutNTerminalLabel()
+        {
+            const SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ThrowException;
+
+            Assert.That(() => new TmtProbe(mode).Clean("PEPTIDEK", out _, out _),
+                Throws.ArgumentException.With.Message.Contains("N-terminal"));
+            Assert.That(() => new IrtTmtProbe(mode).Clean("PEPTIDEK", out _, out _),
+                Throws.ArgumentException.With.Message.Contains("N-terminal"));
+        }
+
+        [Test]
+        public void Tmt_IrtTryCleanSequence_AcceptsSupportedNTerminalLabel()
+        {
+            var result = new IrtTmtProbe().Clean("[Common Fixed:TMTpro on N-terminus]PEPTIDEK", out var api, out var warning);
+
+            Assert.That(result, Is.EqualTo(api));
+            Assert.That(warning, Is.Null);
+            Assert.That(api, Does.StartWith("[UNIMOD:2016]-"), "TMTpro on N-terminus should serialize to UNIMOD:2016.");
+        }
+
+        [Test]
+        public void Tmt_Construction_AcceptsModesThatKeepTheLabel(
+            [Values(SequenceConversionHandlingMode.ThrowException, SequenceConversionHandlingMode.ReturnNull, SequenceConversionHandlingMode.RemoveIncompatibleElements)] SequenceConversionHandlingMode mode)
+        {
+            Assert.That(new Prosit2020IntensityTMT(mode).ModHandlingMode, Is.EqualTo(mode));
+            Assert.That(new Prosit2020iRTTMT(mode).ModHandlingMode, Is.EqualTo(mode));
         }
 
         [Test]
         public void Tmt_TryCleanSequence_AcceptsSupportedNTerminalLabel()
         {
             // Positive branch: a supported N-terminal TMT label must survive cleaning (offline).
-            // This guards the success path that previously returned the wrong out value.
             var model = new TmtProbe();
             var result = model.Clean("[Common Fixed:TMT6plex on N-terminus]PEPTIDEK", out var api, out var warning);
 
             Assert.That(result, Is.Not.Null, "A supported N-terminal TMT label must survive cleaning.");
             Assert.That(warning, Is.Null);
             Assert.That(api, Does.StartWith("[UNIMOD:737]-"), "TMT6plex on N-terminus should serialize to UNIMOD:737.");
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ProFormaSourceReachesSameApiSequenceAsMzLib()
+        {
+            var model = new TmtProbe();
+
+            var mzLibResult = model.Clean("[Multiplex Label:TMT6-plex on X]PEPTIDEK", out var mzLibApi, out var mzLibWarning);
+            var proFormaResult = model.CleanWithParser("[UNIMOD:737]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
+
+            Assert.That(mzLibResult, Is.Not.Null);
+            Assert.That(proFormaResult, Is.Not.Null, "A ProForma-sourced N-terminal TMT label must survive cleaning.");
+            Assert.That(proFormaWarning, Is.Null);
+            Assert.That(proFormaApi, Does.StartWith("[UNIMOD:737]-"));
+            Assert.That(proFormaApi, Is.EqualTo(mzLibApi), "mzLib and ProForma sources of the same peptide must serialize byte-identically.");
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ProFormaSourceWithoutNTerminalLabel_IsRejected()
+        {
+            var model = new TmtProbe();
+
+            var result = model.CleanWithParser("PEPTIDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
+
+            Assert.That(result, Is.Null);
+            Assert.That(api, Is.Null);
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning!.Message, Does.Contain("N-terminal"));
+        }
+
+        [Test]
+        public void IrtTmt_TryCleanSequence_RequiresNTerminalLabelFromEitherSource()
+        {
+            var model = new IrtTmtProbe();
+
+            var mzLib = model.Clean("[Multiplex Label:TMT18 on X]PEPTIDEK", out var mzLibApi, out _);
+            var proForma = model.CleanWithParser("[UNIMOD:2016]-PEPTIDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out _);
+            var unlabeled = model.CleanWithParser("PEPTIDEK", ProFormaSequenceParser.Instance, out _, out var unlabeledWarning);
+
+            Assert.That(mzLib, Is.Not.Null);
+            Assert.That(proForma, Is.Not.Null);
+            Assert.That(proFormaApi, Is.EqualTo(mzLibApi).And.StartWith("[UNIMOD:2016]-"));
+            Assert.That(unlabeled, Is.Null);
+            Assert.That(unlabeledWarning?.Message, Does.Contain("N-terminal"));
+        }
+
+        [Test]
+        public void EveryModel_RequiredNTerminalModifications_AreAllowedByThatModel()
+        {
+            var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
+            var checkedModels = 0;
+            Assert.Multiple(() =>
+            {
+                foreach (var modelType in models)
+                {
+                    var model = Instantiate(modelType);
+                    var required = (IReadOnlySet<int>?)modelType.GetProperty("RequiredNTerminalUnimodIds")!.GetValue(model);
+                    var acceptsAll = (bool)modelType.GetProperty("AcceptsAllUnimodModifications")!.GetValue(model)!;
+                    if (required == null || acceptsAll)
+                        continue;
+
+                    var allowed = (IReadOnlySet<int>)modelType.GetProperty("AllowedUnimodIds")!.GetValue(model)!;
+                    Assert.That(required, Is.SubsetOf(allowed), modelType.Name);
+                    checkedModels++;
+                }
+            });
+            Assert.That(checkedModels, Is.GreaterThanOrEqualTo(2), "Expected at least the two Prosit 2020 TMT models to declare required N-terminal mods.");
+        }
+
+        [Test]
+        public void EveryModel_RequiringAModification_RejectsUsePrimarySequenceAtConstruction()
+        {
+            var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
+            var checkedModels = 0;
+            Assert.Multiple(() =>
+            {
+                foreach (var modelType in models)
+                {
+                    var model = Instantiate(modelType);
+                    if (modelType.GetProperty("RequiredNTerminalUnimodIds")!.GetValue(model) == null)
+                        continue;
+
+                    var ctor = modelType.GetConstructors().First(c => c.GetParameters().All(p => p.HasDefaultValue)
+                        && c.GetParameters().Any(p => p.ParameterType == typeof(SequenceConversionHandlingMode)));
+                    var args = ctor.GetParameters()
+                        .Select(p => p.ParameterType == typeof(SequenceConversionHandlingMode) ? SequenceConversionHandlingMode.UsePrimarySequence : p.DefaultValue)
+                        .ToArray();
+                    Assert.That(() => ctor.Invoke(args),
+                        Throws.TypeOf<TargetInvocationException>().With.InnerException.TypeOf<ArgumentException>(), modelType.Name);
+                    Assert.That(() => modelType.GetProperty("ModHandlingMode")!.SetValue(Instantiate(modelType), SequenceConversionHandlingMode.UsePrimarySequence),
+                        Throws.TypeOf<TargetInvocationException>().With.InnerException.TypeOf<ArgumentException>(), modelType.Name + " (init)");
+                    checkedModels++;
+                }
+            });
+            Assert.That(checkedModels, Is.GreaterThanOrEqualTo(2), "Expected at least the two Prosit 2020 TMT models to declare required N-terminal mods.");
+        }
+
+        [Test]
+        public void EveryModel_ModificationItsConverterResolves_IsAllowedByThatModel()
+        {
+            var oxidation = CanonicalModification.AtResidue(3, 'M', "Common Variable:Oxidation on M", mzLibId: "Common Variable:Oxidation on M");
+            var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
+            var checkedAcceptAllModels = 0;
+            Assert.Multiple(() =>
+            {
+                foreach (var modelType in models)
+                {
+                    var model = Instantiate(modelType);
+                    var converter = (ISequenceConverter)modelType.GetProperty("SequenceConverter", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(model)!;
+                    if (converter.Serializer.ModificationLookup?.TryResolve(oxidation)?.UnimodId is not int id)
+                        continue;
+
+                    var acceptsAll = (bool)modelType.GetProperty("AcceptsAllUnimodModifications")!.GetValue(model)!;
+                    var allowed = (IReadOnlySet<int>)modelType.GetProperty("AllowedUnimodIds")!.GetValue(model)!;
+                    Assert.That(acceptsAll || allowed.Contains(id), Is.True,
+                        $"{modelType.Name}'s converter resolves UNIMOD:{id}, which the model doesn't allow.");
+                    if (acceptsAll)
+                        checkedAcceptAllModels++;
+                }
+            });
+            Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(16), "Expected all 16 accept-all models to resolve oxidation and be checked.");
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_ProFormaSourceWithOutOfSetUnimodId_ReturnNullRejectsBeforeSerialization()
+        {
+            var model = new TmtProbe();
+
+            var result = model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
+
+            Assert.That(result, Is.Null);
+            Assert.That(api, Is.Null);
+            Assert.That(warning, Is.Not.Null);
+            Assert.That(warning!.Message, Does.Contain("UNIMOD:21"));
+        }
+
+        [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
+        [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[UNIMOD:737]-PEPSIDEK")]
+        public void Tmt_TryCleanSequence_OutOfSetModification_SameOutcomeFromMzLibAndProFormaSources(SequenceConversionHandlingMode mode, string? expected)
+        {
+            var model = new TmtProbe(mode);
+
+            var fromMzLib = model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Common Biological:Phosphorylation on S]IDEK", out var mzLibApi, out _);
+            var fromProForma = model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out var proFormaApi, out var proFormaWarning);
+
+            Assert.That(fromMzLib, Is.EqualTo(expected));
+            Assert.That(fromProForma, Is.EqualTo(expected));
+            Assert.That(proFormaApi, Is.EqualTo(mzLibApi));
+            Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:21"));
+        }
+
+        [Test]
+        public void Tmt_TryCleanSequence_OutOfSetModificationThrowMode_ThrowsFromMzLibAndProFormaSources()
+        {
+            var model = new TmtProbe(SequenceConversionHandlingMode.ThrowException);
+
+            Assert.Throws<ArgumentException>(() => model.Clean("[Multiplex Label:TMT6-plex on X]PEPS[Common Biological:Phosphorylation on S]IDEK", out _, out _));
+            Assert.Throws<ArgumentException>(() => model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out _, out _));
         }
 
         [Test]
@@ -208,11 +400,29 @@ namespace Test.KoinaTests
 
         private sealed class TmtProbe : Prosit2020IntensityTMT
         {
+            public TmtProbe(SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ReturnNull)
+                : base(modHandlingMode: mode) { }
+
             public string? Clean(string sequence, out string? api, out WarningException? warning)
-                => TryCleanSequence(sequence, out api, out warning);
+                => TryCleanSequence(sequence, null, out api, out warning);
+
+            public string? CleanWithParser(string sequence, ISequenceParser sourceParser, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, sourceParser, out api, out warning);
 
             public List<Dictionary<string, object>> Build(List<FragmentIntensityPredictionInput> inputs)
                 => ToBatchedRequests(inputs);
+        }
+
+        private sealed class IrtTmtProbe : Prosit2020iRTTMT
+        {
+            public IrtTmtProbe(SequenceConversionHandlingMode mode = SequenceConversionHandlingMode.ReturnNull)
+                : base(modHandlingMode: mode) { }
+
+            public string? Clean(string sequence, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, null, out api, out warning);
+
+            public string? CleanWithParser(string sequence, ISequenceParser sourceParser, out string? api, out WarningException? warning)
+                => TryCleanSequence(sequence, sourceParser, out api, out warning);
         }
 
         /// <summary>
@@ -235,7 +445,7 @@ namespace Test.KoinaTests
         private sealed class XlNms2Probe : Prosit2024IntensityXLNMS2
         {
             public string? Clean(string sequence, out string? api, out WarningException? warning)
-                => TryCleanSequence(sequence, out api, out warning);
+                => TryCleanSequence(sequence, null, out api, out warning);
         }
     }
 }

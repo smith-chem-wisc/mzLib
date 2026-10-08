@@ -21,7 +21,9 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     /// </remarks>
     public class Prosit2020IntensityHCD : FragmentIntensityModel
     {
-        private static readonly IReadOnlySet<int> SupportedUnimodIds = new HashSet<int> { 35, 4 };
+        // Koina: the subset mzLib allows of ALPHABET_MOD in models/Prosit/Prosit_Preprocess_peptide/1/sequence_conversion.py
+        private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string> { "M[UNIMOD:35]", "C[UNIMOD:4]" };
+        private static readonly IReadOnlySet<int> SupportedUnimodIds = UnimodIdsOf(SupportedModificationTokens);
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(
             UnimodSequenceFormatSchema.Instance, SupportedUnimodIds);
         /// <summary>The Koina API model name identifier</summary>
@@ -61,6 +63,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         /// <summary>Total number of fragment ions predicted by this model per peptide</summary>
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<string>? AllowedModificationTokens => SupportedModificationTokens;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
         public override FragmentIonMappingMode FragmentIonMappingMode { get; init; }
