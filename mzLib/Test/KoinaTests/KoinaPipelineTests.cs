@@ -83,7 +83,6 @@ namespace Test.KoinaTests
         [Test]
         public void EveryFamily_Predict_ParsesWithTheInputsOwnSequenceParser()
         {
-            // Each family's validation loop must hand the input record's parser to TryCleanSequence, not null.
             var fragmentParser = new CountingParser();
             var rtParser = new CountingParser();
             var ccsParser = new CountingParser();

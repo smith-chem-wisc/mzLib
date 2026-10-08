@@ -105,8 +105,6 @@ namespace PredictionClients.Koina.AbstractClasses
 
             for (int i = 0; i < ModelInputs.Count; i++)
             {
-                // Crosslink inputs never go through ISequenceParser (see the TryCleanSequence override
-                // below), so there is no per-input source parser to thread through here.
                 var cleanedAlpha = TryCleanSequence(ModelInputs[i].AlphaSequence, null, out var apiAlpha, out var alphaWarning);
 
                 string? cleanedBeta = null;
@@ -227,9 +225,7 @@ namespace PredictionClients.Koina.AbstractClasses
         ///   2. Requires every bracketed annotation to be in UNIMOD:N notation.
         ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>.
         /// </summary>
-        // sourceParser is intentionally unused: crosslink sequences are validated by direct
-        // UNIMOD:N-notation inspection below, never through ISequenceParser. The parameter only
-        // exists to match KoinaModelBase's shared signature.
+        // sourceParser is unused: crosslink sequences are inspected directly, never parsed.
         protected override string? TryCleanSequence(
             string sequence,
             ISequenceParser? sourceParser,

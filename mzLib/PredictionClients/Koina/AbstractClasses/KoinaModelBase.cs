@@ -69,21 +69,10 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
-    /// <summary>
-    /// True when this model accepts any UNIMOD-identified modification instead of restricting to
-    /// <see cref="AllowedUnimodIds"/>. Models built via <see cref="CreateUnimodConverterAcceptAll"/>
-    /// must override this to true, since an empty <see cref="AllowedUnimodIds"/> otherwise means
-    /// "reject every modification".
-    /// </summary>
+    /// <summary>True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.</summary>
     public virtual bool AcceptsAllUnimodModifications => false;
 
-    /// <summary>
-    /// UNIMOD IDs of the N-terminal modification this model requires.
-    /// null = no N-terminal modification is required.
-    /// empty = an N-terminal modification IS required, and any one the model allows will do
-    /// (unlike <see cref="AllowedUnimodIds"/>, where empty means none).
-    /// populated = the N-terminal modification must be one of these IDs, each of which must also be allowed.
-    /// </summary>
+    /// <summary>UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.</summary>
     public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
 
     /// <summary>
@@ -181,15 +170,9 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
 
     #region Validation and Modification Handling
     /// <summary>
-    /// Validates a peptide sequence against model constraints and builds the sequence sent to Koina, in four steps:
-    /// separate the modifications from the residues using the source format's own brackets; check the residues;
-    /// resolve every modification and check it is allowed, and that any required one is present; serialize.
-    /// Incompatible modifications are handled according to <see cref="ModHandlingMode"/>.
+    /// Validates a peptide sequence against model constraints for modifications and basic sequence requirements.
+    /// Handles incompatible modifications according to the specified ModHandlingMode.
     /// </summary>
-    /// <param name="sequence">The raw input sequence string, in the format <paramref name="sourceParser"/> (or the
-    /// model's default converter parser, when null) understands.</param>
-    /// <param name="sourceParser">Parser for this input; null uses the model's own converter parser. The model's
-    /// own serializer always produces the output, regardless of which parser is used here.</param>
     protected virtual string? TryCleanSequence(
         string sequence,
         ISequenceParser? sourceParser,
@@ -236,8 +219,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             conversionWarnings.AddWarning("Sequence modifications were removed for prediction.");
         }
 
-        // Resolve every modification here rather than during serialization, so modifications from any source
-        // format (pre-identified ProForma UNIMOD:N tokens or mzLib names) pass through the same check.
+        // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
         var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
         foreach (var mod in cleaned.Modifications)
@@ -280,7 +262,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         string? serialized;
         try
         {
-            // Always the model's own serializer, never sourceParser: it alone owns the Koina-bound target format.
             serialized = SequenceConverter.Serialize(cleaned, conversionWarnings, ModHandlingMode);
         }
         catch (SequenceConversionException ex)
@@ -301,12 +282,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return apiSequence;
     }
 
-    /// <summary>
-    /// Returns what is left of a sequence once its modifications are lifted out using the source format's schema:
-    /// each complete bracketed span, plus the terminal separator joining a terminal modification. Whether those
-    /// modifications are well formed is the parser's call; anything that isn't a complete span stays in the
-    /// result for the residue check.
-    /// </summary>
     private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
     {
         var residues = new StringBuilder(sequence.Length);
@@ -341,10 +316,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return residues.ToString();
     }
 
-    /// <summary>
-    /// Returns the index just past the complete bracketed modifications starting at <paramref name="start"/>, or
-    /// <paramref name="start"/> itself when none starts there.
-    /// </summary>
     private static int SkipModifications(string sequence, int start, SequenceFormatSchema schema)
     {
         int i = start;
@@ -367,10 +338,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return i;
     }
 
-    /// <summary>
-    /// Resolves a modification through the model's serializer lookup, merged the same way the serializer enriches
-    /// the modifications it resolves. Returns the modification unchanged when it needs no resolution or none matches.
-    /// </summary>
     private CanonicalModification ResolveModification(CanonicalModification mod)
     {
         var serializer = SequenceConverter.Serializer;

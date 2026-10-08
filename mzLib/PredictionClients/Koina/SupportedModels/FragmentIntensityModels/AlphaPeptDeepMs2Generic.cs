@@ -32,7 +32,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<int> AllowedPrecursorCharges => new() { 1, 2, 3, 4, 5, 6 };
         public override HashSet<int>? AllowedCollisionEnergies => new HashSet<int>(); // Koina accepts any FP32 collision energy
         public override HashSet<string>? AllowedInstrumentTypes => new() { "QE", "LUMOS", "TIMSTOF", "SCIEXTOF" };
-        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>(); // Unused for validation: AcceptsAllUnimodModifications below is authoritative.
+        public override IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
         public override bool AcceptsAllUnimodModifications => true;
         public override SequenceConversionHandlingMode ModHandlingMode { get; init; }
         public override IncompatibleParameterHandlingMode ParameterHandlingMode { get; init; }
