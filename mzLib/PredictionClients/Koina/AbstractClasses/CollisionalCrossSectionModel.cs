@@ -20,7 +20,9 @@ namespace PredictionClients.Koina.AbstractClasses
         WarningException? Warning = null
     )
     {
-        /// <summary>Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.</summary>
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/> and <see cref="ValidatedFullSequence"/>, copied from the input.
+        /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
     }
 
@@ -36,7 +38,9 @@ namespace PredictionClients.Koina.AbstractClasses
         /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
         /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
-        /// <summary>The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.</summary>
+        /// <summary>
+        /// The cleaned sequence in the input's own format, not the string sent to Koina; null when the input is invalid.
+        /// </summary>
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
         public WarningException? ParameterWarning { get; set; }
@@ -59,7 +63,9 @@ namespace PredictionClients.Koina.AbstractClasses
         {
         }
 
-        /// <summary>The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.</summary>
+        /// <summary>
+        /// The sequence to send to Koina; ToBatchedRequests reads it here, not from ValidatedFullSequence.
+        /// </summary>
         protected static string GetKoinaSequence(CCSPredictionInput input) =>
             input.KoinaSequence ?? throw new InvalidOperationException($"No Koina sequence was prepared for '{input.FullSequence}'.");
 
