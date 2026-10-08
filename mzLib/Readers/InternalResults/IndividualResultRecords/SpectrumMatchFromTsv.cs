@@ -632,7 +632,7 @@ namespace Readers
 
                         //get amino acid position
                         aminoAcidPosition = terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime ?
-                            peptideBaseSequence.Split('|')[0].Length - fragmentNumber :
+                            peptideBaseSequence.Split('|')[0].Length - fragmentNumber + 1 :
                             fragmentNumber;
 
                         //get mass error in Daltons

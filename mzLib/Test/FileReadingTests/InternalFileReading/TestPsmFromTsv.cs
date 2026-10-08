@@ -987,5 +987,33 @@ namespace Test.FileReadingTests.InternalFileReading
             foreach (var psm in results)
                 NUnit.Framework.Assert.That(psm.MatchedIons, Is.Null.Or.Empty, $"Expected no matched ions but got {psm.MatchedIons?.Count ?? 0}");
         }
+
+        [Test]
+        public static void CTerminalResiduePositions_AgreeWithDocumentedOneBasedPosition()
+        {
+            string searchResultsDirectory = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                @"FileReadingTests\SearchResults");
+            var psms = SpectrumMatchTsvReader.ReadPsmTsv(
+                    Path.Combine(searchResultsDirectory, "BottomUpExample.psmtsv"), out _)
+                .Cast<SpectrumMatchFromTsv>()
+                .Concat(SpectrumMatchTsvReader.ReadGlycoPsmTsv(
+                    Path.Combine(searchResultsDirectory, "oglyco.psmtsv"), out _));
+
+            var cTerminalIons = psms
+                .Where(psm => !psm.BaseSeq.Contains('|'))
+                .SelectMany(psm => psm.MatchedIons
+                    .Where(ion => ion.NeutralTheoreticalProduct.Terminus is FragmentationTerminus.C or FragmentationTerminus.ThreePrime)
+                    .Select(ion => (Psm: psm, Ion: ion)))
+                .ToList();
+
+            NUnit.Framework.Assert.That(cTerminalIons, Is.Not.Empty);
+            foreach (var match in cTerminalIons)
+            {
+                int sequenceLength = match.Psm.BaseSeq.Length;
+                NUnit.Framework.Assert.That(match.Ion.NeutralTheoreticalProduct.ResiduePosition,
+                    Is.EqualTo(sequenceLength - match.Ion.NeutralTheoreticalProduct.FragmentNumber + 1),
+                    match.Ion.Annotation);
+            }
+        }
     }
 }
