@@ -12,10 +12,6 @@ using WarningException = System.ComponentModel.WarningException;
 
 namespace Test.KoinaTests
 {
-    /// <summary>
-    /// Builds, for any model, the peptides that exercise its declared modification tokens. The peptides are
-    /// written with UNIMOD ids, which is both ProForma and what the crosslink models take as they are.
-    /// </summary>
     internal static class ModificationTokenCases
     {
         private static readonly Assembly KoinaAssembly = typeof(FragmentIntensityModel).Assembly;
@@ -44,9 +40,6 @@ namespace Test.KoinaTests
 
         public static int IdOf(string token) => int.Parse(Regex.Match(token, @"\d+").Value);
 
-        /// <summary>
-        /// A peptide carrying the given tokens, plus the N-terminal label the model requires when none of them is one.
-        /// </summary>
         public static string PeptideWith(object model, params string[] tokens)
         {
             var nTerminal = tokens.SingleOrDefault(t => t.EndsWith('-'));
@@ -59,9 +52,6 @@ namespace Test.KoinaTests
             return $"{nTerminal}AEPT{string.Concat(tokens.Where(t => !t.EndsWith('-')))}IDER";
         }
 
-        /// <summary>
-        /// An id the model allows, on a residue it has no token for.
-        /// </summary>
         public static string UndeclaredToken(object model)
         {
             var tokens = Tokens(model)!;
@@ -106,7 +96,6 @@ namespace Test.KoinaTests
             var model = ModificationTokenCases.Instantiate(modelType);
             var tokens = ModificationTokenCases.Tokens(model)!;
 
-            // A residue or the N-terminus with one id: the only forms a single modification can take.
             Assert.That(tokens, Has.All.Match(@"^([A-Z]\[UNIMOD:\d+\]|\[UNIMOD:\d+\]-)$"));
             Assert.That(ModificationTokenCases.AllowedIds(model), Is.EquivalentTo(tokens.Select(ModificationTokenCases.IdOf).Distinct()));
             Assert.That(ModificationTokenCases.AcceptsAllIds(model), Is.False);
@@ -152,7 +141,6 @@ namespace Test.KoinaTests
             Assert.That(proFormaWarning, Is.Null);
         }
 
-        // Oxidation (UNIMOD:35) is allowed, but the model only has a token for it on M.
         [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
         [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "PEPTIDEK")]
         [TestCase(SequenceConversionHandlingMode.UsePrimarySequence, "PEPTIDEK")]
@@ -195,7 +183,6 @@ namespace Test.KoinaTests
             Assert.That(proFormaWarning?.Message, Does.Contain("UNIMOD:35"));
         }
 
-        // The TMT label is allowed and required at the N-terminus, and has a token on K but none on S.
         [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
         [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[UNIMOD:737]-PEPSIDEK[UNIMOD:737]")]
         public void Tmt_LabelOnUndeclaredResidue_LeavesTheRequiredNTerminalLabelAlone(SequenceConversionHandlingMode mode, string? expected)
@@ -229,11 +216,6 @@ namespace Test.KoinaTests
         }
     }
 
-    /// <summary>
-    /// Sends every declared token of every token-declaring model to Koina in one request per model, together with
-    /// one peptide carrying an allowed id on a residue the model has no token for. Every declared token must come
-    /// back predicted, and that last peptide unpredicted with mzLib's own unsupported-modification warning.
-    /// </summary>
     [TestFixture]
     [Category("ExternalService")]
     [Category("Koina")]

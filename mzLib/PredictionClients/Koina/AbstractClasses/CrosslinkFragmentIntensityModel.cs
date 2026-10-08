@@ -223,8 +223,7 @@ namespace PredictionClients.Koina.AbstractClasses
         /// position. Rather than bypass validation entirely, this override:
         ///   1. Validates the bare amino-acid sequence and length bounds.
         ///   2. Requires every bracketed annotation to be in UNIMOD:N notation.
-        ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>, and any allowed id on a residue the
-        ///      model has no token for in <see cref="KoinaModelBase{TModelInput, TModelOutput}.AllowedModificationTokens"/>.
+        ///   3. Rejects any UNIMOD id not in <see cref="AllowedUnimodIds"/>, or on a residue the model has no token for.
         /// </summary>
         // sourceParser is unused: crosslink sequences are inspected directly, never parsed.
         protected override string? TryCleanSequence(

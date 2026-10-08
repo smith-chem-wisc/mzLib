@@ -72,11 +72,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// <summary>True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.</summary>
     public virtual bool AcceptsAllUnimodModifications => false;
 
-    /// <summary>
-    /// The modified residues and termini the model's preprocessing has a token for, written as Koina writes them
-    /// (e.g. "M[UNIMOD:35]", "[UNIMOD:737]-"). An allowed id anywhere else is not a modification the model accepts.
-    /// null = any residue or terminus will do for an allowed id.
-    /// </summary>
+    /// <summary>Modified residues and termini the model has a token for, as Koina writes them ("M[UNIMOD:35]", "[UNIMOD:737]-"); null = anywhere.</summary>
     public virtual IReadOnlySet<string>? AllowedModificationTokens => null;
 
     /// <summary>UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.</summary>
