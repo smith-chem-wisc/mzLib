@@ -89,7 +89,9 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        /// <summary>Builds a peptide from a parsed sequence; a modification that carries no <see cref="Modification"/> goes to the lookups (default <see cref="GlobalModificationLookup.ProteinOnly"/>).</summary>
+        /// <summary>
+        /// Builds a peptide from a parsed sequence; a modification that carries no <see cref="Modification"/> goes to the lookups (default <see cref="GlobalModificationLookup.ProteinOnly"/>).
+        /// </summary>
         public static PeptideWithSetModifications FromCanonicalSequence(CanonicalSequence sequence, params IModificationLookup[] fallbackLookups)
         {
             var lookups = fallbackLookups is { Length: > 0 } ? fallbackLookups : [GlobalModificationLookup.ProteinOnly];
