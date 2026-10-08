@@ -167,9 +167,6 @@ namespace Readers.ProForma
         /// resolvable) over a name over a mass. ProForma permits several descriptors on one tag
         /// (e.g. <c>[Phospho|UNIMOD:21]</c>); the canonical model does not, so the surplus is
         /// reported as a warning — the information is still intact in the Layer-1 term.
-        /// <para>An accession of another ontology than UNIMOD (<c>MOD:01892</c>, <c>RESID:AA0055</c>) has no id the
-        /// canonical model carries, so the protein modification mzLib's catalog lists under it for this residue or
-        /// terminus is attached instead (see <see cref="ProFormaConverter.FindCatalogModification"/>).</para>
         /// </summary>
         private static (string Representation, int? UnimodId, double? Mass, Modification? Modification) Describe(
             IList<Tdp.ProFormaDescriptor> descriptors, ModificationPositionType position, int? residueIndex,

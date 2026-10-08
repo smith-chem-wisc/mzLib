@@ -244,11 +244,6 @@ public class PeptideAndProteinConversion
 
     #region Full sequences written for digested peptides
 
-    /// <summary>
-    /// Peptides digested from proteins that carry each protein modification mzLib's catalogs define (MetaMorpheus,
-    /// TMT, UniProt, UNIMOD) where its motif fits: as a variable modification, and as a localized one on a target
-    /// and on a decoy protein (decoys put localized modifications on residues whatever their location restriction).
-    /// </summary>
     private static readonly Lazy<List<PeptideWithSetModifications>> DigestedCatalogPeptides = new(() =>
     {
         var peptides = new List<PeptideWithSetModifications>();
@@ -309,15 +304,12 @@ public class PeptideAndProteinConversion
                 var cited = CanonicalModification.GetUnimodId(original);
                 if (cited.HasValue && mod.UnimodId == null)
                 {
-                    // Left out only when the cited UNIMOD record is another chemical (DiLeu-12plex citing 1327, UniProt
-                    // N,N-dimethylproline citing 529, ...).
                     var recordMass = Mods.UnimodModifications.First(m => m.ModificationType == "Unimod" && CanonicalModification.GetUnimodId(m) == cited).MonoisotopicMass!.Value;
                     Assert.That(Math.Abs(recordMass - original.MonoisotopicMass!.Value), Is.GreaterThan(1), peptide.FullSequence);
                     withoutMismatchedId++;
                 }
                 else
                     Assert.That(mod.UnimodId, Is.EqualTo(cited), peptide.FullSequence);
-                // A residue is read as the entry of that name allowed on any residue whenever the catalogs have one.
                 var unrestricted = mod.PositionType == ModificationPositionType.Residue
                                    && !ModificationLocalization.IsNTerminal(attached!) && !ModificationLocalization.IsCTerminal(attached);
                 if (mod.PositionType == ModificationPositionType.Residue)
@@ -328,14 +320,10 @@ public class PeptideAndProteinConversion
                     continue;
                 }
 
-                // The name can't tell apart entries that share it and differ only in location restriction
-                // (UNIMOD's N-terminal and peptide N-terminal Acetyl on X); the entry still fits where it was read.
+                // Entries that share a name and differ only in location restriction can't be told apart by the name.
                 Assert.That(attached.ModificationType, Is.EqualTo(original.ModificationType), peptide.FullSequence);
                 Assert.That(attached.IdWithMotif, Is.EqualTo(original.IdWithMotif), peptide.FullSequence);
                 Assert.That(attached.MonoisotopicMass, Is.EqualTo(original.MonoisotopicMass), peptide.FullSequence);
-                // On a residue, digestion leaves terminal modifications of decoys (and protease products) where they
-                // were: an N-terminal one on the first residue, a C-terminal one on the last, keeps that class unless the
-                // name is also an entry allowed on any residue, which is what a residue is then read as.
                 var firstResidueNTerminal = mod.PositionType == ModificationPositionType.Residue && mod.ResidueIndex == 0
                                             && ModificationLocalization.IsNTerminal(original);
                 var lastResidueCTerminal = mod.PositionType == ModificationPositionType.Residue && mod.ResidueIndex == parsed.BaseSequence.Length - 1
@@ -360,8 +348,6 @@ public class PeptideAndProteinConversion
     [TestCase("Unimod", "Propyl on X", "C-terminal.")]
     public static void MzLibParserAndBuilder_NameSharedByTerminalEntries_KeepTheEntryForItsTerminus(string type, string id, string restriction)
     {
-        // Mods.txt defines "Less Common:Methylation on X" twice and UNIMOD has several "Methyl on X"; reading the
-        // full sequence through a dictionary keyed by IdWithMotif gives every one of them the same entry.
         var mod = Mods.AllProteinModsList.Single(m => m.ModificationType == type && m.IdWithMotif == id && m.LocationRestriction == restriction);
         var digestionParams = new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 1);
         var peptide = new Protein("AGGGGKAGGGGKGGGA", "P")
@@ -384,8 +370,6 @@ public class PeptideAndProteinConversion
     [Test]
     public static void FromCanonicalSequence_DigestedPeptides_MatchTheOriginalPeptide()
     {
-        // Targets and decoys alike, including the C-terminal modifications decoys and protease products keep on the
-        // last residue. The objects differ only where entries share a name (see the parser test).
         int digested = 0;
         foreach (var peptide in DigestedCatalogPeptides.Value)
         {
@@ -406,8 +390,6 @@ public class PeptideAndProteinConversion
     [Test]
     public static void FromCanonicalSequence_DecoyWithCTerminalModificationsOnTheLastResidueAndTheCTerminus_KeepsBoth()
     {
-        // A decoy keeps its localized C-terminal amide on the last residue while a variable C-terminal modification
-        // takes the C-terminus; both stay where they were written.
         var amide = Mods.UniprotModifications.Single(m => m.IdWithMotif == "Arginine amide on R");
         var amidation = Mods.MetaMorpheusProteinModifications.Single(m => m.IdWithMotif == "Amidation on X");
         var localized = new Dictionary<int, List<Modification>> { [12] = new() { amide } };
@@ -428,7 +410,6 @@ public class PeptideAndProteinConversion
     [Test]
     public static void FromCanonicalSequence_ProFormaWrittenPeptide_ResolvesThroughTheFallbackLookup()
     {
-        // The ProForma parser carries UNIMOD ids, not modification objects, so every modification goes to a lookup.
         var oxidation = Mods.MetaMorpheusProteinModifications.Single(m => m.ModificationType == "Common Variable" && m.IdWithMotif == "Oxidation on M");
         var phospho = Mods.MetaMorpheusProteinModifications.Single(m => m.ModificationType == "Common Biological" && m.IdWithMotif == "Phosphorylation on S");
         var peptide = new Protein("PEPMSIDEK", "P")
@@ -454,8 +435,6 @@ public class PeptideAndProteinConversion
     [Test]
     public static void ProFormaParser_DigestedCatalogModificationWrittenByAccession_CarriesItsCatalogEntry()
     {
-        // Modifications without a usable UNIMOD id are written by PSI-MOD accession, from the peptide and from its
-        // full sequence alike.
         static bool WrittenByAccession(Modification m) =>
             !(CanonicalModification.GetUnimodId(m) is int unimodId && Mods.MatchesUnimodRecordMass(m, unimodId))
             && m.DatabaseReference != null && (m.DatabaseReference.ContainsKey("PSI-MOD") || m.DatabaseReference.ContainsKey("RESID"));
@@ -484,8 +463,7 @@ public class PeptideAndProteinConversion
                     if (ReferenceEquals(attached, original))
                         continue;
 
-                    // The accession can't tell apart entries that share it on one residue (UniProt lists MOD:00165 for
-                    // N-linked (Hex) and N-linked (Man) tryptophan), and only those.
+                    // UniProt lists MOD:00165 for both N-linked (Hex) and N-linked (Man) tryptophan.
                     Assert.That(Mods.AllProteinModsList.Count(m => m.Target?.ToString() == original.Target.ToString()
                                                                    && ProFormaConverter.BuildDescriptor(m).Value == mod.OriginalRepresentation),
                         Is.GreaterThan(1), proForma);
@@ -502,7 +480,6 @@ public class PeptideAndProteinConversion
     [Test]
     public static void FromCanonicalSequence_ModificationInNoCatalog_ThrowsNamingIt()
     {
-        // A custom modification, read by MetaMorpheus from a user's file, is in none of mzLib's modification catalogs.
         ModificationMotif.TryGetMotif("K", out var motifK);
         var custom = new Modification(_originalId: "Nameless", _modificationType: "Custom", _target: motifK,
             _locationRestriction: "Anywhere.", _monoisotopicMass: 100.0);

@@ -61,19 +61,11 @@
             return false;
         }
 
-        /// <summary>
-        /// Whether the modification's location restriction ties it to the N-terminus (5' end for nucleic acids),
-        /// of the whole biopolymer or of a digestion product.
-        /// </summary>
         public static bool IsNTerminal(Modification modification) =>
             modification.LocationRestriction is { } restriction &&
             (restriction.Contains("N-terminal", StringComparison.OrdinalIgnoreCase) ||
              restriction.Contains("5'-terminal", StringComparison.OrdinalIgnoreCase));
 
-        /// <summary>
-        /// Whether the modification's location restriction ties it to the C-terminus (3' end for nucleic acids),
-        /// of the whole biopolymer or of a digestion product.
-        /// </summary>
         public static bool IsCTerminal(Modification modification) =>
             modification.LocationRestriction is { } restriction &&
             (restriction.Contains("C-terminal", StringComparison.OrdinalIgnoreCase) ||

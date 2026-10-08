@@ -53,10 +53,7 @@ namespace Readers.ProForma
         private static readonly ConditionalWeakTable<Dictionary<string, Modification>, Dictionary<string, List<Modification>>>
             AccessionIndexCache = new();
 
-        /// <summary>
-        /// The accession index of every protein modification in mzLib's catalogs. <see cref="Mods.AllKnownProteinModsDictionary"/>
-        /// holds one entry per IdWithMotif, which leaves out UniProt's "Deoxyhypusine on K" (MOD:01880) for UNIMOD's.
-        /// </summary>
+        // Not AllKnownProteinModsDictionary: one entry per IdWithMotif drops UniProt's "Deoxyhypusine on K" (MOD:01880).
         private static readonly Lazy<Dictionary<string, List<Modification>>> CatalogAccessionIndex =
             new(() => BuildAccessionIndex(Mods.AllProteinModsList));
 
@@ -178,11 +175,6 @@ namespace Readers.ProForma
         private static string ToAccession(string prefix, string id) =>
             id.StartsWith(prefix + ":", StringComparison.OrdinalIgnoreCase) ? id : $"{prefix}:{id}";
 
-        /// <summary>
-        /// The protein modification mzLib's catalog lists under an accession (<c>MOD:01892</c>, <c>RESID:AA0055</c>)
-        /// for a residue or terminus of <paramref name="sequence"/>, chosen as <see cref="ToModificationDictionary"/>
-        /// chooses among its candidates. Null when none fits there.
-        /// </summary>
         internal static Modification? FindCatalogModification(string accession, string sequence,
             ModificationPositionType position, int? residueIndex)
         {

@@ -303,8 +303,6 @@ public class KoinaModelBaseTests
         Assert.That(apiSequence, Does.Contain("UNIMOD:35"));
     }
 
-    // Oxidation (UNIMOD:35) is outside the allow-list. Every mode must end the same way whether it is read
-    // from an mzLib name or from a ProForma UNIMOD id.
     [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
     [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "PEPMIDE")]
     [TestCase(SequenceConversionHandlingMode.UsePrimarySequence, "PEPMIDE")]

@@ -400,15 +400,9 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].Warning, Is.Not.Null);
         }
 
-        // ── MetaMorpheus full sequences: catalog names carry their UNIMOD ids ─────────────
-
         private static Modification CatalogMod(string type, string id) =>
             Mods.AllProteinModsList.Single(m => m.ModificationType == type && m.IdWithMotif == id);
 
-        /// <summary>
-        /// Full sequences of real digests, the way MetaMorpheus writes them: variable oxidation and phosphorylation,
-        /// a UniProt N-terminal acetylation and C-terminal amidation, and fixed TMT labels.
-        /// </summary>
         private static string Digested(string peptide)
         {
             var oxidation = CatalogMod("Common Variable", "Oxidation on M");
