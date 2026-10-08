@@ -377,12 +377,12 @@ namespace UsefulProteomicsDatabases
                         }
                         unique_accessions.Add(accession);
                         // Auto-detect entrapment if the accession contains the entrapment identifier anywhere
-                        bool proteinIsEntrapment = isEntrapment || accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                        bool proteinIsEntrapment = isEntrapment || IsEntrapmentAccession(accession, entrapmentIdentifier);
                         if (proteinIsEntrapment && isContaminant)
                             throw new MzLibUtil.MzLibException($"Protein accession '{accession}' cannot be both a contaminant and an entrapment protein.",
                                 new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                         // Prepend entrapment identifier if the caller flagged this as entrapment but accession doesn't already contain it
-                        if (proteinIsEntrapment && accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                        if (proteinIsEntrapment && !IsEntrapmentAccession(accession, entrapmentIdentifier))
                         {
                             bool startsWithDecoy = accession.StartsWith(decoyIdentifier, StringComparison.OrdinalIgnoreCase);
                             if (startsWithDecoy)
