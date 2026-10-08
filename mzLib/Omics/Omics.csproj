@@ -35,6 +35,7 @@
     <EmbeddedResource Include="Resources\modomicsmods.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
+    <EmbeddedResource Include="Resources\protease_mods.txt" />
     <EmbeddedResource Include="Resources\PSI-MOD.obo.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
