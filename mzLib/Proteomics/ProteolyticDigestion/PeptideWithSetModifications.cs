@@ -89,16 +89,7 @@ namespace Proteomics.ProteolyticDigestion
             }
         }
 
-        /// <summary>
-        /// Builds a peptide from a parsed sequence. Each modification is the <see cref="Modification"/> it carries
-        /// (the mzLib parser attaches the catalog entry its name stands for) or, when it carries none, the first match
-        /// of <paramref name="fallbackLookups"/> (none given: <see cref="GlobalModificationLookup.ProteinOnly"/>). It is
-        /// keyed where it was parsed: the N-terminus is 1, the residue at zero-based index i is i + 2, the C-terminus is
-        /// the length + 2, so a C-terminal modification written on the last residue stays on it, as digestion put it.
-        /// The parent is a placeholder protein holding just the base sequence, with an empty accession.
-        /// </summary>
-        /// <exception cref="SequenceConversionException">A modification carries no <see cref="Modification"/> and no
-        /// lookup resolves it.</exception>
+        /// <summary>Builds a peptide from a parsed sequence; a modification that carries no <see cref="Modification"/> goes to the lookups (default <see cref="GlobalModificationLookup.ProteinOnly"/>).</summary>
         public static PeptideWithSetModifications FromCanonicalSequence(CanonicalSequence sequence, params IModificationLookup[] fallbackLookups)
         {
             var lookups = fallbackLookups is { Length: > 0 } ? fallbackLookups : [GlobalModificationLookup.ProteinOnly];

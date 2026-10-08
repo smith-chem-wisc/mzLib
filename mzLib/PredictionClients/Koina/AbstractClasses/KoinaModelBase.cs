@@ -70,28 +70,13 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
-    /// <summary>
-    /// True when this model accepts any UNIMOD-identified modification instead of restricting to
-    /// <see cref="AllowedUnimodIds"/>. Models built via <see cref="CreateUnimodConverterAcceptAll"/>
-    /// must override this to true, since an empty <see cref="AllowedUnimodIds"/> otherwise means
-    /// "reject every modification".
-    /// </summary>
+    /// <summary>True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.</summary>
     public virtual bool AcceptsAllUnimodModifications => false;
 
-    /// <summary>
-    /// The modified residues and termini the model's preprocessing has a token for, written as Koina writes them
-    /// (e.g. "M[UNIMOD:35]", "[UNIMOD:737]-"). An allowed id anywhere else is not a modification the model accepts.
-    /// null = any residue or terminus will do for an allowed id.
-    /// </summary>
+    /// <summary>Modified residues and termini the model has a token for, as Koina writes them ("M[UNIMOD:35]", "[UNIMOD:737]-"); null = anywhere.</summary>
     public virtual IReadOnlySet<string>? AllowedModificationTokens => null;
 
-    /// <summary>
-    /// UNIMOD IDs of the N-terminal modification this model requires.
-    /// null = no N-terminal modification is required.
-    /// empty = an N-terminal modification IS required, and any one the model allows will do
-    /// (unlike <see cref="AllowedUnimodIds"/>, where empty means none).
-    /// populated = the N-terminal modification must be one of these IDs, each of which must also be allowed.
-    /// </summary>
+    /// <summary>UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.</summary>
     public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
 
     /// <summary>
@@ -259,8 +244,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             conversionWarnings.AddWarning("Sequence modifications were removed for prediction.");
         }
 
-        // Resolve every modification here rather than during serialization, so modifications from any source
-        // format (pre-identified ProForma UNIMOD:N tokens or mzLib names) pass through the same check.
+        // Resolved here, not in the serializer, so pre-identified UNIMOD ids face the same allow-list check.
         var accepted = new List<CanonicalModification>(cleaned.Modifications.Length);
         var acceptedAsParsed = new List<CanonicalModification>(cleaned.Modifications.Length);
         var incompatible = new List<CanonicalModification>();
@@ -360,12 +344,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     private static readonly MzLibSequenceSerializer ProteinMzLibSerializer = new(GlobalModificationLookup.ProteinOnly);
     private static readonly ProFormaSequenceSerializer ProteinProFormaSerializer = ProFormaSequenceSerializer.WithLookup(MzLibModificationLookup.ProteinOnly);
 
-    /// <summary>
-    /// Returns what is left of a sequence once its modifications are lifted out using the source format's schema:
-    /// each complete bracketed span, plus the terminal separator joining a terminal modification. Whether those
-    /// modifications are well formed is the parser's call; anything that isn't a complete span stays in the
-    /// result for the residue check.
-    /// </summary>
     private static string SeparateResidues(string sequence, SequenceFormatSchema schema)
     {
         var residues = new StringBuilder(sequence.Length);
@@ -400,10 +378,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return residues.ToString();
     }
 
-    /// <summary>
-    /// Returns the index just past the complete bracketed modifications starting at <paramref name="start"/>, or
-    /// <paramref name="start"/> itself when none starts there.
-    /// </summary>
     private static int SkipModifications(string sequence, int start, SequenceFormatSchema schema)
     {
         int i = start;
@@ -426,10 +400,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         return i;
     }
 
-    /// <summary>
-    /// Resolves a modification through the model's serializer lookup, merged the same way the serializer enriches
-    /// the modifications it resolves. Returns the modification unchanged when it needs no resolution or none matches.
-    /// </summary>
     private CanonicalModification ResolveModification(CanonicalModification mod)
     {
         var serializer = SequenceConverter.Serializer;

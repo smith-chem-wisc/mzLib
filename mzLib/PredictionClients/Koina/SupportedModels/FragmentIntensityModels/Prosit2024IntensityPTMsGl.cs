@@ -21,10 +21,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
     public class Prosit2024IntensityPTMsGl : FragmentIntensityModel
     {
         private static readonly UnimodSequenceFormatSchema PTMSchema = new(UnimodLabelStyle.UpperCase, '[', ']', "-", "-");
-        // Koina: the keys of the two atom-count dictionaries in models/Prosit/Prosit_Preprocess_ac_gain/1/model.py and
-        // Prosit_Preprocess_ac_loss/1/model.py, where "K_737" is K[UNIMOD:737] and "_737" is the N-terminal [UNIMOD:737]-.
-        // Four of those keys are left out because Koina answers 400 to them: R_267 has an empty atom count the
-        // preprocessing cannot read, and K_12118, K_19903 and K_129317 are ids its UNIMOD table does not have.
+        // Koina: dictionary keys in models/Prosit/Prosit_Preprocess_ac_gain/1/model.py and ac_loss, minus R_267, K_12118, K_19903, K_129317 (Koina answers 400)
         private static readonly IReadOnlySet<string> SupportedModificationTokens = new HashSet<string>
         {
             "K[UNIMOD:1]", "C[UNIMOD:4]", "K[UNIMOD:4]", "N[UNIMOD:7]", "Q[UNIMOD:7]", "R[UNIMOD:7]",

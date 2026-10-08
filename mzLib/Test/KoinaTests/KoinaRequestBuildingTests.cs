@@ -185,8 +185,6 @@ namespace Test.KoinaTests
         [Test]
         public void Tmt_TryCleanSequence_ProFormaSourceReachesSameApiSequenceAsMzLib()
         {
-            // A ProForma-sourced N-terminal TMT label must produce the exact same Koina-bound
-            // apiSequence as the equivalent mzLib-sourced input, via the production converter.
             var model = new TmtProbe();
 
             var mzLibResult = model.Clean("[Multiplex Label:TMT6-plex on X]PEPTIDEK", out var mzLibApi, out var mzLibWarning);
@@ -231,7 +229,6 @@ namespace Test.KoinaTests
         [Test]
         public void EveryModel_RequiredNTerminalModifications_AreAllowedByThatModel()
         {
-            // A required id the model doesn't also allow would make every sequence fail.
             var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
             var checkedModels = 0;
             Assert.Multiple(() =>
@@ -255,7 +252,6 @@ namespace Test.KoinaTests
         [Test]
         public void EveryModel_RequiringAModification_RejectsUsePrimarySequenceAtConstruction()
         {
-            // UsePrimarySequence strips the required mod from every sequence, so the model must refuse it up front.
             var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
             var checkedModels = 0;
             Assert.Multiple(() =>
@@ -284,10 +280,6 @@ namespace Test.KoinaTests
         [Test]
         public void EveryModel_ModificationItsConverterResolves_IsAllowedByThatModel()
         {
-            // Validation checks mods against the model's declared policy (AllowedUnimodIds or
-            // AcceptsAllUnimodModifications), so a converter that resolves more than the policy allows, such as an
-            // accept-all converter on a model that forgets to declare AcceptsAllUnimodModifications, would reject
-            // every modified peptide.
             var oxidation = CanonicalModification.AtResidue(3, 'M', "Common Variable:Oxidation on M", mzLibId: "Common Variable:Oxidation on M");
             var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
             var checkedAcceptAllModels = 0;
@@ -314,8 +306,6 @@ namespace Test.KoinaTests
         [Test]
         public void Tmt_TryCleanSequence_ProFormaSourceWithOutOfSetUnimodId_ReturnNullRejectsBeforeSerialization()
         {
-            // UNIMOD:21 (Phospho) is not in Prosit2020IntensityTMT's allowed set. A ProForma "UNIMOD:N"
-            // token is pre-resolved at parse time, so without the allow-list check this would reach Koina.
             var model = new TmtProbe();
 
             var result = model.CleanWithParser("[UNIMOD:737]-PEPS[UNIMOD:21]IDEK", ProFormaSequenceParser.Instance, out var api, out var warning);
@@ -326,8 +316,6 @@ namespace Test.KoinaTests
             Assert.That(warning!.Message, Does.Contain("UNIMOD:21"));
         }
 
-        // Removing the out-of-set phospho must leave the required N-terminal label in place for both
-        // sources, so the label gate still passes.
         [TestCase(SequenceConversionHandlingMode.ReturnNull, null)]
         [TestCase(SequenceConversionHandlingMode.RemoveIncompatibleElements, "[UNIMOD:737]-PEPSIDEK")]
         public void Tmt_TryCleanSequence_OutOfSetModification_SameOutcomeFromMzLibAndProFormaSources(SequenceConversionHandlingMode mode, string? expected)
@@ -425,15 +413,9 @@ namespace Test.KoinaTests
             Assert.That(predictions[0].Warning, Is.Not.Null);
         }
 
-        // ── MetaMorpheus full sequences: catalog names carry their UNIMOD ids ─────────────
-
         private static Modification CatalogMod(string type, string id) =>
             Mods.AllProteinModsList.Single(m => m.ModificationType == type && m.IdWithMotif == id);
 
-        /// <summary>
-        /// Full sequences of real digests, the way MetaMorpheus writes them: variable oxidation and phosphorylation,
-        /// a UniProt N-terminal acetylation and C-terminal amidation, and fixed TMT labels.
-        /// </summary>
         private static string Digested(string peptide)
         {
             var oxidation = CatalogMod("Common Variable", "Oxidation on M");

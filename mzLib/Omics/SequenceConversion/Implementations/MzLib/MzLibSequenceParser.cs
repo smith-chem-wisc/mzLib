@@ -13,10 +13,6 @@ namespace Omics.SequenceConversion;
 /// - Terminal modifications: "[Acetyl]PEPTIDE" and "PEPTIDE-[Amidated]"
 /// - Multiple modifications: "PEP[Oxidation on M]TID[Phospho on S]E"
 /// 
-/// A modification written <c>Type:Id</c> whose Id names an entry of mzLib's own catalogs carries that
-/// <see cref="Modification"/> (see <see cref="FindCatalogModification"/>), and the UNIMOD id it cites when that
-/// UNIMOD record has its mass (see <see cref="Mods.MatchesUnimodRecordMass"/>).
-/// 
 /// Note: For mass shift notation (e.g., "[+15.995]"), use MassShiftSequenceParser instead.
 /// </summary>
 public class MzLibSequenceParser : SequenceParserBase
@@ -98,20 +94,7 @@ public class MzLibSequenceParser : SequenceParserBase
             MzLibModification: modification);
     }
 
-    /// <summary>
-    /// The modification mzLib's own catalogs define for a <c>Type:Id</c> name, where Id is an IdWithMotif. The
-    /// parser reads peptides and oligonucleotides alike, so the candidates are the entries of the protein and RNA
-    /// catalogs (<see cref="Mods.AllProteinModsList"/>, <see cref="Mods.AllRnaModsList"/>) and of the dictionaries
-    /// peptides and oligonucleotides read full sequences with (<see cref="Mods.AllKnownProteinModsDictionary"/>,
-    /// <see cref="Mods.AllKnownRnaModsDictionary"/>, which can gain entries at run time).
-    /// <para>An entry whose ModificationType is Type comes first, so the name is written back unchanged. Then one whose
-    /// location restriction fits where the modification was parsed, since entries can share a name (UNIMOD's
-    /// "Methyl on X" is a peptide C-terminal, an N-terminal and a peptide N-terminal modification): at a terminus,
-    /// that terminus's class; on a residue, one allowed anywhere, else the N-terminal class on the first residue and
-    /// the C-terminal class on any other, which is where digestion leaves the terminal modifications of decoys and
-    /// protease products. Ties go to catalog order, protein before RNA.</para>
-    /// Null when the name has no type or no catalog has its Id.
-    /// </summary>
+    // Entries can share a name: prefer the one of the written type, then the one whose location restriction fits the position.
     private static Modification? FindCatalogModification(string name, ModificationPositionType positionType, int? residueIndex)
     {
         var separator = name.IndexOf(':');

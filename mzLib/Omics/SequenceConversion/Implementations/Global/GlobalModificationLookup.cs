@@ -15,10 +15,7 @@ public class GlobalModificationLookup : ModificationLookupBase
     /// </summary>
     public static GlobalModificationLookup Instance { get; } = new();
 
-    /// <summary>
-    /// Instance that searches every protein modification catalog (UNIMOD, UniProt and MetaMorpheus's protein
-    /// modifications) and no RNA modifications.
-    /// </summary>
+    /// <summary>Instance that searches the protein modification catalogs only.</summary>
     public static GlobalModificationLookup ProteinOnly { get; } = new(Mods.AllProteinModsList, 0.001, "Global (Protein Mods)");
 
     private readonly string _name;

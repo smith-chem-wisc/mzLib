@@ -122,8 +122,6 @@ namespace Test.FileReadingTests.ProForma
         [Test]
         public void ProForma_PsiModReference_IsWrittenWithOnePrefixAndReadsBack()
         {
-            // The first UniProt modification of a residue that is written by its PSI-MOD accession (stored with the
-            // "MOD:" prefix): it cites no UNIMOD record, and readers know no other modification by that accession.
             static string? PsiMod(Modification m) =>
                 m.DatabaseReference != null && m.DatabaseReference.TryGetValue("PSI-MOD", out var ids) ? ids.FirstOrDefault() : null;
             var mod = Mods.UniprotModifications
@@ -147,7 +145,6 @@ namespace Test.FileReadingTests.ProForma
                 Assert.That(ReadBackMass(proForma), Is.EqualTo(mass).Within(1e-6), mod.IdWithMotif);
             }
 
-            // The accession with its prefix doubled reads as the same modification.
             Assert.That(ReadBackMass(Written("MOD:" + accession)), Is.EqualTo(mass).Within(1e-6), mod.IdWithMotif);
         }
 
