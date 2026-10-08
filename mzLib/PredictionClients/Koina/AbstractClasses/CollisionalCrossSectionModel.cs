@@ -27,11 +27,7 @@ namespace PredictionClients.Koina.AbstractClasses
         int PrecursorCharge
     )
     {
-        /// <summary>
-        /// Optional parser for <see cref="FullSequence"/>'s source format. Null (default) uses the model's
-        /// own converter parser (mzLib syntax); see <see cref="RetentionTimePredictionInput.SequenceParser"/>
-        /// for the full contract.
-        /// </summary>
+        /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
         public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
