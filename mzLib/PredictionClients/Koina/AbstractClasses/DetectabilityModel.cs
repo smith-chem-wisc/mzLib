@@ -34,7 +34,9 @@ namespace PredictionClients.Koina.AbstractClasses
         string FullSequence
     )
     {
-        /// <summary>Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.</summary>
+        /// <summary>
+        /// Parser for <see cref="FullSequence"/>; null reads it as an mzLib sequence.
+        /// </summary>
         public ISequenceParser? SequenceParser { get; init; }
         public string? ValidatedFullSequence { get; set; }
         public WarningException? SequenceWarning { get; set; }
