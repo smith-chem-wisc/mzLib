@@ -69,10 +69,14 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
     /// </summary>
     public virtual IReadOnlySet<int> AllowedUnimodIds => new HashSet<int>();
 
-    /// <summary>True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.</summary>
+    /// <summary>
+    /// True when the model accepts every UNIMOD modification, whatever <see cref="AllowedUnimodIds"/> holds.
+    /// </summary>
     public virtual bool AcceptsAllUnimodModifications => false;
 
-    /// <summary>UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.</summary>
+    /// <summary>
+    /// UNIMOD ids the N-terminal modification must be one of; null = none required, empty = any allowed one.
+    /// </summary>
     public virtual IReadOnlySet<int>? RequiredNTerminalUnimodIds => null;
 
     /// <summary>
