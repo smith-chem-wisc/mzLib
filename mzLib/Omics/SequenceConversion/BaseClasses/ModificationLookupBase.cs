@@ -635,8 +635,7 @@ public abstract class ModificationLookupBase : IModificationLookup
         }
 
         source ??= CandidateSet;
-        // Modification equality ignores the location restriction, so value-distinct would keep only one of a
-        // modification's terminal and side-chain entries (UNIMOD's three "Methyl on X").
+        // Modification equality ignores the location restriction, so value-distinct would merge terminal and side-chain entries.
         return source.Where(modification => MatchesIdentifierSet(modification, identifiers))
             .Distinct<Modification>(ReferenceEqualityComparer.Instance);
     }

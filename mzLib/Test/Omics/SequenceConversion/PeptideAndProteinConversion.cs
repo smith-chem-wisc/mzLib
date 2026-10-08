@@ -15,9 +15,6 @@ public class PeptideAndProteinConversion
 {
     #region PeptideWithSetModifications Conversion Tests
 
-    // These names each belong to several catalog entries that differ only in where they sit (UNIMOD's Methyl on X has
-    // peptide C-terminal, protein N-terminal and peptide N-terminal entries). The full sequence a digested peptide
-    // writes must resolve to an entry for the terminus it was written at, with the same mass.
     [TestCase("Unimod", "Methyl on X", "N-terminal.")]
     [TestCase("Unimod", "Methyl on X", "Peptide N-terminal.")]
     [TestCase("Unimod", "Methyl on X", "Peptide C-terminal.")]
