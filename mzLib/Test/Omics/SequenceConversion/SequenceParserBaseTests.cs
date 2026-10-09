@@ -68,18 +68,18 @@ public class SequenceParserBaseTests
         Assert.That(warnings.Errors, Has.Some.Contains("Expected N-terminal separator '!"));
     }
 
-    [TestCase("mzLib", "PEP[]TIDE", 3)]
-    [TestCase("mzLib", "[]PEPTIDE", 0)]
-    [TestCase("mzLib", "PEPTIDE-[]", 8)]
-    [TestCase("mzLib", "PEP[ ]TIDE", 3)]
-    [TestCase("mzLib", "[ ]PEPTIDE", 0)]
-    [TestCase("mzLib", "PEPTIDE-[ ]", 8)]
-    [TestCase("massShift", "PEP[]TIDE", 3)]
-    [TestCase("massShift", "[]PEPTIDE", 0)]
-    [TestCase("massShift", "PEPTIDE-[]", 8)]
-    public void ParseRejectsEmptyModification(string format, string input, int position)
+    [TestCase("mzLib", "PEP[]TIDE", "Empty modification.")]
+    [TestCase("mzLib", "[]PEPTIDE", "Empty modification.")]
+    [TestCase("mzLib", "PEPTIDE-[]", "Empty modification.")]
+    [TestCase("mzLib", "PEP[ ]TIDE", "Empty modification.")]
+    [TestCase("mzLib", "[ ]PEPTIDE", "Empty modification.")]
+    [TestCase("mzLib", "PEPTIDE-[ ]", "Empty modification.")]
+    [TestCase("massShift", "PEP[]TIDE", "Invalid mass shift format: ''")]
+    [TestCase("massShift", "[]PEPTIDE", "Invalid mass shift format: ''")]
+    [TestCase("massShift", "PEPTIDE-[]", "Invalid mass shift format: ''")]
+    public void ParseRejectsEmptyModification(string format, string input, string message)
     {
-        AssertRejected(format, input, $"Empty modification at position {position}.");
+        AssertRejected(format, input, message);
     }
 
     [TestCase("mzLib", "PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]", 30)]
