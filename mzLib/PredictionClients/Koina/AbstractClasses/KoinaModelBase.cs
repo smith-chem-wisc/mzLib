@@ -228,7 +228,7 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
         var incompatible = new List<CanonicalModification>();
         foreach (var mod in cleaned.Modifications)
         {
-            var resolved = ResolveModification(mod);
+            var resolved = SequenceConverter.Serializer.ResolveModification(mod);
             if (resolved.UnimodId is int id && (AcceptsAllUnimodModifications || AllowedUnimodIds.Contains(id)))
                 accepted.Add(resolved);
             else
@@ -340,21 +340,6 @@ public abstract class KoinaModelBase<TModelInput, TModelOutput>
             i = end;
         }
         return i;
-    }
-
-    private CanonicalModification ResolveModification(CanonicalModification mod)
-    {
-        var serializer = SequenceConverter.Serializer;
-        if (!serializer.ShouldResolveMod(mod) || serializer.ModificationLookup?.TryResolve(mod) is not { } match)
-            return mod;
-
-        return match with
-        {
-            PositionType = mod.PositionType,
-            ResidueIndex = mod.ResidueIndex,
-            TargetResidue = mod.TargetResidue ?? match.TargetResidue,
-            OriginalRepresentation = mod.OriginalRepresentation
-        };
     }
 
     #endregion
