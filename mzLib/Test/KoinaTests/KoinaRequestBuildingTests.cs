@@ -269,6 +269,7 @@ namespace Test.KoinaTests
             var oxidation = CanonicalModification.AtResidue(3, 'M', "Common Variable:Oxidation on M", mzLibId: "Common Variable:Oxidation on M");
             var models = FragmentModels().Concat(RtModels()).Concat(CcsModels()).Concat(CrosslinkModels()).Concat(DetectabilityModels());
             var checkedAcceptAllModels = 0;
+            var checkedRestrictedModels = 0;
             Assert.Multiple(() =>
             {
                 foreach (var modelType in models)
@@ -284,9 +285,12 @@ namespace Test.KoinaTests
                         $"{modelType.Name}'s converter resolves UNIMOD:{id}, which the model doesn't allow.");
                     if (acceptsAll)
                         checkedAcceptAllModels++;
+                    else
+                        checkedRestrictedModels++;
                 }
             });
             Assert.That(checkedAcceptAllModels, Is.GreaterThanOrEqualTo(16), "Expected all 16 accept-all models to resolve oxidation and be checked.");
+            Assert.That(checkedRestrictedModels, Is.GreaterThanOrEqualTo(20), "Expected all 20 restricted models that allow oxidation to resolve it and be checked.");
         }
 
         [Test]
