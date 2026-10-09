@@ -67,8 +67,7 @@ public abstract class SequenceParserBase : ISequenceParser
                     "Unclosed bracket at start of sequence.");
             }
 
-            string modString = input.Substring(1, closeBracket - 1);
-            var nTermMod = ParseModificationString(modString, ModificationPositionType.NTerminus, null, null, warnings, mode);
+            var nTermMod = ParseBracketContent(input, 0, closeBracket, ModificationPositionType.NTerminus, null, null, warnings, mode);
             if (nTermMod == null)
                 return null; // Error already handled
 
@@ -107,10 +106,9 @@ public abstract class SequenceParserBase : ISequenceParser
                         $"Unclosed bracket at position {i}.");
                 }
 
-                string modString = input.Substring(i + 1, closeBracket - i - 1);
                 char? targetResidue = residueIndex > 0 ? baseSequence[residueIndex - 1] : null;
 
-                var mod = ParseModificationString(modString, ModificationPositionType.Residue, residueIndex - 1, targetResidue, warnings, mode);
+                var mod = ParseBracketContent(input, i, closeBracket, ModificationPositionType.Residue, residueIndex - 1, targetResidue, warnings, mode);
                 if (mod == null)
                     return null; // Error already handled
 
@@ -133,16 +131,20 @@ public abstract class SequenceParserBase : ISequenceParser
                             $"Unclosed bracket for C-terminal modification at position {separatorEnd}.");
                     }
 
-                    string modString = input.Substring(separatorEnd + 1, closeBracket - separatorEnd - 1);
                     char? targetResidue = baseSequence.Length > 0 ? baseSequence[baseSequence.Length - 1] : null;
 
-                    var cTermMod = ParseModificationString(modString, ModificationPositionType.CTerminus, null, targetResidue, warnings, mode);
+                    var cTermMod = ParseBracketContent(input, separatorEnd, closeBracket, ModificationPositionType.CTerminus, null, targetResidue, warnings, mode);
                     if (cTermMod == null)
                         return null; // Error already handled
 
                     modifications.Add(cTermMod.Value);
 
                     i = closeBracket + 1;
+                    if (i < input.Length && input[i] == Schema.ModOpenBracket)
+                    {
+                        return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
+                            $"Unexpected modification at position {i} after the C-terminal modification.");
+                    }
                 }
                 else
                 {
@@ -187,6 +189,30 @@ public abstract class SequenceParserBase : ISequenceParser
             baseSequence.ToString(),
             modifications.ToImmutableArray(),
             FormatName);
+    }
+
+    /// <summary>
+    /// Parses the text between a bracket pair, rejecting an empty modification.
+    /// </summary>
+    private CanonicalModification? ParseBracketContent(
+        string input,
+        int openBracket,
+        int closeBracket,
+        ModificationPositionType positionType,
+        int? residueIndex,
+        char? targetResidue,
+        ConversionWarnings warnings,
+        SequenceConversionHandlingMode mode)
+    {
+        string modString = input.Substring(openBracket + 1, closeBracket - openBracket - 1);
+        if (string.IsNullOrWhiteSpace(modString))
+        {
+            HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
+                $"Empty modification at position {openBracket}.");
+            return null;
+        }
+
+        return ParseModificationString(modString, positionType, residueIndex, targetResidue, warnings, mode);
     }
 
     /// <summary>
