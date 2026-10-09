@@ -154,6 +154,20 @@ public class KoinaModelBaseTests
         Assert.That(warning?.Message, Does.Contain("Invalid base sequence"));
     }
 
+    [TestCase("PEP[]TIDE", "Empty modification.")]
+    [TestCase("PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]", "after the C-terminal modification")]
+    public void TryCleanSequence_MalformedModification_IsRejectedByTheParser(string sequence, string reason)
+    {
+        var allowed = new HashSet<int> { 35, 2 };
+        var model = new KoinaModelHarness(KoinaModelHarness.BuildConverter(allowed), allowedUnimodIds: allowed);
+
+        var result = model.TryClean(sequence, out var apiSequence, out var warning);
+
+        Assert.That(result, Is.Null);
+        Assert.That(apiSequence, Is.Null);
+        Assert.That(warning?.Message, Does.Contain(reason));
+    }
+
     [TestCase("[UNIMOD:737]-PEPTIDEK", true, "[UNIMOD:737]PEPTIDEK")]
     [TestCase("PEPTIDEK-[UNIMOD:2]", true, "PEPTIDEK-[UNIMOD:2]")]
     [TestCase("[Multiplex Label:TMT6-plex on X]PEPTIDEK", false, "[UNIMOD:737]PEPTIDEK")]
