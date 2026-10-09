@@ -83,10 +83,23 @@ public class SequenceParserBaseTests
     }
 
     [TestCase("mzLib", "PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]", 30)]
+    [TestCase("mzLib", "PEPTIDE-[A] [B]", 11)]
+    [TestCase("mzLib", "PEPTIDE-[A]-[B]", 11)]
+    [TestCase("mzLib", "PEPTIDE-[A]K", 11)]
+    [TestCase("mzLib", "PEP-[A]TIDE", 7)]
     [TestCase("massShift", "PEPTIDE-[+1][+16]", 12)]
-    public void ParseRejectsModificationAfterCTerminalModification(string format, string input, int position)
+    public void ParseRejectsContentAfterCTerminalModification(string format, string input, int position)
     {
-        AssertRejected(format, input, $"Unexpected modification at position {position} after the C-terminal modification.");
+        AssertRejected(format, input, $"Unexpected content at position {position} after the C-terminal modification.");
+    }
+
+    [Test]
+    public void ParseAllowsWhitespaceAfterCTerminalModification()
+    {
+        var canonical = new MzLibSequenceParser().Parse("PEPTIDE-[Unimod:Amidated on X] ");
+
+        Assert.That(canonical!.Value.BaseSequence, Is.EqualTo("PEPTIDE"));
+        Assert.That(canonical.Value.Modifications[0].PositionType, Is.EqualTo(ModificationPositionType.CTerminus));
     }
 
     [TestCase("PE[Unimod:Cation:Fe[III] on E]PTIDE", ModificationPositionType.Residue)]

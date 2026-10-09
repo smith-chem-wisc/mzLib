@@ -143,10 +143,10 @@ public abstract class SequenceParserBase : ISequenceParser
                     modifications.Add(cTermMod.Value);
 
                     i = closeBracket + 1;
-                    if (i < input.Length && input[i] == Schema.ModOpenBracket)
+                    if (!input.AsSpan(i).IsWhiteSpace())
                     {
                         return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
-                            $"Unexpected modification at position {i} after the C-terminal modification.");
+                            $"Unexpected content at position {i} after the C-terminal modification.");
                     }
                 }
                 else
