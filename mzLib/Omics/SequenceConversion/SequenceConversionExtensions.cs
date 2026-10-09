@@ -177,7 +177,8 @@ public static class SequenceConversionExtensions
     }
 
     /// <summary>
-    /// Resolves a modification through the serializer's lookup when it asks for it, keeping the modification's own position.
+    /// Resolves a modification through the serializer's lookup when it asks for it,
+    /// keeping the modification's own position.
     /// </summary>
     public static CanonicalModification ResolveModification(this ISequenceSerializer serializer, CanonicalModification mod)
     {
