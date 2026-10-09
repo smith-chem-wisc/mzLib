@@ -210,6 +210,26 @@ namespace Test.FileReadingTests.ProForma
         }
 
         [Test]
+        public void Layer2_LoadedPsiModAccession_IsWrittenWithOnePrefixAndReadsBack()
+        {
+            // The ptmlist loader stores a PSI-MOD reference already prefixed ("MOD:01956"), unlike the bare
+            // Unimod and RESID ids, so prefixing it again wrote "MOD:MOD:01956".
+            var known = Mods.AllModsKnownDictionary;
+            var mod = known["(3R)-3-hydroxyarginine on R"];
+            Assert.That(mod.DatabaseReference["PSI-MOD"], Does.Contain("MOD:01956"));
+
+            var term = ProFormaConverter.ToProFormaTerm("PERK", new Dictionary<int, Modification> { [4] = mod });
+            Assert.That(ProFormaWriter.Write(term), Is.EqualTo("PER[MOD:01956]K"));
+
+            var back = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:01956]K"), known);
+            Assert.That(back[4], Is.SameAs(mod));
+
+            // mzLib 1.0.590-1.0.593 wrote the doubled prefix, and those files are still on disk.
+            var legacy = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("PER[MOD:MOD:01956]K"), known);
+            Assert.That(legacy[4], Is.SameAs(mod));
+        }
+
+        [Test]
         public void Layer2_RoundTrips_TerminalNameMods()
         {
             var nAcetyl = MakeTerminalMod("Acetyl", "N-terminal.", 42.01057);
@@ -465,6 +485,37 @@ namespace Test.FileReadingTests.ProForma
 
             var dict = ProFormaConverter.ToModificationDictionary(ProFormaReader.Read("[Acetyl]-PEPTIDEK"), allModsKnown);
             Assert.That(dict[1], Is.SameAs(nAcetyl));
+        }
+
+        /// <summary>
+        /// The five Mods.txt entries given a Unimod accession (six modifications, since Myristoylation on
+        /// "C or K" expands per residue) are written as [UNIMOD:n] and must read back on the same residue
+        /// with the same accession and mass. Several loaded mods share each accession on the same residue,
+        /// so the one read back may be the Unimod entry rather than mzLib's own; that is accession
+        /// ambiguity, not a wrong modification.
+        /// </summary>
+        [TestCase("Myristoylation on G", "45", "GPEPTIDE", 1)]
+        [TestCase("Myristoylation on C", "45", "PCEPTIDE", 3)]
+        [TestCase("Myristoylation on K", "45", "PKEPTIDE", 3)]
+        [TestCase("GG (Ubiquitination Site) on K", "121", "PKEPTIDE", 3)]
+        [TestCase("EQIGG (sumoylation (SMT-3) Site yeast) on K", "846", "PKEPTIDE", 3)]
+        [TestCase("Lactylation on K", "2114", "PKEPTIDE", 3)]
+        public void Layer2_NewlyAccessionedModsRoundTripOnTheirOwnResidue(string idWithMotif, string unimod,
+            string sequence, int position)
+        {
+            var known = Mods.AllModsKnownDictionary;
+            var mod = known[idWithMotif];
+
+            var term = ProFormaConverter.ToProFormaTerm(sequence, new Dictionary<int, Modification> { [position] = mod });
+            var descriptor = position == 1 ? term.NTerminalDescriptors[0] : term.Tags.Single().Descriptors[0];
+            Assert.That(descriptor.Key, Is.EqualTo(Tdp.ProFormaKey.Identifier));
+            Assert.That(descriptor.Value, Is.EqualTo($"UNIMOD:{unimod}"));
+
+            var back = ProFormaConverter.ToModificationDictionary(term, known)[position];
+            TestContext.WriteLine($"{idWithMotif} read back as {back.IdWithMotif}");
+            Assert.That(back.Target.ToString(), Is.EqualTo(mod.Target.ToString()), back.IdWithMotif);
+            Assert.That(back.DatabaseReference["Unimod"], Does.Contain(unimod), back.IdWithMotif);
+            Assert.That(back.MonoisotopicMass, Is.EqualTo(mod.MonoisotopicMass).Within(1e-5), back.IdWithMotif);
         }
     }
 }

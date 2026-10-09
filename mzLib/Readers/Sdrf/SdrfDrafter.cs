@@ -205,6 +205,19 @@ namespace Readers
 
             // ---- project facts (D27), disease (D34) ----
             var organism = One(project.Organisms, "organism", Organism);
+            // Several organisms (G43): a row takes one of THEM from its own name, or stays not available.
+            var organisms = project.Organisms.Select(Organism).GroupBy(t => t.Accession, StringComparer.OrdinalIgnoreCase)
+                .Select(g => g.First()).ToList();
+            var fromName = organisms.Count > 1
+                ? names.Distinct().ToDictionary(n => n, n => OrganismFromName(n, organisms))
+                : new Dictionary<string, SdrfDraftCell?>();
+            // A record that describes mixed proteomes (a two-proteome benchmark, a spike-in) has runs whose names
+            // give only one of them (PXD014415's human_yaeast, PXD005206's CSF_Ecoli). Its names are trusted only
+            // when they tell two of its organisms apart.
+            if (MixedProteomes.IsMatch($"{project.Title} {project.ProjectDescription} {project.SampleProcessingProtocol}")
+                && fromName.Values.OfType<SdrfDraftCell>().Select(c => c.Term!.Accession).Distinct(StringComparer.OrdinalIgnoreCase).Count() < 2)
+                fromName.Clear();
+            SdrfDraftCell OrganismOf(string file) => fromName.GetValueOrDefault(file) ?? organism;
             var part = OfKind(One(project.OrganismParts, "organism part", ByPrefix), "organism part", NotOrganismPart);
             var instrument = One(project.Instruments, "instrument", ByPrefix);
             var disease = OfKind(One(project.Diseases, "disease", ByPrefix), "disease", NotDisease);
@@ -238,7 +251,7 @@ namespace Readers
                 rows.Add(new SdrfDraftRow(
                     n,
                     new SdrfDraftCell(sourceName[r.Key], SdrfDraftSource.Inferred, r.KeyWhy),
-                    organism, part, rowDisease, instrument,
+                    OrganismOf(n), part, rowDisease, instrument,
                     new SdrfDraftCell(bio.ToString(System.Globalization.CultureInfo.InvariantCulture), bioSource, bioWhy),
                     new SdrfDraftCell((r.Tech ?? 1).ToString(System.Globalization.CultureInfo.InvariantCulture),
                         r.Tech == null ? SdrfDraftSource.Default : SdrfDraftSource.Inferred, r.TechWhy),
@@ -305,10 +318,14 @@ namespace Readers
                 // its own word wherever that differs -- `default` when nothing marked it (D39).
                 if (!comments.TryGetValue("comment[characteristics source]", out var rowWord) || rowWord != SourceWord(r.BiologicalReplicate.Source))
                     comments["comment[biological replicate source]"] = SourceWord(r.BiologicalReplicate.Source);
-                // Where a publication stated it: the D31 grain's `source reference` beside the source word.
+                // Where a publication stated it: the D31 grain's `source reference` beside the source word. The word
+                // is written even when it equals the row default, or the builder fills it `not applicable` beside a
+                // reference and a method, which reads as a contradiction (G42, dataRepo 024/025).
                 foreach (var (name, cell) in stated.Append(("biological replicate", r.BiologicalReplicate)))
                     if (cell.Source == SdrfDraftSource.Publication)
                     {
+                        if (!string.IsNullOrEmpty(cell.Reference) || !string.IsNullOrEmpty(cell.Method))
+                            comments[$"comment[{name} source]"] = SourceWord(cell.Source);
                         if (!string.IsNullOrEmpty(cell.Reference)) comments[$"comment[{name} source reference]"] = cell.Reference;
                         if (!string.IsNullOrEmpty(cell.Method)) comments[$"comment[{name} source method]"] = cell.Method;
                     }
@@ -605,6 +622,74 @@ namespace Readers
                     : $"PRIDE's project record lists {distinct.Count} values for {what}, so none is written per sample");
             var term = normalise(distinct[0]);
             return new SdrfDraftCell(term.Name, SdrfDraftSource.PrideProjectRecord, $"the one {what} PRIDE's project record lists", term);
+        }
+
+        /// <summary>
+        /// Name parts that say which organism a run came from: the organism itself, or a cell line or strain that names
+        /// it. Several taxa where PRIDE records a species under more than one (yeast as 4932 or S288C 559292).
+        /// Measured on the 210 cached deposits whose record lists several organisms (G43, 2026-10-04): the rule names
+        /// the organism of 1,801 rows in 27 of them, and changes no other cell. Of the 1,156 rows a curated SDRF also
+        /// describes, 1,129 agree; the other 27 are one curated SDRF (PXD011189) that gives all its rows, HeLa and
+        /// E. coli runs included, one organism. The spike-in and long-number refusals below removed 38 disagreements
+        /// (PXD001587, PXD070151, PXD023693). The mixture refusals (review, 2026-10-06) stop 67 rows the records describe
+        /// as mixtures (PXD005206, PXD014415, PXD063416), at the cost of 137 rows a curated SDRF agrees with: PXD049412's
+        /// pure cell-line runs in a two-proteome record, and five <c>Human_mix</c>-style names in PXD028979 and PXD009265.
+        /// </summary>
+        private static readonly Dictionary<string, int[]> OrganismCues = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["human"] = [9606], ["hela"] = [9606], ["hek"] = [9606], ["hek293"] = [9606], ["hek293t"] = [9606], ["k562"] = [9606],
+            ["a549"] = [9606], ["jurkat"] = [9606], ["mcf7"] = [9606], ["u2os"] = [9606], ["hepg2"] = [9606], ["hct116"] = [9606],
+            ["thp1"] = [9606],
+            ["rat"] = [10116], ["rats"] = [10116], ["rattus"] = [10116],
+            ["mouse"] = [10090], ["mice"] = [10090], ["murine"] = [10090],
+            ["yeast"] = [4932, 559292], ["ecoli"] = [562, 83333],
+            ["arabidopsis"] = [3702], ["drosophila"] = [7227], ["zebrafish"] = [7955],
+        };
+
+        /// <summary>A spike-in standard (UPS1/UPS2) is another organism's proteins in the run: its name names a mixture.</summary>
+        private static readonly HashSet<string> SpikeIn = new(StringComparer.OrdinalIgnoreCase) { "ups", "ups1", "ups2" };
+
+        /// <summary>The words depositors use for a mixed run: mix, mixA, mixture, mixed, spike, spiked, spikein.</summary>
+        private static readonly Regex MixtureWord = new(@"^(mix|spik)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        /// <summary>A record describing runs that mix organisms' proteomes on purpose. Not "multi-species" (PXD028979 is a
+        /// resource of one species per run) and not "spiked" (PXD059754 spikes one recombinant protein).</summary>
+        private static readonly Regex MixedProteomes = new(
+            @"\b(?:two|three|hybrid|mixed)[- ](?:proteome|species|organism)", RegexOptions.Compiled | RegexOptions.IgnoreCase);
+
+        private static readonly Regex NamePart = new(@"[A-Za-z0-9]+", RegexOptions.Compiled);
+        private static readonly Regex TrailingNumber = new(@"^([A-Za-z]+)([0-9]+)$", RegexOptions.Compiled);
+
+        /// <summary>
+        /// One of the record's organisms, when the file's name names exactly one of them (<c>Rat1</c>, <c>HeLa</c>);
+        /// null when it names none or several, when any cue names an organism the record does not list, and when it
+        /// names a mixture or a spike-in standard. Never an organism the record does not list.
+        /// </summary>
+        private static SdrfDraftCell? OrganismFromName(string file, IReadOnlyList<CvParam> organisms)
+        {
+            var found = new Dictionary<string, (CvParam Term, string Part)>(StringComparer.OrdinalIgnoreCase);
+            foreach (Match m in NamePart.Matches(SdrfFileNamePattern.Stem(file)))
+            {
+                string part = m.Value;
+                if (SpikeIn.Contains(part) || MixtureWord.IsMatch(part)) return null;
+                // A replicate number may follow the word (Rat1, Rat12); a cell line's own digits (HEK293) are looked up whole
+                // first. A longer number is a strain or stock code (PXD023693's Ecoli268, a spike into B. subtilis), not a
+                // count, so the name is refused.
+                if (!OrganismCues.TryGetValue(part, out var taxa))
+                {
+                    if (TrailingNumber.Match(part) is not { Success: true } c || !OrganismCues.TryGetValue(c.Groups[1].Value, out taxa))
+                        continue;
+                    if (c.Groups[2].Length > 2) return null;
+                }
+                var listed = organisms.Where(t => taxa.Any(x => t.Accession.Equals($"NCBITaxon:{x}", StringComparison.OrdinalIgnoreCase))).ToList();
+                if (listed.Count == 0) return null;
+                foreach (var term in listed)
+                    found.TryAdd(term.Accession, (term, part));
+            }
+            if (found.Count != 1) return null;
+            var (organism, cue) = found.Values.Single();
+            return new SdrfDraftCell(organism.Name, SdrfDraftSource.Inferred,
+                $"the file name says '{cue}', one of the organisms PRIDE's project record lists", organism);
         }
 
         /// <summary>
