@@ -168,6 +168,34 @@ namespace Omics.Digestion
             return (fits, prevents);
         }
 
+        /// <summary>
+        /// True when this motif severs the bond C-TERMINAL to <paramref name="residue"/> -- that is,
+        /// when the residue whose own C-side bond the cut index falls after matches. Trypsin's "K|"
+        /// and "R|" report true for K and R; Asp-N's "|D" and Lys-N's "|K" report false for every
+        /// residue, because they cut N-terminal to their recognition residue and sever nothing after it.
+        /// </summary>
+        /// <remarks>
+        /// Residue-level only: a preventing-cleavage rule (trypsin|P's "K[P]|") is deliberately not
+        /// consulted, because that rule depends on the sequence context of a particular site and this
+        /// question is about the protease alone; which sites are real is decided per protein from
+        /// <see cref="DigestionAgent.GetDigestionSiteIndices"/>.
+        ///
+        /// The residue must be named LITERALLY. The wildcard "X" and the ambiguity codes B/J/Z do not
+        /// count: a motif whose P1 is a wildcard (StcE's "TX|T", collagenase, non-specific "X|") is not
+        /// directed by that residue's side chain, so modifying the side chain abolishes nothing there.
+        /// </remarks>
+        public bool CleavesCTerminalTo(char residue)
+        {
+            // CutIndex counts residues of the motif that precede the cut, so the residue the cut falls
+            // after is InducingCleavage[CutIndex - 1]. A CutIndex of zero cuts before the motif entirely.
+            if (CutIndex < 1 || CutIndex > InducingCleavage.Length)
+            {
+                return false;
+            }
+
+            return InducingCleavage[CutIndex - 1] == residue;
+        }
+
         private bool MotifMatches(char motifChar, char sequenceChar)
         {
             return motifChar.Equals('X') && !sequenceChar.ToString().Equals(ExcludeFromWildcard)
