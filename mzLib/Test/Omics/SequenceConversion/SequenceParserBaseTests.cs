@@ -68,6 +68,82 @@ public class SequenceParserBaseTests
         Assert.That(warnings.Errors, Has.Some.Contains("Expected N-terminal separator '!"));
     }
 
+    [TestCase("mzLib", "PEP[]TIDE", "Empty modification.")]
+    [TestCase("mzLib", "[]PEPTIDE", "Empty modification.")]
+    [TestCase("mzLib", "PEPTIDE-[]", "Empty modification.")]
+    [TestCase("mzLib", "PEP[ ]TIDE", "Empty modification.")]
+    [TestCase("mzLib", "[ ]PEPTIDE", "Empty modification.")]
+    [TestCase("mzLib", "PEPTIDE-[ ]", "Empty modification.")]
+    [TestCase("massShift", "PEP[]TIDE", "Invalid mass shift format: ''")]
+    [TestCase("massShift", "[]PEPTIDE", "Invalid mass shift format: ''")]
+    [TestCase("massShift", "PEPTIDE-[]", "Invalid mass shift format: ''")]
+    public void ParseRejectsEmptyModification(string format, string input, string message)
+    {
+        AssertRejected(format, input, message);
+    }
+
+    [TestCase("mzLib", "PEPTIDE-[Unimod:Amidated on X][Unimod:Oxidation on E]", 30)]
+    [TestCase("mzLib", "PEPTIDE-[A] [B]", 11)]
+    [TestCase("mzLib", "PEPTIDE-[A]-[B]", 11)]
+    [TestCase("mzLib", "PEPTIDE-[A]K", 11)]
+    [TestCase("mzLib", "PEP-[A]TIDE", 7)]
+    [TestCase("massShift", "PEPTIDE-[+1][+16]", 12)]
+    public void ParseRejectsContentAfterCTerminalModification(string format, string input, int position)
+    {
+        AssertRejected(format, input, $"Unexpected content at position {position} after the C-terminal modification.");
+    }
+
+    [Test]
+    public void ParseAllowsWhitespaceAfterCTerminalModification()
+    {
+        var canonical = new MzLibSequenceParser().Parse("PEPTIDE-[Unimod:Amidated on X] ");
+
+        Assert.That(canonical!.Value.BaseSequence, Is.EqualTo("PEPTIDE"));
+        Assert.That(canonical.Value.Modifications[0].PositionType, Is.EqualTo(ModificationPositionType.CTerminus));
+    }
+
+    [TestCase("PE[Unimod:Cation:Fe[III] on E]PTIDE", ModificationPositionType.Residue)]
+    [TestCase("[Unimod:Cation:Fe[III] on X]PEPTIDE", ModificationPositionType.NTerminus)]
+    [TestCase("PEPTIDE-[Unimod:Cation:Fe[III] on X]", ModificationPositionType.CTerminus)]
+    public void ParseKeepsBracketsInsideModificationName(string input, ModificationPositionType positionType)
+    {
+        var canonical = new MzLibSequenceParser().Parse(input);
+
+        Assert.That(canonical.HasValue, Is.True);
+        Assert.That(canonical!.Value.BaseSequence, Is.EqualTo("PEPTIDE"));
+        Assert.That(canonical.Value.ModificationCount, Is.EqualTo(1));
+        Assert.That(canonical.Value.Modifications[0].PositionType, Is.EqualTo(positionType));
+        Assert.That(canonical.Value.Modifications[0].MzLibId, Does.StartWith("Unimod:Cation:Fe[III] on "));
+    }
+
+    private static void AssertRejected(string format, string input, string message)
+    {
+        SequenceParserBase parser = format == "mzLib" ? new MzLibSequenceParser() : new MassShiftSequenceParser();
+
+        Assert.That(
+            () => parser.Parse(input, new ConversionWarnings(), SequenceConversionHandlingMode.ThrowException),
+            Throws.TypeOf<SequenceConversionException>()
+                .With.Message.EqualTo(message)
+                .And.Property(nameof(SequenceConversionException.FailureReason))
+                .EqualTo(ConversionFailureReason.UnknownFormat));
+
+        foreach (var mode in new[]
+                 {
+                     SequenceConversionHandlingMode.ReturnNull,
+                     SequenceConversionHandlingMode.RemoveIncompatibleElements,
+                     SequenceConversionHandlingMode.UsePrimarySequence
+                 })
+        {
+            var warnings = new ConversionWarnings();
+
+            var result = parser.Parse(input, warnings, mode);
+
+            Assert.That(result, Is.Null);
+            Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.UnknownFormat));
+            Assert.That(warnings.Errors, Has.Some.EqualTo(message));
+        }
+    }
+
     private sealed class TestSequenceParser : SequenceParserBase
     {
         private readonly SequenceFormatSchema _schema;

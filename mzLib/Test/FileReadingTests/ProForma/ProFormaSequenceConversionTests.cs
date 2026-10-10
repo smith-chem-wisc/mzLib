@@ -296,6 +296,33 @@ namespace Test.FileReadingTests.ProForma
             Assert.That(ProFormaSequenceParser.Instance.CanParse("PEPC[UNIMOD:4TIDE"), Is.False);
         }
 
+        [TestCase("PEP[]TIDE")]
+        [TestCase("[]-PEPTIDE")]
+        [TestCase("PEPTIDE-[]")]
+        [TestCase("PEP[ ]TIDE")]
+        public void Parse_EmptyModification_IsRejected(string input)
+        {
+            Assert.That(
+                () => ProFormaSequenceParser.Instance.Parse(input),
+                Throws.TypeOf<SequenceConversionException>().With.Message.Contains("empty descriptor"));
+
+            foreach (var mode in new[]
+                     {
+                         SequenceConversionHandlingMode.ReturnNull,
+                         SequenceConversionHandlingMode.RemoveIncompatibleElements,
+                         SequenceConversionHandlingMode.UsePrimarySequence
+                     })
+            {
+                var warnings = new ConversionWarnings();
+
+                var canonical = ProFormaSequenceParser.Instance.Parse(input, warnings, mode);
+
+                Assert.That(canonical, Is.Null);
+                Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
+                Assert.That(warnings.Errors, Has.Some.Contains("empty descriptor"));
+            }
+        }
+
         [Test]
         public void Parse_TwoModsOnOneResidue_IsRejected()
         {
