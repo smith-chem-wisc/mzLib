@@ -77,6 +77,32 @@ namespace Test.FileReadingTests.ProForma
             Assert.That(canonical.Value.ResidueModifications.Count(), Is.Zero);
         }
 
+        [TestCase("PEPTIDE-[UNIMOD:2][UNIMOD:35]", "Multiple C-terminal modifications (2 found).")]
+        [TestCase("[UNIMOD:1][UNIMOD:35]-PEPTIDE", "Multiple N-terminal modifications (2 found).")]
+        public void Parse_StackedTerminalModifications_AreIncompatibleNotLost(string input, string item)
+        {
+            var warnings = new ConversionWarnings();
+            var canonical = ProFormaSequenceParser.Instance.Parse(input, warnings, SequenceConversionHandlingMode.ReturnNull);
+
+            Assert.That(canonical, Is.Null);
+            Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.IncompatibleModifications));
+            Assert.That(warnings.IncompatibleItems, Does.Contain(item));
+            Assert.That(warnings.Errors, Has.Some.Contains("ProForma 2.1"));
+            Assert.That(() => ProFormaSequenceParser.Instance.Parse(input), Throws.TypeOf<SequenceConversionException>());
+            Assert.That(ProFormaSequenceParser.Instance.CanParse(input), Is.False);
+        }
+
+        [Test]
+        public void Parse_ResidueAfterCTerminalModification_IsInvalidSequence()
+        {
+            var warnings = new ConversionWarnings();
+            var canonical = ProFormaSequenceParser.Instance.Parse("PEPTIDE-[UNIMOD:2]K", warnings, SequenceConversionHandlingMode.ReturnNull);
+
+            Assert.That(canonical, Is.Null);
+            Assert.That(warnings.FailureReason, Is.EqualTo(ConversionFailureReason.InvalidSequence));
+            Assert.That(warnings.Errors, Has.Some.Contains("Unexpected content at position 18 after the C-terminal modification."));
+        }
+
         [Test]
         public void RoundTrip_ProFormaToProForma_PreservesAccessionNotation()
         {
