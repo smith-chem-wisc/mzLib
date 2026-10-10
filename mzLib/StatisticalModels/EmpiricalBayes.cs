@@ -255,8 +255,7 @@ namespace StatisticalModels
             else
             {
                 double[] x = use.Select(i => covariate[i]).ToArray();
-                basis = Math.Max(1, Math.Min(TrendBasisCount(use.Length, x.Distinct().Count(), splineBasisCount), use.Length - 1));
-                b = NaturalSplineBasis(x, basis);
+                b = NaturalSplineBasis(x, TrendBasisCount(use.Length, x.Distinct().Count(), splineBasisCount));
                 basis = b.ColumnCount;
             }
             var (d0, logScale) = VariancePriorLikelihood.Fit(s2, d, b);
