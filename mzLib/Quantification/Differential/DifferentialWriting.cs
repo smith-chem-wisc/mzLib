@@ -381,17 +381,33 @@ public sealed record DifferentialNotRun(string Label, string Reason);
 public sealed record DifferentialStratumInfo(string Stratum, IReadOnlyDictionary<string, string> Factors, string Source,
     IReadOnlyDictionary<string, int> SamplesPerLevel, IReadOnlyList<DifferentialNotRun> NotRun);
 
-/// <summary>One contrast, with its weight vector over model coefficients.</summary>
+/// <summary>
+/// A contrast's global shift in one stratum: how far its two sides sit apart overall, before normalization. Over the
+/// peptides with a value in every sample on both sides of the contrast in that stratum, each peptide's mean log2
+/// intensity on the numerator side minus its mean on the denominator side, computed on intensities before normalization;
+/// <see cref="Value"/> is the median of those differences and <see cref="Peptides"/> how many peptides it used. With no
+/// such peptide, <see cref="Value"/> is NaN (written <c>null</c>) and <see cref="Peptides"/> is 0.
+/// </summary>
+public sealed record DifferentialGlobalShift(double Value, int Peptides);
+
+/// <summary>
+/// One contrast, with its weight vector over model coefficients and, for a contrast with a numerator and a denominator,
+/// its global shift in each stratum it ran in, keyed by stratum. A covariate contrast has no two sides, so no global shift.
+/// </summary>
 public sealed record DifferentialContrastInfo(string Id, string Label, string? Numerator, string? Denominator,
-    string? Covariate, string? CovariateUnit, string? CovariateScale, IReadOnlyDictionary<string, double> Weights);
+    string? Covariate, string? CovariateUnit, string? CovariateScale, IReadOnlyDictionary<string, double> Weights,
+    IReadOnlyDictionary<string, DifferentialGlobalShift>? GlobalShift = null);
 
 /// <summary>One model as fitted for a method and grain.</summary>
 public sealed record DifferentialModelInfo(string Method, string Grain, string Formula, bool Reml, string DfMethod,
     double? PriorDf, double? PriorVariance, string? RobustRule);
 
-/// <summary>One stratum's normalization: setting, reference set size, per-sample shifts and the global shift.</summary>
+/// <summary>
+/// One stratum's normalization: setting, reference set size and per-sample shifts. The global shift is a property of a
+/// contrast, not of a stratum, so it is on <see cref="DifferentialContrastInfo.GlobalShift"/>.
+/// </summary>
 public sealed record DifferentialNormalizationInfo(string Stratum, string Setting, int ReferenceSetSize,
-    IReadOnlyDictionary<string, double> PerSampleShift, double GlobalShift);
+    IReadOnlyDictionary<string, double> PerSampleShift);
 
 /// <summary>
 /// Everything constant across an analysis's rows (<c>DEF-DIFF-META</c>), written by <see cref="DifferentialMetadataWriter"/>.
@@ -452,7 +468,8 @@ public sealed record DifferentialMetadata
 public static class DifferentialMetadataWriter
 {
     /// <summary>The metadata file's bytes for <paramref name="metadata"/> and the rows of its results table.</summary>
-    /// <exception cref="ArgumentException">A row belongs to another analysis, or breaks the rows' contract.</exception>
+    /// <exception cref="ArgumentException">A row belongs to another analysis, or breaks the rows' contract; or a global
+    /// shift names a stratum the metadata does not list, or sits on a contrast without a numerator and a denominator.</exception>
     public static byte[] ToBytes(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows)
     {
         ArgumentNullException.ThrowIfNull(metadata);
@@ -462,6 +479,7 @@ public static class DifferentialMetadataWriter
         if (foreign is not null)
             throw new ArgumentException(
                 $"Row for feature '{foreign.FeatureId}' belongs to analysis '{foreign.AnalysisId}', not '{id}'.", nameof(rows));
+        ValidateGlobalShifts(metadata);
 
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
@@ -525,6 +543,14 @@ public static class DifferentialMetadataWriter
                 Optional(w, "covariate_unit", c.CovariateUnit);
                 Optional(w, "covariate_scale", c.CovariateScale);
                 Map(w, "weights", c.Weights, (k, v) => Number(w, k, v));
+                if (c.GlobalShift is { Count: > 0 } shifts)
+                    Map(w, "global_shift", shifts, (stratum, shift) =>
+                    {
+                        w.WriteStartObject(stratum);
+                        Number(w, "value", shift.Value);
+                        w.WriteNumber("peptides", shift.Peptides);
+                        w.WriteEndObject();
+                    });
                 w.WriteEndObject();
             }
             w.WriteEndArray();
@@ -553,7 +579,6 @@ public static class DifferentialMetadataWriter
                 w.WriteString("setting", n.Setting);
                 w.WriteNumber("reference_set_size", n.ReferenceSetSize);
                 Map(w, "per_sample_shift", n.PerSampleShift, (k, v) => Number(w, k, v));
-                Number(w, "global_shift", n.GlobalShift);
                 w.WriteEndObject();
             }
             w.WriteEndArray();
@@ -593,6 +618,24 @@ public static class DifferentialMetadataWriter
         }
         stream.WriteByte((byte)'\n');
         return stream.ToArray();
+    }
+
+    /// <summary>Every global shift names a listed stratum and sits on a contrast with a numerator and a denominator.</summary>
+    private static void ValidateGlobalShifts(DifferentialMetadata metadata)
+    {
+        var strata = metadata.Strata.Select(s => s.Stratum).ToHashSet(StringComparer.Ordinal);
+        foreach (var c in metadata.Contrasts)
+        {
+            if (c.GlobalShift is not { Count: > 0 } shifts)
+                continue;
+            if (c.Numerator is null || c.Denominator is null)
+                throw new ArgumentException(
+                    $"Contrast '{c.Id}' has a global shift but no numerator and denominator to measure it between.", nameof(metadata));
+            var unlisted = shifts.Keys.Where(k => !strata.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).FirstOrDefault();
+            if (unlisted is not null)
+                throw new ArgumentException(
+                    $"Contrast '{c.Id}' has a global shift for stratum '{unlisted}', which the metadata does not list.", nameof(metadata));
+        }
     }
 
     internal static void WriteInputs(Utf8JsonWriter w, IReadOnlyList<DifferentialInput> inputs)

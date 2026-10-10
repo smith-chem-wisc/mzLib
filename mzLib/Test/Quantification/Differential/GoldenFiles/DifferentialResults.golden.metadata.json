@@ -323,6 +323,18 @@
         "age=young": 6
       },
       "not_run": []
+    },
+    {
+      "stratum": "organism part=liver",
+      "factors": {
+        "organism part": "liver"
+      },
+      "source": "curated_marking",
+      "samples_per_level": {
+        "age=old": 3,
+        "age=young": 3
+      },
+      "not_run": []
     }
   ],
   "contrasts": [
@@ -333,6 +345,26 @@
       "denominator": "age=young",
       "weights": {
         "age=old": 1
+      },
+      "global_shift": {
+        "all": {
+          "value": 0.02,
+          "peptides": 640
+        },
+        "organism part=liver": {
+          "value": -0.11,
+          "peptides": 512
+        }
+      }
+    },
+    {
+      "id": "c2",
+      "label": "age (per decade)",
+      "covariate": "age",
+      "covariate_unit": "decade",
+      "covariate_scale": "years/10, centred at 50 years",
+      "weights": {
+        "age": 1
       }
     }
   ],
@@ -356,8 +388,7 @@
       "per_sample_shift": {
         "s01": 0.1,
         "s02": -0.05
-      },
-      "global_shift": 0.02
+      }
     }
   ],
   "families": [

@@ -14,9 +14,10 @@ namespace Test.Quantification.Differential;
 
 /// <summary>
 /// The differential results table and its metadata file, against QuantProject's <c>DEF-DIFF-*</c> v1 contract
-/// (DATA-DEFINITIONS v3.7): both header names for every column, in order; missing as an empty cell; round-trip doubles;
-/// the status vocabulary and its "evidence only" rule; the fixed row order (features never interleave); family sizes;
-/// the metadata's key order, analysis id and determinism; and byte-for-byte golden files (STAT1 milestone M4).
+/// (DATA-DEFINITIONS v3.7, and v3.8's global shift per contrast and stratum): both header names for every column, in
+/// order; missing as an empty cell; round-trip doubles; the status vocabulary and its "evidence only" rule; the fixed row
+/// order (features never interleave); family sizes; the metadata's key order, analysis id and determinism; the global
+/// shift's place; and byte-for-byte golden files (STAT1 milestone M4).
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
@@ -234,13 +235,21 @@ public class DifferentialWriterTests
         {
             new DifferentialStratumInfo("all", new Dictionary<string, string>(), "default_list",
                 new Dictionary<string, int> { ["age=young"] = 6, ["age=old"] = 6 }, Array.Empty<DifferentialNotRun>()),
+            new DifferentialStratumInfo("organism part=liver", new Dictionary<string, string> { ["organism part"] = "liver" },
+                "curated_marking", new Dictionary<string, int> { ["age=young"] = 3, ["age=old"] = 3 }, Array.Empty<DifferentialNotRun>()),
         },
-        Contrasts = new[] { new DifferentialContrastInfo("c1", "age=old vs age=young", "age=old", "age=young", null, null, null,
-            new Dictionary<string, double> { ["age=old"] = 1 }) },
+        Contrasts = new[]
+        {
+            new DifferentialContrastInfo("c1", "age=old vs age=young", "age=old", "age=young", null, null, null,
+                new Dictionary<string, double> { ["age=old"] = 1 },
+                new Dictionary<string, DifferentialGlobalShift> { ["organism part=liver"] = new(-0.11, 512), ["all"] = new(0.02, 640) }),
+            new DifferentialContrastInfo("c2", "age (per decade)", null, null, "age", "decade", "years/10, centred at 50 years",
+                new Dictionary<string, double> { ["age"] = 1 }),
+        },
         Models = new[] { new DifferentialModelInfo("moderated", "protein_group", "y ~ peptide + age + (1|individual/sample)", true,
             "satterthwaite_moderated", 4.2, 0.08, "huber 1.345, MAD about 0, to convergence") },
         Normalization = new[] { new DifferentialNormalizationInfo("all", "shared_peptide_median", 812,
-            new Dictionary<string, double> { ["s01"] = 0.1, ["s02"] = -0.05 }, 0.02) },
+            new Dictionary<string, double> { ["s01"] = 0.1, ["s02"] = -0.05 }) },
         DesignWarnings = new[] { "biological replicate 3 of condition old is absent" },
     };
 
@@ -284,6 +293,53 @@ public class DifferentialWriterTests
         Assert.That(family.GetProperty("size").GetInt32(), Is.EqualTo(1));
         Assert.That(text, Does.Not.Match(@"\d{4}-\d{2}-\d{2}T"), "no timestamps");
         Assert.That(DifferentialMetadataWriter.ToBytes(m, rows), Is.EqualTo(bytes), "the same inputs give the same bytes");
+    }
+
+    [Test]
+    public void TheGlobalShiftIsPerContrastAndStratum()
+    {
+        var m = Metadata();
+        var rows = new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } };
+        using var doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, rows));
+        var contrasts = doc.RootElement.GetProperty("contrasts").EnumerateArray().ToList();
+        var shift = contrasts[0].GetProperty("global_shift");
+        Assert.That(shift.EnumerateObject().Select(p => p.Name), Is.EqualTo(new[] { "all", "organism part=liver" }),
+            "one entry per stratum, in ordinal order");
+        Assert.That(shift.GetProperty("organism part=liver").GetProperty("value").GetDouble(), Is.EqualTo(-0.11));
+        Assert.That(shift.GetProperty("organism part=liver").GetProperty("peptides").GetInt32(), Is.EqualTo(512));
+        Assert.That(shift.GetProperty("all").GetProperty("value").GetDouble(), Is.EqualTo(0.02));
+        Assert.That(contrasts[1].TryGetProperty("global_shift", out _), Is.False, "a slope has no two sides, so no global shift");
+        Assert.That(doc.RootElement.GetProperty("normalization")[0].TryGetProperty("global_shift", out _), Is.False,
+            "the global shift belongs to a contrast, not to a stratum's normalization");
+    }
+
+    [Test]
+    public void AGlobalShiftWithNoPeptidesIsWrittenAsNull()
+    {
+        var m = Metadata();
+        var none = m.Contrasts[0] with { GlobalShift = new Dictionary<string, DifferentialGlobalShift> { ["all"] = new(double.NaN, 0) } };
+        m = m with { Contrasts = new[] { none, m.Contrasts[1] } };
+        var rows = new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } };
+        using var doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, rows));
+        var all = doc.RootElement.GetProperty("contrasts")[0].GetProperty("global_shift").GetProperty("all");
+        Assert.That(all.GetProperty("value").ValueKind, Is.EqualTo(JsonValueKind.Null));
+        Assert.That(all.GetProperty("peptides").GetInt32(), Is.EqualTo(0));
+    }
+
+    [Test]
+    public void AGlobalShiftMustNameAListedStratumAndATwoSidedContrast()
+    {
+        var m = Metadata();
+        var rows = new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } };
+        var unlisted = m.Contrasts[0] with
+        {
+            GlobalShift = new Dictionary<string, DifferentialGlobalShift> { ["organism part=brain"] = new(0.1, 10) },
+        };
+        Assert.That(() => DifferentialMetadataWriter.ToBytes(m with { Contrasts = new[] { unlisted, m.Contrasts[1] } }, rows),
+            Throws.ArgumentException.With.Message.Contains("'organism part=brain'"));
+        var slope = m.Contrasts[1] with { GlobalShift = new Dictionary<string, DifferentialGlobalShift> { ["all"] = new(0.1, 10) } };
+        Assert.That(() => DifferentialMetadataWriter.ToBytes(m with { Contrasts = new[] { m.Contrasts[0], slope } }, rows),
+            Throws.ArgumentException.With.Message.Contains("'c2'"));
     }
 
     [Test]
