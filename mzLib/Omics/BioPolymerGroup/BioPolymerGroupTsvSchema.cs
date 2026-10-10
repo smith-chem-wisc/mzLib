@@ -300,7 +300,7 @@ public static class BioPolymerGroupTsvSchema
             : sequences.Select(p => p.BaseSequence);
 
     /// <summary>
-    /// Single-letter classification: entrapment decoy, entrapment target, decoy, contaminant, or target.
+    /// The group's one-value classification: entrapment decoy, entrapment target, decoy, contaminant, or target.
     /// </summary>
     private static string TargetDecoyLabel(BioPolymerGroup group) =>
         DecoyContaminantTargetLabel.For(group.IsDecoy, group.IsContaminant, group.IsEntrapment);

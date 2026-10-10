@@ -207,8 +207,10 @@ namespace Test.FileReadingTests.InternalFileReading
         }
 
         /// <summary>
-        /// A group whose members carry different labels joins them with '|', so contaminant is read as a
-        /// letter like decoy and entrapment: <c>== "C"</c> read <c>T|C</c> as non-contaminant.
+        /// Contaminant is read as a letter in any parent, like decoy and entrapment. <c>== "C"</c>
+        /// read <c>T|C</c> as non-contaminant. No MetaMorpheus group writer joins labels today: a group
+        /// is written as one value from its any-member flags. So the joined cases guard the reader
+        /// against a writer that might, rather than against one that does.
         /// </summary>
         [TestCase("C", true)]
         [TestCase("T|C", true)]
@@ -316,6 +318,34 @@ namespace Test.FileReadingTests.InternalFileReading
             group.BestBioPolymerWithSetModsQValue = 0.005;
             group.CalculateSequenceCoverage();
             return group;
+        }
+
+        /// <summary>
+        /// The group reader asks DecoyContaminantTargetLabel for all three flags, so entrapment is read
+        /// anywhere in a joined label, as contaminant already is, and a value that is not a label is
+        /// nothing. Only T, D, ET and ED were read for entrapment, and on those the old
+        /// <c>StartsWith('E')</c> agrees with the helper.
+        /// </summary>
+        [TestCase("T|ET", false, false, true)]
+        [TestCase("Output too long for Excel", false, false, false)]
+        [TestCase("Decoy", false, false, false)]
+        public void AGroupLabelIsReadThroughItsParents(string label, bool isDecoy, bool isContaminant, bool isEntrapment)
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "mzLibTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "Labels_AllProteinGroups.tsv");
+            ProteinGroupFromTsv row;
+            try
+            {
+                File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nP1|Random_P1_f0\t{label}\t0.001\n");
+                row = new ProteinGroupFromTsvFile(path).Single();
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+
+            Assert.That((row.IsDecoy, row.IsContaminant, row.IsEntrapment), Is.EqualTo((isDecoy, isContaminant, isEntrapment)));
         }
     }
 }

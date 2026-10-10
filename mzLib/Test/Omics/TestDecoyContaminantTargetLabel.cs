@@ -127,4 +127,97 @@ public class TestDecoyContaminantTargetLabel
     {
         Assert.That(DecoyContaminantTargetLabel.EntrapmentFraction(label, fullSequence), Is.NaN);
     }
+
+    /// <summary>
+    /// A full sequence that names nothing -- blank, or the placeholder MetaMorpheus writes for an
+    /// over-long joined cell -- cannot say whether an entrapment candidate shares a target's
+    /// peptide. It used to read as one collapsed sequence that every candidate shared, so a
+    /// <c>T|ET</c> row read 0, although MetaMorpheus writes that placeholder only when the sequences
+    /// differ. Where the sequences cannot change the answer, the answer stands.
+    /// </summary>
+    [TestCase("T|ET", "Output too long for Excel", double.NaN)]
+    [TestCase("C|ET", "Output too long for Excel", double.NaN)]
+    [TestCase("T|ET", "", double.NaN)]
+    [TestCase("T|ET", " ", double.NaN)]
+    [TestCase("T|ET", null, double.NaN)]
+    [TestCase("ET|D", "Output too long for Excel", 0.5)]
+    [TestCase("ET", "Output too long for Excel", 1.0)]
+    [TestCase("T|D", "Output too long for Excel", 0.0)]
+    public void AnUnreadableFullSequenceAnswersOnlyWhatItCan(string label, string? fullSequence, double expected)
+    {
+        double actual = DecoyContaminantTargetLabel.EntrapmentFraction(label, fullSequence);
+
+        if (double.IsNaN(expected))
+        {
+            Assert.That(actual, Is.NaN);
+        }
+        else
+        {
+            Assert.That(actual, Is.EqualTo(expected).Within(1e-12));
+        }
+    }
+
+    /// <summary>
+    /// The precedence is ED, ET, D, C, T, so entrapment outranks contaminant. No case set both
+    /// flags. It matters for groups, whose flags are any-member: one contaminant member and one
+    /// entrapment member set both, and the group is written as entrapment.
+    /// </summary>
+    [TestCase(false, true, true, "ET")]
+    [TestCase(true, true, true, "ED")]
+    public void EntrapmentOutranksContaminant(bool isDecoy, bool isContaminant, bool isEntrapment, string expected)
+    {
+        Assert.That(DecoyContaminantTargetLabel.For(isDecoy, isContaminant, isEntrapment), Is.EqualTo(expected));
+    }
+
+    /// <summary>
+    /// A value that is not a label names no parent, even when it contains the letter asked about.
+    /// The only such case was the "E" in "Output too long for Excel", so reading decoy or
+    /// contaminant from the raw string, as before 3cc95941, still passed.
+    /// </summary>
+    [TestCase("Decoy")]
+    [TestCase("Contaminant")]
+    [TestCase("TD")]
+    [TestCase("T|DC")]
+    public void AValueThatIsNotALabelNamesNoParentEvenWhenItContainsTheLetter(string label)
+    {
+        Assert.That(DecoyContaminantTargetLabel.Parents(label), Is.Empty);
+        Assert.That(DecoyContaminantTargetLabel.IsDecoy(label), Is.False);
+        Assert.That(DecoyContaminantTargetLabel.IsContaminant(label), Is.False);
+        Assert.That(DecoyContaminantTargetLabel.IsEntrapment(label), Is.False);
+    }
+
+    /// <summary>
+    /// FDR counts every candidate as 1/n, and a contaminant is a target there, so a contaminant
+    /// candidate stays in the denominator. No case mixed C with D.
+    /// </summary>
+    [TestCase("C|D", 0.5)]
+    [TestCase("T|C|D", 1.0 / 3)]
+    public void AContaminantCandidateCountsInTheDecoyFractionsDenominator(string label, double expected)
+    {
+        Assert.That(DecoyContaminantTargetLabel.DecoyFraction(label), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    /// <summary>
+    /// A collapsed full sequence applies to every candidate, so the denominator is the number of
+    /// candidates the label names, not the one sequence written. The only collapsed-sequence case
+    /// with several parents was <c>T|ET</c>, whose numerator is 0, so any denominator passed.
+    /// </summary>
+    [TestCase("ET|D", "AAK", 0.5)]
+    [TestCase("D|ET", "AAK", 0.5)]
+    public void ACollapsedFullSequenceStillDividesByEveryCandidate(string label, string fullSequence, double expected)
+    {
+        Assert.That(DecoyContaminantTargetLabel.EntrapmentFraction(label, fullSequence), Is.EqualTo(expected).Within(1e-12));
+    }
+
+    /// <summary>
+    /// A target or contaminant claims its sequence wherever it stands in the label. Every case put
+    /// the real protein first, so a claim that only looked backwards passed.
+    /// </summary>
+    [TestCase("ET|T", "PEPTIDEK", 0.0)]
+    [TestCase("ET|D|T", "AAK|BBK|AAK", 0.0)]
+    [TestCase("ET|C", "AAK", 0.0)]
+    public void ARealProteinClaimsItsSequenceWhereverItStandsInTheLabel(string label, string fullSequence, double expected)
+    {
+        Assert.That(DecoyContaminantTargetLabel.EntrapmentFraction(label, fullSequence), Is.EqualTo(expected).Within(1e-12));
+    }
 }

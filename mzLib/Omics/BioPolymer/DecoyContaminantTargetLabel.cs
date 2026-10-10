@@ -21,8 +21,11 @@ public static class DecoyContaminantTargetLabel
     public const string EntrapmentDecoy = "ED";
 
     /// <summary>The label for one biopolymer, or for a group from its any-member flags.</summary>
-    /// <remarks>Precedence is ED, ET, D, C, T. The loaders refuse a biopolymer that is both
-    /// entrapment and contaminant, so entrapment outranking contaminant loses nothing.</remarks>
+    /// <remarks>Precedence is ED, ET, D, C, T. For one biopolymer that loses nothing: the loaders
+    /// refuse one that is both entrapment and contaminant. For a group's any-member flags it does
+    /// lose something. A group holding a contaminant and an entrapment member is written <c>ET</c>,
+    /// and so is one holding a target and an entrapment member. A group label is one value, never a
+    /// joined one.</remarks>
     public static string For(bool isDecoy, bool isContaminant, bool isEntrapment)
     {
         if (isEntrapment)
@@ -45,7 +48,9 @@ public static class DecoyContaminantTargetLabel
     public static bool IsDecoy(string? label) => AnyParentHas(label, 'D');
 
     /// <summary>True when any parent named by the label is a contaminant.</summary>
-    /// <remarks>Reads <see cref="Parents"/>, so a value that is not a label is no parent at all.</remarks>
+    /// <remarks>Reads <see cref="Parents"/>, so a value that is not a label is no parent at all. A
+    /// decoy contaminant is written <c>D</c>, because decoy outranks contaminant, so this cannot see
+    /// one.</remarks>
     public static bool IsContaminant(string? label) => AnyParentHas(label, 'C');
 
     /// <summary>True when any parent named by the label is entrapment.</summary>
@@ -76,10 +81,13 @@ public static class DecoyContaminantTargetLabel
 
     /// <summary>The share of the PSM that FDR counts as a decoy: decoy parents over all parents.</summary>
     /// <remarks>
-    /// MetaMorpheus adds each candidate of a shared PSM as 1/n of a target or a decoy by its own
+    /// <para>MetaMorpheus adds each candidate of a shared PSM as 1/n of a target or a decoy by its own
     /// parent (FdrAnalysisEngine.CalculateQValue), so <c>T|T|D</c> is a third of a decoy. Use
     /// <see cref="IsDecoy"/> for the question MetaMorpheus's SpectralMatch.IsDecoy answers: is any
-    /// parent a decoy.
+    /// parent a decoy.</para>
+    /// <para>Exact only for a file that writes one label per candidate. Some MetaMorpheus files write
+    /// one any-parent letter per PSM instead: everything before 0.0.306, and the glyco and crosslink
+    /// outputs. For those this is 0 or 1.</para>
     /// </remarks>
     public static double DecoyFraction(string? label)
     {
@@ -94,8 +102,13 @@ public static class DecoyContaminantTargetLabel
     /// <param name="label">The Decoy/Contaminant/Target value.</param>
     /// <param name="fullSequence">The Full Sequence value, '|'-joined in the same order.</param>
     /// <returns>
-    /// NaN when the two columns name different numbers of candidates and neither is collapsed, since
-    /// they cannot then be lined up.
+    /// NaN when the answer depends on sequences that cannot be read. That is either case below:
+    /// <list type="bullet">
+    /// <item>the two columns name different numbers of candidates and neither is collapsed, so they
+    /// cannot be lined up;</item>
+    /// <item>the full sequence is blank or MetaMorpheus's Excel placeholder, and the label names an
+    /// entrapment target beside a target or contaminant.</item>
+    /// </list>
     /// </returns>
     /// <remarks>
     /// <para>MetaMorpheus searches entrapment as a target, so a peptide present in both a target
@@ -106,6 +119,13 @@ public static class DecoyContaminantTargetLabel
     /// <para>Either column collapses to one value when every candidate agrees, and then applies to
     /// all of them. A decoy candidate is never entrapment (<c>ED</c> is a decoy) and claims no
     /// sequence.</para>
+    /// <para>MetaMorpheus writes <see cref="Omics.BioPolymerGroup.ModificationOccupancyCell.ExcelTruncationText"/>
+    /// in place of an over-long joined cell, and only when the candidates differ. That placeholder
+    /// has no '|', so it once looked like one collapsed sequence that every candidate shared, and
+    /// a <c>T|ET</c> row read 0 when its sequences in fact differed.</para>
+    /// <para>Like <see cref="DecoyFraction"/>, this is exact only for a file with one label per
+    /// candidate. The glyco and crosslink outputs write one letter per PSM, and they do not write
+    /// <c>ET</c>, so an entrapment hit there reads 0.</para>
     /// </remarks>
     public static double EntrapmentFraction(string? label, string? fullSequence)
     {
@@ -115,6 +135,12 @@ public static class DecoyContaminantTargetLabel
         if (parents.Count == 0)
         {
             return 0;
+        }
+        if (IsUnreadable(fullSequence)
+            && parents.Contains(EntrapmentTarget)
+            && parents.Any(p => p is Target or Contaminant))
+        {
+            return double.NaN;
         }
         if ((parents.Count != 1 && parents.Count != candidates) || (sequences.Length != 1 && sequences.Length != candidates))
         {
@@ -134,6 +160,11 @@ public static class DecoyContaminantTargetLabel
 
     private static bool AnyParentHas(string? label, char letter) =>
         Parents(label).Any(p => p.Contains(letter));
+
+    /// <summary>A full-sequence value that names no sequence: blank, or the Excel placeholder.</summary>
+    private static bool IsUnreadable(string? fullSequence) =>
+        string.IsNullOrWhiteSpace(fullSequence)
+        || fullSequence.Trim() == Omics.BioPolymerGroup.ModificationOccupancyCell.ExcelTruncationText;
 
     private static bool IsKnown(string part) =>
         part is Target or Decoy or Contaminant or EntrapmentTarget or EntrapmentDecoy;

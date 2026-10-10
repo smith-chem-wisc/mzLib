@@ -1015,5 +1015,45 @@ namespace Test.FileReadingTests.InternalFileReading
                     match.Ion.Annotation);
             }
         }
+
+        /// <summary>
+        /// Every PSM reader asks DecoyContaminantTargetLabel, so a value that is not a label is neither
+        /// decoy nor entrapment on any path. Only the helper was tested with such a value. On real
+        /// labels a raw <c>Contains('D')</c> or <c>Contains('E')</c> agrees with the helper, so any
+        /// reader could revert to the raw test and nothing failed.
+        /// </summary>
+        [TestCase("Output too long for Excel")]
+        [TestCase("Decoy")]
+        public static void AValueThatIsNotALabelIsNeitherDecoyNorEntrapmentOnAnyPsmPath(string label)
+        {
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SearchResults", "TDGPTMDSearchResults.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            string[] header = lines[0].Split('\t');
+            int column = Array.IndexOf(header, SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+            string[] fields = lines.Skip(1).Select(l => l.Split('\t')).First(f => f.Length == header.Length);
+            fields[column] = label;
+
+            string directory = Path.Combine(Path.GetTempPath(), "mzLibTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "notALabel.psmtsv");
+            PsmFromTsv psm;
+            LightWeightSpectralMatch lightweight;
+            try
+            {
+                File.WriteAllLines(path, new[] { lines[0], string.Join('\t', fields) });
+                psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).Single();
+                lightweight = LightWeightSpectralMatchReader.ReadTsv(path, out _).Single();
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+
+            NUnit.Framework.Assert.That(psm.DecoyContamTarget, Is.EqualTo(label));
+            NUnit.Framework.Assert.That((psm.IsDecoy, psm.IsEntrapment), Is.EqualTo((false, false)));
+            NUnit.Framework.Assert.That(psm.ToLibrarySpectrum().IsDecoy, Is.False);
+            NUnit.Framework.Assert.That((lightweight.IsDecoy, lightweight.IsEntrapment), Is.EqualTo((false, false)),
+                "the lightweight reader must agree with the full one");
+        }
     }
 }
