@@ -83,7 +83,7 @@ namespace UsefulProteomicsDatabases
         /// </summary>
         /// <returns>False for a null or empty accession.</returns>
         /// <exception cref="ArgumentException">The identifier is null or empty, which would make every accession entrapment.</exception>
-        public static bool IsEntrapmentAccession(string accession, string entrapmentIdentifier = "Random")
+        public static bool IsEntrapmentAccession(string accession, string entrapmentIdentifier = DefaultEntrapmentIdentifier)
         {
             if (string.IsNullOrEmpty(entrapmentIdentifier))
             {
