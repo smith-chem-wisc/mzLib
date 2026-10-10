@@ -51,7 +51,8 @@ ID   Lactylation
 TG   K
 PP   Anywhere.
 MT   Less Common
-CF   H3 C3 O2
+CF   H4 C3 O2
+DR   Unimod; 2114.
 //
 ID   Formylation
 TG   K
@@ -612,13 +613,13 @@ CF   H6 C4 N2 O2
 DR   Unimod; 121.
 //
 ID   DVIEVYQEQTGG (SUMO-1 Site human)
-TG   D
+TG   K
 PP   Anywhere.
 MT   AspN Digested
 CF   C57 H86 N14 O22
 //
 ID   DVFQQQTGG (SUMO-2/3 Site human)
-TG   D
+TG   K
 PP   Anywhere.
 MT   AspN Digested
 CF   C41 H60 N12 O15
