@@ -796,19 +796,22 @@ namespace UsefulProteomicsDatabases
         /// (<see cref="GetFileChecksumsAsync"/>). A file that fails the check never reaches the destination path.
         /// </summary>
         /// <remarks>
-        /// The size is always checked; it costs nothing. The MD5 is checked only when <paramref name="verifyMd5"/>
-        /// is true, because it means reading the whole file again, which takes seconds for a multi-gigabyte raw file.
+        /// The size is always checked. The bytes are checked too, as they are written, so neither check reads the
+        /// file a second time: with <paramref name="verifyMd5"/> true against PRIDE's MD5, and otherwise by a scan
+        /// for the error response EBI's storage has been seen writing into files it serves at their full size
+        /// (<c>&lt;Error&gt;&lt;Code&gt;</c>, 2026-10-08), which a size check cannot see. A resumed transfer is read
+        /// once more at the end, because its start arrived in an earlier attempt.
         /// <para>
-        /// With <paramref name="overwrite"/> false, an existing destination file is kept only if it passes the same
-        /// check. One that does not (a truncated copy from an older tool, say) is downloaded again and replaced,
-        /// instead of being returned as if it were complete.
+        /// With <paramref name="overwrite"/> false, an existing destination file is kept only if it passes the size
+        /// check, and the MD5 when <paramref name="verifyMd5"/> is true (reading it again, which takes seconds for a
+        /// multi-gigabyte raw file). It is not scanned. One that fails (a truncated copy from an older tool, say) is
+        /// downloaded again and replaced, instead of being returned as if it were complete.
         /// </para>
         /// <para>
-        /// A download that fails the check is a broken contract between PRIDE's file and PRIDE's own list, not an
-        /// outage, so it throws <see cref="MzLibException"/>, is not retried, and leaves no ".partial" behind.
-        /// A truncated transfer is caught earlier, against the server's <c>Content-Length</c>, and retried. A
-        /// server that sends no <c>Content-Length</c> (a chunked body) gives nothing to catch it against, so there a
-        /// truncation is found only by this size check and is reported as a mismatch, not retried.
+        /// A download that fails the check is deleted, with its ".partial.validator", and downloaded again from its
+        /// first byte, never resumed, within the same retry budget as a transient failure. EBI's damage is
+        /// transient: a fresh download of the same file usually comes out right. Only when every attempt fails does
+        /// it throw <see cref="MzLibException"/>, leaving no ".partial" behind.
         /// </para>
         /// <para>
         /// Cancelling while the downloaded file is being checked keeps its ".partial" and ".partial.validator".
@@ -831,7 +834,7 @@ namespace UsefulProteomicsDatabases
         /// <exception cref="ArgumentException">As for the overload without a checksum, or <paramref name="expected"/> is for a different file name.</exception>
         /// <exception cref="NotSupportedException">The file exposes no HTTPS-reachable location (e.g. Aspera-only) and must be downloaded.</exception>
         /// <exception cref="HttpRequestException">As for the overload without a checksum.</exception>
-        /// <exception cref="MzLibException">The downloaded file's size, or its MD5 when <paramref name="verifyMd5"/> is true, differs from <paramref name="expected"/>. The message names the file and host, never the URL.</exception>
+        /// <exception cref="MzLibException">On every attempt, the downloaded file's size differed from <paramref name="expected"/>, or its MD5 did when <paramref name="verifyMd5"/> is true, or (without the MD5) it held EBI's error text. The message, the last attempt's, names the file and host, never the URL.</exception>
         /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was cancelled.</exception>
         public Task<string> DownloadFileAsync(PrideArchiveFile file, string destinationDirectory,
             PrideFileChecksum expected, bool overwrite = true, bool verifyMd5 = false,
@@ -887,32 +890,65 @@ namespace UsefulProteomicsDatabases
 
             // A .partial left by an earlier call is resumable only with the validator it was started under;
             // without one, nothing proves the bytes on disk are the start of the file the server holds now.
-            var transfer = new ResumableTransfer { Validator = ReadValidator(partialPath, validatorPath) };
+            var transfer = new ResumableTransfer
+            {
+                Validator = ReadValidator(partialPath, validatorPath),
+                Digest = expected != null ? new DownloadDigest(verifyMd5) : null
+            };
             bool verifying = false;
 
             try
             {
                 // A .partial that already has the listed size was downloaded whole under its validator by a call
                 // cancelled while checking it (see the catch below): check it again rather than fetch it again.
-                bool alreadyComplete = expected != null && transfer.Validator != null
-                    && new FileInfo(partialPath).Length == expected.SizeBytes;
-                if (!alreadyComplete)
-                    await WithRetryAsync(() => DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken),
-                        host, cancellationToken).ConfigureAwait(false);
-
-                // Checked before the move, so a file that fails never reaches the destination path. An
-                // MzLibException falls to the catch-all below, which deletes the partial and its validator:
-                // bytes that disagree with PRIDE's own list are not worth resuming.
-                if (expected != null)
+                // If it fails, it is discarded and the file is downloaded as if it had never been there.
+                bool complete = false;
+                if (expected != null && transfer.Validator != null && new FileInfo(partialPath).Length == expected.SizeBytes)
                 {
                     verifying = true;
-                    string mismatch = await ChecksumMismatchAsync(partialPath, expected, verifyMd5, cancellationToken).ConfigureAwait(false);
-                    if (mismatch != null)
-                        throw new MzLibException($"The PRIDE download of {described} {mismatch}.");
+                    transfer.Digest.Invalidate();
+                    complete = await ContentMismatchAsync(partialPath, expected, verifyMd5, transfer.Digest, cancellationToken).ConfigureAwait(false) == null;
+                    if (!complete)
+                        Discard(partialPath, validatorPath, transfer);
+                    verifying = false;
+                }
+
+                if (!complete)
+                {
+                    await WithRetryAsync(async () =>
+                    {
+                        verifying = false;
+                        await DownloadOnceAsync(url, described, partialPath, validatorPath, transfer, cancellationToken).ConfigureAwait(false);
+                        if (expected == null)
+                            return true;
+
+                        // Checked before the move, so a file that fails never reaches the destination path. The
+                        // check is made inside the attempt so that a failure is retried: EBI has served files at
+                        // their full size with its own storage error text in place of some of their bytes, and a
+                        // fresh download of the same file usually comes out right (measured 2026-10-08).
+                        verifying = true;
+                        cancellationToken.ThrowIfCancellationRequested();
+                        string mismatch = await ContentMismatchAsync(partialPath, expected, verifyMd5, transfer.Digest, cancellationToken).ConfigureAwait(false);
+                        if (mismatch != null)
+                        {
+                            // Never resumed: the bytes on disk are what is wrong.
+                            Discard(partialPath, validatorPath, transfer);
+                            throw new ContentMismatchException($"The PRIDE download of {described} {mismatch}.");
+                        }
+                        return true;
+                    }, host, cancellationToken).ConfigureAwait(false);
                 }
 
                 File.Move(partialPath, destinationPath, overwrite: true);
                 DeleteQuietly(validatorPath);
+            }
+            catch (ContentMismatchException e)
+            {
+                // Every attempt came back wrong, so this is no longer an outage worth waiting out: PRIDE's file and
+                // PRIDE's own list disagree. Nothing is kept; the partial went with the attempt that failed.
+                DeleteQuietly(partialPath);
+                DeleteQuietly(validatorPath);
+                throw new MzLibException(e.Message, e);
             }
             catch (HttpRequestException e) when (IsTransient(e, host) && transfer.Validator != null && File.Exists(partialPath))
             {
@@ -934,6 +970,10 @@ namespace UsefulProteomicsDatabases
                 DeleteQuietly(validatorPath);
                 throw;
             }
+            finally
+            {
+                transfer.Digest?.Dispose();
+            }
 
             return destinationPath;
         }
@@ -945,25 +985,78 @@ namespace UsefulProteomicsDatabases
         internal const string ValidatorSuffix = ".validator";
 
         /// <summary>
-        /// Checks the file at <paramref name="path"/> against PRIDE's checksum row: its length always, its MD5 only
+        /// Checks a file already at the destination against PRIDE's checksum row: its length always, its MD5 only
         /// when <paramref name="verifyMd5"/> is set. Returns null when it passes, else the end of a sentence saying
         /// what differs (it names no path or URL, so it can go into an exception message as it is).
         /// </summary>
+        /// <remarks>
+        /// Unlike a fresh download, which is scanned for EBI's error text as it arrives, a file already on disk is
+        /// not read at all unless its MD5 is asked for, so skipping a project's thousands of finished files stays cheap.
+        /// </remarks>
         private static async Task<string> ChecksumMismatchAsync(string path, PrideFileChecksum expected, bool verifyMd5,
             CancellationToken cancellationToken)
         {
             long length = new FileInfo(path).Length;
             if (length != expected.SizeBytes)
-                return $"came to {length} bytes where PRIDE's checksum list records {expected.SizeBytes}";
+                return SizeMismatch(length, expected);
             if (!verifyMd5)
                 return null;
 
-            string md5;
-            using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 1 << 16, useAsync: true))
-                md5 = Convert.ToHexString(await MD5.HashDataAsync(stream, cancellationToken).ConfigureAwait(false));
-            return string.Equals(md5, expected.Md5, StringComparison.OrdinalIgnoreCase)
-                ? null
-                : $"has MD5 {md5.ToLowerInvariant()} where PRIDE's checksum list records {expected.Md5}";
+            var digest = new DownloadDigest(verifyMd5: true);
+            digest.Invalidate();
+            return await ContentMismatchAsync(path, expected, verifyMd5: true, digest, cancellationToken).ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// Checks a downloaded file against PRIDE's checksum row: its length always, then its MD5 when
+        /// <paramref name="verifyMd5"/> is set, else a scan for <see cref="DownloadDigest.ServerErrorMarker"/>. Uses
+        /// what <paramref name="digest"/> saw as the bytes arrived, and reads the file again only when the digest did
+        /// not see all of it (a resumed transfer, or a partial left by an earlier call). Returns null when it passes,
+        /// else the end of a sentence saying what differs, naming no path or URL.
+        /// </summary>
+        private static async Task<string> ContentMismatchAsync(string path, PrideFileChecksum expected, bool verifyMd5,
+            DownloadDigest digest, CancellationToken cancellationToken)
+        {
+            long length = new FileInfo(path).Length;
+            if (length != expected.SizeBytes)
+                return SizeMismatch(length, expected);
+
+            if (!digest.SawWholeFile)
+            {
+                digest.Reset();
+                byte[] buffer = new byte[1 << 16];
+                using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, buffer.Length, useAsync: true);
+                int read;
+                while ((read = await stream.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) > 0)
+                    digest.Append(buffer.AsSpan(0, read));
+            }
+
+            if (verifyMd5)
+            {
+                // A matching MD5 proves the file is PRIDE's, so the error-text scan has nothing to add.
+                string md5 = digest.Md5Hex();
+                return string.Equals(md5, expected.Md5, StringComparison.OrdinalIgnoreCase)
+                    ? null
+                    : $"has MD5 {md5} where PRIDE's checksum list records {expected.Md5}";
+            }
+
+            return digest.ServerErrorAt >= 0
+                ? $"holds a server error response (\"<Error><Code>\") at byte {digest.ServerErrorAt}, written into the file in place of its own bytes"
+                : null;
+        }
+
+        private static string SizeMismatch(long length, PrideFileChecksum expected) =>
+            $"came to {length} bytes where PRIDE's checksum list records {expected.SizeBytes}";
+
+        /// <summary>
+        /// Deletes a partial whose bytes are wrong, with its validator, so the next attempt starts from zero instead
+        /// of resuming them.
+        /// </summary>
+        private static void Discard(string partialPath, string validatorPath, ResumableTransfer transfer)
+        {
+            DeleteQuietly(partialPath);
+            DeleteQuietly(validatorPath);
+            transfer.Validator = null;
         }
 
         /// <summary>What one download carries from a failed attempt into the next.</summary>
@@ -971,6 +1064,121 @@ namespace UsefulProteomicsDatabases
         {
             /// <summary>The validator the partial bytes were served under, or null when they cannot be resumed.</summary>
             public RangeConditionHeaderValue Validator { get; set; }
+
+            /// <summary>The check run over the bytes as they arrive, or null when there is nothing to check them against.</summary>
+            public DownloadDigest Digest { get; init; }
+        }
+
+        /// <summary>
+        /// A downloaded file is not the attempt's failure but its content's: wrong size, wrong MD5, or EBI's error text
+        /// inside it. It has no status, so <see cref="WithRetryAsync{T}"/> treats it as transient and downloads the file
+        /// again from zero; once the retries are spent it becomes an <see cref="MzLibException"/>.
+        /// </summary>
+        private sealed class ContentMismatchException(string message) : HttpRequestException(message);
+
+        /// <summary>
+        /// The MD5 of a download, or a scan of it for <see cref="ServerErrorMarker"/>, taken in the same pass that
+        /// writes it, so checking a multi-gigabyte file costs no second read.
+        /// </summary>
+        /// <remarks>
+        /// EBI's storage has served files at their full, correct size with blocks of its own error response written
+        /// over some of their bytes: <c>&lt;Error&gt;&lt;Code&gt;ConnectionClosedException&lt;/Code&gt;&lt;Message&gt;Premature
+        /// end of Content-Length delimited message body ...&lt;/Message&gt;...&lt;/Error&gt;</c>, one to four times per file,
+        /// over HTTPS and Aspera alike, while every client reported success (PXReprise, 2026-10-07/08; 15 damaged
+        /// copies kept). A size check cannot see it. The MD5 can, when the caller asks for it; the scan catches it
+        /// without one. A raw file has no reason to hold that text.
+        /// </remarks>
+        internal sealed class DownloadDigest : IDisposable
+        {
+            /// <summary>The start of every error response EBI's storage wrote into served files.</summary>
+            internal static readonly byte[] ServerErrorMarker = "<Error><Code>"u8.ToArray();
+
+            private readonly bool _verifyMd5;
+            private readonly byte[] _tail = new byte[ServerErrorMarker.Length - 1];
+            private IncrementalHash _md5;
+            private int _tailLength;
+            private long _length;
+
+            /// <param name="verifyMd5">Take the MD5; otherwise scan for <see cref="ServerErrorMarker"/>.</param>
+            internal DownloadDigest(bool verifyMd5)
+            {
+                _verifyMd5 = verifyMd5;
+                Reset();
+            }
+
+            /// <summary>Whether every byte of the file went through <see cref="Append"/> since the last <see cref="Reset"/>.</summary>
+            internal bool SawWholeFile { get; private set; }
+
+            /// <summary>The offset of the first <see cref="ServerErrorMarker"/> seen, or -1.</summary>
+            internal long ServerErrorAt { get; private set; }
+
+            /// <summary>Starts over, for a file that is about to arrive from its first byte.</summary>
+            internal void Reset()
+            {
+                _md5?.Dispose();
+                _md5 = _verifyMd5 ? IncrementalHash.CreateHash(HashAlgorithmName.MD5) : null;
+                _tailLength = 0;
+                _length = 0;
+                ServerErrorAt = -1;
+                SawWholeFile = true;
+            }
+
+            /// <summary>Marks the file as not seen whole (its start is already on disk), so it must be read again to be checked.</summary>
+            internal void Invalidate() => SawWholeFile = false;
+
+            /// <summary>Takes in the next bytes of the file, in order.</summary>
+            internal void Append(ReadOnlySpan<byte> data)
+            {
+                if (_md5 != null)
+                    _md5.AppendData(data);
+                else if (ServerErrorAt < 0)
+                    Scan(data);
+                _length += data.Length;
+            }
+
+            public void Dispose() => _md5?.Dispose();
+
+            /// <summary>The MD5 of everything appended, as lowercase hex.</summary>
+            internal string Md5Hex() => Convert.ToHexString(_md5.GetHashAndReset()).ToLowerInvariant();
+
+            /// <summary>
+            /// Looks for the marker in <paramref name="data"/>, and across the boundary with the previous read: the
+            /// last <c>marker length - 1</c> bytes are carried over, as <c>MzmlMethods.GetSHA1Hash</c> does for its tag.
+            /// </summary>
+            private void Scan(ReadOnlySpan<byte> data)
+            {
+                int carry = _tail.Length;
+                Span<byte> seam = stackalloc byte[2 * carry];
+                _tail.AsSpan(0, _tailLength).CopyTo(seam);
+                int head = Math.Min(carry, data.Length);
+                data[..head].CopyTo(seam[_tailLength..]);
+                int at = seam[..(_tailLength + head)].IndexOf(ServerErrorMarker);
+                if (at >= 0)
+                {
+                    ServerErrorAt = _length - _tailLength + at;
+                    return;
+                }
+
+                at = data.IndexOf(ServerErrorMarker);
+                if (at >= 0)
+                {
+                    ServerErrorAt = _length + at;
+                    return;
+                }
+
+                if (data.Length >= carry)
+                {
+                    data[^carry..].CopyTo(_tail);
+                    _tailLength = carry;
+                }
+                else
+                {
+                    // Keep the last `carry` bytes of what was carried plus this short read.
+                    int keep = Math.Min(carry, _tailLength + data.Length);
+                    seam[(_tailLength + data.Length - keep)..(_tailLength + data.Length)].CopyTo(_tail);
+                    _tailLength = keep;
+                }
+            }
         }
 
         /// <summary>
@@ -1014,6 +1222,7 @@ namespace UsefulProteomicsDatabases
                 if (resumed)
                 {
                     expectedLength = response.Content.Headers.ContentRange.Length;
+                    transfer.Digest?.Invalidate(); // the start of the file is on disk, not in this stream
                 }
                 else
                 {
@@ -1021,6 +1230,7 @@ namespace UsefulProteomicsDatabases
                     expectedLength = response.Content.Headers.ContentLength;
                     transfer.Validator = ValidatorOf(response);
                     WriteValidator(validatorPath, transfer.Validator);
+                    transfer.Digest?.Reset();
                 }
 
                 using (var fileStream = new FileStream(partialPath, resumed ? FileMode.Append : FileMode.Create,
@@ -1029,7 +1239,7 @@ namespace UsefulProteomicsDatabases
                 {
                     // Not Stream.CopyToAsync: it would inherit the very absence of a read deadline that
                     // BodyStallTimeout exists to supply, which is how the body escaped every timeout here.
-                    await CopyUntilStalledAsync(httpStream, fileStream, described, cancellationToken).ConfigureAwait(false);
+                    await CopyUntilStalledAsync(httpStream, fileStream, described, transfer.Digest, cancellationToken).ConfigureAwait(false);
                 }
 
                 long actualLength = new FileInfo(partialPath).Length;
@@ -1308,7 +1518,7 @@ namespace UsefulProteomicsDatabases
         /// failure would make <c>ExternalServiceTestHelper</c> skip a test that was deliberately cancelled.
         /// </remarks>
         private async Task CopyUntilStalledAsync(Stream source, Stream destination, string described,
-            CancellationToken cancellationToken)
+            DownloadDigest digest, CancellationToken cancellationToken)
         {
             byte[] buffer = new byte[81920];
             while (true)
@@ -1343,6 +1553,7 @@ namespace UsefulProteomicsDatabases
                 if (read == 0)
                     return;
 
+                digest?.Append(buffer.AsSpan(0, read));
                 await destination.WriteAsync(buffer.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
             }
         }

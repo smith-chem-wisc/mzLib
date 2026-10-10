@@ -101,9 +101,15 @@ public class PrideChecksumTests
     private string _tempDir;
     private string Destination => Path.Combine(_tempDir, "run1.raw");
 
+    /// <summary>How many responses a scripted handler has given; tests whose answers change per attempt count with it.</summary>
+    private int _responses;
+
     [SetUp]
-    public void SetUp() =>
+    public void SetUp()
+    {
         _tempDir = Path.Combine(Path.GetTempPath(), "PrideChecksumTests", Guid.NewGuid().ToString("N"));
+        _responses = 0;
+    }
 
     [TearDown]
     public void TearDown()
@@ -301,7 +307,7 @@ public class PrideChecksumTests
     }
 
     [Test]
-    public void DownloadWithChecksum_WrongSize_ThrowsAndLeavesNothing()
+    public void DownloadWithChecksum_WrongSize_IsRetriedFromZeroThenThrowsAndLeavesNothing()
     {
         // The server's own Content-Length agrees with the body, so only the checksum list can catch this.
         var handler = new StubHandler(_ => Download(Body));
@@ -314,7 +320,8 @@ public class PrideChecksumTests
         Assert.Multiple(() =>
         {
             Assert.That(exception!.Message, Does.Contain("came to 10 bytes where PRIDE's checksum list records 11"));
-            Assert.That(handler.Requests, Has.Count.EqualTo(1)); // not retried
+            Assert.That(handler.Requests, Has.Count.EqualTo(4)); // the first attempt and three retries
+            Assert.That(handler.Requests.Select(r => r.Headers.Range), Is.All.Null); // each from byte zero, never resumed
             Assert.That(File.Exists(Destination), Is.False);
             Assert.That(File.Exists(Destination + ".partial"), Is.False);
             Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.False);
@@ -511,6 +518,238 @@ public class PrideChecksumTests
             Assert.That(File.Exists(Destination + ".partial"), Is.False);
             Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.False);
         });
+    }
+
+    // ---- EBI's error text inside a served file (2026-10-08) ---------------------
+
+    /// <summary>
+    /// The block EBI's storage wrote over bytes of PXD012307's FR1_young_11_2.raw (at offset 518,854,917 of
+    /// 2,777,280,429), copied verbatim from the damaged download PXReprise kept. The file kept its full size.
+    /// </summary>
+    private const string EbiErrorBlock =
+        "<Error><Code>ConnectionClosedException</Code><Message>Premature end of Content-Length delimited message body " +
+        "(expected: 2,284,117,933; received: 25,692,421)</Message><ErrorMessage/><RequestId/></Error>";
+
+    /// <summary>A deterministic "raw file" of <paramref name="length"/> bytes with no '&lt;' in it.</summary>
+    private static byte[] RawBytes(int length) => Enumerable.Range(0, length).Select(i => (byte)(i % 59)).ToArray();
+
+    /// <summary><paramref name="clean"/> with <see cref="EbiErrorBlock"/> written over it at <paramref name="offset"/>; same length.</summary>
+    private static byte[] Damaged(byte[] clean, int offset)
+    {
+        byte[] damaged = (byte[])clean.Clone();
+        Encoding.ASCII.GetBytes(EbiErrorBlock).CopyTo(damaged, offset);
+        return damaged;
+    }
+
+    private static PrideArchiveClient ClientWithRetries(StubHandler handler) =>
+        new(new HttpClient(handler)) { RetryDelay = (_, _) => Task.CompletedTask };
+
+    [Test]
+    public void DownloadWithChecksum_EbiErrorTextOnEveryAttempt_ThrowsAfterTheRetriesAndLeavesNothing()
+    {
+        byte[] clean = RawBytes(4096);
+        byte[] damaged = Damaged(clean, 1000);
+        var handler = new StubHandler(_ => Download(damaged));
+        using var client = ClientWithRetries(handler);
+
+        // The size matches, so before this check the damaged file was returned as complete.
+        var exception = Assert.ThrowsAsync<MzLibException>(async () =>
+            await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+                new PrideFileChecksum("run1.raw", Md5Of(clean), clean.Length)));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(exception!.Message, Is.EqualTo(
+                "The PRIDE download of 'run1.raw' from ftp.pride.ebi.ac.uk holds a server error response (\"<Error><Code>\") " +
+                "at byte 1000, written into the file in place of its own bytes."));
+            Assert.That(handler.Requests, Has.Count.EqualTo(4));
+            Assert.That(handler.Requests.Select(r => r.Headers.Range), Is.All.Null);
+            Assert.That(File.Exists(Destination), Is.False);
+            Assert.That(File.Exists(Destination + ".partial"), Is.False);
+            Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_EbiErrorTextOnce_IsDownloadedAgainFromZero()
+    {
+        byte[] clean = RawBytes(4096);
+        byte[] damaged = Damaged(clean, 1000);
+        var handler = new StubHandler(_ => Download(_responses++ == 0 ? damaged : clean));
+        using var client = ClientWithRetries(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(clean), clean.Length));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(clean));
+            Assert.That(handler.Requests, Has.Count.EqualTo(2));
+            Assert.That(handler.Requests[1].Headers.Range, Is.Null);
+            Assert.That(File.Exists(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_WrongMd5Once_IsDownloadedAgainFromZero()
+    {
+        byte[] clean = RawBytes(4096);
+        byte[] damaged = Damaged(clean, 1000);
+        var handler = new StubHandler(_ => Download(_responses++ == 0 ? damaged : clean));
+        using var client = ClientWithRetries(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(clean), clean.Length), verifyMd5: true);
+
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(clean));
+        Assert.That(handler.Requests, Has.Count.EqualTo(2));
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_MatchingMd5_OutranksTheErrorTextScan()
+    {
+        // PRIDE's own MD5 proves the bytes are the depositor's, even if they happen to hold the marker.
+        byte[] legitimate = Damaged(RawBytes(4096), 1000);
+        var handler = new StubHandler(_ => Download(legitimate));
+        using var client = ClientWithRetries(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(legitimate), legitimate.Length), verifyMd5: true);
+
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(legitimate));
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+    }
+
+    [Test]
+    public void DownloadWithChecksum_EbiErrorTextAcrossTwoReads_IsFound()
+    {
+        // The copy loop reads 81,920 bytes at a time; this block starts 5 bytes before the end of the first read.
+        byte[] damaged = Damaged(RawBytes(200_000), 81_915);
+        using var client = ClientOver(new StubHandler(_ => Download(damaged)));
+
+        var exception = Assert.ThrowsAsync<MzLibException>(async () =>
+            await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+                new PrideFileChecksum("run1.raw", Md5Of(damaged), damaged.Length)));
+
+        Assert.That(exception!.Message, Does.Contain("at byte 81915,"));
+    }
+
+    [Test]
+    public async Task DownloadWithoutChecksum_IsNotScanned()
+    {
+        // The overload without a checksum is unchanged: no check, no retry, the bytes as served.
+        byte[] damaged = Damaged(RawBytes(4096), 1000);
+        var handler = new StubHandler(_ => Download(damaged));
+        using var client = ClientWithRetries(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir);
+
+        Assert.That(File.ReadAllBytes(path), Is.EqualTo(damaged));
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+    }
+
+    /// <summary>A body that delivers its first <paramref name="count"/> bytes and then drops, as EBI's connections do.</summary>
+    private sealed class DroppingStream(byte[] bytes, int count) : MemoryStream(bytes, 0, count)
+    {
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            int read = await base.ReadAsync(buffer, cancellationToken);
+            return read > 0 ? read : throw new IOException("The response ended prematurely.");
+        }
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_EbiErrorTextInTheResumedStart_IsFoundAndDownloadedAgainFromZero()
+    {
+        // Attempt 1 delivers the damaged start and drops; attempt 2 resumes the clean rest. The scan saw only the
+        // rest, so the whole file is read again, the error text found, and attempt 3 fetches it all afresh.
+        byte[] clean = RawBytes(4096);
+        byte[] damaged = Damaged(clean, 1000);
+        var handler = new StubHandler(request =>
+        {
+            switch (_responses++)
+            {
+                case 0:
+                    var dropped = new HttpResponseMessage(HttpStatusCode.OK) { Content = new StreamContent(new DroppingStream(damaged, 2048)) };
+                    dropped.Content.Headers.ContentLength = clean.Length;
+                    dropped.Headers.ETag = EntityTagHeaderValue.Parse("\"v1\"");
+                    return dropped;
+                case 1:
+                    Assert.That(request.Headers.Range!.Ranges.Single().From, Is.EqualTo(2048));
+                    var rest = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(clean[2048..]) };
+                    rest.Content.Headers.ContentRange = new ContentRangeHeaderValue(2048, clean.Length - 1, clean.Length);
+                    rest.Headers.ETag = EntityTagHeaderValue.Parse("\"v1\"");
+                    return rest;
+                default:
+                    return Download(clean);
+            }
+        });
+        using var client = ClientWithRetries(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(clean), clean.Length));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(clean));
+            Assert.That(handler.Requests, Has.Count.EqualTo(3));
+            Assert.That(handler.Requests[2].Headers.Range, Is.Null);
+        });
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_EbiErrorTextInAPartialFromAnEarlierCall_IsFoundAndDownloadedAgainFromZero()
+    {
+        // An earlier call left the damaged start on disk with its validator. This call resumes it, so the bytes it
+        // streams are only the rest: the file must be read again to be checked.
+        byte[] clean = RawBytes(4096);
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Damaged(clean, 1000)[..2048]);
+        File.WriteAllText(Destination + ".partial" + PrideArchiveClient.ValidatorSuffix, "\"v1\"");
+        var handler = new StubHandler(_ =>
+        {
+            if (_responses++ > 0)
+                return Download(clean);
+            var rest = new HttpResponseMessage(HttpStatusCode.PartialContent) { Content = new ByteArrayContent(clean[2048..]) };
+            rest.Content.Headers.ContentRange = new ContentRangeHeaderValue(2048, clean.Length - 1, clean.Length);
+            rest.Headers.ETag = EntityTagHeaderValue.Parse("\"v1\"");
+            return rest;
+        });
+        using var client = ClientWithRetries(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(clean), clean.Length));
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(clean));
+            Assert.That(handler.Requests, Has.Count.EqualTo(2));
+            Assert.That(handler.Requests[0].Headers.Range!.Ranges.Single().From, Is.EqualTo(2048));
+            Assert.That(handler.Requests[1].Headers.Range, Is.Null);
+        });
+    }
+
+    [Test]
+    public void DownloadDigest_FindsTheMarkerWhereverTheReadsSplitIt()
+    {
+        byte[] marker = PrideArchiveClient.DownloadDigest.ServerErrorMarker;
+        byte[] damaged = Damaged(RawBytes(240), 20);
+
+        // Every split of the file into three reads, including reads shorter than the marker and empty ones.
+        for (int first = 0; first <= damaged.Length; first++)
+        for (int second = first; second <= damaged.Length; second++)
+        {
+            using var digest = new PrideArchiveClient.DownloadDigest(verifyMd5: false);
+            digest.Append(damaged.AsSpan(0, first));
+            digest.Append(damaged.AsSpan(first, second - first));
+            digest.Append(damaged.AsSpan(second));
+            Assert.That(digest.ServerErrorAt, Is.EqualTo(20), $"reads split at {first} and {second}");
+        }
+
+        using var cleanDigest = new PrideArchiveClient.DownloadDigest(verifyMd5: false);
+        foreach (byte b in RawBytes(64).Concat(marker[..^1]))
+            cleanDigest.Append(new[] { b });
+        Assert.That(cleanDigest.ServerErrorAt, Is.EqualTo(-1), "an unfinished marker at the end is not a hit");
     }
 
     [Test]
