@@ -80,26 +80,10 @@ public abstract class SequenceSerializerBase : ISequenceSerializer
         for (int i = 0; i < modifications.Length; i++)
         {
             var mod = modifications[i];
-            var enriched = mod;
-
-            if (ShouldResolveMod(mod))
+            var enriched = this.ResolveModification(mod);
+            if (!enriched.Equals(mod))
             {
-                var resolved = _lookup.TryResolve(mod);
-                if (resolved.HasValue)
-                {
-                    enriched = resolved.Value with
-                    {
-                        PositionType = mod.PositionType,
-                        ResidueIndex = mod.ResidueIndex,
-                        TargetResidue = mod.TargetResidue ?? resolved.Value.TargetResidue,
-                        OriginalRepresentation = mod.OriginalRepresentation
-                    };
-
-                    if (!enriched.Equals(mod))
-                    {
-                        changed = true;
-                    }
-                }
+                changed = true;
             }
 
             updated[i] = enriched;
