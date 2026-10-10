@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Distributions;
+using MathNet.Numerics.LinearAlgebra;
 
 namespace StatisticalModels
 {
@@ -91,6 +92,82 @@ namespace StatisticalModels
             }
             return result;
         }
+
+        /// <summary>
+        /// Partial Spearman correlation of <paramref name="x"/> and <paramref name="y"/> given one covariate
+        /// <paramref name="z"/>: <see cref="PartialCorrelate(IReadOnlyList{double}, IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>
+        /// with one covariate, where ρ_xy·z = (ρ_xy − ρ_xz ρ_yz) / √((1 − ρ_xz²)(1 − ρ_yz²)) and the test has n − 3 df.
+        /// </summary>
+        public static SpearmanResult PartialCorrelate(IReadOnlyList<double> x, IReadOnlyList<double> y, IReadOnlyList<double> z)
+        {
+            ArgumentNullException.ThrowIfNull(z);
+            return PartialCorrelate(x, y, new[] { z });
+        }
+
+        /// <summary>
+        /// Partial Spearman correlation of <paramref name="x"/> and <paramref name="y"/> given the covariates
+        /// <paramref name="covariates"/>, and its two-sided p-value. Every variable is ranked over the complete cases
+        /// (all values finite). With R the rank correlation matrix of (x, y, z₁ … z_k) and P = R⁻¹,
+        /// ρ_xy·z = −P₀₁ / √(P₀₀ P₁₁): the correlation of the ranks of x and y after each is regressed on the ranks of
+        /// the covariates. p: t = ρ √((n − 2 − k) / (1 − ρ²)) referred to Student's t with n − 2 − k df, as R's
+        /// ppcor::pcor.test(method = "spearman"). <see cref="SpearmanResult.Method"/> is
+        /// <see cref="SpearmanPValueMethod.Asymptotic"/>, or NotEstimable with fewer than k + 3 complete cases, a constant
+        /// variable, or a rank correlation matrix that is singular (a covariate carries x or y entirely).
+        /// </summary>
+        public static SpearmanResult PartialCorrelate(IReadOnlyList<double> x, IReadOnlyList<double> y, IReadOnlyList<IReadOnlyList<double>> covariates)
+        {
+            ArgumentNullException.ThrowIfNull(x);
+            ArgumentNullException.ThrowIfNull(y);
+            ArgumentNullException.ThrowIfNull(covariates);
+            if (covariates.Count == 0)
+                throw new ArgumentException("At least one covariate is needed; use Correlate for none.", nameof(covariates));
+            if (x.Count != y.Count || covariates.Any(z => z is null || z.Count != x.Count))
+                throw new ArgumentException($"x has {x.Count} values; y and every covariate must have as many.", nameof(covariates));
+
+            int k = covariates.Count;
+            var variables = new IReadOnlyList<double>[k + 2];
+            variables[0] = x;
+            variables[1] = y;
+            for (int j = 0; j < k; j++) variables[j + 2] = covariates[j];
+            var complete = Enumerable.Range(0, x.Count).Where(i => variables.All(v => double.IsFinite(v[i]))).ToArray();
+            int n = complete.Length;
+            var result = new SpearmanResult { N = n, Rho = double.NaN, PValue = double.NaN, Method = SpearmanPValueMethod.NotEstimable };
+            if (n < k + 3) return result;
+
+            var ranks = new double[k + 2][];
+            bool ties = false;
+            for (int j = 0; j < k + 2; j++)
+            {
+                ranks[j] = Ranks(complete.Select(i => variables[j][i]).ToArray(), out bool t);
+                ties |= t;
+            }
+            result.HasTies = ties;
+            var r = Matrix<double>.Build.Dense(k + 2, k + 2);
+            for (int a = 0; a < k + 2; a++)
+            {
+                r[a, a] = 1;
+                for (int b = a + 1; b < k + 2; b++)
+                {
+                    double c = Pearson(ranks[a], ranks[b]);
+                    if (double.IsNaN(c)) return result;
+                    r[a, b] = r[b, a] = c;
+                }
+            }
+            // A singular R means a covariate (or a combination of them) carries x or y entirely: nothing is left.
+            if (!(r.Determinant() > SingularTolerance)) return result;
+            var p = r.Inverse();
+            double rho = Math.Clamp(-p[0, 1] / Math.Sqrt(p[0, 0] * p[1, 1]), -1, 1);
+            if (double.IsNaN(rho)) return result;
+            result.Rho = rho;
+            result.Method = SpearmanPValueMethod.Asymptotic;
+            double r2 = rho * rho;
+            int df = n - 2 - k;
+            result.PValue = r2 >= 1 ? 0 : 2 * StudentT.CDF(0, 1, df, -Math.Abs(rho) * Math.Sqrt(df / (1 - r2)));
+            return result;
+        }
+
+        /// <summary>Determinant of the rank correlation matrix below which <see cref="PartialCorrelate(IReadOnlyList{double}, IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/> calls it singular.</summary>
+        private const double SingularTolerance = 1e-12;
 
         /// <summary>Average ranks, 1-based; ties share the mean of the ranks they span.</summary>
         internal static double[] Ranks(IReadOnlyList<double> v, out bool ties)
