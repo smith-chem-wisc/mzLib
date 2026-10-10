@@ -241,5 +241,29 @@ namespace Test
                 Is.EqualTo(Constants.C13MinusC12).Within(1e-6),
                 "Normal (non-decoy) IsoSettings.mass_diff_c should be C13MinusC12");
         }
+
+        // ══════════════════════════════════════════════════════════════════════
+        // Deconvoluter.DeconvoluteWithDecoys consumer behavior
+        // ══════════════════════════════════════════════════════════════════════
+
+        [Test]
+        public void DeconvoluteWithDecoys_ParameterTypeReturnsNullDecoy_ThrowsInvalidOperation()
+        {
+            // Pins the contract that DeconvoluteWithDecoys surfaces a clear error when the
+            // parameter class doesn't support decoys (ToDecoyParameters returns null) and
+            // names the offending type so the caller knows what to override. Uses RealFLASH
+            // params -- the OpenMS-exe wrapper intentionally returns null because mass
+            // tracing on an external tool doesn't have a decoy concept. An empty spectrum
+            // short-circuits the algorithm so no exe is needed.
+            var p = new RealFLASHDeconvolutionParameters(
+                flashDeconvExePath: @"C:\unused\FLASHDeconv.exe");
+            var emptySpectrum = new MzSpectrum(
+                Array.Empty<double>(), Array.Empty<double>(), shouldCopy: false);
+
+            Assert.That(
+                () => Deconvoluter.DeconvoluteWithDecoys(emptySpectrum, p),
+                Throws.TypeOf<InvalidOperationException>()
+                      .With.Message.Contains(nameof(RealFLASHDeconvolutionParameters)));
+        }
     }
 }
