@@ -2,6 +2,7 @@
 using Chemistry;
 using NUnit.Framework;
 using Omics.Modifications;
+using Omics.Modifications.IO;
 using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
@@ -286,5 +287,102 @@ public static class ModificationTest
         }
 
         Assert.That(mismatches, Is.Empty, string.Join(Environment.NewLine, mismatches));
+    }
+
+    /// <summary>
+    /// A loaded modification's monoisotopic mass must be the mass of its own formula. UniProt's
+    /// ptmlist release 2026_01 had the MM and MA lines swapped on 29 complex N-glycans, so each
+    /// carried its average mass (about 1 Da high), and the 2014 PSI-MOD charge list lacked
+    /// N,N,N-trimethylglycine, so its formula kept one hydrogen too many. Both break this equality.
+    /// </summary>
+    [Test]
+    public static void EveryLoadedModificationsMassIsItsFormulasMass()
+    {
+        var mismatches = Mods.UniprotModifications
+            .Concat(Mods.MetaMorpheusProteinModifications)
+            .Concat(Mods.IsobaricLabelModifications)
+            .Concat(Mods.UnimodModifications)
+            .Where(m => m.ChemicalFormula != null && m.MonoisotopicMass != null
+                        && Math.Abs(m.MonoisotopicMass.Value - m.ChemicalFormula.MonoisotopicMass) > 0.001)
+            .Select(m => $"'{m.IdWithMotif}' ({m.ModificationType}): mass {m.MonoisotopicMass:F5}, " +
+                         $"{m.ChemicalFormula.Formula} {m.ChemicalFormula.MonoisotopicMass:F5}")
+            .ToList();
+
+        Assert.That(mismatches, Is.Empty, string.Join(Environment.NewLine, mismatches));
+    }
+
+    /// <summary>
+    /// The embedded formal-charge table is generated from the current PSI-MOD.obo. It must keep every
+    /// charge the 2014 PSI-MOD.obo.xml gave (the test fixture copy), with the same sign and size, and it
+    /// adds N,N,N-trimethylglycine (MOD:01982), which UniProt cites and the 2014 file did not charge.
+    /// </summary>
+    [Test]
+    public static void EmbeddedFormalChargesKeepEveryChargeOfThePsiModXml()
+    {
+        var assembly = typeof(Mods).Assembly;
+        using var stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Resources.PsiModFormalCharges.tsv");
+        using var reader = new System.IO.StreamReader(stream!);
+        var embedded = ModificationLoader.ReadFormalChargesDictionary(reader);
+        var fromXml = ModificationLoader.GetFormalChargesDictionary(ModificationLoader.LoadPsiMod(TestOntologies.PsiModXml));
+
+        foreach (var (accession, charge) in fromXml)
+        {
+            Assert.That(embedded.TryGetValue(accession, out int embeddedCharge), $"{accession} is missing from the embedded table");
+            Assert.That(embeddedCharge, Is.EqualTo(charge), accession);
+        }
+        Assert.That(embedded["PSI-MOD; MOD:01982"], Is.EqualTo(1));
+        Assert.That(embedded.Values.Any(c => c < 0), "negative charges must keep their sign");
+    }
+
+    /// <summary>
+    /// UniProt writes a charged modification's formula for the charged species. N,N,N-trimethylglycine
+    /// must lose one hydrogen on load, exactly as N6,N6,N6-trimethyllysine always has, and get the same mass.
+    /// </summary>
+    [Test]
+    public static void TrimethylglycineIsChargeCorrectedLikeTrimethyllysine()
+    {
+        var glycine = Mods.UniprotModifications.Single(m => m.IdWithMotif == "N,N,N-trimethylglycine on G");
+        var lysine = Mods.UniprotModifications.Single(m => m.IdWithMotif == "N6,N6,N6-trimethyllysine on K");
+
+        Assert.That(glycine.ChemicalFormula, Is.EqualTo(ChemicalFormula.ParseFormula("C3H6")));
+        Assert.That(glycine.ChemicalFormula, Is.EqualTo(lysine.ChemicalFormula));
+        Assert.That(glycine.MonoisotopicMass, Is.EqualTo(lysine.MonoisotopicMass).Within(1e-9));
+        Assert.That(glycine.MonoisotopicMass, Is.EqualTo(glycine.ChemicalFormula.MonoisotopicMass).Within(1e-9),
+            "UniProt writes this entry's MM as the neutral formula mass, not the cation's; the mass must come from the corrected formula");
+    }
+
+    [Test]
+    public static void ReadFormalChargesDictionarySkipsCommentsKeepsSignsAndRefusesBadLines()
+    {
+        var charges = ModificationLoader.ReadFormalChargesDictionary(
+            new System.IO.StringReader("# header\n\nMOD:00083\t1\nMOD:00147\t-3\n"));
+
+        Assert.That(charges, Has.Count.EqualTo(2));
+        Assert.That(charges["PSI-MOD; MOD:00083"], Is.EqualTo(1));
+        Assert.That(charges["PSI-MOD; MOD:00147"], Is.EqualTo(-3));
+
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadFormalChargesDictionary(new System.IO.StringReader("MOD:00083 1\n")));
+        Assert.Throws<MzLibUtil.MzLibException>(() =>
+            ModificationLoader.ReadFormalChargesDictionary(new System.IO.StringReader("MOD:00083\t1+\n")));
+    }
+
+    [Test]
+    public static void ReadFormalChargesDictionaryReadsAFile()
+    {
+        var path = System.IO.Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{nameof(ReadFormalChargesDictionaryReadsAFile)}.tsv");
+        System.IO.File.WriteAllText(path, "# accession\tcharge\nMOD:00083\t1\nMOD:00147\t-3\n");
+        try
+        {
+            var charges = ModificationLoader.ReadFormalChargesDictionary(path);
+
+            Assert.That(charges, Has.Count.EqualTo(2));
+            Assert.That(charges["PSI-MOD; MOD:00083"], Is.EqualTo(1));
+            Assert.That(charges["PSI-MOD; MOD:00147"], Is.EqualTo(-3));
+        }
+        finally
+        {
+            System.IO.File.Delete(path);
+        }
     }
 }

@@ -156,7 +156,7 @@ Recorded here for completeness; these predate the notices file.
 | File | Source | Embedded in |
 |---|---|---|
 | `unimod.xml` | Unimod, http://www.unimod.org/ | `Omics.dll` (`Omics/Resources/`) |
-| `PSI-MOD.obo.xml` | HUPO-PSI PSI-MOD, https://github.com/HUPO-PSI/psi-mod-CV | `Omics.dll` |
+| `PsiModFormalCharges.tsv` | HUPO-PSI PSI-MOD, https://github.com/HUPO-PSI/psi-mod-CV; derived from PSI-MOD.obo 1.039.0 (the formal charges only; replaces the embedded `PSI-MOD.obo.xml`) | `Omics.dll` |
 | `ptmlist.txt` | UniProt, https://www.uniprot.org/ | `Omics.dll` |
 
 ## Also reviewed, believed mzLib's own

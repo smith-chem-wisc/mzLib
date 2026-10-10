@@ -396,8 +396,15 @@ public static class ModificationLoader
     }
 
     /// <summary>
-    /// Subtract the mass of a proton for every formal charge on a modification.
+    /// Remove one hydrogen from the formula for every formal charge on a modification, and take the
+    /// mass from the corrected formula. Without a formula, subtract the mass of a proton per charge.
     /// </summary>
+    /// <remarks>
+    /// The mass comes from the formula because UniProt does not write the MM of a charged
+    /// modification one way. For most it is the cation's mass (formula mass minus one electron), which
+    /// minus a proton lands exactly on the corrected formula. For N,N,N-trimethylglycine (ptmlist
+    /// 2026_03) it is the neutral formula mass, which minus a proton is one electron mass too high.
+    /// </remarks>
     /// <param name="_monoisotopicMass"></param>
     /// <param name="_chemicalFormula"></param>
     /// <param name="_databaseReference"></param>
@@ -409,13 +416,14 @@ public static class ModificationLoader
         {
             if (formalChargesDictionary.ContainsKey(dbAndAccession))
             {
-                if (_monoisotopicMass.HasValue)
-                {
-                    _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
-                }
                 if (_chemicalFormula != null)
                 {
                     _chemicalFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                    _monoisotopicMass = _chemicalFormula.MonoisotopicMass;
+                }
+                else if (_monoisotopicMass.HasValue)
+                {
+                    _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
                 }
                 break;
             }
@@ -680,6 +688,40 @@ public static class ModificationLoader
         return modsWithFormalCharges.ToDictionary(
             b => "PSI-MOD; " + b.id,
             b => ParseFormalCharge(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name));
+    }
+
+    /// <summary>
+    /// Get formal charges dictionary from a PSI-MOD formal-charge table: one
+    /// "accession TAB signed charge" pair per line (for example "MOD:00083	1"). Blank lines and
+    /// lines starting with '#' are skipped. Keys have the same "PSI-MOD; MOD:nnnnn" form as
+    /// <see cref="GetFormalChargesDictionary(obo)"/>, so either dictionary can be passed to ReadModsFromFile.
+    /// </summary>
+    public static Dictionary<string, int> ReadFormalChargesDictionary(string formalChargesLocation)
+    {
+        using var reader = new StreamReader(formalChargesLocation);
+        return ReadFormalChargesDictionary(reader);
+    }
+
+    /// <summary>
+    /// Get formal charges dictionary from a PSI-MOD formal-charge table read from a reader.
+    /// </summary>
+    public static Dictionary<string, int> ReadFormalChargesDictionary(TextReader reader)
+    {
+        var formalCharges = new Dictionary<string, int>();
+        string? line;
+        int lineNumber = 0;
+        while ((line = reader.ReadLine()) != null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                continue;
+            var fields = line.Split('\t');
+            if (fields.Length != 2 || !fields[0].StartsWith("MOD:")
+                || !int.TryParse(fields[1], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int charge))
+                throw new MzLibException($"Formal charge table line {lineNumber} is not 'MOD:nnnnn<TAB>charge': '{line}'");
+            formalCharges.Add("PSI-MOD; " + fields[0], charge);
+        }
+        return formalCharges;
     }
 
     /// <summary>
