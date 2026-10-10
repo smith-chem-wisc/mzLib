@@ -180,7 +180,49 @@ namespace UsefulProteomicsDatabases
         /// without a live service.
         /// </summary>
         internal static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
-            Reviewed reviewed, Compress compress, IncludeIsoforms include, HttpClient httpClient)
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, HttpClient httpClient) =>
+            RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include,
+                GeneCentric.no, httpClient);
+
+        /// <summary>
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms)"/>,
+        /// optionally narrowed to the proteome's gene-centric set: one protein per gene, the set UniProt
+        /// distributes as a reference proteome's canonical FASTA/XML on its FTP site
+        /// (reference_proteomes/&lt;kingdom&gt;/&lt;UP id&gt;/&lt;UP id&gt;_&lt;taxon&gt;.fasta.gz).
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// The reviewed entries of a thinly curated organism are not a whole proteome. Rat (UP000002494) has
+        /// 8,228 reviewed entries but 21,471 genes; the gene-centric set holds one sequence for each of them —
+        /// the Swiss-Prot entry where there is one (8,213), a TrEMBL entry where there is not (13,258) — out of
+        /// the 52,824 entries in the complete proteome. A search against the reviewed entries alone cannot
+        /// identify the other 13,000 genes; a search against the complete proteome scatters each gene's
+        /// peptides across several near-identical entries.
+        /// </para>
+        /// <para>
+        /// <see cref="GeneCentric.yes"/> adds UniProt's <c>is_gene_centric:true</c> clause to the same query, so
+        /// it combines with <paramref name="reviewed"/>: with <see cref="Reviewed.all"/> it is the canonical
+        /// proteome (rat 21,471, human 20,652, mouse 21,860 in release 2026_03, each exactly the FTP file's
+        /// entries); with <see cref="Reviewed.yes"/> it is the Swiss-Prot part of that set. The file name gains
+        /// "_genecentric" so the set is never mistaken on disk for the reviewed or complete download.
+        /// </para>
+        /// </remarks>
+        /// <param name="geneCentric">Whether to keep only the gene-centric (one protein per gene) entries.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// As for the overload without <paramref name="geneCentric"/>, or <paramref name="geneCentric"/> is not a
+        /// defined <see cref="GeneCentric"/> value.
+        /// </exception>
+        public static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, GeneCentric geneCentric) =>
+            RetrieveProteome(proteomeID, absolutePathToStorageDirectory, format, reviewed, compress, include, geneCentric,
+                SharedHttpClient);
+
+        /// <summary>
+        /// <see cref="RetrieveProteome(string, string, ProteomeFormat, Reviewed, Compress, IncludeIsoforms, GeneCentric)"/>
+        /// over a caller-supplied <see cref="HttpClient"/>.
+        /// </summary>
+        internal static string RetrieveProteome(string proteomeID, string absolutePathToStorageDirectory, ProteomeFormat format,
+            Reviewed reviewed, Compress compress, IncludeIsoforms include, GeneCentric geneCentric, HttpClient httpClient)
         {
             if (string.IsNullOrWhiteSpace(proteomeID))
                 throw new ArgumentException("A UniProt proteome ID is required, e.g. \"UP000005640\".", nameof(proteomeID));
@@ -195,6 +237,9 @@ namespace UsefulProteomicsDatabases
             if (!Enum.IsDefined(typeof(Reviewed), reviewed))
                 throw new ArgumentOutOfRangeException(nameof(reviewed), reviewed,
                     $"Review status '{reviewed}' is not a defined {nameof(Reviewed)} value.");
+            if (!Enum.IsDefined(typeof(GeneCentric), geneCentric))
+                throw new ArgumentOutOfRangeException(nameof(geneCentric), geneCentric,
+                    $"'{geneCentric}' is not a defined {nameof(GeneCentric)} value.");
 
             // The proteome ID becomes part of a file name, so refuse anything that could escape the storage
             // directory or, on NTFS, be read as an alternate data stream (a ':' in the name).
@@ -221,6 +266,7 @@ namespace UsefulProteomicsDatabases
 
             string filename = proteomeID
                 + reviewedSuffix
+                + (geneCentric == GeneCentric.yes ? "_genecentric" : "")
                 + (isoformBool ? "_isoform" : "")
                 + "." + format
                 + (compressBool ? ".gz" : "");
@@ -234,6 +280,8 @@ namespace UsefulProteomicsDatabases
             string query = Uri.EscapeDataString(proteomeID);
             if (reviewed != Reviewed.all)
                 query += "+AND+reviewed:" + (reviewed == Reviewed.yes ? "true" : "false");
+            if (geneCentric == GeneCentric.yes)
+                query += "+AND+is_gene_centric:true";
 
             // The isoform fragment is kept verbatim, separator and all: UniProt's parameter is
             // "includeIsoform=", so "includeIsoforms:" has always been ignored. Spelling it correctly would
@@ -765,6 +813,20 @@ namespace UsefulProteomicsDatabases
             /// alternatives, and there was previously no way to ask for the whole thing at once.
             /// </summary>
             all
+        }
+
+        /// <summary>
+        /// Whether to keep only a proteome's gene-centric entries — one protein per gene, UniProt's
+        /// <c>is_gene_centric</c> — the canonical set of a reference proteome. A filter that combines with
+        /// <see cref="Reviewed"/>, not a fourth review status.
+        /// </summary>
+        public enum GeneCentric
+        {
+            /// <summary>Every entry the review status selects (the behaviour before this option existed).</summary>
+            no,
+
+            /// <summary>Only the gene-centric entries: one per gene.</summary>
+            yes
         }
 
         /// <summary>
