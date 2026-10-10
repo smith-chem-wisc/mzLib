@@ -362,6 +362,16 @@ public static class EntrapmentPeptideGenerator
 
         internal BigInteger Apply(BigInteger value)
         {
+            // Cycle-walking terminates only from inside the domain: a value outside it can sit on a
+            // cycle that never re-enters, and the walk then spins forever. Every caller passes a
+            // share index below the domain; this turns a future slip there into an error rather than
+            // a database build that hangs. (Measured: dropping `- fold` from the share size did hang.)
+            if (value.Sign < 0 || value >= _domain)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value,
+                    $"A shuffle input must lie in [0, {_domain}).");
+            }
+
             if (_bits == 0)
             {
                 return value;
