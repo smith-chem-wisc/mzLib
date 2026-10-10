@@ -101,25 +101,26 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
-        /// MAP-33. A drafted SDRF that copies the study-wide index from the file names (WT_DMSO1-3,
-        /// CA_DMSO4-6, ... CA_FA22-24) is ranked back to 1..3 within each condition, and the mapping
-        /// is reported, giving exactly the design the hand-written numbering gives.
+        /// Study-wide numbering (CA_DMSO4-6, ... CA_FA22-24) is kept exactly as the SDRF gives it, never ranked
+        /// back to 1..3, and each condition not numbered 1..N is reported as numbering style, not lost samples,
+        /// because every row of the SDRF is searched.
         /// </summary>
         [Test]
-        public void StudyWideReplicateNumbersAreRankedWithinEachConditionAndReported()
+        public void StudyWideReplicateNumbersAreKeptAsWrittenAndReported()
         {
             var studyWide = Rewritten("PXD067622.sdrf.tsv", "characteristics[biological replicate]",
                 row => Regex.Match(row["comment[data file]"]!, @"(\d+)\.raw$").Groups[1].Value);
 
             var design = SdrfLabelFreeDesign.Read(studyWide, Declared(Genotype, Treatment));
-            var reference = SdrfLabelFreeDesign.Read(Fixture("PXD067622.sdrf.tsv"), Declared(Genotype, Treatment));
 
             Assert.That(design.Refusals, Is.Empty, design.Report());
-            Assert.That(design.Files, Is.EqualTo(reference.Files), "same files, conditions and replicates as the per-condition numbering");
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(studyWide.Results
+                .Select(row => int.Parse(row["characteristics[biological replicate]"]!))), "every number as written");
             Assert.That(design.Notes, Has.Count.EqualTo(7), "every condition but WT_DMSO, which is already 1..3");
             Assert.That(design.Notes, Does.Contain(
-                "Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates renumbered 22 -> 1, 23 -> 2, 24 -> 3."));
-            Assert.That(design.Report(), Does.Contain("22 -> 1"), "the mapping is printed, not only stored");
+                "Condition 'SPRTN-TurboID CA_formaldehyde 1 mM, 1 h': biological replicates 22, 23, 24, kept as the SDRF numbers them. " +
+                "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+            Assert.That(design.Report(), Does.Contain("22, 23, 24"), "printed, not only stored");
         }
 
         // ---------------------------------------------------------------- PXD049018
@@ -172,27 +173,47 @@ namespace Test.FileReadingTests
 
         // ---------------------------------------------------------------- what MetaMorpheus would reject
 
+        // A gap in fractions or technical replicates is kept and noted, like one in biological replicates, and
+        // in the same words. MetaMorpheus quantifies it with a warning (the MetaMorpheus change shipping with this).
         [Test]
-        public void AFractionGapIsRefusedButAMissingLastFractionIsNot()
+        public void AFractionGapIsNotedNotRefusedAndAMissingLastFractionIsNoGap()
         {
             var gap = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "1", "3", "1"),
                 ("b1.raw", "A", "2", "1", "1"), ("b2.raw", "A", "2", "2", "1"), ("b3.raw", "A", "2", "3", "1")));
-            Assert.That(gap.Refusals.Single(), Does.StartWith("Condition 'A' biorep 1 fraction 2 is missing"));
+            Assert.That(gap.Refusals, Is.Empty, gap.Report());
+            Assert.That(gap.Files.Single(f => f.FullFilePathWithExtension == "a3.raw").Fraction, Is.EqualTo(2), "fraction 3, 0-based, as given");
+            Assert.That(gap.Notes, Has.One.EqualTo("Condition 'A' biorep 1: fractions 1, 3, kept as the SDRF numbers them. " +
+                                                   "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files."));
 
             var missingLast = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "1", "2", "1"),
                 ("b1.raw", "A", "2", "1", "1"), ("b2.raw", "A", "2", "2", "1"), ("b3.raw", "A", "2", "3", "1")));
             Assert.That(missingLast.Refusals, Is.Empty, missingLast.Report());
+            Assert.That(missingLast.Notes, Has.None.Contain("fractions"), missingLast.Report());
         }
 
         [Test]
-        public void ATechnicalReplicateGapIsRefused()
+        public void ATechnicalReplicateGapIsNotedNotRefused()
         {
             var design = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "1", "1", "1"), ("a3.raw", "A", "1", "1", "3")));
 
-            Assert.That(design.Refusals.Single(), Is.EqualTo("Condition 'A' biorep 1 fraction 1 techrep 2 is missing."));
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Has.One.EqualTo("Condition 'A' biorep 1 fraction 1: technical replicates 1, 3, kept as the SDRF numbers them. " +
+                                                      "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its files, not lost files."));
+        }
+
+        [Test]
+        public void AFractionGapAfterDroppedRowsSaysTheFileMayNotBeSearched()
+        {
+            var design = SdrfLabelFreeDesign.Read(Document(
+                    ("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "1", "2", "1"), ("a3.raw", "A", "1", "3", "1")),
+                new SdrfLabelFreeDesignOptions { SearchedFiles = new[] { "a1.raw", "a3.raw" } });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Notes, Has.One.EqualTo("Condition 'A' biorep 1: fractions 1, 3, kept as the SDRF numbers them. " +
+                                                      "Rows were dropped from the SDRF, so a missing number may be a file that is not searched."));
         }
 
         [TestCase("0")]
@@ -219,8 +240,8 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
-        /// A document with no column naming a file, no biological replicate column and no rows is
-        /// refused for all three at once, and builds nothing.
+        /// A document with no column naming a file and no rows is refused for both at once, and builds nothing.
+        /// No biological replicate column is not a refusal: the numbers are added (see below).
         /// </summary>
         [Test]
         public void ADocumentMissingWhatEveryDesignNeedsIsRefusedForEachReason()
@@ -231,7 +252,6 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Is.EqualTo(new[]
             {
                 "The SDRF has neither 'comment[searched data file]' nor 'comment[data file]', so no row names a file.",
-                "The SDRF has no 'characteristics[biological replicate]' column. MetaMorpheus needs a biological replicate for every file.",
                 "The SDRF has no rows."
             }), design.Report());
             Assert.That(design.FileKeyColumn, Is.Null);
@@ -342,11 +362,12 @@ namespace Test.FileReadingTests
         }
 
         /// <summary>
-        /// A row the search does not read is dropped and reported, and the ranking happens AFTER the
-        /// drop: a partial download of replicates 2 and 3 is a design of replicates 1 and 2.
+        /// A row the search does not read is dropped and reported, and the numbers of the rows left are kept: a
+        /// partial download of replicates 2 and 3 is a design of replicates 2 and 3, which says a number may be
+        /// missing because its file was not searched.
         /// </summary>
         [Test]
-        public void RowsForFilesNotSearchedAreDroppedBeforeRanking()
+        public void RowsForFilesNotSearchedAreDroppedAndTheNumbersOfTheRestKept()
         {
             var sdrf = Document(("a1.raw", "A", "1", "1", "1"), ("a2.raw", "A", "2", "1", "1"), ("a3.raw", "A", "3", "1", "1"));
             var searched = new[] { @"C:\data\a2.raw", @"C:\data\a3.raw" };
@@ -355,8 +376,10 @@ namespace Test.FileReadingTests
 
             Assert.That(design.Refusals, Is.Empty, design.Report());
             Assert.That(design.Notes, Does.Contain("Line 2 ('a1.raw') dropped: the search does not read that file."));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': biological replicates 2, 3, kept as the SDRF numbers them. " +
+                "Rows were dropped from the SDRF, so a missing number may be a sample whose file is not searched."));
             Assert.That(design.Files.Select(f => (f.FullFilePathWithExtension, f.BiologicalReplicate)),
-                Is.EqualTo(new[] { (@"C:\data\a2.raw", 0), (@"C:\data\a3.raw", 1) }), "the searched paths, ranked 1..2");
+                Is.EqualTo(new[] { (@"C:\data\a2.raw", 1), (@"C:\data\a3.raw", 2) }), "the searched paths, replicates 2 and 3");
         }
 
         /// <summary>
@@ -495,7 +518,7 @@ namespace Test.FileReadingTests
         {
             var design = SdrfLabelFreeDesign.Read(Document(
                 ("a1.raw", "A", "5", "1", "1"), ("a2.raw", "A", "5", "2", "1"), ("a3.raw", "A", "5", "2", "2"), ("b1.raw", "B", "1", "1", "1")));
-            Assert.That(design.Files[2], Is.EqualTo(new SpectraFileInfo("a3.raw", "A", 0, 1, 1)), "0-based, and 5 ranked to 1");
+            Assert.That(design.Files[2], Is.EqualTo(new SpectraFileInfo("a3.raw", "A", 4, 1, 1)), "0-based, and 5 kept as 5");
 
             string path = Path.Combine(TestContext.CurrentContext.WorkDirectory, $"{Guid.NewGuid():N}_ExperimentalDesign.tsv");
             try
@@ -504,9 +527,9 @@ namespace Test.FileReadingTests
 
                 Assert.That(File.ReadAllText(path), Is.EqualTo(
                     "FileName\tCondition\tBiorep\tFraction\tTechrep\n" +
-                    "a1.raw\tA\t1\t1\t1\n" +
-                    "a2.raw\tA\t1\t2\t1\n" +
-                    "a3.raw\tA\t1\t2\t2\n" +
+                    "a1.raw\tA\t5\t1\t1\n" +
+                    "a2.raw\tA\t5\t2\t1\n" +
+                    "a3.raw\tA\t5\t2\t2\n" +
                     "b1.raw\tB\t1\t1\t1\n"));
             }
             finally
@@ -534,6 +557,142 @@ namespace Test.FileReadingTests
 
             Assert.That(design.FileNameSampleInfoDictionary.Keys, Is.EquivalentTo(new[] { "a1.raw", "b1.raw" }));
             Assert.That(design.FileNameSampleInfoDictionary["A1.RAW"].Single().Condition, Is.EqualTo("A"));
+        }
+        // ---------------------------------------------------------------- numbers the SDRF does not give
+
+        /// <summary>A label-free SDRF in memory with chosen source names and replicate cells.</summary>
+        private static SdrfDocument Samples(bool withReplicateColumn, params (string Source, string Biorep, string File, string Condition, string Fraction)[] rows)
+        {
+            var columns = new List<string> { "source name" };
+            if (withReplicateColumn) columns.Add("characteristics[biological replicate]");
+            columns.AddRange(new[] { "comment[label]", "comment[fraction identifier]", "comment[data file]", "factor value[condition]" });
+            var header = new SdrfHeader(columns);
+            return new SdrfDocument(header, rows.Select(r =>
+            {
+                var cells = new List<string> { r.Source };
+                if (withReplicateColumn) cells.Add(r.Biorep);
+                cells.AddRange(new[] { "label free sample", r.Fraction, r.File, r.Condition });
+                return new SdrfRow(header, cells.ToArray());
+            }));
+        }
+
+        /// <summary>
+        /// With no replicate column the numbers are added, one per sample: the two fractions of one source name
+        /// share a number, and the report names every number added.
+        /// </summary>
+        [Test]
+        public void WithNoReplicateColumnEachSampleIsNumberedOnceAndReported()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(false,
+                ("mouse X", "", "x_f1.raw", "A", "1"), ("mouse X", "", "x_f2.raw", "A", "2"),
+                ("mouse Y", "", "y_f1.raw", "A", "1"), ("mouse Y", "", "y_f2.raw", "A", "2")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 1, 2, 2 }));
+            Assert.That(design.Notes, Does.Contain(
+                "Condition 'A': the SDRF gives no biological replicate for 2 sample(s), so these were numbered here: 'mouse X' -> 1, 'mouse Y' -> 2."));
+        }
+
+        /// <summary>
+        /// A number added beside numbers the SDRF gives comes after the highest of them, never into a gap: a gap may
+        /// be a lost sample, and replicate N may be subject N of another condition.
+        /// </summary>
+        [TestCase("not available")]
+        [TestCase("not applicable")]
+        [TestCase("")]
+        public void AnAddedNumberNeverReusesOneTheSdrfGives(string missing)
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("s1", "1", "a.raw", "A", "1"), ("s3", "3", "b.raw", "A", "1"), ("s?", missing, "c.raw", "A", "1")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 3, 4 }), "1 and 3 kept, 4 added after them");
+            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), so these were numbered here: 's?' -> 4."));
+        }
+
+        /// <summary>
+        /// The gap note is over the numbers the SDRF gives, so a number added beside them cannot hide a gap: given 1, 2
+        /// and 4, the unnumbered sample becomes 5 and the missing 3 is still reported.
+        /// </summary>
+        [Test]
+        public void AnAddedNumberDoesNotHideAGapInTheNumbersGiven()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("s1", "1", "a.raw", "A", "1"), ("s2", "2", "b.raw", "A", "1"), ("s4", "4", "c.raw", "A", "1"),
+                ("s?", "not available", "d.raw", "A", "1")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 2, 4, 5 }));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': biological replicates 1, 2, 4, kept as the SDRF numbers them. " +
+                "Every row of the SDRF is searched, so the gaps are how the SDRF numbers its samples, not lost samples."));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), so these were numbered here: 's?' -> 5."));
+        }
+
+        /// <summary>
+        /// A row with no number whose source name carries exactly one number on its other rows in the condition is the
+        /// same sample, so it takes that number rather than becoming a second sample.
+        /// </summary>
+        [Test]
+        public void AnUnnumberedRowOfANumberedSampleTakesItsNumber()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("mouse X", "2", "x_f1.raw", "A", "1"), ("mouse X", "not available", "x_f2.raw", "A", "2"),
+                ("mouse Y", "1", "y_f1.raw", "A", "1"), ("mouse Y", "1", "y_f2.raw", "A", "2")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 2, 2, 1, 1 }));
+            Assert.That(design.Notes, Does.Contain("Condition 'A': the SDRF gives no biological replicate for 1 sample(s), " +
+                "so these were numbered here: 'mouse X' -> 2 (the number its other rows give)."));
+        }
+
+        /// <summary>
+        /// A row with no number whose source name carries several numbers in the condition cannot be placed, so the
+        /// design is refused rather than guessing.
+        /// </summary>
+        [Test]
+        public void AnUnnumberedRowOfASampleWithSeveralNumbersIsRefused()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("mouse X", "1", "x_f1.raw", "A", "1"), ("mouse X", "2", "x_f2.raw", "A", "2"),
+                ("mouse X", "not available", "x_f3.raw", "A", "3")));
+
+            Assert.That(design.IsValid, Is.False);
+            Assert.That(design.Refusals, Does.Contain("Line 4 (x_f3.raw): the SDRF gives no biological replicate, and the other rows of " +
+                "'mouse X' in condition 'A' give several (1, 2), so which one it is cannot be told."));
+        }
+
+        [TestCase("0")]
+        [TestCase("-1")]
+        [TestCase("two")]
+        public void AReplicateTheSdrfGivesThatIsNotAPositiveIntegerIsRefused(string biorep)
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true, ("s1", "1", "a.raw", "A", "1"), ("s2", biorep, "b.raw", "A", "1")));
+
+            Assert.That(design.Refusals, Is.EqualTo(new[]
+            {
+                $"Line 3 (b.raw): 'characteristics[biological replicate]' is '{biorep}', not an integer of 1 or more."
+            }));
+        }
+
+        /// <summary>
+        /// A sample name whose only number is not its replicate is reported, once per sample, and the SDRF's replicate
+        /// is kept. A name with several numbers, or with the same number, is not.
+        /// </summary>
+        [Test]
+        public void ASampleNameWhoseOneNumberDisagreesWithItsReplicateIsReported()
+        {
+            var design = SdrfLabelFreeDesign.Read(Samples(true,
+                ("patient_07", "1", "p_f1.raw", "A", "1"), ("patient_07", "1", "p_f2.raw", "A", "2"),
+                ("patient_02", "2", "q_f1.raw", "A", "1"), ("patient_02", "2", "q_f2.raw", "A", "2"),
+                ("HeLa_2h_rep3", "3", "h_f1.raw", "A", "1"), ("HeLa_2h_rep3", "3", "h_f2.raw", "A", "2")));
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Select(f => f.BiologicalReplicate + 1), Is.EqualTo(new[] { 1, 1, 2, 2, 3, 3 }), "the SDRF's replicates, kept");
+            Assert.That(design.Notes, Is.EqualTo(new[]
+            {
+                "Line 2: 'source name' is 'patient_07', whose only number (7) is not its biological replicate (1). " +
+                "Kept as the SDRF gives it; check which is meant."
+            }));
         }
     }
 }

@@ -36,8 +36,8 @@ namespace Readers
     /// wrote is replaced, because it is this search's field.</para>
     ///
     /// <para><b>Nothing else changes.</b> Every kept row is carried cell for cell: a search of replicates 1
-    /// and 3 says 1 and 3. Ranking replicates for quantification is the design reader's job (MAP-33), and
-    /// this type must not do it quietly on the way.</para>
+    /// and 3 says 1 and 3. The design reader keeps those numbers too (it never ranks them), so this type
+    /// must not change them quietly on the way.</para>
     ///
     /// <para>Pure. Internal (D19).</para>
     /// </summary>
