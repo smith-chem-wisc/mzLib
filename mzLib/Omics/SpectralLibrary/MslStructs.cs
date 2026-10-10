@@ -130,7 +130,9 @@ public struct MslFileHeader
 	/// Offset 28, 4 bytes. Absolute byte offset of the extended annotation table section.
 	/// 0 when <c>MslFormat.FileFlagHasExtAnnotations</c> is not set (section absent).
 	/// When the flag is set, this field holds the offset at which the extended annotation
-	/// table begins; readers must seek here to read custom neutral-loss masses.
+	/// table begins, or 0 when that offset does not fit in an int32 (files over 2 GB).
+	/// Current readers do not rely on it: the table always follows the fragment section and
+	/// ends where the offset table begins, so they locate it from that layout.
 	///
 	/// Formerly the <c>Reserved</c> field in format version 1 (always written as 0).
 	/// Repurposed in format version 2. Version-1 readers see this field as Reserved=0

@@ -590,15 +590,14 @@ namespace Readers
             string.IsNullOrWhiteSpace(value) ? Missing(column, options) : value;
 
         /// <summary>
-        /// 1-based, and validated. SDRF replicate and fraction identifiers start at 1; mzLib's
-        /// SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
+        /// A replicate or fraction number: 1-based, and validated. SDRF replicate and fraction identifiers start
+        /// at 1; mzLib's SpectraFileInfo stores them 0-based, so a caller that forwards those directly would write
         /// a 0 that every consumer reads as an error.
-        /// </summary>
-        /// <summary>
-        /// A replicate or fraction number. <c>null</c> is a number nobody established -- a search with no
-        /// experimental design does not know it -- and is treated like any missing value (<see cref="Missing"/>):
-        /// written <c>not available</c>, or refused under RequireSampleMetadata. Writing 1 instead would state that
-        /// every run is its own unfractionated sample, a filled cell no coverage report can flag.
+        ///
+        /// <c>null</c> is a number nobody established -- a search with no experimental design does not know it --
+        /// and is treated like any missing value (<see cref="Missing"/>): written <c>not available</c>, or refused
+        /// under RequireSampleMetadata. Writing 1 instead would state that every run is its own unfractionated
+        /// sample, a filled cell no coverage report can flag.
         /// </summary>
         private static string Positive(int? value, string column, SdrfBuilderOptions options) =>
             value is null ? Missing(column, options)

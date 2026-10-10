@@ -260,8 +260,9 @@ public static class MslFormat
 
 	/// <summary>
 	/// File-level flag: the extended annotation table section is present (version 2+).
-	/// When set, <c>MslFileHeader.ExtAnnotationTableOffset</c> contains the absolute byte
-	/// offset of the extended annotation table; the table holds custom neutral-loss masses
+	/// When set, the extended annotation table follows the fragment section (its absolute offset
+	/// is also in <c>MslFileHeader.ExtAnnotationTableOffset</c> when it fits in an int32); the
+	/// table holds custom neutral-loss masses
 	/// indexed by <c>MslFragmentRecord.ResiduePosition</c> when <c>neutral_loss_code == Custom</c>.
 	/// </summary>
 	public const int FileFlagHasExtAnnotations = 1 << 4;

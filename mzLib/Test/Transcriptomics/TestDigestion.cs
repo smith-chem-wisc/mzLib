@@ -315,7 +315,7 @@ namespace Test.Transcriptomics
                     else if (fragment.Terminus == FragmentationTerminus.None)
                         Assert.That(fragment.FragmentNumber, Is.EqualTo(0));
                     else
-                        Assert.That(fragment.AminoAcidPosition, Is.EqualTo(digestionProductSequences[index].Length - theoreticalFragment.FragmentNumber));
+                        Assert.That(fragment.AminoAcidPosition, Is.EqualTo(digestionProductSequences[index].Length - theoreticalFragment.FragmentNumber + 1));
                 }
             }
         }

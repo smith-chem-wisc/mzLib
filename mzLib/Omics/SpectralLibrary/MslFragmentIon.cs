@@ -409,6 +409,19 @@ public class MslLibraryEntry
 	/// </summary>
 	public string Name => FullSequence + "/" + ChargeState;
 
+	/// <summary>
+	/// Returns a shallow copy of this entry with <paramref name="fragments"/> as its fragment
+	/// ions. Every other property is copied as is, including properties added later.
+	/// </summary>
+	/// <param name="fragments">The fragment ions for the copy.</param>
+	/// <returns>A new <see cref="MslLibraryEntry"/>; this entry is not modified.</returns>
+	public MslLibraryEntry WithFragments(List<MslFragmentIon> fragments)
+	{
+		var copy = (MslLibraryEntry)MemberwiseClone();
+		copy.MatchedFragmentIons = fragments;
+		return copy;
+	}
+
 	// ── Conversion: MslLibraryEntry → LibrarySpectrum ───────────────────
 
 	/// <summary>

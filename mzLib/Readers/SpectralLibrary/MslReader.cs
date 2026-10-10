@@ -4,6 +4,8 @@ using Omics.SpectralMatch.MslSpectralLibrary;
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Runtime.InteropServices;
+using Microsoft.Win32.SafeHandles;
+using System.IO.MemoryMappedFiles;
 using System.Text;
 using ZstdSharp;
 
@@ -14,14 +16,14 @@ namespace Readers.SpectralLibrary;
 ///
 /// Two read modes are supported:
 ///
-///   <see cref="Load"/> — full load: reads the entire file into memory. All precursors,
+///   <see cref="Load"/> — full load: streams the whole file. All precursors,
 ///   fragment blocks, and strings are deserialized into <see cref="MslLibraryEntry"/>
-///   objects. Best for libraries that fit comfortably in RAM (typically &lt;~2 GB). No
+///   objects. Best for libraries whose entries fit in RAM. No
 ///   <see cref="System.IO.FileStream"/> is held open after this method returns.
 ///
 ///   <see cref="LoadIndexOnly"/> — index-only load: reads only the precursor records and
-///   string table. Fragment blocks remain on disk and are fetched lazily via seeks into
-///   the kept-open <see cref="System.IO.FileStream"/>. Best for multi-gigabyte libraries
+///   string table. Fragment blocks remain on disk and are fetched lazily from a read-only
+///   memory map of the kept-open file. Best for multi-gigabyte libraries
 ///   where loading all fragments would exhaust available RAM.
 ///   Note: compressed files always fall back to full-load regardless of which method is
 ///   called — index-only mode is unavailable when <see cref="MslFormat.FileFlagIsCompressed"/>
@@ -42,65 +44,13 @@ public static class MslReader
 	// ── Static constructor ────────────────────────────────────────────────────
 
 	/// <summary>
-	/// Runs <see cref="MslStructs.SizeCheck"/> and builds the CRC-32 lookup table once
-	/// when the class is first used. A Pack-setting mistake causes an immediate throw rather
-	/// than a silent misread of every file.
+	/// Runs <see cref="MslStructs.SizeCheck"/> once when the class is first used.
+	/// A Pack-setting mistake causes an immediate throw rather than a silent misread of
+	/// every file.
 	/// </summary>
 	static MslReader()
 	{
 		MslStructs.SizeCheck();
-		BuildCrc32Table();
-	}
-
-	// ── CRC-32/ISO-HDLC ──────────────────────────────────────────────────────
-
-	/// <summary>
-	/// Precomputed 256-entry lookup table for CRC-32/ISO-HDLC (reflected polynomial
-	/// 0xEDB88320). Matches the output of zlib <c>crc32()</c> and PKZIP.
-	/// Populated once in the static constructor by <see cref="BuildCrc32Table"/>.
-	/// </summary>
-	private static readonly uint[] Crc32Table = new uint[256];
-
-	/// <summary>
-	/// Fills <see cref="Crc32Table"/> using the reflected CRC-32/ISO-HDLC polynomial
-	/// (0xEDB88320). Called exactly once from the static constructor.
-	/// </summary>
-	private static void BuildCrc32Table()
-	{
-		// Reflected CRC-32 polynomial: same constant as zlib, PKZIP, and Ethernet.
-		const uint Poly = 0xEDB8_8320u;
-
-		for (uint i = 0; i < 256; i++)
-		{
-			uint entry = i;
-
-			// Shift 8 times, XOR with polynomial whenever the output LSB is 1
-			for (int bit = 0; bit < 8; bit++)
-				entry = (entry & 1u) != 0 ? (entry >> 1) ^ Poly : entry >> 1;
-
-			Crc32Table[i] = entry;
-		}
-	}
-
-	/// <summary>
-	/// Computes the CRC-32/ISO-HDLC checksum over the first <paramref name="length"/> bytes
-	/// of <paramref name="data"/>. The result matches <c>zlib crc32()</c>.
-	/// </summary>
-	/// <param name="data">Source byte array. Must not be null.</param>
-	/// <param name="length">
-	/// Number of bytes to include starting from index 0.
-	/// Must satisfy 0 &lt;= length &lt;= data.Length.
-	/// </param>
-	/// <returns>The 32-bit CRC checksum.</returns>
-	internal static uint ComputeCrc32OfArray(byte[] data, int length)
-	{
-		// CRC register starts all-ones; final result is the one's complement.
-		uint crc = 0xFFFF_FFFFu;
-
-		for (int i = 0; i < length; i++)
-			crc = (crc >> 8) ^ Crc32Table[(crc ^ data[i]) & 0xFFu];
-
-		return crc ^ 0xFFFF_FFFFu;
 	}
 
 	// ── Neutral-loss decoding ─────────────────────────────────────────────────
@@ -167,16 +117,15 @@ public static class MslReader
 	}
 
 	/// <summary>
-	/// Reads the entire .msl file into memory and returns an <see cref="MslLibraryData"/> with
-	/// all precursor entries and fragment ions fully loaded. No file handle is held open after
-	/// this method returns.
+	/// Reads the .msl file and returns an <see cref="MslLibraryData"/> with all precursor
+	/// entries and fragment ions fully loaded. The file is streamed section by section, so its
+	/// size is not limited to 2 GB. No file handle is held open after this method returns.
 	///
 	/// When <see cref="MslFormat.FileFlagIsCompressed"/> is set the fragment section is
-	/// decompressed from the zstd frame before fragment blocks are read. All other read paths
-	/// are unchanged.
+	/// decoded from the zstd frame as a stream while fragment blocks are read.
 	///
-	/// Optimal for libraries that fit comfortably in RAM (typically &lt;~2 GB). For larger
-	/// libraries use <see cref="LoadIndexOnly"/> to avoid exhausting available RAM.
+	/// Memory use is proportional to the library's in-memory entries. When those would not fit
+	/// in RAM, use <see cref="LoadIndexOnly"/>.
 	/// </summary>
 	/// <param name="filePath">Path to the .msl file. Must not be null.</param>
 	/// <returns>
@@ -193,42 +142,18 @@ public static class MslReader
 		if (!File.Exists(filePath))
 			throw new FileNotFoundException($"MSL file not found: '{filePath}'.", filePath);
 
-		// Read the entire file into memory for CRC validation and zero-copy struct casting
-		byte[] fileBytes = File.ReadAllBytes(filePath);
+		// Stream the file section by section: one byte[] for the whole file would stop at 2 GB
+		using var fs = new FileStream(
+			filePath, FileMode.Open, FileAccess.Read, FileShare.Read,
+			bufferSize: 1 << 20, FileOptions.SequentialScan);
 
-		ValidateFileBytes(fileBytes, filePath, out MslFileHeader header, out _);
-
-		// Deserialise all three lookup tables
-		string[] strings = ReadStringTable(fileBytes, header);
-		MslProteinRecord[] proteins = ReadProteinTable(fileBytes, header);
-		MslPrecursorRecord[] precursors = ReadPrecursorArray(fileBytes, header);
-
-		// Read extended annotation table (custom neutral-loss masses) when present
-		double[] customLossMasses = ReadExtAnnotationTable(fileBytes, header);
-
-		// When compressed, decompress the fragment section into a separate buffer.
-		// FragmentBlockOffset values in precursor records are then relative to this buffer.
-		bool isCompressed = (header.FileFlags & MslFormat.FileFlagIsCompressed) != 0;
-		byte[] fragmentBuffer = isCompressed
-			? DecompressFragmentSection(fileBytes, header)
-			: fileBytes;
-
-		// Build the fully-loaded entry list — each entry includes its fragment ions
-		var entries = new List<MslLibraryEntry>(precursors.Length);
-
-		for (int i = 0; i < precursors.Length; i++)
-		{
-			MslPrecursorRecord p = precursors[i];
-			List<MslFragmentIon> fragments = ReadFragmentBlockFromBytes(fragmentBuffer, p, customLossMasses);
-			entries.Add(ConvertPrecursor(p, strings, proteins, fragments));
-		}
-
-		return new MslLibraryData(entries, header);
+		StreamingValidateAndReadHeader(filePath, fs, out MslFileHeader header, out MslFooter footer);
+		return LoadAllEntries(fs, header, footer);
 	}
 
 	/// <summary>
 	/// Reads only the precursor records and string table into memory; fragment blocks remain
-	/// on disk and are fetched lazily via seeks into the kept-open <see cref="System.IO.FileStream"/>.
+	/// on disk and are fetched lazily from a read-only memory map of the kept-open file.
 	///
 	/// The returned <see cref="MslLibraryData"/> holds an open file handle until its
 	/// <see cref="MslLibrary.Dispose"/> method is called. Callers must dispose the library
@@ -252,7 +177,18 @@ public static class MslReader
 	/// <exception cref="FileNotFoundException">File does not exist.</exception>
 	/// <exception cref="FormatException">Structural or version validation failed.</exception>
 	/// <exception cref="InvalidDataException">CRC-32 checksum mismatch.</exception>
-	public static MslLibraryData LoadIndexOnly(string filePath)
+	public static MslLibraryData LoadIndexOnly(string filePath) =>
+		LoadIndexOnly(filePath, memoryMapFragments: IsOnLocalFixedDrive(filePath));
+
+	/// <summary>
+	/// <see cref="LoadIndexOnly(string)"/> with the fragment read strategy chosen by the caller.
+	/// </summary>
+	/// <param name="filePath">Path to the .msl file.</param>
+	/// <param name="memoryMapFragments">
+	/// True to read fragment blocks from a memory map of the file (fastest, lock-free); false to
+	/// use positional reads, which surface I/O failures as catchable <see cref="IOException"/>s.
+	/// </param>
+	internal static MslLibraryData LoadIndexOnly(string filePath, bool memoryMapFragments)
 	{
 		if (!File.Exists(filePath))
 			throw new FileNotFoundException($"MSL file not found: '{filePath}'.", filePath);
@@ -269,7 +205,7 @@ public static class MslReader
 		{
 			// Validate magic, version, footer, NPrecursors, and CRC-32 — all streaming.
 			// No full-file allocation occurs here; fragment bytes are never read.
-			StreamingValidateAndReadHeader(filePath, fs, out MslFileHeader header, out _);
+			StreamingValidateAndReadHeader(filePath, fs, out MslFileHeader header, out MslFooter footer);
 
 			// Compressed files cannot use index-only mode: fragment offsets are decompressed-
 			// buffer-relative and there is no persistent decompressed buffer to seek into.
@@ -281,40 +217,18 @@ public static class MslReader
 					$"[MslReader] LoadIndexOnly called on compressed file '{filePath}'; " +
 					"falling back to full-load (index-only mode unavailable for compressed files).");
 
-				// Full-load path for compressed files: read the whole file, decompress, build entries.
-				// The streaming FileStream is no longer needed; close it before the full-file read.
+				// Full-load path for compressed files, read from the stream already open
+				MslLibraryData full = LoadAllEntries(fs, header, footer);
 				fs.Dispose();
-
-				byte[] fileBytes = File.ReadAllBytes(filePath);
-
-				// Re-validate using the byte-array path so ValidateFileBytes sets header correctly.
-				ValidateFileBytes(fileBytes, filePath, out MslFileHeader headerC, out _);
-
-				string[] stringsC = ReadStringTable(fileBytes, headerC);
-				MslProteinRecord[] proteinsC = ReadProteinTable(fileBytes, headerC);
-				MslPrecursorRecord[] precursorsC = ReadPrecursorArray(fileBytes, headerC);
-				double[] customLossMassesC = ReadExtAnnotationTable(fileBytes, headerC);
-				byte[] fragmentBuffer = DecompressFragmentSection(fileBytes, headerC);
-
-				var entriesC = new List<MslLibraryEntry>(precursorsC.Length);
-				for (int i = 0; i < precursorsC.Length; i++)
-				{
-					MslPrecursorRecord p = precursorsC[i];
-					List<MslFragmentIon> fragments =
-						ReadFragmentBlockFromBytes(fragmentBuffer, p, customLossMassesC);
-					entriesC.Add(ConvertPrecursor(p, stringsC, proteinsC, fragments));
-				}
-
-				// Return a full-load library (no open stream, IsIndexOnly = false)
-				return new MslLibraryData(entriesC, headerC);
+				return full;
 			}
 
 			// Uncompressed: targeted reads — only the sections the index needs.
-			// Fragment bytes are never read; the FileStream stays open for on-demand seeks.
+			// Fragment bytes are never read; the FileStream stays open for on-demand reads.
 			string[] strings = ReadStringTableFromStream(fs, header);
 			MslProteinRecord[] proteins = ReadProteinTableFromStream(fs, header);
 			MslPrecursorRecord[] precursors = ReadPrecursorArrayFromStream(fs, header);
-			double[] customLossMasses = ReadExtAnnotationTableFromStream(fs, header);
+			double[] customLossMasses = ReadExtAnnotationTableFromStream(fs, header, footer, precursors);
 
 			// Build skeleton entries — fragment lists are intentionally left empty.
 			var entries = new List<MslLibraryEntry>(precursors.Length);
@@ -323,7 +237,8 @@ public static class MslReader
 
 			// Transfer stream ownership to MslLibraryData.
 			// fs must NOT be disposed here on the success path.
-			return new MslLibraryData(entries, header, precursors, strings, proteins, fs, customLossMasses);
+			return new MslLibraryData(entries, header, precursors, strings, proteins, fs, customLossMasses,
+				memoryMapFragments);
 		}
 		catch
 		{
@@ -333,31 +248,38 @@ public static class MslReader
 			throw;
 		}
 	}
+	/// <summary>
+	/// Reads the string table, which runs from <c>StringTableOffset</c> to the precursor section.
+	/// Strings are parsed one after another from their length prefixes; the section header's
+	/// TotalBodyBytes is informational and is not relied on.
+	/// </summary>
+	/// <exception cref="FormatException">A length runs past the section, or index 0 is not empty.</exception>
 	private static string[] ReadStringTableFromStream(FileStream fs, MslFileHeader header)
 	{
+		long sectionLength = header.PrecursorSectionOffset - header.StringTableOffset;
+		if (sectionLength < 8 || sectionLength > Array.MaxLength)
+			throw new FormatException(
+				$"Invalid string table bounds ({header.StringTableOffset}..{header.PrecursorSectionOffset}).");
+
+		byte[] table = new byte[sectionLength];
 		fs.Seek(header.StringTableOffset, SeekOrigin.Begin);
+		fs.ReadExactly(table);
 
-		// Read NStrings (4) + TotalBodyBytes (4) header
-		Span<byte> int32Buf = stackalloc byte[4];
+		// Section header: NStrings, then TotalBodyBytes (informational)
+		int nStrings = ReadInt32LE(table, 0);
+		if (nStrings < 0)
+			throw new FormatException($"Invalid string count {nStrings} in the string table.");
 
-		fs.ReadExactly(int32Buf);
-		int nStrings = BinaryPrimitives.ReadInt32LittleEndian(int32Buf);
-
-		fs.ReadExactly(int32Buf);
-		int totalBodyBytes = BinaryPrimitives.ReadInt32LittleEndian(int32Buf);
-
-		// Allocate exactly: nStrings × 4 (length prefixes) + body bytes
-		int tableBytes = nStrings * 4 + totalBodyBytes;
-		byte[] tableData = new byte[tableBytes];
-		fs.ReadExactly(tableData, 0, tableBytes);
-
-		// Parse from the local buffer (same logic as ReadStringTable)
 		var strings = new string[nStrings];
-		int pos = 0;
+		long pos = 8;
 		for (int i = 0; i < nStrings; i++)
 		{
-			int len = ReadInt32LE(tableData, pos); pos += 4;
-			strings[i] = len > 0 ? Encoding.UTF8.GetString(tableData, pos, len) : string.Empty;
+			if (pos + 4 > table.Length)
+				throw new FormatException("String table is truncated: it ends inside a length prefix.");
+			int len = ReadInt32LE(table, (int)pos); pos += 4;
+			if (len < 0 || pos + len > table.Length)
+				throw new FormatException($"String {i} (length {len}) runs past the end of the string table.");
+			strings[i] = len > 0 ? Encoding.UTF8.GetString(table, (int)pos, len) : string.Empty;
 			pos += len;
 		}
 
@@ -383,366 +305,311 @@ public static class MslReader
 	}
 
 	/// <summary>
+	/// Precursor records read per call in <see cref="ReadPrecursorArrayFromStream"/>: 56 MB.
+	/// </summary>
+	internal const int PrecursorReadChunkRecords = 1 << 20;
+
+	/// <summary>
 	/// Reads the precursor array by seeking to <c>header.PrecursorSectionOffset</c>
 	/// and reading exactly <c>NPrecursors × PrecursorRecordSize</c> bytes.
+	/// <para>
+	/// The read is done <paramref name="chunkRecords"/> records at a time: a byte span over the
+	/// whole array overflows its int32 length past about 38 M precursors (2^31 / 56).
+	/// </para>
 	/// </summary>
-	private static MslPrecursorRecord[] ReadPrecursorArrayFromStream(FileStream fs, MslFileHeader header)
+	internal static MslPrecursorRecord[] ReadPrecursorArrayFromStream(FileStream fs, MslFileHeader header,
+		int chunkRecords = PrecursorReadChunkRecords)
 	{
 		int nPrecursors = header.NPrecursors;
 		if (nPrecursors == 0) return Array.Empty<MslPrecursorRecord>();
 
-		int byteCount = nPrecursors * MslFormat.PrecursorRecordSize;
 		fs.Seek(header.PrecursorSectionOffset, SeekOrigin.Begin);
 
-		byte[] buf = new byte[byteCount];
-		fs.ReadExactly(buf, 0, byteCount);
-
 		var precursors = new MslPrecursorRecord[nPrecursors];
-		MemoryMarshal.Cast<byte, MslPrecursorRecord>(buf.AsSpan()).CopyTo(precursors);
+		for (int start = 0; start < nPrecursors;)
+		{
+			int count = Math.Min(chunkRecords, nPrecursors - start);
+			fs.ReadExactly(MemoryMarshal.AsBytes(precursors.AsSpan(start, count)));
+			start += count;
+		}
 		return precursors;
 	}
 
 	/// <summary>
-	/// Reads the extended annotation table from the stream when the flag is set.
+	/// Reads the extended annotation table (custom neutral-loss masses) when the flag is set.
 	/// Returns an empty array for files without custom neutral losses.
+	/// <para>
+	/// The table is located from the file layout (it follows the fragment section and ends where
+	/// the offset table begins), not from <c>MslFileHeader.ExtAnnotationTableOffset</c>: that
+	/// field is an int32 and cannot hold the position in a file over 2 GB.
+	/// </para>
 	/// </summary>
-	private static double[] ReadExtAnnotationTableFromStream(FileStream fs, MslFileHeader header)
+	/// <exception cref="FormatException">The table does not end where the offset table begins.</exception>
+	private static double[] ReadExtAnnotationTableFromStream(
+		FileStream fs, MslFileHeader header, MslFooter footer, MslPrecursorRecord[] precursors)
 	{
-		if ((header.FileFlags & MslFormat.FileFlagHasExtAnnotations) == 0
-			|| header.ExtAnnotationTableOffset <= 0)
+		if ((header.FileFlags & MslFormat.FileFlagHasExtAnnotations) == 0)
 			return Array.Empty<double>();
 
-		fs.Seek(header.ExtAnnotationTableOffset, SeekOrigin.Begin);
+		long fragmentSectionLength;
+		if ((header.FileFlags & MslFormat.FileFlagIsCompressed) != 0)
+		{
+			fragmentSectionLength = ReadCompressionDescriptor(fs).CompressedSize;
+		}
+		else
+		{
+			fragmentSectionLength = 0;
+			foreach (MslPrecursorRecord p in precursors)
+				fragmentSectionLength += (long)p.FragmentCount * MslFormat.FragmentRecordSize;
+		}
+
+		long tableStart = header.FragmentSectionOffset + fragmentSectionLength;
+		fs.Seek(tableStart, SeekOrigin.Begin);
 
 		Span<byte> countBuf = stackalloc byte[4];
 		fs.ReadExactly(countBuf);
 		int count = BinaryPrimitives.ReadInt32LittleEndian(countBuf);
 
-		if (count <= 0) return Array.Empty<double>();
+		if (count < 0 || tableStart + 4 + 8L * count != footer.OffsetTableOffset)
+			throw new FormatException(
+				$"Extended annotation table at offset {tableStart} (count {count}) does not end where " +
+				$"the offset table begins ({footer.OffsetTableOffset}); the file is corrupt.");
 
-		byte[] massBuf = new byte[count * 8];
-		fs.ReadExactly(massBuf, 0, massBuf.Length);
+		if (count == 0) return Array.Empty<double>();
 
 		var masses = new double[count];
-		for (int i = 0; i < count; i++)
-			masses[i] = BitConverter.ToDouble(massBuf, i * 8);
-
-		return masses;
-	}
-
-	// ── Validation ────────────────────────────────────────────────────────────
-
-	/// <summary>
-	/// Performs all five mandatory validation checks on the in-memory file bytes and
-	/// outputs the deserialized header and footer on success. Throws on the first failure.
-	///
-	/// Version acceptance policy:
-	/// <list type="bullet">
-	///   <item>Versions 1 through <see cref="MslFormat.CurrentVersion"/> — accepted.</item>
-	///   <item>Any other version — <see cref="FormatException"/> thrown.</item>
-	/// </list>
-	/// </summary>
-	/// <param name="fileBytes">Complete file content already loaded into memory.</param>
-	/// <param name="filePath">Original file path, used only for exception messages.</param>
-	/// <param name="header">Output: deserialized <see cref="MslFileHeader"/> on success.</param>
-	/// <param name="footer">Output: deserialized <see cref="MslFooter"/> on success.</param>
-	/// <exception cref="FormatException">Any structural or version check fails.</exception>
-	/// <exception cref="InvalidDataException">CRC-32 does not match the stored value.</exception>
-	private static void ValidateFileBytes(
-		byte[] fileBytes,
-		string filePath,
-		out MslFileHeader header,
-		out MslFooter footer)
-	{
-		// ── Check 1: minimum size ─────────────────────────────────────────────
-		int minimumSize = MslFormat.HeaderSize + MslFormat.FooterSize;
-
-		if (fileBytes.Length < minimumSize)
-			throw new FormatException(
-				$"File '{filePath}' is too short ({fileBytes.Length} bytes) " +
-				$"to be a valid .msl file (minimum {minimumSize} bytes).");
-
-		// ── Check 2: leading magic ────────────────────────────────────────────
-		// MagicMatches() operates on raw bytes; it is endian-safe and handles the
-		// LE struct byte-swap applied by the writer.
-		if (!MslFormat.MagicMatches(fileBytes.AsSpan(0, 4)))
-			throw new FormatException(
-				$"Magic mismatch in '{filePath}': not an MSL file " +
-				$"(got 0x{fileBytes[0]:X2}{fileBytes[1]:X2}{fileBytes[2]:X2}{fileBytes[3]:X2}).");
-
-		// ── Check 3: format version ───────────────────────────────────────────
-		// Deserialise the header now; re-use it for all subsequent field reads.
-		header = MemoryMarshal.Read<MslFileHeader>(fileBytes.AsSpan(0, MslFormat.HeaderSize));
-
-		// Accept versions 1 through CurrentVersion; reject anything outside that range.
-		if (header.FormatVersion < 1 || header.FormatVersion > MslFormat.CurrentVersion)
-			throw new FormatException(
-				$"Unsupported version: {header.FormatVersion} in '{filePath}'. " +
-				$"This reader supports versions 1–{MslFormat.CurrentVersion}.");
-
-		// ── Check 4: trailing footer magic ────────────────────────────────────
-		int footerStart = fileBytes.Length - MslFormat.FooterSize;
-		footer = MemoryMarshal.Read<MslFooter>(fileBytes.AsSpan(footerStart, MslFormat.FooterSize));
-
-		// The trailing magic occupies the last 4 bytes of the file.
-		// Verify using MagicMatches() on the raw bytes for endian-safe comparison.
-		int trailingMagicStart = fileBytes.Length - 4;
-
-		if (!MslFormat.MagicMatches(fileBytes.AsSpan(trailingMagicStart, 4)))
-			throw new FormatException(
-				$"Trailing magic mismatch in '{filePath}': file is truncated or not a valid .msl file.");
-
-		// ── Check 5: NPrecursors cross-check ──────────────────────────────────
-		if (footer.NPrecursors != header.NPrecursors)
-			throw new FormatException(
-				$"NPrecursors mismatch in '{filePath}': " +
-				$"header says {header.NPrecursors}, footer says {footer.NPrecursors}. " +
-				"File may be truncated or corrupt.");
-
-		// ── Check 6: CRC-32 checksum ──────────────────────────────────────────
-		// Coverage: bytes 0..(OffsetTableOffset - 1); excludes the offset table and footer.
-		long crcEndOffset = footer.OffsetTableOffset;
-
-		if (crcEndOffset < 0 || crcEndOffset > fileBytes.Length)
-			throw new FormatException(
-				$"Invalid OffsetTableOffset ({crcEndOffset}) in footer of '{filePath}'.");
-
-		uint computedCrc = ComputeCrc32OfArray(fileBytes, (int)crcEndOffset);
-
-		if (computedCrc != footer.DataCrc32)
-			throw new InvalidDataException(
-				$"CRC32 mismatch: file may be corrupted. " +
-				$"Stored: 0x{footer.DataCrc32:X8}, Computed: 0x{computedCrc:X8}.");
-	}
-
-	// ── Table readers ─────────────────────────────────────────────────────────
-
-	/// <summary>
-	/// Deserialises the string table from the in-memory file bytes starting at
-	/// <c>header.StringTableOffset</c>. Returns a string array where index 0 is always
-	/// the empty string.
-	///
-	/// On-disk layout per entry: [int32 length][UTF-8 body, no null terminator].
-	/// The section header contains [int32 NStrings][int32 TotalBodyBytes].
-	/// </summary>
-	/// <param name="fileBytes">Complete file content.</param>
-	/// <param name="header">Deserialized file header providing offset and count.</param>
-	/// <returns>
-	/// All interned strings as a zero-based string array; length equals the NStrings
-	/// field found at the start of the string table section.
-	/// </returns>
-	/// <exception cref="FormatException">Index 0 is not the empty string.</exception>
-	private static string[] ReadStringTable(byte[] fileBytes, MslFileHeader header)
-	{
-		// Walking position within fileBytes
-		int pos = (int)header.StringTableOffset;
-
-		// Two leading int32 fields: NStrings, then TotalBodyBytes (informational)
-		int nStrings = ReadInt32LE(fileBytes, pos); pos += 4;
-		// TotalBodyBytes is informational only; we don't need it for parsing
-		pos += 4;
-
-		var strings = new string[nStrings];
-
-		for (int i = 0; i < nStrings; i++)
-		{
-			// Each entry: 4-byte length prefix + UTF-8 body bytes (no null terminator)
-			int len = ReadInt32LE(fileBytes, pos); pos += 4;
-			strings[i] = len > 0 ? Encoding.UTF8.GetString(fileBytes, pos, len) : string.Empty;
-			pos += len;
-		}
-
-		// Invariant guaranteed by the writer: index 0 must always be the empty string
-		if (nStrings > 0 && strings[0] != string.Empty)
-			throw new FormatException(
-				$"String table invariant violated: index 0 must be the empty string, " +
-				$"but got '{strings[0]}'.");
-
-		return strings;
-	}
-
-	/// <summary>
-	/// Deserialises the protein table from the in-memory file bytes starting at
-	/// <c>header.ProteinTableOffset</c>. Uses zero-copy batch casting via
-	/// <see cref="MemoryMarshal.Cast{TFrom,TTo}"/>. Returns an empty array when
-	/// <c>header.NProteins</c> is zero.
-	/// </summary>
-	/// <param name="fileBytes">Complete file content.</param>
-	/// <param name="header">Deserialized file header providing the offset and count.</param>
-	/// <returns>
-	/// Array of <see cref="MslProteinRecord"/> structs; may be empty.
-	/// </returns>
-	private static MslProteinRecord[] ReadProteinTable(byte[] fileBytes, MslFileHeader header)
-	{
-		int nProteins = header.NProteins;
-
-		if (nProteins == 0)
-			return Array.Empty<MslProteinRecord>();
-
-		int byteCount = nProteins * MslFormat.ProteinRecordSize;
-		int startPos = (int)header.ProteinTableOffset;
-
-		var proteins = new MslProteinRecord[nProteins];
-		ReadOnlySpan<byte> span = fileBytes.AsSpan(startPos, byteCount);
-		MemoryMarshal.Cast<byte, MslProteinRecord>(span).CopyTo(proteins);
-
-		return proteins;
-	}
-
-	/// <summary>
-	/// Deserialises the entire precursor array from the in-memory file bytes starting at
-	/// <c>header.PrecursorSectionOffset</c>. Uses zero-copy batch casting for performance
-	/// (hot path for large libraries). Returns an empty array for a zero-precursor library.
-	/// </summary>
-	/// <param name="fileBytes">Complete file content.</param>
-	/// <param name="header">Deserialized file header providing the offset and count.</param>
-	/// <returns>
-	/// Array of <see cref="MslPrecursorRecord"/> structs in file order.
-	/// </returns>
-	private static MslPrecursorRecord[] ReadPrecursorArray(byte[] fileBytes, MslFileHeader header)
-	{
-		int nPrecursors = header.NPrecursors;
-
-		if (nPrecursors == 0)
-			return Array.Empty<MslPrecursorRecord>();
-
-		int byteCount = nPrecursors * MslFormat.PrecursorRecordSize;
-		int startPos = (int)header.PrecursorSectionOffset;
-
-		var precursors = new MslPrecursorRecord[nPrecursors];
-		ReadOnlySpan<byte> span = fileBytes.AsSpan(startPos, byteCount);
-		MemoryMarshal.Cast<byte, MslPrecursorRecord>(span).CopyTo(precursors);
-
-		return precursors;
-	}
-
-	/// <summary>
-	/// Reads the extended annotation table section when
-	/// <see cref="MslFormat.FileFlagHasExtAnnotations"/> is set in the file header.
-	/// Returns an empty array for version-1 files or any file without the flag.
-	///
-	/// On-disk format:
-	/// <code>
-	///   int32    NCustomLosses
-	///   double[] CustomLossMasses  (NCustomLosses × 8 bytes)
-	/// </code>
-	///
-	/// Index 0 is the reserved sentinel (0.0 = no loss). Valid custom entries start at 1.
-	/// </summary>
-	private static double[] ReadExtAnnotationTable(byte[] fileBytes, MslFileHeader header)
-	{
-		// Flag absent or version 1: no extended annotation table in this file
-		if ((header.FileFlags & MslFormat.FileFlagHasExtAnnotations) == 0
-			|| header.ExtAnnotationTableOffset <= 0)
-			return Array.Empty<double>();
-
-		int pos = header.ExtAnnotationTableOffset;
-		int count = ReadInt32LE(fileBytes, pos); pos += 4;
-
-		if (count <= 0)
-			return Array.Empty<double>();
-
-		var masses = new double[count];
-		for (int i = 0; i < count; i++)
-		{
-			masses[i] = BitConverter.ToDouble(fileBytes, pos);
-			pos += 8;
-		}
-
+		fs.ReadExactly(MemoryMarshal.AsBytes(masses.AsSpan()));
 		return masses;
 	}
 
 	/// <summary>
-	/// Reads the 16-byte compression descriptor at file offset 64 and decompresses the
-	/// zstd fragment frame into a new <c>byte[]</c>. Called when
-	/// <see cref="MslFormat.FileFlagIsCompressed"/> is set.
-	///
-	/// After this call, <c>MslPrecursorRecord.FragmentBlockOffset</c> values are treated as
-	/// offsets into the returned buffer rather than absolute file positions.
+	/// Reads the 16-byte compression descriptor that follows the header in compressed files.
 	/// </summary>
-	/// <param name="fileBytes">Complete file content.</param>
-	/// <param name="header">Deserialized file header (provides <c>FragmentSectionOffset</c>).</param>
-	/// <returns>The decompressed fragment section as a new byte array.</returns>
-	private static byte[] DecompressFragmentSection(byte[] fileBytes, MslFileHeader header)
+	private static (long CompressedSize, long UncompressedSize) ReadCompressionDescriptor(FileStream fs)
 	{
-		// Compression descriptor is at offset 64 (immediately after the 64-byte header):
-		//   int64 CompressedFragmentSize   (offset 64)
-		//   int64 UncompressedFragmentSize (offset 72)
-		const int DescriptorOffset = MslFormat.HeaderSize; // = 64
-		long compressedSize = BitConverter.ToInt64(fileBytes, DescriptorOffset);
-		long uncompressedSize = BitConverter.ToInt64(fileBytes, DescriptorOffset + 8);
+		Span<byte> descriptor = stackalloc byte[16];
+		fs.Seek(MslFormat.HeaderSize, SeekOrigin.Begin);
+		fs.ReadExactly(descriptor);
+		return (BinaryPrimitives.ReadInt64LittleEndian(descriptor),
+				BinaryPrimitives.ReadInt64LittleEndian(descriptor[8..]));
+	}
 
-		// The compressed zstd frame starts at FragmentSectionOffset
-		int frameStart = (int)header.FragmentSectionOffset;
+	// ── Full load ─────────────────────────────────────────────────────────────
 
-		ReadOnlySpan<byte> compressedSpan = fileBytes.AsSpan(frameStart, (int)compressedSize);
+	/// <summary>
+	/// Reads every section of an already-validated file from <paramref name="fs"/> and builds
+	/// the fully-loaded entry list. The file is read in bounded pieces, never as one buffer, so
+	/// there is no 2 GB limit (a single <c>byte[]</c> cannot exceed <see cref="Array.MaxLength"/>).
+	/// </summary>
+	/// <param name="fs">Open stream positioned anywhere; it is seeked as needed.</param>
+	/// <param name="header">Header returned by <see cref="StreamingValidateAndReadHeader"/>.</param>
+	/// <param name="footer">Footer returned by <see cref="StreamingValidateAndReadHeader"/>.</param>
+	/// <returns>A full-load <see cref="MslLibraryData"/> (no open stream).</returns>
+	private static MslLibraryData LoadAllEntries(FileStream fs, MslFileHeader header, MslFooter footer)
+	{
+		string[] strings = ReadStringTableFromStream(fs, header);
+		MslProteinRecord[] proteins = ReadProteinTableFromStream(fs, header);
+		MslPrecursorRecord[] precursors = ReadPrecursorArrayFromStream(fs, header);
+		double[] customLossMasses = ReadExtAnnotationTableFromStream(fs, header, footer, precursors);
 
-		using var decompressor = new Decompressor();
-		byte[] decompressed = new byte[uncompressedSize];
-		decompressor.Unwrap(compressedSpan, decompressed);
+		var fragments = new List<MslFragmentIon>[precursors.Length];
 
-		return decompressed;
+		if ((header.FileFlags & MslFormat.FileFlagIsCompressed) != 0)
+		{
+			// Compressed: FragmentBlockOffset values are offsets into the decompressed section,
+			// which is decoded as a stream rather than into one buffer.
+			var (compressedSize, uncompressedSize) = ReadCompressionDescriptor(fs);
+
+			fs.Seek(header.FragmentSectionOffset, SeekOrigin.Begin);
+			using var frame = new BoundedReadStream(fs, compressedSize);
+			using var decompressed = new DecompressionStream(frame, bufferSize: 1 << 20, leaveOpen: true);
+			long position = ReadAllFragmentBlocks(
+				decompressed, 0, uncompressedSize, precursors, customLossMasses, fragments);
+
+			// Decode the rest of the frame: it must end exactly at the declared uncompressed size.
+			// Reaching the end also makes the decoder check that the frame is complete.
+			SkipForward(decompressed, uncompressedSize - position);
+			if (decompressed.ReadByte() != -1)
+				throw new FormatException(
+					$"The compressed fragment section decodes to more than its declared {uncompressedSize} bytes.");
+		}
+		else
+		{
+			// Uncompressed: FragmentBlockOffset values are absolute file positions
+			fs.Seek(header.FragmentSectionOffset, SeekOrigin.Begin);
+			ReadAllFragmentBlocks(
+				fs, header.FragmentSectionOffset, footer.OffsetTableOffset, precursors, customLossMasses, fragments);
+		}
+
+		var entries = new List<MslLibraryEntry>(precursors.Length);
+		for (int i = 0; i < precursors.Length; i++)
+			entries.Add(ConvertPrecursor(precursors[i], strings, proteins, fragments[i]));
+
+		return new MslLibraryData(entries, header);
 	}
 
 	/// <summary>
-	/// Deserialises one precursor's fragment block from a byte buffer.
-	/// Used in full-load mode (<see cref="Load"/>).
-	///
-	/// For uncompressed files <paramref name="buffer"/> is the full file content and
-	/// <c>precursor.FragmentBlockOffset</c> is an absolute file position.
-	/// For compressed files <paramref name="buffer"/> is the decompressed fragment buffer
-	/// and the offset is relative to its start.
-	///
-	/// Returns an empty list when <c>precursor.FragmentCount</c> is zero.
+	/// Reads every precursor's fragment block from <paramref name="source"/> in ascending
+	/// offset order, so the source is consumed front to back (the writer lays blocks out in
+	/// precursor order, so this is normally a single forward pass with no seeks).
 	/// </summary>
-	/// <param name="buffer">Byte buffer to read from.</param>
-	/// <param name="precursor">
-	/// The precursor record whose <c>FragmentBlockOffset</c> and <c>FragmentCount</c>
-	/// identify the fragment block.
+	/// <param name="source">
+	/// The fragment bytes: the file itself (seekable) or a decompression stream (forward-only).
 	/// </param>
-	/// <param name="customLossMasses">
-	/// Extended annotation table masses. Index 0 is the sentinel (0.0). Pass
-	/// <see cref="Array.Empty{T}"/> for files with no custom neutral losses.
+	/// <param name="position">
+	/// The offset, in the same space as <c>FragmentBlockOffset</c>, that <paramref name="source"/>
+	/// is currently positioned at.
 	/// </param>
-	/// <returns>
-	/// List of <see cref="MslFragmentIon"/> objects in m/z ascending order as written.
-	/// </returns>
-	private static List<MslFragmentIon> ReadFragmentBlockFromBytes(
-		byte[] buffer,
-		MslPrecursorRecord precursor,
-		double[] customLossMasses)
+	/// <param name="end">Exclusive upper bound, in the same space, that no block may cross.</param>
+	/// <param name="precursors">Precursor records providing each block's offset and count.</param>
+	/// <param name="customLossMasses">Extended annotation table masses.</param>
+	/// <param name="fragments">Output: the fragment list for each precursor, by precursor index.</param>
+	/// <returns>The position after the last block read.</returns>
+	/// <exception cref="FormatException">
+	/// A block crosses <paramref name="end"/>, or blocks overlap in a forward-only source; a valid
+	/// writer produces neither.
+	/// </exception>
+	private static long ReadAllFragmentBlocks(
+		Stream source,
+		long position,
+		long end,
+		MslPrecursorRecord[] precursors,
+		double[] customLossMasses,
+		List<MslFragmentIon>[] fragments)
 	{
-		int fragmentCount = precursor.FragmentCount;
+		int n = precursors.Length;
 
-		if (fragmentCount == 0)
-			return new List<MslFragmentIon>(0);
+		// Visit blocks in offset order; skip the sort when they are already ascending
+		int[] order = new int[n];
+		for (int i = 0; i < n; i++) order[i] = i;
+		bool ascending = true;
+		for (int i = 1; i < n && ascending; i++)
+			ascending = precursors[i].FragmentBlockOffset >= precursors[i - 1].FragmentBlockOffset;
+		if (!ascending)
+		{
+			long[] offsets = new long[n];
+			for (int i = 0; i < n; i++) offsets[i] = precursors[i].FragmentBlockOffset;
+			Array.Sort(offsets, order);
+		}
 
-		int byteCount = fragmentCount * MslFormat.FragmentRecordSize;
-		int startPos = (int)precursor.FragmentBlockOffset;
+		foreach (int idx in order)
+		{
+			MslPrecursorRecord p = precursors[idx];
+			int fragmentCount = p.FragmentCount;
 
-		var records = new MslFragmentRecord[fragmentCount];
-		ReadOnlySpan<byte> span = buffer.AsSpan(startPos, byteCount);
-		MemoryMarshal.Cast<byte, MslFragmentRecord>(span).CopyTo(records);
+			if (fragmentCount == 0)
+			{
+				fragments[idx] = new List<MslFragmentIon>(0);
+				continue;
+			}
 
-		var ions = new List<MslFragmentIon>(fragmentCount);
-		foreach (ref readonly MslFragmentRecord r in records.AsSpan())
-			ions.Add(ConvertFragment(in r, customLossMasses));
+			long offset = p.FragmentBlockOffset;
+			long blockEnd = offset + (long)fragmentCount * MslFormat.FragmentRecordSize;
+			if (offset < 0 || blockEnd > end)
+				throw new FormatException(
+					$"Fragment block at offset {offset} runs past the end of the fragment section ({end}).");
 
-		return ions;
+			if (offset != position)
+			{
+				if (source.CanSeek)
+				{
+					source.Seek(offset, SeekOrigin.Begin);
+				}
+				else if (offset > position)
+				{
+					// Forward-only source: read and discard the gap
+					SkipForward(source, offset - position);
+				}
+				else
+				{
+					throw new FormatException(
+						$"Fragment blocks overlap at offset {offset}; the fragment section is corrupt.");
+				}
+			}
+
+			var records = new MslFragmentRecord[fragmentCount];
+			source.ReadExactly(MemoryMarshal.AsBytes(records.AsSpan()));
+			position = blockEnd;
+
+			var ions = new List<MslFragmentIon>(fragmentCount);
+			foreach (ref readonly MslFragmentRecord r in records.AsSpan())
+				ions.Add(ConvertFragment(in r, customLossMasses));
+			fragments[idx] = ions;
+		}
+
+		return position;
+	}
+
+	/// <summary>Reads and discards <paramref name="count"/> bytes from a forward-only stream.</summary>
+	private static void SkipForward(Stream source, long count)
+	{
+		if (count <= 0) return;
+		byte[] buffer = ArrayPool<byte>.Shared.Rent(81920);
+		try
+		{
+			while (count > 0)
+			{
+				int chunk = (int)Math.Min(count, buffer.Length);
+				source.ReadExactly(buffer, 0, chunk);
+				count -= chunk;
+			}
+		}
+		finally
+		{
+			ArrayPool<byte>.Shared.Return(buffer);
+		}
 	}
 
 	/// <summary>
-	/// Deserialises one precursor's fragment block from the open on-demand
-	/// <see cref="System.IO.FileStream"/> by seeking to the stored offset. Used in
-	/// index-only mode; called from <c>MslLibrary.LoadFragmentsOnDemand</c>.
-	///
-	/// Thread-safety: the caller (<see cref="MslLibrary"/>) must hold the library's internal
-	/// stream lock around the entire call to prevent concurrent Seek + Read interleaving.
+	/// Read-only view of the next <c>length</c> bytes of an underlying stream. Bounds the zstd
+	/// decoder to the compressed frame so it cannot read into the sections that follow it.
 	/// </summary>
-	/// <param name="stream">
-	/// An open <see cref="System.IO.FileStream"/>; will be seeked to
-	/// <c>precursor.FragmentBlockOffset</c> before reading.
-	/// </param>
+	private sealed class BoundedReadStream : Stream
+	{
+		private readonly Stream _inner;
+		private long _remaining;
+
+		public BoundedReadStream(Stream inner, long length)
+		{
+			_inner = inner;
+			_remaining = length;
+		}
+
+		public override int Read(byte[] buffer, int offset, int count) =>
+			Read(buffer.AsSpan(offset, count));
+
+		public override int Read(Span<byte> buffer)
+		{
+			if (_remaining <= 0) return 0;
+			if (buffer.Length > _remaining) buffer = buffer[..(int)_remaining];
+			int read = _inner.Read(buffer);
+			_remaining -= read;
+			return read;
+		}
+
+		public override bool CanRead => true;
+		public override bool CanSeek => false;
+		public override bool CanWrite => false;
+		public override long Length => throw new NotSupportedException();
+		public override long Position
+		{
+			get => throw new NotSupportedException();
+			set => throw new NotSupportedException();
+		}
+		public override void Flush() { }
+		public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+		public override void SetLength(long value) => throw new NotSupportedException();
+		public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+	}
+
+	/// <summary>
+	/// Deserialises one precursor's fragment block from a memory-mapped view of the file.
+	/// Used in index-only mode; called from <c>MslLibraryData.LoadFragmentsOnDemand</c>.
+	///
+	/// Thread-safe without a lock: the view is read-only and has no shared position.
+	/// </summary>
+	/// <param name="view">Read-only view over the whole file, starting at offset 0.</param>
+	/// <param name="fileLength">File length; the view's capacity is page-rounded, so it bounds the read.</param>
 	/// <param name="precursor">The precursor record identifying the fragment block.</param>
 	/// <param name="customLossMasses">
 	/// Extended annotation table masses passed from the library's cached copy.
@@ -751,8 +618,10 @@ public static class MslReader
 	/// <returns>
 	/// List of <see cref="MslFragmentIon"/> objects. Empty when <c>FragmentCount</c> is zero.
 	/// </returns>
-	internal static List<MslFragmentIon> ReadFragmentBlockFromStream(
-		FileStream stream,
+	/// <exception cref="EndOfStreamException">The block extends past the end of the file.</exception>
+	internal static List<MslFragmentIon> ReadFragmentBlockAt(
+		MemoryMappedViewAccessor view,
+		long fileLength,
 		MslPrecursorRecord precursor,
 		double[] customLossMasses)
 	{
@@ -761,33 +630,90 @@ public static class MslReader
 		if (fragmentCount == 0)
 			return new List<MslFragmentIon>(0);
 
-		int byteCount = fragmentCount * MslFormat.FragmentRecordSize;
+		long end = precursor.FragmentBlockOffset + (long)fragmentCount * MslFormat.FragmentRecordSize;
+		if (precursor.FragmentBlockOffset < 0 || end > fileLength)
+			throw new EndOfStreamException(
+				$"Fragment block at offset {precursor.FragmentBlockOffset} extends past the end of the file.");
 
-		// Seek to the fragment block; the caller must hold the stream lock
-		stream.Seek(precursor.FragmentBlockOffset, SeekOrigin.Begin);
+		var records = new MslFragmentRecord[fragmentCount];
+		view.ReadArray(precursor.FragmentBlockOffset, records, 0, fragmentCount);
+		return ToIons(records, customLossMasses);
+	}
 
-		// Rent a pooled buffer to avoid per-call heap allocation on the hot path
-		byte[] buffer = ArrayPool<byte>.Shared.Rent(byteCount);
+	/// <summary>
+	/// Deserialises one precursor's fragment block with positional reads from
+	/// <paramref name="handle"/>. Used in index-only mode for files that are not memory-mapped
+	/// (see <see cref="IsOnLocalFixedDrive"/>). Thread-safe without a lock: positional reads do
+	/// not use a shared file position.
+	/// </summary>
+	/// <exception cref="EndOfStreamException">The block extends past the end of the file.</exception>
+	internal static List<MslFragmentIon> ReadFragmentBlockAt(
+		SafeFileHandle handle,
+		MslPrecursorRecord precursor,
+		double[] customLossMasses)
+	{
+		int fragmentCount = precursor.FragmentCount;
 
+		if (fragmentCount == 0)
+			return new List<MslFragmentIon>(0);
+
+		var records = new MslFragmentRecord[fragmentCount];
+		Span<byte> target = MemoryMarshal.AsBytes(records.AsSpan());
+
+		// RandomAccess.Read may return fewer bytes than asked; loop until the block is complete
+		int filled = 0;
+		while (filled < target.Length)
+		{
+			int read = RandomAccess.Read(handle, target[filled..], precursor.FragmentBlockOffset + filled);
+			if (read == 0)
+				throw new EndOfStreamException(
+					$"Fragment block at offset {precursor.FragmentBlockOffset} extends past the end of the file.");
+			filled += read;
+		}
+
+		return ToIons(records, customLossMasses);
+	}
+
+	private static List<MslFragmentIon> ToIons(MslFragmentRecord[] records, double[] customLossMasses)
+	{
+		var ions = new List<MslFragmentIon>(records.Length);
+		foreach (ref readonly MslFragmentRecord r in records.AsSpan())
+			ions.Add(ConvertFragment(in r, customLossMasses));
+		return ions;
+	}
+
+	/// <summary>
+	/// True when <paramref name="filePath"/> is on a local fixed (or RAM) drive. Index-only mode
+	/// memory-maps only such files: if a network or removable drive fails while a mapped page is
+	/// read, the fault ends the process instead of raising a catchable <see cref="IOException"/>.
+	/// Any doubt (UNC path, unknown drive, lookup failure) answers false.
+	/// </summary>
+	internal static bool IsOnLocalFixedDrive(string filePath)
+	{
 		try
 		{
-			// ReadExactly guarantees a complete read; avoids silent short-read bugs
-			stream.ReadExactly(buffer, 0, byteCount);
+			string fullPath = Path.GetFullPath(filePath);
+			if (fullPath.StartsWith(@"\\", StringComparison.Ordinal))
+				return false;  // UNC path: a network share
 
-			var records = new MslFragmentRecord[fragmentCount];
-			ReadOnlySpan<byte> span = buffer.AsSpan(0, byteCount);
-			MemoryMarshal.Cast<byte, MslFragmentRecord>(span).CopyTo(records);
+			// The drive (mount) holding the file is the one with the longest matching root
+			StringComparison comparison = OperatingSystem.IsWindows()
+				? StringComparison.OrdinalIgnoreCase
+				: StringComparison.Ordinal;
+			DriveInfo? drive = null;
+			foreach (DriveInfo candidate in DriveInfo.GetDrives())
+			{
+				string root = candidate.RootDirectory.FullName;
+				if (fullPath.StartsWith(root, comparison)
+					&& (drive is null || root.Length > drive.RootDirectory.FullName.Length))
+					drive = candidate;
+			}
 
-			var ions = new List<MslFragmentIon>(fragmentCount);
-			foreach (ref readonly MslFragmentRecord r in records.AsSpan())
-				ions.Add(ConvertFragment(in r, customLossMasses));
-
-			return ions;
+			return drive?.DriveType is DriveType.Fixed or DriveType.Ram;
 		}
-		finally
+		catch (Exception)
 		{
-			// Return the rented buffer even if an exception occurs during conversion
-			ArrayPool<byte>.Shared.Return(buffer);
+			return false;
 		}
 	}
 
@@ -926,7 +852,7 @@ public static class MslReader
 	FileStream fs,
 	out MslFileHeader header,
 	out MslFooter footer,
-	int chunkSize = 65536)
+	int chunkSize = 1 << 20)
 	{
 		long fileLength = fs.Length;
 		int minimumSize = MslFormat.HeaderSize + MslFormat.FooterSize;
@@ -980,7 +906,7 @@ public static class MslReader
 			throw new FormatException(
 				$"Invalid OffsetTableOffset ({crcEndOffset}) in footer of '{filePath}'.");
 
-		uint crc = 0xFFFF_FFFFu;
+		uint crc = MslCrc32.Initial;
 		byte[] chunk = ArrayPool<byte>.Shared.Rent(chunkSize);
 
 		try
@@ -994,8 +920,7 @@ public static class MslReader
 				int read = fs.Read(chunk, 0, toRead);
 				if (read == 0) break;
 
-				for (int i = 0; i < read; i++)
-					crc = (crc >> 8) ^ Crc32Table[(crc ^ chunk[i]) & 0xFF];
+				crc = MslCrc32.Update(crc, chunk.AsSpan(0, read));
 
 				remaining -= read;
 			}
@@ -1005,7 +930,7 @@ public static class MslReader
 			ArrayPool<byte>.Shared.Return(chunk);
 		}
 
-		uint computedCrc = crc ^ 0xFFFF_FFFFu;
+		uint computedCrc = MslCrc32.Finish(crc);
 
 		if (computedCrc != footer.DataCrc32)
 			throw new InvalidDataException(
