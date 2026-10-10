@@ -536,4 +536,148 @@ public class EntrapmentAssemblyTests
         Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence));
         Assert.That(guarded.UnrepairableRunCollisions, Is.Zero);
     }
+
+    // ---- production review of #1271, 2026-10-10 --------------------------------
+    // Each of these fails under one mutation of the assembler that the suite let through.
+
+    private const string NonMethionineOpening = "GGVDTTPFAWENDRALADQMNLLLSKQISTLGGYK";
+
+    /// <summary>Two short pieces around a piece with one arrangement, which is excised.</summary>
+    private const string Excising = "SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR";
+
+    [Test]
+    public void AnInitiatorMethionineStrippedRunOfEveryLengthIsChecked()
+    {
+        // Digestion strips the initiator methionine from every run that begins at the opening piece,
+        // up to MaxMissedCleavages + 1 pieces long. Only two-piece runs were tested, so the longest
+        // one could fall out of the check unnoticed.
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(FourPieces, Tryptic(), NothingForbidden);
+        string strippedThreePieceRun = (free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_
+                                        + free.Pieces[2].EntrapmentPiece_).Substring(1);
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(FourPieces, Tryptic(),
+            new HashSet<string> { strippedThreePieceRun });
+
+        Assert.That(guarded.EntrapmentSequence, Does.Not.Contain(strippedThreePieceRun));
+    }
+
+    [Test]
+    public void AnOpeningThatIsNotMethionineIsNotCheckedForAStrippedForm()
+    {
+        // Over-reach changes partners too: only an opening methionine is ever removed by a search.
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(NonMethionineOpening, Tryptic(), NothingForbidden);
+        string opening = free.Pieces[0].EntrapmentPiece_!;
+        string openingRun = opening + free.Pieces[1].EntrapmentPiece_;
+
+        Assert.That(EntrapmentAssembler.Assemble(NonMethionineOpening, Tryptic(),
+                new HashSet<string> { opening.Substring(1) }).EntrapmentSequence,
+            Is.EqualTo(free.EntrapmentSequence), "the opening piece alone");
+        Assert.That(EntrapmentAssembler.Assemble(NonMethionineOpening, Tryptic(),
+                new HashSet<string> { openingRun.Substring(1) }).EntrapmentSequence,
+            Is.EqualTo(free.EntrapmentSequence), "a run from the opening piece");
+    }
+
+    [Test]
+    public void AnExcisedOpeningPieceHandsTheInitiatorMethionineCheckToTheNextPiece()
+    {
+        // SSSSSSR has one arrangement and is excised, so the partner opens with the next piece's
+        // methionine, which a search strips. Keying the check on the piece's ordinal rather than on
+        // what has been placed would leave that route open.
+        const string sequence = "SSSSSSRMSTQAEVDLNSGWKGGVDTTPFAWENDR";
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(sequence, Tryptic(), NothingForbidden);
+        Assert.That(free.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the opening piece goes");
+        string promoted = free.Pieces[1].EntrapmentPiece_!;
+        Assert.That(promoted, Does.StartWith("M"), "fixture: the next piece opens with methionine");
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(sequence, Tryptic(),
+            new HashSet<string> { promoted.Substring(1) });
+
+        Assert.That(guarded.Pieces[1].EntrapmentPiece_, Is.Not.EqualTo(promoted));
+    }
+
+    [Test]
+    public void APieceOfExactlyMaxLengthWithNoAlternativeIsExcisedNotKept()
+    {
+        // Kept verbatim, a piece a search can report is a real target peptide in the entrapment
+        // database. Only pieces strictly longer than MaxLength are unsearchable.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+            maxPeptideLength: 50);
+        string piece = new string('Q', 49) + "K";
+
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(piece + "GGVDTTPFAWENDR", digestion,
+            NothingForbidden);
+
+        Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised));
+        Assert.That(assembly.EntrapmentSequence, Does.Not.Contain(piece));
+    }
+
+    [Test]
+    public void EveryRunEndingAtAKeptPieceIsNamed()
+    {
+        // Several runs can end at one kept piece, and each is a peptide a consumer has to exclude.
+        const string sequence = "MSTQAEVDLNSGWKALADQMNLLLSKAAR";
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(sequence, Tryptic(), NothingForbidden);
+        Assert.That(free.Pieces[2].Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooShort));
+        string[] runs =
+        {
+            free.Pieces[1].EntrapmentPiece_ + "AAR",
+            free.Pieces[0].EntrapmentPiece_ + free.Pieces[1].EntrapmentPiece_ + "AAR",
+        };
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(sequence, Tryptic(), new HashSet<string>(runs));
+
+        Assert.That(guarded.UnrepairableRunCollisionPeptides, Is.EquivalentTo(runs));
+    }
+
+    [Test]
+    public void ARunShorterThanMinLengthIsNeitherRefusedNorNamed()
+    {
+        // No search reports AKAAR at length 7 and up, so naming it would put a peptide in the
+        // exclusion list that is not in the population it is subtracted from.
+        const string sequence = "MSTQAEVDLNSGWKAKAAR";
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(sequence, Tryptic(), NothingForbidden);
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(sequence, Tryptic(),
+            new HashSet<string> { "AKAAR" });
+
+        Assert.That(guarded.UnrepairableRunCollisions, Is.Zero);
+        Assert.That(guarded.EntrapmentSequence, Is.EqualTo(free.EntrapmentSequence));
+    }
+
+    [Test]
+    public void EachPieceRecordsWhereItSitsInThePartner()
+    {
+        // Downstream readers -- the mass-group comparison first -- find a piece in the partner by
+        // EntrapmentStart, and after an excision that is no longer the target's offset.
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(Excising, Tryptic(), NothingForbidden);
+        Assert.That(assembly.ExcisedCount, Is.EqualTo(1), "fixture: one piece is excised");
+
+        int cursor = 0;
+        foreach (EntrapmentPiece piece in assembly.Pieces)
+        {
+            if (piece.Outcome == PieceOutcome.Excised)
+            {
+                Assert.That(piece.EntrapmentStart, Is.EqualTo(-1));
+                continue;
+            }
+
+            Assert.That(piece.EntrapmentStart, Is.EqualTo(cursor), "piece " + piece.Index);
+            Assert.That(assembly.EntrapmentSequence.Substring(piece.EntrapmentStart, piece.EntrapmentPiece_!.Length),
+                Is.EqualTo(piece.EntrapmentPiece_));
+            cursor += piece.EntrapmentPiece_.Length;
+        }
+    }
+
+    [Test]
+    public void Assemble_PartnersArePinnedToLiteralSequences()
+    {
+        // The protein-level twin of the peptide generator's golden test: anchors, run tests and the
+        // initiator-methionine test all decide which partner a piece gets, and none of them is
+        // pinned by a test that compares the assembler only with itself. If this fails, partners
+        // have changed: bump EntrapmentProteinGenerator.ConstructionVersion first.
+        Assert.That(EntrapmentProteinGenerator.ConstructionVersion, Is.EqualTo(1));
+        Assert.That(EntrapmentAssembler.Assemble(FourPieces, Tryptic(), NothingForbidden,
+                fold: 2, foldCount: 3, seed: 42).EntrapmentSequence,
+            Is.EqualTo("MSSEDNQGLWTAVKASDQLLNLAMLKGGANDTTPFDWEVRQGITSGLYK"));
+    }
 }

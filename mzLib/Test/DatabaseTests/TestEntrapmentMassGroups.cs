@@ -230,4 +230,87 @@ public class EntrapmentMassGroupTests
         Assert.Throws<MzLibException>(() => comparison.Add(target, companion, null, 7));
         Assert.Throws<MzLibException>(() => new MassGroupComparison(null));
     }
+
+    // ---- production review of #1271, 2026-10-10 --------------------------------
+    // No test produced a mismatch, so the counters could be stubbed to read "holds" and nothing
+    // failed: the counters-read-correct-while-measuring-nothing failure this comparison exists for.
+
+    private const string OxidizableAtEleven = "MAAALGGDRSMGVDTTPFAWENDRQITTLGGYK";
+
+    [Test]
+    public void ACompanionMissingAnAnnotationIsAMismatch()
+    {
+        Modification oxidation = OxidationOnM();
+        var target = new Protein(OxidizableAtEleven, "P1", oneBasedModifications:
+            new Dictionary<int, List<Modification>> { { 11, new List<Modification> { oxidation } } });
+        Protein companion = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        var unannotated = new Protein(companion.BaseSequence, companion.Accession);
+
+        var comparison = new MassGroupComparison(new MassGroupIndex(new[] { oxidation }));
+        comparison.Add(target, unannotated, assembly, 7);
+        MassGroupTally tally = comparison.Tallies.Single();
+
+        Assert.That(tally.TargetAnnotatedSites, Is.EqualTo(1));
+        Assert.That(tally.CompanionAnnotatedSites, Is.Zero);
+        Assert.That(tally.PeptidesWithAnnotatedSiteMismatch, Is.EqualTo(1));
+        Assert.That(comparison.Holds, Is.False);
+        Assert.That(comparison.ToTabSeparated(), Does.Contain("# invariantHolds\tfalse"));
+    }
+
+    [Test]
+    public void TheCompanionIsReadAtItsOwnOffsetAfterAnExcision()
+    {
+        // SSSSSSR is excised, so the G that opens the last piece sits seven residues earlier in the
+        // companion than in the target. Read at the target's offset, its annotation is lost.
+        const string excising = "SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR";
+        Modification onG = Mod("G", "TestG", 12.0);
+        var target = new Protein(excising, "P1", oneBasedModifications:
+            new Dictionary<int, List<Modification>> { { 23, new List<Modification> { onG } } });
+        Assert.That(excising[22], Is.EqualTo('G'), "fixture: the annotation is on G");
+        Protein companion = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        Assert.That(assembly.ExcisedCount, Is.EqualTo(1), "fixture: one piece is excised");
+
+        var comparison = new MassGroupComparison(new MassGroupIndex(new[] { onG }));
+        comparison.Add(target, companion, assembly, 7);
+        MassGroupTally tally = comparison.Tallies.Single();
+
+        Assert.That(tally.TargetAnnotatedSites, Is.EqualTo(1));
+        Assert.That(tally.CompanionAnnotatedSites, Is.EqualTo(1));
+        Assert.That(comparison.Holds, Is.True);
+    }
+
+    [Test]
+    public void AnAnnotationThatCannotApplyInsideThePeptideIsNotCounted()
+    {
+        // A peptide-N-terminal modification on the peptide's SECOND residue is not a site a search
+        // can use, which is the one way the invariant has failed in practice.
+        const string sequence = "MAAALGGDRGSGVDTTPFAWENDRQITTLGGYK";
+        Modification waterLoss = Mod("S", "Water Loss", -18.010565, "Peptide N-terminal.");
+        var target = new Protein(sequence, "P1", oneBasedModifications:
+            new Dictionary<int, List<Modification>> { { 11, new List<Modification> { waterLoss } } });
+        Assert.That(sequence[10], Is.EqualTo('S'));
+        Assert.That(target.OneBasedPossibleLocalizedModifications.ContainsKey(11), Is.True,
+            "fixture: the annotation survives protein construction");
+
+        Dictionary<MassGroup, int> counts = new MassGroupIndex(new[] { waterLoss })
+            .AnnotatedSites(sequence, 9, 15, target.OneBasedPossibleLocalizedModifications);
+
+        Assert.That(counts.Values.Sum(), Is.Zero, "S is the second residue of GSGVDTTPFAWENDR");
+    }
+
+    [Test]
+    public void GroupingChainsMassesThatAreEachWithinTolerance()
+    {
+        // Single linkage: 100.000 and 100.016 are further apart than the tolerance, but 100.008 sits
+        // within it of both, so a search that cannot tell neighbours apart cannot tell these apart.
+        var index = new MassGroupIndex(new[]
+        {
+            Mod("A", "m1", 100.000), Mod("C", "m2", 100.008), Mod("D", "m3", 100.016),
+        }, 0.010);
+
+        Assert.That(index.Groups, Has.Count.EqualTo(1));
+        Assert.That(index.Groups[0].Span, Is.EqualTo(0.016).Within(1e-9));
+    }
 }
