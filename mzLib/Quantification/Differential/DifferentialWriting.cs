@@ -221,7 +221,7 @@ public static class DifferentialResultWriter
 
     /// <summary>
     /// Validates, orders and writes the table. A tab, CR or LF inside a text value is written as a space; the return value
-    /// is how many cells that changed (the metadata's count).
+    /// is how many cells that changed (the metadata's <c>cleaned_text_cells</c>).
     /// </summary>
     /// <exception cref="ArgumentException">A row breaks the contract: an unknown status; a number on an evidence-only row;
     /// a fitted row without an effect, SE or p-value; two rows with one key; a family size that disagrees with the rows;
@@ -377,42 +377,77 @@ public sealed record DifferentialSettings
 /// <summary>A contrast a stratum could not run, and why.</summary>
 public sealed record DifferentialNotRun(string Label, string Reason);
 
-/// <summary>One stratum: its factors and values, which source chose them, samples per level, and contrasts not run there.</summary>
+/// <summary>
+/// One stratum: its factors and values, which source chose them, samples per level, and contrasts not run there; and the
+/// design facts the statistics report summarizes. A design fact left null is left out of the file.
+/// </summary>
 public sealed record DifferentialStratumInfo(string Stratum, IReadOnlyDictionary<string, string> Factors, string Source,
-    IReadOnlyDictionary<string, int> SamplesPerLevel, IReadOnlyList<DifferentialNotRun> NotRun);
+    IReadOnlyDictionary<string, int> SamplesPerLevel, IReadOnlyList<DifferentialNotRun> NotRun)
+{
+    /// <summary>Distinct individuals per level.</summary>
+    public IReadOnlyDictionary<string, int>? IndividualsPerLevel { get; init; }
+    /// <summary>The batch names in the stratum.</summary>
+    public IReadOnlyList<string>? Batches { get; init; }
+    /// <summary>How many distinct fraction numbers the stratum's runs carry.</summary>
+    public int? Fractions { get; init; }
+    /// <summary>How many distinct technical-replicate numbers the stratum's runs carry.</summary>
+    public int? TechnicalReplicates { get; init; }
+    /// <summary>Each factor's curated reference level; null when no reference is curated.</summary>
+    public IReadOnlyDictionary<string, string>? ReferenceLevels { get; init; }
+    /// <summary>The stratum's samples with no value at all.</summary>
+    public IReadOnlyList<string>? SamplesWithoutValues { get; init; }
+}
 
 /// <summary>
-/// A contrast's global shift in one stratum: how far its two sides sit apart overall, before normalization. Over the
-/// peptides with a value in every sample on both sides of the contrast in that stratum, each peptide's mean log2
-/// intensity on the numerator side minus its mean on the denominator side, computed on intensities before normalization;
-/// <see cref="Value"/> is the median of those differences and <see cref="Peptides"/> how many peptides it used. With no
-/// such peptide, <see cref="Value"/> is NaN (written <c>null</c>) and <see cref="Peptides"/> is 0.
+/// A contrast's global shift in one stratum and quant basis: how far its two sides sit apart overall, before
+/// normalization. Over the peptides with a value in every sample on both sides of the contrast in that stratum's table
+/// for that basis, each peptide's mean log2 intensity on the numerator side minus its mean on the denominator side,
+/// computed on intensities before normalization; <see cref="Value"/> is the median of those differences and
+/// <see cref="Peptides"/> how many peptides it used. With no such peptide, <see cref="Value"/> is NaN (written
+/// <c>null</c>) and <see cref="Peptides"/> is 0. <see cref="QuantBasis"/> is null for styles with no basis.
 /// </summary>
-public sealed record DifferentialGlobalShift(double Value, int Peptides);
+public sealed record DifferentialGlobalShift(string Stratum, string? QuantBasis, double Value, int Peptides);
 
 /// <summary>
 /// One contrast, with its weight vector over model coefficients and, for a contrast with a numerator and a denominator,
-/// its global shift in each stratum it ran in, keyed by stratum. A covariate contrast has no two sides, so no global shift.
+/// its global shift in each stratum and quant basis it ran in. A covariate contrast has no two sides, so no global shift.
 /// </summary>
 public sealed record DifferentialContrastInfo(string Id, string Label, string? Numerator, string? Denominator,
     string? Covariate, string? CovariateUnit, string? CovariateScale, IReadOnlyDictionary<string, double> Weights,
-    IReadOnlyDictionary<string, DifferentialGlobalShift>? GlobalShift = null);
-
-/// <summary>One model as fitted for a method and grain.</summary>
-public sealed record DifferentialModelInfo(string Method, string Grain, string Formula, bool Reml, string DfMethod,
-    double? PriorDf, double? PriorVariance, string? RobustRule);
+    IReadOnlyList<DifferentialGlobalShift>? GlobalShift = null);
 
 /// <summary>
-/// One stratum's normalization: setting, reference set size and per-sample shifts. The global shift is a property of a
-/// contrast, not of a stratum, so it is on <see cref="DifferentialContrastInfo.GlobalShift"/>.
+/// The empirical-Bayes variance prior a fit used: the estimator, its degrees of freedom, whether it is trended, the prior
+/// variance when it is one number, and how many features it was fitted on. A trended prior has a variance per feature,
+/// so <see cref="Variance"/> is null and the values belong in the report's mean-variance table.
 /// </summary>
-public sealed record DifferentialNormalizationInfo(string Stratum, string Setting, int ReferenceSetSize,
-    IReadOnlyDictionary<string, double> PerSampleShift);
+public sealed record DifferentialPriorInfo(string Estimator, double Df, bool Trended, double? Variance, int Features)
+{
+    /// <summary>limma's legacy moment estimator.</summary>
+    public const string MomentsLegacy = "moments_legacy";
+    /// <summary>The marginal-likelihood estimator.</summary>
+    public const string MarginalLikelihood = "marginal_likelihood";
+}
+
+/// <summary>
+/// One model as fitted in one stratum and quant basis, for a method, the model it used and a grain: formula, REML or not,
+/// df method, robust weighting rule, and its variance prior. <see cref="QuantBasis"/> is null for styles with no basis.
+/// </summary>
+public sealed record DifferentialModelInfo(string Stratum, string? QuantBasis, string Method, string ModelUsed, string Grain,
+    string Formula, bool Reml, string DfMethod, string? RobustRule, DifferentialPriorInfo? Prior);
+
+/// <summary>
+/// One stratum's normalization in one quant basis: setting, reference set size, the floor that chose the setting, the
+/// per-sample shifts and any warnings. The global shift is a property of a contrast, not of a stratum, so it is on
+/// <see cref="DifferentialContrastInfo.GlobalShift"/>. <see cref="QuantBasis"/> is null for styles with no basis.
+/// </summary>
+public sealed record DifferentialNormalizationInfo(string Stratum, string? QuantBasis, string Setting, int ReferenceSetSize,
+    int MinimumReferenceSetSize, IReadOnlyDictionary<string, double> PerSampleShift, IReadOnlyList<string> Warnings);
 
 /// <summary>
 /// Everything constant across an analysis's rows (<c>DEF-DIFF-META</c>), written by <see cref="DifferentialMetadataWriter"/>.
-/// The columns, the Benjamini–Hochberg families and the row counts are not given here: the writer derives them from the
-/// column registry and the rows, so they cannot disagree with the table.
+/// The columns, the Benjamini–Hochberg families, the row counts and the cleaned-cell count are not given here: the writer
+/// derives them from the column registry and the rows, so they cannot disagree with the table.
 /// </summary>
 public sealed record DifferentialMetadata
 {
@@ -429,9 +464,9 @@ public sealed record DifferentialMetadata
     public IReadOnlyList<DifferentialStratumInfo> Strata { get; init; } = Array.Empty<DifferentialStratumInfo>();
     /// <summary>Per contrast.</summary>
     public IReadOnlyList<DifferentialContrastInfo> Contrasts { get; init; } = Array.Empty<DifferentialContrastInfo>();
-    /// <summary>Per method and grain.</summary>
+    /// <summary>Per stratum, quant basis, method, model used and grain.</summary>
     public IReadOnlyList<DifferentialModelInfo> Models { get; init; } = Array.Empty<DifferentialModelInfo>();
-    /// <summary>Per stratum.</summary>
+    /// <summary>Per stratum and quant basis.</summary>
     public IReadOnlyList<DifferentialNormalizationInfo> Normalization { get; init; } = Array.Empty<DifferentialNormalizationInfo>();
     /// <summary>Every design warning (replicate, fraction or technical-replicate gaps).</summary>
     public IReadOnlyList<string> DesignWarnings { get; init; } = Array.Empty<string>();
@@ -468,8 +503,10 @@ public sealed record DifferentialMetadata
 public static class DifferentialMetadataWriter
 {
     /// <summary>The metadata file's bytes for <paramref name="metadata"/> and the rows of its results table.</summary>
-    /// <exception cref="ArgumentException">A row belongs to another analysis, or breaks the rows' contract; or a global
-    /// shift names a stratum the metadata does not list, or sits on a contrast without a numerator and a denominator.</exception>
+    /// <exception cref="ArgumentException">A row belongs to another analysis, or breaks the rows' contract; a global shift,
+    /// model or normalization entry names a stratum the metadata does not list, or appears twice for its key; a global shift
+    /// sits on a contrast without a numerator and a denominator; or a prior names an unknown estimator, or is trended with
+    /// one variance, or constant without one.</exception>
     public static byte[] ToBytes(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows)
     {
         ArgumentNullException.ThrowIfNull(metadata);
@@ -479,7 +516,9 @@ public static class DifferentialMetadataWriter
         if (foreign is not null)
             throw new ArgumentException(
                 $"Row for feature '{foreign.FeatureId}' belongs to analysis '{foreign.AnalysisId}', not '{id}'.", nameof(rows));
-        ValidateGlobalShifts(metadata);
+        ValidateMetadata(metadata);
+        // The same cleaning the results table applies, so the count cannot disagree with that file.
+        int cleaned = DifferentialResultWriter.Write(TextWriter.Null, list, DifferentialHeaderStyle.Machine);
 
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
@@ -518,6 +557,12 @@ public static class DifferentialMetadataWriter
                 Map(w, "factors", s.Factors, (k, v) => w.WriteString(k, v));
                 w.WriteString("source", s.Source);
                 Map(w, "samples_per_level", s.SamplesPerLevel, (k, v) => w.WriteNumber(k, v));
+                if (s.IndividualsPerLevel is { } individuals) Map(w, "individuals_per_level", individuals, (k, v) => w.WriteNumber(k, v));
+                if (s.Batches is { } batches) Strings(w, "batches", batches);
+                if (s.Fractions is { } fractions) w.WriteNumber("fractions", fractions);
+                if (s.TechnicalReplicates is { } techReps) w.WriteNumber("technical_replicates", techReps);
+                if (s.ReferenceLevels is { Count: > 0 } references) Map(w, "reference_levels", references, (k, v) => w.WriteString(k, v));
+                if (s.SamplesWithoutValues is { } without) Strings(w, "samples_without_values", without);
                 w.WriteStartArray("not_run");
                 foreach (var n in s.NotRun)
                 {
@@ -544,41 +589,67 @@ public static class DifferentialMetadataWriter
                 Optional(w, "covariate_scale", c.CovariateScale);
                 Map(w, "weights", c.Weights, (k, v) => Number(w, k, v));
                 if (c.GlobalShift is { Count: > 0 } shifts)
-                    Map(w, "global_shift", shifts, (stratum, shift) =>
+                {
+                    w.WriteStartArray("global_shift");
+                    foreach (var shift in shifts.OrderBy(s => s.Stratum, StringComparer.Ordinal)
+                                 .ThenBy(s => s.QuantBasis ?? "", StringComparer.Ordinal))
                     {
-                        w.WriteStartObject(stratum);
+                        w.WriteStartObject();
+                        w.WriteString("stratum", shift.Stratum);
+                        Optional(w, "quant_basis", shift.QuantBasis);
                         Number(w, "value", shift.Value);
                         w.WriteNumber("peptides", shift.Peptides);
                         w.WriteEndObject();
-                    });
+                    }
+                    w.WriteEndArray();
+                }
                 w.WriteEndObject();
             }
             w.WriteEndArray();
 
             w.WriteStartArray("models");
-            foreach (var m in metadata.Models)
+            foreach (var m in metadata.Models.OrderBy(m => m.Stratum, StringComparer.Ordinal)
+                         .ThenBy(m => m.QuantBasis ?? "", StringComparer.Ordinal).ThenBy(m => m.Method, StringComparer.Ordinal)
+                         .ThenBy(m => m.ModelUsed, StringComparer.Ordinal).ThenBy(m => m.Grain, StringComparer.Ordinal))
             {
                 w.WriteStartObject();
+                w.WriteString("stratum", m.Stratum);
+                Optional(w, "quant_basis", m.QuantBasis);
                 w.WriteString("method", m.Method);
+                w.WriteString("model_used", m.ModelUsed);
                 w.WriteString("grain", m.Grain);
                 w.WriteString("formula", m.Formula);
                 w.WriteBoolean("reml", m.Reml);
                 w.WriteString("df_method", m.DfMethod);
-                if (m.PriorDf is { } d0) Number(w, "prior_df", d0);
-                if (m.PriorVariance is { } s0) Number(w, "prior_variance", s0);
                 Optional(w, "robust_rule", m.RobustRule);
+                if (m.Prior is { } prior)
+                {
+                    w.WriteStartObject("prior");
+                    w.WriteString("estimator", prior.Estimator);
+                    Number(w, "df", prior.Df);
+                    w.WriteBoolean("trended", prior.Trended);
+                    if (prior.Variance is { } s0) Number(w, "variance", s0);
+                    w.WriteNumber("features", prior.Features);
+                    w.WriteEndObject();
+                }
                 w.WriteEndObject();
             }
             w.WriteEndArray();
 
             w.WriteStartArray("normalization");
-            foreach (var n in metadata.Normalization)
+            foreach (var n in metadata.Normalization.OrderBy(n => n.Stratum, StringComparer.Ordinal)
+                         .ThenBy(n => n.QuantBasis ?? "", StringComparer.Ordinal))
             {
                 w.WriteStartObject();
                 w.WriteString("stratum", n.Stratum);
+                Optional(w, "quant_basis", n.QuantBasis);
                 w.WriteString("setting", n.Setting);
                 w.WriteNumber("reference_set_size", n.ReferenceSetSize);
+                w.WriteNumber("minimum_reference_set_size", n.MinimumReferenceSetSize);
                 Map(w, "per_sample_shift", n.PerSampleShift, (k, v) => Number(w, k, v));
+                w.WriteStartArray("warnings");
+                foreach (var warning in n.Warnings) w.WriteStringValue(warning);
+                w.WriteEndArray();
                 w.WriteEndObject();
             }
             w.WriteEndArray();
@@ -614,16 +685,28 @@ public static class DifferentialMetadataWriter
             w.WriteEndObject();
             w.WriteEndObject();
 
+            w.WriteNumber("cleaned_text_cells", cleaned);
+
             w.WriteEndObject();
         }
         stream.WriteByte((byte)'\n');
         return stream.ToArray();
     }
 
-    /// <summary>Every global shift names a listed stratum and sits on a contrast with a numerator and a denominator.</summary>
-    private static void ValidateGlobalShifts(DifferentialMetadata metadata)
+    /// <summary>
+    /// Every global shift, model and normalization entry names a listed stratum and appears once for its key; a global
+    /// shift sits on a contrast with a numerator and a denominator; a prior names a known estimator and has one variance
+    /// exactly when it is constant.
+    /// </summary>
+    private static void ValidateMetadata(DifferentialMetadata metadata)
     {
         var strata = metadata.Strata.Select(s => s.Stratum).ToHashSet(StringComparer.Ordinal);
+        void Listed(string stratum, string what)
+        {
+            if (!strata.Contains(stratum))
+                throw new ArgumentException($"{what} names stratum '{stratum}', which the metadata does not list.", nameof(metadata));
+        }
+
         foreach (var c in metadata.Contrasts)
         {
             if (c.GlobalShift is not { Count: > 0 } shifts)
@@ -631,11 +714,53 @@ public static class DifferentialMetadataWriter
             if (c.Numerator is null || c.Denominator is null)
                 throw new ArgumentException(
                     $"Contrast '{c.Id}' has a global shift but no numerator and denominator to measure it between.", nameof(metadata));
-            var unlisted = shifts.Keys.Where(k => !strata.Contains(k)).OrderBy(k => k, StringComparer.Ordinal).FirstOrDefault();
-            if (unlisted is not null)
-                throw new ArgumentException(
-                    $"Contrast '{c.Id}' has a global shift for stratum '{unlisted}', which the metadata does not list.", nameof(metadata));
+            var seen = new HashSet<(string, string)>();
+            foreach (var shift in shifts)
+            {
+                Listed(shift.Stratum, $"A global shift of contrast '{c.Id}'");
+                if (!seen.Add((shift.Stratum, shift.QuantBasis ?? "")))
+                    throw new ArgumentException($"Contrast '{c.Id}' has a global shift for stratum '{shift.Stratum}' and quant " +
+                                                $"basis '{shift.QuantBasis}' twice.", nameof(metadata));
+            }
         }
+
+        var models = new HashSet<(string, string, string, string, string)>();
+        foreach (var m in metadata.Models)
+        {
+            string at = $"The model for stratum '{m.Stratum}', quant basis '{m.QuantBasis}', method '{m.Method}', model used " +
+                        $"'{m.ModelUsed}' and grain '{m.Grain}'";
+            Listed(m.Stratum, at);
+            if (!models.Add((m.Stratum, m.QuantBasis ?? "", m.Method, m.ModelUsed, m.Grain)))
+                throw new ArgumentException($"{at} appears twice.", nameof(metadata));
+            if (m.Prior is not { } prior)
+                continue;
+            if (prior.Estimator is not (DifferentialPriorInfo.MomentsLegacy or DifferentialPriorInfo.MarginalLikelihood))
+                throw new ArgumentException($"{at} has prior estimator '{prior.Estimator}', which is neither " +
+                                            $"'{DifferentialPriorInfo.MomentsLegacy}' nor '{DifferentialPriorInfo.MarginalLikelihood}'.",
+                    nameof(metadata));
+            if (prior.Trended && prior.Variance is not null)
+                throw new ArgumentException($"{at} has a trended prior with one variance; a trended prior has a variance per feature.",
+                    nameof(metadata));
+            if (!prior.Trended && prior.Variance is null)
+                throw new ArgumentException($"{at} has a constant prior without its variance.", nameof(metadata));
+        }
+
+        var normalization = new HashSet<(string, string)>();
+        foreach (var n in metadata.Normalization)
+        {
+            string at = $"The normalization for stratum '{n.Stratum}' and quant basis '{n.QuantBasis}'";
+            Listed(n.Stratum, at);
+            if (!normalization.Add((n.Stratum, n.QuantBasis ?? "")))
+                throw new ArgumentException($"{at} appears twice.", nameof(metadata));
+        }
+    }
+
+    /// <summary>A list of strings as an array in ordinal order.</summary>
+    private static void Strings(Utf8JsonWriter w, string name, IEnumerable<string> values)
+    {
+        w.WriteStartArray(name);
+        foreach (var v in values.OrderBy(v => v, StringComparer.Ordinal)) w.WriteStringValue(v);
+        w.WriteEndArray();
     }
 
     internal static void WriteInputs(Utf8JsonWriter w, IReadOnlyList<DifferentialInput> inputs)

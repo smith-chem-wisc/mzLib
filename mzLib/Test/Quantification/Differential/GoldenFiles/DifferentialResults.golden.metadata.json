@@ -322,6 +322,22 @@
         "age=old": 6,
         "age=young": 6
       },
+      "individuals_per_level": {
+        "age=old": 5,
+        "age=young": 6
+      },
+      "batches": [
+        "b1",
+        "b2"
+      ],
+      "fractions": 1,
+      "technical_replicates": 1,
+      "reference_levels": {
+        "age": "young"
+      },
+      "samples_without_values": [
+        "s12"
+      ],
       "not_run": []
     },
     {
@@ -334,6 +350,16 @@
         "age=old": 3,
         "age=young": 3
       },
+      "individuals_per_level": {
+        "age=old": 3,
+        "age=young": 3
+      },
+      "batches": [
+        "b1"
+      ],
+      "fractions": 12,
+      "technical_replicates": 2,
+      "samples_without_values": [],
       "not_run": []
     }
   ],
@@ -346,16 +372,32 @@
       "weights": {
         "age=old": 1
       },
-      "global_shift": {
-        "all": {
+      "global_shift": [
+        {
+          "stratum": "all",
+          "quant_basis": "mbr_kept",
           "value": 0.02,
           "peptides": 640
         },
-        "organism part=liver": {
+        {
+          "stratum": "all",
+          "quant_basis": "msms_only",
+          "value": 0.03,
+          "peptides": 588
+        },
+        {
+          "stratum": "organism part=liver",
+          "quant_basis": "mbr_kept",
           "value": -0.11,
           "peptides": 512
+        },
+        {
+          "stratum": "organism part=liver",
+          "quant_basis": "msms_only",
+          "value": -0.09,
+          "peptides": 455
         }
-      }
+      ]
     },
     {
       "id": "c2",
@@ -370,25 +412,66 @@
   ],
   "models": [
     {
+      "stratum": "all",
+      "quant_basis": "mbr_kept",
       "method": "moderated",
+      "model_used": "moderated_t",
+      "grain": "protein_group",
+      "formula": "y ~ age",
+      "reml": false,
+      "df_method": "moderated_residual",
+      "prior": {
+        "estimator": "moments_legacy",
+        "df": 3.1,
+        "trended": true,
+        "features": 240
+      }
+    },
+    {
+      "stratum": "all",
+      "quant_basis": "mbr_kept",
+      "method": "moderated",
+      "model_used": "peptide_mixed_model",
       "grain": "protein_group",
       "formula": "y ~ peptide \u002B age \u002B (1|individual/sample)",
       "reml": true,
       "df_method": "satterthwaite_moderated",
-      "prior_df": 4.2,
-      "prior_variance": 0.08,
-      "robust_rule": "huber 1.345, MAD about 0, to convergence"
+      "robust_rule": "huber 1.345, MAD about 0, to convergence",
+      "prior": {
+        "estimator": "moments_legacy",
+        "df": 4.2,
+        "trended": false,
+        "variance": 0.08,
+        "features": 1812
+      }
     }
   ],
   "normalization": [
     {
       "stratum": "all",
+      "quant_basis": "mbr_kept",
       "setting": "shared_peptide_median",
       "reference_set_size": 812,
+      "minimum_reference_set_size": 100,
       "per_sample_shift": {
         "s01": 0.1,
         "s02": -0.05
-      }
+      },
+      "warnings": [
+        "sample s12 has no value"
+      ]
+    },
+    {
+      "stratum": "all",
+      "quant_basis": "msms_only",
+      "setting": "shared_peptide_median",
+      "reference_set_size": 790,
+      "minimum_reference_set_size": 100,
+      "per_sample_shift": {
+        "s01": 0.11,
+        "s02": -0.04
+      },
+      "warnings": []
     }
   ],
   "families": [
@@ -480,5 +563,6 @@
       "not_converged": 4,
       "not_estimable:confounded": 4
     }
-  }
+  },
+  "cleaned_text_cells": 0
 }

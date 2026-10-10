@@ -234,22 +234,54 @@ public class DifferentialWriterTests
         Strata = new[]
         {
             new DifferentialStratumInfo("all", new Dictionary<string, string>(), "default_list",
-                new Dictionary<string, int> { ["age=young"] = 6, ["age=old"] = 6 }, Array.Empty<DifferentialNotRun>()),
+                new Dictionary<string, int> { ["age=young"] = 6, ["age=old"] = 6 }, Array.Empty<DifferentialNotRun>())
+            {
+                IndividualsPerLevel = new Dictionary<string, int> { ["age=young"] = 6, ["age=old"] = 5 },
+                Batches = new[] { "b2", "b1" },
+                Fractions = 1,
+                TechnicalReplicates = 1,
+                ReferenceLevels = new Dictionary<string, string> { ["age"] = "young" },
+                SamplesWithoutValues = new[] { "s12" },
+            },
             new DifferentialStratumInfo("organism part=liver", new Dictionary<string, string> { ["organism part"] = "liver" },
-                "curated_marking", new Dictionary<string, int> { ["age=young"] = 3, ["age=old"] = 3 }, Array.Empty<DifferentialNotRun>()),
+                "curated_marking", new Dictionary<string, int> { ["age=young"] = 3, ["age=old"] = 3 }, Array.Empty<DifferentialNotRun>())
+            {
+                IndividualsPerLevel = new Dictionary<string, int> { ["age=young"] = 3, ["age=old"] = 3 },
+                Batches = new[] { "b1" },
+                Fractions = 12,
+                TechnicalReplicates = 2,
+                SamplesWithoutValues = Array.Empty<string>(),
+            },
         },
         Contrasts = new[]
         {
             new DifferentialContrastInfo("c1", "age=old vs age=young", "age=old", "age=young", null, null, null,
                 new Dictionary<string, double> { ["age=old"] = 1 },
-                new Dictionary<string, DifferentialGlobalShift> { ["organism part=liver"] = new(-0.11, 512), ["all"] = new(0.02, 640) }),
+                new[]
+                {
+                    new DifferentialGlobalShift("organism part=liver", "mbr_kept", -0.11, 512),
+                    new DifferentialGlobalShift("all", "msms_only", 0.03, 588),
+                    new DifferentialGlobalShift("all", "mbr_kept", 0.02, 640),
+                    new DifferentialGlobalShift("organism part=liver", "msms_only", -0.09, 455),
+                }),
             new DifferentialContrastInfo("c2", "age (per decade)", null, null, "age", "decade", "years/10, centred at 50 years",
                 new Dictionary<string, double> { ["age"] = 1 }),
         },
-        Models = new[] { new DifferentialModelInfo("moderated", "protein_group", "y ~ peptide + age + (1|individual/sample)", true,
-            "satterthwaite_moderated", 4.2, 0.08, "huber 1.345, MAD about 0, to convergence") },
-        Normalization = new[] { new DifferentialNormalizationInfo("all", "shared_peptide_median", 812,
-            new Dictionary<string, double> { ["s01"] = 0.1, ["s02"] = -0.05 }) },
+        Models = new[]
+        {
+            new DifferentialModelInfo("all", "mbr_kept", "moderated", "peptide_mixed_model", "protein_group",
+                "y ~ peptide + age + (1|individual/sample)", true, "satterthwaite_moderated", "huber 1.345, MAD about 0, to convergence",
+                new DifferentialPriorInfo(DifferentialPriorInfo.MomentsLegacy, 4.2, false, 0.08, 1812)),
+            new DifferentialModelInfo("all", "mbr_kept", "moderated", "moderated_t", "protein_group", "y ~ age", false,
+                "moderated_residual", null, new DifferentialPriorInfo(DifferentialPriorInfo.MomentsLegacy, 3.1, true, null, 240)),
+        },
+        Normalization = new[]
+        {
+            new DifferentialNormalizationInfo("all", "msms_only", "shared_peptide_median", 790, 100,
+                new Dictionary<string, double> { ["s01"] = 0.11, ["s02"] = -0.04 }, Array.Empty<string>()),
+            new DifferentialNormalizationInfo("all", "mbr_kept", "shared_peptide_median", 812, 100,
+                new Dictionary<string, double> { ["s01"] = 0.1, ["s02"] = -0.05 }, new[] { "sample s12 has no value" }),
+        },
         DesignWarnings = new[] { "biological replicate 3 of condition old is absent" },
     };
 
@@ -278,8 +310,9 @@ public class DifferentialWriterTests
         Assert.That(doc.RootElement.EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
         {
             "definition_version", "analysis_id", "software", "inputs", "settings", "columns", "strata", "contrasts", "models",
-            "normalization", "families", "design_warnings", "row_count",
+            "normalization", "families", "design_warnings", "row_count", "cleaned_text_cells",
         }));
+        Assert.That(doc.RootElement.GetProperty("cleaned_text_cells").GetInt32(), Is.EqualTo(0));
         var root = doc.RootElement;
         Assert.That(root.GetProperty("definition_version").GetString(), Is.EqualTo("DEF-DIFF v1"));
         Assert.That(root.GetProperty("analysis_id").GetString(), Is.EqualTo(m.AnalysisId));
@@ -295,51 +328,179 @@ public class DifferentialWriterTests
         Assert.That(DifferentialMetadataWriter.ToBytes(m, rows), Is.EqualTo(bytes), "the same inputs give the same bytes");
     }
 
-    [Test]
-    public void TheGlobalShiftIsPerContrastAndStratum()
+    private static JsonElement Root(DifferentialMetadata m, out JsonDocument doc)
     {
-        var m = Metadata();
-        var rows = new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } };
-        using var doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, rows));
-        var contrasts = doc.RootElement.GetProperty("contrasts").EnumerateArray().ToList();
-        var shift = contrasts[0].GetProperty("global_shift");
-        Assert.That(shift.EnumerateObject().Select(p => p.Name), Is.EqualTo(new[] { "all", "organism part=liver" }),
-            "one entry per stratum, in ordinal order");
-        Assert.That(shift.GetProperty("organism part=liver").GetProperty("value").GetDouble(), Is.EqualTo(-0.11));
-        Assert.That(shift.GetProperty("organism part=liver").GetProperty("peptides").GetInt32(), Is.EqualTo(512));
-        Assert.That(shift.GetProperty("all").GetProperty("value").GetDouble(), Is.EqualTo(0.02));
-        Assert.That(contrasts[1].TryGetProperty("global_shift", out _), Is.False, "a slope has no two sides, so no global shift");
-        Assert.That(doc.RootElement.GetProperty("normalization")[0].TryGetProperty("global_shift", out _), Is.False,
-            "the global shift belongs to a contrast, not to a stratum's normalization");
+        doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } }));
+        return doc.RootElement;
     }
 
-    [Test]
-    public void AGlobalShiftWithNoPeptidesIsWrittenAsNull()
-    {
-        var m = Metadata();
-        var none = m.Contrasts[0] with { GlobalShift = new Dictionary<string, DifferentialGlobalShift> { ["all"] = new(double.NaN, 0) } };
-        m = m with { Contrasts = new[] { none, m.Contrasts[1] } };
-        var rows = new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } };
-        using var doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, rows));
-        var all = doc.RootElement.GetProperty("contrasts")[0].GetProperty("global_shift").GetProperty("all");
-        Assert.That(all.GetProperty("value").ValueKind, Is.EqualTo(JsonValueKind.Null));
-        Assert.That(all.GetProperty("peptides").GetInt32(), Is.EqualTo(0));
-    }
+    private static void AssertRefused(DifferentialMetadata m, string messagePart) =>
+        Assert.That(() => DifferentialMetadataWriter.ToBytes(m, new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } }),
+            Throws.ArgumentException.With.Message.Contains(messagePart));
 
     [Test]
-    public void AGlobalShiftMustNameAListedStratumAndATwoSidedContrast()
+    public void TheGlobalShiftIsPerContrastStratumAndBasis()
     {
-        var m = Metadata();
-        var rows = new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } };
-        var unlisted = m.Contrasts[0] with
+        var root = Root(Metadata(), out var doc);
+        using (doc)
         {
-            GlobalShift = new Dictionary<string, DifferentialGlobalShift> { ["organism part=brain"] = new(0.1, 10) },
+            var contrasts = root.GetProperty("contrasts").EnumerateArray().ToList();
+            var shifts = contrasts[0].GetProperty("global_shift").EnumerateArray().ToList();
+            Assert.That(shifts.Select(s => (s.GetProperty("stratum").GetString(), s.GetProperty("quant_basis").GetString())), Is.EqualTo(new[]
+            {
+                ("all", "mbr_kept"), ("all", "msms_only"), ("organism part=liver", "mbr_kept"), ("organism part=liver", "msms_only"),
+            }), "one entry per stratum and basis, in ordinal order");
+            Assert.That(shifts[0].EnumerateObject().Select(p => p.Name), Is.EqualTo(new[] { "stratum", "quant_basis", "value", "peptides" }));
+            Assert.That(shifts[1].GetProperty("value").GetDouble(), Is.EqualTo(0.03), "each basis has its own value");
+            Assert.That(shifts[1].GetProperty("peptides").GetInt32(), Is.EqualTo(588));
+            Assert.That(contrasts[1].TryGetProperty("global_shift", out _), Is.False, "a slope has no two sides, so no global shift");
+            Assert.That(root.GetProperty("normalization").EnumerateArray().Any(n => n.TryGetProperty("global_shift", out _)), Is.False,
+                "the global shift belongs to a contrast, not to a stratum's normalization");
+        }
+    }
+
+    [Test]
+    public void AGlobalShiftWithoutABasisLeavesTheKeyOutAndWithNoPeptidesIsNull()
+    {
+        var m = Metadata();
+        var tmt = m.Contrasts[0] with { GlobalShift = new[] { new DifferentialGlobalShift("all", null, double.NaN, 0) } };
+        var root = Root(m with { Contrasts = new[] { tmt, m.Contrasts[1] } }, out var doc);
+        using (doc)
+        {
+            var shift = root.GetProperty("contrasts")[0].GetProperty("global_shift").EnumerateArray().Single();
+            Assert.That(shift.TryGetProperty("quant_basis", out _), Is.False, "a style with no basis leaves the key out");
+            Assert.That(shift.GetProperty("value").ValueKind, Is.EqualTo(JsonValueKind.Null));
+            Assert.That(shift.GetProperty("peptides").GetInt32(), Is.EqualTo(0));
+        }
+    }
+
+    [Test]
+    public void AGlobalShiftMustNameAListedStratumATwoSidedContrastAndAppearOnce()
+    {
+        var m = Metadata();
+        var unlisted = m.Contrasts[0] with { GlobalShift = new[] { new DifferentialGlobalShift("organism part=brain", "mbr_kept", 0.1, 10) } };
+        AssertRefused(m with { Contrasts = new[] { unlisted, m.Contrasts[1] } }, "'organism part=brain'");
+        var slope = m.Contrasts[1] with { GlobalShift = new[] { new DifferentialGlobalShift("all", "mbr_kept", 0.1, 10) } };
+        AssertRefused(m with { Contrasts = new[] { m.Contrasts[0], slope } }, "'c2'");
+        var twice = m.Contrasts[0] with
+        {
+            GlobalShift = new[] { new DifferentialGlobalShift("all", "mbr_kept", 0.1, 10), new DifferentialGlobalShift("all", "mbr_kept", 0.2, 11) },
         };
-        Assert.That(() => DifferentialMetadataWriter.ToBytes(m with { Contrasts = new[] { unlisted, m.Contrasts[1] } }, rows),
-            Throws.ArgumentException.With.Message.Contains("'organism part=brain'"));
-        var slope = m.Contrasts[1] with { GlobalShift = new Dictionary<string, DifferentialGlobalShift> { ["all"] = new(0.1, 10) } };
-        Assert.That(() => DifferentialMetadataWriter.ToBytes(m with { Contrasts = new[] { m.Contrasts[0], slope } }, rows),
-            Throws.ArgumentException.With.Message.Contains("'c2'"));
+        AssertRefused(m with { Contrasts = new[] { twice, m.Contrasts[1] } }, "twice");
+    }
+
+    [Test]
+    public void StrataCarryTheDesignFactsTheReportSummarizes()
+    {
+        var root = Root(Metadata(), out var doc);
+        using (doc)
+        {
+            var strata = root.GetProperty("strata").EnumerateArray().ToList();
+            Assert.That(strata[0].EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
+            {
+                "stratum", "factors", "source", "samples_per_level", "individuals_per_level", "batches", "fractions",
+                "technical_replicates", "reference_levels", "samples_without_values", "not_run",
+            }));
+            Assert.That(strata[0].GetProperty("individuals_per_level").GetProperty("age=old").GetInt32(), Is.EqualTo(5));
+            Assert.That(strata[0].GetProperty("batches").EnumerateArray().Select(b => b.GetString()), Is.EqualTo(new[] { "b1", "b2" }),
+                "ordinal order");
+            Assert.That(strata[0].GetProperty("reference_levels").GetProperty("age").GetString(), Is.EqualTo("young"));
+            Assert.That(strata[0].GetProperty("samples_without_values").EnumerateArray().Single().GetString(), Is.EqualTo("s12"));
+            Assert.That(strata[1].GetProperty("fractions").GetInt32(), Is.EqualTo(12));
+            Assert.That(strata[1].GetProperty("technical_replicates").GetInt32(), Is.EqualTo(2));
+            Assert.That(strata[1].TryGetProperty("reference_levels", out _), Is.False, "no curated reference: the key is left out");
+        }
+        var bare = Metadata() with
+        {
+            Strata = new[]
+            {
+                new DifferentialStratumInfo("all", new Dictionary<string, string>(), "default_list", new Dictionary<string, int>(),
+                    Array.Empty<DifferentialNotRun>()),
+                Metadata().Strata[1],
+            },
+        };
+        var bareRoot = Root(bare, out var bareDoc);
+        using (bareDoc)
+            Assert.That(bareRoot.GetProperty("strata")[0].EnumerateObject().Select(p => p.Name),
+                Is.EqualTo(new[] { "stratum", "factors", "source", "samples_per_level", "not_run" }), "facts not given are left out");
+    }
+
+    [Test]
+    public void ModelsArePerStratumBasisMethodAndModelWithTheirPrior()
+    {
+        var root = Root(Metadata(), out var doc);
+        using (doc)
+        {
+            var models = root.GetProperty("models").EnumerateArray().ToList();
+            Assert.That(models.Select(x => x.GetProperty("model_used").GetString()), Is.EqualTo(new[] { "moderated_t", "peptide_mixed_model" }),
+                "ordinal order on (stratum, basis, method, model used, grain)");
+            Assert.That(models[1].EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
+            {
+                "stratum", "quant_basis", "method", "model_used", "grain", "formula", "reml", "df_method", "robust_rule", "prior",
+            }));
+            var constant = models[1].GetProperty("prior");
+            Assert.That(constant.EnumerateObject().Select(p => p.Name), Is.EqualTo(new[] { "estimator", "df", "trended", "variance", "features" }));
+            Assert.That(constant.GetProperty("estimator").GetString(), Is.EqualTo("moments_legacy"));
+            Assert.That(constant.GetProperty("variance").GetDouble(), Is.EqualTo(0.08));
+            Assert.That(constant.GetProperty("features").GetInt32(), Is.EqualTo(1812));
+            var trended = models[0].GetProperty("prior");
+            Assert.That(trended.GetProperty("trended").GetBoolean(), Is.True);
+            Assert.That(trended.TryGetProperty("variance", out _), Is.False, "a trended prior has a variance per feature, not one number");
+            Assert.That(models[0].TryGetProperty("robust_rule", out _), Is.False);
+        }
+    }
+
+    [Test]
+    public void AModelMustBeListedOnceWithAConsistentPrior()
+    {
+        var m = Metadata();
+        var model = m.Models[0];
+        AssertRefused(m with { Models = new[] { model, model } }, "twice");
+        AssertRefused(m with { Models = new[] { model with { Stratum = "organism part=brain" } } }, "'organism part=brain'");
+        AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Trended = true } } } }, "trended");
+        AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Variance = null } } } }, "variance");
+        AssertRefused(m with { Models = new[] { model with { Prior = model.Prior! with { Estimator = "lowess" } } } }, "'lowess'");
+    }
+
+    [Test]
+    public void NormalizationIsPerStratumAndBasis()
+    {
+        var root = Root(Metadata(), out var doc);
+        using (doc)
+        {
+            var entries = root.GetProperty("normalization").EnumerateArray().ToList();
+            Assert.That(entries.Select(e => e.GetProperty("quant_basis").GetString()), Is.EqualTo(new[] { "mbr_kept", "msms_only" }),
+                "ordinal order on (stratum, basis)");
+            Assert.That(entries[0].EnumerateObject().Select(p => p.Name), Is.EqualTo(new[]
+            {
+                "stratum", "quant_basis", "setting", "reference_set_size", "minimum_reference_set_size", "per_sample_shift", "warnings",
+            }));
+            Assert.That(entries[0].GetProperty("reference_set_size").GetInt32(), Is.EqualTo(812));
+            Assert.That(entries[1].GetProperty("reference_set_size").GetInt32(), Is.EqualTo(790), "each basis has its own reference set");
+            Assert.That(entries[0].GetProperty("minimum_reference_set_size").GetInt32(), Is.EqualTo(100));
+            Assert.That(entries[0].GetProperty("warnings").EnumerateArray().Single().GetString(), Is.EqualTo("sample s12 has no value"));
+        }
+        var m = Metadata();
+        AssertRefused(m with { Normalization = new[] { m.Normalization[0], m.Normalization[0] } }, "twice");
+        AssertRefused(m with { Normalization = new[] { m.Normalization[0] with { Stratum = "organism part=brain" } } }, "'organism part=brain'");
+    }
+
+    [Test]
+    public void TheMetadataCountsTheCellsTheResultsTableCleaned()
+    {
+        var m = Metadata();
+        var rows = new[]
+        {
+            Fitted("P1", familySize: 3) with { AnalysisId = m.AnalysisId, StatusDetail = "a\tb" },
+            Fitted("P2", familySize: 3) with { AnalysisId = m.AnalysisId, ContrastLabel = "old\nvs young" },
+            Fitted("P3", familySize: 3) with { AnalysisId = m.AnalysisId },
+        };
+        int written;
+        using (var w = new StringWriter { NewLine = "\n" })
+            written = DifferentialResultWriter.Write(w, rows, DifferentialHeaderStyle.Machine);
+        using var doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, rows));
+        Assert.That(written, Is.EqualTo(2));
+        Assert.That(doc.RootElement.GetProperty("cleaned_text_cells").GetInt32(), Is.EqualTo(written));
     }
 
     [Test]
