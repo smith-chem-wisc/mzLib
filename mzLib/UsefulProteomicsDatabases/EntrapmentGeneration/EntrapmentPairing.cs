@@ -39,7 +39,7 @@ public sealed class EntrapmentPairing
         {
             throw new MzLibException("Cannot build a pairing without a target protein.");
         }
-        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+        EntrapmentAssembler.RefuseUnusableDigestionParams(digestionParams);
 
         _byKey = new Dictionary<string, string>();
         _ambiguous = new HashSet<string>();
@@ -194,6 +194,8 @@ public sealed class EntrapmentPairing
     }
 
     /// <summary>The target peptide <paramref name="entrapmentPeptide"/> was built from.</summary>
+    /// <param name="entrapmentPeptide">The peptide's BASE sequence. A full sequence with modifications
+    /// written into it matches nothing and returns false.</param>
     /// <returns>False when the peptide belongs to no target peptide of this protein, or when its
     /// key is ambiguous.</returns>
     public bool TryResolve(string entrapmentPeptide, out string targetPeptide)

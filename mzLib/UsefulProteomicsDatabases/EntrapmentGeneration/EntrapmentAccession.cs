@@ -36,10 +36,12 @@ public static class EntrapmentAccession
     private const string ForeignMarker = "foreign_";
 
     /// <summary>The accession for one fold of one target's entrapment partner.</summary>
-    /// <exception cref="MzLibUtil.MzLibException">The target accession is missing, or the fold is negative.</exception>
+    /// <exception cref="MzLibUtil.MzLibException">The target accession or the entrapment identifier is
+    /// missing, or the fold is negative.</exception>
     public static string Format(string targetAccession, int fold,
         string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
     {
+        RefuseMissingIdentifier(entrapmentIdentifier);
         if (string.IsNullOrEmpty(targetAccession))
         {
             throw new MzLibUtil.MzLibException("An entrapment accession needs a target accession.");
@@ -66,16 +68,40 @@ public static class EntrapmentAccession
 
     /// <summary>The accession for an entry taken from a foreign proteome.</summary>
     /// <param name="foreignAccession">The protein's accession in its own database.</param>
-    /// <exception cref="MzLibUtil.MzLibException">The foreign accession is missing.</exception>
+    /// <exception cref="MzLibUtil.MzLibException">The foreign accession or the entrapment identifier is
+    /// missing.</exception>
     public static string FormatForeign(string foreignAccession,
         string entrapmentIdentifier = ProteinDbLoader.DefaultEntrapmentIdentifier)
     {
+        RefuseMissingIdentifier(entrapmentIdentifier);
         if (string.IsNullOrEmpty(foreignAccession))
         {
             throw new MzLibUtil.MzLibException("A foreign entrapment accession needs an accession.");
         }
 
         return $"{entrapmentIdentifier}_{ForeignMarker}{foreignAccession}";
+    }
+
+    /// <summary>
+    /// Refuses a null or empty entrapment identifier, which would mint an accession nothing marks as
+    /// entrapment.
+    /// </summary>
+    /// <remarks>
+    /// <c>Format("P12345", 0, "")</c> wrote <c>_P12345_f0</c>: the partner carried
+    /// <see cref="Proteomics.Protein.IsEntrapment"/> in memory, but a loader decides entrapment from
+    /// the accession, so after a round trip through a file it reloaded as a <b>target</b> -- every
+    /// entrapment discovery counted as a target one, the worst direction an FDP estimate can be wrong
+    /// in. <see cref="ProteinDbLoader.IsEntrapmentAccession"/> refuses an empty identifier for the
+    /// mirror-image reason.
+    /// </remarks>
+    private static void RefuseMissingIdentifier(string? entrapmentIdentifier)
+    {
+        if (string.IsNullOrEmpty(entrapmentIdentifier))
+        {
+            throw new MzLibUtil.MzLibException(
+                "An entrapment accession needs a non-empty entrapment identifier: a loader recognises "
+                + "entrapment entries by it, so without one the entry reloads as a target.");
+        }
     }
 
     /// <summary>Reads a foreign entry's own accession back out.</summary>
@@ -131,8 +157,11 @@ public static class EntrapmentAccession
             return false;
         }
 
+        // Only the form Format writes: no sign, no padding. "_f007" would otherwise read as fold 7,
+        // so two different accessions would name one (target, fold).
         string digits = accession.Substring(marker + FoldMarker.Length);
         if (digits.Length == 0
+            || (digits.Length > 1 && digits[0] == '0')
             || !int.TryParse(digits, NumberStyles.None, CultureInfo.InvariantCulture, out int parsedFold))
         {
             return false;

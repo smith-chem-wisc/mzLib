@@ -763,16 +763,25 @@ public class EntrapmentReportTests
     [Test]
     public void TheExclusionTableSaysWhichDatabaseEachAccessionNames()
     {
-        // The `accession` column genuinely holds two things: `ambiguous` rows name TARGET peptides,
-        // the other three name ENTRAPMENT peptides. Making them uniform would have asserted
-        // something false about where the ambiguous ones live, so the table names the side instead.
+        // The `accession` column genuinely holds two things. `ambiguous` and
+        // `truncationProductPeptide` rows name TARGET peptides; the other three reasons name
+        // ENTRAPMENT peptides. Making them uniform would have asserted something false about where
+        // the target ones live, so the table names the side instead. The truncation-product protein
+        // is here because this test once passed only for want of one: it checked the side against
+        // the old rule, "ambiguous is target, everything else entrapment".
         IDigestionParams digestion = Tryptic;
         var protein = new Protein("MSTQAEVDLNSGWKLIHTGVKLIHTVGKALADQMNLLLSK", "P00002");
+        const string chainSequence = "MSTQAEVDLNSGWKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK";
+        var withChain = new Protein(chainSequence, "P00003",
+            proteolysisProducts: new List<TruncationProduct> { new(18, chainSequence.Length, "chain") });
         var builder = new EntrapmentReportBuilder(digestion, 1, 1);
 
-        Protein _ = EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden,
-            out EntrapmentAssembly assembly);
-        builder.Add(protein, 0, assembly);
+        foreach (Protein target in new[] { protein, withChain })
+        {
+            Protein _ = EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden,
+                out EntrapmentAssembly assembly);
+            builder.Add(target, 0, assembly);
+        }
         builder.AddForeign(1, new Dictionary<string, IReadOnlyCollection<string>>
         {
             ["Random_foreign_Q9SHARED"] = new[] { "LIHTGVKPEPTIDER" },
@@ -786,14 +795,17 @@ public class EntrapmentReportTests
         {
             string[] fields = line.Split('\t');
             Assert.That(fields, Has.Length.EqualTo(4), "every row carries the side: " + line);
-            Assert.That(fields[3], Is.EqualTo(fields[2] == "ambiguous"
+            Assert.That(fields[3], Is.EqualTo(fields[2] is "ambiguous" or "truncationProductPeptide"
                     ? EntrapmentReport.TargetSide
                     : EntrapmentReport.EntrapmentSide),
-                "ambiguous rows are target-side and every other reason entrapment-side: " + line);
+                "ambiguous and truncation-product rows are target-side, every other reason "
+                + "entrapment-side: " + line);
         }
 
         Assert.That(lines.Any(l => l.EndsWith("\tambiguous\ttarget")), Is.True,
             "fixture must actually produce an ambiguous pair, or it proves nothing");
+        Assert.That(lines.Any(l => l.EndsWith("\ttruncationProductPeptide\ttarget")), Is.True,
+            "fixture must actually produce a truncation-product peptide, or it proves nothing");
         Assert.That(lines.Any(l => l.EndsWith("\tsharedWithTarget\tentrapment")), Is.True);
     }
 
@@ -837,5 +849,278 @@ public class EntrapmentReportTests
 
         Assert.That(report.EntriesIdenticalToTarget, Is.Zero);
         Assert.That(report.ToTabSeparated(), Does.Not.Contain("entriesIdenticalToTarget"));
+    }
+
+    // ---- production review of #1271, 2026-10-10 --------------------------------
+
+    /// <summary>The total row, read by column name rather than by position.</summary>
+    private static Dictionary<string, string> TotalRow(EntrapmentReport report)
+    {
+        string[] lines = report.ToTabSeparated().Split('\n')
+            .Where(l => l.Length > 0 && !l.StartsWith("#")).ToArray();
+        return lines[0].Split('\t').Zip(lines[^1].Split('\t')).ToDictionary(p => p.First, p => p.Second);
+    }
+
+    [Test]
+    public void ARunCollisionExhaustionReachesItsOwnColumn()
+    {
+        // Every arrangement of the second piece completes a forbidden run with the first, so the
+        // piece is excised for a reason that wants a different seed, not a different database.
+        IDigestionParams digestion = Tryptic;
+        const string sequence = "MSTQAEVDLNSGWKAAGGSSK";
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
+        Assert.That(free.Pieces, Has.Count.EqualTo(2), "fixture: two pieces");
+        string opening = free.Pieces[0].EntrapmentPiece_!;
+
+        List<DigestionMotif> trypsin = DigestionMotif.ParseDigestionMotifsFromString("K|,R|");
+        int[] anchors = { 0, 6 };
+        var forbidden = new HashSet<string>();
+        System.Numerics.BigInteger size =
+            UsefulProteomicsDatabases.DecoySequenceValidator.PermutationSpaceSize("AAGGSSK", trypsin, anchors);
+        for (System.Numerics.BigInteger i = 0; i < size; i++)
+        {
+            forbidden.Add(opening + UsefulProteomicsDatabases.DecoySequenceValidator
+                .UnrankPermutation("AAGGSSK", trypsin, i, out _, anchors));
+        }
+
+        var protein = new Protein(sequence, "P1");
+        EntrapmentProteinGenerator.Create(protein, digestion, forbidden, out EntrapmentAssembly guarded);
+        Assert.That(guarded.Pieces[1].Failure, Is.EqualTo(EntrapmentFailure.RunCollisionsExhaustedTheSpace));
+
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+        builder.Add(protein, 0, guarded);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.Total.UnpairableRunCollisionsExhausted, Is.EqualTo(1));
+        Assert.That(report.Total.UnpairableAllPermutationsTaken, Is.Zero);
+        Assert.That(TotalRow(report)["unpairableRunCollisionsExhausted"], Is.EqualTo("1"));
+    }
+
+    [Test]
+    public void EachFailureColumnCarriesItsOwnCount()
+    {
+        // The table was only compared with the object it was rendered from, so two columns carrying
+        // each other's numbers passed. EEEEEEQK opens the protein, whose first two residues are held
+        // as well as its own ends, which leaves EEEEQ free: four non-identity arrangements for nine
+        // folds.
+        IDigestionParams digestion = Tryptic;
+        var target = new Protein("EEEEEEQKGGVDTTPFAWENDR", "P1");
+        var builder = new EntrapmentReportBuilder(digestion, foldCount: 9, seed: 1);
+        EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden, out EntrapmentAssembly assembly,
+            fold: 0, foldCount: 9);
+        builder.Add(target, 0, assembly);
+
+        Dictionary<string, string> row = TotalRow(builder.Build());
+
+        Assert.That(row["unpairableSpaceTooSmallForFoldCount"], Is.EqualTo("1"));
+        Assert.That(row["unpairableAllPermutationsTaken"], Is.EqualTo("0"));
+    }
+
+    [Test]
+    public void EveryProvenanceLineCarriesItsOwnValue()
+    {
+        // These are the values a consumer reads to regenerate the database, and none of them was
+        // checked: the fold count could have been written as the seed.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 8, maxMissedCleavages: 1,
+            maxPeptideLength: 50, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain);
+        string[] lines = new EntrapmentReportBuilder(digestion, foldCount: 3, seed: 11,
+                entrapmentIdentifier: "ENTRAP")
+            .Build().ToTabSeparated().Split('\n');
+
+        Assert.That(lines, Does.Contain("# construction\t"
+            + EntrapmentProteinGenerator.ConstructionVersion.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        Assert.That(lines, Does.Contain("# enzyme\ttrypsin"));
+        Assert.That(lines, Does.Contain("# seed\t11"));
+        Assert.That(lines, Does.Contain("# foldCount\t3"));
+        Assert.That(lines, Does.Contain("# maxMissedCleavages\t1"));
+        Assert.That(lines, Does.Contain("# minPeptideLength\t8"));
+        Assert.That(lines, Does.Contain("# maxPeptideLength\t50"));
+        Assert.That(lines, Does.Contain("# initiatorMethionine\tRetain"));
+        Assert.That(lines, Does.Contain("# entrapmentIdentifier\tENTRAP"));
+    }
+
+    [Test]
+    public void TheTablesEndEveryLineTheSameWayOnEveryPlatform()
+    {
+        // Environment.NewLine wrote CRLF on Windows and LF on Linux, so a report regenerated on
+        // another operating system was not byte-identical and a recorded SHA-256 did not match.
+        IDigestionParams digestion = Tryptic;
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1,
+            massGroups: new MassGroupIndex(Array.Empty<Modification>()));
+        var target = new Protein("MSTQAEVDLNSGWKLIHTGVKLIHTVGKALADQMNLLLSK", "P1");
+        Protein partner = EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        builder.Add(target, 0, assembly, partner);
+        EntrapmentReport report = builder.Build();
+
+        foreach (string table in new[]
+                 {
+                     report.ToTabSeparated(), report.ExclusionsToTabSeparated(), report.MassGroups!.ToTabSeparated(),
+                 })
+        {
+            Assert.That(table, Does.Not.Contain("\r"));
+            Assert.That(table, Does.EndWith("\n"));
+        }
+    }
+
+    [Test]
+    public void TheEntrapmentSearchSpaceIsCountedOnThePartner()
+    {
+        // Counted on the target instead, the entrapment half of the peptide-level r was wrong
+        // whenever anything was excised, and the only check was that it exceeded zero.
+        IDigestionParams digestion = Tryptic;
+        var target = new Protein("SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR", "P1");
+        Protein partner = EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        Assert.That(assembly.ExcisedCount, Is.EqualTo(1), "fixture: one piece is excised");
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1);
+        builder.Add(target, 0, assembly);
+
+        var none = new List<Modification>();
+        int expected = new Protein(partner.BaseSequence, "x").Digest(digestion, none, none)
+            .Select(p => p.BaseSequence).Distinct().Count();
+
+        Assert.That(builder.Build().Total.EntrapmentSearchSpacePeptides, Is.EqualTo(expected));
+    }
+
+    /// <summary>A real assembly with chosen exclusion lists, to reach rows no current input produces.</summary>
+    private static EntrapmentAssembly WithExclusions(string sequence, IReadOnlyList<string> unrepairable,
+        IReadOnlyList<string> initiatorMethionine)
+    {
+        EntrapmentAssembly real = EntrapmentAssembler.Assemble(sequence, Tryptic, NothingForbidden);
+        return new EntrapmentAssembly(real.TargetSequence, real.EntrapmentSequence, real.TargetToEntrapmentPosition,
+            real.Pieces, real.MissedCleavagePeptidesSpanningAnExcision, unrepairable, initiatorMethionine);
+    }
+
+    [Test]
+    public void AnInitiatorMethionineRowIsEntrapmentSideAndCounted()
+    {
+        // The list is provably empty under the current rules, so no real input reaches this; it is
+        // the tripwire, and a tripwire that reports on the wrong side is no tripwire.
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P1");
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.Add(target, 0, WithExclusions(target.BaseSequence, new List<string>(),
+            new List<string> { "STQAEVDLNSGWK" }));
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.Total.InitiatorMethionineCollisions, Is.EqualTo(1));
+        Assert.That(TotalRow(report)["initiatorMethionineCollisions"], Is.EqualTo("1"));
+        Assert.That(report.ExclusionsToTabSeparated(),
+            Does.Contain("Random_P1_f0\tSTQAEVDLNSGWK\tinitiatorMethionineCollision\tentrapment"));
+    }
+
+    [Test]
+    public void AnExclusionIsCountedOncePerPeptideNotPerPlacement()
+    {
+        // The column once counted placements and the sidecar peptides, 2,048 against 1,983 rows on
+        // the reviewed human database.
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P1");
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.Add(target, 0, WithExclusions(target.BaseSequence, new List<string> { "AAAAAAAK", "AAAAAAAK" },
+            new List<string>()));
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.Total.UnrepairableRunCollisions, Is.EqualTo(1));
+        Assert.That(report.ExclusionsToTabSeparated().Split('\n')
+            .Count(l => l.Contains("\tunrepairableRunCollision\t")), Is.EqualTo(1));
+    }
+
+    [Test]
+    public void AReportWithNoTruncationProductsCarriesNoTruncationLine()
+    {
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P1");
+        EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden, out EntrapmentAssembly assembly);
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.Add(target, 0, assembly);
+
+        Assert.That(builder.Build().ToTabSeparated(), Does.Not.Contain("truncationProductPeptides"));
+    }
+
+    [Test]
+    public void TheBuilderRunsTheMassGroupComparisonItWasGiven()
+    {
+        // No test handed the builder mass groups, so a builder that never fed them would have passed.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
+        ModificationMotif.TryGetMotif("M", out ModificationMotif onM);
+        var oxidation = new Modification(_originalId: "Oxidation", _modificationType: "Common Biological",
+            _target: onM, _locationRestriction: "Anywhere.", _monoisotopicMass: 15.994915);
+        var target = new Protein("MAAALGGDRSMGVDTTPFAWENDRQITTLGGYK", "P1", oneBasedModifications:
+            new Dictionary<int, List<Modification>> { { 11, new List<Modification> { oxidation } } });
+        Protein companion = EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1,
+            massGroups: new MassGroupIndex(new[] { oxidation }));
+
+        Assert.Throws<MzLibUtil.MzLibException>(() => builder.Add(target, 0, assembly),
+            "the invariant is about the companion, so it has to be supplied");
+        builder.Add(target, 0, assembly, companion);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.MassGroups, Is.Not.Null);
+        Assert.That(report.MassGroups!.PeptidesCompared, Is.GreaterThan(0));
+        Assert.That(report.MassGroups.Tallies.Single().TargetAnnotatedSites, Is.EqualTo(1));
+        Assert.That(report.MassGroups.Holds, Is.True);
+    }
+
+    [Test]
+    public void ABuiltReportIsASnapshotOfEverythingTheBuilderHolds()
+    {
+        // Build() copied the foreign rows but handed out the builder's own strata, mass-group tallies
+        // and exclusion sets, so a later Add changed a report that had already been built, and a
+        // consumer could cast a "read-only" set back and change the builder.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2);
+        var builder = new EntrapmentReportBuilder(digestion, 1, 1, EntrapmentReport.CountResidues("ST"),
+            massGroups: new MassGroupIndex(Array.Empty<Modification>()));
+        void AddOne(string sequence, string accession)
+        {
+            var target = new Protein(sequence, accession);
+            Protein partner = EntrapmentProteinGenerator.Create(target, digestion, NothingForbidden,
+                out EntrapmentAssembly assembly);
+            builder.Add(target, 0, assembly, partner);
+        }
+
+        AddOne("MSTQAEVDLNSGWKLIHTGVKLIHTVGKALADQMNLLLSK", "P1");
+        EntrapmentReport report = builder.Build();
+        int strataTargets = report.Strata.Sum(s => s.TargetPeptides);
+        int compared = report.MassGroups!.PeptidesCompared;
+        Assert.That(report.AmbiguousPeptidesByAccession, Is.Not.Empty, "fixture: an ambiguous pair");
+
+        AddOne("SYKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "P2");
+
+        Assert.That(report.Strata.Sum(s => s.TargetPeptides), Is.EqualTo(strataTargets), "strata");
+        Assert.That(report.MassGroups.PeptidesCompared, Is.EqualTo(compared), "mass groups");
+        Assert.That(report.AmbiguousPeptidesByAccession.Values.First(), Is.Not.InstanceOf<HashSet<string>>(),
+            "a consumer must not be able to reach the builder's own set");
+    }
+
+    [Test]
+    public void TheSameFoldOfOneAccessionIsRefusedASecondTime()
+    {
+        // Per-target figures are keyed by accession, so a second entry under one accession was
+        // counted against the first entry's peptides.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        var first = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "A");
+        var second = new Protein("SYKALADQMNLLLSKGGVDTTPFAWENDRQISTLGGYK", "A");
+        builder.Add(first, 0, EntrapmentAssembler.Assemble(first.BaseSequence, Tryptic, NothingForbidden));
+
+        Assert.That(() => builder.Add(second, 0,
+                EntrapmentAssembler.Assemble(second.BaseSequence, Tryptic, NothingForbidden)),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("'A'"));
+        Assert.That(builder.Build().Total.TargetPeptides, Is.EqualTo(2),
+            "the refused Add recorded nothing");
+    }
+
+    [Test]
+    public void ARefusedAddLeavesTheBuilderAsItWas()
+    {
+        // Format refuses a negative fold, and used to do so after the mass groups and strata had
+        // already been updated.
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        var target = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P1");
+
+        Assert.That(() => builder.Add(target, -1,
+                EntrapmentAssembler.Assemble(target.BaseSequence, Tryptic, NothingForbidden)),
+            Throws.TypeOf<MzLibUtil.MzLibException>());
+        Assert.That(builder.Build().Strata, Is.Empty);
     }
 }

@@ -433,4 +433,113 @@ public class EntrapmentPeptideGeneratorTests
             }
         }
     }
+
+    // ---- production review of #1271, 2026-10-10 --------------------------------
+
+    [TestCase("K[P]|,R[P]|", "preventing-cleavage motif")]
+    [TestCase("TX|T", "multi-residue motif")]
+    [TestCase("X|", "wildcard motif")]
+    public void Create_RefusesMotifsWhoseSitesItCannotHold(string motifs, string named)
+    {
+        // The refusal lived only on the protein path, so this public method handed back partners
+        // that digest differently from their targets.
+        var thrown = Assert.Throws<MzLibUtil.MzLibException>(() => EntrapmentPeptideGenerator.Create(
+            "AKLPPR", DigestionMotif.ParseDigestionMotifsFromString(motifs), NothingForbidden));
+        Assert.That(thrown!.Message, Does.Contain(named));
+    }
+
+    [Test]
+    public void Create_PastTheRefusalAPreventingMotifReallyMovesACleavageSite()
+    {
+        // Why the refusal is not paranoia. Under trypsin|P neither the K nor the P after it is held,
+        // so the unvetted path is free to move the P next to the K and erase the site, or away from
+        // a K it was protecting and invent one.
+        List<DigestionMotif> trypsinP = DigestionMotif.ParseDigestionMotifsFromString("K[P]|,R[P]|");
+        HashSet<int> sites = DecoySequenceValidator.CleavageSitePositions("AKLPPR", trypsinP);
+
+        bool aSiteMoved = Enumerable.Range(0, 2).Any(fold =>
+        {
+            EntrapmentPeptide partner = EntrapmentPeptideGenerator.CreateFromVettedMotifs("AKLPPR", trypsinP,
+                NothingForbidden, fold, foldCount: 2, seed: 1, alsoHeldInPlace: new[] { 0, 5 },
+                rejectInContext: null);
+            return !DecoySequenceValidator.CleavageSitePositions(partner.EntrapmentSequence!, trypsinP)
+                .SetEquals(sites);
+        });
+
+        Assert.That(aSiteMoved, Is.True);
+    }
+
+    [Test]
+    public void Create_RefusesMissingOrEmptyMotifs()
+    {
+        var empty = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentPeptideGenerator.Create("AKLPPR", new List<DigestionMotif>(), NothingForbidden));
+        Assert.That(empty!.Message, Does.Contain("no cleavage motifs"));
+
+        var missing = Assert.Throws<MzLibUtil.MzLibException>(() =>
+            EntrapmentPeptideGenerator.Create("AKLPPR", null!, NothingForbidden));
+        Assert.That(missing!.Message, Does.Contain("cleavage motifs"));
+    }
+
+    [Test]
+    public void Create_ReportsARefusalByContextAsARunCollisionNotAsATakenSpace()
+    {
+        // The two failures send a caller after different remedies -- a different seed or different
+        // neighbours, against a different target database -- and no test checked that a refusal by
+        // context was reported as the first rather than the second.
+        EntrapmentPeptide result = EntrapmentPeptideGenerator.Create("ACDEFGHIK", Trypsin, NothingForbidden,
+            rejectInContext: _ => true);
+
+        Assert.That(result.Succeeded, Is.False);
+        Assert.That(result.Failure, Is.EqualTo(EntrapmentFailure.RunCollisionsExhaustedTheSpace));
+        Assert.That(result.ProbesUsed, Is.EqualTo((int)(result.PermutationSpaceSize - 1)),
+            "the whole share was walked, which is what makes the failure a proof");
+    }
+
+    [Test]
+    public void Create_EachFoldReachesItsWholeShareEvenlyAcrossSeeds()
+    {
+        // ASingleFoldIsNotConfinedToOneOrderOfItsLastFreeResidues asks only for "more than one order"
+        // per fold, which a 199:1 skew passes. This asks for the distribution. AEGLSK with its ends
+        // held has 23 non-identity arrangements, so over 2,300 seeds every fold should reach every
+        // one about 100 times; residue classes without the keyed shuffle gave each fold a third.
+        const string target = "AEGLSK";
+        int[] anchors = { 0, 5 };
+        for (int fold = 0; fold < 3; fold++)
+        {
+            var counts = new Dictionary<string, int>();
+            for (int seed = 1; seed <= 2300; seed++)
+            {
+                string partner = EntrapmentPeptideGenerator.Create(target, Trypsin, NothingForbidden,
+                    fold: fold, foldCount: 3, seed: seed, alsoHeldInPlace: anchors).EntrapmentSequence!;
+                counts[partner] = counts.GetValueOrDefault(partner) + 1;
+            }
+
+            Assert.That(counts.Count, Is.EqualTo(23), $"fold {fold} reaches every non-identity arrangement");
+            Assert.That(counts.Values.Min(), Is.GreaterThan(50), $"fold {fold}: no arrangement starved");
+            Assert.That(counts.Values.Max(), Is.LessThan(150), $"fold {fold}: no arrangement favoured");
+        }
+    }
+
+    [Test]
+    public void Create_PartnersArePinnedToLiteralSequences()
+    {
+        // Every other determinism test compares the generator with itself in one process, so a change
+        // to which partner is chosen -- the key, the round function, the offset, the fold allocation
+        // -- passed them all while every database anyone had built stopped regenerating. These
+        // literals are construction 1's. If this fails, partners have changed: bump
+        // EntrapmentProteinGenerator.ConstructionVersion and say so in the release notes, then update
+        // the literals. The negative seed covers the invariant formatting of the key material.
+        Assert.That(EntrapmentProteinGenerator.ConstructionVersion, Is.EqualTo(1),
+            "the literals below belong to construction 1");
+
+        Assert.That(EntrapmentPeptideGenerator.Create("SYKALADQMNLLLSK", Trypsin, NothingForbidden, seed: 1)
+            .EntrapmentSequence, Is.EqualTo("SAKLMQLLSLYNDAK"));
+
+        string[] folds = Enumerable.Range(0, 3).Select(fold => EntrapmentPeptideGenerator.Create(
+                "SYKALADQMNLLLSK", Trypsin, NothingForbidden, fold: fold, foldCount: 3, seed: -7,
+                alsoHeldInPlace: new[] { 0, 14 }).EntrapmentSequence!)
+            .ToArray();
+        Assert.That(folds, Is.EqualTo(new[] { "SAKNQLLDMLAYLSK", "SAKMYLDLAQLSNLK", "SNKAASLLLMLYQDK" }));
+    }
 }

@@ -420,7 +420,9 @@ public sealed class MassGroupComparison
     }
 
     /// <summary>
-    /// The comparison as a tab-separated table, one row per mass group plus a total.
+    /// The comparison as a tab-separated table, one row per mass group, with the tolerance, the
+    /// peptide count and the verdict in leading comment lines. Lines end in <c>\n</c> on every
+    /// platform, so the table is byte-identical wherever it is written.
     /// </summary>
     /// <remarks>
     /// Every group is emitted, including those with no annotation anywhere, because "this mass had no
@@ -430,17 +432,18 @@ public sealed class MassGroupComparison
     public string ToTabSeparated()
     {
         var text = new StringBuilder();
-        text.AppendLine("# massGroupToleranceDaltons\t"
-                        + _index.Tolerance.ToString("G17", CultureInfo.InvariantCulture));
-        text.AppendLine("# peptidesCompared\t" + PeptidesCompared.ToString(CultureInfo.InvariantCulture));
-        text.AppendLine("# invariantHolds\t" + (Holds ? "true" : "false"));
-        text.AppendLine(string.Join("\t", "massGroup", "spanDaltons", "residues", "modifications",
+        void Line(string line) => text.Append(line).Append('\n');
+
+        Line("# massGroupToleranceDaltons\t" + _index.Tolerance.ToString("G17", CultureInfo.InvariantCulture));
+        Line("# peptidesCompared\t" + PeptidesCompared.ToString(CultureInfo.InvariantCulture));
+        Line("# invariantHolds\t" + (Holds ? "true" : "false"));
+        Line(string.Join("\t", "massGroup", "spanDaltons", "residues", "modifications",
             "targetCapacity", "companionCapacity", "targetAnnotatedSites", "companionAnnotatedSites",
             "peptidesWithCapacityMismatch", "peptidesWithAnnotatedSiteMismatch"));
 
         foreach (MassGroupTally t in Tallies)
         {
-            text.AppendLine(string.Join("\t",
+            Line(string.Join("\t",
                 t.Group.RepresentativeMass.ToString("F5", CultureInfo.InvariantCulture),
                 t.Group.Span.ToString("F5", CultureInfo.InvariantCulture),
                 string.Concat(t.Group.Residues.OrderBy(c => c)),
@@ -454,5 +457,26 @@ public sealed class MassGroupComparison
         }
 
         return text.ToString();
+    }
+
+    /// <summary>
+    /// A copy that later calls to <see cref="Add"/> on this comparison do not change, for a report
+    /// that has already been built.
+    /// </summary>
+    internal MassGroupComparison Snapshot()
+    {
+        var copy = new MassGroupComparison(_index) { PeptidesCompared = PeptidesCompared };
+        foreach ((MassGroup group, MassGroupTally tally) in _tallies)
+        {
+            MassGroupTally into = copy._tallies[group];
+            into.TargetCapacity = tally.TargetCapacity;
+            into.CompanionCapacity = tally.CompanionCapacity;
+            into.TargetAnnotatedSites = tally.TargetAnnotatedSites;
+            into.CompanionAnnotatedSites = tally.CompanionAnnotatedSites;
+            into.PeptidesWithCapacityMismatch = tally.PeptidesWithCapacityMismatch;
+            into.PeptidesWithAnnotatedSiteMismatch = tally.PeptidesWithAnnotatedSiteMismatch;
+        }
+
+        return copy;
     }
 }

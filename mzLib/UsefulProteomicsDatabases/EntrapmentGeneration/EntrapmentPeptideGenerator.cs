@@ -114,14 +114,16 @@ public sealed class EntrapmentPeptide
 /// so a partner carrying a different count would be compared at a difficulty its target never had.
 /// It also makes target and partner the hardest possible pair to tell apart, which is the
 /// discrimination an entrapment experiment is trying to measure.</para>
-/// <para>Selection is by <b>index, not by chance</b>. The starting point is derived from the
-/// sequence and the seed, and search walks forward from there, so the answer is a pure function of
-/// its inputs: unchanged by processing order, by the protein the peptide came from, by threading,
-/// and by framework version. Nothing here consumes random state, and folds never consult one
-/// another, so a database can be regenerated in pieces without invalidating what already exists.
-/// </para>
+/// <para>Selection is by <b>index, not by chance</b>. Where a fold starts in its share, and the
+/// keyed order it walks the share in, are both derived from the sequence and the seed, so the answer
+/// is a pure function of the arguments: unchanged by processing order, by threading, and by
+/// framework version. The held positions and the context test are arguments too, and they are where
+/// the surrounding protein enters -- a piece that opens a protein is held differently from the same
+/// piece inside one, so the two can be given different partners. Nothing here consumes random
+/// state, and folds never consult one another, so a database can be regenerated in pieces without
+/// invalidating what already exists.</para>
 /// <para>Because the search enumerates rather than samples, "no partner exists" is a
-/// <b>proven</b> statement rather than a search that gave up, and the three ways it can fail are
+/// <b>proven</b> statement rather than a search that gave up, and the four ways it can fail are
 /// reported apart (<see cref="EntrapmentFailure"/>).</para>
 /// </remarks>
 public static class EntrapmentPeptideGenerator
@@ -151,9 +153,37 @@ public static class EntrapmentPeptideGenerator
     /// collide even when none of its parts does. Measured before this existed: 2,094 peptides
     /// (0.076%) appeared in both the target and entrapment sets, 2,090 of them with a missed
     /// cleavage.</param>
+    /// <exception cref="MzLibException">The motifs are missing, or include one whose sites cannot be
+    /// held in place (empty, preventing, multi-residue or wildcard), so a partner could digest
+    /// differently from its target; or an argument is out of range.</exception>
     public static EntrapmentPeptide Create(string targetSequence, List<DigestionMotif> motifs,
         IReadOnlySet<string> forbiddenSequences, int fold = 0, int foldCount = 1, int seed = 1,
         IReadOnlyCollection<int>? alsoHeldInPlace = null, Func<string, bool>? rejectInContext = null)
+    {
+        // Vetted here as well as by the assembler, because this is public and the class promises
+        // every cleavage site stays where it was. Under trypsin|P the vetting lived only on the
+        // protein path, so a caller of this method got AKLPPR -> AKPPLR, a partner missing one of
+        // its target's two cleavage sites.
+        if (motifs is null)
+        {
+            throw new MzLibException(
+                "Cannot hold cleavage sites in place without the cleavage motifs; pass the digestion "
+                + "agent's DigestionMotifs.");
+        }
+        EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld(null, motifs);
+
+        return CreateFromVettedMotifs(targetSequence, motifs, forbiddenSequences, fold, foldCount, seed,
+            alsoHeldInPlace, rejectInContext);
+    }
+
+    /// <summary>
+    /// <see cref="Create"/> without vetting the motifs, for a caller that has already refused agents
+    /// whose sites cannot be held: the assembler, which vets once per protein rather than once per
+    /// piece and fold.
+    /// </summary>
+    internal static EntrapmentPeptide CreateFromVettedMotifs(string targetSequence, List<DigestionMotif> motifs,
+        IReadOnlySet<string> forbiddenSequences, int fold, int foldCount, int seed,
+        IReadOnlyCollection<int>? alsoHeldInPlace, Func<string, bool>? rejectInContext)
     {
         if (string.IsNullOrEmpty(targetSequence))
         {

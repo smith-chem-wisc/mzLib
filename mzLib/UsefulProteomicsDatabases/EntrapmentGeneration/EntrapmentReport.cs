@@ -2,6 +2,7 @@
 using MzLibUtil;
 using Omics.Digestion;
 using Proteomics;
+using Proteomics.ProteolyticDigestion;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -18,25 +19,47 @@ namespace UsefulProteomicsDatabases.EntrapmentGeneration;
 /// </remarks>
 public sealed class EntrapmentProvenance
 {
-    internal EntrapmentProvenance(string method, string enzyme, int seed, int foldCount,
-        int maxMissedCleavages, int minPeptideLength, int maxPeptideLength)
+    internal EntrapmentProvenance(string method, int constructionVersion, string enzyme, int seed,
+        int foldCount, int maxMissedCleavages, int minPeptideLength, int maxPeptideLength,
+        InitiatorMethionineBehavior initiatorMethionine, string entrapmentIdentifier)
     {
         Method = method;
+        ConstructionVersion = constructionVersion;
         Enzyme = enzyme;
         Seed = seed;
         FoldCount = foldCount;
         MaxMissedCleavages = maxMissedCleavages;
         MinPeptideLength = minPeptideLength;
         MaxPeptideLength = maxPeptideLength;
+        InitiatorMethionine = initiatorMethionine;
+        EntrapmentIdentifier = entrapmentIdentifier;
     }
 
     public string Method { get; }
+
+    /// <summary>
+    /// <see cref="EntrapmentProteinGenerator.ConstructionVersion"/> of the code that built the
+    /// database. The method name alone cannot tell two fold allocations apart, and the same seed
+    /// gives different partners under each.
+    /// </summary>
+    public int ConstructionVersion { get; }
+
     public string Enzyme { get; }
     public int Seed { get; }
     public int FoldCount { get; }
     public int MaxMissedCleavages { get; }
     public int MinPeptideLength { get; }
     public int MaxPeptideLength { get; }
+
+    /// <summary>
+    /// Whether a search reports the opening piece with its initiator methionine, without it, or both.
+    /// It changes which peptides the search space holds, and so the forbidden set and every
+    /// search-space count.
+    /// </summary>
+    public InitiatorMethionineBehavior InitiatorMethionine { get; }
+
+    /// <summary>The accession prefix the partners were minted with.</summary>
+    public string EntrapmentIdentifier { get; }
 }
 
 /// <summary>Counts for one stratum -- one value of whatever the report is stratified by.</summary>
@@ -94,7 +117,10 @@ public sealed class EntrapmentStratum
     /// <summary>Exactly one arrangement exists. Arithmetic: no seed and no fold count can help.</summary>
     public int UnpairableNoPermutationExists { get; internal set; }
 
-    /// <summary>Arrangements exist but every one available to the fold was already spoken for.</summary>
+    /// <summary>
+    /// Arrangements exist but every one available to the fold is a forbidden sequence, normally a
+    /// target peptide.
+    /// </summary>
     public int UnpairableAllPermutationsTaken { get; internal set; }
 
     /// <summary>The space is real but too small to give every fold its own partner.</summary>
@@ -139,14 +165,17 @@ public sealed class EntrapmentStratum
 
     /// <summary>
     /// Entrapment peptides that are a real target peptide only once a search removes the entrapment
-    /// protein's initiator methionine, and that no arrangement of the opening piece avoided.
+    /// protein's initiator methionine, retained because their piece had no alternative.
     /// </summary>
     /// <remarks>
-    /// The one route by which a real target peptide reaches the entrapment set at
-    /// <c>MaxMissedCleavages = 0</c>, where the run route does not exist. Reported separately from
-    /// <see cref="UnrepairableRunCollisions"/> because a consumer excluding them needs to know which
-    /// construction produced them, and because at MC = 0 this column reading zero and that one
-    /// reading zero mean different things.
+    /// <b>Provably zero under the current rules, and not a measurement of the route.</b> The route
+    /// is real -- it is how a real target peptide reaches the entrapment set at
+    /// <c>MaxMissedCleavages = 0</c>, where the run route does not exist -- but every candidate that
+    /// would take it is refused, and a piece left with no other arrangement is excised and counted
+    /// in <see cref="UnpairableRunCollisionsExhausted"/>. This column counts the peptides that got
+    /// through anyway, which nothing currently can; it is kept so that a change that makes it
+    /// reachable shows up here instead of leaking. See
+    /// <see cref="EntrapmentAssembly.InitiatorMethionineCollisionPeptides"/>.
     /// </remarks>
     public int InitiatorMethionineCollisions { get; internal set; }
 
@@ -159,6 +188,23 @@ public sealed class EntrapmentStratum
     /// </summary>
     public double AchievedFoldRatio =>
         TargetPeptides == 0 ? 0d : EntrapmentPeptides / (double)TargetPeptides;
+
+    /// <summary>A copy, so a built report does not change as its builder goes on accumulating.</summary>
+    internal EntrapmentStratum Copy() => new(SiteCount)
+    {
+        TargetPeptides = TargetPeptides,
+        SearchSpacePeptides = SearchSpacePeptides,
+        EntrapmentSearchSpacePeptides = EntrapmentSearchSpacePeptides,
+        EntrapmentPeptides = EntrapmentPeptides,
+        UnpairableNoPermutationExists = UnpairableNoPermutationExists,
+        UnpairableAllPermutationsTaken = UnpairableAllPermutationsTaken,
+        UnpairableSpaceTooSmallForFoldCount = UnpairableSpaceTooSmallForFoldCount,
+        UnpairableRunCollisionsExhausted = UnpairableRunCollisionsExhausted,
+        Ambiguous = Ambiguous,
+        MissedCleavagePeptidesSpanningAnExcision = MissedCleavagePeptidesSpanningAnExcision,
+        UnrepairableRunCollisions = UnrepairableRunCollisions,
+        InitiatorMethionineCollisions = InitiatorMethionineCollisions,
+    };
 }
 
 /// <summary>
@@ -245,12 +291,16 @@ public sealed class EntrapmentReport
     /// entrapment protein's initiator methionine, by the ENTRAPMENT accession holding them.
     /// </summary>
     /// <remarks>
-    /// Digestion emits the opening piece with and without its initiator methionine, so a piece
+    /// <para>Digestion emits the opening piece with and without its initiator methionine, so a piece
     /// distinct from every target peptide can still have an M-stripped form that is not. Measured on
     /// the reviewed human proteome before the check existed: two peptides under Arg-C and two under
-    /// Glu-C at MC = 0. They appeared in no exclusion list, because a run collision was the only
-    /// reason this sidecar could name -- which is why this list is separate rather than folded into
-    /// that one.
+    /// Glu-C at MC = 0, named in no exclusion list.</para>
+    /// <para><b>Empty under the current rules, provably.</b> The generator now refuses every
+    /// arrangement that would strip to a real peptide, and excises a piece with no other; so no
+    /// peptide reaches this list, and an empty one says the check ran, not that the route is
+    /// harmless. It is kept, and kept separate, so that a change making the route reachable again
+    /// names its peptides here instead of leaking them. See
+    /// <see cref="EntrapmentAssembly.InitiatorMethionineCollisionPeptides"/>.</para>
     /// </remarks>
     public IReadOnlyDictionary<string, IReadOnlyCollection<string>> InitiatorMethionineCollisionsByAccession { get; }
 
@@ -290,14 +340,14 @@ public sealed class EntrapmentReport
     /// entrap nothing.
     /// </summary>
     /// <remarks>
-    /// Legitimate only for an entry too small to contribute a searchable peptide at all -- every
-    /// piece below <c>MinLength</c> is kept verbatim, and the alternative is excising the whole
-    /// entry to say the same thing less clearly. Anything else reaching this count is a symptom: it
-    /// means the sequence was never partitioned into rearrangeable pieces. The agents that caused
-    /// that at scale -- those whose motif matches at every position -- are now refused at the call
-    /// by <see cref="EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld"/>, and this figure is
-    /// how anyone would find out if another route opened. Emitted as a provenance line only when
-    /// non-zero.
+    /// Legitimate when every piece is kept verbatim for being outside the length bounds -- below
+    /// <c>MinLength</c>, or above <c>MaxLength</c> -- so the entry contributes no searchable peptide
+    /// at those bounds; see <see cref="EntrapmentAssembly.IsIdenticalToTarget"/>, including why a
+    /// search must not use wider bounds than the generation did. The agents that once made this
+    /// common, those whose motif matches at every position, are refused at the call by
+    /// <see cref="EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld"/>, and a count far above a
+    /// handful is how anyone would find out if another route opened. Emitted as a provenance line
+    /// only when non-zero.
     /// </remarks>
     public int EntriesIdenticalToTarget { get; internal set; }
 
@@ -309,21 +359,24 @@ public sealed class EntrapmentReport
     /// per-peptide facts and that table is per-stratum. Empty but for its header when nothing is
     /// excluded, which is a meaningful answer rather than a missing file.</para>
     /// <para><b><c>side</c> says which database the accession names</b>, and it exists because the
-    /// column genuinely holds two things. Three of the four reasons describe peptides of the
-    /// ENTRAPMENT database, keyed by the accession a search reports them under. <c>ambiguous</c>
-    /// describes peptides of the TARGET database -- two target peptides of one protein sharing a
-    /// composition-and-pinning key, so a discovery cannot be traced back to one of them -- and
-    /// re-keying those to an entrapment accession would assert something false about where they
-    /// live. Making the semantics uniform was the wrong repair; naming them is the right one. A
-    /// consumer filtering entrapment hits wants <c>side == "entrapment"</c>, and one excluding
-    /// ambiguous targets from a paired estimator wants the other.</para>
+    /// column genuinely holds two things. Two of the five reasons describe peptides of the TARGET
+    /// database, keyed by target accession: <c>ambiguous</c> (two target peptides of one protein
+    /// sharing a composition-and-pinning key, so a discovery cannot be traced back to one of them)
+    /// and <c>truncationProductPeptide</c> (target peptides at a truncation-product boundary, which
+    /// no partner carries). The other three -- <c>unrepairableRunCollision</c>,
+    /// <c>initiatorMethionineCollision</c> and <c>sharedWithTarget</c> -- describe peptides of the
+    /// ENTRAPMENT database, keyed by the accession a search reports them under. Re-keying the target
+    /// rows to an entrapment accession would assert something false about where they live; naming
+    /// the side is the repair. Read <c>side</c>, never the reason, to decide which database a row
+    /// belongs to: a consumer filtering entrapment hits wants <c>side == "entrapment"</c>, and one
+    /// excluding target peptides from a paired estimator wants the other.</para>
     /// <para>Appended last so that a reader taking the first three fields positionally is
     /// unaffected.</para>
     /// </remarks>
     public string ExclusionsToTabSeparated()
     {
         var text = new StringBuilder();
-        text.AppendLine(string.Join("\t", "accession", "peptide", "reason", "side"));
+        text.Append(string.Join("\t", "accession", "peptide", "reason", "side")).Append('\n');
 
         void Section(IReadOnlyDictionary<string, IReadOnlyCollection<string>> rows, string reason,
             string side)
@@ -333,7 +386,7 @@ public sealed class EntrapmentReport
             {
                 foreach (string peptide in peptides.OrderBy(p => p, StringComparer.Ordinal))
                 {
-                    text.AppendLine(string.Join("\t", accession, peptide, reason, side));
+                    text.Append(string.Join("\t", accession, peptide, reason, side)).Append('\n');
                 }
             }
         }
@@ -395,49 +448,58 @@ public sealed class EntrapmentReport
     }
 
     /// <summary>The report as a tab-separated table, provenance in leading comment lines.</summary>
+    /// <remarks>
+    /// Lines end in <c>\n</c> on every platform rather than in <see cref="Environment.NewLine"/>, so
+    /// a report regenerated on Linux is byte-identical to one written on Windows.
+    /// </remarks>
     public string ToTabSeparated()
     {
         var text = new StringBuilder();
+        void Line(string line) => text.Append(line).Append('\n');
+
         // InvariantCulture, like every numeric column further down this method. These rows are
         // what a consumer reads to regenerate a database, and a culture whose negative sign is
         // not ASCII (sv-SE writes U+2212) wrote a seed no parser reading it back would accept.
-        text.AppendLine($"# method\t{Provenance.Method}");
-        text.AppendLine($"# enzyme\t{Provenance.Enzyme}");
-        text.AppendLine($"# seed\t{Provenance.Seed.ToString(CultureInfo.InvariantCulture)}");
-        text.AppendLine($"# foldCount\t{Provenance.FoldCount.ToString(CultureInfo.InvariantCulture)}");
-        text.AppendLine($"# maxMissedCleavages\t{Provenance.MaxMissedCleavages.ToString(CultureInfo.InvariantCulture)}");
-        text.AppendLine($"# minPeptideLength\t{Provenance.MinPeptideLength.ToString(CultureInfo.InvariantCulture)}");
-        text.AppendLine($"# maxPeptideLength\t{Provenance.MaxPeptideLength.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# method\t{Provenance.Method}");
+        Line($"# construction\t{Provenance.ConstructionVersion.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# enzyme\t{Provenance.Enzyme}");
+        Line($"# seed\t{Provenance.Seed.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# foldCount\t{Provenance.FoldCount.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# maxMissedCleavages\t{Provenance.MaxMissedCleavages.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# minPeptideLength\t{Provenance.MinPeptideLength.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# maxPeptideLength\t{Provenance.MaxPeptideLength.ToString(CultureInfo.InvariantCulture)}");
+        Line($"# initiatorMethionine\t{Provenance.InitiatorMethionine}");
+        Line($"# entrapmentIdentifier\t{Provenance.EntrapmentIdentifier}");
         if (EntriesYieldingNoPartner > 0)
         {
-            text.AppendLine($"# entriesYieldingNoPartner\t{EntriesYieldingNoPartner.ToString(CultureInfo.InvariantCulture)}");
+            Line($"# entriesYieldingNoPartner\t{EntriesYieldingNoPartner.ToString(CultureInfo.InvariantCulture)}");
         }
-        // Emitted only when non-zero, so a report from a healthy build is byte-identical to before.
+        // Emitted only when non-zero, so a report from a healthy build carries no such line.
         if (EntriesIdenticalToTarget > 0)
         {
-            text.AppendLine($"# entriesIdenticalToTarget\t{EntriesIdenticalToTarget.ToString(CultureInfo.InvariantCulture)}");
+            Line($"# entriesIdenticalToTarget\t{EntriesIdenticalToTarget.ToString(CultureInfo.InvariantCulture)}");
         }
-        // Only an XML database carries truncation products, so a FASTA report is unchanged.
+        // Only an XML database carries truncation products, so a FASTA report has no such line.
         int truncationProductPeptides = TruncationProductPeptidesByAccession.Sum(kv => kv.Value.Count);
         if (truncationProductPeptides > 0)
         {
-            text.AppendLine($"# truncationProductPeptides\t{truncationProductPeptides.ToString(CultureInfo.InvariantCulture)}");
+            Line($"# truncationProductPeptides\t{truncationProductPeptides.ToString(CultureInfo.InvariantCulture)}");
         }
         // The foreign arm contributes entries that no permutation figure describes, so
         // without these the provenance describes only half a database that has one, and the
         // arm's r is not recoverable from the report at all. Emitted only when it was used,
-        // so a bottom-up report is byte-identical to before.
+        // so a bottom-up report has no such lines.
         if (ForeignEntries > 0)
         {
-            text.AppendLine($"# foreignEntries\t{ForeignEntries.ToString(CultureInfo.InvariantCulture)}");
-            text.AppendLine($"# foreignPeptidesSharedWithTarget\t"
+            Line($"# foreignEntries\t{ForeignEntries.ToString(CultureInfo.InvariantCulture)}");
+            Line($"# foreignPeptidesSharedWithTarget\t"
                 + ForeignPeptidesSharedWithTarget.Sum(kv => kv.Value.Count).ToString(CultureInfo.InvariantCulture));
         }
         // targetPeptides/entrapmentPeptides count BASE PIECES; searchSpacePeptides counts what a
         // search reports, missed cleavages included. `ambiguous` belongs to the latter -- dividing
         // it by the former divides two different populations, which is how 0.24% got written
         // as "1.19%".
-        text.AppendLine(string.Join("\t", "siteCount", "targetPeptides", "entrapmentPeptides",
+        Line(string.Join("\t", "siteCount", "targetPeptides", "entrapmentPeptides",
             "achievedFoldRatio", "unpairableNoPermutationExists", "unpairableAllPermutationsTaken",
             "unpairableSpaceTooSmallForFoldCount", "unpairableRunCollisionsExhausted",
             "searchSpacePeptides",
@@ -446,7 +508,7 @@ public sealed class EntrapmentReport
 
         foreach (EntrapmentStratum stratum in Strata.Append(Total))
         {
-            text.AppendLine(string.Join("\t",
+            Line(string.Join("\t",
                 ReferenceEquals(stratum, Total) ? "all" : stratum.SiteCount.ToString(CultureInfo.InvariantCulture),
                 stratum.TargetPeptides.ToString(CultureInfo.InvariantCulture),
                 stratum.EntrapmentPeptides.ToString(CultureInfo.InvariantCulture),
@@ -492,6 +554,7 @@ public sealed class EntrapmentReportBuilder
     private int _entriesYieldingNoPartner;
     private int _entriesIdenticalToTarget;
     private readonly Dictionary<string, HashSet<string>> _foreignSharedByAccession = new();
+    private readonly HashSet<(string Accession, int Fold)> _added = new();
 
     /// <summary>
     /// Figures that belong to the database rather than to any candidate-site stratum. Kept apart so
@@ -517,6 +580,7 @@ public sealed class EntrapmentReportBuilder
         {
             throw new MzLibException("A report needs the digestion parameters it was generated under.");
         }
+        EntrapmentAssembler.RefuseUnusableDigestionParams(digestionParams);
 
         _digestionParams = digestionParams;
         _foldCount = foldCount;
@@ -541,6 +605,23 @@ public sealed class EntrapmentReportBuilder
             throw new MzLibException(
                 "This report was asked for the mass-group invariant, which compares a target against "
                 + "its companion, so the companion protein has to be supplied to Add.");
+        }
+
+        // Everything that can throw runs before anything is recorded, so a refused Add leaves the
+        // builder as it was. Format refuses a negative fold and a target named like a foreign entry.
+        string entrapmentAccession =
+            EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
+
+        // Per-target figures are keyed by accession, so a second entry under one accession was
+        // counted against the first one's peptides: its partners were added and its own target
+        // pieces were not. The generator refuses such a database; this refuses it here as well,
+        // for a caller assembling a report from its own loop.
+        if (!_added.Add((target.Accession, fold)))
+        {
+            throw new MzLibException(
+                $"Fold {fold.ToString(CultureInfo.InvariantCulture)} of '{target.Accession}' is already "
+                + "in this report. Two entries sharing an accession cannot be told apart; make "
+                + "accessions unique before generating.");
         }
 
         _massGroups?.Add(target, companion!, assembly, _digestionParams.MinLength);
@@ -631,9 +712,6 @@ public sealed class EntrapmentReportBuilder
         // duplication was not hypothetical. Kept as two LISTS rather than two reasons on one,
         // because the two are produced by different constructions and at MaxMissedCleavages = 0
         // the run list is empty by definition while the other is empty only if the check ran.
-        string entrapmentAccession =
-            EntrapmentAccession.Format(target.Accession, fold, _entrapmentIdentifier);
-
         RecordExclusions(_unrepairableByAccession, entrapmentAccession,
             assembly.UnrepairableRunCollisionPeptides,
             () => _wholeProtein.UnrepairableRunCollisions++);
@@ -752,23 +830,33 @@ public sealed class EntrapmentReportBuilder
 
         var provenance = new EntrapmentProvenance(
             method: "composition-preserving permutation (deterministic unranking)",
+            constructionVersion: EntrapmentProteinGenerator.ConstructionVersion,
             enzyme: _digestionParams.DigestionAgent.Name,
             seed: _seed,
             foldCount: _foldCount,
             maxMissedCleavages: _digestionParams.MaxMissedCleavages,
             minPeptideLength: _digestionParams.MinLength,
-            maxPeptideLength: _digestionParams.MaxLength);
+            maxPeptideLength: _digestionParams.MaxLength,
+            // Read the way EntrapmentPairing reads it, so the line names the behaviour the counts
+            // were made under.
+            initiatorMethionine: (_digestionParams as DigestionParams)?.InitiatorMethionineBehavior
+                                 ?? InitiatorMethionineBehavior.Variable,
+            entrapmentIdentifier: _entrapmentIdentifier);
 
+        // Everything below is a copy. A built report is a snapshot, and the builder keeps
+        // accumulating into its own strata, sets and lists -- handing those out let a later Add
+        // change a report that had already been built, and let a consumer cast a "read-only"
+        // collection back and change the builder.
         return new EntrapmentReport(provenance,
-            _strata.Values.OrderBy(s => s.SiteCount).ToList(),
+            _strata.Values.OrderBy(s => s.SiteCount).Select(s => s.Copy()).ToList(),
             total,
             _ambiguousByAccession.Where(kv => kv.Value.Count > 0)
-                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value.ToList()),
             _unrepairableByAccession.Where(kv => kv.Value.Count > 0)
-                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value.ToList()),
             _initiatorMethionineByAccession.Where(kv => kv.Value.Count > 0)
-                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value),
-            _massGroups)
+                .ToDictionary(kv => kv.Key, kv => (IReadOnlyCollection<string>)kv.Value.ToList()),
+            _massGroups?.Snapshot())
         {
             TruncationProductPeptidesByAccession = _truncationProductsByAccession
                 .Where(kv => kv.Value.Count > 0)

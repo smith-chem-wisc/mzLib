@@ -19,6 +19,23 @@ namespace UsefulProteomicsDatabases.EntrapmentGeneration;
 public static class EntrapmentProteinGenerator
 {
     /// <summary>
+    /// Which construction chose the partners. It changes whenever a change to this code would give
+    /// some (input, seed, settings) a different partner.
+    /// </summary>
+    /// <remarks>
+    /// The partners -- every entrapment sequence and accession -- and the report and exclusion
+    /// tables regenerate byte-identically from (construction, seed, settings), so the report records
+    /// which construction built them: the method name alone could not tell one fold allocation from
+    /// the next, and the same seed gives different partners under each. A written XML database
+    /// carries date stamps as well, which a FASTA-loaded target takes from the day it was loaded.
+    /// The golden tests pin partners to literal sequences and fail on any change to them. A failing
+    /// golden test is the signal to bump this number and say so in the release notes -- not to
+    /// update the literals and move on, because every database built before the change stops
+    /// regenerating.
+    /// </remarks>
+    public const int ConstructionVersion = 1;
+
+    /// <summary>
     /// Refuses a decoy handed in as a target, because the entry minted from it reloads as neither.
     /// </summary>
     /// <remarks>
@@ -76,6 +93,55 @@ public static class EntrapmentProteinGenerator
     }
 
     /// <summary>
+    /// Refuses a contaminant handed in as a target, for the same reason as <see cref="RefuseDecoy"/>:
+    /// the entry minted from it would be read back as something it is not.
+    /// </summary>
+    /// <remarks>
+    /// The copy constructor carries <see cref="Protein.IsContaminant"/> across, so the partner came
+    /// out flagged both contaminant and entrapment -- a state <see cref="ProteinDbLoader"/> refuses, so
+    /// a database written with one could not be loaded back as a contaminant database at all. A loaded
+    /// list holds targets and contaminants together as readily as targets and decoys. Refused rather
+    /// than silently relabelled: whether contaminants should have entrapment partners is the caller's
+    /// decision, and filtering them out first makes that decision visible.
+    /// </remarks>
+    private static void RefuseContaminant(Protein protein)
+    {
+        if (!protein.IsContaminant)
+        {
+            return;
+        }
+
+        throw new MzLibException(
+            $"'{protein.Accession}' is a CONTAMINANT, and its entrapment partner would be flagged both "
+            + "contaminant and entrapment, which a loader refuses. Generate entrapment entries from the "
+            + "TARGET proteins only -- filter out IsContaminant entries first.");
+    }
+
+    /// <summary>
+    /// Refuses a database entry whose accession an earlier entry already had.
+    /// </summary>
+    /// <remarks>
+    /// A partner's accession is built from its target's, so two entries sharing an accession mint
+    /// partners that share one too -- <c>Random_A_f0</c> twice -- and nothing downstream can tell them
+    /// apart: pairing resolves a discovery against one of them, and the report, which keys its
+    /// per-target counts by accession, counted the second entry's partners against the first entry's
+    /// peptides. Concatenating databases is the ordinary way to reach this. Refused rather than
+    /// renamed, so the caller decides which entry was meant.
+    /// </remarks>
+    private static void RefuseRepeatedAccession(HashSet<string> seen, Protein entry)
+    {
+        if (seen.Add(entry.Accession))
+        {
+            return;
+        }
+
+        throw new MzLibException(
+            $"Two database entries share the accession '{entry.Accession}', so their entrapment "
+            + "partners would share one too and could not be told apart. Make accessions unique "
+            + "before generating.");
+    }
+
+    /// <summary>
     /// Entrapment entries taken from a foreign proteome, and the peptides they share with the
     /// target database.
     /// </summary>
@@ -118,14 +184,16 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("The sharing check needs the target database's peptides.");
         }
-        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+        EntrapmentAssembler.RefuseUnusableDigestionParams(digestionParams);
 
         var shared = new Dictionary<string, IReadOnlyCollection<string>>();
         var entrapment = new List<Protein>();
         var noMods = new List<Modification>();
+        var accessions = new HashSet<string>(StringComparer.Ordinal);
 
         foreach (Protein foreign in DatabaseEntries(foreignProteins))
         {
+            RefuseRepeatedAccession(accessions, foreign);
             var collisions = new HashSet<string>();
             foreach (var peptide in foreign.Digest(digestionParams, noMods, noMods))
             {
@@ -165,15 +233,28 @@ public static class EntrapmentProteinGenerator
         }
         RefuseDecoy(foreign);
         RefuseEntrapment(foreign);
+        RefuseContaminant(foreign);
 
         // The sequence is untouched, so unlike the permutation path the positional annotations still
         // describe it and are kept. Sequence variations are the exception: applying them would
         // expand one entry into several, and the entrapment side is one entry per entry.
+        //
+        // Kept as COPIES. The copy constructor otherwise hands the partner the foreign protein's own
+        // lists, so calling AddTruncations on the partner grew the source protein's truncation
+        // products too -- two database entries sharing state neither owns.
         return new Protein(foreign,
             accession: EntrapmentAccession.FormatForeign(foreign.Accession, entrapmentIdentifier),
             isEntrapment: true,
+            geneNames: foreign.GeneNames.ToList(),
+            oneBasedModifications: foreign.OneBasedPossibleLocalizedModifications
+                .ToDictionary(kv => kv.Key, kv => kv.Value.ToList()),
+            proteolysisProducts: foreign.TruncationProducts.ToList(),
             sequenceVariations: new List<SequenceVariation>(),
-            appliedSequenceVariations: new List<SequenceVariation>());
+            appliedSequenceVariations: new List<SequenceVariation>(),
+            databaseReferences: foreign.DatabaseReferences.ToList(),
+            disulfideBonds: foreign.DisulfideBonds.ToList(),
+            spliceSites: foreign.SpliceSites.ToList(),
+            oneBasedFixedModifications: new Dictionary<int, Modification>(foreign.OneBasedFixedModifications));
     }
 
     /// <summary>
@@ -235,7 +316,7 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build entrapment proteins from a null target list.");
         }
-        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+        EntrapmentAssembler.RefuseUnusableDigestionParams(digestionParams);
         // Checked here and not left to Create: at zero or below the fold loop never runs, so Create's
         // own check never fires and the call returned an empty database instead of an error.
         if (foldCount < 1)
@@ -248,11 +329,14 @@ public static class EntrapmentProteinGenerator
         // as a crash part-way through a run rather than as "this agent cannot be used", and this
         // is the call they actually made.
         EntrapmentAssembler.RefuseAgentsWhoseSitesCannotBeHeld(
-            digestionParams.DigestionAgent.Name, digestionParams.DigestionAgent.DigestionMotifs);
+            digestionParams.DigestionAgent.Name, digestionParams.DigestionAgent.DigestionMotifs,
+            digestionParams.DigestionAgent.CleavageSpecificity);
 
         var entrapment = new List<Protein>();
+        var accessions = new HashSet<string>(StringComparer.Ordinal);
         foreach (Protein entry in DatabaseEntries(targets))
         {
+            RefuseRepeatedAccession(accessions, entry);
             for (int fold = 0; fold < foldCount; fold++)
             {
                 Protein partner = Create(entry, digestionParams, forbiddenSequences, out EntrapmentAssembly assembly,
@@ -307,7 +391,7 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot collect target peptides from a null target list.");
         }
-        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+        EntrapmentAssembler.RefuseUnusableDigestionParams(digestionParams);
 
         List<Protein> loaded = targets.Where(t => t is not null).ToList();
         var peptides = new HashSet<string>();
@@ -396,9 +480,10 @@ public static class EntrapmentProteinGenerator
         {
             throw new MzLibException("Cannot build an entrapment protein from a null target.");
         }
-        EntrapmentAssembler.RefuseNullDigestionParams(digestionParams);
+        EntrapmentAssembler.RefuseUnusableDigestionParams(digestionParams);
         RefuseDecoy(target);
         RefuseEntrapment(target);
+        RefuseContaminant(target);
 
         assembly = EntrapmentAssembler.Assemble(target.BaseSequence, digestionParams,
             forbiddenSequences, fold, foldCount, seed);
@@ -411,6 +496,9 @@ public static class EntrapmentProteinGenerator
         return new Protein(withNewSequence,
             accession: EntrapmentAccession.Format(target.Accession, fold, entrapmentIdentifier),
             isEntrapment: true,
+            // A copy: the copy constructor otherwise shares the target's own list, so a gene name
+            // added to the partner appeared on the target too.
+            geneNames: target.GeneNames.ToList(),
             uniProtSequenceAttributes: DescribeSequence(target, assembly.EntrapmentSequence),
             oneBasedModifications: movedMods,
             // Fixed modifications are positional too, and the copy constructor inherits them unmoved

@@ -534,7 +534,8 @@ public class EntrapmentProteinTests
         var target = new Protein(Sequence, "P12345");
         Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
 
-        string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "entrapment_roundtrip.xml");
+        using var scratch = new ScratchFile("entrapment_roundtrip");
+        string path = scratch.Path;
         ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
             new List<Protein> { target, entrapment }, path);
 
@@ -547,8 +548,6 @@ public class EntrapmentProteinTests
         Assert.That(reloadedEntrapment.BaseSequence, Is.EqualTo(entrapment.BaseSequence));
         Assert.That(EntrapmentAccession.TryParse(reloadedEntrapment.Accession, out string parsed, out _), Is.True);
         Assert.That(parsed, Is.EqualTo("P12345"));
-
-        File.Delete(path);
     }
 
     [Test]
@@ -557,7 +556,8 @@ public class EntrapmentProteinTests
         var target = new Protein(Sequence, "P12345");
         Protein entrapment = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
 
-        string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "entrapment_pairing.xml");
+        using var scratch = new ScratchFile("entrapment_pairing");
+        string path = scratch.Path;
         ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
             new List<Protein> { target, entrapment }, path);
         List<Protein> reloaded = ProteinDbLoader.LoadProteinXML(path, true, DecoyType.None,
@@ -574,8 +574,6 @@ public class EntrapmentProteinTests
             Assert.That(string.Concat(targetPeptide.OrderBy(c => c)),
                 Is.EqualTo(string.Concat(peptide.BaseSequence.OrderBy(c => c))));
         }
-
-        File.Delete(path);
     }
 
     /// <summary>
@@ -640,8 +638,8 @@ public class EntrapmentProteinTests
         List<Protein> entrapment = EntrapmentProteinGenerator.GenerateEntrapment(
             targets, Tryptic, NothingForbidden);
 
-        string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
-            "entrapment_entry_parity.xml");
+        using var scratch = new ScratchFile("entrapment_entry_parity");
+        string path = scratch.Path;
         ProteinDbWriter.WriteXmlDatabase(null, targets.Concat(entrapment).ToList(), path);
 
         string written = File.ReadAllText(path);
@@ -653,8 +651,6 @@ public class EntrapmentProteinTests
         Assert.That(entrapmentEntries, Is.EqualTo(1));
         Assert.That(entries - entrapmentEntries, Is.EqualTo(entrapmentEntries),
             "the database must hold one entrapment entry per target entry");
-
-        File.Delete(path);
     }
 
     [Test]
@@ -977,12 +973,12 @@ public class EntrapmentProteinTests
         Assert.That(foreignEntry.DatabaseReferences, Has.Count.EqualTo(2),
             "a foreign entry keeps its sequence, so its references are still true of it");
 
-        string path = Path.Combine(TestContext.CurrentContext.TestDirectory, "entrapment_dbreferences.xml");
+        using var scratch = new ScratchFile("entrapment_dbreferences");
+        string path = scratch.Path;
         ProteinDbWriter.WriteXmlDatabase(new Dictionary<string, HashSet<Tuple<int, Modification>>>(),
             new List<Protein> { target, entrapment, foreignEntry }, path);
         List<Protein> reloaded = ProteinDbLoader.LoadProteinXML(path, true, DecoyType.None,
             new List<Modification>(), false, new List<string>(), out _);
-        File.Delete(path);
 
         Assert.That(reloaded.Single(p => p.Accession == entrapment.Accession).DatabaseReferences, Is.Empty,
             "nothing the writer emits may give the partner its target's function");
@@ -1353,5 +1349,229 @@ public class EntrapmentProteinTests
 
         Assert.That(EntrapmentProteinGenerator.TargetPeptides(new[] { protein }, Tryptic),
             Is.EquivalentTo(digested));
+    }
+
+    /// <summary>
+    /// A file in the test directory under a name no other run shares, deleted however the test ends.
+    /// </summary>
+    /// <remarks>
+    /// Fixed names in the shared output directory could collide between two test runs against one
+    /// build, and a failed assertion skipped the delete after it and left the file behind.
+    /// </remarks>
+    private sealed class ScratchFile : IDisposable
+    {
+        public ScratchFile(string stem) => Path = System.IO.Path.Combine(
+            TestContext.CurrentContext.TestDirectory, $"{stem}_{Guid.NewGuid():N}.xml");
+
+        public string Path { get; }
+
+        public void Dispose() => File.Delete(Path);
+    }
+
+    // ---- production review of #1271, 2026-10-10 --------------------------------
+
+    [Test]
+    public void AContaminantIsRefusedAsATargetToEntrapFrom()
+    {
+        // The copy constructor carried IsContaminant across, so the partner was flagged contaminant
+        // AND entrapment -- a state the loader refuses, so the database could not be read back as a
+        // contaminant database at all.
+        var contaminant = new Protein(Sequence, "P00001", isContaminant: true);
+
+        Assert.That(() => EntrapmentProteinGenerator.Create(contaminant, Tryptic, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("CONTAMINANT"));
+        Assert.That(() => EntrapmentProteinGenerator.CreateForeign(
+                new Protein(ForeignSequence, "Q9CLEAN", isContaminant: true)),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("CONTAMINANT"));
+        Assert.That(() => EntrapmentProteinGenerator.GenerateEntrapment(
+                new[] { new Protein(Sequence, "P00002"), contaminant }, Tryptic, NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("CONTAMINANT"),
+            "a mixed target-and-contaminant list must be refused rather than half-entrapped");
+    }
+
+    [Test]
+    public void TwoEntriesSharingAnAccessionAreRefused()
+    {
+        // Concatenated databases repeat accessions. Both partners came out as Random_A_f0, and
+        // nothing downstream could tell them apart.
+        var first = new Protein(Sequence, "A");
+        var second = new Protein(ForeignSequence, "A");
+
+        Assert.That(() => EntrapmentProteinGenerator.GenerateEntrapment(new[] { first, second }, Tryptic,
+                NothingForbidden),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("'A'"));
+        Assert.That(() => EntrapmentProteinGenerator.GenerateForeignEntrapment(new[] { first, second },
+                Tryptic, NothingForbidden, out _),
+            Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("'A'"));
+    }
+
+    [TestCase("")]
+    [TestCase(null)]
+    public void AnEmptyEntrapmentIdentifierIsRefused(string identifier)
+    {
+        // "_P00001_f0" carried IsEntrapment in memory, but a loader decides from the accession, so
+        // after a round trip through a file the partner was a TARGET.
+        static void Refused(TestDelegate call) =>
+            Assert.That(call, Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("identifier"));
+
+        Refused(() => EntrapmentAccession.Format("P00001", 0, identifier));
+        Refused(() => EntrapmentAccession.FormatForeign("Q9CLEAN", identifier));
+        Refused(() => EntrapmentProteinGenerator.GenerateEntrapment(new[] { new Protein(Sequence, "P00001") },
+            Tryptic, NothingForbidden, entrapmentIdentifier: identifier));
+    }
+
+    [TestCase("Random_P1_f007")]
+    [TestCase("Random_P1_f00")]
+    [TestCase("Random_P1_f+1")]
+    [TestCase("Random_P1_f-1")]
+    public void OnlyTheFoldFormatWritesIsParsed(string accession)
+    {
+        // "_f007" read as fold 7, so two different accessions named one (target, fold).
+        Assert.That(EntrapmentAccession.TryParse(accession, out _, out _), Is.False);
+    }
+
+    [Test]
+    public void FoldZeroIsStillParsed()
+    {
+        Assert.That(EntrapmentAccession.TryParse("Random_P1_f0", out string target, out int fold), Is.True);
+        Assert.That((target, fold), Is.EqualTo(("P1", 0)));
+    }
+
+    [Test]
+    public void ATargetAccessionContainingTheFoldMarkerRoundTrips()
+    {
+        // The fold is read from the LAST "_f", so a target whose own accession contains one keeps it.
+        string accession = EntrapmentAccession.Format("ABC_f1", 2);
+
+        Assert.That(EntrapmentAccession.TryParse(accession, out string target, out int fold), Is.True);
+        Assert.That(target, Is.EqualTo("ABC_f1"));
+        Assert.That(fold, Is.EqualTo(2));
+    }
+
+    [Test]
+    public void TryParseForeignRefusesWhatIsNotForeign()
+    {
+        // A permuted partner claimed as a foreign entry would be counted with no target to pair to.
+        Assert.That(EntrapmentAccession.TryParseForeign("Random_P12345_f0", out string foreign), Is.False);
+        Assert.That(foreign, Is.Empty);
+        Assert.That(EntrapmentAccession.TryParseForeign("P12345", out _), Is.False);
+        Assert.That(EntrapmentAccession.TryParseForeign("Random_foreign_", out _), Is.False);
+        Assert.That(EntrapmentAccession.TryParseForeign(null, out _), Is.False);
+    }
+
+    [TestCase(CleavageSpecificity.Semi)]
+    [TestCase(CleavageSpecificity.None)]
+    public void ASearchModeThatIsNotFullySpecificIsRefusedAtEveryEntryPoint(CleavageSpecificity mode)
+    {
+        // A semi-specific search reports peptides that end inside a piece. They have no isomeric
+        // counterpart, and the run test never saw them, so partner peptides equal to real target
+        // peptides went unnamed. With FragmentationTerminus N or C even the forbidden set was seeds.
+        var digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 2,
+            searchModeType: mode);
+        var protein = new Protein(Sequence, "P00001");
+        static void Refused(TestDelegate call) =>
+            Assert.That(call, Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("fully specific"));
+
+        Refused(() => EntrapmentProteinGenerator.GenerateEntrapment(new[] { protein }, digestion, NothingForbidden));
+        Refused(() => EntrapmentProteinGenerator.Create(protein, digestion, NothingForbidden));
+        Refused(() => EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden));
+        Refused(() => new EntrapmentPairing(protein, digestion));
+        Refused(() => EntrapmentProteinGenerator.TargetPeptides(new[] { protein }, digestion));
+        Refused(() => EntrapmentProteinGenerator.GenerateForeignEntrapment(new[] { protein }, digestion,
+            NothingForbidden, out _));
+        Refused(() => new EntrapmentReportBuilder(digestion, 1, 1));
+    }
+
+    [Test]
+    public void AnAgentThatIsNotItselfFullySpecificIsRefused()
+    {
+        // A semi-specific protease gives semi-specific peptides even under a Full search mode, so the
+        // search mode alone is not enough to check.
+        var semiTrypsin = new Protease("semi-trypsin-entrapment-test", CleavageSpecificity.Semi, null, null,
+            DigestionMotif.ParseDigestionMotifsFromString("K|,R|"));
+        ProteaseDictionary.Dictionary[semiTrypsin.Name] = semiTrypsin;
+        try
+        {
+            var digestion = new DigestionParams(semiTrypsin.Name, minPeptideLength: 7, maxMissedCleavages: 2);
+
+            Assert.That(() => EntrapmentAssembler.Assemble(Sequence, digestion, NothingForbidden),
+                Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("Semi-specific"));
+            Assert.That(() => EntrapmentProteinGenerator.GenerateEntrapment(
+                    new[] { new Protein(Sequence, "P00001") }, digestion, NothingForbidden),
+                Throws.TypeOf<MzLibUtil.MzLibException>().With.Message.Contains("Semi-specific"));
+        }
+        finally
+        {
+            // The dictionary is global; leave it as the other fixtures expect to find it.
+            ProteaseDictionary.Dictionary.Remove(semiTrypsin.Name);
+        }
+    }
+
+    [Test]
+    public void APartnerSharesNoListWithTheProteinItWasMadeFrom()
+    {
+        // The copy constructor hands over the original's own lists unless it is given new ones, so a
+        // gene name added to a partner appeared on its target, and AddTruncations on a foreign
+        // partner grew the foreign protein's truncation products too.
+        var target = new Protein(Sequence, "P00001",
+            geneNames: new List<Tuple<string, string>> { new("primary", "GENE1") });
+        Protein partner = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+        partner.GeneNames.Add(new Tuple<string, string>("primary", "ADDED"));
+
+        Assert.That(target.GeneNames, Has.Count.EqualTo(1), "permuted partner");
+
+        var foreign = new Protein(ForeignSequence, "Q9CLEAN",
+            geneNames: new List<Tuple<string, string>> { new("primary", "GENE2") },
+            proteolysisProducts: new List<TruncationProduct> { new(1, ForeignSequence.Length, "chain") },
+            databaseReferences: new List<DatabaseReference>
+            {
+                new("GO", "GO:0005737", new List<Tuple<string, string>>()),
+            });
+        Protein relabelled = EntrapmentProteinGenerator.CreateForeign(foreign);
+        relabelled.GeneNames.Add(new Tuple<string, string>("primary", "ADDED"));
+        relabelled.TruncationProducts.Add(new TruncationProduct(2, ForeignSequence.Length, "chain"));
+        relabelled.DatabaseReferences.Add(new DatabaseReference("GO", "GO:0005634",
+            new List<Tuple<string, string>>()));
+        relabelled.OneBasedPossibleLocalizedModifications[1] = new List<Modification>();
+
+        Assert.That(foreign.GeneNames, Has.Count.EqualTo(1), "foreign gene names");
+        Assert.That(foreign.TruncationProducts, Has.Count.EqualTo(1), "foreign truncation products");
+        Assert.That(foreign.DatabaseReferences, Has.Count.EqualTo(1), "foreign references");
+        Assert.That(foreign.OneBasedPossibleLocalizedModifications, Is.Empty, "foreign modifications");
+    }
+
+    [Test]
+    public void TargetPeptidesIncludeTheEntryBehindAnAppliedVariant()
+    {
+        // The entries are what get permuted, and a loaded list need not contain its own consensus, so
+        // digesting only the list left an entry's own peptides unforbidden.
+        IDigestionParams digestion = new DigestionParams("trypsin", minPeptideLength: 7, maxMissedCleavages: 0);
+        var variation = new SequenceVariation(16, 16, "L", "W", "L16W");
+        var consensus = new Protein("MSTQAEVDLNSGWKALADQMNLLLSK", "P1",
+            sequenceVariations: new List<SequenceVariation> { variation });
+        List<Protein> applied = VariantApplication
+            .ApplyAllVariantCombinations(consensus, new List<SequenceVariation> { variation }, maxCombinations: 10)
+            .Cast<Protein>().Where(p => p.BaseSequence != consensus.BaseSequence).ToList();
+        Assert.That(applied, Is.Not.Empty, "fixture: an applied variant");
+        Assert.That(EntrapmentProteinGenerator.DatabaseEntries(applied).Single().BaseSequence,
+            Is.EqualTo(consensus.BaseSequence), "fixture: the entry is the consensus");
+
+        Assert.That(EntrapmentProteinGenerator.TargetPeptides(applied, digestion), Does.Contain("ALADQMNLLLSK"));
+    }
+
+    [Test]
+    public void AnExcisedPartnerIsDescribedByItsOwnLengthAndMass()
+    {
+        // Only an unexcised partner was checked, and it has its target's length and mass anyway.
+        var target = new Protein("SYKALADQMNLLLSKSSSSSSRGGVDTTPFAWENDR", "P1");
+        target.UniProtSequenceAttributes.UpdateMassAttribute(4321);
+
+        Protein partner = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden);
+
+        Assert.That(partner.BaseSequence.Length, Is.LessThan(target.BaseSequence.Length), "fixture: a piece is excised");
+        Assert.That(partner.UniProtSequenceAttributes.Length, Is.EqualTo(partner.BaseSequence.Length));
+        int expected = (int)Math.Round(new PeptideWithSetModifications(partner.BaseSequence,
+            new Dictionary<string, Modification>()).MonoisotopicMass);
+        Assert.That(partner.UniProtSequenceAttributes.Mass, Is.EqualTo(expected));
     }
 }
