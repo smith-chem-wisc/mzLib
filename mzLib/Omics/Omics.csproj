@@ -50,6 +50,8 @@
     <EmbeddedResource Include="Resources\unimod.xml">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </EmbeddedResource>
+    <!-- NCBI's BLOSUM62, verbatim (ftp.ncbi.nlm.nih.gov/blast/matrices/BLOSUM62); read by SubstitutionMatrix.Blosum62 -->
+    <EmbeddedResource Include="Resources\BLOSUM62.txt" />
   </ItemGroup>
 
   <ItemGroup>
