@@ -134,7 +134,7 @@ public static class PtmPairEngine
     /// <summary>
     /// Type P: every pair of sites carried together by at least one peptidoform, with the runs it was
     /// identified in and its median co-occupancy. The observations are validated as in
-    /// <see cref="SiteOccupancyCalculator.Calculate"/>.
+    /// <see cref="SiteOccupancyCalculator.Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/>.
     /// </summary>
     public static IReadOnlyList<PtmPair> Physical(IEnumerable<PeptidoformObservation> observations,
         Func<string, bool>? includeModification = null)
@@ -189,7 +189,7 @@ public static class PtmPairEngine
     /// run's depth can be removed through <paramref name="runCovariate"/>. BH within each family, with overlapping
     /// pairs and untested pairs excluded from the family.
     /// </summary>
-    /// <param name="occupancy">Output of <see cref="SiteOccupancyCalculator.Calculate"/> for one scope.</param>
+    /// <param name="occupancy">Output of <see cref="SiteOccupancyCalculator.Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/> for one scope.</param>
     /// <param name="observations">The same observations, used to decide which pairs overlap.</param>
     /// <param name="minQuantifiedFraction">
     /// The pair-scale guard of D4 (default 0.7): the share of the scope's runs where a site must have a value (with
