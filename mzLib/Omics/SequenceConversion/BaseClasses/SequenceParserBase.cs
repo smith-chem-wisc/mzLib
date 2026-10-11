@@ -55,6 +55,7 @@ public abstract class SequenceParserBase : ISequenceParser
         var baseSequence = new StringBuilder();
         var modifications = new List<CanonicalModification>();
         int residueIndex = 0;
+        int lastModifiedResidue = 0;
         int i = 0;
 
         // Check for N-terminal modification: "[mod]sequence" or "[mod]-sequence"
@@ -107,8 +108,16 @@ public abstract class SequenceParserBase : ISequenceParser
                         $"Unclosed bracket at position {i}.");
                 }
 
+                // Equal before the first residue too, where both are still zero
+                if (residueIndex == lastModifiedResidue)
+                {
+                    return HandleError(warnings, mode, ConversionFailureReason.UnknownFormat,
+                        $"Modification at position {i} does not follow an unmodified residue.");
+                }
+                lastModifiedResidue = residueIndex;
+
                 string modString = input.Substring(i + 1, closeBracket - i - 1);
-                char? targetResidue = residueIndex > 0 ? baseSequence[residueIndex - 1] : null;
+                char targetResidue = baseSequence[residueIndex - 1];
 
                 var mod = ParseModificationString(modString, ModificationPositionType.Residue, residueIndex - 1, targetResidue, warnings, mode);
                 if (mod == null)

@@ -1,3 +1,4 @@
+using System.Linq;
 using NUnit.Framework;
 using Omics.SequenceConversion;
 
@@ -100,6 +101,38 @@ public class SequenceParserBaseTests
 
         Assert.That(canonical!.Value.BaseSequence, Is.EqualTo("PEPTIDE"));
         Assert.That(canonical.Value.Modifications[0].PositionType, Is.EqualTo(ModificationPositionType.CTerminus));
+    }
+
+    [TestCase("mzLib", "[Common Biological:Acetylation on X][Common Variable:Oxidation on M]MPEPTIDE", 36)]
+    [TestCase("mzLib", "M[Common Variable:Oxidation on M][Common Biological:Acetylation on X]PEPTIDE", 33)]
+    [TestCase("mzLib", "PEPM[Common Variable:Oxidation on M][Common Biological:Phosphorylation on M]TIDE", 36)]
+    [TestCase("mzLib", "PEPTIDEM[Common Variable:Oxidation on M][Common Biological:Phosphorylation on M]", 40)]
+    [TestCase("massShift", "[+42.010565][+15.994915]MPEPTIDE", 12)]
+    [TestCase("massShift", "M[+15.994915][+42.010565]PEPTIDE", 13)]
+    [TestCase("massShift", "PEPM[+15.994915][+79.966331]TIDE", 16)]
+    [TestCase("massShift", "PEPTIDEM[+15.994915][+79.966331]", 20)]
+    public void ParseRejectsModificationNotFollowingUnmodifiedResidue(string format, string input, int position)
+    {
+        AssertRejected(format, input, $"Modification at position {position} does not follow an unmodified residue.");
+    }
+
+    [TestCase("mzLib", "[Common Biological:Acetylation on X]M[Common Variable:Oxidation on M]PEPTIDE", "MPEPTIDE", "NTerminus,0")]
+    [TestCase("mzLib", "PEPS[Common Biological:Phosphorylation on S]T[Common Biological:Phosphorylation on T]IDE", "PEPSTIDE", "3,4")]
+    [TestCase("mzLib", "PEPTIDEM[Common Variable:Oxidation on M]-[Unimod:Amidated on X]", "PEPTIDEM", "7,CTerminus")]
+    [TestCase("mzLib", "[Unimod:Cation:Fe[III] on X]PE[Unimod:Cation:Fe[III] on E]PTIDE", "PEPTIDE", "NTerminus,1")]
+    [TestCase("massShift", "[+42.010565]M[+15.994915]PEPTIDE", "MPEPTIDE", "NTerminus,0")]
+    [TestCase("massShift", "PEPS[+79.966331]T[+79.966331]IDE", "PEPSTIDE", "3,4")]
+    [TestCase("massShift", "PEPTIDEM[+15.994915]-[-0.984016]", "PEPTIDEM", "7,CTerminus")]
+    public void ParseAllowsOneModificationPerResidueAndTerminus(string format, string input, string baseSequence, string positions)
+    {
+        SequenceParserBase parser = format == "mzLib" ? new MzLibSequenceParser() : new MassShiftSequenceParser();
+
+        var canonical = parser.Parse(input);
+
+        Assert.That(canonical!.Value.BaseSequence, Is.EqualTo(baseSequence));
+        Assert.That(
+            string.Join(",", canonical.Value.Modifications.Select(m => m.ResidueIndex?.ToString() ?? m.PositionType.ToString())),
+            Is.EqualTo(positions));
     }
 
     [TestCase("PE[Unimod:Cation:Fe[III] on E]PTIDE", ModificationPositionType.Residue)]
