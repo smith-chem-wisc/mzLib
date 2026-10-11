@@ -497,6 +497,38 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void TraitFitOnLog2OddsIsTheNaturalLogFitDividedByLn2()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        var cov = trait.Keys.ToDictionary(r => r, r => new[] { r.EndsWith("_0") ? 1.0 : 0.0 });
+        var ln = SiteTraitEffects.Fit(occ, trait, rep, cov, ["handling"]).Single();
+        var log2 = SiteTraitEffects.Fit(occ, trait, rep, cov, ["handling"],
+            new SiteTraitOptions { Scale = OccupancyScale.Log2Odds }).Single();
+        double ln2 = Math.Log(2);
+        Assert.That(ln.Scale, Is.EqualTo(OccupancyScale.NaturalLogOdds));
+        Assert.That(log2.Scale, Is.EqualTo(OccupancyScale.Log2Odds));
+        Assert.That(log2.Status, Is.EqualTo("Fitted"));
+        // Exact: the log2 result is the natural-log fit divided by ln 2, not a second fit.
+        Assert.That(log2.Effect, Is.EqualTo(ln.Effect / ln2));
+        Assert.That(log2.StandardError, Is.EqualTo(ln.StandardError / ln2));
+        Assert.That(log2.CovariateEffects[0], Is.EqualTo(ln.CovariateEffects[0] / ln2));
+        Assert.That(log2.ReplicateVariance, Is.EqualTo(ln.ReplicateVariance / (ln2 * ln2)));
+        Assert.That(log2.ResidualVariance, Is.EqualTo(ln.ResidualVariance / (ln2 * ln2)));
+        Assert.That(log2.DegreesOfFreedom, Is.EqualTo(ln.DegreesOfFreedom));
+        Assert.That(log2.PValue, Is.EqualTo(ln.PValue));
+        Assert.That(log2.Q, Is.EqualTo(ln.Q));
+        Assert.That(log2.MedianFraction, Is.EqualTo(ln.MedianFraction));
+
+        // A site below support records its scale too, and an unknown scale is refused.
+        var below = SiteTraitEffects.Fit(occ, trait, rep,
+            options: new SiteTraitOptions { Scale = OccupancyScale.Log2Odds, MinReplicates = 7 }).Single();
+        Assert.That(below.Status, Is.EqualTo("BelowSupport"));
+        Assert.That(below.Scale, Is.EqualTo(OccupancyScale.Log2Odds));
+        Assert.Throws<ArgumentOutOfRangeException>(() =>
+            SiteTraitEffects.Fit(occ, trait, rep, options: new SiteTraitOptions { Scale = (OccupancyScale)2 }));
+    }
+
+    [Test]
     public void PooledOccupancyIsModifiedShareOfCoveringSignal()
     {
         var q1 = new ModificationSite("P1", 3, 'Q', "Common Artifact:Deamidation on Q");
