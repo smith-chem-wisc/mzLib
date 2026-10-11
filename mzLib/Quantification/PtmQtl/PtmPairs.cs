@@ -15,6 +15,25 @@ public enum PairResultType
     A,
 }
 
+/// <summary>Whether a type A pair was tested, and if not, why.</summary>
+public enum PairTestStatus
+{
+    /// <summary>Tested: <see cref="PtmPair.PValue"/> is set.</summary>
+    Tested,
+    /// <summary>
+    /// The correlation could not be computed: fewer complete runs than it needs, a site constant over them, or a
+    /// covariate that carries a site entirely.
+    /// </summary>
+    NotEstimable,
+    /// <summary>A partial correlation on fewer than <see cref="PtmPairEngine.MinRunsForRunLevel"/> shared runs.</summary>
+    TooFewSharedRuns,
+    /// <summary>
+    /// With bounds included, both sites are a bound in most shared runs: fewer than
+    /// <see cref="PtmPairEngine.MinUntiedShare"/> of the runs are outside each site's largest tie.
+    /// </summary>
+    BothSitesMostlyBounds,
+}
+
 /// <summary>One relationship between two modification sites, within one scope (e.g. one dataset).</summary>
 /// <remarks>
 /// A pair is unordered and is written once, with <see cref="SiteA"/>'s key before <see cref="SiteB"/>'s by
@@ -41,7 +60,8 @@ public sealed record PtmPair
     /// Type P: median over runs of the co-occupancy, the intensity of peptidoforms carrying both modifications
     /// over the intensity of peptidoforms covering both positions (NaN when never quantified).
     /// Type A: Spearman's ρ of the two occupancies across runs; the partial ρ given each run's level when
-    /// <see cref="RunLevelRemoved"/>.
+    /// <see cref="RunLevelRemoved"/>, and given the run covariate when <see cref="RunCovariateRemoved"/>. NaN when not
+    /// tested (<see cref="TestStatus"/>).
     /// </summary>
     public required double Statistic { get; init; }
     /// <summary>Type A: two-sided Spearman p (method in <see cref="SpearmanMethod"/>). Type P: NaN (no test in this version).</summary>
@@ -50,7 +70,10 @@ public sealed record PtmPair
     public double Q { get; internal set; } = double.NaN;
     /// <summary>The family the adjustment ran over: result type, then same- or different-protein.</summary>
     public string FdrFamily => $"{ResultType}:{(SameProtein ? "intra" : "inter")}";
-    /// <summary>Type P: runs where a doubly modified peptidoform was identified. Type A: runs where both occupancies were quantified.</summary>
+    /// <summary>
+    /// Type P: runs where a doubly modified peptidoform was identified. Type A: runs where both sites have a value
+    /// (with <see cref="BoundsIncluded"/>, a value or a bound) and every covariate is known.
+    /// </summary>
     public required int N { get; init; }
     /// <summary>
     /// Runs <see cref="Statistic"/> was computed on. Type P: runs where the doubly modified form and the forms
@@ -64,6 +87,15 @@ public sealed record PtmPair
     /// each run's level (the median occupancy over the scope's sites in that run). Type P: false.
     /// </summary>
     public bool RunLevelRemoved { get; init; }
+    /// <summary>Type A: whether the correlation is partial given the caller's per-run covariate (e.g. depth). Type P: false.</summary>
+    public bool RunCovariateRemoved { get; init; }
+    /// <summary>
+    /// Type A: whether runs where a site was seen in only one form (or as a floor) entered as bounds, tied lowest or
+    /// highest for that site. Type P: false.
+    /// </summary>
+    public bool BoundsIncluded { get; init; }
+    /// <summary>Type A: whether the pair was tested, and if not, why. Type P: null.</summary>
+    public PairTestStatus? TestStatus { get; init; }
 }
 
 /// <summary>
@@ -86,6 +118,18 @@ public static class PtmPairEngine
     /// value in a run for that run to have a level. Below this the run is left out of the pair's test.
     /// </summary>
     public const int MinSitesForRunLevel = 3;
+    /// <summary>
+    /// With bounds included, a pair is tested only if at least one of its sites has at least this share of the
+    /// shared runs outside its largest tie (its low bounds, or its high bounds, whichever are more). When both
+    /// sites are mostly one bound, Spearman's t test calls too many pairs: with no relation at all, 2 to 5 times
+    /// the nominal rate at p &lt; 0.001 in simulation, and two sites with values in the same 2 of 40 runs read as a
+    /// perfect correlation 1 time in 780. With one site at this share or more it is right or conservative.
+    /// </summary>
+    public const double MinUntiedShare = 0.5;
+    /// <summary>The value a low bound (a covered-zero or a floor) takes in a site's vector: below every fraction.</summary>
+    private const double LowBound = -1;
+    /// <summary>The value a high bound (seen only modified) takes in a site's vector: above every fraction.</summary>
+    private const double HighBound = 2;
 
     /// <summary>
     /// Type P: every pair of sites carried together by at least one peptidoform, with the runs it was
@@ -139,17 +183,23 @@ public static class PtmPairEngine
     /// <summary>
     /// Type A: Spearman correlation across runs between the occupancies of every pair of sites quantified in
     /// at least <paramref name="minQuantifiedFraction"/> of the scope's runs, on the runs where both are
-    /// quantified. Floors and undetected runs are not values and are left out, and so, by default, are ceilings
+    /// quantified. By default, floors and undetected runs are not values and are left out, and so are ceilings
     /// (runs where a site was seen only modified): two unrelated sites both read 1 in low-load runs, which would
-    /// correlate them through detection. BH within each family, with overlapping pairs excluded from the family.
+    /// correlate them through detection. With <paramref name="includeBounds"/> they enter as bounds instead, and the
+    /// run's depth can be removed through <paramref name="runCovariate"/>. BH within each family, with overlapping
+    /// pairs and untested pairs excluded from the family.
     /// </summary>
     /// <param name="occupancy">Output of <see cref="SiteOccupancyCalculator.Calculate"/> for one scope.</param>
     /// <param name="observations">The same observations, used to decide which pairs overlap.</param>
-    /// <param name="minQuantifiedFraction">The pair-scale guard of D4 (default 0.7).</param>
+    /// <param name="minQuantifiedFraction">
+    /// The pair-scale guard of D4 (default 0.7): the share of the scope's runs where a site must have a value (with
+    /// <paramref name="includeBounds"/>, a value or a bound) to enter.
+    /// </param>
     /// <param name="excludeCeiling">
     /// Leave out a run where the site was seen only modified (occupancy 1 as a ceiling,
     /// <see cref="SiteRunOccupancy.UnmodifiedQuantified"/> false), as <see cref="SiteTraitOptions.ExcludeCeiling"/>
-    /// does for traits. Default true.
+    /// does for traits. Null (default): true, or false with <paramref name="includeBounds"/>, where a ceiling is a
+    /// bound; true together with <paramref name="includeBounds"/> is refused.
     /// </param>
     /// <param name="removeRunLevel">
     /// Correlate given each run's level: the partial Spearman correlation
@@ -169,27 +219,53 @@ public static class PtmPairEngine
     /// modification's chemistry. A pair within one group is correlated given that group's level; a pair across two
     /// groups, given both. Null (default): one group, every site.
     /// </param>
+    /// <param name="includeBounds">
+    /// Let a run where a site was seen in only one form enter as a bound, never dropped and never given an invented
+    /// value: a low bound (<see cref="OccupancyState.NotDetected"/>, a covered-zero; or <see cref="OccupancyState.Floor"/>)
+    /// is tied below every fraction of that site, and a high bound (a ceiling; or a
+    /// <see cref="OccupancyState.CountOnly"/> cell whose covering peptidoforms all carry the modification) is tied
+    /// above every fraction. A count-only cell where both forms were identified, or whose peptidoform counts were not
+    /// supplied, has no rank and is left out. Bounds count toward <paramref name="minQuantifiedFraction"/> and toward a
+    /// run's level. A pair whose two sites are both mostly one bound is not tested (<see cref="MinUntiedShare"/>,
+    /// <see cref="PairTestStatus.BothSitesMostlyBounds"/>). Default false.
+    /// </param>
+    /// <param name="runCovariate">
+    /// A value per run (e.g. its depth, log2 of its target PSMs) to correlate given: shallow runs make covered-zeros
+    /// co-occur across unrelated sites. Ranked like every variable, so any increasing transform gives the same
+    /// result. A run missing from it is left out of every pair. As with the run level, a pair sharing fewer than
+    /// <see cref="MinRunsForRunLevel"/> runs is not tested. Null (default): none.
+    /// </param>
     public static IReadOnlyList<PtmPair> CoVarying(IReadOnlyList<SiteRunOccupancy> occupancy,
         IEnumerable<PeptidoformObservation> observations, double minQuantifiedFraction = DefaultMinQuantifiedFraction,
-        bool excludeCeiling = true, bool removeRunLevel = false, Func<ModificationSite, string>? runLevelGroup = null)
+        bool? excludeCeiling = null, bool removeRunLevel = false, Func<ModificationSite, string>? runLevelGroup = null,
+        bool includeBounds = false, IReadOnlyDictionary<string, double>? runCovariate = null)
     {
         ArgumentNullException.ThrowIfNull(occupancy);
         ArgumentNullException.ThrowIfNull(observations);
         if (!(minQuantifiedFraction > 0 && minQuantifiedFraction <= 1)) throw new ArgumentOutOfRangeException(nameof(minQuantifiedFraction));
+        if (includeBounds && excludeCeiling == true)
+            throw new ArgumentException("With includeBounds a ceiling is a bound, tied highest; leave excludeCeiling unset or false.", nameof(excludeCeiling));
+        if (runCovariate != null && runCovariate.Values.Any(v => !double.IsFinite(v)))
+            throw new ArgumentException("Every run covariate value must be finite; leave a run out to leave it unknown.", nameof(runCovariate));
+        bool dropCeiling = excludeCeiling ?? !includeBounds;
 
         var runs = occupancy.Select(o => o.Run).Distinct().OrderBy(r => r, StringComparer.Ordinal).ToArray();
         var runIndex = runs.Select((r, i) => (r, i)).ToDictionary(t => t.r, t => t.i, StringComparer.Ordinal);
         var vectors = new Dictionary<ModificationSite, double[]>();
-        foreach (var o in occupancy.Where(o => o.State == OccupancyState.Quantified && (!excludeCeiling || o.UnmodifiedQuantified)))
+        foreach (var o in occupancy)
         {
+            double value = ValueOf(o, dropCeiling, includeBounds);
+            if (double.IsNaN(value)) continue;
             if (!vectors.TryGetValue(o.Site, out var v))
                 vectors[o.Site] = v = Enumerable.Repeat(double.NaN, runs.Length).ToArray();
-            v[runIndex[o.Run]] = o.Fraction;
+            v[runIndex[o.Run]] = value;
         }
         int needed = (int)Math.Ceiling(minQuantifiedFraction * runs.Length);
         var sites = vectors.Where(kv => kv.Value.Count(double.IsFinite) >= needed).Select(kv => kv.Key)
             .OrderBy(s => s.Key, StringComparer.Ordinal).ToList();
-        // Per group and run, the sorted values of the group's tested sites (the ones that enter pairs) with a value there.
+        // Per group and run, the sorted values of the group's tested sites (the ones that enter pairs) with a value there;
+        // with bounds included, a bound counts at its rank (lowest or highest), so a run where many sites fell to
+        // covered-zero reads low.
         // Using only these keeps a run's level over the same sites in every run; sites seen in a few runs would make it
         // track which sites were detected.
         string GroupOf(ModificationSite s) => runLevelGroup?.Invoke(s) ?? "";
@@ -223,24 +299,33 @@ public static class PtmPairEngine
             : new HashSet<string>(StringComparer.Ordinal));
         bool Overlap(ModificationSite a, ModificationSite b) => coveringPeptides[a].Overlaps(coveringPeptides[b]);
 
+        double[]? covariate = runCovariate == null ? null
+            : runs.Select(r => runCovariate.TryGetValue(r, out double v) ? v : double.NaN).ToArray();
+        bool partial = removeRunLevel || covariate != null;
+
         var result = new List<PtmPair>();
         foreach (var (a, b) in Pairs(sites))
         {
-            SpearmanResult r;
-            if (!removeRunLevel)
-                r = SpearmanCorrelation.Correlate(vectors[a], vectors[b]);
-            else
-            {
-                var groups = new[] { GroupOf(a), GroupOf(b) }.Distinct(StringComparer.Ordinal);
-                r = SpearmanCorrelation.PartialCorrelate(vectors[a], vectors[b], groups.Select(g => (IReadOnlyList<double>)Level(g, a, b)).ToList());
-            }
-            bool tooFew = removeRunLevel && r.N < MinRunsForRunLevel;
+            var covariates = new List<IReadOnlyList<double>>();
+            if (removeRunLevel)
+                covariates.AddRange(new[] { GroupOf(a), GroupOf(b) }.Distinct(StringComparer.Ordinal).Select(g => (IReadOnlyList<double>)Level(g, a, b)));
+            if (covariate != null) covariates.Add(covariate);
+            var r = partial
+                ? SpearmanCorrelation.PartialCorrelate(vectors[a], vectors[b], covariates)
+                : SpearmanCorrelation.Correlate(vectors[a], vectors[b]);
+
+            var status = r.Method == SpearmanPValueMethod.NotEstimable ? PairTestStatus.NotEstimable : PairTestStatus.Tested;
+            if (status == PairTestStatus.Tested && partial && r.N < MinRunsForRunLevel) status = PairTestStatus.TooFewSharedRuns;
+            if (status == PairTestStatus.Tested && includeBounds && BothMostlyBounds(vectors[a], vectors[b], covariates))
+                status = PairTestStatus.BothSitesMostlyBounds;
+            bool tested = status == PairTestStatus.Tested;
             result.Add(new PtmPair
             {
                 ResultType = PairResultType.A, SiteA = a, SiteB = b, Overlapping = Overlap(a, b),
-                Statistic = tooFew ? double.NaN : r.Rho, PValue = tooFew ? double.NaN : r.PValue, N = r.N, StatisticN = r.N,
-                SpearmanMethod = tooFew ? SpearmanPValueMethod.NotEstimable : r.Method,
-                RunLevelRemoved = removeRunLevel,
+                Statistic = tested ? r.Rho : double.NaN, PValue = tested ? r.PValue : double.NaN, N = r.N, StatisticN = r.N,
+                SpearmanMethod = tested ? r.Method : SpearmanPValueMethod.NotEstimable,
+                RunLevelRemoved = removeRunLevel, RunCovariateRemoved = covariate != null, BoundsIncluded = includeBounds,
+                TestStatus = status,
             });
         }
         foreach (var family in result.Where(p => !p.Overlapping).GroupBy(p => p.FdrFamily))
@@ -250,6 +335,47 @@ public static class PtmPairEngine
             for (int i = 0; i < members.Count; i++) members[i].Q = q[i];
         }
         return result;
+    }
+
+    /// <summary>
+    /// A cell's entry in its site's type A vector: its fraction, a bound (<see cref="LowBound"/>,
+    /// <see cref="HighBound"/>), or NaN when it does not enter.
+    /// </summary>
+    private static double ValueOf(SiteRunOccupancy o, bool dropCeiling, bool includeBounds)
+    {
+        switch (o.State)
+        {
+            case OccupancyState.Quantified when o.UnmodifiedQuantified:
+                return o.Fraction;
+            case OccupancyState.Quantified:
+                return includeBounds ? HighBound : dropCeiling ? double.NaN : o.Fraction;
+            case OccupancyState.NotDetected:
+            case OccupancyState.Floor:
+                return includeBounds ? LowBound : double.NaN;
+            case OccupancyState.CountOnly:
+                // Seen only modified: a high bound. Both forms identified, or counts unknown: no rank.
+                return includeBounds && o.CoveringPeptidoforms is int n && n > 0 && o.ModifiedPeptidoforms == n ? HighBound : double.NaN;
+            default:
+                throw new ArgumentException($"Unknown occupancy state {o.State} for {o.Site.Key} in {o.Run}.", "occupancy");
+        }
+    }
+
+    /// <summary>
+    /// True when, over the runs the test uses (both sites and every covariate known), each site has fewer than
+    /// <see cref="MinUntiedShare"/> of them outside its largest tie of bounds.
+    /// </summary>
+    private static bool BothMostlyBounds(double[] a, double[] b, List<IReadOnlyList<double>> covariates)
+    {
+        int n = 0, lowA = 0, highA = 0, lowB = 0, highB = 0;
+        for (int i = 0; i < a.Length; i++)
+        {
+            if (!double.IsFinite(a[i]) || !double.IsFinite(b[i]) || covariates.Any(c => !double.IsFinite(c[i]))) continue;
+            n++;
+            if (a[i] == LowBound) lowA++; else if (a[i] == HighBound) highA++;
+            if (b[i] == LowBound) lowB++; else if (b[i] == HighBound) highB++;
+        }
+        bool Mostly(int low, int high) => n - Math.Max(low, high) < MinUntiedShare * n;
+        return Mostly(lowA, highA) && Mostly(lowB, highB);
     }
 
     /// <summary>Unordered pairs, each written once with the ordinally smaller key first.</summary>
