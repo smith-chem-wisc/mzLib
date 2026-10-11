@@ -176,6 +176,28 @@ namespace Test.FileReadingTests
             Assert.That(design.Refusals, Has.All.Contains("not a channel of TMT10"));
         }
 
+        // ---------------------------------------------------------------- PXD015833 (TMT131)
+
+        [Test]
+        public void Pxd015833LabelsTmt10sLastChannelTmt131AndReadsAsTenChannels()
+        {
+            var tmt10 = Tag(IsobaricMassTagType.TMT10);
+            var design = SdrfIsobaricDesign.Read(Fixture("PXD015833-Exp2.subset.sdrf.tsv"),
+                new SdrfIsobaricDesignOptions
+                {
+                    // The deposit gives no factor value column; cell type is filled on every row.
+                    Tag = tmt10, SinglePlex = "Exp2", ConditionColumns = new[] { "characteristics[cell type]" }
+                });
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files, Has.Count.EqualTo(2));
+            foreach (var file in design.Files)
+            {
+                Assert.That(file.Channels.Select(c => c.Label), Is.EqualTo(tmt10.ChannelLabels), file.FilePath);
+                Assert.That(file.Channels.Last().SampleName, Is.EqualTo("Sample 40"), "the TMT131 row");
+            }
+        }
+
         // ---------------------------------------------------------------- options
 
         [Test]
@@ -267,6 +289,22 @@ namespace Test.FileReadingTests
             Assert.That(design.Files.Single().Channels.Select(c => c.Label), Is.EqualTo(new[] { "126", "127N" }));
         }
 
+        // TMT10's last channel is 131N to mzLib and TmtDesign.txt, and TMT131 in an SDRF (PRIDE:0000529, and the
+        // tmt10plex table of sdrf-pipelines). Both read as 131N; TMT131N is what PXD008841 writes (sdrf QP-S26).
+        [TestCase("TMT131")]
+        [TestCase("tmt131")]
+        [TestCase("NT=TMT131;AC=PRIDE:0000529")]
+        [TestCase("TMT131N")]
+        public void Tmt10sLastChannelReadsInEitherSpelling(string label)
+        {
+            var design = SdrfIsobaricDesign.Read(Document(
+                new Row("a.raw", "TMT126", "S1"),
+                new Row("a.raw", label, "S2")), ByColumn());
+
+            Assert.That(design.Refusals, Is.Empty, design.Report());
+            Assert.That(design.Files.Single().Channels.Select(c => c.Label), Is.EqualTo(new[] { "126", "131N" }));
+        }
+
         [Test]
         public void TmtProLabelsReadForTmtProKitsOnly()
         {
@@ -278,6 +316,7 @@ namespace Test.FileReadingTests
 
         [TestCase("ITRAQ115", IsobaricMassTagType.diLeu4, "not a channel of diLeu4")]
         [TestCase("TMT131C", IsobaricMassTagType.TMT10, "not a channel of TMT10")]
+        [TestCase("TMT131", IsobaricMassTagType.TMT11, "not a channel of TMT11")]
         [TestCase("label free sample", IsobaricMassTagType.TMT10, "a label-free row in an isobaric design")]
         [TestCase("TMT10plex", IsobaricMassTagType.TMT10, "not a channel of TMT10")]
         [TestCase("", IsobaricMassTagType.TMT10, "'comment[label]' is empty")]
