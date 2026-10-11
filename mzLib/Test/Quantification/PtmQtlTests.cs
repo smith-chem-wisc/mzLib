@@ -971,6 +971,144 @@ public class PtmQtlTests
             SiteTraitEffects.Fit(occ, trait, rep, options: new SiteTraitOptions { Scale = (OccupancyScale)2 }));
     }
 
+    private static SiteRunOccupancy WithCounts(SiteRunOccupancy cell, int modified, int covering) =>
+        cell with { CoveringPeptidoforms = covering, ModifiedPeptidoforms = modified };
+
+    /// <summary>TraitDesign with counts on every cell, and the first three runs of the low-trait replicates covered-zeros (0 of 2).</summary>
+    private static (List<SiteRunOccupancy> occ, Dictionary<string, double> trait, Dictionary<string, string> rep) SampledTraitDesign()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        var zeros = new HashSet<string> { "R0_0", "R0_1", "R1_0" };
+        occ = occ.Select(o => zeros.Contains(o.Run)
+            ? WithCounts(Cell(o.Run, double.NaN, OccupancyState.NotDetected), 0, 2)
+            : WithCounts(o, 1, 2)).ToList();
+        return (occ, trait, rep);
+    }
+
+    [Test]
+    public void SampledRunsEnterTheTraitFitThroughTheLink()
+    {
+        var (occ, trait, rep) = SampledTraitDesign();
+        var link = new DetectionLink(0, 1);
+        var options = new SiteTraitOptions { BoundCells = BoundCellModel.Sampling, DetectionLink = link };
+        var e = SiteTraitEffects.Fit(occ, trait, rep, options: options).Single();
+        Assert.That(e.Status, Is.EqualTo("Fitted"));
+        Assert.That(e.Runs, Is.EqualTo(12));
+        Assert.That(e.CountedRuns, Is.EqualTo(3));
+        Assert.That(e.Link, Is.EqualTo(link));
+        Assert.That(e.ResidualVarianceBorrowed, Is.False);
+
+        // The same numbers as the model fitted directly on the measured log odds and the three counts.
+        var runs = trait.Keys.OrderBy(r => r, StringComparer.Ordinal).ToList();
+        var y = new double[1, runs.Count];
+        var counts = new BinomialCount?[1, runs.Count];
+        var design = new double[runs.Count, 2];
+        for (int i = 0; i < runs.Count; i++)
+        {
+            design[i, 0] = 1;
+            design[i, 1] = trait[runs[i]];
+            var cell = occ.Single(o => o.Run == runs[i]);
+            double f = Math.Clamp(cell.Fraction, 5e-5, 1 - 5e-5);
+            y[0, i] = cell.State == OccupancyState.Quantified ? Math.Log(f / (1 - f)) : double.NaN;
+            if (cell.State == OccupancyState.NotDetected) counts[0, i] = new BinomialCount(0, 2);
+        }
+        var direct = LogitNormalMixedModel.Fit(y, counts, design, runs.Select(r => rep[r]).ToArray(), link);
+        Assert.That(e.Effect, Is.EqualTo(direct.Coefficient(0, 1)).Within(1e-12));
+        Assert.That(e.StandardError, Is.EqualTo(direct.StandardError(0, 1)).Within(1e-12));
+        Assert.That(e.PValue, Is.EqualTo(direct.PValue(0, 1)).Within(1e-12));
+
+        // By default the covered-zeros are left out, as before.
+        var excluded = SiteTraitEffects.Fit(occ, trait, rep).Single();
+        Assert.That(excluded.Runs, Is.EqualTo(9));
+        Assert.That(excluded.CountedRuns, Is.EqualTo(0));
+        Assert.That(excluded.Link, Is.Null);
+
+        Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(occ, trait, rep,
+            options: options with { ExcludeCeiling = true }));
+        Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(occ, trait, rep,
+            options: options with { DetectionLink = link with { DepthSlope = 0.2 } }));
+        Assert.Throws<ArgumentException>(() => SiteTraitEffects.Fit(occ, trait, rep,
+            options: options with { RunDepth = new Dictionary<string, double> { ["R0_0"] = 10 } }));
+    }
+
+    [Test]
+    public void ASiteMostlyAtOneBoundIsNotFittedAndOneRarelyMeasuredBorrowsTheScatter()
+    {
+        var (occ, trait, rep) = TraitDesign();
+        occ = occ.Select(o => WithCounts(o, 1, 2)).ToList();                     // DeamN: measured everywhere
+        var runs = trait.Keys.OrderBy(r => r, StringComparer.Ordinal).ToList();
+        var rare = new ModificationSite("P2", 20, 'N', DeamN.Modification);
+        var bound = new ModificationSite("P3", 30, 'N', DeamN.Modification);
+        for (int i = 0; i < runs.Count; i++)
+        {
+            // rare: two measured runs, the rest 1 of 3 (off the extremes); bound: one measured run, the rest 0 of 3.
+            occ.Add(i < 2 ? WithCounts(Cell(runs[i], 0.3 + 0.01 * i, site: rare), 1, 3)
+                : WithCounts(Cell(runs[i], double.NaN, OccupancyState.Floor, site: rare), 1, 3));
+            occ.Add(i < 1 ? WithCounts(Cell(runs[i], 0.2, site: bound), 1, 3)
+                : WithCounts(Cell(runs[i], double.NaN, OccupancyState.NotDetected, site: bound), 0, 3));
+        }
+        var options = new SiteTraitOptions { BoundCells = BoundCellModel.Sampling, DetectionLink = new DetectionLink(0, 1) };
+        var results = SiteTraitEffects.Fit(occ, trait, rep, options: options);
+        var measured = results.Single(r => r.Site == DeamN);
+        var borrowed = results.Single(r => r.Site == rare);
+        Assert.That(measured.Status, Is.EqualTo("Fitted"));
+        Assert.That(measured.CountedRuns, Is.EqualTo(0), "no counted run: fitted as before");
+        Assert.That(borrowed.ResidualVarianceBorrowed, Is.True);
+        Assert.That(borrowed.ResidualVariance, Is.EqualTo(measured.ResidualVariance).Within(1e-12 * measured.ResidualVariance),
+            "the median over the sites with their own: here the one");
+        Assert.That(results.Single(r => r.Site == bound).Status, Is.EqualTo("MostlyOneBound"));
+        Assert.That(results.Single(r => r.Site == bound).PValue, Is.NaN);
+    }
+
+    [Test]
+    public void TheLinkIsFittedPerCallOrFallsBack()
+    {
+        var (occ, trait, rep) = SampledTraitDesign();
+        var sampling = new SiteTraitOptions { BoundCells = BoundCellModel.Sampling };
+        // One site's 12 cells are too few to fit a link from: without a fallback the site is not fitted.
+        Assert.That(SiteTraitEffects.Fit(occ, trait, rep, options: sampling).Single().Status, Is.EqualTo("NoDetectionLink"));
+        var fallback = new DetectionLink(0.1, 0.8);
+        var withFallback = SiteTraitEffects.Fit(occ, trait, rep, options: sampling with { FallbackLink = fallback }).Single();
+        Assert.That(withFallback.Status, Is.EqualTo("Fitted"));
+        Assert.That(withFallback.Link, Is.EqualTo(fallback));
+
+        // Nine more sites like it give 120 cells: the call fits its own link.
+        var more = new List<SiteRunOccupancy>(occ);
+        for (int s = 1; s <= 9; s++)
+        {
+            var site = new ModificationSite($"Q{s}", 5 + s, 'N', DeamN.Modification);
+            more.AddRange(occ.Select((o, i) => o with
+            {
+                Site = site,
+                ReportedFraction = o.State == OccupancyState.Quantified ? Math.Min(0.95, o.Fraction * (1 + 0.1 * s)) : o.ReportedFraction,
+                ModifiedPeptidoforms = o.State == OccupancyState.Quantified ? 1 + (i + s) % 2 : 0,
+                CoveringPeptidoforms = 2,
+            }));
+        }
+        var own = SiteTraitEffects.Fit(more, trait, rep, options: sampling with { FallbackLink = fallback });
+        Assert.That(own.Select(e => e.Link).Distinct().Count(), Is.EqualTo(1), "one link per call");
+        Assert.That(own[0].Link, Is.Not.Null.And.Not.EqualTo(fallback));
+        Assert.That(own[0].Link!.Slope, Is.GreaterThan(0), "more occupancy, more often seen");
+    }
+
+    [Test]
+    public void CombiningFractionsSumsThePeptidoformCountsAndRefusesUnknownStates()
+    {
+        var map = new Dictionary<string, string> { ["f1"] = "s", ["f2"] = "s" };
+        var cells = new[]
+        {
+            WithCounts(Cell("f1", 0.2), 1, 3),
+            WithCounts(Cell("f2", double.NaN, OccupancyState.NotDetected), 0, 2),
+        };
+        var combined = SiteOccupancyCalculator.CombineRuns(cells, map).Single();
+        Assert.That(combined.CoveringPeptidoforms, Is.EqualTo(5));
+        Assert.That(combined.ModifiedPeptidoforms, Is.EqualTo(1));
+        var missing = SiteOccupancyCalculator.CombineRuns(new[] { cells[0], Cell("f2", double.NaN, OccupancyState.NotDetected) }, map).Single();
+        Assert.That(missing.CoveringPeptidoforms, Is.Null, "a run without counts leaves the sum unknown");
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(
+            new[] { Cell("f1", 0.2, (OccupancyState)99) }, map));
+    }
+
     [Test]
     public void PooledOccupancyIsModifiedShareOfCoveringSignal()
     {
