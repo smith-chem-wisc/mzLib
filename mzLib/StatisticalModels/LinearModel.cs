@@ -20,8 +20,8 @@ namespace StatisticalModels
         /// </summary>
         RankDeficient,
         /// <summary>
-        /// Logistic regression only: the outcomes are (quasi-)completely separated by the design, so the
-        /// maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
+        /// Logistic regression and <see cref="LogitNormalMixedModel"/>: the outcomes (counts) are (quasi-)completely
+        /// separated by the design, so the maximum-likelihood estimate does not exist (a coefficient runs to ±∞).
         /// </summary>
         Separated,
         /// <summary>An iterative fit did not converge within its iteration limit.</summary>
