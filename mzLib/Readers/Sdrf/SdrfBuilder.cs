@@ -308,6 +308,8 @@ namespace Readers
             if (sample.RawCharacteristics.Count > 0) alsoSet.Add(nameof(SdrfSample.RawCharacteristics));
             // 1 is the property's default, so it cannot be told from "unset"; anything else, null included, was set.
             if (sample.BiologicalReplicate != 1) alsoSet.Add(nameof(SdrfSample.BiologicalReplicate));
+            // A copied replicate cell already says `pooled` where the input did.
+            if (sample.Pooled) alsoSet.Add(nameof(SdrfSample.Pooled));
             if (sample.FactorValue is not null) alsoSet.Add(nameof(SdrfSample.FactorValue));
             if (sample.FactorValueColumn is not null) alsoSet.Add(nameof(SdrfSample.FactorValueColumn));
             if (sample.FactorValues.Count > 0) alsoSet.Add(nameof(SdrfSample.FactorValues));
@@ -472,7 +474,7 @@ namespace Readers
                     cells.Add(SdrfReserved.NotAvailable);
             }
 
-            cells.Add(Positive(sample.BiologicalReplicate, BiologicalReplicate, options));
+            cells.Add(BiologicalReplicateCell(sample, options));
 
             AddAssayCells(cells, input, modificationSlots, searchedColumn, options);
 
@@ -744,6 +746,19 @@ namespace Readers
                 : throw new MzLibException(
                     $"'{column}' must be 1-based and at least 1, but was {value}. mzLib's " +
                     "SpectraFileInfo stores replicates and fractions 0-based; add 1 before passing them.");
+
+        /// <summary>
+        /// A pool is written <c>pooled</c>, the specification's reserved word ("For pooled samples, use pooled for
+        /// biological replicate"), and QuantProject reads it as a reference role. It is a statement, so it is never
+        /// refused as missing. A pool has no replicate number, so a number other than the default beside it throws.
+        /// </summary>
+        private static string BiologicalReplicateCell(SdrfSample sample, SdrfBuilderOptions options) =>
+            !sample.Pooled ? Positive(sample.BiologicalReplicate, BiologicalReplicate, options)
+            : sample.BiologicalReplicate is null or 1 ? SdrfReserved.Pooled
+            : throw new MzLibException(
+                $"Sample '{sample.SourceName}' is {SdrfReserved.Pooled}, so '{BiologicalReplicate}' is written " +
+                $"'{SdrfReserved.Pooled}', but {nameof(SdrfSample.BiologicalReplicate)} is {sample.BiologicalReplicate}. " +
+                $"A pool has no replicate number; leave it at its default or null.");
 
         /// <summary>
         /// What to do when a value is not available.

@@ -178,6 +178,8 @@ namespace Test.FileReadingTests
                 (Func<SdrfSample, SdrfSample>)(s => s with { BiologicalReplicate = 2 }));
             yield return new TestCaseData(nameof(SdrfSample.BiologicalReplicate) + " (null)",
                 (Func<SdrfSample, SdrfSample>)(s => s with { BiologicalReplicate = null }));
+            yield return new TestCaseData(nameof(SdrfSample.Pooled),
+                (Func<SdrfSample, SdrfSample>)(s => s with { Pooled = true }));
             yield return new TestCaseData(nameof(SdrfSample.FactorValue),
                 (Func<SdrfSample, SdrfSample>)(s => s with { FactorValue = "treated" }));
             yield return new TestCaseData(nameof(SdrfSample.FactorValueColumn),

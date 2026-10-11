@@ -220,6 +220,8 @@ namespace Test.FileReadingTests
         [TestCase("Species", "E. coli", "E. coli")]
         [TestCase("Organism", "human", null)]
         [TestCase("Biological replicate", "0", null)]
+        [TestCase("Biological replicate", "Pooled", "pooled")]
+        [TestCase("Biological replicate", "QC pool", null)]
         public void AValueIsDecodedByItsHeaderOrDropped(string header, string value, string? expected)
         {
             var t = Table("t.xlsx", "S1", new[] { "File", header }, new[] { "A1", value }, new[] { "A2", value });

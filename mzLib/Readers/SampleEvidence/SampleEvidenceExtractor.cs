@@ -380,6 +380,8 @@ namespace Readers
                 case "characteristics[age]":
                     return Age(header, v);
                 case "characteristics[biological replicate]":
+                    // The spec's reserved word for a pool, as written; a name like "QC pool" is never read as one (G49).
+                    if (v.Equals(SdrfReserved.Pooled, StringComparison.OrdinalIgnoreCase)) return SdrfReserved.Pooled;
                     return Regex.IsMatch(v, @"^[1-9]\d{0,2}$") ? v : null;
                 case "characteristics[organism]":
                     if (Regex.IsMatch(v, @"^(not|no|none|unknown|n/?a)\b", RegexOptions.IgnoreCase)) return null;
