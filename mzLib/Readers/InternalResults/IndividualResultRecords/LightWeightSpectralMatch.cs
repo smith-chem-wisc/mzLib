@@ -1,5 +1,6 @@
 using System.Globalization;
 using Omics;
+using Omics.BioPolymer;
 using Omics.SpectrumMatch;
 
 namespace Readers
@@ -20,6 +21,7 @@ namespace Readers
         public string BaseSequence { get; }
         public string Accession { get; }
         public bool IsDecoy { get; }
+        public bool IsEntrapment { get; }
 
         // ISpectralMatch
         public string FullFilePath { get; }
@@ -86,7 +88,8 @@ namespace Readers
 
             // Decoy/Contaminant/Target
             string dct = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
-            IsDecoy = dct.Contains('D');
+            IsDecoy = DecoyContaminantTargetLabel.IsDecoy(dct);
+            IsEntrapment = DecoyContaminantTargetLabel.IsEntrapment(dct);
 
             // Accession (already resolved to canonical key by ParseHeader)
             Accession = parsedHeader[SpectrumMatchFromTsvHeader.Accession] >= 0
