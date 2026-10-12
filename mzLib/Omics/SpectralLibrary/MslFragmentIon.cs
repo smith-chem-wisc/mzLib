@@ -287,16 +287,31 @@ public class MslLibraryEntry
 
 	/// <summary>
 	/// Indexed retention time (iRT, in iRT units) or calibrated run-specific retention time
-	/// in minutes. Which representation is stored is indicated by the rt_is_calibrated bit
-	/// in PrecursorFlags. Maps to LibrarySpectrum.RetentionTime and MslPrecursorRecord.RetentionTime.
+	/// in minutes. Which representation is stored is indicated by <see cref="RtIsCalibrated"/>
+	/// (the rt_is_calibrated bit in PrecursorFlags). Maps to LibrarySpectrum.RetentionTime and
+	/// MslPrecursorRecord.RetentionTime.
 	/// </summary>
 	public double RetentionTime { get; set; }
+
+	/// <summary>
+	/// False (the default) when <see cref="RetentionTime"/> holds iRT; true when it holds a
+	/// run-specific retention time in minutes. Stored in bit 2 of PrecursorFlags.
+	/// </summary>
+	public bool RtIsCalibrated { get; set; }
 
 	/// <summary>
 	/// True for decoy precursors (reversed or shuffled sequence). Used to separate target
 	/// and decoy distributions for FDR estimation. Maps to LibrarySpectrum.IsDecoy.
 	/// </summary>
 	public bool IsDecoy { get; set; }
+
+	/// <summary>
+	/// True for entrapment precursors (sequences from an entrapment database, used to estimate
+	/// the false discovery proportion). Independent of <see cref="IsDecoy"/>: together they
+	/// encode target (T), decoy (D), entrapment target (ET) and entrapment decoy (ED).
+	/// Stored in bit 3 of PrecursorFlags.
+	/// </summary>
+	public bool IsEntrapment { get; set; }
 
 	/// <summary>
 	/// All fragment ions for this precursor.  The list may contain terminal ions (b, y, c, z,
@@ -393,6 +408,19 @@ public class MslLibraryEntry
 	/// Used as the dictionary key in the MslIndex sequence-to-entry map for O(1) DDA lookup.
 	/// </summary>
 	public string Name => FullSequence + "/" + ChargeState;
+
+	/// <summary>
+	/// Returns a shallow copy of this entry with <paramref name="fragments"/> as its fragment
+	/// ions. Every other property is copied as is, including properties added later.
+	/// </summary>
+	/// <param name="fragments">The fragment ions for the copy.</param>
+	/// <returns>A new <see cref="MslLibraryEntry"/>; this entry is not modified.</returns>
+	public MslLibraryEntry WithFragments(List<MslFragmentIon> fragments)
+	{
+		var copy = (MslLibraryEntry)MemberwiseClone();
+		copy.MatchedFragmentIons = fragments;
+		return copy;
+	}
 
 	// ── Conversion: MslLibraryEntry → LibrarySpectrum ───────────────────
 

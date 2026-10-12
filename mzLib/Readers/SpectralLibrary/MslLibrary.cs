@@ -165,7 +165,8 @@ public sealed class MslLibrary : IDisposable
 		// array index lookup because all fragments are already in memory.
 		MslIndex index = MslIndex.Build(
 			rawLib.Entries,
-			i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+			i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null,
+			maxBufferSize: 0);
 
 		// Build the proteoform index when the library contains proteoform entries.
 		MslProteoformIndex? proteoformIndex = BuildProteoformIndexIfNeeded(
@@ -189,7 +190,7 @@ public sealed class MslLibrary : IDisposable
 	///
 	/// <para>
 	/// All query APIs produce identical results to those returned by <see cref="Load"/>. The
-	/// difference is that <see cref="GetEntry"/> and <see cref="GetAllEntries"/> trigger disk
+	/// difference is that <see cref="GetEntry(int)"/> and <see cref="GetAllEntries"/> trigger disk
 	/// reads for fragment data rather than returning pre-populated objects.
 	/// </para>
 	///
@@ -232,7 +233,8 @@ public sealed class MslLibrary : IDisposable
 			// same as the MslLibrary.Load path. Do not call LoadFragmentsOnDemand.
 			index = MslIndex.Build(
 				rawLib.Entries,
-				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null);
+				i => i >= 0 && i < rawLib.Count ? rawLib.Entries[i] : null,
+				maxBufferSize: 0);
 
 			proteoformIndex = BuildProteoformIndexIfNeeded(
 				rawLib.Entries,
@@ -244,14 +246,15 @@ public sealed class MslLibrary : IDisposable
 		}
 
 		// Uncompressed index-only path: capture rawLib in the loader closure.
-		// On index cache miss the delegate seeks the open FileStream and reads the fragment block.
+		// On index cache miss the delegate reads the fragment block from the open file.
 		Func<int, MslLibraryEntry?> loader = i =>
 		{
 			if (i < 0 || i >= rawLib.Count)
 				return null;
-			MslLibraryEntry skeleton = rawLib.Entries[i];
-			skeleton.MatchedFragmentIons = rawLib.LoadFragmentsOnDemand(i);
-			return skeleton;
+			// The fragments go on a copy of the skeleton, never on the skeleton itself: rawLib.Entries
+			// lives as long as the library, so fragments stored there would never be released and
+			// the LRU bound would not limit memory.
+			return rawLib.Entries[i].WithFragments(rawLib.LoadFragmentsOnDemand(i));
 		};
 
 		// Defer the sequence/charge dictionary: building it here would call the loader for EVERY entry,
@@ -563,7 +566,7 @@ public sealed class MslLibrary : IDisposable
 	///
 	/// <para>
 	/// This is the hot-path entry point for DIA isolation window queries. To load the
-	/// full entry for a candidate, call <see cref="GetEntry"/> with its
+	/// full entry for a candidate, call <see cref="GetEntry(int)"/> with its
 	/// <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>.
 	/// </para>
 	/// </summary>
@@ -640,6 +643,13 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
+	/// In index-only mode, each load after an eviction returns a new object. Do not key
+	/// dictionaries on the returned reference or compare entries with
+	/// <see cref="object.ReferenceEquals"/>; use <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>
+	/// or <see cref="MslLibraryEntry.Name"/> as the key.
+	/// </para>
+	///
+	/// <para>
 	/// The <see cref="MslPrecursorIndexEntry.PrecursorIdx"/> field returned by
 	/// <see cref="QueryMzWindow"/> and <see cref="QueryWindow"/> is the correct value
 	/// to pass here.
@@ -660,6 +670,61 @@ public sealed class MslLibrary : IDisposable
 		ThrowIfDisposed();
 		return _index!.GetEntry(precursorIdx);
 	}
+
+	/// <summary>
+	/// Returns the entry for <paramref name="precursorIdx"/>, optionally without reading its
+	/// fragment ions.
+	///
+	/// <para>
+	/// With <paramref name="includeFragments"/> = <see langword="true"/> this is
+	/// <see cref="GetEntry(int)"/>.
+	/// </para>
+	///
+	/// <para>
+	/// With <see langword="false"/>, use it when only precursor metadata is needed: sequence,
+	/// charge, m/z, retention time, decoy flag, protein accession, name and gene.
+	/// <list type="bullet">
+	///   <item>In index-only mode it reads nothing from disk and does not touch the LRU cache.
+	///   <c>MatchedFragmentIons</c> is empty.</item>
+	///   <item>In full-load mode the fragments are already in memory, so it returns the same
+	///   entry as <see cref="GetEntry(int)"/>, fragments included.</item>
+	/// </list>
+	/// Do not rely on <c>MatchedFragmentIons</c> being empty or full when passing
+	/// <see langword="false"/>.
+	/// </para>
+	///
+	/// <para>
+	/// The returned entry is shared. Do not modify it.
+	/// </para>
+	/// </summary>
+	/// <param name="precursorIdx">
+	///   Zero-based precursor index as stored in
+	///   <see cref="MslPrecursorIndexEntry.PrecursorIdx"/>. Out-of-range values return
+	///   <see langword="null"/>.
+	/// </param>
+	/// <param name="includeFragments">
+	///   <see langword="false"/> to skip reading fragment ions in index-only mode.
+	/// </param>
+	/// <returns>
+	///   The entry, or <see langword="null"/> when the index is out of range or the entry
+	///   cannot be loaded.
+	/// </returns>
+	/// <exception cref="ObjectDisposedException">This instance has been disposed.</exception>
+	public MslLibraryEntry? GetEntry(int precursorIdx, bool includeFragments)
+	{
+		ThrowIfDisposed();
+
+		if (includeFragments || _rawLibrary is null || !_rawLibrary.IsIndexOnly)
+			return _index!.GetEntry(precursorIdx);
+
+		// Index-only: the skeleton holds every metadata field and is never given fragments
+		// (the loader copies it), so it can be returned as is.
+		IReadOnlyList<MslLibraryEntry> skeletons = _rawLibrary.Entries;
+		return precursorIdx >= 0 && precursorIdx < skeletons.Count ? skeletons[precursorIdx] : null;
+	}
+
+	/// <summary>Live index statistics, including the <see cref="GetEntry(int)"/> cache counters (tests only).</summary>
+	internal MslIndexStatistics IndexStatisticsForTesting => _index!.GetStatistics();
 
 	// ── Proteoform window query ───────────────────────────────────────────────
 
@@ -788,6 +853,13 @@ public sealed class MslLibrary : IDisposable
 	/// </para>
 	///
 	/// <para>
+	/// <b>Cost in index-only mode:</b> a full enumeration reads every fragment block in the
+	/// file, one entry at a time. To read only precursor metadata (sequence, charge, protein
+	/// accession), loop over the index and call <see cref="GetEntry(int, bool)"/> with
+	/// <c>includeFragments: false</c>, which reads nothing from disk.
+	/// </para>
+	///
+	/// <para>
 	/// Iterating the sequence to completion while the library is disposed is safe — the
 	/// enumerator checks for disposal before yielding each entry and stops cleanly.
 	/// </para>
@@ -863,7 +935,7 @@ public sealed class MslLibrary : IDisposable
 	/// </param>
 	/// <param name="intercept">
 	///   Intercept of the linear iRT → calibrated RT regression (in the same units as the
-	///   calibrated RT axis, typically minutes or seconds depending on the experiment).
+	///   calibrated RT axis; minutes, matching the format's rt_is_calibrated convention).
 	/// </param>
 	/// <returns>
 	///   A new <see cref="MslLibrary"/> whose precursor index entries have transformed
@@ -911,8 +983,9 @@ public sealed class MslLibrary : IDisposable
 	///       <c>(observedRT, libraryIrt)</c> is collected as a regression anchor.
 	///       An ordinary-least-squares linear fit is computed:
 	///       <code>iRT_predicted = slope × observedRT + intercept</code>
-	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available the
-	///       regression cannot be trusted; in that case the raw observed RT is stored unchanged
+	///       If fewer than <paramref name="minRegressionAnchors"/> anchors are available, or the
+	///       anchors mix iRT and run-minute entries (<see cref="MslLibraryEntry.RtIsCalibrated"/>),
+	///       the regression cannot be trusted; in that case the raw observed RT is stored unchanged
 	///       and <see cref="MslUpdateResult.RtNormalisationApplied"/> is <see langword="false"/>.
 	///     </description>
 	///   </item>
@@ -941,8 +1014,15 @@ public sealed class MslLibrary : IDisposable
 	/// <b>Source-type flag:</b> entries that were present in the original library and are kept
 	/// unchanged retain their original <see cref="MslFormat.SourceType"/>. Entries that are
 	/// replaced by or newly added from the incoming spectra are tagged
-	/// <see cref="MslFormat.SourceType.Empirical"/>, and if RT normalisation was applied their
-	/// <c>RtIsCalibrated</c> flag is set to <see langword="true"/>.
+	/// <see cref="MslFormat.SourceType.Empirical"/>. When RT normalisation was applied, their
+	/// observed RT is mapped onto the scale the anchor entries hold, which is iRT
+	/// (<see cref="MslLibraryEntry.RtIsCalibrated"/> = <see langword="false"/>) or run minutes
+	/// (<see langword="true"/>). A replacement keeps the flag of the entry it replaces; a novel
+	/// entry takes the anchors' flag. When normalisation was not applied, the raw run RT in minutes
+	/// is stored and <see cref="MslLibraryEntry.RtIsCalibrated"/> is <see langword="true"/>, so
+	/// readers can tell the two apart. Normalisation is not applied when there are fewer than
+	/// <paramref name="minRegressionAnchors"/> anchors, or when the anchors are on different scales
+	/// (some iRT, some minutes), because a line fitted across two scales is meaningless.
 	/// </para>
 	///
 	/// <para><b>Thread safety:</b> this method is safe to call from any thread as long as no
@@ -1008,6 +1088,12 @@ public sealed class MslLibrary : IDisposable
 		var anchorsObservedRt = new List<double>(incoming.Count);
 		var anchorsLibraryIrt = new List<double>(incoming.Count);
 
+		// The regression maps observed RT onto whatever scale the anchors hold, which is iRT
+		// (RtIsCalibrated = false) or run minutes (true). Record it so new entries are flagged
+		// with that scale, not assumed to be iRT.
+		bool anyAnchorOnIrt = false;
+		bool anyAnchorInMinutes = false;
+
 		foreach (var (key, spectrum) in incoming)
 		{
 			if (TryGetEntry(key.Sequence, key.Charge, out MslLibraryEntry? libEntry)
@@ -1015,10 +1101,15 @@ public sealed class MslLibrary : IDisposable
 			{
 				anchorsObservedRt.Add(spectrum.RetentionTime ?? 0.0);
 				anchorsLibraryIrt.Add(libEntry.RetentionTime);
+				if (libEntry.RtIsCalibrated) anyAnchorInMinutes = true;
+				else anyAnchorOnIrt = true;
 			}
 		}
 
-		bool rtNormalisationApplied = anchorsObservedRt.Count >= minRegressionAnchors;
+		// Anchors on two different scales make the fitted line meaningless: do not normalise.
+		bool anchorsAgree = !(anyAnchorOnIrt && anyAnchorInMinutes);
+		bool anchorScaleIsMinutes = anyAnchorInMinutes;
+		bool rtNormalisationApplied = anchorsObservedRt.Count >= minRegressionAnchors && anchorsAgree;
 		double rtSlope = 1.0;
 		double rtIntercept = 0.0;
 
@@ -1056,6 +1147,8 @@ public sealed class MslLibrary : IDisposable
 					replacement.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 															  rtSlope, rtIntercept,
 															  rtNormalisationApplied);
+					// Normalised RT is on the original entry's scale; otherwise it is raw run minutes.
+					replacement.RtIsCalibrated = rtNormalisationApplied ? originalEntry.RtIsCalibrated : true;
 					replacement.Source = MslFormat.SourceType.Empirical;
 
 					// Preserve rich metadata that LibrarySpectrum cannot carry.
@@ -1063,6 +1156,7 @@ public sealed class MslLibrary : IDisposable
 					replacement.ProteinAccession = originalEntry.ProteinAccession;
 					replacement.IsProteotypic = originalEntry.IsProteotypic;
 					replacement.IsDecoy = originalEntry.IsDecoy;
+					replacement.IsEntrapment = originalEntry.IsEntrapment;
 					replacement.MoleculeType = originalEntry.MoleculeType;
 
 					mergedEntries.Add(replacement);
@@ -1093,6 +1187,7 @@ public sealed class MslLibrary : IDisposable
 			novel.RetentionTime = NormaliseRt(newSpectrum.RetentionTime ?? 0.0,
 													  rtSlope, rtIntercept,
 													  rtNormalisationApplied);
+			novel.RtIsCalibrated = rtNormalisationApplied ? anchorScaleIsMinutes : true;
 			novel.Source = MslFormat.SourceType.Empirical;
 
 			mergedEntries.Add(novel);
@@ -1361,7 +1456,8 @@ public sealed class MslLibrary : IDisposable
 /// <param name="RtNormalisationApplied">
 ///   <see langword="true"/> when the regression was computed and applied to incoming entries;
 ///   <see langword="false"/> when there were too few anchors (below the
-///   <c>minRegressionAnchors</c> threshold) and raw RT values were stored instead.
+///   <c>minRegressionAnchors</c> threshold), or the anchors were on different RT scales,
+///   and raw RT values were stored instead.
 /// </param>
 /// <param name="RtSlope">
 ///   Slope of the fitted <c>iRT = slope × observedRT + intercept</c> line.

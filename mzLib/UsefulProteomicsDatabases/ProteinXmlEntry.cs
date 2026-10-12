@@ -447,12 +447,12 @@ namespace UsefulProteomicsDatabases
                     isDecoy = true;
                 }
                 // Detect entrapment: either caller flagged entire DB as entrapment, or accession contains the identifier anywhere
-                isEntrapment = isEntrapmentDb || Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                isEntrapment = isEntrapmentDb || ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier);
                 if (isEntrapment && isContaminant)
                     throw new MzLibUtil.MzLibException($"Protein accession '{Accession}' cannot be both a contaminant and an entrapment protein.",
                         new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                 // Prepend entrapment identifier if accession doesn't already contain it
-                if (isEntrapment && Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                if (isEntrapment && !ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier))
                 {
                     if (isDecoy)
                         Accession = decoyIdentifier + "_" + entrapmentIdentifier + "_" + Accession.Substring(decoyIdentifier.Length).TrimStart('_');
@@ -509,12 +509,12 @@ namespace UsefulProteomicsDatabases
                     isDecoy = true;
                 }
                 // Detect entrapment: either caller flagged entire DB as entrapment, or accession contains the identifier anywhere
-                isEntrapment = isEntrapmentDb || Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                isEntrapment = isEntrapmentDb || ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier);
                 if (isEntrapment && isContaminant)
                     throw new MzLibUtil.MzLibException($"RNA accession '{Accession}' cannot be both a contaminant and an entrapment sequence.",
                         new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                 // Prepend entrapment identifier if accession doesn't already contain it
-                if (isEntrapment && Accession.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                if (isEntrapment && !ProteinDbLoader.IsEntrapmentAccession(Accession, entrapmentIdentifier))
                 {
                     if (isDecoy)
                         Accession = decoyIdentifier + "_" + entrapmentIdentifier + "_" + Accession.Substring(decoyIdentifier.Length).TrimStart('_');
