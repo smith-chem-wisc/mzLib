@@ -113,8 +113,8 @@ namespace StatisticalModels
         /// <see cref="Correlate"/> gives. A covariate whose ranks the others carry entirely (two level series that rank
         /// the runs identically) adds nothing and is dropped, and k counts the covariates kept.
         /// <see cref="SpearmanResult.Method"/> is <see cref="SpearmanPValueMethod.Asymptotic"/>, or NotEstimable with
-        /// fewer than k + 3 complete cases, a constant variable, or covariates that carry x or y entirely (nothing of it
-        /// is left to correlate).
+        /// fewer than k + 3 complete cases (k the covariates kept, so a duplicated covariate needs no extra case), a
+        /// constant variable, or covariates that carry x or y entirely (nothing of it is left to correlate).
         /// </summary>
         public static SpearmanResult PartialCorrelate(IReadOnlyList<double> x, IReadOnlyList<double> y, IReadOnlyList<IReadOnlyList<double>> covariates)
         {
@@ -134,7 +134,9 @@ namespace StatisticalModels
             var complete = Enumerable.Range(0, x.Count).Where(i => variables.All(v => double.IsFinite(v[i]))).ToArray();
             int n = complete.Length;
             var result = new SpearmanResult { N = n, Rho = double.NaN, PValue = double.NaN, Method = SpearmanPValueMethod.NotEstimable };
-            if (n < k + 3) return result;
+            // At least one covariate is always kept, so fewer than 4 cases leave no df. The full check, on the
+            // covariates kept, follows the basis: a covariate the others carry does not cost a case.
+            if (n < 4) return result;
 
             var ranks = new double[k + 2][];
             bool ties = false;
@@ -165,6 +167,7 @@ namespace StatisticalModels
                 double norm = Math.Sqrt(left);
                 basis.Add(v.Select(e => e / norm).ToArray());
             }
+            if (n < basis.Count + 3) return result;
             var ex = Residual(unit[0], basis);
             var ey = Residual(unit[1], basis);
             double sxx = Dot(ex, ex), syy = Dot(ey, ey);

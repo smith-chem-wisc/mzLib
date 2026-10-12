@@ -294,6 +294,28 @@ public class GlmMixedCorrelationTests
         }
     }
 
+    [Test]
+    public void PartialSpearmanCaseFloorCountsOnlyTheCovariatesKept()
+    {
+        // Four cases: one covariate leaves 1 df, and so does the same covariate passed twice. Two covariates that are
+        // both kept would leave none.
+        double[] x = { 1, 2, 3, 4 }, y = { 2, 1, 4, 3 }, z = { 1, 3, 4, 2 };
+        var one = SpearmanCorrelation.PartialCorrelate(x, y, z);
+        Assert.That(one.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(one.Rho, Is.EqualTo((0.6 - 0.4 * 0.4) / (1 - 0.4 * 0.4)).Within(1e-12), "ρ_xy = 0.6, ρ_xz = ρ_yz = 0.4");
+        double t = one.Rho / Math.Sqrt(1 - one.Rho * one.Rho);
+        Assert.That(one.PValue, Is.EqualTo(1 - 2 / Math.PI * Math.Atan(t)).Within(1e-12), "t with 1 df is Cauchy");
+
+        var twice = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z, z });
+        Assert.That(twice.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(twice.Rho, Is.EqualTo(one.Rho).Within(1e-12));
+        Assert.That(twice.PValue, Is.EqualTo(one.PValue).Within(1e-12));
+
+        var two = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z, new double[] { 2, 1, 3, 4 } });
+        Assert.That(two.Method, Is.EqualTo(SpearmanPValueMethod.NotEstimable), "two covariates kept need five cases");
+        Assert.That(two.N, Is.EqualTo(4));
+    }
+
     // ---------------------------------------------------------------- logistic regression
 
     [Test]
