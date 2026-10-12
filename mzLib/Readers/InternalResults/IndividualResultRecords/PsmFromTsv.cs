@@ -130,7 +130,8 @@ namespace Readers
         /// <returns></returns>
         public override LibrarySpectrum ToLibrarySpectrum()
         {
-            bool isDecoy = this.DecoyContamTarget == "D";
+            // Not == "D": that reads an entrapment decoy ("ED") as a target spectrum.
+            bool isDecoy = IsDecoy;
 
             List<MatchedFragmentIon> fragments = new List<MatchedFragmentIon>();
 
