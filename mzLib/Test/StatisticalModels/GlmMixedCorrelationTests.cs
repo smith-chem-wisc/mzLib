@@ -245,6 +245,55 @@ public class GlmMixedCorrelationTests
         Assert.Throws<ArgumentException>(() => SpearmanCorrelation.PartialCorrelate(new[] { 1.0, 2, 3, 4 }, new[] { 1.0, 2, 3, 4 }, new[] { 1.0, 2 }));
     }
 
+    [Test]
+    public void PartialSpearmanOfOneRankOrderIsPlusOrMinusOneNotARefusal()
+    {
+        // x and y rank the cases identically, z is unrelated: the same is left of each after z, so ρ = 1 and p = 0, as
+        // Correlate gives. The one-covariate formula agrees: ρ_xy = 1 makes ρ_xz = ρ_yz, and (1 − ρ_xz²) / (1 − ρ_xz²) = 1.
+        var x = Enumerable.Range(0, 12).Select(i => (double)i).ToArray();
+        var y = x.Select(v => v * v + 1).ToArray();
+        var z = new double[] { 5, 3, 8, 1, 7, 2, 4, 6, 12, 9, 11, 10 };
+        var same = SpearmanCorrelation.PartialCorrelate(x, y, z);
+        Assert.That(same.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(same.Rho, Is.EqualTo(1));
+        Assert.That(same.PValue, Is.EqualTo(0));
+        var opposite = SpearmanCorrelation.PartialCorrelate(x, y.Select(v => -v).ToArray(), z);
+        Assert.That(opposite.Rho, Is.EqualTo(-1));
+        Assert.That(opposite.PValue, Is.EqualTo(0));
+        var tied = SpearmanCorrelation.PartialCorrelate(new double[] { 1, 1, 2, 3, 3, 3, 4, 5, 6, 6 }, new double[] { 2, 2, 4, 6, 6, 6, 8, 10, 12, 12 },
+                                                        new double[] { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3 });
+        Assert.That(tied.Rho, Is.EqualTo(1), "ties shared alike");
+
+        // One adjacent swap away, ρ moves a little and matches the formula: no cliff from strongest to missing.
+        var swapped = (double[])y.Clone();
+        (swapped[5], swapped[6]) = (swapped[6], swapped[5]);
+        double rxy = SpearmanCorrelation.Correlate(x, swapped).Rho, rxz = SpearmanCorrelation.Correlate(x, z).Rho,
+               ryz = SpearmanCorrelation.Correlate(swapped, z).Rho;
+        var near = SpearmanCorrelation.PartialCorrelate(x, swapped, z);
+        Assert.That(near.Rho, Is.EqualTo((rxy - rxz * ryz) / Math.Sqrt((1 - rxz * rxz) * (1 - ryz * ryz))).Within(1e-12));
+        Assert.That(near.Rho, Is.GreaterThan(0.98));
+    }
+
+    [Test]
+    public void PartialSpearmanDropsACovariateTheOthersCarry()
+    {
+        // z2 ranks the cases as z1 does (and z3 in reverse): either adds nothing to z1, so the result is z1's alone, its
+        // df included (n − 3, not n − 4).
+        var x = new double[] { 3.1, 1.0, 2.2, 2.5, 5.0, 4.4, 0.3, 6.1, 2.9, 3.8, 1.7, 4.9 };
+        var y = new double[] { 1.0, 0.5, 2.0, 1.5, 3.0, 3.3, 0.1, 2.5, 0.7, 2.2, 1.2, 2.8 };
+        var z1 = new double[] { 0.9, 0.2, 1.1, 0.8, 1.9, 1.4, 0.1, 2.0, 1.5, 1.2, 0.4, 1.7 };
+        var z2 = z1.Select(v => 3 * v + 1).ToArray();
+        var z3 = z1.Select(v => -v).ToArray();
+        var one = SpearmanCorrelation.PartialCorrelate(x, y, z1);
+        foreach (var duplicate in new[] { z2, z3 })
+        {
+            var both = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z1, duplicate });
+            Assert.That(both.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+            Assert.That(both.Rho, Is.EqualTo(one.Rho).Within(1e-12));
+            Assert.That(both.PValue, Is.EqualTo(one.PValue).Within(1e-12));
+        }
+    }
+
     // ---------------------------------------------------------------- logistic regression
 
     [Test]
