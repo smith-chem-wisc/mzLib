@@ -534,6 +534,32 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void APairWithOneRankOrderKeepsItsTestGivenTheRunLevel()
+    {
+        // Two sites on two proteins rise together over twelve runs; four background sites set a run level unrelated to
+        // them. Given the level, the pair is still the strongest possible (ρ = 1, p = 0), so it keeps its place in the
+        // BH family.
+        var s = new ModificationSite("P1", 13, 'S', Phos);
+        var t = new ModificationSite("P2", 43, 'S', Phos);
+        var background = Enumerable.Range(0, 4).Select(i => new ModificationSite($"P{3 + i}", 7, 'S', Phos)).ToList();
+        double[] level = { 5, 3, 8, 1, 7, 2, 4, 6, 12, 9, 11, 10 };
+        var occupancy = new List<SiteRunOccupancy>();
+        for (int r = 0; r < 12; r++)
+        {
+            occupancy.Add(Cell($"r{r:D2}", 0.1 + 0.01 * r, site: s));
+            occupancy.Add(Cell($"r{r:D2}", 0.2 + 0.02 * r, site: t));
+            for (int i = 0; i < background.Count; i++) occupancy.Add(Cell($"r{r:D2}", 0.4 + 0.01 * level[r] + 0.001 * i, site: background[i]));
+        }
+        var pair = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true)
+            .Single(p => p.SiteA == s && p.SiteB == t);
+        Assert.That(pair.Overlapping, Is.False);
+        Assert.That(pair.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(pair.Statistic, Is.EqualTo(1));
+        Assert.That(pair.PValue, Is.EqualTo(0));
+        Assert.That(pair.Q, Is.EqualTo(0), "tested, and the top of the family");
+    }
+
+    [Test]
     public void StoredOccupancyUsesTheReportedFractionAndFeedsTypeA()
     {
         // As MetaMorpheus writes it: the fraction exact, the intensities rounded to 4 significant figures.
