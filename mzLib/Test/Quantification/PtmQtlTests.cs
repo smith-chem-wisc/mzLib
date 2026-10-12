@@ -134,6 +134,141 @@ public class PtmQtlTests
     }
 
     [Test]
+    public void FractionsOfOneSampleAreSummedBeforeTheRatio()
+    {
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, 30), Obs("f1", "PEPSK", 10, 70),
+            Obs("f2", $"PEPS[{Phos}]K", 10, 10), Obs("f2", "PEPSK", 10, 90),
+            Obs("g1", "PEPSK", 10, 40),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["g1"] = "B" };
+        var occ = SiteOccupancyCalculator.Calculate(obs, map);
+
+        var a = One(occ, "A", 13);
+        Assert.That(a.State, Is.EqualTo(OccupancyState.Quantified));
+        Assert.That(a.Fraction, Is.EqualTo(40.0 / 200).Within(1e-15), "(30 + 10) / (100 + 100), not the mean of 0.3 and 0.1");
+        Assert.That(a.CoveringIntensity, Is.EqualTo(200));
+        Assert.That(One(occ, "B", 13).State, Is.EqualTo(OccupancyState.NotDetected));
+        Assert.That(occ.Select(o => o.Run).Distinct(), Is.EquivalentTo(new[] { "A", "B" }));
+    }
+
+    [Test]
+    public void AFormUnquantifiedInOneFractionAndCoveredInAnotherIsAFloorForTheSample()
+    {
+        var occ = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, double.NaN),
+            Obs("f2", "PEPSK", 10, 50),
+        }, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" });
+        var a = One(occ, "A", 13);
+        Assert.That(a.State, Is.EqualTo(OccupancyState.Floor));
+        Assert.That(a.Fraction, Is.NaN);
+
+        var quantifiedSomewhere = SiteOccupancyCalculator.Calculate(new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, double.NaN), Obs("f2", $"PEPS[{Phos}]K", 10, 20), Obs("f2", "PEPSK", 10, 60),
+        }, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" });
+        Assert.That(One(quantifiedSomewhere, "A", 13).Fraction, Is.EqualTo(20.0 / 80).Within(1e-15),
+            "an unquantified fraction adds nothing; the quantified one carries the sum");
+    }
+
+    [Test]
+    public void APeptidoformInTwoFractionsIsNotARepeatedRowButARepeatWithinOneFractionStillIs()
+    {
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" };
+        Assert.DoesNotThrow(() => SiteOccupancyCalculator.Calculate(new[] { Obs("f1", "PEPSK", 10, 1), Obs("f2", "PEPSK", 10, 1) }, map));
+        Assert.Throws<ArgumentException>(() =>
+            SiteOccupancyCalculator.Calculate(new[] { Obs("f1", "PEPSK", 10, 1), Obs("f1", "PEPSK", 10, 1) }, map));
+    }
+
+    [Test]
+    public void CombinedObservationsFeedSameMoleculePairsPerSample()
+    {
+        const string GG = "Trypsin Digested:GG (Ubiquitination Site) on K";
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K[{GG}]R", 10, 20), Obs("f1", "PEPSKR", 10, 80),
+            Obs("f2", $"PEPS[{Phos}]K[{GG}]R", 10, 10), Obs("f2", "PEPSKR", 10, 90),
+            Obs("g1", $"PEPS[{Phos}]K[{GG}]R", 10, double.NaN),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["g1"] = "B" };
+        var combined = SiteOccupancyCalculator.CombineObservations(obs, map);
+        Assert.That(combined.Count, Is.EqualTo(3));
+        Assert.That(combined.Single(o => o.Run == "A" && o.FullSequence == "PEPSKR").Intensity, Is.EqualTo(170));
+        Assert.That(combined.Single(o => o.Run == "B").Intensity, Is.NaN);
+
+        var p = PtmPairEngine.Physical(combined).Single();
+        Assert.That(p.N, Is.EqualTo(2), "two samples, not three runs");
+        Assert.That(p.Statistic, Is.EqualTo(30.0 / 200).Within(1e-15), "co-occupancy of sample A only; B is unquantified");
+    }
+
+    [Test]
+    public void ARunWithoutASampleIsRefused()
+    {
+        var obs = new[] { Obs("f1", "PEPSK", 10, 1), Obs("f2", "PEPSK", 10, 1) };
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(obs, new Dictionary<string, string> { ["f1"] = "A" }));
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.Calculate(obs, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "" }));
+        Assert.Throws<ArgumentNullException>(() => SiteOccupancyCalculator.Calculate(obs, (IReadOnlyDictionary<string, string>)null!));
+    }
+
+    [Test]
+    public void StoredCellsCombineAsTheObservationsWouldAndKeepTheReportedFraction()
+    {
+        var obs = new[]
+        {
+            Obs("f1", $"PEPS[{Phos}]K", 10, 30), Obs("f1", "PEPSK", 10, 70),
+            Obs("f2", $"PEPS[{Phos}]K", 10, double.NaN), Obs("f2", "PEPSK", 10, 50),
+            Obs("f3", "PEPSK", 10, 30),
+        };
+        var map = new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A", ["f3"] = "A" };
+        var fromObservations = One(SiteOccupancyCalculator.Calculate(obs, map), "A", 13);
+        var fromCells = One(SiteOccupancyCalculator.CombineRuns(SiteOccupancyCalculator.Calculate(obs), map), "A", 13);
+        Assert.That(fromCells.State, Is.EqualTo(fromObservations.State));
+        Assert.That(fromCells.Fraction, Is.EqualTo(fromObservations.Fraction).Within(1e-15));
+        Assert.That(fromCells.Fraction, Is.EqualTo(30.0 / 180).Within(1e-15), "the Floor and NotDetected runs add covering only");
+        Assert.That(fromCells.UnmodifiedQuantified, Is.True);
+
+        // A stored cell's exact fraction is used, not its rounded intensities.
+        var site = new ModificationSite("P1", 13, 'S', Phos);
+        var stored = new[]
+        {
+            new SiteRunOccupancy(site, "f1", OccupancyState.Quantified, 30, 100, true) { ReportedFraction = 0.25 },
+            new SiteRunOccupancy(site, "f2", OccupancyState.Quantified, 1, 300, true) { ReportedFraction = 0.5 },
+        };
+        var c = SiteOccupancyCalculator.CombineRuns(stored, new Dictionary<string, string> { ["f1"] = "A", ["f2"] = "A" }).Single();
+        Assert.That(c.Fraction, Is.EqualTo((0.25 * 100 + 0.5 * 300) / 400).Within(1e-15));
+    }
+
+    [Test]
+    public void StoredCellStatesCombineByPrecedence()
+    {
+        var site = new ModificationSite("P1", 13, 'S', Phos);
+        SiteRunOccupancy Cell(string run, OccupancyState state, double covering) => new(site, run, state, 0, covering, false);
+        var map = new Dictionary<string, string> { ["a"] = "S", ["b"] = "S" };
+        OccupancyState Combined(params SiteRunOccupancy[] cells) => SiteOccupancyCalculator.CombineRuns(cells, map).Single().State;
+
+        Assert.That(Combined(Cell("a", OccupancyState.CountOnly, double.NaN), Cell("b", OccupancyState.NotDetected, 40)),
+            Is.EqualTo(OccupancyState.Floor), "identified in one fraction, covered in another");
+        Assert.That(Combined(Cell("a", OccupancyState.CountOnly, double.NaN), Cell("b", OccupancyState.CountOnly, double.NaN)),
+            Is.EqualTo(OccupancyState.CountOnly));
+        Assert.That(Combined(Cell("a", OccupancyState.NotDetected, 10), Cell("b", OccupancyState.NotDetected, 40)),
+            Is.EqualTo(OccupancyState.NotDetected));
+    }
+
+    [Test]
+    public void BadStoredCellsAreRefused()
+    {
+        var site = new ModificationSite("P1", 13, 'S', Phos);
+        var map = new Dictionary<string, string> { ["a"] = "S" };
+        var ok = new SiteRunOccupancy(site, "a", OccupancyState.Quantified, 1, 10, true);
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new[] { ok, ok }, map), "repeated (site, run)");
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new[] { ok with { CoveringIntensity = double.NaN } }, map));
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new[] { ok with { Run = "z" } }, map), "run without a sample");
+        Assert.Throws<ArgumentException>(() => SiteOccupancyCalculator.CombineRuns(new SiteRunOccupancy[] { null! }, map));
+    }
+
+    [Test]
     public void CTerminalModificationsAreNotSites()
     {
         // Protein length is not supplied, so a C-terminal modification cannot be placed; the residue it follows is not its site.
