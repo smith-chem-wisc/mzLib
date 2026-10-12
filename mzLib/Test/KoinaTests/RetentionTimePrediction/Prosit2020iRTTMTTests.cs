@@ -52,7 +52,7 @@ namespace Test.KoinaTests.RetentionTimePrediction
             var modelInputs = new List<RetentionTimePredictionInput>
             {
                 new RetentionTimePredictionInput("[Common Fixed:TMT6plex on N-terminus]PEPTIDE"),
-                new RetentionTimePredictionInput("[Common Fixed:TMT10pro on N-terminus]TESTING")
+                new RetentionTimePredictionInput("[Common Fixed:TMTpro on N-terminus]TESTING")
             };
 
             var model = new Prosit2020iRTTMT();

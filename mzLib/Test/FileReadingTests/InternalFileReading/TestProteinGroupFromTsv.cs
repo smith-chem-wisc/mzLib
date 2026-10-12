@@ -193,6 +193,40 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.That(ex!.Message, Does.Contain(path));
         }
 
+        [TestCase("T", false, false)]
+        [TestCase("D", true, false)]
+        [TestCase("ET", false, true)]
+        [TestCase("ED", true, true)]
+        public void EntrapmentGroupLabelsAreRead(string label, bool isDecoy, bool isEntrapment)
+        {
+            string path = Path.Combine(_outputDirectory, $"Entrapment{label}_AllProteinGroups.tsv");
+            File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nRandom_P1_f0\t{label}\t0.001\n");
+
+            var row = new ProteinGroupFromTsvFile(path).Single();
+            Assert.That((row.IsDecoy, row.IsEntrapment, row.IsContaminant), Is.EqualTo((isDecoy, isEntrapment, false)));
+        }
+
+        /// <summary>
+        /// Contaminant is read as a letter in any parent, like decoy and entrapment. <c>== "C"</c>
+        /// read <c>T|C</c> as non-contaminant. No MetaMorpheus group writer joins labels today: a group
+        /// is written as one value from its any-member flags. So the joined cases guard the reader
+        /// against a writer that might, rather than against one that does.
+        /// </summary>
+        [TestCase("C", true)]
+        [TestCase("T|C", true)]
+        [TestCase("C|T", true)]
+        [TestCase("T", false)]
+        [TestCase("D", false)]
+        [TestCase("T|ET", false)]
+        public void ContaminantIsReadAnywhereInAJoinedLabel(string label, bool isContaminant)
+        {
+            string path = Path.Combine(_outputDirectory, $"Contaminant{label.Replace('|', '_')}_AllProteinGroups.tsv");
+            File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nP1|P2\t{label}\t0.001\n");
+
+            var row = new ProteinGroupFromTsvFile(path).Single();
+            Assert.That(row.IsContaminant, Is.EqualTo(isContaminant));
+        }
+
         /// <summary>
         /// The reader is the inverse of mzLib's own writer. Groups are rendered by
         /// <see cref="BioPolymerGroupTsvSchema"/> (the "BioPolymer ..." vocabulary) and read back.
@@ -284,6 +318,34 @@ namespace Test.FileReadingTests.InternalFileReading
             group.BestBioPolymerWithSetModsQValue = 0.005;
             group.CalculateSequenceCoverage();
             return group;
+        }
+
+        /// <summary>
+        /// The group reader asks DecoyContaminantTargetLabel for all three flags, so entrapment is read
+        /// anywhere in a joined label, as contaminant already is, and a value that is not a label is
+        /// nothing. Only T, D, ET and ED were read for entrapment, and on those the old
+        /// <c>StartsWith('E')</c> agrees with the helper.
+        /// </summary>
+        [TestCase("T|ET", false, false, true)]
+        [TestCase("Output too long for Excel", false, false, false)]
+        [TestCase("Decoy", false, false, false)]
+        public void AGroupLabelIsReadThroughItsParents(string label, bool isDecoy, bool isContaminant, bool isEntrapment)
+        {
+            string directory = Path.Combine(Path.GetTempPath(), "mzLibTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "Labels_AllProteinGroups.tsv");
+            ProteinGroupFromTsv row;
+            try
+            {
+                File.WriteAllText(path, $"Protein Accession\tProtein Decoy/Contaminant/Target\tProtein QValue\nP1|Random_P1_f0\t{label}\t0.001\n");
+                row = new ProteinGroupFromTsvFile(path).Single();
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+
+            Assert.That((row.IsDecoy, row.IsContaminant, row.IsEntrapment), Is.EqualTo((isDecoy, isContaminant, isEntrapment)));
         }
     }
 }
