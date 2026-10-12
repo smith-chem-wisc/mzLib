@@ -336,7 +336,9 @@ namespace Test.FileReadingTests.ProForma
         public void MassOnlyMod_KeepsItsMetaMorpheusIdentity(string sequence, string sourceFormat, string expected)
         {
             // With Global alone these became Asn->Asp, Gln->Glu, Phe->Tyr, Propyl and Gly: same mass, other identity.
-            Assert.That(SequenceConversionService.Default.Convert(sequence, sourceFormat, "ProForma"), Is.EqualTo(expected));
+            _service.RegisterParser(MassShiftSequenceParser.Instance);
+
+            Assert.That(_service.Convert(sequence, sourceFormat, "ProForma"), Is.EqualTo(expected));
         }
 
         /// <summary>
