@@ -171,8 +171,14 @@ namespace StatisticalModels
     /// <para>
     /// Likelihood: per group, the measured samples are integrated against u exactly (they are Gaussian), which leaves
     /// u normal with the measured samples' posterior mean and variance. The counted samples are then integrated over
-    /// that normal by 40-node Gauss-Hermite quadrature, each one's e_s by 20 nodes. The quadrature is centred where the
-    /// measured samples put u, so it moves smoothly with the parameters, as the numerical derivatives below need.
+    /// that normal by 40-node adaptive Gauss-Hermite quadrature (as glmer's nAGQ), each one's e_s by 12 nodes. The u rule
+    /// sits at the mode of the group's integrand over (u, e) and the curvature of u's Laplace marginal there; each e rule,
+    /// per u node, at the mode and curvature of that count's integrand. A rule centred on the prior instead fails when
+    /// a group's counts say much more about u than τ does, or a count says more about its e than σ does. The rules are
+    /// held fixed while β is optimized, so ℓ's derivatives are exact for them, then re-centred at the optimum until
+    /// they stop moving. A count's integrand over e is log-concave and close to normal, so 12 nodes suffice there; u keeps
+    /// 40 for a group whose integrand is one-sided (every count 0, or every count full) at a large τ. Against lme4's exact
+    /// likelihood the fits agree to about 1e-6 (ReferenceComparisonLogitNormalTests).
     /// </para>
     /// <para>
     /// Estimation: for given variances, β maximizes the log-likelihood ℓ (Newton, with ℓ's gradient and Hessian exact
@@ -191,10 +197,14 @@ namespace StatisticalModels
         /// <summary>A coefficient beyond this on the latent scale is taken as running to infinity (separation).</summary>
         public const double SeparationLimit = 30;
 
-        private const int UNodes = 40, ENodes = 20;
+        private const int UNodes = 40, ENodes = 12;
         private const double LogSdMin = -8, LogSdMax = 5;
         private static readonly (double[] X, double[] W) UQuadrature = GaussHermite(UNodes);
         private static readonly (double[] X, double[] W) EQuadrature = GaussHermite(ENodes);
+
+        /// <summary>log w + x², the log weights of a rule for ∫ f(x) dx rather than ∫ f(x) e^(−x²) dx.</summary>
+        private static readonly double[] ULogWeights = UQuadrature.X.Select((x, i) => Math.Log(UQuadrature.W[i]) + x * x).ToArray();
+        private static readonly double[] ELogWeights = EQuadrature.X.Select((x, i) => Math.Log(EQuadrature.W[i]) + x * x).ToArray();
 
         /// <summary>Fits one design, grouping and link against every feature (row).</summary>
         /// <param name="responses">[feature, sample] measured latent values; any non-finite value is not measured.</param>
@@ -281,7 +291,7 @@ namespace StatisticalModels
 
         /// <summary>
         /// Fits a <see cref="DetectionLink"/> by maximum likelihood over <paramref name="cells"/>, each cell's probability
-        /// integrated over its latent normal (20-node Gauss-Hermite), summed over cells.
+        /// integrated over its latent normal (12-node adaptive Gauss-Hermite), summed over cells.
         /// </summary>
         /// <param name="cells">Covered cells with their latent mean and SD. Each needs Trials ≥ 1, finite values, SD ≥ 0.</param>
         /// <param name="withDepth">Fit the depth slope (else 0).</param>
@@ -319,12 +329,15 @@ namespace StatisticalModels
                 {
                     // With detectionOnly, the probability of no success; its complement is used when there was one.
                     int k = detectionOnly ? 0 : c.Successes;
-                    double lse = double.NegativeInfinity;
-                    for (int j = 0; j < ENodes; j++)
+                    double logChoose = LogChoose(c.Trials, k);
+                    double offset = link.Intercept + link.Slope * c.LatentMean + link.DepthSlope * c.Depth;
+                    double lse;
+                    if (c.LatentSd == 0)
+                        lse = LogCountProbability(k, c.Trials, offset, link.Overdispersion);
+                    else
                     {
-                        double latent = c.LatentMean + Math.Sqrt(2) * c.LatentSd * EQuadrature.X[j];
-                        lse = LogAdd(lse, Math.Log(EQuadrature.W[j] / Math.Sqrt(Math.PI))
-                            + LogCountProbability(k, c.Trials, link.Intercept + link.Slope * latent + link.DepthSlope * c.Depth, link.Overdispersion));
+                        var (centre, scale) = CellRule(k, c.Trials, logChoose, offset, link.Slope, link.Overdispersion, c.LatentSd, 0);
+                        lse = LogCellIntegral(k, c.Trials, logChoose, offset, link.Slope, link.Overdispersion, c.LatentSd, centre, scale);
                     }
                     if (detectionOnly && c.Successes > 0) lse = Math.Log(-double.ExpM1(lse));
                     sum += lse;
@@ -608,7 +621,8 @@ namespace StatisticalModels
 
         /// <summary>
         /// β maximizing ℓ at the given variances, by Newton with step halving, from <paramref name="start"/>; with ℓ and
-        /// H = −∂²ℓ/∂β² there. Null when ℓ cannot be evaluated.
+        /// H = −∂²ℓ/∂β² there. The quadrature rules are held fixed during the Newton steps and re-centred at the optimum,
+        /// until re-centring no longer moves them. Null when ℓ cannot be evaluated.
         /// </summary>
         private static (Vector<double> Beta, double LogLik, Matrix<double> H)? MaximizeBeta(Data d, Vector<double> start, double logTau, double logSigma)
         {
@@ -616,67 +630,269 @@ namespace StatisticalModels
             var beta = start.ToArray();
             var grad = new double[p];
             var h = new double[p, p];
-            double ll = Evaluate(d, beta, logTau, logSigma, grad, h);
+            var rules = Centre(d, beta, logTau, logSigma);
+            double ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
             if (!double.IsFinite(ll))
             {
                 beta = new double[p];
-                ll = Evaluate(d, beta, logTau, logSigma, grad, h);
+                rules = Centre(d, beta, logTau, logSigma);
+                ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
                 if (!double.IsFinite(ll)) return null;
             }
+            for (int round = 0; round < 10; round++)
+            {
+                for (int iter = 0; iter < 100; iter++)
+                {
+                    var hm = Matrix<double>.Build.DenseOfArray(h);
+                    var g = Vector<double>.Build.DenseOfArray(grad);
+                    Vector<double> step;
+                    try { step = hm.Cholesky().Solve(g); }
+                    catch (ArgumentException) { step = g / Math.Max(1, hm.Diagonal().AbsoluteMaximum()); }   // not concave here: a gradient step
+                    bool moved = false, small = false;
+                    double t = 1;
+                    for (int half = 0; half < 40; half++, t /= 2)
+                    {
+                        var candidate = beta.Select((b, j) => b + t * step[j]).ToArray();
+                        if (candidate.Any(v => Math.Abs(v) > 4 * SeparationLimit)) continue;
+                        double c = Evaluate(d, candidate, logTau, logSigma, rules, null, null);
+                        if (!(double.IsFinite(c) && c >= ll - 1e-12)) continue;
+                        small = t * step.AbsoluteMaximum() < 1e-10 * Math.Max(1, beta.Max(Math.Abs));
+                        moved = c > ll;
+                        beta = candidate;
+                        break;
+                    }
+                    ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+                    if (!moved || small) break;
+                }
+                if (d.CountedRows.All(r => r.Count == 0)) break;
+                var next = Centre(d, beta, logTau, logSigma);
+                bool settled = next.IsCloseTo(rules);
+                rules = next;
+                ll = Evaluate(d, beta, logTau, logSigma, rules, grad, h);
+                if (settled || !double.IsFinite(ll)) break;
+            }
+            if (!double.IsFinite(ll)) return null;
+            return (Vector<double>.Build.DenseOfArray(beta), ll, Matrix<double>.Build.DenseOfArray(h));
+        }
+
+        /// <summary>
+        /// One feature's quadrature rules at given β and variances, per group with counted samples: the u rule's centre and
+        /// scale, and per u node and counted sample (index node × counts + count), the e rule's.
+        /// </summary>
+        private sealed class Rules
+        {
+            public required double[] UCentre, UScale;
+            public required double[][] ECentre, EScale;
+
+            /// <summary>Whether every centre moved by less than 1e-8 of its scale, and every scale by less than 1e-8 of itself.</summary>
+            public bool IsCloseTo(Rules other)
+            {
+                const double tolerance = 1e-8;
+                static bool Close(double c0, double s0, double c1, double s1) =>
+                    Math.Abs(c0 - c1) <= tolerance * s0 && Math.Abs(s0 - s1) <= tolerance * s0;
+                for (int g = 0; g < UCentre.Length; g++)
+                {
+                    if (ECentre[g] == null) continue;
+                    if (!Close(UCentre[g], UScale[g], other.UCentre[g], other.UScale[g])) return false;
+                    for (int i = 0; i < ECentre[g].Length; i++)
+                        if (!Close(ECentre[g][i], EScale[g][i], other.ECentre[g][i], other.EScale[g][i])) return false;
+                }
+                return true;
+            }
+        }
+
+        /// <summary>
+        /// The adaptive rules at β (see the class remarks). The u rule: the joint mode of the group's integrand over
+        /// (u, e_1..e_m), found by Newton on its arrow-shaped Hessian, and 1/√ of u's marginal precision there,
+        /// 1/v + Σ w_c (1/σ²) / (1/σ² + w_c), w_c the count's curvature in its logit times b². Each e rule: the mode and
+        /// curvature of the count's integrand at that u node, from the mode's linear shift with u.
+        /// </summary>
+        private static Rules Centre(Data d, double[] beta, double logTau, double logSigma)
+        {
+            double s2 = Math.Exp(2 * logSigma), t2 = Math.Exp(2 * logTau), sigma = Math.Exp(logSigma);
+            var link = d.Link;
+            double b = link.Slope, rho = link.Overdispersion;
+            var rules = new Rules { UCentre = new double[d.G], UScale = new double[d.G], ECentre = new double[d.G][], EScale = new double[d.G][] };
+            for (int g = 0; g < d.G; g++)
+            {
+                var counted = d.CountedRows[g];
+                int nc = counted.Count;
+                if (nc == 0) continue;
+                int n = d.MeasuredRows[g].Count;
+                double sr = 0;
+                foreach (int i in d.MeasuredRows[g]) sr += d.Y[i] - Dot(d.Rows[i], beta);
+                double mean = n > 0 ? t2 * sr / (s2 + n * t2) : 0, variance = n > 0 ? t2 * s2 / (s2 + n * t2) : t2;
+                var offset = new double[nc];
+                for (int ci = 0; ci < nc; ci++)
+                {
+                    int i = counted[ci];
+                    offset[ci] = link.Intercept + b * Dot(d.Rows[i], beta) + link.DepthSlope * d.Depth[i];
+                }
+
+                double Joint(double u, double[] e)
+                {
+                    double v = -(u - mean) * (u - mean) / (2 * variance);
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        v += -e[ci] * e[ci] / (2 * s2) + LogCountProbability(d.K[i], d.N[i], offset[ci] + b * (u + e[ci]), rho, d.LogChoose[i], out _, out _);
+                    }
+                    return v;
+                }
+                // Curvatures at (u, e): w_c = b² × the count's curvature in its logit, floored at 0 so the system stays positive definite.
+                var w = new double[nc];
+                var ge = new double[nc];
+                double Gradient(double u, double[] e)
+                {
+                    double gu = -(u - mean) / variance;
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        LogCountProbability(d.K[i], d.N[i], offset[ci] + b * (u + e[ci]), rho, d.LogChoose[i], out double d1, out double d2);
+                        w[ci] = Math.Max(-b * b * d2, 0);
+                        gu += b * d1;
+                        ge[ci] = -e[ci] / s2 + b * d1;
+                    }
+                    return gu;
+                }
+
+                double uHat = mean;
+                var eHat = new double[nc];
+                double objective = Joint(uHat, eHat);
+                var de = new double[nc];
+                var candidate = new double[nc];
+                for (int iter = 0; iter < 100; iter++)
+                {
+                    double gu = Gradient(uHat, eHat);
+                    double schur = 1 / variance, rhs = gu;
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        double dc = 1 / s2 + w[ci];
+                        schur += w[ci] - w[ci] * w[ci] / dc;
+                        rhs -= w[ci] * ge[ci] / dc;
+                    }
+                    double du = rhs / schur, largest = Math.Abs(du);
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        de[ci] = (ge[ci] - w[ci] * du) / (1 / s2 + w[ci]);
+                        largest = Math.Max(largest, Math.Abs(de[ci]));
+                    }
+                    double t = 1;
+                    int half = 0;
+                    for (; half < 40; half++, t /= 2)
+                    {
+                        for (int ci = 0; ci < nc; ci++) candidate[ci] = eHat[ci] + t * de[ci];
+                        double c = Joint(uHat + t * du, candidate);
+                        if (c >= objective - 1e-12)
+                        {
+                            uHat += t * du;
+                            Array.Copy(candidate, eHat, nc);
+                            objective = c;
+                            break;
+                        }
+                    }
+                    if (half == 40 || t * largest < 1e-10) break;
+                }
+                Gradient(uHat, eHat);
+                double precision = 1 / variance;
+                for (int ci = 0; ci < nc; ci++) precision += w[ci] * (1 / s2) / (1 / s2 + w[ci]);
+                double uScale = 1 / Math.Sqrt(precision);
+                rules.UCentre[g] = uHat;
+                rules.UScale[g] = uScale;
+
+                var centres = new double[UNodes * nc];
+                var scales = new double[UNodes * nc];
+                for (int a = 0; a < UNodes; a++)
+                {
+                    double u = uHat + Math.Sqrt(2) * uScale * UQuadrature.X[a];
+                    for (int ci = 0; ci < nc; ci++)
+                    {
+                        int i = counted[ci];
+                        double start = eHat[ci] - (u - uHat) * w[ci] / (1 / s2 + w[ci]);
+                        (centres[a * nc + ci], scales[a * nc + ci]) =
+                            CellRule(d.K[i], d.N[i], d.LogChoose[i], offset[ci] + b * u, b, rho, sigma, double.IsFinite(start) ? start : 0);
+                    }
+                }
+                rules.ECentre[g] = centres;
+                rules.EScale[g] = scales;
+            }
+            return rules;
+        }
+
+        /// <summary>
+        /// The adaptive rule for log ∫ N(z; 0, sd²) P(k of n | logit = offset + slope·z) dz: the integrand's mode, by
+        /// Newton with step halving from <paramref name="start"/>, and 1/√ of its curvature there.
+        /// </summary>
+        private static (double Centre, double Scale) CellRule(int k, int n, double logChoose, double offset, double slope, double rho, double sd, double start)
+        {
+            double precision0 = 1 / (sd * sd);
+            double Value(double z) => -0.5 * z * z * precision0 + LogCountProbability(k, n, offset + slope * z, rho, logChoose, out _, out _);
+            double zHat = start, value = Value(zHat);
             for (int iter = 0; iter < 100; iter++)
             {
-                var hm = Matrix<double>.Build.DenseOfArray(h);
-                var g = Vector<double>.Build.DenseOfArray(grad);
-                Vector<double> step;
-                try { step = hm.Cholesky().Solve(g); }
-                catch (ArgumentException) { step = g / Math.Max(1, hm.Diagonal().AbsoluteMaximum()); }   // not concave here: a gradient step
-                bool moved = false, small = false;
+                LogCountProbability(k, n, offset + slope * zHat, rho, logChoose, out double d1, out double d2);
+                double curvature = precision0 + Math.Max(-slope * slope * d2, 0);
+                double step = (-zHat * precision0 + slope * d1) / curvature;
                 double t = 1;
-                for (int half = 0; half < 40; half++, t /= 2)
+                int half = 0;
+                for (; half < 40; half++, t /= 2)
                 {
-                    var candidate = beta.Select((b, j) => b + t * step[j]).ToArray();
-                    if (candidate.Any(v => Math.Abs(v) > 4 * SeparationLimit)) continue;
-                    double c = Evaluate(d, candidate, logTau, logSigma, null, null);
-                    if (!(double.IsFinite(c) && c >= ll - 1e-12)) continue;
-                    small = t * step.AbsoluteMaximum() < 1e-10 * Math.Max(1, beta.Max(Math.Abs));
-                    moved = c > ll;
-                    beta = candidate;
-                    break;
+                    double c = Value(zHat + t * step);
+                    if (c >= value - 1e-14)
+                    {
+                        zHat += t * step;
+                        value = c;
+                        break;
+                    }
                 }
-                ll = Evaluate(d, beta, logTau, logSigma, grad, h);
-                if (!moved || small) break;
+                if (half == 40 || Math.Abs(t * step) * Math.Sqrt(curvature) < 1e-10) break;
             }
-            return (Vector<double>.Build.DenseOfArray(beta), ll, Matrix<double>.Build.DenseOfArray(h));
+            LogCountProbability(k, n, offset + slope * zHat, rho, logChoose, out _, out double d2Hat);
+            return (zHat, 1 / Math.Sqrt(precision0 + Math.Max(-slope * slope * d2Hat, 0)));
+        }
+
+        /// <summary>log ∫ N(z; 0, sd²) P(k of n | logit = offset + slope·z) dz, by the e rule at (centre, scale).</summary>
+        private static double LogCellIntegral(int k, int n, double logChoose, double offset, double slope, double rho, double sd, double centre, double scale)
+        {
+            double lse = double.NegativeInfinity, logNorm = -0.5 * (LogTwoPi + 2 * Math.Log(sd)) + Math.Log(Math.Sqrt(2) * scale);
+            for (int j = 0; j < ENodes; j++)
+            {
+                double z = centre + Math.Sqrt(2) * scale * EQuadrature.X[j];
+                lse = LogAdd(lse, ELogWeights[j] + logNorm - z * z / (2 * sd * sd)
+                    + LogCountProbability(k, n, offset + slope * z, rho, logChoose, out _, out _));
+            }
+            return lse;
         }
 
         private static readonly double LogTwoPi = Math.Log(2 * Math.PI);
 
         /// <summary>
-        /// ℓ(β) at the given variances; with <paramref name="grad"/> and <paramref name="h"/>, also its gradient and
-        /// H = −∂²ℓ/∂β², exact for the quadrature.
+        /// ℓ(β) at the given variances, by the given quadrature rules; with <paramref name="grad"/> and <paramref name="h"/>,
+        /// also its gradient and H = −∂²ℓ/∂β², exact for those rules.
         /// </summary>
         /// <remarks>
-        /// Per group: the measured samples give N(Xβ, σ²I + τ²J), and leave u normal with mean κ Σ r and variance
-        /// τ²σ² / (σ² + nτ²), κ = τ² / (σ² + nτ²), r the measured residuals. On node a of that normal, a counted sample's
-        /// latent location is xᵀβ + u_a, whose derivative in β is D = x − κ Σ x (the measured rows' sum). With q_c(u) its
-        /// probability integrated over e, F_a = W_a Π_c q_c(u_a), and L = log Σ_a F_a:
-        /// ∂ log F_a = Σ_c b r₁ D_c, ∂² log F_a = Σ_c b² (r₂ − r₁²) D_c D_cᵀ, where r₁ and r₂ are the e-weighted means of
-        /// ∂ log P/∂ℓ and (∂ log P/∂ℓ)² + ∂² log P/∂ℓ² (ℓ the per-trial logit, b the link's slope); then
-        /// ∂L = Σ π_a ∂ log F_a and ∂²L = Σ π_a (∂² log F_a + ∂ log F_a ∂ log F_aᵀ) − ∂L ∂Lᵀ, π_a = F_a / Σ F.
+        /// Per group: the measured samples give N(Xβ, σ²I + τ²J), and leave u normal with mean m = κ Σ r and variance
+        /// v = τ²σ² / (σ² + nτ²), κ = τ² / (σ² + nτ²), r the measured residuals. On node a of the u rule, F_a is the node's
+        /// weight times N(u_a; m, v) times Π_c q_c(u_a), q_c(u) a counted sample's probability integrated over e by its
+        /// rule; L = log Σ_a F_a. The nodes are fixed, so β enters through m (∂m/∂β = −κ Σ x, the measured rows' sum) and
+        /// each count's latent location xᵀβ + u_a:
+        /// ∂ log F_a = −κ Σx (u_a − m)/v + Σ_c b r₁ x_c, ∂² log F_a = −κ² Σx Σxᵀ / v + Σ_c b² (r₂ − r₁²) x_c x_cᵀ, where r₁ and
+        /// r₂ are the e-weighted means of ∂ log P/∂ℓ and (∂ log P/∂ℓ)² + ∂² log P/∂ℓ² (ℓ the per-trial logit, b the link's
+        /// slope); then ∂L = Σ π_a ∂ log F_a and ∂²L = Σ π_a (∂² log F_a + ∂ log F_a ∂ log F_aᵀ) − ∂L ∂Lᵀ, π_a = F_a / Σ F.
         /// </remarks>
-        private static double Evaluate(Data d, double[] beta, double logTau, double logSigma, double[]? grad, double[,]? h)
+        private static double Evaluate(Data d, double[] beta, double logTau, double logSigma, Rules rules, double[]? grad, double[,]? h)
         {
             int p = beta.Length;
             bool deriv = grad != null;
             if (deriv) { Array.Clear(grad!); Array.Clear(h!); }
-            double s2 = Math.Exp(2 * logSigma), t2 = Math.Exp(2 * logTau), sigma = Math.Exp(logSigma), total = 0;
+            double s2 = Math.Exp(2 * logSigma), t2 = Math.Exp(2 * logTau), total = 0;
+            double logNormE = -0.5 * (LogTwoPi + 2 * logSigma);
             var link = d.Link;
             double slope = link.Slope;
             var sx = new double[p];
             var logF = new double[UNodes];
             var gF = deriv ? new double[UNodes, p] : null;
             var hF = deriv ? new double[UNodes, p, p] : null;
-            var dc = new double[p];
             var gL = new double[p];
             var lw = new double[ENodes];
             var s1 = new double[ENodes];
@@ -721,45 +937,56 @@ namespace StatisticalModels
                 }
 
                 var counted = d.CountedRows[g];
-                if (counted.Count == 0) continue;
-                double uScale = Math.Sqrt(2 * variance);
+                int nc = counted.Count;
+                if (nc == 0) continue;
+                double uCentre = rules.UCentre[g], uScale = rules.UScale[g];
+                var eCentre = rules.ECentre[g];
+                var eScale = rules.EScale[g];
+                double logNormU = -0.5 * (LogTwoPi + Math.Log(variance)) + Math.Log(Math.Sqrt(2) * uScale);
                 for (int a = 0; a < UNodes; a++)
                 {
-                    double u = mean + uScale * UQuadrature.X[a];
-                    logF[a] = Math.Log(UQuadrature.W[a]) - 0.5 * Math.Log(Math.PI);
+                    double u = uCentre + Math.Sqrt(2) * uScale * UQuadrature.X[a];
+                    double du = u - mean;
+                    logF[a] = ULogWeights[a] + logNormU - du * du / (2 * variance);
                     if (deriv)
                         for (int j = 0; j < p; j++)
                         {
-                            gF![a, j] = 0;
-                            for (int k = 0; k < p; k++) hF![a, j, k] = 0;
+                            gF![a, j] = -kappa * sx[j] * du / variance;
+                            for (int k = 0; k < p; k++) hF![a, j, k] = -kappa * kappa * sx[j] * sx[k] / variance;
                         }
-                    foreach (int i in counted)
+                    for (int ci = 0; ci < nc; ci++)
                     {
+                        int i = counted[ci];
                         var xi = d.Rows[i];
-                        double location = Dot(xi, beta) + u;
-                        double logq = double.NegativeInfinity;
+                        double location = link.Intercept + slope * (Dot(xi, beta) + u) + link.DepthSlope * d.Depth[i];
+                        double centre = eCentre[a * nc + ci], scale = eScale[a * nc + ci];
+                        double logNorm = logNormE + Math.Log(Math.Sqrt(2) * scale);
+                        double top = double.NegativeInfinity;
                         for (int b = 0; b < ENodes; b++)
                         {
-                            double logit = link.Intercept + slope * (location + Math.Sqrt(2) * sigma * EQuadrature.X[b]) + link.DepthSlope * d.Depth[i];
-                            lw[b] = Math.Log(EQuadrature.W[b]) - 0.5 * Math.Log(Math.PI)
-                                + LogCountProbability(d.K[i], d.N[i], logit, link.Overdispersion, d.LogChoose[i], out s1[b], out s2c[b]);
-                            logq = LogAdd(logq, lw[b]);
+                            double e = centre + Math.Sqrt(2) * scale * EQuadrature.X[b];
+                            lw[b] = ELogWeights[b] + logNorm - e * e / (2 * s2)
+                                + LogCountProbability(d.K[i], d.N[i], location + slope * e, link.Overdispersion, d.LogChoose[i], out s1[b], out s2c[b]);
+                            top = Math.Max(top, lw[b]);
                         }
+                        // The node terms relative to the largest (one exponential each), then log q = top + log Σ.
+                        double sum = 0;
+                        for (int b = 0; b < ENodes; b++) sum += lw[b] = Math.Exp(lw[b] - top);
+                        double logq = top + Math.Log(sum);
                         logF[a] += logq;
                         if (!deriv) continue;
                         double r1 = 0, r2 = 0;
                         for (int b = 0; b < ENodes; b++)
                         {
-                            double w = Math.Exp(lw[b] - logq);
+                            double w = lw[b] / sum;
                             r1 += w * s1[b];
                             r2 += w * (s1[b] * s1[b] + s2c[b]);
                         }
                         double curvature = slope * slope * (r2 - r1 * r1);
-                        for (int j = 0; j < p; j++) dc[j] = xi[j] - kappa * sx[j];
                         for (int j = 0; j < p; j++)
                         {
-                            gF![a, j] += slope * r1 * dc[j];
-                            for (int k = 0; k < p; k++) hF![a, j, k] += curvature * dc[j] * dc[k];
+                            gF![a, j] += slope * r1 * xi[j];
+                            for (int k = 0; k < p; k++) hF![a, j, k] += curvature * xi[j] * xi[k];
                         }
                     }
                 }
