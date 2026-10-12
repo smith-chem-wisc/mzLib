@@ -307,25 +307,13 @@ public class SerializationTests
     }
 
     [Test]
-    public void MzLibSerializer_MzLibNameNoLookupKnows_FailsPerHandlingMode()
+    public void MzLibSerializer_MzLibNameNoLookupKnows_IsWrittenUnchanged()
     {
-        var canonical = MzLibSequenceParser.Instance.Parse("PEPN[N-Glycosylation:H5N2 on N]K");
+        const string input = "PEPN[N-Glycosylation:H5N2 on N]K";
+        var canonical = MzLibSequenceParser.Instance.Parse(input);
         Assert.That(canonical, Is.Not.Null);
 
-        AssertFailsPerHandlingMode(canonical.Value, "PEPNK");
-    }
-
-    private static void AssertFailsPerHandlingMode(CanonicalSequence canonical, string expectedWithoutIt, params int[] remainingOneIsNTerminusIndices)
-    {
-        Assert.That(() => MzLibSequenceSerializer.Instance.Serialize(canonical, null, SequenceConversionHandlingMode.ThrowException),
-            Throws.TypeOf<SequenceConversionException>());
-        Assert.That(MzLibSequenceSerializer.Instance.Serialize(canonical, null, SequenceConversionHandlingMode.ReturnNull), Is.Null);
-
-        var warnings = new ConversionWarnings();
-        var removed = MzLibSequenceSerializer.Instance.Serialize(canonical, warnings, SequenceConversionHandlingMode.RemoveIncompatibleElements);
-        Assert.That(removed, Is.EqualTo(expectedWithoutIt));
-        Assert.That(warnings.HasIncompatibleItems, Is.True);
-        Assert.That(new PeptideWithSetModifications(removed).AllModsOneIsNterminus.Keys, Is.EquivalentTo(remainingOneIsNTerminusIndices));
+        Assert.That(MzLibSequenceSerializer.Instance.Serialize(canonical.Value), Is.EqualTo(input));
     }
 
     [Test]
@@ -449,6 +437,7 @@ public class SerializationTests
     [Test]
     public void MzLibSerializer_EveryProteinModification_WrittenAsProForma_ConvertsToAnMzLibSequenceThatReadsBackAsIt()
     {
+        var parsedCount = 0;
         var converted = 0;
         Assert.Multiple(() =>
         {
@@ -471,6 +460,7 @@ public class SerializationTests
                     var parsed = ProFormaSequenceParser.Instance.Parse(proForma, null, SequenceConversionHandlingMode.ReturnNull);
                     if (parsed == null)
                         continue;
+                    parsedCount++;
 
                     var result = MzLibSequenceSerializer.Instance.Serialize(parsed.Value, null, SequenceConversionHandlingMode.ReturnNull);
                     if (result == null)
@@ -495,7 +485,8 @@ public class SerializationTests
                 }
             }
         });
-        Assert.That(converted, Is.GreaterThan(1000));
+        Assert.That(parsedCount, Is.GreaterThan(1000));
+        Assert.That(converted, Is.GreaterThan(0.95 * parsedCount));
     }
 
     #endregion

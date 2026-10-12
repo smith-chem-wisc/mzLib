@@ -1,5 +1,3 @@
-using Omics.Modifications;
-
 namespace Omics.SequenceConversion;
 
 /// <summary>
@@ -128,8 +126,8 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
             return false;
         }
 
-        // These two dictionaries, not Mods.AllModsKnownDictionary: Mods.AddOrUpdateModification only adds to these.
-        if (!Mods.AllKnownProteinModsDictionary.ContainsKey(idWithMotif) && !Mods.AllKnownRnaModsDictionary.ContainsKey(idWithMotif))
+        // An mzLib id is "<name> on <motif>"; an ontology accession such as UNIMOD:1 is not.
+        if (!idWithMotif.Contains(" on "))
         {
             return false;
         }
