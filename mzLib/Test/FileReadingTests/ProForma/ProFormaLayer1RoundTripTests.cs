@@ -103,6 +103,14 @@ namespace Test.FileReadingTests.ProForma
         [TestCase("[UNIMOD:1][UNIMOD:35]-PEPTIDE", "N-terminus", 2)]
         [TestCase("[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
         [TestCase("[Acetyl][Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 3)]
+        // After an unlocalized prefix, which the checks must pass over rather than stop at
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2][UNIMOD:35]", "C-terminus", 2)]
+        [TestCase("[Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Phospho][Phospho]?[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Phospho]^2?[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("[Phospho]?[Methyl]^2?[Acetyl][Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 3)]
+        [TestCase("[Phospho]?{Glycan:Hex}[Acetyl][Carbamyl]-QPEPTIDE", "N-terminus", 2)]
+        [TestCase("{Glycan:Hex}[Phospho]?PEPTIDEG-[Methyl][Amidated]", "C-terminus", 2)]
         public void Read_StackedTerminalModifications_AreRefusedNotLost(string proForma, string terminus, int count)
         {
             var ex = Assert.Throws<ProFormaUnsupportedException>(() => ProFormaReader.Read(proForma));
@@ -114,19 +122,36 @@ namespace Test.FileReadingTests.ProForma
 
         /// <summary>No residue may follow the C-terminal modification (ProForma 2.0 section 4.3.1); the SDK read
         /// "PEPTIDE-[UNIMOD:2]K" as PEPTIDEK.</summary>
-        [Test]
-        public void Read_ResidueAfterCTerminalModification_IsNotValidProForma()
+        [TestCase("PEPTIDE-[UNIMOD:2]K", 18)]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2]K", 37)]
+        [TestCase("[Phospho]^2?PEPTIDE-[UNIMOD:2]K", 30)]
+        public void Read_ResidueAfterCTerminalModification_IsNotValidProForma(string proForma, int position)
         {
-            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read("PEPTIDE-[UNIMOD:2]K"));
-            Assert.That(ex!.Message, Is.EqualTo("Unexpected content at position 18 after the C-terminal modification."));
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read(proForma));
+            Assert.That(ex!.Message, Is.EqualTo($"Unexpected content at position {position} after the C-terminal modification."));
         }
 
-        /// <summary>A string that is only a modification has no residue: a parse failure, never an index exception.</summary>
+        /// <summary>A string that is only modifications has no residue: a parse failure, never an index exception and
+        /// never a term with an empty sequence.</summary>
         [TestCase("[UNIMOD:1]")]
         [TestCase("[UNIMOD:1][UNIMOD:35]")]
+        [TestCase("[UNIMOD:1]-")]
+        [TestCase("[Phospho]?")]
+        [TestCase("[Phospho]?[Acetyl]")]
+        [TestCase("[Phospho]?[Acetyl]-")]
+        [TestCase("[Phospho]^2")]
+        [TestCase("-[UNIMOD:2]")]
         public void Read_ModificationWithoutAResidue_IsAParseFailure(string proForma)
         {
             Assert.That(() => ProFormaReader.Read(proForma), Throws.TypeOf<Tdp.ProFormaParseException>());
+        }
+
+        /// <summary>The C-terminal '-' needs a residue before it; the SDK read "-PEPTIDE" as PEPTIDE.</summary>
+        [Test]
+        public void Read_LeadingHyphen_IsNotValidProForma()
+        {
+            var ex = Assert.Throws<Tdp.ProFormaParseException>(() => ProFormaReader.Read("-PEPTIDE"));
+            Assert.That(ex!.Message, Is.EqualTo("No residue before the '-' at position 0."));
         }
 
         /// <summary>One modification per terminus, residue stacks, unlocalized and labile groups, nested brackets inside
@@ -135,7 +160,13 @@ namespace Test.FileReadingTests.ProForma
         [TestCase("PEPC[UNIMOD:4][UNIMOD:35]TIDE")]
         [TestCase("[Phospho]?EMEVTSESPEK")]
         [TestCase("[Phospho][Phospho]?EMEVTSESPEK")]
+        [TestCase("[Phospho]^2?EMEVTSESPEK")]
+        [TestCase("[Phospho][Phospho]?[Acetyl]-EM[Oxidation]EVTSESPEK")]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2]")]
+        [TestCase("<[MOD:01090]@C>[Phospho]?EM[Oxidation]EVTSECSPEK")]
+        [TestCase("[Phospho]?{Glycan:Hex}[Acetyl]-PEPTIDE")]
         [TestCase("{Glycan:Hex}EM[Oxidation]EVNES[Phospho]PEK")]
+        [TestCase("{Glycan:Hex}[iTRAQ4plex]-EM[Oxidation]EVNES[Phospho]PEK[iTRAQ4plex]-[Methyl]")]
         [TestCase("<[S-carboxamidomethyl-L-cysteine]@C>ATPEILTCNSIGCLK")]
         [TestCase("SEQUEN[Formula:[13C2][12C-2]H2N]CE")]
         [TestCase("PEPTIDE-[Formula:[13C2]C-2H2N]")]

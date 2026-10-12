@@ -11,8 +11,10 @@ namespace Readers.ProForma
     /// <remarks>
     /// A term holds one modification per terminus, and the SDK (0.0.299) neither refuses a second one nor stops
     /// residues after the C-terminal modification: <c>PEPTIDE-[A][B]</c> kept only B, <c>[A][B]-PEPTIDE</c> was misread
-    /// as an unlocalized A, <c>PEPTIDE-[A]K</c> read as PEPTIDEK, and a string with no residue threw an index exception.
-    /// Before the SDK runs, this reader refuses those shapes, so it never returns a term that lost part of its input.
+    /// as an unlocalized A (after an unlocalized prefix, <c>[P]?[A][B]-PEPTIDE</c>, it read A as unlocalized without an
+    /// error), <c>PEPTIDE-[A]K</c> read as PEPTIDEK, and a string with no residue threw an index exception or read as an
+    /// empty sequence. Before the SDK runs, this reader refuses those shapes, so it never returns a term that lost or
+    /// moved a terminal modification.
     /// </remarks>
     public static class ProFormaReader
     {
@@ -33,9 +35,10 @@ namespace Readers.ProForma
 
         /// <summary>
         /// Refuses, before the SDK sees them: several modification groups on one terminus; a residue after the C-terminal
-        /// modification; a string whose leading modification groups reach its end. Bracket, brace and angle groups are
-        /// skipped whole, so brackets inside a modification (a formula with isotopes) are never read as a terminus. Any
-        /// shape it does not recognise is left to the SDK.
+        /// modification; a string with a modification but no residue. Unlocalized groups (<c>[Phospho]?</c>,
+        /// <c>[Phospho]^2?</c>) are passed over first, so the N-terminal group is the one after the last '?'. Bracket,
+        /// brace and angle groups are skipped whole, so brackets inside a modification (a formula with isotopes) are never
+        /// read as a terminus. Any shape it does not recognise is left to the SDK.
         /// </summary>
         internal static void ThrowIfTerminalsCannotBeRead(string proForma)
         {
@@ -48,22 +51,39 @@ namespace Readers.ProForma
                 if (i < 0) return;
             }
 
+            // Groups that a '?' closes are unlocalized; only those after the last '?' can be N-terminal.
             int leading = 0;
-            while (i < n && proForma[i] == '[')
+            bool modified = false;
+            while (i < n)
             {
-                i = SkipGroup(proForma, i);
-                if (i < 0) return;
-                leading++;
+                char c = proForma[i];
+                if (c is '[' or '{')
+                {
+                    i = SkipGroup(proForma, i);
+                    if (i < 0) return;
+                    if (c == '[') { leading++; modified = true; }
+                }
+                else if (c == '^' && leading > 0)
+                {
+                    do i++; while (i < n && char.IsDigit(proForma[i]));
+                }
+                else if (c == '?' && leading > 0)
+                {
+                    leading = 0;
+                    i++;
+                }
+                else
+                    break;
             }
-            if (leading > 0 && i == n)
-                throw new Tdp.ProFormaParseException("The string has a modification but no residue.");
-            if (leading > 0 && proForma[i] == '-')
+            if (leading > 0 && i < n && proForma[i] == '-')
             {
                 if (leading > 1) throw Stacked(proForma, "N", leading);
                 i++;
             }
+            if (modified && i == n)
+                throw new Tdp.ProFormaParseException("The string has a modification but no residue.");
 
-            for (; i < n; i++)
+            for (bool residue = false; i < n; i++)
             {
                 char c = proForma[i];
                 if (c is '[' or '{' or '<')
@@ -74,7 +94,12 @@ namespace Readers.ProForma
                     continue;
                 }
                 if (c != '-')
+                {
+                    residue |= char.IsLetter(c);
                     continue;
+                }
+                if (!residue)
+                    throw new Tdp.ProFormaParseException($"No residue before the '-' at position {i}.");
 
                 int j = i + 1, trailing = 0;
                 while (j < n && proForma[j] == '[')

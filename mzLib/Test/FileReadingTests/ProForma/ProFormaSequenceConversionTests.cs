@@ -79,6 +79,8 @@ namespace Test.FileReadingTests.ProForma
 
         [TestCase("PEPTIDE-[UNIMOD:2][UNIMOD:35]", "Multiple C-terminal modifications (2 found).")]
         [TestCase("[UNIMOD:1][UNIMOD:35]-PEPTIDE", "Multiple N-terminal modifications (2 found).")]
+        [TestCase("[Phospho]?[Acetyl]-PEPTIDE-[UNIMOD:2][UNIMOD:35]", "Multiple C-terminal modifications (2 found).")]
+        [TestCase("[Phospho]?[Acetyl][Carbamyl]-PEPTIDE", "Multiple N-terminal modifications (2 found).")]
         public void Parse_StackedTerminalModifications_AreIncompatibleNotLost(string input, string item)
         {
             var warnings = new ConversionWarnings();
