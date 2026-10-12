@@ -467,7 +467,8 @@ public class PtmQtlTests
     {
         // Two chemistries in twelve runs. Every "GG" site reads 0.2 higher in the second six runs; the "Phospho"
         // sites do not move with it. One run level for all sites is half one chemistry and half the other, so only a
-        // level per chemistry removes the GG shift.
+        // level per chemistry removes the GG shift. The first phospho site also carries s's own variation within a
+        // batch, which shows only once both levels are taken out.
         const string Gg = "Trypsin Digested:GG (Ubiquitination Site) on K";
         var s = new ModificationSite("P1", 13, 'K', Gg);
         var t = new ModificationSite("P2", 43, 'K', Gg);
@@ -482,7 +483,8 @@ public class PtmQtlTests
             occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseS[r % 6], site: s));
             occupancy.Add(Cell($"r{r:D2}", batch + 0.01 * noiseT[r % 6], site: t));
             foreach (var b in ggBackground) occupancy.Add(Cell($"r{r:D2}", batch + 0.035, site: b));
-            for (int i = 0; i < phospho.Count; i++) occupancy.Add(Cell($"r{r:D2}", phosphoLevel[r] + 0.001 * i, site: phospho[i]));
+            for (int i = 0; i < phospho.Count; i++)
+                occupancy.Add(Cell($"r{r:D2}", phosphoLevel[r] + (i == 0 ? 0.01 * noiseS[r % 6] : 0.001 * i), site: phospho[i]));
         }
         PtmPair Pair(IReadOnlyList<PtmPair> pairs) => pairs.Single(p => p.SiteA == s && p.SiteB == t);
         string Chemistry(ModificationSite site) => site.Modification.Contains("GG") ? "GG" : "phospho";
@@ -501,15 +503,23 @@ public class PtmQtlTests
         var vt = Enumerable.Range(0, 12).Select(r => (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6]).ToArray();
         Assert.That(perChemistry.Statistic, Is.EqualTo(SpearmanCorrelation.PartialCorrelate(vs, vt, level).Rho).Within(1e-12));
 
-        // A cross-chemistry pair is correlated given both levels: two covariates.
+        // A cross-chemistry pair is correlated given both levels: two covariates. The GG batch and the phospho level
+        // hide what s and the phospho site share; given both, it shows.
+        var plainCross = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>())
+            .Single(p => p.SiteA == s && p.SiteB == phospho[0]);
         var cross = PtmPairEngine.CoVarying(occupancy, Array.Empty<PeptidoformObservation>(), removeRunLevel: true, runLevelGroup: Chemistry)
             .Single(p => p.SiteA == s && p.SiteB == phospho[0]);
+        Assert.That(Math.Abs(plainCross.Statistic), Is.LessThan(0.1));
+        Assert.That(cross.SpearmanMethod, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(cross.Statistic, Is.GreaterThan(0.7));
+        Assert.That(double.IsFinite(cross.PValue), Is.True);
         var phosphoOthers = Enumerable.Range(0, 12).Select(r => phosphoLevel[r] + 0.001 * 3.5).ToArray();   // median of sites 1-6
         var ggWithT = Enumerable.Range(0, 12).Select(r => new[] { (r < 6 ? 0.1 : 0.3) + 0.01 * noiseT[r % 6] }
             .Concat(Enumerable.Repeat((r < 6 ? 0.1 : 0.3) + 0.035, 4)).OrderBy(v => v).ElementAt(2)).ToArray();
-        var vp = Enumerable.Range(0, 12).Select(r => phosphoLevel[r]).ToArray();
+        var vp = Enumerable.Range(0, 12).Select(r => phosphoLevel[r] + 0.01 * noiseS[r % 6]).ToArray();
         var expected = SpearmanCorrelation.PartialCorrelate(vs, vp, new IReadOnlyList<double>[] { ggWithT, phosphoOthers });
         Assert.That(cross.Statistic, Is.EqualTo(expected.Rho).Within(1e-12));
+        Assert.That(cross.PValue, Is.EqualTo(expected.PValue).Within(1e-12));
 
         // A GG site seen in only two runs does not enter pairs, so it does not move the GG level either.
         var sparse = new ModificationSite("P9", 3, 'K', Gg);
