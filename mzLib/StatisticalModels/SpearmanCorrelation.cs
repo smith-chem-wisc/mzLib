@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using MathNet.Numerics.Distributions;
-using MathNet.Numerics.LinearAlgebra;
 
 namespace StatisticalModels
 {
@@ -107,12 +106,15 @@ namespace StatisticalModels
         /// <summary>
         /// Partial Spearman correlation of <paramref name="x"/> and <paramref name="y"/> given the covariates
         /// <paramref name="covariates"/>, and its two-sided p-value. Every variable is ranked over the complete cases
-        /// (all values finite). With R the rank correlation matrix of (x, y, z₁ … z_k) and P = R⁻¹,
-        /// ρ_xy·z = −P₀₁ / √(P₀₀ P₁₁): the correlation of the ranks of x and y after each is regressed on the ranks of
-        /// the covariates. p: t = ρ √((n − 2 − k) / (1 − ρ²)) referred to Student's t with n − 2 − k df, as R's
-        /// ppcor::pcor.test(method = "spearman"). <see cref="SpearmanResult.Method"/> is
-        /// <see cref="SpearmanPValueMethod.Asymptotic"/>, or NotEstimable with fewer than k + 3 complete cases, a constant
-        /// variable, or a rank correlation matrix that is singular (a covariate carries x or y entirely).
+        /// (all values finite). ρ_xy·z is the correlation of the ranks of x and y after each is regressed on the ranks of
+        /// the covariates; with R the rank correlation matrix of (x, y, z₁ … z_k) and P = R⁻¹, it is −P₀₁ / √(P₀₀ P₁₁).
+        /// p: t = ρ √((n − 2 − k) / (1 − ρ²)) referred to Student's t with n − 2 − k df, as R's
+        /// ppcor::pcor.test(method = "spearman"). If x and y are left perfectly correlated, ρ = ±1 and p = 0, as
+        /// <see cref="Correlate"/> gives. A covariate whose ranks the others carry entirely (two level series that rank
+        /// the runs identically) adds nothing and is dropped, and k counts the covariates kept.
+        /// <see cref="SpearmanResult.Method"/> is <see cref="SpearmanPValueMethod.Asymptotic"/>, or NotEstimable with
+        /// fewer than k + 3 complete cases, a constant variable, or covariates that carry x or y entirely (nothing of it
+        /// is left to correlate).
         /// </summary>
         public static SpearmanResult PartialCorrelate(IReadOnlyList<double> x, IReadOnlyList<double> y, IReadOnlyList<IReadOnlyList<double>> covariates)
         {
@@ -142,32 +144,66 @@ namespace StatisticalModels
                 ties |= t;
             }
             result.HasTies = ties;
-            var r = Matrix<double>.Build.Dense(k + 2, k + 2);
-            for (int a = 0; a < k + 2; a++)
+            // Each rank vector is centred and scaled to unit length, and the covariates are orthonormalized in turn
+            // (modified Gram-Schmidt). The test is on what is left of x and y after projecting them off that basis, so
+            // only nothing left of x or of y refuses it: x and y left identical in rank give ρ = ±1, not a refusal.
+            var unit = new double[k + 2][];
+            for (int j = 0; j < k + 2; j++)
             {
-                r[a, a] = 1;
-                for (int b = a + 1; b < k + 2; b++)
-                {
-                    double c = Pearson(ranks[a], ranks[b]);
-                    if (double.IsNaN(c)) return result;
-                    r[a, b] = r[b, a] = c;
-                }
+                double mean = ranks[j].Average();
+                unit[j] = ranks[j].Select(v => v - mean).ToArray();
+                double norm = Math.Sqrt(Dot(unit[j], unit[j]));
+                if (norm == 0) return result;
+                for (int i = 0; i < n; i++) unit[j][i] /= norm;
             }
-            // A singular R means a covariate (or a combination of them) carries x or y entirely: nothing is left.
-            if (!(r.Determinant() > SingularTolerance)) return result;
-            var p = r.Inverse();
-            double rho = Math.Clamp(-p[0, 1] / Math.Sqrt(p[0, 0] * p[1, 1]), -1, 1);
-            if (double.IsNaN(rho)) return result;
+            var basis = new List<double[]>(k);
+            for (int j = 2; j < k + 2; j++)
+            {
+                var v = Residual(unit[j], basis);
+                double left = Dot(v, v);
+                if (left < CarriedTolerance) continue;
+                double norm = Math.Sqrt(left);
+                basis.Add(v.Select(e => e / norm).ToArray());
+            }
+            var ex = Residual(unit[0], basis);
+            var ey = Residual(unit[1], basis);
+            double sxx = Dot(ex, ex), syy = Dot(ey, ey);
+            if (sxx < CarriedTolerance || syy < CarriedTolerance) return result;
+            double rho = Math.Clamp(Dot(ex, ey) / Math.Sqrt(sxx * syy), -1, 1);
             result.Rho = rho;
             result.Method = SpearmanPValueMethod.Asymptotic;
             double r2 = rho * rho;
-            int df = n - 2 - k;
+            int df = n - 2 - basis.Count;
             result.PValue = r2 >= 1 ? 0 : 2 * StudentT.CDF(0, 1, df, -Math.Abs(rho) * Math.Sqrt(df / (1 - r2)));
             return result;
         }
 
-        /// <summary>Determinant of the rank correlation matrix below which <see cref="PartialCorrelate(IReadOnlyList{double}, IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/> calls it singular.</summary>
-        private const double SingularTolerance = 1e-12;
+        /// <summary>
+        /// Share of a rank vector's variance, left after the covariates, below which
+        /// <see cref="PartialCorrelate(IReadOnlyList{double}, IReadOnlyList{double}, IReadOnlyList{IReadOnlyList{double}})"/>
+        /// takes the covariates to carry it entirely. One adjacent swap in n ranks leaves about 24 / n³, so distinct rank
+        /// orders stay above it for n up to about 28,000.
+        /// </summary>
+        private const double CarriedTolerance = 1e-12;
+
+        /// <summary><paramref name="v"/> minus its projection on each vector of the orthonormal <paramref name="basis"/>, in turn.</summary>
+        private static double[] Residual(double[] v, List<double[]> basis)
+        {
+            var e = (double[])v.Clone();
+            foreach (var q in basis)
+            {
+                double c = Dot(e, q);
+                for (int i = 0; i < e.Length; i++) e[i] -= c * q[i];
+            }
+            return e;
+        }
+
+        private static double Dot(double[] a, double[] b)
+        {
+            double s = 0;
+            for (int i = 0; i < a.Length; i++) s += a[i] * b[i];
+            return s;
+        }
 
         /// <summary>Average ranks, 1-based; ties share the mean of the ranks they span.</summary>
         internal static double[] Ranks(IReadOnlyList<double> v, out bool ties)
