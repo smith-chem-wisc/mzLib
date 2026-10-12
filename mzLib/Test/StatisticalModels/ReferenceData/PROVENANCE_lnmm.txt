@@ -1,0 +1,10 @@
+generated_utc 2026-10-12 02:07:04 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+lme4 2.0.6
+glmmTMB 1.1.15.2
+TMB 1.9.25
+Matrix 1.7.5
+numDeriv 2016.8.1.1
+seed 20261011
+script make_lnmm_fixtures.R
+run locally (Rscript make_lnmm_fixtures.R <this folder>), not in CI
