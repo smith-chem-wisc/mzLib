@@ -651,6 +651,88 @@ namespace Test.FileReadingTests.InternalFileReading
             Assert.IsTrue(cleanedSequence.Equals("ASDFASDF"));
         }
 
+        /// <summary>
+        /// An entrapment decoy ("ED") is a decoy for every purpose. <c>ToLibrarySpectrum</c> tested
+        /// <c>== "D"</c> and so wrote ED PSMs into a spectral library as targets.
+        /// </summary>
+        [TestCase("T", false, false)]
+        [TestCase("D", true, false)]
+        [TestCase("ET", false, true)]
+        [TestCase("ED", true, true)]
+        [TestCase("T|ET", false, true)]
+        [TestCase("T|D", true, false)]
+        public static void EntrapmentLabelsReadTheSameOnEveryPath(string label, bool isDecoy, bool isEntrapment)
+        {
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SearchResults", "TDGPTMDSearchResults.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            int column = Array.IndexOf(lines[0].Split('\t'), SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+            for (int i = 1; i < lines.Length; i++)
+            {
+                string[] fields = lines[i].Split('\t');
+                if (fields.Length > column)
+                {
+                    fields[column] = label;
+                    lines[i] = string.Join('\t', fields);
+                }
+            }
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"entrapmentLabel_{label.Replace('|', '_')}.psmtsv");
+            File.WriteAllLines(path, lines);
+
+            PsmFromTsv psm;
+            LightWeightSpectralMatch lightweight;
+            try
+            {
+                psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).First();
+                lightweight = LightWeightSpectralMatchReader.ReadTsv(path, out _).First();
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+
+            NUnit.Framework.Assert.That(psm.DecoyContamTarget, Is.EqualTo(label));
+            NUnit.Framework.Assert.That((psm.IsDecoy, psm.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)));
+            NUnit.Framework.Assert.That(psm.ToLibrarySpectrum().IsDecoy, Is.EqualTo(isDecoy));
+            NUnit.Framework.Assert.That((lightweight.IsDecoy, lightweight.IsEntrapment), Is.EqualTo((isDecoy, isEntrapment)),
+                "the lightweight reader must agree with the full one");
+        }
+
+        /// <summary>
+        /// A PSM read from a file counts as the share of an entrapment discovery its own label and
+        /// full sequence give it. T|ET is half an entrapment PSM when the two sequences differ, and
+        /// none when both proteins carry the same peptide.
+        /// </summary>
+        [TestCase("ET", "PEPTIDEK", 1.0)]
+        [TestCase("T|ET", "PEPTIDEK|PEPTLDEK", 0.5)]
+        [TestCase("T|ET", "PEPTIDEK", 0.0)]
+        [TestCase("T|D", "PEPTIDEK|PEPTLDEK", 0.0)]
+        public static void APsmReadsItsShareOfAnEntrapmentDiscovery(string label, string fullSequence, double expected)
+        {
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SearchResults", "TDGPTMDSearchResults.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            string[] header = lines[0].Split('\t');
+            int labelColumn = Array.IndexOf(header, SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+            int sequenceColumn = Array.IndexOf(header, SpectrumMatchFromTsvHeader.FullSequence);
+            string[] fields = lines.Skip(1).Select(l => l.Split('\t')).First(f => f.Length == header.Length);
+            fields[labelColumn] = label;
+            fields[sequenceColumn] = fullSequence;
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory,
+                $"entrapmentFraction_{label.Replace('|', '_')}_{fullSequence.Replace('|', '_')}.psmtsv");
+            File.WriteAllLines(path, new[] { lines[0], string.Join('\t', fields) });
+
+            PsmFromTsv psm;
+            try
+            {
+                psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).Single();
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+
+            NUnit.Framework.Assert.That(psm.EntrapmentFraction, Is.EqualTo(expected).Within(1e-12));
+        }
+
         [Test]
         public static void TestSimpleToLibrarySpectrum()
         {
@@ -932,6 +1014,46 @@ namespace Test.FileReadingTests.InternalFileReading
                     Is.EqualTo(sequenceLength - match.Ion.NeutralTheoreticalProduct.FragmentNumber + 1),
                     match.Ion.Annotation);
             }
+        }
+
+        /// <summary>
+        /// Every PSM reader asks DecoyContaminantTargetLabel, so a value that is not a label is neither
+        /// decoy nor entrapment on any path. Only the helper was tested with such a value. On real
+        /// labels a raw <c>Contains('D')</c> or <c>Contains('E')</c> agrees with the helper, so any
+        /// reader could revert to the raw test and nothing failed.
+        /// </summary>
+        [TestCase("Output too long for Excel")]
+        [TestCase("Decoy")]
+        public static void AValueThatIsNotALabelIsNeitherDecoyNorEntrapmentOnAnyPsmPath(string label)
+        {
+            string template = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "SearchResults", "TDGPTMDSearchResults.psmtsv");
+            string[] lines = File.ReadAllLines(template);
+            string[] header = lines[0].Split('\t');
+            int column = Array.IndexOf(header, SpectrumMatchFromTsvHeader.DecoyContaminantTarget);
+            string[] fields = lines.Skip(1).Select(l => l.Split('\t')).First(f => f.Length == header.Length);
+            fields[column] = label;
+
+            string directory = Path.Combine(Path.GetTempPath(), "mzLibTest_" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(directory);
+            string path = Path.Combine(directory, "notALabel.psmtsv");
+            PsmFromTsv psm;
+            LightWeightSpectralMatch lightweight;
+            try
+            {
+                File.WriteAllLines(path, new[] { lines[0], string.Join('\t', fields) });
+                psm = SpectrumMatchTsvReader.ReadPsmTsv(path, out _).Single();
+                lightweight = LightWeightSpectralMatchReader.ReadTsv(path, out _).Single();
+            }
+            finally
+            {
+                Directory.Delete(directory, true);
+            }
+
+            NUnit.Framework.Assert.That(psm.DecoyContamTarget, Is.EqualTo(label));
+            NUnit.Framework.Assert.That((psm.IsDecoy, psm.IsEntrapment), Is.EqualTo((false, false)));
+            NUnit.Framework.Assert.That(psm.ToLibrarySpectrum().IsDecoy, Is.False);
+            NUnit.Framework.Assert.That((lightweight.IsDecoy, lightweight.IsEntrapment), Is.EqualTo((false, false)),
+                "the lightweight reader must agree with the full one");
         }
     }
 }

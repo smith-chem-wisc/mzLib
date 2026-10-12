@@ -38,7 +38,7 @@ namespace Test.FlashLFQ
                 var proteins = psm.ProteinAccession.Split('|').Select(a => new ProteinGroup(a, "", "")).ToList();
                 identifications.Add(new Identification(file, psm.BaseSeq, psm.FullSequence,
                     (double)psm.MonoisotopicMass, (double)psm.RetentionTime, psm.PrecursorCharge, proteins,
-                    decoy: psm.DecoyContamTarget == "D"));
+                    decoy: psm.IsDecoy));
             }
             return identifications;
         }
