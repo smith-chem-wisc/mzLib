@@ -133,6 +133,25 @@ public class AnalysisDesignTests
         Assert.That(design.DefaultContrasts().Single().Label, Is.EqualTo("age (per decade)"));
     }
 
+    /// <summary>
+    /// With no scaled unit named, a slope is per <c>Scale</c> stored units, and its unit says so: <c>Scale: 10</c> on
+    /// years is an effect per 10 years, not per year. Written in a comma-decimal culture, so the number is invariant.
+    /// </summary>
+    [TestCase(10, "10 years", "years/10, centred at 50 years")]
+    [TestCase(2.5, "2.5 years", "years/2.5, centred at 50 years")]
+    [TestCase(1, "years", "years/1, centred at 50 years")]
+    [SetCulture("de-DE")]
+    public void WithoutAScaledUnitTheSlopeIsPerScaleStoredUnits(double scale, string unit, string scaleText)
+    {
+        var spec = new DesignSpec { Covariates = new[] { new CovariateSpec("age", "years", Scale: scale, Centre: 50) } };
+        var design = FromFixture("age_slope", spec);
+        var slope = design.Slope("age");
+        Assert.That(design.ColumnNames.Last(), Is.EqualTo($"age (per {unit})"));
+        Assert.That(slope.Label, Is.EqualTo($"age (per {unit})"));
+        Assert.That(slope.CovariateUnit, Is.EqualTo(unit));
+        Assert.That(slope.CovariateScale, Is.EqualTo(scaleText));
+    }
+
     [Test]
     public void AnUnstatedCentreIsTheStratumMean()
     {

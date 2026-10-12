@@ -285,10 +285,9 @@ public sealed class AnalysisDesign
         var c = Covariate(covariate);
         var weights = new double[ColumnNames.Count];
         weights[ColumnNames.ToList().IndexOf(c.ColumnName)] = 1;
-        string unit = c.Spec.ScaledUnit ?? c.Spec.Unit;
         string scale = string.Create(CultureInfo.InvariantCulture,
             $"{c.Spec.Unit}/{c.Spec.Scale:R}, centred at {c.Centre:R} {c.Spec.Unit}");
-        return new Contrast(c.ColumnName, c.ColumnName, weights, null, null, c.Spec.Name, unit, scale);
+        return new Contrast(c.ColumnName, c.ColumnName, weights, null, null, c.Spec.Name, c.PerUnit, scale);
     }
 
     /// <summary>An explicit contrast: a weight per named column, zero elsewhere.</summary>
@@ -434,7 +433,11 @@ public sealed class AnalysisDesign
 
     private sealed record CovariateCoding(CovariateSpec Spec, double Centre)
     {
-        public string ColumnName => $"{Spec.Name} (per {Spec.ScaledUnit ?? Spec.Unit})";
+        /// <summary>The unit one step of the column is: the scaled unit, else <c>Scale</c> stored units ("10 years").</summary>
+        public string PerUnit => Spec.ScaledUnit
+            ?? (Spec.Scale == 1 ? Spec.Unit : string.Create(CultureInfo.InvariantCulture, $"{Spec.Scale:R} {Spec.Unit}"));
+
+        public string ColumnName => $"{Spec.Name} (per {PerUnit})";
 
         public double Value(AnalysisSample s) => (s.Covariates[Spec.Name] - Centre) / Spec.Scale;
 

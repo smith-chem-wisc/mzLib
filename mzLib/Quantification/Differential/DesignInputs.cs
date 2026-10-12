@@ -38,7 +38,10 @@ public sealed record FactorSpec(string Name, string? ReferenceLevel = null);
 /// <param name="Name">The covariate's name, as in <see cref="AnalysisSample.Covariates"/>.</param>
 /// <param name="Unit">The stored unit, e.g. <c>years</c>.</param>
 /// <param name="Scale">Stored units per scaled unit, e.g. 10 years per decade. Default 1.</param>
-/// <param name="ScaledUnit">The unit a slope is per, e.g. <c>decade</c>; <paramref name="Unit"/> when null.</param>
+/// <param name="ScaledUnit">
+/// The unit a slope is per, e.g. <c>decade</c>. When null, a slope is per <paramref name="Scale"/> stored units:
+/// <c>years</c> at scale 1, <c>10 years</c> at scale 10.
+/// </param>
 /// <param name="Centre">The value subtracted first, in the stored unit; the stratum's mean when null.</param>
 public sealed record CovariateSpec(string Name, string Unit, double Scale = 1, string? ScaledUnit = null, double? Centre = null);
 
