@@ -13,7 +13,7 @@ using System.Linq;
 namespace Test.Quantification
 {
     /// <summary>
-    /// <see cref="QuantifiedPsmRule"/>, and <see cref="MzLibExtensions.MakeQuantifiedIdentifications(IQuantifiableResultFile, List{SpectraFileInfo}, out QuantifiedPsmTier, double)"/>
+    /// <see cref="QuantifiedPsmRule"/>, and <see cref="MzLibExtensions.MakeQuantifiedIdentifications(IQuantifiableResultFile, List{SpectraFileInfo}, out Nullable{QuantifiedPsmTier}, double)"/>
     /// applying it to result files. The file tests rewrite columns of a small MetaMorpheus search
     /// (BottomUpExample.psmtsv, eight target PSMs that all pass, PEP trained) so that each case picks one tier and
     /// fails it in exactly one way.
@@ -34,6 +34,8 @@ namespace Test.Quantification
         {
             Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch, TrainedPeps), Is.EqualTo(QuantifiedPsmTier.PepQValue));
             Assert.That(QuantifiedPsmRule.ChooseTier(Trained, None, TrainedPeps), Is.EqualTo(QuantifiedPsmTier.PepQValue));
+            Assert.That(QuantifiedPsmRule.ChooseTier(Trained, Notch, new[] { 0.0, 0.0, 0.98 }), Is.EqualTo(QuantifiedPsmTier.PepQValue),
+                "targets at PEP 0 and a decoy near 1: trained");
         }
 
         [Test]
@@ -133,7 +135,7 @@ namespace Test.Quantification
         /// the <paramref name="drop"/> columns removed, opens it with <paramref name="open"/>, and returns the
         /// quantified identifications made from it and the tier chosen.
         /// </summary>
-        private static List<Identification> Quantify(string name, Edit edit, out QuantifiedPsmTier tier,
+        private static List<Identification> Quantify(string name, Edit edit, out QuantifiedPsmTier? tier,
             Func<string, IQuantifiableResultFile> open = null, List<SpectraFileInfo> spectraFiles = null, params string[] drop)
         {
             string path = Write(name, edit, drop);
@@ -231,6 +233,93 @@ namespace Test.Quantification
 
             Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValueNotch));
             Assert.That(ids.Count, Is.EqualTo(7));
+        }
+
+        /// <summary>
+        /// A trained search gives most of its confident targets a PEP of exactly 0, which on its own looks like failed
+        /// training. Its decoys' PEPs, near 1, show that it was trained, so they are read too.
+        /// </summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void ATrainedFileWhoseTargetsAllHavePepZeroIsToldApartByItsDecoys(string reader)
+        {
+            var ids = Quantify("trainedZero" + reader, (get, set, rows) =>
+            {
+                rows.ForEach(row => set(row, "PEP", "0"));
+                set(rows[7], "Decoy/Contaminant/Target", "D");
+                set(rows[7], "PEP", "0.98");
+                set(rows[7], "PEP_QValue", "0.5");     // a decoy that fails the PEP tier: dropped
+                set(rows[1], "QValue Notch", "0.05");  // ignored in the PEP tier: kept
+            }, out var tier, Open(reader));
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.PepQValue));
+            Assert.That((ids.Count, ids.Count(id => id.IsDecoy)), Is.EqualTo((7, 0)));
+        }
+
+        /// <summary>Failed training leaves PEP 0 on the decoys too, so a file with decoys still falls back to the notch.</summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void WithPepTrainingFailedAndDecoysPresentTheNotchDecides(string reader)
+        {
+            var ids = Quantify("failedDecoy" + reader, (get, set, rows) =>
+            {
+                rows.ForEach(row => set(row, "PEP", "0"));
+                set(rows[7], "Decoy/Contaminant/Target", "D"); // passes the notch: kept
+                set(rows[1], "QValue Notch", "0.05");          // notch fails: dropped
+            }, out var tier, Open(reader));
+
+            Assert.That(tier, Is.EqualTo(QuantifiedPsmTier.QValueNotch));
+            Assert.That((ids.Count, ids.Count(id => id.IsDecoy)), Is.EqualTo((7, 1)));
+        }
+
+        /// <summary>
+        /// A trained file written with only its confident targets (no decoys, every PEP 0) cannot show that PEP was
+        /// trained, so the tier chosen from it is the notch. A caller that knows PEP was trained names the PEP tier.
+        /// </summary>
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void ACallerThatKnowsPepWasTrainedNamesTheTier(string reader)
+        {
+            Edit confidentTargetsOnly = (get, set, rows) =>
+            {
+                rows.ForEach(row => set(row, "PEP", "0"));
+                set(rows[0], "PEP_QValue", "0.05");    // fails the PEP tier only
+                set(rows[2], "PEP_QValue", "0.05");    // fails the PEP tier only
+                set(rows[1], "QValue Notch", "0.05");  // fails the notch tier only
+            };
+            var chosen = Quantify("targetsOnly" + reader, confidentTargetsOnly, out var tier, Open(reader));
+
+            string path = Write("targetsOnlyNamed" + reader, confidentTargetsOnly);
+            List<Identification> named;
+            try
+            {
+                named = Open(reader)(path).MakeQuantifiedIdentifications(BothFiles, QuantifiedPsmTier.PepQValue);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+
+            Assert.That((tier, chosen.Count), Is.EqualTo((QuantifiedPsmTier.QValueNotch, 7)));
+            Assert.That(named.Count, Is.EqualTo(6));
+        }
+
+        /// <summary>
+        /// A tier the caller names is refused when no target carries a value for it, rather than dropping every match.
+        /// DIA-NN reports no PEP q-value.
+        /// </summary>
+        [Test]
+        public static void ANamedTierNoMatchHasIsRefused()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv");
+            var file = new DiaNnReportFile(path);
+            var spectraFiles = file.Select(p => p.SpectraFilePath).Distinct()
+                .Select((filePath, i) => new SpectraFileInfo(filePath, "PBMC", i, 0, 0)).ToList();
+
+            Assert.That(() => file.MakeQuantifiedIdentifications(spectraFiles, QuantifiedPsmTier.PepQValue),
+                Throws.TypeOf<MzLibUtil.MzLibException>());
+            Assert.That(file.MakeQuantifiedIdentifications(spectraFiles, QuantifiedPsmTier.QValue).Count,
+                Is.EqualTo(file.MakeQuantifiedIdentifications(spectraFiles).Count));
         }
 
         /// <summary>With PEP untrained and no notch column, the q-value decides, strictly below 0.01.</summary>
@@ -347,9 +436,34 @@ namespace Test.Quantification
             };
             var file = new MockQuantifiableResultFile(new List<IQuantifiableRecord> { record });
 
-            var ids = file.MakeQuantifiedIdentifications(new List<SpectraFileInfo> { new SpectraFileInfo("file1.mzML", "A", 0, 0, 0) });
+            var ids = file.MakeQuantifiedIdentifications(new List<SpectraFileInfo> { new SpectraFileInfo("file1.mzML", "A", 0, 0, 0) }, out var tier);
 
             Assert.That(ids.Count, Is.EqualTo(1));
+            Assert.That(tier, Is.Null, "nothing was filtered on confidence");
+        }
+
+        /// <summary>MSFragger PSMs report no confidence value this rule reads: all are kept, and no tier is reported.</summary>
+        [Test]
+        public static void AnMsFraggerFileIsFilteredOnNoTier()
+        {
+            string path = Path.Combine(TestContext.CurrentContext.TestDirectory, @"FileReadingTests\ExternalFileTypes\EditedMSFraggerResults\A_1\psm.tsv");
+            var file = new MsFraggerPsmFile(path);
+            var spectraFiles = file.GetQuantifiableResults().Select(record => record.FileName).Distinct()
+                .Select((fileName, i) => new SpectraFileInfo(fileName, "A", i, 0, 0)).ToList();
+
+            var ids = file.MakeQuantifiedIdentifications(spectraFiles, out var tier);
+
+            Assert.That(tier, Is.Null);
+            Assert.That(ids.Count, Is.EqualTo(file.GetQuantifiableResults().Count()).And.GreaterThan(0));
+        }
+
+        [TestCase("Full")]
+        [TestCase("Lightweight")]
+        public static void AFileWithNoRecordsReportsNoTier(string reader)
+        {
+            var ids = Quantify("headerOnly" + reader, (get, set, rows) => rows.Clear(), out var tier, Open(reader));
+
+            Assert.That((tier, ids.Count), Is.EqualTo(((QuantifiedPsmTier?)null, 0)));
         }
 
         /// <summary>

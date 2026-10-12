@@ -38,7 +38,8 @@ namespace Quantification
         /// <summary>
         /// The tier a search's matches are filtered on: <see cref="QuantifiedPsmTier.PepQValue"/> when
         /// <see cref="PepIsUsable"/>, else <see cref="QuantifiedPsmTier.QValueNotch"/> when <see cref="NotchIsUsable"/>,
-        /// else <see cref="QuantifiedPsmTier.QValue"/>. Pass the values of the search's target matches.
+        /// else <see cref="QuantifiedPsmTier.QValue"/>. Pass the PEP q-values and notch q-values of the search's target
+        /// matches, and the PEPs of all its matches, decoys included (see <see cref="PepIsUsable"/>).
         /// </summary>
         public static QuantifiedPsmTier ChooseTier(IEnumerable<double> pepQValues, IEnumerable<double> notchQValues,
             IEnumerable<double>? peps = null)
@@ -57,10 +58,12 @@ namespace Quantification
         /// <item>at least one PEP q-value is a real value in [0, 1]. MetaMorpheus writes 2 for every match when PEP was
         /// not trained, and a reader fills NaN when the column is absent;</item>
         /// <item>and, when <paramref name="peps"/> are given, they are not all the same value. When PEP training fails,
-        /// MetaMorpheus leaves PEP at 0 for every match and still writes PEP q-values, ordered by score, which look
-        /// usable but are not. A search with a single PEP value cannot show that it was trained, so it is not usable
-        /// either. Without <paramref name="peps"/> (a reader that does not expose PEP), this failure cannot be
-        /// seen.</item>
+        /// MetaMorpheus leaves PEP at 0 for every match, decoys included, and still writes PEP q-values, ordered by
+        /// score, which look usable but are not. A trained search also gives most of its confident targets a PEP of
+        /// exactly 0, but gives its decoys PEPs near 1, so pass the PEPs of every match, decoys included. Matches that
+        /// all carry one PEP value (a single match, or a file holding only its confident targets) cannot show that
+        /// PEP was trained, so they are not usable either: the answer depends on which matches are present. Without
+        /// <paramref name="peps"/> (a reader that does not expose PEP), this failure cannot be seen.</item>
         /// </list>
         /// </summary>
         public static bool PepIsUsable(IEnumerable<double> pepQValues, IEnumerable<double>? peps = null)
