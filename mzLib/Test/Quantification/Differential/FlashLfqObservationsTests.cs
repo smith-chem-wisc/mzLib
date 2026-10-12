@@ -256,6 +256,76 @@ public class FlashLfqObservationsTests
         Assert.That(ex!.Message, Does.Contain("PEPA").And.Contain("f1"));
     }
 
+    /// <summary>
+    /// FlashLFQ writes 0 for "no value", so only an exact 0 on MSMS or MBR is the zeroed ambiguous peak. A negative or
+    /// non-finite intensity is no value FlashLFQ writes, whatever the detection type: it is refused, naming the peptide,
+    /// the run and the value, not read as an ambiguous peak (MSMS, MBR) or discarded (the types that carry no value).
+    /// </summary>
+    [TestCase(-1.0, DetectionType.MSMS)]
+    [TestCase(double.NaN, DetectionType.MSMS)]
+    [TestCase(double.NegativeInfinity, DetectionType.MSMS)]
+    [TestCase(double.PositiveInfinity, DetectionType.MSMS)]
+    [TestCase(-1.0, DetectionType.MBR)]
+    [TestCase(double.NaN, DetectionType.MBR)]
+    [TestCase(double.NegativeInfinity, DetectionType.MBR)]
+    [TestCase(double.NaN, DetectionType.MSMSAmbiguousPeakfinding)]
+    [TestCase(-1.0, DetectionType.MSMSIdentifiedButNotQuantified)]
+    [TestCase(double.NaN, DetectionType.NotDetected)]
+    public void AnInvalidIntensityIsRefusedFromResults(double intensity, DetectionType detectionType)
+    {
+        var (results, runs) = EveryDetectionType();
+        SpectraFileInfo a = results.SpectraFiles[0];
+        results.PeptideModifiedSequences["PEPMSMS"].SetIntensity(a, intensity);
+        results.PeptideModifiedSequences["PEPMSMS"].SetDetectionType(a, detectionType);
+        var groups = new[] { new ProteinGroupInfo("P1|P2", 0.001, false, false), new ProteinGroupInfo("Q1", 0.02, false, false) };
+
+        foreach (QuantBasis basis in Enum.GetValues<QuantBasis>())
+        {
+            var ex = Assert.Throws<ArgumentException>(() => FlashLfqObservations.FromResults(results, runs, groups, basis));
+            Assert.That(ex!.Message, Does.Contain("Peptide 'PEPMSMS' in 'A-calib' has intensity " +
+                intensity.ToString(System.Globalization.CultureInfo.InvariantCulture)));
+        }
+    }
+
+    [TestCase("-1", "MSMS")]
+    [TestCase("NaN", "MSMS")]
+    [TestCase("-Infinity", "MSMS")]
+    [TestCase("Infinity", "MSMS")]
+    [TestCase("-1", "MBR")]
+    [TestCase("NaN", "MBR")]
+    [TestCase("-Infinity", "MBR")]
+    [TestCase("NaN", "MSMSAmbiguousPeakfinding")]
+    [TestCase("-1", "MSMSIdentifiedButNotQuantified")]
+    [TestCase("NaN", "NotDetected")]
+    public void AnInvalidIntensityIsRefusedFromAStoredTable(string intensity, string detectionType)
+    {
+        var table = Table("Sequence\tBase Sequence\tProtein Groups\tGene Names\tOrganism\tIntensity_f1\tDetection Type_f1",
+            $"PEPA\tPEPA\tP1\t\t\t{intensity}\t{detectionType}");
+
+        foreach (QuantBasis basis in Enum.GetValues<QuantBasis>())
+        {
+            var ex = Assert.Throws<ArgumentException>(() => FlashLfqObservations.FromPeptideTable(table,
+                new[] { new ObservationRun("f1", "S1") }, new[] { new ProteinGroupInfo("P1", 0.001, false, false) }, basis));
+            Assert.That(ex!.Message, Does.Contain($"Peptide 'PEPA' in 'f1' has intensity {intensity}"));
+        }
+    }
+
+    /// <summary>Negative zero is zero: an MSMS or MBR value written as -0 is the zeroed ambiguous peak, as 0 is.</summary>
+    [TestCase("-0", "MSMS")]
+    [TestCase("-0", "MBR")]
+    [TestCase("0", "MBR")]
+    public void ANegativeZeroIsAZeroedAmbiguousPeak(string intensity, string detectionType)
+    {
+        var table = Table("Sequence\tBase Sequence\tProtein Groups\tGene Names\tOrganism\tIntensity_f1\tDetection Type_f1",
+            $"PEPA\tPEPA\tP1\t\t\t{intensity}\t{detectionType}");
+
+        var result = FlashLfqObservations.FromPeptideTable(table, new[] { new ObservationRun("f1", "S1") },
+            new[] { new ProteinGroupInfo("P1", 0.001, false, false) }, QuantBasis.MbrKept);
+
+        Assert.That(result.State(0, 0), Is.EqualTo(ObservationState.AmbiguousPeak));
+        Assert.That(result.Log2Intensity(0, 0), Is.NaN);
+    }
+
     [Test]
     public void AnIsoTrackerPeptideTableIsRefused()
     {

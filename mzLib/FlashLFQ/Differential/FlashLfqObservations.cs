@@ -1,6 +1,7 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using Quantification.Differential;
 using Readers;
 
@@ -20,7 +21,8 @@ namespace FlashLFQ
     /// <see cref="ObservationState.AmbiguousPeak"/>: FlashLFQ zeroes every fraction of a sample whose strongest fraction is
     /// ambiguous, and leaves the type alone. <c>MSMSAmbiguousPeakfinding</c> is <see cref="ObservationState.AmbiguousPeak"/>
     /// whatever its intensity. <c>MSMSIdentifiedButNotQuantified</c> and <c>NotDetected</c> map to their namesakes.
-    /// IsoTracker output is refused: its peptides are isobaric peaks, not sequences.
+    /// A negative or non-finite intensity is refused, whatever the type: FlashLFQ writes 0 for "no value", so such a
+    /// number is damage, not an ambiguous peak. IsoTracker output is refused: its peptides are isobaric peaks, not sequences.
     /// </para>
     /// <para>
     /// <b>Protein groups</b> are taken from the producer's protein-group table or groups (GR-23), because FlashLFQ's own
@@ -34,7 +36,10 @@ namespace FlashLFQ
         /// <param name="runs">The experimental design's runs; each matches one of <see cref="FlashLfqResults.SpectraFiles"/> by file name.</param>
         /// <param name="proteinGroups">The producer's protein groups (MetaMorpheus's, with q-values and flags).</param>
         /// <param name="basis">Which match-between-runs values enter.</param>
-        /// <exception cref="ArgumentException">IsoTracker results, or input <see cref="ObservationTable.Build"/> refuses.</exception>
+        /// <exception cref="ArgumentException">
+        /// IsoTracker results, a negative or non-finite intensity (naming the peptide and file), or input
+        /// <see cref="ObservationTable.Build"/> refuses.
+        /// </exception>
         public static ObservationTable FromResults(FlashLfqResults results, IEnumerable<ObservationRun> runs,
             IEnumerable<ProteinGroupInfo> proteinGroups, QuantBasis basis)
         {
@@ -68,8 +73,8 @@ namespace FlashLFQ
         /// <param name="proteinGroups">The producer's protein groups, e.g. from <see cref="ReadProteinGroups"/>.</param>
         /// <param name="basis">Which match-between-runs values enter.</param>
         /// <exception cref="ArgumentException">
-        /// IsoTracker output, a blank intensity or an unreadable detection type (naming the peptide and column), or input
-        /// <see cref="ObservationTable.Build"/> refuses.
+        /// IsoTracker output, a blank, negative or non-finite intensity or an unreadable detection type (naming the peptide
+        /// and column), or input <see cref="ObservationTable.Build"/> refuses.
         /// </exception>
         public static ObservationTable FromPeptideTable(QuantifiedPeptideFile peptideTable, IEnumerable<ObservationRun> runs,
             IEnumerable<ProteinGroupInfo> proteinGroups, QuantBasis basis)
@@ -126,6 +131,13 @@ namespace FlashLFQ
         /// </summary>
         private static RunValue ToRunValue(string sequence, string label, double intensity, DetectionType detectionType)
         {
+            // Checked before any type: only an exact 0 may become the zeroed ambiguous peak, and a type that carries no
+            // value must not quietly discard a damaged one.
+            if (!double.IsFinite(intensity) || intensity < 0)
+                throw new ArgumentException(
+                    $"Peptide '{sequence}' in '{label}' has intensity {intensity.ToString(CultureInfo.InvariantCulture)} " +
+                    $"with detection type {detectionType}; FlashLFQ writes a finite intensity of 0 or more, and 0 for no value.");
+
             switch (detectionType)
             {
                 case DetectionType.MSMS:
