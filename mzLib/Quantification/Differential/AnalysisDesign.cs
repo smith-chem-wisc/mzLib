@@ -30,7 +30,9 @@ namespace Quantification.Differential;
 /// non-finite covariate, batch on some samples only, an interaction naming an unknown factor) throws
 /// <see cref="ArgumentException"/> naming the sample and the column. A design that can be built but not fully
 /// estimated never throws: <see cref="Estimability"/> says which contrasts cannot be estimated and why, and
-/// <see cref="NotRun"/> lists the contrasts a stratum cannot run at all.
+/// <see cref="NotRun"/> lists the contrasts a stratum cannot run at all. <c>LinearModel.Fit</c> refuses such a
+/// <see cref="Matrix"/>, so a fit takes <see cref="FittedMatrix"/> (the later redundant columns left out) and each
+/// estimable contrast's <see cref="FittedWeights"/>.
 /// </para>
 /// <para>
 /// <b>Determinism.</b> Samples are ordered by <see cref="AnalysisSample.SampleId"/> (ordinal), levels ordinally, so the
@@ -73,7 +75,7 @@ public sealed class AnalysisDesign
     private readonly List<string> _columnTerms;
     private readonly List<FactorCoding> _factors;
     private readonly List<CovariateCoding> _covariates;
-    private readonly Matrix<double>? _nullSpace;
+    private readonly Matrix<double>? _nullProjector;
 
     private AnalysisDesign(string stratum, IReadOnlyList<AnalysisSample> samples, double[,] matrix,
         List<string> columnNames, List<string> columnTerms, List<FactorCoding> factors, List<CovariateCoding> covariates,
@@ -98,16 +100,20 @@ public sealed class AnalysisDesign
         Rank = LinearModel.HasFullColumnRank(matrix)
             ? p
             : Math.Min(svd.S.Count(s => s > RankTolerance * largest), p - 1);
-        _nullSpace = Rank < p ? svd.VT.SubMatrix(Rank, p - Rank, 0, p).Transpose() : null;
-        AliasedTerms = _nullSpace is null
+        // With two or more redundancies the SVD may return any rotation of the null space's basis, so what a redundancy
+        // involves is read from the projection onto the null space, which depends on the space alone (review round 3).
+        var nullSpace = Rank < p ? svd.VT.SubMatrix(Rank, p - Rank, 0, p).Transpose() : null;
+        _nullProjector = nullSpace?.TransposeAndMultiply(nullSpace);
+        AliasedTerms = _nullProjector is null
             ? Array.Empty<string>()
-            : Enumerable.Range(0, _nullSpace.ColumnCount)
-                .Select(TermsOf)
+            : Enumerable.Range(0, p)
+                .Select(j => TermsAlong(_nullProjector.Column(j)))
                 .Where(t => t.Count > 1)
                 .SelectMany(t => t)
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(t => _columnTerms.IndexOf(t))
                 .ToArray();
+        FittedColumns = Rank == p ? Enumerable.Range(0, p).ToArray() : KeptColumns(matrix);
     }
 
     /// <summary>The stratum this design covers (<see cref="StratumKey"/>), or <see cref="AllSamples"/>.</summary>
@@ -124,6 +130,46 @@ public sealed class AnalysisDesign
 
     /// <summary>A copy of the design matrix, <c>[sample, column]</c>, in the layout <c>LinearModel.Fit</c> takes.</summary>
     public double[,] Matrix => (double[,])_matrix.Clone();
+
+    /// <summary>
+    /// The columns a fit takes: all of them when the design has full column rank. Otherwise <see cref="Matrix"/>'s columns
+    /// left to right, each kept unless it is redundant with those already kept (by
+    /// <see cref="LinearModel.HasFullColumnRank"/>), so the later of two aliased columns is left out.
+    /// </summary>
+    public IReadOnlyList<int> FittedColumns { get; }
+
+    /// <summary>
+    /// A copy of <see cref="Matrix"/> with only <see cref="FittedColumns"/>. It has full column rank, so
+    /// <c>LinearModel.Fit</c> takes it; an estimable contrast is fitted on it with <see cref="FittedWeights"/>.
+    /// </summary>
+    public double[,] FittedMatrix
+    {
+        get
+        {
+            int n = _matrix.GetLength(0);
+            var fitted = new double[n, FittedColumns.Count];
+            for (int i = 0; i < n; i++)
+                for (int k = 0; k < FittedColumns.Count; k++)
+                    fitted[i, k] = _matrix[i, FittedColumns[k]];
+            return fitted;
+        }
+    }
+
+    /// <summary>
+    /// An estimable contrast's weights on <see cref="FittedColumns"/>. Its estimate and standard error from a fit of
+    /// <see cref="FittedMatrix"/> are those of every least-squares fit of <see cref="Matrix"/>: the left-out coefficients
+    /// can be taken as 0, and an estimable contrast does not depend on which solution is taken. Hand them on as
+    /// <c>new ContrastWeights(contrast.Id, weights)</c>.
+    /// </summary>
+    /// <exception cref="ArgumentException">The contrast is not estimable; the message gives its <see cref="Estimability"/>.</exception>
+    public double[] FittedWeights(Contrast contrast)
+    {
+        string estimability = Estimability(contrast);
+        if (estimability != Estimable)
+            throw new ArgumentException($"Contrast '{contrast.Id}' is {estimability}, so no fit gives it an estimate.",
+                nameof(contrast));
+        return FittedColumns.Select(j => contrast.Weights[j]).ToArray();
+    }
 
     /// <summary>
     /// The numerical rank of <see cref="Matrix"/>: the column count exactly when <see cref="LinearModel.HasFullColumnRank"/>
@@ -334,22 +380,46 @@ public sealed class AnalysisDesign
             throw new ArgumentException(
                 $"The contrast has {contrast.Weights.Count} weights but the design has {ColumnNames.Count} columns.",
                 nameof(contrast));
-        if (_nullSpace is null) return Estimable;
+        if (_nullProjector is null) return Estimable;
         var c = Vector<double>.Build.DenseOfEnumerable(contrast.Weights);
         double scale = Math.Max(1, c.L2Norm());
-        var projection = _nullSpace.TransposeThisAndMultiply(c);
-        var touched = Enumerable.Range(0, projection.Count)
-            .Where(k => Math.Abs(projection[k]) > LoadingTolerance * scale).ToList();
-        if (touched.Count == 0) return Estimable;
-        return touched.Any(k => TermsOf(k).Count > 1) ? NotEstimableConfounded : NotEstimableRankDeficient;
+        // The part of the contrast that lies in the null space, which no fit can see.
+        var unseen = _nullProjector * c;
+        if (unseen.L2Norm() <= LoadingTolerance * scale) return Estimable;
+        return TermsAlong(unseen).Count > 1 ? NotEstimableConfounded : NotEstimableRankDeficient;
     }
 
-    private List<string> TermsOf(int nullVector) =>
-        Enumerable.Range(0, _nullSpace!.RowCount)
-            .Where(j => Math.Abs(_nullSpace[j, nullVector]) > LoadingTolerance)
+    /// <summary>The terms a direction in the null space loads on: its entries above <see cref="LoadingTolerance"/> of its length.</summary>
+    private List<string> TermsAlong(Vector<double> direction)
+    {
+        double length = direction.L2Norm();
+        if (length <= LoadingTolerance) return new List<string>();
+        return Enumerable.Range(0, direction.Count)
+            .Where(j => Math.Abs(direction[j]) > LoadingTolerance * length)
             .Select(j => _columnTerms[j])
             .Distinct(StringComparer.Ordinal)
             .ToList();
+    }
+
+    /// <summary>Left to right, each column kept unless it is redundant with those already kept, by LinearModel's own test.</summary>
+    private static int[] KeptColumns(double[,] matrix)
+    {
+        int n = matrix.GetLength(0), p = matrix.GetLength(1);
+        var kept = new List<int>();
+        for (int j = 0; j < p; j++)
+        {
+            var candidate = new double[n, kept.Count + 1];
+            for (int i = 0; i < n; i++)
+            {
+                for (int k = 0; k < kept.Count; k++)
+                    candidate[i, k] = matrix[i, kept[k]];
+                candidate[i, kept.Count] = matrix[i, j];
+            }
+            if (LinearModel.HasFullColumnRank(candidate))
+                kept.Add(j);
+        }
+        return kept.ToArray();
+    }
 
     private void Add(double[] weights, FactorCoding f, string level, double sign)
     {
@@ -465,7 +535,13 @@ public sealed class AnalysisDesign
                 if (!r.Covariates.TryGetValue(spec.Name, out var v) || !double.IsFinite(v))
                     throw new ArgumentException($"Sample '{r.SampleId}' needs a finite value for covariate '{spec.Name}'.",
                         nameof(rows));
-            return new CovariateCoding(spec, spec.Centre ?? rows.Average(r => r.Covariates[spec.Name]));
+            // The mean, except that equal values are centred at that value: their floating-point mean can be a rounding
+            // error off (ten 18.2s average 18.200000000000003), which would leave a column of 3.6e-15 instead of 0.
+            double first = rows.Count == 0 ? double.NaN : rows[0].Covariates[spec.Name];
+            double mean = rows.Count > 0 && rows.All(r => r.Covariates[spec.Name] == first)
+                ? first
+                : rows.Average(r => r.Covariates[spec.Name]);
+            return new CovariateCoding(spec, spec.Centre ?? mean);
         }
     }
 }

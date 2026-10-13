@@ -364,4 +364,134 @@ public class AnalysisDesignTests
         var e = Assert.Throws<ArgumentException>(() => AnalysisDesign.Create(samples, Spec(("condition", "A"))));
         Assert.That(e!.Message, Does.Contain("s2").And.Contain("batch"));
     }
+
+    /// <summary>
+    /// Ten (or six) samples, half condition A in batch b1 and half B in b2, all of one age: condition is confounded with
+    /// batch, and age does not vary. <paramref name="centre"/> is the stated centre, or none.
+    /// </summary>
+    private static AnalysisDesign ConstantAgeBesideAConfoundedCondition(double age, int n, double? centre = null) =>
+        AnalysisDesign.Create(Enumerable.Range(0, n).Select(i => new AnalysisSample($"s{i:D2}")
+        {
+            Factors = new Dictionary<string, string> { ["condition"] = i < n / 2 ? "A" : "B" },
+            Batch = i < n / 2 ? "b1" : "b2",
+            Covariates = new Dictionary<string, double> { ["age"] = age },
+        }).ToList(), Spec(("condition", "A")) with { Covariates = new[] { new CovariateSpec("age", "months", Centre: centre) } });
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): with no stated centre a constant covariate is centred at its mean, and the mean of
+    /// ten 18.2s is not exactly 18.2, so its column was 3.6e-15, not 0. Beside condition confounded with batch, the slope
+    /// came back confounded and age was named among the aliased terms. A covariate that does not vary is rank deficient
+    /// on its own, and its centre is that value.
+    /// </summary>
+    [TestCase(18.2, 10)]
+    [TestCase(24.0, 10)]
+    [TestCase(0.1, 6)]
+    [TestCase(0.1, 10)]
+    [TestCase(0.7, 6)]
+    [TestCase(0.7, 10)]
+    [TestCase(1.1, 6)]
+    [TestCase(1.1, 10)]
+    [TestCase(0.3, 10)]
+    public void AConstantCovariateBesideAConfoundedConditionIsRankDeficient(double age, int n)
+    {
+        var design = ConstantAgeBesideAConfoundedCondition(age, n);
+
+        Assert.That(design.Estimability(design.Slope("age")), Is.EqualTo(AnalysisDesign.NotEstimableRankDeficient));
+        Assert.That(design.Estimability(design.Between("condition", "B", "A")),
+            Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        Assert.That(design.AliasedTerms, Is.EqualTo(new[] { "condition", "batch" }));
+        Assert.That(design.CovariateCentre("age"), Is.EqualTo(age), "the mean of equal values is that value");
+    }
+
+    /// <summary>
+    /// The reason must not depend on which basis of a two-dimensional null space the SVD returns. A stated centre a
+    /// rounding error off the values (the floating-point mean of ten 18.2s) leaves the same 3.6e-15 column whatever the
+    /// default centre does; the reason and the aliased terms come from the projection onto the null space.
+    /// </summary>
+    [Test]
+    public void TheReasonDoesNotDependOnTheNullSpaceBasis()
+    {
+        double offCentre = Enumerable.Repeat(18.2, 10).Average();
+        Assert.That(offCentre, Is.Not.EqualTo(18.2), "the fixture needs the rounding error");
+
+        var design = ConstantAgeBesideAConfoundedCondition(18.2, 10, offCentre);
+
+        Assert.That(design.Estimability(design.Slope("age")), Is.EqualTo(AnalysisDesign.NotEstimableRankDeficient));
+        Assert.That(design.AliasedTerms, Is.EqualTo(new[] { "condition", "batch" }));
+    }
+
+    /// <summary>A design of full column rank is fitted as it is.</summary>
+    [Test]
+    public void AFullRankDesignIsFittedOnEveryColumn()
+    {
+        var design = FromFixture("interaction", TwoFactors with { Interactions = new[] { ("age_group", "treatment") } });
+
+        Assert.That(design.FittedColumns, Is.EqualTo(Enumerable.Range(0, design.ColumnNames.Count)));
+        Assert.That(design.FittedMatrix, Is.EqualTo(design.Matrix));
+    }
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): a rank-deficient design called some contrasts estimable, but <c>LinearModel.Fit</c>
+    /// refuses its <see cref="AnalysisDesign.Matrix"/>. The design now leaves the later redundant columns out of
+    /// <see cref="AnalysisDesign.FittedMatrix"/>, and gives each estimable contrast its weights on the kept columns. Its
+    /// estimate equals the one from the design without the redundant term, built independently.
+    /// </summary>
+    [Test]
+    public void AnEstimableContrastOfARankDeficientDesignIsFittedOnTheKeptColumns()
+    {
+        // No sample is old AND on drug, so the interaction column is all zero.
+        var samples = new[]
+        {
+            S("s1", ("age_group", "young"), ("treatment", "vehicle")), S("s2", ("age_group", "young"), ("treatment", "drug")),
+            S("s3", ("age_group", "old"), ("treatment", "vehicle")), S("s4", ("age_group", "young"), ("treatment", "vehicle")),
+            S("s5", ("age_group", "young"), ("treatment", "drug")), S("s6", ("age_group", "old"), ("treatment", "vehicle")),
+        };
+        var design = AnalysisDesign.Create(samples, TwoFactors with { Interactions = new[] { ("age_group", "treatment") } });
+        var additive = AnalysisDesign.Create(samples, TwoFactors);
+        Assert.Throws<ArgumentException>(() => LinearModel.Fit(new double[1, 6], design.Matrix), "the full matrix is refused");
+
+        Assert.That(design.FittedColumns.Select(j => design.ColumnNames[j]), Is.EqualTo(additive.ColumnNames));
+        var y = new double[,] { { 20.1, 21.7, 19.4, 20.6, 22.3, 18.9 } };
+        var fit = LinearModel.Fit(y, design.FittedMatrix);
+        var reference = LinearModel.Fit(y, additive.Matrix);
+        foreach (var (contrast, independent) in design.DefaultContrasts().Zip(additive.DefaultContrasts()))
+        {
+            Assert.That(design.Estimability(contrast), Is.EqualTo(AnalysisDesign.Estimable));
+            double[] w = design.FittedWeights(contrast);
+            double estimate = w.Select((x, j) => x * fit.Coefficient(0, j)).Sum();
+            double expected = independent.Weights.Select((x, j) => x * reference.Coefficient(0, j)).Sum();
+            Assert.That(estimate, Is.EqualTo(expected).Within(1e-10), contrast.Id);
+        }
+    }
+
+    /// <summary>The same when a covariate does not vary: the condition is fitted without it.</summary>
+    [Test]
+    public void AConditionBesideAConstantCovariateIsFittedWithoutIt()
+    {
+        var samples = Enumerable.Range(0, 6).Select(i => new AnalysisSample($"s{i}")
+        {
+            Factors = new Dictionary<string, string> { ["condition"] = i % 2 == 0 ? "A" : "B" },
+            Covariates = new Dictionary<string, double> { ["age"] = 18.2 },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, Spec(("condition", "A")) with { Covariates = new[] { new CovariateSpec("age", "months") } });
+        var withoutAge = AnalysisDesign.Create(samples, Spec(("condition", "A")));
+
+        Assert.That(design.FittedColumns.Select(j => design.ColumnNames[j]), Is.EqualTo(withoutAge.ColumnNames));
+        var y = new double[,] { { 20.1, 21.7, 19.4, 20.6, 22.3, 18.9 } };
+        var contrast = design.Between("condition", "B", "A");
+        var fit = LinearModel.Fit(y, design.FittedMatrix);
+        double estimate = design.FittedWeights(contrast).Select((x, j) => x * fit.Coefficient(0, j)).Sum();
+        Assert.That(estimate, Is.EqualTo(LinearModel.Fit(y, withoutAge.Matrix).Coefficient(0, 1)).Within(1e-10));
+    }
+
+    /// <summary>A contrast that is not estimable has no weights on the kept columns: its estimate would depend on which were kept.</summary>
+    [Test]
+    public void ANonEstimableContrastHasNoFittedWeights()
+    {
+        var design = ConstantAgeBesideAConfoundedCondition(24, 10);
+
+        var e = Assert.Throws<ArgumentException>(() => design.FittedWeights(design.Slope("age")));
+        Assert.That(e!.Message, Does.Contain(AnalysisDesign.NotEstimableRankDeficient));
+        Assert.Throws<ArgumentException>(() => design.FittedWeights(design.Between("condition", "B", "A")));
+    }
 }
