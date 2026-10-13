@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using NUnit.Framework;
 using Quantification.Differential;
+using StatisticalModels;
 
 namespace Test.Quantification.Differential;
 
@@ -76,6 +77,22 @@ public class AnalysisDesignReferenceTests
         var design = AnalysisDesign.Create(samples, Specs[name]);
         int expectedRank = name == "confounded" ? 2 : design.ColumnNames.Count;
         Assert.That(design.Rank, Is.EqualTo(expectedRank), "R's qr()$rank, printed when the fixtures were made");
+    }
+
+    [TestCaseSource(nameof(DesignNames))]
+    public void FullRankExactlyWhenLinearModelFitsTheDesign(string name)
+    {
+        var (samples, _) = ReadSamples(name);
+        var design = AnalysisDesign.Create(samples, Specs[name]);
+        var matrix = design.Matrix;
+        bool full = design.Rank == design.ColumnNames.Count;
+
+        Assert.That(LinearModel.HasFullColumnRank(matrix), Is.EqualTo(full));
+        var responses = new double[1, matrix.GetLength(0)];
+        if (full)
+            Assert.DoesNotThrow(() => LinearModel.Fit(responses, matrix));
+        else
+            Assert.Throws<ArgumentException>(() => LinearModel.Fit(responses, matrix));
     }
 
     private static DesignSpec Factors(params (string Name, string? Reference)[] factors) =>

@@ -248,6 +248,26 @@ namespace StatisticalModels
             return fit;
         }
 
+        /// <summary>
+        /// Whether a design has full column rank by the test <see cref="Fit"/> applies before fitting (<see cref="RankTolerance"/>
+        /// against each column's own length), so a caller can tell in advance whether <see cref="Fit"/> will accept it. A
+        /// design with fewer rows than columns never has.
+        /// </summary>
+        /// <param name="design">[sample, coefficient]. Must be finite.</param>
+        /// <exception cref="ArgumentException">The design has no columns, or a value that is not finite.</exception>
+        public static bool HasFullColumnRank(double[,] design)
+        {
+            ArgumentNullException.ThrowIfNull(design);
+            int n = design.GetLength(0), p = design.GetLength(1);
+            if (p == 0)
+                throw new ArgumentException("The design has no columns.", nameof(design));
+            for (int i = 0; i < n; i++)
+                for (int j = 0; j < p; j++)
+                    if (!double.IsFinite(design[i, j]))
+                        throw new ArgumentException($"The design is not finite at sample {i}, column {j}.", nameof(design));
+            return n >= p && IsFullRank(Matrix<double>.Build.DenseOfArray(design));
+        }
+
         /// <summary>FlashLFQ's convention: -1, or at least the core count, means all cores but one; anything else below 1 means one.</summary>
         internal static int ResolveThreads(int maxThreads)
         {

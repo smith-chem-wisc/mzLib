@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using MathNet.Numerics.LinearAlgebra;
+using StatisticalModels;
 
 namespace Quantification.Differential;
 
@@ -59,7 +60,10 @@ public sealed class AnalysisDesign
     private const string Intercept = "intercept";
     private const string BatchTerm = "batch";
 
-    /// <summary>A singular value below this fraction of the largest counts as zero.</summary>
+    /// <summary>
+    /// In a design <see cref="LinearModel.HasFullColumnRank"/> refuses, a singular value below this fraction of the largest
+    /// counts as zero when sizing the redundancy.
+    /// </summary>
     private const double RankTolerance = 1e-10;
 
     /// <summary>A null-space loading (or a contrast's projection on it) below this counts as zero.</summary>
@@ -88,8 +92,12 @@ public sealed class AnalysisDesign
         var x = Matrix<double>.Build.DenseOfArray(matrix);
         var svd = x.Svd(computeVectors: true);
         double largest = svd.S.Count == 0 ? 0 : svd.S.Maximum();
-        Rank = svd.S.Count(s => s > RankTolerance * largest);
         int p = columnNames.Count;
+        // Full rank is LinearModel's verdict, the test its Fit applies, so a design whose contrasts are all estimable here
+        // is one the fit accepts, and the reverse. The SVD only sizes and describes the redundancy.
+        Rank = LinearModel.HasFullColumnRank(matrix)
+            ? p
+            : Math.Min(svd.S.Count(s => s > RankTolerance * largest), p - 1);
         _nullSpace = Rank < p ? svd.VT.SubMatrix(Rank, p - Rank, 0, p).Transpose() : null;
         AliasedTerms = _nullSpace is null
             ? Array.Empty<string>()
@@ -117,7 +125,11 @@ public sealed class AnalysisDesign
     /// <summary>A copy of the design matrix, <c>[sample, column]</c>, in the layout <c>LinearModel.Fit</c> takes.</summary>
     public double[,] Matrix => (double[,])_matrix.Clone();
 
-    /// <summary>The numerical rank of <see cref="Matrix"/>.</summary>
+    /// <summary>
+    /// The numerical rank of <see cref="Matrix"/>: the column count exactly when <see cref="LinearModel.HasFullColumnRank"/>
+    /// accepts the matrix (so <c>LinearModel.Fit</c> will fit it); otherwise the number of singular values above
+    /// <c>1e-10</c> of the largest, and at most one less than the column count.
+    /// </summary>
     public int Rank { get; }
 
     /// <summary>

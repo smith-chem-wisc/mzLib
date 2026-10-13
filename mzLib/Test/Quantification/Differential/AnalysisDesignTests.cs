@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
 using Quantification.Differential;
+using StatisticalModels;
 
 namespace Test.Quantification.Differential;
 
@@ -179,6 +180,49 @@ public class AnalysisDesignTests
         Assert.That(design.Rank, Is.EqualTo(2));
         Assert.That(design.AliasedTerms, Is.EquivalentTo(new[] { "condition", "batch" }));
         Assert.That(design.Estimability(design.DefaultContrasts().Single()), Is.EqualTo("not_estimable:confounded"));
+    }
+
+    [Test]
+    public void ANearlyRedundantCovariateIsNotFullRankBecauseTheFitRefusesIt()
+    {
+        // b is a plus or minus 1e-8: its part orthogonal to the intercept and a is about 4e-9 of its own length, under
+        // LinearModel's 1e-7, so LinearModel.Fit refuses the design; but the smallest singular value is about 2e-9 of the
+        // largest, over the old 1e-10 cut-off, which called every contrast estimable.
+        var samples = Enumerable.Range(0, 8).Select(i => new AnalysisSample($"s{i}")
+        {
+            Covariates = new Dictionary<string, double> { ["a"] = i, ["b"] = i + (i % 2 == 0 ? 1e-8 : -1e-8) },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, new DesignSpec
+        {
+            Covariates = new[] { new CovariateSpec("a", "units"), new CovariateSpec("b", "units") },
+        });
+
+        Assert.That(LinearModel.HasFullColumnRank(design.Matrix), Is.False);
+        Assert.Throws<ArgumentException>(() => LinearModel.Fit(new double[1, 8], design.Matrix));
+        Assert.That(design.Rank, Is.EqualTo(2));
+        Assert.That(design.AliasedTerms, Is.EquivalentTo(new[] { "a", "b" }));
+        Assert.That(design.Estimability(design.Slope("a")), Is.EqualTo("not_estimable:confounded"));
+    }
+
+    [Test]
+    public void ACovariateOnAnIntensityScaleBesideTheInterceptIsFullRank()
+    {
+        // Centred values near ±1e11 beside an intercept of length sqrt(12): the smallest singular value is about 3e-11
+        // of the largest, so the old cut-off called the slope not estimable, while LinearModel's test, relative to each
+        // column's own length, fits it.
+        var samples = Enumerable.Range(0, 12).Select(i => new AnalysisSample($"s{i:00}")
+        {
+            Covariates = new Dictionary<string, double> { ["summed_intensity"] = 1e11 * (1 + 0.1 * i) },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, new DesignSpec
+        {
+            Covariates = new[] { new CovariateSpec("summed_intensity", "intensity") },
+        });
+
+        Assert.That(LinearModel.HasFullColumnRank(design.Matrix), Is.True);
+        Assert.That(design.Rank, Is.EqualTo(2));
+        Assert.That(design.AliasedTerms, Is.Empty);
+        Assert.That(design.Estimability(design.Slope("summed_intensity")), Is.EqualTo("estimable"));
     }
 
     [Test]
