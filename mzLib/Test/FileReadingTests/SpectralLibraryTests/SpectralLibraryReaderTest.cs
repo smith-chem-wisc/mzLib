@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
@@ -437,6 +438,145 @@ namespace Test.FileReadingTests.SpectralLibraryTests
                 Assert.That(frag.ProductType == readFrag.NeutralTheoreticalProduct.ProductType);
                 Assert.That(frag.fragmentNumber == readFrag.NeutralTheoreticalProduct.FragmentNumber);
                 Assert.That(frag.charge == readFrag.Charge);
+            }
+        }
+
+        [Test]
+        [TestCase(null)]
+        [TestCase(0.0)]
+        [TestCase(30.5)]
+        [TestCase(-0.464)]
+        public static void WrittenSpectrumReadsBackWithItsRetentionTime(double? retentionTime)
+        {
+            var written = PeptideSpectrum(retentionTime);
+
+            var (read, _) = WriteAndRead(written);
+
+            Assert.That(read.RetentionTime, Is.EqualTo(retentionTime));
+            Assert.That(read.ToString(), Is.EqualTo(written.ToString()));
+        }
+
+        [Test]
+        public static void SpectrumWithoutRetentionTimeIsWrittenWithoutTheField()
+        {
+            Assert.That(PeptideSpectrum(retentionTime: null).ToString(), Is.EqualTo(
+                "Name: PEPTIDEK/2\nMW: 464.2504\nComment: Parent=464.2504\nNum peaks: 3\n" +
+                "147.1128\t0.4\t\"y1^1/0ppm\"\n179.6079\t0.25\t\"y3^2-17.0265/0ppm\"\n227.1026\t1\t\"b2^1/0ppm\""));
+        }
+
+        [Test]
+        public static void EmptyRetentionTimeFieldReadsAsNoRetentionTime()
+        {
+            string path = TemporaryLibraryPath();
+            File.WriteAllText(path, "Name: PEPTIDEK/2\nMW: 464.2504\nComment: Parent=464.2504 RT=\nNum peaks: 1\n227.1026\t1\t\"b2^1/0ppm\"\n");
+
+            var (read, _) = ReadAndDelete(path, "PEPTIDEK", 2);
+
+            Assert.That(read.RetentionTime, Is.Null);
+            Assert.That(read.MatchedFragmentIons.Count, Is.EqualTo(1));
+        }
+
+        [Test]
+        [TestCase("peptide")]
+        [TestCase("RNA")]
+        [TestCase("crosslink")]
+        public static void SpectrumIsWrittenAndReadTheSameInAnotherCulture(string kind)
+        {
+            LibrarySpectrum written = kind switch
+            {
+                "peptide" => PeptideSpectrum(retentionTime: -0.464),
+                "RNA" => RnaSpectrum(),
+                _ => CrosslinkSpectrum()
+            };
+            string invariantText = written.ToString();
+
+            // A decimal comma, as in de-DE, and a minus sign that is not written as "-" and that "-" is not parsed as, as in ar-SA.
+            var culture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+            culture.NumberFormat.NumberDecimalSeparator = ",";
+            culture.NumberFormat.NumberGroupSeparator = ".";
+            culture.NumberFormat.NegativeSign = "\u061C-";
+
+            var originalCulture = CultureInfo.CurrentCulture;
+            string cultureText;
+            LibrarySpectrum read;
+            bool found;
+            try
+            {
+                CultureInfo.CurrentCulture = culture;
+                cultureText = written.ToString();
+                (read, found) = WriteAndRead(written);
+            }
+            finally
+            {
+                CultureInfo.CurrentCulture = originalCulture;
+            }
+
+            Assert.That(cultureText, Is.EqualTo(invariantText));
+            // The text holds everything the format carries, so equal text means every value was read back.
+            Assert.That(read.ToString(), Is.EqualTo(invariantText));
+            Assert.That(found);
+        }
+
+        private static LibrarySpectrum PeptideSpectrum(double? retentionTime)
+        {
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 146.1055, 1, 8, 0), 147.1128, 0.4, 1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 357.2012, 3, 6, 17.0265), 179.6079, 0.25, 2),
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 226.0954, 2, 2, 0), 227.1026, 1, 1)
+            };
+            return new LibrarySpectrum("PEPTIDEK", 464.2504, 2, peaks, retentionTime);
+        }
+
+        private static LibrarySpectrum RnaSpectrum()
+        {
+            var peaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.ThreePrime, 893.1497, 3, 4, 0), 892.1424, 1, -1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.ThreePrime, 1221.2018, 4, 3, 17.0265), 1220.1945, 0.25, -1),
+                new MatchedFragmentIon(new Product(ProductType.w, FragmentationTerminus.ThreePrime, 1948.2291, 6, 1, 0), 973.1073, 0.5, -2)
+            };
+            return new LibrarySpectrum("GUACUG", 633.0817, -3, peaks, 12.5);
+        }
+
+        private static LibrarySpectrum CrosslinkSpectrum()
+        {
+            var alphaPeaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.b, FragmentationTerminus.N, 226.0954, 2, 2, 0), 225.0881, 0.4, -1),
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 357.2012, 3, 6, 17.0265), 177.5933, 1, -2)
+            };
+            var betaPeaks = new List<MatchedFragmentIon>
+            {
+                new MatchedFragmentIon(new Product(ProductType.y, FragmentationTerminus.C, 128.0949, 1, 6, 18.0106), 127.0876, 0.25, -1)
+            };
+            return new CrosslinkLibrarySpectrum("PEPTIDEK(4)ELVISK(2)", 530.9325, -3, alphaPeaks, -0.5, betaPeaks);
+        }
+
+        private static string TemporaryLibraryPath() => Path.Combine(TestContext.CurrentContext.TestDirectory,
+            $@"FileReadingTests\SpectralLibraryTests\SpectralLibraryData\roundTrip_{TestContext.CurrentContext.Test.ID}.msp");
+
+        private static (LibrarySpectrum Read, bool Found) WriteAndRead(LibrarySpectrum written)
+        {
+            string path = TemporaryLibraryPath();
+            new SpectralLibraryClass { Results = new List<LibrarySpectrum> { written } }.WriteResults(path);
+            return ReadAndDelete(path, written.Sequence, written.ChargeState);
+        }
+
+        private static (LibrarySpectrum Read, bool Found) ReadAndDelete(string path, string sequence, int charge)
+        {
+            // If the constructor throws it keeps the file open, so there is nothing to close or delete.
+            var library = new SpectralLibraryClass(new List<string> { path });
+            try
+            {
+                var read = library.GetAllLibrarySpectra().Single();
+                bool found = library.ContainsSpectrum(sequence, charge) && library.TryGetSpectrum(sequence, charge, out _);
+                return (read, found);
+            }
+            finally
+            {
+                library.CloseConnections();
+                File.Delete(path);
             }
         }
     }

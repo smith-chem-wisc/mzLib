@@ -161,7 +161,7 @@ namespace Readers.SpectralLibrary
                     return true;
             }
 
-            string lookupString = sequence + "/" + charge;
+            string lookupString = sequence + "/" + charge.ToString(CultureInfo.InvariantCulture);
             return SequenceToFileAndLocation.ContainsKey(lookupString);
         }
 
@@ -184,7 +184,7 @@ namespace Readers.SpectralLibrary
                     return true;
             }
 
-            string lookupString = sequence + "/" + charge;
+            string lookupString = sequence + "/" + charge.ToString(CultureInfo.InvariantCulture);
             librarySpectrum = null;
 
             // look up in buffer to see if this library spectrum was read in already
@@ -344,7 +344,7 @@ namespace Readers.SpectralLibrary
             string sequence = null;
             int z = 2;
             double precursorMz = 0;
-            double rt = 0;
+            double? rt = null;
             List<MatchedFragmentIon> matchedFragmentIons = new List<MatchedFragmentIon>();
 
             while (reader.Peek() > 0)
@@ -370,7 +370,7 @@ namespace Readers.SpectralLibrary
                     sequence = split[0].Replace("Name:", string.Empty).Trim();
 
                     // get charge
-                    z = int.Parse(split[1].Trim());
+                    z = int.Parse(split[1].Trim(), CultureInfo.InvariantCulture);
                 }
                 else if (line.StartsWith("MW", StringComparison.InvariantCultureIgnoreCase))
                 {
@@ -403,7 +403,8 @@ namespace Readers.SpectralLibrary
                     {
                         indOfRt = Array.IndexOf(split, "RT");
 
-                        if (indOfRt > 0)
+                        // "RT=" with no value means the spectrum has no retention time
+                        if (indOfRt > 0 && split[indOfRt + 1].Length > 0)
                         {
                             rt = double.Parse(split[indOfRt + 1], CultureInfo.InvariantCulture);
                         }
@@ -765,7 +766,7 @@ namespace Readers.SpectralLibrary
             {
                 alphaSequence = splitAlphaBetaSequence[0];
             }
-            int z = int.Parse(splitNameLine[1].Trim());
+            int z = int.Parse(splitNameLine[1].Trim(), CultureInfo.InvariantCulture);
             double precursorMz = 0;
             double rt = 0;
             int indOfRt = -1;
@@ -940,7 +941,7 @@ namespace Readers.SpectralLibrary
             int fragmentCharge = 1;
             if (regexMatchResult.Groups.Count > 3 && !string.IsNullOrWhiteSpace(regexMatchResult.Groups[3].Value))
             {
-                fragmentCharge = int.Parse(regexMatchResult.Groups[3].Value);
+                fragmentCharge = int.Parse(regexMatchResult.Groups[3].Value, CultureInfo.InvariantCulture);
             }
 
             // Neutral-loss mass: extracted from a trailing "-{mass}" in the annotation
@@ -948,13 +949,13 @@ namespace Readers.SpectralLibrary
             if (annotation.Contains("-") && fragmentCharge > 0)
             {
                 string[] neutralLossInformation = annotation.Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
-                neutralLoss = double.Parse(neutralLossInformation[1]);
+                neutralLoss = double.Parse(neutralLossInformation[1], CultureInfo.InvariantCulture);
             }
             if (fragmentCharge < 0)
             {
                 string[] neutralLossInformation = annotation.Split(neutralLossSplit, StringSplitOptions.RemoveEmptyEntries).ToArray();
                 if (neutralLossInformation.Length > 2)
-                    neutralLoss = double.Parse(neutralLossInformation[2]);
+                    neutralLoss = double.Parse(neutralLossInformation[2], CultureInfo.InvariantCulture);
             }
 
             ProductType peakProductType = (ProductType)Enum.Parse(typeof(ProductType), fragmentType, true);

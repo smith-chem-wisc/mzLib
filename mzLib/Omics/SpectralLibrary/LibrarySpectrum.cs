@@ -17,7 +17,7 @@ namespace Omics.SpectrumMatch
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
         public bool IsDecoy { get; set; }
 
-        public virtual string Name => Sequence + "/" + ChargeState;
+        public virtual string Name => Sequence + "/" + ChargeState.ToString(CultureInfo.InvariantCulture);
 
         public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) 
             : base(peaks.Select(p => p.Mz).ToArray(), peaks.Select(p => p.Intensity).ToArray(), false)
@@ -62,10 +62,13 @@ namespace Omics.SpectrumMatch
         {
             StringBuilder spectrum = new StringBuilder();
             spectrum.Append("Name: " + Name);
-            spectrum.Append("\nMW: " + PrecursorMz);
+            spectrum.Append("\nMW: " + PrecursorMz.ToString(CultureInfo.InvariantCulture));
             spectrum.Append("\nComment: ");
-            spectrum.Append("Parent=" + PrecursorMz);
-            spectrum.Append(" RT=" + RetentionTime);
+            spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
+            if (RetentionTime.HasValue)
+            {
+                spectrum.Append(" RT=" + RetentionTime.Value.ToString(CultureInfo.InvariantCulture));
+            }
             spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
 
             double maxIntensity = MatchedFragmentIons.Select(b => b.Intensity).Max();
@@ -77,13 +80,13 @@ namespace Omics.SpectrumMatch
                 string neutralLoss = null;
                 if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
                 {
-                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
+                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss.ToString(CultureInfo.InvariantCulture);
                 }
 
-                spectrum.Append("\n" + matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
+                spectrum.Append("\n" + matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" + intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t" + "\"" +
                     matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
                     matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                    matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"");
+                    matchedIon.Charge.ToString(CultureInfo.InvariantCulture) + neutralLoss + "/" + 0 + "ppm" + "\"");
             }
 
             return spectrum.ToString();
