@@ -119,7 +119,7 @@ public class FlashLfqObservationsTests
         string first = files[0].FilenameWithoutExtension, second = files[1].FilenameWithoutExtension;
         var designs = new Dictionary<string, ObservationRun[]>
         {
-            ["two samples"] = ObservationRun.FromSpectraFiles(files).ToArray(),
+            ["two samples"] = ObservationRun.FromSampleInfos(files).ToArray(),
             ["two fractions"] = new[] { new ObservationRun(first, "S", Fraction: 1), new ObservationRun(second, "S", Fraction: 2) },
             ["two replicates"] = new[]
             {
@@ -177,7 +177,7 @@ public class FlashLfqObservationsTests
         Set("PEP[Common Variable:Oxidation on M]AMB", a, 3000, DetectionType.MSMSAmbiguousPeakfinding);
         Set("PEP[Common Variable:Oxidation on M]AMB", b, 0, DetectionType.MBR);
 
-        return (results, ObservationRun.FromSpectraFiles(new[]
+        return (results, ObservationRun.FromSampleInfos(new[]
         {
             new SpectraFileInfo(@"C:\data\A.mzML", "c", 0, 0, 0), b, c,
         }).ToArray());

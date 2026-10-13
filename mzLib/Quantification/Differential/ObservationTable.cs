@@ -79,14 +79,42 @@ public readonly record struct RunValue(double Intensity, ObservationState State)
 public sealed record ObservationRun(string FileName, string SampleId, int Fraction = 0, int TechnicalReplicate = 0)
 {
     /// <summary>
-    /// The runs of a label-free experimental design: each file's sample is <c>{condition}_{biological replicate + 1}</c>,
-    /// the label MetaMorpheus's quantified tables use (<see cref="SampleGroupLabels.ForSample"/>).
+    /// The runs of a pipeline's label-free experimental design, one per file (STATS-FRAMEWORK section 3.2: grouping comes
+    /// only from the design). See <see cref="FromSampleInfos"/> for how each is keyed.
     /// </summary>
-    public static IReadOnlyList<ObservationRun> FromSpectraFiles(IEnumerable<SpectraFileInfo> files)
+    /// <exception cref="ArgumentException">The design has a null entry or an isobaric channel.</exception>
+    public static IReadOnlyList<ObservationRun> FromExperimentalDesign(IExperimentalDesign design)
     {
-        ArgumentNullException.ThrowIfNull(files);
-        return files.Select(f => new ObservationRun(f.FilenameWithoutExtension, SampleGroupLabels.ForSample(f),
-            f.Fraction, f.TechnicalReplicate)).ToList();
+        ArgumentNullException.ThrowIfNull(design);
+        ArgumentNullException.ThrowIfNull(design.FileNameSampleInfoDictionary, nameof(design));
+        return FromSampleInfos(design.FileNameSampleInfoDictionary.Values.SelectMany(s => s ?? Array.Empty<ISampleInfo>()));
+    }
+
+    /// <summary>
+    /// One run per label-free design entry: its file, its fraction and technical replicate, and its biological sample
+    /// <c>{condition}_{biological replicate + 1}</c>. That is the label MetaMorpheus's quantified tables use
+    /// (<see cref="SampleGroupLabels.ForSample"/>) and the id the design layer gives the same entry
+    /// (<c>AnalysisSample.IdFor</c>), so the observation table and the design name a sample alike.
+    /// </summary>
+    /// <exception cref="ArgumentException">
+    /// A null entry, or an isobaric channel: the table holds one value per file, so channels are not read here.
+    /// </exception>
+    public static IReadOnlyList<ObservationRun> FromSampleInfos(IEnumerable<ISampleInfo> samples)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        var runs = new List<ObservationRun>();
+        foreach (ISampleInfo sample in samples)
+        {
+            if (sample is null)
+                throw new ArgumentException("A design entry is null.", nameof(samples));
+            if (sample is IsobaricQuantSampleInfo channel)
+                throw new ArgumentException(
+                    $"'{sample.FilenameWithoutExtension}' channel {channel.ChannelLabel} is an isobaric channel; the " +
+                    "observation table is label-free, one value per file, so channels are not read here.", nameof(samples));
+            runs.Add(new ObservationRun(sample.FilenameWithoutExtension, SampleGroupLabels.ForSample(sample),
+                sample.Fraction, sample.TechnicalReplicate));
+        }
+        return runs;
     }
 }
 

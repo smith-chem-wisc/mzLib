@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
+using Omics.BioPolymerGroup;
 using Quantification.Differential;
 
 namespace Test.Quantification.Differential;
@@ -361,12 +362,47 @@ public class ObservationTableTests
     [Test]
     public void RunsFromALabelFreeDesignUseTheQuantifiedTablesSampleLabel()
     {
-        var runs = ObservationRun.FromSpectraFiles(new[]
+        var runs = ObservationRun.FromSampleInfos(new[]
         {
             new SpectraFileInfo(@"C:\data\run7.mzML", "ctrl", biorep: 0, techrep: 1, fraction: 2),
         });
 
         Assert.That(runs.Single(), Is.EqualTo(new ObservationRun("run7", "ctrl_1", Fraction: 2, TechnicalReplicate: 1)));
+    }
+
+    [Test]
+    public void RunsComeFromThePipelinesExperimentalDesign()
+    {
+        // Two fractions of one sample, a second technical replicate of it, and a second sample: grouping is the design's.
+        var design = new SampleExperimentalDesign();
+        var entries = new[]
+        {
+            new SpectraFileInfo(@"C:\data\a_f1.raw", "ctrl", biorep: 0, techrep: 0, fraction: 1),
+            new SpectraFileInfo(@"C:\data\a_f2.raw", "ctrl", biorep: 0, techrep: 0, fraction: 2),
+            new SpectraFileInfo(@"C:\data\a_t2.raw", "ctrl", biorep: 0, techrep: 1, fraction: 1),
+            new SpectraFileInfo(@"C:\data\b.raw", "drug", biorep: 0, techrep: 0, fraction: 0),
+        };
+        foreach (var entry in entries)
+            design.Add(entry.FullFilePathWithExtension, entry);
+
+        var runs = ObservationRun.FromExperimentalDesign(design).OrderBy(r => r.FileName, StringComparer.Ordinal).ToList();
+
+        Assert.That(runs, Is.EqualTo(new[]
+        {
+            new ObservationRun("a_f1", "ctrl_1", Fraction: 1), new ObservationRun("a_f2", "ctrl_1", Fraction: 2),
+            new ObservationRun("a_t2", "ctrl_1", Fraction: 1, TechnicalReplicate: 1), new ObservationRun("b", "drug_1"),
+        }));
+        // The design layer keys the same entries with this label (AnalysisSample.IdFor), so the two name a sample alike.
+        Assert.That(runs.Select(r => r.SampleId),
+            Is.EqualTo(entries.OrderBy(e => e.FilenameWithoutExtension, StringComparer.Ordinal).Select(e => SampleGroupLabels.ForSample(e))));
+    }
+
+    [Test]
+    public void AnIsobaricChannelIsRefusedBecauseTheTableIsOneValuePerFile()
+    {
+        var channel = new IsobaricQuantSampleInfo(@"C:\data\plex1.raw", "ctrl", 0, 0, 0, 1, "126", 126.127726, false);
+        var e = Assert.Throws<ArgumentException>(() => ObservationRun.FromSampleInfos(new ISampleInfo[] { channel }));
+        Assert.That(e!.Message, Does.Contain("'plex1' channel 126 is an isobaric channel"));
     }
 
     [TestCase(QuantBasis.MsmsOnly, "msms_only")]
