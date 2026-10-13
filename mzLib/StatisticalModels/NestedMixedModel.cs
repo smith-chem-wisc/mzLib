@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
+using MathNet.Numerics.Optimization;
 
 namespace StatisticalModels
 {
@@ -31,14 +32,14 @@ namespace StatisticalModels
     /// peptides, treatment-coded), and the sample and individual each observation came from. The arrays are held, not
     /// copied.
     /// </summary>
-    public sealed class MixedModelProblem
+    public sealed class NestedMixedModelProblem
     {
         /// <param name="response">One value per observation. A non-finite value is missing and omitted.</param>
         /// <param name="common">[observation, column] in the order of the fit's common names; finite.</param>
         /// <param name="nuisance">[observation, column] fitted but not reported (e.g. peptide effects); finite; or null.</param>
         /// <param name="sample">The sample of each observation; non-empty.</param>
         /// <param name="individual">The individual of each observation, all non-empty; or null when none is known.</param>
-        public MixedModelProblem(IReadOnlyList<double> response, double[,] common, double[,]? nuisance,
+        public NestedMixedModelProblem(IReadOnlyList<double> response, double[,] common, double[,]? nuisance,
             IReadOnlyList<string> sample, IReadOnlyList<string?>? individual)
         {
             ArgumentNullException.ThrowIfNull(response);
@@ -274,8 +275,9 @@ namespace StatisticalModels
     /// <b>Fit.</b> lme4's formulation (Bates, Mächler, Bolker &amp; Walker 2015, J. Stat. Softw. 67:1): with relative
     /// standard deviations θ (one per random term) and Λ = diag(θ), the REML criterion is
     /// log|ΛZ′ZΛ + I| + log|X′V⁻¹X| + (m − p)(1 + log(2π r²/(m − p))), V = I + ZΛΛZ′, r² the penalised residual sum of
-    /// squares, σ² = r²/(m − p). It is minimised over θ ≥ 0 by a grid, Nelder–Mead and Newton polishing, with every
-    /// boundary (θ = 0) tried explicitly. It reproduces <c>lme4::lmer(REML = TRUE)</c> to 1e-6.
+    /// squares, σ² = r²/(m − p). It is minimised over θ ≥ 0 by a grid, MathNet's Nelder–Mead (two random terms) or Brent
+    /// (one), and Newton polishing, with every boundary (θ = 0) tried explicitly. It reproduces
+    /// <c>lme4::lmer(REML = TRUE)</c> to 1e-6.
     /// </para>
     /// <para>
     /// <b>Degrees of freedom.</b> lmerTest's Satterthwaite method (Kuznetsova, Brockhoff &amp; Christensen 2017,
@@ -289,8 +291,9 @@ namespace StatisticalModels
     /// <b>Not fittable.</b> Too few observations for the fixed effects (<see cref="FeatureFitStatus.TooFewObservations"/>);
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
-    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated
-    /// (<see cref="FeatureFitStatus.NotConverged"/>). Output does not depend on the thread count.
+    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
+    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Output does not depend on the
+    /// thread count.
     /// </para>
     /// </remarks>
     public static class NestedMixedModel
@@ -306,7 +309,7 @@ namespace StatisticalModels
         /// Satterthwaite and moderation on the weighted model. Off by default here; QuantProject's differential framework
         /// turns it on (GR-8).
         /// </param>
-        public static NestedMixedModelFit Fit(IReadOnlyList<MixedModelProblem> problems, IReadOnlyList<string> commonNames,
+        public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
             int maxThreads = -1, bool robust = false)
         {
             ArgumentNullException.ThrowIfNull(problems);
@@ -335,9 +338,11 @@ namespace StatisticalModels
         /// extended to several condition terms (QuantProject GR-21). Per fitted feature: s² = σ²; its df = the joint
         /// Satterthwaite F df of <paramref name="varianceDfRows"/> (the condition terms); the prior is fitted from (s², df)
         /// across features as <see cref="EmpiricalBayes.FitPrior"/> with <see cref="VariancePriorEstimator.MomentsLegacy"/>
-        /// (limma <c>squeezeVar(legacy = TRUE)</c>). For each contrast c: SE = sqrt(c′Uc · s̃²) with U the unscaled
+        /// (limma <c>squeezeVar(legacy = TRUE)</c>). For each contrast c: SE = s̃ · sqrt(c′Uc) with U the unscaled
         /// covariance; df = the contrast's unmoderated Satterthwaite df + d0, capped at the sum of the features' variance df;
-        /// t, p and a t-based interval on that df; Benjamini–Hochberg over the features with a result.
+        /// t, p and a t-based interval on that df; Benjamini–Hochberg over the features with a result. Everything after the
+        /// prior is the moderation <see cref="EmpiricalBayes.ModerateContrasts"/> applies, from the same code; only the
+        /// variance's df and the contrast's df differ.
         /// </summary>
         /// <param name="fit">Output of <see cref="Fit"/>.</param>
         /// <param name="contrasts">At least one; names unique; one finite weight per common coefficient, not all zero.</param>
@@ -350,24 +355,16 @@ namespace StatisticalModels
             ArgumentNullException.ThrowIfNull(fit);
             ArgumentNullException.ThrowIfNull(contrasts);
             ArgumentNullException.ThrowIfNull(varianceDfRows);
-            if (!(confidenceLevel > 0 && confidenceLevel < 1))
-                throw new ArgumentOutOfRangeException(nameof(confidenceLevel), confidenceLevel, "The confidence level must be strictly between 0 and 1.");
-            if (contrasts.Count == 0) throw new ArgumentException("No contrast was given.", nameof(contrasts));
             int p = fit.CommonNames.Count;
+            EmpiricalBayes.CheckContrasts(contrasts, confidenceLevel, c =>
+            {
+                if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
+                    throw new ArgumentException($"Contrast '{c.Name}' needs {p} finite weights.", nameof(contrasts));
+            });
             if (varianceDfRows.Count == 0) throw new ArgumentException("No variance-df rows were given.", nameof(varianceDfRows));
             foreach (var r in varianceDfRows)
                 if (r is null || r.Count != p || r.Any(w => !double.IsFinite(w)))
                     throw new ArgumentException($"Each variance-df row needs {p} finite weights.", nameof(varianceDfRows));
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var c in contrasts)
-            {
-                ArgumentNullException.ThrowIfNull(c);
-                ArgumentException.ThrowIfNullOrWhiteSpace(c.Name, nameof(contrasts));
-                if (!seen.Add(c.Name)) throw new ArgumentException($"Two contrasts are named '{c.Name}'.", nameof(contrasts));
-                if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
-                    throw new ArgumentException($"Contrast '{c.Name}' needs {p} finite weights.", nameof(contrasts));
-                if (c.Weights.All(w => w == 0)) throw new ArgumentException($"Every weight of contrast '{c.Name}' is zero.", nameof(contrasts));
-            }
 
             int n = fit.FeatureCount;
             var s2 = new double[n];
@@ -386,46 +383,16 @@ namespace StatisticalModels
             if (usable.Count < 2)
                 throw new ArgumentException($"Moderation needs at least 2 fitted features with a variance df; this fit has {usable.Count}.", nameof(fit));
             var prior = EmpiricalBayes.FitPrior(s2, df, null, null, VariancePriorEstimator.MomentsLegacy);
-            double totalDf = usable.Sum(f => df[f]);
-            bool dfDiffer = usable.Any(f => df[f] != df[usable[0]]);
-            double upper = (1 + confidenceLevel) / 2;
-
-            var results = new List<ModeratedContrast>(contrasts.Count);
-            foreach (var c in contrasts)
+            return EmpiricalBayes.ModerateContrastsCore(contrasts, prior, s2, df, usable, fit.Status, confidenceLevel, (f, w) =>
             {
-                var w = c.Weights.ToArray();
-                var result = new ModeratedContrast(c.Name, w, prior, fit.Status, dfDiffer, confidenceLevel);
-                foreach (int f in usable)
+                double unscaled = 0, estimate = 0;
+                for (int i = 0; i < p; i++)
                 {
-                    double post = double.IsPositiveInfinity(prior.Df)
-                        ? prior.Scale[f]
-                        : (prior.Df * prior.Scale[f] + df[f] * s2[f]) / (prior.Df + df[f]);
-                    double unscaled = 0, estimate = 0;
-                    for (int i = 0; i < p; i++)
-                    {
-                        estimate += w[i] * fit.Coefficient(f, i);
-                        for (int j = 0; j < p; j++) unscaled += w[i] * w[j] * fit.UnscaledCovariance(f, i, j);
-                    }
-                    double satterthwaite = fit.Satterthwaite(f, w, out _);
-                    if (!double.IsFinite(satterthwaite)) continue;
-                    double dfTotal = Math.Min(satterthwaite + prior.Df, totalDf);
-                    double se = Math.Sqrt(unscaled * post);
-                    double t = estimate / se;
-                    double half = EmpiricalBayes.Quantile(upper, dfTotal) * se;
-                    result.EstimateValues[f] = estimate;
-                    result.PosteriorVarianceValues[f] = post;
-                    result.StandardErrorValues[f] = se;
-                    result.TValues[f] = t;
-                    result.DfTotalValues[f] = dfTotal;
-                    result.PValues[f] = EmpiricalBayes.TwoSidedP(t, dfTotal);
-                    result.LowValues[f] = estimate - half;
-                    result.HighValues[f] = estimate + half;
+                    estimate += w[i] * fit.Coefficient(f, i);
+                    for (int j = 0; j < p; j++) unscaled += w[i] * w[j] * fit.UnscaledCovariance(f, i, j);
                 }
-                var adjusted = MultipleTesting.BenjaminiHochberg(result.PValues);
-                Array.Copy(adjusted, result.AdjustedValues, n);
-                results.Add(result);
-            }
-            return results;
+                return new FeatureContrast(estimate, Math.Sqrt(unscaled), fit.Satterthwaite(f, w, out _));
+            });
         }
 
         /// <summary>One feature's fit: data reduced to cross-products, the REML criterion, its optimum and derivatives.</summary>
@@ -438,7 +405,7 @@ namespace StatisticalModels
             /// <summary>The most reweighting rounds. msqrob2 defaults to 1; GR-22 iterates to convergence, which took 7-30 on the reference data.</summary>
             internal const int MaxRobustIterations = 100;
 
-            private readonly MixedModelProblem _problem;
+            private readonly NestedMixedModelProblem _problem;
             private readonly int _common;
             private readonly bool _robust;
             private int _m, _p, _q;
@@ -449,7 +416,7 @@ namespace StatisticalModels
             private double[] _w = Array.Empty<double>();
             private double _sumLogW;
 
-            public FeatureModel(MixedModelProblem problem, int common, bool robust)
+            public FeatureModel(NestedMixedModelProblem problem, int common, bool robust)
             {
                 _problem = problem;
                 _common = common;
@@ -513,6 +480,7 @@ namespace StatisticalModels
                 BuildCrossProducts();
 
                 var theta = Minimise(terms.Count);
+                if (theta is null) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                 var best = Evaluate(theta);
                 if (!best.Ok) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
 
@@ -536,6 +504,7 @@ namespace StatisticalModels
                         }
                         BuildCrossProducts();
                         theta = Minimise(terms.Count);
+                        if (theta is null) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                         best = Evaluate(theta);
                         if (!best.Ok) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                         if (Math.Abs(sseOld - best.R2) / sseOld <= RobustTolerance) { converged = true; break; }
@@ -715,7 +684,8 @@ namespace StatisticalModels
 
             private static readonly double[] Grid = { 0, 1e-3, 1e-2, 3e-2, 0.1, 0.2, 0.4, 0.7, 1, 1.5, 2.5, 4, 7, 12, 25, 60, 150 };
 
-            private double[] Minimise(int k)
+            /// <summary>θ minimising the REML criterion; null when the simplex search did not converge.</summary>
+            private double[]? Minimise(int k)
             {
                 if (k == 1)
                 {
@@ -739,7 +709,9 @@ namespace StatisticalModels
                         double v = Criterion(new[] { a, b });
                         if (v < startF) { startF = v; start = new[] { a, b }; }
                     }
-                var candidates = new List<double[]> { Polish(NelderMead(start)) };
+                var simplexMinimum = NelderMead(start);
+                if (simplexMinimum is null) return null;
+                var candidates = new List<double[]> { Polish(simplexMinimum) };
                 // Each boundary, explicitly: one component at zero, the other optimised in one dimension.
                 for (int fixedAt = 0; fixedAt < 2; fixedAt++)
                 {
@@ -756,49 +728,42 @@ namespace StatisticalModels
                 return ranked.Where(r => AtLeastAsGood(r.f, lowest)).OrderByDescending(r => r.zeros).ThenBy(r => r.f).First().c;
             }
 
-            private double[] NelderMead(double[] start)
+            /// <summary>
+            /// The simplex stops when the criterion at its best and worst vertices agrees to this relative difference, twice
+            /// running (MathNet's rule). It must sit well above the criterion's rounding noise, about 1e-14 relative: at 1e-15
+            /// a simplex collapsed to adjacent floating-point θ cycled until the evaluation limit. <see cref="Polish"/>
+            /// finishes from the simplex's minimum.
+            /// </summary>
+            private const double SimplexTolerance = 1e-10;
+            /// <summary>
+            /// The most criterion evaluations the simplex may take (the reference fixtures need at most 64); a search still
+            /// going then is not converged.
+            /// </summary>
+            private const int SimplexEvaluations = 4000;
+
+            /// <summary>
+            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ); θ is clamped at 0 inside the
+            /// criterion and a θ the criterion cannot be evaluated at counts as the worst value. Null when the search has not
+            /// converged within <see cref="SimplexEvaluations"/>.
+            /// </summary>
+            private double[]? NelderMead(double[] start)
             {
-                int n = start.Length;
-                var simplex = new List<double[]> { start };
-                for (int i = 0; i < n; i++)
+                double F(Vector<double> v)
                 {
-                    var v = (double[])start.Clone();
-                    v[i] += Math.Max(0.1, 0.2 * v[i]);
-                    simplex.Add(v);
+                    double c = Criterion(v.Select(z => Math.Max(0, z)).ToArray());
+                    return double.IsFinite(c) ? c : double.MaxValue;
                 }
-                double F(double[] v) => Criterion(v.Select(z => Math.Max(0, z)).ToArray());
-                var values = simplex.Select(F).ToList();
-                for (int iteration = 0; iteration < 4000; iteration++)
+                var step = Vector<double>.Build.Dense(start.Length, i => Math.Max(0.1, 0.2 * start[i]));
+                try
                 {
-                    var order = Enumerable.Range(0, n + 1).OrderBy(i => values[i]).ToArray();
-                    simplex = order.Select(i => simplex[i]).ToList();
-                    values = order.Select(i => values[i]).ToList();
-                    if (Math.Abs(values[n] - values[0]) <= 1e-15 * Math.Max(1, Math.Abs(values[0]))
-                        && simplex.All(v => v.Zip(simplex[0]).All(z => Math.Abs(z.First - z.Second) < 1e-12))) break;
-                    var centroid = new double[n];
-                    for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) centroid[j] += simplex[i][j] / n;
-                    double[] Toward(double s) => centroid.Select((c, j) => c + s * (simplex[n][j] - c)).ToArray();
-                    var reflected = Toward(-1); double fr = F(reflected);
-                    if (fr < values[0])
-                    {
-                        var expanded = Toward(-2); double fe = F(expanded);
-                        if (fe < fr) { simplex[n] = expanded; values[n] = fe; } else { simplex[n] = reflected; values[n] = fr; }
-                    }
-                    else if (fr < values[n - 1]) { simplex[n] = reflected; values[n] = fr; }
-                    else
-                    {
-                        var contracted = fr < values[n] ? Toward(-0.5) : Toward(0.5);
-                        double fc = F(contracted);
-                        if (fc < Math.Min(fr, values[n])) { simplex[n] = contracted; values[n] = fc; }
-                        else
-                            for (int i = 1; i <= n; i++)
-                            {
-                                simplex[i] = simplex[i].Select((z, j) => simplex[0][j] + 0.5 * (z - simplex[0][j])).ToArray();
-                                values[i] = F(simplex[i]);
-                            }
-                    }
+                    var result = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(F), Vector<double>.Build.DenseOfArray(start),
+                        step, SimplexTolerance, SimplexEvaluations);
+                    return result.MinimizingPoint.Select(z => Math.Max(0, z)).ToArray();
                 }
-                return simplex[0].Select(z => Math.Max(0, z)).ToArray();
+                catch (MaximumIterationsException)
+                {
+                    return null;
+                }
             }
 
             /// <summary>Newton steps on the interior components (Richardson derivatives), each accepted only if it lowers the criterion.</summary>
