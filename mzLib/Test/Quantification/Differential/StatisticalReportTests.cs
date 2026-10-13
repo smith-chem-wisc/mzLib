@@ -97,7 +97,7 @@ public class StatisticalReportTests
     {
         FeatureId = feature, FeatureAccessions = new[] { feature }, Log2Effect = null, NaturalEffect = null, MeanNumerator = null,
         MeanDenominator = null, StandardError = null, CiLow = null, CiHigh = null, CiLevel = null, Statistic = null, Df = null,
-        DfMethod = null, PValue = null, PAdjusted = null, AdjustmentMethod = null, FamilySize = null, Status = status,
+        DfMethod = null, PValue = null, PAdjusted = null, AdjustmentMethod = null, FamilySize = null, NaturalUnit = null, Status = status,
         StatusDetail = "counts 0 vs 6", NSamplesNumerator = 0,
     };
 
@@ -191,6 +191,22 @@ public class StatisticalReportTests
                      "Random seed: 42",
                  })
             Assert.That(methods, Does.Contain(phrase), phrase);
+    }
+
+    /// <summary>
+    /// An infinite prior df is a real answer, not a missing one (mzLib #1453 review round 3): the Methods say "infinite", never
+    /// "not recorded".
+    /// </summary>
+    [Test]
+    public void AnInfinitePriorDfIsReportedAsInfinite()
+    {
+        var m = Metadata();
+        m = m with { Models = m.Models.Select(x => x.Prior is { Trended: false } p ? x with { Prior = p with { Df = double.PositiveInfinity } } : x).ToArray() };
+
+        var methods = Section(Build(m).Markdown, "## 1. Methods");
+
+        Assert.That(methods, Does.Contain("with infinite degrees of freedom and variance 0.08"));
+        Assert.That(methods, Does.Not.Contain("not recorded degrees of freedom"));
     }
 
     /// <summary>The half-set fallback says what was done: the set, why, and that the shifts were settled (mzLib #1455 review round 3).</summary>

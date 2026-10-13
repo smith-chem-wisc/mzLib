@@ -177,9 +177,9 @@ public static class StatisticalReportWriter
             if (model.Prior is { } p)
             {
                 md.Append(p.Trended
-                    ? $"; a trended empirical-Bayes variance prior (`{p.Estimator}`) with {Num(p.Df)} degrees of freedom, its variance " +
+                    ? $"; a trended empirical-Bayes variance prior (`{p.Estimator}`) with {PriorDf(p.Df)} degrees of freedom, its variance " +
                       "depending on the average intensity (see the mean-variance figure)"
-                    : $"; an empirical-Bayes variance prior (`{p.Estimator}`) with {Num(p.Df)} degrees of freedom and variance " +
+                    : $"; an empirical-Bayes variance prior (`{p.Estimator}`) with {PriorDf(p.Df)} degrees of freedom and variance " +
                       $"{Num(p.Variance ?? double.NaN)}");
                 md.Append($", fitted on {Int(p.Features)} features");
             }
@@ -403,6 +403,12 @@ public static class StatisticalReportWriter
         null => "",
         _ => $"`{method}`",
     };
+
+    /// <summary>
+    /// A prior's degrees of freedom. Infinite is a real answer (the variances spread no more than sampling explains, so every
+    /// feature takes the prior variance), not a missing one.
+    /// </summary>
+    private static string PriorDf(double df) => double.IsPositiveInfinity(df) ? "infinite" : Num(df);
 
     private static string Int(int value) => value.ToString("N0", CultureInfo.InvariantCulture);
 
