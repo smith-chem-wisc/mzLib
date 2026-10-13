@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
+using Omics.BioPolymerGroup;
 
 namespace Quantification.Differential;
 
@@ -14,12 +15,58 @@ internal sealed record MeanVariancePoint(string FeatureId, double X, double Y, d
 
 /// <summary>
 /// The statistics report's diagnostic figures (STATS-FRAMEWORK section 6, item 4): the numbers behind each, and each
-/// drawn as an SVG with the table of its data. Tables follow <c>DEF-DIFF-FILE</c>'s encoding: tab-separated, <c>\n</c>
-/// line ends, round-trip numbers in invariant culture, a missing value as an empty cell.
+/// drawn as an SVG with the table of its data. Each table is written as the results table is: a <see cref="TsvColumn{T}"/>
+/// schema through <see cref="TsvWriter"/>, numbers by <see cref="DifferentialColumns.Number"/> and text by
+/// <see cref="DifferentialResultWriter.CleanText"/>, so <c>DEF-DIFF-FILE</c>'s encoding holds: tab-separated, <c>\n</c>
+/// line ends, round-trip numbers in invariant culture, a missing value as an empty cell, and a tab, CR or LF inside text
+/// written as a space. The metadata's <c>cleaned_text_cells</c> counts the results table's cells only; a figure-table cell
+/// cleaned by the same rule is not counted there.
 /// </summary>
 internal static class DiagnosticFigures
 {
     internal const int PValueBinCount = 20;
+
+    private static readonly TsvColumn<(double Low, double High, int Features)>[] PValueTable =
+    {
+        new("bin_low", b => DifferentialColumns.Number(b.Low)!),
+        new("bin_high", b => DifferentialColumns.Number(b.High)!),
+        new("features", b => DifferentialColumns.Integer(b.Features)!),
+    };
+
+    private static readonly TsvColumn<(string FeatureId, double Log2, double P)>[] VolcanoTable =
+    {
+        new("feature_id", p => DifferentialResultWriter.CleanText(p.FeatureId)!),
+        new("log2_effect", p => DifferentialColumns.Number(p.Log2)!),
+        new("p_value", p => DifferentialColumns.Number(p.P)!),
+        new("neg_log10_p", p => DifferentialColumns.Number(p.P > 0 ? -Math.Log10(p.P) : null)!),
+    };
+
+    private static readonly TsvColumn<MeanVariancePoint>[] MeanVarianceTable =
+    {
+        new("feature_id", p => DifferentialResultWriter.CleanText(p.FeatureId)!),
+        new("average_log2", p => DifferentialColumns.Number(p.X)!),
+        new("residual_variance", p => DifferentialColumns.Number(p.ResidualVariance)!),
+        new("sqrt_sigma", p => DifferentialColumns.Number(p.Y)!),
+        new("prior_variance", p => DifferentialColumns.Number(p.PriorVariance)!),
+        new("prior_sqrt_sigma", p => DifferentialColumns.Number(p.PriorY)!),
+    };
+
+    private static readonly TsvColumn<SampleCorrelation>[] CorrelationTable =
+    {
+        new("sample_a", p => DifferentialResultWriter.CleanText(p.A)!),
+        new("sample_b", p => DifferentialResultWriter.CleanText(p.B)!),
+        new("r", p => DifferentialColumns.Number(p.R)!),
+        new("features", p => DifferentialColumns.Integer(p.N)!),
+    };
+
+    private static readonly TsvColumn<(string Contrast, DifferentialGlobalShift Shift)>[] GlobalShiftTable =
+    {
+        new("contrast_id", e => DifferentialResultWriter.CleanText(e.Contrast)!),
+        new("stratum", e => DifferentialResultWriter.CleanText(e.Shift.Stratum)!),
+        new("quant_basis", e => DifferentialResultWriter.CleanText(e.Shift.QuantBasis)!),
+        new("value", e => DifferentialColumns.Number(e.Shift.Value)!),
+        new("peptides", e => DifferentialColumns.Integer(e.Shift.Peptides)!),
+    };
 
     /// <summary>
     /// Counts p-values in 20 bins of width 0.05. Bin k holds 0.05k &lt;= p &lt; 0.05(k + 1), computed as floor(20p); p = 1
@@ -85,11 +132,8 @@ internal static class DiagnosticFigures
             double x0 = sx.Map(k / (double)PValueBinCount), x1 = sx.Map((k + 1) / (double)PValueBinCount);
             c.Rect(x0 + 0.5, sy.Map(bins[k]), x1 - x0 - 1, sy.Map(0) - sy.Map(bins[k]), SvgPlot.Bars);
         }
-        var tsv = new StringBuilder("bin_low\tbin_high\tfeatures\n");
-        for (int k = 0; k < PValueBinCount; k++)
-            tsv.Append(R(k / (double)PValueBinCount)).Append('\t').Append(R((k + 1) / (double)PValueBinCount)).Append('\t')
-                .Append(bins[k].ToString(CultureInfo.InvariantCulture)).Append('\n');
-        return (c.ToBytes(), Utf8(tsv));
+        return (c.ToBytes(), Table(PValueTable, Enumerable.Range(0, PValueBinCount)
+            .Select(k => (k / (double)PValueBinCount, (k + 1) / (double)PValueBinCount, bins[k]))));
     }
 
     internal static (byte[] Svg, byte[] Tsv) Volcano(string title, IReadOnlyList<(string FeatureId, double Log2, double P)> points)
@@ -110,11 +154,7 @@ internal static class DiagnosticFigures
             double px = sx.Map(p.Log2);
             c.Polygon(new[] { (px, SvgPlot.Top), (px - 4, SvgPlot.Top + 7), (px + 4, SvgPlot.Top + 7) }, SvgPlot.Accent);
         }
-        var tsv = new StringBuilder("feature_id\tlog2_effect\tp_value\tneg_log10_p\n");
-        foreach (var p in points)
-            tsv.Append(Cell(p.FeatureId)).Append('\t').Append(R(p.Log2)).Append('\t').Append(R(p.P)).Append('\t')
-                .Append(p.P > 0 ? R(-Math.Log10(p.P)) : "").Append('\n');
-        return (c.ToBytes(), Utf8(tsv));
+        return (c.ToBytes(), Table(VolcanoTable, points));
     }
 
     internal static (byte[] Svg, byte[] Tsv) MeanVariance(string title, DiagnosticFit fit)
@@ -130,11 +170,7 @@ internal static class DiagnosticFigures
         var prior = points.Where(p => double.IsFinite(p.PriorY)).OrderBy(p => p.X).ThenBy(p => p.FeatureId, StringComparer.Ordinal)
             .Select(p => (sx.Map(p.X), sy.Map(p.PriorY))).ToList();
         if (prior.Count > 1) c.Polyline(prior, SvgPlot.Accent, 2);
-        var tsv = new StringBuilder("feature_id\taverage_log2\tresidual_variance\tsqrt_sigma\tprior_variance\tprior_sqrt_sigma\n");
-        foreach (var p in points)
-            tsv.Append(Cell(p.FeatureId)).Append('\t').Append(R(p.X)).Append('\t').Append(R(p.ResidualVariance)).Append('\t')
-                .Append(R(p.Y)).Append('\t').Append(R(p.PriorVariance)).Append('\t').Append(R(p.PriorY)).Append('\n');
-        return (c.ToBytes(), Utf8(tsv));
+        return (c.ToBytes(), Table(MeanVarianceTable, points));
     }
 
     internal static (byte[] Svg, byte[] Tsv) SampleCorrelationHeatmap(string title, SampleLog2 samples)
@@ -171,11 +207,7 @@ internal static class DiagnosticFigures
             c.Rect(left + k * 44, legendY, 40, 14, Color(stops[k]), "#999999");
             c.Text(left + k * 44 + 20, legendY + 28, SvgCanvas.Label(stops[k], 1), "middle", 11);
         }
-        var tsv = new StringBuilder("sample_a\tsample_b\tr\tfeatures\n");
-        foreach (var p in pairs)
-            tsv.Append(Cell(p.A)).Append('\t').Append(Cell(p.B)).Append('\t').Append(R(p.R)).Append('\t')
-                .Append(p.N.ToString(CultureInfo.InvariantCulture)).Append('\n');
-        return (c.ToBytes(), Utf8(tsv));
+        return (c.ToBytes(), Table(CorrelationTable, pairs));
     }
 
     internal static (byte[] Svg, byte[] Tsv) GlobalShift(string title, IReadOnlyList<(string Contrast, DifferentialGlobalShift Shift)> entries)
@@ -209,11 +241,7 @@ internal static class DiagnosticFigures
                 peptides = "no value (" + peptides + ")";
             c.Text(width - right + 10, y + 4, peptides, "start", 11);
         }
-        var tsv = new StringBuilder("contrast_id\tstratum\tquant_basis\tvalue\tpeptides\n");
-        foreach (var (contrast, shift) in entries)
-            tsv.Append(Cell(contrast)).Append('\t').Append(Cell(shift.Stratum)).Append('\t').Append(Cell(shift.QuantBasis)).Append('\t')
-                .Append(R(shift.Value)).Append('\t').Append(shift.Peptides.ToString(CultureInfo.InvariantCulture)).Append('\n');
-        return (c.ToBytes(), Utf8(tsv));
+        return (c.ToBytes(), Table(GlobalShiftTable, entries));
     }
 
     /// <summary>Red through white to blue for r in [-1, 1]; white for a missing r.</summary>
@@ -227,9 +255,15 @@ internal static class DiagnosticFigures
         return $"#{Mix(from.R, to.R):x2}{Mix(from.G, to.G):x2}{Mix(from.B, to.B):x2}";
     }
 
-    private static string R(double value) => double.IsFinite(value) ? value.ToString("R", CultureInfo.InvariantCulture) : "";
-
-    private static string Cell(string? text) => text is null ? "" : text.Replace('\t', ' ').Replace('\r', ' ').Replace('\n', ' ');
-
-    private static byte[] Utf8(StringBuilder text) => new UTF8Encoding(false).GetBytes(text.ToString());
+    /// <summary>
+    /// A figure's table, written as <see cref="DifferentialResultWriter"/> writes the results table: the header and each row
+    /// from <see cref="TsvWriter"/>, each line ended by <c>\n</c>, as UTF-8 without a byte-order mark.
+    /// </summary>
+    private static byte[] Table<T>(IReadOnlyList<TsvColumn<T>> schema, IEnumerable<T> rows)
+    {
+        var text = new StringBuilder(TsvWriter.HeaderLine(schema)).Append('\n');
+        foreach (var row in rows)
+            text.Append(TsvWriter.RowLine(schema, row)).Append('\n');
+        return new UTF8Encoding(false).GetBytes(text.ToString());
+    }
 }

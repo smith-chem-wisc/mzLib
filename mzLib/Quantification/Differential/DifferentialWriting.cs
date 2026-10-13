@@ -233,9 +233,9 @@ public static class DifferentialResultWriter
         int cleaned = 0;
         string? Clean(string? value)
         {
-            if (value is null || value.IndexOfAny(Breaks) < 0) return value;
-            cleaned++;
-            return string.Concat(value.Select(c => Array.IndexOf(Breaks, c) >= 0 ? ' ' : c));
+            string? text = CleanText(value);
+            if (text != value) cleaned++;
+            return text;
         }
         var schema = DifferentialColumns.Schema(style, Clean);
         output.Write(TsvWriter.HeaderLine(schema));
@@ -268,6 +268,14 @@ public static class DifferentialResultWriter
     }
 
     private static readonly char[] Breaks = { '\t', '\r', '\n' };
+
+    /// <summary>
+    /// The text-cell rule of <c>DEF-DIFF-FILE</c>: a tab, CR or LF inside <paramref name="value"/> becomes a space; null and
+    /// text without one come back unchanged. The results table counts the cells it changes; the report's figure tables
+    /// (<see cref="DiagnosticFigures"/>) apply the same rule.
+    /// </summary>
+    internal static string? CleanText(string? value) =>
+        value is null || value.IndexOfAny(Breaks) < 0 ? value : string.Concat(value.Select(c => Array.IndexOf(Breaks, c) >= 0 ? ' ' : c));
 
     internal static IReadOnlyList<DifferentialResult> Validate(IEnumerable<DifferentialResult> rows)
     {
