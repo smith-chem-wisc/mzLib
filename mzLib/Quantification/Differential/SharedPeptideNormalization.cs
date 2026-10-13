@@ -32,7 +32,14 @@ public sealed record NormalizationResult(string Setting, int ReferenceSetSize, i
 /// <b>Reference set.</b> Peptides of decoy, contaminant or entrapment groups never enter it (<c>DEF-DIFF-ROWSET</c>). It
 /// is the remaining peptides with a value in every sample; when fewer than
 /// <see cref="DefaultMinimumPeptides"/> (GR-25), it is those with a value in at least half the samples and in at least 2
-/// (<see cref="SharedPeptideMedianHalf"/>).
+/// (<see cref="SharedPeptideMedianHalf"/>). "The samples" here are those with a value on at least one such peptide: a
+/// lost run has no shift, and it does not count towards either set.
+/// </para>
+/// <para>
+/// <b>The half set is settled.</b> Its peptides are missing from different samples, so one pass measures each sample
+/// against means over different samples and pulls the shifts together. The pass is repeated on the shifted values until
+/// the shifts stop moving (at most 1,000 passes, else a warning), and the shifts are then centred to average 0. On the
+/// every-sample set one pass already leaves every sample with the same median difference, so it is not repeated.
 /// </para>
 /// <para>
 /// <b>Scope.</b> The shifts are measured over every sample of the table given, so measure one stratum at a time
@@ -54,10 +61,20 @@ public static class SharedPeptideNormalization
     /// <summary>GR-25: the every-sample set must hold at least this many peptides.</summary>
     public const int DefaultMinimumPeptides = 100;
 
+    /// <summary>The half set repeats its pass until no shift moves by more than this, in log2 units.</summary>
+    private const double SettledWithin = 1e-10;
+
+    /// <summary>The most passes the half set makes before it stops and says so.</summary>
+    private const int MaximumPasses = 1000;
+
     /// <summary>Measures each sample's shift over every sample of <paramref name="table"/>.</summary>
     /// <param name="table">One stratum's table.</param>
     /// <param name="minimumPeptides">The every-sample set's floor (GR-25); at least 1.</param>
     public static NormalizationResult Measure(ObservationTable table, int minimumPeptides = DefaultMinimumPeptides)
+        => Measure(table, minimumPeptides, MaximumPasses);
+
+    /// <param name="maximumPasses">The half set's limit on passes, lowered by a test to reach its warning.</param>
+    internal static NormalizationResult Measure(ObservationTable table, int minimumPeptides, int maximumPasses)
     {
         ArgumentNullException.ThrowIfNull(table);
         ArgumentOutOfRangeException.ThrowIfLessThan(minimumPeptides, 1);
@@ -68,16 +85,50 @@ public static class SharedPeptideNormalization
             .Select(p => (Peptide: p, Present: Enumerable.Range(0, samples).Count(s => !double.IsNaN(table.Log2Intensity(p, s)))))
             .ToList();
 
+        // A sample with no value on any eligible peptide (a lost run) can have no shift. It does not count towards "every
+        // sample" or "half the samples": otherwise one lost run takes the whole stratum off the every-sample set.
+        int withValues = Enumerable.Range(0, samples)
+            .Count(s => eligible.Any(e => !double.IsNaN(table.Log2Intensity(e.Peptide, s))));
+
         string setting = SharedPeptideMedian;
-        var reference = eligible.Where(e => e.Present == samples && samples > 0).Select(e => e.Peptide).ToList();
+        var reference = eligible.Where(e => e.Present == withValues && withValues > 0).Select(e => e.Peptide).ToList();
         if (reference.Count < minimumPeptides)
         {
             setting = SharedPeptideMedianHalf;
-            int needed = Math.Max(2, (samples + 1) / 2);
+            int needed = Math.Max(2, (withValues + 1) / 2);
             reference = eligible.Where(e => e.Present >= needed).Select(e => e.Peptide).ToList();
         }
 
-        // Each sample's differences from the peptide's mean over the samples that have it.
+        var warnings = new List<string>();
+        double[] shift = MedianDifferences(table, reference, new double[samples]);
+        if (setting == SharedPeptideMedianHalf)
+            Settle(table, reference, shift, maximumPasses, warnings);
+
+        var shifts = new Dictionary<string, double>(StringComparer.Ordinal);
+        var unshifted = new List<string>();
+        for (int s = 0; s < samples; s++)
+        {
+            shifts[table.Samples[s]] = shift[s];
+            if (double.IsNaN(shift[s]))
+                unshifted.Add(table.Samples[s]);
+        }
+
+        if (unshifted.Count > 0)
+            warnings.Insert(0, $"No reference peptide ({reference.Count}, {setting}) has a value in sample(s) " +
+                $"{string.Join(", ", unshifted)}, so their shift is undefined and they are not shifted.");
+
+        return new NormalizationResult(setting, reference.Count, minimumPeptides, shifts, warnings);
+    }
+
+    /// <summary>
+    /// One pass: each sample's median, over the reference peptides with a value in it, of its value minus its shift minus
+    /// the peptide's mean over the samples that have it, each also less its shift. NaN for a sample with no reference value.
+    /// </summary>
+    private static double[] MedianDifferences(ObservationTable table, List<int> reference, double[] shift)
+    {
+        int samples = shift.Length;
+        double Shifted(int p, int s) => table.Log2Intensity(p, s) - (double.IsNaN(shift[s]) ? 0 : shift[s]);
+
         var differences = Enumerable.Range(0, samples).Select(_ => new List<double>()).ToArray();
         foreach (int p in reference)
         {
@@ -85,7 +136,7 @@ public static class SharedPeptideNormalization
             int count = 0;
             for (int s = 0; s < samples; s++)
             {
-                double value = table.Log2Intensity(p, s);
+                double value = Shifted(p, s);
                 if (double.IsNaN(value)) continue;
                 sum += value;
                 count++;
@@ -94,28 +145,62 @@ public static class SharedPeptideNormalization
             double mean = sum / count;
             for (int s = 0; s < samples; s++)
             {
-                double value = table.Log2Intensity(p, s);
+                double value = Shifted(p, s);
                 if (!double.IsNaN(value))
                     differences[s].Add(value - mean);
             }
         }
 
-        var shifts = new Dictionary<string, double>(StringComparer.Ordinal);
-        var unshifted = new List<string>();
-        for (int s = 0; s < samples; s++)
+        // MathNet's median: the mean of the middle two for an even count, NaN when empty.
+        return Array.ConvertAll(differences, d => d.Median());
+    }
+
+    /// <summary>
+    /// The half set's shifts, settled. Its peptides are missing from different samples, so one pass measures each sample
+    /// against peptide means taken over different samples, and the shifts come out pulled together. Repeating the pass on
+    /// the shifted values, and adding up the steps, until no step moves a shift by more than <see cref="SettledWithin"/>
+    /// removes that; the steps after the first are centred, because the shifts are fixed only up to a constant that every
+    /// comparison cancels. The result is centred to average 0.
+    /// </summary>
+    private static void Settle(ObservationTable table, List<int> reference, double[] shift, int maximumPasses,
+        List<string> warnings)
+    {
+        bool settled = false;
+        for (int pass = 2; pass <= maximumPasses && !settled; pass++)
         {
-            // MathNet's median: the mean of the middle two for an even count, NaN when empty.
-            shifts[table.Samples[s]] = differences[s].Median();
-            if (differences[s].Count == 0)
-                unshifted.Add(table.Samples[s]);
+            double[] step = MedianDifferences(table, reference, shift);
+            Centre(step);
+            settled = step.All(d => double.IsNaN(d) || Math.Abs(d) <= SettledWithin);
+            if (settled)
+                break;
+            for (int s = 0; s < shift.Length; s++)
+                if (!double.IsNaN(step[s]))
+                    shift[s] += step[s];
         }
 
-        var warnings = new List<string>();
-        if (unshifted.Count > 0)
-            warnings.Add($"No reference peptide ({reference.Count}, {setting}) has a value in sample(s) " +
-                $"{string.Join(", ", unshifted)}, so their shift is undefined and they are not shifted.");
+        Centre(shift);
+        if (!settled)
+            warnings.Add($"The {SharedPeptideMedianHalf} shifts did not settle within {maximumPasses} passes; the last " +
+                "pass's shifts are used.");
+    }
 
-        return new NormalizationResult(setting, reference.Count, minimumPeptides, shifts, warnings);
+    /// <summary>Subtracts the mean of the defined values from each; NaN stays NaN.</summary>
+    private static void Centre(double[] values)
+    {
+        double sum = 0;
+        int count = 0;
+        foreach (double v in values)
+        {
+            if (double.IsNaN(v)) continue;
+            sum += v;
+            count++;
+        }
+        if (count == 0)
+            return;
+
+        double mean = sum / count;
+        for (int i = 0; i < values.Length; i++)
+            values[i] -= mean;
     }
 
     /// <summary>
