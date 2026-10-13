@@ -223,9 +223,10 @@ public static class DifferentialResultWriter
     /// Validates, orders and writes the table. A tab, CR or LF inside a text value is written as a space; the return value
     /// is how many cells that changed (the metadata's <c>cleaned_text_cells</c>).
     /// </summary>
-    /// <exception cref="ArgumentException">A row breaks the contract: an unknown status; a number on an evidence-only row;
-    /// a fitted row without an effect, SE or p-value; two rows with one key; a family size that disagrees with the rows;
-    /// a missing required field.</exception>
+    /// <exception cref="ArgumentException">A row breaks the contract: an unknown status; an effect or confidence cell on an
+    /// evidence-only row; a fitted row without an effect or SE, or a non-Bayesian one without a p-value; a Bayesian row with
+    /// a Benjamini–Hochberg value; two rows with one key; a family size that disagrees with the rows; a missing required
+    /// field.</exception>
     public static int Write(TextWriter output, IEnumerable<DifferentialResult> rows, DifferentialHeaderStyle style)
     {
         ArgumentNullException.ThrowIfNull(output);
@@ -250,21 +251,66 @@ public static class DifferentialResultWriter
 
     /// <summary>
     /// Writes <see cref="ResultsFileName"/> (header style from the metadata's settings) and <see cref="MetadataFileName"/>
-    /// into <paramref name="directory"/>, creating it, and returns the results file's path.
+    /// into <paramref name="directory"/>, creating it, and returns the results file's path. The table is streamed to a
+    /// temporary file, so its size is not bounded by one string. Both files are finished, and the metadata validated,
+    /// before either replaces anything; if a replacement fails, the previous files are put back.
     /// </summary>
     public static string Write(string directory, IEnumerable<DifferentialResult> rows, DifferentialMetadata metadata)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(directory);
         ArgumentNullException.ThrowIfNull(metadata);
         var list = rows.ToList();
-        var json = DifferentialMetadataWriter.ToBytes(metadata, list);
-        using var buffer = new StringWriter();
-        Write(buffer, list, metadata.Settings.HeaderStyle);
         Directory.CreateDirectory(directory);
         string path = Path.Combine(directory, ResultsFileName);
-        File.WriteAllBytes(path, new UTF8Encoding(false).GetBytes(buffer.ToString()));
-        File.WriteAllBytes(Path.Combine(directory, MetadataFileName), json);
+        string metadataPath = Path.Combine(directory, MetadataFileName);
+        string stamp = Guid.NewGuid().ToString("N");
+        string tableTemp = $"{path}.{stamp}.tmp", metadataTemp = $"{metadataPath}.{stamp}.tmp";
+        try
+        {
+            int cleaned;
+            using (var output = new StreamWriter(tableTemp, false, new UTF8Encoding(false)))
+                cleaned = Write(output, list, metadata.Settings.HeaderStyle);
+            File.WriteAllBytes(metadataTemp, DifferentialMetadataWriter.ToBytes(metadata, list, cleaned));
+            Replace(new[] { (tableTemp, path), (metadataTemp, metadataPath) }, stamp);
+        }
+        finally
+        {
+            File.Delete(tableTemp);
+            File.Delete(metadataTemp);
+        }
         return path;
+    }
+
+    /// <summary>
+    /// Moves each finished file over its destination. Every existing destination is moved aside first; if any move fails,
+    /// whatever was moved in is removed and the previous files go back, so the files are either all new or all as they were.
+    /// </summary>
+    private static void Replace((string Source, string Destination)[] files, string stamp)
+    {
+        var movedAside = new List<(string Destination, string Backup)>();
+        var placed = new List<string>();
+        try
+        {
+            foreach (var (_, destination) in files)
+            {
+                if (!File.Exists(destination)) continue;
+                string backup = $"{destination}.{stamp}.bak";
+                File.Move(destination, backup);
+                movedAside.Add((destination, backup));
+            }
+            foreach (var (source, destination) in files)
+            {
+                File.Move(source, destination);
+                placed.Add(destination);
+            }
+        }
+        catch
+        {
+            foreach (string destination in placed) File.Delete(destination);
+            foreach (var (destination, backup) in movedAside) File.Move(backup, destination);
+            throw;
+        }
+        foreach (var (_, backup) in movedAside) File.Delete(backup);
     }
 
     private static readonly char[] Breaks = { '\t', '\r', '\n' };
@@ -297,8 +343,21 @@ public static class DifferentialResultWriter
                 throw new ArgumentException($"{at} has status '{r.Status}', which is not in DEF-DIFF-STATUS.", nameof(rows));
             if (DifferentialStatus.IsFitted(r.Status))
             {
-                if (!Finite(r.Log2Effect) || !Finite(r.StandardError) || !Finite(r.PValue))
-                    throw new ArgumentException($"{at} is '{r.Status}' but lacks log2_effect, se or p_value.", nameof(rows));
+                bool bayesian = r.Method == BayesianMethod;
+                if (!Finite(r.Log2Effect) || !Finite(r.StandardError) || (!bayesian && !Finite(r.PValue)))
+                    throw new ArgumentException(
+                        $"{at} is '{r.Status}' but lacks log2_effect{(bayesian ? " or se" : ", se or p_value")}.", nameof(rows));
+                // A Bayesian row reports a posterior error probability and a Bayesian FDR, never a Benjamini-Hochberg value.
+                var benjaminiHochberg = new[]
+                    {
+                        ("p_adjusted", Finite(r.PAdjusted)), ("adjustment_method", r.AdjustmentMethod is not null),
+                        ("family_size", r.FamilySize is not null),
+                    }
+                    .Where(c => c.Item2).Select(c => c.Item1).ToList();
+                if (bayesian && benjaminiHochberg.Count > 0)
+                    throw new ArgumentException(
+                        $"{at} uses the Bayesian method, which is in no Benjamini–Hochberg family, but sets " +
+                        $"{string.Join(", ", benjaminiHochberg)}.", nameof(rows));
             }
             else
             {
@@ -312,7 +371,7 @@ public static class DifferentialResultWriter
                 throw new ArgumentException($"{at} appears twice for quant basis '{r.QuantBasis}' and method '{r.Method}'.", nameof(rows));
             _ = DifferentialColumns.SortedMembers(r).ToList();
         }
-        foreach (var family in list.Where(r => DifferentialStatus.IsFitted(r.Status)).GroupBy(FamilyKey))
+        foreach (var family in list.Where(InBenjaminiHochbergFamily).GroupBy(FamilyKey))
         {
             int size = family.Count();
             var wrong = family.FirstOrDefault(r => r.FamilySize != size);
@@ -323,6 +382,13 @@ public static class DifferentialResultWriter
         }
         return list;
     }
+
+    /// <summary><c>method</c> of a Bayesian row (M15): no p-value and no Benjamini–Hochberg family.</summary>
+    internal const string BayesianMethod = "bayesian";
+
+    /// <summary>A fitted row of a method that reports p-values, so in a Benjamini–Hochberg family (<c>DEF-DIFF-INFERENCE</c>).</summary>
+    internal static bool InBenjaminiHochbergFamily(DifferentialResult r) =>
+        DifferentialStatus.IsFitted(r.Status) && r.Method != BayesianMethod;
 
     internal static (string Analysis, string Stratum, string Grain, string Quantity, string Basis, string Contrast, string Method)
         FamilyKey(DifferentialResult r) => (r.AnalysisId, r.Stratum, r.Grain, r.Quantity, r.QuantBasis ?? "", r.ContrastId, r.Method);
@@ -336,6 +402,7 @@ public static class DifferentialResultWriter
     {
         yield return ("log2_effect", Finite(r.Log2Effect));
         yield return ("natural_effect", Finite(r.NaturalEffect));
+        yield return ("natural_unit", r.NaturalUnit is not null);
         yield return ("delta_percentage_points", Finite(r.DeltaPercentagePoints));
         yield return ("mean_numerator", Finite(r.MeanNumerator));
         yield return ("mean_denominator", Finite(r.MeanDenominator));
@@ -427,7 +494,10 @@ public sealed record DifferentialContrastInfo(string Id, string Label, string? N
 /// <summary>
 /// The empirical-Bayes variance prior a fit used: the estimator, its degrees of freedom, whether it is trended, the prior
 /// variance when it is one number, and how many features it was fitted on. A trended prior has a variance per feature,
-/// so <see cref="Variance"/> is null and the values belong in the report's mean-variance table.
+/// so <see cref="Variance"/> is null and the values belong in the report's mean-variance table. An infinite
+/// <see cref="Df"/> (the variances spread no more than sampling explains, so every feature takes the prior variance) is
+/// written as the string <c>"Infinity"</c>, as System.Text.Json writes a named floating-point literal; a NaN as
+/// <c>null</c>.
 /// </summary>
 public sealed record DifferentialPriorInfo(string Estimator, double Df, bool Trended, double? Variance, int Features)
 {
@@ -515,7 +585,13 @@ public static class DifferentialMetadataWriter
     /// model or normalization entry names a stratum the metadata does not list, or appears twice for its key; a global shift
     /// sits on a contrast without a numerator and a denominator; or a prior names an unknown estimator, or is trended with
     /// one variance, or constant without one.</exception>
-    public static byte[] ToBytes(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows)
+    public static byte[] ToBytes(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows) =>
+        ToBytes(metadata, rows, null);
+
+    /// <param name="metadata">The analysis's metadata.</param>
+    /// <param name="rows">The rows of its results table.</param>
+    /// <param name="cleanedTextCells">What writing the results table returned, or null to count it here.</param>
+    internal static byte[] ToBytes(DifferentialMetadata metadata, IReadOnlyList<DifferentialResult> rows, int? cleanedTextCells)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         var list = DifferentialResultWriter.Validate(rows);
@@ -526,7 +602,7 @@ public static class DifferentialMetadataWriter
                 $"Row for feature '{foreign.FeatureId}' belongs to analysis '{foreign.AnalysisId}', not '{id}'.", nameof(rows));
         ValidateMetadata(metadata);
         // The same cleaning the results table applies, so the count cannot disagree with that file.
-        int cleaned = DifferentialResultWriter.Write(TextWriter.Null, list, DifferentialHeaderStyle.Machine);
+        int cleaned = cleanedTextCells ?? DifferentialResultWriter.Write(TextWriter.Null, list, DifferentialHeaderStyle.Machine);
 
         using var stream = new MemoryStream();
         using (var w = new Utf8JsonWriter(stream, new JsonWriterOptions { Indented = true, NewLine = "\n" }))
@@ -634,7 +710,8 @@ public static class DifferentialMetadataWriter
                 {
                     w.WriteStartObject("prior");
                     w.WriteString("estimator", prior.Estimator);
-                    Number(w, "df", prior.Df);
+                    if (double.IsPositiveInfinity(prior.Df)) w.WriteString("df", "Infinity");
+                    else Number(w, "df", prior.Df);
                     w.WriteBoolean("trended", prior.Trended);
                     if (prior.Variance is { } s0) Number(w, "variance", s0);
                     w.WriteNumber("features", prior.Features);
@@ -663,7 +740,7 @@ public static class DifferentialMetadataWriter
             w.WriteEndArray();
 
             w.WriteStartArray("families");
-            foreach (var f in list.Where(r => DifferentialStatus.IsFitted(r.Status))
+            foreach (var f in list.Where(DifferentialResultWriter.InBenjaminiHochbergFamily)
                          .GroupBy(DifferentialResultWriter.FamilyKey)
                          .OrderBy(g => g.Key.Stratum, StringComparer.Ordinal).ThenBy(g => g.Key.Grain, StringComparer.Ordinal)
                          .ThenBy(g => g.Key.Quantity, StringComparer.Ordinal).ThenBy(g => g.Key.Basis, StringComparer.Ordinal)

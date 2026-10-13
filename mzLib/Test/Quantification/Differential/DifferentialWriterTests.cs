@@ -71,7 +71,8 @@ public class DifferentialWriterTests
     {
         Log2Effect = null, NaturalEffect = null, MeanNumerator = null, MeanDenominator = null, StandardError = null, CiLow = null,
         CiHigh = null, CiLevel = null, Statistic = null, Df = null, DfMethod = null, PValue = null, PAdjusted = null,
-        AdjustmentMethod = null, FamilySize = null, Status = status, StatusDetail = "counts 0 vs 6", NSamplesNumerator = 0,
+        AdjustmentMethod = null, FamilySize = null, NaturalUnit = null, Status = status, StatusDetail = "counts 0 vs 6",
+        NSamplesNumerator = 0,
     };
 
     private static string[] Lines(string text) => text.Split('\n');
@@ -167,7 +168,7 @@ public class DifferentialWriterTests
         var rows = new List<DifferentialResult> { Fitted("A", familySize: 2), Fitted("B", familySize: 2) with { Status = DifferentialStatus.FittedSinglePeptide, ModelUsed = "moderated_t" } };
         rows.AddRange(statuses.Select((s, i) => EvidenceOnly($"Z{i}", s)));
         var text = WriteToString(rows, DifferentialHeaderStyle.Machine);
-        string[] effectAndConfidence = Contract.Skip(19).Take(21).Select(c => c.Machine).Where(n => n != "natural_unit").ToArray();
+        string[] effectAndConfidence = Contract.Skip(19).Take(21).Select(c => c.Machine).ToArray();
         for (int i = 2; i < rows.Count; i++)
         {
             var cells = Row(text, i);
@@ -184,6 +185,9 @@ public class DifferentialWriterTests
     {
         Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1") with { Status = "maybe" } }, DifferentialHeaderStyle.Machine), "unknown status");
         Assert.Throws<ArgumentException>(() => WriteToString(new[] { EvidenceOnly("P1", DifferentialStatus.AbsentInBoth) with { PValue = 1 } }, DifferentialHeaderStyle.Machine), "a number on an evidence-only row");
+        // Review round 3 (@pcruzparri): natural_unit is an Effect cell, and an evidence-only row leaves every one empty.
+        var unit = Assert.Throws<ArgumentException>(() => WriteToString(new[] { EvidenceOnly("P1", DifferentialStatus.AbsentInBoth) with { NaturalUnit = "ratio" } }, DifferentialHeaderStyle.Machine), "a unit on an evidence-only row");
+        Assert.That(unit!.Message, Does.Contain("natural_unit"));
         Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1") with { StandardError = null } }, DifferentialHeaderStyle.Machine), "a fitted row without SE");
         Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1"), Fitted("P1") }, DifferentialHeaderStyle.Machine), "duplicate row key");
         Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1", familySize: 3) }, DifferentialHeaderStyle.Machine), "family size disagrees with the rows");
@@ -568,4 +572,184 @@ public class DifferentialWriterTests
 
     private static byte[] Golden(string file) =>
         File.ReadAllBytes(Path.Combine(TestContext.CurrentContext.TestDirectory, "Quantification", "Differential", "GoldenFiles", file));
+
+    private static Dictionary<string, Dictionary<string, string>> RowsByFeature(string text)
+    {
+        var lines = Lines(text).Where(l => l.Length > 0).ToArray();
+        var header = lines[0].Split('\t');
+        return lines.Skip(1).Select(l => header.Zip(l.Split('\t')).ToDictionary(z => z.First, z => z.Second))
+            .ToDictionary(c => c["feature_id"]);
+    }
+
+    /// <summary>A fitted Bayesian row (M15's columns, no p-value and no Benjamini–Hochberg family).</summary>
+    private static DifferentialResult Bayesian(string feature) => Fitted(feature) with
+    {
+        Method = "bayesian", ModelUsed = "bayesian_t", PValue = null, PAdjusted = null, AdjustmentMethod = null, FamilySize = null,
+        Pep = 0.011, BayesianFdr = 0.022, BayesFactor = 33.5, NullWidth = 0.1,
+    };
+
+    /// <summary>
+    /// Review round 3 (@Alexander-Sol, @pcruzparri): every column whose golden cells are all empty is checked by name with a
+    /// value in it: a fitted Bayesian row's <c>pep</c>, <c>bayesian_fdr</c>, <c>bayes_factor</c> and <c>null_width</c>; an
+    /// occupancy row's <c>delta_percentage_points</c>; an isobaric row's <c>reporter_acquisition</c>. A Bayesian row has no
+    /// p-value and no Benjamini–Hochberg family, so it needs neither, and the metadata lists no family for it.
+    /// </summary>
+    [Test]
+    public void BayesianOccupancyAndIsobaricColumnsAreWrittenByName()
+    {
+        var m = Metadata();
+        var rows = new[]
+        {
+            Bayesian("B1") with { AnalysisId = m.AnalysisId },
+            Fitted("O1") with
+            {
+                AnalysisId = m.AnalysisId, DefinitionId = "QuantProject:DEF-DIFF-OCCUPANCY v1", Grain = "site", Quantity = "occupancy",
+                EffectType = "occupancy_log2_odds_ratio", NaturalUnit = "odds_ratio", MeanNumerator = 0.4, MeanDenominator = 0.25,
+                DeltaPercentagePoints = 15.0,
+            },
+            Fitted("T1") with { AnalysisId = m.AnalysisId, QuantStyle = "tmt", ReporterAcquisition = "ms3_sps", QuantBasis = null },
+        };
+
+        var cells = RowsByFeature(WriteToString(rows, DifferentialHeaderStyle.Machine));
+
+        Assert.That(cells["B1"]["pep"], Is.EqualTo("0.011"));
+        Assert.That(cells["B1"]["bayesian_fdr"], Is.EqualTo("0.022"));
+        Assert.That(cells["B1"]["bayes_factor"], Is.EqualTo("33.5"));
+        Assert.That(cells["B1"]["null_width"], Is.EqualTo("0.1"));
+        Assert.That(new[] { "p_value", "p_adjusted", "adjustment_method", "family_size" }.Select(c => cells["B1"][c]), Is.All.Empty);
+        Assert.That(cells["O1"]["delta_percentage_points"], Is.EqualTo("15"));
+        Assert.That(cells["O1"]["pep"], Is.Empty);
+        Assert.That(cells["T1"]["reporter_acquisition"], Is.EqualTo("ms3_sps"));
+        Assert.That(cells["O1"]["reporter_acquisition"], Is.Empty);
+
+        using var doc = JsonDocument.Parse(DifferentialMetadataWriter.ToBytes(m, rows));
+        var families = doc.RootElement.GetProperty("families").EnumerateArray().ToList();
+        Assert.That(families.Select(f => f.GetProperty("method").GetString()), Is.All.EqualTo("moderated"), "Benjamini–Hochberg families only");
+        Assert.That(families, Has.Count.EqualTo(2));
+    }
+
+    /// <summary>A Bayesian row is in no Benjamini–Hochberg family, so it cannot carry an adjusted p, its method or a family size.</summary>
+    [Test]
+    public void ABayesianRowCarriesNoBenjaminiHochbergValues()
+    {
+        foreach (var row in new[]
+                 {
+                     Bayesian("B1") with { FamilySize = 1 },
+                     Bayesian("B1") with { PAdjusted = 0.2 },
+                     Bayesian("B1") with { AdjustmentMethod = "benjamini_hochberg" },
+                 })
+        {
+            var e = Assert.Throws<ArgumentException>(() => WriteToString(new[] { row }, DifferentialHeaderStyle.Machine));
+            Assert.That(e!.Message, Does.Contain("Benjamini"));
+        }
+        Assert.Throws<ArgumentException>(() => WriteToString(new[] { Bayesian("B1") with { StandardError = null } }, DifferentialHeaderStyle.Machine),
+            "a fitted Bayesian row still needs its effect and SE");
+        Assert.Throws<ArgumentException>(() => WriteToString(new[] { Fitted("P1") with { PValue = null } }, DifferentialHeaderStyle.Machine),
+            "a moderated row still needs its p-value");
+    }
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): <c>EmpiricalBayes.FitPrior</c> returns an infinite prior df when the variances spread no
+    /// more than sampling explains, and <c>null</c> would read as "no df recorded". It is written as the string
+    /// <c>"Infinity"</c>, as System.Text.Json writes a named floating-point literal.
+    /// </summary>
+    [Test]
+    public void AnInfinitePriorDfIsWrittenAsInfinityNotNull()
+    {
+        var m = Metadata();
+        m = m with { Models = m.Models.Select(x => x.Prior is { Trended: false } p ? x with { Prior = p with { Df = double.PositiveInfinity } } : x).ToArray() };
+
+        var root = Root(m, out var doc);
+        using (doc)
+        {
+            var prior = root.GetProperty("models").EnumerateArray().Select(x => x.GetProperty("prior")).Single(p => !p.GetProperty("trended").GetBoolean());
+            Assert.That(prior.GetProperty("df").ValueKind, Is.EqualTo(JsonValueKind.String));
+            Assert.That(prior.GetProperty("df").GetString(), Is.EqualTo("Infinity"));
+        }
+    }
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): each <c>columns</c> entry is the column's machine name, readable name and
+    /// <c>DEF-DIFF-COLUMNS</c> group, in registry order. (DEF-DIFF-META's "definition ID" was a slip: no column has one.)
+    /// </summary>
+    [Test]
+    public void EveryColumnsEntryIsItsMachineNameReadableNameAndGroup()
+    {
+        var root = Root(Metadata(), out var doc);
+        using (doc)
+        {
+            var entries = root.GetProperty("columns").EnumerateArray().ToList();
+            Assert.That(entries.Select(e => string.Join(",", e.EnumerateObject().Select(p => p.Name))), Is.All.EqualTo("machine,human,group"));
+            Assert.That(entries.Select(e => (e.GetProperty("machine").GetString(), e.GetProperty("human").GetString(), e.GetProperty("group").GetString())),
+                Is.EqualTo(DifferentialColumns.All.Select(c => ((string?)c.MachineName, (string?)c.HumanName, (string?)c.Group))));
+        }
+    }
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): the directory overload streams the table rather than building it as one string (a
+    /// string stops near 1.07 billion characters), so its bytes must be exactly the TextWriter overload's, and its metadata
+    /// exactly <see cref="DifferentialMetadataWriter.ToBytes"/>, cleaned-cell count included. Nothing else is left behind.
+    /// </summary>
+    [Test]
+    public void TheDirectoryWriteIsTheTextWriterWriteByteForByte()
+    {
+        var m = Metadata();
+        var rows = GoldenRows(m.AnalysisId);
+        rows[0] = rows[0] with { StatusDetail = "a\tb" };
+        string dir = Path.Combine(Path.GetTempPath(), "mzlib-diff-writer-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            DifferentialResultWriter.Write(dir, rows, m);
+
+            using var expected = new StringWriter { NewLine = "\n" };
+            Assert.That(DifferentialResultWriter.Write(expected, rows, m.Settings.HeaderStyle), Is.EqualTo(1));
+            Assert.That(File.ReadAllBytes(Path.Combine(dir, DifferentialResultWriter.ResultsFileName)),
+                Is.EqualTo(new UTF8Encoding(false).GetBytes(expected.ToString())));
+            byte[] json = File.ReadAllBytes(Path.Combine(dir, DifferentialResultWriter.MetadataFileName));
+            Assert.That(json, Is.EqualTo(DifferentialMetadataWriter.ToBytes(m, rows)));
+            using var doc = JsonDocument.Parse(json);
+            Assert.That(doc.RootElement.GetProperty("cleaned_text_cells").GetInt32(), Is.EqualTo(1));
+            Assert.That(Directory.GetFiles(dir).Select(Path.GetFileName),
+                Is.EquivalentTo(new[] { DifferentialResultWriter.ResultsFileName, DifferentialResultWriter.MetadataFileName }));
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): with the previous run's metadata held open, the old code wrote the new table and then
+    /// failed on the metadata, leaving a new table beside old metadata. Both files are now finished before either replaces
+    /// anything, and a replacement that fails puts the previous files back. (Windows: an open file cannot be renamed over.)
+    /// </summary>
+    [Test]
+    public void AFailedReplacementLeavesThePreviousFilesInPlace()
+    {
+        if (!OperatingSystem.IsWindows())
+            Assert.Ignore("Holding a file open blocks replacing it only on Windows.");
+        var m = Metadata();
+        string dir = Path.Combine(Path.GetTempPath(), "mzlib-diff-writer-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            DifferentialResultWriter.Write(dir, new[] { Fitted("P1") with { AnalysisId = m.AnalysisId } }, m);
+            string table = Path.Combine(dir, DifferentialResultWriter.ResultsFileName);
+            string metadata = Path.Combine(dir, DifferentialResultWriter.MetadataFileName);
+            byte[] oldTable = File.ReadAllBytes(table), oldMetadata = File.ReadAllBytes(metadata);
+
+            foreach (string held in new[] { metadata, table })
+            {
+                using (new FileStream(held, FileMode.Open, FileAccess.Read, FileShare.Read))
+                    Assert.Catch(() => DifferentialResultWriter.Write(dir, GoldenRows(m.AnalysisId), m), Path.GetFileName(held));
+
+                Assert.That(File.ReadAllBytes(table), Is.EqualTo(oldTable), $"{Path.GetFileName(held)} held: the table is the previous one");
+                Assert.That(File.ReadAllBytes(metadata), Is.EqualTo(oldMetadata), $"{Path.GetFileName(held)} held: the metadata is the previous one");
+                Assert.That(Directory.GetFiles(dir), Has.Length.EqualTo(2), "no temporary or backup file is left");
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(dir)) Directory.Delete(dir, true);
+        }
+    }
 }

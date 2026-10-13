@@ -2,6 +2,7 @@ using MathNet.Numerics.Distributions;
 using NUnit.Framework;
 using StatisticalModels;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 
@@ -161,6 +162,158 @@ public class GlmMixedCorrelationTests
         var big = SpearmanCorrelation.Correlate(Enumerable.Range(0, 10).Select(i => (double)i).ToArray(),
                                                 Enumerable.Range(0, 10).Select(i => (double)(i * i % 7)).ToArray());
         Assert.That(big.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic), "n above ExactMaxN");
+    }
+
+    [Test]
+    public void PartialSpearmanIsTheCorrelationOfRankResiduals()
+    {
+        // Independent route: regress the ranks of x and of y on the ranks of z, and correlate the residuals.
+        var x = new double[] { 3.1, 1.0, 2.2, 2.2, 5.0, 4.4, 0.3, 6.1, 2.9, 3.8 };
+        var y = new double[] { 1.0, 0.5, 2.0, 1.5, 3.0, 3.0, 0.1, 2.5, 0.7, 2.2 };
+        var z = new double[] { 0.9, 0.2, 1.1, 0.8, 1.9, 1.4, 0.1, 2.0, 1.5, 1.2 };
+        var rx = SpearmanCorrelation.Ranks(x, out _);
+        var ry = SpearmanCorrelation.Ranks(y, out _);
+        var rz = SpearmanCorrelation.Ranks(z, out _);
+        double[] Residuals(double[] v)
+        {
+            var (a, b) = MathNet.Numerics.Fit.Line(rz, v);
+            return v.Select((vi, i) => vi - a - b * rz[i]).ToArray();
+        }
+        double expected = MathNet.Numerics.Statistics.Correlation.Pearson(Residuals(rx), Residuals(ry));
+
+        var r = SpearmanCorrelation.PartialCorrelate(x, y, z);
+        Assert.That(r.Rho, Is.EqualTo(expected).Within(1e-12));
+        Assert.That(r.N, Is.EqualTo(10));
+        Assert.That(r.HasTies, Is.True);
+        Assert.That(r.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        double t = expected * Math.Sqrt(7 / (1 - expected * expected));
+        Assert.That(r.PValue, Is.EqualTo(2 * StudentT.CDF(0, 1, 7, -Math.Abs(t))).Within(1e-12), "n − 3 df for one covariate");
+
+        // A covariate unrelated in rank (ρ_xz = ρ_yz = 0) leaves ρ unchanged.
+        var plain = SpearmanCorrelation.Correlate(new double[] { 1, 2, 3, 4 }, new double[] { 1, 3, 2, 4 });
+        var flat = SpearmanCorrelation.PartialCorrelate(new double[] { 1, 2, 3, 4 }, new double[] { 1, 3, 2, 4 }, new double[] { 1, 2, 2, 1 });
+        Assert.That(flat.Rho, Is.EqualTo(plain.Rho).Within(1e-12));
+    }
+
+    [Test]
+    public void PartialSpearmanWithTwoCovariatesIsTheCorrelationOfRankResiduals()
+    {
+        // Independent route: regress the ranks of x and of y on the ranks of both covariates (with intercept).
+        var x = new double[] { 3.1, 1.0, 2.2, 2.5, 5.0, 4.4, 0.3, 6.1, 2.9, 3.8, 1.7, 4.9 };
+        var y = new double[] { 1.0, 0.5, 2.0, 1.5, 3.0, 3.3, 0.1, 2.5, 0.7, 2.2, 1.2, 2.8 };
+        var z1 = new double[] { 0.9, 0.2, 1.1, 0.8, 1.9, 1.4, 0.1, 2.0, 1.5, 1.2, 0.4, 1.7 };
+        var z2 = new double[] { 5, 3, 8, 1, 7, 2, 4, 6, 12, 9, 11, 10.0 };
+        var rx = SpearmanCorrelation.Ranks(x, out _);
+        var ry = SpearmanCorrelation.Ranks(y, out _);
+        var r1 = SpearmanCorrelation.Ranks(z1, out _);
+        var r2 = SpearmanCorrelation.Ranks(z2, out _);
+        var design = Enumerable.Range(0, x.Length).Select(i => new[] { 1.0, r1[i], r2[i] }).ToArray();
+        double[] Residuals(double[] v)
+        {
+            var beta = MathNet.Numerics.Fit.MultiDim(design.Select(d => d[1..]).ToArray(), v, intercept: true);
+            return v.Select((vi, i) => vi - beta[0] - beta[1] * r1[i] - beta[2] * r2[i]).ToArray();
+        }
+        double expected = MathNet.Numerics.Statistics.Correlation.Pearson(Residuals(rx), Residuals(ry));
+
+        var r = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z1, z2 });
+        Assert.That(r.Rho, Is.EqualTo(expected).Within(1e-10));
+        Assert.That(r.N, Is.EqualTo(12));
+        double t = expected * Math.Sqrt(8 / (1 - expected * expected));
+        Assert.That(r.PValue, Is.EqualTo(2 * StudentT.CDF(0, 1, 8, -Math.Abs(t))).Within(1e-10), "n − 2 − k df");
+
+        // One covariate through either overload gives the same answer.
+        var one = SpearmanCorrelation.PartialCorrelate(x, y, z1);
+        var oneList = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z1 });
+        Assert.That(oneList.Rho, Is.EqualTo(one.Rho).Within(1e-15));
+        Assert.Throws<ArgumentException>(() => SpearmanCorrelation.PartialCorrelate(x, y, Array.Empty<IReadOnlyList<double>>()));
+    }
+
+    [Test]
+    public void PartialSpearmanOmitsIncompleteTriplesAndRefusesDegenerateInput()
+    {
+        var r = SpearmanCorrelation.PartialCorrelate(new[] { 1, 2, 3, 4, double.NaN, 6 }, new double[] { 2, 1, 4, 3, 5, 6 },
+                                                     new[] { 1, 1, 2, 2, 3, double.NaN });
+        Assert.That(r.N, Is.EqualTo(4));
+        var few = SpearmanCorrelation.PartialCorrelate(new[] { 1.0, 2, 3 }, new[] { 1.0, 3, 2 }, new[] { 2.0, 1, 3 });
+        Assert.That(few.Method, Is.EqualTo(SpearmanPValueMethod.NotEstimable));
+        Assert.That(few.Rho, Is.NaN);
+        var collinear = SpearmanCorrelation.PartialCorrelate(new[] { 1.0, 2, 3, 4, 5 }, new[] { 2.0, 1, 4, 3, 5 }, new[] { 10.0, 20, 30, 40, 50 });
+        Assert.That(collinear.Rho, Is.NaN, "z ranks x perfectly, so nothing of x is left");
+        Assert.That(collinear.PValue, Is.NaN);
+        var constant = SpearmanCorrelation.PartialCorrelate(new[] { 1.0, 2, 3, 4 }, new[] { 2.0, 1, 4, 3 }, new[] { 5.0, 5, 5, 5 });
+        Assert.That(constant.Method, Is.EqualTo(SpearmanPValueMethod.NotEstimable));
+        Assert.Throws<ArgumentException>(() => SpearmanCorrelation.PartialCorrelate(new[] { 1.0, 2, 3, 4 }, new[] { 1.0, 2, 3, 4 }, new[] { 1.0, 2 }));
+    }
+
+    [Test]
+    public void PartialSpearmanOfOneRankOrderIsPlusOrMinusOneNotARefusal()
+    {
+        // x and y rank the cases identically, z is unrelated: the same is left of each after z, so ρ = 1 and p = 0, as
+        // Correlate gives. The one-covariate formula agrees: ρ_xy = 1 makes ρ_xz = ρ_yz, and (1 − ρ_xz²) / (1 − ρ_xz²) = 1.
+        var x = Enumerable.Range(0, 12).Select(i => (double)i).ToArray();
+        var y = x.Select(v => v * v + 1).ToArray();
+        var z = new double[] { 5, 3, 8, 1, 7, 2, 4, 6, 12, 9, 11, 10 };
+        var same = SpearmanCorrelation.PartialCorrelate(x, y, z);
+        Assert.That(same.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(same.Rho, Is.EqualTo(1));
+        Assert.That(same.PValue, Is.EqualTo(0));
+        var opposite = SpearmanCorrelation.PartialCorrelate(x, y.Select(v => -v).ToArray(), z);
+        Assert.That(opposite.Rho, Is.EqualTo(-1));
+        Assert.That(opposite.PValue, Is.EqualTo(0));
+        var tied = SpearmanCorrelation.PartialCorrelate(new double[] { 1, 1, 2, 3, 3, 3, 4, 5, 6, 6 }, new double[] { 2, 2, 4, 6, 6, 6, 8, 10, 12, 12 },
+                                                        new double[] { 3, 1, 4, 1, 5, 9, 2, 6, 5, 3 });
+        Assert.That(tied.Rho, Is.EqualTo(1), "ties shared alike");
+
+        // One adjacent swap away, ρ moves a little and matches the formula: no cliff from strongest to missing.
+        var swapped = (double[])y.Clone();
+        (swapped[5], swapped[6]) = (swapped[6], swapped[5]);
+        double rxy = SpearmanCorrelation.Correlate(x, swapped).Rho, rxz = SpearmanCorrelation.Correlate(x, z).Rho,
+               ryz = SpearmanCorrelation.Correlate(swapped, z).Rho;
+        var near = SpearmanCorrelation.PartialCorrelate(x, swapped, z);
+        Assert.That(near.Rho, Is.EqualTo((rxy - rxz * ryz) / Math.Sqrt((1 - rxz * rxz) * (1 - ryz * ryz))).Within(1e-12));
+        Assert.That(near.Rho, Is.GreaterThan(0.98));
+    }
+
+    [Test]
+    public void PartialSpearmanDropsACovariateTheOthersCarry()
+    {
+        // z2 ranks the cases as z1 does (and z3 in reverse): either adds nothing to z1, so the result is z1's alone, its
+        // df included (n − 3, not n − 4).
+        var x = new double[] { 3.1, 1.0, 2.2, 2.5, 5.0, 4.4, 0.3, 6.1, 2.9, 3.8, 1.7, 4.9 };
+        var y = new double[] { 1.0, 0.5, 2.0, 1.5, 3.0, 3.3, 0.1, 2.5, 0.7, 2.2, 1.2, 2.8 };
+        var z1 = new double[] { 0.9, 0.2, 1.1, 0.8, 1.9, 1.4, 0.1, 2.0, 1.5, 1.2, 0.4, 1.7 };
+        var z2 = z1.Select(v => 3 * v + 1).ToArray();
+        var z3 = z1.Select(v => -v).ToArray();
+        var one = SpearmanCorrelation.PartialCorrelate(x, y, z1);
+        foreach (var duplicate in new[] { z2, z3 })
+        {
+            var both = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z1, duplicate });
+            Assert.That(both.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+            Assert.That(both.Rho, Is.EqualTo(one.Rho).Within(1e-12));
+            Assert.That(both.PValue, Is.EqualTo(one.PValue).Within(1e-12));
+        }
+    }
+
+    [Test]
+    public void PartialSpearmanCaseFloorCountsOnlyTheCovariatesKept()
+    {
+        // Four cases: one covariate leaves 1 df, and so does the same covariate passed twice. Two covariates that are
+        // both kept would leave none.
+        double[] x = { 1, 2, 3, 4 }, y = { 2, 1, 4, 3 }, z = { 1, 3, 4, 2 };
+        var one = SpearmanCorrelation.PartialCorrelate(x, y, z);
+        Assert.That(one.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(one.Rho, Is.EqualTo((0.6 - 0.4 * 0.4) / (1 - 0.4 * 0.4)).Within(1e-12), "ρ_xy = 0.6, ρ_xz = ρ_yz = 0.4");
+        double t = one.Rho / Math.Sqrt(1 - one.Rho * one.Rho);
+        Assert.That(one.PValue, Is.EqualTo(1 - 2 / Math.PI * Math.Atan(t)).Within(1e-12), "t with 1 df is Cauchy");
+
+        var twice = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z, z });
+        Assert.That(twice.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic));
+        Assert.That(twice.Rho, Is.EqualTo(one.Rho).Within(1e-12));
+        Assert.That(twice.PValue, Is.EqualTo(one.PValue).Within(1e-12));
+
+        var two = SpearmanCorrelation.PartialCorrelate(x, y, new IReadOnlyList<double>[] { z, new double[] { 2, 1, 3, 4 } });
+        Assert.That(two.Method, Is.EqualTo(SpearmanPValueMethod.NotEstimable), "two covariates kept need five cases");
+        Assert.That(two.N, Is.EqualTo(4));
     }
 
     // ---------------------------------------------------------------- logistic regression

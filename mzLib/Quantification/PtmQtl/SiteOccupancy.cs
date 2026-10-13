@@ -72,7 +72,7 @@ public sealed record ModificationSite(string ProteinAccession, int Position, cha
 /// A site seen only in modified form in a run has occupancy 1: every quantified form covering it carries the
 /// modification. <see cref="UnmodifiedQuantified"/> is false there, so a caller can treat that 1 as a ceiling
 /// (the unmodified form may be present below detection), as a floor is treated at the other end. Despite its
-/// name, <see cref="SiteOccupancyCalculator.Calculate"/> sets <see cref="UnmodifiedQuantified"/> true whenever some quantified form covering the position does not
+/// name, <see cref="SiteOccupancyCalculator.Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/> sets <see cref="UnmodifiedQuantified"/> true whenever some quantified form covering the position does not
 /// carry this modification there: the unmodified form, or a form with another modification at the same position
 /// (including one excluded from the sites, e.g. <c>Common Variable</c>).
 /// <para>
@@ -181,6 +181,122 @@ public static class SiteOccupancyCalculator
         }
         return result;
     }
+
+    /// <summary>
+    /// Computes occupancy per sample rather than per run, for a sample measured as several runs (fractions).
+    /// Each peptidoform's intensity is summed over the sample's runs, then <see cref="Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/>
+    /// runs on the sums, so a site's numerator and denominator are both summed over the fractions.
+    /// </summary>
+    /// <remarks>
+    /// Fractions are summed, as FlashLFQ and <c>CollapseFractions</c> sum them. Map only fractions together:
+    /// technical replicates (repeat injections) are separate measurements of one sample and should keep their
+    /// own key. A peptidoform identified but not quantified in every run of a sample stays unquantified (NaN);
+    /// quantified in any run, it carries the sum of the quantified runs. So a modified form identified only in
+    /// a fraction where it was not quantified, with the site covered in another fraction, is a Floor for the sample.
+    /// </remarks>
+    /// <param name="observations">As for the per-run overload, validated per run before anything is summed.</param>
+    /// <param name="runToSample">Every run's sample; the sample becomes <see cref="SiteRunOccupancy.Run"/> of the result.</param>
+    /// <param name="includeModification">As for the per-run overload.</param>
+    /// <exception cref="ArgumentException">A run is missing from <paramref name="runToSample"/>, or maps to an empty sample.</exception>
+    public static IReadOnlyList<SiteRunOccupancy> Calculate(IEnumerable<PeptidoformObservation> observations,
+        IReadOnlyDictionary<string, string> runToSample, Func<string, bool>? includeModification = null)
+        => Calculate(CombineObservations(observations, runToSample), includeModification);
+
+    /// <summary>
+    /// Sums each peptidoform's intensity over a sample's runs (fractions), giving one observation per (sample,
+    /// peptidoform, protein) with <see cref="PeptidoformObservation.Run"/> set to the sample. Feed the result to
+    /// <see cref="Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/> or
+    /// <see cref="PtmPairEngine.Physical"/>, so that both see samples rather than fractions.
+    /// </summary>
+    /// <remarks>
+    /// A peptidoform unquantified (NaN) in every run of a sample stays NaN; quantified in any, it carries the sum of
+    /// the quantified runs. Map only fractions together; technical replicates keep their own key.
+    /// </remarks>
+    /// <param name="observations">Validated per run first, as for <see cref="Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/>.</param>
+    /// <param name="runToSample">Every run's sample.</param>
+    /// <exception cref="ArgumentException">A run is missing from <paramref name="runToSample"/>, or maps to an empty sample.</exception>
+    public static IReadOnlyList<PeptidoformObservation> CombineObservations(IEnumerable<PeptidoformObservation> observations,
+        IReadOnlyDictionary<string, string> runToSample)
+    {
+        ArgumentNullException.ThrowIfNull(runToSample);
+        return Parse(observations, null)
+            .GroupBy(p => (sample: SampleOf(p.obs.Run, runToSample), p.obs.FullSequence, p.obs.ProteinAccession, p.obs.StartResidue))
+            .Select(g =>
+            {
+                var first = g.First().obs;
+                var quantified = g.Select(p => p.obs.Intensity).Where(i => !double.IsNaN(i)).ToList();
+                return first with { Run = g.Key.sample, Intensity = quantified.Count > 0 ? quantified.Sum() : double.NaN };
+            })
+            .ToList();
+    }
+
+    /// <summary>
+    /// Combines stored per-run occupancy cells into one cell per (site, sample), for a sample measured as several
+    /// runs (fractions). The catalog-side counterpart of the per-sample <see cref="Calculate(IEnumerable{PeptidoformObservation}, IReadOnlyDictionary{string, string}, Func{string, bool}?)"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Per (site, sample): the numerator is the sum over Quantified cells of <see cref="SiteRunOccupancy.Fraction"/>
+    /// × <see cref="SiteRunOccupancy.CoveringIntensity"/>, so a cell's <see cref="SiteRunOccupancy.ReportedFraction"/>
+    /// is respected; the denominator is the summed covering intensity of every cell that has one (Quantified,
+    /// Floor, NotDetected). The state follows <see cref="Calculate(IEnumerable{PeptidoformObservation}, Func{string, bool}?)"/>:
+    /// Quantified when any run is; otherwise Floor when the modified form was identified in some run and the site
+    /// was covered in some run; otherwise CountOnly when identified; otherwise NotDetected.
+    /// <see cref="SiteRunOccupancy.UnmodifiedQuantified"/> is true when it is true in any run.
+    /// </para>
+    /// <para>
+    /// As with the observations, map only fractions together, never technical replicates.
+    /// </para>
+    /// </remarks>
+    /// <param name="occupancy">One cell per (site, run).</param>
+    /// <param name="runToSample">Every run's sample; the sample becomes <see cref="SiteRunOccupancy.Run"/> of the result.</param>
+    /// <exception cref="ArgumentException">
+    /// A run is missing from <paramref name="runToSample"/> or maps to an empty sample; a (site, run) repeats; or a
+    /// Quantified cell has no finite, positive covering intensity to weight its fraction by.
+    /// </exception>
+    public static IReadOnlyList<SiteRunOccupancy> CombineRuns(IEnumerable<SiteRunOccupancy> occupancy,
+        IReadOnlyDictionary<string, string> runToSample)
+    {
+        ArgumentNullException.ThrowIfNull(occupancy);
+        ArgumentNullException.ThrowIfNull(runToSample);
+        var cells = new List<SiteRunOccupancy>();
+        var seen = new HashSet<(ModificationSite, string)>();
+        foreach (var c in occupancy)
+        {
+            if (c is null) throw new ArgumentException("An occupancy cell is null.", nameof(occupancy));
+            if (!seen.Add((c.Site, c.Run)))
+                throw new ArgumentException($"{c.Site.Key} appears twice in {c.Run}; supply one cell per (site, run).", nameof(occupancy));
+            if (c.State == OccupancyState.Quantified && !(double.IsFinite(c.CoveringIntensity) && c.CoveringIntensity > 0))
+                throw new ArgumentException(
+                    $"{c.Site.Key} in {c.Run} is Quantified but its covering intensity is {c.CoveringIntensity}; its fraction cannot be weighted.",
+                    nameof(occupancy));
+            cells.Add(c);
+        }
+
+        var result = new List<SiteRunOccupancy>();
+        foreach (var g in cells.GroupBy(c => (c.Site, sample: SampleOf(c.Run, runToSample)))
+                     .OrderBy(g => g.Key.Site.Key, StringComparer.Ordinal).ThenBy(g => g.Key.sample, StringComparer.Ordinal))
+        {
+            double modified = g.Where(c => c.State == OccupancyState.Quantified).Sum(c => c.Fraction * c.CoveringIntensity);
+            double covering = g.Where(c => c.State != OccupancyState.CountOnly && double.IsFinite(c.CoveringIntensity))
+                .Sum(c => c.CoveringIntensity);
+            bool identified = g.Any(c => c.State is OccupancyState.Quantified or OccupancyState.Floor or OccupancyState.CountOnly);
+            var state =
+                g.Any(c => c.State == OccupancyState.Quantified) ? OccupancyState.Quantified
+                : identified && covering > 0 ? OccupancyState.Floor
+                : identified ? OccupancyState.CountOnly
+                : OccupancyState.NotDetected;
+            result.Add(new SiteRunOccupancy(g.Key.Site, g.Key.sample, state, modified, covering, g.Any(c => c.UnmodifiedQuantified)));
+        }
+        return result;
+    }
+
+    private static string SampleOf(string run, IReadOnlyDictionary<string, string> runToSample) =>
+        runToSample.TryGetValue(run, out var sample)
+            ? string.IsNullOrEmpty(sample)
+                ? throw new ArgumentException($"Run {run} maps to an empty sample.", nameof(runToSample))
+                : sample
+            : throw new ArgumentException($"Run {run} has no sample in the run-to-sample map.", nameof(runToSample));
 
     /// <summary>
     /// Validates the observations (no null rows, coordinates matching the sequence, intensity finite and
