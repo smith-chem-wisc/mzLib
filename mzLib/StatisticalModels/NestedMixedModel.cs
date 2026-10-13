@@ -5,6 +5,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
+using MathNet.Numerics.Optimization;
 
 namespace StatisticalModels
 {
@@ -256,8 +257,9 @@ namespace StatisticalModels
     /// <b>Fit.</b> lme4's formulation (Bates, Mächler, Bolker &amp; Walker 2015, J. Stat. Softw. 67:1): with relative
     /// standard deviations θ (one per random term) and Λ = diag(θ), the REML criterion is
     /// log|ΛZ′ZΛ + I| + log|X′V⁻¹X| + (m − p)(1 + log(2π r²/(m − p))), V = I + ZΛΛZ′, r² the penalised residual sum of
-    /// squares, σ² = r²/(m − p). It is minimised over θ ≥ 0 by a grid, Nelder–Mead and Newton polishing, with every
-    /// boundary (θ = 0) tried explicitly. It reproduces <c>lme4::lmer(REML = TRUE)</c> to 1e-6.
+    /// squares, σ² = r²/(m − p). It is minimised over θ ≥ 0 by a grid, MathNet's Nelder–Mead (two random terms) or Brent
+    /// (one), and Newton polishing, with every boundary (θ = 0) tried explicitly. It reproduces
+    /// <c>lme4::lmer(REML = TRUE)</c> to 1e-6.
     /// </para>
     /// <para>
     /// <b>Degrees of freedom.</b> lmerTest's Satterthwaite method (Kuznetsova, Brockhoff &amp; Christensen 2017,
@@ -271,8 +273,9 @@ namespace StatisticalModels
     /// <b>Not fittable.</b> Too few observations for the fixed effects (<see cref="FeatureFitStatus.TooFewObservations"/>);
     /// fixed effects not of full rank on the observed values (<see cref="FeatureFitStatus.RankDeficient"/>); a random
     /// term with fewer than 2 levels or as many levels as observations, e.g. a protein with one peptide
-    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated
-    /// (<see cref="FeatureFitStatus.NotConverged"/>). Output does not depend on the thread count.
+    /// (<see cref="FeatureFitStatus.TooFewGroups"/>; lme4 refuses the same); a criterion that cannot be evaluated, or a
+    /// simplex search that does not converge (<see cref="FeatureFitStatus.NotConverged"/>). Output does not depend on the
+    /// thread count.
     /// </para>
     /// </remarks>
     public static class NestedMixedModel
@@ -452,6 +455,7 @@ namespace StatisticalModels
                 _columns = columns;
 
                 var theta = Minimise(terms.Count);
+                if (theta is null) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                 var best = Evaluate(theta);
                 if (!best.Ok) { fit.StatusValues[f] = FeatureFitStatus.NotConverged; return; }
                 double sigma2 = best.R2 / (_m - _p);
@@ -580,7 +584,8 @@ namespace StatisticalModels
 
             private static readonly double[] Grid = { 0, 1e-3, 1e-2, 3e-2, 0.1, 0.2, 0.4, 0.7, 1, 1.5, 2.5, 4, 7, 12, 25, 60, 150 };
 
-            private double[] Minimise(int k)
+            /// <summary>θ minimising the REML criterion; null when the simplex search did not converge.</summary>
+            private double[]? Minimise(int k)
             {
                 if (k == 1)
                 {
@@ -604,7 +609,9 @@ namespace StatisticalModels
                         double v = Criterion(new[] { a, b });
                         if (v < startF) { startF = v; start = new[] { a, b }; }
                     }
-                var candidates = new List<double[]> { Polish(NelderMead(start)) };
+                var simplexMinimum = NelderMead(start);
+                if (simplexMinimum is null) return null;
+                var candidates = new List<double[]> { Polish(simplexMinimum) };
                 // Each boundary, explicitly: one component at zero, the other optimised in one dimension.
                 for (int fixedAt = 0; fixedAt < 2; fixedAt++)
                 {
@@ -621,49 +628,42 @@ namespace StatisticalModels
                 return ranked.Where(r => AtLeastAsGood(r.f, lowest)).OrderByDescending(r => r.zeros).ThenBy(r => r.f).First().c;
             }
 
-            private double[] NelderMead(double[] start)
+            /// <summary>
+            /// The simplex stops when the criterion at its best and worst vertices agrees to this relative difference, twice
+            /// running (MathNet's rule). It must sit well above the criterion's rounding noise, about 1e-14 relative: at 1e-15
+            /// a simplex collapsed to adjacent floating-point θ cycled until the evaluation limit. <see cref="Polish"/>
+            /// finishes from the simplex's minimum.
+            /// </summary>
+            private const double SimplexTolerance = 1e-10;
+            /// <summary>
+            /// The most criterion evaluations the simplex may take (the reference fixtures need at most 64); a search still
+            /// going then is not converged.
+            /// </summary>
+            private const int SimplexEvaluations = 4000;
+
+            /// <summary>
+            /// MathNet's Nelder–Mead from <paramref name="start"/>, first steps max(0.1, 0.2·θᵢ); θ is clamped at 0 inside the
+            /// criterion and a θ the criterion cannot be evaluated at counts as the worst value. Null when the search has not
+            /// converged within <see cref="SimplexEvaluations"/>.
+            /// </summary>
+            private double[]? NelderMead(double[] start)
             {
-                int n = start.Length;
-                var simplex = new List<double[]> { start };
-                for (int i = 0; i < n; i++)
+                double F(Vector<double> v)
                 {
-                    var v = (double[])start.Clone();
-                    v[i] += Math.Max(0.1, 0.2 * v[i]);
-                    simplex.Add(v);
+                    double c = Criterion(v.Select(z => Math.Max(0, z)).ToArray());
+                    return double.IsFinite(c) ? c : double.MaxValue;
                 }
-                double F(double[] v) => Criterion(v.Select(z => Math.Max(0, z)).ToArray());
-                var values = simplex.Select(F).ToList();
-                for (int iteration = 0; iteration < 4000; iteration++)
+                var step = Vector<double>.Build.Dense(start.Length, i => Math.Max(0.1, 0.2 * start[i]));
+                try
                 {
-                    var order = Enumerable.Range(0, n + 1).OrderBy(i => values[i]).ToArray();
-                    simplex = order.Select(i => simplex[i]).ToList();
-                    values = order.Select(i => values[i]).ToList();
-                    if (Math.Abs(values[n] - values[0]) <= 1e-15 * Math.Max(1, Math.Abs(values[0]))
-                        && simplex.All(v => v.Zip(simplex[0]).All(z => Math.Abs(z.First - z.Second) < 1e-12))) break;
-                    var centroid = new double[n];
-                    for (int i = 0; i < n; i++) for (int j = 0; j < n; j++) centroid[j] += simplex[i][j] / n;
-                    double[] Toward(double s) => centroid.Select((c, j) => c + s * (simplex[n][j] - c)).ToArray();
-                    var reflected = Toward(-1); double fr = F(reflected);
-                    if (fr < values[0])
-                    {
-                        var expanded = Toward(-2); double fe = F(expanded);
-                        if (fe < fr) { simplex[n] = expanded; values[n] = fe; } else { simplex[n] = reflected; values[n] = fr; }
-                    }
-                    else if (fr < values[n - 1]) { simplex[n] = reflected; values[n] = fr; }
-                    else
-                    {
-                        var contracted = fr < values[n] ? Toward(-0.5) : Toward(0.5);
-                        double fc = F(contracted);
-                        if (fc < Math.Min(fr, values[n])) { simplex[n] = contracted; values[n] = fc; }
-                        else
-                            for (int i = 1; i <= n; i++)
-                            {
-                                simplex[i] = simplex[i].Select((z, j) => simplex[0][j] + 0.5 * (z - simplex[0][j])).ToArray();
-                                values[i] = F(simplex[i]);
-                            }
-                    }
+                    var result = NelderMeadSimplex.Minimum(ObjectiveFunction.Value(F), Vector<double>.Build.DenseOfArray(start),
+                        step, SimplexTolerance, SimplexEvaluations);
+                    return result.MinimizingPoint.Select(z => Math.Max(0, z)).ToArray();
                 }
-                return simplex[0].Select(z => Math.Max(0, z)).ToArray();
+                catch (MaximumIterationsException)
+                {
+                    return null;
+                }
             }
 
             /// <summary>Newton steps on the interior components (Richardson derivatives), each accepted only if it lowers the criterion.</summary>
