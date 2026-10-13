@@ -310,9 +310,11 @@ namespace StatisticalModels
         /// extended to several condition terms (QuantProject GR-21). Per fitted feature: s² = σ²; its df = the joint
         /// Satterthwaite F df of <paramref name="varianceDfRows"/> (the condition terms); the prior is fitted from (s², df)
         /// across features as <see cref="EmpiricalBayes.FitPrior"/> with <see cref="VariancePriorEstimator.MomentsLegacy"/>
-        /// (limma <c>squeezeVar(legacy = TRUE)</c>). For each contrast c: SE = sqrt(c′Uc · s̃²) with U the unscaled
+        /// (limma <c>squeezeVar(legacy = TRUE)</c>). For each contrast c: SE = s̃ · sqrt(c′Uc) with U the unscaled
         /// covariance; df = the contrast's unmoderated Satterthwaite df + d0, capped at the sum of the features' variance df;
-        /// t, p and a t-based interval on that df; Benjamini–Hochberg over the features with a result.
+        /// t, p and a t-based interval on that df; Benjamini–Hochberg over the features with a result. Everything after the
+        /// prior is the moderation <see cref="EmpiricalBayes.ModerateContrasts"/> applies, from the same code; only the
+        /// variance's df and the contrast's df differ.
         /// </summary>
         /// <param name="fit">Output of <see cref="Fit"/>.</param>
         /// <param name="contrasts">At least one; names unique; one finite weight per common coefficient, not all zero.</param>
@@ -325,24 +327,16 @@ namespace StatisticalModels
             ArgumentNullException.ThrowIfNull(fit);
             ArgumentNullException.ThrowIfNull(contrasts);
             ArgumentNullException.ThrowIfNull(varianceDfRows);
-            if (!(confidenceLevel > 0 && confidenceLevel < 1))
-                throw new ArgumentOutOfRangeException(nameof(confidenceLevel), confidenceLevel, "The confidence level must be strictly between 0 and 1.");
-            if (contrasts.Count == 0) throw new ArgumentException("No contrast was given.", nameof(contrasts));
             int p = fit.CommonNames.Count;
+            EmpiricalBayes.CheckContrasts(contrasts, confidenceLevel, c =>
+            {
+                if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
+                    throw new ArgumentException($"Contrast '{c.Name}' needs {p} finite weights.", nameof(contrasts));
+            });
             if (varianceDfRows.Count == 0) throw new ArgumentException("No variance-df rows were given.", nameof(varianceDfRows));
             foreach (var r in varianceDfRows)
                 if (r is null || r.Count != p || r.Any(w => !double.IsFinite(w)))
                     throw new ArgumentException($"Each variance-df row needs {p} finite weights.", nameof(varianceDfRows));
-            var seen = new HashSet<string>(StringComparer.Ordinal);
-            foreach (var c in contrasts)
-            {
-                ArgumentNullException.ThrowIfNull(c);
-                ArgumentException.ThrowIfNullOrWhiteSpace(c.Name, nameof(contrasts));
-                if (!seen.Add(c.Name)) throw new ArgumentException($"Two contrasts are named '{c.Name}'.", nameof(contrasts));
-                if (c.Weights is null || c.Weights.Count != p || c.Weights.Any(w => !double.IsFinite(w)))
-                    throw new ArgumentException($"Contrast '{c.Name}' needs {p} finite weights.", nameof(contrasts));
-                if (c.Weights.All(w => w == 0)) throw new ArgumentException($"Every weight of contrast '{c.Name}' is zero.", nameof(contrasts));
-            }
 
             int n = fit.FeatureCount;
             var s2 = new double[n];
@@ -361,46 +355,16 @@ namespace StatisticalModels
             if (usable.Count < 2)
                 throw new ArgumentException($"Moderation needs at least 2 fitted features with a variance df; this fit has {usable.Count}.", nameof(fit));
             var prior = EmpiricalBayes.FitPrior(s2, df, null, null, VariancePriorEstimator.MomentsLegacy);
-            double totalDf = usable.Sum(f => df[f]);
-            bool dfDiffer = usable.Any(f => df[f] != df[usable[0]]);
-            double upper = (1 + confidenceLevel) / 2;
-
-            var results = new List<ModeratedContrast>(contrasts.Count);
-            foreach (var c in contrasts)
+            return EmpiricalBayes.ModerateContrastsCore(contrasts, prior, s2, df, usable, fit.Status, confidenceLevel, (f, w) =>
             {
-                var w = c.Weights.ToArray();
-                var result = new ModeratedContrast(c.Name, w, prior, fit.Status, dfDiffer, confidenceLevel);
-                foreach (int f in usable)
+                double unscaled = 0, estimate = 0;
+                for (int i = 0; i < p; i++)
                 {
-                    double post = double.IsPositiveInfinity(prior.Df)
-                        ? prior.Scale[f]
-                        : (prior.Df * prior.Scale[f] + df[f] * s2[f]) / (prior.Df + df[f]);
-                    double unscaled = 0, estimate = 0;
-                    for (int i = 0; i < p; i++)
-                    {
-                        estimate += w[i] * fit.Coefficient(f, i);
-                        for (int j = 0; j < p; j++) unscaled += w[i] * w[j] * fit.UnscaledCovariance(f, i, j);
-                    }
-                    double satterthwaite = fit.Satterthwaite(f, w, out _);
-                    if (!double.IsFinite(satterthwaite)) continue;
-                    double dfTotal = Math.Min(satterthwaite + prior.Df, totalDf);
-                    double se = Math.Sqrt(unscaled * post);
-                    double t = estimate / se;
-                    double half = EmpiricalBayes.Quantile(upper, dfTotal) * se;
-                    result.EstimateValues[f] = estimate;
-                    result.PosteriorVarianceValues[f] = post;
-                    result.StandardErrorValues[f] = se;
-                    result.TValues[f] = t;
-                    result.DfTotalValues[f] = dfTotal;
-                    result.PValues[f] = EmpiricalBayes.TwoSidedP(t, dfTotal);
-                    result.LowValues[f] = estimate - half;
-                    result.HighValues[f] = estimate + half;
+                    estimate += w[i] * fit.Coefficient(f, i);
+                    for (int j = 0; j < p; j++) unscaled += w[i] * w[j] * fit.UnscaledCovariance(f, i, j);
                 }
-                var adjusted = MultipleTesting.BenjaminiHochberg(result.PValues);
-                Array.Copy(adjusted, result.AdjustedValues, n);
-                results.Add(result);
-            }
-            return results;
+                return new FeatureContrast(estimate, Math.Sqrt(unscaled), fit.Satterthwaite(f, w, out _));
+            });
         }
 
         /// <summary>One feature's fit: data reduced to cross-products, the REML criterion, its optimum and derivatives.</summary>
