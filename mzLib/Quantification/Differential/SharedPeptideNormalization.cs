@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MathNet.Numerics.Statistics;
 
 namespace Quantification.Differential;
 
@@ -103,7 +104,8 @@ public static class SharedPeptideNormalization
         var unshifted = new List<string>();
         for (int s = 0; s < samples; s++)
         {
-            shifts[table.Samples[s]] = Median(differences[s]);
+            // MathNet's median: the mean of the middle two for an even count, NaN when empty.
+            shifts[table.Samples[s]] = differences[s].Median();
             if (differences[s].Count == 0)
                 unshifted.Add(table.Samples[s]);
         }
@@ -147,17 +149,5 @@ public static class SharedPeptideNormalization
             if (table.ProteinGroups.TryGetValue(name, out var group) && (group.IsDecoy || group.IsContaminant || group.IsEntrapment))
                 return false;
         return true;
-    }
-
-    /// <summary>The median; for an even count the mean of the middle two; NaN when empty.</summary>
-    private static double Median(List<double> values)
-    {
-        if (values.Count == 0)
-            return double.NaN;
-
-        var sorted = values.ToArray();
-        Array.Sort(sorted);
-        int middle = sorted.Length / 2;
-        return sorted.Length % 2 == 1 ? sorted[middle] : (sorted[middle - 1] + sorted[middle]) / 2;
     }
 }
