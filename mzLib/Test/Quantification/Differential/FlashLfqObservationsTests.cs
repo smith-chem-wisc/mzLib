@@ -105,42 +105,113 @@ public class FlashLfqObservationsTests
     [TestCase(true, TestName = "BothSourcesGiveTheSameTable_WithMbr")]
     public void BothSourcesGiveTheSameTableOnOneSearch(bool matchBetweenRuns)
     {
-        var files = new List<SpectraFileInfo>
-        {
-            new(Path.Combine(FlashLfqData, "20100614_Velos1_TaGe_SA_K562_3.mzML"), "a", 0, 0, 0),
-            new(Path.Combine(FlashLfqData, "20100614_Velos1_TaGe_SA_K562_4.mzML"), "b", 0, 0, 0),
-        };
-        FlashLfqResults results = new FlashLfqEngine(K562Identifications(files), matchBetweenRuns: matchBetweenRuns,
-            maxThreads: 1, silent: true).Run();
-        QuantifiedPeptideFile stored = WriteAndRead(results);
-        var groups = GroupsOf(results).ToList();
-        Assert.That(results.PeptideModifiedSequences.Values.Any(p => p.ProteinGroups.Count > 1), "some peptides are shared");
+        string first = Path.Combine(FlashLfqData, "20100614_Velos1_TaGe_SA_K562_3.mzML");
+        string second = Path.Combine(FlashLfqData, "20100614_Velos1_TaGe_SA_K562_4.mzML");
 
-        string first = files[0].FilenameWithoutExtension, second = files[1].FilenameWithoutExtension;
-        var designs = new Dictionary<string, ObservationRun[]>
+        // FlashLFQ is given each design itself, as a pipeline gives it: which files are fractions of one sample decides
+        // which values it withholds as ambiguous (review round 3).
+        var designs = new Dictionary<string, SpectraFileInfo[]>
         {
-            ["two samples"] = ObservationRun.FromSampleInfos(files).ToArray(),
-            ["two fractions"] = new[] { new ObservationRun(first, "S", Fraction: 1), new ObservationRun(second, "S", Fraction: 2) },
-            ["two replicates"] = new[]
+            ["two samples"] = new SpectraFileInfo[] { new(first, "a", 0, 0, 0), new(second, "b", 0, 0, 0) },
+            ["two fractions"] = new SpectraFileInfo[] { new(first, "S", 0, 0, 0), new(second, "S", 0, 0, 1) },
+            ["two replicates"] = new SpectraFileInfo[] { new(first, "S", 0, 0, 0), new(second, "S", 0, 1, 0) },
+        };
+
+        foreach (var (design, files) in designs)
+        {
+            FlashLfqResults results = new FlashLfqEngine(K562Identifications(files.ToList()),
+                matchBetweenRuns: matchBetweenRuns, maxThreads: 1, silent: true).Run();
+            QuantifiedPeptideFile stored = WriteAndRead(results);
+            var groups = GroupsOf(results).ToList();
+            var runs = ObservationRun.FromSampleInfos(files);
+            Assert.That(results.PeptideModifiedSequences.Values.Any(p => p.ProteinGroups.Count > 1), "some peptides are shared");
+
+            foreach (QuantBasis basis in Enum.GetValues<QuantBasis>())
             {
-                new ObservationRun(first, "S", TechnicalReplicate: 1), new ObservationRun(second, "S", TechnicalReplicate: 2),
-            },
+                var inMemory = FlashLfqObservations.FromResults(results, runs, groups, basis);
+                var fromFile = FlashLfqObservations.FromPeptideTable(stored, runs, groups, basis);
+
+                Assert.That(inMemory.Peptides, Has.Count.EqualTo(results.PeptideModifiedSequences.Count), design);
+                Assert.That(inMemory.Observations().Count(o => !double.IsNaN(o.Log2Intensity)), Is.GreaterThan(0), design);
+                AssertSameTable(inMemory, fromFile);
+
+                if (matchBetweenRuns && basis == QuantBasis.MbrKept && design == "two samples")
+                    Assert.That(inMemory.Observations().Count(o => o.State == ObservationState.MbrTransferred && !double.IsNaN(o.Log2Intensity)),
+                        Is.GreaterThan(0), "the run transfers something, so parity covers transfers");
+            }
+
+            if (design == "two fractions")
+                Assert.That(results.PeptideModifiedSequences.Values.Count(p => files.Any(f =>
+                        p.GetDetectionType(f) is DetectionType.MSMS or DetectionType.MBR && p.GetIntensity(f) == 0)),
+                    Is.GreaterThan(0), "FlashLFQ zeroed a fraction, so parity covers the zeroed ambiguous peak");
+        }
+    }
+
+    private const string F1 = @"C:\data\F1.mzML", F2 = @"C:\data\F2.mzML";
+
+    /// <summary>Hand-set results with one peptide quantified by MS/MS in every file, under FlashLFQ's own design.</summary>
+    private static FlashLfqResults OnePeptideIn(params SpectraFileInfo[] files)
+    {
+        var group = new FlashLfqProteinGroup("P1", "", "");
+        var ids = files.Select(f => new FlashLfqIdentification(f, "PEPA", "PEPA", 800, 10, 2,
+            new List<FlashLfqProteinGroup> { group })).ToList();
+        var results = new FlashLfqResults(files.ToList(), ids);
+        results.CalculatePeptideResults(quantifyAmbiguousPeptides: false);
+        foreach (SpectraFileInfo file in files)
+        {
+            results.PeptideModifiedSequences["PEPA"].SetIntensity(file, 1000);
+            results.PeptideModifiedSequences["PEPA"].SetDetectionType(file, DetectionType.MSMS);
+        }
+        return results;
+    }
+
+    /// <summary>
+    /// Review round 3 (@pcruzparri): FlashLFQ withholds every fraction of a sample whose strongest fraction is ambiguous,
+    /// and takes which files are fractions of one sample from its own design. Built with a design that groups the files
+    /// otherwise, a partial sum became <c>Quantified</c> where FlashLFQ's rule gives no value. The in-memory results carry
+    /// FlashLFQ's design, so such a design is refused, in either direction and at either level, naming the files.
+    /// </summary>
+    [TestCase("fractions of one sample, quantified as two samples")]
+    [TestCase("two samples, quantified as fractions of one sample")]
+    [TestCase("replicates of one sample, quantified as fractions of one replicate")]
+    public void FromResultsRefusesADesignThatGroupsTheFilesOtherwiseThanFlashLfqDid(string mismatch)
+    {
+        var (flashLfq, runs) = mismatch switch
+        {
+            "fractions of one sample, quantified as two samples" => (
+                new[] { new SpectraFileInfo(F1, "a", 0, 0, 0), new SpectraFileInfo(F2, "b", 0, 0, 0) },
+                new[] { new ObservationRun("F1", "S", Fraction: 0), new ObservationRun("F2", "S", Fraction: 1) }),
+            "two samples, quantified as fractions of one sample" => (
+                new[] { new SpectraFileInfo(F1, "a", 0, 0, 0), new SpectraFileInfo(F2, "a", 0, 0, 1) },
+                new[] { new ObservationRun("F1", "S1"), new ObservationRun("F2", "S2") }),
+            _ => (
+                new[] { new SpectraFileInfo(F1, "a", 0, 0, 0), new SpectraFileInfo(F2, "a", 0, 0, 1) },
+                new[] { new ObservationRun("F1", "S", TechnicalReplicate: 0), new ObservationRun("F2", "S", TechnicalReplicate: 1) }),
+        };
+        var results = OnePeptideIn(flashLfq);
+
+        var ex = Assert.Throws<ArgumentException>(() =>
+            FlashLfqObservations.FromResults(results, runs, Array.Empty<ProteinGroupInfo>(), QuantBasis.MsmsOnly));
+        Assert.That(ex!.Message, Does.Contain("'F1'").And.Contain("'F2'"));
+    }
+
+    /// <summary>The same grouping under other names is taken: the design's sample names and fraction numbers are its own.</summary>
+    [Test]
+    public void FromResultsTakesFlashLfqsGroupingUnderOtherNames()
+    {
+        var files = new[]
+        {
+            new SpectraFileInfo(F1, "a", 0, 0, 0), new SpectraFileInfo(F2, "a", 0, 0, 1), new SpectraFileInfo(@"C:\data\F3.mzML", "b", 0, 0, 0),
+        };
+        var runs = new[]
+        {
+            new ObservationRun("F1", "X", Fraction: 1), new ObservationRun("F2", "X", Fraction: 2), new ObservationRun("F3", "Y"),
         };
 
-        foreach (var (design, runs) in designs)
-        foreach (QuantBasis basis in Enum.GetValues<QuantBasis>())
-        {
-            var inMemory = FlashLfqObservations.FromResults(results, runs, groups, basis);
-            var fromFile = FlashLfqObservations.FromPeptideTable(stored, runs, groups, basis);
+        var table = FlashLfqObservations.FromResults(OnePeptideIn(files), runs, Array.Empty<ProteinGroupInfo>(), QuantBasis.MsmsOnly);
 
-            Assert.That(inMemory.Peptides, Has.Count.EqualTo(results.PeptideModifiedSequences.Count), design);
-            Assert.That(inMemory.Observations().Count(o => !double.IsNaN(o.Log2Intensity)), Is.GreaterThan(0), design);
-            AssertSameTable(inMemory, fromFile);
-
-            if (matchBetweenRuns && basis == QuantBasis.MbrKept && design == "two samples")
-                Assert.That(inMemory.Observations().Count(o => o.State == ObservationState.MbrTransferred && !double.IsNaN(o.Log2Intensity)),
-                    Is.GreaterThan(0), "the run transfers something, so parity covers transfers");
-        }
+        Assert.That(table.Samples, Is.EqualTo(new[] { "X", "Y" }));
+        Assert.That(table.Log2Intensity(0, 0), Is.EqualTo(Math.Log2(2000)), "the two fractions summed");
     }
 
     /// <summary>
@@ -243,6 +314,46 @@ public class FlashLfqObservationsTests
         var ex = Assert.Throws<ArgumentException>(() => FlashLfqObservations.FromPeptideTable(table,
             new[] { new ObservationRun("f1", "S1") }, Array.Empty<ProteinGroupInfo>(), QuantBasis.MsmsOnly));
         Assert.That(ex!.Message, Does.Contain("PEPA").And.Contain("f1"));
+    }
+
+    /// <summary>
+    /// Review round 3 (@nbollis): <see cref="ObservationState"/> is separate from FlashLFQ's <see cref="DetectionType"/>,
+    /// and this keeps the two from drifting. Every detection type is mapped to its state or refused; a type FlashLFQ gains
+    /// fails here until the adapter decides what it is.
+    /// </summary>
+    [Test]
+    public void EveryFlashLfqDetectionTypeIsMappedOrRefused()
+    {
+        var mapped = new Dictionary<DetectionType, (double Intensity, ObservationState State)>
+        {
+            [DetectionType.MSMS] = (100, ObservationState.Quantified),
+            [DetectionType.MBR] = (100, ObservationState.MbrTransferred),
+            [DetectionType.MSMSAmbiguousPeakfinding] = (100, ObservationState.AmbiguousPeak),
+            [DetectionType.MSMSIdentifiedButNotQuantified] = (0, ObservationState.IdentifiedNotQuantified),
+            [DetectionType.NotDetected] = (0, ObservationState.NotDetected),
+        };
+        var refused = new[] { DetectionType.IsoTrack_MSMS, DetectionType.IsoTrack_MBR, DetectionType.IsoTrack_Ambiguous };
+        Assert.That(mapped.Keys.Concat(refused), Is.EquivalentTo(Enum.GetValues<DetectionType>()),
+            "a detection type this test does not list");
+
+        var runs = new[] { new ObservationRun("f1", "S1") };
+        foreach (DetectionType type in Enum.GetValues<DetectionType>())
+        {
+            double intensity = mapped.TryGetValue(type, out var expected) ? expected.Intensity : 100;
+            var table = Table("Sequence\tBase Sequence\tProtein Groups\tGene Names\tOrganism\tIntensity_f1\tDetection Type_f1",
+                $"PEPA\tPEPA\tP1\t\t\t{intensity}\t{type}");
+
+            if (refused.Contains(type))
+            {
+                Assert.Throws<ArgumentException>(() => FlashLfqObservations.FromPeptideTable(table, runs,
+                    Array.Empty<ProteinGroupInfo>(), QuantBasis.MbrKept), type.ToString());
+                continue;
+            }
+
+            var cell = FlashLfqObservations.FromPeptideTable(table, runs, Array.Empty<ProteinGroupInfo>(), QuantBasis.MbrKept)
+                .Observations().Single();
+            Assert.That(cell.State, Is.EqualTo(expected.State), type.ToString());
+        }
     }
 
     [Test]

@@ -33,6 +33,23 @@ public static class QuantBasisNames
 /// without a value still says why: states are never collapsed. Declared from most to least informative; a sample with
 /// no value takes the most informative state among its runs.
 /// </summary>
+/// <remarks>
+/// <para>FlashLFQ's detection types (<c>FlashLFQ.DetectionType</c>) map onto these in its adapter, <c>FlashLfqObservations</c>:</para>
+/// <list type="table">
+/// <listheader><term>FlashLFQ</term><description>State</description></listheader>
+/// <item><term><c>MSMS</c>, intensity above 0</term><description><see cref="Quantified"/></description></item>
+/// <item><term><c>MBR</c>, intensity above 0</term><description><see cref="MbrTransferred"/></description></item>
+/// <item><term><c>MSMSAmbiguousPeakfinding</c>; <c>MSMS</c> or <c>MBR</c> written with 0</term><description><see cref="AmbiguousPeak"/></description></item>
+/// <item><term><c>MSMSIdentifiedButNotQuantified</c></term><description><see cref="IdentifiedNotQuantified"/></description></item>
+/// <item><term><c>NotDetected</c></term><description><see cref="NotDetected"/></description></item>
+/// <item><term><c>IsoTrack_MSMS</c>, <c>IsoTrack_MBR</c>, <c>IsoTrack_Ambiguous</c></term><description>refused</description></item>
+/// </list>
+/// <para>
+/// It is a type of its own because Quantification cannot reference FlashLFQ (FlashLFQ references Quantification), because
+/// a detection type alone does not say whether there is a value (FlashLFQ zeroes an ambiguous fraction and keeps its
+/// type), and because this declaration order is used. A test fails if FlashLFQ gains a type the adapter does not map.
+/// </para>
+/// </remarks>
 public enum ObservationState
 {
     /// <summary>A value from MS/MS-identified peaks only.</summary>
@@ -290,6 +307,58 @@ public sealed class ObservationTable
             Enumerable.Range(0, Peptides.Count)
                 .Select(p => Enumerable.Range(0, Samples.Count).Select(s => log2(p, s)).ToArray()).ToArray(),
             _state, Warnings);
+
+    /// <summary>
+    /// Builds the table from a producer that quantified with a design of its own, and checks that
+    /// <paramref name="runs"/> groups the files as it did. A producer's values can depend on that grouping: FlashLFQ
+    /// withholds every fraction of a sample whose strongest fraction is ambiguous, and takes which files are fractions of
+    /// one sample from its own design. Names and fraction numbers may differ; the grouping may not.
+    /// </summary>
+    /// <param name="runs">The experimental design's runs.</param>
+    /// <param name="producerRuns">
+    /// The producer's own runs (e.g. <see cref="ObservationRun.FromSampleInfos"/> of FlashLFQ's files): each file name is
+    /// the label the producer wrote, and its samples and technical replicates are the ones it quantified with.
+    /// </param>
+    /// <param name="peptides">Each peptide's values per run.</param>
+    /// <param name="proteinGroups">The producer's protein groups.</param>
+    /// <param name="basis">Which match-between-runs values enter.</param>
+    /// <exception cref="ArgumentException">
+    /// What the other <c>Build</c> refuses, or two files that the design puts in one sample or technical replicate and the
+    /// producer did not, or the reverse (naming both files).
+    /// </exception>
+    public static ObservationTable Build(IEnumerable<ObservationRun> runs, IReadOnlyList<ObservationRun> producerRuns,
+        IEnumerable<PeptideRunValues> peptides, IEnumerable<ProteinGroupInfo> proteinGroups, QuantBasis basis)
+    {
+        ArgumentNullException.ThrowIfNull(producerRuns);
+        var labels = producerRuns.Select(r => r.FileName).ToList();
+        var table = Build(runs, labels, peptides, proteinGroups, basis);
+
+        var labelToRun = MatchLabels(table.Runs, labels);
+        var designRun = table.Runs.ToDictionary(r => r.FileName, StringComparer.Ordinal);
+        var pairs = producerRuns.Select(p => (Producer: p, Design: designRun[labelToRun[p.FileName]])).ToList();
+        CheckSameGrouping(pairs, "sample", r => (r.SampleId, 0));
+        CheckSameGrouping(pairs, "technical replicate", r => (r.SampleId, r.TechnicalReplicate));
+        return table;
+    }
+
+    /// <summary>Refuses two files that the design and the producer group differently at one level.</summary>
+    private static void CheckSameGrouping(List<(ObservationRun Producer, ObservationRun Design)> pairs, string level,
+        Func<ObservationRun, (string, int)> key)
+    {
+        for (int i = 0; i < pairs.Count; i++)
+        for (int j = i + 1; j < pairs.Count; j++)
+        {
+            bool design = key(pairs[i].Design) == key(pairs[j].Design);
+            if (design == (key(pairs[i].Producer) == key(pairs[j].Producer)))
+                continue;
+
+            throw new ArgumentException(
+                $"The experimental design puts '{pairs[i].Design.FileName}' and '{pairs[j].Design.FileName}' in " +
+                (design ? $"one {level}, but the producer quantified them as different {level}s"
+                    : $"different {level}s, but the producer quantified them as one {level}") +
+                "; build the table with the design the producer quantified with.", "runs");
+        }
+    }
 
     /// <summary>
     /// Builds the table from a producer's per-run values.

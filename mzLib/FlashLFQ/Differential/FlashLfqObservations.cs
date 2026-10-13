@@ -33,12 +33,17 @@ namespace FlashLFQ
     {
         /// <summary>The table from in-memory FlashLFQ results.</summary>
         /// <param name="results">FlashLFQ's results, after peptide quantification.</param>
-        /// <param name="runs">The experimental design's runs; each matches one of <see cref="FlashLfqResults.SpectraFiles"/> by file name.</param>
+        /// <param name="runs">
+        /// The experimental design's runs; each matches one of <see cref="FlashLfqResults.SpectraFiles"/> by file name. They
+        /// must group the files into samples and technical replicates as FlashLFQ's own design did (names and fraction
+        /// numbers may differ): FlashLFQ withholds every fraction of a sample whose strongest fraction is ambiguous, and
+        /// takes the fractions from its design. The results carry that design, so a different grouping is refused.
+        /// </param>
         /// <param name="proteinGroups">The producer's protein groups (MetaMorpheus's, with q-values and flags).</param>
         /// <param name="basis">Which match-between-runs values enter.</param>
         /// <exception cref="ArgumentException">
-        /// IsoTracker results, a negative or non-finite intensity (naming the peptide and file), or input
-        /// <see cref="ObservationTable.Build"/> refuses.
+        /// IsoTracker results, a negative or non-finite intensity (naming the peptide and file), runs grouped otherwise than
+        /// FlashLFQ's design (naming two files), or input <c>ObservationTable.Build</c> refuses.
         /// </exception>
         public static ObservationTable FromResults(FlashLfqResults results, IEnumerable<ObservationRun> runs,
             IEnumerable<ProteinGroupInfo> proteinGroups, QuantBasis basis)
@@ -61,20 +66,25 @@ namespace FlashLFQ
                 peptides.Add(new PeptideRunValues(peptide.Sequence, peptide.BaseSequence, groups, byRun));
             }
 
-            var labels = new List<string>();
-            foreach (SpectraFileInfoLabel file in Labels(results))
-                labels.Add(file.Label);
-            return ObservationTable.Build(runs, labels, peptides, proteinGroups, basis);
+            // FlashLFQ's own design, labelled as it labels its columns, so the runs are checked against it.
+            return ObservationTable.Build(runs, ObservationRun.FromSampleInfos(results.SpectraFiles), peptides,
+                proteinGroups, basis);
         }
 
         /// <summary>The table from a stored peptide table (<c>AllQuantifiedPeptides.tsv</c>).</summary>
         /// <param name="peptideTable">The peptide table.</param>
-        /// <param name="runs">The experimental design's runs; each matches one of the table's columns by file name.</param>
+        /// <param name="runs">
+        /// The experimental design's runs; each matches one of the table's columns by file name. They must group the files
+        /// into samples and technical replicates as the design FlashLFQ quantified with did: FlashLFQ withholds every
+        /// fraction of a sample whose strongest fraction is ambiguous, and takes the fractions from its design. The table
+        /// does not record that design, so this is not checked here; a different grouping can turn a value FlashLFQ
+        /// withheld into a partial sum.
+        /// </param>
         /// <param name="proteinGroups">The producer's protein groups, e.g. from <see cref="ReadProteinGroups"/>.</param>
         /// <param name="basis">Which match-between-runs values enter.</param>
         /// <exception cref="ArgumentException">
         /// IsoTracker output, a blank, negative or non-finite intensity or an unreadable detection type (naming the peptide
-        /// and column), or input <see cref="ObservationTable.Build"/> refuses.
+        /// and column), or input <c>ObservationTable.Build</c> refuses.
         /// </exception>
         public static ObservationTable FromPeptideTable(QuantifiedPeptideFile peptideTable, IEnumerable<ObservationRun> runs,
             IEnumerable<ProteinGroupInfo> proteinGroups, QuantBasis basis)
@@ -156,7 +166,7 @@ namespace FlashLFQ
                     return new RunValue(0, ObservationState.NotDetected);
                 default:
                     throw new ArgumentException(
-                        $"Peptide '{sequence}' in '{label}' has detection type {detectionType}, which is IsoTracker's and not supported.");
+                        $"Peptide '{sequence}' in '{label}' has detection type {detectionType}, which this adapter does not map: IsoTracker's types are not supported.");
             }
         }
 
