@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using MathNet.Numerics.LinearAlgebra;
 using MathNet.Numerics.LinearAlgebra.Factorization;
 using MathNet.Numerics.Optimization;
+using MathNet.Numerics.Statistics;
 
 namespace StatisticalModels
 {
@@ -496,7 +497,7 @@ namespace StatisticalModels
                     {
                         iteration++;
                         var residual = Residuals(best);
-                        double mad = 1.4826 * Median(residual.Select(Math.Abs));
+                        double mad = 1.4826 * residual.Select(Math.Abs).Median();
                         for (int i = 0; i < _m; i++)
                         {
                             double scaled = mad > 0 ? Math.Abs(residual[i] / mad) : 0;
@@ -598,12 +599,6 @@ namespace StatisticalModels
                     residual[i] = ri;
                 }
                 return residual;
-            }
-
-            private static double Median(IEnumerable<double> values)
-            {
-                var v = values.OrderBy(z => z).ToArray();
-                return v.Length % 2 == 1 ? v[v.Length / 2] : 0.5 * (v[v.Length / 2 - 1] + v[v.Length / 2]);
             }
 
             private Result Evaluate(double[] theta)
