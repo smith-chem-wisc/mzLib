@@ -193,6 +193,28 @@ public class StatisticalReportTests
             Assert.That(methods, Does.Contain(phrase), phrase);
     }
 
+    /// <summary>The half-set fallback says what was done: the set, why, and that the shifts were settled (mzLib #1455 review round 3).</summary>
+    [Test]
+    public void TheMethodsDescribeTheHalfSetFallback()
+    {
+        var m = Metadata();
+        m = m with
+        {
+            Normalization = new[]
+            {
+                m.Normalization[0] with { Setting = "shared_peptide_median_half", ReferenceSetSize = 64 },
+                m.Normalization[1],
+            },
+        };
+
+        var methods = Section(Build(m).Markdown, "## 1. Methods");
+
+        Assert.That(methods, Does.Contain("over the 64 peptides with a value in at least half the samples that have values, " +
+            "because fewer than 100 had a value in every one; the differences were measured again on the shifted values until " +
+            "the shifts stopped changing, and the shifts were centred to average 0."));
+        Assert.That(methods, Does.Contain("over the 790 peptides with a value in every sample that has values"));
+    }
+
     [Test]
     public void TheDesignGivesNPerGroupReplicatesAndEveryComparison()
     {

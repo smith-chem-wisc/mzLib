@@ -8,7 +8,7 @@ Analysis `adc8979a883969aa` (`DEF-DIFF v1`). Generated from `DifferentialResults
 
 **Inputs.** observation_table `observations.tsv` (sha256 `1111111111111111...`); design `design.tsv` (sha256 `2222222222222222...`).
 
-**Transformation and normalization.** All quantities were analysed on the log2 scale. Stratum `all`, basis `mbr_kept`: each sample was shifted by its median log2 difference from the across-sample reference, over the 812 peptides with a value in every sample (at least 100 required). Stratum `all`, basis `msms_only`: each sample was shifted by its median log2 difference from the across-sample reference, over the 790 peptides with a value in every sample (at least 100 required). The per-sample shifts are in the metadata file.
+**Transformation and normalization.** All quantities were analysed on the log2 scale. Stratum `all`, basis `mbr_kept`: each sample was shifted by its median log2 difference from the across-sample reference, over the 812 peptides with a value in every sample that has values (at least 100 required). Stratum `all`, basis `msms_only`: each sample was shifted by its median log2 difference from the across-sample reference, over the 790 peptides with a value in every sample that has values (at least 100 required). The per-sample shifts are in the metadata file.
 
 **Missing values.** Missing values were not imputed: each model was fitted on the observed values only. A missing value is an empty cell in the results file, never 0.
 

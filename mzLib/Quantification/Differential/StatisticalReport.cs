@@ -211,10 +211,12 @@ public static class StatisticalReportWriter
     {
         "shared_peptide_median" =>
             $"each sample was shifted by its median log2 difference from the across-sample reference, over the {Int(n.ReferenceSetSize)} " +
-            $"peptides with a value in every sample (at least {Int(n.MinimumReferenceSetSize)} required).",
+            $"peptides with a value in every sample that has values (at least {Int(n.MinimumReferenceSetSize)} required).",
         "shared_peptide_median_half" =>
             $"each sample was shifted by its median log2 difference from the across-sample reference, over the {Int(n.ReferenceSetSize)} " +
-            $"peptides with a value in at least half the samples, because fewer than {Int(n.MinimumReferenceSetSize)} had a value in every sample.",
+            $"peptides with a value in at least half the samples that have values, because fewer than {Int(n.MinimumReferenceSetSize)} " +
+            "had a value in every one; the differences were measured again on the shifted values until the shifts stopped changing, " +
+            "and the shifts were centred to average 0.",
         "none" => "not normalized.",
         _ when n.Setting.StartsWith("background_set:", StringComparison.Ordinal) =>
             $"each sample was shifted on the declared background set `{n.Setting["background_set:".Length..]}` ({Int(n.ReferenceSetSize)} peptides).",
