@@ -57,6 +57,7 @@ namespace StatisticalModels
             ObservedValues = new int[features];
             AverageResponseValues = Enumerable.Repeat(double.NaN, features).ToArray();
             StatusValues = new FeatureFitStatus[features];
+            UnscaledCovarianceValues = Enumerable.Repeat(double.NaN, features * PackedLength(p)).ToArray();
         }
 
         internal double[,] CoefficientMatrix { get; }
@@ -98,6 +99,73 @@ namespace StatisticalModels
         /// <summary>Whether each feature was fitted, and if not, why.</summary>
         public IReadOnlyList<FeatureFitStatus> Status => StatusValues;
 
+        /// <summary>
+        /// Element (i, j) of (XᵀX)⁻¹ for the feature's observed samples: the covariance of coefficients i and j divided
+        /// by the residual variance. Symmetric; its diagonal is <see cref="StdevUnscaled"/> squared. NaN for a feature
+        /// that was not fitted.
+        /// </summary>
+        public double UnscaledCovariance(int feature, int i, int j)
+        {
+            int p = CoefficientNames.Count;
+            if ((uint)i >= (uint)p) throw new ArgumentOutOfRangeException(nameof(i));
+            if ((uint)j >= (uint)p) throw new ArgumentOutOfRangeException(nameof(j));
+            return UnscaledCovarianceValues[feature * PackedLength(p) + PackedIndex(Math.Min(i, j), Math.Max(i, j), p)];
+        }
+
+        /// <summary>The contrast's estimate c′β for <paramref name="feature"/>; NaN for a feature that was not fitted.</summary>
+        /// <param name="feature">The feature (row of the response matrix).</param>
+        /// <param name="contrast">One finite weight per coefficient, in <see cref="CoefficientNames"/> order.</param>
+        public double ContrastEstimate(int feature, IReadOnlyList<double> contrast)
+        {
+            CheckContrast(contrast);
+            double e = 0;
+            for (int j = 0; j < contrast.Count; j++)
+                if (contrast[j] != 0) e += contrast[j] * CoefficientMatrix[feature, j];
+            return e;
+        }
+
+        /// <summary>
+        /// sqrt(c′ (XᵀX)⁻¹ c) for the feature's observed samples: the contrast's standard error divided by the residual
+        /// standard deviation, computed exactly per feature, so a feature with missing samples gets its own value.
+        /// (limma's <c>contrasts.fit</c> approximates this when missing values change how a feature's coefficients
+        /// correlate.) NaN for a feature that was not fitted.
+        /// </summary>
+        /// <param name="feature">The feature (row of the response matrix).</param>
+        /// <param name="contrast">One finite weight per coefficient, in <see cref="CoefficientNames"/> order.</param>
+        public double ContrastStdevUnscaled(int feature, IReadOnlyList<double> contrast)
+        {
+            CheckContrast(contrast);
+            int p = contrast.Count, offset = feature * PackedLength(p);
+            double q = 0;
+            for (int i = 0; i < p; i++)
+            {
+                if (contrast[i] == 0) continue;
+                q += contrast[i] * contrast[i] * UnscaledCovarianceValues[offset + PackedIndex(i, i, p)];
+                for (int j = i + 1; j < p; j++)
+                    if (contrast[j] != 0) q += 2 * contrast[i] * contrast[j] * UnscaledCovarianceValues[offset + PackedIndex(i, j, p)];
+            }
+            return Math.Sqrt(q);
+        }
+
+        /// <summary>(XᵀX)⁻¹ per feature, upper triangle row by row (see <see cref="PackedIndex"/>); NaN when not fitted.</summary>
+        internal double[] UnscaledCovarianceValues { get; }
+
+        internal static int PackedLength(int p) => p * (p + 1) / 2;
+
+        /// <summary>Position of element (i, j), i ≤ j, in a row-by-row packed upper triangle of a p × p matrix.</summary>
+        internal static int PackedIndex(int i, int j, int p) => i * p - i * (i - 1) / 2 + (j - i);
+
+        private void CheckContrast(IReadOnlyList<double> contrast)
+        {
+            ArgumentNullException.ThrowIfNull(contrast);
+            if (contrast.Count != CoefficientNames.Count)
+                throw new ArgumentException(
+                    $"The contrast has {contrast.Count} weights but the design has {CoefficientNames.Count} coefficients " +
+                    $"({string.Join(", ", CoefficientNames)}).", nameof(contrast));
+            for (int j = 0; j < contrast.Count; j++)
+                if (!double.IsFinite(contrast[j]))
+                    throw new ArgumentException($"The contrast weight on '{CoefficientNames[j]}' is not finite.", nameof(contrast));
+        }
         /// <summary>Index of a coefficient by name, or an exception naming the ones that exist.</summary>
         public int IndexOf(string coefficientName)
         {
@@ -227,6 +295,15 @@ namespace StatisticalModels
                 double d = 0;
                 for (int k = 0; k < p; k++) d += rInv[j, k] * rInv[j, k];
                 fit.StdevUnscaledMatrix[f, j] = Math.Sqrt(d);
+                // The rest of row j of (XᵀX)⁻¹, kept so any contrast's unscaled SD is exact for this feature.
+                int offset = f * LinearModelFit.PackedLength(p);
+                fit.UnscaledCovarianceValues[offset + LinearModelFit.PackedIndex(j, j, p)] = d;
+                for (int i = j + 1; i < p; i++)
+                {
+                    double c = 0;
+                    for (int k = 0; k < p; k++) c += rInv[j, k] * rInv[i, k];
+                    fit.UnscaledCovarianceValues[offset + LinearModelFit.PackedIndex(j, i, p)] = c;
+                }
             }
             fit.SigmaValues[f] = Math.Sqrt(residual.DotProduct(residual) / df);
             fit.DfResidualValues[f] = df;

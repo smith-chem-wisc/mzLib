@@ -976,7 +976,7 @@ namespace Readers.SpectralLibrary
                         $"C-terminal ResiduePosition values may be inaccurate.");
                 }
                 product = new Product(peakProductType, terminus, experMz.ToMass(fragmentCharge), fragmentNumber,
-                    residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber,
+                    residuePosition: terminus == FragmentationTerminus.N ? fragmentNumber : peptideLength - fragmentNumber + 1,
                     neutralLoss);
             }
 

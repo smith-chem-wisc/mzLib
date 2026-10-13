@@ -10,7 +10,14 @@ namespace Omics.Fragmentation
         public double NeutralLoss { get; }
         public FragmentationTerminus Terminus { get; }
         public int FragmentNumber { get; }
+        /// <summary>
+        /// For terminal ions, the one-based sequence position of the residue in the fragment adjacent to the cleavage,
+        /// counted from the N-terminus (peptides) or 5' terminus (oligonucleotides). For N/5' ions this equals
+        /// <see cref="FragmentNumber"/>; for C/3' ions it is sequence length - <see cref="FragmentNumber"/> + 1.
+        /// </summary>
         public int ResiduePosition { get; }
+
+        /// <summary>Alias for <see cref="ResiduePosition"/>.</summary>
         public int AminoAcidPosition => ResiduePosition;
         public ProductType? SecondaryProductType { get; } //used for internal fragment ions
         public int SecondaryFragmentNumber { get; } //used for internal fragment ions

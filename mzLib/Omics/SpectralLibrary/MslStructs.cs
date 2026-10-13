@@ -130,7 +130,9 @@ public struct MslFileHeader
 	/// Offset 28, 4 bytes. Absolute byte offset of the extended annotation table section.
 	/// 0 when <c>MslFormat.FileFlagHasExtAnnotations</c> is not set (section absent).
 	/// When the flag is set, this field holds the offset at which the extended annotation
-	/// table begins; readers must seek here to read custom neutral-loss masses.
+	/// table begins, or 0 when that offset does not fit in an int32 (files over 2 GB).
+	/// Current readers do not rely on it: the table always follows the fragment section and
+	/// ends where the offset table begins, so they locate it from that layout.
 	///
 	/// Formerly the <c>Reserved</c> field in format version 1 (always written as 0).
 	/// Repurposed in format version 2. Version-1 readers see this field as Reserved=0
@@ -342,8 +344,9 @@ public struct MslPrecursorRecord
 
 	/// <summary>
 	/// Offset 54, 1 byte. Bitfield of precursor-level Boolean properties.
-	/// bit 0: is_decoy; bit 1: is_proteotypic; bit 2: rt_is_calibrated; bits 3–7: reserved.
-	/// Use MslFormat.EncodePrecursorFlags / DecodePrecursorFlags to read or write this field.
+	/// bit 0: is_decoy; bit 1: is_proteotypic; bit 2: rt_is_calibrated (0 = iRT, 1 = run RT in minutes);
+	/// bit 3: is_entrapment; bits 4–7: reserved.
+	/// Use MslFormat.EncodePrecursorFlags / DecodePrecursorFlags / DecodeIsEntrapment to read or write this field.
 	/// </summary>
 	public byte PrecursorFlags;
 

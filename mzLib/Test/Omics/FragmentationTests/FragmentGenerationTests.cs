@@ -183,6 +183,9 @@ namespace Test.Omics.FragmentationTests
             var cTerminalMassesLabels = theseTheoreticalFragments.Where(f => f.Terminus == FragmentationTerminus.C).Select(f => f.ToString()).ToList();
             HashSet<string> expectedCTerminalMassesLabels = new HashSet<string> { "y1;119.05824-0", "y2;248.10084-0" };
             CollectionAssert.AreEquivalent(expectedCTerminalMassesLabels, cTerminalMassesLabels);
+
+            Assert.That(nTerminalMasses.Single(p => p.ProductType == ProductType.b && p.FragmentNumber == 2).ResiduePosition, Is.EqualTo(2));
+            Assert.That(cTerminalMasses.Single(p => p.ProductType == ProductType.y && p.FragmentNumber == 2).ResiduePosition, Is.EqualTo(2));
         }
 
         [Test]

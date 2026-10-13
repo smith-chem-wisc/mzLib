@@ -24,6 +24,43 @@ public class UnimodModificationLookup : ModificationLookupBase
     /// <inheritdoc />
     public override string Name => "UNIMOD";
 
+    /// <summary>
+    /// Adds one step to the base precedence: when the mzLib id names nothing among the Unimod entries
+    /// (a UniProt or MetaMorpheus modification, say), the Unimod id the source modification names for
+    /// itself, from its "Unimod" database reference or "UNIMOD:n" accession, picks the candidates.
+    /// Without it the formula fallback picks any entry sharing the formula: Ethyl (UNIMOD:280) for
+    /// N6,N6-dimethyllysine, whose reference is Dimethyl (UNIMOD:36).
+    /// The reference only chooses among entries with the source's formula, so it never changes the
+    /// mass: N,N-dimethylproline (C2H4) references Delta:H(5)C(2) (C2H5) and keeps the formula path.
+    /// It also keeps only entries that can sit where the source sits (the source's residue or X, and a
+    /// location restriction that allows its position), so it never moves the modification to another
+    /// residue or to a terminus: Deamidation on a protein's first N stays Deamidated on N, not
+    /// Deamidated on F [N-terminal.]. When no entry is left, the formula path answers as before.
+    /// </summary>
+    protected override IEnumerable<Modification> GetPrimaryCandidates(CanonicalModification mod)
+    {
+        var primary = base.GetPrimaryCandidates(mod).ToList();
+        if (primary.Count > 0)
+        {
+            return primary;
+        }
+
+        var unimodId = mod.UnimodId ?? CanonicalModification.GetUnimodId(mod.MzLibModification);
+        if (!unimodId.HasValue)
+        {
+            return [];
+        }
+
+        var byUnimodId = FilterByUnimodId(CandidateSet, unimodId.Value);
+        var formula = mod.ChemicalFormula ?? mod.MzLibModification?.ChemicalFormula;
+        var candidates = formula == null ? byUnimodId : FilterByFormula(byUnimodId, formula);
+        return candidates
+            .Where(m => !mod.TargetResidue.HasValue ||
+                        m.Target?.Motif == mod.TargetResidue.Value.ToString() || m.Target?.Motif == "X")
+            .Where(m => MatchesTermRestriction(m.LocationRestriction, mod.PositionType))
+            .ToList();
+    }
+
     protected override string NormalizeRepresentation(string representation)
     {
         var normalized = base.NormalizeRepresentation(representation);

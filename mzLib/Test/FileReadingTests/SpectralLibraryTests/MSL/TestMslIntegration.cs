@@ -406,6 +406,11 @@ public sealed class TestMslIntegration
 		Assert.That(ion.NeutralTheoreticalProduct.ProductType, Is.EqualTo(ProductType.b));
 		Assert.That(ion.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(5));
 		Assert.That(ion.NeutralTheoreticalProduct.Terminus, Is.EqualTo(FragmentationTerminus.N));
+
+		MatchedFragmentIon cTerminalIon = SpectralLibraryClass.ReadFragmentIon(
+			"200.0\t0.9\t\"y2^1/0ppm\"", FragSplit, NeutralLossSplit, peptideSequence: "PEPTIDE");
+		Assert.That(cTerminalIon.NeutralTheoreticalProduct.FragmentNumber, Is.EqualTo(2));
+		Assert.That(cTerminalIon.NeutralTheoreticalProduct.ResiduePosition, Is.EqualTo(6));
 	}
 
 	/// <summary>

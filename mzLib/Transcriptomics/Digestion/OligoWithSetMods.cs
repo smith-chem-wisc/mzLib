@@ -327,14 +327,15 @@ namespace Transcriptomics.Digestion
                 // 0-based array index of nucleotide being added
                 int nucleicAcidIndex = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber - 1;
 
-                // 1-based sequence position (fragment boundary)
-                int residuePosition = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber;
+                // Position of the cleavage boundary counted from the 5' end.
+                int fragmentBoundaryPosition = isThreePrimeTerminal ? BaseSequence.Length - fragmentNumber : fragmentNumber;
+                int residuePosition = isThreePrimeTerminal ? fragmentBoundaryPosition + 1 : fragmentBoundaryPosition;
 
                 // Mod at side chain being added. 2-based index for modifications on the current residue in the AllModsOneIsNterminus dictionary. 
                 int sideChainModIndex = nucleicAcidIndex + 2;
 
                 // Mod at the phosphate linkage after (5') or before (3') the current residue being added.
-                int phosphateModIndex = residuePosition + 1;
+                int phosphateModIndex = fragmentBoundaryPosition + 1;
 
                 //For a2(5' fragment containing A-U):
                 //    •	fragmentNumber = 2
