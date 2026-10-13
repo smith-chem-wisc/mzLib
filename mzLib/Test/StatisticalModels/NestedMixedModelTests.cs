@@ -18,7 +18,7 @@ public class NestedMixedModelTests
     private static readonly string[] Names = { "intercept", "x" };
 
     /// <summary>Two peptides in 8 samples, x = 0/1 by sample; deterministic values with sample-level offsets.</summary>
-    private static MixedModelProblem Problem(string?[]? individualOfSample = null, int peptides = 2)
+    private static NestedMixedModelProblem Problem(string?[]? individualOfSample = null, int peptides = 2)
     {
         int s = 8, n = s * peptides;
         var y = new double[n];
@@ -39,7 +39,7 @@ public class NestedMixedModelTests
                 if (individual is not null) individual[i] = individualOfSample![j];
                 y[i] = 20 + 0.5 * (j % 2) + 0.4 * k + offset[j] + noise[i % noise.Length];
             }
-        return new MixedModelProblem(y, common, nuisance, sample, individual);
+        return new NestedMixedModelProblem(y, common, nuisance, sample, individual);
     }
 
     [Test]
@@ -97,11 +97,11 @@ public class NestedMixedModelTests
     [Test]
     public void MisuseThrows()
     {
-        Assert.Throws<ArgumentException>(() => new MixedModelProblem(new double[3], new double[2, 2], null, new[] { "a", "b", "c" }, null),
+        Assert.Throws<ArgumentException>(() => new NestedMixedModelProblem(new double[3], new double[2, 2], null, new[] { "a", "b", "c" }, null),
             "design rows differ from responses");
-        Assert.Throws<ArgumentException>(() => new MixedModelProblem(new double[2], new double[2, 2], null, new[] { "a" }, null),
+        Assert.Throws<ArgumentException>(() => new NestedMixedModelProblem(new double[2], new double[2, 2], null, new[] { "a" }, null),
             "sample labels differ from responses");
-        Assert.Throws<ArgumentException>(() => new MixedModelProblem(new double[2], new double[,] { { 1, double.NaN }, { 1, 0 } }, null,
+        Assert.Throws<ArgumentException>(() => new NestedMixedModelProblem(new double[2], new double[,] { { 1, double.NaN }, { 1, 0 } }, null,
             new[] { "a", "b" }, null), "non-finite design");
         Assert.Throws<ArgumentException>(() => NestedMixedModel.Fit(new[] { Problem() }, new[] { "intercept" }), "names vs columns");
         var fit = NestedMixedModel.Fit(new[] { Problem(), Problem() }, Names);

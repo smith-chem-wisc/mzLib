@@ -101,12 +101,12 @@ public class ReferenceComparisonNestedLmmTests
     }
 }
 
-/// <summary>Reads the nested-LMM fixtures into <see cref="MixedModelProblem"/>s, building peptide columns as R did.</summary>
+/// <summary>Reads the nested-LMM fixtures into <see cref="NestedMixedModelProblem"/>s, building peptide columns as R did.</summary>
 [ExcludeFromCodeCoverage]
 internal sealed class LmmData
 {
     public List<string> Proteins { get; } = new();
-    public List<MixedModelProblem> Problems { get; } = new();
+    public List<NestedMixedModelProblem> Problems { get; } = new();
     public List<string> CommonNames { get; } = new();
     public List<ContrastWeights> Contrasts { get; } = new();
     public List<IReadOnlyList<double>> ConditionRows { get; } = new();
@@ -145,7 +145,7 @@ internal sealed class LmmData
                 individual[i] = s["individual"] is "NA" or "" ? null : s["individual"];
             }
             d.Proteins.Add(protein.Key);
-            d.Problems.Add(new MixedModelProblem(y, common, peptides.Count > 1 ? nuisance : null, sample,
+            d.Problems.Add(new NestedMixedModelProblem(y, common, peptides.Count > 1 ? nuisance : null, sample,
                 individual.All(x => x is null) ? null : individual));
         }
         return d;

@@ -31,14 +31,14 @@ namespace StatisticalModels
     /// peptides, treatment-coded), and the sample and individual each observation came from. The arrays are held, not
     /// copied.
     /// </summary>
-    public sealed class MixedModelProblem
+    public sealed class NestedMixedModelProblem
     {
         /// <param name="response">One value per observation. A non-finite value is missing and omitted.</param>
         /// <param name="common">[observation, column] in the order of the fit's common names; finite.</param>
         /// <param name="nuisance">[observation, column] fitted but not reported (e.g. peptide effects); finite; or null.</param>
         /// <param name="sample">The sample of each observation; non-empty.</param>
         /// <param name="individual">The individual of each observation, all non-empty; or null when none is known.</param>
-        public MixedModelProblem(IReadOnlyList<double> response, double[,] common, double[,]? nuisance,
+        public NestedMixedModelProblem(IReadOnlyList<double> response, double[,] common, double[,]? nuisance,
             IReadOnlyList<string> sample, IReadOnlyList<string?>? individual)
         {
             ArgumentNullException.ThrowIfNull(response);
@@ -281,7 +281,7 @@ namespace StatisticalModels
         /// <param name="problems">One per feature.</param>
         /// <param name="commonNames">One name per common design column; every problem has these columns.</param>
         /// <param name="maxThreads">As <see cref="LinearModel.Fit"/>: -1 uses all cores but one. Results are identical for every value.</param>
-        public static NestedMixedModelFit Fit(IReadOnlyList<MixedModelProblem> problems, IReadOnlyList<string> commonNames,
+        public static NestedMixedModelFit Fit(IReadOnlyList<NestedMixedModelProblem> problems, IReadOnlyList<string> commonNames,
             int maxThreads = -1)
         {
             ArgumentNullException.ThrowIfNull(problems);
@@ -406,7 +406,7 @@ namespace StatisticalModels
         /// <summary>One feature's fit: data reduced to cross-products, the REML criterion, its optimum and derivatives.</summary>
         private sealed class FeatureModel
         {
-            private readonly MixedModelProblem _problem;
+            private readonly NestedMixedModelProblem _problem;
             private readonly int _common;
             private int _m, _p, _q;
             private int[] _termOfColumn = Array.Empty<int>();
@@ -414,7 +414,7 @@ namespace StatisticalModels
             private Vector<double> _zty = null!, _xty = null!, _y = null!;
             private List<int[]> _columns = new();
 
-            public FeatureModel(MixedModelProblem problem, int common)
+            public FeatureModel(NestedMixedModelProblem problem, int common)
             {
                 _problem = problem;
                 _common = common;
