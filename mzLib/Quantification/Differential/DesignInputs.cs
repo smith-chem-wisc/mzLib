@@ -1,5 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.IO;
+using System.Linq;
+using MassSpectrometry;
+using Omics.BioPolymerGroup;
+using StatisticalModels;
 
 namespace Quantification.Differential;
 
@@ -10,6 +16,99 @@ namespace Quantification.Differential;
 /// <param name="SampleId">The sample's key; unique within a dataset.</param>
 public sealed record AnalysisSample(string SampleId)
 {
+    /// <summary>The factor <see cref="FromExperimentalDesign"/> puts each sample's condition under.</summary>
+    public const string ConditionFactor = "condition";
+
+    /// <summary>
+    /// The biological sample an experimental-design entry belongs to, as a <see cref="SampleId"/>.
+    /// </summary>
+    /// <remarks>
+    /// A label-free run gives <c>{condition}_{biological replicate + 1}</c> (<see cref="SampleGroupLabels.ForSample"/>):
+    /// the label MetaMorpheus's quantified tables use and the one the observation table's runs carry, so a sample's
+    /// fractions and technical replicates share it. An isobaric channel gives its design's sample name, or
+    /// <c>plex{plex}_{channel}</c> when the design names none, because one plex's channel is one sample in every fraction
+    /// file of that plex. (<see cref="SampleGroupLabels.ForSample"/> labels each file's channel separately, for columns,
+    /// so it is not used for channels.)
+    /// </remarks>
+    public static string IdFor(ISampleInfo sample)
+    {
+        ArgumentNullException.ThrowIfNull(sample);
+        if (sample is IsobaricQuantSampleInfo channel)
+            return string.IsNullOrWhiteSpace(channel.SampleName)
+                ? string.Create(CultureInfo.InvariantCulture, $"plex{channel.PlexId}_{channel.ChannelLabel}")
+                : channel.SampleName;
+        return SampleGroupLabels.ForSample(sample);
+    }
+
+    /// <summary>
+    /// The biological samples of a pipeline's experimental design, each with its condition under
+    /// <see cref="ConditionFactor"/> (STATS-FRAMEWORK section 3.2: grouping comes only from the design). The runs of one
+    /// sample (its fractions and technical replicates) become one sample, keyed by <see cref="IdFor"/>. An isobaric
+    /// sample's batch is its plex, <c>plex{n}</c>; a pooled reference channel is not a biological sample and is left out.
+    /// An experimental design has no individuals, strata or covariates; add them with <c>with</c>.
+    /// </summary>
+    /// <returns>The samples, ordered by id (ordinal).</returns>
+    /// <exception cref="ArgumentException">
+    /// The design has a null entry or mixes label-free files with isobaric channels; one sample's runs disagree on its
+    /// condition; or, for isobaric channels, one sample name is on two channels or one channel carries two names. A sample
+    /// name is display text, so channels are never merged by it.
+    /// </exception>
+    public static IReadOnlyList<AnalysisSample> FromExperimentalDesign(IExperimentalDesign design)
+    {
+        ArgumentNullException.ThrowIfNull(design);
+        ArgumentNullException.ThrowIfNull(design.FileNameSampleInfoDictionary, nameof(design));
+        var entries = design.FileNameSampleInfoDictionary.Values.SelectMany(s => s ?? Array.Empty<ISampleInfo>()).ToList();
+        if (entries.Any(e => e is null))
+            throw new ArgumentException("The experimental design has a null sample.", nameof(design));
+        if (entries.Any(e => e is IsobaricQuantSampleInfo) && entries.Any(e => e is not IsobaricQuantSampleInfo))
+            throw new ArgumentException(
+                "The experimental design mixes label-free files with isobaric channels; a design is one or the other.",
+                nameof(design));
+
+        var channels = entries.OfType<IsobaricQuantSampleInfo>()
+            .GroupBy(c => (c.PlexId, c.ChannelLabel))
+            .FirstOrDefault(g => g.Select(IdFor).Distinct(StringComparer.Ordinal).Count() > 1);
+        if (channels is not null)
+            throw new ArgumentException(
+                $"Channel {channels.Key.ChannelLabel} of plex {channels.Key.PlexId} is named " +
+                $"{string.Join(" and ", channels.Select(IdFor).Distinct(StringComparer.Ordinal).Select(n => $"'{n}'"))} " +
+                "in different files; one channel of one plex is one sample.", nameof(design));
+
+        var samples = new List<AnalysisSample>();
+        foreach (var runs in entries
+                     .Where(e => e is not IsobaricQuantSampleInfo { IsReferenceChannel: true })
+                     .GroupBy(IdFor, StringComparer.Ordinal)
+                     .OrderBy(g => g.Key, StringComparer.Ordinal))
+        {
+            ISampleInfo first = runs.First();
+            ISampleInfo? other = runs.FirstOrDefault(r => !string.Equals(r.Condition, first.Condition, StringComparison.Ordinal));
+            if (other is not null)
+                throw new ArgumentException(
+                    $"Sample '{runs.Key}' is condition '{first.Condition}' in '{Path.GetFileName(first.FullFilePathWithExtension)}' " +
+                    $"but '{other.Condition}' in '{Path.GetFileName(other.FullFilePathWithExtension)}'.", nameof(design));
+
+            string? batch = null;
+            if (first is IsobaricQuantSampleInfo)
+            {
+                var places = runs.Cast<IsobaricQuantSampleInfo>().Select(c => (c.PlexId, c.ChannelLabel)).Distinct()
+                    .OrderBy(c => c.PlexId).ThenBy(c => c.ChannelLabel, StringComparer.Ordinal).ToList();
+                if (places.Count > 1)
+                    throw new ArgumentException(
+                        $"Sample name '{runs.Key}' is on {string.Join(" and ", places.Select(c => $"channel {c.ChannelLabel} of plex {c.PlexId}"))}; " +
+                        "a sample name is display text, so channels are not merged by it. Name each channel's sample once.",
+                        nameof(design));
+                batch = string.Create(CultureInfo.InvariantCulture, $"plex{places[0].PlexId}");
+            }
+
+            samples.Add(new AnalysisSample(runs.Key)
+            {
+                Factors = new Dictionary<string, string> { [ConditionFactor] = first.Condition },
+                Batch = batch,
+            });
+        }
+        return samples;
+    }
+
     /// <summary>The sample's level of each condition factor (age group, treatment, ...), keyed by factor name.</summary>
     public IReadOnlyDictionary<string, string> Factors { get; init; } = new Dictionary<string, string>();
 
@@ -71,7 +170,14 @@ public sealed record DesignSpec
 /// <param name="CovariateUnit">For a slope, the unit the effect is per.</param>
 /// <param name="CovariateScale">For a slope, how the stored covariate became that unit, e.g. <c>years/10, centred at 50 years</c>.</param>
 public sealed record Contrast(string Id, string Label, IReadOnlyList<double> Weights, string? Numerator, string? Denominator,
-    string? Covariate = null, string? CovariateUnit = null, string? CovariateScale = null);
+    string? Covariate = null, string? CovariateUnit = null, string? CovariateScale = null)
+{
+    /// <summary>
+    /// The contrast as the model fits take it (<see cref="EmpiricalBayes.ModerateContrasts"/> and the mixed models), named
+    /// by <see cref="Id"/>: ids are unique within an analysis, so each moderated result maps back to its contrast by name.
+    /// </summary>
+    public ContrastWeights ToWeights() => new(Id, Weights);
+}
 
 /// <summary>A contrast the specification implies that a stratum cannot run, and why (e.g. <c>not_in_stratum</c>).</summary>
 public sealed record NotRunContrast(string Label, string Reason);
