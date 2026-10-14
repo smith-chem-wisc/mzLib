@@ -322,10 +322,13 @@ namespace Readers
 
             foreach (var cell in copy.Cells)
             {
-                if (string.IsNullOrWhiteSpace(cell.Value))
+                // A blank comment[...] is carried as it stands: it describes the file or the record, not the sample
+                // (of the 357 curated SDRFs with a blank copied cell, 322 have blanks only in comment[file uri]),
+                // SdrfDocument writes an empty cell unchanged, and SdrfValidator only warns (EmptyCell).
+                if (string.IsNullOrWhiteSpace(cell.Value) && !IsComment(cell.Key))
                     throw new ArgumentException(
-                        $"Row {index} ('{copy.SourceName}') copies a blank '{cell.Key}'. A blank cell is not a statement " +
-                        "anybody made, and the copy does not invent one; fix the input SDRF.", "input");
+                        $"Row {index} ('{copy.SourceName}') copies a blank '{cell.Key}'. A blank sample fact is not a " +
+                        "statement anybody made, and the copy does not invent one; fix the input SDRF.", "input");
                 if (cell.Value.IndexOfAny(new[] { '\t', '\n', '\r' }) >= 0)
                     throw new ArgumentException(
                         $"Row {index} ('{copy.SourceName}') copies a '{cell.Key}' containing a tab or newline, which an " +
@@ -400,14 +403,16 @@ namespace Readers
 
         /// <summary>
         /// The header when every row carries <see cref="SdrfSample.CopiedFrom"/>: <c>source name</c> first, the copied
-        /// characteristics where characteristics go, the builder's assay block, the copied comments where extension
-        /// comments go, and the copied factor values last. Within each group, the input's order, repeats kept.
+        /// characteristics where characteristics go, then <c>material type</c> (the MAGE-TAB sample column that closes
+        /// the sample section), the builder's assay block, the copied comments where extension comments go, and the
+        /// copied factor values last. Within each group, the input's order, repeats kept.
         /// </summary>
         private static List<string> BuildCopiedHeader(
             IReadOnlyList<string> copied, int modificationSlots, bool searchedColumn, SdrfBuilderOptions options)
         {
             var names = new List<string> { SourceName };
             names.AddRange(copied.Where(IsCharacteristic));
+            names.AddRange(copied.Where(IsMaterialType));
             AddAssayColumns(names, modificationSlots, searchedColumn, options);
             names.AddRange(copied.Where(IsComment));
             names.AddRange(copied.Where(IsFactor));
@@ -415,6 +420,7 @@ namespace Readers
         }
 
         private static bool IsCharacteristic(string column) => column.StartsWith("characteristics[", StringComparison.Ordinal);
+        private static bool IsMaterialType(string column) => string.Equals(column, SdrfSampleCopy.MaterialTypeColumn, StringComparison.Ordinal);
         private static bool IsComment(string column) => column.StartsWith("comment[", StringComparison.Ordinal);
         private static bool IsFactor(string column) => column.StartsWith("factor value[", StringComparison.Ordinal);
 
@@ -512,6 +518,7 @@ namespace Readers
             var copied = input.Sample.CopiedFrom!.Cells;
             var cells = new List<string> { input.Sample.CopiedFrom.SourceName };
             cells.AddRange(copied.Where(c => IsCharacteristic(c.Key)).Select(c => c.Value));
+            cells.AddRange(copied.Where(c => IsMaterialType(c.Key)).Select(c => c.Value));
             AddAssayCells(cells, input, modificationSlots, searchedColumn, options);
             cells.AddRange(copied.Where(c => IsComment(c.Key)).Select(c => c.Value));
             cells.AddRange(copied.Where(c => IsFactor(c.Key)).Select(c => c.Value));
