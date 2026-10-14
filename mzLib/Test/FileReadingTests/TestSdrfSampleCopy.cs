@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using MzLibUtil;
@@ -25,8 +26,8 @@ namespace Test.FileReadingTests
         private static readonly string[] Columns =
         {
             "source name", "characteristics[organism]", "characteristics[organism part]", "characteristics[age]",
-            "characteristics[disease]", "characteristics[biological replicate]", "assay name", "comment[label]",
-            "comment[cleavage agent details]", "comment[data file]", "comment[sample preparation batch]",
+            "characteristics[disease]", "characteristics[biological replicate]", "material type", "assay name",
+            "comment[label]", "comment[cleavage agent details]", "comment[data file]", "comment[sample preparation batch]",
             "factor value[disease]", "factor value[treatment]"
         };
 
@@ -38,8 +39,8 @@ namespace Test.FileReadingTests
 
         private static string[] InputRow(string source = "Mouse 1", string file = "a.raw", string replicate = "1") => new[]
         {
-            source, "NT=Mus musculus;AC=NCBITaxon:10090", OrganismPart, "12M", "not available", replicate, "run " + file,
-            "label free sample", "NT=Glu-C;AC=MS:1001917", file, "batch_20220601", "normal", "vehicle"
+            source, "NT=Mus musculus;AC=NCBITaxon:10090", OrganismPart, "12M", "not available", replicate, "tissue",
+            "run " + file, "label free sample", "NT=Glu-C;AC=MS:1001917", file, "batch_20220601", "normal", "vehicle"
         };
 
         private static SdrfSample Copied(SdrfDocument input, int row = 0)
@@ -89,7 +90,10 @@ namespace Test.FileReadingTests
             Assert.That(SdrfCell.ToCell(term), Is.Not.EqualTo(OrganismPart), "a round trip through CvParam would have changed it");
         }
 
-        /// <summary>source name first, then characteristics, the assay block, the copied comments, and factors last.</summary>
+        /// <summary>
+        /// source name first, then characteristics, material type, the assay block, the copied comments, and factors
+        /// last.
+        /// </summary>
         [Test]
         public void CopiedColumnsAreGroupedWhereTheBuilderPutsEachKind()
         {
@@ -97,7 +101,9 @@ namespace Test.FileReadingTests
             var h = built.Header.ToList();
 
             Assert.That(h[0], Is.EqualTo("source name"));
-            Assert.That(h.LastIndexOf("characteristics[biological replicate]"), Is.LessThan(h.IndexOf("assay name")));
+            Assert.That(h.LastIndexOf("characteristics[biological replicate]"), Is.LessThan(h.IndexOf("material type")));
+            Assert.That(h.IndexOf("material type"), Is.LessThan(h.IndexOf("assay name")));
+            Assert.That(built.Results[0]["material type"], Is.EqualTo("tissue"));
             Assert.That(h.IndexOf("comment[sample preparation batch]"), Is.GreaterThan(h.IndexOf("comment[data file]")));
             Assert.That(h.IndexOf("factor value[disease]"), Is.GreaterThan(h.IndexOf("comment[sample preparation batch]")));
             Assert.That(h.IndexOf("factor value[treatment]"), Is.EqualTo(h.Count - 1));
@@ -233,15 +239,104 @@ namespace Test.FileReadingTests
                 new SdrfRowInput(perField, Assay("b.raw"))));
         }
 
-        /// <summary>A short row (PXD059974 has 17) reaches the builder as a blank cell, which it refuses, naming the column.</summary>
+        /// <summary>
+        /// A short row reaches the builder as blank cells. Cut inside the characteristics, it leaves a blank sample
+        /// fact, which the builder refuses, naming the column.
+        /// </summary>
         [Test]
-        public void ABlankOrMissingCopiedCellThrowsNamingTheColumn()
+        public void AShortRowCutInsideTheCharacteristicsThrowsNamingTheColumn()
         {
             var shortRow = InputRow().Take(4).ToArray();
 
             var e = Assert.Throws<ArgumentException>(() => Build(new SdrfRowInput(Copied(Input(shortRow)), Assay())));
             Assert.That(e!.Message, Does.Contain("characteristics[disease]"));
         }
+
+        [TestCase("source name")]
+        [TestCase("characteristics[age]")]
+        [TestCase("material type")]
+        [TestCase("factor value[treatment]")]
+        public void ABlankSampleFactThrowsNamingTheColumn(string column)
+        {
+            var row = InputRow();
+            row[Array.IndexOf(Columns, column)] = " ";
+
+            var e = Assert.Throws<ArgumentException>(() => Build(new SdrfRowInput(Copied(Input(row)), Assay())));
+            Assert.That(e!.Message, Does.Contain($"blank '{column}'"));
+        }
+
+        /// <summary>
+        /// A blank comment says nothing about the sample, so it is carried blank, as the input has it. Refusing it
+        /// refused 357 of 12,298 curated SDRFs, 322 of them only for comment[file uri] (pcruzparri, #1451).
+        /// </summary>
+        [Test]
+        public void ABlankCopiedCommentIsWrittenBlank()
+        {
+            var fixture = new SdrfDocument(Fixture("PXD000070.sdrf.tsv"));
+            int uri = fixture.Header.IndexOf("comment[file uri]");
+            Assert.That(uri, Is.GreaterThanOrEqualTo(0), "the fixture has comment[file uri]");
+            var rows = fixture.Results.Select((r, i) =>
+                new SdrfRow(fixture.Header, r.Cells.Select((c, j) => i == 0 && j == uri ? "" : c).ToArray())).ToList();
+            var input = new SdrfDocument(fixture.Header, rows);
+
+            var built = Build(input.Results.Select((r, i) => new SdrfRowInput(Copied(input, i), Assay($"f{i}.raw"))).ToArray());
+
+            Assert.That(built.Results[0]["comment[file uri]"], Is.EqualTo(""));
+            Assert.That(built.Results[1]["comment[file uri]"], Is.EqualTo(fixture.Results[1]["comment[file uri]"]));
+            Assert.That(built.Results[0]["characteristics[organism]"], Is.EqualTo(fixture.Results[0]["characteristics[organism]"]));
+        }
+
+        /// <summary>
+        /// Every real SDRF fixture in this repo, copied row by row: each input column is in the output, and each copied
+        /// cell comes back byte-equal. The two named exceptions are the documented ones (SdrfSampleCopy, "What is not
+        /// carried"): the accession, which comes through the option, and a case variant of a sample column.
+        /// </summary>
+        [Test]
+        public void EveryRealFixtureIsCarriedWholeExceptTheNamedColumns()
+        {
+            var notCarried = new Dictionary<string, string[]> { ["PXD026824.sdrf.tsv"] = new[] { "Material Type" } };
+            var files = Directory.GetFiles(Fixture(), "*.sdrf.tsv", SearchOption.AllDirectories);
+            Assert.That(files, Has.Length.GreaterThanOrEqualTo(11));
+
+            Assert.Multiple(() =>
+            {
+                foreach (var path in files)
+                {
+                    var input = new SdrfDocument(path);
+                    string? accession = input.Header.Contains(PxAccession) ? input.Results[0][PxAccession] : null;
+                    var copies = input.Results.Select(r => SdrfSampleCopy.FromRow(input, r)).ToList();
+
+                    var built = SdrfBuilder.Build(
+                        copies.Select((c, i) => new SdrfRowInput(Copied(input, i), Assay($"f{i}.raw"))).ToArray(),
+                        new SdrfBuilderOptions { ProteomeXchangeAccession = accession });
+
+                    string name = Path.GetFileName(path);
+                    Assert.That(input.Header.Distinct().Except(built.Header),
+                        Is.EquivalentTo(notCarried.GetValueOrDefault(name) ?? Array.Empty<string>()), name);
+                    for (int i = 0; i < copies.Count; i++)
+                        foreach (var column in copies[i].Cells.Select(c => c.Key).Distinct())
+                            Assert.That(built.Results[i].All(column),
+                                Is.EqualTo(copies[i].Cells.Where(c => c.Key == column).Select(c => c.Value)), $"{name} row {i} {column}");
+                }
+            });
+        }
+
+        /// <summary>The accession is one of the builder's own columns: without the option, a copy does not carry it.</summary>
+        [Test]
+        public void TheAccessionIsCarriedOnlyThroughTheOption()
+        {
+            var input = new SdrfDocument(Fixture("PXD000070.sdrf.tsv"));
+            var rows = input.Results.Select((r, i) => new SdrfRowInput(Copied(input, i), Assay($"f{i}.raw"))).ToArray();
+
+            Assert.That(input.Header.Except(SdrfBuilder.Build(rows).Header), Is.EqualTo(new[] { PxAccession }));
+            var withOption = SdrfBuilder.Build(rows, new SdrfBuilderOptions { ProteomeXchangeAccession = "PXD000070" });
+            Assert.That(withOption.Results.Select(r => r[PxAccession]), Is.All.EqualTo("PXD000070"));
+        }
+
+        private const string PxAccession = "comment[proteomexchange accession number]";
+
+        private static string Fixture(params string[] parts) => Path.Combine(
+            new[] { TestContext.CurrentContext.TestDirectory, "FileReadingTests", "ExternalFileTypes" }.Concat(parts).ToArray());
 
         [Test]
         public void ACopiedCellWithATabThrows()

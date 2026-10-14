@@ -146,7 +146,12 @@ namespace Readers
         /// input header's order. That is the one deliberate exception to <see cref="SdrfBuilder"/>'s "terms are
         /// resolved, never copied": these are somebody else's statements about their samples, which this search
         /// carries and does not make. A copied <c>not available</c> is that statement, so
-        /// <see cref="SdrfBuilderOptions.RequireSampleMetadata"/> does not refuse it.
+        /// <see cref="SdrfBuilderOptions.RequireSampleMetadata"/> does not refuse it. A blank sample fact is refused,
+        /// naming the column; a blank <c>comment[...]</c> is written blank.
+        ///
+        /// The builder's own columns are never copied. That includes <c>comment[proteomexchange accession number]</c>,
+        /// which is written only from <see cref="SdrfBuilderOptions.ProteomeXchangeAccession"/>, so pass the input's
+        /// accession there to keep it. <see cref="SdrfSampleCopy"/> says what else is not carried.
         ///
         /// Every row of one build carries a copy or none does, and every copy has the same columns in the same order:
         /// one input document gives one header.
