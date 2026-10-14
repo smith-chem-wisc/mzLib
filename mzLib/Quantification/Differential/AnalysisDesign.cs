@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using MathNet.Numerics.LinearAlgebra;
+using MathNet.Numerics.LinearAlgebra.Factorization;
 using StatisticalModels;
 
 namespace Quantification.Differential;
@@ -62,12 +63,6 @@ public sealed class AnalysisDesign
     private const string Intercept = "intercept";
     private const string BatchTerm = "batch";
 
-    /// <summary>
-    /// In a design <see cref="LinearModel.HasFullColumnRank"/> refuses, a singular value below this fraction of the largest
-    /// counts as zero when sizing the redundancy.
-    /// </summary>
-    private const double RankTolerance = 1e-10;
-
     /// <summary>A null-space loading (or a contrast's projection on it) below this counts as zero.</summary>
     private const double LoadingTolerance = 1e-8;
 
@@ -91,18 +86,15 @@ public sealed class AnalysisDesign
         Warnings = warnings;
         NotRun = notRun;
 
-        var x = Matrix<double>.Build.DenseOfArray(matrix);
-        var svd = x.Svd(computeVectors: true);
-        double largest = svd.S.Count == 0 ? 0 : svd.S.Maximum();
         int p = columnNames.Count;
-        // Full rank is LinearModel's verdict, the test its Fit applies, so a design whose contrasts are all estimable here
-        // is one the fit accepts, and the reverse. The SVD only sizes and describes the redundancy.
-        Rank = LinearModel.HasFullColumnRank(matrix)
-            ? p
-            : Math.Min(svd.S.Count(s => s > RankTolerance * largest), p - 1);
-        // With two or more redundancies the SVD may return any rotation of the null space's basis, so what a redundancy
-        // involves is read from the projection onto the null space, which depends on the space alone (review round 3).
-        var nullSpace = Rank < p ? svd.VT.SubMatrix(Rank, p - Rank, 0, p).Transpose() : null;
+        // One rule decides everything: LinearModel's full-rank test, the one its Fit applies. The columns it keeps size the
+        // rank, and the columns it leaves out give the null space, so a contrast is estimable here exactly when a fit of
+        // FittedMatrix can give it (review round 4; an SVD tolerance beside it could disagree).
+        FittedColumns = LinearModel.HasFullColumnRank(matrix) ? Enumerable.Range(0, p).ToArray() : KeptColumns(matrix);
+        Rank = FittedColumns.Count;
+        // What a redundancy involves is read from the projection onto the null space, which depends on the space alone,
+        // not on the basis that spans it (review round 3).
+        var nullSpace = Rank < p ? NullSpace(matrix, FittedColumns) : null;
         _nullProjector = nullSpace?.TransposeAndMultiply(nullSpace);
         AliasedTerms = _nullProjector is null
             ? Array.Empty<string>()
@@ -113,7 +105,6 @@ public sealed class AnalysisDesign
                 .Distinct(StringComparer.Ordinal)
                 .OrderBy(t => _columnTerms.IndexOf(t))
                 .ToArray();
-        FittedColumns = Rank == p ? Enumerable.Range(0, p).ToArray() : KeptColumns(matrix);
     }
 
     /// <summary>The stratum this design covers (<see cref="StratumKey"/>), or <see cref="AllSamples"/>.</summary>
@@ -172,9 +163,8 @@ public sealed class AnalysisDesign
     }
 
     /// <summary>
-    /// The numerical rank of <see cref="Matrix"/>: the column count exactly when <see cref="LinearModel.HasFullColumnRank"/>
-    /// accepts the matrix (so <c>LinearModel.Fit</c> will fit it); otherwise the number of singular values above
-    /// <c>1e-10</c> of the largest, and at most one less than the column count.
+    /// The numerical rank of <see cref="Matrix"/>, by <see cref="LinearModel.HasFullColumnRank"/>: the number of
+    /// <see cref="FittedColumns"/>, so the column count exactly when <c>LinearModel.Fit</c> will fit the matrix.
     /// </summary>
     public int Rank { get; }
 
@@ -419,6 +409,31 @@ public sealed class AnalysisDesign
                 kept.Add(j);
         }
         return kept.ToArray();
+    }
+
+    /// <summary>
+    /// An orthonormal basis of the null space, <c>[column, direction]</c>: for each left-out column, its unit vector
+    /// less its least-squares coefficients on the kept columns. Those directions are independent (each is 1 on its own
+    /// left-out column and 0 on the others), and for an exact redundancy they span the same space an SVD gives.
+    /// </summary>
+    private static Matrix<double> NullSpace(double[,] matrix, IReadOnlyList<int> kept)
+    {
+        int p = matrix.GetLength(1);
+        var x = Matrix<double>.Build.DenseOfArray(matrix);
+        var keptColumns = Matrix<double>.Build.DenseOfColumnVectors(kept.Select(j => x.Column(j)));
+        var keptQr = keptColumns.QR();
+        var directions = new List<Vector<double>>();
+        for (int j = 0; j < p; j++)
+        {
+            if (kept.Contains(j)) continue;
+            var coefficients = keptQr.Solve(x.Column(j));
+            var direction = Vector<double>.Build.Dense(p);
+            direction[j] = 1;
+            for (int k = 0; k < kept.Count; k++)
+                direction[kept[k]] = -coefficients[k];
+            directions.Add(direction);
+        }
+        return Matrix<double>.Build.DenseOfColumnVectors(directions).QR(QRMethod.Thin).Q;
     }
 
     private void Add(double[] weights, FactorCoding f, string level, double sign)

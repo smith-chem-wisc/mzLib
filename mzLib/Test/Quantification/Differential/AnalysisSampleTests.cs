@@ -1,10 +1,13 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using System.Linq;
 using MassSpectrometry;
 using NUnit.Framework;
 using Omics.BioPolymerGroup;
+using Omics.Modifications;
+using Readers;
 using Quantification.Differential;
 using StatisticalModels;
 
@@ -82,6 +85,71 @@ public class AnalysisSampleTests
             "the pooled reference channels are not biological samples");
         Assert.That(samples.Select(s => s.Batch), Is.EqualTo(new[] { "plex1", "plex1", "plex2", "plex2" }));
         Assert.That(samples.Select(s => s.Factors[AnalysisSample.ConditionFactor]), Is.EqualTo(new[] { "A", "B", "A", "B" }));
+    }
+
+    /// <summary>
+    /// Review round 4 (@pcruzparri): MetaMorpheus's TMT design writes every kit channel for every file, and a channel the
+    /// plex does not use comes with no condition and no sample name. It was returned as a sample, so the design refused
+    /// the whole experiment over a sample nobody declared.
+    /// </summary>
+    [Test]
+    public void AChannelThePlexDoesNotUseIsNotASample()
+    {
+        ISampleInfo[] Plex(string file, int plex, string first, string second) => new ISampleInfo[]
+        {
+            Channel(file, plex, "126", "ctrl", first),
+            Channel(file, plex, "127N", "drug", second),
+            Channel(file, plex, "131C", "", null),
+        };
+        var design = Design(Plex("p1", 1, "s1", "s2"), Plex("p2", 2, "s3", "s4"));
+
+        var samples = AnalysisSample.FromExperimentalDesign(design);
+
+        Assert.That(samples.Select(s => s.SampleId), Is.EqualTo(new[] { "s1", "s2", "s3", "s4" }));
+        var analysis = AnalysisDesign.Create(samples,
+            new DesignSpec { Factors = new[] { new FactorSpec(AnalysisSample.ConditionFactor, "ctrl") } });
+        Assert.That(analysis.Samples, Has.Count.EqualTo(4));
+    }
+
+    /// <summary>The same for mzLib's own SDRF reader: PXD008841's first plex read with the TMT11 kit leaves 131C empty in every file.</summary>
+    [Test]
+    public void AnSdrfPlexWithAnEmptyChannelGivesOnlyItsAnnotatedSamples()
+    {
+        Assert.That(IsobaricMassTag.TryGetIsobaricMassTag(IsobaricMassTagType.TMT11, out var tmt11), Is.True);
+        string sdrf = Path.Combine(TestContext.CurrentContext.TestDirectory, "FileReadingTests", "ExternalFileTypes",
+            "SdrfDesign", "PXD008841.subset.sdrf.tsv");
+        var read = SdrfIsobaricDesign.Read(sdrf,
+            new SdrfIsobaricDesignOptions { Tag = tmt11!, PlexFileNamePattern = @"TMT_?pool(?<plex>\d+)" });
+        Assert.That(read.Refusals, Is.Empty, read.Report());
+        var plexOne = new SampleExperimentalDesign();
+        foreach (var (file, channels) in read.ToExperimentalDesign().FileNameSampleInfoDictionary)
+            if (channels.Cast<IsobaricQuantSampleInfo>().First().PlexId == 1)
+                plexOne.Add(file, channels);
+        Assert.That(plexOne.FileNameSampleInfoDictionary.Values.SelectMany(c => c).Count(c => c.Condition.Length == 0),
+            Is.GreaterThan(0), "the fixture needs the empty channel");
+
+        var samples = AnalysisSample.FromExperimentalDesign(plexOne);
+
+        Assert.That(samples, Has.Count.EqualTo(10));
+        Assert.That(samples.Select(s => s.SampleId), Has.None.EqualTo("plex1_131C"));
+        Assert.That(samples.All(s => s.Factors[AnalysisSample.ConditionFactor].Length > 0));
+    }
+
+    /// <summary>A channel that is named but has no condition is a sample someone declared, so it is kept and the design refuses it by name.</summary>
+    [Test]
+    public void ANamedChannelWithoutAConditionIsKeptAndRefusedByName()
+    {
+        var design = Design(new ISampleInfo[]
+        {
+            Channel("p1", 1, "126", "ctrl", "s1"), Channel("p1", 1, "127N", "drug", "s2"), Channel("p1", 1, "127C", "", "s9"),
+        });
+
+        var samples = AnalysisSample.FromExperimentalDesign(design);
+
+        Assert.That(samples.Select(s => s.SampleId), Is.EqualTo(new[] { "s1", "s2", "s9" }));
+        var e = Assert.Throws<ArgumentException>(() => AnalysisDesign.Create(samples,
+            new DesignSpec { Factors = new[] { new FactorSpec(AnalysisSample.ConditionFactor, "ctrl") } }));
+        Assert.That(e!.Message, Does.Contain("'s9'"));
     }
 
     [Test]

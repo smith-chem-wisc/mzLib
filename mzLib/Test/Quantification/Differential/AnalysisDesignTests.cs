@@ -225,6 +225,62 @@ public class AnalysisDesignTests
         Assert.That(design.Estimability(design.Slope("summed_intensity")), Is.EqualTo("estimable"));
     }
 
+    /// <summary>
+    /// Review round 4 (@pcruzparri): beside one real redundancy (a covariate that does not vary) the rank was sized by an
+    /// SVD cut-off at 1e-10 of the largest singular value, which the intensity-scale covariate falls under, so the
+    /// condition was called not estimable while <see cref="AnalysisDesign.FittedColumns"/> kept it. One rule now decides
+    /// both.
+    /// </summary>
+    [Test]
+    public void AnIntensityScaleCovariateBesideAConstantOneLeavesTheConditionEstimable()
+    {
+        var samples = Enumerable.Range(0, 12).Select(i => new AnalysisSample($"s{i:00}")
+        {
+            Factors = new Dictionary<string, string> { ["condition"] = i % 2 == 0 ? "A" : "B" },
+            Covariates = new Dictionary<string, double> { ["summed_intensity"] = 1e11 * (1 + 0.1 * i), ["bmi"] = 22.5 },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, Spec(("condition", "A")) with
+        {
+            Covariates = new[] { new CovariateSpec("summed_intensity", "intensity"), new CovariateSpec("bmi", "kg/m2") },
+        });
+
+        Assert.That(design.FittedColumns.Select(j => design.ColumnNames[j]),
+            Is.EqualTo(new[] { "intercept", "condition=B", "summed_intensity (per intensity)" }));
+        Assert.That(design.Rank, Is.EqualTo(design.FittedColumns.Count));
+        Assert.That(design.AliasedTerms, Is.Empty, "the constant covariate is redundant on its own");
+        var contrast = design.Between("condition", "B", "A");
+        Assert.That(design.Estimability(contrast), Is.EqualTo(AnalysisDesign.Estimable));
+        Assert.That(design.Estimability(design.Slope("summed_intensity")), Is.EqualTo(AnalysisDesign.Estimable));
+        Assert.That(design.Estimability(design.Slope("bmi")), Is.EqualTo(AnalysisDesign.NotEstimableRankDeficient));
+        Assert.That(design.FittedWeights(contrast), Is.EqualTo(new[] { 0.0, 1.0, 0.0 }));
+    }
+
+    /// <summary>
+    /// Review round 4 (@pcruzparri): the other side of the same disagreement. Two covariates equal to within 1e-8, which
+    /// the fit cannot separate, were called estimable once a constant covariate was added beside them, and the slope of
+    /// the left-out one got weights that select nothing.
+    /// </summary>
+    [Test]
+    public void NearlyEqualCovariatesBesideAConstantOneStayNotEstimable()
+    {
+        var samples = Enumerable.Range(0, 8).Select(i => new AnalysisSample($"s{i}")
+        {
+            Covariates = new Dictionary<string, double>
+                { ["a"] = i, ["b"] = i + (i % 2 == 0 ? 1e-8 : -1e-8), ["bmi"] = 22.5 },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, new DesignSpec
+        {
+            Covariates = new[] { new CovariateSpec("a", "units"), new CovariateSpec("b", "units"), new CovariateSpec("bmi", "kg/m2") },
+        });
+
+        Assert.That(design.FittedColumns.Select(j => design.ColumnNames[j]), Is.EqualTo(new[] { "intercept", "a (per units)" }));
+        Assert.That(design.Rank, Is.EqualTo(2));
+        Assert.That(design.AliasedTerms, Is.EquivalentTo(new[] { "a", "b" }));
+        Assert.That(design.Estimability(design.Slope("a")), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        Assert.That(design.Estimability(design.Slope("b")), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        Assert.Throws<ArgumentException>(() => design.FittedWeights(design.Slope("b")));
+    }
+
     [Test]
     public void BalancedOverBatchIsEstimable()
     {

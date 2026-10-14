@@ -44,7 +44,9 @@ public sealed record AnalysisSample(string SampleId)
     /// The biological samples of a pipeline's experimental design, each with its condition under
     /// <see cref="ConditionFactor"/> (STATS-FRAMEWORK section 3.2: grouping comes only from the design). The runs of one
     /// sample (its fractions and technical replicates) become one sample, keyed by <see cref="IdFor"/>. An isobaric
-    /// sample's batch is its plex, <c>plex{n}</c>; a pooled reference channel is not a biological sample and is left out.
+    /// sample's batch is its plex, <c>plex{n}</c>. A pooled reference channel is not a biological sample and is left out,
+    /// and so is a channel the plex does not use: one with neither a condition nor a sample name, which is how
+    /// MetaMorpheus's TMT design and <c>SdrfIsobaricDesign</c> write every kit channel a plex leaves unannotated.
     /// An experimental design has no individuals, strata or covariates; add them with <c>with</c>.
     /// </summary>
     /// <returns>The samples, ordered by id (ordinal).</returns>
@@ -76,7 +78,7 @@ public sealed record AnalysisSample(string SampleId)
 
         var samples = new List<AnalysisSample>();
         foreach (var runs in entries
-                     .Where(e => e is not IsobaricQuantSampleInfo { IsReferenceChannel: true })
+                     .Where(e => e is not IsobaricQuantSampleInfo { IsReferenceChannel: true } && !IsUnusedChannel(e))
                      .GroupBy(IdFor, StringComparer.Ordinal)
                      .OrderBy(g => g.Key, StringComparer.Ordinal))
         {
@@ -108,6 +110,15 @@ public sealed record AnalysisSample(string SampleId)
         }
         return samples;
     }
+
+    /// <summary>
+    /// A kit channel the plex does not use: no condition and no sample name. A named channel without a condition is
+    /// kept, so the design refuses it by name.
+    /// </summary>
+    private static bool IsUnusedChannel(ISampleInfo entry) =>
+        entry is IsobaricQuantSampleInfo channel
+        && string.IsNullOrWhiteSpace(channel.Condition)
+        && string.IsNullOrWhiteSpace(channel.SampleName);
 
     /// <summary>The sample's level of each condition factor (age group, treatment, ...), keyed by factor name.</summary>
     public IReadOnlyDictionary<string, string> Factors { get; init; } = new Dictionary<string, string>();
