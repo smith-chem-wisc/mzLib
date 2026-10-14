@@ -483,6 +483,27 @@ public class FlashLfqObservationsTests
         Assert.That(mbrKept.Warnings, Has.Count.EqualTo(1), "no protein table given, so its groups are undescribed");
     }
 
+    /// <summary>
+    /// Review round 4 (@pcruzparri): the same table under either basis has 1 peptide in at least half of the samples with
+    /// values, and that one peptide used to shift four (or five) samples. It is under the floor, so nothing is shifted.
+    /// </summary>
+    [TestCase(QuantBasis.MsmsOnly)]
+    [TestCase(QuantBasis.MbrKept)]
+    public void TheStoredTablesOnePeptideIsTooFewToNormalizeOn(QuantBasis basis)
+    {
+        var stored = new QuantifiedPeptideFile(ExternalFile("MetaMorpheus_1.1.11_AllQuantifiedPeptides.tsv"));
+        var runs = stored.First().Samples.Keys
+            .Select(label => label.EndsWith("-calib", StringComparison.Ordinal) ? label[..^"-calib".Length] : label)
+            .Select(name => new ObservationRun(name, name)).ToArray();
+        var table = FlashLfqObservations.FromPeptideTable(stored, runs, Array.Empty<ProteinGroupInfo>(), basis);
+
+        var result = SharedPeptideNormalization.Measure(table);
+
+        Assert.That(result.ReferenceSetSize, Is.EqualTo(1));
+        Assert.That(result.Setting, Is.EqualTo(SharedPeptideNormalization.None));
+        Assert.That(result.PerSampleShift.Values, Is.All.NaN);
+    }
+
     /// <summary>The six-row MetaMorpheus 1.1.11 protein-group table in the reader tests: a two-protein group, a contaminant and a decoy.</summary>
     [Test]
     public void ReadsAMetaMorpheusProteinGroupTable()

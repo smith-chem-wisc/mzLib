@@ -128,7 +128,8 @@ public class SharedPeptideNormalizationTests
                 { ["S1"] = new(Math.Pow(2, 13), ObservationState.Quantified), ["S2"] = new(Math.Pow(2, 10), ObservationState.Quantified) }),
         };
 
-        var result = SharedPeptideNormalization.Measure(Table(peptides));
+        var result = SharedPeptideNormalization.Measure(Table(peptides), SharedPeptideNormalization.DefaultMinimumPeptides,
+            maximumPasses: 1000, minimumHalfSetPeptides: 1);
 
         Assert.That(result.Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedianHalf));
         Assert.That(result.PerSampleShift["S1"], Is.EqualTo(1).Within(1e-12), "the mean of the middle two");
@@ -346,7 +347,10 @@ public class SharedPeptideNormalizationTests
             "the fixture's one-pass shifts do not average 0, so centring them would show");
     }
 
-    /// <summary>A half set that has not settled within the passes allowed keeps the last pass's shifts and says so.</summary>
+    /// <summary>
+    /// A half set that has not settled within the passes allowed falls back to the first pass (0.5 / -1 / 0.5 on this
+    /// table), centred, and says so. Review round 4: it used to keep the last pass, which can be the drift of every pass.
+    /// </summary>
     [Test]
     public void TheHalfSetSaysWhenItStopsBeforeTheShiftsSettle()
     {
@@ -354,7 +358,111 @@ public class SharedPeptideNormalizationTests
             maximumPasses: 2);
 
         Assert.That(result.Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedianHalf));
-        Assert.That(result.Warnings.Single(), Does.Contain("did not settle within 2 passes"));
-        Assert.That(result.PerSampleShift.Values.Sum(), Is.EqualTo(0).Within(1e-12), "centred all the same");
+        Assert.That(result.Warnings.Single(), Does.Contain("did not settle within 2 passes, so the first pass's shifts are used"));
+        Assert.That(result.PerSampleShift["S1"], Is.EqualTo(0.5).Within(1e-12));
+        Assert.That(result.PerSampleShift["S2"], Is.EqualTo(-1).Within(1e-12));
+        Assert.That(result.PerSampleShift["S3"], Is.EqualTo(0.5).Within(1e-12));
+    }
+
+    /// <summary>
+    /// Six samples in two groups of three, S1-S3 and S4-S6. Each group's peptides have a value in all three of its samples,
+    /// and one of the three, in turn, is 3 log2 above (first group) or below (second group) the other two. So every
+    /// sample's median difference is the same and the true shifts are all 0. <paramref name="shared"/> peptides have one
+    /// value in all six samples. With <paramref name="random"/>, each value instead gets normal noise of sd 0.3 and no
+    /// sample is off.
+    /// </summary>
+    private static ObservationTable TwoGroupsTable(int perGroup, int shared, Random? random = null)
+    {
+        string[] ids = { "S1", "S2", "S3", "S4", "S5", "S6" };
+        double Noise() => random is null ? 0
+            : 0.3 * Math.Sqrt(-2 * Math.Log(1 - random.NextDouble())) * Math.Cos(2 * Math.PI * random.NextDouble());
+
+        PeptideRunValues In(string sequence, int p, IEnumerable<int> samples, Func<int, double> offset) =>
+            new(sequence, sequence, new[] { "P1" }, samples.ToDictionary(s => ids[s],
+                s => new RunValue(Math.Pow(2, 20 + p / 100.0 + offset(s) + Noise()), ObservationState.Quantified)));
+
+        var peptides = Enumerable.Range(0, perGroup)
+            .Select(p => In($"GA{p:D4}", p, new[] { 0, 1, 2 }, s => random is null && s == p % 3 ? 3 : 0))
+            .Concat(Enumerable.Range(0, perGroup)
+                .Select(p => In($"GB{p:D4}", p, new[] { 3, 4, 5 }, s => random is null && s == 3 + p % 3 ? -3 : 0)))
+            .Concat(Enumerable.Range(0, shared).Select(p => In($"ALL{p:D4}", p, Enumerable.Range(0, 6), _ => 0)))
+            .ToList();
+        return ObservationTable.Build(ids.Select(s => new ObservationRun(s, s)), ids, peptides,
+            Array.Empty<ProteinGroupInfo>(), QuantBasis.MsmsOnly);
+    }
+
+    /// <summary>
+    /// Review round 4 (@pcruzparri): two groups of samples that share no reference peptide. The shifts are fixed only up
+    /// to one constant per group, and centring the steps across both groups turned the groups' different constants into
+    /// a step that never shrank: 1,000 passes returned -1000 / -1000 / -1000 / 1000 / 1000 / 1000. Each group is now
+    /// settled and centred on its own, here at the truth, and the warning says the groups have no common scale.
+    /// </summary>
+    [Test]
+    public void GroupsOfSamplesThatShareNoReferencePeptideAreEachSettledOnTheirOwn()
+    {
+        var result = SharedPeptideNormalization.Measure(TwoGroupsTable(60, shared: 0));
+
+        Assert.That(result.Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedianHalf));
+        foreach (var (sample, shift) in result.PerSampleShift)
+            Assert.That(shift, Is.EqualTo(0).Within(1e-9), sample);
+        Assert.That(result.Warnings.Single(), Does.Contain("2 groups that share none (S1, S2, S3; S4, S5, S6)")
+            .And.Contain("no common scale"));
+    }
+
+    /// <summary>
+    /// The same with noise and no true shifts (Peter's 20 tables, all of which ran to the limit with the groups 9.9 log2
+    /// apart on median): every table settles, and no shift leaves the noise.
+    /// </summary>
+    [Test]
+    public void NoisyGroupsThatShareNoReferencePeptideSettleNearTheTruth()
+    {
+        var random = new Random(20261013);
+        for (int table = 0; table < 20; table++)
+        {
+            var result = SharedPeptideNormalization.Measure(TwoGroupsTable(150, shared: 0, random));
+
+            Assert.That(result.Warnings, Has.None.Contain("did not settle"), $"table {table}");
+            Assert.That(result.PerSampleShift.Values.Max(v => Math.Abs(v)), Is.LessThan(0.2), $"table {table}");
+        }
+    }
+
+    /// <summary>
+    /// Two peptides in all six samples link the groups, but too weakly for a median to feel: the passes never settle.
+    /// The first pass is used, which stays within the data, and the warning says so.
+    /// </summary>
+    [Test]
+    public void GroupsLinkedByTooFewPeptidesToSettleGetTheFirstPass()
+    {
+        var result = SharedPeptideNormalization.Measure(TwoGroupsTable(60, shared: 2));
+
+        Assert.That(result.Warnings.Single(), Does.Contain("did not settle within 1000 passes, so the first pass's shifts are used"));
+        double[] firstPass = { -1, -1, -1, 1, 1, 1 };
+        for (int s = 0; s < 6; s++)
+            Assert.That(result.PerSampleShift[$"S{s + 1}"], Is.EqualTo(firstPass[s]).Within(1e-9), $"S{s + 1}");
+    }
+
+    /// <summary>
+    /// Review round 4 (@pcruzparri): the half set had no floor, so a stratum could be normalized on one peptide. GR-25's
+    /// floor now holds for both sets: under it no sample is shifted, the setting is "none", and the warning says why. Each
+    /// peptide is in S1 and S3 or in S2 and S4, so none is in every sample.
+    /// </summary>
+    [Test]
+    public void AHalfSetUnderTheFloorShiftsNothing()
+    {
+        var under = SharedPeptideNormalization.Measure(Table(Enumerable.Range(0, 99)
+            .Select(p => Shifted($"HALF{p:D4}", "P1", p, p % 2 == 0 ? new[] { 0, 2 } : new[] { 1, 3 }))));
+
+        Assert.That(under.Setting, Is.EqualTo(SharedPeptideNormalization.None));
+        Assert.That(under.ReferenceSetSize, Is.EqualTo(99));
+        Assert.That(under.PerSampleShift.Values, Is.All.NaN);
+        Assert.That(under.Warnings.Single(), Is.EqualTo("0 reference peptide(s) have a value in every sample and 99 in at " +
+            "least half, under the floor of 100, so no sample is shifted (none)."));
+        var table = Table(Enumerable.Range(0, 99).Select(p => Shifted($"HALF{p:D4}", "P1", p, p % 2 == 0 ? new[] { 0, 2 } : new[] { 1, 3 })));
+        Assert.That(SharedPeptideNormalization.Apply(table, under).Log2Intensity(0, 0), Is.EqualTo(table.Log2Intensity(0, 0)));
+
+        var at = SharedPeptideNormalization.Measure(Table(Enumerable.Range(0, 100)
+            .Select(p => Shifted($"HALF{p:D4}", "P1", p, p % 2 == 0 ? new[] { 0, 2 } : new[] { 1, 3 }))));
+        Assert.That(at.Setting, Is.EqualTo(SharedPeptideNormalization.SharedPeptideMedianHalf));
+        Assert.That(at.PerSampleShift["S1"] - at.PerSampleShift["S3"], Is.EqualTo(Offsets[0] - Offsets[2]).Within(1e-9));
     }
 }

@@ -32,14 +32,22 @@ public sealed record NormalizationResult(string Setting, int ReferenceSetSize, i
 /// <b>Reference set.</b> Peptides of decoy, contaminant or entrapment groups never enter it (<c>DEF-DIFF-ROWSET</c>). It
 /// is the remaining peptides with a value in every sample; when fewer than
 /// <see cref="DefaultMinimumPeptides"/> (GR-25), it is those with a value in at least half the samples and in at least 2
-/// (<see cref="SharedPeptideMedianHalf"/>). "The samples" here are those with a value on at least one such peptide: a
-/// lost run has no shift, and it does not count towards either set.
+/// (<see cref="SharedPeptideMedianHalf"/>). The half set has the same floor: below it no sample is shifted, the setting
+/// is <see cref="None"/>, and a warning says why. "The samples" here are those with a value on at least one such
+/// peptide: a lost run has no shift, and it does not count towards either set.
 /// </para>
 /// <para>
 /// <b>The half set is settled.</b> Its peptides are missing from different samples, so one pass measures each sample
 /// against means over different samples and pulls the shifts together. The pass is repeated on the shifted values until
-/// the shifts stop moving (at most 1,000 passes, else a warning), and the shifts are then centred to average 0. On the
-/// every-sample set one pass already leaves every sample with the same median difference, so it is not repeated.
+/// the shifts stop moving, and the shifts are then centred to average 0. If they have not settled within 1,000 passes,
+/// the first pass's shifts are used and a warning says so. On the every-sample set one pass already leaves every sample
+/// with the same median difference, so it is not repeated.
+/// </para>
+/// <para>
+/// <b>Samples the reference does not link.</b> The shifts are fixed only up to one constant per group of samples that
+/// reference peptides link (two samples are linked when a chain of peptides, each with a value in both of a pair, joins
+/// them). When the half set falls into two or more such groups, each group is settled and centred on its own, and a
+/// warning says the groups have no common scale: nothing in the data says how far apart they are.
 /// </para>
 /// <para>
 /// <b>Scope.</b> The shifts are measured over every sample of the table given, so measure one stratum at a time
@@ -69,12 +77,16 @@ public static class SharedPeptideNormalization
 
     /// <summary>Measures each sample's shift over every sample of <paramref name="table"/>.</summary>
     /// <param name="table">One stratum's table.</param>
-    /// <param name="minimumPeptides">The every-sample set's floor (GR-25); at least 1.</param>
+    /// <param name="minimumPeptides">The floor on either reference set (GR-25); at least 1.</param>
     public static NormalizationResult Measure(ObservationTable table, int minimumPeptides = DefaultMinimumPeptides)
         => Measure(table, minimumPeptides, MaximumPasses);
 
     /// <param name="maximumPasses">The half set's limit on passes, lowered by a test to reach its warning.</param>
-    internal static NormalizationResult Measure(ObservationTable table, int minimumPeptides, int maximumPasses)
+    /// <param name="minimumHalfSetPeptides">
+    /// The half set's floor when not <paramref name="minimumPeptides"/>, lowered by a test to measure a few peptides.
+    /// </param>
+    internal static NormalizationResult Measure(ObservationTable table, int minimumPeptides, int maximumPasses,
+        int? minimumHalfSetPeptides = null)
     {
         ArgumentNullException.ThrowIfNull(table);
         ArgumentOutOfRangeException.ThrowIfLessThan(minimumPeptides, 1);
@@ -92,17 +104,34 @@ public static class SharedPeptideNormalization
 
         string setting = SharedPeptideMedian;
         var reference = eligible.Where(e => e.Present == withValues && withValues > 0).Select(e => e.Peptide).ToList();
+        var warnings = new List<string>();
         if (reference.Count < minimumPeptides)
         {
+            int inEverySample = reference.Count;
             setting = SharedPeptideMedianHalf;
             int needed = Math.Max(2, (withValues + 1) / 2);
             reference = eligible.Where(e => e.Present >= needed).Select(e => e.Peptide).ToList();
+            int halfSetFloor = minimumHalfSetPeptides ?? minimumPeptides;
+            if (reference.Count < halfSetFloor)
+            {
+                // Fewer than the floor is not trusted on either set (review round 4: one peptide shifted four samples).
+                warnings.Add($"{inEverySample} reference peptide(s) have a value in every sample and {reference.Count} in " +
+                    $"at least half, under the floor of {halfSetFloor}, so no sample is shifted ({None}).");
+                var none = table.Samples.ToDictionary(s => s, _ => double.NaN, StringComparer.Ordinal);
+                return new NormalizationResult(None, reference.Count, minimumPeptides, none, warnings);
+            }
         }
 
-        var warnings = new List<string>();
         double[] shift = MedianDifferences(table, reference, new double[samples]);
         if (setting == SharedPeptideMedianHalf)
-            Settle(table, reference, shift, maximumPasses, warnings);
+        {
+            var groups = LinkedGroups(table, reference, samples);
+            if (groups.Count > 1)
+                warnings.Add($"The {SharedPeptideMedianHalf} reference peptides link the samples in {groups.Count} groups " +
+                    $"that share none ({string.Join("; ", groups.Select(g => string.Join(", ", g.Select(i => table.Samples[i]))))}). " +
+                    "Each group is settled and centred on its own, so the groups have no common scale.");
+            Settle(table, reference, shift, groups, maximumPasses, warnings);
+        }
 
         var shifts = new Dictionary<string, double>(StringComparer.Ordinal);
         var unshifted = new List<string>();
@@ -159,17 +188,20 @@ public static class SharedPeptideNormalization
     /// The half set's shifts, settled. Its peptides are missing from different samples, so one pass measures each sample
     /// against peptide means taken over different samples, and the shifts come out pulled together. Repeating the pass on
     /// the shifted values, and adding up the steps, until no step moves a shift by more than <see cref="SettledWithin"/>
-    /// removes that; the steps after the first are centred, because the shifts are fixed only up to a constant that every
-    /// comparison cancels. The result is centred to average 0.
+    /// removes that. The steps after the first are centred within each linked group, because the shifts are fixed only up
+    /// to one constant per group; centring across groups instead turns that constant into a step that never shrinks
+    /// (review round 4). If the steps have not settled within <paramref name="maximumPasses"/>, the first pass is used. The
+    /// result is centred to average 0 within each group.
     /// </summary>
-    private static void Settle(ObservationTable table, List<int> reference, double[] shift, int maximumPasses,
-        List<string> warnings)
+    private static void Settle(ObservationTable table, List<int> reference, double[] shift, List<int[]> groups,
+        int maximumPasses, List<string> warnings)
     {
+        double[] firstPass = (double[])shift.Clone();
         bool settled = false;
-        for (int pass = 2; pass <= maximumPasses && !settled; pass++)
+        for (int pass = 2; pass <= maximumPasses; pass++)
         {
             double[] step = MedianDifferences(table, reference, shift);
-            Centre(step);
+            Centre(step, groups);
             settled = step.All(d => double.IsNaN(d) || Math.Abs(d) <= SettledWithin);
             if (settled)
                 break;
@@ -178,29 +210,58 @@ public static class SharedPeptideNormalization
                     shift[s] += step[s];
         }
 
-        Centre(shift);
         if (!settled)
-            warnings.Add($"The {SharedPeptideMedianHalf} shifts did not settle within {maximumPasses} passes; the last " +
+        {
+            Array.Copy(firstPass, shift, shift.Length);
+            warnings.Add($"The {SharedPeptideMedianHalf} shifts did not settle within {maximumPasses} passes, so the first " +
                 "pass's shifts are used.");
+        }
+        Centre(shift, groups);
     }
 
-    /// <summary>Subtracts the mean of the defined values from each; NaN stays NaN.</summary>
-    private static void Centre(double[] values)
+    /// <summary>
+    /// The groups of samples the reference peptides link, each in sample order and the groups in order of their first
+    /// sample. A sample with no reference value is in none.
+    /// </summary>
+    private static List<int[]> LinkedGroups(ObservationTable table, List<int> reference, int samples)
     {
-        double sum = 0;
-        int count = 0;
-        foreach (double v in values)
+        var parent = Enumerable.Range(0, samples).ToArray();
+        int Root(int s)
         {
-            if (double.IsNaN(v)) continue;
-            sum += v;
-            count++;
+            while (parent[s] != s)
+                s = parent[s] = parent[parent[s]];
+            return s;
         }
-        if (count == 0)
-            return;
 
-        double mean = sum / count;
-        for (int i = 0; i < values.Length; i++)
-            values[i] -= mean;
+        var hasValue = new bool[samples];
+        foreach (int p in reference)
+        {
+            int first = -1;
+            for (int s = 0; s < samples; s++)
+            {
+                if (double.IsNaN(table.Log2Intensity(p, s))) continue;
+                hasValue[s] = true;
+                if (first < 0)
+                    first = s;
+                else
+                    parent[Root(s)] = Root(first);
+            }
+        }
+        return Enumerable.Range(0, samples).Where(s => hasValue[s]).GroupBy(Root).Select(g => g.ToArray()).ToList();
+    }
+
+    /// <summary>Within each group, subtracts the mean of the group's defined values from each; NaN stays NaN.</summary>
+    private static void Centre(double[] values, List<int[]> groups)
+    {
+        foreach (int[] group in groups)
+        {
+            var defined = group.Where(s => !double.IsNaN(values[s])).ToList();
+            if (defined.Count == 0)
+                continue;
+            double mean = defined.Average(s => values[s]);
+            foreach (int s in defined)
+                values[s] -= mean;
+        }
     }
 
     /// <summary>
