@@ -1081,5 +1081,24 @@ namespace Test.Omics.BioPolymerGroupTests
         }
 
         #endregion
+
+        /// <summary>
+        /// A group's flags are any-member, so a group holding a contaminant and an entrapment protein
+        /// is both, and the writer follows the label's precedence and writes ET. The contaminant
+        /// member is not marked; DecoyContaminantTargetLabel.For says so. Every earlier case built a
+        /// group with one member.
+        /// </summary>
+        [Test]
+        public void AGroupWithAContaminantAndAnEntrapmentMemberIsWrittenAsEntrapment()
+        {
+            var contaminant = new MockBioPolymer("PEPTIDEK", "CONT_P1", isDecoy: false, isContaminant: true, isEntrapment: false);
+            var entrapment = new MockBioPolymer("PEPTLDEK", "Random_P1_f0", isDecoy: false, isContaminant: false, isEntrapment: true);
+            var sequence = new MockBioPolymerWithSetMods("PEPTIDEK", "PEPTIDEK");
+            var group = new BioPolymerGroup(new HashSet<IBioPolymer> { contaminant, entrapment },
+                new HashSet<IBioPolymerWithSetMods> { sequence }, new HashSet<IBioPolymerWithSetMods> { sequence });
+
+            Assert.That((group.IsContaminant, group.IsEntrapment), Is.EqualTo((true, true)));
+            Assert.That(GroupTsv.Row(group), Does.Contain("\tET\t"));
+        }
     }
 }
