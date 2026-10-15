@@ -2,6 +2,7 @@
 using System;
 using MzLibUtil;
 using Omics.Digestion;
+using Proteomics.ProteolyticDigestion;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -87,7 +88,8 @@ public sealed class EntrapmentAssembly
         int[] targetToEntrapmentPosition, IReadOnlyList<EntrapmentPiece> pieces,
         int missedCleavagePeptidesSpanningAnExcision,
         IReadOnlyList<string> unrepairableRunCollisionPeptides,
-        IReadOnlyList<string> initiatorMethionineCollisionPeptides)
+        IReadOnlyList<string> initiatorMethionineCollisionPeptides,
+        IReadOnlyList<string> strippedPeptidesWithoutCounterpart)
     {
         TargetSequence = targetSequence;
         EntrapmentSequence = entrapmentSequence;
@@ -96,6 +98,7 @@ public sealed class EntrapmentAssembly
         MissedCleavagePeptidesSpanningAnExcision = missedCleavagePeptidesSpanningAnExcision;
         UnrepairableRunCollisionPeptides = unrepairableRunCollisionPeptides;
         InitiatorMethionineCollisionPeptides = initiatorMethionineCollisionPeptides;
+        StrippedPeptidesWithoutCounterpart = strippedPeptidesWithoutCounterpart;
     }
 
     public string TargetSequence { get; }
@@ -118,9 +121,38 @@ public sealed class EntrapmentAssembly
     /// Every other missed-cleavage peptide is isomeric for free, because base-piece compositions
     /// add. That is true but not obvious, and these exceptions are counted rather than left
     /// implicit, because anyone computing mass statistics over the entrapment set will assume the
-    /// invariant holds everywhere.
+    /// invariant holds everywhere. Counts runs, as written; the forms of these runs a search reports
+    /// without an initiator methionine are in <see cref="StrippedPeptidesWithoutCounterpart"/>.
     /// </remarks>
     public int MissedCleavagePeptidesSpanningAnExcision { get; }
+
+    /// <summary>
+    /// Peptides a search reports from this entrapment sequence once it removes the initiator
+    /// methionine, and which no target peptide pairs with, because the target strips no such run.
+    /// </summary>
+    /// <remarks>
+    /// <para>A search strips the methionine of whatever piece opens the PARTNER. The target strips
+    /// the same methionine from the same run only when that piece is also the target's opening piece
+    /// and the run is contiguous there. Two things break that. An excised opening piece promotes the
+    /// next one, so a partner can open with a methionine that is internal in the target, where no
+    /// search removes it (pcruzparri, #1271: Q61286 after <c>MNPQQQR</c>, three peptides in every fold
+    /// at r = 9). And a run from the opening piece can skip an excision, which makes its stripped form
+    /// the stripped twin of a run in <see cref="MissedCleavagePeptidesSpanningAnExcision"/>.</para>
+    /// <para>Within the length bounds, and only under an <c>InitiatorMethionineBehavior</c> that
+    /// strips (<c>Variable</c> or <c>Cleave</c>), by the same rule <see cref="EntrapmentPairing"/>
+    /// indexes them. A stripped form equal to a real target peptide is left out: it is a collision,
+    /// refused or named in <see cref="UnrepairableRunCollisionPeptides"/> or
+    /// <see cref="InitiatorMethionineCollisionPeptides"/>, and a consumer treats that list oppositely.
+    /// These are genuine entrapment peptides that cannot pair, not peptides to exclude.</para>
+    /// <para>"Cannot pair" is <see cref="EntrapmentPairing"/>'s sense, not bare composition. A stripped
+    /// form can share its composition with an unrelated target run by chance -- on reviewed human
+    /// with isoforms, Q99700's <c>R</c> + <c>SATAESPVR</c> beside the target's <c>SATAESPVR</c> +
+    /// <c>R</c> -- but its cleavage sites are pinned elsewhere, so it still resolves to nothing.
+    /// Measured at r = 9 (trypsin, MC 2, length 7 and up, seed 1), this list matched the stripped
+    /// forms <c>TryResolve</c> leaves unresolved peptide for peptide: 465 on reviewed mouse, 865 on
+    /// reviewed human with isoforms.</para>
+    /// </remarks>
+    public IReadOnlyList<string> StrippedPeptidesWithoutCounterpart { get; }
 
     /// <summary>
     /// Missed-cleavage peptides of this entrapment sequence that equal a real target peptide and
@@ -229,8 +261,9 @@ public sealed class EntrapmentAssembly
 /// pieces, each isomeric with the target's.</para>
 /// <para>Rearranging the <b>zero-missed-cleavage</b> pieces is enough to cover missed cleavages
 /// too: a missed-cleavage peptide is a run of adjacent pieces, and composition adds, so it is
-/// isomeric with its target counterpart without being handled separately. The exception is a run
-/// spanning an excision, which has no counterpart -- those are counted.</para>
+/// isomeric with its target counterpart without being handled separately. The exceptions are a run
+/// spanning an excision, and an initiator-methionine-stripped form the target has no stripped twin
+/// of. Neither has a counterpart, and both are counted.</para>
 /// </remarks>
 public static class EntrapmentAssembler
 {
@@ -332,7 +365,8 @@ public static class EntrapmentAssembler
             // Keyed on what has actually been placed rather than on the piece's ordinal, because an
             // excised opening piece promotes the next one -- the entrapment protein then begins
             // wherever the first surviving piece begins, and that is the residue a search would
-            // treat as an initiator methionine.
+            // treat as an initiator methionine. The target never strips it, so the stripped forms
+            // that do not collide still have no counterpart: StrippedFormsWithoutCounterpart counts them.
             Func<string, string?>? strippedOfInitiatorMethionine =
                 RejectInitiatorMethionineCollisions(entrapment.Length == 0, forbiddenSequences,
                     digestionParams.MinLength, digestionParams.MaxLength);
@@ -403,7 +437,57 @@ public static class EntrapmentAssembler
         int broken = CountRunsSpanningAGap(retainedTargetIndices, digestionParams.MaxMissedCleavages);
 
         return new EntrapmentAssembly(targetSequence, entrapment.ToString(), map, pieces, broken,
-            unrepairable, initiatorMethionineCollisions);
+            unrepairable, initiatorMethionineCollisions,
+            StrippedFormsWithoutCounterpart(placed, retainedTargetIndices, digestionParams, forbiddenSequences));
+    }
+
+    /// <summary>
+    /// The initiator-methionine-stripped runs a search reports from the entrapment sequence that
+    /// the target has no stripped twin of. See <see cref="EntrapmentAssembly.StrippedPeptidesWithoutCounterpart"/>.
+    /// </summary>
+    /// <remarks>
+    /// Follows <see cref="EntrapmentPairing"/>'s reading of <c>DigestionAgent.FullDigestion</c>: runs
+    /// of up to <c>MaxMissedCleavages + 1</c> pieces from the opening piece are emitted from residue 2
+    /// unless the behaviour is <c>Retain</c>, and nothing extra comes of an opening piece that is a
+    /// lone M. A run's twin exists only when its pieces are the target's first ones, in order;
+    /// retained indices rise strictly from zero, so checking the run's last piece checks them all.
+    /// </remarks>
+    private static IReadOnlyList<string> StrippedFormsWithoutCounterpart(List<string> placed,
+        List<int> retainedTargetIndices, IDigestionParams digestionParams, IReadOnlySet<string> forbiddenSequences)
+    {
+        InitiatorMethionineBehavior initiatorMethionine =
+            (digestionParams as DigestionParams)?.InitiatorMethionineBehavior ?? InitiatorMethionineBehavior.Variable;
+        if (initiatorMethionine == InitiatorMethionineBehavior.Retain
+            || placed.Count == 0 || placed[0].Length < 2 || placed[0][0] != 'M')
+        {
+            return System.Array.Empty<string>();
+        }
+
+        List<string>? withoutCounterpart = null;
+        var run = new StringBuilder();
+        int longest = Math.Min(digestionParams.MaxMissedCleavages + 1, placed.Count);
+        for (int pieces = 1; pieces <= longest; pieces++)
+        {
+            run.Append(placed[pieces - 1]);
+            if (retainedTargetIndices[pieces - 1] == pieces - 1)
+            {
+                continue;
+            }
+
+            int length = run.Length - 1;
+            if (length < digestionParams.MinLength || length > digestionParams.MaxLength)
+            {
+                continue;
+            }
+
+            string stripped = run.ToString(1, length);
+            if (!forbiddenSequences.Contains(stripped))
+            {
+                (withoutCounterpart ??= new List<string>()).Add(stripped);
+            }
+        }
+
+        return (IReadOnlyList<string>?)withoutCounterpart ?? System.Array.Empty<string>();
     }
 
     /// <summary>

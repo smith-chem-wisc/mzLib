@@ -147,9 +147,22 @@ public sealed class EntrapmentStratum
 
     /// <summary>
     /// Entrapment missed-cleavage peptides whose pieces were not adjacent in the target, so they
-    /// have no isomeric counterpart. The only peptides in the database that break that invariant.
+    /// have no isomeric counterpart. With <see cref="StrippedPeptidesWithoutCounterpart"/>, the only
+    /// peptides in the database that break that invariant.
     /// </summary>
     public int MissedCleavagePeptidesSpanningAnExcision { get; internal set; }
+
+    /// <summary>
+    /// Entrapment peptides a search reports without the initiator methionine that no target peptide
+    /// pairs with, because the target strips no such run: the partner opens with a piece the target
+    /// holds internally, or the run skips an excision.
+    /// </summary>
+    /// <remarks>
+    /// Genuine entrapment peptides, so a combined estimate counts them as it counts any other; they
+    /// only cannot pair. They are counted, not yet named in the exclusion table. See
+    /// <see cref="EntrapmentAssembly.StrippedPeptidesWithoutCounterpart"/>.
+    /// </remarks>
+    public int StrippedPeptidesWithoutCounterpart { get; internal set; }
 
     /// <summary>
     /// Missed-cleavage peptides of the entrapment database that equal a real target peptide and
@@ -204,6 +217,7 @@ public sealed class EntrapmentStratum
         MissedCleavagePeptidesSpanningAnExcision = MissedCleavagePeptidesSpanningAnExcision,
         UnrepairableRunCollisions = UnrepairableRunCollisions,
         InitiatorMethionineCollisions = InitiatorMethionineCollisions,
+        StrippedPeptidesWithoutCounterpart = StrippedPeptidesWithoutCounterpart,
     };
 }
 
@@ -504,7 +518,8 @@ public sealed class EntrapmentReport
             "unpairableSpaceTooSmallForFoldCount", "unpairableRunCollisionsExhausted",
             "searchSpacePeptides",
             "entrapmentSearchSpacePeptides", "ambiguous",
-            "mcSpanningAnExcision", "unrepairableRunCollisions", "initiatorMethionineCollisions"));
+            "mcSpanningAnExcision", "unrepairableRunCollisions", "initiatorMethionineCollisions",
+            "strippedWithoutCounterpart"));
 
         foreach (EntrapmentStratum stratum in Strata.Append(Total))
         {
@@ -522,7 +537,8 @@ public sealed class EntrapmentReport
                 stratum.Ambiguous.ToString(CultureInfo.InvariantCulture),
                 stratum.MissedCleavagePeptidesSpanningAnExcision.ToString(CultureInfo.InvariantCulture),
                 stratum.UnrepairableRunCollisions.ToString(CultureInfo.InvariantCulture),
-                stratum.InitiatorMethionineCollisions.ToString(CultureInfo.InvariantCulture)));
+                stratum.InitiatorMethionineCollisions.ToString(CultureInfo.InvariantCulture),
+                stratum.StrippedPeptidesWithoutCounterpart.ToString(CultureInfo.InvariantCulture)));
         }
 
         return text.ToString();
@@ -695,6 +711,8 @@ public sealed class EntrapmentReportBuilder
         // attributable to one candidate-site count.
         _wholeProtein.MissedCleavagePeptidesSpanningAnExcision +=
             assembly.MissedCleavagePeptidesSpanningAnExcision;
+        // Distinct within one assembly already, since each is a run of a different length.
+        _wholeProtein.StrippedPeptidesWithoutCounterpart += assembly.StrippedPeptidesWithoutCounterpart.Count;
         if (assembly.EntrapmentSequence.Length == 0)
         {
             _entriesYieldingNoPartner++;
@@ -827,6 +845,7 @@ public sealed class EntrapmentReportBuilder
         total.InitiatorMethionineCollisions += _wholeProtein.InitiatorMethionineCollisions;
         total.MissedCleavagePeptidesSpanningAnExcision +=
             _wholeProtein.MissedCleavagePeptidesSpanningAnExcision;
+        total.StrippedPeptidesWithoutCounterpart += _wholeProtein.StrippedPeptidesWithoutCounterpart;
 
         var provenance = new EntrapmentProvenance(
             method: "composition-preserving permutation (deterministic unranking)",

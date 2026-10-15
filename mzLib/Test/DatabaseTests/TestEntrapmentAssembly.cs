@@ -3,6 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using NUnit.Framework;
 using Omics.Digestion;
+using Omics.Modifications;
+using Proteomics;
 using Proteomics.ProteolyticDigestion;
 using UsefulProteomicsDatabases.EntrapmentGeneration;
 
@@ -679,5 +681,179 @@ public class EntrapmentAssemblyTests
         Assert.That(EntrapmentAssembler.Assemble(FourPieces, Tryptic(), NothingForbidden,
                 fold: 2, foldCount: 3, seed: 42).EntrapmentSequence,
             Is.EqualTo("MSSEDNQGLWTAVKASDQLLNLAMLKGGANDTTPFDWEVRQGITSGLYK"));
+    }
+
+    // ---- pcruzparri's review of #1271, 2026-10-13 --------------------------------
+    // A search strips the methionine of whatever piece OPENS the partner. When that is not the
+    // target's own opening piece, or a run from it skips an excision, the target strips no such
+    // run, so the stripped form has no counterpart. Protein.Digest is the oracle: on these fixtures
+    // a stripped form is counted exactly when no target peptide is isomeric with it. The one place
+    // bare composition and pairing part ways is pinned by its own test below.
+
+    /// <summary>The opening piece has one arrangement and is excised; the next one opens with M.</summary>
+    private const string PromotesAMethionine = "SSSSSSRMSTQAEVDLNSGWKGGVDTTPFAWENDR";
+
+    /// <summary>The partner's peptides, by <c>Protein.Digest</c>, that no target peptide is isomeric with.</summary>
+    private static List<string> PartnerPeptidesWithNoIsomericTargetPeptide(string target,
+        EntrapmentAssembly assembly, IDigestionParams digestion)
+    {
+        var none = new List<Modification>();
+        HashSet<string> targetCompositions = new Protein(target, "t").Digest(digestion, none, none)
+            .Select(p => Sorted(p.BaseSequence)).ToHashSet();
+        return new Protein(assembly.EntrapmentSequence, "e").Digest(digestion, none, none)
+            .Select(p => p.BaseSequence).Distinct()
+            .Where(p => !targetCompositions.Contains(Sorted(p)))
+            .ToList();
+    }
+
+    [TestCase(0)]
+    [TestCase(2)]
+    public void AnExcisedOpeningPieceCountsTheStrippedFormsOfThePiecePromotedInItsPlace(int maxMissedCleavages)
+    {
+        var digestion = new DigestionParams("trypsin", maxMissedCleavages: maxMissedCleavages, minPeptideLength: 7);
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(PromotesAMethionine, digestion, NothingForbidden);
+        Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the opening piece goes");
+        string promoted = assembly.Pieces[1].EntrapmentPiece_!;
+        Assert.That(promoted, Does.StartWith("M"), "fixture: the promoted piece opens with methionine");
+
+        var expected = new List<string> { promoted.Substring(1) };
+        if (maxMissedCleavages > 0)
+        {
+            expected.Add((promoted + assembly.Pieces[2].EntrapmentPiece_).Substring(1));
+        }
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Is.EqualTo(expected));
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart,
+            Is.EquivalentTo(PartnerPeptidesWithNoIsomericTargetPeptide(PromotesAMethionine, assembly, digestion)),
+            "exactly the peptides a search reports that no target peptide is isomeric with");
+        Assert.That(assembly.MissedCleavagePeptidesSpanningAnExcision, Is.Zero, "no run spans a gap here");
+    }
+
+    [Test]
+    public void AnExcisedOpeningPieceBeforeAPieceWithoutMethionineCountsNothing()
+    {
+        const string sequence = "SSSSSSRGGVDTTPFAWENDRMSTQAEVDLNSGWK";
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, Tryptic(), NothingForbidden);
+        Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the opening piece goes");
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Is.Empty);
+        Assert.That(PartnerPeptidesWithNoIsomericTargetPeptide(sequence, assembly, Tryptic()), Is.Empty);
+    }
+
+    [Test]
+    public void AnOpeningPieceKeptInPlaceHasACounterpartForEveryStrippedForm()
+    {
+        // The target strips the same methionine from the same runs, so nothing is unpaired.
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(FourPieces, Tryptic(), NothingForbidden);
+        Assert.That(assembly.Pieces[0].EntrapmentPiece_, Does.StartWith("M"), "fixture: opens with methionine");
+        Assert.That(assembly.ExcisedCount, Is.Zero, "fixture: nothing is excised");
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Is.Empty);
+        Assert.That(PartnerPeptidesWithNoIsomericTargetPeptide(FourPieces, assembly, Tryptic()), Is.Empty);
+    }
+
+    [Test]
+    public void AStrippedRunSpanningAnExcisionIsCounted()
+    {
+        // The target does strip this methionine, but only from runs that still hold the excised piece.
+        // The run that skips it is MissedCleavagePeptidesSpanningAnExcision's; its stripped form is
+        // this list's.
+        const string sequence = "MSTQAEVDLNSGWKSSSSSSRGGVDTTPFAWENDR";
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, Tryptic(), NothingForbidden);
+        Assert.That(assembly.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the middle piece goes");
+        string spanning = assembly.Pieces[0].EntrapmentPiece_ + assembly.Pieces[2].EntrapmentPiece_;
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Is.EqualTo(new[] { spanning.Substring(1) }));
+        Assert.That(assembly.MissedCleavagePeptidesSpanningAnExcision, Is.EqualTo(1));
+        Assert.That(PartnerPeptidesWithNoIsomericTargetPeptide(sequence, assembly, Tryptic()),
+            Is.EquivalentTo(new[] { spanning, spanning.Substring(1) }));
+    }
+
+    [TestCase(InitiatorMethionineBehavior.Variable, 2)]
+    [TestCase(InitiatorMethionineBehavior.Cleave, 2)]
+    [TestCase(InitiatorMethionineBehavior.Retain, 0)]
+    public void StrippedFormsAreCountedOnlyWhenASearchStripsTheMethionine(InitiatorMethionineBehavior behavior,
+        int expected)
+    {
+        var digestion = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
+            initiatorMethionineBehavior: behavior);
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(PromotesAMethionine, digestion, NothingForbidden);
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Has.Count.EqualTo(expected));
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart,
+            Is.EquivalentTo(PartnerPeptidesWithNoIsomericTargetPeptide(PromotesAMethionine, assembly, digestion)));
+    }
+
+    [Test]
+    public void ALoneMethionineOpeningHasNoStrippedFormToCount()
+    {
+        // Under an N-terminal cutter the opening piece can be a lone M. Digestion then emits nothing
+        // extra, because the run from residue 2 is an ordinary run that is already a peptide. Here that
+        // is the piece after the excision, which has its counterpart.
+        var digestion = new DigestionParams("Asp-N", maxMissedCleavages: 2, minPeptideLength: 7);
+        const string sequence = "MDSSSSSSDGGVTTPFAWENLK";
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
+        Assert.That(assembly.Pieces[0].EntrapmentPiece_, Is.EqualTo("M"), "fixture: a lone methionine opens");
+        Assert.That(assembly.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the next piece goes");
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Is.Empty);
+        Assert.That(PartnerPeptidesWithNoIsomericTargetPeptide(sequence, assembly, digestion),
+            Is.EqualTo(new[] { "M" + assembly.Pieces[2].EntrapmentPiece_ }),
+            "only the spanning run is unpaired, and it is the spanning count's");
+    }
+
+    [TestCase(int.MaxValue, 1)]
+    [TestCase(19, 0)]
+    public void OnlyStrippedFormsWithinTheLengthBoundsAreCounted(int maxLength, int expected)
+    {
+        // MSTQAEK strips to a six-residue peptide no search reports at length 7 and up; with the
+        // next piece it strips to 20 residues.
+        const string sequence = "SSSSSSRMSTQAEKGGVDTTPFAWENDR";
+        var digestion = new DigestionParams("trypsin", maxMissedCleavages: 2, minPeptideLength: 7,
+            maxPeptideLength: maxLength);
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
+        Assert.That(assembly.Pieces[0].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: the opening piece goes");
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Has.Count.EqualTo(expected));
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart,
+            Is.EquivalentTo(PartnerPeptidesWithNoIsomericTargetPeptide(sequence, assembly, digestion)));
+    }
+
+    [Test]
+    public void AStrippedFormSharingOnlyACompositionWithAnUnrelatedTargetRunIsStillCounted()
+    {
+        // Q99700's shape, from reviewed human with isoforms: the stripped run R + SATAESPVR has the
+        // composition of the target's own run SATAESPVR + R. Its cleavage sites are pinned elsewhere,
+        // so the pairing resolves it to nothing, and "cannot pair" is what this list means.
+        IDigestionParams digestion = Tryptic();
+        const string sequence = "MRSSSSSSRSATAESPVRRGGVDTTPFAWENDR";
+        EntrapmentAssembly assembly = EntrapmentAssembler.Assemble(sequence, digestion, NothingForbidden);
+        Assert.That(assembly.Pieces[1].Outcome, Is.EqualTo(PieceOutcome.Excised), "fixture: SSSSSSR goes");
+        string stripped = "R" + assembly.Pieces[2].EntrapmentPiece_;
+        Assert.That(Sorted(stripped), Is.EqualTo(Sorted("SATAESPVRR")),
+            "fixture: the stripped form shares a composition with a real target run");
+
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Does.Contain(stripped));
+        Assert.That(new EntrapmentPairing(new Protein(sequence, "t"), digestion).TryResolve(stripped, out _),
+            Is.False, "same composition, different pinned sites: it does not pair");
+    }
+
+    [Test]
+    public void AStrippedFormThatIsATargetPeptideIsNamedAsACollisionNotCountedHere()
+    {
+        // The two lists must not overlap. One holds real target peptides inside the entrapment set,
+        // the other genuine entrapment peptides that cannot pair, and a consumer treats them oppositely.
+        const string sequence = "SSSSSSRMSTQAEVDLNSGWKAAR";
+        EntrapmentAssembly free = EntrapmentAssembler.Assemble(sequence, Tryptic(), NothingForbidden);
+        Assert.That(free.Pieces[2].Outcome, Is.EqualTo(PieceOutcome.KeptVerbatimTooShort),
+            "fixture: AAR has no alternative arrangement");
+        string promoted = free.Pieces[1].EntrapmentPiece_!;
+        string strippedRun = (promoted + "AAR").Substring(1);
+
+        EntrapmentAssembly guarded = EntrapmentAssembler.Assemble(sequence, Tryptic(),
+            new HashSet<string> { strippedRun });
+
+        Assert.That(guarded.UnrepairableRunCollisionPeptides, Is.EqualTo(new[] { strippedRun }));
+        Assert.That(guarded.StrippedPeptidesWithoutCounterpart, Is.EqualTo(new[] { promoted.Substring(1) }));
     }
 }

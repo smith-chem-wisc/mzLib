@@ -989,7 +989,28 @@ public class EntrapmentReportTests
     {
         EntrapmentAssembly real = EntrapmentAssembler.Assemble(sequence, Tryptic, NothingForbidden);
         return new EntrapmentAssembly(real.TargetSequence, real.EntrapmentSequence, real.TargetToEntrapmentPosition,
-            real.Pieces, real.MissedCleavagePeptidesSpanningAnExcision, unrepairable, initiatorMethionine);
+            real.Pieces, real.MissedCleavagePeptidesSpanningAnExcision, unrepairable, initiatorMethionine,
+            real.StrippedPeptidesWithoutCounterpart);
+    }
+
+    [Test]
+    public void StrippedFormsWithoutACounterpartAreAWholeDatabaseColumn()
+    {
+        // pcruzparri (#1271, 2026-10-13): these were in the search space and in no column. Like the
+        // spanning count they belong to a placement, not to a candidate-site count, so they join the
+        // total and no stratum.
+        var target = new Protein("SSSSSSRMSTQAEVDLNSGWKGGVDTTPFAWENDR", "P1");
+        Protein partner = EntrapmentProteinGenerator.Create(target, Tryptic, NothingForbidden,
+            out EntrapmentAssembly assembly);
+        Assert.That(assembly.StrippedPeptidesWithoutCounterpart, Has.Count.EqualTo(2),
+            "fixture: the excised opening piece promotes a methionine");
+        var builder = new EntrapmentReportBuilder(Tryptic, 1, 1);
+        builder.Add(target, 0, assembly, partner);
+        EntrapmentReport report = builder.Build();
+
+        Assert.That(report.Total.StrippedPeptidesWithoutCounterpart, Is.EqualTo(2));
+        Assert.That(TotalRow(report)["strippedWithoutCounterpart"], Is.EqualTo("2"));
+        Assert.That(report.Strata.Select(s => s.StrippedPeptidesWithoutCounterpart), Is.All.Zero);
     }
 
     [Test]
