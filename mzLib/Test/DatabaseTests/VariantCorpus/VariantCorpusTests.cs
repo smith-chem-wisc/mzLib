@@ -26,7 +26,7 @@ namespace Test.DatabaseTests.VariantCorpus
     /// protein start/end, VCF depth cutoff, multi-residue MNV, and double substitutions) and pulls the bottom-up
     /// DIGESTION axis forward for the "a substitution moves the knife" cases (installment 5): trypsin cut-site
     /// create/destroy and the not-before-proline rule (trypsin|P). The I-series adds anchored insertions (L1).
-    /// Processing is a later layer.
+    /// The P-series opens processing (L2): a chain boundary re-based by an applied variant.
     /// </summary>
     [TestFixture]
     internal class VariantCorpusTests
@@ -44,7 +44,7 @@ namespace Test.DatabaseTests.VariantCorpus
             int ExpectedCount, string Verdict, string Reason,
             string[] ExpectedForms,
             int MinAlleleDepth = 1, int MaxHeterozygous = 4,
-            string Opts = "-");
+            string Opts = "-", string Processing = "-");
 
         // Canonical test-mod registry (see README "Canonical test mods"). name -> (ModificationType, monoisotopicMass).
         private static readonly Dictionary<string, (string Type, double Mass)> ModRegistry = new()
@@ -633,6 +633,47 @@ namespace Test.DatabaseTests.VariantCorpus
                     "PAPTIDE", "PAPT[Biological:Phosphorylation on T]IDE",
                     "PEPVIDE", "PAPVIDE"
                 });
+
+            // ---- L2 processing: a chain boundary re-based by an applied variant (installment 6; invariant 8) ----
+            // Top-down emits the whole protein plus every truncation product, so each proteoform contributes its
+            // full-length forms and its chain forms. The chain window is re-based by the SAME kept-residue rule as
+            // mods (invariant 8): a boundary on a residue the indel keeps moves exactly as a mod on it would (I01/I09).
+
+            // P00 — chain [4,7] begins on the KEPT LEFT ANCHOR of T4->TAG. PEPTAGIDE keeps T4 (phospho survives,
+            // I01) and the insertion falls inside the chain, so the chain becomes [4,9] = TAGIDE. Consensus: PEPTIDE
+            // +/- phospho, chain TIDE +/- phospho. Variant: PEPTAGIDE +/- phospho, chain TAGIDE +/- phospho. 8 forms.
+            yield return new CorpusCase(
+                Id: "P00", Layer: "L2-proc", Tests: "chain-starts-on-kept-left-anchor",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=TAG POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 8, Verdict: "applied",
+                Reason: "Chain [4,7] starts on T4, which T4->TAG keeps; the insertion lies inside the chain, so it becomes [4,9] (TAGIDE) and keeps its phospho. Same kept-prefix rule as the mod (I01; invariant 8).",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "TIDE", "T[Biological:Phosphorylation on T]IDE",
+                    "PEPTAGIDE", "PEPT[Biological:Phosphorylation on T]AGIDE",
+                    "TAGIDE", "T[Biological:Phosphorylation on T]AGIDE"
+                },
+                Processing: "chain@4-7");
+
+            // P01 — chain [4,7] begins on the KEPT RIGHT ANCHOR of T4->AGT. PEPAGTIDE keeps T4 as T6 (phospho 4->6,
+            // I09) and the insertion lies before the chain, so the chain shifts to [6,9] = TIDE. The variant's chain
+            // forms equal the consensus chain forms, listed once per proteoform (the digest is not de-duplicated).
+            yield return new CorpusCase(
+                Id: "P01", Layer: "L2-proc", Tests: "chain-starts-on-kept-right-anchor",
+                Base: "PEPTIDE", Mods: "Phosphorylation@4", Variants: "OP=T VAR=AGT POS=4 SRC=uniprot", Protease: "top-down",
+                MaxIsoforms: 1024, MaxMods: 2,
+                ExpectedCount: 8, Verdict: "applied",
+                Reason: "Chain [4,7] starts on T4, which T4->AGT keeps as T6; the insertion precedes the chain, so it shifts to [6,9] (TIDE) and keeps its phospho. Same kept-suffix rule as the mod (I09; invariant 8).",
+                ExpectedForms: new[]
+                {
+                    "PEPTIDE", "PEPT[Biological:Phosphorylation on T]IDE",
+                    "TIDE", "T[Biological:Phosphorylation on T]IDE",
+                    "PEPAGTIDE", "PEPAGT[Biological:Phosphorylation on T]IDE",
+                    "TIDE", "T[Biological:Phosphorylation on T]IDE"
+                },
+                Processing: "chain@4-7");
         }
 
         private static IEnumerable<TestCaseData> Cases()
@@ -912,6 +953,21 @@ namespace Test.DatabaseTests.VariantCorpus
                         $"    <feature type=\"sequence variant\" description=\"{description}\">\n" +
                         $"      <original>{op}</original>\n      <variation>{variation}</variation>\n" +
                         location +
+                        $"    </feature>\n");
+                }
+            }
+
+            // Processing = type@begin-end[;...] -> a UniProt processing feature (chain / peptide / propeptide /
+            // signal peptide), which the reader turns into a TruncationProduct over [begin,end] (reference frame).
+            if (c.Processing != "-")
+            {
+                foreach (var token in c.Processing.Split(';', StringSplitOptions.RemoveEmptyEntries))
+                {
+                    var parts = token.Trim().Split('@');
+                    var range = parts[1].Split('-');
+                    features.Append(
+                        $"    <feature type=\"{parts[0]}\">\n" +
+                        $"      <location><begin position=\"{range[0]}\" /><end position=\"{range[1]}\" /></location>\n" +
                         $"    </feature>\n");
                 }
             }

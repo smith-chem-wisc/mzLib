@@ -22,7 +22,7 @@ public static class ModificationTest
     {
         List<ModificationTestCase> testCases =
         [
-            new (Mods.AllKnownProteinModsDictionary["DVFQQQTGG (SUMO-2/3 Site human) on D"], ModificationNamingConvention.MetaMorpheus, true),
+            new (Mods.AllKnownProteinModsDictionary["DVFQQQTGG (SUMO-2/3 Site human) on K"], ModificationNamingConvention.MetaMorpheus, true),
             new (Mods.AllKnownProteinModsDictionary["Phosphorylation on T"], ModificationNamingConvention.MetaMorpheus_Protein, true),
             new (Mods.AllKnownRnaModsDictionary["MethoxyEthoxylation on G"], ModificationNamingConvention.MetaMorpheus_Rna, false),
             new (Mods.AllKnownProteinModsDictionary["(3S)-3-hydroxyaspartate on D"], ModificationNamingConvention.UniProt, true),
@@ -48,6 +48,23 @@ public static class ModificationTest
         {
             Assert.That(mod.ModificationType, Is.EqualTo("UniProt"));
         }
+    }
+
+    /// <summary>
+    /// SUMO is conjugated through a lysine's epsilon-amine, and each remnant's formula is its peptide's residue sum, an
+    /// acyl group on that amine. The human SUMO-1 and SUMO-2/3 entries once targeted D, so no search could place them
+    /// on a lysine (#1431).
+    /// </summary>
+    [Test]
+    [TestCase("DVIEVYQEQTGG (SUMO-1 Site human)", "C57H86N14O22")]
+    [TestCase("DVFQQQTGG (SUMO-2/3 Site human)", "C41H60N12O15")]
+    [TestCase("EQIGG (sumoylation (SMT-3) Site yeast)", "C20H32N6O8")]
+    public static void SumoRemnantsTargetLysine(string id, string residueSum)
+    {
+        Assert.That(Mods.AllKnownProteinModsDictionary.ContainsKey($"{id} on D"), Is.False);
+        var mod = Mods.AllKnownProteinModsDictionary[$"{id} on K"];
+        Assert.That(mod.Target.ToString(), Is.EqualTo("K"));
+        Assert.That(mod.ChemicalFormula, Is.EqualTo(ChemicalFormula.ParseFormula(residueSum)));
     }
 
     [Test]
