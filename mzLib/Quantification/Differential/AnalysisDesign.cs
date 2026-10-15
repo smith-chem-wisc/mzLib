@@ -63,13 +63,17 @@ public sealed class AnalysisDesign
     private const string Intercept = "intercept";
     private const string BatchTerm = "batch";
 
-    /// <summary>A null-space loading (or a contrast's projection on it) below this counts as zero.</summary>
+    /// <summary>
+    /// A null-space loading (or a unit-length contrast's projection on it) below this counts as zero, both on the columns
+    /// divided by their lengths.
+    /// </summary>
     private const double LoadingTolerance = 1e-8;
 
     private readonly double[,] _matrix;
     private readonly List<string> _columnTerms;
     private readonly List<FactorCoding> _factors;
     private readonly List<CovariateCoding> _covariates;
+    private readonly double[] _columnLengths;
     private readonly Matrix<double>? _nullProjector;
 
     private AnalysisDesign(string stratum, IReadOnlyList<AnalysisSample> samples, double[,] matrix,
@@ -93,8 +97,11 @@ public sealed class AnalysisDesign
         FittedColumns = LinearModel.HasFullColumnRank(matrix) ? Enumerable.Range(0, p).ToArray() : KeptColumns(matrix);
         Rank = FittedColumns.Count;
         // What a redundancy involves is read from the projection onto the null space, which depends on the space alone,
-        // not on the basis that spans it (review round 3).
-        var nullSpace = Rank < p ? NullSpace(matrix, FittedColumns) : null;
+        // not on the basis that spans it (review round 3). It is the null space of the columns divided by their lengths,
+        // so neither it nor a verdict depends on the unit a column is stored in (review round 5). An all-zero column keeps
+        // length 1. Scaling a column does not change which columns are redundant, so FittedColumns stand.
+        _columnLengths = Matrix<double>.Build.DenseOfArray(matrix).ColumnNorms(2).Select(l => l > 0 ? l : 1).ToArray();
+        var nullSpace = Rank < p ? NullSpace(matrix, _columnLengths, FittedColumns) : null;
         _nullProjector = nullSpace?.TransposeAndMultiply(nullSpace);
         AliasedTerms = _nullProjector is null
             ? Array.Empty<string>()
@@ -361,7 +368,8 @@ public sealed class AnalysisDesign
     /// <summary>
     /// Whether a contrast can be estimated from this design: <see cref="Estimable"/> when its weights are orthogonal to
     /// the matrix's null space; otherwise <see cref="NotEstimableConfounded"/> when the direction it needs is shared by
-    /// two or more terms, else <see cref="NotEstimableRankDeficient"/>.
+    /// two or more terms, else <see cref="NotEstimableRankDeficient"/>. It is judged on the columns divided by their
+    /// lengths, so it is the same in whatever unit a covariate is stored.
     /// </summary>
     public string Estimability(Contrast contrast)
     {
@@ -371,12 +379,14 @@ public sealed class AnalysisDesign
                 $"The contrast has {contrast.Weights.Count} weights but the design has {ColumnNames.Count} columns.",
                 nameof(contrast));
         if (_nullProjector is null) return Estimable;
-        var c = Vector<double>.Build.DenseOfEnumerable(contrast.Weights);
-        double scale = Math.Max(1, c.L2Norm());
+        // A column divided by its length has its coefficient multiplied by that length, so the contrast's weight on it
+        // is divided by it.
+        var c = Vector<double>.Build.Dense(ColumnNames.Count, j => contrast.Weights[j] / _columnLengths[j]);
+        double length = c.L2Norm();
         // The part of the contrast that lies in the null space, which no fit can see.
         var unseen = _nullProjector * c;
-        if (unseen.L2Norm() <= LoadingTolerance * scale) return Estimable;
-        return TermsAlong(unseen).Count > 1 ? NotEstimableConfounded : NotEstimableRankDeficient;
+        if (unseen.L2Norm() <= LoadingTolerance * length) return Estimable;
+        return TermsAlong(unseen / length).Count > 1 ? NotEstimableConfounded : NotEstimableRankDeficient;
     }
 
     /// <summary>The terms a direction in the null space loads on: its entries above <see cref="LoadingTolerance"/> of its length.</summary>
@@ -412,14 +422,16 @@ public sealed class AnalysisDesign
     }
 
     /// <summary>
-    /// An orthonormal basis of the null space, <c>[column, direction]</c>: for each left-out column, its unit vector
-    /// less its least-squares coefficients on the kept columns. Those directions are independent (each is 1 on its own
-    /// left-out column and 0 on the others), and for an exact redundancy they span the same space an SVD gives.
+    /// An orthonormal basis of the null space of the columns divided by <paramref name="lengths"/>,
+    /// <c>[column, direction]</c>: for each left-out column, its unit vector less its least-squares coefficients on the
+    /// kept columns. Those directions are independent (each is 1 on its own left-out column and 0 on the others), and
+    /// for an exact redundancy they span the same space an SVD gives.
     /// </summary>
-    private static Matrix<double> NullSpace(double[,] matrix, IReadOnlyList<int> kept)
+    private static Matrix<double> NullSpace(double[,] matrix, double[] lengths, IReadOnlyList<int> kept)
     {
         int p = matrix.GetLength(1);
         var x = Matrix<double>.Build.DenseOfArray(matrix);
+        x.MapIndexedInplace((i, j, v) => v / lengths[j]);
         var keptColumns = Matrix<double>.Build.DenseOfColumnVectors(kept.Select(j => x.Column(j)));
         var keptQr = keptColumns.QR();
         var directions = new List<Vector<double>>();

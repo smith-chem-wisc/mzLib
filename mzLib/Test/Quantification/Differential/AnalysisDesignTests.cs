@@ -462,7 +462,9 @@ public class AnalysisDesignTests
     /// <summary>
     /// The reason must not depend on which basis of a two-dimensional null space the SVD returns. A stated centre a
     /// rounding error off the values (the floating-point mean of ten 18.2s) leaves the same 3.6e-15 column whatever the
-    /// default centre does; the reason and the aliased terms come from the projection onto the null space.
+    /// default centre does; the reason and the aliased terms come from the projection onto the null space. That column is
+    /// constant, so in any unit it is the intercept's direction: age is aliased with the intercept, as it is when the
+    /// stated centre is 0.2 off (review round 5; the old absolute tolerance read 3.6e-15 as zero and 0.2 as not).
     /// </summary>
     [Test]
     public void TheReasonDoesNotDependOnTheNullSpaceBasis()
@@ -470,10 +472,15 @@ public class AnalysisDesignTests
         double offCentre = Enumerable.Repeat(18.2, 10).Average();
         Assert.That(offCentre, Is.Not.EqualTo(18.2), "the fixture needs the rounding error");
 
-        var design = ConstantAgeBesideAConfoundedCondition(18.2, 10, offCentre);
-
-        Assert.That(design.Estimability(design.Slope("age")), Is.EqualTo(AnalysisDesign.NotEstimableRankDeficient));
-        Assert.That(design.AliasedTerms, Is.EqualTo(new[] { "condition", "batch" }));
+        var designs = new[]
+        {
+            ConstantAgeBesideAConfoundedCondition(18.2, 10, offCentre), ConstantAgeBesideAConfoundedCondition(18.2, 10, 18.0),
+        };
+        foreach (var design in designs)
+        {
+            Assert.That(design.Estimability(design.Slope("age")), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+            Assert.That(design.AliasedTerms, Is.EqualTo(new[] { "intercept", "condition", "batch", "age" }));
+        }
     }
 
     /// <summary>A design of full column rank is fitted as it is.</summary>
@@ -549,5 +556,76 @@ public class AnalysisDesignTests
         var e = Assert.Throws<ArgumentException>(() => design.FittedWeights(design.Slope("age")));
         Assert.That(e!.Message, Does.Contain(AnalysisDesign.NotEstimableRankDeficient));
         Assert.Throws<ArgumentException>(() => design.FittedWeights(design.Between("condition", "B", "A")));
+    }
+
+    /// <summary>
+    /// Review round 5 (@pcruzparri): estimability compared a contrast's unseen part with an absolute 1e-8 in coefficient
+    /// units, and a column's coefficients scale with the unit it is stored in. A per-plex covariate (a plex's summed
+    /// intensity, say) beside the fitted plex batch is set by the batch, so its slope cannot be estimated; from k = 1e8 it
+    /// was called estimable with weights that select nothing, and from k = 1e-9 down the batch contrast was called
+    /// estimable. The verdict is now the same in every unit.
+    /// </summary>
+    [Test]
+    public void APerPlexCovariateBesideTheBatchIsConfoundedInAnyUnit(
+        [Values(1e-10, 1e-9, 1e-8, 1.0, 1e7, 1e8, 1e9, 1e10)] double k)
+    {
+        // Twelve samples in two plexes, the condition alternating within each plex.
+        var samples = Enumerable.Range(0, 12).Select(i => new AnalysisSample($"s{i:00}")
+        {
+            Factors = new Dictionary<string, string> { ["condition"] = i % 2 == 0 ? "A" : "B" },
+            Batch = i < 6 ? "plex1" : "plex2",
+            Covariates = new Dictionary<string, double> { ["plex_tic"] = (i < 6 ? 3.1 : 4.7) * k },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, Spec(("condition", "A")) with
+        {
+            Covariates = new[] { new CovariateSpec("plex_tic", "intensity") },
+        });
+
+        Assert.That(design.FittedColumns.Select(j => design.ColumnNames[j]),
+            Is.EqualTo(new[] { "intercept", "condition=B", "batch=plex2" }));
+        var slope = design.Slope("plex_tic");
+        Assert.That(design.Estimability(slope), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        Assert.Throws<ArgumentException>(() => design.FittedWeights(slope));
+        var plex = design.Custom("p", "plex2 vs plex1", new Dictionary<string, double> { ["batch=plex2"] = 1 });
+        Assert.That(design.Estimability(plex), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        var condition = design.Between("condition", "B", "A");
+        Assert.That(design.Estimability(condition), Is.EqualTo(AnalysisDesign.Estimable));
+        Assert.That(design.FittedWeights(condition), Is.EqualTo(new[] { 0.0, 1.0, 0.0 }));
+        // The whole plex difference, the covariate's part included (it differs by 1.6k between the plexes), is estimable:
+        // a fit without the covariate gives it as the batch coefficient.
+        var wholePlex = design.Custom("w", "plex2 vs plex1, all of it",
+            new Dictionary<string, double> { ["batch=plex2"] = 1, ["plex_tic (per intensity)"] = 1.6 * k });
+        Assert.That(design.Estimability(wholePlex), Is.EqualTo(AnalysisDesign.Estimable));
+        Assert.That(design.FittedWeights(wholePlex), Is.EqualTo(new[] { 0.0, 0.0, 1.0 }));
+        Assert.That(design.AliasedTerms, Is.EqualTo(new[] { "intercept", "batch", "plex_tic" }));
+    }
+
+    /// <summary>
+    /// Review round 5 (@pcruzparri): the same for a covariate set by the condition (5k on A, 6k on B), which cannot be
+    /// separated from it in any unit; the whole B vs A difference, the covariate's part included, can.
+    /// </summary>
+    [Test]
+    public void ACovariateSetByTheConditionIsConfoundedInAnyUnit(
+        [Values(1e-10, 1e-9, 1e-8, 1.0, 1e7, 1e8, 1e9, 1e10)] double k)
+    {
+        var samples = Enumerable.Range(0, 8).Select(i => new AnalysisSample($"s{i}")
+        {
+            Factors = new Dictionary<string, string> { ["condition"] = i % 2 == 0 ? "A" : "B" },
+            Covariates = new Dictionary<string, double> { ["x"] = (i % 2 == 0 ? 5 : 6) * k },
+        }).ToList();
+        var design = AnalysisDesign.Create(samples, Spec(("condition", "A")) with
+        {
+            Covariates = new[] { new CovariateSpec("x", "units") },
+        });
+
+        Assert.That(design.FittedColumns.Select(j => design.ColumnNames[j]), Is.EqualTo(new[] { "intercept", "condition=B" }));
+        Assert.That(design.Estimability(design.Slope("x")), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        Assert.Throws<ArgumentException>(() => design.FittedWeights(design.Slope("x")));
+        Assert.That(design.Estimability(design.Between("condition", "B", "A")), Is.EqualTo(AnalysisDesign.NotEstimableConfounded));
+        var wholeDifference = design.Custom("w", "B vs A, all of it",
+            new Dictionary<string, double> { ["condition=B"] = 1, ["x (per units)"] = k });
+        Assert.That(design.Estimability(wholeDifference), Is.EqualTo(AnalysisDesign.Estimable));
+        Assert.That(design.FittedWeights(wholeDifference), Is.EqualTo(new[] { 0.0, 1.0 }));
+        Assert.That(design.AliasedTerms, Is.EqualTo(new[] { "intercept", "condition", "x" }));
     }
 }
