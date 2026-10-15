@@ -193,15 +193,17 @@ namespace Test.AveragingTests
                 var (x, y) = RandomSpectra(random, random.Next(1, 8), binSize);
 
                 var expected = LegacySpectraAveraging.GetBins(x, y, binSize).ToList();
-                var actual = SpectraAveraging.GetBins(x, y, binSize).ToList();
+                using var actual = SpectraAveraging.GetBins(x, y, binSize);
 
+                // the bins in the order the dictionary enumerated them, each with the same peaks in the same order
                 Assert.That(actual.Count, Is.EqualTo(expected.Count), $"group {group}");
                 for (int b = 0; b < expected.Count; b++)
                 {
-                    Assert.That(actual[b].Key, Is.EqualTo(expected[b].Key), $"group {group}, bin {b}");
-                    Assert.That(actual[b].Value.Count, Is.EqualTo(expected[b].Value.Count), $"group {group}, bin {b}");
-                    for (int p = 0; p < expected[b].Value.Count; p++)
-                        Assert.That(SamePeak(actual[b].Value[p], expected[b].Value[p]), Is.True, $"group {group}, bin {b}, peak {p}");
+                    var peaks = actual[b].ToArray();
+                    Assert.That(peaks[0].Bin, Is.EqualTo(expected[b].Key), $"group {group}, bin {b}");
+                    Assert.That(peaks.Length, Is.EqualTo(expected[b].Value.Count), $"group {group}, bin {b}");
+                    for (int p = 0; p < peaks.Length; p++)
+                        Assert.That(SamePeak(peaks[p], expected[b].Value[p]), Is.True, $"group {group}, bin {b}, peak {p}");
                 }
             }
         }
