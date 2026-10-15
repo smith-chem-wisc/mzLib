@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Threading.Tasks;
+using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using MzLibUtil;
 using SpectralAveraging;
@@ -328,6 +329,89 @@ namespace Test.AveragingTests
             if ((value - median) / standardDeviation > sValueMax)
                 return true;
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Verbatim copy of SpectraFileAveraging.AverageDdaScans and its helper as they were in mzLib 1.0.594; see
+    /// <see cref="LegacySpectraAveraging"/>. The spectra themselves are averaged by the current code.
+    /// </summary>
+    [ExcludeFromCodeCoverage]
+    internal static class LegacySpectraFileAveraging
+    {
+        internal static MsDataScan[] AverageDdaScans(List<MsDataScan> scans, SpectralAveragingParameters parameters)
+        {
+            List<MsDataScan> averagedScans = new();
+            List<MsDataScan> scansToProcess = new();
+
+            int representativeScanMs1Index = parameters.NumberOfScansToAverage % 2 == 0 ? // central scan
+                parameters.NumberOfScansToAverage / 2 - 1 : parameters.NumberOfScansToAverage / 2;
+
+            // iterate through all MS1 scans and average them
+            foreach (var cvGroup in scans
+                .Where(p => p.MsnOrder == 1)
+                .OrderBy(p => p.OneBasedScanNumber)
+                .GroupBy(p => p.CompensationVoltage))
+            {
+                foreach (var scan in cvGroup)
+                {
+                    scansToProcess.Add(scan);
+                    // average with new scan from iteration, then remove first scan from list
+                    if (scansToProcess.Count != parameters.NumberOfScansToAverage) continue;
+
+                    MsDataScan centralScan = scansToProcess[representativeScanMs1Index];
+                    var averagedSpectrum = scansToProcess.AverageSpectra(parameters);
+                    var averagedScan = GetAveragedDataScanFromAveragedSpectrum(averagedSpectrum, centralScan);
+
+                    averagedScans.Add(averagedScan);
+                    scansToProcess.RemoveAt(0);
+                }
+                scansToProcess.Clear();
+            }
+
+            // add all scans that did not get averaged
+            // this includes the MS1 scans from start and end of file and all MS2+ scans
+            foreach (var unaveragedScan in scans.Where(original =>
+                         !averagedScans.Select(avg => avg.OneBasedScanNumber).Contains(original.OneBasedScanNumber)))
+                averagedScans.Add(unaveragedScan);
+
+            return averagedScans.OrderBy(p => p.OneBasedScanNumber).ToArray();
+        }
+
+        private static MsDataScan GetAveragedDataScanFromAveragedSpectrum(MzSpectrum averagedSpectrum,
+            MsDataScan centralScan)
+        {
+            MsDataScan averagedScan = new(averagedSpectrum,
+                centralScan.OneBasedScanNumber,
+                1,
+                centralScan.IsCentroid,
+                centralScan.Polarity,
+                centralScan.RetentionTime,
+                averagedSpectrum.Range,
+                centralScan.ScanFilter,
+                centralScan.MzAnalyzer,
+                averagedSpectrum.SumOfAllY,
+                centralScan.InjectionTime,
+                centralScan.NoiseData,
+                centralScan.NativeId,
+                centralScan.SelectedIonMZ,
+                centralScan.SelectedIonChargeStateGuess,
+                centralScan.SelectedIonIntensity,
+                centralScan.IsolationMz,
+                centralScan.IsolationWidth,
+                centralScan.DissociationType,
+                centralScan.OneBasedPrecursorScanNumber,
+                centralScan.SelectedIonMonoisotopicGuessMz,
+                centralScan.HcdEnergy,
+                centralScan.ScanDescription,
+                centralScan.CompensationVoltage
+                );
+
+
+            var newNativeId =
+                averagedScan.NativeId.Replace(averagedScan.NativeId.Split("=").Last(), centralScan.OneBasedScanNumber.ToString());
+            averagedScan.SetNativeID(newNativeId);
+            return averagedScan;
         }
     }
 }

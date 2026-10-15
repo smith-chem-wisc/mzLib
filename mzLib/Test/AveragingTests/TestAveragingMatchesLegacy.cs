@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using MassSpectrometry;
 using MathNet.Numerics.Statistics;
 using NUnit.Framework;
 using SpectralAveraging;
@@ -209,6 +210,80 @@ namespace Test.AveragingTests
         }
 
 
+
+        /// <summary>
+        /// A DDA-like run: MS1 scans, some at another compensation voltage, each followed by a few MS2 scans; sometimes a
+        /// scan number used twice, which is the one case where the order the unaveraged scans are added in matters.
+        /// </summary>
+        private static List<MsDataScan> RandomDdaRun(Random random)
+        {
+            var scans = new List<MsDataScan>();
+            int scanNumber = 1;
+            int ms1Count = random.Next(1, 14);
+            for (int m = 0; m < ms1Count; m++)
+            {
+                var (x, y) = RandomSpectra(random, 1, 0.01);
+                double? cv = random.Next(4) == 0 ? -45.0 : null;
+                int ms1Number = scanNumber++;
+                double[] mzs = x[0].Where(v => !double.IsNaN(v)).DefaultIfEmpty(500).ToArray();
+                var spectrum = new MzSpectrum(mzs, mzs.Select(_ => RandomIntensity(random)).ToArray(), false);
+                scans.Add(new MsDataScan(spectrum, ms1Number, 1, true, Polarity.Positive, m, spectrum.Range, null,
+                    MZAnalyzerType.Orbitrap, 10, 1, null, $"controllerType=0 controllerNumber=1 scan={ms1Number}",
+                    compensationVoltage: cv));
+
+                for (int k = random.Next(0, 4); k > 0; k--)
+                {
+                    int number = random.Next(15) == 0 ? ms1Number : scanNumber++;   // now and then a repeated number
+                    var ms2 = new MzSpectrum(new[] { 200.0, 300.0 + k }, new[] { 1.0, 2.0 }, false);
+                    scans.Add(new MsDataScan(ms2, number, 2, true, Polarity.Positive, m + 0.1 * k, ms2.Range, null,
+                        MZAnalyzerType.Orbitrap, 3, 1, null, $"controllerType=0 controllerNumber=1 scan={number}",
+                        oneBasedPrecursorScanNumber: ms1Number, compensationVoltage: cv));
+                }
+            }
+
+            return scans;
+        }
+
+        [Test]
+        public static void AverageDdaScansMatchesLegacy()
+        {
+            var random = new Random(6);
+            for (int run = 0; run < 300; run++)
+            {
+                var scans = RandomDdaRun(random);
+                var parameters = new SpectralAveragingParameters
+                {
+                    SpectraFileAveragingType = SpectraFileAveragingType.AverageDdaScans,
+                    OutlierRejectionType = OutlierRejectionType.SigmaClipping, MinSigmaValue = 0.5, MaxSigmaValue = 3,
+                    NumberOfScansToAverage = random.Next(1, 6), ScanOverlap = 0, BinSize = 0.01
+                };
+
+                MsDataScan[] expected = null, actual = null;
+                Exception expectedException = null, actualException = null;
+                try { expected = LegacySpectraFileAveraging.AverageDdaScans(scans, parameters); } catch (Exception e) { expectedException = e; }
+                try { actual = SpectraFileAveraging.AverageSpectraFile(scans, parameters); } catch (Exception e) { actualException = e; }
+                Assert.That(actualException?.GetType(), Is.EqualTo(expectedException?.GetType()), $"run {run}");
+                if (expectedException != null)
+                    continue;
+
+                Assert.That(actual.Length, Is.EqualTo(expected.Length), $"run {run}");
+                for (int i = 0; i < expected.Length; i++)
+                {
+                    // the scans that were not averaged must be the very same objects, in the same places
+                    Assert.That(scans.Contains(actual[i]), Is.EqualTo(scans.Contains(expected[i])), $"run {run}, scan {i}");
+                    if (scans.Contains(expected[i]))
+                    {
+                        Assert.That(actual[i], Is.SameAs(expected[i]), $"run {run}, scan {i}");
+                        continue;
+                    }
+
+                    Assert.That(actual[i].OneBasedScanNumber, Is.EqualTo(expected[i].OneBasedScanNumber), $"run {run}, scan {i}");
+                    Assert.That(actual[i].NativeId, Is.EqualTo(expected[i].NativeId), $"run {run}, scan {i}");
+                    Assert.That(BitIdentical(actual[i].MassSpectrum.XArray, expected[i].MassSpectrum.XArray), $"run {run}, scan {i}");
+                    Assert.That(BitIdentical(actual[i].MassSpectrum.YArray, expected[i].MassSpectrum.YArray), $"run {run}, scan {i}");
+                }
+            }
+        }
 
         [Test]
         public static void AverageSpectraMatchesLegacy()
