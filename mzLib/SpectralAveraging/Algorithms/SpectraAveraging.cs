@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using MzLibUtil;
 
@@ -62,12 +63,14 @@ public static class SpectraAveraging
 
         Parallel.ForEach(partitioner, new ParallelOptions { MaxDegreeOfParallelism = parameters.MaxThreadsToUsePerFile }, (range, state) =>
         {
+            var rejectionBuffers = new OutlierRejectionBuffers();
             for (int i = range.Item1; i < range.Item2; i++)
             {
                 var peaksFromBin = bins[binIncidences[i]];
 
-                peaksFromBin = OutlierRejection.RejectOutliers(peaksFromBin, parameters);
-                if (!peaksFromBin.Any()) continue;
+                int kept = OutlierRejection.RejectOutliers(CollectionsMarshal.AsSpan(peaksFromBin), parameters, rejectionBuffers);
+                if (kept == 0) continue;
+                peaksFromBin.RemoveRange(kept, peaksFromBin.Count - kept);
 
                 averagedPeaks[i] = AverageBin(peaksFromBin, weights);
             }
