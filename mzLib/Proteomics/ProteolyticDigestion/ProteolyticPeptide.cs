@@ -66,7 +66,8 @@ namespace Proteomics.ProteolyticDigestion
                 PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
                 PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, in fixedModDictionary);
 
-                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
+                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength,
+                             fixedModDictionary.Count))
                 {
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
 
