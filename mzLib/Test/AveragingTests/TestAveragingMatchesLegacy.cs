@@ -286,6 +286,49 @@ namespace Test.AveragingTests
         }
 
         [Test]
+        public static void InMzOrderMatchesOrderBy()
+        {
+            var random = new Random(7);
+            for (int trial = 0; trial < 20000; trial++)
+            {
+                // runs of bins, as GetBins numbers them: usually each run already in m/z order, with ties between runs
+                int runs = random.Next(10) == 0 ? random.Next(17, 25) : random.Next(1, 8);
+                var firstBinOfSpectrum = new int[runs + 1];
+                var peaks = new List<(double mz, double intensity)>();
+                double[] shared = Enumerable.Range(0, 6).Select(_ => Math.Round(100 + random.NextDouble() * 10, 1)).ToArray();
+                for (int run = 0; run < runs; run++)
+                {
+                    firstBinOfSpectrum[run] = peaks.Count;
+                    var mzs = Enumerable.Range(0, random.Next(0, 8))
+                        .Select(_ => random.Next(3) == 0 ? shared[random.Next(shared.Length)] : Math.Round(100 + random.NextDouble() * 10, 2))
+                        .ToList();
+                    if (random.Next(50) == 0) mzs.Add(double.NaN);
+                    if (random.Next(30) == 0) mzs.Add(-0.0);
+                    if (random.Next(4) != 0) mzs.Sort();            // a run out of order now and then
+                    foreach (double mz in mzs)
+                    {
+                        double intensity = random.Next(6) == 0 ? (random.Next(2) == 0 ? 0.0 : -0.0)
+                            : random.Next(40) == 0 ? double.NaN : random.NextDouble();
+                        peaks.Add((mz, intensity));
+                    }
+                }
+
+                firstBinOfSpectrum[runs] = peaks.Count;
+                var array = peaks.ToArray();
+
+                var expected = array.Where(p => p.intensity != 0).OrderBy(p => p.mz).ToList();
+                var actual = SpectraAveraging.InMzOrder(array, firstBinOfSpectrum);
+
+                Assert.That(actual.Count, Is.EqualTo(expected.Count), $"trial {trial}");
+                for (int i = 0; i < expected.Count; i++)
+                {
+                    Assert.That(BitConverter.DoubleToInt64Bits(actual[i].mz), Is.EqualTo(BitConverter.DoubleToInt64Bits(expected[i].mz)), $"trial {trial}, peak {i}");
+                    Assert.That(BitConverter.DoubleToInt64Bits(actual[i].intensity), Is.EqualTo(BitConverter.DoubleToInt64Bits(expected[i].intensity)), $"trial {trial}, peak {i}");
+                }
+            }
+        }
+
+        [Test]
         public static void AverageSpectraMatchesLegacy()
         {
             var random = new Random(4);

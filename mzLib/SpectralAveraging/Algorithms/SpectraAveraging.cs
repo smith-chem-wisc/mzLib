@@ -74,8 +74,7 @@ public static class SpectraAveraging
         });
 
         // return averaged
-        var orderedAveragePeaks = new ArraySegment<(double mz, double intensity)>(averagedPeaks, 0, bins.Count)
-            .Where(p => p.intensity != 0).OrderBy(p => p.mz).ToList();
+        var orderedAveragePeaks = InMzOrder(averagedPeaks.AsSpan(0, bins.Count), bins.FirstBinOfSpectrum);
         ArrayPool<(double mz, double intensity)>.Shared.Return(averagedPeaks);
         return new[]
         {
@@ -88,6 +87,78 @@ public static class SpectraAveraging
     }
 
     #region Helpers
+
+    /// <summary>
+    ///     The averaged peaks with a nonzero intensity, in ascending m/z: the sequence
+    ///     <c>Where(p =&gt; p.intensity != 0).OrderBy(p =&gt; p.mz)</c> gives, which is a stable sort.
+    /// </summary>
+    /// <param name="averagedPeaks">the averaged peak of each bin, in bin order</param>
+    /// <param name="firstBinOfSpectrum">
+    ///     the first bin met in each spectrum, and the number of bins at the end: the bins first met in spectrum s are
+    ///     <c>firstBinOfSpectrum[s]</c> up to <c>firstBinOfSpectrum[s + 1]</c>
+    /// </param>
+    /// <remarks>
+    ///     Bins are numbered as they are first met, spectrum by spectrum, so the bins first met in one spectrum form a run
+    ///     of consecutive numbers in the order of that spectrum's peaks - normally already in m/z order. When every run
+    ///     is in order, by the comparison OrderBy uses, merging the runs - taking the lowest m/z, and on a tie the earlier
+    ///     run - gives the stable sort's sequence exactly: within a run the earlier bin comes first, and every bin of an
+    ///     earlier run was numbered before every bin of a later one. The merge replaces a sort of tens of thousands of
+    ///     peaks per window. When a run is out of order, or there are too many runs to merge cheaply, OrderBy sorts.
+    /// </remarks>
+    internal static List<(double mz, double intensity)> InMzOrder(ReadOnlySpan<(double mz, double intensity)> averagedPeaks,
+        int[] firstBinOfSpectrum)
+    {
+        const int mostRunsToMerge = 16;
+        int runs = firstBinOfSpectrum.Length - 1;
+
+        int kept = 0;
+        bool inOrder = runs <= mostRunsToMerge;
+        for (int run = 0; inOrder && run < runs; run++)
+        {
+            bool first = true;
+            double previous = 0;
+            for (int bin = firstBinOfSpectrum[run]; bin < firstBinOfSpectrum[run + 1]; bin++)
+            {
+                if (averagedPeaks[bin].intensity == 0)
+                    continue;
+                if (!first && previous.CompareTo(averagedPeaks[bin].mz) > 0)
+                {
+                    inOrder = false;
+                    break;
+                }
+
+                previous = averagedPeaks[bin].mz;
+                first = false;
+                kept++;
+            }
+        }
+
+        if (!inOrder)
+            return averagedPeaks.ToArray().Where(p => p.intensity != 0).OrderBy(p => p.mz).ToList();
+
+        Span<int> next = stackalloc int[runs];
+        for (int run = 0; run < runs; run++)
+            next[run] = firstBinOfSpectrum[run];
+
+        var ordered = new List<(double mz, double intensity)>(kept);
+        while (ordered.Count < kept)
+        {
+            int best = -1;
+            for (int run = 0; run < runs; run++)
+            {
+                while (next[run] < firstBinOfSpectrum[run + 1] && averagedPeaks[next[run]].intensity == 0)
+                    next[run]++;
+                if (next[run] == firstBinOfSpectrum[run + 1])
+                    continue;
+                if (best < 0 || averagedPeaks[next[run]].mz.CompareTo(averagedPeaks[next[best]].mz) < 0)
+                    best = run;
+            }
+
+            ordered.Add(averagedPeaks[next[best]++]);
+        }
+
+        return ordered;
+    }
 
     /// <summary>
     ///     Sorts spectra into bins
@@ -195,6 +266,20 @@ public static class SpectraAveraging
             binOfPeak[peak++] = bin;
         }
 
+        // Bins are numbered consecutively as they are first met, so the bins met in the first i spectra are numbered
+        // from 0 to the highest number among those spectra's peaks, and the bins first met in spectrum i come next.
+        int[] firstBinOfSpectrum = new int[numSpectra + 1];
+        int binsMet = 0;
+        peak = 0;
+        for (var i = 0; i < numSpectra; i++)
+        {
+            firstBinOfSpectrum[i] = binsMet;
+            for (var j = 0; j < xArrays[i].Length; j++)
+                binsMet = Math.Max(binsMet, binOfPeak[peak++] + 1);
+        }
+
+        firstBinOfSpectrum[numSpectra] = binCount;
+
         // lay the bins out one after another, leaving room for a zero-intensity peak per spectrum missing from each
         int[] start = intPool.Rent(binCount);
         int[] length = intPool.Rent(binCount);
@@ -230,7 +315,7 @@ public static class SpectraAveraging
         if (binOfIndex is not null)
             intPool.Return(binOfIndex);
 
-        return new BinnedSpectra(peaks, start, length, binCount);
+        return new BinnedSpectra(peaks, start, length, binCount, firstBinOfSpectrum);
     }
 
     /// <summary>

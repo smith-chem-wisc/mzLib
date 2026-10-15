@@ -16,18 +16,25 @@ internal sealed class BinnedSpectra : IDisposable
     private int[] _start;
     private int[] _length;
 
-    internal BinnedSpectra(BinnedPeak[] peaks, int[] start, int[] length, int count)
+    internal BinnedSpectra(BinnedPeak[] peaks, int[] start, int[] length, int count, int[] firstBinOfSpectrum)
     {
         _peaks = peaks;
         _start = start;
         _length = length;
         Count = count;
+        FirstBinOfSpectrum = firstBinOfSpectrum;
     }
 
     /// <summary>
     ///     Number of bins.
     /// </summary>
     internal int Count { get; }
+
+    /// <summary>
+    ///     The first bin met in each spectrum, then the number of bins: the bins first met in spectrum s are numbered
+    ///     from <c>FirstBinOfSpectrum[s]</c> up to <c>FirstBinOfSpectrum[s + 1]</c>, in the order of its peaks.
+    /// </summary>
+    internal int[] FirstBinOfSpectrum { get; }
 
     /// <summary>
     ///     The peaks of the <paramref name="bin"/>-th bin to be met.
