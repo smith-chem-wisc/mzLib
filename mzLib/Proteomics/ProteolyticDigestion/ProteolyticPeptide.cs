@@ -76,7 +76,8 @@ namespace Proteomics.ProteolyticDigestion
                     // the protease could not have produced, and report what the survivors really carry.
                     //
                     // Asked BEFORE the fixed modifications are merged in, so the pattern read here holds
-                    // only the VARIABLE modifications. That is deliberate and is the scope the policy
+                    // only the modifications placed optionally -- the variable ones and the protein's
+                    // annotated ones, none of the fixed ones. That is deliberate and is the scope the policy
                     // itself defines: a fixed blocking modification buys no slack, so it must not be able
                     // to spend any either. See CleavageBlockingPolicy.For.
                     //
@@ -155,8 +156,8 @@ namespace Proteomics.ProteolyticDigestion
         /// half-corrected: there the blocked residue invalidates a peptide's N-terminus, which is the
         /// mirror image of the drop below and is not modelled here.
         ///
-        /// <paramref name="variableModPattern"/> holds VARIABLE modifications only -- it is read before
-        /// the fixed modifications are merged into it. A fixed blocking modification therefore cannot
+        /// <paramref name="variableModPattern"/> holds the variable and the protein's annotated modifications
+        /// only -- it is read before the fixed modifications are merged into it. A fixed blocking modification therefore cannot
         /// drop a peptidoform, which is the scope <see cref="CleavageBlockingPolicy.For"/> defines and
         /// explains: no slack computed from MaxMods can pay for the read-through a fixed blocking
         /// modification would require, so allowing it to drop would lose the peptide outright.
@@ -208,7 +209,9 @@ namespace Proteomics.ProteolyticDigestion
                 return true;
             }
 
-            return openMissedCleavages > policy.MaxMissedCleavages;
+            // The bound flag-off digestion applies to a product of this shape -- one fewer for a whole
+            // proteolysis product -- so the slack cannot let through a product the caller's budget would not.
+            return openMissedCleavages > policy.MissedCleavageBudgetFor(OneBasedStartResidue, OneBasedEndResidue);
         }
     }
 }

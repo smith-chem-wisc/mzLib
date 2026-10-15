@@ -15,8 +15,8 @@ namespace Proteomics.ProteolyticDigestion
     /// can only do if digestion was told to enumerate wider in the first place
     /// (<see cref="Protein.Digest(Omics.Digestion.IDigestionParams,List{Modification},List{Modification},List{SilacLabel},System.ValueTuple{SilacLabel,SilacLabel}?,bool)"/>
     /// adds <see cref="GenerationSlack"/>). Performing half the trade loses real peptides, so both
-    /// halves are decided here, once, from the same <see cref="DigestionParams"/> and the same
-    /// modification list.
+    /// halves are decided here, once, from the same <see cref="DigestionParams"/>, the same
+    /// modification list and the same protein.
     /// </summary>
     /// <remarks>
     /// A default-valued instance is INERT: <see cref="IsActive"/> is false, <see cref="GenerationSlack"/>
@@ -28,6 +28,13 @@ namespace Proteomics.ProteolyticDigestion
         private readonly DigestionAgent _protease;
 
         /// <summary>
+        /// Indexed by one-based residue, 0 through the protein length: true where the protease's site list
+        /// has a cut after that residue, the protein's own termini included -- the list FullDigestion
+        /// enumerates from. See <see cref="MissedCleavageBudgetFor"/>.
+        /// </summary>
+        private readonly bool[] _sites;
+
+        /// <summary>
         /// Indexed by one-based residue: true when the protease really cuts after that residue in this
         /// protein AND only because of that residue's side chain, so a blocking modification on it
         /// abolishes the cut. See <see cref="ChargeDirectedSites"/>.
@@ -35,51 +42,81 @@ namespace Proteomics.ProteolyticDigestion
         private readonly bool[] _chargeDirectedSites;
 
         private CleavageBlockingPolicy(DigestionAgent protease, int maxMissedCleavages, int generationSlack,
-            bool[] chargeDirectedSites)
+            bool[] sites, bool[] chargeDirectedSites)
         {
             _protease = protease;
             MaxMissedCleavages = maxMissedCleavages;
             GenerationSlack = generationSlack;
+            _sites = sites;
             _chargeDirectedSites = chargeDirectedSites;
         }
 
         /// <summary>
-        /// The policy in force for this digestion, or the inert policy when the correction cannot fire.
-        /// Called at both ends of the exchange with the same two arguments, which is what guarantees the
-        /// slack and the drop agree about the protease and about the missed-cleavage budget.
+        /// The policy in force for this digestion of <paramref name="protein"/>, or the inert policy when
+        /// the correction cannot fire. Built once per protein in Protein.Digest and handed to both ends of
+        /// the exchange, which is what guarantees the slack and the drop agree about the protease and about
+        /// the missed-cleavage budget.
         /// </summary>
         /// <param name="variableModifications">
         /// The VARIABLE modifications configured for the search. Fixed modifications are deliberately not
         /// consulted -- see the remarks.
         /// </param>
-        /// <param name="sequence">
-        /// The base sequence of the protein being digested. The policy is per protein: it records which
-        /// residues are real protease sites there, so a blocked residue that was never a site (a K before
-        /// P under trypsin|P) cannot cancel a genuine missed cleavage.
+        /// <param name="protein">
+        /// The protein being digested. The policy is per protein: it records which residues are real
+        /// protease sites there, so a blocked residue that was never a site (a K before P under trypsin|P)
+        /// cannot cancel a genuine missed cleavage, and it reads the modifications annotated on it.
         /// </param>
         /// <remarks>
-        /// Only variable modifications activate the policy, and only a variable modification can block a
-        /// cleavage under it. A fixed blocking modification is unavoidable: it sits on every instance of
-        /// its target residue, so the read-through that would replace a dropped peptidoform has to span
-        /// every such residue in the protein, and no slack computed from <see cref="DigestionParams.MaxMods"/>
-        /// -- which bounds variable modifications only -- can pay for it. At MaxMods 0 the slack is zero
-        /// while the drop would still fire, and the peptide is lost rather than corrected. Fixed blocking
-        /// modifications therefore stay outside this correction entirely; modelling them means removing
-        /// their sites from the protease's site list before enumeration, which is a different mechanism.
+        /// Only the modifications digestion places OPTIONALLY activate the policy, and only they can block
+        /// a cleavage under it: the configured variable modifications, and the protein's own annotated ones
+        /// (<see cref="Protein.OneBasedPossibleLocalizedModifications"/> -- UniProt XML features, what
+        /// G-PTM-D writes). Both enter the same per-peptide pattern under the same
+        /// <see cref="DigestionParams.MaxMods"/> cap, so the slack below pays for either. An annotated
+        /// blocking modification has to activate the policy by itself, or whether a database acetyllysine
+        /// is corrected would depend on whether some unrelated blocking modification is in the variable list.
+        ///
+        /// A fixed blocking modification is unavoidable: it sits on every instance of its target residue,
+        /// so the read-through that would replace a dropped peptidoform has to span every such residue in
+        /// the protein, and no slack computed from MaxMods -- which does not bound fixed modifications --
+        /// can pay for it. At MaxMods 0 the slack is zero while the drop would still fire, and the peptide
+        /// is lost rather than corrected. Fixed blocking modifications therefore stay outside this
+        /// correction entirely; modelling them means removing their sites from the protease's site list
+        /// before enumeration, which is a different mechanism.
         /// </remarks>
         public static CleavageBlockingPolicy For(DigestionParams digestionParams, IEnumerable<Modification> variableModifications,
-            string sequence)
+            Protein protein)
         {
             if (digestionParams is null
                 || !digestionParams.RespectCleavageBlockingModifications
                 || digestionParams.SearchModeType != CleavageSpecificity.Full
-                || !AnyCanBlockCleavage(variableModifications, digestionParams.Protease))
+                || !(AnyCanBlockCleavage(variableModifications, digestionParams.Protease)
+                    || AnyAnnotatedCanBlockCleavage(protein, digestionParams.Protease)))
             {
                 return default;
             }
 
+            string sequence = protein?.BaseSequence ?? string.Empty;
+            bool[] sites = Sites(digestionParams.Protease, sequence);
             return new CleavageBlockingPolicy(digestionParams.Protease, digestionParams.MaxMissedCleavages, digestionParams.MaxMods,
-                ChargeDirectedSites(digestionParams.Protease, sequence ?? string.Empty));
+                sites, ChargeDirectedSites(digestionParams.Protease, sequence, sites));
+        }
+
+        private static bool AnyAnnotatedCanBlockCleavage(Protein protein, DigestionAgent protease) =>
+            protein?.OneBasedPossibleLocalizedModifications is not null
+            && protein.OneBasedPossibleLocalizedModifications.Values.Any(modifications => AnyCanBlockCleavage(modifications, protease));
+
+        /// <summary>
+        /// <see cref="DigestionAgent.GetDigestionSiteIndices"/> as a lookup, termini included.
+        /// </summary>
+        private static bool[] Sites(DigestionAgent protease, string sequence)
+        {
+            var sites = new bool[sequence.Length + 1];
+            foreach (int site in protease.GetDigestionSiteIndices(sequence))
+            {
+                sites[site] = true;
+            }
+
+            return sites;
         }
 
         /// <summary>
@@ -87,39 +124,34 @@ namespace Proteomics.ProteolyticDigestion
         /// and could be stopped from cutting by a modification of that residue's side chain.
         /// </summary>
         /// <remarks>
-        /// Starts from <see cref="DigestionAgent.GetDigestionSiteIndices"/>, the same site list digestion
-        /// enumerates from and counts missed cleavages against, so the discount and the count agree site
-        /// for site. The protein's own termini are not cleavages and are excluded. A site is then removed if
-        /// any motif that fits there does not name the residue literally at P1 -- StcE's "TX|T" cuts
-        /// "TK|T" whatever the lysine carries, so in a StcE-trypsin co-digest that site survives an
-        /// acetylated K even though trypsin's "K|" alone would not.
+        /// Starts from <paramref name="sites"/>, the same site list digestion enumerates from and counts
+        /// missed cleavages against, so the discount and the count agree site for site. The protein's own
+        /// termini are not cleavages and are excluded. A site is then removed if any motif that fits there
+        /// does not name the residue literally at P1 -- StcE's "TX|T" cuts "TK|T" whatever the lysine
+        /// carries, so in a StcE-trypsin co-digest that site survives an acetylated K even though trypsin's
+        /// "K|" alone would not.
         /// </remarks>
-        private static bool[] ChargeDirectedSites(DigestionAgent protease, string sequence)
+        private static bool[] ChargeDirectedSites(DigestionAgent protease, string sequence, bool[] sites)
         {
-            var sites = new bool[sequence.Length + 1];
-            foreach (int site in protease.GetDigestionSiteIndices(sequence))
-            {
-                if (site > 0 && site < sequence.Length)
-                {
-                    sites[site] = true;
-                }
-            }
+            var chargeDirected = (bool[])sites.Clone();
+            chargeDirected[0] = false;
+            chargeDirected[sequence.Length] = false;
 
             for (int location = 0; location < sequence.Length; location++)
             {
                 foreach (DigestionMotif motif in protease.DigestionMotifs)
                 {
                     int site = location + motif.CutIndex;
-                    if (site > 0 && site < sequence.Length && sites[site]
+                    if (site > 0 && site < sequence.Length && chargeDirected[site]
                         && !motif.CleavesCTerminalTo(sequence[site - 1])
                         && motif.Fits(sequence, location).Item1)
                     {
-                        sites[site] = false;
+                        chargeDirected[site] = false;
                     }
                 }
             }
 
-            return sites;
+            return chargeDirected;
         }
 
         /// <summary>
@@ -144,18 +176,45 @@ namespace Proteomics.ProteolyticDigestion
         /// that cannot use the slack does not pay for it.
         /// </summary>
         /// <remarks>
-        /// <see cref="DigestionParams.MaxMods"/>: a peptidoform carries at most that many variable
-        /// modifications and therefore at most that many blocked sites, so every read-through this policy
-        /// can need is reachable, however many blocked sites co-occur.
+        /// <see cref="DigestionParams.MaxMods"/>: a peptidoform carries at most that many variable and
+        /// annotated modifications and therefore at most that many blocked sites, so every read-through
+        /// this policy can need is reachable, however many blocked sites co-occur.
         /// </remarks>
         public int GenerationSlack { get; }
 
         /// <summary>
-        /// The budget the CALLER asked for -- the bound a surviving peptidoform's reported missed-cleavage
-        /// count must satisfy, so the slack above stays an enumeration detail and is never observable in
-        /// the result.
+        /// The budget the CALLER asked for. A surviving peptidoform's reported missed-cleavage count is
+        /// bounded by it, through <see cref="MissedCleavageBudgetFor"/>, so the slack above stays an
+        /// enumeration detail and is never observable in the result.
         /// </summary>
         public int MaxMissedCleavages { get; }
+
+        /// <summary>
+        /// The most open missed cleavages a surviving peptidoform spanning residues
+        /// <paramref name="oneBasedStartResidue"/> to <paramref name="oneBasedEndResidue"/> may report: the
+        /// caller's <see cref="MaxMissedCleavages"/>, or one fewer for a WHOLE proteolysis product.
+        /// </summary>
+        /// <remarks>
+        /// One fewer because that is what flag-off digestion does. FullDigestion emits a whole proteolysis
+        /// product -- a chain, signal peptide or truncation emitted entire, so that neither end is a
+        /// cleavage site -- only while the sites inside it are strictly FEWER than the budget, and reports
+        /// the sites inside it; every other product it emits may span as many sites as the budget. The
+        /// slack enumerates under a larger budget and this bound trims back to the caller's, so it has to
+        /// apply the same bound to each kind of product. With one bound for all, a whole product spanning
+        /// exactly the budget's worth of sites came out with the flag on and not with it off, and the slack
+        /// was visible in the result. If FullDigestion's bound changes, this must change with it;
+        /// WholeProteolysisProducts_AreTrimmedToTheBudgetFlagOffDigestionUses asserts both together.
+        ///
+        /// A blocked site is not a site, so a whole product whose only sites are blocked counts as spanning
+        /// none, and comes out exactly when flag-off digestion would emit a whole product spanning none.
+        /// </remarks>
+        public int MissedCleavageBudgetFor(int oneBasedStartResidue, int oneBasedEndResidue)
+        {
+            bool wholeProteolysisProduct = IsActive
+                && oneBasedStartResidue >= 1 && oneBasedEndResidue < _sites.Length
+                && !_sites[oneBasedStartResidue - 1] && !_sites[oneBasedEndResidue];
+            return wholeProteolysisProduct ? MaxMissedCleavages - 1 : MaxMissedCleavages;
+        }
 
         /// <summary>
         /// True when <paramref name="modification"/>, sitting on one-based residue

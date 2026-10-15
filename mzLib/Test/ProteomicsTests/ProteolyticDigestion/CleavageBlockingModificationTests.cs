@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
+using Omics.BioPolymer;
 using Omics.Digestion;
 using Omics.Modifications;
 using Proteomics;
@@ -67,6 +68,16 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.IsTrue(MakeKModification("LRGG+dimethyl").BlocksCleavage);
             Assert.IsTrue(MakeKModification("Label:13C(6)+GG").BlocksCleavage, "an isotope-labelled remnant (unimod)");
             Assert.IsTrue(MakeKModification("Glycyl lysine isopeptide (Gly-Gly)").BlocksCleavage, "the UniProt spelling");
+
+            // SUMO leaves the same isopeptide-linked stub, only longer. Review (pcruzparri): Unimod and
+            // MetaMorpheus name these remnants by the SUMO C-terminal sequence left on the lysine, which is a
+            // single token that ends in the Gly-Gly rather than being it, so none reached the stub test.
+            Assert.IsTrue(MakeKModification("EQIGG (sumoylation (SMT-3) Site yeast)").BlocksCleavage,
+                "the yeast SUMO site MetaMorpheus ships in the same Trypsin Digested group as GG");
+            Assert.IsTrue(MakeKModification("QQQTGG").BlocksCleavage, "a SUMO-2/3 remnant (unimod)");
+            Assert.IsTrue(MakeKModification("QEQTGG").BlocksCleavage, "a SUMO-1 remnant (unimod)");
+            Assert.IsTrue(MakeKModification("SUMO2135").BlocksCleavage, "unimod's whole-remnant SUMO entries name no stub");
+            Assert.IsTrue(MakeKModification("GGQ").BlocksCleavage, "unimod's GlyGlyGln SUMO remnant ends in Q, not GG");
 
             // ...and the stubs are matched as whole TOKENS, because they are too short to be safe as
             // substrings: unimod carries "diglycidyl" and "diglyceride" names, neither a remnant.
@@ -499,7 +510,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             {
                 var dp = new DigestionParams(protease: "trypsin", maxMissedCleavages: 2, minPeptideLength: 5,
                     respectCleavageBlockingModifications: respect);
-                return CleavageBlockingPolicy.For(dp, variableMods.ToList(), "AAAAKAAAAKAAAASAAAAKAAAAKAAAAR");
+                return CleavageBlockingPolicy.For(dp, variableMods.ToList(), new Protein("AAAAKAAAAKAAAASAAAAKAAAAKAAAAR", "accession"));
             }
 
             Assert.That(PolicyFor(respect: false, phospho, succinyl).GenerationSlack, Is.Zero,
@@ -897,6 +908,93 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 "StcE still cuts TK|T, so the acetylated form ending there is real");
             Assert.That(composite.Any(p => p.BaseSequence == "TAAAAK" && p.AllModsOneIsNterminus.Count == 1), Is.False,
                 "only trypsin cuts after K14, and the acetyl abolishes that cut");
+        }
+
+        /// <summary>
+        /// Review (pcruzparri): a blocking modification annotated on the protein -- a UniProt XML feature, or
+        /// what G-PTM-D writes -- enters the same per-peptide pattern as a variable one, so it must switch the
+        /// correction on by itself. Gated on the variable list alone, an acetylome searched with Oxidation as
+        /// its only variable modification got the uncorrected digest, and adding any unrelated blocking
+        /// variable modification then corrected the annotated sites too.
+        /// </summary>
+        [Test]
+        public static void AnAnnotatedBlockingModification_SwitchesTheCorrectionOnByItself()
+        {
+            var acetyl = MakeKModification("N6-acetyllysine", mass: 42.01057);
+            ModificationMotif.TryGetMotif("M", out ModificationMotif methionine);
+            var oxidation = new Modification(_originalId: "Oxidation", _modificationType: "Test", _target: methionine,
+                _locationRestriction: "Anywhere.", _monoisotopicMass: 15.99491);
+
+            // PEPTIDEKAAAAAAAR with the acetyllysine annotated on K8, searched with a variable list that
+            // cannot block anything.
+            var protein = new Protein(Sequence, "accession",
+                oneBasedModifications: new Dictionary<int, List<Modification>> { { 8, new List<Modification> { acetyl } } });
+
+            List<PeptideWithSetModifications> Digested(bool respect) => protein
+                .Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: 0, minPeptideLength: 7,
+                        respectCleavageBlockingModifications: respect),
+                    new List<Modification>(), new List<Modification> { oxidation })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            Assert.That(Digested(respect: false).Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.True,
+                "the substrate must produce the impossible peptidoform with the flag off, or this test proves nothing");
+
+            var corrected = Digested(respect: true);
+            Assert.That(corrected.Any(p => p.BaseSequence == "PEPTIDEK" && EndsInModifiedResidue(p)), Is.False,
+                "trypsin cannot cleave after the annotated acetyllysine, so that peptidoform must go");
+            Assert.That(corrected.Any(p => p.BaseSequence == Sequence && p.AllModsOneIsNterminus.ContainsKey(9)
+                    && p.MissedCleavages == 0), Is.True,
+                "and the read-through must replace it, at zero missed cleavages");
+        }
+
+        /// <summary>
+        /// Review (pcruzparri): the slack was visible on peptidoforms that carry no blocked site. FullDigestion
+        /// emits a WHOLE proteolysis product -- a chain, signal peptide or truncation emitted entire, neither
+        /// end a cleavage site -- only while it spans strictly FEWER sites than the budget, and reports the
+        /// sites it spans. Trimming the slack back with "reported &lt;= budget" therefore let through every
+        /// whole product spanning exactly the budget's worth of sites, with the flag on only.
+        /// </summary>
+        [Test]
+        public static void WholeProteolysisProducts_AreTrimmedToTheBudgetFlagOffDigestionUses(
+            [Values(0, 1, 2)] int maxMissedCleavages)
+        {
+            var acetyl = MakeKModification("N6-acetyllysine", mass: 42.01057);
+
+            // Trypsin cuts after K9 and K14. Each chain starts after, and ends on, a residue that is not a
+            // site, so it can come only from the whole-product branch; they span 0, 1 and 2 sites, so every
+            // budget tested has a chain exactly at it.
+            const string sequence = "GGGGGAAAKAAAAKAAAAGGGGGR";
+            var protein = new Protein(sequence, "accession", proteolysisProducts: new List<TruncationProduct>
+            {
+                new(6, 8, "chain"), new(6, 13, "chain"), new(6, 18, "chain"),
+            });
+
+            List<PeptideWithSetModifications> Digested(bool respect) => protein
+                .Digest(new DigestionParams(protease: "trypsin", maxMissedCleavages: maxMissedCleavages, minPeptideLength: 1,
+                        maxModsForPeptides: 2, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                        respectCleavageBlockingModifications: respect),
+                    new List<Modification>(), new List<Modification> { acetyl })
+                .Cast<PeptideWithSetModifications>().ToList();
+
+            List<string> WithoutABlockedSite(bool respect) => Digested(respect)
+                .Where(p => p.AllModsOneIsNterminus.Count == 0)
+                .Select(p => p.OneBasedStartResidue + "-" + p.OneBasedEndResidue + " " + p.FullSequence + "|" + p.MissedCleavages)
+                .OrderBy(s => s).ToList();
+
+            // The behaviour mirrored, asserted where it lives, so this fails loudly if FullDigestion's bound
+            // ever changes rather than leaving the mirror in CleavageBlockingPolicy quietly wrong.
+            var flagOff = WithoutABlockedSite(respect: false);
+            Assert.That(flagOff.Any(s => s.StartsWith("6-8 ")), Is.EqualTo(maxMissedCleavages > 0),
+                "FullDigestion emits a whole product spanning no site only from a budget of one up");
+
+            CollectionAssert.AreEqual(flagOff, WithoutABlockedSite(respect: true),
+                "the slack is an enumeration detail; a peptidoform with no blocked site must come out exactly as flag-off");
+
+            // The blocked half reads the same bound: chain 6-13 with its one site blocked spans no open site,
+            // which is a whole product flag-off digestion emits only from a budget of one up.
+            Assert.That(Digested(respect: true).Any(p => p.OneBasedStartResidue == 6 && p.OneBasedEndResidue == 13
+                    && p.AllModsOneIsNterminus.ContainsKey(9 - 6 + 2)), Is.EqualTo(maxMissedCleavages > 0),
+                "a blocked site is not a site, so the chain must be emitted as flag-off emits a chain spanning no site");
         }
     }
 }

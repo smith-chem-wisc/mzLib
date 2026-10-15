@@ -25,11 +25,11 @@ namespace Omics.Modifications
     /// Being a heuristic, it can in principle classify a modification whose name merely CONTAINS an
     /// acyl stem -- an O-linked "acetyl" sugar on a lysine would be the shape of it. Two things bound
     /// that: the residue gate (only a Lys/Arg target reaches the name test at all) and the location
-    /// gate (only the side-chain "Anywhere." form). Measured rather than assumed, against the two
-    /// databases mzLib ships: 24 unimod.xml entries and 17 ptmlist.txt entries classify as blocking,
-    /// and every one of them is a genuine epsilon-amine acylation or citrulline. There is no false
-    /// positive in shipped data today. A user-curated modification file is not covered by that
-    /// measurement, which is the honest limit of a name-keyed rule.
+    /// gate (only the side-chain "Anywhere." form). Measured rather than assumed, against the three
+    /// modification files mzLib ships: 43 unimod.xml, 16 ptmlist.txt and 17 Mods.txt entries classify
+    /// as blocking, and every one of them is an epsilon-amine acylation, a ubiquitin or SUMO remnant,
+    /// or citrulline. There is no false positive in shipped data today. A user-curated modification
+    /// file is not covered by that measurement, which is the honest limit of a name-keyed rule.
     ///
     /// The methyl series (mono/di/tri-methyllysine) is deliberately EXCLUDED: methylation retains the
     /// positive charge and is sterically impaired rather than abolished, so in practice it shows up
@@ -57,11 +57,11 @@ namespace Omics.Modifications
         };
 
         /// <summary>
-        /// Names for the Gly-Gly stub a ubiquitin-family modifier leaves on the lysine epsilon-amine.
-        /// Matched as whole TOKENS of the modification id, not as substrings -- see
-        /// <see cref="HasUbiquitinRemnantToken"/> for why both halves of that matter.
+        /// Names for a ubiquitin-family remnant that do not end in the Gly-Gly itself: "diGly" spells the
+        /// stub out, and SUMO's "GGQ" is the GlyGlyGln left when the Gln is retained. Matched as whole
+        /// TOKENS of the modification id, not as substrings -- see <see cref="HasUbiquitinRemnantToken"/>.
         /// </summary>
-        private static readonly string[] UbiquitinRemnantStubs = { "gg", "digly", "lrgg" };
+        private static readonly string[] UbiquitinRemnantStubs = { "digly", "ggq" };
 
         /// <summary>
         /// Characters that separate the components of a modification id. Unimod composes names out of
@@ -70,9 +70,14 @@ namespace Omics.Modifications
         private static readonly char[] IdTokenSeparators = { ' ', '+', ':', '-', '(', ')', '[', ']', ',', '/', '_', '.' };
 
         /// <summary>
-        /// True when any whole token of <paramref name="id"/> is one of <see cref="UbiquitinRemnantStubs"/>.
+        /// True when any whole token of <paramref name="id"/> ends in the C-terminal Gly-Gly every
+        /// ubiquitin-family modifier carries, or is one of <see cref="UbiquitinRemnantStubs"/>.
         /// </summary>
         /// <remarks>
+        /// Ending in "gg" covers the remnant at every length it is named by its sequence: "GG" itself, the
+        /// non-tryptic "LRGG", and the SUMO stubs ("EQIGG", "QQQTGG", "VIEVYQEQTGG", ...) that unimod.xml
+        /// and Mods.txt ship.
+        ///
         /// Whole tokens, because the stubs are short and a substring test is wrong in both directions.
         /// Too narrow as a substring anchored with ==: the shipped unimod.xml carries seven K-targeted
         /// remnants whose id is the stub plus something else -- "LRGG", "LRGG+methyl", "LRGG+dimethyl",
@@ -82,7 +87,7 @@ namespace Omics.Modifications
         /// </remarks>
         private static bool HasUbiquitinRemnantToken(string id) =>
             id.Split(IdTokenSeparators, StringSplitOptions.RemoveEmptyEntries)
-                .Any(token => UbiquitinRemnantStubs.Contains(token));
+                .Any(token => token.EndsWith("gg", StringComparison.Ordinal) || UbiquitinRemnantStubs.Contains(token));
 
         /// <summary>
         /// The residue a modification sits on -- the one whose cleavage it would abolish -- or the null
@@ -134,7 +139,9 @@ namespace Omics.Modifications
             // "GG" (Unimod), "Gly-Gly" (UniProt's "Glycyl lysine isopeptide (Gly-Gly)"), "diglycyl"
             // (PSI-MOD) and "diGly" (MaxQuant and common usage); a non-tryptic digest leaves the longer
             // "LRGG" stub instead, and Unimod composes all of these with isotope labels and methyls.
-            if (id.Contains("gly-gly") || id.Contains("diglycyl") || id.Contains("ubiquit")
+            // SUMO's remnant is longer still and is named by its sequence, which ends in the same Gly-Gly;
+            // Unimod's whole-remnant entries ("SUMO2135", "SUMO3549") name the modifier instead.
+            if (id.Contains("gly-gly") || id.Contains("diglycyl") || id.Contains("ubiquit") || id.Contains("sumo")
                 || HasUbiquitinRemnantToken(id))
                 return true;
 

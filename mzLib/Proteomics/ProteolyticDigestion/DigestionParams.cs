@@ -104,7 +104,8 @@ namespace Proteomics.ProteolyticDigestion
         /// cleavage site for the peptidoform carrying it, so it is not a missed cleavage either -- the
         /// count reports cleavages that could have happened and did not, not Lys/Arg residues. Digestion
         /// does enumerate a wider span internally to reach the read-through forms, but that slack is
-        /// discounted again before a peptide is emitted, so it is never observable in the result.
+        /// discounted again before a peptide is emitted, under the same bound flag-off digestion applies to
+        /// each kind of product, so it is never observable in the result.
         ///
         /// Scope: this flag applies to full-specificity SEARCHES only
         /// (<see cref="SearchModeType"/> == <see cref="CleavageSpecificity.Full"/>). A semi or
