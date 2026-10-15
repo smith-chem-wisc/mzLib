@@ -224,6 +224,51 @@ namespace FlashLFQ
             )
         { }
 
+        /// <summary>
+        /// How many spectra files were read and indexed ahead, while the file before them was being quantified
+        /// </summary>
+        internal int FilesReadAhead { get; private set; }
+
+        /// <summary>
+        /// Reading ahead holds a second index, and the spectra it is built from, while this file's index is in use. It
+        /// needs room for <see cref="ReadAheadMemoryMultiple"/> times this file's index (scaled up when the next file is
+        /// larger on disk) under the same memory ceiling that decides whether an index is kept for match-between-runs.
+        /// </summary>
+        internal const double ReadAheadMemoryMultiple = 3.0;
+
+        /// <summary>
+        /// True when the next spectra file can be read and indexed while <paramref name="currentFile"/> is quantified:
+        /// there is a thread to spare (a single-threaded run stays single-threaded), and memory for the next file's
+        /// index and spectra while this file's index is still held. Anything that cannot be measured means no.
+        /// </summary>
+        private bool CanReadAhead(PeakIndexingEngine currentIndex, SpectraFileInfo currentFile, SpectraFileInfo nextFile)
+        {
+            if (FlashParams.MaxThreads <= 1)
+            {
+                return false;
+            }
+
+            try
+            {
+                double currentFileBytes = new FileInfo(currentFile.FullFilePathWithExtension).Length;
+                double nextFileBytes = new FileInfo(nextFile.FullFilePathWithExtension).Length;
+                if (currentFileBytes <= 0 || nextFileBytes <= 0)
+                {
+                    return false;
+                }
+
+                double needed = ReadAheadMemoryMultiple * currentIndex.EstimateIndexBytes() * Math.Max(1.0, nextFileBytes / currentFileBytes);
+                GCMemoryInfo memoryInfo = GC.GetGCMemoryInfo();
+                return needed < long.MaxValue
+                    && PeakIndexingEngine.IndexFitsInMemory((long)needed, memoryInfo.MemoryLoadBytes, memoryInfo.TotalAvailableMemoryBytes);
+            }
+            catch (Exception)
+            {
+                // a file that cannot be measured is read when its turn comes, exactly as before
+                return false;
+            }
+        }
+
         public FlashLfqResults Run()
         {
             _globalStopwatch.Start();
@@ -238,10 +283,16 @@ namespace FlashLFQ
             }
 
             // quantify each file
-            foreach (var spectraFile in SpectraFileInfoList)
+            Task<PeakIndexingEngine> nextFileIndex = null;
+            for (int fileIndex = 0; fileIndex < SpectraFileInfoList.Count; fileIndex++)
             {
+                var spectraFile = SpectraFileInfoList[fileIndex];
                 if (!FlashParams.Silent) Console.WriteLine("Reading spectra file");
-                var indexingEngine = PeakIndexingEngine.InitializeIndexingEngine(spectraFile);
+                // GetResult rethrows a read-ahead's exception as itself, here, where reading this file would have thrown it
+                var indexingEngine = nextFileIndex != null
+                    ? nextFileIndex.GetAwaiter().GetResult()
+                    : PeakIndexingEngine.InitializeIndexingEngine(spectraFile);
+                nextFileIndex = null;
                 if(indexingEngine == null)
                 {
                     // something went wrong finding/opening/indexing the file...
@@ -249,6 +300,14 @@ namespace FlashLFQ
                     continue;
                 }
                 IndexingEngineDictionary[spectraFile] = indexingEngine;
+
+                // Read and index the next file while this one is quantified, when there is memory for both indexes
+                if (fileIndex + 1 < SpectraFileInfoList.Count && CanReadAhead(indexingEngine, spectraFile, SpectraFileInfoList[fileIndex + 1]))
+                {
+                    var nextFile = SpectraFileInfoList[fileIndex + 1];
+                    nextFileIndex = Task.Run(() => PeakIndexingEngine.InitializeIndexingEngine(nextFile));
+                    FilesReadAhead++;
+                }
 
                 // quantify peaks using this file's IDs first
                 QuantifyMs2IdentifiedPeptides(spectraFile);
