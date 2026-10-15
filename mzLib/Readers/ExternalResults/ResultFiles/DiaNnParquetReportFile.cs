@@ -112,7 +112,11 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
         try
         {
-            ParquetReader reader = ParquetReader.CreateAsync(filePath).GetAwaiter().GetResult();
+            // Open the stream here rather than passing Parquet.Net the path: when the bytes are not
+            // parquet, CreateAsync(path) throws before returning a reader and leaves its own handle open,
+            // so the file stays locked until a garbage collection finalizes it.
+            using FileStream stream = File.OpenRead(filePath);
+            ParquetReader reader = ParquetReader.CreateAsync(stream, leaveStreamOpen: true).GetAwaiter().GetResult();
             try
             {
                 var columns = reader.Schema.GetDataFields().Select(field => field.Name).ToHashSet();
@@ -133,7 +137,9 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
     private static List<DiaNnPrecursor> ReadTargets(string filePath)
     {
-        ParquetReader reader = ParquetReader.CreateAsync(filePath).GetAwaiter().GetResult();
+        // Owned here for the same reason as in HasDiaNnReportColumns.
+        using FileStream stream = File.OpenRead(filePath);
+        ParquetReader reader = ParquetReader.CreateAsync(stream, leaveStreamOpen: true).GetAwaiter().GetResult();
         try
         {
             return ReadTargets(reader, filePath);
