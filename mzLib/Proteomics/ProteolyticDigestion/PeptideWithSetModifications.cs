@@ -36,6 +36,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private double? _residueMassSum; // shared by every form of one digestion product; see ResidueMassSum
         [NonSerialized] private double? _mostAbundantMonoisotopicMass;
         [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
@@ -58,6 +59,22 @@ namespace Proteomics.ProteolyticDigestion
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
             PairedTargetDecoySequence = pairedTargetDecoySequence;
+        }
+
+        /// <summary>
+        /// Creates one modified form of a digestion product. Every form of a product is given the product's own base
+        /// sequence string and the sum of its residue masses, which would otherwise be rebuilt for every form: a substring
+        /// copy of the sequence, and a pass over it, in <see cref="MonoisotopicMass"/>. A top-down product has 190 forms
+        /// on average in a human database, each over a sequence of more than a thousand residues.
+        /// </summary>
+        /// <param name="residueMassSum"><see cref="ResidueMassSum"/> of <paramref name="baseSequence"/>.</param>
+        internal PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
+            int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
+            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence, double residueMassSum)
+            : this(protein, digestionParams, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, cleavageSpecificity,
+                peptideDescription, missedCleavages, allModsOneIsNterminus, numFixedMods, baseSequence)
+        {
+            _residueMassSum = residueMassSum;
         }
 
         /// <summary>
@@ -108,7 +125,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         monoMass += mod.MonoisotopicMass.Value;
                     }
-                    monoMass += BaseSequence.Sum(b => Residue.ResidueMonoisotopicMass[b]);
+                    monoMass += _residueMassSum ?? ResidueMassSum(BaseSequence);
 
                     _monoisotopicMass = monoMass;
                 }
@@ -116,6 +133,12 @@ namespace Proteomics.ProteolyticDigestion
             }
 
         }
+
+        /// <summary>
+        /// The sum of the residue masses of <paramref name="baseSequence"/>, added in sequence order. Computed once per
+        /// digestion product and handed to each of its forms, it is the same double each form computed for itself.
+        /// </summary>
+        internal static double ResidueMassSum(string baseSequence) => baseSequence.Sum(b => Residue.ResidueMonoisotopicMass[b]);
 
         public ChemicalFormula ThisChemicalFormula => FullChemicalFormula;
         public ChemicalFormula FullChemicalFormula

@@ -57,6 +57,10 @@ namespace Proteomics.ProteolyticDigestion
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
+            // Every form of this product has its base sequence and residue masses: take them once, at the first form.
+            string baseSequence = null;
+            double residueMassSum = 0;
+
             try
             {
                 PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
@@ -66,8 +70,15 @@ namespace Proteomics.ProteolyticDigestion
                 {
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
 
+                    if (baseSequence is null)
+                    {
+                        baseSequence = BaseSequence;
+                        residueMassSum = PeptideWithSetModifications.ResidueMassSum(baseSequence);
+                    }
+
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
-                        CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, variableModPattern, numFixedMods);
+                        CleavageSpecificityForFdrCategory, PeptideDescription, MissedCleavages, variableModPattern, numFixedMods,
+                        baseSequence, residueMassSum);
 
                     variable_modification_isoforms++;
                     if (variable_modification_isoforms == maximumVariableModificationIsoforms)
