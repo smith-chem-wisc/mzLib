@@ -105,7 +105,7 @@ public static class SpectraAveraging
     ///     If a spectrum does not have a peak in a bin where all other spectra do,
     ///     then a peak with zero intensity will be added. This allows for efficient outlier rejection
     /// </remarks>
-    private static Dictionary<int, List<BinnedPeak>> GetBins(double[][] xArrays, double[][] yArrays,
+    internal static Dictionary<int, List<BinnedPeak>> GetBins(double[][] xArrays, double[][] yArrays,
         double binSize)
     {
         var numSpectra = xArrays.Length;
@@ -126,15 +126,41 @@ public static class SpectraAveraging
 
         // add in zero values where a particular spectra did not have a peak in the bin
         foreach (var bin in bins)
-        {
-            var spectraInBin = bin.Value.Select(p => p.SpectraId).ToArray();
-            var representativeBin = bin.Value.First();
-            for (var i = 0; i < numSpectra; i++)
-                if (!spectraInBin.Contains(i))
-                    bin.Value.Add(new BinnedPeak(representativeBin.Bin, bin.Value.Average(p => p.Mz), 0, i));
-        }
+            AddZeroIntensityPeaks(bin.Value, numSpectra);
 
         return bins;
+    }
+
+    /// <summary>
+    ///     Adds a zero-intensity peak, at the bin's mean m/z, for each spectrum with no peak in the bin.
+    /// </summary>
+    /// <remarks>
+    ///     The bin's own peaks are in spectrum order, so one pass finds the missing spectra. Each added peak's m/z is the
+    ///     mean of everything in the bin at that point, the peaks added before it included; the m/z total is kept as the
+    ///     bin grows rather than summed again for each added peak. It is the same sum - from the first peak to the last,
+    ///     in order, as <see cref="Enumerable.Average{TSource}(IEnumerable{TSource}, Func{TSource, double})"/> sums -
+    ///     divided by the same count, so each mean is the same double.
+    /// </remarks>
+    private static void AddZeroIntensityPeaks(List<BinnedPeak> bin, int numSpectra)
+    {
+        int ownPeaks = bin.Count;
+        var representativeBin = bin[0];
+        double mzTotal = bin[0].Mz;
+        for (int p = 1; p < ownPeaks; p++)
+            mzTotal += bin[p].Mz;
+
+        int next = 0;
+        for (var i = 0; i < numSpectra; i++)
+        {
+            while (next < ownPeaks && bin[next].SpectraId < i)
+                next++;
+            if (next < ownPeaks && bin[next].SpectraId == i)
+                continue;
+
+            double mz = mzTotal / bin.Count;
+            bin.Add(new BinnedPeak(representativeBin.Bin, mz, 0, i));
+            mzTotal += mz;
+        }
     }
 
     /// <summary>

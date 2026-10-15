@@ -184,6 +184,31 @@ namespace Test.AveragingTests
             a.Bin == b.Bin && a.SpectraId == b.SpectraId && SameDouble(a.Mz, b.Mz) && SameDouble(a.Intensity, b.Intensity);
 
         [Test]
+        public static void GetBinsMatchesLegacy()
+        {
+            var random = new Random(5);
+            for (int group = 0; group < 300; group++)
+            {
+                double binSize = new[] { 1e-5, 0.01, 0.1, 1.0 }[random.Next(4)];
+                var (x, y) = RandomSpectra(random, random.Next(1, 8), binSize);
+
+                var expected = LegacySpectraAveraging.GetBins(x, y, binSize).ToList();
+                var actual = SpectraAveraging.GetBins(x, y, binSize).ToList();
+
+                Assert.That(actual.Count, Is.EqualTo(expected.Count), $"group {group}");
+                for (int b = 0; b < expected.Count; b++)
+                {
+                    Assert.That(actual[b].Key, Is.EqualTo(expected[b].Key), $"group {group}, bin {b}");
+                    Assert.That(actual[b].Value.Count, Is.EqualTo(expected[b].Value.Count), $"group {group}, bin {b}");
+                    for (int p = 0; p < expected[b].Value.Count; p++)
+                        Assert.That(SamePeak(actual[b].Value[p], expected[b].Value[p]), Is.True, $"group {group}, bin {b}, peak {p}");
+                }
+            }
+        }
+
+
+
+        [Test]
         public static void AverageSpectraMatchesLegacy()
         {
             var random = new Random(4);
