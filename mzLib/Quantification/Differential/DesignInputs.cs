@@ -172,7 +172,10 @@ public sealed record DesignSpec
 }
 
 /// <summary>A comparison to estimate: a weight per design column (<c>DEF-DIFF-COLUMNS</c>' Contrast group).</summary>
-/// <param name="Id">Unique within an analysis: <c>c1</c>, <c>c2</c>, … for the default set.</param>
+/// <param name="Id">
+/// Unique within an analysis: <c>c1</c>, <c>c2</c>, … for the default set, numbered once over every stratum, so one id is
+/// one comparison in all of them (<see cref="AnalysisDesign.DefaultContrasts"/>).
+/// </param>
 /// <param name="Label">Readable, e.g. <c>age_group=old vs age_group=young</c> or <c>age (per decade)</c>.</param>
 /// <param name="Weights">One weight per column of <see cref="AnalysisDesign.ColumnNames"/>.</param>
 /// <param name="Numerator">The numerator level as <c>factor=level</c>; null for a slope or a custom contrast.</param>
