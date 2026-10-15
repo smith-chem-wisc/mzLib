@@ -33,6 +33,24 @@ namespace MassSpectrometry
                 && p.MassSpectrum.LastX != null).Max(p => p.MassSpectrum.LastX.Value) * BinsPerDalton) + 1];
             ScanInfoArray = new ScanInfo[scanArray.Length];
 
+            // Count the peaks in each bin first, so every bin's list is allocated once at its final size. Growing the
+            // lists by doubling copied every bin several times over and left up to half of each list's capacity unused.
+            // The fill below is unchanged, so each bin holds the same peaks in the same order.
+            int[] peaksPerBin = new int[IndexedPeaks.Length];
+            for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
+            {
+                double[] xArray = scanArray[scanIndex].MassSpectrum.XArray;
+                for (int j = 0; j < xArray.Length; j++)
+                {
+                    peaksPerBin[(int)Math.Round(xArray[j] * BinsPerDalton, 0)]++;
+                }
+            }
+            for (int bin = 0; bin < peaksPerBin.Length; bin++)
+            {
+                if (peaksPerBin[bin] > 0)
+                    IndexedPeaks[bin] = new List<T>(peaksPerBin[bin]);
+            }
+
             for (int scanIndex = 0; scanIndex < scanArray.Length; scanIndex++)
             {
                 ScanInfoArray[scanIndex] = new ScanInfo(scanArray[scanIndex].OneBasedScanNumber, scanIndex, scanArray[scanIndex].RetentionTime, scanArray[scanIndex].MsnOrder);
@@ -40,7 +58,6 @@ namespace MassSpectrometry
                 for (int j = 0; j < scanArray[scanIndex].MassSpectrum.XArray.Length; j++)
                 {
                     int roundedMz = (int)Math.Round(scanArray[scanIndex].MassSpectrum.XArray[j] * BinsPerDalton, 0);
-                    IndexedPeaks[roundedMz] ??= new List<T>();
                     IndexedPeaks[roundedMz].Add((T)(IIndexedPeak)
                         new IndexedMassSpectralPeak(
                             scanArray[scanIndex].MassSpectrum.XArray[j],
