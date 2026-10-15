@@ -1672,12 +1672,16 @@ namespace FlashLFQ
             PpmTolerance isotopeTolerance = new PpmTolerance(FlashParams.IsotopePpmTolerance);
 
             double[] experimentalIsotopeIntensities = new double[isotopeMassShifts.Count];
-            double[] theoreticalIsotopeMassShifts = isotopeMassShifts.Select(p => p.Item1).ToArray();
-            double[] theoreticalIsotopeAbundances = isotopeMassShifts.Select(p => p.Item2).ToArray();
+            double[] theoreticalIsotopeMassShifts = new double[isotopeMassShifts.Count];
+            double[] theoreticalIsotopeAbundances = new double[isotopeMassShifts.Count];
+            for (int i = 0; i < isotopeMassShifts.Count; i++)
+            {
+                theoreticalIsotopeMassShifts[i] = isotopeMassShifts[i].Item1;
+                theoreticalIsotopeAbundances[i] = isotopeMassShifts[i].Item2;
+            }
             int peakfindingMassIndex = (int)Math.Round(identification.PeakfindingMass - identification.MonoisotopicMass, 0);
-            List<IIndexedPeak> isotopologuePeaks = new List<IIndexedPeak>();
 
-            // error in peak assignment / deconvolution. The -1 key in this dictionary corresponds to a negative off-by-one error, the 
+            // error in peak assignment / deconvolution. The -1 key in this dictionary corresponds to a negative off-by-one error, the
             // +1 key corresponds to a positive off-by-one error, and the 0 key corresponds to accurate assignment/deconvolution.
             var massShiftToIsotopePeaks = new Dictionary<int, List<(double expIntensity, double theorIntensity, double theorMass)>>
             {
@@ -1686,7 +1690,8 @@ namespace FlashLFQ
                 { 1, new List<(double, double, double)>() },
             };
 
-            List<int> directions = new List<int> { -1, 1 };
+            // Looked up once, on first use, rather than once per isotope peak: this is the innermost loop of quantification
+            IFlashLfqIndexingEngine indexingEngine = null;
 
             // For each peak (most abundant mass peak), we check for the possibility that the peak was mis-assigned,
             // i.e. that the peak belongs to a species with a different mass than the identification mass
@@ -1711,7 +1716,7 @@ namespace FlashLFQ
                     // the loop breaks and we begin working our way forward, starting with the peak finding 
                     // mass and locating every peak with mass > peak finding mass. Once an expected isotopic
                     // peak can not be found, it is assumed that we have located every isotope present and the loop breaks.
-                    foreach (int direction in directions)
+                    foreach (int direction in IsotopeSearchDirections)
                     {
                         int start = direction == -1
                             ? peakfindingMassIndex - 1
@@ -1723,7 +1728,8 @@ namespace FlashLFQ
                                                  theoreticalIsotopeMassShifts[i] + shift.Key * Constants.C13MinusC12;
                             double theoreticalIsotopeIntensity = theoreticalIsotopeAbundances[i] * peak.Intensity;
 
-                            IIndexedPeak isotopePeak = IndexingEngineDictionary[spectraFile]
+                            indexingEngine ??= IndexingEngineDictionary[spectraFile];
+                            IIndexedPeak isotopePeak = indexingEngine
                                 .GetIndexedPeak(isotopeMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance);
 
                             if (isotopePeak == null
@@ -1737,7 +1743,6 @@ namespace FlashLFQ
                             if (shift.Key == 0)
                             {
                                 experimentalIsotopeIntensities[i] = isotopePeak.Intensity;
-                                isotopologuePeaks.Add(isotopePeak);
                             }
                         }
                     }
@@ -1786,21 +1791,21 @@ namespace FlashLFQ
             SpectraFileInfo spectraFile,
             out double pearsonCorrelation)
         {
-            pearsonCorrelation = Correlation.Pearson(
-                massShiftToIsotopePeaks[0].Select(p => p.expIntensity),
-                massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
+            pearsonCorrelation = PearsonCorrelationOfIntensities(massShiftToIsotopePeaks[0]);
 
             // check correlation of experimental isotope intensities to the theoretical abundances
-            // check for unexpected peaks 
+            // check for unexpected peaks
+            IFlashLfqIndexingEngine indexingEngine = null;
             foreach (var shift in massShiftToIsotopePeaks)
             {
-                if (!shift.Value.Any())
+                if (shift.Value.Count == 0)
                 {
                     continue;
                 }
 
-                double unexpectedMass = shift.Value.Min(p => p.theorMass) - Constants.C13MinusC12;
-                IIndexedPeak unexpectedPeak = IndexingEngineDictionary[spectraFile]
+                double unexpectedMass = MinTheoreticalMass(shift.Value) - Constants.C13MinusC12;
+                indexingEngine ??= IndexingEngineDictionary[spectraFile];
+                IIndexedPeak unexpectedPeak = indexingEngine
                     .GetIndexedPeak(unexpectedMass.ToMz(chargeState), peak.ZeroBasedScanIndex, isotopeTolerance);
 
                 if (unexpectedPeak == null)
@@ -1813,15 +1818,9 @@ namespace FlashLFQ
                 }
             }
 
-            double corrWithPadding = Correlation.Pearson(
-                massShiftToIsotopePeaks[0].Select(p => p.expIntensity),
-                massShiftToIsotopePeaks[0].Select(p => p.theorIntensity));
-            double corrShiftedLeft = Correlation.Pearson(
-                massShiftToIsotopePeaks[-1].Select(p => p.expIntensity),
-                massShiftToIsotopePeaks[-1].Select(p => p.theorIntensity));
-            double corrShiftedRight = Correlation.Pearson(
-                massShiftToIsotopePeaks[1].Select(p => p.expIntensity),
-                massShiftToIsotopePeaks[1].Select(p => p.theorIntensity));
+            double corrWithPadding = PearsonCorrelationOfIntensities(massShiftToIsotopePeaks[0]);
+            double corrShiftedLeft = PearsonCorrelationOfIntensities(massShiftToIsotopePeaks[-1]);
+            double corrShiftedRight = PearsonCorrelationOfIntensities(massShiftToIsotopePeaks[1]);
 
             if (double.IsNaN(corrShiftedLeft))
             {
@@ -1835,6 +1834,77 @@ namespace FlashLFQ
             // If these conditions are true, the isotopic envelope matches the expected envelope better than 
             // either alternative (i.e., +/- missed mono-isotopic)
             return pearsonCorrelation > 0.7 && corrShiftedLeft - corrWithPadding < 0.1 && corrShiftedRight - corrWithPadding < 0.1;
+        }
+
+        /// <summary>
+        /// The directions GetIsotopicEnvelopes walks away from the peak finding isotope: down in mass first, then up
+        /// </summary>
+        private static readonly int[] IsotopeSearchDirections = { -1, 1 };
+
+        /// <summary>
+        /// Pearson correlation of the experimental and theoretical intensities in <paramref name="isotopePeaks"/>.
+        /// This is MathNet's Correlation.Pearson (MathNet.Numerics 5.0.0), the same single-pass update in the same
+        /// order of operations, so it returns the same double bit for bit (NaN for fewer than two points or zero
+        /// variance). It reads the list in place instead of through two LINQ projections and their enumerators,
+        /// which FlashLFQ was allocating four times for every candidate isotopic envelope.
+        /// </summary>
+        internal static double PearsonCorrelationOfIntensities(List<(double expIntensity, double theorIntensity, double theorMass)> isotopePeaks)
+        {
+            int n = 0;
+            double r = 0.0;
+            double meanA = 0;
+            double meanB = 0;
+            double varA = 0;
+            double varB = 0;
+
+            for (int i = 0; i < isotopePeaks.Count; i++)
+            {
+                double currentA = isotopePeaks[i].expIntensity;
+                double currentB = isotopePeaks[i].theorIntensity;
+
+                double deltaA = currentA - meanA;
+                double scaleDeltaA = deltaA / ++n;
+
+                double deltaB = currentB - meanB;
+                double scaleDeltaB = deltaB / n;
+
+                meanA += scaleDeltaA;
+                meanB += scaleDeltaB;
+
+                varA += scaleDeltaA * deltaA * (n - 1);
+                varB += scaleDeltaB * deltaB * (n - 1);
+                r += (deltaA * deltaB * (n - 1)) / n;
+            }
+
+            return r / Math.Sqrt(varA * varB);
+        }
+
+        /// <summary>
+        /// The smallest theoretical mass in <paramref name="isotopePeaks"/>, which must not be empty. Same result as
+        /// Enumerable.Min over the masses, including returning NaN as soon as one is NaN, without the LINQ enumerator.
+        /// </summary>
+        internal static double MinTheoreticalMass(List<(double expIntensity, double theorIntensity, double theorMass)> isotopePeaks)
+        {
+            double value = isotopePeaks[0].theorMass;
+            if (double.IsNaN(value))
+            {
+                return value;
+            }
+
+            for (int i = 1; i < isotopePeaks.Count; i++)
+            {
+                double x = isotopePeaks[i].theorMass;
+                if (x < value)
+                {
+                    value = x;
+                }
+                else if (double.IsNaN(x))
+                {
+                    return x;
+                }
+            }
+
+            return value;
         }
 
         /// <summary>
