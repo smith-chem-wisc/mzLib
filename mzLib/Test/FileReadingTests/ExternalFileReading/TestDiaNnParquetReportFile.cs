@@ -275,6 +275,26 @@ internal class TestDiaNnParquetReportFile
     }
 
     [Test]
+    public void RefusingAFileThatIsNotParquetReleasesIt()
+    {
+        string detected = Path.Combine(_outputDirectory, "released_after_detection.parquet");
+        string loaded = Path.Combine(_outputDirectory, "released_after_loading.parquet");
+        File.WriteAllText(detected, "Precursor.Id\tStripped.Sequence\tRun\n");
+        File.WriteAllText(loaded, "Precursor.Id\tStripped.Sequence\tRun\n");
+
+        Assert.Throws<MzLibException>(() => detected.ParseFileType());
+        Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(loaded).LoadResults());
+
+        // A handle left open by the refusal makes an exclusive open throw IOException until a garbage
+        // collection happens to finalize it; on Windows the file cannot be deleted either.
+        Assert.Multiple(() =>
+        {
+            Assert.DoesNotThrow(() => new FileStream(detected, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
+            Assert.DoesNotThrow(() => new FileStream(loaded, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
+        });
+    }
+
+    [Test]
     public void LoadingAMissingFileThrowsFileNotFound()
     {
         string missing = Path.Combine(_outputDirectory, "missing_report.parquet");
