@@ -1,0 +1,6 @@
+generated_utc 2026-10-08 15:51:23 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+lme4 2.0.6; lmerTest 3.2.1; limma 3.68.5
+seed 20261008
+script make_nested_lmm_fixtures.R
+lmer REML, bobyqa rhoend 1e-12; Satterthwaite via lmerTest::contest; squeezeVar(legacy = TRUE) on sigma^2 with the joint condition F-test DenDF
