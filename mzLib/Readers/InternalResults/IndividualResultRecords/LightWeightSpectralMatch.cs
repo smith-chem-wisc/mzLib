@@ -1,12 +1,13 @@
 using System.Globalization;
 using Omics;
+using Omics.BioPolymer;
 using Omics.SpectrumMatch;
 
 namespace Readers
 {
     /// <summary>
     /// A lightweight PSM record that implements only <see cref="Omics.SpectralMatch.ISpectralMatch"/> and <see cref="IQuantifiableRecord"/>.
-    /// Parses only the ~15 columns required by those interfaces plus QValue and PEP_QValue,
+    /// Parses only the ~15 columns required by those interfaces plus QValue, QValue Notch, PEP and PEP_QValue,
     /// making it significantly faster to construct than <see cref="SpectrumMatchFromTsv"/>.
     /// </summary>
     public class LightWeightSpectralMatch : Omics.SpectralMatch.ISpectralMatch, IQuantifiableRecord
@@ -20,6 +21,7 @@ namespace Readers
         public string BaseSequence { get; }
         public string Accession { get; }
         public bool IsDecoy { get; }
+        public bool IsEntrapment { get; }
 
         // ISpectralMatch
         public string FullFilePath { get; }
@@ -36,6 +38,12 @@ namespace Readers
         // Additional fields for filtering / downstream use
         public double QValue { get; }
         public double PepQValue { get; }
+
+        /// <summary>The posterior error probability, or NaN when the file has no PEP column or the cell does not parse.</summary>
+        public double Pep { get; }
+
+        /// <summary>The notch q-value, or null when the file has no QValue Notch column or the cell does not parse.</summary>
+        public double? QValueNotch { get; }
 
         // Backing fields for lazy ProteinGroupInfos
         private readonly string _geneName;
@@ -86,7 +94,8 @@ namespace Readers
 
             // Decoy/Contaminant/Target
             string dct = spl[parsedHeader[SpectrumMatchFromTsvHeader.DecoyContaminantTarget]].Trim();
-            IsDecoy = dct.Contains('D');
+            IsDecoy = DecoyContaminantTargetLabel.IsDecoy(dct);
+            IsEntrapment = DecoyContaminantTargetLabel.IsEntrapment(dct);
 
             // Accession (already resolved to canonical key by ParseHeader)
             Accession = parsedHeader[SpectrumMatchFromTsvHeader.Accession] >= 0
@@ -124,6 +133,18 @@ namespace Readers
             PepQValue = parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue] >= 0
                 ? double.Parse(spl[parsedHeader[SpectrumMatchFromTsvHeader.PEP_QValue]].Trim(), CultureInfo.InvariantCulture)
                 : double.NaN;
+
+            // PEP (optional)
+            Pep = parsedHeader.TryGetValue(SpectrumMatchFromTsvHeader.PEP, out int pepIndex) && pepIndex >= 0
+                && double.TryParse(spl[pepIndex].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double pep)
+                ? pep
+                : double.NaN;
+
+            // QValue Notch (optional)
+            QValueNotch = parsedHeader.TryGetValue(SpectrumMatchFromTsvHeader.QValueNotch, out int notchIndex) && notchIndex >= 0
+                && double.TryParse(spl[notchIndex].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out double notch)
+                ? notch
+                : null;
 
             // TMT/isobaric reporter ion columns
             Intensities = ParseReporterIonColumns(spl, parsedHeader);
