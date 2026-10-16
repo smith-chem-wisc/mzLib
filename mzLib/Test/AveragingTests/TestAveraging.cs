@@ -122,28 +122,27 @@ namespace Test.AveragingTests
         {
             SpectralAveragingParameters parameters = new() { BinSize = 1 };
 
-            var methodInfo = typeof(SpectraAveraging).GetMethod("GetBins", BindingFlags.NonPublic | BindingFlags.Static);
-            var bins = (Dictionary<int, List<BinnedPeak>>)methodInfo.Invoke(null, new object?[] { xArrays, yArrays, parameters.BinSize });
+            using var bins = SpectraAveraging.GetBins(xArrays, yArrays, parameters.BinSize);
             Assert.That(bins != null);
             Assert.That(bins.Count == 5);
 
-            var bin = bins[0];
+            var bin = bins[0].ToArray();
             Assert.That(bin.Select(p => p.Mz).SequenceEqual(new [] {0, 0, 0.1}));
             Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new [] {10.0, 11, 20}));
 
-            bin = bins[1];
+            bin = bins[1].ToArray();
             Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 1, 1, 1.1 }));
             Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 11.0, 12, 25 }));
 
-            bin = bins[2];
+            bin = bins[2].ToArray();
             Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 2, 2, 2.1 }));
             Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 12, 13, 30.0 }));
 
-            bin = bins[3];
+            bin = bins[3].ToArray();
             Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 3, 3.49, 3, 3.1 }));
             Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 12.0, 13, 14, 35 }));
 
-            bin = bins[4];
+            bin = bins[4].ToArray();
             Assert.That(bin.Select(p => p.Mz).SequenceEqual(new[] { 4, 4, 4.1 }));
             Assert.That(bin.Select(p => p.Intensity).SequenceEqual(new[] { 14.0, 15, 40 }));
         }

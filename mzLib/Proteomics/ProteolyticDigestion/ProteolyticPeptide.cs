@@ -64,12 +64,17 @@ namespace Proteomics.ProteolyticDigestion
             var twoBasedPossibleVariableAndLocalizeableModifications = DictionaryPool.Get();
             var fixedModDictionary = FixedModDictionaryPool.Get();
 
+            // Every form of this product has its base sequence and residue masses: take them once, at the first form.
+            string baseSequence = null;
+            double residueMassSum = 0;
+
             try
             {
                 PopulateVariableModifications(variableModifications, in twoBasedPossibleVariableAndLocalizeableModifications);
                 PopulateFixedModsOneIsNorFivePrimeTerminus(peptideLength, allKnownFixedModifications, in fixedModDictionary);
 
-                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength))
+                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForPeptide, peptideLength,
+                             fixedModDictionary.Count))
                 {
                     // Modifications are placed AFTER cleavage, so nothing so far has checked whether a
                     // modification abolishes the very site this peptide was cut at. Skip the peptidoforms
@@ -103,8 +108,15 @@ namespace Proteomics.ProteolyticDigestion
 
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
 
+                    if (baseSequence is null)
+                    {
+                        baseSequence = BaseSequence;
+                        residueMassSum = PeptideWithSetModifications.ResidueMassSum(baseSequence);
+                    }
+
                     yield return new PeptideWithSetModifications(Protein, digestionParams, OneBasedStartResidue, OneBasedEndResidue,
-                        CleavageSpecificityForFdrCategory, PeptideDescription, reportedMissedCleavages, variableModPattern, numFixedMods);
+                        CleavageSpecificityForFdrCategory, PeptideDescription, reportedMissedCleavages, variableModPattern, numFixedMods,
+                        baseSequence, residueMassSum);
 
                     variable_modification_isoforms++;
                     if (variable_modification_isoforms == maximumVariableModificationIsoforms)

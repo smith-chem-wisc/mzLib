@@ -5,29 +5,44 @@
         // This method is called a ton (8.8 billion times in Bottom-Up Jenkins as of 1.0.6) in MetaMorpheus. If changes are made, ensure they are efficient. 
         public static bool ModFits(Modification attemptToLocalize, string sequence, int digestionProductOneBasedIndex, int digestionProductLength, int bioPolymerOneBasedIndex)
         {
-            // First find the capital letter...
             var motif = attemptToLocalize.Target.ToString();
-            var motifStartLocation = -1;
-            for (int i = 0; i < motif.Length; i++)
-            {
-                if (!char.IsUpper(motif[i])) 
-                    continue;
 
-                motifStartLocation = i;
-                break;
-            }
-
-            // Look up starting at and including the capital letter
-            var proteinToMotifOffset = bioPolymerOneBasedIndex - motifStartLocation - 1;
-            var indexUp = 0;
-            while (indexUp < motif.Length)
+            // Almost every motif is a single residue, which is its own capital letter: compare it with the residue at the
+            // index. This is the loop below with motifStartLocation = 0 and one step, without upper-casing a letter that
+            // is already upper case, and it rejects most calls - a residue that is not the motif's - right there.
+            if (motif.Length == 1 && char.IsUpper(motif[0]))
             {
-                if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= sequence.Length
-                    || !MotifMatches(motif[indexUp], sequence[indexUp + proteinToMotifOffset]))
+                int residueIndex = bioPolymerOneBasedIndex - 1;
+                if (residueIndex < 0 || residueIndex >= sequence.Length || !UpperCaseMotifMatches(motif[0], sequence[residueIndex]))
                 {
                     return false;
                 }
-                indexUp++;
+            }
+            else
+            {
+                // First find the capital letter...
+                var motifStartLocation = -1;
+                for (int i = 0; i < motif.Length; i++)
+                {
+                    if (!char.IsUpper(motif[i]))
+                        continue;
+
+                    motifStartLocation = i;
+                    break;
+                }
+
+                // Look up starting at and including the capital letter
+                var proteinToMotifOffset = bioPolymerOneBasedIndex - motifStartLocation - 1;
+                var indexUp = 0;
+                while (indexUp < motif.Length)
+                {
+                    if (indexUp + proteinToMotifOffset < 0 || indexUp + proteinToMotifOffset >= sequence.Length
+                        || !MotifMatches(motif[indexUp], sequence[indexUp + proteinToMotifOffset]))
+                    {
+                        return false;
+                    }
+                    indexUp++;
+                }
             }
             switch (attemptToLocalize.LocationRestriction)
             {
@@ -60,6 +75,18 @@
 
             return false;
         }
+
+        /// <summary>
+        /// <see cref="MotifMatches"/> for a motif letter that is already upper case, which char.ToUpper returns unchanged.
+        /// </summary>
+        private static bool UpperCaseMotifMatches(char upperMotifChar, char sequenceChar) => upperMotifChar switch
+        {
+            'X' => true,
+            'B' => sequenceChar is 'D' or 'N',
+            'J' => sequenceChar is 'I' or 'L',
+            'Z' => sequenceChar is 'E' or 'Q',
+            _ => upperMotifChar == sequenceChar
+        };
 
         private static bool MotifMatches(char motifChar, char sequenceChar)
         {

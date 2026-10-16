@@ -21,7 +21,19 @@ namespace Proteomics.ProteolyticDigestion
     [Serializable]
     public class PeptideWithSetModifications : ProteolyticPeptide, IBioPolymerWithSetMods, IRetentionPredictable,  IEquatable<PeptideWithSetModifications>
     {
-        public string FullSequence { get; init; } //sequence with modifications
+        /// <summary>
+        /// The sequence with its modifications. A form made by digestion builds it when it is first read - a search
+        /// reads it only for the few forms it reports, and building it for every form was most of the cost of top-down
+        /// digestion - while every other constructor builds it at once. It describes the modifications the form was made
+        /// with: the one place that changes <see cref="AllModsOneIsNterminus"/> in place, ConvertModifications, reads it
+        /// first. Concurrent first reads may each build it; they build the same text, and either store is kept.
+        /// </summary>
+        /// <remarks>
+        /// Binary serialization (the peptide index cache) writes the stored value and cannot rebuild it on reading, since
+        /// the modifications are not serialized: read it before serializing a digested form. The backing field is the
+        /// auto-property's, so the serialized layout is unchanged.
+        /// </remarks>
+        public string FullSequence { get => field ??= this.DetermineFullSequence(); init; }
 
         public int NumFixedMods { get; }
         // Parameter to store the full sequence of the corresponding Target or Decoy peptide
@@ -36,6 +48,7 @@ namespace Proteomics.ProteolyticDigestion
         [NonSerialized] private bool? _hasChemicalFormulas;
         [NonSerialized] private string _sequenceWithChemicalFormulas;
         [NonSerialized] private double? _monoisotopicMass;
+        [NonSerialized] private double? _residueMassSum; // shared by every form of one digestion product; see ResidueMassSum
         [NonSerialized] private double? _mostAbundantMonoisotopicMass;
         [NonSerialized] private ChemicalFormula _fullChemicalFormula;
         [NonSerialized] private DigestionParams _digestionParams;
@@ -49,15 +62,45 @@ namespace Proteomics.ProteolyticDigestion
         public PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
             int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence = null, string pairedTargetDecoySequence = null)
+           : this(protein, digestionParams, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, cleavageSpecificity, peptideDescription,
+               missedCleavages, allModsOneIsNterminus, numFixedMods, baseSequence, pairedTargetDecoySequence, buildFullSequence: true)
+        {
+        }
+
+        private PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
+            int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
+            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence, string pairedTargetDecoySequence,
+            bool buildFullSequence)
            : base(protein, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, missedCleavages, cleavageSpecificity, peptideDescription, baseSequence)
         {
             _allModsOneIsNterminus = allModsOneIsNterminus;
             NumFixedMods = numFixedMods;
             _digestionParams = digestionParams as DigestionParams;
-            FullSequence = this.DetermineFullSequence();
+            if (buildFullSequence)
+            {
+                FullSequence = this.DetermineFullSequence();
+            }
             ProteinAccession = protein.Accession;
             UpdateCleavageSpecificity();
             PairedTargetDecoySequence = pairedTargetDecoySequence;
+        }
+
+        /// <summary>
+        /// Creates one modified form of a digestion product. Every form of a product is given the product's own base
+        /// sequence string and the sum of its residue masses, which would otherwise be rebuilt for every form: a substring
+        /// copy of the sequence, and a pass over it, in <see cref="MonoisotopicMass"/>. A top-down product has 190 forms
+        /// on average in a human database, each over a sequence of more than a thousand residues. Its
+        /// <see cref="FullSequence"/> is built when first read. The dictionary of modifications becomes the form's own:
+        /// digestion makes a new one for every form and never changes it afterwards.
+        /// </summary>
+        /// <param name="residueMassSum"><see cref="ResidueMassSum"/> of <paramref name="baseSequence"/>.</param>
+        internal PeptideWithSetModifications(Protein protein, IDigestionParams digestionParams, int oneBasedStartResidueInProtein,
+            int oneBasedEndResidueInProtein, CleavageSpecificity cleavageSpecificity, string peptideDescription, int missedCleavages,
+            Dictionary<int, Modification> allModsOneIsNterminus, int numFixedMods, string baseSequence, double residueMassSum)
+            : this(protein, digestionParams, oneBasedStartResidueInProtein, oneBasedEndResidueInProtein, cleavageSpecificity,
+                peptideDescription, missedCleavages, allModsOneIsNterminus, numFixedMods, baseSequence, null, buildFullSequence: false)
+        {
+            _residueMassSum = residueMassSum;
         }
 
         /// <summary>
@@ -108,7 +151,7 @@ namespace Proteomics.ProteolyticDigestion
                     {
                         monoMass += mod.MonoisotopicMass.Value;
                     }
-                    monoMass += BaseSequence.Sum(b => Residue.ResidueMonoisotopicMass[b]);
+                    monoMass += _residueMassSum ?? ResidueMassSum(BaseSequence);
 
                     _monoisotopicMass = monoMass;
                 }
@@ -116,6 +159,12 @@ namespace Proteomics.ProteolyticDigestion
             }
 
         }
+
+        /// <summary>
+        /// The sum of the residue masses of <paramref name="baseSequence"/>, added in sequence order. Computed once per
+        /// digestion product and handed to each of its forms, it is the same double each form computed for itself.
+        /// </summary>
+        internal static double ResidueMassSum(string baseSequence) => baseSequence.Sum(b => Residue.ResidueMonoisotopicMass[b]);
 
         public ChemicalFormula ThisChemicalFormula => FullChemicalFormula;
         public ChemicalFormula FullChemicalFormula
