@@ -77,7 +77,8 @@ namespace Quantification
 
         /// <summary>
         /// How many spectral matches were left out of quantification because they did not identify
-        /// exactly one biopolymer -- an ambiguous match, or one carrying no identification at all.
+        /// exactly one full sequence -- an ambiguous match, or one carrying no identification at all.
+        /// One sequence found in several proteins is one identification, not an ambiguous one.
         /// Such a match cannot be attributed to a peptide without guessing, so it is dropped; this
         /// count is here so that dropping it is visible rather than silent. It is also echoed in
         /// <see cref="Summary"/> when it is not zero.
