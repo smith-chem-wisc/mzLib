@@ -349,6 +349,140 @@ public class AnalysisDesignTests
         Assert.That(designs[0].Samples.Select(s => s.SampleId), Is.EqualTo(new[] { "s1", "s3", "s5" }));
     }
 
+    private static AnalysisSample InTissue(string tissue, AnalysisSample sample) =>
+        sample with { Strata = new Dictionary<string, string> { ["organism part"] = tissue } };
+
+    /// <summary>
+    /// The default contrasts are numbered once over every stratum, so an id is one comparison everywhere (#1450 review):
+    /// muscle has no y, so it skips <c>c2</c> and says it did not run y vs ctrl, and the slope after it keeps <c>c3</c>.
+    /// Numbered per stratum, muscle's <c>c2</c> was the slope.
+    /// </summary>
+    [Test]
+    public void AStratumMissingALevelSkipsItsIdAndTheSlopeKeepsItsOwn()
+    {
+        AnalysisSample T(string id, string tissue, string condition, double age) =>
+            InTissue(tissue, S(id, ("condition", condition)) with { Covariates = new Dictionary<string, double> { ["age"] = age } });
+        var samples = new[]
+        {
+            T("l1", "liver", "ctrl", 20), T("l2", "liver", "x", 30), T("l3", "liver", "y", 40),
+            T("l4", "liver", "ctrl", 50), T("l5", "liver", "x", 60), T("l6", "liver", "y", 70),
+            T("m1", "muscle", "ctrl", 25), T("m2", "muscle", "x", 35), T("m3", "muscle", "ctrl", 45), T("m4", "muscle", "x", 55),
+        };
+        var spec = Spec(("condition", "ctrl")) with
+        {
+            Covariates = new[] { new CovariateSpec("age", "years", Scale: 10, ScaledUnit: "decade") }
+        };
+        var designs = AnalysisDesign.ByStratum(samples, spec);
+        var (liver, muscle) = (designs[0], designs[1]);
+
+        Assert.That(liver.DefaultContrasts().Select(c => (c.Id, c.Label)), Is.EqualTo(new[]
+        {
+            ("c1", "condition=x vs condition=ctrl"), ("c2", "condition=y vs condition=ctrl"), ("c3", "age (per decade)"),
+        }));
+        Assert.That(muscle.DefaultContrasts().Select(c => (c.Id, c.Label)), Is.EqualTo(new[]
+        {
+            ("c1", "condition=x vs condition=ctrl"), ("c3", "age (per decade)"),
+        }));
+        Assert.That(liver.NotRun, Is.Empty);
+        Assert.That(muscle.NotRun, Is.EqualTo(new[] { new NotRunContrast("condition=y vs condition=ctrl", "not_in_stratum") }));
+        // Only the ids are shared: each stratum's weights are over its own columns.
+        Assert.That(muscle.ColumnNames, Is.EqualTo(new[] { "intercept", "condition=x", "age (per decade)" }));
+        Assert.That(muscle.DefaultContrasts()[1].Weights, Is.EqualTo(new[] { 0.0, 0, 1 }));
+    }
+
+    /// <summary>
+    /// A factor with one level in a stratum, listed first: the next factor's contrast keeps its id, and the stratum names
+    /// the comparison it cannot run rather than the factor (#1450 review).
+    /// </summary>
+    [Test]
+    public void AFactorWithOneLevelInAStratumNamesItsComparisonAndTheNextKeepsItsId()
+    {
+        AnalysisSample T(string id, string tissue, string sex, string condition) =>
+            InTissue(tissue, S(id, ("sex", sex), ("condition", condition)));
+        var samples = new[]
+        {
+            T("l1", "liver", "F", "ctrl"), T("l2", "liver", "F", "drug"), T("l3", "liver", "M", "ctrl"),
+            T("l4", "liver", "M", "drug"), T("l5", "liver", "F", "ctrl"), T("l6", "liver", "M", "drug"),
+            T("t1", "testis", "M", "ctrl"), T("t2", "testis", "M", "drug"), T("t3", "testis", "M", "ctrl"), T("t4", "testis", "M", "drug"),
+        };
+        var designs = AnalysisDesign.ByStratum(samples, Spec(("sex", "F"), ("condition", "ctrl")));
+        var (liver, testis) = (designs[0], designs[1]);
+
+        Assert.That(liver.DefaultContrasts().Select(c => (c.Id, c.Label)), Is.EqualTo(new[]
+        {
+            ("c1", "sex=M vs sex=F"), ("c2", "condition=drug vs condition=ctrl"),
+        }));
+        Assert.That(testis.DefaultContrasts().Select(c => (c.Id, c.Label)), Is.EqualTo(new[]
+        {
+            ("c2", "condition=drug vs condition=ctrl"),
+        }));
+        Assert.That(testis.NotRun, Is.EqualTo(new[] { new NotRunContrast("sex=M vs sex=F", "not_in_stratum") }));
+        Assert.That(testis.Warnings, Has.Some.Contains("Factor 'sex' has one level ('M')"));
+    }
+
+    /// <summary>With no reference level, every pair over all the strata is numbered once; a stratum runs the pairs it has.</summary>
+    [Test]
+    public void WithNoReferenceEachPairKeepsItsIdInEveryStratum()
+    {
+        AnalysisSample T(string id, string tissue, string condition) => InTissue(tissue, S(id, ("condition", condition)));
+        var samples = new[]
+        {
+            T("l1", "liver", "A"), T("l2", "liver", "B"), T("l3", "liver", "C"),
+            T("m1", "muscle", "A"), T("m2", "muscle", "C"), T("m3", "muscle", "A"), T("m4", "muscle", "C"),
+        };
+        var designs = AnalysisDesign.ByStratum(samples, Spec(("condition", null)));
+        var (liver, muscle) = (designs[0], designs[1]);
+
+        Assert.That(liver.DefaultContrasts().Select(c => c.Id), Is.EqualTo(new[] { "c1", "c2", "c3" }));
+        Assert.That(muscle.DefaultContrasts().Select(c => (c.Id, c.Label)), Is.EqualTo(new[] { ("c2", "condition=C vs condition=A") }));
+        Assert.That(muscle.NotRun.Select(n => n.Label), Is.EqualTo(new[] { "condition=B vs condition=A", "condition=C vs condition=B" }));
+    }
+
+    /// <summary>
+    /// A stratum without the reference level runs none of its factor's default contrasts and lists every one of them,
+    /// including the one whose other level it lacks too.
+    /// </summary>
+    [Test]
+    public void AStratumWithoutTheReferenceListsEveryComparisonAgainstIt()
+    {
+        AnalysisSample T(string id, string tissue, string condition) => InTissue(tissue, S(id, ("condition", condition)));
+        var samples = new[]
+        {
+            T("l1", "liver", "ctrl"), T("l2", "liver", "x"), T("l3", "liver", "y"), T("l4", "liver", "z"),
+            T("m1", "muscle", "x"), T("m2", "muscle", "z"), T("m3", "muscle", "x"), T("m4", "muscle", "z"),
+        };
+        var muscle = AnalysisDesign.ByStratum(samples, Spec(("condition", "ctrl")))[1];
+
+        Assert.That(muscle.DefaultContrasts(), Is.Empty);
+        Assert.That(muscle.NotRun.Select(n => n.Label), Is.EqualTo(new[]
+            { "condition=x vs condition=ctrl", "condition=y vs condition=ctrl", "condition=z vs condition=ctrl" }));
+        Assert.That(muscle.Warnings, Has.Some.Contains("'ctrl'"));
+    }
+
+    /// <summary>One stratum from <see cref="AnalysisDesign.ByStratum"/> numbers its contrasts as <see cref="AnalysisDesign.Create"/> does.</summary>
+    [Test]
+    public void OneStratumIsNumberedAsOneDesign()
+    {
+        var samples = AnalysisDesignReferenceTests.ReadSamples("no_reference").Samples;
+        var spec = Spec(("condition", null));
+        static IEnumerable<(string, string, string)> Shown(AnalysisDesign d) =>
+            d.DefaultContrasts().Select(c => (c.Id, c.Label, string.Join(",", c.Weights)));
+        Assert.That(Shown(AnalysisDesign.ByStratum(samples, spec).Single()), Is.EqualTo(Shown(AnalysisDesign.Create(samples, spec))));
+    }
+
+    /// <summary>Numbering the default set over all strata first does not change how a blank factor name is refused.</summary>
+    [TestCase(null)]
+    [TestCase(" ")]
+    public void ByStratumRefusesABlankFactorNameAsCreateDoes(string? name)
+    {
+        var samples = new[] { InTissue("liver", S("s1", ("condition", "A"))), InTissue("liver", S("s2", ("condition", "B"))) };
+        var spec = new DesignSpec { Factors = new[] { new FactorSpec(name!, "A") } };
+        var byCreate = Assert.Catch<ArgumentException>(() => AnalysisDesign.Create(samples, spec));
+        var byStratum = Assert.Catch<ArgumentException>(() => AnalysisDesign.ByStratum(samples, spec));
+        Assert.That(byStratum!.GetType(), Is.EqualTo(byCreate!.GetType()));
+        Assert.That(byStratum.Message, Is.EqualTo(byCreate.Message));
+    }
+
     [Test]
     public void StratumKeyIsSortedEscapedAndAllWhenEmpty()
     {
