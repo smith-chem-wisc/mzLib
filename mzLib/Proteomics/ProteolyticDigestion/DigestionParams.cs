@@ -18,7 +18,10 @@ namespace Proteomics.ProteolyticDigestion
             bool generateUnlabeledProteinsForSilac = true, bool keepNGlycopeptide = false, bool keepOGlycopeptide = false,
             bool respectCleavageBlockingModifications = false)
         {
-            Protease = ProteaseDictionary.Dictionary[protease];
+            // GetProtease, not the raw indexer: it applies NormalizeProteaseName, which is what
+            // lets settings saved under the historical "|P" and "(don't cleave before proline)"
+            // spellings keep resolving to the same enzyme they always did.
+            Protease = ProteaseDictionary.GetProtease(protease);
             MaxMissedCleavages = maxMissedCleavages;
             MinLength = minPeptideLength;
             MaxLength = maxPeptideLength;
