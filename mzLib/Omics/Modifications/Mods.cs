@@ -130,12 +130,12 @@ public static class Mods
     
         UnimodModifications = ModificationLoader.ReadModsFromUnimod(unimodStream!).ToList();   
 
-        // 2. Load PSI-MOD and get formal charges
-        var psiModStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PSI-MOD.obo.xml");
+        // 2. Load PSI-MOD formal charges. Only the charges are used here, so they are read from a
+        // small table generated from PSI-MOD.obo rather than from the whole ontology.
+        var formalChargeStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.PsiModFormalCharges.tsv");
+        using var formalChargeReader = new StreamReader(formalChargeStream!);
+        Dictionary<string, int> formalChargeDict = ModificationLoader.ReadFormalChargesDictionary(formalChargeReader);
 
-        var psiModObo = ModificationLoader.LoadPsiMod(psiModStream!);
-        Dictionary<string, int>  formalChargeDict = ModificationLoader.GetFormalChargesDictionary(psiModObo);
-   
 
         // 3. Load UniProt ptmlist
         var uniprotStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.ptmlist.txt");

@@ -355,6 +355,7 @@ public static class ModificationLoader
                         break;
 
                     case "//":
+                        _databaseReference = AddUniprotUnimodCrossReference(_accession, _databaseReference);
                         if (_target == null || _target.Count == 0) //This happens for FT=CROSSLINK modifications. We ignore these for now.
                         {
                             _target = new List<ModificationMotif> { null };
@@ -396,8 +397,70 @@ public static class ModificationLoader
     }
 
     /// <summary>
-    /// Subtract the mass of a proton for every formal charge on a modification.
+    /// Unimod cross-references for UniProt modifications that UniProt itself does not link to Unimod,
+    /// keyed by UniProt PTM accession (embedded resource UniprotUnimodCrossReferences.tsv; its header
+    /// says when a row may be added).
     /// </summary>
+    internal static IReadOnlyDictionary<string, string> UniprotUnimodCrossReferences => LazyUniprotUnimodCrossReferences.Value;
+
+    private static readonly Lazy<IReadOnlyDictionary<string, string>> LazyUniprotUnimodCrossReferences = new(() =>
+    {
+        var assembly = typeof(ModificationLoader).Assembly;
+        using var stream = assembly.GetManifestResourceStream($"{assembly.GetName().Name}.Resources.UniprotUnimodCrossReferences.tsv");
+        using var reader = new StreamReader(stream!);
+        return ReadUnimodCrossReferences(reader);
+    });
+
+    /// <summary>
+    /// Reads "UniProt PTM accession TAB Unimod record id [TAB name ...]" lines; '#' lines and blank lines
+    /// are skipped. Columns after the second are for human review and are ignored.
+    /// </summary>
+    internal static Dictionary<string, string> ReadUnimodCrossReferences(TextReader reader)
+    {
+        var crossReferences = new Dictionary<string, string>();
+        string? line;
+        int lineNumber = 0;
+        while ((line = reader.ReadLine()) != null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                continue;
+            var fields = line.Split('\t');
+            if (fields.Length < 2 || !fields[0].StartsWith("PTM-")
+                || !int.TryParse(fields[1], NumberStyles.None, CultureInfo.InvariantCulture, out _))
+                throw new MzLibException($"Unimod cross-reference line {lineNumber} is not 'PTM-nnnn<TAB>unimod id': '{line}'");
+            crossReferences.Add(fields[0], fields[1]);
+        }
+        return crossReferences;
+    }
+
+    /// <summary>
+    /// Adds the curated Unimod cross-reference for a UniProt accession to the entry's database references,
+    /// unless the entry already has a Unimod reference of its own, which always wins. Every motif expansion
+    /// of the entry shares the returned dictionary, so all of them get it.
+    /// </summary>
+    private static Dictionary<string, IList<string>> AddUniprotUnimodCrossReference(string accession, Dictionary<string, IList<string>> databaseReference)
+    {
+        if (accession == null || !UniprotUnimodCrossReferences.TryGetValue(accession, out string unimodId))
+            return databaseReference;
+        if (databaseReference != null && databaseReference.ContainsKey("Unimod"))
+            return databaseReference;
+
+        databaseReference ??= new Dictionary<string, IList<string>>();
+        databaseReference.Add("Unimod", new List<string> { unimodId });
+        return databaseReference;
+    }
+
+    /// <summary>
+    /// Remove one hydrogen from the formula for every formal charge on a modification, and take the
+    /// mass from the corrected formula. Without a formula, subtract the mass of a proton per charge.
+    /// </summary>
+    /// <remarks>
+    /// The mass comes from the formula because UniProt does not write the MM of a charged
+    /// modification one way. For most it is the cation's mass (formula mass minus one electron), which
+    /// minus a proton lands exactly on the corrected formula. For N,N,N-trimethylglycine (ptmlist
+    /// 2026_03) it is the neutral formula mass, which minus a proton is one electron mass too high.
+    /// </remarks>
     /// <param name="_monoisotopicMass"></param>
     /// <param name="_chemicalFormula"></param>
     /// <param name="_databaseReference"></param>
@@ -409,13 +472,14 @@ public static class ModificationLoader
         {
             if (formalChargesDictionary.ContainsKey(dbAndAccession))
             {
-                if (_monoisotopicMass.HasValue)
-                {
-                    _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
-                }
                 if (_chemicalFormula != null)
                 {
                     _chemicalFormula.Remove(PeriodicTable.GetElement("H"), formalChargesDictionary[dbAndAccession]);
+                    _monoisotopicMass = _chemicalFormula.MonoisotopicMass;
+                }
+                else if (_monoisotopicMass.HasValue)
+                {
+                    _monoisotopicMass -= formalChargesDictionary[dbAndAccession] * Constants.ProtonMass;
                 }
                 break;
             }
@@ -680,6 +744,40 @@ public static class ModificationLoader
         return modsWithFormalCharges.ToDictionary(
             b => "PSI-MOD; " + b.id,
             b => ParseFormalCharge(b.xref_analog.First(c => c.dbname.Equals("FormalCharge")).name));
+    }
+
+    /// <summary>
+    /// Get formal charges dictionary from a PSI-MOD formal-charge table: one
+    /// "accession TAB signed charge" pair per line (for example "MOD:00083	1"). Blank lines and
+    /// lines starting with '#' are skipped. Keys have the same "PSI-MOD; MOD:nnnnn" form as
+    /// <see cref="GetFormalChargesDictionary(obo)"/>, so either dictionary can be passed to ReadModsFromFile.
+    /// </summary>
+    public static Dictionary<string, int> ReadFormalChargesDictionary(string formalChargesLocation)
+    {
+        using var reader = new StreamReader(formalChargesLocation);
+        return ReadFormalChargesDictionary(reader);
+    }
+
+    /// <summary>
+    /// Get formal charges dictionary from a PSI-MOD formal-charge table read from a reader.
+    /// </summary>
+    public static Dictionary<string, int> ReadFormalChargesDictionary(TextReader reader)
+    {
+        var formalCharges = new Dictionary<string, int>();
+        string? line;
+        int lineNumber = 0;
+        while ((line = reader.ReadLine()) != null)
+        {
+            lineNumber++;
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+                continue;
+            var fields = line.Split('\t');
+            if (fields.Length != 2 || !fields[0].StartsWith("MOD:")
+                || !int.TryParse(fields[1], NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out int charge))
+                throw new MzLibException($"Formal charge table line {lineNumber} is not 'MOD:nnnnn<TAB>charge': '{line}'");
+            formalCharges.Add("PSI-MOD; " + fields[0], charge);
+        }
+        return formalCharges;
     }
 
     /// <summary>
