@@ -284,12 +284,12 @@ namespace UsefulProteomicsDatabases.Transcriptomics
                             var sequence = SanitizeAndTransform(rawSequence, transformsForThisSequence, out var fixedModifications);
 
                             bool isDecoy = identifier.StartsWith(decoyIdentifier);
-                            bool rnaIsEntrapment = isEntrapment || identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) >= 0;
+                            bool rnaIsEntrapment = isEntrapment || ProteinDbLoader.IsEntrapmentAccession(identifier, entrapmentIdentifier);
                             if (rnaIsEntrapment && isContaminant)
                                 throw new MzLibUtil.MzLibException($"RNA accession '{identifier}' cannot be both a contaminant and an entrapment sequence.",
                                     new ArgumentException("isContaminant and isEntrapment cannot both be true"));
                             // Prepend entrapment identifier if accession doesn't already contain it
-                            if (rnaIsEntrapment && identifier.IndexOf(entrapmentIdentifier, StringComparison.OrdinalIgnoreCase) < 0)
+                            if (rnaIsEntrapment && !ProteinDbLoader.IsEntrapmentAccession(identifier, entrapmentIdentifier))
                             {
                                 if (isDecoy)
                                     identifier = decoyIdentifier + "_" + entrapmentIdentifier + "_" + identifier.Substring(decoyIdentifier.Length).TrimStart('_');

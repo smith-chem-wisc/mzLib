@@ -14,7 +14,8 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
     /// - Supports peptides with length 1-30 amino acids
     /// - Processes up to 1000 peptides per batch
     /// - Predicts indexed retention time (iRT) values for relative comparison
-    /// - Specialized for TMT (Tandem Mass Tag) and iTRAQ labeled peptides
+    /// - Specialized for TMT (Tandem Mass Tag) and iTRAQ labeled peptides; requires an N-terminal label,
+    ///   so UsePrimarySequence is rejected at construction
     /// - Supports various isobaric labeling strategies including TMT6plex, TMTpro, iTRAQ 4-plex and 8-plex
     /// - Also supports SILAC labeling and standard modifications
     /// 
@@ -73,7 +74,14 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
         public override bool IsIndexedRetentionTimeModel => true;
 
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
-        public override SequenceConversionHandlingMode ModHandlingMode { get; init; } 
+        private readonly SequenceConversionHandlingMode _modHandlingMode;
+        public override SequenceConversionHandlingMode ModHandlingMode
+        {
+            get => _modHandlingMode;
+            init => _modHandlingMode = value == SequenceConversionHandlingMode.UsePrimarySequence
+                ? throw new ArgumentException($"{ModelName} requires an N-terminal TMT/iTRAQ label, which UsePrimarySequence would strip from every sequence. Use ReturnNull, ThrowException or RemoveIncompatibleElements.", nameof(ModHandlingMode))
+                : value;
+        }
 
         // Labeling a sequence as invalid when it contains modifications that are not supported by the model seems better than removing unsupported
         // mods and sending a sequence without the required TMT/iTRAQ labels, which would likely lead to crashes.
@@ -132,19 +140,10 @@ namespace PredictionClients.Koina.SupportedModels.RetentionTimeModels
 
             if (!HasAllowedNTerminalLabel(apiSequence))
             {
-                var message = "Sequence must contain a supported N-terminal TMT/iTRAQ label.";
-                switch (ModHandlingMode)
-                {
-                    case SequenceConversionHandlingMode.ThrowException:
-                        throw new ArgumentException(message);
-                    case SequenceConversionHandlingMode.ReturnNull:
-                        warning = new WarningException(message);
-                        return null;
-                    case SequenceConversionHandlingMode.RemoveIncompatibleElements:
-                    case SequenceConversionHandlingMode.UsePrimarySequence:
-                        warning = new WarningException(message);
-                        return null;
-                }
+                const string message = "Sequence must contain a supported N-terminal TMT/iTRAQ label.";
+                HandleFailure(ModHandlingMode, message);
+                warning = new WarningException(message);
+                return null;
             }
 
             return apiSequence;

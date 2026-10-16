@@ -54,6 +54,12 @@
     <None Update="StatisticalModels\ReferenceData\*.tsv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
+    <None Update="Quantification\Differential\ReferenceData\*.tsv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Quantification\Differential\GoldenFiles\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -535,6 +541,9 @@
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\DiaNn_LongFormat_report.tsv">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="FileReadingTests\ExternalFileTypes\DiaNn2_report.parquet">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </None>
     <None Update="FileReadingTests\ExternalFileTypes\FraggerPeptide_FragPipev21.1combined_peptide.tsv">

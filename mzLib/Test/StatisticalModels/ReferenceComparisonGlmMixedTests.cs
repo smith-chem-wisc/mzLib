@@ -11,9 +11,9 @@ namespace Test.StatisticalModels;
 
 /// <summary>
 /// Compares LogisticRegression, MixedModel, SpearmanCorrelation and PValueCombination against frozen
-/// outputs of R's glm, nlme::lme, cor.test and pchisq/pnorm. The outputs, the script that made them and
-/// its versions are in ReferenceData (make_glm_lmm_fixtures.R, PROVENANCE_glm_lmm.txt). R is never run
-/// by these tests.
+/// outputs of R's glm, nlme::lme, cor.test, ppcor::pcor.test and pchisq/pnorm. The outputs, the scripts that
+/// made them and their versions are in ReferenceData (make_glm_lmm_fixtures.R, PROVENANCE_glm_lmm.txt;
+/// make_partial_spearman_fixtures.R, PROVENANCE_partial_spearman.txt). R is never run by these tests.
 /// </summary>
 [TestFixture]
 [ExcludeFromCodeCoverage]
@@ -135,6 +135,31 @@ public class ReferenceComparisonGlmMixedTests
             Assert.That(r.Method, Is.EqualTo(method == "exact" ? SpearmanPValueMethod.Exact : SpearmanPValueMethod.Asymptotic), name);
             Close(r.Rho, Parse(o[Array.IndexOf(oh, "rho")]), Tight, $"{name} rho");
             Close(r.PValue, Parse(o[Array.IndexOf(oh, "p")]), Tight, $"{name} p");
+        }
+    }
+
+    /// <summary>
+    /// PartialCorrelate against ppcor::pcor.test(method = "spearman"), with one to three covariates, with and without
+    /// ties (make_partial_spearman_fixtures.R, PROVENANCE_partial_spearman.txt).
+    /// </summary>
+    [Test]
+    public void PartialSpearmanMatchesPpcor()
+    {
+        var (ih, inputs) = ReadTsv("partial_spearman_inputs.tsv");
+        var (oh, outputs) = ReadTsv("partial_spearman_results.tsv");
+        double In(string[] r, string c) => Parse(r[Array.IndexOf(ih, c)]);
+        double Out(string[] r, string c) => Parse(r[Array.IndexOf(oh, c)]);
+        foreach (var o in outputs)
+        {
+            string name = o[Array.IndexOf(oh, "case")];
+            var rows = inputs.Where(r => r[Array.IndexOf(ih, "case")] == name).ToArray();
+            var covariates = Enumerable.Range(1, (int)Out(o, "k"))
+                .Select(j => (IReadOnlyList<double>)rows.Select(r => In(r, $"z{j}")).ToArray()).ToArray();
+            var r = SpearmanCorrelation.PartialCorrelate(rows.Select(x => In(x, "x")).ToArray(), rows.Select(x => In(x, "y")).ToArray(), covariates);
+            Assert.That(r.Method, Is.EqualTo(SpearmanPValueMethod.Asymptotic), name);
+            Assert.That(r.N, Is.EqualTo((int)Out(o, "n")), name);
+            Close(r.Rho, Out(o, "rho"), Tight, $"{name} rho");
+            Close(r.PValue, Out(o, "p"), Tight, $"{name} p");
         }
     }
 
