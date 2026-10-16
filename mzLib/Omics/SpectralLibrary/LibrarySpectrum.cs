@@ -17,7 +17,19 @@ namespace Omics.SpectrumMatch
         public List<MatchedFragmentIon> MatchedFragmentIons { get; set; }
         public bool IsDecoy { get; set; }
 
-        public virtual string Name => Sequence + "/" + ChargeState;
+        public string? FragmentModelName
+        {
+            get;
+            set => field = SingleCommentToken(value, nameof(FragmentModelName));
+        }
+
+        public string? RetentionTimeModelName
+        {
+            get;
+            set => field = SingleCommentToken(value, nameof(RetentionTimeModelName));
+        }
+
+        public virtual string Name => Sequence + "/" + ChargeState.ToString(CultureInfo.InvariantCulture);
 
         public LibrarySpectrum(string sequence, double precursorMz, int chargeState, List<MatchedFragmentIon> peaks, double? rt, bool isDecoy = false) 
             : base(peaks.Select(p => p.Mz).ToArray(), peaks.Select(p => p.Intensity).ToArray(), false)
@@ -62,10 +74,21 @@ namespace Omics.SpectrumMatch
         {
             StringBuilder spectrum = new StringBuilder();
             spectrum.Append("Name: " + Name);
-            spectrum.Append("\nMW: " + PrecursorMz);
+            spectrum.Append("\nMW: " + PrecursorMz.ToString(CultureInfo.InvariantCulture));
             spectrum.Append("\nComment: ");
-            spectrum.Append("Parent=" + PrecursorMz);
-            spectrum.Append(" RT=" + RetentionTime);
+            spectrum.Append("Parent=" + PrecursorMz.ToString(CultureInfo.InvariantCulture));
+            if (RetentionTime.HasValue)
+            {
+                spectrum.Append(" RT=" + RetentionTime.Value.ToString(CultureInfo.InvariantCulture));
+            }
+            if (!string.IsNullOrEmpty(FragmentModelName))
+            {
+                spectrum.Append(" FragmentModel=" + FragmentModelName);
+            }
+            if (!string.IsNullOrEmpty(RetentionTimeModelName))
+            {
+                spectrum.Append(" RTModel=" + RetentionTimeModelName);
+            }
             spectrum.Append("\nNum peaks: " + MatchedFragmentIons.Count);
 
             double maxIntensity = MatchedFragmentIons.Select(b => b.Intensity).Max();
@@ -77,16 +100,30 @@ namespace Omics.SpectrumMatch
                 string neutralLoss = null;
                 if (matchedIon.NeutralTheoreticalProduct.NeutralLoss != 0)
                 {
-                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss;
+                    neutralLoss = "-" + matchedIon.NeutralTheoreticalProduct.NeutralLoss.ToString(CultureInfo.InvariantCulture);
                 }
 
-                spectrum.Append("\n" + matchedIon.Mz + "\t" + intensityFraction + "\t" + "\"" +
+                spectrum.Append("\n" + matchedIon.Mz.ToString(CultureInfo.InvariantCulture) + "\t" + intensityFraction.ToString(CultureInfo.InvariantCulture) + "\t" + "\"" +
                     matchedIon.NeutralTheoreticalProduct.ProductType.ToString() +
                     matchedIon.NeutralTheoreticalProduct.FragmentNumber.ToString() + "^" +
-                    matchedIon.Charge + neutralLoss + "/" + 0 + "ppm" + "\"");
+                    matchedIon.Charge.ToString(CultureInfo.InvariantCulture) + neutralLoss + "/" + 0 + "ppm" + "\"");
             }
 
             return spectrum.ToString();
+        }
+
+        // The msp reader splits the comment line on spaces, ':' and '=', so a value holding one of them
+        // is read as other fields: "iRT:2019" as a retention time of 2019.
+        private static string? SingleCommentToken(string? value, string propertyName)
+        {
+            if (value != null && value.Any(c => char.IsWhiteSpace(c) || c == ':' || c == '='))
+            {
+                throw new ArgumentException(
+                    $"{propertyName} '{value}' cannot be written to an msp comment line: it contains whitespace, ':' or '='.",
+                    propertyName);
+            }
+
+            return value;
         }
 
         // For decoy library spectrum generation, we use the predicted m/z value of the decoy sequence and we use the decoy's corresponding target's library spectrum's intensity values as decoy's intensities
