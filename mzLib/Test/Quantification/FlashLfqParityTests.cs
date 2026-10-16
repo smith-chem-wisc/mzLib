@@ -89,7 +89,7 @@ namespace Test.Quantification
 
                 identifications.Add(new FlashLfqIdentification(file, psm.BaseSeq, psm.FullSequence,
                     (double)psm.MonoisotopicMass, (double)psm.RetentionTime, psm.PrecursorCharge, proteins,
-                    decoy: psm.DecoyContamTarget == "D"));
+                    decoy: psm.IsDecoy));
             }
 
             return identifications;
