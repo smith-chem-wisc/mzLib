@@ -29,6 +29,10 @@ public static class Mods
             .DistinctBy(m => m.IdWithMotif)
             .ToDictionary(m => m.IdWithMotif);
 
+        // Kept out of AllProteinModsList, where they would compete with the entries a mass resolves to.
+        foreach (var cleavageMod in ProteaseCleavageModifications)
+            AllKnownProteinModsDictionary.TryAdd(cleavageMod.IdWithMotif, cleavageMod);
+
         LoadAllRnaModifications();
         AllRnaModsList = MetaMorpheusRnaModifications.Concat(ModomicsRnaModifications).ToList();
         AllKnownRnaModsDictionary = AllRnaModsList
@@ -70,6 +74,7 @@ public static class Mods
     public static List<Modification> MetaMorpheusModifications { get; private set; } = [];
     public static List<Modification> UnimodModifications { get; private set; } = [];
     public static List<Modification> IsobaricLabelModifications { get; private set; } = [];
+    private static List<Modification> ProteaseCleavageModifications { get; set; } = [];
 
     /// <summary>
     /// All known protein modifications indexed by IdWithMotif
@@ -153,6 +158,11 @@ public static class Mods
         var isobaricStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.TMT.txt");
         using var isobaricReader = new StreamReader(isobaricStream!);
         IsobaricLabelModifications = ModificationLoader.ReadModsFromFile(isobaricReader, formalChargeDict,
+            out _).ToList();
+
+        var proteaseModsStream = assembly.GetManifestResourceStream($"{assemblyName}.Resources.protease_mods.txt");
+        using var proteaseModsReader = new StreamReader(proteaseModsStream!);
+        ProteaseCleavageModifications = ModificationLoader.ReadModsFromFile(proteaseModsReader, formalChargeDict,
             out _).ToList();
 
         // 6. Build isobaric label dictionary

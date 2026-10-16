@@ -29,7 +29,6 @@
 
 	<ItemGroup>
 		<EmbeddedResource Include="ProteolyticDigestion\proteases.tsv" />
-		<EmbeddedResource Include="ProteolyticDigestion\protease_mods.txt" />
 	</ItemGroup>
 
 </Project>
