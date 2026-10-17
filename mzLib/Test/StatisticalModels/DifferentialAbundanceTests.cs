@@ -133,6 +133,24 @@ public class DifferentialAbundanceTests
     }
 
     [Test]
+    public void LinearModel_HasFullColumnRankIsTheTestFitApplies()
+    {
+        var y = ToMatrix(1, 4, (_, s) => s);
+        var full = InterceptAndSlope(new[] { 1.0, 2, 3, 5 });
+        var redundant = ToMatrix(4, 2, (i, j) => j == 0 ? 1 : 3);
+        double[] tic = Enumerable.Range(0, 4).Select(i => 1e8 * (1 + 0.1 * i)).ToArray();
+
+        Assert.That(LinearModel.HasFullColumnRank(full), Is.True);
+        Assert.DoesNotThrow(() => LinearModel.Fit(y, full));
+        Assert.That(LinearModel.HasFullColumnRank(redundant), Is.False);
+        Assert.Throws<ArgumentException>(() => LinearModel.Fit(y, redundant));
+        Assert.That(LinearModel.HasFullColumnRank(InterceptAndSlope(tic)), Is.True, "independent of column units");
+        Assert.That(LinearModel.HasFullColumnRank(ToMatrix(2, 3, (i, j) => i == j ? 1 : 0)), Is.False, "fewer rows than columns");
+        Assert.Throws<ArgumentException>(() => LinearModel.HasFullColumnRank(new double[3, 0]));
+        Assert.Throws<ArgumentException>(() => LinearModel.HasFullColumnRank(ToMatrix(3, 1, (i, _) => i == 0 ? double.NaN : 1)));
+    }
+
+    [Test]
     public void LinearModel_RankTestIsIndependentOfColumnUnits()
     {
         // An intercept beside a covariate on a raw-intensity scale (about 1e8, e.g. total ion current). R[0,0] is
