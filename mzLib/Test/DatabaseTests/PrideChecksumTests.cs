@@ -501,6 +501,41 @@ public class PrideChecksumTests
     }
 
     [Test]
+    public async Task DownloadWithChecksum_CompletePartialWithNoValidator_IsCheckedByItsMd5WithoutARequest()
+    {
+        // A server with no validator (PRIDE's Globus host) leaves no sidecar. With the MD5 to check, that is enough.
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Body);
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientOver(handler);
+
+        string path = await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(Body), Body.Length), verifyMd5: true);
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(handler.Requests, Is.Empty);
+            Assert.That(File.ReadAllBytes(path), Is.EqualTo(Body));
+            Assert.That(File.Exists(Destination + ".partial"), Is.False);
+        });
+    }
+
+    [Test]
+    public async Task DownloadWithChecksum_CompletePartialWithNoValidator_IsDownloadedAgainWithoutTheMd5()
+    {
+        // The size and the scan cannot vouch for bytes nothing else identifies, so they are not trusted.
+        Directory.CreateDirectory(_tempDir);
+        File.WriteAllBytes(Destination + ".partial", Body);
+        var handler = new StubHandler(_ => Download(Body));
+        using var client = ClientOver(handler);
+
+        await client.DownloadFileAsync(MakeFile("run1.raw", Url), _tempDir,
+            new PrideFileChecksum("run1.raw", Md5Of(Body), Body.Length), verifyMd5: false);
+
+        Assert.That(handler.Requests, Has.Count.EqualTo(1));
+    }
+
+    [Test]
     public void DownloadWithChecksum_CompletePartialWithTheWrongMd5_IsDeleted()
     {
         Directory.CreateDirectory(_tempDir);
@@ -823,6 +858,70 @@ public class PrideChecksumLiveTests
             {
                 string path = await client.DownloadFileAsync(file, dir, checksums[SdrfName], verifyMd5: true);
                 Assert.That(new FileInfo(path).Length, Is.EqualTo(5842));
+            }
+            finally
+            {
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+        });
+
+    /// <summary>Records each download response's status and the Range it answered, over a real handler.</summary>
+    private sealed class RecordingHandler : DelegatingHandler
+    {
+        public List<(string Range, HttpStatusCode Status, bool HasValidator)> Exchanges { get; } = new();
+
+        public RecordingHandler() : base(new HttpClientHandler()) { }
+
+        protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            HttpResponseMessage response = await base.SendAsync(request, cancellationToken);
+            Exchanges.Add((request.Headers.Range?.ToString(), response.StatusCode,
+                response.Headers.ETag != null || response.Content.Headers.LastModified != null));
+            return response;
+        }
+    }
+
+    /// <summary>PRIDE's Globus HTTPS host ("EMBL-EBI Public Data"), which serves the same archive paths as ftp.pride.</summary>
+    private const string GlobusHost = "g-a8b222.dd271.03c0.data.globus.org";
+
+    [Test]
+    public Task DownloadWithChecksum_Live_ResumesFromAHostWithNoValidator() =>
+        ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
+        {
+            // PRIDE's Globus host sends neither ETag nor Last-Modified, though it honours Range (measured 2026-10-18).
+            // With the MD5 checked, the first half already on disk is resumed rather than fetched again.
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
+            var checksums = await client.GetFileChecksumsAsync("PXD010820");
+            var file = (await client.GetProjectFilesAsync("PXD010820")).Single(f => f.FileName == SdrfName);
+
+            string dir = Path.Combine(Path.GetTempPath(), "PrideLiveResume", Guid.NewGuid().ToString("N"));
+            try
+            {
+                string whole = await client.DownloadFileAsync(file, dir, checksums[SdrfName], verifyMd5: true);
+                byte[] bytes = await File.ReadAllBytesAsync(whole);
+                File.Delete(whole);
+                await File.WriteAllBytesAsync(whole + ".partial", bytes.Take(bytes.Length / 2).ToArray());
+
+                var globusUrl = new UriBuilder(file.GetHttpsDownloadUrl()) { Host = GlobusHost }.Uri.ToString();
+                var viaGlobus = new PrideArchiveFile
+                {
+                    FileName = SdrfName,
+                    FileSizeBytes = file.FileSizeBytes,
+                    FileCategory = file.FileCategory,
+                    PublicFileLocations = new List<CvParam> { new("PRIDE", "PRIDE:0000000", "location", globusUrl) }
+                };
+                var recorder = new RecordingHandler();
+                using var resuming = new PrideArchiveClient(new HttpClient(recorder)) { MaxRetries = 0 };
+
+                string path = await resuming.DownloadFileAsync(viaGlobus, dir, checksums[SdrfName], verifyMd5: true);
+
+                Assert.That(recorder.Exchanges, Is.Not.Empty);
+                Assert.That(recorder.Exchanges[0].Range, Is.EqualTo($"bytes={bytes.Length / 2}-"), "the half on disk was resumed");
+                // Drift on the server's side is inconclusive, not a failure of ours.
+                Assume.That(recorder.Exchanges[0].HasValidator, Is.False, "the Globus host now sends a validator");
+                Assume.That(recorder.Exchanges[0].Status, Is.EqualTo(HttpStatusCode.PartialContent), "the Globus host no longer honours Range");
+                Assert.That(recorder.Exchanges, Has.Count.EqualTo(1), "the resumed tail was appended, not fetched again");
+                Assert.That(await File.ReadAllBytesAsync(path), Is.EqualTo(bytes), "the MD5 passed, and the file is whole");
             }
             finally
             {
