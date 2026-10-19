@@ -51,14 +51,16 @@ namespace Test.Quantification
         private static (Protein protein, List<IBioPolymerWithSetMods> peptides) Digest(string sequence, string accession)
         {
             var protein = new Protein(sequence, accession);
-            var peptides = protein
+            return (protein, Digest(protein));
+        }
+
+        private static List<IBioPolymerWithSetMods> Digest(Protein protein) =>
+            protein
                 .Digest(new DigestionParams(maxMissedCleavages: 0, minPeptideLength: 5),
                     new List<Modification>(), new List<Modification>())
                 .Cast<IBioPolymerWithSetMods>()
                 .OrderBy(p => p.OneBasedStartResidue)
                 .ToList();
-            return (protein, peptides);
-        }
 
         private static IBioPolymerWithSetMods Of(List<IBioPolymerWithSetMods> peptides, string sequence) =>
             peptides.Single(p => p.FullSequence == sequence);
@@ -158,6 +160,36 @@ namespace Test.Quantification
             {
                 Assert.That(forward.Keys.Single(), Is.SameAs(inP1));
                 Assert.That(backward.Keys.Single(), Is.SameAs(inP1));
+            });
+        }
+
+        /// <summary>
+        /// The row key is a target copy before a decoy one and a non-contaminant copy before a contaminant one, then the
+        /// lowest accession. By accession alone, CONTAMINANT_ and DECOY_ sort before most UniProt accessions, so a
+        /// sequence a contaminant shares with a human protein was keyed by the contaminant's copy.
+        /// </summary>
+        [Test]
+        public void TheRowIsATargetCopy_BeforeAContaminantOrDecoyCopy()
+        {
+            var inP1 = Of(Digest("PEPTIDEK", "P1").peptides, "PEPTIDEK");
+            var contaminant = new Protein("PEPTIDEK", "CONTAMINANT_K1", isContaminant: true);
+            var inContaminant = Of(Digest(contaminant).ToList(), "PEPTIDEK");
+            var decoy = new Protein("PEPTIDEK", "DECOY_P1", isDecoy: true);
+            var inDecoy = Of(Digest(decoy).ToList(), "PEPTIDEK");
+            Assert.That(string.CompareOrdinal(inContaminant.Parent.Accession, inP1.Parent.Accession), Is.LessThan(0),
+                "the fixture only means anything if the contaminant's accession sorts first");
+
+            var all = QuantificationEngine.GetPsmToPeptideMap(
+                MatrixOf(Match(1, new[] { 1000.0, 2000.0 }, inContaminant, inDecoy, inP1)),
+                new List<IBioPolymerWithSetMods> { inContaminant, inDecoy, inP1 });
+            var noCleanTarget = QuantificationEngine.GetPsmToPeptideMap(
+                MatrixOf(Match(1, new[] { 1000.0, 2000.0 }, inDecoy, inContaminant)),
+                new List<IBioPolymerWithSetMods> { inDecoy, inContaminant });
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(all.Keys.Single(), Is.SameAs(inP1));
+                Assert.That(noCleanTarget.Keys.Single(), Is.SameAs(inContaminant), "a target copy before a decoy one");
             });
         }
 

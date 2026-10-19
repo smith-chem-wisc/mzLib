@@ -52,6 +52,14 @@ namespace Quantification
         /// measured value for a peptide are absent from the inner dictionary rather than present
         /// with a zero, so callers can distinguish "not observed" from "observed at zero".
         /// </summary>
+        /// <remarks>
+        /// One key per full sequence. A sequence found in several proteins, or twice in one, is one peptide, and the
+        /// key is one of the copies the caller passed: a target's before a decoy's, a non-contaminant's before a
+        /// contaminant's, then the lowest parent accession (ordinal), then the lowest start residue. Equality of
+        /// <c>PeptideWithSetModifications</c> includes the parent accession and the start residue, so a caller holding
+        /// another copy finds its row by <see cref="IBioPolymerWithSetMods.FullSequence"/>, not by looking up its own
+        /// object.
+        /// </remarks>
         public IReadOnlyDictionary<IBioPolymerWithSetMods, Dictionary<ISampleInfo, double>> PeptideIntensities { get; internal set; }
             = new Dictionary<IBioPolymerWithSetMods, Dictionary<ISampleInfo, double>>();
 

@@ -616,14 +616,18 @@ public class QuantificationEngine
 
     /// <summary>
     /// The caller's biopolymers, one per full sequence. Of several copies of a sequence -- one per protein it
-    /// occurs in, or per place in one protein -- the copy kept is the one with the lowest parent accession, then
-    /// the lowest start residue, so the choice does not depend on the order the caller listed them.
+    /// occurs in, or per place in one protein -- the copy kept is a target's before a decoy's, a non-contaminant's
+    /// before a contaminant's, then the one with the lowest parent accession (ordinal), then the lowest start residue.
+    /// So the choice does not depend on the order the caller listed them, and a sequence a contaminant shares with
+    /// another protein is not keyed by the contaminant's copy (CONTAMINANT_ sorts before most accessions).
     /// </summary>
     internal static List<IBioPolymerWithSetMods> OnePerFullSequence(IEnumerable<IBioPolymerWithSetMods> bioPolymers) =>
         bioPolymers
             .GroupBy(bp => bp.FullSequence, StringComparer.Ordinal)
             .Select(copies => copies
-                .OrderBy(bp => bp.Parent?.Accession, StringComparer.Ordinal)
+                .OrderBy(bp => bp.Parent?.IsDecoy ?? false)
+                .ThenBy(bp => bp.Parent?.IsContaminant ?? false)
+                .ThenBy(bp => bp.Parent?.Accession, StringComparer.Ordinal)
                 .ThenBy(bp => bp.OneBasedStartResidue)
                 .First())
             .ToList();
