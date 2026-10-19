@@ -613,6 +613,36 @@ public class AnalysisDesignTests
         Assert.That(refused!.Message, Does.Contain("'x9'"));
     }
 
+    /// <summary>
+    /// A covariate that does not vary in one stratum keeps its slope's id there, and the slope is reported as not
+    /// estimable rather than not run (#1476 review). A slope has no side without samples; <c>DEF-DIFF</c> defines a
+    /// constant covariate's slope as rank deficient, or confounded with the intercept when a centre is stated
+    /// (#1450 round 5), so it reaches the results as status rows.
+    /// </summary>
+    [TestCase(null, AnalysisDesign.NotEstimableRankDeficient)]
+    [TestCase(40.0, AnalysisDesign.NotEstimableConfounded)]
+    public void ACovariateConstantInOneStratumKeepsItsSlopeWhichIsNotEstimableThere(double? centre, string expected)
+    {
+        AnalysisSample T(string id, string tissue, string condition, double age) =>
+            InTissue(tissue, S(id, ("condition", condition)) with { Covariates = new Dictionary<string, double> { ["age"] = age } });
+        var samples = new[]
+        {
+            T("l1", "liver", "ctrl", 20), T("l2", "liver", "x", 30), T("l3", "liver", "ctrl", 40), T("l4", "liver", "x", 50),
+            T("m1", "muscle", "ctrl", 50), T("m2", "muscle", "x", 50), T("m3", "muscle", "ctrl", 50), T("m4", "muscle", "x", 50),
+        };
+        var spec = Spec(("condition", "ctrl")) with { Covariates = new[] { new CovariateSpec("age", "years", Centre: centre) } };
+        var designs = AnalysisDesign.ByStratum(samples, spec);
+        var (liver, muscle) = (designs[0], designs[1]);
+        var slope = muscle.DefaultContrasts().Single(c => c.Covariate == "age");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(slope.Id, Is.EqualTo("c2"));
+            Assert.That(muscle.Estimability(slope), Is.EqualTo(expected));
+            Assert.That(muscle.NotRun, Is.Empty);
+            Assert.That(liver.Estimability(liver.DefaultContrasts().Single(c => c.Covariate == "age")), Is.EqualTo(AnalysisDesign.Estimable));
+        });
+    }
 
     [Test]
     public void StratumKeyIsSortedEscapedAndAllWhenEmpty()

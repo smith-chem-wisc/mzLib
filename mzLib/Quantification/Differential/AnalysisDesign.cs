@@ -656,8 +656,9 @@ public sealed class AnalysisDesign
         /// <summary>
         /// Whether a stratum with these levels runs the contrast: a sample at both of its levels, and at each level
         /// <see cref="At"/> names, so that it is the same comparison as in every other stratum. A stratum with only those
-        /// levels of an interacting factor drops the interaction and still compares at them. Every stratum has every
-        /// covariate.
+        /// levels of an interacting factor drops the interaction and still compares at them. A slope is always run: a
+        /// covariate that does not vary in the stratum is centred to a zero column (constant, with a stated centre), and
+        /// <see cref="Estimability"/> reports the slope as not estimable there, as <c>DEF-DIFF</c> defines.
         /// </summary>
         public bool RunsIn(Dictionary<string, List<string>> levels) =>
             Covariate is not null
