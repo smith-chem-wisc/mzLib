@@ -189,8 +189,9 @@ public sealed class AnalysisDesign
 
     /// <summary>
     /// Contrasts the specification asks for that cannot run in this stratum, each with its reason: every default contrast
-    /// of the analysis (<see cref="DefaultContrasts"/>) with no sample on one side here, under its label, its
-    /// <see cref="NotRunContrast.Id"/> and <see cref="NotInStratum"/>, in the order of their ids. A factor the analysis has no default contrast for is listed
+    /// of the analysis (<see cref="DefaultContrasts"/>) with no sample on one side here, or none at the level of an
+    /// interacting factor it is taken at, under its label, its <see cref="NotRunContrast.Id"/> and
+    /// <see cref="NotInStratum"/>, in the order of their ids. A factor the analysis has no default contrast for is listed
     /// with no id: one with one level here as <c>factor (one level: level)</c>, one whose declared reference has no sample
     /// as each level here against it.
     /// </summary>
@@ -323,12 +324,14 @@ public sealed class AnalysisDesign
     /// The contrasts run when none is declared (ST-4, GR-14): each factor's non-reference levels against its reference,
     /// adjusted for every other term; every pair of levels, later against earlier in level order, for a factor with no
     /// declared reference; and the slope of each covariate. With an interaction in the model, a factor's contrast is its
-    /// effect at the reference level of the other factor.
+    /// effect at the reference level of the other factor (its first level in ordinal order when it has no reference).
     /// </summary>
     /// <remarks>
     /// Ids are <c>c1</c>, <c>c2</c>, … in that order over the whole analysis: the levels of a design from
     /// <see cref="ByStratum"/> are taken over all its samples, so an id is the same comparison in every stratum. A
-    /// stratum with no sample on one side of a contrast skips its id and lists the contrast in <see cref="NotRun"/>.
+    /// stratum with no sample on one side of a contrast skips its id and lists the contrast in <see cref="NotRun"/>, as
+    /// does one with no sample at the other factor's reference when the two interact: there the same weights would give
+    /// the effect at another level.
     /// The weights are over this design's own columns.
     /// </remarks>
     public IReadOnlyList<Contrast> DefaultContrasts() =>
@@ -514,21 +517,41 @@ public sealed class AnalysisDesign
     /// </summary>
     private static List<DefaultContrast> DefaultSet(IReadOnlyList<AnalysisSample> samples, DesignSpec spec)
     {
+        // The level each factor is coded against over the whole analysis: its declared reference when some sample has it,
+        // else its first level in ordinal order, as FactorCoding.Build codes a stratum.
+        var baseline = new Dictionary<string, string>(StringComparer.Ordinal);
+        foreach (var f in spec.Factors)
+        {
+            if (string.IsNullOrWhiteSpace(f.Name)) continue;
+            var levels = LevelsOf(samples, f.Name);
+            if (levels.Count > 0)
+                baseline[f.Name] = f.ReferenceLevel is not null && levels.Contains(f.ReferenceLevel, StringComparer.Ordinal)
+                    ? f.ReferenceLevel
+                    : levels[0];
+        }
+
         var set = new List<DefaultContrast>();
         foreach (var f in spec.Factors)
         {
             if (string.IsNullOrWhiteSpace(f.Name)) continue;
             var levels = LevelsOf(samples, f.Name);
+            // With an interaction, a factor's contrast is its effect at the baseline of each factor it interacts with.
+            var at = spec.Interactions
+                .Select(i => i.First == f.Name ? i.Second : i.Second == f.Name ? i.First : null)
+                .Where(other => other is not null && other != f.Name && baseline.ContainsKey(other))
+                .Distinct(StringComparer.Ordinal)
+                .Select(other => (Factor: other!, Level: baseline[other!]))
+                .ToList();
             if (f.ReferenceLevel is null)
             {
                 for (int i = 0; i < levels.Count; i++)
                     for (int j = i + 1; j < levels.Count; j++)
-                        set.Add(new DefaultContrast("", f.Name, levels[j], levels[i]));
+                        set.Add(new DefaultContrast("", f.Name, levels[j], levels[i]) { At = at });
             }
             else if (levels.Contains(f.ReferenceLevel, StringComparer.Ordinal))
             {
                 foreach (var level in levels.Where(l => l != f.ReferenceLevel))
-                    set.Add(new DefaultContrast("", f.Name, level, f.ReferenceLevel));
+                    set.Add(new DefaultContrast("", f.Name, level, f.ReferenceLevel) { At = at });
             }
         }
         foreach (var c in spec.Covariates) set.Add(new DefaultContrast("", Covariate: c.Name));
@@ -559,7 +582,15 @@ public sealed class AnalysisDesign
             if (own.Count > 0)
             {
                 foreach (var d in own.Where(d => !d.RunsIn(levelsHere)))
+                {
                     notRun.Add(new NotRunContrast(d.Label, NotInStratum) { Id = d.Id });
+                    var missing = d.At.Where(a => !levelsHere[a.Factor].Contains(a.Level, StringComparer.Ordinal)).ToList();
+                    if (d.HasBothSidesIn(levelsHere) && missing.Count > 0)
+                        warnings.Add($"Contrast {d.Id} ({d.Label}) is {f.Name}'s effect at " +
+                                     $"{string.Join(" and ", d.At.Select(a => $"{a.Factor}={a.Level}"))}, where it interacts, and " +
+                                     $"stratum '{stratum}' has no sample with {string.Join(" or ", missing.Select(a => $"{a.Factor}={a.Level}"))}, " +
+                                     "so it is not run there.");
+                }
             }
             else if (levels.Count < 2)
                 notRun.Add(new NotRunContrast($"{f.Name} (one level: {levels[0]})", NotInStratum));
@@ -577,6 +608,12 @@ public sealed class AnalysisDesign
     private sealed record DefaultContrast(string Id, string? Factor = null, string? Numerator = null,
         string? Denominator = null, string? Covariate = null)
     {
+        /// <summary>
+        /// For a factor in an interaction, the level of each factor it interacts with that its effect is taken at: that
+        /// factor's baseline over the whole analysis.
+        /// </summary>
+        public IReadOnlyList<(string Factor, string Level)> At { get; init; } = Array.Empty<(string, string)>();
+
         /// <summary>A factor contrast's label, as <see cref="Between"/> writes it.</summary>
         public string Label => BetweenLabel(Factor!, Numerator!, Denominator!);
 
@@ -586,12 +623,14 @@ public sealed class AnalysisDesign
             && levels[Factor!].Contains(Denominator!, StringComparer.Ordinal);
 
         /// <summary>
-        /// Whether a stratum with these levels runs the contrast: a sample at both of its levels. Every stratum has every
+        /// Whether a stratum with these levels runs the contrast: a sample at both of its levels, and at each level
+        /// <see cref="At"/> names, so that it is the same comparison as in every other stratum. A stratum with only those
+        /// levels of an interacting factor drops the interaction and still compares at them. Every stratum has every
         /// covariate.
         /// </summary>
         public bool RunsIn(Dictionary<string, List<string>> levels) =>
             Covariate is not null
-            || HasBothSidesIn(levels);
+            || HasBothSidesIn(levels) && At.All(a => levels[a.Factor].Contains(a.Level, StringComparer.Ordinal));
     }
 
     private sealed record FactorCoding(string Name, List<string> Levels, bool BatchOf = false)

@@ -484,6 +484,71 @@ public class AnalysisDesignTests
     }
 
     /// <summary>
+    /// With the interaction sex:condition, condition's contrast is the drug effect at sex=F, sex's reference (#1476
+    /// review). In a stratum with no F sample the same weights give the effect at another sex: in testis (all M) sex and
+    /// the interaction drop out, and in kidney (M and U) M is the coding baseline. Neither runs it under that id. Ovary
+    /// (all F) drops the interaction too, but there the effect is still the one at sex=F.
+    /// </summary>
+    [Test]
+    public void WithAnInteractionAContrastRunsOnlyWhereTheOtherFactorsReferenceHasSamples()
+    {
+        var samples = new List<AnalysisSample>();
+        foreach (var (tissue, sexes) in new[]
+                 {
+                     ("liver", new[] { "F", "M" }), ("ovary", new[] { "F" }), ("testis", new[] { "M" }), ("kidney", new[] { "M", "U" }),
+                 })
+            foreach (var sex in sexes)
+                foreach (var condition in new[] { "ctrl", "drug" })
+                    for (int r = 1; r <= 2; r++)
+                        samples.Add(InTissue(tissue, S($"{tissue}-{sex}-{condition}-{r}", ("sex", sex), ("condition", condition))));
+        var spec = Spec(("sex", "F"), ("condition", "ctrl")) with { Interactions = new[] { ("sex", "condition") } };
+        var designs = AnalysisDesign.ByStratum(samples, spec).ToDictionary(d => d.Stratum.Split('=')[1]);
+
+        // Over the analysis: c1 = sex=M vs sex=F, c2 = sex=U vs sex=F, c3 = condition=drug vs condition=ctrl.
+        static IEnumerable<(string, string)> Run(AnalysisDesign d) => d.DefaultContrasts().Select(c => (c.Id, c.Label));
+        var allThree = new[] { "sex=M vs sex=F", "sex=U vs sex=F", "condition=drug vs condition=ctrl" };
+        Assert.Multiple(() =>
+        {
+            Assert.That(Run(designs["liver"]), Is.EqualTo(new[] { ("c1", "sex=M vs sex=F"), ("c3", "condition=drug vs condition=ctrl") }));
+            Assert.That(Run(designs["ovary"]), Is.EqualTo(new[] { ("c3", "condition=drug vs condition=ctrl") }));
+            Assert.That(Run(designs["testis"]), Is.Empty);
+            Assert.That(Run(designs["kidney"]), Is.Empty);
+            Assert.That(designs["testis"].NotRun.Select(n => n.Label), Is.EqualTo(allThree));
+            Assert.That(designs["kidney"].NotRun.Select(n => n.Label), Is.EqualTo(allThree));
+            Assert.That(designs["testis"].Warnings, Has.Some.Contains("Contrast c3 (condition=drug vs condition=ctrl) is condition's effect at sex=F"));
+            // In liver, c3 is the coefficient of condition=drug beside the interaction column: the effect at sex=F.
+            Assert.That(designs["liver"].ColumnNames, Is.EqualTo(new[] { "intercept", "sex=M", "condition=drug", "sex=M:condition=drug" }));
+            Assert.That(designs["liver"].DefaultContrasts()[1].Weights, Is.EqualTo(new[] { 0.0, 0, 1, 0 }));
+        });
+    }
+
+    /// <summary>
+    /// The level the interacting factor is held at is its declared reference over the whole analysis, else its first
+    /// level in ordinal order; the condition contrast runs in exactly the strata that have samples at that level.
+    /// </summary>
+    [TestCase("F", new[] { "liver", "ovary" })]
+    [TestCase("M", new[] { "kidney", "liver", "testis" })]
+    [TestCase(null, new[] { "liver", "ovary" })]
+    public void TheInteractingFactorIsHeldAtItsReferenceOverTheAnalysis(string? sexReference, string[] strataRunningIt)
+    {
+        var samples = new List<AnalysisSample>();
+        foreach (var (tissue, sexes) in new[]
+                 {
+                     ("liver", new[] { "F", "M" }), ("ovary", new[] { "F" }), ("testis", new[] { "M" }), ("kidney", new[] { "M", "U" }),
+                 })
+            foreach (var sex in sexes)
+                foreach (var condition in new[] { "ctrl", "drug" })
+                    for (int r = 1; r <= 2; r++)
+                        samples.Add(InTissue(tissue, S($"{tissue}-{sex}-{condition}-{r}", ("sex", sex), ("condition", condition))));
+        var spec = Spec(("sex", sexReference), ("condition", "ctrl")) with { Interactions = new[] { ("condition", "sex") } };
+
+        var running = AnalysisDesign.ByStratum(samples, spec)
+            .Where(d => d.DefaultContrasts().Any(c => c.Label == "condition=drug vs condition=ctrl"))
+            .Select(d => d.Stratum.Split('=')[1]);
+        Assert.That(running, Is.EqualTo(strataRunningIt));
+    }
+
+    /// <summary>
     /// Each default contrast a stratum does not run carries its id, so a reader keyed by id need not match labels; an
     /// entry that no contrast stands for (here a factor with one level over the whole analysis) has none.
     /// </summary>
