@@ -451,11 +451,13 @@ public class QuantificationEngine
                 .NormalizeIntensities(kvp.Value);
         }
 
-        // 3) Per-file roll-up to peptides
+        // 3) Per-file roll-up to peptides. The row keys are chosen once, so every file keys a sequence by the same
+        //    copy and CombinePeptideMatrices merges them into one row.
+        var rowKeys = new PeptideRowKeys(ModifiedBioPolymers);
         var perFilePeptideMatrices = new Dictionary<string, QuantMatrix<IBioPolymerWithSetMods>>();
         foreach (var kvp in perFileNormalized)
         {
-            var peptideMap = GetPsmToPeptideMap(kvp.Value, ModifiedBioPolymers);
+            var peptideMap = GetPsmToPeptideMap(kvp.Value, rowKeys);
             perFilePeptideMatrices[kvp.Key] = Parameters.SpectralMatchToPeptideRollUpStrategy
                 .RollUp(kvp.Value, peptideMap);
         }
@@ -662,6 +664,24 @@ public class QuantificationEngine
             .ToList();
 
     /// <summary>
+    /// The row keys of the peptide maps, computed once per run so that every file's map uses the same objects:
+    /// <see cref="CombinePeptideMatrices"/> merges the per-file rows by peptide object.
+    /// </summary>
+    internal sealed class PeptideRowKeys
+    {
+        public PeptideRowKeys(IEnumerable<IBioPolymerWithSetMods> bioPolymers)
+        {
+            Keys = OnePerFullSequence(bioPolymers);
+            BySequence = Keys.ToDictionary(bp => bp.FullSequence, StringComparer.Ordinal);
+        }
+
+        /// <summary>One per full sequence, in the order of first appearance in the caller's list.</summary>
+        public List<IBioPolymerWithSetMods> Keys { get; }
+
+        public Dictionary<string, IBioPolymerWithSetMods> BySequence { get; }
+    }
+
+    /// <summary>
     /// For each full sequence, the groups whose <see cref="IBioPolymerGroup.AllBioPolymersWithSetMods"/> list it,
     /// each group once, in the caller's order. A group listing a sequence through several copies lists it once.
     /// </summary>
@@ -702,15 +722,21 @@ public class QuantificationEngine
     /// Only SMs corresponding to these bioPolymers are included in the result.</param>
     /// <returns>A dictionary mapping one modified bioPolymer per full sequence in the input list to a list of indices of
     /// PSMs in the matrix that are associated with it. If a sequence has no corresponding PSMs, its list will be empty.</returns>
-    public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers)
+    public static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, List<IBioPolymerWithSetMods> modifiedBioPolymers) =>
+        GetPsmToPeptideMap(smMatrix, new PeptideRowKeys(modifiedBioPolymers));
+
+    /// <summary>
+    /// <see cref="GetPsmToPeptideMap(QuantMatrix{ISpectralMatch}, List{IBioPolymerWithSetMods})"/> with the row keys
+    /// already chosen, so a run over several files chooses them once.
+    /// </summary>
+    internal static Dictionary<IBioPolymerWithSetMods, List<int>> GetPsmToPeptideMap(QuantMatrix<ISpectralMatch> smMatrix, PeptideRowKeys rowKeys)
     {
-        var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>();
-        var peptideBySequence = new Dictionary<string, IBioPolymerWithSetMods>(StringComparer.Ordinal);
-        foreach (var bp in OnePerFullSequence(modifiedBioPolymers))
+        var peptideToPsmMap = new Dictionary<IBioPolymerWithSetMods, List<int>>(rowKeys.Keys.Count);
+        foreach (var bp in rowKeys.Keys)
         {
             peptideToPsmMap[bp] = new List<int>();
-            peptideBySequence[bp.FullSequence] = bp;
         }
+        var peptideBySequence = rowKeys.BySequence;
         for (int i = 0; i < smMatrix.RowKeys.Count; i++)
         {
             var sm = smMatrix.RowKeys[i];

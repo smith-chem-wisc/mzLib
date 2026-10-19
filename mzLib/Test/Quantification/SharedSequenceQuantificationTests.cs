@@ -47,6 +47,20 @@ namespace Test.Quantification
         private static TestExperimentalDesign Design() =>
             new TestExperimentalDesign(new Dictionary<string, ISampleInfo[]> { [File] = Channels });
 
+        private const string File2 = "file2.raw";
+
+        /// <summary>The same two channels in a second fraction.</summary>
+        private static TestExperimentalDesign TwoFileDesign() =>
+            new TestExperimentalDesign(new Dictionary<string, ISampleInfo[]>
+            {
+                [File] = Channels,
+                [File2] = new ISampleInfo[]
+                {
+                    new IsobaricQuantSampleInfo(File2, "Control", 0, 0, 1, 0, "126", 126.0, false),
+                    new IsobaricQuantSampleInfo(File2, "Treatment", 0, 0, 1, 0, "127N", 127.1, false)
+                }
+            });
+
         /// <summary>The protein and every tryptic peptide of it, in sequence order.</summary>
         private static (Protein protein, List<IBioPolymerWithSetMods> peptides) Digest(string sequence, string accession)
         {
@@ -66,7 +80,10 @@ namespace Test.Quantification
             peptides.Single(p => p.FullSequence == sequence);
 
         private static MockSpectralMatch Match(int scan, double[] intensities, params IBioPolymerWithSetMods[] identified) =>
-            new MockSpectralMatch(File, identified[0].FullSequence, identified[0].BaseSequence, 100.0, scan, identified)
+            Match(File, scan, intensities, identified);
+
+        private static MockSpectralMatch Match(string file, int scan, double[] intensities, params IBioPolymerWithSetMods[] identified) =>
+            new MockSpectralMatch(file, identified[0].FullSequence, identified[0].BaseSequence, 100.0, scan, identified)
             {
                 Intensities = intensities
             };
@@ -85,6 +102,12 @@ namespace Test.Quantification
                 kvp => ((IsobaricQuantSampleInfo)kvp.Key).ChannelLabel, kvp => kvp.Value);
 
         private static Dictionary<string, double> ByChannel(IBioPolymerGroup group) => ByChannel(group.IntensitiesBySample);
+
+        /// <summary>Intensities by "file channel", for a run over more than one file.</summary>
+        private static Dictionary<string, double> ByFileAndChannel(IDictionary<ISampleInfo, double> intensities) =>
+            (intensities ?? new Dictionary<ISampleInfo, double>()).ToDictionary(
+                kvp => kvp.Key.FullFilePathWithExtension + " " + ((IsobaricQuantSampleInfo)kvp.Key).ChannelLabel,
+                kvp => kvp.Value);
 
         private static Dictionary<string, double> PeptideByChannel(QuantificationResults result, string sequence) =>
             ByChannel(result.PeptideIntensities.Single(kvp => kvp.Key.FullSequence == sequence).Value);
@@ -190,6 +213,42 @@ namespace Test.Quantification
             {
                 Assert.That(all.Keys.Single(), Is.SameAs(inP1));
                 Assert.That(noCleanTarget.Keys.Single(), Is.SameAs(inContaminant), "a target copy before a decoy one");
+            });
+        }
+
+        /// <summary>
+        /// Two fractions. Each file's peptide map is built on its own, and CombinePeptideMatrices merges their rows by
+        /// peptide object, so a sequence stays one row only while every file keys it by the same copy. The files here
+        /// name different copies: fraction 1's match names P2's and then P1's, fraction 2's names P1's alone.
+        /// </summary>
+        [Test]
+        public void TwoFiles_KeyASequenceByTheSameCopy_SoItIsOneRow()
+        {
+            var (protein1, copies1) = Digest("PEPTIDEK", "P1");
+            var (protein2, copies2) = Digest("PEPTIDEK", "P2");
+            IBioPolymerWithSetMods inP1 = copies1.Single(), inP2 = copies2.Single();
+            var peptides = new List<IBioPolymerWithSetMods> { inP2, inP1 };
+            var group = Group(new[] { protein1, protein2 }, peptides, new IBioPolymerWithSetMods[0]);
+
+            var matches = new List<ISpectralMatch>
+            {
+                Match(File, 1, new[] { 1000.0, 2000.0 }, inP2, inP1),
+                Match(File2, 1, new[] { 30.0, 60.0 }, inP1),
+            };
+
+            var result = new QuantificationEngine(QuantificationParameters.GetSimpleParameters(), TwoFileDesign(), matches,
+                peptides, new List<IBioPolymerGroup> { group }).Run();
+
+            var expected = new Dictionary<string, double>
+            {
+                ["file1.raw 126"] = 1000.0, ["file1.raw 127N"] = 2000.0, ["file2.raw 126"] = 30.0, ["file2.raw 127N"] = 60.0
+            };
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.Success, Is.True, result.Summary);
+                Assert.That(result.PeptideIntensities.Keys.Single(), Is.SameAs(inP1), "one row, keyed by the same copy in both files");
+                Assert.That(ByFileAndChannel(result.PeptideIntensities.Values.Single()), Is.EqualTo(expected));
+                Assert.That(ByFileAndChannel(group.IntensitiesBySample), Is.EqualTo(expected));
             });
         }
 
