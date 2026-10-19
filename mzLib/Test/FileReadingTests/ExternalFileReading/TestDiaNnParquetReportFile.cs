@@ -264,6 +264,27 @@ internal class TestDiaNnParquetReportFile
         Assert.Throws<FileNotFoundException>(() => missing.ParseFileType());
     }
 
+    /// <summary>
+    /// A report that another handle holds is in use, not unsupported. Detection lets the open's
+    /// IOException through, as ParseFileType already does for a .tsv; loading names the file and keeps
+    /// the IOException as the cause.
+    /// </summary>
+    [Test]
+    public void AFileThatIsInUseIsReportedAsInUse()
+    {
+        string busy = Path.Combine(_outputDirectory, "busy_report.parquet");
+        File.Copy(TestFilePath, busy, true);
+
+        using (new FileStream(busy, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+        {
+            Assert.Throws<IOException>(() => busy.ParseFileType());
+            var e = Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(busy).LoadResults());
+            Assert.That(e!.InnerException, Is.TypeOf<IOException>());
+        }
+
+        Assert.That(busy.ParseFileType(), Is.EqualTo(SupportedFileType.DiaNnReportParquet));
+    }
+
     [Test]
     public void AFileThatIsNotParquetIsRefusedByName()
     {

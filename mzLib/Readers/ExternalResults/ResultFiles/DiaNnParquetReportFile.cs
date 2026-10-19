@@ -102,17 +102,22 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
     /// <summary>
     /// True when <paramref name="filePath"/> is a parquet file carrying the columns of a DIA-NN main
-    /// report. A file that exists but is not a readable parquet gives false rather than throwing.
+    /// report. A file that opens but is not a readable parquet gives false rather than throwing.
     /// </summary>
     /// <exception cref="FileNotFoundException">The file does not exist.</exception>
+    /// <exception cref="IOException">The file cannot be opened, for example because another process holds it.</exception>
+    /// <exception cref="UnauthorizedAccessException">The file may not be read.</exception>
     internal static bool HasDiaNnReportColumns(string filePath)
     {
         if (!File.Exists(filePath))
             throw new FileNotFoundException($"File not found: '{filePath}'", filePath);
 
+        // Opened outside the try, so a file that is busy or unreadable reports that, not "not supported".
+        // Parquet.Net reports bytes that are not parquet as IOException too, so once both share the
+        // catch below they cannot be told apart.
+        using FileStream stream = OpenRead(filePath);
         try
         {
-            using FileStream stream = OpenRead(filePath);
             return WithReader(stream, reader =>
             {
                 var columns = reader.Schema.GetDataFields().Select(field => field.Name).ToHashSet();
