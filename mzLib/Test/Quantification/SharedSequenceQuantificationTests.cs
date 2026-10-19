@@ -293,5 +293,69 @@ namespace Test.Quantification
             Assert.That(ByChannel(group), Is.EqualTo(new Dictionary<string, double> { ["126"] = 1030.0, ["127N"] = 2060.0 }),
                 result.Summary);
         }
+
+        /// <summary>
+        /// MetaMorpheus quantifies only the groups it writes, and a user can stop it writing contaminant groups or groups
+        /// above the q-value threshold. PEPTIDEK is in the written group and in one that is not. Judged among the
+        /// quantified groups alone it is unique to the written one; given every group, it is shared, as it is for the
+        /// label-free path, which hands FlashLFQ every group. Only the quantified group gets a value either way.
+        /// </summary>
+        [TestCase(false, false, 1030.0)]
+        [TestCase(true, false, 30.0)]
+        [TestCase(true, true, 1030.0)]
+        public void APeptideSharedWithAGroupNotQuantified_IsSharedWhenEveryGroupIsGiven(bool giveEveryGroup,
+            bool useSharedPeptides, double written126)
+        {
+            var (protein1, copies1) = Digest("PEPTIDEKAGLLVEDK", "P1");
+            var (protein2, copies2) = Digest("PEPTIDEKQLFEGASK", "P2");
+            var written = Group(new[] { protein1 }, copies1, new[] { Of(copies1, "AGLLVEDK") });
+            var notWritten = Group(new[] { protein2 }, copies2, new[] { Of(copies2, "QLFEGASK") });
+
+            var matches = new List<ISpectralMatch>
+            {
+                Match(1, new[] { 1000.0, 2000.0 }, Of(copies1, "PEPTIDEK"), Of(copies2, "PEPTIDEK")),
+                Match(2, new[] { 30.0, 60.0 }, Of(copies1, "AGLLVEDK")),
+            };
+            var peptides = new List<IBioPolymerWithSetMods> { Of(copies1, "PEPTIDEK"), Of(copies2, "PEPTIDEK"), Of(copies1, "AGLLVEDK") };
+
+            var parameters = QuantificationParameters.GetSimpleParameters();
+            parameters.UseSharedPeptidesForProteinQuant = useSharedPeptides;
+            var quantified = new List<IBioPolymerGroup> { written };
+            var engine = giveEveryGroup
+                ? new QuantificationEngine(parameters, Design(), matches, peptides, quantified,
+                    new List<IBioPolymerGroup> { written, notWritten })
+                : new QuantificationEngine(parameters, Design(), matches, peptides, quantified);
+            var result = engine.Run();
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.ProteinIntensities.Keys, Is.EquivalentTo(new[] { written }), "only the quantified group");
+                Assert.That(ByChannel(written), Is.EqualTo(new Dictionary<string, double> { ["126"] = written126, ["127N"] = 2 * written126 }));
+                Assert.That(notWritten.IntensitiesBySample, Is.Null, "a group that is not quantified is not written to");
+            });
+        }
+
+        [Test]
+        public void TheUniqueMap_JudgesAmongEveryGroup_ButMapsOnlyThoseItIsAskedFor()
+        {
+            var (protein1, copies1) = Digest("PEPTIDEKAGLLVEDK", "P1");
+            var (protein2, copies2) = Digest("PEPTIDEKQLFEGASK", "P2");
+            var written = Group(new[] { protein1 }, copies1, new IBioPolymerWithSetMods[0]);
+            var notWritten = Group(new[] { protein2 }, copies2, new IBioPolymerWithSetMods[0]);
+            var rows = new List<IBioPolymerWithSetMods> { Of(copies1, "AGLLVEDK"), Of(copies1, "PEPTIDEK"), Of(copies2, "QLFEGASK") };
+            var peptideMatrix = new QuantMatrix<IBioPolymerWithSetMods>(rows, Channels.ToList(), Design());
+
+            var alone = QuantificationEngine.GetUniquePeptideToProteinMap(peptideMatrix, new List<IBioPolymerGroup> { written });
+            var amongEvery = QuantificationEngine.GetUniquePeptideToProteinMap(peptideMatrix,
+                new List<IBioPolymerGroup> { written }, new IBioPolymerGroup[] { notWritten, null, written });
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(alone.Keys, Is.EquivalentTo(new[] { written }));
+                Assert.That(alone[written], Is.EqualTo(new List<int> { 0, 1 }));
+                Assert.That(amongEvery.Keys, Is.EquivalentTo(new[] { written }), "QLFEGASK's group is judged, not mapped");
+                Assert.That(amongEvery[written], Is.EqualTo(new List<int> { 0 }), "PEPTIDEK is shared with the other group");
+            });
+        }
     }
 }

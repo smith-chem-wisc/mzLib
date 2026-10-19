@@ -30,19 +30,48 @@ public class QuantificationEngine
     internal List<ISpectralMatch> SpectralMatches { get; init; }
     internal List<IBioPolymerWithSetMods> ModifiedBioPolymers { get; init; }
     internal List<IBioPolymerGroup> BioPolymerGroups { get; init; }
-    
+
+    /// <summary>
+    /// Groups that are not quantified but still decide whether a peptide is unique; null when uniqueness is judged
+    /// among <see cref="BioPolymerGroups"/> alone.
+    /// </summary>
+    internal List<IBioPolymerGroup> AllBioPolymerGroups { get; init; }
+
     public QuantificationEngine(
         QuantificationParameters parameters,
         IExperimentalDesign experimentalDesign,
         List<ISpectralMatch> spectralMatches,
         List<IBioPolymerWithSetMods> modifiedBioPolymers,
         List<IBioPolymerGroup> bioPolymerGroups)
+        : this(parameters, experimentalDesign, spectralMatches, modifiedBioPolymers, bioPolymerGroups, allBioPolymerGroups: null)
+    {
+    }
+
+    /// <param name="parameters">The strategies and switches of the run.</param>
+    /// <param name="experimentalDesign">Maps each file to its samples.</param>
+    /// <param name="spectralMatches">The matches to quantify.</param>
+    /// <param name="modifiedBioPolymers">The peptides to quantify.</param>
+    /// <param name="bioPolymerGroups">The groups to quantify.</param>
+    /// <param name="allBioPolymerGroups">
+    /// Every group of the analysis, including any the caller does not quantify -- for instance groups it does not write
+    /// out. With shared peptides off, a peptide counts toward a quantified group only when no other group, here or in
+    /// <paramref name="bioPolymerGroups"/>, lists its full sequence, so leaving a group out of the output does not make
+    /// a peptide it shares unique. Null: uniqueness is judged among <paramref name="bioPolymerGroups"/> alone.
+    /// </param>
+    public QuantificationEngine(
+        QuantificationParameters parameters,
+        IExperimentalDesign experimentalDesign,
+        List<ISpectralMatch> spectralMatches,
+        List<IBioPolymerWithSetMods> modifiedBioPolymers,
+        List<IBioPolymerGroup> bioPolymerGroups,
+        List<IBioPolymerGroup> allBioPolymerGroups)
     {
         Parameters = parameters;
         ExperimentalDesign = experimentalDesign;
         SpectralMatches = spectralMatches;
         ModifiedBioPolymers = modifiedBioPolymers;
         BioPolymerGroups = bioPolymerGroups;
+        AllBioPolymerGroups = allBioPolymerGroups;
     }
 
     /// <summary>
@@ -461,7 +490,7 @@ public class QuantificationEngine
         // 7) Roll up to proteins
         var proteinMap = Parameters.UseSharedPeptidesForProteinQuant
             ? GetAllPeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups)
-            : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups);
+            : GetUniquePeptideToProteinMap(peptideMatrixNorm, BioPolymerGroups, AllBioPolymerGroups);
 
         var proteinMatrix = Parameters.PeptideToProteinRollUpStrategy
             .RollUp(peptideMatrixNorm, proteinMap);
@@ -713,12 +742,27 @@ public class QuantificationEngine
     /// The caller's <see cref="IBioPolymerGroup.UniqueBioPolymersWithSetMods"/> is not read: MetaMorpheus fills it
     /// before parsimony, one protein at a time, so it is empty for every group of indistinguishable proteins and
     /// leaves out a peptide whose other protein parsimony discarded (mzLib #1280). Uniqueness is judged among the
-    /// groups passed, so a sequence also listed by a group the caller left out counts as unique.</remarks>
+    /// groups passed, so a sequence also listed by a group the caller left out counts as unique; the overload taking
+    /// every group of the analysis judges among those as well.</remarks>
     /// <param name="peptideMatrix">A matrix containing peptides as row keys, where each peptide is associated with a protein group.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map.</param>
     /// <returns>A dictionary that maps each protein group to a list of integer indices. Each list contains the row indices in
     /// the peptide matrix for peptides uniquely assigned to the corresponding protein group. If a protein group has no
     /// assigned peptides, its list will be empty.</returns>
-    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups)
+    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix, List<IBioPolymerGroup> bioPolymerGroups) =>
+        GetUniquePeptideToProteinMap(peptideMatrix, bioPolymerGroups, allBioPolymerGroups: null);
+
+    /// <summary>
+    /// <see cref="GetUniquePeptideToProteinMap(QuantMatrix{IBioPolymerWithSetMods}, List{IBioPolymerGroup})"/>, with
+    /// uniqueness judged among <paramref name="allBioPolymerGroups"/> as well: a peptide that one of those also lists
+    /// is shared, though only <paramref name="bioPolymerGroups"/> are mapped.
+    /// </summary>
+    /// <param name="peptideMatrix">A matrix containing peptides as row keys.</param>
+    /// <param name="bioPolymerGroups">The protein groups to map.</param>
+    /// <param name="allBioPolymerGroups">Every group of the analysis, quantified or not; null for none beyond
+    /// <paramref name="bioPolymerGroups"/>.</param>
+    public static Dictionary<IBioPolymerGroup, List<int>> GetUniquePeptideToProteinMap(QuantMatrix<IBioPolymerWithSetMods> peptideMatrix,
+        List<IBioPolymerGroup> bioPolymerGroups, IEnumerable<IBioPolymerGroup> allBioPolymerGroups)
     {
         var proteinToPeptideMap = new Dictionary<IBioPolymerGroup, List<int>>();
 
@@ -728,14 +772,19 @@ public class QuantificationEngine
             proteinToPeptideMap[protein] = new List<int>();
         }
 
-        var groupsBySequence = GroupsListingEachSequence(bioPolymerGroups);
+        var judgedAmong = allBioPolymerGroups == null
+            ? bioPolymerGroups
+            : bioPolymerGroups.Concat(allBioPolymerGroups.Where(g => g != null)).Distinct().ToList();
+        var groupsBySequence = GroupsListingEachSequence(judgedAmong);
 
-        // Iterate through the peptide matrix row keys and add each row index to the one group that lists it
+        // Iterate through the peptide matrix row keys and add each row index to the one group that lists it, when that
+        // group is one being mapped
         for (int i = 0; i < peptideMatrix.RowKeys.Count; i++)
         {
-            if (groupsBySequence.TryGetValue(peptideMatrix.RowKeys[i].FullSequence, out var groups) && groups.Count == 1)
+            if (groupsBySequence.TryGetValue(peptideMatrix.RowKeys[i].FullSequence, out var groups) && groups.Count == 1
+                && proteinToPeptideMap.TryGetValue(groups[0], out var rows))
             {
-                proteinToPeptideMap[groups[0]].Add(i);
+                rows.Add(i);
             }
         }
 
