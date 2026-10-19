@@ -198,11 +198,42 @@ public sealed class AnalysisDesign
     public IReadOnlyList<NotRunContrast> NotRun { get; }
 
     /// <summary>Builds one design over every sample, as one stratum.</summary>
+    /// <remarks>
+    /// The default contrasts are numbered from these samples alone. A caller that builds each stratum of an analysis
+    /// itself passes the analysis's samples to the overload that takes them (or uses <see cref="ByStratum"/>), so that an
+    /// id is one comparison in every stratum.
+    /// </remarks>
     /// <param name="samples">The samples; each needs a value for every factor and covariate in <paramref name="spec"/>.</param>
     /// <param name="spec">Factors, covariates, interactions and whether batch is fitted.</param>
     /// <param name="stratum">The stratum's key, written on every result row.</param>
     public static AnalysisDesign Create(IEnumerable<AnalysisSample> samples, DesignSpec spec, string stratum = AllSamples) =>
         CreateStratum(samples, spec, stratum, defaultSet: null);
+
+    /// <summary>
+    /// Builds one stratum of an analysis, numbering the default contrasts over all of the analysis's samples as
+    /// <see cref="ByStratum"/> does, so a caller that splits the samples into strata itself gets the same ids.
+    /// </summary>
+    /// <param name="samples">The stratum's samples; each needs a value for every factor and covariate in <paramref name="spec"/>.</param>
+    /// <param name="spec">Factors, covariates, interactions and whether batch is fitted.</param>
+    /// <param name="stratum">The stratum's key, written on every result row.</param>
+    /// <param name="analysisSamples">Every sample of the analysis, this stratum's included.</param>
+    /// <exception cref="ArgumentException">A sample of the stratum is not among <paramref name="analysisSamples"/>.</exception>
+    public static AnalysisDesign Create(IEnumerable<AnalysisSample> samples, DesignSpec spec, string stratum,
+        IEnumerable<AnalysisSample> analysisSamples)
+    {
+        ArgumentNullException.ThrowIfNull(samples);
+        ArgumentNullException.ThrowIfNull(spec);
+        ArgumentNullException.ThrowIfNull(analysisSamples);
+        var rows = samples.ToList();
+        var all = analysisSamples.ToList();
+        var ids = all.Select(s => s.SampleId).ToHashSet(StringComparer.Ordinal);
+        var outside = rows.FirstOrDefault(s => !ids.Contains(s.SampleId));
+        if (outside is not null)
+            throw new ArgumentException(
+                $"Sample '{outside.SampleId}' is not among the analysis's samples, so the default contrasts are not numbered over it.",
+                nameof(samples));
+        return CreateStratum(rows, spec, stratum, DefaultSet(all, spec));
+    }
 
     /// <param name="defaultSet">The analysis's default contrasts; null to take them from these samples alone.</param>
     private static AnalysisDesign CreateStratum(IEnumerable<AnalysisSample> samples, DesignSpec spec, string stratum,

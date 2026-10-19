@@ -571,6 +571,47 @@ public class AnalysisDesignTests
         }));
     }
 
+    /// <summary>
+    /// A caller that splits the samples into strata itself and hands <see cref="AnalysisDesign.Create"/> the analysis's
+    /// samples gets <see cref="AnalysisDesign.ByStratum"/>'s ids (#1476 review). Without them, Create numbers a stratum
+    /// from its own samples, as its documentation says.
+    /// </summary>
+    [Test]
+    public void CreateWithTheAnalysisSamplesNumbersAStratumAsByStratumDoes()
+    {
+        AnalysisSample T(string id, string tissue, string condition, double age) =>
+            InTissue(tissue, S(id, ("condition", condition)) with { Covariates = new Dictionary<string, double> { ["age"] = age } });
+        var samples = new[]
+        {
+            T("l1", "liver", "ctrl", 20), T("l2", "liver", "x", 30), T("l3", "liver", "y", 40),
+            T("l4", "liver", "ctrl", 50), T("l5", "liver", "x", 60), T("l6", "liver", "y", 70),
+            T("m1", "muscle", "ctrl", 25), T("m2", "muscle", "x", 35), T("m3", "muscle", "ctrl", 45), T("m4", "muscle", "x", 55),
+        };
+        var spec = Spec(("condition", "ctrl")) with { Covariates = new[] { new CovariateSpec("age", "years", Scale: 10, ScaledUnit: "decade") } };
+        static IEnumerable<(string, string, string)> Shown(AnalysisDesign d) =>
+            d.DefaultContrasts().Select(c => (c.Id, c.Label, string.Join(",", c.Weights)));
+
+        var byStratum = AnalysisDesign.ByStratum(samples, spec);
+        var byHand = samples.GroupBy(s => AnalysisDesign.StratumKey(s.Strata)).OrderBy(g => g.Key, StringComparer.Ordinal)
+            .Select(g => AnalysisDesign.Create(g, spec, g.Key, samples)).ToList();
+        var muscleAlone = AnalysisDesign.Create(samples.Where(s => s.Strata["organism part"] == "muscle"), spec, "organism part=muscle");
+
+        Assert.Multiple(() =>
+        {
+            Assert.That(byHand.Select(d => d.Stratum), Is.EqualTo(byStratum.Select(d => d.Stratum)));
+            for (int i = 0; i < byStratum.Count; i++)
+            {
+                Assert.That(Shown(byHand[i]), Is.EqualTo(Shown(byStratum[i])));
+                Assert.That(byHand[i].NotRun, Is.EqualTo(byStratum[i].NotRun));
+            }
+            Assert.That(muscleAlone.DefaultContrasts().Select(c => c.Id), Is.EqualTo(new[] { "c1", "c2" }), "numbered on its own samples");
+        });
+
+        var stranger = T("x9", "muscle", "ctrl", 30);
+        var refused = Assert.Throws<ArgumentException>(() =>
+            AnalysisDesign.Create(samples.Where(s => s.Strata["organism part"] == "muscle").Append(stranger), spec, "organism part=muscle", samples));
+        Assert.That(refused!.Message, Does.Contain("'x9'"));
+    }
 
 
     [Test]
