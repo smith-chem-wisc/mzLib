@@ -143,23 +143,23 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
     /// <summary>
     /// Runs <paramref name="read"/> on a Parquet.Net reader over <paramref name="stream"/>, which the
-    /// caller opened and disposes. Every parquet read in this class goes through here, so that
-    /// Parquet.Net is never given a path: when the bytes are not parquet, CreateAsync(path) throws
+    /// caller opened and disposes. Every parquet read in this class goes through here, for two reasons:
+    /// <list type="bullet">
+    /// <item>Parquet.Net is never given a path. When the bytes are not parquet, CreateAsync(path) throws
     /// before returning a reader and leaves its own handle open, so the file stays locked until a
-    /// garbage collection finalizes it.
+    /// garbage collection finalizes it.</item>
+    /// <item>The read runs on the thread pool. Parquet.Net's API is async, this reader blocks on it,
+    /// and Parquet.Net 6.1 resumes on the caller's SynchronizationContext. Called from a UI thread
+    /// (the MetaMorpheus GUI), the continuation would wait for the very thread that is blocked
+    /// waiting for it.</item>
+    /// </list>
     /// </summary>
-    private static T WithReader<T>(Stream stream, Func<ParquetReader, T> read)
-    {
-        ParquetReader reader = ParquetReader.CreateAsync(stream, leaveStreamOpen: true).GetAwaiter().GetResult();
-        try
+    private static T WithReader<T>(Stream stream, Func<ParquetReader, T> read) =>
+        Task.Run(async () =>
         {
+            await using ParquetReader reader = await ParquetReader.CreateAsync(stream, leaveStreamOpen: true);
             return read(reader);
-        }
-        finally
-        {
-            reader.DisposeAsync().AsTask().GetAwaiter().GetResult();
-        }
-    }
+        }).GetAwaiter().GetResult();
 
     private static List<DiaNnPrecursor> ReadTargets(ParquetReader reader, string filePath)
     {

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using FlashLFQ;
 using MassSpectrometry;
@@ -313,6 +314,47 @@ internal class TestDiaNnParquetReportFile
             Assert.DoesNotThrow(() => new FileStream(detected, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
             Assert.DoesNotThrow(() => new FileStream(loaded, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
         });
+    }
+
+    /// <summary>
+    /// A GUI calls in on a thread whose SynchronizationContext only that thread can run. Parquet.Net is
+    /// async and this reader blocks on it, so a continuation posted back to that context would wait
+    /// forever for the thread that is waiting for it. This context never runs what is posted to it,
+    /// just as a blocked UI thread never would.
+    /// </summary>
+    [Test]
+    public void ReadingOnAThreadWithASynchronizationContextDoesNotDeadlock()
+    {
+        SupportedFileType? detected = null;
+        int loaded = 0;
+        Exception? error = null;
+        var thread = new Thread(() =>
+        {
+            SynchronizationContext.SetSynchronizationContext(new BlockedThreadContext());
+            try
+            {
+                detected = TestFilePath.ParseFileType();
+                loaded = new DiaNnParquetReportFile(TestFilePath).Count();
+            }
+            catch (Exception e)
+            {
+                error = e;
+            }
+        }) { IsBackground = true };
+        thread.Start();
+
+        Assert.That(thread.Join(TimeSpan.FromSeconds(60)), Is.True, "deadlocked on the caller's SynchronizationContext");
+        Assert.That(error, Is.Null);
+        Assert.That(detected, Is.EqualTo(SupportedFileType.DiaNnReportParquet));
+        Assert.That(loaded, Is.EqualTo(TargetRows));
+    }
+
+    private sealed class BlockedThreadContext : SynchronizationContext
+    {
+        public override void Post(SendOrPostCallback d, object? state) { }
+
+        public override void Send(SendOrPostCallback d, object? state) =>
+            throw new NotSupportedException("the owning thread is blocked");
     }
 
     [Test]
