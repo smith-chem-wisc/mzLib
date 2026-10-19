@@ -112,20 +112,12 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
         try
         {
-            // Open the stream here rather than passing Parquet.Net the path: when the bytes are not
-            // parquet, CreateAsync(path) throws before returning a reader and leaves its own handle open,
-            // so the file stays locked until a garbage collection finalizes it.
-            using FileStream stream = File.OpenRead(filePath);
-            ParquetReader reader = ParquetReader.CreateAsync(stream, leaveStreamOpen: true).GetAwaiter().GetResult();
-            try
+            using FileStream stream = OpenRead(filePath);
+            return WithReader(stream, reader =>
             {
                 var columns = reader.Schema.GetDataFields().Select(field => field.Name).ToHashSet();
                 return IdentifyingColumns.All(columns.Contains);
-            }
-            finally
-            {
-                reader.DisposeAsync().AsTask().GetAwaiter().GetResult();
-            }
+            });
         }
         catch (Exception e) when (e is not OutOfMemoryException)
         {
@@ -137,12 +129,26 @@ public class DiaNnParquetReportFile : DiaNnReportFile
 
     private static List<DiaNnPrecursor> ReadTargets(string filePath)
     {
-        // Owned here for the same reason as in HasDiaNnReportColumns.
-        using FileStream stream = File.OpenRead(filePath);
+        using FileStream stream = OpenRead(filePath);
+        return WithReader(stream, reader => ReadTargets(reader, filePath));
+    }
+
+    private static FileStream OpenRead(string filePath) =>
+        new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read);
+
+    /// <summary>
+    /// Runs <paramref name="read"/> on a Parquet.Net reader over <paramref name="stream"/>, which the
+    /// caller opened and disposes. Every parquet read in this class goes through here, so that
+    /// Parquet.Net is never given a path: when the bytes are not parquet, CreateAsync(path) throws
+    /// before returning a reader and leaves its own handle open, so the file stays locked until a
+    /// garbage collection finalizes it.
+    /// </summary>
+    private static T WithReader<T>(Stream stream, Func<ParquetReader, T> read)
+    {
         ParquetReader reader = ParquetReader.CreateAsync(stream, leaveStreamOpen: true).GetAwaiter().GetResult();
         try
         {
-            return ReadTargets(reader, filePath);
+            return read(reader);
         }
         finally
         {
