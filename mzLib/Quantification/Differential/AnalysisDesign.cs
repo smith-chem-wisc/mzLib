@@ -73,13 +73,13 @@ public sealed class AnalysisDesign
     private readonly List<string> _columnTerms;
     private readonly List<FactorCoding> _factors;
     private readonly List<CovariateCoding> _covariates;
-    private readonly List<DefaultContrast> _defaultSet;
+    private readonly List<DefaultContrast> _defaultsRunHere;
     private readonly double[] _columnLengths;
     private readonly Matrix<double>? _nullProjector;
 
     private AnalysisDesign(string stratum, IReadOnlyList<AnalysisSample> samples, double[,] matrix,
         List<string> columnNames, List<string> columnTerms, List<FactorCoding> factors, List<CovariateCoding> covariates,
-        List<DefaultContrast> defaultSet, List<string> warnings, List<NotRunContrast> notRun)
+        List<DefaultContrast> defaultsRunHere, List<string> warnings, List<NotRunContrast> notRun)
     {
         Stratum = stratum;
         Samples = samples;
@@ -88,7 +88,7 @@ public sealed class AnalysisDesign
         _columnTerms = columnTerms;
         _factors = factors;
         _covariates = covariates;
-        _defaultSet = defaultSet;
+        _defaultsRunHere = defaultsRunHere;
         Warnings = warnings;
         NotRun = notRun;
 
@@ -189,10 +189,10 @@ public sealed class AnalysisDesign
 
     /// <summary>
     /// Contrasts the specification asks for that cannot run in this stratum, each with its reason: every default contrast
-    /// of the analysis (<see cref="DefaultContrasts"/>) with no sample on one side here, under its label and
-    /// <see cref="NotInStratum"/>, in the order of their ids. A factor the analysis has no default contrast for is listed as before: one
-    /// with one level here as <c>factor (one level: level)</c>, one whose declared reference has no sample as each level
-    /// here against it.
+    /// of the analysis (<see cref="DefaultContrasts"/>) with no sample on one side here, under its label, its
+    /// <see cref="NotRunContrast.Id"/> and <see cref="NotInStratum"/>, in the order of their ids. A factor the analysis has no default contrast for is listed
+    /// with no id: one with one level here as <c>factor (one level: level)</c>, one whose declared reference has no sample
+    /// as each level here against it.
     /// </summary>
     public IReadOnlyList<NotRunContrast> NotRun { get; }
 
@@ -219,13 +219,10 @@ public sealed class AnalysisDesign
 
         var warnings = new List<string>();
         var factors = new List<FactorCoding>();
-        var unrunByFactor = new List<(string Factor, List<NotRunContrast> NotRun)>();
         foreach (var f in spec.Factors)
         {
-            var unrun = new List<NotRunContrast>();
-            var coding = FactorCoding.Build(f, rows, stratum, warnings, unrun);
+            var coding = FactorCoding.Build(f, rows, stratum, warnings);
             if (coding is not null) factors.Add(coding);
-            unrunByFactor.Add((f.Name, unrun));
         }
 
         var known = spec.Factors.Select(f => f.Name).ToHashSet(StringComparer.Ordinal);
@@ -238,17 +235,11 @@ public sealed class AnalysisDesign
         FactorCoding? batch = spec.FitBatch ? BuildBatch(rows, stratum, warnings) : null;
         var covariates = spec.Covariates.Select(c => CovariateCoding.Build(c, rows)).ToList();
 
-        // A factor with default contrasts lists those this stratum cannot run, under their own labels (#1450 review); one
-        // without keeps what FactorCoding.Build said, since no contrast stands for it.
         defaultSet ??= DefaultSet(rows, spec);
-        var notRun = new List<NotRunContrast>();
-        foreach (var (factor, unrun) in unrunByFactor)
-        {
-            var own = defaultSet.Where(d => d.Factor == factor).ToList();
-            notRun.AddRange(own.Count == 0
-                ? unrun
-                : own.Where(d => !d.RunsIn(factors)).Select(d => new NotRunContrast(d.Label, NotInStratum)));
-        }
+        var levelsHere = new Dictionary<string, List<string>>(StringComparer.Ordinal);
+        foreach (var f in spec.Factors) levelsHere[f.Name] = LevelsOf(rows, f.Name);
+        var notRun = NotRunHere(spec, defaultSet, levelsHere, stratum, warnings);
+        var defaultsRunHere = defaultSet.Where(d => d.RunsIn(levelsHere)).ToList();
 
         var names = new List<string> { Intercept };
         var terms = new List<string> { Intercept };
@@ -286,7 +277,7 @@ public sealed class AnalysisDesign
             for (int j = 0; j < columns.Count; j++)
                 matrix[i, j] = columns[j](rows[i]);
 
-        return new AnalysisDesign(stratum, rows, matrix, names, terms, factors, covariates, defaultSet, warnings, notRun);
+        return new AnalysisDesign(stratum, rows, matrix, names, terms, factors, covariates, defaultsRunHere, warnings, notRun);
     }
 
     /// <summary>
@@ -341,8 +332,7 @@ public sealed class AnalysisDesign
     /// The weights are over this design's own columns.
     /// </remarks>
     public IReadOnlyList<Contrast> DefaultContrasts() =>
-        _defaultSet
-            .Where(d => d.RunsIn(_factors))
+        _defaultsRunHere
             .Select(d => (d.Covariate is null ? Between(d.Factor!, d.Numerator!, d.Denominator!) : Slope(d.Covariate)) with { Id = d.Id })
             .ToList();
 
@@ -528,11 +518,7 @@ public sealed class AnalysisDesign
         foreach (var f in spec.Factors)
         {
             if (string.IsNullOrWhiteSpace(f.Name)) continue;
-            var levels = samples
-                .Select(s => s.Factors.TryGetValue(f.Name, out var v) ? v : null)
-                .Where(v => !string.IsNullOrWhiteSpace(v))
-                .Select(v => v!)
-                .Distinct(StringComparer.Ordinal).OrderBy(l => l, StringComparer.Ordinal).ToList();
+            var levels = LevelsOf(samples, f.Name);
             if (f.ReferenceLevel is null)
             {
                 for (int i = 0; i < levels.Count; i++)
@@ -549,6 +535,41 @@ public sealed class AnalysisDesign
         return set.Select((d, i) => d with { Id = "c" + (i + 1).ToString(CultureInfo.InvariantCulture) }).ToList();
     }
 
+    /// <summary>A factor's distinct levels over these samples, in ordinal order; a sample with no value adds none.</summary>
+    private static List<string> LevelsOf(IEnumerable<AnalysisSample> samples, string factor) =>
+        samples
+            .Select(s => s.Factors.TryGetValue(factor, out var v) ? v : null)
+            .Where(v => !string.IsNullOrWhiteSpace(v))
+            .Select(v => v!)
+            .Distinct(StringComparer.Ordinal).OrderBy(l => l, StringComparer.Ordinal).ToList();
+
+    /// <summary>
+    /// The one place a stratum's <see cref="NotRun"/> is decided. A factor with default contrasts lists each one this
+    /// stratum cannot run, under its label and id (#1450 review); a factor the analysis has none for is listed by what it
+    /// lacks here, with no id: one level, or no sample at its declared reference.
+    /// </summary>
+    private static List<NotRunContrast> NotRunHere(DesignSpec spec, List<DefaultContrast> defaultSet,
+        Dictionary<string, List<string>> levelsHere, string stratum, List<string> warnings)
+    {
+        var notRun = new List<NotRunContrast>();
+        foreach (var f in spec.Factors)
+        {
+            var own = defaultSet.Where(d => d.Factor == f.Name).ToList();
+            var levels = levelsHere[f.Name];
+            if (own.Count > 0)
+            {
+                foreach (var d in own.Where(d => !d.RunsIn(levelsHere)))
+                    notRun.Add(new NotRunContrast(d.Label, NotInStratum) { Id = d.Id });
+            }
+            else if (levels.Count < 2)
+                notRun.Add(new NotRunContrast($"{f.Name} (one level: {levels[0]})", NotInStratum));
+            else if (f.ReferenceLevel is not null && !levels.Contains(f.ReferenceLevel, StringComparer.Ordinal))
+                foreach (var l in levels)
+                    notRun.Add(new NotRunContrast(BetweenLabel(f.Name, l, f.ReferenceLevel), NotInStratum));
+        }
+        return notRun;
+    }
+
     /// <summary>
     /// One contrast of an analysis's default set: <see cref="Numerator"/> against <see cref="Denominator"/> of
     /// <see cref="Factor"/>, or the slope of <see cref="Covariate"/>.
@@ -559,21 +580,24 @@ public sealed class AnalysisDesign
         /// <summary>A factor contrast's label, as <see cref="Between"/> writes it.</summary>
         public string Label => BetweenLabel(Factor!, Numerator!, Denominator!);
 
+        /// <summary>Whether a stratum with these levels has a sample at both of a factor contrast's levels.</summary>
+        public bool HasBothSidesIn(Dictionary<string, List<string>> levels) =>
+            levels[Factor!].Contains(Numerator!, StringComparer.Ordinal)
+            && levels[Factor!].Contains(Denominator!, StringComparer.Ordinal);
+
         /// <summary>
-        /// Whether a stratum with these factors has a sample on both sides: both levels are in its model. Every stratum
-        /// has every covariate.
+        /// Whether a stratum with these levels runs the contrast: a sample at both of its levels. Every stratum has every
+        /// covariate.
         /// </summary>
-        public bool RunsIn(List<FactorCoding> factors) =>
+        public bool RunsIn(Dictionary<string, List<string>> levels) =>
             Covariate is not null
-            || factors.FirstOrDefault(f => f.Name == Factor) is { } f
-            && f.Levels.Contains(Numerator!, StringComparer.Ordinal)
-            && f.Levels.Contains(Denominator!, StringComparer.Ordinal);
+            || HasBothSidesIn(levels);
     }
 
     private sealed record FactorCoding(string Name, List<string> Levels, bool BatchOf = false)
     {
         public static FactorCoding? Build(FactorSpec spec, List<AnalysisSample> rows, string stratum,
-            List<string> warnings, List<NotRunContrast> notRun)
+            List<string> warnings)
         {
             ArgumentException.ThrowIfNullOrWhiteSpace(spec.Name);
             foreach (var r in rows)
@@ -586,7 +610,6 @@ public sealed class AnalysisDesign
             {
                 warnings.Add($"Factor '{spec.Name}' has one level ('{levels[0]}') in stratum '{stratum}', so it is not in " +
                              "the model and none of its contrasts is run there.");
-                notRun.Add(new NotRunContrast($"{spec.Name} (one level: {levels[0]})", NotInStratum));
                 return null;
             }
 
@@ -601,8 +624,6 @@ public sealed class AnalysisDesign
             {
                 warnings.Add($"The reference level '{spec.ReferenceLevel}' of factor '{spec.Name}' has no sample in stratum " +
                              $"'{stratum}', so no contrast against it is run there.");
-                foreach (var l in levels)
-                    notRun.Add(new NotRunContrast(BetweenLabel(spec.Name, l, spec.ReferenceLevel), NotInStratum));
                 return new FactorCoding(spec.Name, levels);
             }
 

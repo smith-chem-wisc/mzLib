@@ -194,4 +194,12 @@ public sealed record Contrast(string Id, string Label, IReadOnlyList<double> Wei
 }
 
 /// <summary>A contrast the specification implies that a stratum cannot run, and why (e.g. <c>not_in_stratum</c>).</summary>
-public sealed record NotRunContrast(string Label, string Reason);
+public sealed record NotRunContrast(string Label, string Reason)
+{
+    /// <summary>
+    /// The id of the default contrast this is (<see cref="AnalysisDesign.DefaultContrasts"/>), the same in every stratum;
+    /// null for an entry no contrast stands for (a factor with one level over the whole analysis, or a declared reference
+    /// with no sample anywhere).
+    /// </summary>
+    public string? Id { get; init; }
+}

@@ -384,7 +384,7 @@ public class AnalysisDesignTests
             ("c1", "condition=x vs condition=ctrl"), ("c3", "age (per decade)"),
         }));
         Assert.That(liver.NotRun, Is.Empty);
-        Assert.That(muscle.NotRun, Is.EqualTo(new[] { new NotRunContrast("condition=y vs condition=ctrl", "not_in_stratum") }));
+        Assert.That(muscle.NotRun, Is.EqualTo(new[] { new NotRunContrast("condition=y vs condition=ctrl", "not_in_stratum") { Id = "c2" } }));
         // Only the ids are shared: each stratum's weights are over its own columns.
         Assert.That(muscle.ColumnNames, Is.EqualTo(new[] { "intercept", "condition=x", "age (per decade)" }));
         Assert.That(muscle.DefaultContrasts()[1].Weights, Is.EqualTo(new[] { 0.0, 0, 1 }));
@@ -416,7 +416,7 @@ public class AnalysisDesignTests
         {
             ("c2", "condition=drug vs condition=ctrl"),
         }));
-        Assert.That(testis.NotRun, Is.EqualTo(new[] { new NotRunContrast("sex=M vs sex=F", "not_in_stratum") }));
+        Assert.That(testis.NotRun, Is.EqualTo(new[] { new NotRunContrast("sex=M vs sex=F", "not_in_stratum") { Id = "c1" } }));
         Assert.That(testis.Warnings, Has.Some.Contains("Factor 'sex' has one level ('M')"));
     }
 
@@ -482,6 +482,31 @@ public class AnalysisDesignTests
         Assert.That(byStratum!.GetType(), Is.EqualTo(byCreate!.GetType()));
         Assert.That(byStratum.Message, Is.EqualTo(byCreate.Message));
     }
+
+    /// <summary>
+    /// Each default contrast a stratum does not run carries its id, so a reader keyed by id need not match labels; an
+    /// entry that no contrast stands for (here a factor with one level over the whole analysis) has none.
+    /// </summary>
+    [Test]
+    public void ANotRunDefaultContrastCarriesItsIdAndAnEntryWithNoContrastHasNone()
+    {
+        AnalysisSample T(string id, string tissue, string condition) => InTissue(tissue, S(id, ("condition", condition), ("sex", "F")));
+        var samples = new[]
+        {
+            T("l1", "liver", "ctrl"), T("l2", "liver", "x"), T("l3", "liver", "y"),
+            T("m1", "muscle", "ctrl"), T("m2", "muscle", "x"), T("m3", "muscle", "ctrl"), T("m4", "muscle", "x"),
+        };
+        var designs = AnalysisDesign.ByStratum(samples, Spec(("condition", "ctrl"), ("sex", "F")));
+
+        Assert.That(designs[0].NotRun, Is.EqualTo(new[] { new NotRunContrast("sex (one level: F)", "not_in_stratum") }));
+        Assert.That(designs[1].NotRun, Is.EqualTo(new[]
+        {
+            new NotRunContrast("condition=y vs condition=ctrl", "not_in_stratum") { Id = "c2" },
+            new NotRunContrast("sex (one level: F)", "not_in_stratum"),
+        }));
+    }
+
+
 
     [Test]
     public void StratumKeyIsSortedEscapedAndAllWhenEmpty()
