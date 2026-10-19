@@ -274,6 +274,26 @@ namespace Test.KoinaTests
             }
         }
 
+        [TestCase(SpectralLibraryFormat.Msp, ".msp")]
+        [TestCase(SpectralLibraryFormat.Msl, ".msl")]
+        public void NoInputsWriteAnEmptyLibrary(SpectralLibraryFormat format, string extension)
+        {
+            string path = TemporaryPath(extension);
+            try
+            {
+                var generator = new SpectralLibraryGenerator(new FakeFragmentModel(), new FakeKoinaRetentionTimeModel());
+
+                List<LibrarySpectrum> written = generator.GenerateAndWrite(new List<FragmentIntensityPredictionInput>(), path, format);
+
+                Assert.That(written, Is.Empty);
+                Assert.That(ReadBack(path), Is.Empty);
+            }
+            finally
+            {
+                File.Delete(path);
+            }
+        }
+
         private static FragmentIntensityPredictionInput Input(string sequence, int charge) =>
             new(sequence, charge, 30, null, null);
 

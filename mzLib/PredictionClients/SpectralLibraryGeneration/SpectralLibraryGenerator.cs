@@ -17,7 +17,7 @@ namespace PredictionClients.SpectralLibraryGeneration
     /// <summary>
     /// Builds predicted library spectra for peptides from a fragment intensity model, an optional
     /// retention time predictor and an optional detectability filter, and writes them as msp or msl.
-    /// The generator keeps no record of what it generated; the models it is given do, as before.
+    /// The generator keeps no record of what it generated.
     /// </summary>
     public class SpectralLibraryGenerator
     {
