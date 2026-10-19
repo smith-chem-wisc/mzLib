@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Runtime;
 using System.Threading;
 using System.Threading.Tasks;
 using FlashLFQ;
@@ -304,16 +305,29 @@ internal class TestDiaNnParquetReportFile
         File.WriteAllText(detected, "Precursor.Id\tStripped.Sequence\tRun\n");
         File.WriteAllText(loaded, "Precursor.Id\tStripped.Sequence\tRun\n");
 
-        Assert.Throws<MzLibException>(() => detected.ParseFileType());
-        Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(loaded).LoadResults());
-
         // A handle left open by the refusal makes an exclusive open throw IOException until a garbage
-        // collection happens to finalize it; on Windows the file cannot be deleted either.
-        Assert.Multiple(() =>
+        // collection happens to finalize it; on Windows the file cannot be deleted either. A collection
+        // between the refusal and the exclusive open would hide a leak, so a no-GC region holds
+        // collections off over that window. If the runtime cannot start the region, or something
+        // allocates past its budget, the check is best-effort: it can then miss a leak, but it never
+        // fails without one.
+        GC.TryStartNoGCRegion(16 * 1024 * 1024);
+        try
         {
-            Assert.DoesNotThrow(() => new FileStream(detected, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
-            Assert.DoesNotThrow(() => new FileStream(loaded, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
-        });
+            Assert.Throws<MzLibException>(() => detected.ParseFileType());
+            Assert.Throws<MzLibException>(() => new DiaNnParquetReportFile(loaded).LoadResults());
+
+            Assert.Multiple(() =>
+            {
+                Assert.DoesNotThrow(() => new FileStream(detected, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
+                Assert.DoesNotThrow(() => new FileStream(loaded, FileMode.Open, FileAccess.ReadWrite, FileShare.None).Dispose());
+            });
+        }
+        finally
+        {
+            if (GCSettings.LatencyMode == GCLatencyMode.NoGCRegion)
+                GC.EndNoGCRegion();
+        }
     }
 
     /// <summary>
