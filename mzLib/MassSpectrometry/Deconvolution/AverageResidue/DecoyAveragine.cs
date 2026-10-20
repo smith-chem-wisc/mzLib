@@ -55,6 +55,28 @@ namespace MassSpectrometry;
 /// var decoys = Deconvoluter.Deconvolute(spectrum, decoyParams);
 /// </code>
 ///
+/// <para><b>Charge dependence — read before using this on high-charge data</b></para>
+/// <para>
+/// The shift above is a fixed offset in <b>neutral mass</b>: 58.955 mDa per isotope step at the
+/// default spacing. Deconvolution matches peaks in <b>m/z</b>, so the matcher sees that offset
+/// divided by the charge, and the decoy's distance from the real lattice shrinks as
+/// <c>1/z</c>. At m/z ≈ 900 the first decoy tooth sits 29.5 mDa (≈ 33 ppm) from the real one at
+/// z = 2, but only 3.9 mDa (≈ 4.4 ppm) at z = 15 and 2.0 mDa (≈ 2.2 ppm) at z = 30.
+/// </para>
+/// <para>
+/// Past roughly z = 4 at a 20 ppm matching tolerance — or z = 17 at 4 ppm — the "physically
+/// impossible" comb lands within tolerance of the real peaks. The decoy is then scored as though
+/// it were a target, the decoy score distribution creeps toward the target distribution, and any
+/// FDR estimated from it is biased low. The failure is silent: decoys are still produced and
+/// still scored, they simply stop being wrong.
+/// </para>
+/// <para>
+/// This is not a defect for the regime the constant came from. Bottom-up precursors are mostly
+/// z = 2–4, where the model behaves exactly as intended. It matters for top-down proteoforms,
+/// which routinely carry z = 10–40. For that regime prefer <see cref="ShuffledAveragine"/>,
+/// which falsifies envelope shape instead of peak position and so is charge-invariant.
+/// </para>
+///
 /// <para>Reference: Käll et al. (2008) target-decoy approach; OpenMS FLASHDeconv
 /// <c>SpectralDeconvolution.cpp</c> <c>noise_iso_delta_ = 0.9444</c>.</para>
 /// </summary>
