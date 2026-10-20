@@ -280,6 +280,35 @@ namespace Test.Omics.Modifications
         }
 
         [Test]
+        [TestCase("|D")]
+        [TestCase("K|")]
+        [TestCase("TX|T")]
+        public static void CleavesCTerminalTo_TheNullCharacter_IsNoResidue(string motifString)
+        {
+            // NonPrimeSubsite answers '\0' wherever the motif names nothing at P1 -- every N-terminal
+            // motif -- so a bare comparison would report "|D" as cleaving after the null character.
+            Assert.IsFalse(Motif(motifString).CleavesCTerminalTo('\0'));
+        }
+
+        [Test]
+        public static void NoRecognitionSequence_NamesNoSubsite_AndDoesNotThrow()
+        {
+            // The public constructor accepts a null recognition sequence. A motif that names no residue
+            // cannot straddle a bond, so the cut index alone decides its side, and every subsite question
+            // answers "nothing" rather than throwing.
+            DigestionMotif motif = new DigestionMotif(null, null, 1, null);
+            Assert.AreEqual(CleavageSide.CTerminal, motif.Side);
+            Assert.AreEqual('\0', motif.NonPrimeSubsite(1));
+            Assert.AreEqual('\0', motif.PrimeSubsite(1));
+            foreach (char residue in AllResidues)
+            {
+                Assert.IsFalse(motif.CleavesCTerminalTo(residue));
+                Assert.IsFalse(motif.NonPrimeSubsiteAccepts(1, residue));
+                Assert.IsFalse(motif.PrimeSubsiteAccepts(1, residue));
+            }
+        }
+
+        [Test]
         [TestCase("GPX|GPX", 'A', false)]  // P1 is the wildcard, which names no residue
         [TestCase("TX|T", 'T', false)]     // P1 is the wildcard; the T is at P2
         [TestCase("RX{P}|", 'P', false)]
