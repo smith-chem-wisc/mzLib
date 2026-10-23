@@ -1,4 +1,3 @@
-using System.ComponentModel;
 using MzLibUtil;
 using Omics.SequenceConversion;
 using PredictionClients.Koina.AbstractClasses;
@@ -27,6 +26,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         {
             35, 4, 259, 267, 737, 2016, 214, 730
         };
+        private static readonly IReadOnlySet<int> NTerminalLabelIds = new HashSet<int> { 737, 2016, 214, 730 };
         private static readonly ISequenceConverter Converter = CreateUnimodConverter(TmtSchema, SupportedUnimodIds);
 
         public override string ModelName => "Prosit_2020_intensity_TMT";
@@ -41,6 +41,7 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
         public override HashSet<string>? AllowedFragmentationTypes => new() { "HCD", "CID" };
         public override int NumberOfPredictedFragmentIons => 174;
         public override IReadOnlySet<int> AllowedUnimodIds => SupportedUnimodIds;
+        public override IReadOnlySet<int>? RequiredNTerminalUnimodIds => NTerminalLabelIds;
         private readonly SequenceConversionHandlingMode _modHandlingMode;
         public override SequenceConversionHandlingMode ModHandlingMode
         {
@@ -84,33 +85,6 @@ namespace PredictionClients.Koina.SupportedModels.FragmentIntensityModels
                     new InputField("fragmentation_types", "BYTES", batchedFragTypes[i])));
             }
             return batchedRequests;
-        }
-
-        protected override string? TryCleanSequence(string sequence, out string? apiSequence, out WarningException? warning)
-        {
-            var sanitized = base.TryCleanSequence(sequence, out apiSequence, out warning);
-            if (sanitized == null || apiSequence == null)
-            {
-                return sanitized;
-            }
-
-            if (!HasAllowedNTerminalLabel(apiSequence))
-            {
-                const string message = "Sequence must contain a supported N-terminal TMT/iTRAQ label.";
-                HandleFailure(ModHandlingMode, message);
-                warning = new WarningException(message);
-                return null;
-            }
-
-            return apiSequence;
-        }
-
-        private static bool HasAllowedNTerminalLabel(string apiSequence)
-        {
-            return apiSequence.StartsWith("[UNIMOD:737]-")
-                   || apiSequence.StartsWith("[UNIMOD:2016]-")
-                   || apiSequence.StartsWith("[UNIMOD:214]-")
-                   || apiSequence.StartsWith("[UNIMOD:730]-");
         }
     }
 }
