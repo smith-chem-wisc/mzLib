@@ -164,18 +164,77 @@ namespace Test.Quantification
             Assert.That(actual, Is.EqualTo(expected));
         }
 
+        /// <summary>
+        /// No peptide is seen in more than one sample, so there is nothing to compare across samples. Each sample is
+        /// quantified from its own peptides, as a protein seen only in that sample is, scaled to the group's number of
+        /// peptides. Before, the fit set every column effect to 0 and the unquantifiable check then reported NaN in
+        /// every sample, so adding a second peptide in a second sample took away the value a one-peptide group had.
+        /// </summary>
         [Test]
-        public void UnquantifiableSample_RollsUpToZero()
+        public void PeptidesEachSeenInOneDifferentSample_QuantifyEachSampleFromItsOwnPeptides()
         {
-            // No peptide is shared between the two samples, so there is nothing to compare across them.
             var table = new[]
             {
                 new[] { 0, 1000.0 },
                 new[] { 1000.0, 0 },
             };
 
-            Assert.That(FlashLfqProteinIntensities(table).All(double.IsNaN), Is.True);
-            Assert.That(RollUpAllRows(table), Is.EqualTo(new[] { 0.0, 0.0 }));
+            Assert.That(FlashLfqProteinIntensities(table), Is.EqualTo(new[] { 2000.0, 2000.0 }).Within(1e-6));
+            Assert.That(RollUpAllRows(table), Is.EqualTo(new[] { 2000.0, 2000.0 }).Within(1e-6));
+        }
+
+        /// <summary>
+        /// Real groups from MetaMorpheus's islet search (master, 4 label-free files), each with every peptide seen in one
+        /// file only. A2BDX3: two peptides in files 1 and 3; it had no value in any file. Q91V09: one peptide in file 1
+        /// and three in file 3; it had the same number in both files, 5,883,728, which is neither file's peptides.
+        /// </summary>
+        [Test]
+        public void IsletGroupsWithEveryPeptideInOneFile_GetEachFilesOwnValue()
+        {
+            var a2bdx3 = new[]
+            {
+                new[] { 2163521.0, 0, 0, 0 },
+                new[] { 0, 0, 109879500.0, 0 },
+            };
+            Assert.That(FlashLfqProteinIntensities(a2bdx3), Is.EqualTo(new[] { 2 * 2163521.0, 0, 2 * 109879500.0, 0 }).Within(1e-3));
+
+            var q91v09 = new[]
+            {
+                new[] { 0, 0, 193941.0, 0 },
+                new[] { 779644.0, 0, 0, 0 },
+                new[] { 0, 0, 2266565.0, 0 },
+                new[] { 0, 0, 2613322.0, 0 },
+            };
+            // file 3 gets what its three peptides give as a protein seen only there, scaled from 3 peptides to the group's 4
+            double file3Alone = MedianPolishRollUp.QuantifyGroup(new[] { new[] { 193941.0 }, new[] { 2266565.0 }, new[] { 2613322.0 } })[0];
+            Assert.That(FlashLfqProteinIntensities(q91v09), Is.EqualTo(new[] { 4 * 779644.0, 0, file3Alone * 4 / 3, 0 }).Within(1e-3));
+        }
+
+        /// <summary>
+        /// The fix is only for a group with no peptide in two samples. One peptide seen in two samples links them, and
+        /// the fit is the median polish it always was; a peptide seen in one sample is then set aside, as before.
+        /// </summary>
+        /// <summary>A protein seen in one sample only is not this case: its value comes from the usual fit, unchanged.</summary>
+        [Test]
+        public void ProteinSeenInOneSampleOnly_KeepsItsFittedValue()
+        {
+            var oneSample = new[] { new[] { 39282.17 }, new[] { 573731.04 }, new[] { 21413355.83 }, new[] { 137757.15 }, new[] { 588566.70 } };
+            var oneOfFour = oneSample.Select(row => new[] { 0, 0, 0, row[0] }).ToArray();
+
+            Assert.That(MedianPolishRollUp.QuantifyGroup(oneOfFour)[3], Is.EqualTo(MedianPolishRollUp.QuantifyGroup(oneSample)[0]).Within(1e-6));
+        }
+
+        [Test]
+        public void APeptideSeenInTwoSamples_KeepsTheMedianPolishFit()
+        {
+            var table = new[]
+            {
+                new[] { 1000.0, 2000.0, 0 },
+                new[] { 0, 0, 5000.0 },
+            };
+
+            double[] protein = FlashLfqProteinIntensities(table);
+            Assert.That(protein[1] / protein[0], Is.EqualTo(2.0).Within(1e-9), "the linked samples keep their fitted ratio");
         }
 
         [Test]
