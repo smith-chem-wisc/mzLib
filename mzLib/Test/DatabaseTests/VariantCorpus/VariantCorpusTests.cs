@@ -25,7 +25,7 @@ namespace Test.DatabaseTests.VariantCorpus
     /// VCF depth cutoff = minAlleleDepth). The S-series deepens the substitution axis (before/on/after a PTM,
     /// protein start/end, VCF depth cutoff, multi-residue MNV, and double substitutions) and pulls the bottom-up
     /// DIGESTION axis forward for the "a substitution moves the knife" cases (installment 5): trypsin cut-site
-    /// create/destroy and the not-before-proline rule (trypsin|P). The I-series adds anchored insertions (L1).
+    /// create/destroy and the not-before-proline rule (trypsin). The I-series adds anchored insertions (L1).
     /// The P-series opens processing (L2): a chain boundary re-based by an applied variant.
     /// </summary>
     [TestFixture]
@@ -569,16 +569,16 @@ namespace Test.DatabaseTests.VariantCorpus
                 Reason: "A4->K introduces a trypsin cut after position 4: consensus PEPAIDE -> one peptide; variant PEPKIDE -> PEPK + IDE. X->K/R splits one peptide into two (installment 5). Inverse of S07.",
                 ExpectedForms: new[] { "PEPAIDE", "PEPK", "IDE" });
 
-            // S09 — substitution BLOCKS a cut site via the not-before-proline rule (I5->P), under trypsin|P
+            // S09 — substitution BLOCKS a cut site via the not-before-proline rule (I5->P), under trypsin
             // (K[P]|,R[P]|). Consensus PEPKIDE -> {PEPK, IDE} (K4 before I, cuts); variant PEPKPDE -> {PEPKPDE}
-            // (K4 now before P, cut suppressed). Under plain trypsin the variant would still cut (PEPK + PDE), so
-            // this node specifically pins trypsin|P's proline restriction, not just any K-adjacent edit.
+            // (K4 now before P, cut suppressed). Under trypsin/P the variant would still cut (PEPK + PDE), so
+            // this node specifically pins trypsin's proline restriction, not just any K-adjacent edit.
             yield return new CorpusCase(
                 Id: "S09", Layer: "L3-digest", Tests: "sub-blocks-cut-before-proline",
-                Base: "PEPKIDE", Mods: "-", Variants: "OP=I VAR=P POS=5 SRC=uniprot", Protease: "trypsin|P",
+                Base: "PEPKIDE", Mods: "-", Variants: "OP=I VAR=P POS=5 SRC=uniprot", Protease: "trypsin",
                 MaxIsoforms: 1024, MaxMods: 2,
                 ExpectedCount: 3, Verdict: "applied",
-                Reason: "I5->P puts a proline immediately after K4; trypsin|P (K[P]|) does not cut before P, so variant PEPKPDE stays whole while consensus PEPKIDE -> PEPK + IDE. A variant destroys a cut site WITHOUT touching K/R (installment 5). Requires trypsin|P, not trypsin.",
+                Reason: "I5->P puts a proline immediately after K4; trypsin (K[P]|) does not cut before P, so variant PEPKPDE stays whole while consensus PEPKIDE -> PEPK + IDE. A variant destroys a cut site WITHOUT touching K/R (installment 5). Requires trypsin, not trypsin/P.",
                 ExpectedForms: new[] { "PEPK", "IDE", "PEPKPDE" });
 
             // S10 — MULTI-RESIDUE substitution (MNV), same length. TI->VL over [4,5] -> PEPVLDE. Exercises the

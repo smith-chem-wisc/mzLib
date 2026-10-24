@@ -86,9 +86,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
             Assert.That(dict, Is.Not.Null, "Static Dictionary should be initialized");
             Assert.That(dict.Count, Is.GreaterThan(10), "Should contain many proteases from embedded resource");
 
-            Assert.That(dict.ContainsKey("trypsin|P"), Is.True);
             Assert.That(dict.ContainsKey("trypsin"), Is.True);
-            Assert.That(dict.ContainsKey("Lys-C|P"), Is.True);
+            Assert.That(dict.ContainsKey("trypsin"), Is.True);
+            Assert.That(dict.ContainsKey("Lys-C"), Is.True);
             Assert.That(dict.ContainsKey("Asp-N"), Is.True);
             Assert.That(dict.ContainsKey("CNBr"), Is.True);
         }
@@ -97,11 +97,18 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         /// Every protease name mzLib has shipped since the table became an embedded resource. Only ever add to this
         /// list; see <see cref="EmbeddedProteases_NoShippedProteaseNameIsRemovedOrRenamed"/> before removing one.
         /// </summary>
+        /// <remarks>
+        /// #1186 renamed chymotrypsin|P, elastase|P, Lys-C|P, trypsin|P and subtilisin|P to their bare names
+        /// (the /P suffix now marks the proline-blind variant). The old spellings resolve through
+        /// <c>ProteaseDictionary.NormalizeProteaseName</c>, pinned by
+        /// <c>ProteaseLoadingTests.HistoricalNamesResolveToTheSameEnzyme</c>, so they left this list.
+        /// </remarks>
         private static readonly string[] ShippedProteaseNames =
         {
-            "Arg-C", "Asp-N", "chymotrypsin|P", "CNBr", "elastase|P", "Glu-C", "Glu-C (with asp)", "Lys-C|P", "Lys-N",
-            "trypsin", "trypsin|P", "tryptophan oxidation", "non-specific", "top-down", "singleN", "singleC", "peptidomics",
-            "collagenase", "StcE", "StcE-trypsin", "CNBr_old", "CNBr_N", "ProAlanase", "subtilisin|P",
+            "Arg-C", "Asp-N", "chymotrypsin", "chymotrypsin/P", "CNBr", "elastase", "Glu-C", "Glu-C (with asp)",
+            "Lys-C", "Lys-C/P", "Lys-N", "trypsin", "trypsin/P", "tryptophan oxidation", "non-specific", "top-down",
+            "singleN", "singleC", "peptidomics", "collagenase", "StcE", "StcE-trypsin", "CNBr_old", "CNBr_N",
+            "ProAlanase", "subtilisin",
         };
 
         /// <summary>
@@ -167,7 +174,7 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void StaticDictionary_TrypsinHasNoCleavageMod()
         {
-            var trypsin = ProteaseDictionary.Dictionary["trypsin|P"];
+            var trypsin = ProteaseDictionary.Dictionary["trypsin"];
 
             Assert.That(trypsin, Is.Not.Null);
             Assert.That(trypsin.CleavageMod, Is.Null,
@@ -558,9 +565,9 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
         [Test]
         public static void Integration_MetaMorpheusStyle_NoExternalFilesNeeded()
         {
-            var trypsin = ProteaseDictionary.GetProtease("trypsin|P");
+            var trypsin = ProteaseDictionary.GetProtease("trypsin");
             var cnbr = ProteaseDictionary.GetProtease("CNBr");
-            var lysC = ProteaseDictionary.GetProtease("Lys-C|P");
+            var lysC = ProteaseDictionary.GetProtease("Lys-C");
 
             Assert.That(trypsin, Is.Not.Null);
             Assert.That(cnbr, Is.Not.Null);
