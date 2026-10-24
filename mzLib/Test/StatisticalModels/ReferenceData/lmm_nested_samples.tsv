@@ -1,0 +1,13 @@
+sample	individual	condition	genotype	intercept	conditionB	genotypeko
+s01	m1	A	wt	1	0	0
+s02	m1	B	wt	1	1	0
+s03	m2	A	wt	1	0	0
+s04	m2	B	wt	1	1	0
+s05	m3	A	wt	1	0	0
+s06	m3	B	wt	1	1	0
+s07	m4	A	ko	1	0	1
+s08	m4	B	ko	1	1	1
+s09	m5	A	ko	1	0	1
+s10	m5	B	ko	1	1	1
+s11	m6	A	ko	1	0	1
+s12	m6	B	ko	1	1	1
