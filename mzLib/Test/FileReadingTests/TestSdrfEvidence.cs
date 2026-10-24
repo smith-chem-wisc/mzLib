@@ -89,6 +89,41 @@ namespace Test.FileReadingTests
             Assert.That(Written(doc, "HumanHFpEF_1.raw")["comment[age source method]"], Is.EqualTo(word));
         }
 
+        /// <summary>
+        /// G42 (dataRepo 024/025): where a publication is also the row default, option B (D31) wrote no
+        /// column source, so the builder filled it <c>not applicable</c> beside a reference and a method
+        /// (PXD016662's 65 replicate rows), which reads as a contradiction. A column that carries a source
+        /// reference or method now always carries its source word too. A cell with no evidence still has none.
+        /// </summary>
+        [Test]
+        public void AColumnWithASourceReferenceAlwaysSaysItsSource()
+        {
+            var bare = new[] { "alpha.raw", "beta.raw" };
+            var evidence = new[]
+            {
+                Claim("alpha.raw", "characteristics[organism part]", "heart"),
+                Claim("alpha.raw", "characteristics[age]", "77Y"),
+                Claim("alpha.raw", "characteristics[sex]", "female"),
+                Claim("alpha.raw", "characteristics[biological replicate]", "3"),
+            };
+            var doc = SdrfDrafter.ToDocument(SdrfDrafter.Draft(Project(), bare, evidence), "PXD060431");
+            var alpha = Written(doc, "alpha.raw");
+            Assume.That(alpha["comment[characteristics source]"], Is.EqualTo("publication"), "publication is the row default here");
+
+            foreach (var name in new[] { "organism part", "age", "sex", "biological replicate" })
+            {
+                Assert.That(alpha[$"comment[{name} source reference]"], Is.EqualTo("mmc1.xlsx!DatasetS1!R2C4"), name);
+                Assert.That(alpha[$"comment[{name} source]"], Is.EqualTo("publication"),
+                    $"{name}: a reference is never written beside 'not applicable'");
+            }
+            Assert.That(alpha["comment[organism source]"], Is.EqualTo("pride project record"), "an override is still an override");
+
+            var beta = Written(doc, "beta.raw");
+            Assert.That(beta["comment[age source reference]"], Is.EqualTo("not applicable"));
+            Assert.That(beta["comment[age source]"], Is.EqualTo("not applicable"), "no evidence, no word of its own");
+            Assert.That(SdrfValidator.Validate(doc).Errors, Is.Empty);
+        }
+
         [Test]
         public void EvidenceFillsAnUnknownCellButNeverOverridesAReading()
         {
@@ -126,6 +161,29 @@ namespace Test.FileReadingTests
             var draft = SdrfDrafter.Draft(Project(), Files, new[] { Claim("HumanControl_1.raw", "characteristics[biological replicate]", "3") });
             Assert.That(Row(draft, "HumanControl_1.raw").BiologicalReplicate.Source, Is.EqualTo(SdrfDraftSource.Inferred));
             Assert.That(draft.EvidenceNotes.Single().Column, Is.EqualTo("characteristics[biological replicate]"));
+        }
+
+        [Test]
+        public void APooledReplicateClaimIsWrittenPooledAndAnyOtherWordIsReported()
+        {
+            // QuantProject 041: a pooled reference is kept as written. The spec's reserved word is lowercase.
+            var bare = new[] { "alpha.raw", "beta.raw", "gamma.raw" };
+            var draft = SdrfDrafter.Draft(Project(), bare, new[]
+            {
+                Claim("alpha.raw", "characteristics[biological replicate]", "Pooled"),
+                Claim("beta.raw", "characteristics[biological replicate]", "pool"),
+            });
+
+            var bio = Row(draft, "alpha.raw").BiologicalReplicate;
+            Assert.That((bio.Value, bio.Source), Is.EqualTo(("pooled", SdrfDraftSource.Publication)));
+            Assert.That(Row(draft, "beta.raw").BiologicalReplicate.Source, Is.EqualTo(SdrfDraftSource.Default), "only the reserved word");
+            Assert.That(draft.EvidenceNotes.Select(n => (n.DataFile, n.Column)),
+                Is.EqualTo(new[] { ("beta.raw", "characteristics[biological replicate]") }));
+
+            var doc = SdrfDrafter.ToDocument(draft, "PXD060431");
+            Assert.That(Written(doc, "alpha.raw")["characteristics[biological replicate]"], Is.EqualTo("pooled"));
+            Assert.That(SourceOf(doc, Written(doc, "alpha.raw"), "biological replicate"), Is.EqualTo("publication"));
+            Assert.That(Written(doc, "gamma.raw")["characteristics[biological replicate]"], Is.EqualTo("1"));
         }
 
         [Test]
