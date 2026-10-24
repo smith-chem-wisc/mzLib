@@ -62,7 +62,8 @@ namespace Transcriptomics.Digestion
                 PopulateFixedModsOneIsNorFivePrimeTerminus(oligoLength, allKnownFixedMods, in fixedModDictionary);
 
                 // Add the mods to the oligo by return numerous OligoWithSetMods
-                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength))
+                foreach (Dictionary<int, Modification> variableModPattern in GetVariableModificationPatterns(twoBasedPossibleVariableAndLocalizeableModifications, maxModsForOligo, oligoLength,
+                             fixedModDictionary.Count))
                 {
                     AppendFixedModificationsToVariable(in fixedModDictionary, in variableModPattern, out int numFixedMods);
 
