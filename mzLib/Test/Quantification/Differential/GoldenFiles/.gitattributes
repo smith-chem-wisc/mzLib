@@ -1,0 +1,2 @@
+# Golden files are compared byte for byte (LF line ends, no BOM), so git must never convert them.
+* -text
