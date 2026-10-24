@@ -29,7 +29,14 @@ namespace Readers
         /// <see cref="SdrfDraftCell.Reference"/> says where, and is written as <c>comment[&lt;column&gt; source
         /// reference]</c>.
         /// </summary>
-        Publication
+        Publication,
+
+        /// <summary>
+        /// Read from a file the deposit itself holds beside its runs: a search tool's design table (Spectronaut's
+        /// condition setup, an MSstats annotation, MaxQuant's experimental design). Written <c>deposited</c>, with
+        /// <c>comment[&lt;column&gt; source reference]</c> naming the file and cell (sdrf MASSIVE-SDRF.md, MV3).
+        /// </summary>
+        Deposit
     }
 
     /// <summary>
@@ -322,7 +329,7 @@ namespace Readers
                 // is written even when it equals the row default, or the builder fills it `not applicable` beside a
                 // reference and a method, which reads as a contradiction (G42, dataRepo 024/025).
                 foreach (var (name, cell) in stated.Append(("biological replicate", r.BiologicalReplicate)))
-                    if (cell.Source == SdrfDraftSource.Publication)
+                    if (FromEvidence(cell.Source))
                     {
                         if (!string.IsNullOrEmpty(cell.Reference) || !string.IsNullOrEmpty(cell.Method))
                             comments[$"comment[{name} source]"] = SourceWord(cell.Source);
@@ -333,6 +340,12 @@ namespace Readers
                 // comment[] column, so every row says where they came from (dataRepo SDRF-DR10).
                 comments["comment[fraction identifier source]"] = SourceWord(r.Fraction.Source);
                 comments["comment[technical replicate source]"] = SourceWord(r.TechnicalReplicate.Source);
+                foreach (var (name, cell) in new[] { ("fraction identifier", r.Fraction), ("technical replicate", r.TechnicalReplicate) })
+                    if (FromEvidence(cell.Source))
+                    {
+                        if (!string.IsNullOrEmpty(cell.Reference)) comments[$"comment[{name} source reference]"] = cell.Reference;
+                        if (!string.IsNullOrEmpty(cell.Method)) comments[$"comment[{name} source method]"] = cell.Method;
+                    }
 
                 var characteristics = new Dictionary<string, CvParam>(StringComparer.Ordinal);
                 var raw = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -418,9 +431,10 @@ namespace Readers
                     continue;
                 }
                 string column = e.Column.Trim().ToLowerInvariant();
-                if (!column.StartsWith("characteristics[", StringComparison.Ordinal))
+                if (!Takes(column))
                 {
-                    notes.Add(new(e.DataFile, e.Column, "", e.Value, "only characteristics are taken from evidence so far"));
+                    notes.Add(new(e.DataFile, e.Column, "", e.Value,
+                        "only characteristics, conditions, fractions, technical replicates and source names are taken from evidence"));
                     continue;
                 }
                 if (e.DataFilePattern.Length > 0)
@@ -435,14 +449,15 @@ namespace Readers
                 }
                 usable.Add(e with { Column = column });
             }
+            var conditions = usable.Where(e => e.Column.StartsWith("factor value[", StringComparison.Ordinal)).ToList();
+            usable = usable.Except(conditions).ToList();
             var claimsOf = usable
                 .GroupBy(e => (File: e.DataFile.Length == 0 ? "" : SdrfFileNamePattern.Stem(e.DataFile).ToLowerInvariant(), e.Column))
                 .ToDictionary(g => g.Key, g => g.ToList());
             var columns = usable.Select(e => e.Column).Distinct(StringComparer.Ordinal).ToList();
             var stems = new HashSet<string>(draft.Rows.Select(r => SdrfFileNamePattern.Stem(r.DataFile).ToLowerInvariant()), StringComparer.Ordinal);
-            foreach (var ((file, _), claims) in claimsOf.Where(x => x.Key.File.Length > 0 && !stems.Contains(x.Key.File)))
-                foreach (var e in claims)
-                    notes.Add(new(e.DataFile, e.Column, "", e.Value, "the claim names a raw file the deposit does not have"));
+            foreach (var e in usable.Concat(conditions).Where(e => e.DataFile.Length > 0 && !stems.Contains(SdrfFileNamePattern.Stem(e.DataFile).ToLowerInvariant())))
+                notes.Add(new(e.DataFile, e.Column, "", e.Value, "the claim names a raw file the deposit does not have"));
 
             var rows = draft.Rows.Select(row =>
             {
@@ -467,16 +482,24 @@ namespace Readers
                             notes.Add(new(row.DataFile, column, "", string.Join(" | ", values), "the claims disagree, so none is applied"));
                         continue;
                     }
-                    var first = claims.First(c => c.Value.Trim().Equals(values[0], StringComparison.OrdinalIgnoreCase));
-                    var cell = new SdrfDraftCell(values[0], SdrfDraftSource.Publication,
-                        $"{first.Method} evidence from the {first.Source}", null, first.Locator, MethodWord(first.Method)!);
+                    var agreeing = claims.Where(c => c.Value.Trim().Equals(values[0], StringComparison.OrdinalIgnoreCase)).ToList();
+                    var first = agreeing.FirstOrDefault(c => c.Confidence == SdrfEvidenceConfidence.Certain) ?? agreeing[0];
+                    var cell = EvidenceCell(first, values[0]);
 
-                    // Evidence fills what the draft does not know; it never overrides what the draft read.
+                    // Evidence fills what the draft does not know. Only a Certain claim (a design table or an SDRF that states
+                    // it) replaces what the draft inferred from the names or took from the deposit-wide record: a per-file
+                    // statement beats both, as it does in SdrfImprover. A Likely claim never overrides a reading.
                     SdrfDraftCell? Fill(SdrfDraftCell current)
                     {
                         if (current.Source is SdrfDraftSource.NotAvailable or SdrfDraftSource.Default) return cell;
-                        if (!current.Value.Equals(cell.Value, StringComparison.OrdinalIgnoreCase))
-                            notes.Add(new(row.DataFile, column, current.Value, cell.Value, "the draft read a different value, and a reading is never overridden"));
+                        bool same = current.Value.Equals(cell.Value, StringComparison.OrdinalIgnoreCase);
+                        if (first.Confidence == SdrfEvidenceConfidence.Certain && current.Source is SdrfDraftSource.Inferred or SdrfDraftSource.PrideProjectRecord)
+                        {
+                            if (!same) notes.Add(new(row.DataFile, column, current.Value, cell.Value, $"{first.Method} evidence from the {first.Source} replaces the draft's reading"));
+                            return cell;
+                        }
+                        if (!same)
+                            notes.Add(new(row.DataFile, column, current.Value, cell.Value, "the draft read a different value, and only a Certain claim replaces a reading"));
                         return null;
                     }
 
@@ -494,6 +517,21 @@ namespace Readers
                             else if (Fill(r.BiologicalReplicate) is { } bio)
                                 r = r with { BiologicalReplicate = bio with { Value = n.ToString(System.Globalization.CultureInfo.InvariantCulture) } };
                             break;
+                        case "comment[fraction identifier]":
+                        case "comment[technical replicate]":
+                            bool fraction = column == "comment[fraction identifier]";
+                            var counted = fraction ? r.Fraction : r.TechnicalReplicate;
+                            if (!int.TryParse(cell.Value, System.Globalization.NumberStyles.None, System.Globalization.CultureInfo.InvariantCulture, out int m) || m < 1)
+                                notes.Add(new(row.DataFile, column, counted.Value, cell.Value, "a fraction or technical replicate is a whole number from 1"));
+                            else if (Fill(counted) is { } filled)
+                            {
+                                filled = filled with { Value = m.ToString(System.Globalization.CultureInfo.InvariantCulture) };
+                                r = fraction ? r with { Fraction = filled } : r with { TechnicalReplicate = filled };
+                            }
+                            break;
+                        case "source name":
+                            if (Fill(r.SourceName) is { } name) r = r with { SourceName = name };
+                            break;
                         case "characteristics[organism]":
                             notes.Add(new(row.DataFile, column, r.Organism.Value, cell.Value, "the organism is written as a term, so free text from evidence is not applied"));
                             break;
@@ -504,7 +542,73 @@ namespace Readers
                 }
                 return r with { Characteristics = extra };
             }).ToList();
-            return draft with { Rows = rows, EvidenceNotes = notes };
+            return ApplyConditions(draft with { Rows = rows }, conditions, stems, notes) with { EvidenceNotes = notes };
+        }
+
+        /// <summary>The columns evidence may fill.</summary>
+        private static bool Takes(string column) =>
+            column.StartsWith("characteristics[", StringComparison.Ordinal) || column.StartsWith("factor value[", StringComparison.Ordinal)
+            || column is "comment[fraction identifier]" or "comment[technical replicate]" or "source name";
+
+        private static SdrfDraftCell EvidenceCell(SdrfEvidence claim, string value) =>
+            new(value, claim.Source == "deposit" ? SdrfDraftSource.Deposit : SdrfDraftSource.Publication,
+                $"{claim.Method} evidence from the {claim.Source}", null, claim.Locator, MethodWord(claim.Method)!);
+
+        /// <summary>Whether a cell came from evidence (a paper, a supplement, or a file the deposit holds), so it carries a
+        /// source reference and method.</summary>
+        internal static bool FromEvidence(SdrfDraftSource source) => source is SdrfDraftSource.Publication or SdrfDraftSource.Deposit;
+
+        /// <summary>
+        /// Conditions from evidence (sdrf MASSIVE-SDRF.md, MV3). Only a Certain claim about one run is a condition: a design
+        /// table or an SDRF that names the run. A run such a table names takes its conditions from it, and none of the
+        /// names' other factors, because the table is the submitter's whole design for that run. A run it does not name
+        /// keeps what its name said: MSV000096226's setup names 10 of its 11 brain runs and none of the 48 runs of another
+        /// study it also holds. The table's columns come first; a column the names also filled keeps their values for the
+        /// runs the table does not name.
+        /// </summary>
+        private static SdrfDraft ApplyConditions(SdrfDraft draft, List<SdrfEvidence> conditions, HashSet<string> stems, List<SdrfEvidenceNote> notes)
+        {
+            var byRun = new Dictionary<string, Dictionary<string, SdrfEvidence>>(StringComparer.Ordinal);
+            var order = new List<string>();
+            foreach (var g in conditions.GroupBy(e => (Run: SdrfFileNamePattern.Stem(e.DataFile).ToLowerInvariant(), e.Column)))
+            {
+                if (g.Key.Run.Length == 0)
+                {
+                    foreach (var e in g) notes.Add(new("", e.Column, "", e.Value, "a condition the whole deposit shares is not a factor"));
+                    continue;
+                }
+                if (!stems.Contains(g.Key.Run)) continue;
+                foreach (var e in g.Where(e => e.Confidence != SdrfEvidenceConfidence.Certain))
+                    notes.Add(new(e.DataFile, e.Column, "", e.Value, "a condition is taken only from a Certain claim: a design table or an SDRF that names the run"));
+                var certain = g.Where(e => e.Confidence == SdrfEvidenceConfidence.Certain).ToList();
+                var values = certain.Select(e => e.Value.Trim()).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                if (values.Count > 1) notes.Add(new(certain[0].DataFile, g.Key.Column, "", string.Join(" | ", values), "the claims disagree, so none is applied"));
+                if (values.Count != 1) continue;
+                (byRun.TryGetValue(g.Key.Run, out var mine) ? mine : byRun[g.Key.Run] = new(StringComparer.Ordinal))[g.Key.Column] = certain[0];
+                if (!order.Contains(g.Key.Column)) order.Add(g.Key.Column);
+            }
+            if (byRun.Count == 0) return draft;
+
+            var columns = order.Concat(draft.FactorColumns.Where(c => !order.Contains(c))).ToList();
+            var rows = draft.Rows.Select(row =>
+            {
+                if (!byRun.TryGetValue(SdrfFileNamePattern.Stem(row.DataFile).ToLowerInvariant(), out var mine))
+                    return row with
+                    {
+                        Factors = columns.Select(c => draft.FactorColumns.ToList().IndexOf(c) is int i and >= 0
+                            ? row.Factors[i] : SdrfDraftCell.NotAvailable("no design table names this run")).ToList()
+                    };
+                if (row.Factors.Any(f => f.Source != SdrfDraftSource.NotAvailable))
+                    notes.Add(new(row.DataFile, "factor value", string.Join(" | ", row.Factors.Select(f => f.Value)),
+                        string.Join(" | ", mine.Values.Select(e => e.Value.Trim())), "a design table that names this run replaces the conditions read from its name"));
+                return row with
+                {
+                    Factors = columns.Select(c => mine.TryGetValue(c, out var e)
+                        ? EvidenceCell(e, e.Value.Trim())
+                        : SdrfDraftCell.NotAvailable("a design table names this run, and no value for this condition")).ToList()
+                };
+            }).ToList();
+            return draft with { Rows = rows, FactorColumns = columns };
         }
 
         /// <summary>How a claim was read, as <c>comment[&lt;column&gt; source method]</c> writes it: every rule is
@@ -513,7 +617,7 @@ namespace Readers
         {
             "model" => "model",
             "curator" => "curator",
-            "isa-tab" or "sdrf" or "file-key" or "channel-map" or "text" => "rules",
+            "isa-tab" or "sdrf" or "design-table" or "file-key" or "channel-map" or "text" => "rules",
             _ => null
         };
 
@@ -533,6 +637,7 @@ namespace Readers
             SdrfDraftSource.PrideProjectRecord => "pride project record",
             SdrfDraftSource.Default => "default",
             SdrfDraftSource.Publication => "publication",
+            SdrfDraftSource.Deposit => "deposited",
             _ => "inferred"
         };
 

@@ -151,7 +151,7 @@ namespace Readers
                         r[at] = Write(target, cell);
                         int mark = Ensure($"comment[{target.Name} source]");
                         r[mark] = Word(cell.Source);
-                        if (cell.Source == SdrfDraftSource.Publication)
+                        if (SdrfDrafter.FromEvidence(cell.Source))
                         {
                             if (!string.IsNullOrEmpty(cell.Reference)) r[Ensure($"comment[{target.Name} source reference]")] = cell.Reference;
                             if (!string.IsNullOrEmpty(cell.Method)) r[Ensure($"comment[{target.Name} source method]")] = cell.Method;
@@ -216,9 +216,9 @@ namespace Readers
             {
                 var cells = draftedRows.Select(d => target.Cell(d)).ToList();
                 if (cells.Any(Overrides)) Ensure($"comment[{target.Name} source]");
-                if (cells.Any(c => c.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(c.Reference)))
+                if (cells.Any(c => SdrfDrafter.FromEvidence(c.Source) && !string.IsNullOrEmpty(c.Reference)))
                     Ensure($"comment[{target.Name} source reference]");
-                if (cells.Any(c => c.Source == SdrfDraftSource.Publication && !string.IsNullOrEmpty(c.Method)))
+                if (cells.Any(c => SdrfDrafter.FromEvidence(c.Source) && !string.IsNullOrEmpty(c.Method)))
                     Ensure($"comment[{target.Name} source method]");
             }
             // An ASSAY-WIDE column every deposited row fills with one value is carried to drafted rows (a label,
@@ -261,7 +261,7 @@ namespace Readers
                 {
                     var cell = target.Cell(d);
                     row[Col($"comment[{target.Name} source]")] = Word(cell.Source);
-                    if (cell.Source != SdrfDraftSource.Publication) continue;
+                    if (!SdrfDrafter.FromEvidence(cell.Source)) continue;
                     if (!string.IsNullOrEmpty(cell.Reference)) row[Col($"comment[{target.Name} source reference]")] = cell.Reference;
                     if (!string.IsNullOrEmpty(cell.Method)) row[Col($"comment[{target.Name} source method]")] = cell.Method;
                 }
@@ -288,6 +288,7 @@ namespace Readers
         {
             SdrfDraftSource.PrideProjectRecord => "pride project record",
             SdrfDraftSource.Publication => "publication",
+            SdrfDraftSource.Deposit => "deposited",
             SdrfDraftSource.Default => "default",
             SdrfDraftSource.Inferred => "inferred",
             _ => throw new ArgumentOutOfRangeException(nameof(source), source, "a cell with no source is never written")

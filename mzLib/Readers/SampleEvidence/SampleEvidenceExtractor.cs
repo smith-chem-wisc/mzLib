@@ -7,13 +7,15 @@ namespace Readers
     /// Rule-based sample evidence from a deposit's supplement tables (sdrf design SAMPLE-EVIDENCE.md, E3; D42: rules
     /// first). Ported from the prototype measured on 510 PRIDE-linked papers (sdrf results/benchmark, 2026-09-26).
     ///
-    /// <para>Four rules, tried in this order, and a claim a stronger rule made is never repeated by a weaker one:</para>
+    /// <para>Five rules, tried in this order, and a claim a stronger rule made is never repeated by a weaker one:</para>
     /// <list type="bullet">
     ///   <item><b>isa-tab</b> (Certain): an ISA-Tab study (<c>Sample Name</c>, <c>Characteristics[...]</c>) joined to its
     ///   assay's <c>Raw Spectral Data File</c> (an MS assay, per the ISA-Tab spec) or <c>Raw Data File</c>; a row
     ///   with a <c>Label</c> is a claim about that channel.</item>
     ///   <item><b>sdrf</b> (Certain): a supplement that is itself an SDRF; only rows naming this deposit's files, each
     ///   a claim about its <c>comment[label]</c> channel when it has one.</item>
+    ///   <item><b>design-table</b> (Certain): a search tool's own design table (Spectronaut's condition setup, an MSstats
+    ///   annotation, MaxQuant's experimental design): condition, replicate, fraction, technical replicate and sample.</item>
     ///   <item><b>channel-map</b> (Likely): an isobaric table giving each plex channel its sample, the plex named as a token
     ///   of the raw-file names -- in its own column, or in one cell with the channel (<c>TMT05_TMT-129</c>).</item>
     ///   <item><b>file-key</b> (Likely): a table with a column equal to the raw-file stems; its other columns mapped to
@@ -27,9 +29,22 @@ namespace Readers
     internal static class SampleEvidenceExtractor
     {
         private const string Supplement = "supplement";
+        private const string Deposit = "deposit";
 
         /// <summary>The claims the tables support about <paramref name="rawFiles"/>. Never null; empty when nothing links.</summary>
-        internal static IReadOnlyList<SdrfEvidence> Extract(IEnumerable<SupplementTable> tables, IReadOnlyList<string> rawFiles)
+        internal static IReadOnlyList<SdrfEvidence> Extract(IEnumerable<SupplementTable> tables, IReadOnlyList<string> rawFiles) =>
+            Extract(tables, rawFiles, Supplement);
+
+        /// <summary>
+        /// The claims a deposit's OWN files support (its <c>metadata/</c> tables beside the runs, not a paper's
+        /// supplement): the same rules, every claim's source <c>deposit</c>, which the drafter writes as
+        /// <c>deposited</c> (sdrf MASSIVE-SDRF.md, MV3). Name each table's <see cref="SupplementTable.File"/> by its path
+        /// in the deposit, so a claim's locator says where a reviewer finds it.
+        /// </summary>
+        internal static IReadOnlyList<SdrfEvidence> ExtractDeposited(IEnumerable<SupplementTable> tables, IReadOnlyList<string> rawFiles) =>
+            Extract(tables, rawFiles, Deposit);
+
+        private static IReadOnlyList<SdrfEvidence> Extract(IEnumerable<SupplementTable> tables, IReadOnlyList<string> rawFiles, string source)
         {
             if (tables == null) throw new ArgumentNullException(nameof(tables));
             if (rawFiles == null) throw new ArgumentNullException(nameof(rawFiles));
@@ -39,9 +54,12 @@ namespace Readers
             var claims = new List<SdrfEvidence>();
             claims.AddRange(IsaTab(list, index));
             claims.AddRange(SdrfTables(list, index));
-            foreach (var t in list.Where(t => !IsResultTable(t)))
+            claims.AddRange(DesignTables(list, index));
+            // A table the design-table rule read whole is not read again by a rule that guesses at columns.
+            var guessable = list.Where(t => !IsResultTable(t) && KindOf(t.Header) == DesignKind.None).ToList();
+            foreach (var t in guessable)
                 claims.AddRange(ChannelMap(t, index));
-            foreach (var t in list.Where(t => !IsResultTable(t)))
+            foreach (var t in guessable)
                 claims.AddRange(FileKey(t, index, rawFiles.Count));
 
             // A file, channel and column a stronger rule claimed is never repeated by a weaker one. Within the rule that
@@ -54,7 +72,7 @@ namespace Readers
             {
                 var key = (c.DataFile, c.Label, c.Column);
                 if (!owner.TryAdd(key, c.Method) && owner[key] != c.Method) continue;
-                if (seen.Add((c.DataFile, c.Label, c.Column, c.Value.ToLowerInvariant()))) kept.Add(c);
+                if (seen.Add((c.DataFile, c.Label, c.Column, c.Value.ToLowerInvariant()))) kept.Add(source == Supplement ? c : c with { Source = source });
             }
             return kept;
         }
@@ -125,6 +143,81 @@ namespace Readers
                 }
             }
         }
+
+        private enum DesignKind { None, Spectronaut, Msstats, MaxQuant }
+
+        /// <summary>Which search tool wrote a design table, by the tool's own column names; None for anything else.</summary>
+        private static DesignKind KindOf(IReadOnlyList<string> header)
+        {
+            bool Has(string name) => Find(header, name) >= 0;
+            if (Has("Run Label") && Has("Condition")) return DesignKind.Spectronaut;
+            if (Has("Run") && Has("Condition") && Has("BioReplicate")) return DesignKind.Msstats;
+            if (Has("Name") && Has("Experiment") && (Has("Fraction") || Has("PTM"))) return DesignKind.MaxQuant;
+            return DesignKind.None;
+        }
+
+        /// <summary>
+        /// A search tool's design table: Spectronaut's condition setup (Run Label, Condition, Replicate, Fraction), an
+        /// MSstats annotation (Run, Condition, BioReplicate, Fraction, TechRepMixture or TechReplicate, Channel; MassIVE.quant's
+        /// format) or MaxQuant's experimental design (Name, Fraction, Experiment). Certain: the columns are the tool's own,
+        /// and the table is the design the submitter searched with. A run is matched by its exact stem only.
+        /// <para>Never read: Spectronaut's Label (the condition again, or cut short: MSV000090777's <c>Non-i...</c>) and Color.
+        /// A missing value (<c>NA</c>) is no claim. A replicate, fraction or technical replicate is a whole number from 1, or
+        /// no claim. MSstats' BioReplicate is a number in some tables and a sample identifier in others: a column of whole
+        /// numbers is the biological replicate, any other is the sample's name. MaxQuant's Experiment is the sample its
+        /// fractions belong to.</para>
+        /// </summary>
+        private static IEnumerable<SdrfEvidence> DesignTables(List<SupplementTable> tables, FileIndex index)
+        {
+            foreach (var t in tables)
+            {
+                var kind = KindOf(t.Header);
+                if (kind == DesignKind.None) continue;
+                int run = Find(t.Header, kind switch { DesignKind.Spectronaut => "Run Label", DesignKind.Msstats => "Run", _ => "Name" });
+                int alternative = kind == DesignKind.Spectronaut ? Find(t.Header, "File Name") : -1;
+                int condition = Find(t.Header, "Condition");
+                int fraction = Find(t.Header, "Fraction");
+                int replicate = kind switch { DesignKind.Spectronaut => Find(t.Header, "Replicate"), DesignKind.Msstats => Find(t.Header, "BioReplicate"), _ => -1 };
+                int technical = kind == DesignKind.Msstats ? Math.Max(Find(t.Header, "TechRepMixture"), Find(t.Header, "TechReplicate")) : -1;
+                int channel = kind == DesignKind.Msstats ? Find(t.Header, "Channel") : -1;
+                int experiment = kind == DesignKind.MaxQuant ? Find(t.Header, "Experiment") : -1;
+                bool numbered = replicate >= 0 && Column(t, replicate).Where(v => Stated(v.Value)).All(v => WholeNumber(v.Value) != null);
+                for (int k = 0; k < t.Rows.Count; k++)
+                {
+                    var row = t.Rows[k];
+                    // An exact stem names one run, which a deposit may list in several formats (MSV000090777: every SCIEX
+                    // run as .wiff and .wiff2); each gets the claims. A sidecar (.wiff.scan) is part of its run, not a run.
+                    var files = index.ByExactStem(FileStem(row[run]));
+                    if (files.Count == 0 && alternative >= 0) files = index.ByExactStem(FileStem(row[alternative]));
+                    string label = channel >= 0 ? ChannelLabel(row[channel]) : "";
+                    int at = k;
+                    foreach (var file in files.Where(f => !f.EndsWith(".wiff.scan", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        SdrfEvidence Design(int j, string column, string value) =>
+                            Claim(file, label, column, value, t.Locator(at, j), "design-table", SdrfEvidenceConfidence.Certain);
+                        if (condition >= 0 && Stated(row[condition])) yield return Design(condition, "factor value[condition]", row[condition].Trim());
+                        if (replicate >= 0 && Stated(row[replicate]))
+                        {
+                            if (!numbered) yield return Design(replicate, "source name", row[replicate].Trim());
+                            else if (WholeNumber(row[replicate]) is { } n) yield return Design(replicate, "characteristics[biological replicate]", n);
+                        }
+                        if (experiment >= 0 && Stated(row[experiment])) yield return Design(experiment, "source name", row[experiment].Trim());
+                        if (fraction >= 0 && WholeNumber(row[fraction]) is { } f) yield return Design(fraction, "comment[fraction identifier]", f);
+                        if (technical >= 0 && WholeNumber(row[technical]) is { } r) yield return Design(technical, "comment[technical replicate]", r);
+                    }
+                }
+            }
+        }
+
+        /// <summary>A tool's mark for a value nobody set: Spectronaut writes <c>Not Defined</c> for a run with no condition.</summary>
+        private static readonly HashSet<string> NotStated = new(StringComparer.OrdinalIgnoreCase) { "na", "n/a", "nan", "none", "null", "-", "--", "not defined" };
+
+        /// <summary>A cell that states something: not blank, not a reserved word, not a tool's missing-value mark.</summary>
+        private static bool Stated(string v) => Usable(v) && !NotStated.Contains(v.Trim());
+
+        /// <summary>The cell as a whole number from 1 (<c>3</c>), or null.</summary>
+        private static string? WholeNumber(string v) =>
+            int.TryParse(v.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out int n) && n >= 1 ? n.ToString(CultureInfo.InvariantCulture) : null;
 
         private static readonly Regex Tag = new(@"^(?:tmt(?:pro)?[ -]?|itraq[ -]?)?(1[23]\d[NC]?|11[3-9]|121)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
         private static readonly Regex Combined = new(@"^(.+?)[ _-]+(?:tmt(?:pro)?[ -]?|itraq[ -]?)?(1[23]\d[NC]?|11[3-9]|121)$", RegexOptions.IgnoreCase | RegexOptions.Compiled);
