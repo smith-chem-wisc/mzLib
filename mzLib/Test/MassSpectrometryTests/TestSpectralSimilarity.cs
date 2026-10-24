@@ -5,6 +5,7 @@ using NUnit.Framework;
 using Assert = NUnit.Framework.Legacy.ClassicAssert;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Test.MassSpectrometryTests
 {
@@ -508,6 +509,31 @@ namespace Test.MassSpectrometryTests
             NUnit.Framework.Assert.That(
                 SpectralSimilarity.CosineOfAlignedVectors(new double[] { 1, 2, 3 }, new double[] { 1, 2, 3 }),
                 Is.EqualTo(1.0).Within(1e-9));
+        }
+
+        [Test]
+        public void SpectralContrastAngle_IdenticalSpectra_IsOneNotNaN()
+        {
+            // Proportional spectra (the same shape at a different scale) are identical after normalisation up to
+            // the last bits, and can round to a cosine of 1 + 1e-16, which used to make Math.Acos return NaN.
+            // Scan seeded random cases and require at least one such rounding, so the test cannot pass without
+            // exercising it.
+            var rng = new Random(20260917);
+            int cosineAboveOne = 0;
+            for (int trial = 0; trial < 2000; trial++)
+            {
+                int n = rng.Next(2, 60);
+                double[] mz = Enumerable.Range(0, n).Select(i => 300.0 + 10.0 * i).ToArray();
+                double[] intensity = Enumerable.Range(0, n).Select(_ => rng.NextDouble() + 1e-3).ToArray();
+                double scale = 0.1 + 10 * rng.NextDouble();
+                var s = new SpectralSimilarity(mz, intensity, mz, intensity.Select(y => y * scale).ToArray(),
+                    SpectralSimilarity.SpectrumNormalizationScheme.SpectrumSum, 1, false, 0);
+
+                if (s.CosineSimilarity() > 1.0) cosineAboveOne++;
+                // acos(1 - 1e-16) is about 1.5e-8, so a correct angle is 1 only to within ~1e-7
+                NUnit.Framework.Assert.That(s.SpectralContrastAngle(), Is.EqualTo(1.0).Within(1e-7));
+            }
+            NUnit.Framework.Assert.That(cosineAboveOne, Is.GreaterThan(0));
         }
     }
 }

@@ -1,0 +1,4 @@
+contrast	intercept	groupB	groupC
+groupB	0	1	0
+groupC	0	0	1
+C_vs_B	0	-1	1

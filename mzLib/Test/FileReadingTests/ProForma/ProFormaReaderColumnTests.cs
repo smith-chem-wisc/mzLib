@@ -70,16 +70,53 @@ namespace Test.FileReadingTests.ProForma
         [TestCase("[Common Artifact:Ammonia loss on C]C[Common Fixed:Carbamidomethyl on C]AK", "[UNIMOD:385]-C[UNIMOD:4]AK",
             TestName = "FullSequence_LeadingBracket_IsNTerminal")]
         [TestCase("PEPD[Metal:Calcium on D]K", "PEPD[UNIMOD:951]K", TestName = "FullSequence_CalciumOnD_Converts")]
-        // No UNIMOD accession in mzLib's modification set: written by name rather than dropped or thrown.
-        [TestCase("[UniProt:N-acetylalanine on A]AAAGEAR", "[UniProt:N-acetylalanine on A]-AAAGEAR",
-            TestName = "FullSequence_NTerminalModWithoutAccession_KeepsName")]
+        // UniProt-named modifications resolve against the UniProt ptmlist and are written by their
+        // UNIMOD accession (#1401); they used to keep the "UniProt:" name, which is not a ProForma vocabulary.
+        [TestCase("[UniProt:N-acetylalanine on A]AAAGEAR", "[UNIMOD:1]-AAAGEAR",
+            TestName = "FullSequence_UniProtNTerminalMod_BecomesUnimodAccession")]
+        [TestCase("[UniProt:N-acetylserine on S]SEQK", "[UNIMOD:1]-SEQK",
+            TestName = "FullSequence_UniProtNAcetylserine_BecomesUnimod1")]
+        [TestCase("PEPK[UniProt:N6,N6-dimethyllysine on K]R", "PEPK[UNIMOD:36]R",
+            TestName = "FullSequence_UniProtDimethyllysine_BecomesUnimod36")]
+        [TestCase("PEPM[Common Variable:Oxidation on M]K", "PEPM[UNIMOD:35]K",
+            TestName = "FullSequence_MetaMorpheusOxidation_StaysUnimod35")]
+        // A UniProt modification with a PSI-MOD reference but no Unimod one takes the PSI-MOD accession,
+        // written once: the loader stores the id already prefixed ("MOD:01956"), not as "MOD:MOD:01956".
+        [TestCase("PER[UniProt:(3R)-3-hydroxyarginine on R]K", "PER[MOD:01956]K",
+            TestName = "FullSequence_UniProtModWithOnlyPsiMod_BecomesPsiModAccession")]
+        // A UniProt modification with no ontology reference at all is written by name, as
+        // ProFormaConverter.ToProFormaTerm writes the same modification.
+        [TestCase("PEK[UniProt:(3S)-3-hydroxylysine on K]K", "PEK[(3S)-3-hydroxylysine]K",
+            TestName = "FullSequence_UniProtModWithoutAccession_IsWrittenByName")]
         // MetaMorpheus writes a C-terminal modification after a '-', which is a terminus marker, not a residue.
-        [TestCase("KPVADYFL-[Common Artifact:Leucine methyl ester on L]", "KPVADYFL-[Common Artifact:Leucine methyl ester on L]",
+        // The mod is MetaMorpheus's own (not in mzLib's set) and shares its name with the UniProt entry,
+        // which carries Unimod 34 (methyl).
+        [TestCase("KPVADYFL-[Common Artifact:Leucine methyl ester on L]", "KPVADYFL-[UNIMOD:34]",
             TestName = "FullSequence_CTerminalMod_StaysOnTheCTerminus")]
         [TestCase("PEPK[Custom:Nameless on K]R", "PEPK[Custom:Nameless on K]R", TestName = "FullSequence_UnknownMod_KeepsName")]
         public void ProFormaFromFullSequence_ConvertsMetaMorpheusNotation(string fullSequence, string expected)
         {
             Assert.That(SpectrumMatchFromTsv.ProFormaFromFullSequence(fullSequence), Is.EqualTo(expected));
+        }
+
+        [Test]
+        public void ProForma_ColumnAbsent_UniProtModsAreWrittenAsAccessions()
+        {
+            // A real top-down G-PTM-D result without a ProForma column, full of UniProt-named modifications.
+            var psms = SpectrumMatchTsvReader.ReadTsv<PsmFromTsv>(SearchResult("TDGPTMDSearchResults.psmtsv"), out _);
+            var converted = psms.Where(p => p.FullSequence.Contains("[UniProt:") && p.ProForma != null).ToList();
+            Assert.That(converted, Is.Not.Empty);
+
+            // "UniProt:" is not a ProForma vocabulary, so it must never reach the output.
+            Assert.That(converted.Where(p => p.ProForma!.Contains("UniProt:")).Select(p => p.ProForma), Is.Empty);
+            var acetylSerine = converted.First(p => p.FullSequence.StartsWith("[UniProt:N-acetylserine on S]"));
+            Assert.That(acetylSerine.ProForma, Does.StartWith("[UNIMOD:1]-S"));
+            Assert.That(converted.Select(p => p.ProForma), Has.Some.Contains("K[UNIMOD:36]"),
+                "N6,N6-dimethyllysine is Unimod 36");
+
+            // Bottom-up file: Tele-methylhistidine is Unimod 34 (methyl).
+            var bottomUp = SpectrumMatchTsvReader.ReadTsv<PsmFromTsv>(SearchResult("BottomUpExample.psmtsv"), out _);
+            Assert.That(bottomUp.Select(p => p.ProForma), Does.Contain("YPIEH[UNIMOD:34]GIVTNWDDMEK"));
         }
 
         [TestCase(null)]
