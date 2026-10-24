@@ -126,6 +126,12 @@ public class MzLibSequenceSerializer : SequenceSerializerBase
             return false;
         }
 
+        // An mzLib id is "<name> on <motif>"; an ontology accession such as UNIMOD:1 is not.
+        if (!idWithMotif.Contains(" on "))
+        {
+            return false;
+        }
+
         token = $"{modificationType}:{idWithMotif}";
         return true;
     }
