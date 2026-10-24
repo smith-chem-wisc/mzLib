@@ -29,7 +29,13 @@ namespace Readers
         /// <see cref="SdrfDraftCell.Reference"/> says where, and is written as <c>comment[&lt;column&gt; source
         /// reference]</c>.
         /// </summary>
-        Publication
+        Publication,
+
+        /// <summary>
+        /// Taken from MassIVE's dataset record (its PROXI record), where it lists exactly one value: the rule of
+        /// <see cref="PrideProjectRecord"/>, from another repository (sdrf MASSIVE-SDRF.md, MV1).
+        /// </summary>
+        MassiveDatasetRecord
     }
 
     /// <summary>
@@ -74,14 +80,14 @@ namespace Readers
     }
 
     /// <summary>
-    /// Drafts an SDRF for a PRIDE deposit from what PRIDE gives: the project record and the raw-file
-    /// names. It combines <see cref="SdrfFileNamePattern"/> (structure from how names vary),
-    /// <see cref="SdrfRecordAnchors"/> (conditions the record's own text names) and
-    /// <see cref="SdrfReplicateResolver"/> (replicates and what they count).
+    /// Drafts an SDRF for a deposit from what its repository gives: the record (<see cref="SdrfDepositRecord"/>:
+    /// PRIDE's project record or MassIVE's dataset record) and the raw-file names. It combines
+    /// <see cref="SdrfFileNamePattern"/> (structure from how names vary), <see cref="SdrfRecordAnchors"/> (conditions
+    /// the record's own text names) and <see cref="SdrfReplicateResolver"/> (replicates and what they count).
     ///
     /// <para><b>Every rule here was measured before it was written.</b> The sdrf project graded drafts blind
     /// against curated SDRFs for 240 deposits, two graders each, in rounds that each fixed what the last
-    /// found (results/benchmark, 2026-09-23). The decisions it cites: D27 (a project fact only when PRIDE
+    /// found (results/benchmark, 2026-09-23). The decisions it cites: D27 (a project fact only when the record
     /// lists one value), D34 (disease), D35 (a deposited SDRF comes first -- this type is for when there is
     /// none, or to fill one's gaps), D36 (the SDRF governs quantification).</para>
     ///
@@ -90,7 +96,7 @@ namespace Readers
     /// write it with provenance <c>inferred</c> and a reviewer can check it. With no structure in the names,
     /// every file is its own sample and biological replicate 1 -- never a count across the deposit.</para>
     ///
-    /// <para>Pure: an already-fetched project and file list in, a draft out. Internal (D19) until a
+    /// <para>Pure: an already-fetched record and file list in, a draft out. Internal (D19) until a
     /// cross-assembly caller is named.</para>
     /// </summary>
     internal static class SdrfDrafter
@@ -122,13 +128,24 @@ namespace Readers
         /// </summary>
         public static SdrfDraft Draft(PrideProject project, IEnumerable<string> rawFileNames, IEnumerable<SdrfEvidence>? evidence = null)
         {
-            var draft = DraftFromRecord(project, rawFileNames);
+            if (project == null) throw new ArgumentNullException(nameof(project));
+            return Draft(SdrfDepositRecord.FromPride(project), rawFileNames, evidence);
+        }
+
+        /// <summary>
+        /// Drafts one row per raw file from any repository's record (<see cref="SdrfDepositRecord"/>), as
+        /// <see cref="Draft(PrideProject, IEnumerable{string}, IEnumerable{SdrfEvidence})"/> does from PRIDE's. A value
+        /// taken from the record carries the record's provenance, and every reason names the record.
+        /// </summary>
+        public static SdrfDraft Draft(SdrfDepositRecord record, IEnumerable<string> rawFileNames, IEnumerable<SdrfEvidence>? evidence = null)
+        {
+            var draft = DraftFromRecord(record, rawFileNames);
             return evidence == null ? draft : ApplyEvidence(draft, evidence.ToList());
         }
 
-        private static SdrfDraft DraftFromRecord(PrideProject project, IEnumerable<string> rawFileNames)
+        private static SdrfDraft DraftFromRecord(SdrfDepositRecord record, IEnumerable<string> rawFileNames)
         {
-            if (project == null) throw new ArgumentNullException(nameof(project));
+            if (record == null) throw new ArgumentNullException(nameof(record));
             if (rawFileNames == null) throw new ArgumentNullException(nameof(rawFileNames));
             var all = rawFileNames.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
             // A sidecar (X.wiff.scan beside X.wiff) is part of its run, not a run: no row of its own.
@@ -137,8 +154,8 @@ namespace Readers
                 .OrderBy(n => n, StringComparer.Ordinal).ToList();
             if (names.Count == 0) return new SdrfDraft(Array.Empty<SdrfDraftRow>(), Array.Empty<string>());
 
-            var text = new[] { project.Title, project.ProjectDescription, project.SampleProcessingProtocol, project.DataProcessingProtocol }
-                .Concat(project.Keywords).Concat(project.ProjectTags).ToList();
+            var text = new[] { record.Title, record.Description, record.SampleProcessingProtocol, record.DataProcessingProtocol }
+                .Concat(record.Keywords).Concat(record.ProjectTags).ToList();
             var structure = SdrfFileNamePattern.Read(names);
             var anchors = SdrfRecordAnchors.Read(names, text);
             var replicates = SdrfReplicateResolver.Read(names, text);
@@ -204,25 +221,25 @@ namespace Readers
                 .ToDictionary(g => g.Key, g => SdrfFileNamePattern.Stem(g.OrderBy(n => n, StringComparer.Ordinal).First()));
 
             // ---- project facts (D27), disease (D34) ----
-            var organism = One(project.Organisms, "organism", Organism);
+            var organism = One(record.Organisms, "organism", Organism, record);
             // Several organisms (G43): a row takes one of THEM from its own name, or stays not available.
-            var organisms = project.Organisms.Select(Organism).GroupBy(t => t.Accession, StringComparer.OrdinalIgnoreCase)
+            var organisms = record.Organisms.Select(Organism).GroupBy(t => t.Accession, StringComparer.OrdinalIgnoreCase)
                 .Select(g => g.First()).ToList();
             var fromName = organisms.Count > 1
-                ? names.Distinct().ToDictionary(n => n, n => OrganismFromName(n, organisms))
+                ? names.Distinct().ToDictionary(n => n, n => OrganismFromName(n, organisms, record))
                 : new Dictionary<string, SdrfDraftCell?>();
             // A record that describes mixed proteomes (a two-proteome benchmark, a spike-in) has runs whose names
             // give only one of them (PXD014415's human_yaeast, PXD005206's CSF_Ecoli). Its names are trusted only
             // when they tell two of its organisms apart.
-            if (MixedProteomes.IsMatch($"{project.Title} {project.ProjectDescription} {project.SampleProcessingProtocol}")
+            if (MixedProteomes.IsMatch($"{record.Title} {record.Description} {record.SampleProcessingProtocol}")
                 && fromName.Values.OfType<SdrfDraftCell>().Select(c => c.Term!.Accession).Distinct(StringComparer.OrdinalIgnoreCase).Count() < 2)
                 fromName.Clear();
             SdrfDraftCell OrganismOf(string file) => fromName.GetValueOrDefault(file) ?? organism;
-            var part = OfKind(One(project.OrganismParts, "organism part", ByPrefix), "organism part", NotOrganismPart);
-            var instrument = One(project.Instruments, "instrument", ByPrefix);
-            var disease = OfKind(One(project.Diseases, "disease", ByPrefix), "disease", NotDisease);
+            var part = OfKind(One(record.OrganismParts, "organism part", ByPrefix, record), "organism part", NotOrganismPart, record);
+            var instrument = One(record.Instruments, "instrument", ByPrefix, record);
+            var disease = OfKind(One(record.Diseases, "disease", ByPrefix, record), "disease", NotDisease, record);
             if (disease.Term != null && disease.Value.Equals("disease free", StringComparison.OrdinalIgnoreCase))
-                disease = disease with { Value = "normal", Evidence = "PRIDE's project record lists 'Disease free'" };
+                disease = disease with { Value = "normal", Evidence = $"{record.Name} lists 'Disease free'" };
             bool split = names.Any(n => LevelsOf(n).Any(CaseControlArm.IsMatch)) && names.Any(n => !LevelsOf(n).Any(CaseControlArm.IsMatch));
 
             var rows = new List<SdrfDraftRow>(names.Count);
@@ -307,7 +324,7 @@ namespace Readers
                 if (stated.Count > 0)
                 {
                     var byRow = stated.GroupBy(x => x.Cell.Source)
-                        .OrderByDescending(g => g.Count()).ThenBy(g => g.Key == SdrfDraftSource.PrideProjectRecord ? 0 : 1)
+                        .OrderByDescending(g => g.Count()).ThenBy(g => SdrfDepositRecord.IsRecord(g.Key) ? 0 : 1)
                         .First().Key;
                     comments["comment[characteristics source]"] = SourceWord(byRow);
                     foreach (var (name, cell) in stated.Where(x => x.Cell.Source != byRow))
@@ -531,6 +548,7 @@ namespace Readers
         private static string SourceWord(SdrfDraftSource source) => source switch
         {
             SdrfDraftSource.PrideProjectRecord => "pride project record",
+            SdrfDraftSource.MassiveDatasetRecord => "massive dataset record",
             SdrfDraftSource.Default => "default",
             SdrfDraftSource.Publication => "publication",
             _ => "inferred"
@@ -612,16 +630,16 @@ namespace Readers
             return result;
         }
 
-        /// <summary>A project fact, only when PRIDE lists exactly one value for it (D27).</summary>
-        private static SdrfDraftCell One(List<CvParam> terms, string what, Func<CvParam, CvParam> normalise)
+        /// <summary>A project fact, only when the deposit's record lists exactly one value for it (D27).</summary>
+        private static SdrfDraftCell One(IReadOnlyList<CvParam> terms, string what, Func<CvParam, CvParam> normalise, SdrfDepositRecord record)
         {
             var distinct = terms.GroupBy(t => t.Accession, StringComparer.OrdinalIgnoreCase).Select(g => g.First()).ToList();
             if (distinct.Count != 1)
                 return SdrfDraftCell.NotAvailable(distinct.Count == 0
-                    ? $"PRIDE's project record lists no {what}"
-                    : $"PRIDE's project record lists {distinct.Count} values for {what}, so none is written per sample");
+                    ? $"{record.Name} lists no {what}"
+                    : $"{record.Name} lists {distinct.Count} values for {what}, so none is written per sample");
             var term = normalise(distinct[0]);
-            return new SdrfDraftCell(term.Name, SdrfDraftSource.PrideProjectRecord, $"the one {what} PRIDE's project record lists", term);
+            return new SdrfDraftCell(term.Name, record.Source, $"the one {what} {record.Name} lists", term);
         }
 
         /// <summary>
@@ -665,7 +683,7 @@ namespace Readers
         /// null when it names none or several, when any cue names an organism the record does not list, and when it
         /// names a mixture or a spike-in standard. Never an organism the record does not list.
         /// </summary>
-        private static SdrfDraftCell? OrganismFromName(string file, IReadOnlyList<CvParam> organisms)
+        private static SdrfDraftCell? OrganismFromName(string file, IReadOnlyList<CvParam> organisms, SdrfDepositRecord record)
         {
             var found = new Dictionary<string, (CvParam Term, string Part)>(StringComparer.OrdinalIgnoreCase);
             foreach (Match m in NamePart.Matches(SdrfFileNamePattern.Stem(file)))
@@ -689,7 +707,7 @@ namespace Readers
             if (found.Count != 1) return null;
             var (organism, cue) = found.Values.Single();
             return new SdrfDraftCell(organism.Name, SdrfDraftSource.Inferred,
-                $"the file name says '{cue}', one of the organisms PRIDE's project record lists", organism);
+                $"the file name says '{cue}', one of the organisms {record.Name} lists", organism);
         }
 
         /// <summary>
@@ -703,9 +721,9 @@ namespace Readers
         }
 
         /// <summary>A term from an ontology that is never this column's kind is not written; the reason says why.</summary>
-        private static SdrfDraftCell OfKind(SdrfDraftCell cell, string what, HashSet<string> wrongKind) =>
+        private static SdrfDraftCell OfKind(SdrfDraftCell cell, string what, HashSet<string> wrongKind, SdrfDepositRecord record) =>
             cell.Term is { } term && wrongKind.Contains(term.CvLabel)
-                ? SdrfDraftCell.NotAvailable($"PRIDE's project record lists {term.Accession} '{term.Name}' as the {what}, but {term.CvLabel} is not a {what} ontology")
+                ? SdrfDraftCell.NotAvailable($"{record.Name} lists {term.Accession} '{term.Name}' as the {what}, but {term.CvLabel} is not a {what} ontology")
                 : cell;
 
         /// <summary>
