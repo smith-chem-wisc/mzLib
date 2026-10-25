@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using MassSpectrometry;
+using Omics.Modifications;
 
 namespace Development.QuantificationDevelopment.TestHelpers;
 
@@ -24,8 +26,10 @@ public class SpikeInExperimentalDesign : IExperimentalDesign
         var design = new Dictionary<string, ISampleInfo[]>();
 
         // TMT10-plex channel labels and reporter ion m/z values (in order)
-        string[] channelLabels = { "126", "127N", "127C", "128N", "128C", "129N", "129C", "130N", "130C", "131N" };
-        double[] channelMzs   = { 126.12776, 127.12476, 127.13108, 128.12811, 128.13443, 129.13147, 129.13779, 130.13482, 130.14114, 131.13818 };
+        if (!IsobaricMassTag.TryGetIsobaricMassTag(IsobaricMassTagType.TMT10, out var tmt10) || tmt10 == null)
+            throw new InvalidOperationException("TMT10 is not among the embedded isobaric label modifications.");
+        string[] channelLabels = tmt10.ChannelLabels.ToArray();
+        double[] channelMzs = tmt10.ReporterIonMzs;
 
         // Channel-to-condition mappings per mixture type.
         (string condition, int bioRep)[] mixture15Conditions =

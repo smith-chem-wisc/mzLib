@@ -474,7 +474,8 @@ public class PrideProxiSpectrumLiveTests
     public Task GetProxiSpectrumAsync_LiveKnownUsi_ReturnsPeaksAndAttributes() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var spectrum = await client.GetProxiSpectrumAsync(KnownUsi);
 
             Assert.That(spectrum.Usi, Is.EqualTo(KnownUsi));
@@ -496,7 +497,8 @@ public class PrideProxiSpectrumLiveTests
     public Task GetSpectrumAsync_LiveKnownUsi_ReturnsPopulatedMzSpectrum() =>
         ExternalServiceTestHelper.RunAsync("PRIDE", async () =>
         {
-            using var client = new PrideArchiveClient();
+            // one attempt: a PRIDE outage skips at once, not after the 5/20/60 s retry backoffs
+            using var client = new PrideArchiveClient { MaxRetries = 0 };
             var spectrum = await client.GetSpectrumAsync(KnownUsi);
 
             Assert.That(spectrum.Size, Is.GreaterThan(1));

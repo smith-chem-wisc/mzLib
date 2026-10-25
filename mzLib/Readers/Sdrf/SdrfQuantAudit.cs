@@ -446,7 +446,7 @@ namespace Readers
         /// The name a label cell carries, and the form it was written in. Both key orders occur --
         /// <c>NT=..;AC=..</c> and <c>AC=..;NT=..</c> -- so the cell is parsed rather than prefix-matched.
         /// </summary>
-        private static (string Name, SdrfLabelForm Form) ReadLabel(string cell)
+        internal static (string Name, SdrfLabelForm Form) ReadLabel(string cell)
         {
             var pairs = SdrfCell.ParseKeyValues(cell);
             if (pairs.Count == 0) return (cell.Trim(), SdrfLabelForm.Bare);

@@ -1,0 +1,4 @@
+generated_utc 2026-10-08 14:17:39 UTC
+R R version 4.6.1 (2026-06-24 ucrt)
+script make_design_fixtures.R (base R stats::model.matrix only; no packages)
+age_default_centre mean age 14.25

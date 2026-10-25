@@ -397,8 +397,6 @@ namespace FlashLFQ
             Dictionary<char, double> averagineComposition = FlashParams.RnaMode
                 ? new OxyriboAveragine().GetAverageChemicalFormula()
                 : new Averagine().GetAverageChemicalFormula();
-            double averagineMass = averagineComposition
-                .Sum(kvp => PeriodicTable.GetElement(kvp.Key.ToString()).AverageMass * kvp.Value);
 
             // calculate monoisotopic masses and isotopic envelope for the base sequences
             foreach (Identification id in _allIdentifications)
@@ -412,36 +410,23 @@ namespace FlashLFQ
 
                 var isotopicMassesAndNormalizedAbundances = new List<(double massShift, double abundancence)>();
 
+                // a supplied formula is used as is; a parsed sequence is topped up with averagine when it is more than
+                // AveragineFormula.DefaultAveragineThreshold (20 Da) from the identified mass; an unparsable one is all averagine
+                double averagineThreshold = double.PositiveInfinity;
                 if(formula is null)
                 {
                     formula = new ChemicalFormula();
+                    averagineThreshold = 0;
                     if (SequenceResiduesAreValid(id.BaseSequence))
                     {
                         // there are sometimes non-parsable sequences in the base sequence input
                         formula = GetChemicalFormulaFromIdentification(id);
-                        double massDiff = id.MonoisotopicMass;
-                        massDiff -= formula.MonoisotopicMass;
-
-                        if (Math.Abs(massDiff) > 20)
-                        {
-                            AddAveragineToFormula(formula, massDiff, averagineComposition, averagineMass);
-                        }
-                    }
-                    else
-                    {
-                        AddAveragineToFormula(formula, id.MonoisotopicMass, averagineComposition, averagineMass);
+                        averagineThreshold = AveragineFormula.DefaultAveragineThreshold;
                     }
                 }
 
-                var isotopicDistribution = IsotopicDistribution.GetDistribution(formula, 0.125, 1e-8);
-
-                double[] masses = isotopicDistribution.Masses.ToArray();
-                double[] abundances = isotopicDistribution.Intensities.ToArray();
-
-                for (int i = 0; i < masses.Length; i++)
-                {
-                    masses[i] += (id.MonoisotopicMass - formula.MonoisotopicMass);
-                }
+                var (masses, abundances) = AveragineFormula.GetAnchoredDistribution(formula, id.MonoisotopicMass,
+                    averagineComposition, 0.125, 1e-8, averagineThreshold);
 
                 double highestAbundance = abundances.Max();
                 int highestAbundanceIndex = Array.IndexOf(abundances, highestAbundance);
@@ -510,22 +495,6 @@ namespace FlashLFQ
             return FlashParams.RnaMode
                 ? new OligoWithSetMods(id.ModifiedSequence).ThisChemicalFormula
                 : new Proteomics.AminoAcidPolymer.Peptide(id.BaseSequence).GetChemicalFormula();
-        }
-
-        /// <summary>
-        /// Approximates <paramref name="mass"/> daltons of an unknown species by adding averagine atoms
-        /// to <paramref name="formula"/>, scaling the per-residue <paramref name="averagineComposition"/>
-        /// (from <see cref="Averagine"/> / <see cref="OxyriboAveragine"/>) by the number of averagine
-        /// residues that make up the mass and rounding each element to the nearest whole atom.
-        /// </summary>
-        private static void AddAveragineToFormula(ChemicalFormula formula, double mass,
-            Dictionary<char, double> averagineComposition, double averagineMass)
-        {
-            double averagines = mass / averagineMass;
-            foreach (var (element, countPerAveragine) in averagineComposition)
-            {
-                formula.Add(element.ToString(), (int)Math.Round(averagines * countPerAveragine, 0));
-            }
         }
 
         /// <summary>

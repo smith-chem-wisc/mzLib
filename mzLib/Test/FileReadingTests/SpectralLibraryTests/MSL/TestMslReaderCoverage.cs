@@ -13,7 +13,7 @@ namespace Test.MslSpectralLibrary;
 /// <summary>
 /// Targeted coverage for every untested exception path in <see cref="MslReader"/>.
 ///
-/// Each test names the method and the check number from ValidateFileBytes / 
+/// Each test names the method and the check number from
 /// StreamingValidateAndReadHeader so the mapping back to source is unambiguous.
 ///
 /// Technique: write a valid .msl file, read it to bytes, corrupt the specific field
@@ -164,7 +164,7 @@ public sealed class TestMslReaderCoverage
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// ValidateFileBytes (reached via Load) — 6 throw sites
+	// StreamingValidateAndReadHeader (reached via Load) — 6 throw sites
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>
@@ -485,7 +485,7 @@ public sealed class TestMslReaderCoverage
 	}
 
 	// ═════════════════════════════════════════════════════════════════════════
-	// ValidateFileBytes — invalid OffsetTableOffset check
+	// StreamingValidateAndReadHeader (via Load) — invalid OffsetTableOffset check
 	// ═════════════════════════════════════════════════════════════════════════
 
 	/// <summary>

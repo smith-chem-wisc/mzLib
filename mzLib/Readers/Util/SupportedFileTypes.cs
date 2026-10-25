@@ -40,7 +40,10 @@ namespace Readers
         MzIdentML,
         MzIdentMLGz,
         MetaMorpheusQuantifiedProteinGroups,
-        FlashLFQQuantifiedPeptide
+        FlashLFQQuantifiedPeptide,
+        MetaMorpheusQuantifiedTranscriptGroups,
+        FlashLFQQuantifiedOligo,
+        DiaNnReportParquet
     }
 
     public static class SupportedFileTypeExtensions
@@ -50,6 +53,7 @@ namespace Readers
         /// the quantified name, which is the one written back out.
         /// </summary>
         private const string MetaMorpheusProteinGroupsSuffix = "ProteinGroups.tsv";
+        private const string MetaMorpheusTranscriptGroupsSuffix = "TranscriptGroups.tsv";
 
         /// <summary>
         /// Returns the extension for the file type
@@ -102,6 +106,11 @@ namespace Readers
                 SupportedFileType.MzIdentMLGz => ".mzid.gz",
                 SupportedFileType.MetaMorpheusQuantifiedProteinGroups => "QuantifiedProteinGroups.tsv",
                 SupportedFileType.FlashLFQQuantifiedPeptide => "QuantifiedPeptides.tsv",
+                SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups => "QuantifiedTranscriptGroups.tsv",
+                SupportedFileType.FlashLFQQuantifiedOligo => "QuantifiedOligos.tsv",
+                // As with DiaNnReport, only the conventional name WriteResults would use: the report is
+                // recognized by its columns, whatever it is called.
+                SupportedFileType.DiaNnReportParquet => "report.parquet",
                 _ => throw new MzLibException("File type not supported")
             };
         }
@@ -151,8 +160,12 @@ namespace Readers
                     // quantification is off, and <file>_ProteinGroups.tsv for each file's individual results.
                     if (filePath.EndsWith(MetaMorpheusProteinGroupsSuffix, StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.MetaMorpheusQuantifiedProteinGroups;
+                    if (filePath.EndsWith(MetaMorpheusTranscriptGroupsSuffix, StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups;
                     if (filePath.EndsWith(SupportedFileType.FlashLFQQuantifiedPeptide.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.FlashLFQQuantifiedPeptide;
+                    if (filePath.EndsWith(SupportedFileType.FlashLFQQuantifiedOligo.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
+                        return SupportedFileType.FlashLFQQuantifiedOligo;
                     if (filePath.EndsWith(SupportedFileType.Ms1Tsv_FlashDeconv.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
                         return SupportedFileType.Ms1Tsv_FlashDeconv;
                     if (filePath.EndsWith(SupportedFileType.ToppicPrsm.GetFileExtension(), StringComparison.InvariantCultureIgnoreCase))
@@ -247,6 +260,13 @@ namespace Readers
                         return SupportedFileType.MzIdentMLGz;
                     throw new MzLibException("Gz file type not supported");
 
+                case ".parquet":
+                    // DIA-NN 2.x writes its main report only as parquet and lets the user name it anything, so,
+                    // like the TSV report, it is recognized by its columns rather than its name.
+                    if (DiaNnParquetReportFile.HasDiaNnReportColumns(filePath))
+                        return SupportedFileType.DiaNnReportParquet;
+                    throw new MzLibException("Parquet file type not supported");
+
                 case ".mztab":
                     using (var reader = new StreamReader(filePath))
                     {
@@ -311,6 +331,9 @@ namespace Readers
                 SupportedFileType.MzIdentMLGz => typeof(MzIdentMLResultFile),
                 SupportedFileType.MetaMorpheusQuantifiedProteinGroups => typeof(ProteinGroupFromTsvFile),
                 SupportedFileType.FlashLFQQuantifiedPeptide => typeof(QuantifiedPeptideFile),
+                SupportedFileType.MetaMorpheusQuantifiedTranscriptGroups => typeof(TranscriptGroupFromTsvFile),
+                SupportedFileType.FlashLFQQuantifiedOligo => typeof(QuantifiedOligoFile),
+                SupportedFileType.DiaNnReportParquet => typeof(DiaNnParquetReportFile),
                 _ => throw new MzLibException("File type not supported")
             };
         }
