@@ -236,7 +236,11 @@ namespace MassSpectrometry
         /// interfering spike would win.
         /// </summary>
         /// <param name="libraryIntensities">Expected relative intensity of each fragment, in trace order.</param>
-        /// <returns>The apex scan index, or -1 when no scan carries any fragment signal.</returns>
+        /// <returns>
+        /// The apex scan index, or -1 when no scan has a positive apex score (<see cref="ApexScores(IReadOnlyList{double[]}, IReadOnlyList{double}, int)"/>):
+        /// no fragment signal at all, or signal whose fragments nowhere co-elute, such as a spike on one fragment alone.
+        /// So -1 does not mean silence.
+        /// </returns>
         /// <exception cref="ArgumentException">The traces differ in length, or there is not one library intensity per trace.</exception>
         /// <exception cref="ArgumentOutOfRangeException"><paramref name="halfWidth"/> is negative.</exception>
         public static int FindApex(IReadOnlyList<double[]> traces, IReadOnlyList<double> libraryIntensities, int halfWidth)
