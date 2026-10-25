@@ -11,8 +11,9 @@ namespace StatisticalModels
     public static class TargetDecoyQValues
     {
         /// <summary>
-        /// One q-value per entry, in input order; higher scores rank first. Decoys receive the value at their rank. Among
-        /// equal scores, decoys rank first (the conservative choice), then input order.
+        /// One q-value per entry, in input order; higher scores rank first. Decoys receive the value at their rank. Equal
+        /// scores are one rank: the whole tie block is counted before any of it gets its value, so a tied target never ranks
+        /// ahead of a tied decoy (the conservative choice) and neither labels nor row order change any value.
         /// </summary>
         /// <exception cref="ArgumentNullException">An argument is null.</exception>
         /// <exception cref="ArgumentException">Lengths disagree or a score is not finite.</exception>
@@ -41,10 +42,18 @@ namespace StatisticalModels
             });
             var ranked = new double[order.Length];
             int decoys = 0, targets = 0;
-            for (int k = 0; k < order.Length; k++)
+            for (int k = 0; k < order.Length; )
             {
-                if (isDecoy[order[k]]) decoys++; else targets++;
-                ranked[k] = targets == 0 ? 1 : Math.Min(1, (decoys + 1.0) / targets);
+                int end = k;
+                do
+                {
+                    if (d[order[end]]) decoys++; else targets++;
+                    end++;
+                }
+                while (end < order.Length && s[order[end]] == s[order[k]]);
+                double value = targets == 0 ? 1 : Math.Min(1, (decoys + 1.0) / targets);
+                for (; k < end; k++)
+                    ranked[k] = value;
             }
             for (int k = order.Length - 2; k >= 0; k--)
                 ranked[k] = Math.Min(ranked[k], ranked[k + 1]);

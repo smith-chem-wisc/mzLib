@@ -57,6 +57,23 @@ public class PickedTargetDecoyTests
         Assert.That(q[11], Is.EqualTo(2.0 / 11).Within(1e-12));
     }
 
+    /// <summary>
+    /// Equal scores are one rank, whatever their labels or order: eight targets at 10, then two decoys and a target tied at
+    /// 5. All three get 3/9. Counted one row at a time with decoys first, the first decoy would get 2/8, and which decoy is
+    /// first would depend on row order.
+    /// </summary>
+    [Test]
+    public void TiedScoresShareOneQValue()
+    {
+        double[] scores = [.. Enumerable.Repeat(10.0, 8), 5, 5, 5];
+        bool[] decoy = [.. Enumerable.Repeat(false, 8), true, false, true];
+
+        double[] q = TargetDecoyQValues.Compute(scores, decoy);
+
+        Assert.That(q.Take(8), Is.All.EqualTo(1.0 / 8).Within(1e-12));
+        Assert.That(q.Skip(8), Is.All.EqualTo(3.0 / 9).Within(1e-12));
+    }
+
     [Test]
     public void QValueArgumentsAreChecked()
     {
@@ -172,7 +189,8 @@ public class PickedTargetDecoyTests
 
     /// <summary>
     /// The q-value sort was rewritten for speed (the rescorer computes it for every feature and sign of every fold); on
-    /// heavily tied scores it must reproduce the original stable LINQ order exactly.
+    /// heavily tied scores it must reproduce a plain LINQ reference exactly. Every target also keeps the value the earlier
+    /// rule gave it (decoys ranked first at a tie, one row at a time): one rank per tie block changes only decoys' values.
     /// </summary>
     [Test]
     public void QValuesMatchTheOriginalOrderingOnTiedScores()
@@ -184,20 +202,34 @@ public class PickedTargetDecoyTests
             double[] scores = Enumerable.Range(0, n).Select(_ => (double)random.Next(0, 40)).ToArray();
             bool[] decoy = Enumerable.Range(0, n).Select(_ => random.NextDouble() < 0.4).ToArray();
             int[] order = Enumerable.Range(0, n).OrderByDescending(i => scores[i]).ThenByDescending(i => decoy[i]).ThenBy(i => i).ToArray();
-            var ranked = new double[n];
-            int d = 0, t = 0;
-            for (int k = 0; k < n; k++)
-            {
-                if (decoy[order[k]]) d++; else t++;
-                ranked[k] = t == 0 ? 1 : Math.Min(1, (d + 1.0) / t);
-            }
-            for (int k = n - 2; k >= 0; k--)
-                ranked[k] = Math.Min(ranked[k], ranked[k + 1]);
-            var expected = new double[n];
-            for (int k = 0; k < n; k++)
-                expected[order[k]] = ranked[k];
 
-            Assert.That(TargetDecoyQValues.Compute(scores, decoy), Is.EqualTo(expected), $"trial {trial}");
+            double[] Reference(bool oneRankPerTie)
+            {
+                var ranked = new double[n];
+                int d = 0, t = 0;
+                for (int k = 0; k < n; k++)
+                {
+                    if (decoy[order[k]]) d++; else t++;
+                    ranked[k] = t == 0 ? 1 : Math.Min(1, (d + 1.0) / t);
+                }
+                if (oneRankPerTie)
+                    for (int k = n - 2; k >= 0; k--)
+                        if (scores[order[k]] == scores[order[k + 1]])
+                            ranked[k] = ranked[k + 1];
+                for (int k = n - 2; k >= 0; k--)
+                    ranked[k] = Math.Min(ranked[k], ranked[k + 1]);
+                var q = new double[n];
+                for (int k = 0; k < n; k++)
+                    q[order[k]] = ranked[k];
+                return q;
+            }
+
+            double[] actual = TargetDecoyQValues.Compute(scores, decoy);
+            double[] decoysFirst = Reference(oneRankPerTie: false);
+            Assert.That(actual, Is.EqualTo(Reference(oneRankPerTie: true)), $"trial {trial}");
+            for (int i = 0; i < n; i++)
+                if (!decoy[i])
+                    Assert.That(actual[i], Is.EqualTo(decoysFirst[i]), $"trial {trial}, target {i}");
         }
     }
 }
