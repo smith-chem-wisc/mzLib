@@ -75,7 +75,34 @@ namespace Test.FileReadingTests
         {
             var r = new MemberResolver(new[] { P("P04406") }).Resolve("P04406");
 
-            Assert.That(r, Is.EqualTo(new MemberResolution("P04406", "P04406", MemberResolutionKind.Self, false)));
+            Assert.That(r, Is.EqualTo(new MemberResolution("P04406", "P04406", MemberResolutionKind.Self, false, "P04406")));
+        }
+
+        // The sequence the member is: what an annotation naming one isoform (a Reactome molecule) joins on.
+        [TestCase("P04406", "P04406", "P04406", "P04406")]
+        [TestCase("P04406_A20T", "P04406", "P04406", "P04406")]
+        [TestCase("P04406_A20T", "P04406|P04406_A20T", "P04406_A20T", "P04406")]
+        [TestCase("P04406-2", "P04406", "P04406", "P04406-2")]
+        [TestCase("P04406-2_A20T", "P04406", "P04406", "P04406-2")]
+        [TestCase("P04406-2_A20T", "P04406|P04406-2", "P04406-2", "P04406-2")]
+        [TestCase("P04406-2_A20T_G31", "P04406", "P04406", "P04406-2")]
+        [TestCase("CON_P02768", "CON_P02768", "CON_P02768", "CON_P02768")]
+        public void Resolver_SequenceAccession_IsTheMemberWithoutItsVariantSuffix(string member, string database,
+            string annotatedAs, string sequence)
+        {
+            var r = new MemberResolver(database.Split('|').Select(a => P(a))).Resolve(member);
+
+            Assert.That(r.AnnotatedAs, Is.EqualTo(annotatedAs));
+            Assert.That(r.SequenceAccession, Is.EqualTo(sequence));
+            Assert.That(MemberResolver.SequenceAccessionOf(member), Is.EqualTo(sequence));
+        }
+
+        [Test]
+        public void Resolver_SequenceAccession_NullWhenNoEntry_AndTheStaticRefusesEmpty()
+        {
+            Assert.That(new MemberResolver(new[] { P("P04406") }).Resolve("Random_P04406_f1").SequenceAccession, Is.Null);
+            Assert.That(MemberResolver.SequenceAccessionOf("Random_P04406_f1"), Is.EqualTo("Random_P04406_f1"));
+            Assert.Throws<ArgumentException>(() => MemberResolver.SequenceAccessionOf(""));
         }
 
         [TestCase("P04406-2", "P04406")]
@@ -275,10 +302,12 @@ namespace Test.FileReadingTests
         {
             using var writer = new StringWriter();
             Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer,
-                new[] { new MemberResolution("P1", "P2", MemberResolutionKind.Self, false) }, DbSha));
+                new[] { new MemberResolution("P1", "P2", MemberResolutionKind.Self, false, "P1") }, DbSha));
             Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer,
-                new[] { new MemberResolution("P1", "P1", MemberResolutionKind.Self, false),
-                        new MemberResolution("P1", "P1", MemberResolutionKind.Self, false) }, DbSha));
+                new[] { new MemberResolution("P1", "P1", MemberResolutionKind.Self, false, "P1"),
+                        new MemberResolution("P1", "P1", MemberResolutionKind.Self, false, "P1") }, DbSha));
+            Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer,
+                new[] { new MemberResolution("P1-2", "P1", MemberResolutionKind.Inherited, false, "P1") }, DbSha));
             Assert.Throws<ArgumentException>(() => MemberResolutionTsv.Write(writer, Array.Empty<MemberResolution>(), ""));
         }
 
@@ -359,16 +388,20 @@ namespace Test.FileReadingTests
             Assert.That(ex.Message, Does.Contain(expected));
         }
 
-        [TestCase("P1\tP2\tself\tfalse\n", "contradicts")]
-        [TestCase("P1\t\tinherited\tfalse\n", "contradicts")]
-        [TestCase("P1\tP1\tno_entry\tfalse\n", "contradicts")]
-        [TestCase("P1\tP1\tsomewhere\tfalse\n", "is not self")]
-        [TestCase("P1\tP1\tself\t\n", "entrapment is empty")]
-        [TestCase("P1\tP1\tself\tfalse\nP1\tP1\tself\tfalse\n", "appears twice")]
+        [TestCase("P1\tP2\tself\tfalse\tP1\n", "contradicts resolution")]
+        [TestCase("P1\t\tinherited\tfalse\tP1\n", "contradicts resolution")]
+        [TestCase("P1\tP1\tno_entry\tfalse\t\n", "contradicts resolution")]
+        [TestCase("P1\tP1\tsomewhere\tfalse\tP1\n", "is not self")]
+        [TestCase("P1\tP1\tself\t\tP1\n", "entrapment is empty")]
+        [TestCase("P1\tP1\tself\tfalse\tP1\nP1\tP1\tself\tfalse\tP1\n", "appears twice")]
+        [TestCase("P1-2\tP1\tinherited\tfalse\tP1\n", "sequence_accession 'P1' contradicts")]
+        [TestCase("P1_A20T\tP1\tinherited\tfalse\t\n", "sequence_accession '' contradicts")]
+        [TestCase("X1\t\tno_entry\tfalse\tX1\n", "sequence_accession 'X1' contradicts")]
+        [TestCase("P1\tP1\tself\tfalse\n", "cells")]
         public void MemberResolution_Reader_Refuses(string rows, string expected)
         {
             string path = Path.Combine(_dir, "c.tsv");
-            File.WriteAllText(path, "#!member_resolution_format 1\n#!annotation_db_sha256 y\naccession\tannotated_as\tresolution\tentrapment\n" + rows);
+            File.WriteAllText(path, "#!member_resolution_format 1\n#!annotation_db_sha256 y\naccession\tannotated_as\tresolution\tentrapment\tsequence_accession\n" + rows);
 
             var ex = Assert.Throws<InvalidDataException>(() => MemberResolutionTsv.Read(path));
             Assert.That(ex.Message, Does.Contain(expected));

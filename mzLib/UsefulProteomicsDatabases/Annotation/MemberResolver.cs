@@ -34,7 +34,13 @@ namespace UsefulProteomicsDatabases.Annotation
     /// <param name="Kind">How the member was matched.</param>
     /// <param name="IsEntrapment">The member is entrapment, by the loader's accession rule or because the
     /// database marks it. Entrapment is neither target nor decoy: it is resolved like any member and labelled.</param>
-    public sealed record MemberResolution(string Accession, string AnnotatedAs, MemberResolutionKind Kind, bool IsEntrapment);
+    /// <param name="SequenceAccession">The sequence the member is a variant of, or the member itself
+    /// (<see cref="MemberResolver.SequenceAccessionOf"/>): P04406-2_A20T is isoform 2 with a substitution, so
+    /// P04406-2, whichever entry it takes its annotation from. An annotation that names one isoform applies to the
+    /// members whose sequence accession is that isoform. Null when <paramref name="Kind"/> is
+    /// <see cref="MemberResolutionKind.NoEntry"/>.</param>
+    public sealed record MemberResolution(string Accession, string AnnotatedAs, MemberResolutionKind Kind, bool IsEntrapment,
+        string SequenceAccession);
 
     /// <summary>
     /// Matches the members of a search's protein groups to the entries of an annotation database.
@@ -102,25 +108,48 @@ namespace UsefulProteomicsDatabases.Annotation
                 throw new ArgumentException("A member accession is null or empty.", nameof(accession));
             }
             bool entrapment = IsEntrapment(accession);
-            if (_accessions.Contains(accession))
-            {
-                return new MemberResolution(accession, accession, MemberResolutionKind.Self, entrapment);
-            }
-
             var variant = SequenceVariantSuffix.Match(accession);
             var parsed = ProteinAccession.Parse(variant.Success ? variant.Groups["base"].Value : accession);
-            if (parsed.Namespace == AccessionNamespace.UniProt)
+            bool uniProt = parsed.Namespace == AccessionNamespace.UniProt;
+            string sequence = variant.Success && uniProt ? parsed.Verbatim : accession;
+
+            if (_accessions.Contains(accession))
+            {
+                return new MemberResolution(accession, accession, MemberResolutionKind.Self, entrapment, sequence);
+            }
+            if (uniProt)
             {
                 if (variant.Success && _accessions.Contains(parsed.Verbatim))
                 {
-                    return new MemberResolution(accession, parsed.Verbatim, MemberResolutionKind.Inherited, entrapment);
+                    return new MemberResolution(accession, parsed.Verbatim, MemberResolutionKind.Inherited, entrapment, sequence);
                 }
                 if (parsed.Isoform != null && _accessions.Contains(parsed.EntryAccession))
                 {
-                    return new MemberResolution(accession, parsed.EntryAccession, MemberResolutionKind.Inherited, entrapment);
+                    return new MemberResolution(accession, parsed.EntryAccession, MemberResolutionKind.Inherited, entrapment, sequence);
                 }
             }
-            return new MemberResolution(accession, null, MemberResolutionKind.NoEntry, entrapment);
+            return new MemberResolution(accession, null, MemberResolutionKind.NoEntry, entrapment, null);
+        }
+
+        /// <summary>
+        /// The sequence an accession names: with mzLib's sequence-variant suffix removed when what remains is a
+        /// UniProt accession (P04406-2_A20T is P04406-2, P04406_A20T is P04406), and otherwise the accession itself.
+        /// The UniProt condition keeps an accession that merely looks like a variant (CON_P02768) whole.
+        /// </summary>
+        /// <exception cref="ArgumentException">The accession is null or empty.</exception>
+        public static string SequenceAccessionOf(string accession)
+        {
+            if (string.IsNullOrEmpty(accession))
+            {
+                throw new ArgumentException("An accession is null or empty.", nameof(accession));
+            }
+            var variant = SequenceVariantSuffix.Match(accession);
+            if (!variant.Success)
+            {
+                return accession;
+            }
+            var parsed = ProteinAccession.Parse(variant.Groups["base"].Value);
+            return parsed.Namespace == AccessionNamespace.UniProt ? parsed.Verbatim : accession;
         }
 
         /// <summary>
