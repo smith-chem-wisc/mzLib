@@ -51,6 +51,13 @@ namespace UsefulProteomicsDatabases
         private List<(int, string)> AnnotatedVariantMods = new List<(int position, string originalModificationID)>();
         // Captured isoform/sequence identifier from <location sequence="...">
         private string LocationSequenceId;
+        // The isoform a <dbReference> is scoped to, from its <molecule id="..."/> child; null for the whole entry
+        private string DBReferenceMolecule;
+        // Inside <comment type="alternative products"><isoform>: an interactant's <id> sits at the same depth, so a flag is needed
+        private bool ReadingIsoform;
+        private string CurrentIsoformId;
+        // The <isoform> whose <sequence type="displayed"/>: the isoform the entry's own <sequence> is
+        private string DisplayedIsoformId;
         /// <summary>
         /// Parses a single XML element from a protein database entry and updates the internal state of the ProteinXmlEntry object.
         /// Handles metadata, sequence, features, gene names, organism, and references by reading attributes and content from the XmlReader.
@@ -130,6 +137,28 @@ namespace UsefulProteomicsDatabases
                     PropertyValues.Clear();
                     DBReferenceType = xml.GetAttribute("type");
                     DBReferenceId = xml.GetAttribute("id");
+                    DBReferenceMolecule = null;
+                    break;
+
+                case "molecule":
+                    // only a dbReference's <molecule id="..."/>; a comment's text-form <molecule>Isoform 2</molecule> is not one
+                    if (DBReferenceType != null)
+                    {
+                        DBReferenceMolecule = xml.GetAttribute("id");
+                    }
+                    break;
+
+                case "isoform":
+                    ReadingIsoform = true;
+                    CurrentIsoformId = null;
+                    break;
+
+                case "id":
+                    // an isoform's first <id>; an interactant's <id> is ignored
+                    if (ReadingIsoform && CurrentIsoformId == null)
+                    {
+                        CurrentIsoformId = xml.ReadElementString();
+                    }
                     break;
 
                 case "property":
@@ -156,7 +185,18 @@ namespace UsefulProteomicsDatabases
                     break;
 
                 case "sequence":
-                    ParseSequenceAttributes(xml);
+                    // an isoform's <sequence type="displayed|described" .../> describes that isoform, not the entry's sequence
+                    if (ReadingIsoform)
+                    {
+                        if (DisplayedIsoformId == null && xml.GetAttribute("type") == "displayed")
+                        {
+                            DisplayedIsoformId = CurrentIsoformId;
+                        }
+                    }
+                    else
+                    {
+                        ParseSequenceAttributes(xml);
+                    }
                     break;
             }
         }
@@ -209,7 +249,7 @@ namespace UsefulProteomicsDatabases
             int length = Sequence.Length;
             int mass = ComputeSequenceMass(Sequence);
 
-            SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment);
+            SequenceAttributes = new UniProtSequenceAttributes(length, mass, checksum, entryModified, sequenceVersion, isPrecursor, fragment, DisplayedIsoformId);
 
         }
         // Helper method to parse the modified date attribute, with fallback to DateTime.Now if parsing fails.
@@ -337,6 +377,10 @@ namespace UsefulProteomicsDatabases
             {
                 ParseDatabaseReferenceEndElement(xml);
             }
+            else if (xml.Name == "isoform")
+            {
+                ParseIsoformEndElement();
+            }
             else if (xml.Name == "gene")
             {
                 ReadingGene = false;
@@ -387,6 +431,10 @@ namespace UsefulProteomicsDatabases
             else if (xml.Name == "dbReference")
             {
                 ParseDatabaseReferenceEndElement(xml);
+            }
+            else if (xml.Name == "isoform")
+            {
+                ParseIsoformEndElement();
             }
             else if (xml.Name == "gene")
             {
@@ -683,11 +731,22 @@ namespace UsefulProteomicsDatabases
         {
             DatabaseReferences.Add(
                 new DatabaseReference(DBReferenceType, DBReferenceId,
-                    Enumerable.Range(0, PropertyTypes.Count).Select(i => new Tuple<string, string>(PropertyTypes[i], PropertyValues[i])).ToList()));
+                    Enumerable.Range(0, PropertyTypes.Count).Select(i => new Tuple<string, string>(PropertyTypes[i], PropertyValues[i])).ToList(),
+                    DBReferenceMolecule));
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             DBReferenceType = null;
             DBReferenceId = null;
+            DBReferenceMolecule = null;
+        }
+
+        /// <summary>
+        /// Finish parsing an &lt;isoform&gt; of &lt;comment type="alternative products"&gt;
+        /// </summary>
+        private void ParseIsoformEndElement()
+        {
+            ReadingIsoform = false;
+            CurrentIsoformId = null;
         }
 
         /// <summary>
@@ -710,6 +769,10 @@ namespace UsefulProteomicsDatabases
             VariationValue = "";
             DBReferenceType = null;
             DBReferenceId = null;
+            DBReferenceMolecule = null;
+            ReadingIsoform = false;
+            CurrentIsoformId = null;
+            DisplayedIsoformId = null;
             PropertyTypes = new List<string>();
             PropertyValues = new List<string>();
             OneBasedFeaturePosition = -1;

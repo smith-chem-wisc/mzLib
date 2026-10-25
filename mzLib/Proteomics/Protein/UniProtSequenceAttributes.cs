@@ -36,13 +36,21 @@ namespace Proteomics
             Fragment = fragment;
         }
 
-        // RED: surface only, so the failing tests compile; the displayed isoform is not kept yet.
+        /// <param name="displayedIsoformId">The isoform this sequence is (UniProt's &lt;isoform&gt; whose
+        /// &lt;sequence type="displayed"/&gt;), or null (or empty) when the entry lists no isoforms.</param>
         public UniProtSequenceAttributes(int length, int mass, string checkSum, DateTime entryModified, int sequenceVersion, bool? isPrecursor, FragmentType fragment, string displayedIsoformId)
             : this(length, mass, checkSum, entryModified, sequenceVersion, isPrecursor, fragment)
         {
+            DisplayedIsoformId = string.IsNullOrEmpty(displayedIsoformId) ? null : displayedIsoformId;
         }
 
-        public string DisplayedIsoformId { get; private set; }
+        /// <summary>
+        /// The UniProt isoform whose sequence this is, e.g. "P04406-1", read from the entry's
+        /// &lt;comment type="alternative products"&gt;; null when the entry lists no isoforms (or came from FASTA).
+        /// The displayed isoform can carry any number, so "-1" is never assumed. It decides whether a reference scoped
+        /// to an isoform (<see cref="DatabaseReference.Molecule"/>) applies to this sequence.
+        /// </summary>
+        public string DisplayedIsoformId { get; private set; } //optional
         public void UpdateLengthAttribute(int newLength)
         {
             Length = newLength;

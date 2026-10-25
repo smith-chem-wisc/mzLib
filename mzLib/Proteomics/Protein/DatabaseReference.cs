@@ -19,12 +19,27 @@ namespace Proteomics
             Properties = properties ?? new List<Tuple<string, string>>();
         }
 
-        // RED: surface only, so the failing tests compile; the molecule is not kept yet.
+        /// <summary>
+        /// A reference that UniProt scopes to one isoform, as in
+        /// &lt;dbReference type="Reactome" id="R-HSA-5250924"&gt;&lt;molecule id="O00159-3"/&gt;...&lt;/dbReference&gt;.
+        /// </summary>
+        /// <param name="type"></param>
+        /// <param name="id"></param>
+        /// <param name="properties"></param>
+        /// <param name="molecule">The isoform accession the reference is scoped to, or null (or empty) when it covers
+        /// the whole entry.</param>
         public DatabaseReference(string type, string id, IEnumerable<Tuple<string, string>> properties, string molecule)
             : this(type, id, properties)
         {
+            Molecule = string.IsNullOrEmpty(molecule) ? null : molecule;
         }
 
+        /// <summary>
+        /// The isoform this reference is scoped to (UniProt's &lt;molecule id&gt;, e.g. "O00159-3"), or null when it
+        /// covers the whole entry. An isoform-scoped reference does not apply to the entry's other isoforms, so it must
+        /// never be read as the entry's: in the UniProt 2026_03 human proteome, 610 Reactome pathways are listed for
+        /// one isoform only.
+        /// </summary>
         public string Molecule { get; }
 
         /// <summary>
@@ -45,9 +60,10 @@ namespace Proteomics
         public override bool Equals(object obj)
         {
             DatabaseReference d = obj as DatabaseReference;
-            return obj != null
+            return d != null
                 && (d.Type == null && Type == null || d.Type.Equals(Type))
                 && (d.Id == null && Id == null || d.Id.Equals(Id))
+                && string.Equals(d.Molecule, Molecule, StringComparison.Ordinal)
                 && d.Properties.OrderBy(x => x).SequenceEqual(Properties.OrderBy(x => x));
         }
 

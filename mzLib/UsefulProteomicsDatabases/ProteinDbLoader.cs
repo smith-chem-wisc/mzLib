@@ -522,7 +522,9 @@ namespace UsefulProteomicsDatabases
                         createds.FirstOrDefault(),
                         modifieds.FirstOrDefault(),
                         versions.FirstOrDefault(),
-                        xmlnses.FirstOrDefault())
+                        xmlnses.FirstOrDefault()),
+                    // the merged entries share accession and sequence; keep their sequence attributes (incl. the displayed isoform)
+                    uniProtSequenceAttributes: proteins.Value[0].UniProtSequenceAttributes
                     );
             }
         }
