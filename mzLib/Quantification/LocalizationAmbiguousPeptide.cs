@@ -100,23 +100,26 @@ public sealed class LocalizationAmbiguousPeptide : IBioPolymerWithSetMods
     public override string ToString() => FullSequence;
 
     /// <summary>
-    /// What a peptide is with its modification sites left out: the base sequence and one chemical formula per
-    /// modification, sorted (a modification with no formula by its mass). Null when a modification has neither.
-    /// Two positional isomers give the same string; so do Hydroxylation on N and Oxidation on M (one oxygen, on N or on
-    /// M); two oxidations and one dioxidation do not (one total formula, different modifications).
+    /// What a peptide is with its modification sites left out: the base sequence and each modification by what it is,
+    /// sorted. A modification is what it is by its type, its name without the residue
+    /// (<see cref="Modification.OriginalId"/>, so Phosphorylation on S and on T are one modification) and its chemical
+    /// formula (by its mass when it has none). Null when a modification has neither a formula nor a mass. Two positional
+    /// isomers give the same string. A formula alone does not say what a modification is: Hydroxylation on D and
+    /// Oxidation on M are both one oxygen and give different strings, as two oxidations and one dioxidation do.
+    /// MetaMorpheus's <c>SpectralMatch.GetSiteFreeIdentity</c> judges a match the same way.
     /// </summary>
     public static string? SiteFreeIdentity(IBioPolymerWithSetMods peptide)
     {
         var keys = new List<string>();
         foreach (var modification in peptide.AllModsOneIsNterminus.Values)
         {
-            string? key = modification.ChemicalFormula?.Formula
+            string? composition = modification.ChemicalFormula?.Formula
                 ?? modification.MonoisotopicMass?.ToString("F5", CultureInfo.InvariantCulture);
-            if (key == null)
+            if (composition == null)
             {
                 return null;
             }
-            keys.Add(key);
+            keys.Add(modification.ModificationType + ":" + (modification.OriginalId ?? modification.IdWithMotif) + " " + composition);
         }
         keys.Sort(StringComparer.Ordinal);
         return peptide.BaseSequence + " " + string.Join(";", keys);

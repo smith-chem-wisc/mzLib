@@ -263,6 +263,46 @@ namespace Test.Quantification
             Assert.That(result.PeptideIntensities.Keys.OfType<LocalizationAmbiguousPeptide>(), Is.Empty);
         }
 
+        /// <summary>
+        /// A modification is what it is by its type, its name without the residue and its formula, not by its formula
+        /// alone. Oxidation on M3 against Hydroxylation on D4 is one oxygen either way, but two modifications: the match
+        /// cannot say which one it carries, so it is excluded as before. Phosphorylation on S or on T is one modification
+        /// on two residues, so that match is one row.
+        /// </summary>
+        [Test]
+        public void ModificationsAreComparedByIdentity_NotByFormulaAlone()
+        {
+            var protein = new Protein("ACMDMEKGGGR", "P1");
+            var oxidationAtM3 = Peptide(protein, 1, 7, (3, Oxidation));
+            var hydroxylationAtD4 = Peptide(protein, 1, 7, (4, Mod("Hydroxylation", "D", "O")));
+            Assume.That(oxidationAtM3.MonoisotopicMass, Is.EqualTo(hydroxylationAtD4.MonoisotopicMass).Within(1e-9));
+
+            var phosphoProtein = new Protein("ASDTEKGGGR", "P2");
+            var phosphoAtS2 = Peptide(phosphoProtein, 1, 6, (2, Mod("Phosphorylation", "S", "HO3P")));
+            var phosphoAtT4 = Peptide(phosphoProtein, 1, 6, (4, Mod("Phosphorylation", "T", "HO3P")));
+
+            var result = Run(new List<ISpectralMatch>
+                {
+                    Match(1, new[] { 1000.0, 2000.0 }, oxidationAtM3, hydroxylationAtD4),
+                    Match(2, new[] { 300.0, 400.0 }, phosphoAtS2, phosphoAtT4)
+                },
+                Unrelated(), new List<IBioPolymerGroup>
+                {
+                    Group(new[] { protein }, new[] { oxidationAtM3, hydroxylationAtD4 }),
+                    Group(new[] { phosphoProtein }, new[] { phosphoAtS2, phosphoAtT4 })
+                });
+
+            Assert.Multiple(() =>
+            {
+                Assert.That(result.AmbiguousSpectralMatchesExcluded, Is.EqualTo(1), "only the oxidation/hydroxylation match");
+                Assert.That(result.PeptideIntensities.Keys.OfType<LocalizationAmbiguousPeptide>().Select(p => p.FullSequence),
+                    Is.EqualTo(new[] { Name(phosphoAtS2, phosphoAtT4) }));
+                Assert.That(LocalizationAmbiguousPeptide.SiteFreeIdentity(oxidationAtM3),
+                    Is.Not.EqualTo(LocalizationAmbiguousPeptide.SiteFreeIdentity(hydroxylationAtD4)));
+                Assert.Throws<ArgumentException>(() => new LocalizationAmbiguousPeptide(new[] { oxidationAtM3, hydroxylationAtD4 }));
+            });
+        }
+
         [Test]
         public void ALocalizationAmbiguousPeptide_IsItsSitesAndClaimsNone()
         {
