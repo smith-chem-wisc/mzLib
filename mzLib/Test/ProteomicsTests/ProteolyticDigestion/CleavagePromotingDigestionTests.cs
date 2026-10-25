@@ -182,6 +182,38 @@ namespace Test.ProteomicsTests.ProteolyticDigestion
                 "a blocked site and an unoccupied site together are two cleavages that could not happen");
         }
 
+        /// <summary>
+        /// FullDigestion emits a WHOLE proteolysis product -- neither end a cleavage site -- only while it
+        /// spans strictly fewer sites than the budget. With both corrections on, the budget includes the
+        /// blocking slack and the promoting drop does the trim, so it must apply the same tighter bound.
+        /// </summary>
+        [Test]
+        public static void WithBothFlagsOn_WholeProteolysisProductsAreTrimmedToTheBudgetFlagOffDigestionUses(
+            [Values(0, 1, 2)] int maxMissedCleavages)
+        {
+            // No StcE motif, so only trypsin cuts: after K9 and K14. Each chain starts after, and ends on, a
+            // residue that is not a site, so it comes only from the whole-product branch; they span 0, 1 and
+            // 2 sites, so every budget tested has a chain exactly at it.
+            const string sequence = "GGGGGAAAKAAAAKAAAAGGGGGR";
+            var protein = new Protein(sequence, "WHOLE", proteolysisProducts: new List<TruncationProduct>
+            {
+                new(6, 8, "chain"), new(6, 13, "chain"), new(6, 18, "chain"),
+            });
+
+            List<string> Unmodified(bool respect) => protein
+                .Digest(new DigestionParams(protease: "StcE-trypsin|P", maxMissedCleavages: maxMissedCleavages,
+                        minPeptideLength: 1, maxModsForPeptides: 2, initiatorMethionineBehavior: InitiatorMethionineBehavior.Retain,
+                        respectCleavageBlockingModifications: respect, respectCleavagePromotingModifications: respect),
+                    new List<Modification>(), new List<Modification> { OGlycan("T"), AcetylLysine() })
+                .Where(p => p.AllModsOneIsNterminus.Count == 0)
+                .Select(p => p.OneBasedStartResidue + "-" + p.OneBasedEndResidue + " " + p.FullSequence + "|" + p.MissedCleavages)
+                .OrderBy(s => s, System.StringComparer.Ordinal)
+                .ToList();
+
+            CollectionAssert.AreEqual(Unmodified(respect: false), Unmodified(respect: true),
+                "with no glycoprotease site and no modification placed, both corrections must digest exactly as flag-off");
+        }
+
         // ---------------------------------------------------------------------------------------
         // The read-through slack is finite, and complete within the read-through length
         // ---------------------------------------------------------------------------------------

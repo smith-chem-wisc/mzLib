@@ -84,6 +84,17 @@ namespace Proteomics.ProteolyticDigestion
                 ? FindInternalFeasibleCleavageSites(digestionParams.DigestionAgent, configuredModifications)
                 : null;
 
+            // The budget the promoting drop trims back to. FullDigestion emits a WHOLE proteolysis product --
+            // neither end a site -- only while it spans fewer sites than the budget, so a whole product gets
+            // one fewer, as CleavageBlockingPolicy.MissedCleavageBudgetFor gives the blocking drop. Judged on
+            // the feasible sites, the list FullDigestion digested from.
+            int promotingMissedCleavageBudget = respectCleavageRequirements
+                && OneBasedStartResidue > 1 && OneBasedEndResidue < Protein.Length
+                && !digestionParams.DigestionAgent.IsFeasibleCleavageSite(OneBasedStartResidue - 1, Protein, configuredModifications)
+                && !digestionParams.DigestionAgent.IsFeasibleCleavageSite(OneBasedEndResidue, Protein, configuredModifications)
+                    ? digestionParams.MaxMissedCleavages - 1
+                    : digestionParams.MaxMissedCleavages;
+
             // When both corrections are on, the blocking drop hands the residues it discounted to the
             // promoting drop, which applies the ONE missed-cleavage budget over both. Reused across
             // peptidoforms rather than allocated per pattern.
@@ -166,7 +177,7 @@ namespace Proteomics.ProteolyticDigestion
                     if (respectCleavageRequirements
                         && IsUnreachableWithoutRequiredModification(variableModPattern, peptideLength,
                             digestionParams.DigestionAgent, configuredModifications, allKnownFixedModifications,
-                            internalFeasibleSites, blockedInternalResidues, digestionParams.MaxMissedCleavages,
+                            internalFeasibleSites, blockedInternalResidues, promotingMissedCleavageBudget,
                             out reportedMissedCleavages))
                     {
                         continue;
