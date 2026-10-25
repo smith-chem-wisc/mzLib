@@ -379,6 +379,13 @@ namespace Test.FileReadingTests
         [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\nP1\t\t\t\t\nP1\tGO:0005634\tcellular_component\t\tfalse\n", "term-less row and another")]
         [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\nP1\tGO:0005634\tplace\t\tfalse\n", "not a GO namespace")]
         [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\nP1\tGO:0005634\tcellular_component\t\tmaybe\n", "true or false")]
+        [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!go_obo_sha256 x\n", "appears twice")]
+        [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\n", "no column header")]
+        [TestCase("accession\tgo_id\taspect\tevidence\tinherited\n", "(missing)")]
+        [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\n\tGO:0005634\tcellular_component\t\tfalse\n", "accession is empty")]
+        [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\nP1\tGO:0005634\tcellular_component\t\tfalse\nP1\t\t\t\t\n", "term-less row and another")]
+        [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\nP1\tGO:0005634\t\t\tfalse\n", "lacks its aspect")]
+        [TestCase("#!go_accession_terms_format 1\n#!go_obo_sha256 x\n#!annotation_db_sha256 y\naccession\tgo_id\taspect\tevidence\tinherited\nP1\tGO:0005634\tcellular_component\t\tfalse\n\nP1\tGO:0005634\tcellular_component\t\ttrue\n", "appears twice")]
         public void AccessionTerms_Reader_Refuses(string text, string expected)
         {
             string path = Path.Combine(_dir, "a.tsv");
@@ -398,6 +405,7 @@ namespace Test.FileReadingTests
         [TestCase("P1_A20T\tP1\tinherited\tfalse\t\n", "sequence_accession '' contradicts")]
         [TestCase("X1\t\tno_entry\tfalse\tX1\n", "sequence_accession 'X1' contradicts")]
         [TestCase("P1\tP1\tself\tfalse\n", "cells")]
+        [TestCase("\t\tno_entry\tfalse\t\n", "accession is empty")]
         public void MemberResolution_Reader_Refuses(string rows, string expected)
         {
             string path = Path.Combine(_dir, "c.tsv");
@@ -405,6 +413,69 @@ namespace Test.FileReadingTests
 
             var ex = Assert.Throws<InvalidDataException>(() => MemberResolutionTsv.Read(path));
             Assert.That(ex.Message, Does.Contain(expected));
+        }
+
+        [TestCase("go_id\tgo_name\taspect\tobsolete\n\tx\tcellular_component\tfalse\n", "empty or repeats")]
+        [TestCase("go_id\tgo_name\taspect\tobsolete\nGO:1\tx\tcellular_component\tfalse\nGO:1\tx\tcellular_component\tfalse\n", "empty or repeats")]
+        public void Terms_Reader_Refuses(string body, string expected)
+        {
+            string path = Path.Combine(_dir, "terms.tsv");
+            File.WriteAllText(path, "#!go_terms_format 1\n#!go_obo_sha256 x\n" + body);
+
+            var ex = Assert.Throws<InvalidDataException>(() => GoOntologyTsv.ReadTerms(path));
+            Assert.That(ex.Message, Does.Contain(expected));
+        }
+
+        [TestCase("GO:1\t\n", "closure cell is empty")]
+        [TestCase("GO:1\tGO:1\nGO:1\tGO:1\n", "appears twice")]
+        public void Closure_Reader_Refuses(string rows, string expected)
+        {
+            string path = Path.Combine(_dir, "closure.tsv");
+            File.WriteAllText(path, "#!go_closure_format 1\n#!go_obo_sha256 x\ngo_id\tancestor_go_id\n" + rows);
+
+            var ex = Assert.Throws<InvalidDataException>(() => GoOntologyTsv.ReadClosure(path));
+            Assert.That(ex.Message, Does.Contain(expected));
+        }
+
+        [TestCase("\tnucleus\t\n", "go_id or category is empty")]
+        [TestCase("GO:1\tnucleus\tinner_membrane\n", "is not qualified")]
+        [TestCase("GO:1\tnucleus\t\nGO:1\tnucleus\t\n", "repeats an earlier row")]
+        public void Categories_Reader_Refuses(string rows, string expected)
+        {
+            string path = Path.Combine(_dir, "b.tsv");
+            File.WriteAllText(path, "#!go_category_format 1\n#!go_obo_sha256 x\n#!category_map organelle 1 y\ngo_id\tcategory\tsubcategory\n" + rows);
+
+            var ex = Assert.Throws<InvalidDataException>(() => GoCategoryTsv.Read(path));
+            Assert.That(ex.Message, Does.Contain(expected));
+        }
+
+        [Test]
+        public void AccessionTerms_Writer_RefusesAnEvidenceCodeHoldingTheSetSeparator()
+        {
+            var annotation = new GoAccessionAnnotation(_go, new[] { P("P1", Go(Nucleus, "ECO:1;2")) }, DbSha);
+
+            using var writer = new StringWriter();
+            Assert.Throws<ArgumentException>(() => GoAccessionTermsTsv.Write(writer, annotation));
+        }
+
+        [Test]
+        public void Resolver_Contains_IgnoresNullProteinsAndNullAccessions()
+        {
+            var resolver = new MemberResolver(new[] { P("P1"), null });
+
+            Assert.That(resolver.Contains("P1"), Is.True);
+            Assert.That(resolver.Contains("P2"), Is.False);
+            Assert.That(resolver.Contains(null), Is.False);
+            Assert.That(resolver.IsEntrapment(null), Is.False);
+        }
+
+        [Test]
+        public void Accession_TryGetTerms_UnknownOrNullAccession_IsFalse()
+        {
+            var annotation = new GoAccessionAnnotation(_go, new[] { P("P1", Go(Nucleus)) }, DbSha);
+
+            Assert.That(annotation.TryGetTerms("P2", out _, out _), Is.False);
+            Assert.That(annotation.TryGetTerms(null, out _, out _), Is.False);
         }
 
         [Test]
